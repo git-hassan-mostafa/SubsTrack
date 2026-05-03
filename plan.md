@@ -84,6 +84,7 @@ Follow **layered clean architecture**:
 - Responsible for:
   - Database calls (Supabase)
   - Mapping data models
+  - Create DataBase models for each model to query data to.
 
 ## 5. Core Layer
 
@@ -126,7 +127,21 @@ src/
 ```
 id (uuid, pk)
 name
-max_nb_users
+active
+created_at
+```
+
+---
+
+## Tenants Plans
+
+```
+id (uuid, pk)
+name
+max_users
+max_customers
+price
+tenant_id
 created_at
 ```
 
@@ -138,7 +153,7 @@ created_at
 id (uuid, pk)
 username
 phone_number
-role (admin | user)
+role (admin | user) (there is also a super admin, but it is not used in the app, it is only me (the SAAS owner))
 tenant_id (fk)
 created_at
 ```

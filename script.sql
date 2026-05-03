@@ -9,11 +9,36 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE TABLE IF NOT EXISTS tenants (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name TEXT NOT NULL,
-    max_nb_users INT NOT NULL DEFAULT 1,
+    active BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_tenants_id ON tenants(id);
+
+
+-- =========================
+-- TENANTS Plans
+-- =========================
+
+CREATE TABLE IF NOT EXISTS tenant_plans (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+
+    name TEXT NOT NULL,
+
+    max_users INT NOT NULL,
+    max_customers INT NOT NULL,
+
+    price NUMERIC(12,2) NOT NULL,
+
+    tenant_id UUID NOT NULL UNIQUE,
+
+    created_at TIMESTAMPTZ DEFAULT NOW(),
+
+    CONSTRAINT fk_tenant_plans_tenant
+        FOREIGN KEY (tenant_id)
+        REFERENCES tenants(id)
+        ON DELETE CASCADE
+);
 
 -- =========================
 -- USERS (APP-LEVEL)
@@ -22,7 +47,7 @@ CREATE TABLE IF NOT EXISTS users (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     username TEXT NOT NULL,
     phone_number TEXT,
-    role TEXT NOT NULL CHECK (role IN ('admin', 'user')),
+    role TEXT NOT NULL CHECK (role IN ('superadmin', 'admin', 'user')),
     tenant_id UUID NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW(),
 
@@ -160,47 +185,98 @@ $$ LANGUAGE SQL STABLE;
 -- =========================
 
 -- TENANTS
-CREATE POLICY "tenant_isolation_select"
-ON tenants
-FOR SELECT
-USING (id = current_tenant_id());
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE schemaname = 'public'
+        AND tablename = 'tenants'
+        AND policyname = 'tenant_isolation_select'
+    ) THEN
+        CREATE POLICY tenant_isolation_select
+        ON tenants
+        FOR SELECT
+        USING (id = current_tenant_id());
+    END IF;
 
 -- USERS
-CREATE POLICY "users_select"
-ON users
-FOR SELECT
-USING (tenant_id = current_tenant_id());
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE schemaname = 'public'
+        AND tablename = 'users'
+        AND policyname = 'users_select'
+    ) THEN
+        CREATE POLICY users_select
+        ON users
+        FOR SELECT
+        USING (tenant_id = current_tenant_id());
+    END IF;
 
-CREATE POLICY "users_insert"
-ON users
-FOR INSERT
-WITH CHECK (tenant_id = current_tenant_id());
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE schemaname = 'public'
+        AND tablename = 'users'
+        AND policyname = 'users_insert'
+    ) THEN
+        CREATE POLICY users_insert
+        ON users
+        FOR INSERT
+        WITH CHECK (tenant_id = current_tenant_id());
+    END IF;
 
-CREATE POLICY "users_update"
-ON users
-FOR UPDATE
-USING (tenant_id = current_tenant_id());
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE schemaname = 'public'
+        AND tablename = 'users'
+        AND policyname = 'users_update'
+    ) THEN
+        CREATE POLICY users_update
+        ON users
+        FOR UPDATE
+        USING (tenant_id = current_tenant_id());
+    END IF;
 
--- PLANS
-CREATE POLICY "plans_all"
-ON plans
-FOR ALL
-USING (tenant_id = current_tenant_id())
-WITH CHECK (tenant_id = current_tenant_id());
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE schemaname = 'public'
+        AND tablename = 'plans'
+        AND policyname = 'plans_all'
+    ) THEN
+        CREATE POLICY plans_all
+        ON plans
+        FOR ALL
+        USING (tenant_id = current_tenant_id())
+        WITH CHECK (tenant_id = current_tenant_id());
+    END IF;
 
 -- CUSTOMERS
-CREATE POLICY "customers_all"
-ON customers
-FOR ALL
-USING (tenant_id = current_tenant_id())
-WITH CHECK (tenant_id = current_tenant_id());
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE schemaname = 'public'
+        AND tablename = 'customers'
+        AND policyname = 'customers_all'
+    ) THEN
+        CREATE POLICY customers_all
+        ON customers
+        FOR ALL
+        USING (tenant_id = current_tenant_id())
+        WITH CHECK (tenant_id = current_tenant_id());
+    END IF;
 
 -- PAYMENTS
-CREATE POLICY "payments_all"
-ON payments
-FOR ALL
-USING (tenant_id = current_tenant_id())
-WITH CHECK (tenant_id = current_tenant_id());
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE schemaname = 'public'
+        AND tablename = 'payments'
+        AND policyname = 'payments_all'
+    ) THEN
+        CREATE POLICY payments_all
+        ON payments
+        FOR ALL
+        USING (tenant_id = current_tenant_id())
+        WITH CHECK (tenant_id = current_tenant_id());
+    END IF;
+END$$;
 
 -- =========================
 -- IMPORTANT NOTES (READ)
