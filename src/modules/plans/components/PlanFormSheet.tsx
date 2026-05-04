@@ -41,7 +41,7 @@ export function PlanFormSheet({ visible, plan, onDismiss }: Props) {
     } else {
       await createPlan({ name, isCustomPrice, price }, user.tenantId);
     }
-    if (!error) onDismiss();
+    if (!usePlanStore.getState().error) onDismiss();
   }
 
   return (

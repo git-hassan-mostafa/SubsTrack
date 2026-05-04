@@ -4,6 +4,7 @@ import { AuthService } from '../services/AuthService';
 
 interface AuthState {
   user: AuthUser | null;
+  tenantActive: boolean;
   loading: boolean;
   error: string | null;
   login: (username: string, tenantId: string, password: string) => Promise<void>;
@@ -16,14 +17,15 @@ const authService = new AuthService();
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
+  tenantActive: true,
   loading: true, // starts true — app waits for restoreSession before routing
   error: null,
 
   login: async (username, tenantId, password) => {
     set({ loading: true, error: null });
     try {
-      const user = await authService.login(username, tenantId, password);
-      set({ user, loading: false });
+      const result = await authService.login(username, tenantId, password);
+      set({ user: result.user, tenantActive: result.tenantActive, loading: false });
     } catch (e) {
       set({ error: (e as Error).message, loading: false });
     }
@@ -31,10 +33,10 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   restoreSession: async () => {
     try {
-      const user = await authService.restoreSession();
-      set({ user, loading: false });
+      const result = await authService.restoreSession();
+      set({ user: result?.user ?? null, tenantActive: result?.tenantActive ?? true, loading: false });
     } catch {
-      set({ user: null, loading: false });
+      set({ user: null, tenantActive: true, loading: false });
     }
   },
 
@@ -44,7 +46,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     } catch {
       // ignore logout errors — clear state regardless
     }
-    set({ user: null, loading: false, error: null });
+    set({ user: null, tenantActive: true, loading: false, error: null });
   },
 
   clearError: () => set({ error: null }),

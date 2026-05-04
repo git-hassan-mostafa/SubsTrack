@@ -2,6 +2,11 @@ import type { AuthUser } from '@/src/core/types';
 import type { DbUser } from '@/src/core/types/db';
 import { AuthRepository } from '../repository/AuthRepository';
 
+export interface AuthResult {
+  user: AuthUser;
+  tenantActive: boolean;
+}
+
 function mapDbUserToAuthUser(db: DbUser): AuthUser {
   return {
     id: db.id,
@@ -14,7 +19,7 @@ function mapDbUserToAuthUser(db: DbUser): AuthUser {
 export class AuthService {
   private repository = new AuthRepository();
 
-  async login(username: string, tenantId: string, password: string): Promise<AuthUser> {
+  async login(username: string, tenantId: string, password: string): Promise<AuthResult> {
     if (!username.trim()) throw new Error('Username is required');
     if (!tenantId.trim()) throw new Error('Tenant ID is required');
     if (!password) throw new Error('Password is required');
@@ -38,10 +43,11 @@ export class AuthService {
       throw new Error('account_not_configured');
     }
 
-    return mapDbUserToAuthUser(profile);
+    const tenant = await this.repository.getTenant(profile.tenant_id);
+    return { user: mapDbUserToAuthUser(profile), tenantActive: tenant?.active ?? true };
   }
 
-  async restoreSession(): Promise<AuthUser | null> {
+  async restoreSession(): Promise<AuthResult | null> {
     const session = await this.repository.getSession();
     if (!session) return null;
 
@@ -51,7 +57,8 @@ export class AuthService {
       return null;
     }
 
-    return mapDbUserToAuthUser(profile);
+    const tenant = await this.repository.getTenant(profile.tenant_id);
+    return { user: mapDbUserToAuthUser(profile), tenantActive: tenant?.active ?? true };
   }
 
   async logout(): Promise<void> {

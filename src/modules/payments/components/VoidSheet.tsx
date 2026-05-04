@@ -29,7 +29,7 @@ export function VoidSheet({ visible, entry, customer, year, graceDays, onDismiss
     if (!user || !entry?.payment) return;
     setConfirmVisible(false);
     await voidPayment(entry.payment.id, user.id, reason, customer, year, graceDays);
-    if (!error) {
+    if (!usePaymentStore.getState().error) {
       setReason('');
       onDismiss();
     }

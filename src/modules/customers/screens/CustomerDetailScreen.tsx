@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
+import { ConfirmDialog } from '@/src/shared/components/ConfirmDialog';
 import { ErrorBanner } from '@/src/shared/components/ErrorBanner';
 import type { MonthEntry } from '@/src/core/types';
 import { getCurrentYearMonth } from '@/src/core/utils/date';
@@ -33,6 +34,7 @@ export function CustomerDetailScreen() {
   const [detailVisible, setDetailVisible] = useState(false);
   const [formVisible, setFormVisible] = useState(false);
   const [voidVisible, setVoidVisible] = useState(false);
+  const [toggleConfirmVisible, setToggleConfirmVisible] = useState(false);
 
   useEffect(() => {
     if (id) fetchCustomer(id);
@@ -59,8 +61,9 @@ export function CustomerDetailScreen() {
     setVoidVisible(true);
   }
 
-  async function handleToggleActive() {
+  async function handleToggleActiveConfirmed() {
     if (!selectedCustomer) return;
+    setToggleConfirmVisible(false);
     if (selectedCustomer.active) {
       await deactivateCustomer(selectedCustomer.id);
     } else {
@@ -118,7 +121,7 @@ export function CustomerDetailScreen() {
             ) : null}
             <View className="flex-row items-center justify-between">
               <Text className="text-sm font-medium text-gray-500">{t('customers.status_label')}</Text>
-              <Pressable onPress={handleToggleActive} className="flex-row items-center gap-2">
+              <Pressable onPress={() => setToggleConfirmVisible(true)} className="flex-row items-center gap-2">
                 <View className={`w-2 h-2 rounded-full ${customer.active ? 'bg-success' : 'bg-gray-400'}`} />
                 <Text className={`text-sm font-medium ${customer.active ? 'text-success' : 'text-gray-500'}`}>
                   {customer.active ? t('common.active') : t('common.inactive')}
@@ -175,6 +178,18 @@ export function CustomerDetailScreen() {
             year={year}
             graceDays={DEFAULT_GRACE_DAYS}
             onDismiss={() => setVoidVisible(false)}
+          />
+          <ConfirmDialog
+            visible={toggleConfirmVisible}
+            title={customer.active ? t('customers.deactivate_title') : t('customers.reactivate_title')}
+            message={
+              customer.active
+                ? t('customers.deactivate_message', { name: customer.name })
+                : t('customers.reactivate_message', { name: customer.name })
+            }
+            destructive={customer.active}
+            onConfirm={handleToggleActiveConfirmed}
+            onCancel={() => setToggleConfirmVisible(false)}
           />
         </>
       ) : null}

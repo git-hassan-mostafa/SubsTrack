@@ -10,14 +10,14 @@ interface Props {
 }
 
 export function PlanCard({ plan, onEdit, onDelete }: Props) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
 
   return (
     <View className="bg-white border border-gray-200 rounded-lg px-4 py-3 mb-3 flex-row items-center justify-between">
       <View className="flex-1">
         <Text className="text-base font-semibold text-gray-900">{plan.name}</Text>
         <Text className="text-sm text-gray-500 mt-0.5">
-          {plan.isCustomPrice ? t('common.custom_pricing') : formatCurrency(plan.price!)}
+          {plan.isCustomPrice ? t('common.custom_pricing') : formatCurrency(plan.price!, i18n.language)}
         </Text>
       </View>
       <View className="flex-row gap-3">

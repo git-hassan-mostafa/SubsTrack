@@ -69,7 +69,7 @@ export const useCustomerStore = create<CustomersState>((set, get) => ({
   },
 
   fetchCustomer: async (id) => {
-    set({ loading: true, error: null });
+    set({ loading: true, error: null, selectedCustomer: null });
     try {
       const selectedCustomer = await customerService.getCustomer(id);
       set({ selectedCustomer, loading: false });

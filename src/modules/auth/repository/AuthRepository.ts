@@ -1,6 +1,6 @@
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '@/src/shared/lib/supabase';
-import type { DbUser } from '@/src/core/types/db';
+import type { DbTenant, DbUser } from '@/src/core/types/db';
 
 export class AuthRepository {
   async signIn(email: string, password: string): Promise<Session> {
@@ -33,6 +33,19 @@ export class AuthRepository {
       throw new Error(error.message);
     }
     return data as DbUser;
+  }
+
+  async getTenant(tenantId: string): Promise<DbTenant | null> {
+    const { data, error } = await supabase
+      .from('tenants')
+      .select('*')
+      .eq('id', tenantId)
+      .single();
+    if (error) {
+      if (error.code === 'PGRST116') return null;
+      throw new Error(error.message);
+    }
+    return data as DbTenant;
   }
 
   onAuthStateChange(callback: Parameters<typeof supabase.auth.onAuthStateChange>[0]) {

@@ -58,7 +58,11 @@
     "address_placeholder": "عنوان الشارع",
     "start_date_label": "تاريخ البداية",
     "start_date_placeholder": "YYYY-MM-DD",
-    "plan_optional": "الخطة (اختيارية)"
+    "plan_optional": "الخطة (اختيارية)",
+    "deactivate_title": "تعطيل العميل",
+    "deactivate_message": "هل أنت متأكد من تعطيل {{name}}؟ سيُحدَّد كغير نشط.",
+    "reactivate_title": "إعادة تفعيل العميل",
+    "reactivate_message": "هل أنت متأكد من إعادة تفعيل {{name}}؟"
   },
   "plans": {
     "title": "الخطط",
@@ -129,5 +133,10 @@
     "english": "English",
     "arabic": "العربية",
     "restart_notice": "سيُعاد تشغيل التطبيق لتطبيق اللغة الجديدة."
+  },
+  "tenant_inactive": {
+    "title": "المنظمة موقوفة",
+    "message": "تم تعطيل حساب مؤسستك. يرجى التواصل مع مالك الخدمة لحل هذه المشكلة.",
+    "contact_hint": "إذا كنت تعتقد أن هذا خطأ، تواصل مع مسؤول SubsTrack."
   }
 }

@@ -38,7 +38,7 @@ export class PlanService {
       });
       return mapDbPlanToPlan(row);
     } catch (err) {
-      this.rethrow(err);
+      return this.rethrow(err);
     }
   }
 
@@ -52,7 +52,7 @@ export class PlanService {
       });
       return mapDbPlanToPlan(row);
     } catch (err) {
-      this.rethrow(err);
+      return this.rethrow(err);
     }
   }
 
@@ -64,6 +64,7 @@ export class PlanService {
     if (!data.name.trim()) throw new Error('Plan name is required');
     if (!data.isCustomPrice) {
       if (data.price === null || data.price === undefined) throw new Error('Fixed plans require a price');
+      if (typeof data.price !== 'number' || Number.isNaN(data.price)) throw new Error('Fixed plans require a price');
       if (data.price <= 0) throw new Error('Price must be greater than 0');
     }
   }

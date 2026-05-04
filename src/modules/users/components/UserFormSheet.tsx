@@ -46,7 +46,7 @@ export function UserFormSheet({ visible, user: editUser, onDismiss }: Props) {
     } else {
       await createUser({ username, password, phone: phone || null, role }, currentUser.tenantId);
     }
-    if (!error) onDismiss();
+    if (!useUserStore.getState().error) onDismiss();
   }
 
   return (

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, ScrollView, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/src/shared/components/Button';
 import { ErrorBanner } from '@/src/shared/components/ErrorBanner';
@@ -18,7 +18,7 @@ interface Props {
 }
 
 export function PaymentFormSheet({ visible, entry, customer, graceDays, onDismiss }: Props) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { user } = useAuth();
   const { createPayment, loadingCreate, error, clearError } = usePaymentStore();
 
@@ -55,7 +55,7 @@ export function PaymentFormSheet({ visible, entry, customer, graceDays, onDismis
       customer,
       graceDays,
     );
-    if (!error) {
+    if (!usePaymentStore.getState().error) {
       setCustomAmountText('');
       setIsOverrideEnabled(false);
       setAmountMode('plan');
@@ -100,7 +100,7 @@ export function PaymentFormSheet({ visible, entry, customer, graceDays, onDismis
             <View className="mb-4">
               <Text className="text-sm font-medium text-gray-700 mb-1">{t('payments.amount_label')}</Text>
               <View className="border border-gray-200 rounded-lg px-4 py-3 bg-gray-50 flex-row items-center justify-between">
-                <Text className="text-base text-gray-900">{formatCurrency(plan!.price!)}</Text>
+                <Text className="text-base text-gray-900">{formatCurrency(plan!.price!, i18n.language)}</Text>
                 <Text className="text-xs text-gray-400">{plan!.name}</Text>
               </View>
               <Pressable onPress={() => setIsOverrideEnabled(true)} className="mt-2">
@@ -124,7 +124,7 @@ export function PaymentFormSheet({ visible, entry, customer, graceDays, onDismis
                     </View>
                     <Text className="text-sm text-gray-700">
                       {mode === 'plan'
-                        ? t('payments.plan_price', { price: formatCurrency(plan!.price!) })
+                        ? t('payments.plan_price', { price: formatCurrency(plan!.price!, i18n.language) })
                         : t('payments.custom_amount')}
                     </Text>
                   </Pressable>

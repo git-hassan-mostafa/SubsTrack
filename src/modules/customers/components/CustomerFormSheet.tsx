@@ -52,7 +52,7 @@ export function CustomerFormSheet({ visible, customer, onDismiss }: Props) {
         user.tenantId,
       );
     }
-    if (!error) onDismiss();
+    if (!useCustomerStore.getState().error) onDismiss();
   }
 
   return (

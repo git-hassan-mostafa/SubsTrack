@@ -58,7 +58,11 @@
     "address_placeholder": "Street address",
     "start_date_label": "Start Date",
     "start_date_placeholder": "YYYY-MM-DD",
-    "plan_optional": "Plan (optional)"
+    "plan_optional": "Plan (optional)",
+    "deactivate_title": "Deactivate Customer",
+    "deactivate_message": "Are you sure you want to deactivate {{name}}? They will be marked as inactive.",
+    "reactivate_title": "Reactivate Customer",
+    "reactivate_message": "Are you sure you want to reactivate {{name}}?"
   },
   "plans": {
     "title": "Plans",
@@ -129,5 +133,10 @@
     "english": "English",
     "arabic": "Arabic",
     "restart_notice": "The app will restart to apply the new language."
+  },
+  "tenant_inactive": {
+    "title": "Organization Deactivated",
+    "message": "Your organization's account has been deactivated. Please contact the service owner to resolve this.",
+    "contact_hint": "If you believe this is a mistake, reach out to your SubsTrack administrator."
   }
 }
