@@ -1,24 +1,53 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
-import { StatusBar } from 'expo-status-bar';
-import 'react-native-reanimated';
-
-import { useColorScheme } from '@/hooks/use-color-scheme';
-
-export const unstable_settings = {
-  anchor: '(tabs)',
-};
+import { useAuthStore } from '@/src/modules/auth/store/authStore';
+import { useCustomerStore } from '@/src/modules/customers/store/customerStore';
+import { useDashboardStore } from '@/src/modules/dashboard/store/dashboardStore';
+import { usePaymentStore } from '@/src/modules/payments/store/paymentStore';
+import { usePlanStore } from '@/src/modules/plans/store/planStore';
+import { useUserStore } from '@/src/modules/users/store/userStore';
+import { ErrorBoundary } from '@/src/shared/components/ErrorBoundary';
+import { LoadingScreen } from '@/src/shared/components/LoadingScreen';
+import { Slot, useRouter, useSegments } from 'expo-router';
+import { useEffect } from 'react';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import '../global.css';
 
 export default function RootLayout() {
-  const colorScheme = useColorScheme();
+  const { user, loading, restoreSession } = useAuthStore();
+  const resetPlans = usePlanStore((s) => s.reset);
+  const resetUsers = useUserStore((s) => s.reset);
+  const resetCustomers = useCustomerStore((s) => s.reset);
+  const resetPayments = usePaymentStore((s) => s.reset);
+  const resetDashboard = useDashboardStore((s) => s.reset);
+  const segments = useSegments();
+  const router = useRouter();
+
+  useEffect(() => {
+    restoreSession();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (loading) return;
+    const inAuth = segments[0] === '(auth)';
+    if (!user && !inAuth) {
+      resetPlans();
+      resetUsers();
+      resetCustomers();
+      resetPayments();
+      resetDashboard();
+      router.replace('/(auth)/login');
+    } else if (user && inAuth) {
+      router.replace('/(app)/(tabs)');
+    }
+  }, [user, loading, segments, router, resetPlans, resetUsers, resetCustomers, resetPayments, resetDashboard]);
+
+  if (loading) return <LoadingScreen />;
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
-      </Stack>
-      <StatusBar style="auto" />
-    </ThemeProvider>
+    <GestureHandlerRootView className="flex-1">
+      <ErrorBoundary>
+        <Slot />
+      </ErrorBoundary>
+    </GestureHandlerRootView>
   );
 }
