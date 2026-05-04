@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import { EmptyState } from '@/src/shared/components/EmptyState';
 import { ErrorBanner } from '@/src/shared/components/ErrorBanner';
 import type { AppUser } from '@/src/core/types';
@@ -9,6 +10,7 @@ import { UserFormSheet } from '../components/UserFormSheet';
 import { useUserStore } from '../store/userStore';
 
 export function UserListScreen() {
+  const { t } = useTranslation();
   const { users, loading, error, fetchUsers, clearError } = useUserStore();
   const [formVisible, setFormVisible] = useState(false);
   const [editingUser, setEditingUser] = useState<AppUser | null>(null);
@@ -28,9 +30,9 @@ export function UserListScreen() {
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
       <View className="flex-row items-center justify-between px-4 py-4 bg-white border-b border-gray-100">
-        <Text className="text-xl font-bold text-gray-900">Staff</Text>
+        <Text className="text-xl font-bold text-gray-900">{t('users.title')}</Text>
         <Pressable onPress={openCreate} className="bg-primary rounded-lg px-4 py-2">
-          <Text className="text-white font-medium text-sm">+ Add Staff</Text>
+          <Text className="text-white font-medium text-sm">{t('users.add')}</Text>
         </Pressable>
       </View>
 
@@ -51,7 +53,7 @@ export function UserListScreen() {
           contentContainerStyle={{ padding: 16, flexGrow: 1 }}
           renderItem={({ item }) => <UserCard user={item} onEdit={openEdit} />}
           ListEmptyComponent={
-            <EmptyState message="No staff yet" subMessage='Tap "+ Add Staff" to create one' />
+            <EmptyState message={t('users.no_staff')} subMessage={t('users.no_staff_hint')} />
           }
         />
       )}

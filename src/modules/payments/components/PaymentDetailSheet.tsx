@@ -1,4 +1,5 @@
 import { Modal, Pressable, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import type { MonthEntry } from '@/src/core/types';
 import { formatCurrency } from '@/src/core/utils/date';
 import { useAuth } from '@/src/modules/auth/hooks/useAuth';
@@ -15,6 +16,7 @@ function formatDate(iso: string): string {
 }
 
 export function PaymentDetailSheet({ visible, entry, onVoid, onDismiss }: Props) {
+  const { t } = useTranslation();
   const { isAdmin } = useAuth();
   const payment = entry?.payment;
 
@@ -27,9 +29,9 @@ export function PaymentDetailSheet({ visible, entry, onVoid, onDismiss }: Props)
     >
       <View className="flex-1 bg-white">
         <View className="flex-row items-center justify-between px-6 py-4 border-b border-gray-100">
-          <Text className="text-lg font-semibold text-gray-900">Payment</Text>
+          <Text className="text-lg font-semibold text-gray-900">{t('payments.payment_title')}</Text>
           <Pressable onPress={onDismiss}>
-            <Text className="text-primary font-medium">Close</Text>
+            <Text className="text-primary font-medium">{t('common.close')}</Text>
           </Pressable>
         </View>
 
@@ -39,14 +41,14 @@ export function PaymentDetailSheet({ visible, entry, onVoid, onDismiss }: Props)
               {payment ? formatCurrency(payment.amount) : '—'}
             </Text>
             <Text className="text-sm text-gray-500 mt-1">
-              {entry?.label} {entry?.year}
+              {entry?.label ? t(`months.${entry.label}`) : ''} {entry?.year}
             </Text>
           </View>
 
           {payment ? (
             <View className="gap-4">
-              <Row label="Paid on" value={formatDate(payment.paidAt)} />
-              {payment.notes ? <Row label="Notes" value={payment.notes} /> : null}
+              <Row label={t('payments.paid_on')} value={formatDate(payment.paidAt)} />
+              {payment.notes ? <Row label={t('payments.notes')} value={payment.notes} /> : null}
             </View>
           ) : null}
 
@@ -55,7 +57,7 @@ export function PaymentDetailSheet({ visible, entry, onVoid, onDismiss }: Props)
               onPress={onVoid}
               className="mt-8 border border-danger rounded-lg py-3 items-center"
             >
-              <Text className="text-danger font-semibold">Void Payment</Text>
+              <Text className="text-danger font-semibold">{t('payments.void_payment')}</Text>
             </Pressable>
           ) : null}
         </View>
@@ -68,7 +70,7 @@ function Row({ label, value }: { label: string; value: string }) {
   return (
     <View className="flex-row justify-between py-3 border-b border-gray-100">
       <Text className="text-sm text-gray-500">{label}</Text>
-      <Text className="text-sm font-medium text-gray-900 flex-1 text-right ml-4">{value}</Text>
+      <Text className="text-sm font-medium text-gray-900 flex-1 ms-4">{value}</Text>
     </View>
   );
 }

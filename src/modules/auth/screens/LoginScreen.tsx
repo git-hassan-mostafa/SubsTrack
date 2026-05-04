@@ -1,12 +1,14 @@
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/src/shared/components/Button';
 import { ErrorBanner } from '@/src/shared/components/ErrorBanner';
 import { Input } from '@/src/shared/components/Input';
 import { useAuthStore } from '../store/authStore';
 
 export function LoginScreen() {
+  const { t } = useTranslation();
   const { login, loading, error, clearError } = useAuthStore();
 
   const [tenantId, setTenantId] = useState('');
@@ -28,45 +30,42 @@ export function LoginScreen() {
         className="flex-1"
       >
         <View className="flex-1 px-6 justify-center">
-          <Text className="text-3xl font-bold text-gray-900 mb-2">SubsTrack</Text>
-          <Text className="text-base text-gray-500 mb-10">Sign in to your workspace</Text>
+          <Text className="text-3xl font-bold text-gray-900 mb-2">{t('auth.title')}</Text>
+          <Text className="text-base text-gray-500 mb-10">{t('auth.subtitle')}</Text>
 
           {isAccountNotConfigured ? (
-            <ErrorBanner
-              message="Account not configured. Contact your administrator."
-              onDismiss={clearError}
-            />
+            <ErrorBanner message={t('auth.account_not_configured')} onDismiss={clearError} />
           ) : null}
 
           <Input
-            label="Workspace ID"
+            label={t('auth.workspace_id')}
             value={tenantId}
-            onChangeText={(t) => { clearError(); setTenantId(t); }}
-            placeholder="your-workspace-id"
+            onChangeText={(v) => { clearError(); setTenantId(v); }}
+            placeholder={t('auth.workspace_id_placeholder')}
             autoCapitalize="none"
             autoCorrect={false}
           />
 
           <Input
-            label="Username"
+            label={t('auth.username')}
             value={username}
-            onChangeText={(t) => { clearError(); setUsername(t); }}
-            placeholder="username"
+            onChangeText={(v) => { clearError(); setUsername(v); }}
+            placeholder={t('auth.username_placeholder')}
             autoCapitalize="none"
             autoCorrect={false}
           />
 
           <Input
-            label="Password"
+            label={t('auth.password')}
             value={password}
-            onChangeText={(t) => { clearError(); setPassword(t); }}
-            placeholder="••••••••"
+            onChangeText={(v) => { clearError(); setPassword(v); }}
+            placeholder={t('auth.password_placeholder')}
             secureTextEntry
             error={fieldError}
           />
 
           <Button
-            label="Sign In"
+            label={t('auth.sign_in')}
             onPress={handleLogin}
             loading={loading}
             disabled={!tenantId.trim() || !username.trim() || !password}

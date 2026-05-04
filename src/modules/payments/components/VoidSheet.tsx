@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/src/shared/components/Button';
 import { ConfirmDialog } from '@/src/shared/components/ConfirmDialog';
 import { ErrorBanner } from '@/src/shared/components/ErrorBanner';
@@ -18,6 +19,7 @@ interface Props {
 }
 
 export function VoidSheet({ visible, entry, customer, year, graceDays, onDismiss }: Props) {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const { voidPayment, loadingVoid, error, clearError } = usePaymentStore();
   const [reason, setReason] = useState('');
@@ -39,6 +41,8 @@ export function VoidSheet({ visible, entry, customer, year, graceDays, onDismiss
     onDismiss();
   }
 
+  const monthLabel = entry?.label ? t(`months.${entry.label}`) : '';
+
   return (
     <>
       <Modal
@@ -49,9 +53,9 @@ export function VoidSheet({ visible, entry, customer, year, graceDays, onDismiss
       >
         <View className="flex-1 bg-white">
           <View className="flex-row items-center justify-between px-6 py-4 border-b border-gray-100">
-            <Text className="text-lg font-semibold text-gray-900">Void Payment</Text>
+            <Text className="text-lg font-semibold text-gray-900">{t('payments.void_payment')}</Text>
             <Pressable onPress={handleDismiss}>
-              <Text className="text-primary font-medium">Cancel</Text>
+              <Text className="text-primary font-medium">{t('common.cancel')}</Text>
             </Pressable>
           </View>
 
@@ -59,23 +63,21 @@ export function VoidSheet({ visible, entry, customer, year, graceDays, onDismiss
             {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}
 
             <Text className="text-sm text-gray-600 mb-6">
-              Voiding this payment will mark{' '}
-              <Text className="font-semibold">{entry?.label} {entry?.year}</Text>{' '}
-              as unpaid. This action cannot be undone.
+              {t('payments.void_description', { month: monthLabel, year: entry?.year ?? '' })}
             </Text>
 
             <Input
-              label="Reason (required)"
+              label={t('payments.void_reason_label')}
               value={reason}
               onChangeText={setReason}
-              placeholder="Explain why this payment is being voided"
+              placeholder={t('payments.void_reason_placeholder')}
               multiline
               numberOfLines={3}
               onFocus={clearError}
             />
 
             <Button
-              label="Void Payment"
+              label={t('payments.void_payment')}
               onPress={() => setConfirmVisible(true)}
               variant="danger"
               loading={loadingVoid}
@@ -88,9 +90,9 @@ export function VoidSheet({ visible, entry, customer, year, graceDays, onDismiss
 
       <ConfirmDialog
         visible={confirmVisible}
-        title="Void Payment?"
-        message={`This will mark ${entry?.label ?? ''} ${entry?.year ?? ''} as unpaid. The original payment will be retained in records.`}
-        confirmLabel="Void"
+        title={t('payments.void_confirm_title')}
+        message={t('payments.void_confirm_message', { month: monthLabel, year: entry?.year ?? '' })}
+        confirmLabel={t('payments.void_confirm_label')}
         destructive
         onConfirm={handleConfirm}
         onCancel={() => setConfirmVisible(false)}

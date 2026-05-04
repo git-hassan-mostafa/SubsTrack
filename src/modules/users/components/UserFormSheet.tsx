@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/src/shared/components/Button';
 import { ErrorBanner } from '@/src/shared/components/ErrorBanner';
 import { Input } from '@/src/shared/components/Input';
@@ -14,6 +15,7 @@ interface Props {
 }
 
 export function UserFormSheet({ visible, user: editUser, onDismiss }: Props) {
+  const { t } = useTranslation();
   const { user: currentUser } = useAuth();
   const { createUser, updateUser, loading, error, clearError } = useUserStore();
 
@@ -57,10 +59,10 @@ export function UserFormSheet({ visible, user: editUser, onDismiss }: Props) {
       <View className="flex-1 bg-white">
         <View className="flex-row items-center justify-between px-6 py-4 border-b border-gray-100">
           <Text className="text-lg font-semibold text-gray-900">
-            {editUser ? 'Edit Staff' : 'Add Staff'}
+            {editUser ? t('users.edit_title') : t('users.add_title')}
           </Text>
           <Pressable onPress={onDismiss}>
-            <Text className="text-primary font-medium">Cancel</Text>
+            <Text className="text-primary font-medium">{t('common.cancel')}</Text>
           </Pressable>
         </View>
 
@@ -68,34 +70,34 @@ export function UserFormSheet({ visible, user: editUser, onDismiss }: Props) {
           {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}
 
           <Input
-            label="Username"
+            label={t('users.username_label')}
             value={username}
             onChangeText={setUsername}
-            placeholder="username"
+            placeholder={t('users.username_placeholder')}
             autoCapitalize="none"
             onFocus={clearError}
           />
 
           {!editUser ? (
             <Input
-              label="Password"
+              label={t('users.password_label')}
               value={password}
               onChangeText={setPassword}
-              placeholder="Minimum 8 characters"
+              placeholder={t('users.password_placeholder')}
               secureTextEntry
               onFocus={clearError}
             />
           ) : null}
 
           <Input
-            label="Phone (optional)"
+            label={t('users.phone_optional')}
             value={phone}
             onChangeText={setPhone}
-            placeholder="+1 555 000 0000"
+            placeholder={t('customers.phone_placeholder')}
             keyboardType="phone-pad"
           />
 
-          <Text className="text-sm font-medium text-gray-700 mb-2">Role</Text>
+          <Text className="text-sm font-medium text-gray-700 mb-2">{t('users.role_label')}</Text>
           <View className="flex-row gap-3 mb-6">
             {(['user', 'admin'] as const).map((r) => (
               <Pressable
@@ -112,11 +114,11 @@ export function UserFormSheet({ visible, user: editUser, onDismiss }: Props) {
             ))}
           </View>
           {isOwnAccount ? (
-            <Text className="text-xs text-gray-400 mb-4 -mt-4">Cannot change your own role</Text>
+            <Text className="text-xs text-gray-400 mb-4 -mt-4">{t('common.cannot_change_own_role')}</Text>
           ) : null}
 
           <Button
-            label={editUser ? 'Save Changes' : 'Add Staff'}
+            label={editUser ? t('common.save_changes') : t('users.add_title')}
             onPress={handleSubmit}
             loading={loading}
             disabled={!username.trim() || (!editUser && password.length < 8)}

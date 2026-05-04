@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/src/shared/components/Button';
 import { ErrorBanner } from '@/src/shared/components/ErrorBanner';
 import { Input } from '@/src/shared/components/Input';
@@ -15,6 +16,7 @@ interface Props {
 }
 
 export function CustomerFormSheet({ visible, customer, onDismiss }: Props) {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const { createCustomer, updateCustomer, loading, error, clearError } = useCustomerStore();
   const { plans, fetchPlans } = usePlanStore();
@@ -63,38 +65,55 @@ export function CustomerFormSheet({ visible, customer, onDismiss }: Props) {
       <View className="flex-1 bg-white">
         <View className="flex-row items-center justify-between px-6 py-4 border-b border-gray-100">
           <Text className="text-lg font-semibold text-gray-900">
-            {customer ? 'Edit Customer' : 'Add Customer'}
+            {customer ? t('customers.edit_title') : t('customers.add_title')}
           </Text>
           <Pressable onPress={onDismiss}>
-            <Text className="text-primary font-medium">Cancel</Text>
+            <Text className="text-primary font-medium">{t('common.cancel')}</Text>
           </Pressable>
         </View>
 
         <ScrollView className="flex-1 px-6 pt-6" keyboardShouldPersistTaps="handled">
           {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}
 
-          <Input label="Name" value={name} onChangeText={setName} placeholder="Customer name" onFocus={clearError} />
-          <Input label="Phone (optional)" value={phone} onChangeText={setPhone} placeholder="+1 555 000 0000" keyboardType="phone-pad" />
-          <Input label="Address (optional)" value={address} onChangeText={setAddress} placeholder="Street address" />
+          <Input
+            label={t('customers.name_label')}
+            value={name}
+            onChangeText={setName}
+            placeholder={t('customers.name_placeholder')}
+            onFocus={clearError}
+          />
+          <Input
+            label={t('customers.phone_optional')}
+            value={phone}
+            onChangeText={setPhone}
+            placeholder={t('customers.phone_placeholder')}
+            keyboardType="phone-pad"
+          />
+          <Input
+            label={t('customers.address_optional')}
+            value={address}
+            onChangeText={setAddress}
+            placeholder={t('customers.address_placeholder')}
+          />
 
           {!customer ? (
             <Input
-              label="Start Date"
+              label={t('customers.start_date_label')}
               value={startDate}
               onChangeText={setStartDate}
-              placeholder="YYYY-MM-DD"
+              placeholder={t('customers.start_date_placeholder')}
               onFocus={clearError}
             />
           ) : null}
 
-          <Text className="text-sm font-medium text-gray-700 mb-2">Plan (optional)</Text>
+          <Text className="text-sm font-medium text-gray-700 mb-2">{t('customers.plan_optional')}</Text>
           <View className="mb-4 gap-2">
             <Pressable
               onPress={() => setPlanId(null)}
               className={`border rounded-lg px-4 py-3 ${planId === null ? 'border-primary bg-indigo-50' : 'border-gray-200'}`}
             >
               <Text className={`text-sm ${planId === null ? 'text-primary font-medium' : 'text-gray-600'}`}>
-                No plan
+                {t('common.no_plan')}
               </Text>
             </Pressable>
             {plans.map((p) => (
@@ -111,7 +130,7 @@ export function CustomerFormSheet({ visible, customer, onDismiss }: Props) {
           </View>
 
           <Button
-            label={customer ? 'Save Changes' : 'Add Customer'}
+            label={customer ? t('common.save_changes') : t('customers.add_title')}
             onPress={handleSubmit}
             loading={loading}
             disabled={!name.trim() || (!customer && !startDate)}

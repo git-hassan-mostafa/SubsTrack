@@ -1,8 +1,10 @@
 import { Tabs } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/src/modules/auth/hooks/useAuth';
 
 export default function TabsLayout() {
   const { isAdmin } = useAuth();
+  const { t } = useTranslation();
 
   return (
     <Tabs
@@ -17,7 +19,7 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Dashboard',
+          title: t('dashboard.title'),
           href: isAdmin ? undefined : null,
           tabBarIcon: () => null,
         }}
@@ -25,14 +27,14 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="customers"
         options={{
-          title: 'Customers',
+          title: t('customers.title'),
           tabBarIcon: () => null,
         }}
       />
       <Tabs.Screen
         name="plans"
         options={{
-          title: 'Plans',
+          title: t('plans.title'),
           href: isAdmin ? undefined : null,
           tabBarIcon: () => null,
         }}
@@ -40,8 +42,15 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="users"
         options={{
-          title: 'Staff',
+          title: t('users.title'),
           href: isAdmin ? undefined : null,
+          tabBarIcon: () => null,
+        }}
+      />
+      <Tabs.Screen
+        name="settings"
+        options={{
+          title: t('settings.title'),
           tabBarIcon: () => null,
         }}
       />

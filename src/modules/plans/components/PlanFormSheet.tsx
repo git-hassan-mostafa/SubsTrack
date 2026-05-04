@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Modal, Pressable, ScrollView, Switch, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import { Button } from '@/src/shared/components/Button';
 import { ErrorBanner } from '@/src/shared/components/ErrorBanner';
 import { Input } from '@/src/shared/components/Input';
@@ -14,6 +15,7 @@ interface Props {
 }
 
 export function PlanFormSheet({ visible, plan, onDismiss }: Props) {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const { createPlan, updatePlan, loading, error, clearError } = usePlanStore();
 
@@ -52,10 +54,10 @@ export function PlanFormSheet({ visible, plan, onDismiss }: Props) {
       <View className="flex-1 bg-white">
         <View className="flex-row items-center justify-between px-6 py-4 border-b border-gray-100">
           <Text className="text-lg font-semibold text-gray-900">
-            {plan ? 'Edit Plan' : 'Add Plan'}
+            {plan ? t('plans.edit_title') : t('plans.add_title')}
           </Text>
           <Pressable onPress={onDismiss}>
-            <Text className="text-primary font-medium">Cancel</Text>
+            <Text className="text-primary font-medium">{t('common.cancel')}</Text>
           </Pressable>
         </View>
 
@@ -63,17 +65,17 @@ export function PlanFormSheet({ visible, plan, onDismiss }: Props) {
           {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}
 
           <Input
-            label="Plan Name"
+            label={t('plans.plan_name_label')}
             value={name}
             onChangeText={setName}
-            placeholder="e.g. Basic, Premium"
+            placeholder={t('plans.plan_name_placeholder')}
             onFocus={clearError}
           />
 
           <View className="flex-row items-center justify-between mb-6 py-3 border-b border-gray-100">
             <View>
-              <Text className="text-sm font-medium text-gray-700">Custom Pricing</Text>
-              <Text className="text-xs text-gray-500 mt-0.5">Staff enters amount per payment</Text>
+              <Text className="text-sm font-medium text-gray-700">{t('plans.custom_pricing_label')}</Text>
+              <Text className="text-xs text-gray-500 mt-0.5">{t('plans.custom_pricing_hint')}</Text>
             </View>
             <Switch
               value={isCustomPrice}
@@ -84,17 +86,17 @@ export function PlanFormSheet({ visible, plan, onDismiss }: Props) {
 
           {!isCustomPrice ? (
             <Input
-              label="Price"
+              label={t('plans.price_label')}
               value={priceText}
               onChangeText={setPriceText}
-              placeholder="0.00"
+              placeholder={t('plans.price_placeholder')}
               keyboardType="decimal-pad"
               onFocus={clearError}
             />
           ) : null}
 
           <Button
-            label={plan ? 'Save Changes' : 'Add Plan'}
+            label={plan ? t('common.save_changes') : t('plans.add_title')}
             onPress={handleSubmit}
             loading={loading}
             disabled={!name.trim() || (!isCustomPrice && !priceText)}

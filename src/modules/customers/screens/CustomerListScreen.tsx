@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { EmptyState } from '@/src/shared/components/EmptyState';
 import { ErrorBanner } from '@/src/shared/components/ErrorBanner';
 import { useDebounce } from '@/src/shared/hooks/useDebounce';
@@ -11,6 +12,7 @@ import { CustomerFormSheet } from '../components/CustomerFormSheet';
 import { useCustomerStore } from '../store/customerStore';
 
 export function CustomerListScreen() {
+  const { t } = useTranslation();
   const router = useRouter();
   const { customers, loading, loadingMore, hasMore, error, fetchCustomers, fetchMoreCustomers, clearError } = useCustomerStore();
   const [formVisible, setFormVisible] = useState(false);
@@ -31,14 +33,14 @@ export function CustomerListScreen() {
     <SafeAreaView className="flex-1 bg-gray-50">
       <View className="px-4 py-4 bg-white border-b border-gray-100">
         <View className="flex-row items-center justify-between mb-3">
-          <Text className="text-xl font-bold text-gray-900">Customers</Text>
+          <Text className="text-xl font-bold text-gray-900">{t('customers.title')}</Text>
           <Pressable onPress={() => setFormVisible(true)} className="bg-primary rounded-lg px-4 py-2">
-            <Text className="text-white font-medium text-sm">+ Add</Text>
+            <Text className="text-white font-medium text-sm">{t('customers.add')}</Text>
           </Pressable>
         </View>
         <TextInput
           className="border border-gray-200 rounded-lg px-4 py-2 bg-gray-50 text-sm text-gray-900"
-          placeholder="Search customers..."
+          placeholder={t('customers.search_placeholder')}
           placeholderTextColor="#9ca3af"
           value={searchText}
           onChangeText={setSearchText}
@@ -63,15 +65,14 @@ export function CustomerListScreen() {
           onEndReached={() => { if (!debouncedSearch) fetchMoreCustomers(); }}
           onEndReachedThreshold={0.3}
           renderItem={({ item }) => (
-            <CustomerCard
-              customer={item}
-              unpaidCount={0}
-              onPress={openDetail}
-            />
+            <CustomerCard customer={item} unpaidCount={0} onPress={openDetail} />
           )}
           ListFooterComponent={loadingMore ? <ActivityIndicator color="#6366f1" className="py-4" /> : null}
           ListEmptyComponent={
-            <EmptyState message="No customers found" subMessage={debouncedSearch ? 'Try a different search' : 'Tap "+ Add" to add your first customer'} />
+            <EmptyState
+              message={t('customers.no_customers')}
+              subMessage={debouncedSearch ? t('customers.no_search_results') : t('customers.no_customers_hint')}
+            />
           }
         />
       )}

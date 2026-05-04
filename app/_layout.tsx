@@ -1,17 +1,20 @@
 import { useAuthStore } from '@/src/modules/auth/store/authStore';
 import { useCustomerStore } from '@/src/modules/customers/store/customerStore';
 import { useDashboardStore } from '@/src/modules/dashboard/store/dashboardStore';
+import { initI18n } from '@/src/core/i18n';
 import { usePaymentStore } from '@/src/modules/payments/store/paymentStore';
 import { usePlanStore } from '@/src/modules/plans/store/planStore';
 import { useUserStore } from '@/src/modules/users/store/userStore';
 import { ErrorBoundary } from '@/src/shared/components/ErrorBoundary';
 import { LoadingScreen } from '@/src/shared/components/LoadingScreen';
 import { Slot, useRouter, useSegments } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import '../global.css';
 
 export default function RootLayout() {
+  const [i18nReady, setI18nReady] = useState(false);
+
   const { user, loading, restoreSession } = useAuthStore();
   const resetPlans = usePlanStore((s) => s.reset);
   const resetUsers = useUserStore((s) => s.reset);
@@ -22,12 +25,15 @@ export default function RootLayout() {
   const router = useRouter();
 
   useEffect(() => {
-    restoreSession();
+    initI18n().then(() => {
+      setI18nReady(true);
+      restoreSession();
+    });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
-    if (loading) return;
+    if (!i18nReady || loading) return;
     const inAuth = segments[0] === '(auth)';
     if (!user && !inAuth) {
       resetPlans();
@@ -39,9 +45,9 @@ export default function RootLayout() {
     } else if (user && inAuth) {
       router.replace('/(app)/(tabs)');
     }
-  }, [user, loading, segments, router, resetPlans, resetUsers, resetCustomers, resetPayments, resetDashboard]);
+  }, [user, loading, segments, router, i18nReady, resetPlans, resetUsers, resetCustomers, resetPayments, resetDashboard]);
 
-  if (loading) return <LoadingScreen />;
+  if (!i18nReady || loading) return <LoadingScreen />;
 
   return (
     <GestureHandlerRootView className="flex-1">

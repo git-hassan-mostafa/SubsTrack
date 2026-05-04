@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { ErrorBanner } from '@/src/shared/components/ErrorBanner';
 import type { MonthEntry } from '@/src/core/types';
 import { getCurrentYearMonth } from '@/src/core/utils/date';
@@ -18,6 +19,7 @@ import { useCustomerStore } from '../store/customerStore';
 const DEFAULT_GRACE_DAYS = 0;
 
 export function CustomerDetailScreen() {
+  const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { isAdmin } = useAuth();
@@ -70,17 +72,16 @@ export function CustomerDetailScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
-      {/* Header */}
       <View className="flex-row items-center px-4 py-3 bg-white border-b border-gray-100">
-        <Pressable onPress={() => router.back()} className="mr-3 py-1">
-          <Text className="text-primary font-medium text-base">‹ Back</Text>
+        <Pressable onPress={() => router.back()} className="me-3 py-1">
+          <Text className="text-primary font-medium text-base">{t('common.back')}</Text>
         </Pressable>
         <Text className="text-lg font-bold text-gray-900 flex-1" numberOfLines={1}>
           {customer?.name ?? ''}
         </Text>
         {isAdmin ? (
-          <Pressable onPress={() => setEditVisible(true)} className="ml-2">
-            <Text className="text-primary font-medium text-sm">Edit</Text>
+          <Pressable onPress={() => setEditVisible(true)} className="ms-2">
+            <Text className="text-primary font-medium text-sm">{t('common.edit')}</Text>
           </Pressable>
         ) : null}
       </View>
@@ -98,37 +99,35 @@ export function CustomerDetailScreen() {
         </View>
       ) : customer ? (
         <ScrollView className="flex-1">
-          {/* Customer info card */}
           <View className="bg-white mx-4 mt-4 rounded-lg p-4 border border-gray-100">
             <View className="flex-row items-center justify-between mb-2">
-              <Text className="text-sm font-medium text-gray-500">Plan</Text>
-              <Text className="text-sm text-gray-900">{customer.plan?.name ?? 'No plan'}</Text>
+              <Text className="text-sm font-medium text-gray-500">{t('customers.plan_label')}</Text>
+              <Text className="text-sm text-gray-900">{customer.plan?.name ?? t('common.no_plan')}</Text>
             </View>
             {customer.phoneNumber ? (
               <View className="flex-row items-center justify-between mb-2">
-                <Text className="text-sm font-medium text-gray-500">Phone</Text>
+                <Text className="text-sm font-medium text-gray-500">{t('customers.phone_label')}</Text>
                 <Text className="text-sm text-gray-900">{customer.phoneNumber}</Text>
               </View>
             ) : null}
             {customer.address ? (
               <View className="flex-row items-center justify-between mb-2">
-                <Text className="text-sm font-medium text-gray-500">Address</Text>
-                <Text className="text-sm text-gray-900 flex-1 text-right ml-4">{customer.address}</Text>
+                <Text className="text-sm font-medium text-gray-500">{t('customers.address_label')}</Text>
+                <Text className="text-sm text-gray-900 flex-1 ms-4">{customer.address}</Text>
               </View>
             ) : null}
             <View className="flex-row items-center justify-between">
-              <Text className="text-sm font-medium text-gray-500">Status</Text>
+              <Text className="text-sm font-medium text-gray-500">{t('customers.status_label')}</Text>
               <Pressable onPress={handleToggleActive} className="flex-row items-center gap-2">
                 <View className={`w-2 h-2 rounded-full ${customer.active ? 'bg-success' : 'bg-gray-400'}`} />
                 <Text className={`text-sm font-medium ${customer.active ? 'text-success' : 'text-gray-500'}`}>
-                  {customer.active ? 'Active' : 'Inactive'}
+                  {customer.active ? t('common.active') : t('common.inactive')}
                 </Text>
-                <Text className="text-xs text-primary">(tap to change)</Text>
+                <Text className="text-xs text-primary">{t('common.tap_to_change')}</Text>
               </Pressable>
             </View>
           </View>
 
-          {/* Year navigation + month grid */}
           <View className="mx-4 mt-4 bg-white rounded-lg border border-gray-100 overflow-hidden">
             <YearNavigator
               year={year}
@@ -149,7 +148,6 @@ export function CustomerDetailScreen() {
         </ScrollView>
       ) : null}
 
-      {/* Sheets */}
       {customer ? (
         <>
           <CustomerFormSheet

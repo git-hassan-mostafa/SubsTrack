@@ -1,5 +1,6 @@
 import { memo } from 'react';
 import { Pressable, Text } from 'react-native';
+import { useTranslation } from 'react-i18next';
 import type { MonthEntry, MonthStatus } from '@/src/core/types';
 
 interface Props {
@@ -20,13 +21,15 @@ const textColor: Record<MonthStatus, string> = {
 };
 
 export const MonthCell = memo(function MonthCell({ entry, onPress }: Props) {
+  const { t } = useTranslation();
+
   return (
     <Pressable
       onPress={() => onPress(entry)}
       className={`w-1/4 aspect-square items-center justify-center border border-gray-100 ${bgColor[entry.status]}`}
     >
       <Text className={`text-sm font-semibold ${textColor[entry.status]}`}>
-        {entry.label}
+        {t(`months.${entry.label}`)}
       </Text>
     </Pressable>
   );

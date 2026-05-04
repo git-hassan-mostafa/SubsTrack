@@ -1,4 +1,5 @@
 import { Modal, Pressable, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 interface ConfirmDialogProps {
   visible: boolean;
@@ -15,12 +16,14 @@ export function ConfirmDialog({
   visible,
   title,
   message,
-  confirmLabel = 'Confirm',
-  cancelLabel = 'Cancel',
+  confirmLabel,
+  cancelLabel,
   destructive = false,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
+  const { t } = useTranslation();
+
   return (
     <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
       <View className="flex-1 bg-black/50 items-center justify-center px-8">
@@ -32,13 +35,13 @@ export function ConfirmDialog({
               onPress={onCancel}
               className="flex-1 border border-gray-300 rounded-lg py-3 items-center"
             >
-              <Text className="text-gray-700 font-medium">{cancelLabel}</Text>
+              <Text className="text-gray-700 font-medium">{cancelLabel ?? t('common.cancel')}</Text>
             </Pressable>
             <Pressable
               onPress={onConfirm}
               className={`flex-1 rounded-lg py-3 items-center ${destructive ? 'bg-danger' : 'bg-primary'}`}
             >
-              <Text className="text-white font-medium">{confirmLabel}</Text>
+              <Text className="text-white font-medium">{confirmLabel ?? t('common.confirm')}</Text>
             </Pressable>
           </View>
         </View>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 import { ConfirmDialog } from '@/src/shared/components/ConfirmDialog';
 import { EmptyState } from '@/src/shared/components/EmptyState';
 import { ErrorBanner } from '@/src/shared/components/ErrorBanner';
@@ -10,6 +11,7 @@ import { PlanFormSheet } from '../components/PlanFormSheet';
 import { usePlanStore } from '../store/planStore';
 
 export function PlanListScreen() {
+  const { t } = useTranslation();
   const { plans, loading, error, fetchPlans, deletePlan, clearError } = usePlanStore();
   const [formVisible, setFormVisible] = useState(false);
   const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
@@ -36,9 +38,9 @@ export function PlanListScreen() {
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
       <View className="flex-row items-center justify-between px-4 py-4 bg-white border-b border-gray-100">
-        <Text className="text-xl font-bold text-gray-900">Plans</Text>
+        <Text className="text-xl font-bold text-gray-900">{t('plans.title')}</Text>
         <Pressable onPress={openCreate} className="bg-primary rounded-lg px-4 py-2">
-          <Text className="text-white font-medium text-sm">+ Add Plan</Text>
+          <Text className="text-white font-medium text-sm">{t('plans.add')}</Text>
         </Pressable>
       </View>
 
@@ -61,7 +63,7 @@ export function PlanListScreen() {
             <PlanCard plan={item} onEdit={openEdit} onDelete={setDeletingPlan} />
           )}
           ListEmptyComponent={
-            <EmptyState message="No plans yet" subMessage='Tap "+ Add Plan" to create one' />
+            <EmptyState message={t('plans.no_plans')} subMessage={t('plans.no_plans_hint')} />
           }
         />
       )}
@@ -74,9 +76,9 @@ export function PlanListScreen() {
 
       <ConfirmDialog
         visible={!!deletingPlan}
-        title="Delete Plan"
-        message={`Delete "${deletingPlan?.name}"? Customers assigned to this plan will have their plan removed.`}
-        confirmLabel="Delete"
+        title={t('plans.delete_title')}
+        message={t('plans.delete_message', { name: deletingPlan?.name ?? '' })}
+        confirmLabel={t('common.delete')}
         destructive
         onConfirm={confirmDelete}
         onCancel={() => setDeletingPlan(null)}
