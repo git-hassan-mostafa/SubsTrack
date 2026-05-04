@@ -1,12 +1,15 @@
-import type { Session } from '@supabase/supabase-js';
-import { supabase } from '@/src/shared/lib/supabase';
-import type { DbTenant, DbUser } from '@/src/core/types/db';
+import type { Session } from "@supabase/supabase-js";
+import { supabase } from "@/src/shared/lib/supabase";
+import type { DbTenant, DbUser } from "@/src/core/types/db";
 
 export class AuthRepository {
   async signIn(email: string, password: string): Promise<Session> {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
     if (error) throw new Error(error.message);
-    if (!data.session) throw new Error('No session returned');
+    if (!data.session) throw new Error("No session returned");
     return data.session;
   }
 
@@ -23,13 +26,13 @@ export class AuthRepository {
 
   async getUserProfile(userId: string): Promise<DbUser | null> {
     const { data, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', userId)
+      .from("users")
+      .select("*")
+      .eq("id", userId)
       .single();
     if (error) {
       // PGRST116 = no rows found — not a real error
-      if (error.code === 'PGRST116') return null;
+      if (error.code === "PGRST116") return null;
       throw new Error(error.message);
     }
     return data as DbUser;
@@ -37,18 +40,20 @@ export class AuthRepository {
 
   async getTenant(tenantId: string): Promise<DbTenant | null> {
     const { data, error } = await supabase
-      .from('tenants')
-      .select('*')
-      .eq('id', tenantId)
+      .from("tenants")
+      .select("*")
+      .eq("id", tenantId)
       .single();
     if (error) {
-      if (error.code === 'PGRST116') return null;
+      if (error.code === "PGRST116") return null;
       throw new Error(error.message);
     }
     return data as DbTenant;
   }
 
-  onAuthStateChange(callback: Parameters<typeof supabase.auth.onAuthStateChange>[0]) {
+  onAuthStateChange(
+    callback: Parameters<typeof supabase.auth.onAuthStateChange>[0],
+  ) {
     return supabase.auth.onAuthStateChange(callback);
   }
 }

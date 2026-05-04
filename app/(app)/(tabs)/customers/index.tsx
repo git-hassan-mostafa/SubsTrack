@@ -1,3 +1,5 @@
-import { CustomerListScreen } from '@/src/modules/customers/screens/CustomerListScreen';
+import { CustomerListScreen } from "@/src/modules/customers/screens/CustomerListScreen";
 
-export default CustomerListScreen;
+export default function Index() {
+  return <CustomerListScreen />;
+}

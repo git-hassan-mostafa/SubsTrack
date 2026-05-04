@@ -1,3 +1,5 @@
-import { UserListScreen } from '@/src/modules/users/screens/UserListScreen';
+import { UserListScreen } from "@/src/modules/users/screens/UserListScreen";
 
-export default UserListScreen;
+export default function Index() {
+  return <UserListScreen />;
+}

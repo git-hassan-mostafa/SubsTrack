@@ -1,18 +1,18 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import i18n from 'i18next';
-import { initReactI18next } from 'react-i18next';
-import { I18nManager } from 'react-native';
-import { getLocales } from 'react-native-localize';
-import ar from './locales/ar.json';
-import en from './locales/en.json';
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import i18n from "i18next";
+import { initReactI18next } from "react-i18next";
+import { I18nManager } from "react-native";
+import { getLocales } from "expo-localization";
+import ar from "./locales/ar.json";
+import en from "./locales/en.json";
 
-export const SUPPORTED_LANGUAGES = ['en', 'ar'] as const;
-export const RTL_LANGUAGES = ['ar'] as const;
-export const FALLBACK_LANGUAGE = 'en' as const;
+export const SUPPORTED_LANGUAGES = ["en", "ar"] as const;
+export const RTL_LANGUAGES = ["ar"] as const;
+export const FALLBACK_LANGUAGE = "en" as const;
 
 export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
 
-const PERSIST_KEY = 'language-store';
+const PERSIST_KEY = "language-store";
 
 function getDeviceLanguage(): SupportedLanguage {
   const locales = getLocales();

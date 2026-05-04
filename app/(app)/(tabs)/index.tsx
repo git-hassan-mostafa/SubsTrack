@@ -1,3 +1,5 @@
-import { DashboardScreen } from '@/src/modules/dashboard/screens/DashboardScreen';
+import { DashboardScreen } from "@/src/modules/dashboard/screens/DashboardScreen";
 
-export default DashboardScreen;
+export default function Index() {
+  return <DashboardScreen />;
+}

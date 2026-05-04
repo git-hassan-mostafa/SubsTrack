@@ -1,3 +1,5 @@
-import { SettingsScreen } from '@/src/modules/settings/screens/SettingsScreen';
+import { SettingsScreen } from "@/src/modules/settings/screens/SettingsScreen";
 
-export default SettingsScreen;
+export default function Index() {
+  return <SettingsScreen />;
+}

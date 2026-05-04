@@ -1,3 +1,5 @@
-import { LoginScreen } from '@/src/modules/auth/screens/LoginScreen';
+import { LoginScreen } from "@/src/modules/auth/screens/LoginScreen";
 
-export default LoginScreen;
+export default function Index() {
+  return <LoginScreen />;
+}
