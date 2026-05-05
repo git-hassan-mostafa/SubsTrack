@@ -127,6 +127,9 @@
     "nov": "Nov",
     "dec": "Dec"
   },
+  "admin": {
+    "title": "Admin"
+  },
   "settings": {
     "title": "Settings",
     "language_section": "Language",

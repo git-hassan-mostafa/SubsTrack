@@ -1,6 +1,7 @@
 import { Tabs } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '@/src/modules/auth/hooks/useAuth';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function TabsLayout() {
   const { isAdmin } = useAuth();
@@ -17,41 +18,31 @@ export default function TabsLayout() {
       }}
     >
       <Tabs.Screen
-        name="index"
-        options={{
-          title: t('dashboard.title'),
-          href: isAdmin ? undefined : null,
-          tabBarIcon: () => null,
-        }}
-      />
-      <Tabs.Screen
         name="customers"
         options={{
           title: t('customers.title'),
-          tabBarIcon: () => null,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="people-outline" size={size} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
-        name="plans"
+        name="admin"
         options={{
-          title: t('plans.title'),
+          title: t('admin.title'),
           href: isAdmin ? undefined : null,
-          tabBarIcon: () => null,
-        }}
-      />
-      <Tabs.Screen
-        name="users"
-        options={{
-          title: t('users.title'),
-          href: isAdmin ? undefined : null,
-          tabBarIcon: () => null,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="shield-outline" size={size} color={color} />
+          ),
         }}
       />
       <Tabs.Screen
         name="settings"
         options={{
           title: t('settings.title'),
-          tabBarIcon: () => null,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="settings-outline" size={size} color={color} />
+          ),
         }}
       />
     </Tabs>

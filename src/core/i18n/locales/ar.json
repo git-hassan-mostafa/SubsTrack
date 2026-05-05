@@ -127,6 +127,9 @@
     "nov": "نوفمبر",
     "dec": "ديسمبر"
   },
+  "admin": {
+    "title": "الإدارة"
+  },
   "settings": {
     "title": "الإعدادات",
     "language_section": "اللغة",
