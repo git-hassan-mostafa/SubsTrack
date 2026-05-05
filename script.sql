@@ -284,6 +284,40 @@ RETURNS TEXT AS $$
 $$ LANGUAGE SQL STABLE SECURITY DEFINER;
 
 -- ============================================================
+-- CUSTOM ACCESS TOKEN HOOK
+-- Injects tenant_id into the JWT so RLS can use current_tenant_id().
+-- After creating this function, enable it in:
+-- Dashboard → Authentication → Hooks → "Customize access token (JWT) claims"
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION public.custom_access_token_hook(event jsonb)
+RETURNS jsonb
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+AS $$
+DECLARE
+  claims jsonb;
+  user_tenant_id uuid;
+BEGIN
+  SELECT tenant_id INTO user_tenant_id
+  FROM public.users
+  WHERE id = (event ->> 'user_id')::uuid;
+
+  claims := event -> 'claims';
+
+  IF user_tenant_id IS NOT NULL THEN
+    claims := jsonb_set(claims, '{tenant_id}', to_jsonb(user_tenant_id::text));
+  END IF;
+
+  RETURN jsonb_set(event, '{claims}', claims);
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.custom_access_token_hook TO supabase_auth_admin;
+REVOKE EXECUTE ON FUNCTION public.custom_access_token_hook FROM authenticated, anon, public;
+
+-- ============================================================
 -- RLS POLICIES
 -- ============================================================
 
