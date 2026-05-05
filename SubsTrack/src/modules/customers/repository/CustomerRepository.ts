@@ -1,0 +1,124 @@
+import { BaseRepository } from '@/src/core/utils/BaseRepository';
+import { PAGE_SIZE } from '@/src/core/constants';
+import type { DbCustomer } from '@/src/core/types/db';
+
+type CustomerWithPlan = DbCustomer & { plans: DbCustomer['plans'] };
+
+interface CreateCustomerPayload {
+  name: string;
+  phone_number: string | null;
+  address: string | null;
+  plan_id: string | null;
+  tenant_id: string;
+  start_date: string;
+  active: boolean;
+  cancelled_at: null;
+}
+
+export class CustomerRepository extends BaseRepository {
+  async findAll(page: number): Promise<CustomerWithPlan[]> {
+    const from = page * PAGE_SIZE;
+    const to = from + PAGE_SIZE - 1;
+    const { data, error } = await this.db
+      .from('customers')
+      .select('*, plans(*)')
+      .order('name')
+      .range(from, to);
+    if (error) this.handleError(error);
+    return (data ?? []) as CustomerWithPlan[];
+  }
+
+  async findById(id: string): Promise<CustomerWithPlan> {
+    const { data, error } = await this.db
+      .from('customers')
+      .select('*, plans(*)')
+      .eq('id', id)
+      .single();
+    if (error) this.handleError(error);
+    if (!data) throw new Error('Customer not found');
+    return data as CustomerWithPlan;
+  }
+
+  async create(payload: CreateCustomerPayload): Promise<CustomerWithPlan> {
+    const { data, error } = await this.db
+      .from('customers')
+      .insert(payload)
+      .select('*, plans(*)')
+      .single();
+    if (error) this.handleError(error);
+    return data as CustomerWithPlan;
+  }
+
+  async update(
+    id: string,
+    payload: Partial<Pick<DbCustomer, 'name' | 'phone_number' | 'address' | 'plan_id'>>,
+  ): Promise<CustomerWithPlan> {
+    const { data, error } = await this.db
+      .from('customers')
+      .update(payload)
+      .eq('id', id)
+      .select('*, plans(*)')
+      .single();
+    if (error) this.handleError(error);
+    return data as CustomerWithPlan;
+  }
+
+  async deactivate(id: string): Promise<CustomerWithPlan> {
+    const { data, error } = await this.db
+      .from('customers')
+      .update({ active: false, cancelled_at: new Date().toISOString() })
+      .eq('id', id)
+      .select('*, plans(*)')
+      .single();
+    if (error) this.handleError(error);
+    return data as CustomerWithPlan;
+  }
+
+  async reactivate(id: string): Promise<CustomerWithPlan> {
+    const { data, error } = await this.db
+      .from('customers')
+      .update({ active: true, cancelled_at: null })
+      .eq('id', id)
+      .select('*, plans(*)')
+      .single();
+    if (error) this.handleError(error);
+    return data as CustomerWithPlan;
+  }
+
+  async countAll(): Promise<number> {
+    const { count, error } = await this.db
+      .from('customers')
+      .select('id', { count: 'exact', head: true });
+    if (error) this.handleError(error);
+    return count ?? 0;
+  }
+
+  async countActive(): Promise<number> {
+    const { count, error } = await this.db
+      .from('customers')
+      .select('id', { count: 'exact', head: true })
+      .eq('active', true);
+    if (error) this.handleError(error);
+    return count ?? 0;
+  }
+
+  async countUnpaidForMonth(billingMonth: string): Promise<number> {
+    // Count active customers who do NOT have a non-voided payment for the given month
+    const { data: paid, error: pErr } = await this.db
+      .from('payments')
+      .select('customer_id')
+      .eq('billing_month', billingMonth)
+      .is('voided_at', null);
+    if (pErr) this.handleError(pErr);
+
+    const paidIds = new Set((paid ?? []).map((r: { customer_id: string }) => r.customer_id));
+
+    const { data: active, error: cErr } = await this.db
+      .from('customers')
+      .select('id')
+      .eq('active', true);
+    if (cErr) this.handleError(cErr);
+
+    return (active ?? []).filter((c: { id: string }) => !paidIds.has(c.id)).length;
+  }
+}
