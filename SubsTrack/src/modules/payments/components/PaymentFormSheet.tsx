@@ -5,9 +5,21 @@ import { Button } from '@/src/shared/components/Button';
 import { ErrorBanner } from '@/src/shared/components/ErrorBanner';
 import { Input } from '@/src/shared/components/Input';
 import type { Customer, MonthEntry } from '@/src/core/types';
-import { formatCurrency, getCurrentYearMonth } from '@/src/core/utils/date';
+import { getCurrentYearMonth } from '@/src/core/utils/date';
 import { useAuth } from '@/src/modules/auth/hooks/useAuth';
 import { usePaymentStore } from '../store/paymentStore';
+
+const AVATAR_COLORS = ['#6366f1', '#ec4899', '#14b8a6', '#f97316', '#8b5cf6', '#22c55e', '#f59e0b', '#3b82f6'];
+
+function getAvatarColor(name: string): string {
+  return AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length];
+}
+
+function getInitials(name: string): string {
+  const parts = name.trim().split(' ');
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return name.slice(0, 2).toUpperCase();
+}
 
 interface Props {
   visible: boolean;
@@ -18,13 +30,14 @@ interface Props {
 }
 
 export function PaymentFormSheet({ visible, entry, customer, graceDays, onDismiss }: Props) {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { user } = useAuth();
   const { createPayment, loadingCreate, error, clearError } = usePaymentStore();
 
   const [customAmountText, setCustomAmountText] = useState('');
   const [isOverrideEnabled, setIsOverrideEnabled] = useState(false);
   const [amountMode, setAmountMode] = useState<'plan' | 'custom'>('plan');
+  const [notes, setNotes] = useState('');
 
   if (!entry) return null;
 
@@ -32,12 +45,10 @@ export function PaymentFormSheet({ visible, entry, customer, graceDays, onDismis
   const isFixedPlan = !!plan && !plan.isCustomPrice;
   const isCustomOrNoPlan = !plan || plan.isCustomPrice;
 
-  // Block future months for inactive customers
   const { year: cy, month: cm } = getCurrentYearMonth();
   const isFutureMonth = entry.year > cy || (entry.year === cy && entry.month > cm);
   const blockedForInactive = !customer.active && isFutureMonth;
 
-  // Fixed-price plans: amount is always the plan price, no override allowed
   const resolvedAmount = (() => {
     if (isFixedPlan && !isOverrideEnabled) return plan!.price!;
     if (isFixedPlan && isOverrideEnabled && amountMode === 'plan') return plan!.price!;
@@ -57,7 +68,8 @@ export function PaymentFormSheet({ visible, entry, customer, graceDays, onDismis
         planId: customer.planId,
         receivedByUserId: user.id,
         tenantId: user.tenantId,
-      },
+        notes: notes.trim() || null,
+      } as any,
       customer,
       graceDays,
     );
@@ -65,6 +77,7 @@ export function PaymentFormSheet({ visible, entry, customer, graceDays, onDismis
       setCustomAmountText('');
       setIsOverrideEnabled(false);
       setAmountMode('plan');
+      setNotes('');
       onDismiss();
     }
   }
@@ -73,11 +86,13 @@ export function PaymentFormSheet({ visible, entry, customer, graceDays, onDismis
     setCustomAmountText('');
     setIsOverrideEnabled(false);
     setAmountMode('plan');
+    setNotes('');
     clearError();
     onDismiss();
   }
 
   const monthLabel = t(`months.${entry.label}`);
+  const avatarColor = getAvatarColor(customer.name);
 
   return (
     <Modal
@@ -87,90 +102,117 @@ export function PaymentFormSheet({ visible, entry, customer, graceDays, onDismis
       onRequestClose={handleDismiss}
     >
       <View className="flex-1 bg-white">
-        <View className="flex-row items-center justify-between px-6 py-4 border-b border-gray-100">
-          <Text className="text-lg font-semibold text-gray-900">{t('payments.record_payment')}</Text>
+        {/* Handle + header */}
+        <View className="items-center pt-3 pb-1">
+          <View className="w-10 h-1 rounded-full bg-gray-300" />
+        </View>
+        <View className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
+          <Text className="text-lg font-bold text-gray-900">{t('payments.record_payment')}</Text>
           <Pressable onPress={handleDismiss}>
-            <Text className="text-primary font-medium">{t('common.cancel')}</Text>
+            <Text className="text-base text-gray-400">{t('common.cancel')}</Text>
           </Pressable>
         </View>
 
-        <ScrollView className="flex-1 px-6 pt-6" keyboardShouldPersistTaps="handled">
+        <ScrollView className="flex-1 px-6 pt-5" keyboardShouldPersistTaps="handled">
           {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}
           {blockedForInactive ? (
-            <View className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-4">
+            <View className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-4">
               <Text className="text-sm text-amber-700">{t('payments.inactive_customer_future')}</Text>
             </View>
           ) : null}
 
-          <Text className="text-sm text-gray-500 mb-1">{t('payments.month_label')}</Text>
-          <Text className="text-base font-semibold text-gray-900 mb-6">
-            {monthLabel} {entry.year}
-          </Text>
-
-          {isFixedPlan && !isOverrideEnabled ? (
-            <View className="mb-4">
-              <Text className="text-sm font-medium text-gray-700 mb-1">{t('payments.amount_label')}</Text>
-              <View className="border border-gray-200 rounded-lg px-4 py-3 bg-gray-50 flex-row items-center justify-between">
-                <Text className="text-base text-gray-900">{formatCurrency(plan!.price!, i18n.language)}</Text>
-                <Text className="text-xs text-gray-400">{plan!.name}</Text>
-              </View>
-              <Pressable onPress={() => setIsOverrideEnabled(true)} className="mt-2">
-                <Text className="text-primary text-sm">{t('payments.override_amount')}</Text>
-              </Pressable>
+          {/* Customer mini-header */}
+          <View className="flex-row items-center mb-5">
+            <View
+              className="w-10 h-10 rounded-xl items-center justify-center me-3"
+              style={{ backgroundColor: avatarColor + '22' }}
+            >
+              <Text className="text-sm font-bold" style={{ color: avatarColor }}>
+                {getInitials(customer.name)}
+              </Text>
             </View>
-          ) : null}
-
-          {isFixedPlan && isOverrideEnabled ? (
-            <View className="mb-4">
-              <Text className="text-sm font-medium text-gray-700 mb-3">{t('payments.amount_label')}</Text>
-              <View className="gap-2 mb-3">
-                {(['plan', 'custom'] as const).map((mode) => (
-                  <Pressable
-                    key={mode}
-                    onPress={() => setAmountMode(mode)}
-                    className={`flex-row items-center border rounded-lg px-4 py-3 ${amountMode === mode ? 'border-primary bg-indigo-50' : 'border-gray-200'}`}
-                  >
-                    <View className={`w-4 h-4 rounded-full border-2 me-3 items-center justify-center ${amountMode === mode ? 'border-primary' : 'border-gray-400'}`}>
-                      {amountMode === mode ? <View className="w-2 h-2 rounded-full bg-primary" /> : null}
-                    </View>
-                    <Text className="text-sm text-gray-700">
-                      {mode === 'plan'
-                        ? t('payments.plan_price', { price: formatCurrency(plan!.price!, i18n.language) })
-                        : t('payments.custom_amount')}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-              {amountMode === 'custom' ? (
-                <Input
-                  value={customAmountText}
-                  onChangeText={setCustomAmountText}
-                  placeholder={t('payments.enter_amount')}
-                  keyboardType="decimal-pad"
-                  onFocus={clearError}
-                />
-              ) : null}
+            <View>
+              <Text className="text-base font-semibold text-gray-900">{customer.name}</Text>
+              <Text className="text-xs text-gray-400">{monthLabel} {entry.year} · {customer.plan?.name ?? 'No plan'}</Text>
             </View>
-          ) : null}
+          </View>
 
-          {isCustomOrNoPlan ? (
-            <Input
-              label={t('payments.amount_label')}
-              value={customAmountText}
-              onChangeText={setCustomAmountText}
-              placeholder={t('payments.enter_amount')}
-              keyboardType="decimal-pad"
-              onFocus={clearError}
-            />
-          ) : null}
+          {/* Amount display card */}
+          <View className="bg-gray-50 rounded-2xl px-6 py-5 items-center mb-5">
+            <Text className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">Amount</Text>
+            {isFixedPlan && !isOverrideEnabled ? (
+              <>
+                <Text className="text-5xl font-bold text-gray-900">
+                  ${plan!.price!.toFixed(0)}
+                  <Text className="text-3xl text-gray-300">.{(plan!.price! % 1).toFixed(2).slice(2)}</Text>
+                </Text>
+                <Pressable onPress={() => setIsOverrideEnabled(true)} className="mt-3">
+                  <Text className="text-primary text-sm font-semibold">{t('payments.override_amount')}</Text>
+                </Pressable>
+              </>
+            ) : null}
+
+            {isFixedPlan && isOverrideEnabled ? (
+              <>
+                <View className="w-full gap-2 mb-2">
+                  {(['plan', 'custom'] as const).map((mode) => (
+                    <Pressable
+                      key={mode}
+                      onPress={() => setAmountMode(mode)}
+                      className={`flex-row items-center border rounded-xl px-4 py-3 ${amountMode === mode ? 'border-primary bg-indigo-50' : 'border-gray-200 bg-white'}`}
+                    >
+                      <View className={`w-4 h-4 rounded-full border-2 me-3 items-center justify-center ${amountMode === mode ? 'border-primary' : 'border-gray-400'}`}>
+                        {amountMode === mode ? <View className="w-2 h-2 rounded-full bg-primary" /> : null}
+                      </View>
+                      <Text className="text-sm text-gray-700">
+                        {mode === 'plan'
+                          ? t('payments.plan_price', { price: `$${plan!.price}` })
+                          : t('payments.custom_amount')}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+                {amountMode === 'custom' ? (
+                  <Input
+                    value={customAmountText}
+                    onChangeText={setCustomAmountText}
+                    placeholder={t('payments.enter_amount')}
+                    keyboardType="decimal-pad"
+                    onFocus={clearError}
+                  />
+                ) : null}
+              </>
+            ) : null}
+
+            {isCustomOrNoPlan ? (
+              <Input
+                value={customAmountText}
+                onChangeText={setCustomAmountText}
+                placeholder={t('payments.enter_amount')}
+                keyboardType="decimal-pad"
+                onFocus={clearError}
+              />
+            ) : null}
+          </View>
+
+          {/* Notes */}
+          <Input
+            label="Notes (Optional)"
+            value={notes}
+            onChangeText={setNotes}
+            placeholder="e.g. Cash collected at door"
+            onFocus={clearError}
+          />
 
           <Button
-            label={t('payments.record_payment')}
+            label="Mark as paid"
             onPress={handleSubmit}
             loading={loadingCreate}
             disabled={!canSubmit}
             fullWidth
           />
+          <Text className="text-xs text-gray-400 text-center mt-2">Receipt ID generated automatically</Text>
+          <View className="h-4" />
         </ScrollView>
       </View>
     </Modal>

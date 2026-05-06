@@ -27,12 +27,20 @@ export function UserListScreen() {
     setFormVisible(true);
   }
 
+  const adminCount = users.filter((u) => u.role === 'admin' || u.role === 'superadmin').length;
+
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
-      <View className="flex-row items-center justify-between px-4 py-4 bg-white border-b border-gray-100">
-        <Text className="text-xl font-bold text-gray-900">{t('users.title')}</Text>
-        <Pressable onPress={openCreate} className="bg-primary rounded-lg px-4 py-2">
-          <Text className="text-white font-medium text-sm">{t('users.add')}</Text>
+      {/* Header */}
+      <View className="flex-row items-center justify-between px-5 pt-5 pb-4 bg-white border-b border-gray-100">
+        <View>
+          <Text className="text-2xl font-bold text-gray-900">{t('users.title')}</Text>
+          <Text className="text-sm text-gray-400 mt-0.5">
+            {users.length} members · {adminCount} admin
+          </Text>
+        </View>
+        <Pressable onPress={openCreate} className="bg-primary rounded-full px-4 py-2">
+          <Text className="text-white font-semibold text-sm">+ Invite</Text>
         </Pressable>
       </View>
 

@@ -9,12 +9,12 @@ export function Input({ label, error, ...props }: InputProps) {
   return (
     <View className="mb-4">
       {label ? (
-        <Text className="text-sm font-medium text-gray-700 mb-1">{label}</Text>
+        <Text className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">{label}</Text>
       ) : null}
       <TextInput
         {...props}
-        className={`border rounded-lg px-4 py-3 text-base text-gray-900 bg-white ${
-          error ? 'border-danger' : 'border-gray-300'
+        className={`border rounded-xl px-4 py-3 text-base text-gray-900 bg-white ${
+          error ? 'border-danger' : 'border-gray-200'
         }`}
         placeholderTextColor="#9ca3af"
       />

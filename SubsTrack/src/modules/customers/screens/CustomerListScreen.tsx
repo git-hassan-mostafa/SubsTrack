@@ -3,6 +3,7 @@ import { ActivityIndicator, FlatList, Pressable, Text, TextInput, View } from 'r
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
+import { Ionicons } from '@expo/vector-icons';
 import { EmptyState } from '@/src/shared/components/EmptyState';
 import { ErrorBanner } from '@/src/shared/components/ErrorBanner';
 import { useDebounce } from '@/src/shared/hooks/useDebounce';
@@ -11,19 +12,40 @@ import { CustomerCard } from '../components/CustomerCard';
 import { CustomerFormSheet } from '../components/CustomerFormSheet';
 import { useCustomerStore } from '../store/customerStore';
 
+type FilterTab = 'all' | 'unpaid' | 'active' | 'inactive';
+
 export function CustomerListScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const { customers, loading, loadingMore, hasMore, error, fetchCustomers, fetchMoreCustomers, clearError } = useCustomerStore();
   const [formVisible, setFormVisible] = useState(false);
   const [searchText, setSearchText] = useState('');
+  const [activeTab, setActiveTab] = useState<FilterTab>('all');
   const debouncedSearch = useDebounce(searchText);
 
   useEffect(() => { fetchCustomers(); }, []);
 
-  const filtered = debouncedSearch
-    ? customers.filter((c) => c.name.toLowerCase().includes(debouncedSearch.toLowerCase()))
-    : customers;
+  const activeCount = customers.filter((c) => c.active).length;
+  const inactiveCount = customers.filter((c) => !c.active).length;
+
+  const tabs = [
+    { key: 'all' as FilterTab, label: 'All', count: customers.length },
+    { key: 'active' as FilterTab, label: 'Active', count: activeCount },
+    { key: 'inactive' as FilterTab, label: 'Inactive', count: inactiveCount },
+  ];
+
+  const filtered = (() => {
+    let base = debouncedSearch
+      ? customers.filter((c) =>
+          c.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+          (c.phoneNumber ?? '').includes(debouncedSearch) ||
+          (c.address ?? '').toLowerCase().includes(debouncedSearch.toLowerCase()),
+        )
+      : customers;
+    if (activeTab === 'active') base = base.filter((c) => c.active);
+    else if (activeTab === 'inactive') base = base.filter((c) => !c.active);
+    return base;
+  })();
 
   function openDetail(customer: Customer) {
     router.push(`/(app)/(tabs)/customers/${customer.id}`);
@@ -31,20 +53,47 @@ export function CustomerListScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
-      <View className="px-4 py-4 bg-white border-b border-gray-100">
-        <View className="flex-row items-center justify-between mb-3">
-          <Text className="text-xl font-bold text-gray-900">{t('customers.title')}</Text>
-          <Pressable onPress={() => setFormVisible(true)} className="bg-primary rounded-lg px-4 py-2">
-            <Text className="text-white font-medium text-sm">{t('customers.add')}</Text>
+      {/* Header */}
+      <View className="px-5 pt-5 pb-3 bg-white border-b border-gray-100">
+        <View className="flex-row items-center justify-between mb-1">
+          <Text className="text-2xl font-bold text-gray-900">{t('customers.title')}</Text>
+          <Pressable
+            onPress={() => setFormVisible(true)}
+            className="bg-primary rounded-full px-4 py-2"
+          >
+            <Text className="text-white font-semibold text-sm">+ Add</Text>
           </Pressable>
         </View>
-        <TextInput
-          className="border border-gray-200 rounded-lg px-4 py-2 bg-gray-50 text-sm text-gray-900"
-          placeholder={t('customers.search_placeholder')}
-          placeholderTextColor="#9ca3af"
-          value={searchText}
-          onChangeText={setSearchText}
-        />
+        <Text className="text-sm text-gray-400 mb-3">
+          {customers.length} total
+        </Text>
+
+        {/* Search */}
+        <View className="flex-row items-center bg-gray-100 rounded-xl px-3 py-2.5 mb-3">
+          <Ionicons name="search-outline" size={16} color="#9ca3af" />
+          <TextInput
+            className="flex-1 ms-2 text-sm text-gray-900"
+            placeholder="Search customers, phone, address..."
+            placeholderTextColor="#9ca3af"
+            value={searchText}
+            onChangeText={setSearchText}
+          />
+        </View>
+
+        {/* Filter tabs */}
+        <View className="flex-row gap-2">
+          {tabs.map((tab) => (
+            <Pressable
+              key={tab.key}
+              onPress={() => setActiveTab(tab.key)}
+              className={`rounded-full px-3 py-1.5 ${activeTab === tab.key ? 'bg-gray-900' : 'bg-gray-100'}`}
+            >
+              <Text className={`text-xs font-semibold ${activeTab === tab.key ? 'text-white' : 'text-gray-600'}`}>
+                {tab.label}{tab.count !== undefined ? ` · ${tab.count}` : ''}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
       </View>
 
       {error ? (

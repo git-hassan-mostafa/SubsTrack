@@ -1,98 +1,125 @@
+import { useCallback } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { Href, router } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useDashboardStore } from '@/src/modules/dashboard/store/dashboardStore';
 
 type MenuItem = {
   labelKey: string;
+  subtitleKey: string;
   icon: keyof typeof Ionicons.glyphMap;
+  iconBg: string;
+  iconColor: string;
   route: string;
 };
 
 const MENU_ITEMS: MenuItem[] = [
-  { labelKey: 'dashboard.title', icon: 'bar-chart-outline', route: '/(app)/(tabs)/admin/dashboard' },
-  { labelKey: 'users.title', icon: 'people-outline', route: '/(app)/(tabs)/admin/users' },
-  { labelKey: 'plans.title', icon: 'pricetag-outline', route: '/(app)/(tabs)/admin/plans' },
+  {
+    labelKey: 'dashboard.title',
+    subtitleKey: 'admin.dashboard_sub',
+    icon: 'bar-chart-outline',
+    iconBg: '#eef2ff',
+    iconColor: '#6366f1',
+    route: '/(app)/(tabs)/admin/dashboard',
+  },
+  {
+    labelKey: 'users.title',
+    subtitleKey: 'admin.staff_sub',
+    icon: 'people-outline',
+    iconBg: '#f0fdf4',
+    iconColor: '#22c55e',
+    route: '/(app)/(tabs)/admin/users',
+  },
+  {
+    labelKey: 'plans.title',
+    subtitleKey: 'admin.plans_sub',
+    icon: 'pricetag-outline',
+    iconBg: '#fffbeb',
+    iconColor: '#f59e0b',
+    route: '/(app)/(tabs)/admin/plans',
+  },
 ];
+
+function formatCompact(amount: number): string {
+  if (amount >= 1000) return `$${(amount / 1000).toFixed(1)}k`;
+  return `$${amount.toFixed(0)}`;
+}
 
 export default function AdminMenuScreen() {
   const { t } = useTranslation();
+  const { metrics, loading, fetchMetrics } = useDashboardStore();
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchMetrics();
+    }, []),
+  );
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.header}>{t('admin.title')}</Text>
-      <View style={styles.list}>
-        {MENU_ITEMS.map((item, index) => (
-          <TouchableOpacity
-            key={item.route}
-            style={[styles.item, index < MENU_ITEMS.length - 1 && styles.itemBorder]}
-            onPress={() => router.push(item.route as Href)}
-            activeOpacity={0.6}
-          >
-            <View style={styles.itemLeft}>
-              <View style={styles.iconWrapper}>
-                <Ionicons name={item.icon} size={20} color="#6366f1" />
-              </View>
-              <Text style={styles.itemLabel}>{t(item.labelKey)}</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={18} color="#9ca3af" />
-          </TouchableOpacity>
-        ))}
+    <SafeAreaView className="flex-1 bg-gray-50">
+      <View className="px-5 pt-5 pb-4">
+        <Text className="text-2xl font-bold text-gray-900">{t('admin.title')}</Text>
+        <Text className="text-sm text-gray-400 mt-0.5">Manage your workspace</Text>
       </View>
-    </View>
+
+      {/* Stats card */}
+      <View className="mx-4 mb-5 bg-white rounded-2xl border border-gray-100 flex-row">
+        <View className="flex-1 items-center py-4 border-r border-gray-100">
+          {loading && !metrics ? (
+            <ActivityIndicator size="small" color="#6366f1" />
+          ) : (
+            <>
+              <Text className="text-xl font-bold text-gray-900">
+                {formatCompact(metrics?.monthlyRevenue ?? 0)}
+              </Text>
+              <Text className="text-xs text-gray-400 mt-0.5">Collected</Text>
+            </>
+          )}
+        </View>
+        <View className="flex-1 items-center py-4 border-r border-gray-100">
+          <Text className="text-xl font-bold text-red-500">{metrics?.unpaidThisMonth ?? 0}</Text>
+          <Text className="text-xs text-gray-400 mt-0.5">Unpaid</Text>
+        </View>
+        <View className="flex-1 items-center py-4">
+          <Text className="text-xl font-bold text-gray-900">{metrics?.totalCustomers ?? 0}</Text>
+          <Text className="text-xs text-gray-400 mt-0.5">Customers</Text>
+        </View>
+      </View>
+
+      {/* Manage section */}
+      <View className="mx-4">
+        <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2 px-1">Manage</Text>
+        <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+          {MENU_ITEMS.map((item, index) => (
+            <Pressable
+              key={item.route}
+              onPress={() => router.push(item.route as Href)}
+              className={`flex-row items-center justify-between px-4 py-4 ${index < MENU_ITEMS.length - 1 ? 'border-b border-gray-100' : ''}`}
+            >
+              <View className="flex-row items-center gap-3">
+                <View
+                  className="w-10 h-10 rounded-xl items-center justify-center"
+                  style={{ backgroundColor: item.iconBg }}
+                >
+                  <Ionicons name={item.icon} size={20} color={item.iconColor} />
+                </View>
+                <View>
+                  <Text className="text-base font-semibold text-gray-900">{t(item.labelKey)}</Text>
+                  <Text className="text-xs text-gray-400 mt-0.5">
+                    {item.labelKey === 'dashboard.title' ? 'Revenue · collections · activity' :
+                     item.labelKey === 'users.title' ? `${metrics?.totalCustomers ?? 0} members` :
+                     `${metrics?.totalCustomers ?? 0} customers assigned`}
+                  </Text>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={16} color="#d1d5db" />
+            </Pressable>
+          ))}
+        </View>
+      </View>
+    </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f3f4f6',
-    paddingTop: 60,
-    paddingHorizontal: 16,
-  },
-  header: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#111827',
-    marginBottom: 24,
-  },
-  list: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  item: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-  },
-  itemBorder: {
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#e5e7eb',
-  },
-  itemLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  iconWrapper: {
-    width: 36,
-    height: 36,
-    borderRadius: 8,
-    backgroundColor: '#eef2ff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  itemLabel: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#111827',
-  },
-});

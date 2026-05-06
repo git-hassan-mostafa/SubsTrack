@@ -12,9 +12,10 @@ interface Props {
   visible: boolean;
   plan?: Plan | null;
   onDismiss: () => void;
+  onRequestDelete?: (plan: Plan) => void;
 }
 
-export function PlanFormSheet({ visible, plan, onDismiss }: Props) {
+export function PlanFormSheet({ visible, plan, onDismiss, onRequestDelete }: Props) {
   const { t } = useTranslation();
   const { user } = useAuth();
   const { createPlan, updatePlan, loading, error, clearError } = usePlanStore();
@@ -52,12 +53,16 @@ export function PlanFormSheet({ visible, plan, onDismiss }: Props) {
       onRequestClose={onDismiss}
     >
       <View className="flex-1 bg-white">
-        <View className="flex-row items-center justify-between px-6 py-4 border-b border-gray-100">
-          <Text className="text-lg font-semibold text-gray-900">
+        {/* Handle + header */}
+        <View className="items-center pt-3 pb-1">
+          <View className="w-10 h-1 rounded-full bg-gray-300" />
+        </View>
+        <View className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
+          <Text className="text-lg font-bold text-gray-900">
             {plan ? t('plans.edit_title') : t('plans.add_title')}
           </Text>
           <Pressable onPress={onDismiss}>
-            <Text className="text-primary font-medium">{t('common.cancel')}</Text>
+            <Text className="text-base text-gray-400">{t('common.cancel')}</Text>
           </Pressable>
         </View>
 
@@ -72,10 +77,22 @@ export function PlanFormSheet({ visible, plan, onDismiss }: Props) {
             onFocus={clearError}
           />
 
-          <View className="flex-row items-center justify-between mb-6 py-3 border-b border-gray-100">
+          {!isCustomPrice ? (
+            <Input
+              label={t('plans.price_label')}
+              value={priceText}
+              onChangeText={setPriceText}
+              placeholder="$0.00"
+              keyboardType="decimal-pad"
+              onFocus={clearError}
+            />
+          ) : null}
+
+          {/* Custom pricing toggle */}
+          <View className="flex-row items-center justify-between py-4 border border-gray-100 rounded-xl px-4 mb-6">
             <View>
-              <Text className="text-sm font-medium text-gray-700">{t('plans.custom_pricing_label')}</Text>
-              <Text className="text-xs text-gray-500 mt-0.5">{t('plans.custom_pricing_hint')}</Text>
+              <Text className="text-sm font-semibold text-gray-900">{t('plans.custom_pricing_label')}</Text>
+              <Text className="text-xs text-gray-400 mt-0.5">{t('plans.custom_pricing_hint')}</Text>
             </View>
             <Switch
               value={isCustomPrice}
@@ -84,17 +101,6 @@ export function PlanFormSheet({ visible, plan, onDismiss }: Props) {
             />
           </View>
 
-          {!isCustomPrice ? (
-            <Input
-              label={t('plans.price_label')}
-              value={priceText}
-              onChangeText={setPriceText}
-              placeholder={t('plans.price_placeholder')}
-              keyboardType="decimal-pad"
-              onFocus={clearError}
-            />
-          ) : null}
-
           <Button
             label={plan ? t('common.save_changes') : t('plans.add_title')}
             onPress={handleSubmit}
@@ -102,6 +108,23 @@ export function PlanFormSheet({ visible, plan, onDismiss }: Props) {
             disabled={!name.trim() || (!isCustomPrice && !priceText)}
             fullWidth
           />
+
+          {/* Delete plan (edit mode only) */}
+          {plan && onRequestDelete ? (
+            <>
+              <Pressable
+                onPress={() => { onDismiss(); onRequestDelete(plan); }}
+                className="border border-red-200 rounded-xl py-3.5 items-center mt-3"
+              >
+                <Text className="text-red-500 font-semibold">Delete plan</Text>
+              </Pressable>
+              <Text className="text-xs text-gray-400 text-center mt-3">
+                Customers will keep their existing payment history
+              </Text>
+            </>
+          ) : null}
+
+          <View className="h-4" />
         </ScrollView>
       </View>
     </Modal>

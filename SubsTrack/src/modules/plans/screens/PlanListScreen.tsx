@@ -37,10 +37,14 @@ export function PlanListScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
-      <View className="flex-row items-center justify-between px-4 py-4 bg-white border-b border-gray-100">
-        <Text className="text-xl font-bold text-gray-900">{t('plans.title')}</Text>
-        <Pressable onPress={openCreate} className="bg-primary rounded-lg px-4 py-2">
-          <Text className="text-white font-medium text-sm">{t('plans.add')}</Text>
+      {/* Header */}
+      <View className="flex-row items-center justify-between px-5 pt-5 pb-4 bg-white border-b border-gray-100">
+        <View>
+          <Text className="text-2xl font-bold text-gray-900">{t('plans.title')}</Text>
+          <Text className="text-sm text-gray-400 mt-0.5">{plans.length} active</Text>
+        </View>
+        <Pressable onPress={openCreate} className="bg-primary rounded-full px-4 py-2">
+          <Text className="text-white font-semibold text-sm">+ New plan</Text>
         </Pressable>
       </View>
 
@@ -71,7 +75,8 @@ export function PlanListScreen() {
       <PlanFormSheet
         visible={formVisible}
         plan={editingPlan}
-        onDismiss={() => setFormVisible(false)}
+        onDismiss={() => { setFormVisible(false); setEditingPlan(null); }}
+        onRequestDelete={setDeletingPlan}
       />
 
       <ConfirmDialog

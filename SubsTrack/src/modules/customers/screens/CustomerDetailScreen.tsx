@@ -3,21 +3,33 @@ import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
+import { Ionicons } from '@expo/vector-icons';
 import { ConfirmDialog } from '@/src/shared/components/ConfirmDialog';
 import { ErrorBanner } from '@/src/shared/components/ErrorBanner';
 import type { MonthEntry } from '@/src/core/types';
-import { getCurrentYearMonth } from '@/src/core/utils/date';
+import { formatDate, getCurrentYearMonth } from '@/src/core/utils/date';
 import { useAuth } from '@/src/modules/auth/hooks/useAuth';
 import { MonthGrid } from '@/src/modules/payments/components/MonthGrid';
 import { PaymentDetailSheet } from '@/src/modules/payments/components/PaymentDetailSheet';
 import { PaymentFormSheet } from '@/src/modules/payments/components/PaymentFormSheet';
 import { VoidSheet } from '@/src/modules/payments/components/VoidSheet';
-import { YearNavigator } from '@/src/modules/payments/components/YearNavigator';
 import { usePaymentStore } from '@/src/modules/payments/store/paymentStore';
 import { CustomerFormSheet } from '../components/CustomerFormSheet';
 import { useCustomerStore } from '../store/customerStore';
 
 const DEFAULT_GRACE_DAYS = 0;
+
+const AVATAR_COLORS = ['#6366f1', '#ec4899', '#14b8a6', '#f97316', '#8b5cf6', '#22c55e', '#f59e0b', '#3b82f6'];
+
+function getAvatarColor(name: string): string {
+  return AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length];
+}
+
+function getInitials(name: string): string {
+  const parts = name.trim().split(' ');
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return name.slice(0, 2).toUpperCase();
+}
 
 export function CustomerDetailScreen() {
   const { t } = useTranslation();
@@ -26,7 +38,7 @@ export function CustomerDetailScreen() {
   const { isAdmin } = useAuth();
 
   const { selectedCustomer, loading: cLoading, error: cError, fetchCustomer, deactivateCustomer, reactivateCustomer, clearError: clearCError } = useCustomerStore();
-  const { monthGrid, loading: pLoading, error: pError, fetchPayments, updatePaymentAmount, loadingUpdate, clearError: clearPError, reset: resetPayments } = usePaymentStore();
+  const { monthGrid, payments, loading: pLoading, error: pError, fetchPayments, updatePaymentAmount, loadingUpdate, clearError: clearPError, reset: resetPayments } = usePaymentStore();
 
   const [year, setYear] = useState(getCurrentYearMonth().year);
   const [editVisible, setEditVisible] = useState(false);
@@ -63,13 +75,7 @@ export function CustomerDetailScreen() {
 
   async function handleEditAmount(newAmount: number) {
     if (!selectedEntry?.payment) return;
-    await updatePaymentAmount(
-      selectedEntry.payment.id,
-      newAmount,
-      customer!,
-      year,
-      DEFAULT_GRACE_DAYS,
-    );
+    await updatePaymentAmount(selectedEntry.payment.id, newAmount, customer!, year, DEFAULT_GRACE_DAYS);
     if (!usePaymentStore.getState().error) setDetailVisible(false);
   }
 
@@ -85,18 +91,49 @@ export function CustomerDetailScreen() {
 
   const customer = selectedCustomer;
 
+  // Current month unpaid banner
+  const { year: cy, month: cm } = getCurrentYearMonth();
+  const currentMonthEntry = monthGrid.find((m) => m.year === cy && m.month === cm);
+  const showUnpaidBanner = currentMonthEntry?.status === 'unpaid' && year === cy;
+  const daysIntoMonth = new Date().getDate();
+
+  // Year summary
+  const paidCount = monthGrid.filter((m) => m.status === 'paid').length;
+  const unpaidCount = monthGrid.filter((m) => m.status === 'unpaid').length;
+  const collectedTotal = payments
+    .filter((p) => !p.voidedAt && p.billingMonth.startsWith(String(year)))
+    .reduce((sum, p) => sum + p.amount, 0);
+
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
+      {/* Header */}
       <View className="flex-row items-center px-4 py-3 bg-white border-b border-gray-100">
-        <Pressable onPress={() => router.back()} className="me-3 py-1">
-          <Text className="text-primary font-medium text-base">{t('common.back')}</Text>
+        <Pressable onPress={() => router.back()} className="me-3 p-1">
+          <Ionicons name="chevron-back" size={22} color="#6366f1" />
         </Pressable>
-        <Text className="text-lg font-bold text-gray-900 flex-1" numberOfLines={1}>
-          {customer?.name ?? ''}
-        </Text>
+        {customer ? (
+          <View
+            className="w-10 h-10 rounded-xl items-center justify-center me-3"
+            style={{ backgroundColor: getAvatarColor(customer.name) + '22' }}
+          >
+            <Text className="text-sm font-bold" style={{ color: getAvatarColor(customer.name) }}>
+              {getInitials(customer.name)}
+            </Text>
+          </View>
+        ) : null}
+        <View className="flex-1">
+          <Text className="text-base font-bold text-gray-900" numberOfLines={1}>
+            {customer?.name ?? ''}
+          </Text>
+          {customer ? (
+            <Text className="text-xs text-gray-400">
+              {customer.plan?.name ?? 'No plan'} · since {new Date(customer.startDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+            </Text>
+          ) : null}
+        </View>
         {isAdmin ? (
-          <Pressable onPress={() => setEditVisible(true)} className="ms-2">
-            <Text className="text-primary font-medium text-sm">{t('common.edit')}</Text>
+          <Pressable onPress={() => setEditVisible(true)} className="ms-2 p-1">
+            <Ionicons name="ellipsis-horizontal" size={20} color="#6b7280" />
           </Pressable>
         ) : null}
       </View>
@@ -114,42 +151,32 @@ export function CustomerDetailScreen() {
         </View>
       ) : customer ? (
         <ScrollView className="flex-1">
-          <View className="bg-white mx-4 mt-4 rounded-lg p-4 border border-gray-100">
-            <View className="flex-row items-center justify-between mb-2">
-              <Text className="text-sm font-medium text-gray-500">{t('customers.plan_label')}</Text>
-              <Text className="text-sm text-gray-900">{customer.plan?.name ?? t('common.no_plan')}</Text>
-            </View>
-            {customer.phoneNumber ? (
-              <View className="flex-row items-center justify-between mb-2">
-                <Text className="text-sm font-medium text-gray-500">{t('customers.phone_label')}</Text>
-                <Text className="text-sm text-gray-900">{customer.phoneNumber}</Text>
-              </View>
-            ) : null}
-            {customer.address ? (
-              <View className="flex-row items-center justify-between mb-2">
-                <Text className="text-sm font-medium text-gray-500">{t('customers.address_label')}</Text>
-                <Text className="text-sm text-gray-900 flex-1 ms-4">{customer.address}</Text>
-              </View>
-            ) : null}
-            <View className="flex-row items-center justify-between">
-              <Text className="text-sm font-medium text-gray-500">{t('customers.status_label')}</Text>
-              <Pressable onPress={() => setToggleConfirmVisible(true)} className="flex-row items-center gap-2">
-                <View className={`w-2 h-2 rounded-full ${customer.active ? 'bg-success' : 'bg-gray-400'}`} />
-                <Text className={`text-sm font-medium ${customer.active ? 'text-success' : 'text-gray-500'}`}>
-                  {customer.active ? t('common.active') : t('common.inactive')}
+          {/* Year card */}
+          <View className="bg-white mx-4 mt-4 rounded-2xl border border-gray-100 overflow-hidden">
+            <View className="flex-row items-center justify-between px-4 pt-4 pb-2">
+              <View>
+                <Text className="text-2xl font-bold text-gray-900">{year}</Text>
+                <Text className="text-xs text-gray-400 mt-0.5">
+                  {paidCount} paid · {unpaidCount} unpaid · ${collectedTotal.toFixed(0)} collected
                 </Text>
-                <Text className="text-xs text-primary">{t('common.tap_to_change')}</Text>
-              </Pressable>
+              </View>
+              <View className="flex-row gap-2">
+                <Pressable
+                  onPress={() => setYear((y) => y - 1)}
+                  disabled={year <= new Date(customer.startDate).getFullYear()}
+                  className={`w-9 h-9 rounded-full items-center justify-center bg-gray-100 ${year <= new Date(customer.startDate).getFullYear() ? 'opacity-30' : ''}`}
+                >
+                  <Text className="text-gray-700 font-semibold text-base">‹</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => setYear((y) => y + 1)}
+                  className="w-9 h-9 rounded-full items-center justify-center bg-gray-100"
+                >
+                  <Text className="text-gray-700 font-semibold text-base">›</Text>
+                </Pressable>
+              </View>
             </View>
-          </View>
 
-          <View className="mx-4 mt-4 bg-white rounded-lg border border-gray-100 overflow-hidden">
-            <YearNavigator
-              year={year}
-              minYear={new Date(customer.startDate).getFullYear()}
-              onPrev={() => setYear((y) => y - 1)}
-              onNext={() => setYear((y) => y + 1)}
-            />
             {pLoading ? (
               <View className="h-40 items-center justify-center">
                 <ActivityIndicator color="#6366f1" />
@@ -159,17 +186,90 @@ export function CustomerDetailScreen() {
             )}
           </View>
 
+          {/* Unpaid banner */}
+          {showUnpaidBanner && currentMonthEntry ? (
+            <View className="mx-4 mt-3 bg-red-50 border border-red-200 rounded-2xl px-4 py-3 flex-row items-center">
+              <Text className="text-base me-2">⚠️</Text>
+              <View className="flex-1">
+                <Text className="text-sm font-semibold text-red-600">
+                  {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })} unpaid
+                </Text>
+                <Text className="text-xs text-gray-500 mt-0.5">
+                  {customer.plan?.price != null ? `$${customer.plan.price.toFixed(2)} due` : 'Amount due'} · {daysIntoMonth} days into the month
+                </Text>
+              </View>
+              <Pressable
+                onPress={() => handleCellPress(currentMonthEntry)}
+                className="bg-red-500 rounded-xl px-3 py-2 ms-2"
+              >
+                <Text className="text-white text-sm font-semibold">Collect</Text>
+              </Pressable>
+            </View>
+          ) : null}
+
+          {/* Details section */}
+          <View className="mx-4 mt-4">
+            <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2 px-1">Details</Text>
+            <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+              {customer.phoneNumber ? (
+                <View className="flex-row items-center justify-between px-4 py-3.5 border-b border-gray-100">
+                  <View className="flex-row items-center gap-3">
+                    <Ionicons name="call-outline" size={16} color="#9ca3af" />
+                    <Text className="text-sm text-gray-500">Phone</Text>
+                  </View>
+                  <Text className="text-sm font-semibold text-gray-900">{customer.phoneNumber}</Text>
+                </View>
+              ) : null}
+
+              {customer.address ? (
+                <View className="flex-row items-center justify-between px-4 py-3.5 border-b border-gray-100">
+                  <View className="flex-row items-center gap-3">
+                    <Ionicons name="location-outline" size={16} color="#9ca3af" />
+                    <Text className="text-sm text-gray-500">Address</Text>
+                  </View>
+                  <Text className="text-sm font-semibold text-gray-900 flex-1 ms-4 text-right" numberOfLines={2}>
+                    {customer.address}
+                  </Text>
+                </View>
+              ) : null}
+
+              <View className="flex-row items-center justify-between px-4 py-3.5 border-b border-gray-100">
+                <View className="flex-row items-center gap-3">
+                  <Ionicons name="calendar-outline" size={16} color="#9ca3af" />
+                  <Text className="text-sm text-gray-500">Started</Text>
+                </View>
+                <Text className="text-sm font-semibold text-gray-900">
+                  {formatDate(customer.startDate)}
+                </Text>
+              </View>
+
+              <Pressable
+                onPress={() => setToggleConfirmVisible(true)}
+                className="flex-row items-center justify-between px-4 py-3.5"
+              >
+                <View className="flex-row items-center gap-3">
+                  <View className={`w-4 h-4 rounded-full items-center justify-center ${customer.active ? 'bg-green-100' : 'bg-gray-100'}`}>
+                    <View className={`w-2 h-2 rounded-full ${customer.active ? 'bg-success' : 'bg-gray-400'}`} />
+                  </View>
+                  <Text className="text-sm text-gray-500">Status</Text>
+                </View>
+                <View className="flex-row items-center gap-1.5">
+                  <Text className={`text-sm font-semibold ${customer.active ? 'text-success' : 'text-gray-400'}`}>
+                    {customer.active ? 'Active' : 'Inactive'}
+                  </Text>
+                  <Text className="text-xs text-primary">(tap)</Text>
+                </View>
+              </Pressable>
+            </View>
+          </View>
+
           <View className="h-8" />
         </ScrollView>
       ) : null}
 
       {customer ? (
         <>
-          <CustomerFormSheet
-            visible={editVisible}
-            customer={customer}
-            onDismiss={() => setEditVisible(false)}
-          />
+          <CustomerFormSheet visible={editVisible} customer={customer} onDismiss={() => setEditVisible(false)} />
           <PaymentFormSheet
             visible={formVisible}
             entry={selectedEntry}

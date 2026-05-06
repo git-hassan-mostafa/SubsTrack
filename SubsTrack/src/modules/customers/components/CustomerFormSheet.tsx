@@ -27,7 +27,6 @@ export function CustomerFormSheet({ visible, customer, onDismiss }: Props) {
   const [address, setAddress] = useState('');
   const [planId, setPlanId] = useState<string | null>(null);
   const [startDate, setStartDate] = useState('');
-  const [planDropdownOpen, setPlanDropdownOpen] = useState(false);
 
   useEffect(() => {
     if (visible) {
@@ -65,12 +64,16 @@ export function CustomerFormSheet({ visible, customer, onDismiss }: Props) {
       onRequestClose={onDismiss}
     >
       <View className="flex-1 bg-white">
-        <View className="flex-row items-center justify-between px-6 py-4 border-b border-gray-100">
-          <Text className="text-lg font-semibold text-gray-900">
+        {/* Handle + header */}
+        <View className="items-center pt-3 pb-1">
+          <View className="w-10 h-1 rounded-full bg-gray-300" />
+        </View>
+        <View className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
+          <Text className="text-lg font-bold text-gray-900">
             {customer ? t('customers.edit_title') : t('customers.add_title')}
           </Text>
           <Pressable onPress={onDismiss}>
-            <Text className="text-primary font-medium">{t('common.cancel')}</Text>
+            <Text className="text-base text-gray-400">{t('common.cancel')}</Text>
           </Pressable>
         </View>
 
@@ -78,71 +81,81 @@ export function CustomerFormSheet({ visible, customer, onDismiss }: Props) {
           {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}
 
           <Input
-            label={t('customers.name_label')}
+            label="Full Name"
             value={name}
             onChangeText={setName}
             placeholder={t('customers.name_placeholder')}
             onFocus={clearError}
           />
-          <Input
-            label={t('customers.phone_optional')}
-            value={phone}
-            onChangeText={setPhone}
-            placeholder={t('customers.phone_placeholder')}
-            keyboardType="phone-pad"
-          />
-          <Input
-            label={t('customers.address_optional')}
-            value={address}
-            onChangeText={setAddress}
-            placeholder={t('customers.address_placeholder')}
-          />
 
-          {!customer ? (
-            <DatePickerInput
-              label={t('customers.start_date_label')}
-              value={startDate}
-              onChange={setStartDate}
-              placeholder={t('customers.start_date_placeholder')}
-            />
-          ) : null}
-
-          <Text className="text-sm font-medium text-gray-700 mb-1">{t('customers.plan_optional')}</Text>
-          <View className="mb-4">
-            <Pressable
-              onPress={() => setPlanDropdownOpen((v) => !v)}
-              className="border border-gray-300 rounded-lg px-4 py-3 bg-white flex-row items-center justify-between"
-            >
-              <Text className={`text-base ${planId ? 'text-gray-900' : 'text-gray-400'}`}>
-                {planId
-                  ? (plans.find((p: Plan) => p.id === planId)?.name ?? t('customers.select_plan'))
-                  : t('common.no_plan')}
-              </Text>
-              <Text className="text-gray-400">{planDropdownOpen ? '▲' : '▼'}</Text>
-            </Pressable>
-            {planDropdownOpen ? (
-              <View className="border border-gray-200 rounded-lg mt-1 bg-white overflow-hidden">
-                <Pressable
-                  onPress={() => { setPlanId(null); setPlanDropdownOpen(false); }}
-                  className={`px-4 py-3 border-b border-gray-100 ${planId === null ? 'bg-indigo-50' : ''}`}
-                >
-                  <Text className={`text-sm ${planId === null ? 'text-primary font-medium' : 'text-gray-600'}`}>
-                    {t('common.no_plan')}
-                  </Text>
-                </Pressable>
-                {plans.map((p: Plan, index: number) => (
-                  <Pressable
-                    key={p.id}
-                    onPress={() => { setPlanId(p.id); setPlanDropdownOpen(false); }}
-                    className={`px-4 py-3 ${index < plans.length - 1 ? 'border-b border-gray-100' : ''} ${planId === p.id ? 'bg-indigo-50' : ''}`}
-                  >
-                    <Text className={`text-sm ${planId === p.id ? 'text-primary font-medium' : 'text-gray-600'}`}>
-                      {p.name}
-                    </Text>
-                  </Pressable>
-                ))}
+          {/* Phone + Start Date side by side */}
+          <View className="flex-row gap-3">
+            <View className="flex-1">
+              <Input
+                label="Phone"
+                value={phone}
+                onChangeText={setPhone}
+                placeholder="+1 555 000 0000"
+                keyboardType="phone-pad"
+              />
+            </View>
+            {!customer ? (
+              <View className="flex-1">
+                <DatePickerInput
+                  label="Start Date"
+                  value={startDate}
+                  onChange={setStartDate}
+                  placeholder="YYYY-MM-DD"
+                />
               </View>
             ) : null}
+          </View>
+
+          <Input
+            label="Address"
+            value={address}
+            onChangeText={setAddress}
+            placeholder="Optional"
+          />
+
+          {/* Plan radio cards */}
+          <Text className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Plan</Text>
+          <View className="gap-2 mb-6">
+            {/* No plan option */}
+            <Pressable
+              onPress={() => setPlanId(null)}
+              className={`flex-row items-center border rounded-xl px-4 py-3.5 ${planId === null ? 'border-primary bg-indigo-50' : 'border-gray-200 bg-white'}`}
+            >
+              <View className={`w-5 h-5 rounded-full border-2 me-3 items-center justify-center ${planId === null ? 'border-primary' : 'border-gray-300'}`}>
+                {planId === null ? <View className="w-2.5 h-2.5 rounded-full bg-primary" /> : null}
+              </View>
+              <View>
+                <Text className={`text-base font-semibold ${planId === null ? 'text-primary' : 'text-gray-900'}`}>
+                  No plan
+                </Text>
+                <Text className="text-xs text-gray-400 mt-0.5">Custom amount each payment</Text>
+              </View>
+            </Pressable>
+
+            {plans.map((p: Plan) => (
+              <Pressable
+                key={p.id}
+                onPress={() => setPlanId(p.id)}
+                className={`flex-row items-center border rounded-xl px-4 py-3.5 ${planId === p.id ? 'border-primary bg-indigo-50' : 'border-gray-200 bg-white'}`}
+              >
+                <View className={`w-5 h-5 rounded-full border-2 me-3 items-center justify-center ${planId === p.id ? 'border-primary' : 'border-gray-300'}`}>
+                  {planId === p.id ? <View className="w-2.5 h-2.5 rounded-full bg-primary" /> : null}
+                </View>
+                <View>
+                  <Text className={`text-base font-semibold ${planId === p.id ? 'text-primary' : 'text-gray-900'}`}>
+                    {p.name}
+                  </Text>
+                  <Text className="text-xs text-gray-400 mt-0.5">
+                    {p.isCustomPrice ? 'Custom pricing' : `$${p.price} / month`}
+                  </Text>
+                </View>
+              </Pressable>
+            ))}
           </View>
 
           <Button
@@ -152,6 +165,7 @@ export function CustomerFormSheet({ visible, customer, onDismiss }: Props) {
             disabled={!name.trim() || (!customer && !startDate)}
             fullWidth
           />
+          <View className="h-4" />
         </ScrollView>
       </View>
     </Modal>

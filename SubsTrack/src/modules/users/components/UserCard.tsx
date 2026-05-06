@@ -6,25 +6,56 @@ interface Props {
   onEdit: (user: AppUser) => void;
 }
 
-const roleBadge: Record<string, string> = {
-  admin: 'bg-indigo-100 text-indigo-700',
-  user:  'bg-gray-100 text-gray-600',
+const AVATAR_COLORS = ['#6366f1', '#ec4899', '#14b8a6', '#f97316', '#8b5cf6', '#22c55e', '#f59e0b', '#3b82f6'];
+
+function getAvatarColor(name: string): string {
+  return AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length];
+}
+
+function getInitials(name: string): string {
+  const parts = name.trim().split(' ');
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return name.slice(0, 2).toUpperCase();
+}
+
+const roleBadgeStyle: Record<string, { bg: string; text: string; label: string }> = {
+  admin:      { bg: 'bg-indigo-100', text: 'text-indigo-700', label: 'Admin' },
+  user:       { bg: 'bg-gray-100',   text: 'text-gray-600',   label: 'Staff' },
+  superadmin: { bg: 'bg-purple-100', text: 'text-purple-700', label: 'Super' },
 };
 
 export function UserCard({ user, onEdit }: Props) {
+  const avatarColor = getAvatarColor(user.username);
+  const badge = roleBadgeStyle[user.role] ?? roleBadgeStyle.user;
+
   return (
     <Pressable
       onPress={() => onEdit(user)}
-      className="bg-white border border-gray-200 rounded-lg px-4 py-3 mb-3 flex-row items-center justify-between"
+      className="bg-white border border-gray-100 rounded-2xl px-4 py-3.5 mb-2.5 flex-row items-center"
     >
+      {/* Avatar */}
+      <View className="relative me-3">
+        <View
+          className="w-11 h-11 rounded-xl items-center justify-center"
+          style={{ backgroundColor: avatarColor + '22' }}
+        >
+          <Text className="text-sm font-bold" style={{ color: avatarColor }}>
+            {getInitials(user.username)}
+          </Text>
+        </View>
+      </View>
+
+      {/* Name + handle + phone */}
       <View className="flex-1">
         <Text className="text-base font-semibold text-gray-900">{user.username}</Text>
-        {user.phoneNumber ? (
-          <Text className="text-sm text-gray-500 mt-0.5">{user.phoneNumber}</Text>
-        ) : null}
+        <Text className="text-xs text-gray-400 mt-0.5">
+          @{user.username}{user.phoneNumber ? ` · ${user.phoneNumber}` : ''}
+        </Text>
       </View>
-      <View className={`rounded-full px-3 py-1 ${roleBadge[user.role] ?? 'bg-gray-100 text-gray-600'}`}>
-        <Text className="text-xs font-medium capitalize">{user.role}</Text>
+
+      {/* Role badge */}
+      <View className={`rounded-full px-3 py-1 ${badge.bg}`}>
+        <Text className={`text-xs font-semibold ${badge.text}`}>{badge.label}</Text>
       </View>
     </Pressable>
   );

@@ -1,7 +1,9 @@
-import { Alert, Pressable, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
+import { Ionicons } from '@expo/vector-icons';
 import { useLanguageStore, SUPPORTED_LANGUAGES, type SupportedLanguage } from '@/src/core/i18n/languageStore';
+import { useAuth } from '@/src/modules/auth/hooks/useAuth';
 import { useAuthStore } from '@/src/modules/auth/store/authStore';
 
 const LANGUAGE_LABELS: Record<SupportedLanguage, string> = {
@@ -9,10 +11,58 @@ const LANGUAGE_LABELS: Record<SupportedLanguage, string> = {
   ar: 'العربية',
 };
 
+const AVATAR_COLORS = ['#6366f1', '#ec4899', '#14b8a6', '#f97316', '#8b5cf6', '#22c55e', '#f59e0b', '#3b82f6'];
+
+function getAvatarColor(name: string): string {
+  return AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length];
+}
+
+function getInitials(name: string): string {
+  const parts = name.trim().split(' ');
+  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+  return name.slice(0, 2).toUpperCase();
+}
+
+function SettingsRow({
+  icon,
+  label,
+  value,
+  last,
+  onPress,
+  destructive,
+}: {
+  icon: string;
+  label: string;
+  value?: string;
+  last?: boolean;
+  onPress?: () => void;
+  destructive?: boolean;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      className={`flex-row items-center justify-between px-4 py-3.5 ${last ? '' : 'border-b border-gray-100'}`}
+    >
+      <View className="flex-row items-center gap-3">
+        <Ionicons name={icon as any} size={18} color={destructive ? '#ef4444' : '#6b7280'} />
+        <Text className={`text-sm font-medium ${destructive ? 'text-red-500' : 'text-gray-900'}`}>{label}</Text>
+      </View>
+      <View className="flex-row items-center gap-1">
+        {value ? <Text className="text-sm text-gray-400">{value}</Text> : null}
+        <Ionicons name="chevron-forward" size={14} color="#d1d5db" />
+      </View>
+    </Pressable>
+  );
+}
+
 export function SettingsScreen() {
   const { t } = useTranslation();
+  const { user } = useAuth();
   const { language, setLanguage } = useLanguageStore();
   const { logout } = useAuthStore();
+
+  const avatarColor = user ? getAvatarColor(user.username) : '#6366f1';
+  const initials = user ? getInitials(user.username) : '?';
 
   function handleLanguageSelect(lang: SupportedLanguage) {
     if (lang === language) return;
@@ -39,42 +89,83 @@ export function SettingsScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
-      <View className="px-4 py-4 bg-white border-b border-gray-100">
-        <Text className="text-xl font-bold text-gray-900">{t('settings.title')}</Text>
-      </View>
-
-      <View className="mt-6 mx-4">
-        <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">
-          {t('settings.language_section')}
-        </Text>
-        <View className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-          {SUPPORTED_LANGUAGES.map((lang, index) => (
-            <Pressable
-              key={lang}
-              onPress={() => handleLanguageSelect(lang)}
-              className={`flex-row items-center justify-between px-4 py-4 ${
-                index < SUPPORTED_LANGUAGES.length - 1 ? 'border-b border-gray-100' : ''
-              }`}
-            >
-              <Text className="text-base text-gray-900">{LANGUAGE_LABELS[lang]}</Text>
-              {lang === language ? (
-                <View className="w-5 h-5 rounded-full bg-primary items-center justify-center">
-                  <Text className="text-white text-xs font-bold">✓</Text>
-                </View>
-              ) : null}
-            </Pressable>
-          ))}
+      <ScrollView>
+        <View className="px-5 pt-5 pb-4">
+          <Text className="text-2xl font-bold text-gray-900">{t('settings.title')}</Text>
         </View>
-      </View>
 
-      <View className="mt-6 mx-4">
-        <Pressable
-          onPress={handleLogout}
-          className="bg-white rounded-lg border border-gray-200 px-4 py-4 flex-row items-center justify-center"
-        >
-          <Text className="text-base font-medium text-danger">{t('settings.logout')}</Text>
-        </Pressable>
-      </View>
+        {/* Profile card */}
+        {user ? (
+          <View className="mx-4 mb-5 bg-white rounded-2xl border border-gray-100 px-4 py-4 flex-row items-center">
+            <View
+              className="w-12 h-12 rounded-xl items-center justify-center me-3"
+              style={{ backgroundColor: avatarColor + '22' }}
+            >
+              <Text className="text-base font-bold" style={{ color: avatarColor }}>{initials}</Text>
+            </View>
+            <View className="flex-1">
+              <Text className="text-base font-semibold text-gray-900">{user.username}</Text>
+              <Text className="text-xs text-gray-400 mt-0.5 capitalize">
+                {user.role} · {user.tenantId}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={16} color="#d1d5db" />
+          </View>
+        ) : null}
+
+        {/* Preferences */}
+        <View className="mx-4 mb-5">
+          <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2 px-1">Preferences</Text>
+          <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+            {SUPPORTED_LANGUAGES.map((lang, index) => (
+              <Pressable
+                key={lang}
+                onPress={() => handleLanguageSelect(lang)}
+                className={`flex-row items-center justify-between px-4 py-3.5 ${index < SUPPORTED_LANGUAGES.length - 1 ? 'border-b border-gray-100' : ''}`}
+              >
+                <View className="flex-row items-center gap-3">
+                  <Ionicons name="globe-outline" size={18} color="#6b7280" />
+                  <Text className="text-sm font-medium text-gray-900">Language</Text>
+                </View>
+                <View className="flex-row items-center gap-1">
+                  <Text className="text-sm text-gray-400">{LANGUAGE_LABELS[lang]}</Text>
+                  {lang === language ? (
+                    <View className="w-4 h-4 rounded-full bg-primary items-center justify-center ms-1">
+                      <Text className="text-white text-[9px] font-bold">✓</Text>
+                    </View>
+                  ) : (
+                    <Ionicons name="chevron-forward" size={14} color="#d1d5db" />
+                  )}
+                </View>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+
+        {/* Workspace */}
+        <View className="mx-4 mb-5">
+          <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2 px-1">Workspace</Text>
+          <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+            <SettingsRow icon="grid-outline" label="Workspace ID" value={user?.tenantId} />
+            <SettingsRow icon="lock-closed-outline" label="Privacy & data" last />
+          </View>
+        </View>
+
+        {/* Support */}
+        <View className="mx-4 mb-5">
+          <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2 px-1">Support</Text>
+          <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+            <SettingsRow icon="help-circle-outline" label="Help center" last />
+          </View>
+        </View>
+
+        {/* Logout */}
+        <View className="mx-4 mb-8">
+          <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+            <SettingsRow icon="log-out-outline" label={t('settings.logout')} last onPress={handleLogout} destructive />
+          </View>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }

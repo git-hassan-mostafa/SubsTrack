@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { Button } from '@/src/shared/components/Button';
 import { ConfirmDialog } from '@/src/shared/components/ConfirmDialog';
 import { ErrorBanner } from '@/src/shared/components/ErrorBanner';
 import { Input } from '@/src/shared/components/Input';
@@ -42,6 +41,7 @@ export function VoidSheet({ visible, entry, customer, year, graceDays, onDismiss
   }
 
   const monthLabel = entry?.label ? t(`months.${entry.label}`) : '';
+  const monthYear = `${monthLabel} ${entry?.year ?? ''}`.trim();
 
   return (
     <>
@@ -52,22 +52,31 @@ export function VoidSheet({ visible, entry, customer, year, graceDays, onDismiss
         onRequestClose={handleDismiss}
       >
         <View className="flex-1 bg-white">
-          <View className="flex-row items-center justify-between px-6 py-4 border-b border-gray-100">
-            <Text className="text-lg font-semibold text-gray-900">{t('payments.void_payment')}</Text>
+          {/* Handle + header */}
+          <View className="items-center pt-3 pb-1">
+            <View className="w-10 h-1 rounded-full bg-gray-300" />
+          </View>
+          <View className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
+            <Text className="text-lg font-bold text-red-500">{t('payments.void_payment')}</Text>
             <Pressable onPress={handleDismiss}>
-              <Text className="text-primary font-medium">{t('common.cancel')}</Text>
+              <Text className="text-base text-gray-400">{t('common.cancel')}</Text>
             </Pressable>
           </View>
 
-          <ScrollView className="flex-1 px-6 pt-6" keyboardShouldPersistTaps="handled">
+          <ScrollView className="flex-1 px-6 pt-5" keyboardShouldPersistTaps="handled">
             {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}
 
-            <Text className="text-sm text-gray-600 mb-6">
-              {t('payments.void_description', { month: monthLabel, year: entry?.year ?? '' })}
-            </Text>
+            {/* Warning banner */}
+            <View className="bg-red-50 border border-red-200 rounded-2xl px-4 py-3.5 flex-row items-start gap-3 mb-6">
+              <Text className="text-lg mt-0.5">⚠️</Text>
+              <Text className="text-sm text-gray-700 flex-1 leading-5">
+                <Text className="font-bold text-gray-900">{monthYear}</Text>
+                {' '}will be marked unpaid. The original record stays in the audit log — voids cannot be undone.
+              </Text>
+            </View>
 
             <Input
-              label={t('payments.void_reason_label')}
+              label="Reason (Required)"
               value={reason}
               onChangeText={setReason}
               placeholder={t('payments.void_reason_placeholder')}
@@ -76,14 +85,26 @@ export function VoidSheet({ visible, entry, customer, year, graceDays, onDismiss
               onFocus={clearError}
             />
 
-            <Button
-              label={t('payments.void_payment')}
+            {/* Void button */}
+            <Pressable
               onPress={() => setConfirmVisible(true)}
-              variant="danger"
-              loading={loadingVoid}
-              disabled={!reason.trim()}
-              fullWidth
-            />
+              disabled={!reason.trim() || loadingVoid}
+              className={`rounded-xl py-3.5 items-center mb-3 ${!reason.trim() || loadingVoid ? 'opacity-50 bg-red-400' : 'bg-red-500'}`}
+            >
+              <Text className="text-white font-semibold text-base">
+                {loadingVoid ? '...' : t('payments.void_payment')}
+              </Text>
+            </Pressable>
+
+            {/* Cancel button */}
+            <Pressable
+              onPress={handleDismiss}
+              className="border border-gray-200 rounded-xl py-3.5 items-center"
+            >
+              <Text className="text-primary font-semibold text-base">{t('common.cancel')}</Text>
+            </Pressable>
+
+            <View className="h-4" />
           </ScrollView>
         </View>
       </Modal>

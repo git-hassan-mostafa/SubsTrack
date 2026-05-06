@@ -9,7 +9,7 @@ interface Props {
 
 export function MonthGrid({ months, onCellPress }: Props) {
   return (
-    <View className="flex-row flex-wrap">
+    <View className="flex-row flex-wrap px-1 pb-2">
       {months.map((entry) => (
         <MonthCell key={entry.billingMonth} entry={entry} onPress={onCellPress} />
       ))}

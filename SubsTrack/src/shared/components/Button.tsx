@@ -25,7 +25,7 @@ export function Button({ label, onPress, variant = 'primary', loading, disabled,
     <Pressable
       onPress={onPress}
       disabled={isDisabled}
-      className={`rounded-lg py-3 px-6 items-center justify-center ${styles.container} ${fullWidth ? 'w-full' : ''} ${isDisabled ? 'opacity-50' : ''}`}
+      className={`rounded-xl py-3.5 px-6 items-center justify-center ${styles.container} ${fullWidth ? 'w-full' : ''} ${isDisabled ? 'opacity-50' : ''}`}
     >
       {loading ? (
         <ActivityIndicator color={variant === 'ghost' ? '#374151' : '#ffffff'} size="small" />
