@@ -1,13 +1,17 @@
-import { create } from 'zustand';
-import type { AuthUser } from '@/src/core/types';
-import { AuthService } from '../services/AuthService';
+import { create } from "zustand";
+import type { AuthUser } from "@/src/core/types";
+import { AuthService } from "../services/AuthService";
 
 interface AuthState {
   user: AuthUser | null;
   tenantActive: boolean;
   loading: boolean;
   error: string | null;
-  login: (username: string, tenantId: string, password: string) => Promise<void>;
+  login: (
+    username: string,
+    tenantName: string,
+    password: string,
+  ) => Promise<void>;
   restoreSession: () => Promise<void>;
   logout: () => Promise<void>;
   clearError: () => void;
@@ -21,11 +25,15 @@ export const useAuthStore = create<AuthState>((set) => ({
   loading: true, // starts true — app waits for restoreSession before routing
   error: null,
 
-  login: async (username, tenantId, password) => {
+  login: async (username, tenantName, password) => {
     set({ loading: true, error: null });
     try {
-      const result = await authService.login(username, tenantId, password);
-      set({ user: result.user, tenantActive: result.tenantActive, loading: false });
+      const result = await authService.login(username, tenantName, password);
+      set({
+        user: result.user,
+        tenantActive: result.tenantActive,
+        loading: false,
+      });
     } catch (e) {
       set({ error: (e as Error).message, loading: false });
     }
@@ -34,7 +42,11 @@ export const useAuthStore = create<AuthState>((set) => ({
   restoreSession: async () => {
     try {
       const result = await authService.restoreSession();
-      set({ user: result?.user ?? null, tenantActive: result?.tenantActive ?? true, loading: false });
+      set({
+        user: result?.user ?? null,
+        tenantActive: result?.tenantActive ?? true,
+        loading: false,
+      });
     } catch {
       set({ user: null, tenantActive: true, loading: false });
     }

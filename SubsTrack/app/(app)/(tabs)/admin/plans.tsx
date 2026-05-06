@@ -1,3 +1,5 @@
-import { PlanListScreen } from '@/src/modules/plans/screens/PlanListScreen';
+import { PlanListScreen } from "@/src/modules/plans/screens/PlanListScreen";
 
-export default PlanListScreen;
+export default function Index() {
+  return <PlanListScreen />;
+}
