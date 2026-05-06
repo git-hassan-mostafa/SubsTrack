@@ -26,7 +26,7 @@ export function CustomerDetailScreen() {
   const { isAdmin } = useAuth();
 
   const { selectedCustomer, loading: cLoading, error: cError, fetchCustomer, deactivateCustomer, reactivateCustomer, clearError: clearCError } = useCustomerStore();
-  const { monthGrid, loading: pLoading, error: pError, fetchPayments, clearError: clearPError, reset: resetPayments } = usePaymentStore();
+  const { monthGrid, loading: pLoading, error: pError, fetchPayments, updatePaymentAmount, loadingUpdate, clearError: clearPError, reset: resetPayments } = usePaymentStore();
 
   const [year, setYear] = useState(getCurrentYearMonth().year);
   const [editVisible, setEditVisible] = useState(false);
@@ -59,6 +59,18 @@ export function CustomerDetailScreen() {
   function handleVoidPress() {
     setDetailVisible(false);
     setVoidVisible(true);
+  }
+
+  async function handleEditAmount(newAmount: number) {
+    if (!selectedEntry?.payment) return;
+    await updatePaymentAmount(
+      selectedEntry.payment.id,
+      newAmount,
+      customer!,
+      year,
+      DEFAULT_GRACE_DAYS,
+    );
+    if (!usePaymentStore.getState().error) setDetailVisible(false);
   }
 
   async function handleToggleActiveConfirmed() {
@@ -168,7 +180,9 @@ export function CustomerDetailScreen() {
           <PaymentDetailSheet
             visible={detailVisible}
             entry={selectedEntry}
-            onVoid={isAdmin ? handleVoidPress : undefined}
+            onVoid={handleVoidPress}
+            onEdit={(!customer.plan || customer.plan.isCustomPrice) ? handleEditAmount : undefined}
+            editLoading={loadingUpdate}
             onDismiss={() => setDetailVisible(false)}
           />
           <VoidSheet

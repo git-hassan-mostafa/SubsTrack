@@ -19,10 +19,10 @@
   "auth": {
     "title": "SubsTrack",
     "subtitle": "سجّل الدخول إلى مساحة عملك",
-    "workspace_id": "معرّف المساحة",
+    "workspace_id": "كود المساحة",
     "username": "اسم المستخدم",
     "password": "كلمة المرور",
-    "workspace_id_placeholder": "معرف-مساحتك",
+    "workspace_id_placeholder": "كود-مساحتك",
     "username_placeholder": "اسم المستخدم",
     "password_placeholder": "••••••••",
     "sign_in": "تسجيل الدخول",
@@ -57,8 +57,9 @@
     "address_optional": "العنوان (اختياري)",
     "address_placeholder": "عنوان الشارع",
     "start_date_label": "تاريخ البداية",
-    "start_date_placeholder": "YYYY-MM-DD",
+    "start_date_placeholder": "اختر تاريخ البداية",
     "plan_optional": "الخطة (اختيارية)",
+    "select_plan": "اختر خطة...",
     "deactivate_title": "تعطيل العميل",
     "deactivate_message": "هل أنت متأكد من تعطيل {{name}}؟ سيُحدَّد كغير نشط.",
     "reactivate_title": "إعادة تفعيل العميل",
@@ -111,7 +112,9 @@
     "void_confirm_message": "سيُحوَّل {{month}} {{year}} إلى غير مدفوع. ستظل الدفعة الأصلية في السجلات.",
     "void_confirm_label": "إبطال",
     "paid_on": "تاريخ الدفع",
-    "notes": "ملاحظات"
+    "notes": "ملاحظات",
+    "inactive_customer_future": "لا يمكن تسجيل دفعات مستقبلية لعملاء غير نشطين",
+    "edit_amount": "تعديل المبلغ"
   },
   "months": {
     "jan": "يناير",
@@ -128,14 +131,20 @@
     "dec": "ديسمبر"
   },
   "admin": {
-    "title": "الإدارة"
+    "title": "الإدارة",
+    "tenants_title": "المستأجرون",
+    "tenant_code_label": "كود المستأجر",
+    "tenant_code_placeholder": "مثال: mycompany",
+    "tenant_code_hint": "أحرف إنجليزية وأرقام فقط، بدون مسافات"
   },
   "settings": {
     "title": "الإعدادات",
     "language_section": "اللغة",
     "english": "English",
     "arabic": "العربية",
-    "restart_notice": "سيُعاد تشغيل التطبيق لتطبيق اللغة الجديدة."
+    "restart_notice": "سيُعاد تشغيل التطبيق لتطبيق اللغة الجديدة.",
+    "logout": "تسجيل الخروج",
+    "logout_confirm": "هل أنت متأكد من تسجيل الخروج؟"
   },
   "tenant_inactive": {
     "title": "المنظمة موقوفة",

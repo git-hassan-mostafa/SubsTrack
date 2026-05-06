@@ -82,8 +82,21 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Construct synthetic email matching the login convention
-    const email = `${username}@${tenantId}.subs`;
+    // Look up tenant_code to build email matching the login convention
+    const { data: tenant, error: tenantErr } = await serviceClient
+      .from('tenants')
+      .select('tenant_code')
+      .eq('id', tenantId)
+      .single();
+    if (tenantErr || !tenant?.tenant_code) {
+      return new Response(JSON.stringify({ error: 'Tenant not found or missing tenant_code' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Construct synthetic email matching the login convention: username@tenantcode.subs
+    const email = `${username}@${tenant.tenant_code}.subs`;
 
     // Create auth user
     const { data: authData, error: authErr } = await serviceClient.auth.admin.createUser({

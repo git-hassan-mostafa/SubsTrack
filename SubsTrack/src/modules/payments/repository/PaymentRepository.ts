@@ -34,6 +34,18 @@ export class PaymentRepository extends BaseRepository {
     return data as DbPayment;
   }
 
+  async updateAmount(id: string, amount: number): Promise<DbPayment> {
+    const { data, error } = await this.db
+      .from('payments')
+      .update({ amount })
+      .eq('id', id)
+      .is('voided_at', null)
+      .select()
+      .single();
+    if (error) this.handleError(error);
+    return data as DbPayment;
+  }
+
   async voidPayment(id: string, voidedBy: string, notes: string): Promise<DbPayment> {
     const { data, error } = await this.db
       .from('payments')

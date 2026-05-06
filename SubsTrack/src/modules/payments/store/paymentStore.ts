@@ -17,9 +17,11 @@ interface PaymentsState {
   loading: boolean;
   loadingCreate: boolean;
   loadingVoid: boolean;
+  loadingUpdate: boolean;
   error: string | null;
   fetchPayments: (customerId: string, year: number, customer: Customer, graceDays: number) => Promise<void>;
   createPayment: (data: CreatePaymentInput, customer: Customer, graceDays: number) => Promise<void>;
+  updatePaymentAmount: (id: string, amount: number, customer: Customer, year: number, graceDays: number) => Promise<void>;
   voidPayment: (id: string, voidedBy: string, notes: string, customer: Customer, year: number, graceDays: number) => Promise<void>;
   clearError: () => void;
   reset: () => void;
@@ -33,6 +35,7 @@ export const usePaymentStore = create<PaymentsState>((set, get) => ({
   loading: false,
   loadingCreate: false,
   loadingVoid: false,
+  loadingUpdate: false,
   error: null,
 
   fetchPayments: async (customerId, year, customer, graceDays) => {
@@ -63,6 +66,19 @@ export const usePaymentStore = create<PaymentsState>((set, get) => ({
     }
   },
 
+  updatePaymentAmount: async (id, amount, customer, year, graceDays) => {
+    if (get().loadingUpdate) return;
+    set({ loadingUpdate: true, error: null });
+    try {
+      const updated = await paymentService.updatePaymentAmount(id, amount);
+      const payments = get().payments.map((p) => p.id === id ? updated : p);
+      const monthGrid = paymentService.buildMonthGrid(customer, payments, year, graceDays);
+      set({ payments, monthGrid, loadingUpdate: false });
+    } catch (e) {
+      set({ error: (e as Error).message, loadingUpdate: false });
+    }
+  },
+
   voidPayment: async (id, voidedBy, notes, customer, year, graceDays) => {
     if (get().loadingVoid) return;
     set({ loadingVoid: true, error: null });
@@ -79,5 +95,5 @@ export const usePaymentStore = create<PaymentsState>((set, get) => ({
 
   clearError: () => set({ error: null }),
 
-  reset: () => set({ payments: [], monthGrid: [], loading: false, loadingCreate: false, loadingVoid: false, error: null }),
+  reset: () => set({ payments: [], monthGrid: [], loading: false, loadingCreate: false, loadingVoid: false, loadingUpdate: false, error: null }),
 }));

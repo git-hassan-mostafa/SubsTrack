@@ -10,10 +10,12 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS tenants (
-    id         UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name       TEXT        NOT NULL UNIQUE,
-    active     BOOLEAN     NOT NULL DEFAULT TRUE,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    id          UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name        TEXT        NOT NULL UNIQUE,
+    tenant_code TEXT        NOT NULL UNIQUE
+                            CHECK (tenant_code ~ '^[a-z0-9]+$'),
+    active      BOOLEAN     NOT NULL DEFAULT TRUE,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- ============================================================

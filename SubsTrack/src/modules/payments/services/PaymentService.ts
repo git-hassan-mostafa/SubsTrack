@@ -67,6 +67,12 @@ export class PaymentService {
     }
   }
 
+  async updatePaymentAmount(id: string, amount: number): Promise<Payment> {
+    if (amount <= 0) throw new Error('Amount must be greater than 0');
+    const row = await this.repository.updateAmount(id, amount);
+    return mapDbPaymentToPayment(row);
+  }
+
   async voidPayment(id: string, voidedBy: string, notes: string): Promise<Payment> {
     if (!notes.trim()) throw new Error('A reason is required to void a payment');
     const row = await this.repository.voidPayment(id, voidedBy, notes.trim());

@@ -21,14 +21,14 @@ export class AuthService {
 
   async login(
     username: string,
-    tenantName: string,
+    tenantCode: string,
     password: string,
   ): Promise<AuthResult> {
     if (!username.trim()) throw new Error("Username is required");
-    if (!tenantName.trim()) throw new Error("Tenant ID is required");
+    if (!tenantCode.trim()) throw new Error("Tenant code is required");
     if (!password) throw new Error("Password is required");
 
-    const email = `${username.trim().toLowerCase()}@${tenantName.trim().toLowerCase()}.subs`;
+    const email = `${username.trim().toLowerCase()}@${tenantCode.trim().toLowerCase()}.subs`;
 
     let session;
     try {

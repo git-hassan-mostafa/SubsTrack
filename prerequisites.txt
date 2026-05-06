@@ -1,0 +1,2 @@
+run sql script from ./script.sql
+run supabase functions deploy create-user

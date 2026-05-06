@@ -5,7 +5,7 @@ import { Button } from '@/src/shared/components/Button';
 import { ErrorBanner } from '@/src/shared/components/ErrorBanner';
 import { Input } from '@/src/shared/components/Input';
 import type { Customer, MonthEntry } from '@/src/core/types';
-import { formatCurrency } from '@/src/core/utils/date';
+import { formatCurrency, getCurrentYearMonth } from '@/src/core/utils/date';
 import { useAuth } from '@/src/modules/auth/hooks/useAuth';
 import { usePaymentStore } from '../store/paymentStore';
 
@@ -32,6 +32,12 @@ export function PaymentFormSheet({ visible, entry, customer, graceDays, onDismis
   const isFixedPlan = !!plan && !plan.isCustomPrice;
   const isCustomOrNoPlan = !plan || plan.isCustomPrice;
 
+  // Block future months for inactive customers
+  const { year: cy, month: cm } = getCurrentYearMonth();
+  const isFutureMonth = entry.year > cy || (entry.year === cy && entry.month > cm);
+  const blockedForInactive = !customer.active && isFutureMonth;
+
+  // Fixed-price plans: amount is always the plan price, no override allowed
   const resolvedAmount = (() => {
     if (isFixedPlan && !isOverrideEnabled) return plan!.price!;
     if (isFixedPlan && isOverrideEnabled && amountMode === 'plan') return plan!.price!;
@@ -39,7 +45,7 @@ export function PaymentFormSheet({ visible, entry, customer, graceDays, onDismis
     return isNaN(v) ? null : v;
   })();
 
-  const canSubmit = resolvedAmount !== null && resolvedAmount > 0 && !loadingCreate;
+  const canSubmit = resolvedAmount !== null && resolvedAmount > 0 && !loadingCreate && !blockedForInactive;
 
   async function handleSubmit() {
     if (!user || !canSubmit || loadingCreate) return;
@@ -90,6 +96,11 @@ export function PaymentFormSheet({ visible, entry, customer, graceDays, onDismis
 
         <ScrollView className="flex-1 px-6 pt-6" keyboardShouldPersistTaps="handled">
           {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}
+          {blockedForInactive ? (
+            <View className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-4">
+              <Text className="text-sm text-amber-700">{t('payments.inactive_customer_future')}</Text>
+            </View>
+          ) : null}
 
           <Text className="text-sm text-gray-500 mb-1">{t('payments.month_label')}</Text>
           <Text className="text-base font-semibold text-gray-900 mb-6">

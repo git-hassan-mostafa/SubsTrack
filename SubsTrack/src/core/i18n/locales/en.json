@@ -19,10 +19,10 @@
   "auth": {
     "title": "SubsTrack",
     "subtitle": "Sign in to your workspace",
-    "workspace_id": "Workspace ID",
+    "workspace_id": "Workspace Code",
     "username": "Username",
     "password": "Password",
-    "workspace_id_placeholder": "your-workspace-id",
+    "workspace_id_placeholder": "your-workspace-code",
     "username_placeholder": "username",
     "password_placeholder": "••••••••",
     "sign_in": "Sign In",
@@ -57,8 +57,9 @@
     "address_optional": "Address (optional)",
     "address_placeholder": "Street address",
     "start_date_label": "Start Date",
-    "start_date_placeholder": "YYYY-MM-DD",
+    "start_date_placeholder": "Select start date",
     "plan_optional": "Plan (optional)",
+    "select_plan": "Select a plan...",
     "deactivate_title": "Deactivate Customer",
     "deactivate_message": "Are you sure you want to deactivate {{name}}? They will be marked as inactive.",
     "reactivate_title": "Reactivate Customer",
@@ -111,7 +112,9 @@
     "void_confirm_message": "This will mark {{month}} {{year}} as unpaid. The original payment will be retained in records.",
     "void_confirm_label": "Void",
     "paid_on": "Paid on",
-    "notes": "Notes"
+    "notes": "Notes",
+    "inactive_customer_future": "Cannot record future payments for inactive customers",
+    "edit_amount": "Edit Amount"
   },
   "months": {
     "jan": "Jan",
@@ -128,14 +131,20 @@
     "dec": "Dec"
   },
   "admin": {
-    "title": "Admin"
+    "title": "Admin",
+    "tenants_title": "Tenants",
+    "tenant_code_label": "Tenant Code",
+    "tenant_code_placeholder": "e.g. mycompany",
+    "tenant_code_hint": "Lowercase letters and numbers only, no spaces"
   },
   "settings": {
     "title": "Settings",
     "language_section": "Language",
     "english": "English",
     "arabic": "Arabic",
-    "restart_notice": "The app will restart to apply the new language."
+    "restart_notice": "The app will restart to apply the new language.",
+    "logout": "Log Out",
+    "logout_confirm": "Are you sure you want to log out?"
   },
   "tenant_inactive": {
     "title": "Organization Deactivated",

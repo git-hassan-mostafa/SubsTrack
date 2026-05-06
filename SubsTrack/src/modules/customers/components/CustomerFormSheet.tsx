@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react';
 import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/src/shared/components/Button';
+import { DatePickerInput } from '@/src/shared/components/DatePickerInput';
 import { ErrorBanner } from '@/src/shared/components/ErrorBanner';
 import { Input } from '@/src/shared/components/Input';
-import type { Customer } from '@/src/core/types';
+import type { Customer, Plan } from '@/src/core/types';
 import { useAuth } from '@/src/modules/auth/hooks/useAuth';
 import { usePlanStore } from '@/src/modules/plans/store/planStore';
 import { useCustomerStore } from '../store/customerStore';
@@ -26,6 +27,7 @@ export function CustomerFormSheet({ visible, customer, onDismiss }: Props) {
   const [address, setAddress] = useState('');
   const [planId, setPlanId] = useState<string | null>(null);
   const [startDate, setStartDate] = useState('');
+  const [planDropdownOpen, setPlanDropdownOpen] = useState(false);
 
   useEffect(() => {
     if (visible) {
@@ -97,36 +99,50 @@ export function CustomerFormSheet({ visible, customer, onDismiss }: Props) {
           />
 
           {!customer ? (
-            <Input
+            <DatePickerInput
               label={t('customers.start_date_label')}
               value={startDate}
-              onChangeText={setStartDate}
+              onChange={setStartDate}
               placeholder={t('customers.start_date_placeholder')}
-              onFocus={clearError}
             />
           ) : null}
 
-          <Text className="text-sm font-medium text-gray-700 mb-2">{t('customers.plan_optional')}</Text>
-          <View className="mb-4 gap-2">
+          <Text className="text-sm font-medium text-gray-700 mb-1">{t('customers.plan_optional')}</Text>
+          <View className="mb-4">
             <Pressable
-              onPress={() => setPlanId(null)}
-              className={`border rounded-lg px-4 py-3 ${planId === null ? 'border-primary bg-indigo-50' : 'border-gray-200'}`}
+              onPress={() => setPlanDropdownOpen((v) => !v)}
+              className="border border-gray-300 rounded-lg px-4 py-3 bg-white flex-row items-center justify-between"
             >
-              <Text className={`text-sm ${planId === null ? 'text-primary font-medium' : 'text-gray-600'}`}>
-                {t('common.no_plan')}
+              <Text className={`text-base ${planId ? 'text-gray-900' : 'text-gray-400'}`}>
+                {planId
+                  ? (plans.find((p: Plan) => p.id === planId)?.name ?? t('customers.select_plan'))
+                  : t('common.no_plan')}
               </Text>
+              <Text className="text-gray-400">{planDropdownOpen ? '▲' : '▼'}</Text>
             </Pressable>
-            {plans.map((p) => (
-              <Pressable
-                key={p.id}
-                onPress={() => setPlanId(p.id)}
-                className={`border rounded-lg px-4 py-3 ${planId === p.id ? 'border-primary bg-indigo-50' : 'border-gray-200'}`}
-              >
-                <Text className={`text-sm ${planId === p.id ? 'text-primary font-medium' : 'text-gray-600'}`}>
-                  {p.name}
-                </Text>
-              </Pressable>
-            ))}
+            {planDropdownOpen ? (
+              <View className="border border-gray-200 rounded-lg mt-1 bg-white overflow-hidden">
+                <Pressable
+                  onPress={() => { setPlanId(null); setPlanDropdownOpen(false); }}
+                  className={`px-4 py-3 border-b border-gray-100 ${planId === null ? 'bg-indigo-50' : ''}`}
+                >
+                  <Text className={`text-sm ${planId === null ? 'text-primary font-medium' : 'text-gray-600'}`}>
+                    {t('common.no_plan')}
+                  </Text>
+                </Pressable>
+                {plans.map((p: Plan, index: number) => (
+                  <Pressable
+                    key={p.id}
+                    onPress={() => { setPlanId(p.id); setPlanDropdownOpen(false); }}
+                    className={`px-4 py-3 ${index < plans.length - 1 ? 'border-b border-gray-100' : ''} ${planId === p.id ? 'bg-indigo-50' : ''}`}
+                  >
+                    <Text className={`text-sm ${planId === p.id ? 'text-primary font-medium' : 'text-gray-600'}`}>
+                      {p.name}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            ) : null}
           </View>
 
           <Button

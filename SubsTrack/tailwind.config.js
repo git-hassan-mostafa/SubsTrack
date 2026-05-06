@@ -12,6 +12,9 @@ module.exports = {
         success: '#22c55e',
         danger: '#ef4444',
       },
+      fontFamily: {
+        cairo: ['Cairo', 'System'],
+      },
     },
   },
   plugins: [],

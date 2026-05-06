@@ -51,6 +51,19 @@ export class AuthRepository {
     return data as DbTenant;
   }
 
+  async getTenantByCode(tenantCode: string): Promise<DbTenant | null> {
+    const { data, error } = await supabase
+      .from("tenants")
+      .select("*")
+      .eq("tenant_code", tenantCode.trim().toLowerCase())
+      .single();
+    if (error) {
+      if (error.code === "PGRST116") return null;
+      throw new Error(error.message);
+    }
+    return data as DbTenant;
+  }
+
   onAuthStateChange(
     callback: Parameters<typeof supabase.auth.onAuthStateChange>[0],
   ) {

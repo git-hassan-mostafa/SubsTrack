@@ -2,6 +2,7 @@ import { Alert, Pressable, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { useLanguageStore, SUPPORTED_LANGUAGES, type SupportedLanguage } from '@/src/core/i18n/languageStore';
+import { useAuthStore } from '@/src/modules/auth/store/authStore';
 
 const LANGUAGE_LABELS: Record<SupportedLanguage, string> = {
   en: 'English',
@@ -11,6 +12,7 @@ const LANGUAGE_LABELS: Record<SupportedLanguage, string> = {
 export function SettingsScreen() {
   const { t } = useTranslation();
   const { language, setLanguage } = useLanguageStore();
+  const { logout } = useAuthStore();
 
   function handleLanguageSelect(lang: SupportedLanguage) {
     if (lang === language) return;
@@ -20,6 +22,17 @@ export function SettingsScreen() {
       [
         { text: t('common.cancel'), style: 'cancel' },
         { text: 'OK', onPress: () => setLanguage(lang) },
+      ],
+    );
+  }
+
+  function handleLogout() {
+    Alert.alert(
+      t('settings.logout'),
+      t('settings.logout_confirm'),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        { text: t('settings.logout'), style: 'destructive', onPress: () => logout() },
       ],
     );
   }
@@ -52,6 +65,15 @@ export function SettingsScreen() {
             </Pressable>
           ))}
         </View>
+      </View>
+
+      <View className="mt-6 mx-4">
+        <Pressable
+          onPress={handleLogout}
+          className="bg-white rounded-lg border border-gray-200 px-4 py-4 flex-row items-center justify-center"
+        >
+          <Text className="text-base font-medium text-danger">{t('settings.logout')}</Text>
+        </Pressable>
       </View>
     </SafeAreaView>
   );
