@@ -33,6 +33,7 @@ export class AuthRepository {
     if (error) {
       // PGRST116 = no rows found — not a real error
       if (error.code === "PGRST116") return null;
+      console.log("error ", error);
       throw new Error(error.message);
     }
     return data as DbUser;

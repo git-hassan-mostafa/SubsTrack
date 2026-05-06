@@ -4,6 +4,7 @@
 export interface DbTenant {
   id: string;
   name: string;
+  tenant_code: string;
   active: boolean;
   created_at: string;
 }

@@ -279,12 +279,6 @@ RETURNS UUID AS $$
     SELECT (auth.jwt() ->> 'tenant_id')::uuid;
 $$ LANGUAGE SQL STABLE SECURITY DEFINER;
 
--- Helper: returns true if the current user has the given role
-CREATE OR REPLACE FUNCTION current_user_role()
-RETURNS TEXT AS $$
-    SELECT role FROM public.users WHERE id = auth.uid();
-$$ LANGUAGE SQL STABLE SECURITY DEFINER;
-
 -- ============================================================
 -- CUSTOM ACCESS TOKEN HOOK
 -- Injects tenant_id into the JWT so RLS can use current_tenant_id().
@@ -367,7 +361,8 @@ DO $$ BEGIN
         WHERE tablename = 'users' AND policyname = 'users_update'
     ) THEN
         CREATE POLICY users_update ON users
-            FOR UPDATE USING (tenant_id = current_tenant_id());
+            FOR UPDATE USING (tenant_id = current_tenant_id())
+            WITH CHECK (tenant_id = current_tenant_id());
     END IF;
 
     -- ── PLANS ────────────────────────────────────────────────

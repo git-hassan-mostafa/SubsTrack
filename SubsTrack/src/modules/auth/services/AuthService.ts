@@ -28,7 +28,7 @@ export class AuthService {
     if (!tenantCode.trim()) throw new Error("Tenant code is required");
     if (!password) throw new Error("Password is required");
 
-    const email = `${username.trim().toLowerCase()}@${tenantCode.trim().toLowerCase()}.subs`;
+    const email = `${username.trim().toLowerCase()}@${tenantCode.trim().toLowerCase()}.com`;
 
     let session;
     try {
@@ -50,7 +50,6 @@ export class AuthService {
       await this.repository.signOut().catch(() => {});
       throw new Error("account_not_configured");
     }
-
     const tenant = await this.repository.getTenant(profile.tenant_id);
     return {
       user: mapDbUserToAuthUser(profile),

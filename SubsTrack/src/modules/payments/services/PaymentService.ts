@@ -1,12 +1,17 @@
-import type { Customer, MonthEntry, MonthStatus, Payment } from '@/src/core/types';
-import type { DbPayment } from '@/src/core/types/db';
-import { MONTHS } from '@/src/core/constants';
+import type {
+  Customer,
+  MonthEntry,
+  MonthStatus,
+  Payment,
+} from "@/src/core/types";
+import type { DbPayment } from "@/src/core/types/db";
+import { MONTHS } from "@/src/core/constants";
 import {
   getCurrentYearMonth,
   isBeforeStartDate,
   toBillingMonth,
-} from '@/src/core/utils/date';
-import { PaymentRepository } from '../repository/PaymentRepository';
+} from "@/src/core/utils/date";
+import { PaymentRepository } from "../repository/PaymentRepository";
 
 function mapDbPaymentToPayment(db: DbPayment): Payment {
   return {
@@ -37,15 +42,18 @@ interface CreatePaymentInput {
 export class PaymentService {
   private repository = new PaymentRepository();
 
-  async getPaymentsForYear(customerId: string, year: number): Promise<Payment[]> {
+  async getPaymentsForYear(
+    customerId: string,
+    year: number,
+  ): Promise<Payment[]> {
     const rows = await this.repository.findByCustomerAndYear(customerId, year);
     return rows.map(mapDbPaymentToPayment);
   }
 
   async createPayment(data: CreatePaymentInput): Promise<Payment> {
-    if (data.amount <= 0) throw new Error('Amount must be greater than 0');
-    if (!data.billingMonth.endsWith('-01')) {
-      throw new Error('Billing month must be the first day of the month');
+    if (data.amount <= 0) throw new Error("Amount must be greater than 0");
+    if (!data.billingMonth.endsWith("-01")) {
+      throw new Error("Billing month must be the first day of the month");
     }
 
     try {
@@ -59,22 +67,32 @@ export class PaymentService {
       });
       return mapDbPaymentToPayment(row);
     } catch (err) {
-      const msg = err instanceof Error ? err.message : '';
-      if (msg.includes('uq_payments_customer_month_active') || msg.includes('duplicate')) {
-        throw new Error('A payment already exists for this customer and month');
+      const msg = err instanceof Error ? err.message : "";
+      if (
+        msg.includes("uq_payments_customer_month_active") ||
+        msg.includes("duplicate")
+      ) {
+        throw new Error("A payment already exists for this customer and month");
       }
-      throw err instanceof Error ? err : new Error('Connection error. Please try again.');
+      throw err instanceof Error
+        ? err
+        : new Error("Connection error. Please try again.");
     }
   }
 
   async updatePaymentAmount(id: string, amount: number): Promise<Payment> {
-    if (amount <= 0) throw new Error('Amount must be greater than 0');
+    if (amount <= 0) throw new Error("Amount must be greater than 0");
     const row = await this.repository.updateAmount(id, amount);
     return mapDbPaymentToPayment(row);
   }
 
-  async voidPayment(id: string, voidedBy: string, notes: string): Promise<Payment> {
-    if (!notes.trim()) throw new Error('A reason is required to void a payment');
+  async voidPayment(
+    id: string,
+    voidedBy: string,
+    notes: string,
+  ): Promise<Payment> {
+    if (!notes.trim())
+      throw new Error("A reason is required to void a payment");
     const row = await this.repository.voidPayment(id, voidedBy, notes.trim());
     return mapDbPaymentToPayment(row);
   }
@@ -98,20 +116,27 @@ export class PaymentService {
 
       // Months before the customer's start_date are always FUTURE (gray)
       if (isBeforeStartDate(year, month, customer.startDate)) {
-        return { year, month, label, billingMonth, status: 'future' as MonthStatus, payment: null };
+        return {
+          year,
+          month,
+          label,
+          billingMonth,
+          status: "future" as MonthStatus,
+          payment: null,
+        };
       }
 
       let status: MonthStatus;
       if (payment !== null && payment.voidedAt === null) {
-        status = 'paid';
+        status = "paid";
       } else if (year > cy || (year === cy && month > cm)) {
-        status = 'future';
+        status = "future";
       } else {
         // Grace period: current date within graceDays of billing month start
         const firstOfMonth = new Date(year, month - 1, 1);
         const graceCutoff = new Date(firstOfMonth);
         graceCutoff.setDate(graceCutoff.getDate() + graceDays);
-        status = new Date() <= graceCutoff ? 'future' : 'unpaid';
+        status = new Date() <= graceCutoff ? "future" : "unpaid";
       }
 
       return { year, month, label, billingMonth, status, payment };

@@ -1,19 +1,21 @@
-import { BaseRepository } from '@/src/core/utils/BaseRepository';
-import type { DbTenant } from '@/src/core/types/db';
+import { BaseRepository } from "@/src/core/utils/BaseRepository";
+import type { DbTenant } from "@/src/core/types/db";
 
 export class TenantRepository extends BaseRepository {
   async findAll(): Promise<DbTenant[]> {
     const { data, error } = await this.db
-      .from('tenants')
-      .select('*')
-      .order('name');
+      .from("tenants")
+      .select("*")
+      .order("name");
     if (error) this.handleError(error);
     return (data ?? []) as DbTenant[];
   }
 
-  async create(payload: Pick<DbTenant, 'name'>): Promise<DbTenant> {
+  async create(
+    payload: Pick<DbTenant, "name" | "tenant_code">,
+  ): Promise<DbTenant> {
     const { data, error } = await this.db
-      .from('tenants')
+      .from("tenants")
       .insert(payload)
       .select()
       .single();
@@ -21,11 +23,14 @@ export class TenantRepository extends BaseRepository {
     return data as DbTenant;
   }
 
-  async update(id: string, payload: Partial<Pick<DbTenant, 'name' | 'active'>>): Promise<DbTenant> {
+  async update(
+    id: string,
+    payload: Partial<Pick<DbTenant, "name" | "active">>,
+  ): Promise<DbTenant> {
     const { data, error } = await this.db
-      .from('tenants')
+      .from("tenants")
       .update(payload)
-      .eq('id', id)
+      .eq("id", id)
       .select()
       .single();
     if (error) this.handleError(error);
@@ -33,7 +38,7 @@ export class TenantRepository extends BaseRepository {
   }
 
   async delete(id: string): Promise<void> {
-    const { error } = await this.db.from('tenants').delete().eq('id', id);
+    const { error } = await this.db.from("tenants").delete().eq("id", id);
     if (error) this.handleError(error);
   }
 }

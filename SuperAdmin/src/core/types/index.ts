@@ -1,6 +1,7 @@
 export interface Tenant {
   id: string;
   name: string;
+  tenantCode: string;
   active: boolean;
   createdAt: string;
   saasTier?: SaasTier | null;
