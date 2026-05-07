@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Modal, Pressable, Text, TextInput, View } from 'react-native';
+import { Modal, Pressable, TextInput, View } from 'react-native';
+import { Text } from '@/src/shared/components/Text';
 import { useTranslation } from 'react-i18next';
 import type { MonthEntry } from '@/src/core/types';
 import { formatDate } from '@/src/core/utils/date';

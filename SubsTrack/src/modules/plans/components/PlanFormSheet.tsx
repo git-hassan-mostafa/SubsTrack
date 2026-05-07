@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
-import { Modal, Pressable, ScrollView, Switch, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, Switch, View } from 'react-native';
+import { Text } from '@/src/shared/components/Text';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/src/shared/components/Button';
 import { ErrorBanner } from '@/src/shared/components/ErrorBanner';

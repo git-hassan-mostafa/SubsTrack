@@ -1,4 +1,5 @@
-import { Alert, Pressable, ScrollView, Text, View } from "react-native";
+import { Alert, Pressable, ScrollView, View } from "react-native";
+import { Text } from "@/src/shared/components/Text";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
@@ -131,7 +132,7 @@ export function SettingsScreen() {
                 {user.username}
               </Text>
               <Text className="text-xs text-gray-400 mt-0.5 capitalize">
-                {user.role} · {user.tenantId}
+                {user.role} · {user.tenant.name}
               </Text>
             </View>
             <Ionicons name="chevron-forward" size={16} color="#d1d5db" />
@@ -185,8 +186,8 @@ export function SettingsScreen() {
           <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
             <SettingsRow
               icon="grid-outline"
-              label="Workspace ID"
-              value={user?.tenantId}
+              label="Workspace"
+              value={user?.tenant.name}
             />
             <SettingsRow
               icon="lock-closed-outline"

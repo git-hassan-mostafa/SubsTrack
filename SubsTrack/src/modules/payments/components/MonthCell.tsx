@@ -1,5 +1,6 @@
 import { memo } from "react";
-import { Pressable, Text, View } from "react-native";
+import { Pressable, View } from "react-native";
+import { Text } from "@/src/shared/components/Text";
 import { useTranslation } from "react-i18next";
 import { getCurrentYearMonth } from "@/src/core/utils/date";
 import type { MonthEntry, MonthStatus } from "@/src/core/types";
@@ -13,12 +14,14 @@ const bgColor: Record<MonthStatus, string> = {
   paid: "bg-green-500",
   unpaid: "bg-red-500",
   future: "bg-gray-100",
+  before_start: "bg-gray-100",
 };
 
 const textColor: Record<MonthStatus, string> = {
   paid: "text-white",
   unpaid: "text-white",
   future: "text-gray-400",
+  before_start: "text-gray-300",
 };
 
 export const MonthCell = memo(function MonthCell({ entry, onPress }: Props) {
@@ -50,11 +53,9 @@ export const MonthCell = memo(function MonthCell({ entry, onPress }: Props) {
         <Text className={`text-sm font-bold ${labelColor}`}>
           {t(`months.${entry.label}`)}
         </Text>
-        {sublabel ? (
-          <Text className={`text-[9px] font-semibold mt-0.5 ${labelColor}`}>
-            {sublabel}
-          </Text>
-        ) : null}
+        <Text className={`text-[9px] font-semibold mt-0.5 ${labelColor}`}>
+          {sublabel ?? ' '}
+        </Text>
       </View>
     </Pressable>
   );

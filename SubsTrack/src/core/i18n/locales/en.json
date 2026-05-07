@@ -14,7 +14,9 @@
     "custom_pricing": "Custom pricing",
     "something_went_wrong": "Something went wrong",
     "try_again": "Try again",
-    "cannot_change_own_role": "Cannot change your own role"
+    "cannot_change_own_role": "Cannot change your own role",
+    "not_available": "Not Available",
+    "close_label": "Close"
   },
   "auth": {
     "title": "SubsTrack",
@@ -114,7 +116,9 @@
     "paid_on": "Paid on",
     "notes": "Notes",
     "inactive_customer_future": "Cannot record future payments for inactive customers",
-    "edit_amount": "Edit Amount"
+    "edit_amount": "Edit Amount",
+    "before_start_date": "This month is before the customer's start date. No payment can be recorded here.",
+    "inactive_future_blocked": "This customer is inactive. Future month payments cannot be recorded for inactive customers."
   },
   "months": {
     "jan": "Jan",

@@ -1,7 +1,10 @@
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, Text, View } from 'react-native';
+import { useCallback, useState } from 'react';
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, View } from 'react-native';
+import { Text } from '@/src/shared/components/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { EmptyState } from '@/src/shared/components/EmptyState';
 import { ErrorBanner } from '@/src/shared/components/ErrorBanner';
 import type { AppUser } from '@/src/core/types';
@@ -11,11 +14,12 @@ import { useUserStore } from '../store/userStore';
 
 export function UserListScreen() {
   const { t } = useTranslation();
+  const router = useRouter();
   const { users, loading, error, fetchUsers, clearError } = useUserStore();
   const [formVisible, setFormVisible] = useState(false);
   const [editingUser, setEditingUser] = useState<AppUser | null>(null);
 
-  useEffect(() => { fetchUsers(); }, []);
+  useFocusEffect(useCallback(() => { fetchUsers(); }, []));
 
   function openCreate() {
     setEditingUser(null);
@@ -32,12 +36,17 @@ export function UserListScreen() {
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
       {/* Header */}
-      <View className="flex-row items-center justify-between px-5 pt-5 pb-4 bg-white border-b border-gray-100">
-        <View>
-          <Text className="text-2xl font-bold text-gray-900">{t('users.title')}</Text>
-          <Text className="text-sm text-gray-400 mt-0.5">
-            {users.length} members · {adminCount} admin
-          </Text>
+      <View className="flex-row items-center justify-between px-4 pt-4 pb-4 bg-white border-b border-gray-100">
+        <View className="flex-row items-center gap-2">
+          <Pressable onPress={() => router.back()} className="p-1 me-1">
+            <Ionicons name="chevron-back" size={22} color="#6366f1" />
+          </Pressable>
+          <View>
+            <Text className="text-2xl font-bold text-gray-900">{t('users.title')}</Text>
+            <Text className="text-sm text-gray-400 mt-0.5">
+              {users.length} members · {adminCount} admin
+            </Text>
+          </View>
         </View>
         <Pressable onPress={openCreate} className="bg-primary rounded-full px-4 py-2">
           <Text className="text-white font-semibold text-sm">+ Invite</Text>
@@ -59,6 +68,7 @@ export function UserListScreen() {
           data={users}
           keyExtractor={(u) => u.id}
           contentContainerStyle={{ padding: 16, flexGrow: 1 }}
+          refreshControl={<RefreshControl refreshing={loading} onRefresh={fetchUsers} tintColor="#6366f1" />}
           renderItem={({ item }) => <UserCard user={item} onEdit={openEdit} />}
           ListEmptyComponent={
             <EmptyState message={t('users.no_staff')} subMessage={t('users.no_staff_hint')} />

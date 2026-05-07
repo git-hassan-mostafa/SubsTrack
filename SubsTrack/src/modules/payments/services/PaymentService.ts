@@ -114,14 +114,14 @@ export class PaymentService {
       const label = MONTHS[i];
       const payment = paymentMap.get(billingMonth) ?? null;
 
-      // Months before the customer's start_date are always FUTURE (gray)
+      // Months before the customer's start_date get their own status
       if (isBeforeStartDate(year, month, customer.startDate)) {
         return {
           year,
           month,
           label,
           billingMonth,
-          status: "future" as MonthStatus,
+          status: "before_start" as MonthStatus,
           payment: null,
         };
       }

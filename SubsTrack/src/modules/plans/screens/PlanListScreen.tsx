@@ -1,7 +1,10 @@
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, Text, View } from 'react-native';
+import { useCallback, useState } from 'react';
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, View } from 'react-native';
+import { Text } from '@/src/shared/components/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 import { ConfirmDialog } from '@/src/shared/components/ConfirmDialog';
 import { EmptyState } from '@/src/shared/components/EmptyState';
 import { ErrorBanner } from '@/src/shared/components/ErrorBanner';
@@ -12,12 +15,13 @@ import { usePlanStore } from '../store/planStore';
 
 export function PlanListScreen() {
   const { t } = useTranslation();
+  const router = useRouter();
   const { plans, loading, error, fetchPlans, deletePlan, clearError } = usePlanStore();
   const [formVisible, setFormVisible] = useState(false);
   const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
   const [deletingPlan, setDeletingPlan] = useState<Plan | null>(null);
 
-  useEffect(() => { fetchPlans(); }, []);
+  useFocusEffect(useCallback(() => { fetchPlans(); }, []));
 
   function openCreate() {
     setEditingPlan(null);
@@ -38,10 +42,15 @@ export function PlanListScreen() {
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
       {/* Header */}
-      <View className="flex-row items-center justify-between px-5 pt-5 pb-4 bg-white border-b border-gray-100">
-        <View>
-          <Text className="text-2xl font-bold text-gray-900">{t('plans.title')}</Text>
-          <Text className="text-sm text-gray-400 mt-0.5">{plans.length} active</Text>
+      <View className="flex-row items-center justify-between px-4 pt-4 pb-4 bg-white border-b border-gray-100">
+        <View className="flex-row items-center gap-2">
+          <Pressable onPress={() => router.back()} className="p-1 me-1">
+            <Ionicons name="chevron-back" size={22} color="#6366f1" />
+          </Pressable>
+          <View>
+            <Text className="text-2xl font-bold text-gray-900">{t('plans.title')}</Text>
+            <Text className="text-sm text-gray-400 mt-0.5">{plans.length} active</Text>
+          </View>
         </View>
         <Pressable onPress={openCreate} className="bg-primary rounded-full px-4 py-2">
           <Text className="text-white font-semibold text-sm">+ New plan</Text>
@@ -63,6 +72,7 @@ export function PlanListScreen() {
           data={plans}
           keyExtractor={(p) => p.id}
           contentContainerStyle={{ padding: 16, flexGrow: 1 }}
+          refreshControl={<RefreshControl refreshing={loading} onRefresh={fetchPlans} tintColor="#6366f1" />}
           renderItem={({ item }) => (
             <PlanCard plan={item} onEdit={openEdit} onDelete={setDeletingPlan} />
           )}

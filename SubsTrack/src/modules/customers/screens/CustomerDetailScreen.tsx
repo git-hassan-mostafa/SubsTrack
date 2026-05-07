@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, Text, View } from 'react-native';
+import { useCallback, useEffect, useState } from 'react';
+import { ActivityIndicator, Pressable, RefreshControl, ScrollView, View } from 'react-native';
+import { Text } from '@/src/shared/components/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -47,6 +48,7 @@ export function CustomerDetailScreen() {
   const [formVisible, setFormVisible] = useState(false);
   const [voidVisible, setVoidVisible] = useState(false);
   const [toggleConfirmVisible, setToggleConfirmVisible] = useState(false);
+  const [infoPopupMessage, setInfoPopupMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (id) fetchCustomer(id);
@@ -60,6 +62,18 @@ export function CustomerDetailScreen() {
   }, [selectedCustomer, year]);
 
   function handleCellPress(entry: MonthEntry) {
+    if (entry.status === 'before_start') {
+      setInfoPopupMessage(t('payments.before_start_date'));
+      return;
+    }
+
+    const { year: cy, month: cm } = getCurrentYearMonth();
+    const isFutureMonth = entry.year > cy || (entry.year === cy && entry.month > cm);
+    if (!customer?.active && isFutureMonth) {
+      setInfoPopupMessage(t('payments.inactive_future_blocked'));
+      return;
+    }
+
     setSelectedEntry(entry);
     if (entry.status === 'paid' && entry.payment) {
       setDetailVisible(true);
@@ -88,6 +102,10 @@ export function CustomerDetailScreen() {
       await reactivateCustomer(selectedCustomer.id);
     }
   }
+
+  const handleRefresh = useCallback(() => {
+    if (id) fetchCustomer(id);
+  }, [id]);
 
   const customer = selectedCustomer;
 
@@ -150,7 +168,7 @@ export function CustomerDetailScreen() {
           <ActivityIndicator color="#6366f1" />
         </View>
       ) : customer ? (
-        <ScrollView className="flex-1">
+        <ScrollView className="flex-1" refreshControl={<RefreshControl refreshing={cLoading} onRefresh={handleRefresh} tintColor="#6366f1" />}>
           {/* Year card */}
           <View className="bg-white mx-4 mt-4 rounded-2xl border border-gray-100 overflow-hidden">
             <View className="flex-row items-center justify-between px-4 pt-4 pb-2">
@@ -304,6 +322,15 @@ export function CustomerDetailScreen() {
             destructive={customer.active}
             onConfirm={handleToggleActiveConfirmed}
             onCancel={() => setToggleConfirmVisible(false)}
+          />
+          <ConfirmDialog
+            visible={infoPopupMessage !== null}
+            title={t('common.not_available')}
+            message={infoPopupMessage ?? ''}
+            confirmLabel={t('common.close')}
+            hideCancel
+            onConfirm={() => setInfoPopupMessage(null)}
+            onCancel={() => setInfoPopupMessage(null)}
           />
         </>
       ) : null}

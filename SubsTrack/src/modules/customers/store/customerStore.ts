@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import type { Customer } from '@/src/core/types';
+import { getCurrentYearMonth, toBillingMonth } from '@/src/core/utils/date';
+import { PaymentRepository } from '@/src/modules/payments/repository/PaymentRepository';
 import { CustomerService } from '../services/CustomerService';
 
 interface CreateInput {
@@ -12,6 +14,7 @@ interface CreateInput {
 
 interface CustomersState {
   customers: Customer[];
+  currentMonthPaidIds: Set<string>;
   selectedCustomer: Customer | null;
   page: number;
   hasMore: boolean;
@@ -30,9 +33,11 @@ interface CustomersState {
 }
 
 const customerService = new CustomerService();
+const paymentRepository = new PaymentRepository();
 
 export const useCustomerStore = create<CustomersState>((set, get) => ({
   customers: [],
+  currentMonthPaidIds: new Set(),
   selectedCustomer: null,
   page: 0,
   hasMore: true,
@@ -43,8 +48,13 @@ export const useCustomerStore = create<CustomersState>((set, get) => ({
   fetchCustomers: async () => {
     set({ loading: true, error: null, page: 0 });
     try {
-      const { customers, hasMore } = await customerService.getCustomers(0);
-      set({ customers, hasMore, page: 0, loading: false });
+      const { year, month } = getCurrentYearMonth();
+      const billingMonth = toBillingMonth(year, month);
+      const [{ customers, hasMore }, currentMonthPaidIds] = await Promise.all([
+        customerService.getCustomers(0),
+        paymentRepository.findPaidCustomerIdsForMonth(billingMonth),
+      ]);
+      set({ customers, hasMore, page: 0, currentMonthPaidIds, loading: false });
     } catch (e) {
       set({ error: (e as Error).message, loading: false });
     }
@@ -131,5 +141,5 @@ export const useCustomerStore = create<CustomersState>((set, get) => ({
   },
 
   clearError: () => set({ error: null }),
-  reset: () => set({ customers: [], selectedCustomer: null, page: 0, hasMore: true }),
+  reset: () => set({ customers: [], currentMonthPaidIds: new Set(), selectedCustomer: null, page: 0, hasMore: true }),
 }));

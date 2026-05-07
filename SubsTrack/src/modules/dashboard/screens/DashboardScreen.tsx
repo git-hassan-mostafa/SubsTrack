@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
-import { ActivityIndicator, RefreshControl, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, RefreshControl, ScrollView, View } from 'react-native';
+import { Text } from '@/src/shared/components/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
 import { ErrorBanner } from '@/src/shared/components/ErrorBanner';

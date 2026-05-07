@@ -1,13 +1,22 @@
 // Domain models — camelCase. Used by all layers except repositories (which use db.ts).
 
 export type UserRole = 'superadmin' | 'admin' | 'user';
-export type MonthStatus = 'paid' | 'unpaid' | 'future';
+export type MonthStatus = 'paid' | 'unpaid' | 'future' | 'before_start';
+
+export interface Tenant {
+  id: string;
+  name: string;
+  tenantCode: string;
+  active: boolean;
+  createdAt: string;
+}
 
 export interface AuthUser {
   id: string;
   username: string;
   role: UserRole;
   tenantId: string;
+  tenant: Tenant;
 }
 
 // Full user record (shown in Users list screen)
@@ -84,4 +93,6 @@ export interface DashboardMetrics {
   activeCustomers: number;
   monthlyRevenue: number;
   unpaidThisMonth: number;
+  totalUsers: number;
+  totalPlans: number;
 }

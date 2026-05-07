@@ -61,6 +61,16 @@ export class PaymentRepository extends BaseRepository {
     return data as DbPayment;
   }
 
+  async findPaidCustomerIdsForMonth(billingMonth: string): Promise<Set<string>> {
+    const { data, error } = await this.db
+      .from('payments')
+      .select('customer_id')
+      .eq('billing_month', billingMonth)
+      .is('voided_at', null);
+    if (error) this.handleError(error);
+    return new Set((data ?? []).map((r: { customer_id: string }) => r.customer_id));
+  }
+
   async sumForMonth(billingMonth: string): Promise<number> {
     const { data, error } = await this.db
       .from('payments')

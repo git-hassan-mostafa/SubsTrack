@@ -1,4 +1,5 @@
-import { I18nManager, Pressable, Text, View } from 'react-native';
+import { I18nManager, Pressable, View } from 'react-native';
+import { Text } from '@/src/shared/components/Text';
 
 interface Props {
   year: number;

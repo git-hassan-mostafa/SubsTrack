@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useState } from 'react';
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from 'expo-router';
 import { ConfirmDialog } from '@/src/shared/components/ConfirmDialog';
 import { EmptyState } from '@/src/shared/components/EmptyState';
 import { ErrorBanner } from '@/src/shared/components/ErrorBanner';
@@ -19,7 +20,7 @@ export function SaasTierListScreen({ tenants }: Props) {
   const [editingTier, setEditingTier] = useState<SaasTier | null>(null);
   const [deletingTier, setDeletingTier] = useState<SaasTier | null>(null);
 
-  useEffect(() => { fetchSaasTiers(); }, []);
+  useFocusEffect(useCallback(() => { fetchSaasTiers(); }, []));
 
   function openCreate() {
     setEditingTier(null);
@@ -68,6 +69,7 @@ export function SaasTierListScreen({ tenants }: Props) {
           data={saasTiers}
           keyExtractor={(t) => t.id}
           contentContainerStyle={styles.list}
+          refreshControl={<RefreshControl refreshing={loading} onRefresh={fetchSaasTiers} />}
           renderItem={({ item }) => (
             <SaasTierCard
               tier={item}

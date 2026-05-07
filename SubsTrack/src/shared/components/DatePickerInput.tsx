@@ -1,15 +1,20 @@
-import { useState } from 'react';
-import { Modal, Pressable, ScrollView, Text, View } from 'react-native';
+import { useRef } from 'react';
+import { Modal, Pressable, ScrollView, View } from 'react-native';
+import { Text } from '@/src/shared/components/Text';
 import { useTranslation } from 'react-i18next';
+import { useState } from 'react';
 
 interface Props {
   label?: string;
-  value: string; // YYYY-MM-DD or empty
-  onChange: (date: string) => void;
+  value: string; // YYYY-MM-DD or YYYY-MM-DD HH:mm
+  onChange: (value: string) => void;
   placeholder?: string;
   minDate?: string; // YYYY-MM-DD
   maxDate?: string; // YYYY-MM-DD
+  showTime?: boolean;
 }
+
+const ITEM_HEIGHT = 40;
 
 function range(start: number, end: number): number[] {
   return Array.from({ length: end - start + 1 }, (_, i) => start + i);
@@ -25,66 +30,173 @@ function pad(n: number): string {
 
 const CURRENT_YEAR = new Date().getFullYear();
 
-export function DatePickerInput({ label, value, onChange, placeholder, minDate, maxDate }: Props) {
+function parseValue(value: string) {
+  const match = value.match(/^(\d{4})-(\d{2})-(\d{2})(?:\s(\d{2}):(\d{2}))?$/);
+  if (match) {
+    return {
+      year: parseInt(match[1]),
+      month: parseInt(match[2]),
+      day: parseInt(match[3]),
+      hour: match[4] != null ? parseInt(match[4]) : null,
+      minute: match[5] != null ? parseInt(match[5]) : null,
+    };
+  }
+  return null;
+}
+
+function ScrollColumn({
+  items,
+  selected,
+  onSelect,
+  label,
+  renderItem,
+}: {
+  items: number[];
+  selected: number;
+  onSelect: (v: number) => void;
+  label: string;
+  renderItem?: (v: number) => string;
+}) {
+  const ref = useRef<ScrollView>(null);
+  const selectedIndex = items.indexOf(selected);
+
+  function handleOpen() {
+    if (selectedIndex >= 0) {
+      ref.current?.scrollTo({ y: selectedIndex * ITEM_HEIGHT, animated: false });
+    }
+  }
+
+  return (
+    <View className="flex-1">
+      <Text className="text-xs text-center text-gray-400 mb-1 font-medium">{label}</Text>
+      <ScrollView
+        ref={ref}
+        style={{ height: 200 }}
+        showsVerticalScrollIndicator={false}
+        onLayout={handleOpen}
+      >
+        {items.map((v) => (
+          <Pressable
+            key={v}
+            onPress={() => onSelect(v)}
+            style={{ height: ITEM_HEIGHT }}
+            className={`rounded-lg items-center justify-center ${selected === v ? 'bg-primary' : ''}`}
+          >
+            <Text className={`text-sm font-medium ${selected === v ? 'text-white' : 'text-gray-800'}`}>
+              {renderItem ? renderItem(v) : pad(v)}
+            </Text>
+          </Pressable>
+        ))}
+      </ScrollView>
+    </View>
+  );
+}
+
+function MonthScrollColumn({
+  monthNames,
+  selected,
+  onSelect,
+}: {
+  monthNames: string[];
+  selected: number;
+  onSelect: (m: number) => void;
+}) {
+  const ref = useRef<ScrollView>(null);
+
+  return (
+    <View style={{ flex: 2 }}>
+      <Text className="text-xs text-center text-gray-400 mb-1 font-medium">Month</Text>
+      <ScrollView
+        ref={ref}
+        style={{ height: 200 }}
+        showsVerticalScrollIndicator={false}
+        onLayout={() => {
+          const idx = selected - 1;
+          if (idx > 0) ref.current?.scrollTo({ y: idx * ITEM_HEIGHT, animated: false });
+        }}
+      >
+        {monthNames.map((name, i) => {
+          const m = i + 1;
+          return (
+            <Pressable
+              key={m}
+              onPress={() => onSelect(m)}
+              style={{ height: ITEM_HEIGHT }}
+              className={`rounded-lg items-center justify-center ${selected === m ? 'bg-primary' : ''}`}
+            >
+              <Text className={`text-sm font-medium ${selected === m ? 'text-white' : 'text-gray-800'}`}>
+                {name}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+    </View>
+  );
+}
+
+export function DatePickerInput({ label, value, onChange, placeholder, minDate, maxDate, showTime = false }: Props) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
 
-  const parsed = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  const initYear = parsed ? parseInt(parsed[1]) : CURRENT_YEAR;
-  const initMonth = parsed ? parseInt(parsed[2]) : new Date().getMonth() + 1;
-  const initDay = parsed ? parseInt(parsed[3]) : 1;
+  const now = new Date();
+  const parsed = parseValue(value);
 
-  const [selYear, setSelYear] = useState(initYear);
-  const [selMonth, setSelMonth] = useState(initMonth);
-  const [selDay, setSelDay] = useState(initDay);
+  const [selYear, setSelYear] = useState(parsed?.year ?? CURRENT_YEAR);
+  const [selMonth, setSelMonth] = useState(parsed?.month ?? now.getMonth() + 1);
+  const [selDay, setSelDay] = useState(parsed?.day ?? now.getDate());
+  const [selHour, setSelHour] = useState(parsed?.hour ?? now.getHours());
+  const [selMinute, setSelMinute] = useState(parsed?.minute ?? now.getMinutes());
 
   const minYear = minDate ? parseInt(minDate.slice(0, 4)) : CURRENT_YEAR - 10;
   const maxYear = maxDate ? parseInt(maxDate.slice(0, 4)) : CURRENT_YEAR + 5;
 
   const maxDay = daysInMonth(selYear, selMonth);
-  const safeDay = Math.min(selDay, maxDay);
-
-  function handleOpen() {
-    if (parsed) {
-      setSelYear(initYear);
-      setSelMonth(initMonth);
-      setSelDay(initDay);
-    } else {
-      const now = new Date();
-      setSelYear(now.getFullYear());
-      setSelMonth(now.getMonth() + 1);
-      setSelDay(now.getDate());
-    }
-    setOpen(true);
-  }
-
-  function handleConfirm() {
-    const day = Math.min(selDay, daysInMonth(selYear, selMonth));
-    onChange(`${selYear}-${pad(selMonth)}-${pad(day)}`);
-    setOpen(false);
-  }
-
-  function handleMonthChange(m: number) {
-    setSelMonth(m);
-    const maxD = daysInMonth(selYear, m);
-    if (selDay > maxD) setSelDay(maxD);
-  }
-
-  function handleYearChange(y: number) {
-    setSelYear(y);
-    const maxD = daysInMonth(y, selMonth);
-    if (selDay > maxD) setSelDay(maxD);
-  }
-
-  const displayValue = value
-    ? value
-    : null;
 
   const MONTH_NAMES = [
     t('months.jan'), t('months.feb'), t('months.mar'), t('months.apr'),
     t('months.may'), t('months.jun'), t('months.jul'), t('months.aug'),
     t('months.sep'), t('months.oct'), t('months.nov'), t('months.dec'),
   ];
+
+  function handleOpen() {
+    const p = parseValue(value);
+    if (p) {
+      setSelYear(p.year);
+      setSelMonth(p.month);
+      setSelDay(p.day);
+      setSelHour(p.hour ?? now.getHours());
+      setSelMinute(p.minute ?? now.getMinutes());
+    } else {
+      setSelYear(now.getFullYear());
+      setSelMonth(now.getMonth() + 1);
+      setSelDay(now.getDate());
+      setSelHour(now.getHours());
+      setSelMinute(now.getMinutes());
+    }
+    setOpen(true);
+  }
+
+  function handleMonthChange(m: number) {
+    setSelMonth(m);
+    const max = daysInMonth(selYear, m);
+    if (selDay > max) setSelDay(max);
+  }
+
+  function handleYearChange(y: number) {
+    setSelYear(y);
+    const max = daysInMonth(y, selMonth);
+    if (selDay > max) setSelDay(max);
+  }
+
+  function handleConfirm() {
+    const safeDay = Math.min(selDay, daysInMonth(selYear, selMonth));
+    const dateStr = `${selYear}-${pad(selMonth)}-${pad(safeDay)}`;
+    onChange(showTime ? `${dateStr} ${pad(selHour)}:${pad(selMinute)}` : dateStr);
+    setOpen(false);
+  }
+
+  const displayValue = value || null;
 
   return (
     <View className="mb-4">
@@ -110,6 +222,7 @@ export function DatePickerInput({ label, value, onChange, placeholder, minDate, 
             className="bg-white rounded-2xl w-full overflow-hidden"
             onPress={(e) => e.stopPropagation()}
           >
+            {/* Header */}
             <View className="flex-row justify-between items-center px-5 py-4 border-b border-gray-100">
               <Pressable onPress={() => setOpen(false)}>
                 <Text className="text-base text-gray-500">{t('common.cancel')}</Text>
@@ -120,63 +233,42 @@ export function DatePickerInput({ label, value, onChange, placeholder, minDate, 
               </Pressable>
             </View>
 
-            <View className="flex-row px-4 py-4 gap-2">
-              {/* Day */}
-              <View className="flex-1">
-                <Text className="text-xs text-center text-gray-400 mb-2 font-medium">Day</Text>
-                <ScrollView style={{ height: 160 }} showsVerticalScrollIndicator={false}>
-                  {range(1, maxDay).map((d) => (
-                    <Pressable
-                      key={d}
-                      onPress={() => setSelDay(d)}
-                      className={`py-2 rounded-lg items-center ${safeDay === d ? 'bg-primary' : ''}`}
-                    >
-                      <Text className={`text-sm font-medium ${safeDay === d ? 'text-white' : 'text-gray-800'}`}>
-                        {pad(d)}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </ScrollView>
-              </View>
-
-              {/* Month */}
-              <View className="flex-2" style={{ flex: 2 }}>
-                <Text className="text-xs text-center text-gray-400 mb-2 font-medium">Month</Text>
-                <ScrollView style={{ height: 160 }} showsVerticalScrollIndicator={false}>
-                  {MONTH_NAMES.map((name, i) => {
-                    const m = i + 1;
-                    return (
-                      <Pressable
-                        key={m}
-                        onPress={() => handleMonthChange(m)}
-                        className={`py-2 rounded-lg items-center ${selMonth === m ? 'bg-primary' : ''}`}
-                      >
-                        <Text className={`text-sm font-medium ${selMonth === m ? 'text-white' : 'text-gray-800'}`}>
-                          {name}
-                        </Text>
-                      </Pressable>
-                    );
-                  })}
-                </ScrollView>
-              </View>
-
-              {/* Year */}
-              <View className="flex-1">
-                <Text className="text-xs text-center text-gray-400 mb-2 font-medium">Year</Text>
-                <ScrollView style={{ height: 160 }} showsVerticalScrollIndicator={false}>
-                  {range(minYear, maxYear).map((y) => (
-                    <Pressable
-                      key={y}
-                      onPress={() => handleYearChange(y)}
-                      className={`py-2 rounded-lg items-center ${selYear === y ? 'bg-primary' : ''}`}
-                    >
-                      <Text className={`text-sm font-medium ${selYear === y ? 'text-white' : 'text-gray-800'}`}>
-                        {y}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </ScrollView>
-              </View>
+            {/* Columns */}
+            <View className="flex-row px-3 py-3 gap-1">
+              <ScrollColumn
+                items={range(1, maxDay)}
+                selected={Math.min(selDay, maxDay)}
+                onSelect={setSelDay}
+                label="Day"
+              />
+              <MonthScrollColumn
+                monthNames={MONTH_NAMES}
+                selected={selMonth}
+                onSelect={handleMonthChange}
+              />
+              <ScrollColumn
+                items={range(minYear, maxYear)}
+                selected={selYear}
+                onSelect={handleYearChange}
+                label="Year"
+                renderItem={(y) => String(y)}
+              />
+              {showTime ? (
+                <>
+                  <ScrollColumn
+                    items={range(0, 23)}
+                    selected={selHour}
+                    onSelect={setSelHour}
+                    label="Hr"
+                  />
+                  <ScrollColumn
+                    items={range(0, 59)}
+                    selected={selMinute}
+                    onSelect={setSelMinute}
+                    label="Min"
+                  />
+                </>
+              ) : null}
             </View>
           </Pressable>
         </Pressable>

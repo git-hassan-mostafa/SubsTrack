@@ -36,4 +36,12 @@ export class PlanRepository extends BaseRepository {
     const { error } = await this.db.from('plans').delete().eq('id', id);
     if (error) this.handleError(error);
   }
+
+  async countAll(): Promise<number> {
+    const { count, error } = await this.db
+      .from('plans')
+      .select('id', { count: 'exact', head: true });
+    if (error) this.handleError(error);
+    return count ?? 0;
+  }
 }

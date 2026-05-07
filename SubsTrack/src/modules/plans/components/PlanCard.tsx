@@ -1,5 +1,6 @@
 import type { Plan } from '@/src/core/types';
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, View } from 'react-native';
+import { Text } from '@/src/shared/components/Text';
 import { Ionicons } from '@expo/vector-icons';
 
 interface Props {

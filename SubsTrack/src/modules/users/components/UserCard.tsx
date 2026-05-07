@@ -1,4 +1,5 @@
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, View } from 'react-native';
+import { Text } from '@/src/shared/components/Text';
 import type { AppUser } from '@/src/core/types';
 
 interface Props {

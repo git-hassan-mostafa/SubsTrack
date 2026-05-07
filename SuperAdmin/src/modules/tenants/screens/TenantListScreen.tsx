@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useState } from 'react';
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from 'expo-router';
 import { ConfirmDialog } from '@/src/shared/components/ConfirmDialog';
 import { EmptyState } from '@/src/shared/components/EmptyState';
 import { ErrorBanner } from '@/src/shared/components/ErrorBanner';
@@ -19,7 +20,7 @@ export function TenantListScreen({ saasTiers }: Props) {
   const [editingTenant, setEditingTenant] = useState<Tenant | null>(null);
   const [deletingTenant, setDeletingTenant] = useState<Tenant | null>(null);
 
-  useEffect(() => { fetchTenants(); }, []);
+  useFocusEffect(useCallback(() => { fetchTenants(); }, []));
 
   function openCreate() {
     setEditingTenant(null);
@@ -65,6 +66,7 @@ export function TenantListScreen({ saasTiers }: Props) {
           data={tenants}
           keyExtractor={(t) => t.id}
           contentContainerStyle={styles.list}
+          refreshControl={<RefreshControl refreshing={loading} onRefresh={fetchTenants} />}
           renderItem={({ item }) => (
             <TenantCard
               tenant={item}

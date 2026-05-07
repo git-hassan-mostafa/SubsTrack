@@ -1,5 +1,6 @@
 import { Component, type ReactNode } from 'react';
-import { Text, View, Pressable } from 'react-native';
+import { View, Pressable } from 'react-native';
+import { Text } from '@/src/shared/components/Text';
 
 interface Props {
   children: ReactNode;

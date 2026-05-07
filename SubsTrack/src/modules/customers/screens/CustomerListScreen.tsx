@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Pressable, Text, TextInput, View } from 'react-native';
+import { useCallback, useState } from 'react';
+import { ActivityIndicator, FlatList, Pressable, RefreshControl, TextInput, View } from 'react-native';
+import { Text } from '@/src/shared/components/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
 import { EmptyState } from '@/src/shared/components/EmptyState';
@@ -17,13 +18,13 @@ type FilterTab = 'all' | 'unpaid' | 'active' | 'inactive';
 export function CustomerListScreen() {
   const { t } = useTranslation();
   const router = useRouter();
-  const { customers, loading, loadingMore, hasMore, error, fetchCustomers, fetchMoreCustomers, clearError } = useCustomerStore();
+  const { customers, currentMonthPaidIds, loading, loadingMore, hasMore, error, fetchCustomers, fetchMoreCustomers, clearError } = useCustomerStore();
   const [formVisible, setFormVisible] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
   const debouncedSearch = useDebounce(searchText);
 
-  useEffect(() => { fetchCustomers(); }, []);
+  useFocusEffect(useCallback(() => { fetchCustomers(); }, []));
 
   const activeCount = customers.filter((c) => c.active).length;
   const inactiveCount = customers.filter((c) => !c.active).length;
@@ -111,10 +112,11 @@ export function CustomerListScreen() {
           data={filtered}
           keyExtractor={(c) => c.id}
           contentContainerStyle={{ padding: 16, flexGrow: 1 }}
+          refreshControl={<RefreshControl refreshing={loading} onRefresh={fetchCustomers} tintColor="#6366f1" />}
           onEndReached={() => { if (!debouncedSearch) fetchMoreCustomers(); }}
           onEndReachedThreshold={0.3}
           renderItem={({ item }) => (
-            <CustomerCard customer={item} unpaidCount={0} onPress={openDetail} />
+            <CustomerCard customer={item} isPaidThisMonth={currentMonthPaidIds.has(item.id)} onPress={openDetail} />
           )}
           ListFooterComponent={loadingMore ? <ActivityIndicator color="#6366f1" className="py-4" /> : null}
           ListEmptyComponent={

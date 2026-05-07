@@ -7,9 +7,9 @@ export default function AdminLayout() {
   return (
     <Stack>
       <Stack.Screen name="index" options={{ title: t('admin.title'), headerShown: false }} />
-      <Stack.Screen name="dashboard" options={{ title: t('dashboard.title') }} />
-      <Stack.Screen name="users" options={{ title: t('users.title') }} />
-      <Stack.Screen name="plans" options={{ title: t('plans.title') }} />
+      <Stack.Screen name="dashboard" options={{ headerShown: false }} />
+      <Stack.Screen name="users" options={{ headerShown: false }} />
+      <Stack.Screen name="plans" options={{ headerShown: false }} />
     </Stack>
   );
 }

@@ -1,9 +1,10 @@
-import { Pressable, Text, View } from 'react-native';
+import { Pressable, View } from 'react-native';
+import { Text } from '@/src/shared/components/Text';
 import type { Customer } from '@/src/core/types';
 
 interface Props {
   customer: Customer;
-  unpaidCount: number;
+  isPaidThisMonth: boolean;
   onPress: (customer: Customer) => void;
 }
 
@@ -25,7 +26,7 @@ function getCurrentMonthLabel(): string {
   return `${months[now.getMonth()]} ${now.getFullYear()}`;
 }
 
-export function CustomerCard({ customer, unpaidCount, onPress }: Props) {
+export function CustomerCard({ customer, isPaidThisMonth, onPress }: Props) {
   const initials = getInitials(customer.name);
   const avatarColor = getAvatarColor(customer.name);
   const monthLabel = getCurrentMonthLabel();
@@ -57,17 +58,17 @@ export function CustomerCard({ customer, unpaidCount, onPress }: Props) {
 
       {/* Status + Date */}
       <View className="items-end">
-        {unpaidCount > 0 ? (
-          <View className="bg-red-100 rounded-lg px-2 py-0.5 mb-1">
-            <Text className="text-xs font-semibold text-red-500">{unpaidCount}unpaid</Text>
+        {!customer.active ? (
+          <View className="bg-gray-100 rounded-lg px-2 py-0.5 mb-1">
+            <Text className="text-xs font-medium text-gray-500">Inactive</Text>
           </View>
-        ) : customer.active ? (
-          <View className="flex-row items-center gap-1 mb-1">
+        ) : isPaidThisMonth ? (
+          <View className="bg-green-50 rounded-lg px-2 py-0.5 mb-1">
             <Text className="text-xs font-semibold text-green-600">✓ Paid</Text>
           </View>
         ) : (
-          <View className="bg-gray-100 rounded-lg px-2 py-0.5 mb-1">
-            <Text className="text-xs font-medium text-gray-500">Inactive</Text>
+          <View className="bg-red-100 rounded-lg px-2 py-0.5 mb-1">
+            <Text className="text-xs font-semibold text-red-500">Unpaid</Text>
           </View>
         )}
         <Text className="text-xs text-gray-400">{monthLabel}</Text>

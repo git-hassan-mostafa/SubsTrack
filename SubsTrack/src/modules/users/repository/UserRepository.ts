@@ -19,10 +19,13 @@ export class UserRepository extends BaseRepository {
     return (data ?? []) as DbUser[];
   }
 
-  // User creation goes through an Edge Function because admin SDK is required server-side.
-  async createViaFunction(payload: CreateUserPayload): Promise<DbUser> {
-    const { data, error } = await this.db.functions.invoke('create-user', {
-      body: payload,
+  async create(payload: CreateUserPayload): Promise<DbUser> {
+    const { data, error } = await this.db.rpc('create_tenant_user', {
+      p_username: payload.username,
+      p_password: payload.password,
+      p_phone: payload.phone,
+      p_role: payload.role,
+      p_tenant_id: payload.tenantId,
     });
     if (error) this.handleError(error);
     return data as DbUser;
@@ -40,5 +43,13 @@ export class UserRepository extends BaseRepository {
       .single();
     if (error) this.handleError(error);
     return data as DbUser;
+  }
+
+  async countAll(): Promise<number> {
+    const { count, error } = await this.db
+      .from('users')
+      .select('id', { count: 'exact', head: true });
+    if (error) this.handleError(error);
+    return count ?? 0;
   }
 }

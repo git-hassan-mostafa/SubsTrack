@@ -14,7 +14,9 @@
     "custom_pricing": "سعر مخصص",
     "something_went_wrong": "حدث خطأ ما",
     "try_again": "حاول مجدداً",
-    "cannot_change_own_role": "لا يمكنك تغيير دورك الخاص"
+    "cannot_change_own_role": "لا يمكنك تغيير دورك الخاص",
+    "not_available": "غير متاح",
+    "close_label": "إغلاق"
   },
   "auth": {
     "title": "SubsTrack",
@@ -114,7 +116,9 @@
     "paid_on": "تاريخ الدفع",
     "notes": "ملاحظات",
     "inactive_customer_future": "لا يمكن تسجيل دفعات مستقبلية لعملاء غير نشطين",
-    "edit_amount": "تعديل المبلغ"
+    "edit_amount": "تعديل المبلغ",
+    "before_start_date": "هذا الشهر سابق لتاريخ بدء العميل. لا يمكن تسجيل دفعة هنا.",
+    "inactive_future_blocked": "هذا العميل غير نشط. لا يمكن تسجيل دفعات للأشهر المستقبلية لعملاء غير نشطين."
   },
   "months": {
     "jan": "يناير",

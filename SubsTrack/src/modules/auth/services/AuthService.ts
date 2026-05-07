@@ -1,5 +1,5 @@
-import type { AuthUser } from "@/src/core/types";
-import type { DbUser } from "@/src/core/types/db";
+import type { AuthUser, Tenant } from "@/src/core/types";
+import type { DbTenant, DbUser } from "@/src/core/types/db";
 import { AuthRepository } from "../repository/AuthRepository";
 
 export interface AuthResult {
@@ -7,12 +7,23 @@ export interface AuthResult {
   tenantActive: boolean;
 }
 
-function mapDbUserToAuthUser(db: DbUser): AuthUser {
+function mapDbTenantToTenant(db: DbTenant): Tenant {
+  return {
+    id: db.id,
+    name: db.name,
+    tenantCode: db.tenant_code,
+    active: db.active,
+    createdAt: db.created_at,
+  };
+}
+
+function mapDbUserToAuthUser(db: DbUser, tenant: DbTenant): AuthUser {
   return {
     id: db.id,
     username: db.username,
     role: db.role,
     tenantId: db.tenant_id,
+    tenant: mapDbTenantToTenant(tenant),
   };
 }
 
@@ -51,9 +62,13 @@ export class AuthService {
       throw new Error("account_not_configured");
     }
     const tenant = await this.repository.getTenant(profile.tenant_id);
+    if (!tenant) {
+      await this.repository.signOut().catch(() => {});
+      throw new Error("account_not_configured");
+    }
     return {
-      user: mapDbUserToAuthUser(profile),
-      tenantActive: tenant?.active ?? true,
+      user: mapDbUserToAuthUser(profile, tenant),
+      tenantActive: tenant.active,
     };
   }
 
@@ -68,9 +83,13 @@ export class AuthService {
     }
 
     const tenant = await this.repository.getTenant(profile.tenant_id);
+    if (!tenant) {
+      await this.repository.signOut().catch(() => {});
+      return null;
+    }
     return {
-      user: mapDbUserToAuthUser(profile),
-      tenantActive: tenant?.active ?? true,
+      user: mapDbUserToAuthUser(profile, tenant),
+      tenantActive: tenant.active,
     };
   }
 

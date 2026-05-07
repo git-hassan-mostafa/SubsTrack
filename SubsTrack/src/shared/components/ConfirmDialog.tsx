@@ -1,4 +1,5 @@
-import { Modal, Pressable, Text, View } from 'react-native';
+import { Modal, Pressable, View } from 'react-native';
+import { Text } from '@/src/shared/components/Text';
 import { useTranslation } from 'react-i18next';
 
 interface ConfirmDialogProps {
@@ -8,6 +9,7 @@ interface ConfirmDialogProps {
   confirmLabel?: string;
   cancelLabel?: string;
   destructive?: boolean;
+  hideCancel?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 }
@@ -19,6 +21,7 @@ export function ConfirmDialog({
   confirmLabel,
   cancelLabel,
   destructive = false,
+  hideCancel = false,
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
@@ -31,12 +34,14 @@ export function ConfirmDialog({
           <Text className="text-lg font-semibold text-gray-900 mb-2">{title}</Text>
           <Text className="text-sm text-gray-600 mb-6">{message}</Text>
           <View className="flex-row gap-3">
-            <Pressable
-              onPress={onCancel}
-              className="flex-1 border border-gray-300 rounded-lg py-3 items-center"
-            >
-              <Text className="text-gray-700 font-medium">{cancelLabel ?? t('common.cancel')}</Text>
-            </Pressable>
+            {!hideCancel ? (
+              <Pressable
+                onPress={onCancel}
+                className="flex-1 border border-gray-300 rounded-lg py-3 items-center"
+              >
+                <Text className="text-gray-700 font-medium">{cancelLabel ?? t('common.cancel')}</Text>
+              </Pressable>
+            ) : null}
             <Pressable
               onPress={onConfirm}
               className={`flex-1 rounded-lg py-3 items-center ${destructive ? 'bg-danger' : 'bg-primary'}`}

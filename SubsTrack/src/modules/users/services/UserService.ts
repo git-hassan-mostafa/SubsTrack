@@ -40,7 +40,7 @@ export class UserService {
     if (!['admin', 'user'].includes(data.role)) throw new Error('Invalid role');
 
     try {
-      const row = await this.repository.createViaFunction({
+      const row = await this.repository.create({
         username: data.username.trim().toLowerCase(),
         password: data.password,
         phone: data.phone?.trim() || null,

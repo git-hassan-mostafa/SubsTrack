@@ -3,7 +3,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { Href, router } from 'expo-router';
 import { useFocusEffect } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, View } from 'react-native';
+import { Text } from '@/src/shared/components/Text';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useDashboardStore } from '@/src/modules/dashboard/store/dashboardStore';
 
@@ -109,9 +110,11 @@ export default function AdminMenuScreen() {
                 <View>
                   <Text className="text-base font-semibold text-gray-900">{t(item.labelKey)}</Text>
                   <Text className="text-xs text-gray-400 mt-0.5">
-                    {item.labelKey === 'dashboard.title' ? 'Revenue · collections · activity' :
-                     item.labelKey === 'users.title' ? `${metrics?.totalCustomers ?? 0} members` :
-                     `${metrics?.totalCustomers ?? 0} customers assigned`}
+                    {item.labelKey === 'dashboard.title'
+                      ? 'Revenue · collections · activity'
+                      : item.labelKey === 'users.title'
+                      ? `${metrics?.totalUsers ?? 0} members`
+                      : `${metrics?.totalPlans ?? 0} plans`}
                   </Text>
                 </View>
               </View>
