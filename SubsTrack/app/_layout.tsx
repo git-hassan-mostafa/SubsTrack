@@ -15,12 +15,13 @@ import "../global.css";
 
 export default function RootLayout() {
   const [i18nReady, setI18nReady] = useState(false);
-  const [fontsLoaded] = Font.useFonts({
+  const [fontsLoaded, fontsError] = Font.useFonts({
     Cairo: require("../assets/fonts/Cairo-Regular.ttf"),
     "Cairo-Medium": require("../assets/fonts/Cairo-Medium.ttf"),
     "Cairo-SemiBold": require("../assets/fonts/Cairo-SemiBold.ttf"),
     "Cairo-Bold": require("../assets/fonts/Cairo-Bold.ttf"),
   });
+  const fontsReady = fontsLoaded || !!fontsError;
 
   const { user, loading, restoreSession } = useAuthStore();
   const resetPlans = usePlanStore((s) => s.reset);
@@ -65,10 +66,10 @@ export default function RootLayout() {
     resetDashboard,
   ]);
 
-  if (!i18nReady || loading || !fontsLoaded) return <LoadingScreen />;
+  if (!i18nReady || loading || !fontsReady) return <LoadingScreen />;
 
   return (
-    <GestureHandlerRootView className="flex-1">
+    <GestureHandlerRootView style={{ flex: 1 }}>
       <ErrorBoundary>
         <Slot />
       </ErrorBoundary>

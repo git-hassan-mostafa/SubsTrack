@@ -22,15 +22,19 @@ export function UserFormSheet({ visible, user: editUser, onDismiss }: Props) {
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [phone, setPhone] = useState('');
   const [role, setRole] = useState<'admin' | 'user'>('user');
 
   const isOwnAccount = editUser?.id === currentUser?.id;
 
+  const passwordMismatch = !editUser && password.length >= 8 && confirmPassword.length > 0 && password !== confirmPassword;
+
   useEffect(() => {
     if (visible) {
       setUsername(editUser?.username ?? '');
       setPassword('');
+      setConfirmPassword('');
       setPhone(editUser?.phoneNumber ?? '');
       setRole((editUser?.role as 'admin' | 'user') ?? 'user');
       clearError();
@@ -50,6 +54,8 @@ export function UserFormSheet({ visible, user: editUser, onDismiss }: Props) {
     if (!useUserStore.getState().error) onDismiss();
   }
 
+  const canSubmit = !!username.trim() && (!!editUser || (password.length >= 8 && password === confirmPassword));
+
   return (
     <Modal
       visible={visible}
@@ -58,12 +64,17 @@ export function UserFormSheet({ visible, user: editUser, onDismiss }: Props) {
       onRequestClose={onDismiss}
     >
       <View className="flex-1 bg-white">
-        <View className="flex-row items-center justify-between px-6 py-4 border-b border-gray-100">
-          <Text className="text-lg font-semibold text-gray-900">
+        {/* Drag handle */}
+        <View className="items-center pt-3 pb-1">
+          <View className="w-10 h-1 rounded-full bg-gray-300" />
+        </View>
+
+        <View className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
+          <Text className="text-lg font-bold text-gray-900">
             {editUser ? t('users.edit_title') : t('users.add_title')}
           </Text>
           <Pressable onPress={onDismiss}>
-            <Text className="text-primary font-medium">{t('common.cancel')}</Text>
+            <Text className="text-base text-primary font-medium">{t('common.cancel')}</Text>
           </Pressable>
         </View>
 
@@ -80,14 +91,25 @@ export function UserFormSheet({ visible, user: editUser, onDismiss }: Props) {
           />
 
           {!editUser ? (
-            <Input
-              label={t('users.password_label')}
-              value={password}
-              onChangeText={setPassword}
-              placeholder={t('users.password_placeholder')}
-              secureTextEntry
-              onFocus={clearError}
-            />
+            <>
+              <Input
+                label={t('users.password_label')}
+                value={password}
+                onChangeText={setPassword}
+                placeholder={t('users.password_placeholder')}
+                secureTextEntry
+                onFocus={clearError}
+              />
+              <Input
+                label={t('users.confirm_password_label')}
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                placeholder={t('users.confirm_password_placeholder')}
+                secureTextEntry
+                onFocus={clearError}
+                error={passwordMismatch ? t('users.password_mismatch') : undefined}
+              />
+            </>
           ) : null}
 
           <Input
@@ -122,7 +144,7 @@ export function UserFormSheet({ visible, user: editUser, onDismiss }: Props) {
             label={editUser ? t('common.save_changes') : t('users.add_title')}
             onPress={handleSubmit}
             loading={loading}
-            disabled={!username.trim() || (!editUser && password.length < 8)}
+            disabled={!canSubmit}
             fullWidth
           />
         </ScrollView>

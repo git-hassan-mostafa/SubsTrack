@@ -150,8 +150,8 @@ export function CustomerDetailScreen() {
           ) : null}
         </View>
         {isAdmin ? (
-          <Pressable onPress={() => setEditVisible(true)} className="ms-2 p-1">
-            <Ionicons name="ellipsis-horizontal" size={20} color="#6b7280" />
+          <Pressable onPress={() => setEditVisible(true)} className="ms-2 bg-primary rounded-full px-4 py-2">
+            <Text className="text-white font-semibold text-sm">{t('common.edit')}</Text>
           </Pressable>
         ) : null}
       </View>

@@ -94,6 +94,9 @@
     "username_placeholder": "username",
     "password_label": "Password",
     "password_placeholder": "Minimum 8 characters",
+    "confirm_password_label": "Confirm Password",
+    "confirm_password_placeholder": "Re-enter password",
+    "password_mismatch": "Passwords do not match",
     "phone_optional": "Phone (optional)",
     "role_label": "Role"
   },

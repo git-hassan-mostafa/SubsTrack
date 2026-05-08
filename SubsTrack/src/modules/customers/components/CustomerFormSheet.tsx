@@ -1,9 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
+import { useState } from 'react';
 import { Modal, Pressable, ScrollView, View } from 'react-native';
 import { Text } from '@/src/shared/components/Text';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/src/shared/components/Button';
 import { DatePickerInput } from '@/src/shared/components/DatePickerInput';
+import { Dropdown } from '@/src/shared/components/Dropdown';
+import type { DropdownOption } from '@/src/shared/components/Dropdown';
 import { ErrorBanner } from '@/src/shared/components/ErrorBanner';
 import { Input } from '@/src/shared/components/Input';
 import type { Customer, Plan } from '@/src/core/types';
@@ -57,6 +60,12 @@ export function CustomerFormSheet({ visible, customer, onDismiss }: Props) {
     if (!useCustomerStore.getState().error) onDismiss();
   }
 
+  const planOptions: DropdownOption<string>[] = plans.map((p: Plan) => ({
+    value: p.id,
+    label: p.name,
+    sublabel: p.isCustomPrice ? t('common.custom_pricing') : `$${p.price} / month`,
+  }));
+
   return (
     <Modal
       visible={visible}
@@ -74,7 +83,7 @@ export function CustomerFormSheet({ visible, customer, onDismiss }: Props) {
             {customer ? t('customers.edit_title') : t('customers.add_title')}
           </Text>
           <Pressable onPress={onDismiss}>
-            <Text className="text-base text-gray-400">{t('common.cancel')}</Text>
+            <Text className="text-base text-primary font-medium">{t('common.cancel')}</Text>
           </Pressable>
         </View>
 
@@ -119,45 +128,16 @@ export function CustomerFormSheet({ visible, customer, onDismiss }: Props) {
             placeholder="Optional"
           />
 
-          {/* Plan radio cards */}
-          <Text className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Plan</Text>
-          <View className="gap-2 mb-6">
-            {/* No plan option */}
-            <Pressable
-              onPress={() => setPlanId(null)}
-              className={`flex-row items-center border rounded-xl px-4 py-3.5 ${planId === null ? 'border-primary bg-indigo-50' : 'border-gray-200 bg-white'}`}
-            >
-              <View className={`w-5 h-5 rounded-full border-2 me-3 items-center justify-center ${planId === null ? 'border-primary' : 'border-gray-300'}`}>
-                {planId === null ? <View className="w-2.5 h-2.5 rounded-full bg-primary" /> : null}
-              </View>
-              <View>
-                <Text className={`text-base font-semibold ${planId === null ? 'text-primary' : 'text-gray-900'}`}>
-                  No plan
-                </Text>
-                <Text className="text-xs text-gray-400 mt-0.5">Custom amount each payment</Text>
-              </View>
-            </Pressable>
-
-            {plans.map((p: Plan) => (
-              <Pressable
-                key={p.id}
-                onPress={() => setPlanId(p.id)}
-                className={`flex-row items-center border rounded-xl px-4 py-3.5 ${planId === p.id ? 'border-primary bg-indigo-50' : 'border-gray-200 bg-white'}`}
-              >
-                <View className={`w-5 h-5 rounded-full border-2 me-3 items-center justify-center ${planId === p.id ? 'border-primary' : 'border-gray-300'}`}>
-                  {planId === p.id ? <View className="w-2.5 h-2.5 rounded-full bg-primary" /> : null}
-                </View>
-                <View>
-                  <Text className={`text-base font-semibold ${planId === p.id ? 'text-primary' : 'text-gray-900'}`}>
-                    {p.name}
-                  </Text>
-                  <Text className="text-xs text-gray-400 mt-0.5">
-                    {p.isCustomPrice ? 'Custom pricing' : `$${p.price} / month`}
-                  </Text>
-                </View>
-              </Pressable>
-            ))}
-          </View>
+          <Dropdown
+            label={t('customers.plan_label')}
+            placeholder={t('customers.select_plan')}
+            options={planOptions}
+            value={planId}
+            onChange={setPlanId}
+            nullable
+            nullLabel={t('common.no_plan')}
+            nullSublabel="Custom amount each payment"
+          />
 
           <Button
             label={customer ? t('common.save_changes') : t('customers.add_title')}

@@ -18,7 +18,7 @@ type FilterTab = 'all' | 'unpaid' | 'active' | 'inactive';
 export function CustomerListScreen() {
   const { t } = useTranslation();
   const router = useRouter();
-  const { customers, currentMonthPaidIds, loading, loadingMore, hasMore, error, fetchCustomers, fetchMoreCustomers, clearError } = useCustomerStore();
+  const { customers, currentMonthPaidIds, loading, loadingMore, error, fetchCustomers, fetchMoreCustomers, clearError } = useCustomerStore();
   const [formVisible, setFormVisible] = useState(false);
   const [searchText, setSearchText] = useState('');
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
@@ -56,29 +56,28 @@ export function CustomerListScreen() {
     <SafeAreaView className="flex-1 bg-gray-50">
       {/* Header */}
       <View className="px-5 pt-5 pb-3 bg-white border-b border-gray-100">
-        <View className="flex-row items-center justify-between mb-1">
+        <View className="flex-row items-center gap-2 mb-3">
           <Text className="text-2xl font-bold text-gray-900">{t('customers.title')}</Text>
+          <Text className="text-sm text-gray-400 mt-1 flex-1">{customers.length} total</Text>
+
+          {/* Inline search */}
+          <View className="flex-row items-center bg-gray-100 rounded-xl px-3 py-2 w-40">
+            <Ionicons name="search-outline" size={14} color="#9ca3af" />
+            <TextInput
+              className="flex-1 ms-1.5 text-sm text-gray-900"
+              placeholder={t('customers.search_placeholder')}
+              placeholderTextColor="#9ca3af"
+              value={searchText}
+              onChangeText={setSearchText}
+            />
+          </View>
+
           <Pressable
             onPress={() => setFormVisible(true)}
             className="bg-primary rounded-full px-4 py-2"
           >
             <Text className="text-white font-semibold text-sm">+ Add</Text>
           </Pressable>
-        </View>
-        <Text className="text-sm text-gray-400 mb-3">
-          {customers.length} total
-        </Text>
-
-        {/* Search */}
-        <View className="flex-row items-center bg-gray-100 rounded-xl px-3 py-2.5 mb-3">
-          <Ionicons name="search-outline" size={16} color="#9ca3af" />
-          <TextInput
-            className="flex-1 ms-2 text-sm text-gray-900"
-            placeholder="Search customers, phone, address..."
-            placeholderTextColor="#9ca3af"
-            value={searchText}
-            onChangeText={setSearchText}
-          />
         </View>
 
         {/* Filter tabs */}
