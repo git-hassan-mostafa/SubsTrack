@@ -1,8 +1,10 @@
-import { Alert, Pressable, ScrollView, View } from "react-native";
+import { useState } from "react";
+import { Pressable, ScrollView, View } from "react-native";
 import { Text } from "@/src/shared/components/Text";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
+import { ConfirmDialog } from "@/src/shared/components/ConfirmDialog";
 import {
   useLanguageStore,
   SUPPORTED_LANGUAGES,
@@ -85,23 +87,17 @@ export function SettingsScreen() {
   const avatarColor = user ? getAvatarColor(user.username) : "#6366f1";
   const initials = user ? getInitials(user.username) : "?";
 
+  const [logoutConfirmVisible, setLogoutConfirmVisible] = useState(false);
+  const [pendingLanguage, setPendingLanguage] = useState<SupportedLanguage | null>(null);
+
   function handleLanguageSelect(lang: SupportedLanguage) {
     if (lang === language) return;
-    Alert.alert(t("settings.language_section"), t("settings.restart_notice"), [
-      { text: t("common.cancel"), style: "cancel" },
-      { text: "OK", onPress: () => setLanguage(lang) },
-    ]);
+    setPendingLanguage(lang);
   }
 
-  function handleLogout() {
-    Alert.alert(t("settings.logout"), t("settings.logout_confirm"), [
-      { text: t("common.cancel"), style: "cancel" },
-      {
-        text: t("settings.logout"),
-        style: "destructive",
-        onPress: () => logout(),
-      },
-    ]);
+  function handleLanguageConfirm() {
+    if (pendingLanguage) setLanguage(pendingLanguage);
+    setPendingLanguage(null);
   }
 
   return (
@@ -214,12 +210,31 @@ export function SettingsScreen() {
               icon="log-out-outline"
               label={t("settings.logout")}
               last
-              onPress={handleLogout}
+              onPress={() => setLogoutConfirmVisible(true)}
               destructive
             />
           </View>
         </View>
       </ScrollView>
+
+      <ConfirmDialog
+        visible={logoutConfirmVisible}
+        title={t("settings.logout")}
+        message={t("settings.logout_confirm")}
+        confirmLabel={t("settings.logout")}
+        destructive
+        onConfirm={() => { setLogoutConfirmVisible(false); logout(); }}
+        onCancel={() => setLogoutConfirmVisible(false)}
+      />
+
+      <ConfirmDialog
+        visible={pendingLanguage !== null}
+        title={t("settings.language_section")}
+        message={t("settings.restart_notice")}
+        confirmLabel="OK"
+        onConfirm={handleLanguageConfirm}
+        onCancel={() => setPendingLanguage(null)}
+      />
     </SafeAreaView>
   );
 }

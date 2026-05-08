@@ -94,6 +94,9 @@
     "username_placeholder": "اسم المستخدم",
     "password_label": "كلمة المرور",
     "password_placeholder": "8 أحرف على الأقل",
+    "confirm_password_label": "تأكيد كلمة المرور",
+    "confirm_password_placeholder": "أعد إدخال كلمة المرور",
+    "password_mismatch": "كلمتا المرور غير متطابقتين",
     "phone_optional": "الهاتف (اختياري)",
     "role_label": "الدور"
   },

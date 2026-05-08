@@ -1,5 +1,5 @@
-import { useRef } from "react";
-import { Modal, Pressable, ScrollView, View } from "react-native";
+import { useMemo, useRef } from "react";
+import { FlatList, Modal, Pressable, View } from "react-native";
 import { Text } from "@/src/shared/components/Text";
 import { useTranslation } from "react-i18next";
 import { useState } from "react";
@@ -14,7 +14,7 @@ interface Props {
   showTime?: boolean;
 }
 
-const ITEM_HEIGHT = 40;
+const ITEM_HEIGHT = 44;
 
 function range(start: number, end: number): number[] {
   return Array.from({ length: end - start + 1 }, (_, i) => start + i);
@@ -57,32 +57,28 @@ function ScrollColumn({
   label: string;
   renderItem?: (v: number) => string;
 }) {
-  const ref = useRef<ScrollView>(null);
-  const selectedIndex = items.indexOf(selected);
-
-  function handleOpen() {
-    if (selectedIndex >= 0) {
-      ref.current?.scrollTo({
-        y: selectedIndex * ITEM_HEIGHT,
-        animated: false,
-      });
-    }
-  }
+  const ref = useRef<FlatList>(null);
+  const selectedIndex = Math.max(0, items.indexOf(selected));
 
   return (
     <View className="flex-1">
       <Text className="text-xs text-center text-gray-400 mb-1 font-medium">
         {label}
       </Text>
-      <ScrollView
+      <FlatList
         ref={ref}
+        data={items}
+        keyExtractor={(v) => String(v)}
         style={{ height: 200 }}
         showsVerticalScrollIndicator={false}
-        onLayout={handleOpen}
-      >
-        {items.map((v) => (
+        getItemLayout={(_, index) => ({
+          length: ITEM_HEIGHT,
+          offset: ITEM_HEIGHT * index,
+          index,
+        })}
+        initialScrollIndex={selectedIndex}
+        renderItem={({ item: v }) => (
           <Pressable
-            key={v}
             onPress={() => onSelect(v)}
             style={{ height: ITEM_HEIGHT }}
             className={`rounded-lg items-center justify-center ${selected === v ? "bg-primary" : ""}`}
@@ -93,8 +89,8 @@ function ScrollColumn({
               {renderItem ? renderItem(v) : pad(v)}
             </Text>
           </Pressable>
-        ))}
-      </ScrollView>
+        )}
+      />
     </View>
   );
 }
@@ -108,28 +104,30 @@ function MonthScrollColumn({
   selected: number;
   onSelect: (m: number) => void;
 }) {
-  const ref = useRef<ScrollView>(null);
+  const ref = useRef<FlatList>(null);
+  const initialIndex = Math.max(0, selected - 1);
 
   return (
     <View style={{ flex: 2 }}>
       <Text className="text-xs text-center text-gray-400 mb-1 font-medium">
         Month
       </Text>
-      <ScrollView
+      <FlatList
         ref={ref}
+        data={monthNames}
+        keyExtractor={(_, i) => String(i)}
         style={{ height: 200 }}
         showsVerticalScrollIndicator={false}
-        onLayout={() => {
-          const idx = selected - 1;
-          if (idx > 0)
-            ref.current?.scrollTo({ y: idx * ITEM_HEIGHT, animated: false });
-        }}
-      >
-        {monthNames.map((name, i) => {
+        getItemLayout={(_, index) => ({
+          length: ITEM_HEIGHT,
+          offset: ITEM_HEIGHT * index,
+          index,
+        })}
+        initialScrollIndex={initialIndex}
+        renderItem={({ item: name, index: i }) => {
           const m = i + 1;
           return (
             <Pressable
-              key={m}
               onPress={() => onSelect(m)}
               style={{ height: ITEM_HEIGHT }}
               className={`rounded-lg items-center justify-center ${selected === m ? "bg-primary" : ""}`}
@@ -141,8 +139,8 @@ function MonthScrollColumn({
               </Text>
             </Pressable>
           );
-        })}
-      </ScrollView>
+        }}
+      />
     </View>
   );
 }
@@ -175,20 +173,24 @@ export function DatePickerInput({
 
   const maxDay = daysInMonth(selYear, selMonth);
 
-  const MONTH_NAMES = [
-    t("months.jan"),
-    t("months.feb"),
-    t("months.mar"),
-    t("months.apr"),
-    t("months.may"),
-    t("months.jun"),
-    t("months.jul"),
-    t("months.aug"),
-    t("months.sep"),
-    t("months.oct"),
-    t("months.nov"),
-    t("months.dec"),
-  ];
+  const MONTH_NAMES = useMemo(
+    () => [
+      t("months.jan"),
+      t("months.feb"),
+      t("months.mar"),
+      t("months.apr"),
+      t("months.may"),
+      t("months.jun"),
+      t("months.jul"),
+      t("months.aug"),
+      t("months.sep"),
+      t("months.oct"),
+      t("months.nov"),
+      t("months.dec"),
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    ],
+    [t],
+  );
 
   function handleOpen() {
     const p = parseValue(value);
@@ -229,6 +231,11 @@ export function DatePickerInput({
     setOpen(false);
   }
 
+  const yearItems = useMemo(() => range(minYear, maxYear), [minYear, maxYear]);
+  const dayItems = useMemo(() => range(1, maxDay), [maxDay]);
+  const hourItems = useMemo(() => range(0, 23), []);
+  const minuteItems = useMemo(() => range(0, 59), []);
+
   const displayValue = value || null;
 
   return (
@@ -265,7 +272,7 @@ export function DatePickerInput({
             {/* Header */}
             <View className="flex-row justify-between items-center px-5 py-4 border-b border-gray-100">
               <Pressable onPress={() => setOpen(false)}>
-                <Text className="text-base text-gray-500">
+                <Text className="text-base text-primary font-medium">
                   {t("common.cancel")}
                 </Text>
               </Pressable>
@@ -282,7 +289,7 @@ export function DatePickerInput({
             {/* Columns */}
             <View className="flex-row px-3 py-3 gap-1">
               <ScrollColumn
-                items={range(1, maxDay)}
+                items={dayItems}
                 selected={Math.min(selDay, maxDay)}
                 onSelect={setSelDay}
                 label="Day"
@@ -293,7 +300,7 @@ export function DatePickerInput({
                 onSelect={handleMonthChange}
               />
               <ScrollColumn
-                items={range(minYear, maxYear)}
+                items={yearItems}
                 selected={selYear}
                 onSelect={handleYearChange}
                 label="Year"
@@ -302,13 +309,13 @@ export function DatePickerInput({
               {showTime ? (
                 <>
                   <ScrollColumn
-                    items={range(0, 23)}
+                    items={hourItems}
                     selected={selHour}
                     onSelect={setSelHour}
                     label="Hour"
                   />
                   <ScrollColumn
-                    items={range(0, 59)}
+                    items={minuteItems}
                     selected={selMinute}
                     onSelect={setSelMinute}
                     label="Min"

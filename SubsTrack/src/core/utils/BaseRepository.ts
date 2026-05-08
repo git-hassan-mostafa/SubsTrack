@@ -6,8 +6,10 @@ export abstract class BaseRepository {
 
   protected handleError(error: unknown): never {
     if (error && typeof error === 'object' && 'message' in error) {
+      console.error('[Repository Error]', (error as Error).stack ?? error);
       throw new Error((error as { message: string }).message);
     }
+    console.error('[Repository Error]', error);
     throw new Error('An unexpected error occurred');
   }
 }

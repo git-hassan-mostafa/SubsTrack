@@ -1,3 +1,3 @@
 run sql script from ./script.sql
-run sql script from ./stored-procedures.sql
-add auth hook custom_access_token_hook 
+add auth hook custom_access_token_hook
+deploy create-user function.

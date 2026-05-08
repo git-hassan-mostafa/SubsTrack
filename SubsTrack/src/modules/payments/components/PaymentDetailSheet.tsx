@@ -71,7 +71,7 @@ export function PaymentDetailSheet({ visible, entry, onVoid, onEdit, editLoading
         <View className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
           <Text className="text-lg font-bold text-gray-900">Payment receipt</Text>
           <Pressable onPress={handleDismiss}>
-            <Text className="text-base text-gray-400">{t('common.close')}</Text>
+            <Text className="text-base text-primary font-medium">{t('common.close')}</Text>
           </Pressable>
         </View>
 

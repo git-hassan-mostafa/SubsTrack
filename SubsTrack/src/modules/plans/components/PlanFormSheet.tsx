@@ -63,7 +63,7 @@ export function PlanFormSheet({ visible, plan, onDismiss, onRequestDelete }: Pro
             {plan ? t('plans.edit_title') : t('plans.add_title')}
           </Text>
           <Pressable onPress={onDismiss}>
-            <Text className="text-base text-gray-400">{t('common.cancel')}</Text>
+            <Text className="text-base text-primary font-medium">{t('common.cancel')}</Text>
           </Pressable>
         </View>
 

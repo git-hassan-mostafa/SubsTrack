@@ -110,7 +110,7 @@ export function PaymentFormSheet({ visible, entry, customer, graceDays, onDismis
         <View className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
           <Text className="text-lg font-bold text-gray-900">{t('payments.record_payment')}</Text>
           <Pressable onPress={handleDismiss}>
-            <Text className="text-base text-gray-400">{t('common.cancel')}</Text>
+            <Text className="text-base text-primary font-medium">{t('common.cancel')}</Text>
           </Pressable>
         </View>
 
