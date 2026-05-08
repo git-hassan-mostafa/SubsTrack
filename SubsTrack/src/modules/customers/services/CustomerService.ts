@@ -1,8 +1,8 @@
-import type { Customer, Plan } from '@/src/core/types';
-import type { DbCustomer, DbPlan } from '@/src/core/types/db';
-import { PAGE_SIZE } from '@/src/core/constants';
-import { isValidDateString } from '@/src/core/utils/date';
-import { CustomerRepository } from '../repository/CustomerRepository';
+import type { Customer, Plan } from "@/src/core/types";
+import type { DbCustomer, DbPlan } from "@/src/core/types/db";
+import { PAGE_SIZE } from "@/src/core/constants";
+import { isValidDateString } from "@/src/core/utils/date";
+import { CustomerRepository } from "../repository/CustomerRepository";
 
 type DbCustomerWithPlan = DbCustomer & { plans?: DbPlan | null };
 
@@ -45,7 +45,9 @@ interface CreateCustomerInput {
 export class CustomerService {
   private repository = new CustomerRepository();
 
-  async getCustomers(page: number): Promise<{ customers: Customer[]; hasMore: boolean }> {
+  async getCustomers(
+    page: number,
+  ): Promise<{ customers: Customer[]; hasMore: boolean }> {
     const rows = await this.repository.findAll(page);
     return {
       customers: rows.map(mapDbCustomerToCustomer),
@@ -58,7 +60,10 @@ export class CustomerService {
     return mapDbCustomerToCustomer(row);
   }
 
-  async createCustomer(data: CreateCustomerInput, tenantId: string): Promise<Customer> {
+  async createCustomer(
+    data: CreateCustomerInput,
+    tenantId: string,
+  ): Promise<Customer> {
     this.validateInput(data);
     const row = await this.repository.create({
       name: data.name.trim(),
@@ -73,8 +78,11 @@ export class CustomerService {
     return mapDbCustomerToCustomer(row);
   }
 
-  async updateCustomer(id: string, data: Omit<CreateCustomerInput, 'startDate'>): Promise<Customer> {
-    if (!data.name.trim()) throw new Error('Customer name is required');
+  async updateCustomer(
+    id: string,
+    data: Omit<CreateCustomerInput, "startDate">,
+  ): Promise<Customer> {
+    if (!data.name.trim()) throw new Error("Customer name is required");
     const row = await this.repository.update(id, {
       name: data.name.trim(),
       phone_number: data.phoneNumber?.trim() || null,
@@ -95,8 +103,9 @@ export class CustomerService {
   }
 
   private validateInput(data: CreateCustomerInput): void {
-    if (!data.name.trim()) throw new Error('Customer name is required');
-    if (!data.startDate) throw new Error('Start date is required');
-    if (!isValidDateString(data.startDate)) throw new Error('Start date must be in YYYY-MM-DD format');
+    if (!data.name.trim()) throw new Error("Customer name is required");
+    if (!data.startDate) throw new Error("Start date is required");
+    if (!isValidDateString(data.startDate))
+      throw new Error("Start date must be in YYYY-MM-DD HH:mm format");
   }
 }

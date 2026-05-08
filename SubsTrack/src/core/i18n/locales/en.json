@@ -69,9 +69,9 @@
   },
   "plans": {
     "title": "Plans",
-    "add": "+ Add Plan",
+    "add": "+ New Plan",
     "no_plans": "No plans yet",
-    "no_plans_hint": "Tap \"+ Add Plan\" to create one",
+    "no_plans_hint": "Tap \"+ New Plan\" to create one",
     "delete_title": "Delete Plan",
     "delete_message": "Delete \"{{name}}\"? Customers assigned to this plan will have their plan removed.",
     "edit_title": "Edit Plan",

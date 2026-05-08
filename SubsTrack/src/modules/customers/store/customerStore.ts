@@ -1,8 +1,8 @@
-import { create } from 'zustand';
-import type { Customer } from '@/src/core/types';
-import { getCurrentYearMonth, toBillingMonth } from '@/src/core/utils/date';
-import { PaymentRepository } from '@/src/modules/payments/repository/PaymentRepository';
-import { CustomerService } from '../services/CustomerService';
+import { create } from "zustand";
+import type { Customer } from "@/src/core/types";
+import { getCurrentYearMonth, toBillingMonth } from "@/src/core/utils/date";
+import { PaymentRepository } from "@/src/modules/payments/repository/PaymentRepository";
+import { CustomerService } from "../services/CustomerService";
 
 interface CreateInput {
   name: string;
@@ -25,7 +25,10 @@ interface CustomersState {
   fetchMoreCustomers: () => Promise<void>;
   fetchCustomer: (id: string) => Promise<void>;
   createCustomer: (data: CreateInput, tenantId: string) => Promise<void>;
-  updateCustomer: (id: string, data: Omit<CreateInput, 'startDate'>) => Promise<void>;
+  updateCustomer: (
+    id: string,
+    data: Omit<CreateInput, "startDate">,
+  ) => Promise<void>;
   deactivateCustomer: (id: string) => Promise<void>;
   reactivateCustomer: (id: string) => Promise<void>;
   clearError: () => void;
@@ -66,7 +69,8 @@ export const useCustomerStore = create<CustomersState>((set, get) => ({
     set({ loadingMore: true });
     try {
       const nextPage = page + 1;
-      const { customers, hasMore: more } = await customerService.getCustomers(nextPage);
+      const { customers, hasMore: more } =
+        await customerService.getCustomers(nextPage);
       set((state) => ({
         customers: [...state.customers, ...customers],
         hasMore: more,
@@ -92,7 +96,10 @@ export const useCustomerStore = create<CustomersState>((set, get) => ({
     set({ loading: true, error: null });
     try {
       const customer = await customerService.createCustomer(data, tenantId);
-      set((state) => ({ customers: [customer, ...state.customers], loading: false }));
+      set((state) => ({
+        customers: [customer, ...state.customers],
+        loading: false,
+      }));
     } catch (e) {
       set({ error: (e as Error).message, loading: false });
     }
@@ -104,7 +111,8 @@ export const useCustomerStore = create<CustomersState>((set, get) => ({
       const updated = await customerService.updateCustomer(id, data);
       set((state) => ({
         customers: state.customers.map((c) => (c.id === id ? updated : c)),
-        selectedCustomer: state.selectedCustomer?.id === id ? updated : state.selectedCustomer,
+        selectedCustomer:
+          state.selectedCustomer?.id === id ? updated : state.selectedCustomer,
         loading: false,
       }));
     } catch (e) {
@@ -118,7 +126,8 @@ export const useCustomerStore = create<CustomersState>((set, get) => ({
       const updated = await customerService.deactivateCustomer(id);
       set((state) => ({
         customers: state.customers.map((c) => (c.id === id ? updated : c)),
-        selectedCustomer: state.selectedCustomer?.id === id ? updated : state.selectedCustomer,
+        selectedCustomer:
+          state.selectedCustomer?.id === id ? updated : state.selectedCustomer,
         loading: false,
       }));
     } catch (e) {
@@ -132,7 +141,8 @@ export const useCustomerStore = create<CustomersState>((set, get) => ({
       const updated = await customerService.reactivateCustomer(id);
       set((state) => ({
         customers: state.customers.map((c) => (c.id === id ? updated : c)),
-        selectedCustomer: state.selectedCustomer?.id === id ? updated : state.selectedCustomer,
+        selectedCustomer:
+          state.selectedCustomer?.id === id ? updated : state.selectedCustomer,
         loading: false,
       }));
     } catch (e) {
@@ -141,5 +151,12 @@ export const useCustomerStore = create<CustomersState>((set, get) => ({
   },
 
   clearError: () => set({ error: null }),
-  reset: () => set({ customers: [], currentMonthPaidIds: new Set(), selectedCustomer: null, page: 0, hasMore: true }),
+  reset: () =>
+    set({
+      customers: [],
+      currentMonthPaidIds: new Set(),
+      selectedCustomer: null,
+      page: 0,
+      hasMore: true,
+    }),
 }));

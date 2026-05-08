@@ -32,10 +32,14 @@ export default function RootLayout() {
   const router = useRouter();
 
   useEffect(() => {
-    initI18n().then(() => {
-      setI18nReady(true);
-      restoreSession();
-    });
+    initI18n()
+      .then(() => {
+        setI18nReady(true);
+        restoreSession();
+      })
+      .catch((error) => {
+        console.error("[RootLayout] Failed to initialize i18n:", error);
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
