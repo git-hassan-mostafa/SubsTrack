@@ -1,14 +1,21 @@
-import { create } from 'zustand';
-import type { Plan } from '@/src/core/types';
-import { PlanService } from '../services/PlanService';
+import { create } from "zustand";
+import type { Plan } from "@/src/core/types";
+import { PlanService } from "../services/PlanService";
 
 interface PlansState {
   plans: Plan[];
   loading: boolean;
   error: string | null;
+  getPlans: () => Promise<void>;
   fetchPlans: () => Promise<void>;
-  createPlan: (data: { name: string; isCustomPrice: boolean; price: number | null }, tenantId: string) => Promise<void>;
-  updatePlan: (id: string, data: { name: string; isCustomPrice: boolean; price: number | null }) => Promise<void>;
+  createPlan: (
+    data: { name: string; isCustomPrice: boolean; price: number | null },
+    tenantId: string,
+  ) => Promise<void>;
+  updatePlan: (
+    id: string,
+    data: { name: string; isCustomPrice: boolean; price: number | null },
+  ) => Promise<void>;
   deletePlan: (id: string) => Promise<void>;
   clearError: () => void;
   reset: () => void;
@@ -21,6 +28,10 @@ export const usePlanStore = create<PlansState>((set, get) => ({
   loading: false,
   error: null,
 
+  getPlans: async () => {
+    if (!!get().plans && get().plans.length > 0) return;
+    await get().fetchPlans();
+  },
   fetchPlans: async () => {
     set({ loading: true, error: null });
     try {
@@ -58,7 +69,10 @@ export const usePlanStore = create<PlansState>((set, get) => ({
     set({ loading: true, error: null });
     try {
       await planService.deletePlan(id);
-      set((state) => ({ plans: state.plans.filter((p) => p.id !== id), loading: false }));
+      set((state) => ({
+        plans: state.plans.filter((p) => p.id !== id),
+        loading: false,
+      }));
     } catch (e) {
       set({ error: (e as Error).message, loading: false });
     }

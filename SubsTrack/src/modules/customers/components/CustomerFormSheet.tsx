@@ -25,7 +25,7 @@ export function CustomerFormSheet({ visible, customer, onDismiss }: Props) {
   const { user } = useAuth();
   const { createCustomer, updateCustomer, loading, error, clearError } =
     useCustomerStore();
-  const { plans, fetchPlans } = usePlanStore();
+  const { plans, getPlans } = usePlanStore();
 
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -41,7 +41,7 @@ export function CustomerFormSheet({ visible, customer, onDismiss }: Props) {
       setPlanId(customer?.planId ?? null);
       setStartDate(customer?.startDate ?? "");
       clearError();
-      if (plans.length === 0) fetchPlans();
+      getPlans();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, customer]);

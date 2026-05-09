@@ -21,6 +21,7 @@ interface CustomersState {
   loading: boolean;
   loadingMore: boolean;
   error: string | null;
+  getCustomers: () => Promise<void>;
   fetchCustomers: () => Promise<void>;
   fetchMoreCustomers: () => Promise<void>;
   fetchCustomer: (id: string) => Promise<void>;
@@ -47,7 +48,10 @@ export const useCustomerStore = create<CustomersState>((set, get) => ({
   loading: false,
   loadingMore: false,
   error: null,
-
+  getCustomers: async () => {
+    if (!!get().customers && get().customers.length > 0) return;
+    await get().fetchCustomers();
+  },
   fetchCustomers: async () => {
     set({ loading: true, error: null, page: 0 });
     try {

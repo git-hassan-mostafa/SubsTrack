@@ -2,6 +2,7 @@
   "common": {
     "cancel": "Cancel",
     "save_changes": "Save Changes",
+    "add":"+ Add",
     "edit": "Edit",
     "delete": "Delete",
     "close": "Close",
@@ -41,7 +42,6 @@
   },
   "customers": {
     "title": "Customers",
-    "add": "+ Add",
     "search_placeholder": "Search customers...",
     "no_customers": "No customers found",
     "no_customers_hint": "Tap \"+ Add\" to add your first customer",
@@ -69,7 +69,6 @@
   },
   "plans": {
     "title": "Plans",
-    "add": "+ New Plan",
     "no_plans": "No plans yet",
     "no_plans_hint": "Tap \"+ New Plan\" to create one",
     "delete_title": "Delete Plan",
@@ -85,7 +84,6 @@
   },
   "users": {
     "title": "Staff",
-    "add": "+ Add Staff",
     "no_staff": "No staff yet",
     "no_staff_hint": "Tap \"+ Add Staff\" to create one",
     "edit_title": "Edit Staff",

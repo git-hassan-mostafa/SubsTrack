@@ -174,7 +174,7 @@ CREATE TABLE IF NOT EXISTS payments (
     id                  UUID          PRIMARY KEY DEFAULT uuid_generate_v4(),
 
     -- Always the first day of the month (YYYY-MM-01). Enforced by constraint.
-    billing_month       DATE          NOT NULL,
+    billing_month       DATE          NOT NULL UNIQUE,
 
     -- Snapshot of the amount at time of payment. Never changes after insert.
     amount              NUMERIC(12,2) NOT NULL CHECK (amount > 0),

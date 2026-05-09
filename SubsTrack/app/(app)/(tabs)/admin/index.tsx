@@ -1,12 +1,12 @@
-import { useCallback } from 'react';
-import { Ionicons } from '@expo/vector-icons';
-import { Href, router } from 'expo-router';
-import { useFocusEffect } from 'expo-router';
-import { useTranslation } from 'react-i18next';
-import { ActivityIndicator, Pressable, View } from 'react-native';
-import { Text } from '@/src/shared/components/Text';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useDashboardStore } from '@/src/modules/dashboard/store/dashboardStore';
+import { useCallback } from "react";
+import { Ionicons } from "@expo/vector-icons";
+import { Href, router } from "expo-router";
+import { useFocusEffect } from "expo-router";
+import { useTranslation } from "react-i18next";
+import { ActivityIndicator, Pressable, View } from "react-native";
+import { Text } from "@/src/shared/components/Text";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useDashboardStore } from "@/src/modules/dashboard/store/dashboardStore";
 
 type MenuItem = {
   labelKey: string;
@@ -19,28 +19,28 @@ type MenuItem = {
 
 const MENU_ITEMS: MenuItem[] = [
   {
-    labelKey: 'dashboard.title',
-    subtitleKey: 'admin.dashboard_sub',
-    icon: 'bar-chart-outline',
-    iconBg: '#eef2ff',
-    iconColor: '#6366f1',
-    route: '/(app)/(tabs)/admin/dashboard',
+    labelKey: "dashboard.title",
+    subtitleKey: "admin.dashboard_sub",
+    icon: "bar-chart-outline",
+    iconBg: "#eef2ff",
+    iconColor: "#6366f1",
+    route: "/(app)/(tabs)/admin/dashboard",
   },
   {
-    labelKey: 'users.title',
-    subtitleKey: 'admin.staff_sub',
-    icon: 'people-outline',
-    iconBg: '#f0fdf4',
-    iconColor: '#22c55e',
-    route: '/(app)/(tabs)/admin/users',
+    labelKey: "users.title",
+    subtitleKey: "admin.staff_sub",
+    icon: "people-outline",
+    iconBg: "#f0fdf4",
+    iconColor: "#22c55e",
+    route: "/(app)/(tabs)/admin/users",
   },
   {
-    labelKey: 'plans.title',
-    subtitleKey: 'admin.plans_sub',
-    icon: 'pricetag-outline',
-    iconBg: '#fffbeb',
-    iconColor: '#f59e0b',
-    route: '/(app)/(tabs)/admin/plans',
+    labelKey: "plans.title",
+    subtitleKey: "admin.plans_sub",
+    icon: "pricetag-outline",
+    iconBg: "#fffbeb",
+    iconColor: "#f59e0b",
+    route: "/(app)/(tabs)/admin/plans",
   },
 ];
 
@@ -62,8 +62,12 @@ export default function AdminMenuScreen() {
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
       <View className="px-5 pt-5 pb-4">
-        <Text className="text-2xl font-bold text-gray-900">{t('admin.title')}</Text>
-        <Text className="text-sm text-gray-400 mt-0.5">Manage your workspace</Text>
+        <Text className="text-2xl font-bold text-gray-900">
+          {t("admin.title")}
+        </Text>
+        <Text className="text-sm text-gray-400 mt-0.5">
+          Manage your workspace
+        </Text>
       </View>
 
       {/* Stats card */}
@@ -81,24 +85,30 @@ export default function AdminMenuScreen() {
           )}
         </View>
         <View className="flex-1 items-center py-4 border-r border-gray-100">
-          <Text className="text-xl font-bold text-red-500">{metrics?.unpaidThisMonth ?? 0}</Text>
+          <Text className="text-xl font-bold text-red-500">
+            {metrics?.unpaidThisMonth ?? 0}
+          </Text>
           <Text className="text-xs text-gray-400 mt-0.5">Unpaid</Text>
         </View>
         <View className="flex-1 items-center py-4">
-          <Text className="text-xl font-bold text-gray-900">{metrics?.totalCustomers ?? 0}</Text>
+          <Text className="text-xl font-bold text-gray-900">
+            {metrics?.totalCustomers ?? 0}
+          </Text>
           <Text className="text-xs text-gray-400 mt-0.5">Customers</Text>
         </View>
       </View>
 
       {/* Manage section */}
       <View className="mx-4">
-        <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2 px-1">Manage</Text>
+        <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2 px-1">
+          Manage
+        </Text>
         <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
           {MENU_ITEMS.map((item, index) => (
             <Pressable
               key={item.route}
               onPress={() => router.push(item.route as Href)}
-              className={`flex-row items-center justify-between px-4 py-4 ${index < MENU_ITEMS.length - 1 ? 'border-b border-gray-100' : ''}`}
+              className={`flex-row items-center justify-between px-4 py-4 ${index < MENU_ITEMS.length - 1 ? "border-b border-gray-100" : ""}`}
             >
               <View className="flex-row items-center gap-3">
                 <View
@@ -108,13 +118,15 @@ export default function AdminMenuScreen() {
                   <Ionicons name={item.icon} size={20} color={item.iconColor} />
                 </View>
                 <View>
-                  <Text className="text-base font-semibold text-gray-900">{t(item.labelKey)}</Text>
+                  <Text className="text-base font-semibold text-gray-900">
+                    {t(item.labelKey)}
+                  </Text>
                   <Text className="text-xs text-gray-400 mt-0.5">
-                    {item.labelKey === 'dashboard.title'
-                      ? 'Revenue · collections · activity'
-                      : item.labelKey === 'users.title'
-                      ? `${metrics?.totalUsers ?? 0} members`
-                      : `${metrics?.totalPlans ?? 0} plans`}
+                    {item.labelKey === "dashboard.title"
+                      ? "Revenue · collections · activity"
+                      : item.labelKey === "users.title"
+                        ? `${metrics?.totalUsers ?? 0} members`
+                        : `${metrics?.totalPlans ?? 0} plans`}
                   </Text>
                 </View>
               </View>

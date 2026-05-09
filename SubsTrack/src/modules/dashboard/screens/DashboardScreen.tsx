@@ -1,43 +1,77 @@
-import { useCallback } from 'react';
-import { ActivityIndicator, RefreshControl, ScrollView, View } from 'react-native';
-import { Text } from '@/src/shared/components/Text';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect } from 'expo-router';
-import { ErrorBanner } from '@/src/shared/components/ErrorBanner';
-import { formatCurrency } from '@/src/core/utils/date';
-import { useAuth } from '@/src/modules/auth/hooks/useAuth';
-import { useDashboardStore } from '../store/dashboardStore';
+import { useEffect } from "react";
+import {
+  ActivityIndicator,
+  RefreshControl,
+  ScrollView,
+  View,
+} from "react-native";
+import { Text } from "@/src/shared/components/Text";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
+import { formatCurrency } from "@/src/core/utils/date";
+import { useAuth } from "@/src/modules/auth/hooks/useAuth";
+import { useDashboardStore } from "../store/dashboardStore";
 
-const MONTH_NAMES = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+const MONTH_NAMES = [
+  "JAN",
+  "FEB",
+  "MAR",
+  "APR",
+  "MAY",
+  "JUN",
+  "JUL",
+  "AUG",
+  "SEP",
+  "OCT",
+  "NOV",
+  "DEC",
+];
 
 export function DashboardScreen() {
   const { user } = useAuth();
-  const { metrics, loading, error, fetchMetrics, clearError } = useDashboardStore();
+  const { metrics, loading, error, getMetrics, fetchMetrics, clearError } =
+    useDashboardStore();
 
-  useFocusEffect(
-    useCallback(() => {
-      fetchMetrics();
-    }, []),
-  );
+  useEffect(() => {
+    getMetrics();
+  }, []);
 
   const now = new Date();
   const monthLabel = MONTH_NAMES[now.getMonth()];
   const year = now.getFullYear();
-  const dateLabel = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  const dateLabel = now.toLocaleDateString("en-US", {
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  });
 
-  const paidCustomers = Math.max(0, (metrics?.activeCustomers ?? 0) - (metrics?.unpaidThisMonth ?? 0));
+  const paidCustomers = Math.max(
+    0,
+    (metrics?.activeCustomers ?? 0) - (metrics?.unpaidThisMonth ?? 0),
+  );
   const activeCustomers = metrics?.activeCustomers ?? 0;
-  const collectedPct = activeCustomers > 0 ? Math.round((paidCustomers / activeCustomers) * 100) : 0;
+  const collectedPct =
+    activeCustomers > 0
+      ? Math.round((paidCustomers / activeCustomers) * 100)
+      : 0;
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
       <ScrollView
         className="flex-1"
-        refreshControl={<RefreshControl refreshing={loading} onRefresh={fetchMetrics} tintColor="#6366f1" />}
+        refreshControl={
+          <RefreshControl
+            refreshing={loading}
+            onRefresh={fetchMetrics}
+            tintColor="#6366f1"
+          />
+        }
       >
         {/* Greeting */}
         <View className="px-5 pt-5 pb-4">
-          <Text className="text-2xl font-bold text-gray-900">Hello, {user?.username ?? ''}</Text>
+          <Text className="text-2xl font-bold text-gray-900">
+            Hello, {user?.username ?? ""}
+          </Text>
           <Text className="text-sm text-gray-500 mt-0.5">{dateLabel}</Text>
         </View>
 
@@ -70,7 +104,8 @@ export function DashboardScreen() {
                 {formatCurrency(metrics?.monthlyRevenue ?? 0)}
               </Text>
               <Text className="text-sm text-indigo-200 mb-3">
-                {paidCustomers} of {activeCustomers} active customers · {collectedPct}% collected
+                {paidCustomers} of {activeCustomers} active customers ·{" "}
+                {collectedPct}% collected
               </Text>
               {/* Progress bar */}
               <View className="bg-indigo-400 rounded-full h-1.5">
@@ -86,17 +121,25 @@ export function DashboardScreen() {
               <View className="flex-1 bg-white border border-gray-100 rounded-2xl p-4">
                 <View className="flex-row items-center gap-1.5 mb-2">
                   <View className="w-2 h-2 rounded-full bg-danger" />
-                  <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wide">Unpaid</Text>
+                  <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
+                    Unpaid
+                  </Text>
                 </View>
-                <Text className="text-3xl font-bold text-gray-900">{metrics?.unpaidThisMonth ?? 0}</Text>
+                <Text className="text-3xl font-bold text-gray-900">
+                  {metrics?.unpaidThisMonth ?? 0}
+                </Text>
               </View>
 
               <View className="flex-1 bg-white border border-gray-100 rounded-2xl p-4">
                 <View className="flex-row items-center gap-1.5 mb-2">
                   <View className="w-2 h-2 rounded-full bg-success" />
-                  <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wide">New This Month</Text>
+                  <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
+                    New This Month
+                  </Text>
                 </View>
-                <Text className="text-3xl font-bold text-gray-900">{metrics?.totalCustomers ?? 0}</Text>
+                <Text className="text-3xl font-bold text-gray-900">
+                  {metrics?.totalCustomers ?? 0}
+                </Text>
               </View>
             </View>
 
