@@ -1,33 +1,36 @@
-import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, View } from 'react-native';
-import { Text } from '@/src/shared/components/Text';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useTranslation } from 'react-i18next';
-import { Ionicons } from '@expo/vector-icons';
-import { ConfirmDialog } from '@/src/shared/components/ConfirmDialog';
-import { ErrorBanner } from '@/src/shared/components/ErrorBanner';
-import type { MonthEntry } from '@/src/core/types';
-import { formatDate, getCurrentYearMonth } from '@/src/core/utils/date';
-import { useAuth } from '@/src/modules/auth/hooks/useAuth';
-import { MonthGrid } from '@/src/modules/payments/components/MonthGrid';
-import { PaymentDetailSheet } from '@/src/modules/payments/components/PaymentDetailSheet';
-import { PaymentFormSheet } from '@/src/modules/payments/components/PaymentFormSheet';
-import { VoidSheet } from '@/src/modules/payments/components/VoidSheet';
-import { usePaymentStore } from '@/src/modules/payments/store/paymentStore';
-import { CustomerFormSheet } from '../components/CustomerFormSheet';
-import { useCustomerStore } from '../store/customerStore';
-
-const DEFAULT_GRACE_DAYS = 0;
-
-const AVATAR_COLORS = ['#6366f1', '#ec4899', '#14b8a6', '#f97316', '#8b5cf6', '#22c55e', '#f59e0b', '#3b82f6'];
+import { useCallback, useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  View,
+} from "react-native";
+import { Text } from "@/src/shared/components/Text";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { useTranslation } from "react-i18next";
+import { Ionicons } from "@expo/vector-icons";
+import { ConfirmDialog } from "@/src/shared/components/ConfirmDialog";
+import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
+import type { Customer, MonthEntry } from "@/src/core/types";
+import { formatDate, getCurrentYearMonth } from "@/src/core/utils/date";
+import { useAuth } from "@/src/modules/auth/hooks/useAuth";
+import { MonthGrid } from "@/src/modules/payments/components/MonthGrid";
+import { PaymentDetailSheet } from "@/src/modules/payments/components/PaymentDetailSheet";
+import { PaymentFormSheet } from "@/src/modules/payments/components/PaymentFormSheet";
+import { VoidSheet } from "@/src/modules/payments/components/VoidSheet";
+import { usePaymentStore } from "@/src/modules/payments/store/paymentStore";
+import { CustomerFormSheet } from "../components/CustomerFormSheet";
+import { useCustomerStore } from "../store/customerStore";
+import { AVATAR_COLORS, DEFAULT_GRACE_DAYS } from "../../../shared/constants";
 
 function getAvatarColor(name: string): string {
   return AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length];
 }
 
 function getInitials(name: string): string {
-  const parts = name.trim().split(' ');
+  const parts = name.trim().split(" ");
   if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
   return name.slice(0, 2).toUpperCase();
 }
@@ -38,8 +41,10 @@ export function CustomerDetailScreen() {
   const router = useRouter();
   const { isAdmin } = useAuth();
 
-  const { selectedCustomer, loading: cLoading, error: cError, fetchCustomer, deactivateCustomer, reactivateCustomer, clearError: clearCError } = useCustomerStore();
-  const { monthGrid, payments, loading: pLoading, error: pError, fetchPayments, updatePaymentAmount, loadingUpdate, clearError: clearPError, reset: resetPayments } = usePaymentStore();
+  const [customer, setCustomer] = useState<Customer | null>(null);
+
+  const customerStore = useCustomerStore();
+  const paymentStore = usePaymentStore();
 
   const [year, setYear] = useState(getCurrentYearMonth().year);
   const [editVisible, setEditVisible] = useState(false);
@@ -51,31 +56,50 @@ export function CustomerDetailScreen() {
   const [infoPopupMessage, setInfoPopupMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    if (id) fetchCustomer(id);
-    return () => resetPayments();
+    getSelectedCustomer();
+    return () => paymentStore.reset();
   }, [id]);
 
   useEffect(() => {
-    if (selectedCustomer) {
-      fetchPayments(selectedCustomer.id, year, selectedCustomer, DEFAULT_GRACE_DAYS);
+    if (customer) {
+      paymentStore.fetchPayments(
+        customer.id,
+        year,
+        customer,
+        DEFAULT_GRACE_DAYS,
+      );
     }
-  }, [selectedCustomer, year]);
+  }, [customer, year]);
+
+  async function getSelectedCustomer() {
+    if (id) {
+      const selectedCustomer = await customerStore.getCustomer(id);
+      setCustomer(selectedCustomer);
+    }
+  }
+  async function fetchSelectedCustomer() {
+    if (id) {
+      const selectedCustomer = await customerStore.fetchCustomer(id);
+      setCustomer(selectedCustomer);
+    }
+  }
 
   function handleCellPress(entry: MonthEntry) {
-    if (entry.status === 'before_start') {
-      setInfoPopupMessage(t('payments.before_start_date'));
+    if (entry.status === "before_start") {
+      setInfoPopupMessage(t("payments.before_start_date"));
       return;
     }
 
     const { year: cy, month: cm } = getCurrentYearMonth();
-    const isFutureMonth = entry.year > cy || (entry.year === cy && entry.month > cm);
+    const isFutureMonth =
+      entry.year > cy || (entry.year === cy && entry.month > cm);
     if (!customer?.active && isFutureMonth) {
-      setInfoPopupMessage(t('payments.inactive_future_blocked'));
+      setInfoPopupMessage(t("payments.inactive_future_blocked"));
       return;
     }
 
     setSelectedEntry(entry);
-    if (entry.status === 'paid' && entry.payment) {
+    if (entry.status === "paid" && entry.payment) {
       setDetailVisible(true);
     } else {
       setFormVisible(true);
@@ -89,36 +113,47 @@ export function CustomerDetailScreen() {
 
   async function handleEditAmount(newAmount: number) {
     if (!selectedEntry?.payment) return;
-    await updatePaymentAmount(selectedEntry.payment.id, newAmount, customer!, year, DEFAULT_GRACE_DAYS);
+    await paymentStore.updatePaymentAmount(
+      selectedEntry.payment.id,
+      newAmount,
+      customer!,
+      year,
+      DEFAULT_GRACE_DAYS,
+    );
     if (!usePaymentStore.getState().error) setDetailVisible(false);
   }
 
   async function handleToggleActiveConfirmed() {
-    if (!selectedCustomer) return;
+    if (!customer) return;
     setToggleConfirmVisible(false);
-    if (selectedCustomer.active) {
-      await deactivateCustomer(selectedCustomer.id);
+    if (customer.active) {
+      await customerStore.deactivateCustomer(customer.id);
     } else {
-      await reactivateCustomer(selectedCustomer.id);
+      await customerStore.reactivateCustomer(customer.id);
     }
   }
 
   const handleRefresh = useCallback(() => {
-    if (id) fetchCustomer(id);
+    fetchSelectedCustomer();
   }, [id]);
-
-  const customer = selectedCustomer;
 
   // Current month unpaid banner
   const { year: cy, month: cm } = getCurrentYearMonth();
-  const currentMonthEntry = monthGrid.find((m) => m.year === cy && m.month === cm);
-  const showUnpaidBanner = currentMonthEntry?.status === 'unpaid' && year === cy;
+  const currentMonthEntry = paymentStore.monthGrid.find(
+    (m) => m.year === cy && m.month === cm,
+  );
+  const showUnpaidBanner =
+    currentMonthEntry?.status === "unpaid" && year === cy;
   const daysIntoMonth = new Date().getDate();
 
   // Year summary
-  const paidCount = monthGrid.filter((m) => m.status === 'paid').length;
-  const unpaidCount = monthGrid.filter((m) => m.status === 'unpaid').length;
-  const collectedTotal = payments
+  const paidCount = paymentStore.monthGrid.filter(
+    (m) => m.status === "paid",
+  ).length;
+  const unpaidCount = paymentStore.monthGrid.filter(
+    (m) => m.status === "unpaid",
+  ).length;
+  const collectedTotal = paymentStore.payments
     .filter((p) => !p.voidedAt && p.billingMonth.startsWith(String(year)))
     .reduce((sum, p) => sum + p.amount, 0);
 
@@ -132,75 +167,114 @@ export function CustomerDetailScreen() {
         {customer ? (
           <View
             className="w-10 h-10 rounded-xl items-center justify-center me-3"
-            style={{ backgroundColor: getAvatarColor(customer.name) + '22' }}
+            style={{ backgroundColor: getAvatarColor(customer.name) + "22" }}
           >
-            <Text className="text-sm font-bold" style={{ color: getAvatarColor(customer.name) }}>
+            <Text
+              className="text-sm font-bold"
+              style={{ color: getAvatarColor(customer.name) }}
+            >
               {getInitials(customer.name)}
             </Text>
           </View>
         ) : null}
         <View className="flex-1">
           <Text className="text-base font-bold text-gray-900" numberOfLines={1}>
-            {customer?.name ?? ''}
+            {customer?.name ?? ""}
           </Text>
           {customer ? (
             <Text className="text-xs text-gray-400">
-              {customer.plan?.name ?? 'No plan'} · since {new Date(customer.startDate).toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+              {customer.plan?.name ?? "No plan"} · since{" "}
+              {new Date(customer.startDate).toLocaleDateString("en-US", {
+                month: "short",
+                year: "numeric",
+              })}
             </Text>
           ) : null}
         </View>
         {isAdmin ? (
-          <Pressable onPress={() => setEditVisible(true)} className="ms-2 bg-primary rounded-full px-4 py-2">
-            <Text className="text-white font-semibold text-sm">{t('common.edit')}</Text>
+          <Pressable
+            onPress={() => setEditVisible(true)}
+            className="ms-2 bg-primary rounded-full px-4 py-2"
+          >
+            <Text className="text-white font-semibold text-sm">
+              {t("common.edit")}
+            </Text>
           </Pressable>
         ) : null}
       </View>
 
-      {(cError || pError) ? (
+      {customerStore.error || paymentStore.error ? (
         <View className="px-4 pt-4">
-          {cError ? <ErrorBanner message={cError} onDismiss={clearCError} /> : null}
-          {pError ? <ErrorBanner message={pError} onDismiss={clearPError} /> : null}
+          {customerStore.error ? (
+            <ErrorBanner
+              message={customerStore.error}
+              onDismiss={customerStore.clearError}
+            />
+          ) : null}
+          {paymentStore.error ? (
+            <ErrorBanner
+              message={paymentStore.error}
+              onDismiss={paymentStore.clearError}
+            />
+          ) : null}
         </View>
       ) : null}
 
-      {cLoading && !customer ? (
+      {customerStore.loading && !customer ? (
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator color="#6366f1" />
         </View>
       ) : customer ? (
-        <ScrollView className="flex-1" refreshControl={<RefreshControl refreshing={cLoading} onRefresh={handleRefresh} tintColor="#6366f1" />}>
+        <ScrollView
+          className="flex-1"
+          refreshControl={
+            <RefreshControl
+              refreshing={customerStore.loading}
+              onRefresh={handleRefresh}
+              tintColor="#6366f1"
+            />
+          }
+        >
           {/* Year card */}
           <View className="bg-white mx-4 mt-4 rounded-2xl border border-gray-100 overflow-hidden">
             <View className="flex-row items-center justify-between px-4 pt-4 pb-2">
               <View>
                 <Text className="text-2xl font-bold text-gray-900">{year}</Text>
                 <Text className="text-xs text-gray-400 mt-0.5">
-                  {paidCount} paid · {unpaidCount} unpaid · ${collectedTotal.toFixed(0)} collected
+                  {paidCount} paid · {unpaidCount} unpaid · $
+                  {collectedTotal.toFixed(0)} collected
                 </Text>
               </View>
               <View className="flex-row gap-2">
                 <Pressable
                   onPress={() => setYear((y) => y - 1)}
                   disabled={year <= new Date(customer.startDate).getFullYear()}
-                  className={`w-9 h-9 rounded-full items-center justify-center bg-gray-100 ${year <= new Date(customer.startDate).getFullYear() ? 'opacity-30' : ''}`}
+                  className={`w-9 h-9 rounded-full items-center justify-center bg-gray-100 ${year <= new Date(customer.startDate).getFullYear() ? "opacity-30" : ""}`}
                 >
-                  <Text className="text-gray-700 font-semibold text-base">‹</Text>
+                  <Text className="text-gray-700 font-semibold text-base">
+                    ‹
+                  </Text>
                 </Pressable>
                 <Pressable
                   onPress={() => setYear((y) => y + 1)}
                   className="w-9 h-9 rounded-full items-center justify-center bg-gray-100"
                 >
-                  <Text className="text-gray-700 font-semibold text-base">›</Text>
+                  <Text className="text-gray-700 font-semibold text-base">
+                    ›
+                  </Text>
                 </Pressable>
               </View>
             </View>
 
-            {pLoading ? (
+            {paymentStore.loading ? (
               <View className="h-40 items-center justify-center">
                 <ActivityIndicator color="#6366f1" />
               </View>
             ) : (
-              <MonthGrid months={monthGrid} onCellPress={handleCellPress} />
+              <MonthGrid
+                months={paymentStore.monthGrid}
+                onCellPress={handleCellPress}
+              />
             )}
           </View>
 
@@ -210,24 +284,35 @@ export function CustomerDetailScreen() {
               <Text className="text-base me-2">⚠️</Text>
               <View className="flex-1">
                 <Text className="text-sm font-semibold text-red-600">
-                  {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })} unpaid
+                  {new Date().toLocaleDateString("en-US", {
+                    month: "long",
+                    year: "numeric",
+                  })}{" "}
+                  unpaid
                 </Text>
                 <Text className="text-xs text-gray-500 mt-0.5">
-                  {customer.plan?.price != null ? `$${customer.plan.price.toFixed(2)} due` : 'Amount due'} · {daysIntoMonth} days into the month
+                  {customer.plan?.price != null
+                    ? `$${customer.plan.price.toFixed(2)} due`
+                    : "Amount due"}{" "}
+                  · {daysIntoMonth} days into the month
                 </Text>
               </View>
               <Pressable
                 onPress={() => handleCellPress(currentMonthEntry)}
                 className="bg-red-500 rounded-xl px-3 py-2 ms-2"
               >
-                <Text className="text-white text-sm font-semibold">Collect</Text>
+                <Text className="text-white text-sm font-semibold">
+                  Collect
+                </Text>
               </Pressable>
             </View>
           ) : null}
 
           {/* Details section */}
           <View className="mx-4 mt-4">
-            <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2 px-1">Details</Text>
+            <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2 px-1">
+              Details
+            </Text>
             <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
               {customer.phoneNumber ? (
                 <View className="flex-row items-center justify-between px-4 py-3.5 border-b border-gray-100">
@@ -235,17 +320,26 @@ export function CustomerDetailScreen() {
                     <Ionicons name="call-outline" size={16} color="#9ca3af" />
                     <Text className="text-sm text-gray-500">Phone</Text>
                   </View>
-                  <Text className="text-sm font-semibold text-gray-900">{customer.phoneNumber}</Text>
+                  <Text className="text-sm font-semibold text-gray-900">
+                    {customer.phoneNumber}
+                  </Text>
                 </View>
               ) : null}
 
               {customer.address ? (
                 <View className="flex-row items-center justify-between px-4 py-3.5 border-b border-gray-100">
                   <View className="flex-row items-center gap-3">
-                    <Ionicons name="location-outline" size={16} color="#9ca3af" />
+                    <Ionicons
+                      name="location-outline"
+                      size={16}
+                      color="#9ca3af"
+                    />
                     <Text className="text-sm text-gray-500">Address</Text>
                   </View>
-                  <Text className="text-sm font-semibold text-gray-900 flex-1 ms-4 text-right" numberOfLines={2}>
+                  <Text
+                    className="text-sm font-semibold text-gray-900 flex-1 ms-4 text-right"
+                    numberOfLines={2}
+                  >
                     {customer.address}
                   </Text>
                 </View>
@@ -266,14 +360,20 @@ export function CustomerDetailScreen() {
                 className="flex-row items-center justify-between px-4 py-3.5"
               >
                 <View className="flex-row items-center gap-3">
-                  <View className={`w-4 h-4 rounded-full items-center justify-center ${customer.active ? 'bg-green-100' : 'bg-gray-100'}`}>
-                    <View className={`w-2 h-2 rounded-full ${customer.active ? 'bg-success' : 'bg-gray-400'}`} />
+                  <View
+                    className={`w-4 h-4 rounded-full items-center justify-center ${customer.active ? "bg-green-100" : "bg-gray-100"}`}
+                  >
+                    <View
+                      className={`w-2 h-2 rounded-full ${customer.active ? "bg-success" : "bg-gray-400"}`}
+                    />
                   </View>
                   <Text className="text-sm text-gray-500">Status</Text>
                 </View>
                 <View className="flex-row items-center gap-1.5">
-                  <Text className={`text-sm font-semibold ${customer.active ? 'text-success' : 'text-gray-400'}`}>
-                    {customer.active ? 'Active' : 'Inactive'}
+                  <Text
+                    className={`text-sm font-semibold ${customer.active ? "text-success" : "text-gray-400"}`}
+                  >
+                    {customer.active ? "Active" : "Inactive"}
                   </Text>
                   <Text className="text-xs text-primary">(tap)</Text>
                 </View>
@@ -287,7 +387,11 @@ export function CustomerDetailScreen() {
 
       {customer ? (
         <>
-          <CustomerFormSheet visible={editVisible} customer={customer} onDismiss={() => setEditVisible(false)} />
+          <CustomerFormSheet
+            visible={editVisible}
+            customer={customer}
+            onDismiss={() => setEditVisible(false)}
+          />
           <PaymentFormSheet
             visible={formVisible}
             entry={selectedEntry}
@@ -299,8 +403,12 @@ export function CustomerDetailScreen() {
             visible={detailVisible}
             entry={selectedEntry}
             onVoid={handleVoidPress}
-            onEdit={(!customer.plan || customer.plan.isCustomPrice) ? handleEditAmount : undefined}
-            editLoading={loadingUpdate}
+            onEdit={
+              !customer.plan || customer.plan.isCustomPrice
+                ? handleEditAmount
+                : undefined
+            }
+            editLoading={paymentStore.loadingUpdate}
             onDismiss={() => setDetailVisible(false)}
           />
           <VoidSheet
@@ -313,11 +421,15 @@ export function CustomerDetailScreen() {
           />
           <ConfirmDialog
             visible={toggleConfirmVisible}
-            title={customer.active ? t('customers.deactivate_title') : t('customers.reactivate_title')}
+            title={
+              customer.active
+                ? t("customers.deactivate_title")
+                : t("customers.reactivate_title")
+            }
             message={
               customer.active
-                ? t('customers.deactivate_message', { name: customer.name })
-                : t('customers.reactivate_message', { name: customer.name })
+                ? t("customers.deactivate_message", { name: customer.name })
+                : t("customers.reactivate_message", { name: customer.name })
             }
             destructive={customer.active}
             onConfirm={handleToggleActiveConfirmed}
@@ -325,9 +437,9 @@ export function CustomerDetailScreen() {
           />
           <ConfirmDialog
             visible={infoPopupMessage !== null}
-            title={t('common.not_available')}
-            message={infoPopupMessage ?? ''}
-            confirmLabel={t('common.close')}
+            title={t("common.not_available")}
+            message={infoPopupMessage ?? ""}
+            confirmLabel={t("common.close")}
             hideCancel
             onConfirm={() => setInfoPopupMessage(null)}
             onCancel={() => setInfoPopupMessage(null)}

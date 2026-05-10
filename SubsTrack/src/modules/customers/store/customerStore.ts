@@ -15,7 +15,6 @@ interface CreateInput {
 interface CustomersState {
   customers: Customer[];
   currentMonthPaidIds: Set<string>;
-  selectedCustomer: Customer | null;
   page: number;
   hasMore: boolean;
   loading: boolean;
@@ -24,7 +23,8 @@ interface CustomersState {
   getCustomers: () => Promise<void>;
   fetchCustomers: () => Promise<void>;
   fetchMoreCustomers: () => Promise<void>;
-  fetchCustomer: (id: string) => Promise<void>;
+  getCustomer: (id: string) => Promise<Customer | null>;
+  fetchCustomer: (id: string) => Promise<Customer | null>;
   createCustomer: (data: CreateInput, tenantId: string) => Promise<void>;
   updateCustomer: (
     id: string,
@@ -42,7 +42,6 @@ const paymentRepository = new PaymentRepository();
 export const useCustomerStore = create<CustomersState>((set, get) => ({
   customers: [],
   currentMonthPaidIds: new Set(),
-  selectedCustomer: null,
   page: 0,
   hasMore: true,
   loading: false,
@@ -85,14 +84,21 @@ export const useCustomerStore = create<CustomersState>((set, get) => ({
       set({ error: (e as Error).message, loadingMore: false });
     }
   },
-
+  getCustomer: async (id) => {
+    const { customers } = get();
+    const customer = customers.find((c) => c.id === id);
+    if (customer) return customer;
+    return await get().fetchCustomer(id);
+  },
   fetchCustomer: async (id) => {
-    set({ loading: true, error: null, selectedCustomer: null });
+    set({ loading: true, error: null });
     try {
-      const selectedCustomer = await customerService.getCustomer(id);
-      set({ selectedCustomer, loading: false });
+      const customer = await customerService.getCustomer(id);
+      set({ loading: false });
+      return customer;
     } catch (e) {
       set({ error: (e as Error).message, loading: false });
+      return null;
     }
   },
 
@@ -115,8 +121,6 @@ export const useCustomerStore = create<CustomersState>((set, get) => ({
       const updated = await customerService.updateCustomer(id, data);
       set((state) => ({
         customers: state.customers.map((c) => (c.id === id ? updated : c)),
-        selectedCustomer:
-          state.selectedCustomer?.id === id ? updated : state.selectedCustomer,
         loading: false,
       }));
     } catch (e) {
@@ -130,8 +134,6 @@ export const useCustomerStore = create<CustomersState>((set, get) => ({
       const updated = await customerService.deactivateCustomer(id);
       set((state) => ({
         customers: state.customers.map((c) => (c.id === id ? updated : c)),
-        selectedCustomer:
-          state.selectedCustomer?.id === id ? updated : state.selectedCustomer,
         loading: false,
       }));
     } catch (e) {
@@ -145,8 +147,6 @@ export const useCustomerStore = create<CustomersState>((set, get) => ({
       const updated = await customerService.reactivateCustomer(id);
       set((state) => ({
         customers: state.customers.map((c) => (c.id === id ? updated : c)),
-        selectedCustomer:
-          state.selectedCustomer?.id === id ? updated : state.selectedCustomer,
         loading: false,
       }));
     } catch (e) {
@@ -159,7 +159,6 @@ export const useCustomerStore = create<CustomersState>((set, get) => ({
     set({
       customers: [],
       currentMonthPaidIds: new Set(),
-      selectedCustomer: null,
       page: 0,
       hasMore: true,
     }),

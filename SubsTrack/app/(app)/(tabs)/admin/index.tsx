@@ -62,7 +62,7 @@ export default function AdminMenuScreen() {
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
       <View className="px-5 pt-5 pb-4">
-        <Text className="text-2xl font-bold text-gray-900">
+        <Text fontWeight="Bold" className="text-2xl text-gray-900">
           {t("admin.title")}
         </Text>
         <Text className="text-sm text-gray-400 mt-0.5">

@@ -1,6 +1,7 @@
-import { Pressable, View } from 'react-native';
-import { Text } from '@/src/shared/components/Text';
-import type { Customer } from '@/src/core/types';
+import { Pressable, View } from "react-native";
+import { Text } from "@/src/shared/components/Text";
+import type { Customer } from "@/src/core/types";
+import { AVATAR_COLORS } from "../../../shared/constants";
 
 interface Props {
   customer: Customer;
@@ -8,20 +9,31 @@ interface Props {
   onPress: (customer: Customer) => void;
 }
 
-const AVATAR_COLORS = ['#6366f1', '#ec4899', '#14b8a6', '#f97316', '#8b5cf6', '#22c55e', '#f59e0b', '#3b82f6'];
-
 function getAvatarColor(name: string): string {
   return AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length];
 }
 
 function getInitials(name: string): string {
-  const parts = name.trim().split(' ');
+  const parts = name.trim().split(" ");
   if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
   return name.slice(0, 2).toUpperCase();
 }
 
 function getCurrentMonthLabel(): string {
-  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const months = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ];
   const now = new Date();
   return `${months[now.getMonth()]} ${now.getFullYear()}`;
 }
@@ -39,7 +51,7 @@ export function CustomerCard({ customer, isPaidThisMonth, onPress }: Props) {
       {/* Avatar */}
       <View
         className="w-10 h-10 rounded-xl items-center justify-center me-3 flex-shrink-0"
-        style={{ backgroundColor: avatarColor + '22' }}
+        style={{ backgroundColor: avatarColor + "22" }}
       >
         <Text className="text-sm font-bold" style={{ color: avatarColor }}>
           {initials}
@@ -48,11 +60,14 @@ export function CustomerCard({ customer, isPaidThisMonth, onPress }: Props) {
 
       {/* Name + Plan */}
       <View className="flex-1 me-2">
-        <Text className="text-base font-semibold text-gray-900" numberOfLines={1}>
+        <Text
+          className="text-base font-semibold text-gray-900"
+          numberOfLines={1}
+        >
           {customer.name}
         </Text>
         <Text className="text-sm text-gray-400 mt-0.5">
-          {customer.plan?.name ?? 'No plan'}
+          {customer.plan?.name ?? "No plan"}
         </Text>
       </View>
 

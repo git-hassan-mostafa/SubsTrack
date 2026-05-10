@@ -12,22 +12,12 @@ import {
 } from "@/src/core/i18n/languageStore";
 import { useAuth } from "@/src/modules/auth/hooks/useAuth";
 import { useAuthStore } from "@/src/modules/auth/store/authStore";
+import { AVATAR_COLORS } from "../../../shared/constants";
 
 const LANGUAGE_LABELS: Record<SupportedLanguage, string> = {
   en: "English",
   ar: "العربية",
 };
-
-const AVATAR_COLORS = [
-  "#6366f1",
-  "#ec4899",
-  "#14b8a6",
-  "#f97316",
-  "#8b5cf6",
-  "#22c55e",
-  "#f59e0b",
-  "#3b82f6",
-];
 
 function getAvatarColor(name: string): string {
   return AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length];
@@ -88,7 +78,8 @@ export function SettingsScreen() {
   const initials = user ? getInitials(user.username) : "?";
 
   const [logoutConfirmVisible, setLogoutConfirmVisible] = useState(false);
-  const [pendingLanguage, setPendingLanguage] = useState<SupportedLanguage | null>(null);
+  const [pendingLanguage, setPendingLanguage] =
+    useState<SupportedLanguage | null>(null);
 
   function handleLanguageSelect(lang: SupportedLanguage) {
     if (lang === language) return;
@@ -104,7 +95,7 @@ export function SettingsScreen() {
     <SafeAreaView className="flex-1 bg-gray-50">
       <ScrollView>
         <View className="px-5 pt-5 pb-4">
-          <Text className="text-2xl font-bold text-gray-900">
+          <Text fontWeight="Bold" className="text-2xl text-gray-900">
             {t("settings.title")}
           </Text>
         </View>
@@ -223,7 +214,10 @@ export function SettingsScreen() {
         message={t("settings.logout_confirm")}
         confirmLabel={t("settings.logout")}
         destructive
-        onConfirm={() => { setLogoutConfirmVisible(false); logout(); }}
+        onConfirm={() => {
+          setLogoutConfirmVisible(false);
+          logout();
+        }}
         onCancel={() => setLogoutConfirmVisible(false)}
       />
 

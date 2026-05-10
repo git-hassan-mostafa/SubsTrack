@@ -1,28 +1,30 @@
-import { Pressable, View } from 'react-native';
-import { Text } from '@/src/shared/components/Text';
-import type { AppUser } from '@/src/core/types';
+import { Pressable, View } from "react-native";
+import { Text } from "@/src/shared/components/Text";
+import type { AppUser } from "@/src/core/types";
+import { AVATAR_COLORS } from "../../../shared/constants";
 
 interface Props {
   user: AppUser;
   onEdit: (user: AppUser) => void;
 }
 
-const AVATAR_COLORS = ['#6366f1', '#ec4899', '#14b8a6', '#f97316', '#8b5cf6', '#22c55e', '#f59e0b', '#3b82f6'];
-
 function getAvatarColor(name: string): string {
   return AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length];
 }
 
 function getInitials(name: string): string {
-  const parts = name.trim().split(' ');
+  const parts = name.trim().split(" ");
   if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
   return name.slice(0, 2).toUpperCase();
 }
 
-const roleBadgeStyle: Record<string, { bg: string; text: string; label: string }> = {
-  admin:      { bg: 'bg-indigo-100', text: 'text-indigo-700', label: 'Admin' },
-  user:       { bg: 'bg-gray-100',   text: 'text-gray-600',   label: 'Staff' },
-  superadmin: { bg: 'bg-purple-100', text: 'text-purple-700', label: 'Super' },
+const roleBadgeStyle: Record<
+  string,
+  { bg: string; text: string; label: string }
+> = {
+  admin: { bg: "bg-indigo-100", text: "text-indigo-700", label: "Admin" },
+  user: { bg: "bg-gray-100", text: "text-gray-600", label: "Staff" },
+  superadmin: { bg: "bg-purple-100", text: "text-purple-700", label: "Super" },
 };
 
 export function UserCard({ user, onEdit }: Props) {
@@ -38,7 +40,7 @@ export function UserCard({ user, onEdit }: Props) {
       <View className="relative me-3">
         <View
           className="w-11 h-11 rounded-xl items-center justify-center"
-          style={{ backgroundColor: avatarColor + '22' }}
+          style={{ backgroundColor: avatarColor + "22" }}
         >
           <Text className="text-sm font-bold" style={{ color: avatarColor }}>
             {getInitials(user.username)}
@@ -48,15 +50,20 @@ export function UserCard({ user, onEdit }: Props) {
 
       {/* Name + handle + phone */}
       <View className="flex-1">
-        <Text className="text-base font-semibold text-gray-900">{user.username}</Text>
+        <Text className="text-base font-semibold text-gray-900">
+          {user.username}
+        </Text>
         <Text className="text-xs text-gray-400 mt-0.5">
-          @{user.username}{user.phoneNumber ? ` · ${user.phoneNumber}` : ''}
+          @{user.username}
+          {user.phoneNumber ? ` · ${user.phoneNumber}` : ""}
         </Text>
       </View>
 
       {/* Role badge */}
       <View className={`rounded-full px-3 py-1 ${badge.bg}`}>
-        <Text className={`text-xs font-semibold ${badge.text}`}>{badge.label}</Text>
+        <Text className={`text-xs font-semibold ${badge.text}`}>
+          {badge.label}
+        </Text>
       </View>
     </Pressable>
   );

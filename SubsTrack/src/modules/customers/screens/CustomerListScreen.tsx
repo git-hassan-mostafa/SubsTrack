@@ -77,7 +77,7 @@ export function CustomerListScreen() {
     <SafeAreaView className="flex-1 bg-gray-50">
       {/* Header */}
       <View className="px-5 pt-5 pb-3 bg-white border-b border-gray-100 flex-row items-center gap-2">
-        <Text className="text-2xl font-bold text-gray-900">
+        <Text fontWeight="Bold" className="text-2xl text-gray-900">
           {t("customers.title")}
         </Text>
         <Text className="text-sm text-gray-400 mt-1 flex-1">

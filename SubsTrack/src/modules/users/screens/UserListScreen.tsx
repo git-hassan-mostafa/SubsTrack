@@ -64,7 +64,7 @@ export function UserListScreen() {
           <Ionicons name="chevron-back" size={22} color="#6366f1" />
         </Pressable>
         <View className="flex-1 min-w-0">
-          <Text className="text-2xl font-bold text-gray-900">
+          <Text fontWeight="Bold" className="text-2xl text-gray-900">
             {t("users.title")}
           </Text>
           <Text className="text-sm text-gray-400 mt-0.5">
