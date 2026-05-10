@@ -40,8 +40,8 @@ export const MonthCell = memo(function MonthCell({ entry, onPress }: Props) {
       : textColor[entry.status];
 
   const sublabel = (() => {
-    if (entry.status === "paid") return "PAID";
-    if (isCurrentMonth) return "THIS MONTH";
+    if (entry.status === "paid") return t("common.paid");
+    if (isCurrentMonth) return t("payments.this_month").toUpperCase();
     return null;
   })();
 
@@ -50,11 +50,11 @@ export const MonthCell = memo(function MonthCell({ entry, onPress }: Props) {
       <View
         className={`rounded-xl items-center justify-center py-3 ${containerBg}`}
       >
-        <Text className={`text-sm font-bold ${labelColor}`}>
+        <Text fontWeight="SemiBold" className={`text-sm ${labelColor}`}>
           {t(`months.${entry.label}`)}
         </Text>
-        <Text className={`text-[9px] font-semibold mt-0.5 ${labelColor}`}>
-          {sublabel ?? ' '}
+        <Text className={`text-[8px] font-semibold mt-0.5 ${labelColor}`}>
+          {sublabel ?? " "}
         </Text>
       </View>
     </Pressable>

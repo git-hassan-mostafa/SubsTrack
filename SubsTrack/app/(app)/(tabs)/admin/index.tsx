@@ -66,7 +66,7 @@ export default function AdminMenuScreen() {
           {t("admin.title")}
         </Text>
         <Text className="text-sm text-gray-400 mt-0.5">
-          Manage your workspace
+          {t("admin.description")}
         </Text>
       </View>
 
@@ -80,7 +80,9 @@ export default function AdminMenuScreen() {
               <Text className="text-xl font-bold text-gray-900">
                 {formatCompact(metrics?.monthlyRevenue ?? 0)}
               </Text>
-              <Text className="text-xs text-gray-400 mt-0.5">Collected</Text>
+              <Text className="text-xs text-gray-400 mt-0.5">
+                {t("admin.collected")}
+              </Text>
             </>
           )}
         </View>
@@ -88,20 +90,24 @@ export default function AdminMenuScreen() {
           <Text className="text-xl font-bold text-red-500">
             {metrics?.unpaidThisMonth ?? 0}
           </Text>
-          <Text className="text-xs text-gray-400 mt-0.5">Unpaid</Text>
+          <Text className="text-xs text-gray-400 mt-0.5">
+            {t("dashboard.unpaid")}
+          </Text>
         </View>
         <View className="flex-1 items-center py-4">
           <Text className="text-xl font-bold text-gray-900">
             {metrics?.totalCustomers ?? 0}
           </Text>
-          <Text className="text-xs text-gray-400 mt-0.5">Customers</Text>
+          <Text className="text-xs text-gray-400 mt-0.5">
+            {t("dashboard.customers_section")}
+          </Text>
         </View>
       </View>
 
       {/* Manage section */}
       <View className="mx-4">
         <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2 px-1">
-          Manage
+          {t("admin.manage_section")}
         </Text>
         <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
           {MENU_ITEMS.map((item, index) => (
@@ -122,11 +128,14 @@ export default function AdminMenuScreen() {
                     {t(item.labelKey)}
                   </Text>
                   <Text className="text-xs text-gray-400 mt-0.5">
-                    {item.labelKey === "dashboard.title"
-                      ? "Revenue · collections · activity"
-                      : item.labelKey === "users.title"
-                        ? `${metrics?.totalUsers ?? 0} members`
-                        : `${metrics?.totalPlans ?? 0} plans`}
+                    {t(item.subtitleKey, {
+                      count:
+                        item.labelKey === "users.title"
+                          ? (metrics?.totalUsers ?? 0)
+                          : item.labelKey === "plans.title"
+                            ? (metrics?.totalPlans ?? 0)
+                            : undefined,
+                    })}
                   </Text>
                 </View>
               </View>

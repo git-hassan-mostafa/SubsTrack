@@ -56,6 +56,7 @@ export function PlanListScreen() {
   async function confirmDelete() {
     if (!deletingPlan) return;
     await deletePlan(deletingPlan.id);
+    setFormVisible(false);
     setDeletingPlan(null);
   }
 
@@ -77,7 +78,7 @@ export function PlanListScreen() {
             {t("plans.title")}
           </Text>
           <Text className="text-sm text-gray-400 mt-0.5">
-            {plans.length} active
+            {t("plans.active_count", { count: plans.length })}
           </Text>
         </View>
 

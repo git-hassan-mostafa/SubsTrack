@@ -1,7 +1,8 @@
-import type { Plan } from '@/src/core/types';
-import { Pressable, View } from 'react-native';
-import { Text } from '@/src/shared/components/Text';
-import { Ionicons } from '@expo/vector-icons';
+import type { Plan } from "@/src/core/types";
+import { Pressable, View } from "react-native";
+import { useTranslation } from "react-i18next";
+import { Text } from "@/src/shared/components/Text";
+import { Ionicons } from "@expo/vector-icons";
 
 interface Props {
   plan: Plan;
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export function PlanCard({ plan, onEdit, onDelete }: Props) {
+  const { t } = useTranslation();
   return (
     <Pressable
       onPress={() => onEdit(plan)}
@@ -22,20 +24,28 @@ export function PlanCard({ plan, onEdit, onDelete }: Props) {
 
       {/* Name + count placeholder */}
       <View className="flex-1">
-        <Text className="text-base font-semibold text-gray-900">{plan.name}</Text>
+        <Text className="text-base font-semibold text-gray-900">
+          {plan.name}
+        </Text>
         <Text className="text-xs text-gray-400 mt-0.5">
-          {plan.isCustomPrice ? 'Custom pricing' : '—'}
+          {plan.isCustomPrice ? t("common.custom_pricing") : "—"}
         </Text>
       </View>
 
       {/* Price */}
       <View className="items-end me-2">
         {plan.isCustomPrice ? (
-          <Text className="text-base font-semibold text-gray-400">Custom</Text>
+          <Text className="text-base font-semibold text-gray-400">
+            {t("common.custom")}
+          </Text>
         ) : (
           <>
-            <Text className="text-base font-bold text-gray-900">${plan.price}</Text>
-            <Text className="text-xs text-gray-400">per month</Text>
+            <Text className="text-base font-bold text-gray-900">
+              ${plan.price}
+            </Text>
+            <Text className="text-xs text-gray-400">
+              {t("plans.per_month")}
+            </Text>
           </>
         )}
       </View>

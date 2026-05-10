@@ -1,4 +1,5 @@
 import { Pressable, View } from "react-native";
+import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
 import type { Customer } from "@/src/core/types";
 import { AVATAR_COLORS } from "../../../shared/constants";
@@ -39,6 +40,7 @@ function getCurrentMonthLabel(): string {
 }
 
 export function CustomerCard({ customer, isPaidThisMonth, onPress }: Props) {
+  const { t } = useTranslation();
   const initials = getInitials(customer.name);
   const avatarColor = getAvatarColor(customer.name);
   const monthLabel = getCurrentMonthLabel();
@@ -67,7 +69,7 @@ export function CustomerCard({ customer, isPaidThisMonth, onPress }: Props) {
           {customer.name}
         </Text>
         <Text className="text-sm text-gray-400 mt-0.5">
-          {customer.plan?.name ?? "No plan"}
+          {customer.plan?.name ?? t("common.no_plan")}
         </Text>
       </View>
 
@@ -75,15 +77,21 @@ export function CustomerCard({ customer, isPaidThisMonth, onPress }: Props) {
       <View className="items-end">
         {!customer.active ? (
           <View className="bg-gray-100 rounded-lg px-2 py-0.5 mb-1">
-            <Text className="text-xs font-medium text-gray-500">Inactive</Text>
+            <Text className="text-xs font-medium text-gray-500">
+              {t("common.inactive")}
+            </Text>
           </View>
         ) : isPaidThisMonth ? (
           <View className="bg-green-50 rounded-lg px-2 py-0.5 mb-1">
-            <Text className="text-xs font-semibold text-green-600">✓ Paid</Text>
+            <Text className="text-xs font-semibold text-green-600">
+              ✓ {t("common.paid")}
+            </Text>
           </View>
         ) : (
           <View className="bg-red-100 rounded-lg px-2 py-0.5 mb-1">
-            <Text className="text-xs font-semibold text-red-500">Unpaid</Text>
+            <Text className="text-xs font-semibold text-red-500">
+              {t("dashboard.unpaid")}
+            </Text>
           </View>
         )}
         <Text className="text-xs text-gray-400">{monthLabel}</Text>

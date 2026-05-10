@@ -2,6 +2,7 @@ import { Pressable, View } from "react-native";
 import { Text } from "@/src/shared/components/Text";
 import type { AppUser } from "@/src/core/types";
 import { AVATAR_COLORS } from "../../../shared/constants";
+import { useTranslation } from "react-i18next";
 
 interface Props {
   user: AppUser;
@@ -30,6 +31,7 @@ const roleBadgeStyle: Record<
 export function UserCard({ user, onEdit }: Props) {
   const avatarColor = getAvatarColor(user.username);
   const badge = roleBadgeStyle[user.role] ?? roleBadgeStyle.user;
+  const { t } = useTranslation();
 
   return (
     <Pressable
@@ -62,7 +64,7 @@ export function UserCard({ user, onEdit }: Props) {
       {/* Role badge */}
       <View className={`rounded-full px-3 py-1 ${badge.bg}`}>
         <Text className={`text-xs font-semibold ${badge.text}`}>
-          {badge.label}
+          {t(`users.${badge.label.toLowerCase()}`)}
         </Text>
       </View>
     </Pressable>

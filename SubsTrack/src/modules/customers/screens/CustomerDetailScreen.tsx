@@ -183,10 +183,12 @@ export function CustomerDetailScreen() {
           </Text>
           {customer ? (
             <Text className="text-xs text-gray-400">
-              {customer.plan?.name ?? "No plan"} · since{" "}
-              {new Date(customer.startDate).toLocaleDateString("en-US", {
-                month: "short",
-                year: "numeric",
+              {t("customers.plan_since", {
+                plan: customer.plan?.name ?? t("common.no_plan"),
+                date: new Date(customer.startDate).toLocaleDateString("en-US", {
+                  month: "short",
+                  year: "numeric",
+                }),
               })}
             </Text>
           ) : null}
@@ -241,8 +243,11 @@ export function CustomerDetailScreen() {
               <View>
                 <Text className="text-2xl font-bold text-gray-900">{year}</Text>
                 <Text className="text-xs text-gray-400 mt-0.5">
-                  {paidCount} paid · {unpaidCount} unpaid · $
-                  {collectedTotal.toFixed(0)} collected
+                  {t("customers.year_summary", {
+                    paidCount,
+                    unpaidCount,
+                    collectedTotal: collectedTotal.toFixed(0),
+                  })}
                 </Text>
               </View>
               <View className="flex-row gap-2">
@@ -288,12 +293,12 @@ export function CustomerDetailScreen() {
                     month: "long",
                     year: "numeric",
                   })}{" "}
-                  unpaid
+                  {t("dashboard.unpaid")}
                 </Text>
                 <Text className="text-xs text-gray-500 mt-0.5">
                   {customer.plan?.price != null
-                    ? `$${customer.plan.price.toFixed(2)} due`
-                    : "Amount due"}{" "}
+                    ? t("payments.amount_due")
+                    : t("payments.amount_due")}{" "}
                   · {daysIntoMonth} days into the month
                 </Text>
               </View>
@@ -302,7 +307,7 @@ export function CustomerDetailScreen() {
                 className="bg-red-500 rounded-xl px-3 py-2 ms-2"
               >
                 <Text className="text-white text-sm font-semibold">
-                  Collect
+                  {t("payments.collect")}
                 </Text>
               </Pressable>
             </View>
@@ -311,14 +316,16 @@ export function CustomerDetailScreen() {
           {/* Details section */}
           <View className="mx-4 mt-4">
             <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2 px-1">
-              Details
+              {t("customers.details_section")}
             </Text>
             <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
               {customer.phoneNumber ? (
                 <View className="flex-row items-center justify-between px-4 py-3.5 border-b border-gray-100">
                   <View className="flex-row items-center gap-3">
                     <Ionicons name="call-outline" size={16} color="#9ca3af" />
-                    <Text className="text-sm text-gray-500">Phone</Text>
+                    <Text className="text-sm text-gray-500">
+                      {t("customers.phone_label")}
+                    </Text>
                   </View>
                   <Text className="text-sm font-semibold text-gray-900">
                     {customer.phoneNumber}
@@ -334,7 +341,9 @@ export function CustomerDetailScreen() {
                       size={16}
                       color="#9ca3af"
                     />
-                    <Text className="text-sm text-gray-500">Address</Text>
+                    <Text className="text-sm text-gray-500">
+                      {t("customers.address_label")}
+                    </Text>
                   </View>
                   <Text
                     className="text-sm font-semibold text-gray-900 flex-1 ms-4 text-right"
@@ -348,7 +357,9 @@ export function CustomerDetailScreen() {
               <View className="flex-row items-center justify-between px-4 py-3.5 border-b border-gray-100">
                 <View className="flex-row items-center gap-3">
                   <Ionicons name="calendar-outline" size={16} color="#9ca3af" />
-                  <Text className="text-sm text-gray-500">Started</Text>
+                  <Text className="text-sm text-gray-500">
+                    {t("customers.started_label")}
+                  </Text>
                 </View>
                 <Text className="text-sm font-semibold text-gray-900">
                   {formatDate(customer.startDate)}
@@ -367,15 +378,21 @@ export function CustomerDetailScreen() {
                       className={`w-2 h-2 rounded-full ${customer.active ? "bg-success" : "bg-gray-400"}`}
                     />
                   </View>
-                  <Text className="text-sm text-gray-500">Status</Text>
+                  <Text className="text-sm text-gray-500">
+                    {t("customers.status_label")}
+                  </Text>
                 </View>
                 <View className="flex-row items-center gap-1.5">
                   <Text
                     className={`text-sm font-semibold ${customer.active ? "text-success" : "text-gray-400"}`}
                   >
-                    {customer.active ? "Active" : "Inactive"}
+                    {customer.active
+                      ? t("common.active")
+                      : t("common.inactive")}
                   </Text>
-                  <Text className="text-xs text-primary">(tap)</Text>
+                  <Text className="text-xs text-primary">
+                    ({t("common.tap")})
+                  </Text>
                 </View>
               </Pressable>
             </View>

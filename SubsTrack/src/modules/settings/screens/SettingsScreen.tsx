@@ -129,7 +129,7 @@ export function SettingsScreen() {
         {/* Preferences */}
         <View className="mx-4 mb-5">
           <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2 px-1">
-            Preferences
+            {t("settings.preferences_section")}
           </Text>
           <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
             {SUPPORTED_LANGUAGES.map((lang, index) => (
@@ -141,7 +141,7 @@ export function SettingsScreen() {
                 <View className="flex-row items-center gap-3">
                   <Ionicons name="globe-outline" size={18} color="#6b7280" />
                   <Text className="text-sm font-medium text-gray-900">
-                    Language
+                    {t("settings.language_section")}
                   </Text>
                 </View>
                 <View className="flex-row items-center gap-1">
@@ -168,18 +168,13 @@ export function SettingsScreen() {
         {/* Workspace */}
         <View className="mx-4 mb-5">
           <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2 px-1">
-            Workspace
+            {t("settings.workspace")}
           </Text>
           <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
             <SettingsRow
               icon="grid-outline"
-              label="Workspace"
+              label={t("settings.workspace")}
               value={user?.tenant.name}
-            />
-            <SettingsRow
-              icon="lock-closed-outline"
-              label="Privacy & data"
-              last
             />
           </View>
         </View>
@@ -187,10 +182,14 @@ export function SettingsScreen() {
         {/* Support */}
         <View className="mx-4 mb-5">
           <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2 px-1">
-            Support
+            {t("settings.support_section")}
           </Text>
           <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-            <SettingsRow icon="help-circle-outline" label="Help center" last />
+            <SettingsRow
+              icon="help-circle-outline"
+              label={t("settings.help_center")}
+              last
+            />
           </View>
         </View>
 
@@ -225,7 +224,7 @@ export function SettingsScreen() {
         visible={pendingLanguage !== null}
         title={t("settings.language_section")}
         message={t("settings.restart_notice")}
-        confirmLabel="OK"
+        confirmLabel={t("common.confirm")}
         onConfirm={handleLanguageConfirm}
         onCancel={() => setPendingLanguage(null)}
       />

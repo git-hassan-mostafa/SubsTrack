@@ -39,9 +39,11 @@ export function LoginScreen() {
             <Text className="text-xl font-bold text-gray-900">SubsTrack</Text>
           </View>
 
-          <Text className="text-3xl font-bold text-gray-900 mb-2">Welcome back</Text>
+          <Text className="text-3xl font-bold text-gray-900 mb-2">
+            {t("auth.welcome_back")}
+          </Text>
           <Text className="text-base text-gray-500 mb-8">
-            Sign in to your workspace to start collecting.
+            {t("auth.welcome_description")}
           </Text>
 
           {isAccountNotConfigured ? (
@@ -54,7 +56,10 @@ export function LoginScreen() {
           <Input
             label={t("auth.workspace_id")}
             value={tenantName}
-            onChangeText={(v) => { clearError(); setTenantName(v); }}
+            onChangeText={(v) => {
+              clearError();
+              setTenantName(v);
+            }}
             placeholder="acme-isp"
             autoCapitalize="none"
             autoCorrect={false}
@@ -63,7 +68,10 @@ export function LoginScreen() {
           <Input
             label={t("auth.username")}
             value={username}
-            onChangeText={(v) => { clearError(); setUsername(v); }}
+            onChangeText={(v) => {
+              clearError();
+              setUsername(v);
+            }}
             placeholder={t("auth.username_placeholder")}
             autoCapitalize="none"
             autoCorrect={false}
@@ -72,7 +80,10 @@ export function LoginScreen() {
           <Input
             label={t("auth.password")}
             value={password}
-            onChangeText={(v) => { clearError(); setPassword(v); }}
+            onChangeText={(v) => {
+              clearError();
+              setPassword(v);
+            }}
             placeholder={t("auth.password_placeholder")}
             secureTextEntry
             error={fieldError}
@@ -87,8 +98,12 @@ export function LoginScreen() {
           />
 
           <View className="flex-row justify-center mt-5">
-            <Text className="text-sm text-gray-400">Lost your workspace ID? </Text>
-            <Text className="text-sm text-primary font-semibold">Get help</Text>
+            <Text className="text-sm text-gray-400">
+              {t("auth.lost_workspace_id")}{" "}
+            </Text>
+            <Text className="text-sm text-primary font-semibold">
+              {t("auth.get_help")}
+            </Text>
           </View>
         </View>
       </KeyboardAvoidingView>

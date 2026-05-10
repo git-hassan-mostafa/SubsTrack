@@ -48,9 +48,21 @@ export function CustomerListScreen() {
   const inactiveCount = customers.filter((c) => !c.active).length;
 
   const tabs = [
-    { key: "all" as FilterTab, label: "All", count: customers.length },
-    { key: "active" as FilterTab, label: "Active", count: activeCount },
-    { key: "inactive" as FilterTab, label: "Inactive", count: inactiveCount },
+    {
+      key: "all" as FilterTab,
+      label: t("customers.all"),
+      count: customers.length,
+    },
+    {
+      key: "active" as FilterTab,
+      label: t("common.active"),
+      count: activeCount,
+    },
+    {
+      key: "inactive" as FilterTab,
+      label: t("common.inactive"),
+      count: inactiveCount,
+    },
   ];
 
   const filtered = (() => {
@@ -81,7 +93,7 @@ export function CustomerListScreen() {
           {t("customers.title")}
         </Text>
         <Text className="text-sm text-gray-400 mt-1 flex-1">
-          {customers.length} total
+          {t("customers.total_count", { count: customers.length })}
         </Text>
 
         <Pressable
@@ -99,7 +111,7 @@ export function CustomerListScreen() {
         <SearchTextBox
           searchText={searchText}
           setSearchText={setSearchText}
-          placeholder={"Search customers, phone, address..."}
+          placeholder={t("customers.search_hint")}
         />
         {/* Filter tabs */}
         <View className="flex-row gap-2 mt-4">

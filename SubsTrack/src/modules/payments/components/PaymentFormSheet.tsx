@@ -119,7 +119,7 @@ export function PaymentFormSheet({
           <View className="w-10 h-1 rounded-full bg-gray-300" />
         </View>
         <View className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
-          <Text className="text-lg font-bold text-gray-900">
+          <Text fontWeight="Bold" className="text-lg text-gray-900">
             {t("payments.record_payment")}
           </Text>
           <Pressable onPress={handleDismiss}>
@@ -161,8 +161,10 @@ export function PaymentFormSheet({
               <Text className="text-base font-semibold text-gray-900">
                 {customer.name}
               </Text>
+
               <Text className="text-xs text-gray-400">
-                {monthLabel} {entry.year} · {customer.plan?.name ?? "No plan"}
+                {monthLabel} {entry.year} ·{" "}
+                {customer.plan?.name ?? t("common.no_plan")}
               </Text>
             </View>
           </View>
@@ -170,7 +172,7 @@ export function PaymentFormSheet({
           {/* Amount display card */}
           <View className="bg-gray-50 rounded-2xl px-6 py-5 items-center mb-5">
             <Text className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">
-              Amount
+              {t("payments.amount_section")}
             </Text>
             {isFixedPlan && !isOverrideEnabled ? (
               <>
@@ -240,24 +242,23 @@ export function PaymentFormSheet({
             ) : null}
           </View>
 
-          {/* Notes */}
           <Input
-            label="Notes (Optional)"
+            label={t("payments.notes_optional")}
             value={notes}
             onChangeText={setNotes}
-            placeholder="e.g. Cash collected at door"
+            placeholder={t("payments.notes_placeholder")}
             onFocus={clearError}
           />
 
           <Button
-            label="Mark as paid"
+            label={t("payments.mark_as_paid")}
             onPress={handleSubmit}
             loading={loadingCreate}
             disabled={!canSubmit}
             fullWidth
           />
           <Text className="text-xs text-gray-400 text-center mt-2">
-            Receipt ID generated automatically
+            {t("payments.receipt_id_hint")}
           </Text>
           <View className="h-4" />
         </ScrollView>

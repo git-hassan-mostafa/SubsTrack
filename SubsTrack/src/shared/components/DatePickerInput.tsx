@@ -106,11 +106,12 @@ function MonthScrollColumn({
 }) {
   const ref = useRef<FlatList>(null);
   const initialIndex = Math.max(0, selected - 1);
+  const { t } = useTranslation();
 
   return (
     <View style={{ flex: 2 }}>
       <Text className="text-xs text-center text-gray-400 mb-1 font-medium">
-        Month
+        {t("date_picker.month")}
       </Text>
       <FlatList
         ref={ref}
@@ -292,7 +293,7 @@ export function DatePickerInput({
                 items={dayItems}
                 selected={Math.min(selDay, maxDay)}
                 onSelect={setSelDay}
-                label="Day"
+                label={t("date_picker.day")}
               />
               <MonthScrollColumn
                 monthNames={MONTH_NAMES}
@@ -303,7 +304,7 @@ export function DatePickerInput({
                 items={yearItems}
                 selected={selYear}
                 onSelect={handleYearChange}
-                label="Year"
+                label={t("date_picker.year")}
                 renderItem={(y) => String(y)}
               />
               {showTime ? (
@@ -312,13 +313,13 @@ export function DatePickerInput({
                     items={hourItems}
                     selected={selHour}
                     onSelect={setSelHour}
-                    label="Hour"
+                    label={t("date_picker.hour")}
                   />
                   <ScrollColumn
                     items={minuteItems}
                     selected={selMinute}
                     onSelect={setSelMinute}
-                    label="Min"
+                    label={t("date_picker.minute")}
                   />
                 </>
               ) : null}

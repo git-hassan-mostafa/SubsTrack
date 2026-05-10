@@ -91,7 +91,7 @@ export function CustomerFormSheet({ visible, customer, onDismiss }: Props) {
           <View className="w-10 h-1 rounded-full bg-gray-300" />
         </View>
         <View className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
-          <Text className="text-lg font-bold text-gray-900">
+          <Text fontWeight="Bold" className="text-lg text-gray-900">
             {customer ? t("customers.edit_title") : t("customers.add_title")}
           </Text>
           <Pressable onPress={onDismiss}>
@@ -110,7 +110,7 @@ export function CustomerFormSheet({ visible, customer, onDismiss }: Props) {
           ) : null}
 
           <Input
-            label="Full Name"
+            label={t("customers.name_label")}
             value={name}
             onChangeText={setName}
             placeholder={t("customers.name_placeholder")}
@@ -121,31 +121,31 @@ export function CustomerFormSheet({ visible, customer, onDismiss }: Props) {
           <View className="flex-row gap-3">
             <View className="flex-1">
               <Input
-                label="Phone"
+                label={t("customers.phone_label")}
                 value={phone}
                 onChangeText={setPhone}
-                placeholder="+1 555 000 0000"
+                placeholder={t("customers.phone_placeholder")}
                 keyboardType="phone-pad"
               />
             </View>
             {!customer ? (
               <View className="flex-1">
                 <DatePickerInput
-                  label="Start Date"
+                  label={t("customers.start_date_label")}
                   value={startDate}
                   onChange={setStartDate}
                   showTime
-                  placeholder="YYYY-MM-DD"
+                  placeholder={t("customers.start_date_placeholder")}
                 />
               </View>
             ) : null}
           </View>
 
           <Input
-            label="Address"
+            label={t("customers.address_label")}
             value={address}
             onChangeText={setAddress}
-            placeholder="Optional"
+            placeholder={t("common.optional")}
           />
 
           <Dropdown
@@ -156,7 +156,7 @@ export function CustomerFormSheet({ visible, customer, onDismiss }: Props) {
             onChange={setPlanId}
             nullable
             nullLabel={t("common.no_plan")}
-            nullSublabel="Custom amount each payment"
+            nullSublabel={t("customers.custom_plan_sublabel")}
           />
 
           <Button

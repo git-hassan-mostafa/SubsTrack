@@ -5,6 +5,7 @@ import {
   ScrollView,
   View,
 } from "react-native";
+import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
@@ -28,6 +29,7 @@ const MONTH_NAMES = [
 ];
 
 export function DashboardScreen() {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const { metrics, loading, error, getMetrics, fetchMetrics, clearError } =
     useDashboardStore();
@@ -70,7 +72,7 @@ export function DashboardScreen() {
         {/* Greeting */}
         <View className="px-5 pt-5 pb-4">
           <Text fontWeight="Bold" className="text-2xl text-gray-900">
-            Hello, {user?.username ?? ""}
+            {t("dashboard.greeting", { name: user?.username ?? "" })}
           </Text>
           <Text className="text-sm text-gray-500 mt-0.5">{dateLabel}</Text>
         </View>
@@ -98,14 +100,20 @@ export function DashboardScreen() {
                 style={{ right: 20, bottom: -10 }}
               />
               <Text className="text-xs font-semibold text-indigo-200 uppercase tracking-widest mb-2">
-                {monthLabel} {year} COLLECTED
+                {t("dashboard.monthly_collected", {
+                  month: monthLabel,
+                  year,
+                })}
               </Text>
               <Text className="text-4xl font-bold text-white mb-1">
                 {formatCurrency(metrics?.monthlyRevenue ?? 0)}
               </Text>
               <Text className="text-sm text-indigo-200 mb-3">
-                {paidCustomers} of {activeCustomers} active customers ·{" "}
-                {collectedPct}% collected
+                {t("dashboard.collected_summary", {
+                  paidCustomers,
+                  activeCustomers,
+                  collectedPct,
+                })}
               </Text>
               {/* Progress bar */}
               <View className="bg-indigo-400 rounded-full h-1.5">
@@ -122,7 +130,7 @@ export function DashboardScreen() {
                 <View className="flex-row items-center gap-1.5 mb-2">
                   <View className="w-2 h-2 rounded-full bg-danger" />
                   <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
-                    Unpaid
+                    {t("dashboard.unpaid")}
                   </Text>
                 </View>
                 <Text className="text-3xl font-bold text-gray-900">
@@ -134,7 +142,7 @@ export function DashboardScreen() {
                 <View className="flex-row items-center gap-1.5 mb-2">
                   <View className="w-2 h-2 rounded-full bg-success" />
                   <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
-                    New This Month
+                    {t("dashboard.new_this_month")}
                   </Text>
                 </View>
                 <Text className="text-3xl font-bold text-gray-900">

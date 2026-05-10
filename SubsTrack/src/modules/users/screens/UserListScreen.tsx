@@ -68,7 +68,10 @@ export function UserListScreen() {
             {t("users.title")}
           </Text>
           <Text className="text-sm text-gray-400 mt-0.5">
-            {users.length} members · {adminCount} admin
+            {t("users.members_summary", {
+              count: users.length,
+              admins: adminCount,
+            })}
           </Text>
         </View>
 
