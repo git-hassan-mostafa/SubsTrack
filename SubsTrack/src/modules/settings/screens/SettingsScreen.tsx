@@ -179,20 +179,6 @@ export function SettingsScreen() {
           </View>
         </View>
 
-        {/* Support */}
-        <View className="mx-4 mb-5">
-          <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2 px-1">
-            {t("settings.support_section")}
-          </Text>
-          <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-            <SettingsRow
-              icon="help-circle-outline"
-              label={t("settings.help_center")}
-              last
-            />
-          </View>
-        </View>
-
         {/* Logout */}
         <View className="mx-4 mb-8">
           <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden">

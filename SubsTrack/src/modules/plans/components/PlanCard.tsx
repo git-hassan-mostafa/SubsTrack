@@ -27,27 +27,16 @@ export function PlanCard({ plan, onEdit, onDelete }: Props) {
         <Text className="text-base font-semibold text-gray-900">
           {plan.name}
         </Text>
-        <Text className="text-xs text-gray-400 mt-0.5">
-          {plan.isCustomPrice ? t("common.custom_pricing") : "—"}
+        <Text fontWeight="Bold" className="text-xs text-black mt-0.5">
+          {plan.isCustomPrice ? "_" : `$${plan.price}`}
         </Text>
       </View>
 
       {/* Price */}
       <View className="items-end me-2">
-        {plan.isCustomPrice ? (
-          <Text className="text-base font-semibold text-gray-400">
-            {t("common.custom")}
-          </Text>
-        ) : (
-          <>
-            <Text className="text-base font-bold text-gray-900">
-              ${plan.price}
-            </Text>
-            <Text className="text-xs text-gray-400">
-              {t("plans.per_month")}
-            </Text>
-          </>
-        )}
+        <Text className="text-base font-semibold text-gray-400">
+          {plan.isCustomPrice ? t("common.custom") : t("plans.per_month")}
+        </Text>
       </View>
 
       <Ionicons name="chevron-forward" size={16} color="#d1d5db" />

@@ -103,7 +103,7 @@
     "custom_pricing_hint": "Staff enters amount per payment",
     "price_label": "Price",
     "price_placeholder": "0.00",
-    "per_month": "per month",
+    "per_month": "Per month",
     "no_plans_hint": "Tap \"+ New Plan\" to create one"
   },
   "users": {
