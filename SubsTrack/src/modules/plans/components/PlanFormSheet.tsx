@@ -8,6 +8,7 @@ import { Input } from "@/src/shared/components/Input";
 import type { Plan } from "@/src/core/types";
 import { useAuth } from "@/src/modules/auth/hooks/useAuth";
 import { usePlanStore } from "../store/planStore";
+import { COLORS } from "@/src/shared/constants";
 
 interface Props {
   visible: boolean;
@@ -114,7 +115,7 @@ export function PlanFormSheet({
             <Switch
               value={isCustomPrice}
               onValueChange={setIsCustomPrice}
-              trackColor={{ true: "#6366f1" }}
+              trackColor={{ true: COLORS.primary }}
             />
           </View>
 

@@ -4,16 +4,17 @@ import type { DbCustomer } from '@/src/core/types/db';
 
 type CustomerWithPlan = DbCustomer & { plans: DbCustomer['plans'] };
 
-interface CreateCustomerPayload {
-  name: string;
-  phone_number: string | null;
-  address: string | null;
-  plan_id: string | null;
-  tenant_id: string;
-  start_date: string;
-  active: boolean;
-  cancelled_at: null;
-}
+type CreateCustomerPayload = Pick<
+  DbCustomer,
+  | 'name'
+  | 'phone_number'
+  | 'address'
+  | 'plan_id'
+  | 'tenant_id'
+  | 'start_date'
+  | 'active'
+  | 'cancelled_at'
+>;
 
 export class CustomerRepository extends BaseRepository {
   async findAll(page: number): Promise<CustomerWithPlan[]> {

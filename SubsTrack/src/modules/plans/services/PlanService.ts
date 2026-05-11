@@ -13,11 +13,7 @@ function mapDbPlanToPlan(db: DbPlan): Plan {
   };
 }
 
-interface PlanInput {
-  name: string;
-  isCustomPrice: boolean;
-  price: number | null;
-}
+type PlanInput = Pick<Plan, 'name' | 'isCustomPrice' | 'price'>
 
 export class PlanService {
   private repository = new PlanRepository();

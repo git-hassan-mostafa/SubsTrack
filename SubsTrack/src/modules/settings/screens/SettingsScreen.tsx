@@ -4,6 +4,8 @@ import { Text } from "@/src/shared/components/Text";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
+import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
+import { COLORS } from "@/src/shared/constants";
 import { ConfirmDialog } from "@/src/shared/components/ConfirmDialog";
 import {
   useLanguageStore,
@@ -53,7 +55,7 @@ function SettingsRow({
         <Ionicons
           name={icon as any}
           size={18}
-          color={destructive ? "#ef4444" : "#6b7280"}
+          color={destructive ? COLORS.danger : COLORS.gray500}
         />
         <Text
           className={`text-sm font-medium ${destructive ? "text-red-500" : "text-gray-900"}`}
@@ -63,7 +65,7 @@ function SettingsRow({
       </View>
       <View className="flex-row items-center gap-1">
         {value ? <Text className="text-sm text-gray-400">{value}</Text> : null}
-        <Ionicons name="chevron-forward" size={14} color="#d1d5db" />
+        <DirectionalIcon name="chevron-forward" size={14} color={COLORS.gray300} />
       </View>
     </Pressable>
   );
@@ -74,7 +76,7 @@ export function SettingsScreen() {
   const { user } = useAuth();
   const { language, setLanguage } = useLanguageStore();
   const { logout } = useAuthStore();
-  const avatarColor = user ? getAvatarColor(user.username) : "#6366f1";
+  const avatarColor = user ? getAvatarColor(user.username) : COLORS.primary;
   const initials = user ? getInitials(user.username) : "?";
 
   const [logoutConfirmVisible, setLogoutConfirmVisible] = useState(false);
@@ -122,7 +124,7 @@ export function SettingsScreen() {
                 {user.role} · {user.tenant.name}
               </Text>
             </View>
-            <Ionicons name="chevron-forward" size={16} color="#d1d5db" />
+            <DirectionalIcon name="chevron-forward" size={16} color={COLORS.gray300} />
           </View>
         ) : null}
 
@@ -139,7 +141,7 @@ export function SettingsScreen() {
                 className={`flex-row items-center justify-between px-4 py-3.5 ${index < SUPPORTED_LANGUAGES.length - 1 ? "border-b border-gray-100" : ""}`}
               >
                 <View className="flex-row items-center gap-3">
-                  <Ionicons name="globe-outline" size={18} color="#6b7280" />
+                  <Ionicons name="globe-outline" size={18} color={COLORS.gray500} />
                   <Text className="text-sm font-medium text-gray-900">
                     {t("settings.language_section")}
                   </Text>
@@ -153,11 +155,7 @@ export function SettingsScreen() {
                       <Text className="text-white text-[9px] font-bold">✓</Text>
                     </View>
                   ) : (
-                    <Ionicons
-                      name="chevron-forward"
-                      size={14}
-                      color="#d1d5db"
-                    />
+                    <DirectionalIcon name="chevron-forward" size={14} color={COLORS.gray300} />
                   )}
                 </View>
               </Pressable>

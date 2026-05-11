@@ -3,6 +3,8 @@ import { Pressable, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
 import { Ionicons } from "@expo/vector-icons";
+import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
+import { COLORS } from "@/src/shared/constants";
 
 interface Props {
   plan: Plan;
@@ -19,7 +21,7 @@ export function PlanCard({ plan, onEdit, onDelete }: Props) {
     >
       {/* Icon */}
       <View className="w-10 h-10 rounded-xl bg-indigo-50 items-center justify-center me-3">
-        <Ionicons name="pulse-outline" size={18} color="#6366f1" />
+        <Ionicons name="pulse-outline" size={18} color={COLORS.primary} />
       </View>
 
       {/* Name + count placeholder */}
@@ -39,7 +41,7 @@ export function PlanCard({ plan, onEdit, onDelete }: Props) {
         </Text>
       </View>
 
-      <Ionicons name="chevron-forward" size={16} color="#d1d5db" />
+      <DirectionalIcon name="chevron-forward" size={16} color={COLORS.gray300} />
     </Pressable>
   );
 }

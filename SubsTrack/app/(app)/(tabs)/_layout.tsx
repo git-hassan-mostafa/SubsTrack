@@ -2,6 +2,7 @@ import { Tabs } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/src/modules/auth/hooks/useAuth";
 import { Ionicons } from "@expo/vector-icons";
+import { COLORS } from "@/src/shared/constants";
 
 export default function TabsLayout() {
   const { isAdmin } = useAuth();
@@ -11,13 +12,20 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarStyle: { backgroundColor: "#ffffff", borderTopColor: "#e5e7eb" },
-        tabBarActiveTintColor: "#6366f1",
-        tabBarInactiveTintColor: "#6b7280",
+        tabBarStyle: {
+          backgroundColor: COLORS.white,
+          borderTopColor: COLORS.gray200,
+          paddingBottom: 8,
+          paddingTop: 4,
+          height: 64,
+        },
+        tabBarActiveTintColor: COLORS.primary,
+        tabBarInactiveTintColor: COLORS.gray500,
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: "500",
           fontFamily: "Cairo",
+          marginBottom: 2,
         },
       }}
     >

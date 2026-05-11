@@ -9,13 +9,13 @@ type DbCustomerWithPlan = DbCustomer & { plans?: DbPlan | null };
 function mapDbCustomerToCustomer(db: DbCustomerWithPlan): Customer {
   const plan: Plan | null = db.plans
     ? {
-        id: db.plans.id,
-        name: db.plans.name,
-        price: db.plans.price,
-        isCustomPrice: db.plans.is_custom_price,
-        tenantId: db.plans.tenant_id,
-        createdAt: db.plans.created_at,
-      }
+      id: db.plans.id,
+      name: db.plans.name,
+      price: db.plans.price,
+      isCustomPrice: db.plans.is_custom_price,
+      tenantId: db.plans.tenant_id,
+      createdAt: db.plans.created_at,
+    }
     : null;
 
   return {
@@ -34,13 +34,10 @@ function mapDbCustomerToCustomer(db: DbCustomerWithPlan): Customer {
   };
 }
 
-interface CreateCustomerInput {
-  name: string;
-  phoneNumber: string | null;
-  address: string | null;
-  planId: string | null;
-  startDate: string;
-}
+type CreateCustomerInput = Pick<
+  Customer,
+  'name' | 'phoneNumber' | 'address' | 'planId' | 'startDate'
+>;
 
 export class CustomerService {
   private repository = new CustomerRepository();

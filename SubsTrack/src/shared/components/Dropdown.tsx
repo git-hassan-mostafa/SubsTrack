@@ -3,6 +3,7 @@ import { FlatList, Modal, Pressable, View } from 'react-native';
 import { Text } from '@/src/shared/components/Text';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
+import { COLORS } from '@/src/shared/constants';
 
 export interface DropdownOption<T = string> {
   label: string;
@@ -64,7 +65,7 @@ export function Dropdown<T extends string | number | null = string>({
         <Text className={`text-base flex-1 ${displayLabel ? 'text-gray-900' : 'text-gray-400'}`}>
           {displayLabel ?? placeholder ?? t('customers.select_plan')}
         </Text>
-        <Ionicons name="chevron-down" size={16} color="#9ca3af" />
+        <Ionicons name="chevron-down" size={16} color={COLORS.gray400} />
       </Pressable>
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
@@ -103,7 +104,7 @@ export function Dropdown<T extends string | number | null = string>({
                       ) : null}
                     </View>
                     {isSelected ? (
-                      <Ionicons name="checkmark" size={18} color="#6366f1" />
+                      <Ionicons name="checkmark" size={18} color={COLORS.primary} />
                     ) : null}
                   </Pressable>
                 );

@@ -1,5 +1,6 @@
 import { TextInput, TextInputProps, View } from "react-native";
 import { Text } from "@/src/shared/components/Text";
+import { COLORS } from "@/src/shared/constants";
 
 interface InputProps extends TextInputProps {
   label?: string;
@@ -20,7 +21,7 @@ export function Input({ label, error, ...props }: InputProps) {
           error ? "border-danger" : "border-gray-200"
         }`}
         style={{ fontFamily: "Cairo" }}
-        placeholderTextColor="#9ca3af"
+        placeholderTextColor={COLORS.gray400}
       />
       {error ? <Text className="text-sm text-danger mt-1">{error}</Text> : null}
     </View>

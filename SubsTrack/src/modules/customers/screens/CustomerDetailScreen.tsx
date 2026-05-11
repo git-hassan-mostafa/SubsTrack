@@ -11,6 +11,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
+import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
+import { COLORS } from "@/src/shared/constants";
 import { ConfirmDialog } from "@/src/shared/components/ConfirmDialog";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import type { Customer, MonthEntry } from "@/src/core/types";
@@ -162,7 +164,7 @@ export function CustomerDetailScreen() {
       {/* Header */}
       <View className="flex-row items-center px-4 py-3 bg-white border-b border-gray-100">
         <Pressable onPress={() => router.back()} className="me-3 p-1">
-          <Ionicons name="chevron-back" size={22} color="#6366f1" />
+          <DirectionalIcon name="chevron-back" size={22} color={COLORS.primary} />
         </Pressable>
         {customer ? (
           <View
@@ -224,7 +226,7 @@ export function CustomerDetailScreen() {
 
       {customerStore.loading && !customer ? (
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator color="#6366f1" />
+          <ActivityIndicator color={COLORS.primary} />
         </View>
       ) : customer ? (
         <ScrollView
@@ -233,7 +235,7 @@ export function CustomerDetailScreen() {
             <RefreshControl
               refreshing={customerStore.loading}
               onRefresh={handleRefresh}
-              tintColor="#6366f1"
+              tintColor={COLORS.primary}
             />
           }
         >
@@ -273,7 +275,7 @@ export function CustomerDetailScreen() {
 
             {paymentStore.loading ? (
               <View className="h-40 items-center justify-center">
-                <ActivityIndicator color="#6366f1" />
+                <ActivityIndicator color={COLORS.primary} />
               </View>
             ) : (
               <MonthGrid
@@ -322,7 +324,7 @@ export function CustomerDetailScreen() {
               {customer.phoneNumber ? (
                 <View className="flex-row items-center justify-between px-4 py-3.5 border-b border-gray-100">
                   <View className="flex-row items-center gap-3">
-                    <Ionicons name="call-outline" size={16} color="#9ca3af" />
+                    <Ionicons name="call-outline" size={16} color={COLORS.gray400} />
                     <Text className="text-sm text-gray-500">
                       {t("customers.phone_label")}
                     </Text>
@@ -339,7 +341,7 @@ export function CustomerDetailScreen() {
                     <Ionicons
                       name="location-outline"
                       size={16}
-                      color="#9ca3af"
+                      color={COLORS.gray400}
                     />
                     <Text className="text-sm text-gray-500">
                       {t("customers.address_label")}
@@ -356,7 +358,7 @@ export function CustomerDetailScreen() {
 
               <View className="flex-row items-center justify-between px-4 py-3.5 border-b border-gray-100">
                 <View className="flex-row items-center gap-3">
-                  <Ionicons name="calendar-outline" size={16} color="#9ca3af" />
+                  <Ionicons name="calendar-outline" size={16} color={COLORS.gray400} />
                   <Text className="text-sm text-gray-500">
                     {t("customers.started_label")}
                   </Text>

@@ -4,6 +4,7 @@ import { Text } from "@/src/shared/components/Text";
 import { useTranslation } from "react-i18next";
 import type { MonthEntry } from "@/src/core/types";
 import { formatDate } from "@/src/core/utils/date";
+import { COLORS } from "@/src/shared/constants";
 
 interface Props {
   visible: boolean;
@@ -136,7 +137,7 @@ export function PaymentDetailSheet({
                 onChangeText={setAmountText}
                 keyboardType="decimal-pad"
                 placeholder={t("payments.enter_amount")}
-                placeholderTextColor="#9ca3af"
+                placeholderTextColor={COLORS.gray400}
                 className="border border-gray-200 rounded-xl px-4 py-3 text-base text-gray-900 bg-white mb-3"
                 autoFocus
               />

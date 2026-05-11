@@ -124,6 +124,7 @@
     "confirm_password_label": "تأكيد كلمة المرور",
     "confirm_password_placeholder": "أعد إدخال كلمة المرور",
     "password_mismatch": "كلمتا المرور غير متطابقتين",
+    "username_invalid_chars": "يُسمح فقط بالحروف والأرقام والنقاط والشرطات السفلية",
     "phone_optional": "الهاتف (اختياري)",
     "role_label": "الدور"
   },

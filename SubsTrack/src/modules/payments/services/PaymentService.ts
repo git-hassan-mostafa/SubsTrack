@@ -30,14 +30,7 @@ function mapDbPaymentToPayment(db: DbPayment): Payment {
   };
 }
 
-interface CreatePaymentInput {
-  billingMonth: string;
-  amount: number;
-  customerId: string;
-  planId: string | null;
-  receivedByUserId: string | null;
-  tenantId: string;
-}
+type CreatePaymentInput = Pick<Payment, 'billingMonth' | 'amount' | 'customerId' | 'planId' | 'receivedByUserId' | 'tenantId'>
 
 export class PaymentService {
   private repository = new PaymentRepository();

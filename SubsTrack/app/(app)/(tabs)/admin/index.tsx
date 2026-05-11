@@ -7,6 +7,8 @@ import { ActivityIndicator, Pressable, View } from "react-native";
 import { Text } from "@/src/shared/components/Text";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useDashboardStore } from "@/src/modules/dashboard/store/dashboardStore";
+import { COLORS } from "@/src/shared/constants";
+import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
 
 type MenuItem = {
   labelKey: string;
@@ -22,24 +24,24 @@ const MENU_ITEMS: MenuItem[] = [
     labelKey: "dashboard.title",
     subtitleKey: "admin.dashboard_sub",
     icon: "bar-chart-outline",
-    iconBg: "#eef2ff",
-    iconColor: "#6366f1",
+    iconBg: COLORS.primaryLight,
+    iconColor: COLORS.primary,
     route: "/(app)/(tabs)/admin/dashboard",
   },
   {
     labelKey: "users.title",
     subtitleKey: "admin.staff_sub",
     icon: "people-outline",
-    iconBg: "#f0fdf4",
-    iconColor: "#22c55e",
+    iconBg: COLORS.successLight,
+    iconColor: COLORS.success,
     route: "/(app)/(tabs)/admin/users",
   },
   {
     labelKey: "plans.title",
     subtitleKey: "admin.plans_sub",
     icon: "pricetag-outline",
-    iconBg: "#fffbeb",
-    iconColor: "#f59e0b",
+    iconBg: COLORS.warningLight,
+    iconColor: COLORS.warning,
     route: "/(app)/(tabs)/admin/plans",
   },
 ];
@@ -74,7 +76,7 @@ export default function AdminMenuScreen() {
       <View className="mx-4 mb-5 bg-white rounded-2xl border border-gray-100 flex-row">
         <View className="flex-1 items-center py-4 border-r border-gray-100">
           {loading && !metrics ? (
-            <ActivityIndicator size="small" color="#6366f1" />
+            <ActivityIndicator size="small" color={COLORS.primary} />
           ) : (
             <>
               <Text className="text-xl font-bold text-gray-900">
@@ -139,7 +141,7 @@ export default function AdminMenuScreen() {
                   </Text>
                 </View>
               </View>
-              <Ionicons name="chevron-forward" size={16} color="#d1d5db" />
+              <DirectionalIcon name="chevron-forward" size={16} color={COLORS.gray300} />
             </Pressable>
           ))}
         </View>

@@ -11,6 +11,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
+import { COLORS } from "@/src/shared/constants";
 import { ConfirmDialog } from "@/src/shared/components/ConfirmDialog";
 import { EmptyState } from "@/src/shared/components/EmptyState";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
@@ -71,7 +73,7 @@ export function PlanListScreen() {
       {/* Header */}
       <View className="flex-row items-center px-4 pt-4 pb-4 bg-white border-b border-gray-100 gap-2">
         <Pressable onPress={() => router.back()} className="p-1 me-1">
-          <Ionicons name="chevron-back" size={22} color="#6366f1" />
+          <DirectionalIcon name="chevron-back" size={22} color={COLORS.primary} />
         </Pressable>
         <View className="flex-1 min-w-0">
           <Text fontWeight="Bold" className="text-2xl text-gray-900">
@@ -104,7 +106,7 @@ export function PlanListScreen() {
 
       {loading && plans.length === 0 ? (
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator color="#6366f1" />
+          <ActivityIndicator color={COLORS.primary} />
         </View>
       ) : (
         <FlatList
@@ -115,7 +117,7 @@ export function PlanListScreen() {
             <RefreshControl
               refreshing={loading}
               onRefresh={fetchPlans}
-              tintColor="#6366f1"
+              tintColor={COLORS.primary}
             />
           }
           renderItem={({ item }) => (

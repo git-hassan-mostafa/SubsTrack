@@ -28,6 +28,9 @@ export function UserFormSheet({ visible, user: editUser, onDismiss }: Props) {
 
   const isOwnAccount = editUser?.id === currentUser?.id;
 
+  const usernameInvalid =
+    username.length > 0 && !/^[a-zA-Z0-9._]+$/.test(username);
+
   const passwordMismatch =
     !editUser &&
     password.length >= 8 &&
@@ -65,6 +68,7 @@ export function UserFormSheet({ visible, user: editUser, onDismiss }: Props) {
 
   const canSubmit =
     !!username.trim() &&
+    !usernameInvalid &&
     (!!editUser || (password.length >= 8 && password === confirmPassword));
 
   return (
@@ -106,6 +110,7 @@ export function UserFormSheet({ visible, user: editUser, onDismiss }: Props) {
             placeholder={t("users.username_placeholder")}
             autoCapitalize="none"
             onFocus={clearError}
+            error={usernameInvalid ? t("users.username_invalid_chars") : undefined}
           />
 
           {!editUser ? (

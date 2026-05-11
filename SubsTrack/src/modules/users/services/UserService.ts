@@ -34,8 +34,15 @@ export class UserService {
     return rows.map(mapDbUserToAppUser);
   }
 
+  private validateUsername(username: string): void {
+    if (!username.trim()) throw new Error('Username is required');
+    if (!/^[a-zA-Z0-9._]+$/.test(username.trim())) {
+      throw new Error('Username can only contain letters, numbers, dots, and underscores');
+    }
+  }
+
   async createUser(data: CreateUserInput, tenantId: string): Promise<AppUser> {
-    if (!data.username.trim()) throw new Error('Username is required');
+    this.validateUsername(data.username);
     if (data.password.length < 8) throw new Error('Password must be at least 8 characters');
     if (!['admin', 'user'].includes(data.role)) throw new Error('Invalid role');
 
@@ -59,7 +66,7 @@ export class UserService {
     currentUserRole: string,
     data: UpdateUserInput,
   ): Promise<AppUser> {
-    if (!data.username.trim()) throw new Error('Username is required');
+    this.validateUsername(data.username);
     if (id === currentUserId && data.role !== currentUserRole) {
       throw new Error('Cannot change your own role');
     }

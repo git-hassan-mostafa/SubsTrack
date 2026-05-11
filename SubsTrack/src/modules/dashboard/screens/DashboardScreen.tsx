@@ -12,6 +12,7 @@ import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { formatCurrency } from "@/src/core/utils/date";
 import { useAuth } from "@/src/modules/auth/hooks/useAuth";
 import { useDashboardStore } from "../store/dashboardStore";
+import { COLORS } from "@/src/shared/constants";
 
 const MONTH_NAMES = [
   "JAN",
@@ -65,7 +66,7 @@ export function DashboardScreen() {
           <RefreshControl
             refreshing={loading}
             onRefresh={fetchMetrics}
-            tintColor="#6366f1"
+            tintColor={COLORS.primary}
           />
         }
       >
@@ -85,7 +86,7 @@ export function DashboardScreen() {
 
         {loading && !metrics ? (
           <View className="flex-1 items-center justify-center py-20">
-            <ActivityIndicator color="#6366f1" />
+            <ActivityIndicator color={COLORS.primary} />
           </View>
         ) : (
           <>

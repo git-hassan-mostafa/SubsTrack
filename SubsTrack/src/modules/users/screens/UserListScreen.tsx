@@ -11,6 +11,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
+import { COLORS } from "@/src/shared/constants";
 import { EmptyState } from "@/src/shared/components/EmptyState";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { useDebounce } from "@/src/shared/hooks/useDebounce";
@@ -61,7 +63,7 @@ export function UserListScreen() {
       {/* Header */}
       <View className="flex-row items-center px-4 pt-4 pb-4 bg-white border-b border-gray-100 gap-2">
         <Pressable onPress={() => router.back()} className="p-1 me-1">
-          <Ionicons name="chevron-back" size={22} color="#6366f1" />
+          <DirectionalIcon name="chevron-back" size={22} color={COLORS.primary} />
         </Pressable>
         <View className="flex-1 min-w-0">
           <Text fontWeight="Bold" className="text-2xl text-gray-900">
@@ -96,7 +98,7 @@ export function UserListScreen() {
 
       {loading && users.length === 0 ? (
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator color="#6366f1" />
+          <ActivityIndicator color={COLORS.primary} />
         </View>
       ) : (
         <FlatList
@@ -107,7 +109,7 @@ export function UserListScreen() {
             <RefreshControl
               refreshing={loading}
               onRefresh={fetchUsers}
-              tintColor="#6366f1"
+              tintColor={COLORS.primary}
             />
           }
           renderItem={({ item }) => <UserCard user={item} onEdit={openEdit} />}

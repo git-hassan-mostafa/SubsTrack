@@ -13,6 +13,7 @@ import { useTranslation } from "react-i18next";
 import { EmptyState } from "@/src/shared/components/EmptyState";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { useDebounce } from "@/src/shared/hooks/useDebounce";
+import { COLORS } from "@/src/shared/constants";
 import type { Customer } from "@/src/core/types";
 import { CustomerCard } from "../components/CustomerCard";
 import { CustomerFormSheet } from "../components/CustomerFormSheet";
@@ -139,7 +140,7 @@ export function CustomerListScreen() {
 
       {loading && customers.length === 0 ? (
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator color="#6366f1" />
+          <ActivityIndicator color={COLORS.primary} />
         </View>
       ) : (
         <FlatList
@@ -150,7 +151,7 @@ export function CustomerListScreen() {
             <RefreshControl
               refreshing={loading}
               onRefresh={fetchCustomers}
-              tintColor="#6366f1"
+              tintColor={COLORS.primary}
             />
           }
           onEndReached={() => {
@@ -166,7 +167,7 @@ export function CustomerListScreen() {
           )}
           ListFooterComponent={
             loadingMore ? (
-              <ActivityIndicator color="#6366f1" className="py-4" />
+              <ActivityIndicator color={COLORS.primary} className="py-4" />
             ) : null
           }
           ListEmptyComponent={

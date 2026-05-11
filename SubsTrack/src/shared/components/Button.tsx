@@ -1,5 +1,6 @@
 import { ActivityIndicator, Pressable } from 'react-native';
 import { Text } from '@/src/shared/components/Text';
+import { COLORS } from '../constants';
 
 type Variant = 'primary' | 'danger' | 'ghost';
 
@@ -29,7 +30,7 @@ export function Button({ label, onPress, variant = 'primary', loading, disabled,
       className={`rounded-xl py-3.5 px-6 items-center justify-center ${styles.container} ${fullWidth ? 'w-full' : ''} ${isDisabled ? 'opacity-50' : ''}`}
     >
       {loading ? (
-        <ActivityIndicator color={variant === 'ghost' ? '#374151' : '#ffffff'} size="small" />
+        <ActivityIndicator color={variant === 'ghost' ? COLORS.gray700 : COLORS.white} size="small" />
       ) : (
         <Text className={`text-base font-semibold ${styles.text}`}>{label}</Text>
       )}

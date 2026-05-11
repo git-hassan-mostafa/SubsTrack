@@ -123,6 +123,7 @@
     "confirm_password_label": "Confirm Password",
     "confirm_password_placeholder": "Re-enter password",
     "password_mismatch": "Passwords do not match",
+    "username_invalid_chars": "Only letters, numbers, dots, and underscores are allowed",
     "phone_optional": "Phone (optional)",
     "role_label": "Role"
   },
