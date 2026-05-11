@@ -17,14 +17,21 @@ type CreateCustomerPayload = Pick<
 >;
 
 export class CustomerRepository extends BaseRepository {
-  async findAll(page: number): Promise<CustomerWithPlan[]> {
+  async findAll(page: number, searchQuery?: string): Promise<CustomerWithPlan[]> {
     const from = page * PAGE_SIZE;
     const to = from + PAGE_SIZE - 1;
-    const { data, error } = await this.db
+    // Strip PostgREST-reserved chars that break .or() parsing.
+    const q = (searchQuery ?? '').trim().replace(/[,()]/g, '');
+    let query = this.db
       .from('customers')
       .select('*, plans(*)')
-      .order('name')
-      .range(from, to);
+      .order('name');
+    if (q) {
+      query = query.or(
+        `name.ilike.%${q}%,phone_number.ilike.%${q}%,address.ilike.%${q}%`,
+      );
+    }
+    const { data, error } = await query.range(from, to);
     if (error) this.handleError(error);
     return (data ?? []) as CustomerWithPlan[];
   }

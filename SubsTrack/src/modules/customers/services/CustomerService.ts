@@ -44,8 +44,9 @@ export class CustomerService {
 
   async getCustomers(
     page: number,
+    searchQuery?: string,
   ): Promise<{ customers: Customer[]; hasMore: boolean }> {
-    const rows = await this.repository.findAll(page);
+    const rows = await this.repository.findAll(page, searchQuery);
     return {
       customers: rows.map(mapDbCustomerToCustomer),
       hasMore: rows.length >= PAGE_SIZE,

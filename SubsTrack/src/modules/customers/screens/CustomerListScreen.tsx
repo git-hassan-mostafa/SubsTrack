@@ -34,6 +34,7 @@ export function CustomerListScreen() {
     getCustomers,
     fetchCustomers,
     fetchMoreCustomers,
+    setSearchQuery,
     clearError,
   } = useCustomerStore();
   const [formVisible, setFormVisible] = useState(false);
@@ -44,6 +45,10 @@ export function CustomerListScreen() {
   useEffect(() => {
     getCustomers();
   }, []);
+
+  useEffect(() => {
+    setSearchQuery(debouncedSearch);
+  }, [debouncedSearch]);
 
   const activeCount = customers.filter((c) => c.active).length;
   const inactiveCount = customers.filter((c) => !c.active).length;
@@ -67,19 +72,9 @@ export function CustomerListScreen() {
   ];
 
   const filtered = (() => {
-    let base = debouncedSearch
-      ? customers.filter(
-          (c) =>
-            c.name.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
-            (c.phoneNumber ?? "").includes(debouncedSearch) ||
-            (c.address ?? "")
-              .toLowerCase()
-              .includes(debouncedSearch.toLowerCase()),
-        )
-      : customers;
-    if (activeTab === "active") base = base.filter((c) => c.active);
-    else if (activeTab === "inactive") base = base.filter((c) => !c.active);
-    return base;
+    if (activeTab === "active") return customers.filter((c) => c.active);
+    if (activeTab === "inactive") return customers.filter((c) => !c.active);
+    return customers;
   })();
 
   function openDetail(customer: Customer) {
@@ -154,9 +149,7 @@ export function CustomerListScreen() {
               tintColor={COLORS.primary}
             />
           }
-          onEndReached={() => {
-            if (!debouncedSearch) fetchMoreCustomers();
-          }}
+          onEndReached={() => fetchMoreCustomers()}
           onEndReachedThreshold={0.3}
           renderItem={({ item }) => (
             <CustomerCard

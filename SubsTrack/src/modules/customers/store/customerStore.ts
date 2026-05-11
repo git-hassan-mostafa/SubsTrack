@@ -20,9 +20,12 @@ interface CustomersState {
   loading: boolean;
   loadingMore: boolean;
   error: string | null;
+  searchQuery: string;
+  searchToken: number;
   getCustomers: () => Promise<void>;
   fetchCustomers: () => Promise<void>;
   fetchMoreCustomers: () => Promise<void>;
+  setSearchQuery: (q: string) => Promise<void>;
   getCustomer: (id: string) => Promise<Customer | null>;
   fetchCustomer: (id: string) => Promise<Customer | null>;
   createCustomer: (data: CreateInput, tenantId: string) => Promise<void>;
@@ -47,33 +50,55 @@ export const useCustomerStore = create<CustomersState>((set, get) => ({
   loading: false,
   loadingMore: false,
   error: null,
+  searchQuery: "",
+  searchToken: 0,
   getCustomers: async () => {
     if (!!get().customers && get().customers.length > 0) return;
     await get().fetchCustomers();
   },
   fetchCustomers: async () => {
+    const token = get().searchToken;
+    const query = get().searchQuery;
+    const isSearching = query.length > 0;
     set({ loading: true, error: null, page: 0 });
     try {
       const { year, month } = getCurrentYearMonth();
       const billingMonth = toBillingMonth(year, month);
-      const [{ customers, hasMore }, currentMonthPaidIds] = await Promise.all([
-        customerService.getCustomers(0),
-        paymentRepository.findPaidCustomerIdsForMonth(billingMonth),
+      const [{ customers, hasMore }, paidIds] = await Promise.all([
+        customerService.getCustomers(0, query),
+        isSearching
+          ? Promise.resolve(get().currentMonthPaidIds)
+          : paymentRepository.findPaidCustomerIdsForMonth(billingMonth),
       ]);
-      set({ customers, hasMore, page: 0, currentMonthPaidIds, loading: false });
+      if (get().searchToken !== token) return;
+      set({
+        customers,
+        hasMore,
+        page: 0,
+        currentMonthPaidIds: paidIds,
+        loading: false,
+      });
     } catch (e) {
+      if (get().searchToken !== token) return;
       set({ error: (e as Error).message, loading: false });
     }
   },
 
   fetchMoreCustomers: async () => {
-    const { loadingMore, hasMore, page } = get();
+    const { loadingMore, hasMore, page, searchToken, searchQuery } = get();
     if (loadingMore || !hasMore) return;
+    const token = searchToken;
     set({ loadingMore: true });
     try {
       const nextPage = page + 1;
-      const { customers, hasMore: more } =
-        await customerService.getCustomers(nextPage);
+      const { customers, hasMore: more } = await customerService.getCustomers(
+        nextPage,
+        searchQuery,
+      );
+      if (get().searchToken !== token) {
+        set({ loadingMore: false });
+        return;
+      }
       set((state) => ({
         customers: [...state.customers, ...customers],
         hasMore: more,
@@ -81,8 +106,25 @@ export const useCustomerStore = create<CustomersState>((set, get) => ({
         loadingMore: false,
       }));
     } catch (e) {
+      if (get().searchToken !== token) {
+        set({ loadingMore: false });
+        return;
+      }
       set({ error: (e as Error).message, loadingMore: false });
     }
+  },
+
+  setSearchQuery: async (q) => {
+    const trimmed = q.trim();
+    if (trimmed === get().searchQuery) return;
+    set((s) => ({
+      searchQuery: trimmed,
+      searchToken: s.searchToken + 1,
+      page: 0,
+      customers: [],
+      hasMore: true,
+    }));
+    await get().fetchCustomers();
   },
   getCustomer: async (id) => {
     const { customers } = get();
@@ -156,10 +198,12 @@ export const useCustomerStore = create<CustomersState>((set, get) => ({
 
   clearError: () => set({ error: null }),
   reset: () =>
-    set({
+    set((s) => ({
       customers: [],
       currentMonthPaidIds: new Set(),
       page: 0,
       hasMore: true,
-    }),
+      searchQuery: "",
+      searchToken: s.searchToken + 1,
+    })),
 }));
