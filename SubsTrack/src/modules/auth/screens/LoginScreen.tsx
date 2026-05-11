@@ -39,7 +39,7 @@ export function LoginScreen() {
             <Text className="text-xl font-bold text-gray-900">SubsTrack</Text>
           </View>
 
-          <Text className="text-3xl font-bold text-gray-900 mb-2">
+          <Text fontWeight="Bold" className="text-3xl text-gray-900 mb-2">
             {t("auth.welcome_back")}
           </Text>
           <Text className="text-base text-gray-500 mb-8">

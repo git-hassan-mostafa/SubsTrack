@@ -40,7 +40,7 @@ export function CustomerListScreen() {
   } = useCustomerStore();
   const [formVisible, setFormVisible] = useState(false);
   const [searchText, setSearchText] = useState("");
-  const [activeTab, setActiveTab] = useState<FilterTab>("all");
+  const [activeTab, setActiveTab] = useState<FilterTab>("active");
   const debouncedSearch = useDebounce(searchText);
 
   useEffect(() => {
@@ -56,14 +56,14 @@ export function CustomerListScreen() {
 
   const tabs = [
     {
-      key: "all" as FilterTab,
-      label: t("customers.all"),
-      count: customers.length,
-    },
-    {
       key: "active" as FilterTab,
       label: t("common.active"),
       count: activeCount,
+    },
+    {
+      key: "all" as FilterTab,
+      label: t("customers.all"),
+      count: customers.length,
     },
     {
       key: "inactive" as FilterTab,

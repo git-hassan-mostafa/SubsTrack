@@ -12,7 +12,7 @@ export const FALLBACK_LANGUAGE = "en" as const;
 
 export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
 
-const PERSIST_KEY = "language-store";
+export const PERSIST_KEY = "language-store";
 
 function getDeviceLanguage(): SupportedLanguage {
   const locales = getLocales();

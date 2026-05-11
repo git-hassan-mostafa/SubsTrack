@@ -1,11 +1,19 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import i18n from 'i18next';
-import { DevSettings, I18nManager, NativeModules, Platform } from 'react-native';
-import { create } from 'zustand';
-import { createJSONStorage, persist } from 'zustand/middleware';
-import { RTL_LANGUAGES, SUPPORTED_LANGUAGES, type SupportedLanguage } from './index';
-
-const PERSIST_KEY = 'language-store';
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import i18n from "i18next";
+import {
+  DevSettings,
+  I18nManager,
+  NativeModules,
+  Platform,
+} from "react-native";
+import { create } from "zustand";
+import { createJSONStorage, persist } from "zustand/middleware";
+import {
+  PERSIST_KEY,
+  RTL_LANGUAGES,
+  SUPPORTED_LANGUAGES,
+  type SupportedLanguage,
+} from "./index";
 
 interface LanguageState {
   language: SupportedLanguage;
@@ -15,7 +23,7 @@ interface LanguageState {
 async function reloadApp(): Promise<void> {
   // 1. Production / dev-client native: use expo-updates
   try {
-    const Updates = await import('expo-updates');
+    const Updates = await import("expo-updates");
     await Updates.reloadAsync();
     return;
   } catch {
@@ -23,9 +31,9 @@ async function reloadApp(): Promise<void> {
   }
 
   // 2. Native dev (Expo Go / Metro): use DevSettings
-  if (Platform.OS !== 'web') {
+  if (Platform.OS !== "web") {
     try {
-      if (typeof DevSettings?.reload === 'function') {
+      if (typeof DevSettings?.reload === "function") {
         DevSettings.reload();
         return;
       }
@@ -41,7 +49,7 @@ async function reloadApp(): Promise<void> {
   }
 
   // 3. Web: reload the document
-  if (typeof window !== 'undefined' && typeof window.location !== 'undefined') {
+  if (typeof window !== "undefined" && typeof window.location !== "undefined") {
     window.location.reload();
   }
 }
@@ -49,7 +57,7 @@ async function reloadApp(): Promise<void> {
 export const useLanguageStore = create<LanguageState>()(
   persist(
     (set) => ({
-      language: 'en',
+      language: "en",
 
       setLanguage: async (lang) => {
         const isRTL = (RTL_LANGUAGES as readonly string[]).includes(lang);

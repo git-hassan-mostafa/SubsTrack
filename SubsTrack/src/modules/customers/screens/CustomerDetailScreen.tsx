@@ -16,7 +16,11 @@ import { COLORS } from "@/src/shared/constants";
 import { ConfirmDialog } from "@/src/shared/components/ConfirmDialog";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import type { Customer, MonthEntry } from "@/src/core/types";
-import { formatDate, getCurrentYearMonth, getDateLocale } from "@/src/core/utils/date";
+import {
+  formatDate,
+  getCurrentYearMonth,
+  getDateLocale,
+} from "@/src/core/utils/date";
 import { useAuth } from "@/src/modules/auth/hooks/useAuth";
 import { MonthGrid } from "@/src/modules/payments/components/MonthGrid";
 import { PaymentDetailSheet } from "@/src/modules/payments/components/PaymentDetailSheet";
@@ -165,7 +169,11 @@ export function CustomerDetailScreen() {
       {/* Header */}
       <View className="flex-row items-center px-4 py-3 bg-white border-b border-gray-100">
         <Pressable onPress={() => router.back()} className="me-3 p-1">
-          <DirectionalIcon name="chevron-back" size={22} color={COLORS.primary} />
+          <DirectionalIcon
+            name="chevron-back"
+            size={22}
+            color={COLORS.primary}
+          />
         </Pressable>
         {customer ? (
           <View
@@ -325,7 +333,11 @@ export function CustomerDetailScreen() {
               {customer.phoneNumber ? (
                 <View className="flex-row items-center justify-between px-4 py-3.5 border-b border-gray-100">
                   <View className="flex-row items-center gap-3">
-                    <Ionicons name="call-outline" size={16} color={COLORS.gray400} />
+                    <Ionicons
+                      name="call-outline"
+                      size={16}
+                      color={COLORS.gray400}
+                    />
                     <Text className="text-sm text-gray-500">
                       {t("customers.phone_label")}
                     </Text>
@@ -359,7 +371,11 @@ export function CustomerDetailScreen() {
 
               <View className="flex-row items-center justify-between px-4 py-3.5 border-b border-gray-100">
                 <View className="flex-row items-center gap-3">
-                  <Ionicons name="calendar-outline" size={16} color={COLORS.gray400} />
+                  <Ionicons
+                    name="calendar-outline"
+                    size={16}
+                    color={COLORS.gray400}
+                  />
                   <Text className="text-sm text-gray-500">
                     {t("customers.started_label")}
                   </Text>
