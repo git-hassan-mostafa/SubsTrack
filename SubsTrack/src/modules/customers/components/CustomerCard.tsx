@@ -4,6 +4,8 @@ import { Text } from "@/src/shared/components/Text";
 import type { Customer } from "@/src/core/types";
 import { AVATAR_COLORS } from "../../../shared/constants";
 
+const MONTH_KEYS = ["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"] as const;
+
 interface Props {
   customer: Customer;
   isPaidThisMonth: boolean;
@@ -20,30 +22,12 @@ function getInitials(name: string): string {
   return name.slice(0, 2).toUpperCase();
 }
 
-function getCurrentMonthLabel(): string {
-  const months = [
-    "Jan",
-    "Feb",
-    "Mar",
-    "Apr",
-    "May",
-    "Jun",
-    "Jul",
-    "Aug",
-    "Sep",
-    "Oct",
-    "Nov",
-    "Dec",
-  ];
-  const now = new Date();
-  return `${months[now.getMonth()]} ${now.getFullYear()}`;
-}
-
 export function CustomerCard({ customer, isPaidThisMonth, onPress }: Props) {
   const { t } = useTranslation();
   const initials = getInitials(customer.name);
   const avatarColor = getAvatarColor(customer.name);
-  const monthLabel = getCurrentMonthLabel();
+  const now = new Date();
+  const monthLabel = `${t(`months.${MONTH_KEYS[now.getMonth()]}`)} ${now.getFullYear()}`;
 
   return (
     <Pressable

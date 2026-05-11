@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { FlatList, Modal, Pressable, View } from 'react-native';
+import { FlatList, Modal, Pressable, TextInput, View } from 'react-native';
 import { Text } from '@/src/shared/components/Text';
 import { useTranslation } from 'react-i18next';
 import { Ionicons } from '@expo/vector-icons';
@@ -34,23 +34,38 @@ export function Dropdown<T extends string | number | null = string>({
 }: DropdownProps<T>) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState('');
 
   const selectedOption = options.find((o) => o.value === value);
   const displayLabel = selectedOption?.label ?? (nullable && value === null ? nullLabel : null);
 
+  function handleOpen() {
+    setSearch('');
+    setOpen(true);
+  }
+
+  function handleClose() {
+    setSearch('');
+    setOpen(false);
+  }
+
   function handleSelect(val: T | null) {
     onChange(val);
-    setOpen(false);
+    handleClose();
   }
 
   type ListItem = { label: string; sublabel?: string; value: T | null; isNull: boolean };
 
-  const listItems: ListItem[] = [
+  const allItems: ListItem[] = [
     ...(nullable
       ? [{ label: nullLabel ?? t('common.no_plan'), sublabel: nullSublabel, value: null as T | null, isNull: true }]
       : []),
     ...options.map((o) => ({ ...o, value: o.value as T | null, isNull: false })),
   ];
+
+  const listItems = search.trim()
+    ? allItems.filter((item) => item.label.toLowerCase().includes(search.toLowerCase()))
+    : allItems;
 
   return (
     <View className="mb-4">
@@ -59,7 +74,7 @@ export function Dropdown<T extends string | number | null = string>({
       ) : null}
 
       <Pressable
-        onPress={() => setOpen(true)}
+        onPress={handleOpen}
         className="border border-gray-200 rounded-xl px-4 py-3 bg-white flex-row items-center justify-between"
       >
         <Text className={`text-base flex-1 ${displayLabel ? 'text-gray-900' : 'text-gray-400'}`}>
@@ -68,10 +83,10 @@ export function Dropdown<T extends string | number | null = string>({
         <Ionicons name="chevron-down" size={16} color={COLORS.gray400} />
       </Pressable>
 
-      <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
+      <Modal visible={open} transparent animationType="fade" onRequestClose={handleClose}>
         <Pressable
           className="flex-1 bg-black/40 items-center justify-center px-6"
-          onPress={() => setOpen(false)}
+          onPress={handleClose}
         >
           <Pressable
             className="bg-white rounded-2xl w-full overflow-hidden"
@@ -79,9 +94,20 @@ export function Dropdown<T extends string | number | null = string>({
           >
             <View className="flex-row items-center justify-between px-5 py-4 border-b border-gray-100">
               <Text className="text-base font-semibold text-gray-900">{label ?? placeholder ?? ''}</Text>
-              <Pressable onPress={() => setOpen(false)}>
+              <Pressable onPress={handleClose}>
                 <Text className="text-base text-primary font-medium">{t('common.cancel')}</Text>
               </Pressable>
+            </View>
+
+            <View className="px-4 py-2 border-b border-gray-100">
+              <TextInput
+                value={search}
+                onChangeText={setSearch}
+                placeholder={t('common.input_search')}
+                placeholderTextColor={COLORS.gray400}
+                className="bg-gray-50 rounded-xl px-4 py-2.5 text-base text-gray-900"
+                autoCorrect={false}
+              />
             </View>
 
             <FlatList

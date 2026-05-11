@@ -1,5 +1,9 @@
 // All date utilities. Comparisons use integer year+month arithmetic to avoid timezone issues.
 
+export function getDateLocale(language: string): string {
+  return language === "ar" ? "ar" : "en-US";
+}
+
 export function toBillingMonth(year: number, month: number): string {
   const mm = String(month).padStart(2, "0");
   return `${year}-${mm}-01`;

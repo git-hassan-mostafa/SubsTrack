@@ -9,28 +9,15 @@ import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
-import { formatCurrency } from "@/src/core/utils/date";
+import { formatCurrency, getDateLocale } from "@/src/core/utils/date";
 import { useAuth } from "@/src/modules/auth/hooks/useAuth";
 import { useDashboardStore } from "../store/dashboardStore";
 import { COLORS } from "@/src/shared/constants";
 
-const MONTH_NAMES = [
-  "JAN",
-  "FEB",
-  "MAR",
-  "APR",
-  "MAY",
-  "JUN",
-  "JUL",
-  "AUG",
-  "SEP",
-  "OCT",
-  "NOV",
-  "DEC",
-];
+const MONTH_KEYS = ["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"] as const;
 
 export function DashboardScreen() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { user } = useAuth();
   const { metrics, loading, error, getMetrics, fetchMetrics, clearError } =
     useDashboardStore();
@@ -40,9 +27,10 @@ export function DashboardScreen() {
   }, []);
 
   const now = new Date();
-  const monthLabel = MONTH_NAMES[now.getMonth()];
+  const locale = getDateLocale(i18n.language);
+  const monthLabel = t(`months.${MONTH_KEYS[now.getMonth()]}`);
   const year = now.getFullYear();
-  const dateLabel = now.toLocaleDateString("en-US", {
+  const dateLabel = now.toLocaleDateString(locale, {
     weekday: "long",
     month: "long",
     day: "numeric",

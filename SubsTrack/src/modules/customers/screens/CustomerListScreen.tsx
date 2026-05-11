@@ -19,6 +19,7 @@ import { CustomerCard } from "../components/CustomerCard";
 import { CustomerFormSheet } from "../components/CustomerFormSheet";
 import { useCustomerStore } from "../store/customerStore";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
+import { PageHeader } from "@/src/shared/components/PageHeader";
 
 type FilterTab = "all" | "unpaid" | "active" | "inactive";
 
@@ -83,24 +84,12 @@ export function CustomerListScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
-      {/* Header */}
-      <View className="px-5 pt-5 pb-3 bg-white border-b border-gray-100 flex-row items-center gap-2">
-        <Text fontWeight="Bold" className="text-2xl text-gray-900">
-          {t("customers.title")}
-        </Text>
-        <Text className="text-sm text-gray-400 mt-1 flex-1">
-          {t("customers.total_count", { count: customers.length })}
-        </Text>
-
-        <Pressable
-          onPress={() => setFormVisible(true)}
-          className="bg-primary rounded-full px-4 py-2"
-        >
-          <Text className="text-white font-semibold text-sm">
-            {t("common.add")}
-          </Text>
-        </Pressable>
-      </View>
+      <PageHeader
+        title={t("customers.title")}
+        subtitle={t("customers.total_count", { count: customers.length })}
+        actionLabel={t("common.add")}
+        onAction={() => setFormVisible(true)}
+      />
 
       <View className="px-4 pt-4">
         {/* Search */}

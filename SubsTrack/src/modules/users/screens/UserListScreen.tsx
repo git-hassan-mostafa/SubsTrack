@@ -2,16 +2,12 @@ import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
-  Pressable,
   RefreshControl,
   View,
 } from "react-native";
-import { Text } from "@/src/shared/components/Text";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
-import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
 import { COLORS } from "@/src/shared/constants";
 import { EmptyState } from "@/src/shared/components/EmptyState";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
@@ -21,6 +17,7 @@ import { UserCard } from "../components/UserCard";
 import { UserFormSheet } from "../components/UserFormSheet";
 import { useUserStore } from "../store/userStore";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
+import { PageHeader } from "@/src/shared/components/PageHeader";
 
 export function UserListScreen() {
   const { t } = useTranslation();
@@ -60,32 +57,14 @@ export function UserListScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
-      {/* Header */}
-      <View className="flex-row items-center px-4 pt-4 pb-4 bg-white border-b border-gray-100 gap-2">
-        <Pressable onPress={() => router.back()} className="p-1 me-1">
-          <DirectionalIcon name="chevron-back" size={22} color={COLORS.primary} />
-        </Pressable>
-        <View className="flex-1 min-w-0">
-          <Text fontWeight="Bold" className="text-2xl text-gray-900">
-            {t("users.title")}
-          </Text>
-          <Text className="text-sm text-gray-400 mt-0.5">
-            {t("users.members_summary", {
-              count: users.length,
-              admins: adminCount,
-            })}
-          </Text>
-        </View>
-
-        <Pressable
-          onPress={openCreate}
-          className="bg-primary rounded-full px-4 py-2"
-        >
-          <Text className="text-white font-semibold text-sm">
-            {t("common.add")}
-          </Text>
-        </Pressable>
-      </View>
+      <PageHeader
+        title={t("users.title")}
+        subtitle={t("users.members_summary", { count: users.length, admins: adminCount })}
+        showBack
+        onBack={() => router.back()}
+        actionLabel={t("common.add")}
+        onAction={openCreate}
+      />
       {/* Inline search */}
       <View className="px-4 pt-4">
         <SearchTextBox searchText={searchText} setSearchText={setSearchText} />

@@ -16,7 +16,7 @@ import { COLORS } from "@/src/shared/constants";
 import { ConfirmDialog } from "@/src/shared/components/ConfirmDialog";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import type { Customer, MonthEntry } from "@/src/core/types";
-import { formatDate, getCurrentYearMonth } from "@/src/core/utils/date";
+import { formatDate, getCurrentYearMonth, getDateLocale } from "@/src/core/utils/date";
 import { useAuth } from "@/src/modules/auth/hooks/useAuth";
 import { MonthGrid } from "@/src/modules/payments/components/MonthGrid";
 import { PaymentDetailSheet } from "@/src/modules/payments/components/PaymentDetailSheet";
@@ -38,7 +38,8 @@ function getInitials(name: string): string {
 }
 
 export function CustomerDetailScreen() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const locale = getDateLocale(i18n.language);
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { isAdmin } = useAuth();
@@ -187,7 +188,7 @@ export function CustomerDetailScreen() {
             <Text className="text-xs text-gray-400">
               {t("customers.plan_since", {
                 plan: customer.plan?.name ?? t("common.no_plan"),
-                date: new Date(customer.startDate).toLocaleDateString("en-US", {
+                date: new Date(customer.startDate).toLocaleDateString(locale, {
                   month: "short",
                   year: "numeric",
                 }),
@@ -291,7 +292,7 @@ export function CustomerDetailScreen() {
               <Text className="text-base me-2">⚠️</Text>
               <View className="flex-1">
                 <Text className="text-sm font-semibold text-red-600">
-                  {new Date().toLocaleDateString("en-US", {
+                  {new Date().toLocaleDateString(locale, {
                     month: "long",
                     year: "numeric",
                   })}{" "}
@@ -364,7 +365,7 @@ export function CustomerDetailScreen() {
                   </Text>
                 </View>
                 <Text className="text-sm font-semibold text-gray-900">
-                  {formatDate(customer.startDate)}
+                  {formatDate(customer.startDate, locale)}
                 </Text>
               </View>
 
