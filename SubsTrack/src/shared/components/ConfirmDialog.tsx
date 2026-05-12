@@ -1,4 +1,5 @@
 import { Modal, Pressable, View } from 'react-native';
+import type { ReactNode } from 'react';
 import { Text } from '@/src/shared/components/Text';
 import { useTranslation } from 'react-i18next';
 
@@ -10,8 +11,10 @@ interface ConfirmDialogProps {
   cancelLabel?: string;
   destructive?: boolean;
   hideCancel?: boolean;
+  confirmDisabled?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
+  children?: ReactNode;
 }
 
 export function ConfirmDialog({
@@ -22,8 +25,10 @@ export function ConfirmDialog({
   cancelLabel,
   destructive = false,
   hideCancel = false,
+  confirmDisabled = false,
   onConfirm,
   onCancel,
+  children,
 }: ConfirmDialogProps) {
   const { t } = useTranslation();
 
@@ -32,7 +37,8 @@ export function ConfirmDialog({
       <View className="flex-1 bg-black/50 items-center justify-center px-8">
         <View className="bg-white rounded-2xl p-6 w-full">
           <Text className="text-lg font-semibold text-gray-900 mb-2">{title}</Text>
-          <Text className="text-sm text-gray-600 mb-6">{message}</Text>
+          <Text className="text-sm text-gray-600 mb-4">{message}</Text>
+          {children ? <View className="mb-4">{children}</View> : null}
           <View className="flex-row gap-3">
             {!hideCancel ? (
               <Pressable
@@ -44,7 +50,8 @@ export function ConfirmDialog({
             ) : null}
             <Pressable
               onPress={onConfirm}
-              className={`flex-1 rounded-lg py-3 items-center ${destructive ? 'bg-danger' : 'bg-primary'}`}
+              disabled={confirmDisabled}
+              className={`flex-1 rounded-lg py-3 items-center ${confirmDisabled ? 'opacity-40' : ''} ${destructive ? 'bg-danger' : 'bg-primary'}`}
             >
               <Text className="text-white font-medium">{confirmLabel ?? t('common.confirm')}</Text>
             </Pressable>
