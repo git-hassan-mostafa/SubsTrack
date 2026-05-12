@@ -17,6 +17,7 @@ export interface CreateTenantInput {
   name: string;
   tenantCode: string;
   adminUserName: string;
+  adminFullName: string;
   adminPassword: string;
 }
 
@@ -35,7 +36,8 @@ export class TenantService {
 
   async createTenant(data: CreateTenantInput): Promise<Tenant> {
     if (!data.name.trim()) throw new Error("Tenant name is required");
-    if (!data.adminUserName.trim()) throw new Error("Admin email is required");
+    if (!data.adminUserName.trim()) throw new Error("Admin username is required");
+    if (!data.adminFullName.trim()) throw new Error("Admin full name is required");
     if (data.adminPassword.length < 8)
       throw new Error("Password must be at least 8 characters");
 
@@ -64,6 +66,7 @@ export class TenantService {
     const { error: userError } = await supabaseAdmin.from("users").insert({
       id: authData.user.id,
       username: data.adminUserName.trim(),
+      full_name: data.adminFullName.trim(),
       role: "admin",
       tenant_id: tenant.id,
     });

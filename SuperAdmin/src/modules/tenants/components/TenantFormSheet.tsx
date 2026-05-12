@@ -30,6 +30,7 @@ export function TenantFormSheet({ visible, tenant, onDismiss }: Props) {
   const [tenantCode, setTenantCode] = useState("");
   const [active, setActive] = useState(true);
   const [adminUserName, setAdminUserName] = useState("");
+  const [adminFullName, setAdminFullName] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
 
   useEffect(() => {
@@ -38,6 +39,7 @@ export function TenantFormSheet({ visible, tenant, onDismiss }: Props) {
       setTenantCode(tenant?.tenantCode ?? "");
       setActive(tenant?.active ?? true);
       setAdminUserName("");
+      setAdminFullName("");
       setAdminPassword("");
       clearError();
     }
@@ -52,7 +54,8 @@ export function TenantFormSheet({ visible, tenant, onDismiss }: Props) {
       success = await createTenant({
         name,
         tenantCode,
-        adminUserName: adminUserName,
+        adminUserName,
+        adminFullName,
         adminPassword,
       });
     }
@@ -64,6 +67,7 @@ export function TenantFormSheet({ visible, tenant, onDismiss }: Props) {
     : !!name.trim() &&
       !!tenantCode.trim() &&
       !!adminUserName.trim() &&
+      !!adminFullName.trim() &&
       adminPassword.length >= 8;
 
   return (
@@ -135,6 +139,15 @@ export function TenantFormSheet({ visible, tenant, onDismiss }: Props) {
                 onChangeText={setAdminUserName}
                 placeholder="admin"
                 autoCapitalize="none"
+                onFocus={clearError}
+              />
+
+              <Input
+                label="Admin Full Name"
+                value={adminFullName}
+                onChangeText={setAdminFullName}
+                placeholder="e.g. John Smith"
+                autoCapitalize="words"
                 onFocus={clearError}
               />
 
