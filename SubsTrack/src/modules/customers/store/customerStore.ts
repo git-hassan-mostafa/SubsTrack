@@ -136,7 +136,15 @@ export const useCustomerStore = create<CustomersState>((set, get) => ({
     set({ loading: true, error: null });
     try {
       const customer = await customerService.getCustomer(id);
-      set({ loading: false });
+      set((state) => {
+        const exists = state.customers.some((c) => c.id === id);
+        return {
+          customers: exists
+            ? state.customers.map((c) => (c.id === id ? customer : c))
+            : [...state.customers, customer],
+          loading: false,
+        };
+      });
       return customer;
     } catch (e) {
       set({ error: (e as Error).message, loading: false });

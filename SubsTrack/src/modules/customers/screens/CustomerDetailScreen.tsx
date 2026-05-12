@@ -48,9 +48,10 @@ export function CustomerDetailScreen() {
   const router = useRouter();
   const { isAdmin } = useAuth();
 
-  const [customer, setCustomer] = useState<Customer | null>(null);
-
   const customerStore = useCustomerStore();
+  const customer = useCustomerStore(
+    (state) => state.customers.find((c) => c.id === id) ?? null,
+  );
   const paymentStore = usePaymentStore();
 
   const [year, setYear] = useState(getCurrentYearMonth().year);
@@ -79,16 +80,10 @@ export function CustomerDetailScreen() {
   }, [customer, year]);
 
   async function getSelectedCustomer() {
-    if (id) {
-      const selectedCustomer = await customerStore.getCustomer(id);
-      setCustomer(selectedCustomer);
-    }
+    if (id) await customerStore.getCustomer(id);
   }
   async function fetchSelectedCustomer() {
-    if (id) {
-      const selectedCustomer = await customerStore.fetchCustomer(id);
-      setCustomer(selectedCustomer);
-    }
+    if (id) await customerStore.fetchCustomer(id);
   }
 
   function handleCellPress(entry: MonthEntry) {

@@ -1,6 +1,7 @@
 ## Code Quality & Architecture
 
 - Write clean, readable, and maintainable code at all times — clarity beats cleverness.
+- If the cleanest and scalable solution is to make a big change, do it rather than applying band-aid fixes
 - Follow SOLID principles strictly:
   - **S** — Each file/class/function has one clear responsibility.
   - **O** — Extend behavior without modifying existing, working code.
