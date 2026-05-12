@@ -54,6 +54,7 @@ export function CustomerFormSheet({ visible, customer, onDismiss }: Props) {
         phoneNumber: phone || null,
         address: address || null,
         planId,
+        startDate,
       });
     } else {
       await createCustomer(
@@ -128,17 +129,15 @@ export function CustomerFormSheet({ visible, customer, onDismiss }: Props) {
                 keyboardType="phone-pad"
               />
             </View>
-            {!customer ? (
-              <View className="flex-1">
-                <DatePickerInput
-                  label={t("customers.start_date_label")}
-                  value={startDate}
-                  onChange={setStartDate}
-                  showTime
-                  placeholder={t("customers.start_date_placeholder")}
-                />
-              </View>
-            ) : null}
+            <View className="flex-1">
+              <DatePickerInput
+                label={t("customers.start_date_label")}
+                value={startDate}
+                onChange={setStartDate}
+                showTime
+                placeholder={t("customers.start_date_placeholder")}
+              />
+            </View>
           </View>
 
           <Input
@@ -165,7 +164,7 @@ export function CustomerFormSheet({ visible, customer, onDismiss }: Props) {
             }
             onPress={handleSubmit}
             loading={loading}
-            disabled={!name.trim() || (!customer && !startDate)}
+            disabled={!name.trim() || !startDate}
             fullWidth
           />
           <View className="h-4" />

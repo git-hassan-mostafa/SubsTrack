@@ -59,7 +59,7 @@ export class CustomerRepository extends BaseRepository {
 
   async update(
     id: string,
-    payload: Partial<Pick<DbCustomer, 'name' | 'phone_number' | 'address' | 'plan_id'>>,
+    payload: Partial<Pick<DbCustomer, 'name' | 'phone_number' | 'address' | 'plan_id' | 'start_date'>>,
   ): Promise<CustomerWithPlan> {
     const { data, error } = await this.db
       .from('customers')

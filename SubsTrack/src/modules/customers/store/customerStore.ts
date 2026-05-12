@@ -2,7 +2,7 @@ import { create } from "zustand";
 import type { Customer } from "@/src/core/types";
 import { CustomerService } from "../services/CustomerService";
 
-interface CreateInput {
+interface CustomerInput {
   name: string;
   phoneNumber: string | null;
   address: string | null;
@@ -25,10 +25,10 @@ interface CustomersState {
   setSearchQuery: (q: string) => Promise<void>;
   getCustomer: (id: string) => Promise<Customer | null>;
   fetchCustomer: (id: string) => Promise<Customer | null>;
-  createCustomer: (data: CreateInput, tenantId: string) => Promise<void>;
+  createCustomer: (data: CustomerInput, tenantId: string) => Promise<void>;
   updateCustomer: (
     id: string,
-    data: Omit<CreateInput, "startDate">,
+    data: CustomerInput,
   ) => Promise<void>;
   deactivateCustomer: (id: string) => Promise<void>;
   reactivateCustomer: (id: string) => Promise<void>;

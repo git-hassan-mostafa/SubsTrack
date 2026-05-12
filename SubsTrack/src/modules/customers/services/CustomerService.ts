@@ -34,7 +34,7 @@ function mapDbCustomerToCustomer(db: DbCustomerWithPlan): Customer {
   };
 }
 
-type CreateCustomerInput = Pick<
+type CustomerInput = Pick<
   Customer,
   'name' | 'phoneNumber' | 'address' | 'planId' | 'startDate'
 >;
@@ -59,7 +59,7 @@ export class CustomerService {
   }
 
   async createCustomer(
-    data: CreateCustomerInput,
+    data: CustomerInput,
     tenantId: string,
   ): Promise<Customer> {
     this.validateInput(data);
@@ -78,14 +78,15 @@ export class CustomerService {
 
   async updateCustomer(
     id: string,
-    data: Omit<CreateCustomerInput, "startDate">,
+    data: CustomerInput,
   ): Promise<Customer> {
-    if (!data.name.trim()) throw new Error("Customer name is required");
+    this.validateInput(data);
     const row = await this.repository.update(id, {
       name: data.name.trim(),
       phone_number: data.phoneNumber?.trim() || null,
       address: data.address?.trim() || null,
       plan_id: data.planId,
+      start_date: data.startDate,
     });
     return mapDbCustomerToCustomer(row);
   }
@@ -100,7 +101,7 @@ export class CustomerService {
     return mapDbCustomerToCustomer(row);
   }
 
-  private validateInput(data: CreateCustomerInput): void {
+  private validateInput(data: CustomerInput): void {
     if (!data.name.trim()) throw new Error("Customer name is required");
     if (!data.startDate) throw new Error("Start date is required");
     if (!isValidDateString(data.startDate))
