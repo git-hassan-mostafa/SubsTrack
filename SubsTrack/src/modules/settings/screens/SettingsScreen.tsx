@@ -114,7 +114,8 @@ export function SettingsScreen() {
               style={{ backgroundColor: avatarColor + "22" }}
             >
               <Text
-                className="text-base font-bold"
+                fontWeight="Bold"
+                className="text-base"
                 style={{ color: avatarColor }}
               >
                 {initials}
@@ -164,7 +165,9 @@ export function SettingsScreen() {
                   </Text>
                   {lang === language ? (
                     <View className="w-4 h-4 rounded-full bg-primary items-center justify-center ms-1">
-                      <Text className="text-white text-[9px] font-bold">✓</Text>
+                      <Text fontWeight="Bold" className="text-white text-[9px]">
+                        ✓
+                      </Text>
                     </View>
                   ) : (
                     <DirectionalIcon

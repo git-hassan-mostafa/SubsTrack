@@ -8,7 +8,8 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "lint": "expo lint"
+    "lint": "expo lint",
+    "deploy-create-user-edge-function":"supabase functions deploy create-user"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",

@@ -44,7 +44,11 @@ export function UserCard({ user, onEdit }: Props) {
           className="w-11 h-11 rounded-xl items-center justify-center"
           style={{ backgroundColor: avatarColor + "22" }}
         >
-          <Text className="text-sm font-bold" style={{ color: avatarColor }}>
+          <Text
+            className="text-sm"
+            fontWeight="Bold"
+            style={{ color: avatarColor }}
+          >
             {getInitials(user.fullName)}
           </Text>
         </View>

@@ -1,5 +1,5 @@
-import { I18nManager, Pressable, View } from 'react-native';
-import { Text } from '@/src/shared/components/Text';
+import { I18nManager, Pressable, View } from "react-native";
+import { Text } from "@/src/shared/components/Text";
 
 interface Props {
   year: number;
@@ -17,16 +17,28 @@ export function YearNavigator({ year, minYear, onPrev, onNext }: Props) {
       <Pressable
         onPress={onPrev}
         disabled={!canGoPrev}
-        className={`w-10 h-10 items-center justify-center rounded-full ${canGoPrev ? 'bg-gray-100' : 'opacity-30'}`}
+        className={`w-10 h-10 items-center justify-center rounded-full ${canGoPrev ? "bg-gray-100" : "opacity-30"}`}
       >
-        <Text style={{ transform: [{ scaleX: flip }] }} className="text-gray-700 text-lg font-semibold">‹</Text>
+        <Text
+          style={{ transform: [{ scaleX: flip }] }}
+          className="text-gray-700 text-lg font-semibold"
+        >
+          ‹
+        </Text>
       </Pressable>
-      <Text className="text-lg font-bold text-gray-900">{year}</Text>
+      <Text fontWeight="Bold" className="text-lg text-gray-900">
+        {year}
+      </Text>
       <Pressable
         onPress={onNext}
         className="w-10 h-10 items-center justify-center rounded-full bg-gray-100"
       >
-        <Text style={{ transform: [{ scaleX: flip }] }} className="text-gray-700 text-lg font-semibold">›</Text>
+        <Text
+          style={{ transform: [{ scaleX: flip }] }}
+          className="text-gray-700 text-lg font-semibold"
+        >
+          ›
+        </Text>
       </Pressable>
     </View>
   );

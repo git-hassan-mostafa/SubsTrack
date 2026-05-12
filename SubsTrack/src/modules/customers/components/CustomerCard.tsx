@@ -4,7 +4,20 @@ import { Text } from "@/src/shared/components/Text";
 import type { Customer } from "@/src/core/types";
 import { AVATAR_COLORS } from "../../../shared/constants";
 
-const MONTH_KEYS = ["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"] as const;
+const MONTH_KEYS = [
+  "jan",
+  "feb",
+  "mar",
+  "apr",
+  "may",
+  "jun",
+  "jul",
+  "aug",
+  "sep",
+  "oct",
+  "nov",
+  "dec",
+] as const;
 
 interface Props {
   customer: Customer;
@@ -39,7 +52,11 @@ export function CustomerCard({ customer, isPaidThisMonth, onPress }: Props) {
         className="w-10 h-10 rounded-xl items-center justify-center me-3 flex-shrink-0"
         style={{ backgroundColor: avatarColor + "22" }}
       >
-        <Text className="text-sm font-bold" style={{ color: avatarColor }}>
+        <Text
+          fontWeight="Bold"
+          className="text-sm"
+          style={{ color: avatarColor }}
+        >
           {initials}
         </Text>
       </View>

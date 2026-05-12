@@ -1,5 +1,5 @@
-import { Pressable, View } from 'react-native';
-import { Text } from '@/src/shared/components/Text';
+import { Pressable, View } from "react-native";
+import { Text } from "@/src/shared/components/Text";
 
 interface ErrorBannerProps {
   message: string;
@@ -12,7 +12,9 @@ export function ErrorBanner({ message, onDismiss }: ErrorBannerProps) {
       <Text className="text-danger text-sm flex-1">{message}</Text>
       {onDismiss ? (
         <Pressable onPress={onDismiss} className="ms-3">
-          <Text className="text-danger font-bold text-base">✕</Text>
+          <Text fontWeight="Bold" className="text-danger text-base">
+            ✕
+          </Text>
         </Pressable>
       ) : null}
     </View>

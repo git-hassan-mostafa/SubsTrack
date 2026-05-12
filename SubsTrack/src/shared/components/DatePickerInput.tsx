@@ -234,8 +234,8 @@ export function DatePickerInput({
 
   const yearItems = useMemo(() => range(minYear, maxYear), [minYear, maxYear]);
   const dayItems = useMemo(() => range(1, maxDay), [maxDay]);
-  const hourItems = useMemo(() => range(0, 23), []);
-  const minuteItems = useMemo(() => range(0, 59), []);
+  const hourItems = useMemo(() => (showTime ? range(0, 23) : []), []);
+  const minuteItems = useMemo(() => (showTime ? range(0, 59) : []), []);
 
   const displayValue = value || null;
 

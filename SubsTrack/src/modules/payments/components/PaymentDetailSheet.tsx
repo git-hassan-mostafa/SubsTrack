@@ -91,9 +91,11 @@ export function PaymentDetailSheet({
           {/* Green success card */}
           <View className="bg-green-50 border border-green-100 rounded-2xl px-4 py-5 items-center mb-6">
             <View className="w-10 h-10 rounded-full bg-green-500 items-center justify-center mb-3">
-              <Text className="text-white text-lg font-bold">✓</Text>
+              <Text fontWeight="Bold" className="text-white text-lg">
+                ✓
+              </Text>
             </View>
-            <Text className="text-3xl font-bold text-green-600">
+            <Text fontWeight="Bold" className="text-3xl text-green-600">
               ${payment?.amount.toFixed(2) ?? "—"}
             </Text>
             <Text className="text-sm text-gray-400 mt-1">

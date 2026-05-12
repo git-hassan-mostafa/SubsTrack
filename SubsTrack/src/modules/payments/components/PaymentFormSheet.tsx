@@ -156,7 +156,8 @@ export function PaymentFormSheet({
               style={{ backgroundColor: avatarColor + "22" }}
             >
               <Text
-                className="text-sm font-bold"
+                fontWeight="Bold"
+                className="text-sm"
                 style={{ color: avatarColor }}
               >
                 {getInitials(customer.name)}
@@ -181,7 +182,7 @@ export function PaymentFormSheet({
             </Text>
             {isFixedPlan && !form.isOverrideEnabled ? (
               <>
-                <Text className="text-5xl font-bold text-gray-900">
+                <Text fontWeight="Bold" className="text-5xl text-gray-900">
                   ${plan!.price!.toFixed(0)}
                   <Text className="text-3xl text-gray-300">
                     .{(plan!.price! % 1).toFixed(2).slice(2)}

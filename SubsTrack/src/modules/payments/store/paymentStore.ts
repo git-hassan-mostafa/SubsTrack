@@ -111,7 +111,10 @@ export const usePaymentStore = create<PaymentsState>((set, get) => ({
         payments,
         monthGrid,
         loadingCreate: false,
-        currentMonthPaidIds: new Set([...state.currentMonthPaidIds, data.customerId]),
+        currentMonthPaidIds: new Set([
+          ...state.currentMonthPaidIds,
+          data.customerId,
+        ]),
       }));
     } catch (e) {
       set({ error: (e as Error).message, loadingCreate: false });
@@ -150,13 +153,18 @@ export const usePaymentStore = create<PaymentsState>((set, get) => ({
         graceDays,
       );
       const { year: cy, month: cm } = getCurrentYearMonth();
-      const isCurrentMonth = paymentToVoid?.billingMonth === toBillingMonth(cy, cm);
+      const isCurrentMonth =
+        paymentToVoid?.billingMonth === toBillingMonth(cy, cm);
       set((state) => ({
         payments,
         monthGrid,
         loadingVoid: false,
         currentMonthPaidIds: isCurrentMonth
-          ? new Set([...state.currentMonthPaidIds].filter((pid) => pid !== customer.id))
+          ? new Set(
+              [...state.currentMonthPaidIds].filter(
+                (pid) => pid !== customer.id,
+              ),
+            )
           : state.currentMonthPaidIds,
       }));
     } catch (e) {

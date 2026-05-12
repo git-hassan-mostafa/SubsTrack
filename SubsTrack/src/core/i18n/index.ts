@@ -1,7 +1,12 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
-import { DevSettings, I18nManager, NativeModules, Platform } from "react-native";
+import {
+  DevSettings,
+  I18nManager,
+  NativeModules,
+  Platform,
+} from "react-native";
 import { getLocales } from "expo-localization";
 import ar from "./locales/ar.json";
 import en from "./locales/en.json";
@@ -74,7 +79,7 @@ export async function initI18n(): Promise<void> {
   I18nManager.allowRTL(isRTL);
   I18nManager.forceRTL(isRTL);
 
-  if (rtlMismatch) {
+  if (rtlMismatch && Platform.OS !== "web") {
     await reloadApp();
     return;
   }

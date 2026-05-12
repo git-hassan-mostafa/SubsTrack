@@ -45,7 +45,9 @@ export function LoginScreen() {
             <View className="w-11 h-11 bg-primary rounded-2xl items-center justify-center me-3">
               <Text className="text-white text-xl">📅</Text>
             </View>
-            <Text className="text-xl font-bold text-gray-900">SubsTrack</Text>
+            <Text fontWeight="Bold" className="text-xl text-gray-900">
+              SubsTrack
+            </Text>
           </View>
 
           <Text fontWeight="Bold" className="text-3xl text-gray-900 mb-2">

@@ -139,10 +139,7 @@ export function CustomerFormSheet({ visible, customer, onDismiss }: Props) {
               <DatePickerInput
                 label={t("customers.start_date_label")}
                 value={form.startDate}
-                onChange={(v) =>
-                  setForm((prev) => ({ ...prev, startDate: v }))
-                }
-                showTime
+                onChange={(v) => setForm((prev) => ({ ...prev, startDate: v }))}
                 placeholder={t("customers.start_date_placeholder")}
               />
             </View>

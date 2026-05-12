@@ -100,7 +100,7 @@
     "edit_title": "تعديل الخطة",
     "add_title": "إضافة خطة",
     "plan_name_label": "اسم الخطة",
-    "plan_name_placeholder": "مثل: أساسية، مميزة",
+    "plan_name_placeholder": "أضف اسم الخطة...",
     "custom_pricing_label": "سعر مخصص",
     "custom_pricing_hint": "يدخل الموظف المبلغ عند كل دفعة",
     "price_label": "السعر",

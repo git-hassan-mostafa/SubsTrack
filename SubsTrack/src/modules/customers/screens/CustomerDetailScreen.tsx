@@ -109,7 +109,6 @@ export function CustomerDetailScreen() {
   }
 
   function handleVoidPress() {
-    setDetailVisible(false);
     setVoidVisible(true);
   }
 
@@ -176,7 +175,8 @@ export function CustomerDetailScreen() {
             style={{ backgroundColor: getAvatarColor(customer.name) + "22" }}
           >
             <Text
-              className="text-sm font-bold"
+              fontWeight="Bold"
+              className="text-sm"
               style={{ color: getAvatarColor(customer.name) }}
             >
               {getInitials(customer.name)}
@@ -184,7 +184,11 @@ export function CustomerDetailScreen() {
           </View>
         ) : null}
         <View className="flex-1">
-          <Text className="text-base font-bold text-gray-900" numberOfLines={1}>
+          <Text
+            fontWeight="Bold"
+            className="text-base text-gray-900"
+            numberOfLines={1}
+          >
             {customer?.name ?? ""}
           </Text>
           {customer ? (
@@ -247,7 +251,9 @@ export function CustomerDetailScreen() {
           <View className="bg-white mx-4 mt-4 rounded-2xl border border-gray-100 overflow-hidden">
             <View className="flex-row items-center justify-between px-4 pt-4 pb-2">
               <View>
-                <Text className="text-2xl font-bold text-gray-900">{year}</Text>
+                <Text fontWeight="Bold" className="text-2xl text-gray-900">
+                  {year}
+                </Text>
                 <Text className="text-xs text-gray-400 mt-0.5">
                   {t("customers.year_summary", {
                     paidCount,
@@ -448,7 +454,10 @@ export function CustomerDetailScreen() {
             customer={customer}
             year={year}
             graceDays={DEFAULT_GRACE_DAYS}
-            onDismiss={() => setVoidVisible(false)}
+            onDismiss={() => {
+              setDetailVisible(false);
+              setVoidVisible(false);
+            }}
           />
           <ConfirmDialog
             visible={toggleConfirmVisible}

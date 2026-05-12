@@ -79,7 +79,7 @@ export default function AdminMenuScreen() {
             <ActivityIndicator size="small" color={COLORS.primary} />
           ) : (
             <>
-              <Text className="text-xl font-bold text-gray-900">
+              <Text fontWeight="Bold" className="text-xl text-gray-900">
                 {formatCompact(metrics?.monthlyRevenue ?? 0)}
               </Text>
               <Text className="text-xs text-gray-400 mt-0.5">
@@ -89,7 +89,7 @@ export default function AdminMenuScreen() {
           )}
         </View>
         <View className="flex-1 items-center py-4 border-r border-gray-100">
-          <Text className="text-xl font-bold text-red-500">
+          <Text fontWeight="Bold" className="text-xl text-red-500">
             {metrics?.unpaidThisMonth ?? 0}
           </Text>
           <Text className="text-xs text-gray-400 mt-0.5">
@@ -97,7 +97,7 @@ export default function AdminMenuScreen() {
           </Text>
         </View>
         <View className="flex-1 items-center py-4">
-          <Text className="text-xl font-bold text-gray-900">
+          <Text fontWeight="Bold" className="text-xl text-gray-900">
             {metrics?.totalCustomers ?? 0}
           </Text>
           <Text className="text-xs text-gray-400 mt-0.5">
@@ -141,7 +141,11 @@ export default function AdminMenuScreen() {
                   </Text>
                 </View>
               </View>
-              <DirectionalIcon name="chevron-forward" size={16} color={COLORS.gray300} />
+              <DirectionalIcon
+                name="chevron-forward"
+                size={16}
+                color={COLORS.gray300}
+              />
             </Pressable>
           ))}
         </View>

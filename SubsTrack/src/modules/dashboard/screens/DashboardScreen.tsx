@@ -109,7 +109,7 @@ export function DashboardScreen() {
                   year,
                 })}
               </Text>
-              <Text className="text-4xl font-bold text-white mb-1">
+              <Text fontWeight="Bold" className="text-4xl text-white mb-1">
                 {formatCurrency(metrics?.monthlyRevenue ?? 0)}
               </Text>
               <Text className="text-sm text-indigo-200 mb-3">
@@ -137,7 +137,7 @@ export function DashboardScreen() {
                     {t("dashboard.unpaid")}
                   </Text>
                 </View>
-                <Text className="text-3xl font-bold text-gray-900">
+                <Text fontWeight="Bold" className="text-3xl text-gray-900">
                   {metrics?.unpaidThisMonth ?? 0}
                 </Text>
               </View>
@@ -149,7 +149,7 @@ export function DashboardScreen() {
                     {t("dashboard.new_this_month")}
                   </Text>
                 </View>
-                <Text className="text-3xl font-bold text-gray-900">
+                <Text fontWeight="Bold" className="text-3xl text-gray-900">
                   {metrics?.totalCustomers ?? 0}
                 </Text>
               </View>

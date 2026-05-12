@@ -9,13 +9,13 @@ type DbCustomerWithPlan = DbCustomer & { plans?: DbPlan | null };
 function mapDbCustomerToCustomer(db: DbCustomerWithPlan): Customer {
   const plan: Plan | null = db.plans
     ? {
-      id: db.plans.id,
-      name: db.plans.name,
-      price: db.plans.price,
-      isCustomPrice: db.plans.is_custom_price,
-      tenantId: db.plans.tenant_id,
-      createdAt: db.plans.created_at,
-    }
+        id: db.plans.id,
+        name: db.plans.name,
+        price: db.plans.price,
+        isCustomPrice: db.plans.is_custom_price,
+        tenantId: db.plans.tenant_id,
+        createdAt: db.plans.created_at,
+      }
     : null;
 
   return {
@@ -36,7 +36,7 @@ function mapDbCustomerToCustomer(db: DbCustomerWithPlan): Customer {
 
 type CustomerInput = Pick<
   Customer,
-  'name' | 'phoneNumber' | 'address' | 'planId' | 'startDate'
+  "name" | "phoneNumber" | "address" | "planId" | "startDate"
 >;
 
 export class CustomerService {
@@ -76,10 +76,7 @@ export class CustomerService {
     return mapDbCustomerToCustomer(row);
   }
 
-  async updateCustomer(
-    id: string,
-    data: CustomerInput,
-  ): Promise<Customer> {
+  async updateCustomer(id: string, data: CustomerInput): Promise<Customer> {
     this.validateInput(data);
     const row = await this.repository.update(id, {
       name: data.name.trim(),
@@ -105,6 +102,6 @@ export class CustomerService {
     if (!data.name.trim()) throw new Error("Customer name is required");
     if (!data.startDate) throw new Error("Start date is required");
     if (!isValidDateString(data.startDate))
-      throw new Error("Start date must be in YYYY-MM-DD HH:mm format");
+      throw new Error("Start date must be in YYYY-MM-DD format");
   }
 }
