@@ -20,6 +20,14 @@ interface Props {
   onDismiss: () => void;
 }
 
+type FormState = {
+  name: string;
+  phoneNumber: string;
+  address: string;
+  planId: string | null;
+  startDate: string;
+};
+
 export function CustomerFormSheet({ visible, customer, onDismiss }: Props) {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -27,19 +35,23 @@ export function CustomerFormSheet({ visible, customer, onDismiss }: Props) {
     useCustomerStore();
   const { plans, getPlans } = usePlanStore();
 
-  const [name, setName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [address, setAddress] = useState("");
-  const [planId, setPlanId] = useState<string | null>(null);
-  const [startDate, setStartDate] = useState("");
+  const [form, setForm] = useState<FormState>({
+    name: "",
+    phoneNumber: "",
+    address: "",
+    planId: null,
+    startDate: "",
+  });
 
   useEffect(() => {
     if (visible) {
-      setName(customer?.name ?? "");
-      setPhone(customer?.phoneNumber ?? "");
-      setAddress(customer?.address ?? "");
-      setPlanId(customer?.planId ?? null);
-      setStartDate(customer?.startDate ?? "");
+      setForm({
+        name: customer?.name ?? "",
+        phoneNumber: customer?.phoneNumber ?? "",
+        address: customer?.address ?? "",
+        planId: customer?.planId ?? null,
+        startDate: customer?.startDate ?? "",
+      });
       clearError();
       getPlans();
     }
@@ -48,25 +60,17 @@ export function CustomerFormSheet({ visible, customer, onDismiss }: Props) {
 
   async function handleSubmit() {
     if (!user) return;
+    const payload = {
+      name: form.name,
+      phoneNumber: form.phoneNumber || null,
+      address: form.address || null,
+      planId: form.planId,
+      startDate: form.startDate,
+    };
     if (customer) {
-      await updateCustomer(customer.id, {
-        name,
-        phoneNumber: phone || null,
-        address: address || null,
-        planId,
-        startDate,
-      });
+      await updateCustomer(customer.id, payload);
     } else {
-      await createCustomer(
-        {
-          name,
-          phoneNumber: phone || null,
-          address: address || null,
-          planId,
-          startDate,
-        },
-        user.tenantId,
-      );
+      await createCustomer(payload, user.tenantId);
     }
     if (!useCustomerStore.getState().error) onDismiss();
   }
@@ -112,8 +116,8 @@ export function CustomerFormSheet({ visible, customer, onDismiss }: Props) {
 
           <Input
             label={t("customers.name_label")}
-            value={name}
-            onChangeText={setName}
+            value={form.name}
+            onChangeText={(v) => setForm((prev) => ({ ...prev, name: v }))}
             placeholder={t("customers.name_placeholder")}
             onFocus={clearError}
           />
@@ -123,8 +127,10 @@ export function CustomerFormSheet({ visible, customer, onDismiss }: Props) {
             <View className="flex-1">
               <Input
                 label={t("customers.phone_label")}
-                value={phone}
-                onChangeText={setPhone}
+                value={form.phoneNumber}
+                onChangeText={(v) =>
+                  setForm((prev) => ({ ...prev, phoneNumber: v }))
+                }
                 placeholder={t("customers.phone_placeholder")}
                 keyboardType="phone-pad"
               />
@@ -132,8 +138,10 @@ export function CustomerFormSheet({ visible, customer, onDismiss }: Props) {
             <View className="flex-1">
               <DatePickerInput
                 label={t("customers.start_date_label")}
-                value={startDate}
-                onChange={setStartDate}
+                value={form.startDate}
+                onChange={(v) =>
+                  setForm((prev) => ({ ...prev, startDate: v }))
+                }
                 showTime
                 placeholder={t("customers.start_date_placeholder")}
               />
@@ -142,8 +150,8 @@ export function CustomerFormSheet({ visible, customer, onDismiss }: Props) {
 
           <Input
             label={t("customers.address_label")}
-            value={address}
-            onChangeText={setAddress}
+            value={form.address}
+            onChangeText={(v) => setForm((prev) => ({ ...prev, address: v }))}
             placeholder={t("common.optional")}
           />
 
@@ -151,8 +159,8 @@ export function CustomerFormSheet({ visible, customer, onDismiss }: Props) {
             label={t("customers.plan_label")}
             placeholder={t("customers.select_plan")}
             options={planOptions}
-            value={planId}
-            onChange={setPlanId}
+            value={form.planId}
+            onChange={(v) => setForm((prev) => ({ ...prev, planId: v }))}
             nullable
             nullLabel={t("common.no_plan")}
             nullSublabel={t("customers.custom_plan_sublabel")}
@@ -164,7 +172,7 @@ export function CustomerFormSheet({ visible, customer, onDismiss }: Props) {
             }
             onPress={handleSubmit}
             loading={loading}
-            disabled={!name.trim() || !startDate}
+            disabled={!form.name.trim() || !form.startDate}
             fullWidth
           />
           <View className="h-4" />

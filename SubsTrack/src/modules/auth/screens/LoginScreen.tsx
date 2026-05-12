@@ -8,20 +8,29 @@ import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { Input } from "@/src/shared/components/Input";
 import { useAuthStore } from "../store/authStore";
 
+type FormState = {
+  tenantName: string;
+  username: string;
+  password: string;
+};
+
 export function LoginScreen() {
   const { t } = useTranslation();
   const { login, loading, error, clearError } = useAuthStore();
 
-  const [tenantName, setTenantName] = useState("");
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
+  const [form, setForm] = useState<FormState>({
+    tenantName: "",
+    username: "",
+    password: "",
+  });
 
   const isAccountNotConfigured = error === "account_not_configured";
   const fieldError = error && !isAccountNotConfigured ? error : null;
 
   async function handleLogin() {
-    if (!tenantName.trim() || !username.trim() || !password) return;
-    await login(username, tenantName, password);
+    if (!form.tenantName.trim() || !form.username.trim() || !form.password)
+      return;
+    await login(form.username, form.tenantName, form.password);
   }
 
   return (
@@ -55,10 +64,10 @@ export function LoginScreen() {
 
           <Input
             label={t("auth.workspace_id")}
-            value={tenantName}
+            value={form.tenantName}
             onChangeText={(v) => {
               clearError();
-              setTenantName(v);
+              setForm((prev) => ({ ...prev, tenantName: v }));
             }}
             placeholder="acme-isp"
             autoCapitalize="none"
@@ -67,10 +76,10 @@ export function LoginScreen() {
 
           <Input
             label={t("auth.username")}
-            value={username}
+            value={form.username}
             onChangeText={(v) => {
               clearError();
-              setUsername(v);
+              setForm((prev) => ({ ...prev, username: v }));
             }}
             placeholder={t("auth.username_placeholder")}
             autoCapitalize="none"
@@ -79,10 +88,10 @@ export function LoginScreen() {
 
           <Input
             label={t("auth.password")}
-            value={password}
+            value={form.password}
             onChangeText={(v) => {
               clearError();
-              setPassword(v);
+              setForm((prev) => ({ ...prev, password: v }));
             }}
             placeholder={t("auth.password_placeholder")}
             secureTextEntry
@@ -93,7 +102,9 @@ export function LoginScreen() {
             label={t("auth.sign_in")}
             onPress={handleLogin}
             loading={loading}
-            disabled={!tenantName.trim() || !username.trim() || !password}
+            disabled={
+              !form.tenantName.trim() || !form.username.trim() || !form.password
+            }
             fullWidth
           />
 

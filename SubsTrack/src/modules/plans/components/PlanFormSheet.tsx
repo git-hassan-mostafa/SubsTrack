@@ -17,6 +17,12 @@ interface Props {
   onRequestDelete?: (plan: Plan) => void;
 }
 
+type FormState = {
+  name: string;
+  isCustomPrice: boolean;
+  priceText: string;
+};
+
 export function PlanFormSheet({
   visible,
   plan,
@@ -27,15 +33,19 @@ export function PlanFormSheet({
   const { user } = useAuth();
   const { createPlan, updatePlan, loading, error, clearError } = usePlanStore();
 
-  const [name, setName] = useState("");
-  const [isCustomPrice, setIsCustomPrice] = useState(false);
-  const [priceText, setPriceText] = useState("");
+  const [form, setForm] = useState<FormState>({
+    name: "",
+    isCustomPrice: false,
+    priceText: "",
+  });
 
   useEffect(() => {
     if (visible) {
-      setName(plan?.name ?? "");
-      setIsCustomPrice(plan?.isCustomPrice ?? false);
-      setPriceText(plan?.price != null ? String(plan.price) : "");
+      setForm({
+        name: plan?.name ?? "",
+        isCustomPrice: plan?.isCustomPrice ?? false,
+        priceText: plan?.price != null ? String(plan.price) : "",
+      });
       clearError();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -43,11 +53,18 @@ export function PlanFormSheet({
 
   async function handleSubmit() {
     if (!user) return;
-    const price = isCustomPrice ? null : parseFloat(priceText);
+    const price = form.isCustomPrice ? null : parseFloat(form.priceText);
     if (plan) {
-      await updatePlan(plan.id, { name, isCustomPrice, price });
+      await updatePlan(plan.id, {
+        name: form.name,
+        isCustomPrice: form.isCustomPrice,
+        price,
+      });
     } else {
-      await createPlan({ name, isCustomPrice, price }, user.tenantId);
+      await createPlan(
+        { name: form.name, isCustomPrice: form.isCustomPrice, price },
+        user.tenantId,
+      );
     }
     if (!usePlanStore.getState().error) onDismiss();
   }
@@ -85,17 +102,19 @@ export function PlanFormSheet({
 
           <Input
             label={t("plans.plan_name_label")}
-            value={name}
-            onChangeText={setName}
+            value={form.name}
+            onChangeText={(v) => setForm((prev) => ({ ...prev, name: v }))}
             placeholder={t("plans.plan_name_placeholder")}
             onFocus={clearError}
           />
 
-          {!isCustomPrice ? (
+          {!form.isCustomPrice ? (
             <Input
               label={t("plans.price_label")}
-              value={priceText}
-              onChangeText={setPriceText}
+              value={form.priceText}
+              onChangeText={(v) =>
+                setForm((prev) => ({ ...prev, priceText: v }))
+              }
               placeholder="$0.00"
               keyboardType="decimal-pad"
               onFocus={clearError}
@@ -113,8 +132,10 @@ export function PlanFormSheet({
               </Text>
             </View>
             <Switch
-              value={isCustomPrice}
-              onValueChange={setIsCustomPrice}
+              value={form.isCustomPrice}
+              onValueChange={(v) =>
+                setForm((prev) => ({ ...prev, isCustomPrice: v }))
+              }
               trackColor={{ true: COLORS.primary }}
             />
           </View>
@@ -123,7 +144,9 @@ export function PlanFormSheet({
             label={plan ? t("common.save_changes") : t("plans.add_title")}
             onPress={handleSubmit}
             loading={loading}
-            disabled={!name.trim() || (!isCustomPrice && !priceText)}
+            disabled={
+              !form.name.trim() || (!form.isCustomPrice && !form.priceText)
+            }
             fullWidth
           />
 

@@ -29,6 +29,20 @@ interface Props {
   onDismiss: () => void;
 }
 
+type FormState = {
+  customAmountText: string;
+  isOverrideEnabled: boolean;
+  amountMode: "plan" | "custom";
+  notes: string;
+};
+
+const EMPTY_FORM: FormState = {
+  customAmountText: "",
+  isOverrideEnabled: false,
+  amountMode: "plan",
+  notes: "",
+};
+
 export function PaymentFormSheet({
   visible,
   entry,
@@ -40,10 +54,7 @@ export function PaymentFormSheet({
   const { user } = useAuth();
   const { createPayment, loadingCreate, error, clearError } = usePaymentStore();
 
-  const [customAmountText, setCustomAmountText] = useState("");
-  const [isOverrideEnabled, setIsOverrideEnabled] = useState(false);
-  const [amountMode, setAmountMode] = useState<"plan" | "custom">("plan");
-  const [notes, setNotes] = useState("");
+  const [form, setForm] = useState<FormState>(EMPTY_FORM);
 
   if (!entry) return null;
 
@@ -57,10 +68,10 @@ export function PaymentFormSheet({
   const blockedForInactive = !customer.active && isFutureMonth;
 
   const resolvedAmount = (() => {
-    if (isFixedPlan && !isOverrideEnabled) return plan!.price!;
-    if (isFixedPlan && isOverrideEnabled && amountMode === "plan")
+    if (isFixedPlan && !form.isOverrideEnabled) return plan!.price!;
+    if (isFixedPlan && form.isOverrideEnabled && form.amountMode === "plan")
       return plan!.price!;
-    const v = parseFloat(customAmountText);
+    const v = parseFloat(form.customAmountText);
     return isNaN(v) ? null : v;
   })();
 
@@ -80,25 +91,19 @@ export function PaymentFormSheet({
         planId: customer.planId,
         receivedByUserId: user.id,
         tenantId: user.tenantId,
-        notes: notes.trim() || null,
+        notes: form.notes.trim() || null,
       } as any,
       customer,
       graceDays,
     );
     if (!usePaymentStore.getState().error) {
-      setCustomAmountText("");
-      setIsOverrideEnabled(false);
-      setAmountMode("plan");
-      setNotes("");
+      setForm(EMPTY_FORM);
       onDismiss();
     }
   }
 
   function handleDismiss() {
-    setCustomAmountText("");
-    setIsOverrideEnabled(false);
-    setAmountMode("plan");
-    setNotes("");
+    setForm(EMPTY_FORM);
     clearError();
     onDismiss();
   }
@@ -174,7 +179,7 @@ export function PaymentFormSheet({
             <Text className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">
               {t("payments.amount_section")}
             </Text>
-            {isFixedPlan && !isOverrideEnabled ? (
+            {isFixedPlan && !form.isOverrideEnabled ? (
               <>
                 <Text className="text-5xl font-bold text-gray-900">
                   ${plan!.price!.toFixed(0)}
@@ -183,7 +188,9 @@ export function PaymentFormSheet({
                   </Text>
                 </Text>
                 <Pressable
-                  onPress={() => setIsOverrideEnabled(true)}
+                  onPress={() =>
+                    setForm((prev) => ({ ...prev, isOverrideEnabled: true }))
+                  }
                   className="mt-3"
                 >
                   <Text className="text-primary text-sm font-semibold">
@@ -193,19 +200,21 @@ export function PaymentFormSheet({
               </>
             ) : null}
 
-            {isFixedPlan && isOverrideEnabled ? (
+            {isFixedPlan && form.isOverrideEnabled ? (
               <>
                 <View className="w-full gap-2 mb-2">
                   {(["plan", "custom"] as const).map((mode) => (
                     <Pressable
                       key={mode}
-                      onPress={() => setAmountMode(mode)}
-                      className={`flex-row items-center border rounded-xl px-4 py-3 ${amountMode === mode ? "border-primary bg-indigo-50" : "border-gray-200 bg-white"}`}
+                      onPress={() =>
+                        setForm((prev) => ({ ...prev, amountMode: mode }))
+                      }
+                      className={`flex-row items-center border rounded-xl px-4 py-3 ${form.amountMode === mode ? "border-primary bg-indigo-50" : "border-gray-200 bg-white"}`}
                     >
                       <View
-                        className={`w-4 h-4 rounded-full border-2 me-3 items-center justify-center ${amountMode === mode ? "border-primary" : "border-gray-400"}`}
+                        className={`w-4 h-4 rounded-full border-2 me-3 items-center justify-center ${form.amountMode === mode ? "border-primary" : "border-gray-400"}`}
                       >
-                        {amountMode === mode ? (
+                        {form.amountMode === mode ? (
                           <View className="w-2 h-2 rounded-full bg-primary" />
                         ) : null}
                       </View>
@@ -219,10 +228,12 @@ export function PaymentFormSheet({
                     </Pressable>
                   ))}
                 </View>
-                {amountMode === "custom" ? (
+                {form.amountMode === "custom" ? (
                   <Input
-                    value={customAmountText}
-                    onChangeText={setCustomAmountText}
+                    value={form.customAmountText}
+                    onChangeText={(v) =>
+                      setForm((prev) => ({ ...prev, customAmountText: v }))
+                    }
                     placeholder={t("payments.enter_amount")}
                     keyboardType="decimal-pad"
                     onFocus={clearError}
@@ -233,8 +244,10 @@ export function PaymentFormSheet({
 
             {isCustomOrNoPlan ? (
               <Input
-                value={customAmountText}
-                onChangeText={setCustomAmountText}
+                value={form.customAmountText}
+                onChangeText={(v) =>
+                  setForm((prev) => ({ ...prev, customAmountText: v }))
+                }
                 placeholder={t("payments.enter_amount")}
                 keyboardType="decimal-pad"
                 onFocus={clearError}
@@ -244,8 +257,8 @@ export function PaymentFormSheet({
 
           <Input
             label={t("payments.notes_optional")}
-            value={notes}
-            onChangeText={setNotes}
+            value={form.notes}
+            onChangeText={(v) => setForm((prev) => ({ ...prev, notes: v }))}
             placeholder={t("payments.notes_placeholder")}
             onFocus={clearError}
           />

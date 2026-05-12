@@ -15,35 +15,47 @@ interface Props {
   onDismiss: () => void;
 }
 
+type FormState = {
+  username: string;
+  password: string;
+  confirmPassword: string;
+  phoneNumber: string;
+  role: "admin" | "user";
+};
+
 export function UserFormSheet({ visible, user: editUser, onDismiss }: Props) {
   const { t } = useTranslation();
   const { user: currentUser } = useAuth();
   const { createUser, updateUser, loading, error, clearError } = useUserStore();
 
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [phone, setPhone] = useState("");
-  const [role, setRole] = useState<"admin" | "user">("user");
+  const [form, setForm] = useState<FormState>({
+    username: "",
+    password: "",
+    confirmPassword: "",
+    phoneNumber: "",
+    role: "user",
+  });
 
   const isOwnAccount = editUser?.id === currentUser?.id;
 
   const usernameInvalid =
-    username.length > 0 && !/^[a-zA-Z0-9._]+$/.test(username);
+    form.username.length > 0 && !/^[a-zA-Z0-9._]+$/.test(form.username);
 
   const passwordMismatch =
     !editUser &&
-    password.length >= 8 &&
-    confirmPassword.length > 0 &&
-    password !== confirmPassword;
+    form.password.length >= 8 &&
+    form.confirmPassword.length > 0 &&
+    form.password !== form.confirmPassword;
 
   useEffect(() => {
     if (visible) {
-      setUsername(editUser?.username ?? "");
-      setPassword("");
-      setConfirmPassword("");
-      setPhone(editUser?.phoneNumber ?? "");
-      setRole((editUser?.role as "admin" | "user") ?? "user");
+      setForm({
+        username: editUser?.username ?? "",
+        password: "",
+        confirmPassword: "",
+        phoneNumber: editUser?.phoneNumber ?? "",
+        role: (editUser?.role as "admin" | "user") ?? "user",
+      });
       clearError();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -53,13 +65,18 @@ export function UserFormSheet({ visible, user: editUser, onDismiss }: Props) {
     if (!currentUser) return;
     if (editUser) {
       await updateUser(editUser.id, currentUser.id, currentUser.role, {
-        username,
-        phone: phone || null,
-        role,
+        username: form.username,
+        phone: form.phoneNumber || null,
+        role: form.role,
       });
     } else {
       await createUser(
-        { username, password, phone: phone || null, role },
+        {
+          username: form.username,
+          password: form.password,
+          phone: form.phoneNumber || null,
+          role: form.role,
+        },
         currentUser.tenantId,
       );
     }
@@ -67,9 +84,10 @@ export function UserFormSheet({ visible, user: editUser, onDismiss }: Props) {
   }
 
   const canSubmit =
-    !!username.trim() &&
+    !!form.username.trim() &&
     !usernameInvalid &&
-    (!!editUser || (password.length >= 8 && password === confirmPassword));
+    (!!editUser ||
+      (form.password.length >= 8 && form.password === form.confirmPassword));
 
   return (
     <Modal
@@ -105,8 +123,8 @@ export function UserFormSheet({ visible, user: editUser, onDismiss }: Props) {
 
           <Input
             label={t("users.username_label")}
-            value={username}
-            onChangeText={setUsername}
+            value={form.username}
+            onChangeText={(v) => setForm((prev) => ({ ...prev, username: v }))}
             placeholder={t("users.username_placeholder")}
             autoCapitalize="none"
             onFocus={clearError}
@@ -117,16 +135,20 @@ export function UserFormSheet({ visible, user: editUser, onDismiss }: Props) {
             <>
               <Input
                 label={t("users.password_label")}
-                value={password}
-                onChangeText={setPassword}
+                value={form.password}
+                onChangeText={(v) =>
+                  setForm((prev) => ({ ...prev, password: v }))
+                }
                 placeholder={t("users.password_placeholder")}
                 secureTextEntry
                 onFocus={clearError}
               />
               <Input
                 label={t("users.confirm_password_label")}
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
+                value={form.confirmPassword}
+                onChangeText={(v) =>
+                  setForm((prev) => ({ ...prev, confirmPassword: v }))
+                }
                 placeholder={t("users.confirm_password_placeholder")}
                 secureTextEntry
                 onFocus={clearError}
@@ -139,8 +161,10 @@ export function UserFormSheet({ visible, user: editUser, onDismiss }: Props) {
 
           <Input
             label={t("users.phone_optional")}
-            value={phone}
-            onChangeText={setPhone}
+            value={form.phoneNumber}
+            onChangeText={(v) =>
+              setForm((prev) => ({ ...prev, phoneNumber: v }))
+            }
             placeholder={t("customers.phone_placeholder")}
             keyboardType="phone-pad"
           />
@@ -152,13 +176,17 @@ export function UserFormSheet({ visible, user: editUser, onDismiss }: Props) {
             {(["user", "admin"] as const).map((r) => (
               <Pressable
                 key={r}
-                onPress={() => !isOwnAccount && setRole(r)}
+                onPress={() =>
+                  !isOwnAccount && setForm((prev) => ({ ...prev, role: r }))
+                }
                 className={`flex-1 border rounded-lg py-3 items-center ${
-                  role === r ? "border-primary bg-indigo-50" : "border-gray-300"
+                  form.role === r
+                    ? "border-primary bg-indigo-50"
+                    : "border-gray-300"
                 } ${isOwnAccount ? "opacity-40" : ""}`}
               >
                 <Text
-                  className={`font-medium capitalize ${role === r ? "text-primary" : "text-gray-600"}`}
+                  className={`font-medium capitalize ${form.role === r ? "text-primary" : "text-gray-600"}`}
                 >
                   {t(`users.${r}`)}
                 </Text>
