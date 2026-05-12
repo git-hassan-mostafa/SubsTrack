@@ -10,6 +10,7 @@ interface CreatePaymentInput {
   planId: string | null;
   receivedByUserId: string | null;
   tenantId: string;
+  notes: string | null;
 }
 
 interface PaymentsState {

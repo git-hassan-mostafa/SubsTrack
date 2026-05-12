@@ -92,7 +92,7 @@ export function PaymentFormSheet({
         receivedByUserId: user.id,
         tenantId: user.tenantId,
         notes: form.notes.trim() || null,
-      } as any,
+      },
       customer,
       graceDays,
     );

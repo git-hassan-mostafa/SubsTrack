@@ -1,7 +1,7 @@
 import { BaseRepository } from '@/src/core/utils/BaseRepository';
 import type { DbPayment } from '@/src/core/types/db';
 
-type CreatePaymentPayload = Pick<DbPayment, 'billing_month' | 'amount' | 'customer_id' | 'plan_id' | 'received_by_user_id' | 'tenant_id'>
+type CreatePaymentPayload = Pick<DbPayment, 'billing_month' | 'amount' | 'customer_id' | 'plan_id' | 'received_by_user_id' | 'tenant_id' | 'notes'>
 
 export class PaymentRepository extends BaseRepository {
   async findByCustomerAndYear(customerId: string, year: number): Promise<DbPayment[]> {

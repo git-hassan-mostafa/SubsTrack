@@ -30,7 +30,7 @@ function mapDbPaymentToPayment(db: DbPayment): Payment {
   };
 }
 
-type CreatePaymentInput = Pick<Payment, 'billingMonth' | 'amount' | 'customerId' | 'planId' | 'receivedByUserId' | 'tenantId'>
+type CreatePaymentInput = Pick<Payment, 'billingMonth' | 'amount' | 'customerId' | 'planId' | 'receivedByUserId' | 'tenantId' | 'notes'>
 
 export class PaymentService {
   private repository = new PaymentRepository();
@@ -57,6 +57,7 @@ export class PaymentService {
         plan_id: data.planId,
         received_by_user_id: data.receivedByUserId,
         tenant_id: data.tenantId,
+        notes: data.notes,
       });
       return mapDbPaymentToPayment(row);
     } catch (err) {
