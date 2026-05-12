@@ -1,57 +1,19 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import i18n from "i18next";
-import {
-  DevSettings,
-  I18nManager,
-  NativeModules,
-  Platform,
-} from "react-native";
+import { I18nManager } from "react-native";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import {
   PERSIST_KEY,
   RTL_LANGUAGES,
   SUPPORTED_LANGUAGES,
+  reloadApp,
   type SupportedLanguage,
 } from "./index";
 
 interface LanguageState {
   language: SupportedLanguage;
   setLanguage: (lang: SupportedLanguage) => Promise<void>;
-}
-
-async function reloadApp(): Promise<void> {
-  // 1. Production / dev-client native: use expo-updates
-  try {
-    const Updates = await import("expo-updates");
-    await Updates.reloadAsync();
-    return;
-  } catch {
-    // expo-updates not available (e.g. Expo Go) — fall through
-  }
-
-  // 2. Native dev (Expo Go / Metro): use DevSettings
-  if (Platform.OS !== "web") {
-    try {
-      if (typeof DevSettings?.reload === "function") {
-        DevSettings.reload();
-        return;
-      }
-      // Last-resort native reload through bridge
-      const DevMenu = (NativeModules as any).DevMenu;
-      if (DevMenu?.reload) {
-        DevMenu.reload();
-        return;
-      }
-    } catch {
-      // ignore
-    }
-  }
-
-  // 3. Web: reload the document
-  if (typeof window !== "undefined" && typeof window.location !== "undefined") {
-    window.location.reload();
-  }
 }
 
 export const useLanguageStore = create<LanguageState>()(
