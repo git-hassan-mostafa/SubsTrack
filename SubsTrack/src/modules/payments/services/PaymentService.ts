@@ -90,6 +90,10 @@ export class PaymentService {
     return mapDbPaymentToPayment(row);
   }
 
+  async findPaidCustomerIdsForMonth(billingMonth: string): Promise<Set<string>> {
+    return this.repository.findPaidCustomerIdsForMonth(billingMonth);
+  }
+
   // THE single source of truth for month status logic. No other file may reimplement this.
   buildMonthGrid(
     customer: Customer,

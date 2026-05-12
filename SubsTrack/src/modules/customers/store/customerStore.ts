@@ -1,7 +1,5 @@
 import { create } from "zustand";
 import type { Customer } from "@/src/core/types";
-import { getCurrentYearMonth, toBillingMonth } from "@/src/core/utils/date";
-import { PaymentRepository } from "@/src/modules/payments/repository/PaymentRepository";
 import { CustomerService } from "../services/CustomerService";
 
 interface CreateInput {
@@ -14,7 +12,6 @@ interface CreateInput {
 
 interface CustomersState {
   customers: Customer[];
-  currentMonthPaidIds: Set<string>;
   page: number;
   hasMore: boolean;
   loading: boolean;
@@ -40,11 +37,9 @@ interface CustomersState {
 }
 
 const customerService = new CustomerService();
-const paymentRepository = new PaymentRepository();
 
 export const useCustomerStore = create<CustomersState>((set, get) => ({
   customers: [],
-  currentMonthPaidIds: new Set(),
   page: 0,
   hasMore: true,
   loading: false,
@@ -59,25 +54,11 @@ export const useCustomerStore = create<CustomersState>((set, get) => ({
   fetchCustomers: async () => {
     const token = get().searchToken;
     const query = get().searchQuery;
-    const isSearching = query.length > 0;
     set({ loading: true, error: null, page: 0 });
     try {
-      const { year, month } = getCurrentYearMonth();
-      const billingMonth = toBillingMonth(year, month);
-      const [{ customers, hasMore }, paidIds] = await Promise.all([
-        customerService.getCustomers(0, query),
-        isSearching
-          ? Promise.resolve(get().currentMonthPaidIds)
-          : paymentRepository.findPaidCustomerIdsForMonth(billingMonth),
-      ]);
+      const { customers, hasMore } = await customerService.getCustomers(0, query);
       if (get().searchToken !== token) return;
-      set({
-        customers,
-        hasMore,
-        page: 0,
-        currentMonthPaidIds: paidIds,
-        loading: false,
-      });
+      set({ customers, hasMore, page: 0, loading: false });
     } catch (e) {
       if (get().searchToken !== token) return;
       set({ error: (e as Error).message, loading: false });
@@ -208,7 +189,6 @@ export const useCustomerStore = create<CustomersState>((set, get) => ({
   reset: () =>
     set((s) => ({
       customers: [],
-      currentMonthPaidIds: new Set(),
       page: 0,
       hasMore: true,
       searchQuery: "",

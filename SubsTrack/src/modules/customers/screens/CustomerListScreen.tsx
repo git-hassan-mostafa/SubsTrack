@@ -18,6 +18,7 @@ import type { Customer } from "@/src/core/types";
 import { CustomerCard } from "../components/CustomerCard";
 import { CustomerFormSheet } from "../components/CustomerFormSheet";
 import { useCustomerStore } from "../store/customerStore";
+import { usePaymentStore } from "../../payments/store/paymentStore";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
 import { PageHeader } from "@/src/shared/components/PageHeader";
 
@@ -28,7 +29,6 @@ export function CustomerListScreen() {
   const router = useRouter();
   const {
     customers,
-    currentMonthPaidIds,
     loading,
     loadingMore,
     error,
@@ -38,6 +38,7 @@ export function CustomerListScreen() {
     setSearchQuery,
     clearError,
   } = useCustomerStore();
+  const { currentMonthPaidIds, fetchCurrentMonthPaidIds } = usePaymentStore();
   const [formVisible, setFormVisible] = useState(false);
   const [searchText, setSearchText] = useState("");
   const [activeTab, setActiveTab] = useState<FilterTab>("active");
@@ -45,6 +46,7 @@ export function CustomerListScreen() {
 
   useEffect(() => {
     getCustomers();
+    fetchCurrentMonthPaidIds();
   }, []);
 
   useEffect(() => {
@@ -134,7 +136,10 @@ export function CustomerListScreen() {
           refreshControl={
             <RefreshControl
               refreshing={loading}
-              onRefresh={fetchCustomers}
+              onRefresh={() => {
+                fetchCustomers();
+                fetchCurrentMonthPaidIds();
+              }}
               tintColor={COLORS.primary}
             />
           }

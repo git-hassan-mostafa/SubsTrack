@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import type { Customer, MonthEntry, Payment } from "@/src/core/types";
+import { getCurrentYearMonth, toBillingMonth } from "@/src/core/utils/date";
 import { PaymentService } from "../services/PaymentService";
 
 interface CreatePaymentInput {
@@ -14,11 +15,13 @@ interface CreatePaymentInput {
 interface PaymentsState {
   payments: Payment[];
   monthGrid: MonthEntry[];
+  currentMonthPaidIds: Set<string>;
   loading: boolean;
   loadingCreate: boolean;
   loadingVoid: boolean;
   loadingUpdate: boolean;
   error: string | null;
+  fetchCurrentMonthPaidIds: () => Promise<void>;
   fetchPayments: (
     customerId: string,
     year: number,
@@ -54,11 +57,19 @@ const paymentService = new PaymentService();
 export const usePaymentStore = create<PaymentsState>((set, get) => ({
   payments: [],
   monthGrid: [],
+  currentMonthPaidIds: new Set(),
   loading: false,
   loadingCreate: false,
   loadingVoid: false,
   loadingUpdate: false,
   error: null,
+
+  fetchCurrentMonthPaidIds: async () => {
+    const { year, month } = getCurrentYearMonth();
+    const billingMonth = toBillingMonth(year, month);
+    const ids = await paymentService.findPaidCustomerIdsForMonth(billingMonth);
+    set({ currentMonthPaidIds: ids });
+  },
 
   fetchPayments: async (customerId, year, customer, graceDays) => {
     set({ loading: true, error: null });
@@ -95,7 +106,12 @@ export const usePaymentStore = create<PaymentsState>((set, get) => ({
         year,
         graceDays,
       );
-      set({ payments, monthGrid, loadingCreate: false });
+      set((state) => ({
+        payments,
+        monthGrid,
+        loadingCreate: false,
+        currentMonthPaidIds: new Set([...state.currentMonthPaidIds, data.customerId]),
+      }));
     } catch (e) {
       set({ error: (e as Error).message, loadingCreate: false });
     }
@@ -121,10 +137,10 @@ export const usePaymentStore = create<PaymentsState>((set, get) => ({
 
   voidPayment: async (id, voidedBy, notes, customer, year, graceDays) => {
     if (get().loadingVoid) return;
+    const paymentToVoid = get().payments.find((p) => p.id === id);
     set({ loadingVoid: true, error: null });
     try {
       await paymentService.voidPayment(id, voidedBy, notes);
-      // Remove voided payment from local list and rebuild grid
       const payments = get().payments.filter((p) => p.id !== id);
       const monthGrid = paymentService.buildMonthGrid(
         customer,
@@ -132,7 +148,16 @@ export const usePaymentStore = create<PaymentsState>((set, get) => ({
         year,
         graceDays,
       );
-      set({ payments, monthGrid, loadingVoid: false });
+      const { year: cy, month: cm } = getCurrentYearMonth();
+      const isCurrentMonth = paymentToVoid?.billingMonth === toBillingMonth(cy, cm);
+      set((state) => ({
+        payments,
+        monthGrid,
+        loadingVoid: false,
+        currentMonthPaidIds: isCurrentMonth
+          ? new Set([...state.currentMonthPaidIds].filter((pid) => pid !== customer.id))
+          : state.currentMonthPaidIds,
+      }));
     } catch (e) {
       set({ error: (e as Error).message, loadingVoid: false });
     }
@@ -144,6 +169,7 @@ export const usePaymentStore = create<PaymentsState>((set, get) => ({
     set({
       payments: [],
       monthGrid: [],
+      currentMonthPaidIds: new Set(),
       loading: false,
       loadingCreate: false,
       loadingVoid: false,
