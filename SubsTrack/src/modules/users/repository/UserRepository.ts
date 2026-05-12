@@ -3,6 +3,7 @@ import type { DbUser } from "@/src/core/types/db";
 
 interface CreateUserPayload {
   username: string;
+  fullName: string;
   password: string;
   phone: string | null;
   role: "admin" | "user";
@@ -29,7 +30,7 @@ export class UserRepository extends BaseRepository {
 
   async update(
     id: string,
-    payload: Partial<Pick<DbUser, "username" | "phone_number" | "role">>,
+    payload: Partial<Pick<DbUser, "username" | "full_name" | "phone_number" | "role">>,
   ): Promise<DbUser> {
     const { data, error } = await this.db
       .from("users")

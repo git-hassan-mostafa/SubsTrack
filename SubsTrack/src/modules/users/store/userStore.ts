@@ -11,6 +11,7 @@ interface UsersState {
   createUser: (
     data: {
       username: string;
+      fullName: string;
       password: string;
       phone: string | null;
       role: "admin" | "user";
@@ -21,7 +22,7 @@ interface UsersState {
     id: string,
     currentUserId: string,
     currentUserRole: string,
-    data: { username: string; phone: string | null; role: "admin" | "user" },
+    data: { username: string; fullName: string; phone: string | null; role: "admin" | "user" },
   ) => Promise<void>;
   clearError: () => void;
   reset: () => void;

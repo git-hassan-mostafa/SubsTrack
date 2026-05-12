@@ -125,6 +125,8 @@
     "confirm_password_placeholder": "أعد إدخال كلمة المرور",
     "password_mismatch": "كلمتا المرور غير متطابقتين",
     "username_invalid_chars": "يُسمح فقط بالحروف والأرقام والنقاط والشرطات السفلية",
+    "fullname_label": "الاسم الكامل",
+    "fullname_placeholder": "مثل: محمد أحمد",
     "phone_optional": "الهاتف (اختياري)",
     "role_label": "الدور"
   },

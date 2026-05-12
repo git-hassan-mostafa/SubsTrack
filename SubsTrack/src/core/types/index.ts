@@ -14,6 +14,7 @@ export interface Tenant {
 export interface AuthUser {
   id: string;
   username: string;
+  fullName: string;
   role: UserRole;
   tenantId: string;
   tenant: Tenant;
@@ -23,6 +24,7 @@ export interface AuthUser {
 export interface AppUser {
   id: string;
   username: string;
+  fullName: string;
   phoneNumber: string | null;
   role: UserRole;
   tenantId: string;

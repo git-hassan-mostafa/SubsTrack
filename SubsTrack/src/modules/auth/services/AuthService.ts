@@ -21,6 +21,7 @@ function mapDbUserToAuthUser(db: DbUser, tenant: DbTenant): AuthUser {
   return {
     id: db.id,
     username: db.username,
+    fullName: db.full_name,
     role: db.role,
     tenantId: db.tenant_id,
     tenant: mapDbTenantToTenant(tenant),
@@ -58,12 +59,12 @@ export class AuthService {
 
     const profile = await this.repository.getUserProfile(session.user.id);
     if (!profile) {
-      await this.repository.signOut().catch(() => {});
+      await this.repository.signOut().catch(() => { });
       throw new Error("account_not_configured");
     }
     const tenant = await this.repository.getTenant(profile.tenant_id);
     if (!tenant) {
-      await this.repository.signOut().catch(() => {});
+      await this.repository.signOut().catch(() => { });
       throw new Error("account_not_configured");
     }
     return {
@@ -78,13 +79,13 @@ export class AuthService {
 
     const profile = await this.repository.getUserProfile(session.user.id);
     if (!profile) {
-      await this.repository.signOut().catch(() => {});
+      await this.repository.signOut().catch(() => { });
       return null;
     }
 
     const tenant = await this.repository.getTenant(profile.tenant_id);
     if (!tenant) {
-      await this.repository.signOut().catch(() => {});
+      await this.repository.signOut().catch(() => { });
       return null;
     }
     return {

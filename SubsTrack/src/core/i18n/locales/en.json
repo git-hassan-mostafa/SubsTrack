@@ -124,6 +124,8 @@
     "confirm_password_placeholder": "Re-enter password",
     "password_mismatch": "Passwords do not match",
     "username_invalid_chars": "Only letters, numbers, dots, and underscores are allowed",
+    "fullname_label": "Full Name",
+    "fullname_placeholder": "e.g. John Smith",
     "phone_optional": "Phone (optional)",
     "role_label": "Role"
   },

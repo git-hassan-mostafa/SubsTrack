@@ -17,6 +17,7 @@ interface Props {
 
 type FormState = {
   username: string;
+  fullName: string;
   password: string;
   confirmPassword: string;
   phoneNumber: string;
@@ -30,6 +31,7 @@ export function UserFormSheet({ visible, user: editUser, onDismiss }: Props) {
 
   const [form, setForm] = useState<FormState>({
     username: "",
+    fullName: "",
     password: "",
     confirmPassword: "",
     phoneNumber: "",
@@ -51,6 +53,7 @@ export function UserFormSheet({ visible, user: editUser, onDismiss }: Props) {
     if (visible) {
       setForm({
         username: editUser?.username ?? "",
+        fullName: editUser?.fullName ?? "",
         password: "",
         confirmPassword: "",
         phoneNumber: editUser?.phoneNumber ?? "",
@@ -66,6 +69,7 @@ export function UserFormSheet({ visible, user: editUser, onDismiss }: Props) {
     if (editUser) {
       await updateUser(editUser.id, currentUser.id, currentUser.role, {
         username: form.username,
+        fullName: form.fullName,
         phone: form.phoneNumber || null,
         role: form.role,
       });
@@ -73,6 +77,7 @@ export function UserFormSheet({ visible, user: editUser, onDismiss }: Props) {
       await createUser(
         {
           username: form.username,
+          fullName: form.fullName,
           password: form.password,
           phone: form.phoneNumber || null,
           role: form.role,
@@ -85,6 +90,7 @@ export function UserFormSheet({ visible, user: editUser, onDismiss }: Props) {
 
   const canSubmit =
     !!form.username.trim() &&
+    !!form.fullName.trim() &&
     !usernameInvalid &&
     (!!editUser ||
       (form.password.length >= 8 && form.password === form.confirmPassword));
@@ -128,7 +134,18 @@ export function UserFormSheet({ visible, user: editUser, onDismiss }: Props) {
             placeholder={t("users.username_placeholder")}
             autoCapitalize="none"
             onFocus={clearError}
-            error={usernameInvalid ? t("users.username_invalid_chars") : undefined}
+            error={
+              usernameInvalid ? t("users.username_invalid_chars") : undefined
+            }
+          />
+
+          <Input
+            label={t("users.fullname_label")}
+            value={form.fullName}
+            onChangeText={(v) => setForm((prev) => ({ ...prev, fullName: v }))}
+            placeholder={t("users.fullname_placeholder")}
+            autoCapitalize="words"
+            onFocus={clearError}
           />
 
           {!editUser ? (

@@ -51,6 +51,7 @@ export function UserListScreen() {
     ? users.filter(
         (u) =>
           u.username.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+          u.fullName.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
           (u.phoneNumber ?? "").includes(debouncedSearch),
       )
     : users;
@@ -59,7 +60,10 @@ export function UserListScreen() {
     <SafeAreaView className="flex-1 bg-gray-50">
       <PageHeader
         title={t("users.title")}
-        subtitle={t("users.members_summary", { count: users.length, admins: adminCount })}
+        subtitle={t("users.members_summary", {
+          count: users.length,
+          admins: adminCount,
+        })}
         showBack
         onBack={() => router.back()}
         actionLabel={t("common.add")}

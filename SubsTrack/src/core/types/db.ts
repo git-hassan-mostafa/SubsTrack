@@ -23,6 +23,7 @@ export interface DbSaasTier {
 export interface DbUser {
   id: string;
   username: string;
+  full_name: string;
   phone_number: string | null;
   role: 'superadmin' | 'admin' | 'user';
   tenant_id: string;

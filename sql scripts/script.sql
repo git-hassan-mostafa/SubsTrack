@@ -50,6 +50,7 @@ CREATE TABLE IF NOT EXISTS saas_tiers (
 CREATE TABLE IF NOT EXISTS users (
     id           UUID        PRIMARY KEY,
     username     TEXT        NOT NULL,
+    full_name    TEXT        NOT NULL,
     phone_number TEXT,
     role         TEXT        NOT NULL DEFAULT 'user'
                              CHECK (role IN ('superadmin', 'admin', 'user')),

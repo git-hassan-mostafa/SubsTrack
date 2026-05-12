@@ -6,6 +6,7 @@ function mapDbUserToAppUser(db: DbUser): AppUser {
   return {
     id: db.id,
     username: db.username,
+    fullName: db.full_name,
     phoneNumber: db.phone_number,
     role: db.role,
     tenantId: db.tenant_id,
@@ -15,6 +16,7 @@ function mapDbUserToAppUser(db: DbUser): AppUser {
 
 interface CreateUserInput {
   username: string;
+  fullName: string;
   password: string;
   phone: string | null;
   role: 'admin' | 'user';
@@ -22,6 +24,7 @@ interface CreateUserInput {
 
 interface UpdateUserInput {
   username: string;
+  fullName: string;
   phone: string | null;
   role: 'admin' | 'user';
 }
@@ -43,12 +46,14 @@ export class UserService {
 
   async createUser(data: CreateUserInput, tenantId: string): Promise<AppUser> {
     this.validateUsername(data.username);
+    if (!data.fullName.trim()) throw new Error('Full name is required');
     if (data.password.length < 8) throw new Error('Password must be at least 8 characters');
     if (!['admin', 'user'].includes(data.role)) throw new Error('Invalid role');
 
     try {
       const row = await this.repository.create({
         username: data.username.trim().toLowerCase(),
+        fullName: data.fullName.trim(),
         password: data.password,
         phone: data.phone?.trim() || null,
         role: data.role,
@@ -67,12 +72,14 @@ export class UserService {
     data: UpdateUserInput,
   ): Promise<AppUser> {
     this.validateUsername(data.username);
+    if (!data.fullName.trim()) throw new Error('Full name is required');
     if (id === currentUserId && data.role !== currentUserRole) {
       throw new Error('Cannot change your own role');
     }
     try {
       const row = await this.repository.update(id, {
         username: data.username.trim().toLowerCase(),
+        full_name: data.fullName.trim(),
         phone_number: data.phone?.trim() || null,
         role: data.role,
       });

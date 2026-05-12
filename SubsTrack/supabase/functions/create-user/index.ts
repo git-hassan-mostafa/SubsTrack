@@ -77,7 +77,14 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    const { username, password, phone, role, tenantId } = body;
+    const { username, fullName, password, phone, role, tenantId } = body;
+
+    if (!fullName?.trim()) {
+      return new Response(JSON.stringify({ error: "Full name is required" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
 
     // Enforce tenant isolation: admin can only create users within their own tenant
     if (tenantId !== callerProfile.tenant_id) {
@@ -136,6 +143,7 @@ Deno.serve(async (req) => {
       .insert({
         id: userId,
         username,
+        full_name: fullName.trim(),
         phone_number: phone ?? null,
         role,
         tenant_id: tenantId,
@@ -145,7 +153,7 @@ Deno.serve(async (req) => {
 
     if (profileErr) {
       // Rollback the auth user to keep state consistent
-      await serviceClient.auth.admin.deleteUser(userId).catch(() => {});
+      await serviceClient.auth.admin.deleteUser(userId).catch(() => { });
       throw new Error(profileErr.message);
     }
 

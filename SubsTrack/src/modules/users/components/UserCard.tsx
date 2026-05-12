@@ -29,7 +29,7 @@ const roleBadgeStyle: Record<
 };
 
 export function UserCard({ user, onEdit }: Props) {
-  const avatarColor = getAvatarColor(user.username);
+  const avatarColor = getAvatarColor(user.fullName);
   const badge = roleBadgeStyle[user.role] ?? roleBadgeStyle.user;
   const { t } = useTranslation();
 
@@ -45,7 +45,7 @@ export function UserCard({ user, onEdit }: Props) {
           style={{ backgroundColor: avatarColor + "22" }}
         >
           <Text className="text-sm font-bold" style={{ color: avatarColor }}>
-            {getInitials(user.username)}
+            {getInitials(user.fullName)}
           </Text>
         </View>
       </View>
@@ -53,7 +53,7 @@ export function UserCard({ user, onEdit }: Props) {
       {/* Name + handle + phone */}
       <View className="flex-1">
         <Text className="text-base font-semibold text-gray-900">
-          {user.username}
+          {user.fullName}
         </Text>
         <Text className="text-xs text-gray-400 mt-0.5">
           @{user.username}

@@ -14,7 +14,20 @@ import { useAuth } from "@/src/modules/auth/hooks/useAuth";
 import { useDashboardStore } from "../store/dashboardStore";
 import { COLORS } from "@/src/shared/constants";
 
-const MONTH_KEYS = ["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"] as const;
+const MONTH_KEYS = [
+  "jan",
+  "feb",
+  "mar",
+  "apr",
+  "may",
+  "jun",
+  "jul",
+  "aug",
+  "sep",
+  "oct",
+  "nov",
+  "dec",
+] as const;
 
 export function DashboardScreen() {
   const { t, i18n } = useTranslation();
@@ -61,7 +74,9 @@ export function DashboardScreen() {
         {/* Greeting */}
         <View className="px-5 pt-5 pb-4">
           <Text fontWeight="Bold" className="text-2xl text-gray-900">
-            {t("dashboard.greeting", { name: user?.username ?? "" })}
+            {t("dashboard.greeting", {
+              name: user?.fullName ?? user?.username ?? "",
+            })}
           </Text>
           <Text className="text-sm text-gray-500 mt-0.5">{dateLabel}</Text>
         </View>

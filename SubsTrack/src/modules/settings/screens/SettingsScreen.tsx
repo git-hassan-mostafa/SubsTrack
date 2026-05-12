@@ -65,7 +65,11 @@ function SettingsRow({
       </View>
       <View className="flex-row items-center gap-1">
         {value ? <Text className="text-sm text-gray-400">{value}</Text> : null}
-        <DirectionalIcon name="chevron-forward" size={14} color={COLORS.gray300} />
+        <DirectionalIcon
+          name="chevron-forward"
+          size={14}
+          color={COLORS.gray300}
+        />
       </View>
     </Pressable>
   );
@@ -76,8 +80,8 @@ export function SettingsScreen() {
   const { user } = useAuth();
   const { language, setLanguage } = useLanguageStore();
   const { logout } = useAuthStore();
-  const avatarColor = user ? getAvatarColor(user.username) : COLORS.primary;
-  const initials = user ? getInitials(user.username) : "?";
+  const avatarColor = user ? getAvatarColor(user.fullName) : COLORS.primary;
+  const initials = user ? getInitials(user.fullName) : "?";
 
   const [logoutConfirmVisible, setLogoutConfirmVisible] = useState(false);
   const [pendingLanguage, setPendingLanguage] =
@@ -118,13 +122,17 @@ export function SettingsScreen() {
             </View>
             <View className="flex-1">
               <Text className="text-base font-semibold text-gray-900">
-                {user.username}
+                {user.fullName}
               </Text>
-              <Text className="text-xs text-gray-400 mt-0.5 capitalize">
-                {user.role} · {user.tenant.name}
+              <Text className="text-xs text-gray-400 mt-0.5">
+                @{user.username} · {user.role} · {user.tenant.name}
               </Text>
             </View>
-            <DirectionalIcon name="chevron-forward" size={16} color={COLORS.gray300} />
+            <DirectionalIcon
+              name="chevron-forward"
+              size={16}
+              color={COLORS.gray300}
+            />
           </View>
         ) : null}
 
@@ -141,7 +149,11 @@ export function SettingsScreen() {
                 className={`flex-row items-center justify-between px-4 py-3.5 ${index < SUPPORTED_LANGUAGES.length - 1 ? "border-b border-gray-100" : ""}`}
               >
                 <View className="flex-row items-center gap-3">
-                  <Ionicons name="globe-outline" size={18} color={COLORS.gray500} />
+                  <Ionicons
+                    name="globe-outline"
+                    size={18}
+                    color={COLORS.gray500}
+                  />
                   <Text className="text-sm font-medium text-gray-900">
                     {t("settings.language_section")}
                   </Text>
@@ -155,7 +167,11 @@ export function SettingsScreen() {
                       <Text className="text-white text-[9px] font-bold">✓</Text>
                     </View>
                   ) : (
-                    <DirectionalIcon name="chevron-forward" size={14} color={COLORS.gray300} />
+                    <DirectionalIcon
+                      name="chevron-forward"
+                      size={14}
+                      color={COLORS.gray300}
+                    />
                   )}
                 </View>
               </Pressable>
