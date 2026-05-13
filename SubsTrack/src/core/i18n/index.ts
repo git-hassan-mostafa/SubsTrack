@@ -1,4 +1,3 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
 import {
@@ -10,14 +9,19 @@ import {
 import { getLocales } from "expo-localization";
 import ar from "./locales/ar.json";
 import en from "./locales/en.json";
+import {
+  clearRTLReloadCount,
+  getLanguageStore,
+  getRTLReloadCount,
+  incrementRTLReloadCount,
+  MAX_RTL_RELOADS,
+} from "@/src/shared/lib/storage";
 
 export const SUPPORTED_LANGUAGES = ["en", "ar"] as const;
 export const RTL_LANGUAGES = ["ar"] as const;
 export const FALLBACK_LANGUAGE = "en" as const;
 
 export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
-
-export const PERSIST_KEY = "language-store";
 
 export async function reloadApp(): Promise<void> {
   try {
@@ -61,7 +65,7 @@ export async function initI18n(): Promise<void> {
   let language: SupportedLanguage = getDeviceLanguage();
 
   try {
-    const raw = await AsyncStorage.getItem(PERSIST_KEY);
+    const raw = await getLanguageStore();
     if (raw) {
       const persisted = JSON.parse(raw);
       const saved = persisted?.state?.language;
@@ -74,15 +78,22 @@ export async function initI18n(): Promise<void> {
   }
 
   const isRTL = (RTL_LANGUAGES as readonly string[]).includes(language);
-  const rtlMismatch = I18nManager.isRTL !== isRTL;
 
-  I18nManager.allowRTL(isRTL);
-  I18nManager.forceRTL(isRTL);
-
-  if (rtlMismatch && Platform.OS !== "web") {
-    await reloadApp();
-    return;
+  if (Platform.OS !== "web") {
+    const rtlMismatch = I18nManager.isRTL !== isRTL;
+    I18nManager.allowRTL(isRTL);
+    I18nManager.forceRTL(isRTL);
+    if (rtlMismatch) {
+      const count = await getRTLReloadCount();
+      if (count < MAX_RTL_RELOADS) {
+        await incrementRTLReloadCount();
+        await reloadApp();
+        return;
+      }
+    }
   }
+
+  await clearRTLReloadCount();
 
   if (!i18n.isInitialized) {
     await i18n.use(initReactI18next).init({

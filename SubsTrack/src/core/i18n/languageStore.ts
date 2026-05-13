@@ -1,10 +1,13 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import i18n from "i18next";
 import { I18nManager } from "react-native";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import {
-  PERSIST_KEY,
+  languagePersistStorage,
+  setLanguageStore,
+  STORAGE_KEYS,
+} from "@/src/shared/lib/storage";
+import {
   RTL_LANGUAGES,
   SUPPORTED_LANGUAGES,
   reloadApp,
@@ -30,8 +33,7 @@ export const useLanguageStore = create<LanguageState>()(
         set({ language: lang });
 
         // Persist before reload so the value is read on next boot
-        await AsyncStorage.setItem(
-          PERSIST_KEY,
+        await setLanguageStore(
           JSON.stringify({ state: { language: lang }, version: 0 }),
         );
 
@@ -39,8 +41,8 @@ export const useLanguageStore = create<LanguageState>()(
       },
     }),
     {
-      name: PERSIST_KEY,
-      storage: createJSONStorage(() => AsyncStorage),
+      name: STORAGE_KEYS.LANGUAGE_STORE,
+      storage: createJSONStorage(() => languagePersistStorage),
       partialize: (state) => ({ language: state.language }),
     },
   ),
