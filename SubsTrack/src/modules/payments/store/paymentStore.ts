@@ -178,7 +178,6 @@ export const usePaymentStore = create<PaymentsState>((set, get) => ({
     set({
       payments: [],
       monthGrid: [],
-      currentMonthPaidIds: new Set(),
       loading: false,
       loadingCreate: false,
       loadingVoid: false,
