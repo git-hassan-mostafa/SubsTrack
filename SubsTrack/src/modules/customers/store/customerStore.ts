@@ -12,6 +12,7 @@ interface CustomerInput {
 
 interface CustomersState {
   customers: Customer[];
+  totalCount: number;
   page: number;
   hasMore: boolean;
   loading: boolean;
@@ -40,6 +41,7 @@ const customerService = new CustomerService();
 
 export const useCustomerStore = create<CustomersState>((set, get) => ({
   customers: [],
+  totalCount: 0,
   page: 0,
   hasMore: true,
   loading: false,
@@ -56,9 +58,9 @@ export const useCustomerStore = create<CustomersState>((set, get) => ({
     const query = get().searchQuery;
     set({ loading: true, error: null, page: 0 });
     try {
-      const { customers, hasMore } = await customerService.getCustomers(0, query);
+      const { customers, hasMore, totalCount } = await customerService.getCustomers(0, query);
       if (get().searchToken !== token) return;
-      set({ customers, hasMore, page: 0, loading: false });
+      set({ customers, hasMore, totalCount, page: 0, loading: false });
     } catch (e) {
       if (get().searchToken !== token) return;
       set({ error: (e as Error).message, loading: false });
@@ -139,6 +141,7 @@ export const useCustomerStore = create<CustomersState>((set, get) => ({
       const customer = await customerService.createCustomer(data, tenantId);
       set((state) => ({
         customers: [customer, ...state.customers],
+        totalCount: state.totalCount + 1,
         loading: false,
       }));
     } catch (e) {
@@ -189,6 +192,7 @@ export const useCustomerStore = create<CustomersState>((set, get) => ({
   reset: () =>
     set((s) => ({
       customers: [],
+      totalCount: 0,
       page: 0,
       hasMore: true,
       searchQuery: "",

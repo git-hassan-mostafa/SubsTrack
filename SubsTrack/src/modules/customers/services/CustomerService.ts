@@ -9,13 +9,13 @@ type DbCustomerWithPlan = DbCustomer & { plans?: DbPlan | null };
 function mapDbCustomerToCustomer(db: DbCustomerWithPlan): Customer {
   const plan: Plan | null = db.plans
     ? {
-        id: db.plans.id,
-        name: db.plans.name,
-        price: db.plans.price,
-        isCustomPrice: db.plans.is_custom_price,
-        tenantId: db.plans.tenant_id,
-        createdAt: db.plans.created_at,
-      }
+      id: db.plans.id,
+      name: db.plans.name,
+      price: db.plans.price,
+      isCustomPrice: db.plans.is_custom_price,
+      tenantId: db.plans.tenant_id,
+      createdAt: db.plans.created_at,
+    }
     : null;
 
   return {
@@ -45,11 +45,15 @@ export class CustomerService {
   async getCustomers(
     page: number,
     searchQuery?: string,
-  ): Promise<{ customers: Customer[]; hasMore: boolean }> {
-    const rows = await this.repository.findAll(page, searchQuery);
+  ): Promise<{ customers: Customer[]; hasMore: boolean; totalCount: number }> {
+    const [rows, totalCount] = await Promise.all([
+      this.repository.findAll(page, searchQuery),
+      this.repository.countAll(),
+    ]);
     return {
       customers: rows.map(mapDbCustomerToCustomer),
       hasMore: rows.length >= PAGE_SIZE,
+      totalCount,
     };
   }
 

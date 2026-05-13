@@ -29,6 +29,7 @@ export function CustomerListScreen() {
   const router = useRouter();
   const {
     customers,
+    totalCount,
     loading,
     loadingMore,
     error,
@@ -88,7 +89,7 @@ export function CustomerListScreen() {
     <SafeAreaView className="flex-1 bg-gray-50">
       <PageHeader
         title={t("customers.title")}
-        subtitle={t("customers.total_count", { count: customers.length })}
+        subtitle={t("customers.total_count", { count: totalCount })}
         actionLabel={t("common.add")}
         onAction={() => setFormVisible(true)}
       />
