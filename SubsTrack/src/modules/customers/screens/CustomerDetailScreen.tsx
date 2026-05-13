@@ -77,7 +77,7 @@ export function CustomerDetailScreen() {
         DEFAULT_GRACE_DAYS,
       );
     }
-  }, [customer, year]);
+  }, [customer?.id, year]);
 
   async function getSelectedCustomer() {
     if (id) await customerStore.getCustomer(id);
