@@ -56,12 +56,20 @@ export function CustomerListScreen() {
 
   const activeCount = customers.filter((c) => c.active).length;
   const inactiveCount = customers.filter((c) => !c.active).length;
+  const unpaidCount = customers.filter(
+    (c) => c.active && !currentMonthPaidIds.has(c.id),
+  ).length;
 
   const tabs = [
     {
       key: "active" as FilterTab,
       label: t("common.active"),
       count: activeCount,
+    },
+    {
+      key: "unpaid" as FilterTab,
+      label: t("dashboard.unpaid"),
+      count: unpaidCount,
     },
     {
       key: "all" as FilterTab,
@@ -78,6 +86,8 @@ export function CustomerListScreen() {
   const filtered = (() => {
     if (activeTab === "active") return customers.filter((c) => c.active);
     if (activeTab === "inactive") return customers.filter((c) => !c.active);
+    if (activeTab === "unpaid")
+      return customers.filter((c) => c.active && !currentMonthPaidIds.has(c.id));
     return customers;
   })();
 
