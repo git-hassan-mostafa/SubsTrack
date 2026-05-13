@@ -1,4 +1,4 @@
-import { Pressable, View } from "react-native";
+import { Pressable, TouchableOpacity, View } from "react-native";
 import { Text } from "@/src/shared/components/Text";
 import type { AppUser, AuthUser } from "@/src/core/types";
 import { AVATAR_COLORS } from "../../../shared/constants";
@@ -40,7 +40,7 @@ export function UserCard({ user, currentUser, onEdit, onToggleActive }: Props) {
     (currentUser.role === "admin" && user.role === "user");
 
   return (
-    <Pressable
+    <TouchableOpacity
       onPress={() => onEdit(user)}
       className="bg-white border border-gray-100 rounded-2xl px-4 py-3.5 mb-2.5"
     >
@@ -90,25 +90,6 @@ export function UserCard({ user, currentUser, onEdit, onToggleActive }: Props) {
       </View>
 
       {/* Activate / Deactivate button */}
-      {canToggleActive && (
-        <Pressable
-          onPress={(e) => {
-            e.stopPropagation?.();
-            onToggleActive(user);
-          }}
-          className={`mt-3 rounded-lg py-2 items-center ${
-            user.active ? "bg-red-50" : "bg-green-50"
-          }`}
-        >
-          <Text
-            className={`text-xs font-semibold ${
-              user.active ? "text-red-600" : "text-green-600"
-            }`}
-          >
-            {user.active ? t("users.deactivate") : t("users.activate")}
-          </Text>
-        </Pressable>
-      )}
-    </Pressable>
+    </TouchableOpacity>
   );
 }
