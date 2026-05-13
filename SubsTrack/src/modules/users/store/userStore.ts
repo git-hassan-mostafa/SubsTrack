@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { AppUser } from "@/src/core/types";
+import type { AppUser, UserRole } from "@/src/core/types";
 import { UserService } from "../services/UserService";
 
 interface UsersState {
@@ -24,6 +24,8 @@ interface UsersState {
     currentUserRole: string,
     data: { username: string; fullName: string; phone: string | null; role: "admin" | "user" },
   ) => Promise<void>;
+  deactivateUser: (id: string, callerId: string, callerRole: UserRole, targetRole: UserRole) => Promise<void>;
+  activateUser: (id: string, callerId: string, callerRole: UserRole, targetRole: UserRole) => Promise<void>;
   clearError: () => void;
   reset: () => void;
 }
@@ -68,6 +70,32 @@ export const useUserStore = create<UsersState>((set, get) => ({
         currentUserRole,
         data,
       );
+      set((state) => ({
+        users: state.users.map((u) => (u.id === id ? updated : u)),
+        loading: false,
+      }));
+    } catch (e) {
+      set({ error: (e as Error).message, loading: false });
+    }
+  },
+
+  deactivateUser: async (id, callerId, callerRole, targetRole) => {
+    set({ loading: true, error: null });
+    try {
+      const updated = await userService.deactivateUser(id, callerId, callerRole, targetRole);
+      set((state) => ({
+        users: state.users.map((u) => (u.id === id ? updated : u)),
+        loading: false,
+      }));
+    } catch (e) {
+      set({ error: (e as Error).message, loading: false });
+    }
+  },
+
+  activateUser: async (id, callerId, callerRole, targetRole) => {
+    set({ loading: true, error: null });
+    try {
+      const updated = await userService.activateUser(id, callerId, callerRole, targetRole);
       set((state) => ({
         users: state.users.map((u) => (u.id === id ? updated : u)),
         loading: false,

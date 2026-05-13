@@ -67,7 +67,7 @@ export class TenantService {
       id: authData.user.id,
       username: data.adminUserName.trim(),
       full_name: data.adminFullName.trim(),
-      role: "admin",
+      role: "superadmin",
       tenant_id: tenant.id,
     });
 

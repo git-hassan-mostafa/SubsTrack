@@ -27,7 +27,7 @@ type FormState = {
 export function UserFormSheet({ visible, user: editUser, onDismiss }: Props) {
   const { t } = useTranslation();
   const { user: currentUser } = useAuth();
-  const { createUser, updateUser, loading, error, clearError } = useUserStore();
+  const { createUser, updateUser, deactivateUser, activateUser, loading, error, clearError } = useUserStore();
 
   const [form, setForm] = useState<FormState>({
     username: "",
@@ -39,6 +39,12 @@ export function UserFormSheet({ visible, user: editUser, onDismiss }: Props) {
   });
 
   const isOwnAccount = editUser?.id === currentUser?.id;
+
+  const canToggleActive =
+    !!editUser &&
+    !!currentUser &&
+    ((currentUser.role === "superadmin" && !isOwnAccount) ||
+      (currentUser.role === "admin" && editUser.role === "user"));
 
   const usernameInvalid =
     form.username.length > 0 && !/^[a-zA-Z0-9._]+$/.test(form.username);
@@ -223,6 +229,31 @@ export function UserFormSheet({ visible, user: editUser, onDismiss }: Props) {
             disabled={!canSubmit}
             fullWidth
           />
+
+          {canToggleActive && editUser ? (
+            <Pressable
+              onPress={async () => {
+                if (!currentUser) return;
+                if (editUser.active) {
+                  await deactivateUser(editUser.id, currentUser.id, currentUser.role, editUser.role);
+                } else {
+                  await activateUser(editUser.id, currentUser.id, currentUser.role, editUser.role);
+                }
+                if (!useUserStore.getState().error) onDismiss();
+              }}
+              className={`mt-3 rounded-xl py-3 items-center mb-6 ${
+                editUser.active ? "bg-red-50" : "bg-green-50"
+              }`}
+            >
+              <Text
+                className={`text-sm font-semibold ${
+                  editUser.active ? "text-red-600" : "text-green-600"
+                }`}
+              >
+                {editUser.active ? t("users.deactivate") : t("users.activate")}
+              </Text>
+            </Pressable>
+          ) : null}
         </ScrollView>
       </View>
     </Modal>

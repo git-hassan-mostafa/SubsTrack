@@ -13,6 +13,7 @@ import { EmptyState } from "@/src/shared/components/EmptyState";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { useDebounce } from "@/src/shared/hooks/useDebounce";
 import type { AppUser } from "@/src/core/types";
+import { useAuth } from "@/src/modules/auth/hooks/useAuth";
 import { UserCard } from "../components/UserCard";
 import { UserFormSheet } from "../components/UserFormSheet";
 import { useUserStore } from "../store/userStore";
@@ -22,7 +23,8 @@ import { PageHeader } from "@/src/shared/components/PageHeader";
 export function UserListScreen() {
   const { t } = useTranslation();
   const router = useRouter();
-  const { users, loading, error, getUsers, fetchUsers, clearError } =
+  const { user: currentUser } = useAuth();
+  const { users, loading, error, getUsers, fetchUsers, clearError, deactivateUser, activateUser } =
     useUserStore();
   const [formVisible, setFormVisible] = useState(false);
   const [editingUser, setEditingUser] = useState<AppUser | null>(null);
@@ -41,6 +43,15 @@ export function UserListScreen() {
   function openEdit(user: AppUser) {
     setEditingUser(user);
     setFormVisible(true);
+  }
+
+  async function handleToggleActive(user: AppUser) {
+    if (!currentUser) return;
+    if (user.active) {
+      await deactivateUser(user.id, currentUser.id, currentUser.role, user.role);
+    } else {
+      await activateUser(user.id, currentUser.id, currentUser.role, user.role);
+    }
   }
 
   const adminCount = users.filter(
@@ -95,7 +106,16 @@ export function UserListScreen() {
               tintColor={COLORS.primary}
             />
           }
-          renderItem={({ item }) => <UserCard user={item} onEdit={openEdit} />}
+          renderItem={({ item }) =>
+            currentUser ? (
+              <UserCard
+                user={item}
+                currentUser={currentUser}
+                onEdit={openEdit}
+                onToggleActive={handleToggleActive}
+              />
+            ) : null
+          }
           ListEmptyComponent={
             <EmptyState
               message={t("users.no_staff")}

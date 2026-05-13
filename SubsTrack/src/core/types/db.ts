@@ -26,6 +26,7 @@ export interface DbUser {
   full_name: string;
   phone_number: string | null;
   role: 'superadmin' | 'admin' | 'user';
+  active: boolean;
   tenant_id: string;
   created_at: string;
 }

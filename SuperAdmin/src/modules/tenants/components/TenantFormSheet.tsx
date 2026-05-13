@@ -127,14 +127,14 @@ export function TenantFormSheet({ visible, tenant, onDismiss }: Props) {
           ) : (
             <>
               <View style={styles.sectionHeader}>
-                <Text style={styles.sectionTitle}>Admin User</Text>
+                <Text style={styles.sectionTitle}>Super Admin User</Text>
                 <Text style={styles.sectionHint}>
-                  An admin account will be created for this tenant
+                  A super admin account will be created for this tenant
                 </Text>
               </View>
 
               <Input
-                label="Admin User Name"
+                label="Super Admin User Name"
                 value={adminUserName}
                 onChangeText={setAdminUserName}
                 placeholder="admin"
@@ -143,7 +143,7 @@ export function TenantFormSheet({ visible, tenant, onDismiss }: Props) {
               />
 
               <Input
-                label="Admin Full Name"
+                label="Super Admin Full Name"
                 value={adminFullName}
                 onChangeText={setAdminFullName}
                 placeholder="e.g. John Smith"
@@ -152,7 +152,7 @@ export function TenantFormSheet({ visible, tenant, onDismiss }: Props) {
               />
 
               <Input
-                label="Admin Password"
+                label="Super Admin Password"
                 value={adminPassword}
                 onChangeText={setAdminPassword}
                 placeholder="Min. 8 characters"

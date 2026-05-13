@@ -44,7 +44,8 @@ CREATE TABLE IF NOT EXISTS saas_tiers (
 -- ============================================================
 -- USERS
 -- App-level user records. id mirrors auth.users.id.
--- Role 'superadmin' exists in DB but is never used inside the app.
+-- Each tenant has exactly one superadmin (enforced by uq_users_superadmin_per_tenant).
+-- Only active users can log in.
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS users (
@@ -54,6 +55,7 @@ CREATE TABLE IF NOT EXISTS users (
     phone_number TEXT,
     role         TEXT        NOT NULL DEFAULT 'user'
                              CHECK (role IN ('superadmin', 'admin', 'user')),
+    active       BOOLEAN     NOT NULL DEFAULT TRUE,
     tenant_id    UUID        NOT NULL,
     created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
@@ -65,6 +67,11 @@ CREATE TABLE IF NOT EXISTS users (
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_users_username_tenant
     ON users (username, tenant_id);
+
+-- Enforces one superadmin per tenant at the DB level
+CREATE UNIQUE INDEX IF NOT EXISTS uq_users_superadmin_per_tenant
+    ON users (tenant_id)
+    WHERE role = 'superadmin';
 
 CREATE INDEX IF NOT EXISTS idx_users_tenant_id
     ON users (tenant_id);

@@ -16,6 +16,7 @@ export interface AuthUser {
   username: string;
   fullName: string;
   role: UserRole;
+  active: boolean;
   tenantId: string;
   tenant: Tenant;
 }
@@ -27,6 +28,7 @@ export interface AppUser {
   fullName: string;
   phoneNumber: string | null;
   role: UserRole;
+  active: boolean;
   tenantId: string;
   createdAt: string;
 }

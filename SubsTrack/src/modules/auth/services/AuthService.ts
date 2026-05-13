@@ -23,6 +23,7 @@ function mapDbUserToAuthUser(db: DbUser, tenant: DbTenant): AuthUser {
     username: db.username,
     fullName: db.full_name,
     role: db.role,
+    active: db.active,
     tenantId: db.tenant_id,
     tenant: mapDbTenantToTenant(tenant),
   };
@@ -62,6 +63,10 @@ export class AuthService {
       await this.repository.signOut().catch(() => { });
       throw new Error("account_not_configured");
     }
+    if (!profile.active) {
+      await this.repository.signOut().catch(() => { });
+      throw new Error("Your account has been deactivated. Contact your administrator.");
+    }
     const tenant = await this.repository.getTenant(profile.tenant_id);
     if (!tenant) {
       await this.repository.signOut().catch(() => { });
@@ -79,6 +84,10 @@ export class AuthService {
 
     const profile = await this.repository.getUserProfile(session.user.id);
     if (!profile) {
+      await this.repository.signOut().catch(() => { });
+      return null;
+    }
+    if (!profile.active) {
       await this.repository.signOut().catch(() => { });
       return null;
     }

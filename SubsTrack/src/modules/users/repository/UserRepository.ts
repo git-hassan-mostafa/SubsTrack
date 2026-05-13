@@ -42,6 +42,17 @@ export class UserRepository extends BaseRepository {
     return data as DbUser;
   }
 
+  async setActive(id: string, active: boolean): Promise<DbUser> {
+    const { data, error } = await this.db
+      .from("users")
+      .update({ active })
+      .eq("id", id)
+      .select()
+      .single();
+    if (error) this.handleError(error);
+    return data as DbUser;
+  }
+
   async countAll(): Promise<number> {
     const { count, error } = await this.db
       .from("users")

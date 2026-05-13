@@ -1,4 +1,4 @@
-import type { AppUser } from '@/src/core/types';
+import type { AppUser, UserRole } from '@/src/core/types';
 import type { DbUser } from '@/src/core/types/db';
 import { UserRepository } from '../repository/UserRepository';
 
@@ -9,6 +9,7 @@ function mapDbUserToAppUser(db: DbUser): AppUser {
     fullName: db.full_name,
     phoneNumber: db.phone_number,
     role: db.role,
+    active: db.active,
     tenantId: db.tenant_id,
     createdAt: db.created_at,
   };
@@ -86,6 +87,53 @@ export class UserService {
       return mapDbUserToAppUser(row);
     } catch (err) {
       this.rethrow(err);
+    }
+  }
+
+  async deactivateUser(
+    id: string,
+    callerId: string,
+    callerRole: UserRole,
+    targetRole: UserRole,
+  ): Promise<AppUser> {
+    this.checkToggleActivePermission(id, callerId, callerRole, targetRole);
+    try {
+      const row = await this.repository.setActive(id, false);
+      return mapDbUserToAppUser(row);
+    } catch (err) {
+      this.rethrow(err);
+    }
+  }
+
+  async activateUser(
+    id: string,
+    callerId: string,
+    callerRole: UserRole,
+    targetRole: UserRole,
+  ): Promise<AppUser> {
+    this.checkToggleActivePermission(id, callerId, callerRole, targetRole);
+    try {
+      const row = await this.repository.setActive(id, true);
+      return mapDbUserToAppUser(row);
+    } catch (err) {
+      this.rethrow(err);
+    }
+  }
+
+  private checkToggleActivePermission(
+    targetId: string,
+    callerId: string,
+    callerRole: UserRole,
+    targetRole: UserRole,
+  ): void {
+    if (callerRole === 'user') {
+      throw new Error('Forbidden');
+    }
+    if (callerRole === 'admin' && targetRole !== 'user') {
+      throw new Error('Admins can only activate or deactivate staff users');
+    }
+    if (callerRole === 'superadmin' && targetId === callerId) {
+      throw new Error('Cannot deactivate your own account');
     }
   }
 

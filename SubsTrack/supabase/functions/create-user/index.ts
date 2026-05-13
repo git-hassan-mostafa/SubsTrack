@@ -66,7 +66,7 @@ Deno.serve(async (req) => {
       });
     }
 
-    if (callerProfile.role !== "admin") {
+    if (!["admin", "superadmin"].includes(callerProfile.role)) {
       return new Response(
         JSON.stringify({ error: "Forbidden: admin role required" }),
         {
