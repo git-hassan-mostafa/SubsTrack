@@ -20,7 +20,10 @@ export class PaymentRepository extends BaseRepository {
   async create(payload: CreatePaymentPayload): Promise<DbPayment> {
     const { data, error } = await this.db
       .from('payments')
-      .insert(payload)
+      .upsert(
+        { ...payload, paid_at: new Date().toISOString(), voided_at: null, voided_by: null },
+        { onConflict: 'customer_id,billing_month' },
+      )
       .select()
       .single();
     if (error) this.handleError(error);

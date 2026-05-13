@@ -49,29 +49,16 @@ export class PaymentService {
       throw new Error("Billing month must be the first day of the month");
     }
 
-    try {
-      const row = await this.repository.create({
-        billing_month: data.billingMonth,
-        amount: data.amount,
-        customer_id: data.customerId,
-        plan_id: data.planId,
-        received_by_user_id: data.receivedByUserId,
-        tenant_id: data.tenantId,
-        notes: data.notes,
-      });
-      return mapDbPaymentToPayment(row);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : "";
-      if (
-        msg.includes("uq_payments_customer_month_active") ||
-        msg.includes("duplicate")
-      ) {
-        throw new Error("A payment already exists for this customer and month");
-      }
-      throw err instanceof Error
-        ? err
-        : new Error("Connection error. Please try again.");
-    }
+    const row = await this.repository.create({
+      billing_month: data.billingMonth,
+      amount: data.amount,
+      customer_id: data.customerId,
+      plan_id: data.planId,
+      received_by_user_id: data.receivedByUserId,
+      tenant_id: data.tenantId,
+      notes: data.notes,
+    });
+    return mapDbPaymentToPayment(row);
   }
 
   async updatePaymentAmount(id: string, amount: number): Promise<Payment> {

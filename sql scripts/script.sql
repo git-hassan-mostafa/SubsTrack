@@ -175,7 +175,7 @@ CREATE TABLE IF NOT EXISTS payments (
     id                  UUID          PRIMARY KEY DEFAULT uuid_generate_v4(),
 
     -- Always the first day of the month (YYYY-MM-01). Enforced by constraint.
-    billing_month       DATE          NOT NULL UNIQUE,
+    billing_month       DATE          NOT NULL,
 
     -- Snapshot of the amount at time of payment. Never changes after insert.
     amount              NUMERIC(12,2) NOT NULL CHECK (amount > 0),
@@ -236,13 +236,12 @@ CREATE TABLE IF NOT EXISTS payments (
     CONSTRAINT fk_payments_tenant
         FOREIGN KEY (tenant_id)
         REFERENCES tenants(id)
-        ON DELETE CASCADE
-);
+        ON DELETE CASCADE,
 
--- Only one non-voided payment per customer per month
-CREATE UNIQUE INDEX IF NOT EXISTS uq_payments_customer_month_active
-    ON payments (customer_id, billing_month)
-    WHERE voided_at IS NULL;
+    -- One payment record per customer per month (void + re-pay updates the same row)
+    CONSTRAINT uq_payments_customer_month
+        UNIQUE (customer_id, billing_month)
+);
 
 CREATE INDEX IF NOT EXISTS idx_payments_tenant_id
     ON payments (tenant_id);
