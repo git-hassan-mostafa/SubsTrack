@@ -7,6 +7,7 @@ import { ConfirmDialog } from "@/src/shared/components/ConfirmDialog";
 import type { Customer } from "@/src/core/types";
 import { formatDate, getDateLocale } from "@/src/core/utils/date";
 import { COLORS } from "@/src/shared/constants";
+import { useAuth } from "@/src/modules/auth/hooks/useAuth";
 import { useCustomerStore } from "../store/customerStore";
 
 interface CustomerDetailsCardProps {
@@ -17,6 +18,7 @@ export function CustomerDetailsCard({ customer }: CustomerDetailsCardProps) {
   const { t, i18n } = useTranslation();
   const locale = getDateLocale(i18n.language);
   const customerStore = useCustomerStore();
+  const { isAdmin } = useAuth();
 
   const [toggleConfirmVisible, setToggleConfirmVisible] = useState(false);
 
@@ -92,7 +94,7 @@ export function CustomerDetailsCard({ customer }: CustomerDetailsCardProps) {
           </View>
 
           <Pressable
-            onPress={() => setToggleConfirmVisible(true)}
+            onPress={() => isAdmin && setToggleConfirmVisible(true)}
             className="flex-row items-center justify-between px-4 py-3.5"
           >
             <View className="flex-row items-center gap-3">
@@ -113,7 +115,11 @@ export function CustomerDetailsCard({ customer }: CustomerDetailsCardProps) {
               >
                 {customer.active ? t("common.active") : t("common.inactive")}
               </Text>
-              <Text className="text-xs text-primary">({t("common.tap")})</Text>
+              {isAdmin && (
+                <Text className="text-xs text-primary">
+                  ({t("common.tap")})
+                </Text>
+              )}
             </View>
           </Pressable>
         </View>
