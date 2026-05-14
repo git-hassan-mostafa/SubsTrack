@@ -1,4 +1,4 @@
-import { Pressable, TouchableOpacity, View } from "react-native";
+import { Pressable, View } from "react-native";
 import { Text } from "@/src/shared/components/Text";
 import type { AppUser, AuthUser } from "@/src/core/types";
 import { AVATAR_COLORS } from "../../../shared/constants";
@@ -40,7 +40,7 @@ export function UserCard({ user, currentUser, onEdit, onToggleActive }: Props) {
     (currentUser.role === "admin" && user.role === "user");
 
   return (
-    <TouchableOpacity
+    <Pressable
       onPress={() => onEdit(user)}
       className="bg-white border border-gray-100 rounded-2xl px-4 py-3.5 mb-2.5"
     >
@@ -88,6 +88,6 @@ export function UserCard({ user, currentUser, onEdit, onToggleActive }: Props) {
           </Text>
         </View>
       </View>
-    </TouchableOpacity>
+    </Pressable>
   );
 }
