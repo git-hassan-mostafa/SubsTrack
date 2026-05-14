@@ -1,13 +1,12 @@
-import { useEffect } from "react";
-import { useState } from "react";
-import { Modal, Pressable, ScrollView, View } from "react-native";
-import { Text } from "@/src/shared/components/Text";
+import { useEffect, useState } from "react";
+import { View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/src/shared/components/Button";
 import { DatePickerInput } from "@/src/shared/components/DatePickerInput";
 import { Dropdown } from "@/src/shared/components/Dropdown";
 import type { DropdownOption } from "@/src/shared/components/Dropdown";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
+import { FormSheet } from "@/src/shared/components/FormSheet";
 import { Input } from "@/src/shared/components/Input";
 import type { Customer, Plan } from "@/src/core/types";
 import { useAuth } from "@/src/modules/auth/hooks/useAuth";
@@ -85,97 +84,69 @@ export function CustomerFormSheet({ visible, customer, onDismiss }: Props) {
   }));
 
   return (
-    <Modal
+    <FormSheet
       visible={visible}
-      animationType="slide"
-      presentationStyle="pageSheet"
-      onRequestClose={onDismiss}
+      title={customer ? t("customers.edit_title") : t("customers.add_title")}
+      onDismiss={onDismiss}
     >
-      <View className="flex-1 bg-white">
-        {/* Handle + header */}
-        <View className="items-center pt-3 pb-1">
-          <View className="w-10 h-1 rounded-full bg-gray-300" />
-        </View>
-        <View className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
-          <Text fontWeight="Bold" className="text-lg text-gray-900">
-            {customer ? t("customers.edit_title") : t("customers.add_title")}
-          </Text>
-          <Pressable onPress={onDismiss}>
-            <Text className="text-base text-primary font-medium">
-              {t("common.cancel")}
-            </Text>
-          </Pressable>
-        </View>
+      {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}
 
-        <ScrollView
-          className="flex-1 px-6 pt-6"
-          keyboardShouldPersistTaps="handled"
-        >
-          {error ? (
-            <ErrorBanner message={error} onDismiss={clearError} />
-          ) : null}
+      <Input
+        label={t("customers.name_label")}
+        value={form.name}
+        onChangeText={(v) => setForm((prev) => ({ ...prev, name: v }))}
+        placeholder={t("customers.name_placeholder")}
+        onFocus={clearError}
+      />
 
+      <View className="flex-row gap-3">
+        <View className="flex-1">
           <Input
-            label={t("customers.name_label")}
-            value={form.name}
-            onChangeText={(v) => setForm((prev) => ({ ...prev, name: v }))}
-            placeholder={t("customers.name_placeholder")}
-            onFocus={clearError}
-          />
-
-          {/* Phone + Start Date side by side */}
-          <View className="flex-row gap-3">
-            <View className="flex-1">
-              <Input
-                label={t("customers.phone_label")}
-                value={form.phoneNumber}
-                onChangeText={(v) =>
-                  setForm((prev) => ({ ...prev, phoneNumber: v }))
-                }
-                placeholder={t("customers.phone_placeholder")}
-                keyboardType="phone-pad"
-              />
-            </View>
-            <View className="flex-1">
-              <DatePickerInput
-                label={t("customers.start_date_label")}
-                value={form.startDate}
-                onChange={(v) => setForm((prev) => ({ ...prev, startDate: v }))}
-                placeholder={t("customers.start_date_placeholder")}
-              />
-            </View>
-          </View>
-
-          <Input
-            label={t("customers.address_label")}
-            value={form.address}
-            onChangeText={(v) => setForm((prev) => ({ ...prev, address: v }))}
-            placeholder={t("common.optional")}
-          />
-
-          <Dropdown
-            label={t("customers.plan_label")}
-            placeholder={t("customers.select_plan")}
-            options={planOptions}
-            value={form.planId}
-            onChange={(v) => setForm((prev) => ({ ...prev, planId: v }))}
-            nullable
-            nullLabel={t("common.no_plan")}
-            nullSublabel={t("customers.custom_plan_sublabel")}
-          />
-
-          <Button
-            label={
-              customer ? t("common.save_changes") : t("customers.add_title")
+            label={t("customers.phone_label")}
+            value={form.phoneNumber}
+            onChangeText={(v) =>
+              setForm((prev) => ({ ...prev, phoneNumber: v }))
             }
-            onPress={handleSubmit}
-            loading={loading}
-            disabled={!form.name.trim() || !form.startDate}
-            fullWidth
+            placeholder={t("customers.phone_placeholder")}
+            keyboardType="phone-pad"
           />
-          <View className="h-4" />
-        </ScrollView>
+        </View>
+        <View className="flex-1">
+          <DatePickerInput
+            label={t("customers.start_date_label")}
+            value={form.startDate}
+            onChange={(v) => setForm((prev) => ({ ...prev, startDate: v }))}
+            placeholder={t("customers.start_date_placeholder")}
+          />
+        </View>
       </View>
-    </Modal>
+
+      <Input
+        label={t("customers.address_label")}
+        value={form.address}
+        onChangeText={(v) => setForm((prev) => ({ ...prev, address: v }))}
+        placeholder={t("common.optional")}
+      />
+
+      <Dropdown
+        label={t("customers.plan_label")}
+        placeholder={t("customers.select_plan")}
+        options={planOptions}
+        value={form.planId}
+        onChange={(v) => setForm((prev) => ({ ...prev, planId: v }))}
+        nullable
+        nullLabel={t("common.no_plan")}
+        nullSublabel={t("customers.custom_plan_sublabel")}
+      />
+
+      <Button
+        label={customer ? t("common.save_changes") : t("customers.add_title")}
+        onPress={handleSubmit}
+        loading={loading}
+        disabled={!form.name.trim() || !form.startDate}
+        fullWidth
+      />
+      <View className="h-4" />
+    </FormSheet>
   );
 }

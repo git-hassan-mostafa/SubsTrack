@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Modal, Pressable, ScrollView, View } from "react-native";
+import { Pressable, View } from "react-native";
 import { Text } from "@/src/shared/components/Text";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/src/shared/components/Button";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
+import { FormSheet } from "@/src/shared/components/FormSheet";
 import { Input } from "@/src/shared/components/Input";
 import type { Customer, MonthEntry } from "@/src/core/types";
 import { getCurrentYearMonth } from "@/src/core/utils/date";
@@ -112,138 +113,100 @@ export function PaymentFormSheet({
   const avatarColor = getAvatarColor(customer.name);
 
   return (
-    <Modal
+    <FormSheet
       visible={visible}
-      animationType="slide"
-      presentationStyle="pageSheet"
-      onRequestClose={handleDismiss}
+      title={t("payments.record_payment")}
+      onDismiss={handleDismiss}
     >
-      <View className="flex-1 bg-white">
-        {/* Handle + header */}
-        <View className="items-center pt-3 pb-1">
-          <View className="w-10 h-1 rounded-full bg-gray-300" />
-        </View>
-        <View className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
-          <Text fontWeight="Bold" className="text-lg text-gray-900">
-            {t("payments.record_payment")}
+      {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}
+      {blockedForInactive ? (
+        <View className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-4">
+          <Text className="text-sm text-amber-700">
+            {t("payments.inactive_customer_future")}
           </Text>
-          <Pressable onPress={handleDismiss}>
-            <Text className="text-base text-primary font-medium">
-              {t("common.cancel")}
-            </Text>
-          </Pressable>
         </View>
+      ) : null}
 
-        <ScrollView
-          className="flex-1 px-6 pt-5"
-          keyboardShouldPersistTaps="handled"
+      {/* Customer mini-header */}
+      <View className="flex-row items-center mb-5">
+        <View
+          className="w-10 h-10 rounded-xl items-center justify-center me-3"
+          style={{ backgroundColor: avatarColor + "22" }}
         >
-          {error ? (
-            <ErrorBanner message={error} onDismiss={clearError} />
-          ) : null}
-          {blockedForInactive ? (
-            <View className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-4">
-              <Text className="text-sm text-amber-700">
-                {t("payments.inactive_customer_future")}
-              </Text>
-            </View>
-          ) : null}
+          <Text
+            fontWeight="Bold"
+            className="text-sm"
+            style={{ color: avatarColor }}
+          >
+            {getInitials(customer.name)}
+          </Text>
+        </View>
+        <View>
+          <Text className="text-base font-semibold text-gray-900">
+            {customer.name}
+          </Text>
+          <Text className="text-xs text-gray-400">
+            {monthLabel} {entry.year} ·{" "}
+            {customer.plan?.name ?? t("common.no_plan")}
+          </Text>
+        </View>
+      </View>
 
-          {/* Customer mini-header */}
-          <View className="flex-row items-center mb-5">
-            <View
-              className="w-10 h-10 rounded-xl items-center justify-center me-3"
-              style={{ backgroundColor: avatarColor + "22" }}
-            >
-              <Text
-                fontWeight="Bold"
-                className="text-sm"
-                style={{ color: avatarColor }}
-              >
-                {getInitials(customer.name)}
+      {/* Amount display card */}
+      <View className="bg-gray-50 rounded-2xl px-6 py-5 items-center mb-5">
+        <Text className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">
+          {t("payments.amount_section")}
+        </Text>
+        {isFixedPlan && !form.isOverrideEnabled ? (
+          <>
+            <Text fontWeight="Bold" className="text-5xl text-gray-900">
+              ${plan!.price!.toFixed(0)}
+              <Text className="text-3xl text-gray-300">
+                .{(plan!.price! % 1).toFixed(2).slice(2)}
               </Text>
-            </View>
-            <View>
-              <Text className="text-base font-semibold text-gray-900">
-                {customer.name}
-              </Text>
-
-              <Text className="text-xs text-gray-400">
-                {monthLabel} {entry.year} ·{" "}
-                {customer.plan?.name ?? t("common.no_plan")}
-              </Text>
-            </View>
-          </View>
-
-          {/* Amount display card */}
-          <View className="bg-gray-50 rounded-2xl px-6 py-5 items-center mb-5">
-            <Text className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">
-              {t("payments.amount_section")}
             </Text>
-            {isFixedPlan && !form.isOverrideEnabled ? (
-              <>
-                <Text fontWeight="Bold" className="text-5xl text-gray-900">
-                  ${plan!.price!.toFixed(0)}
-                  <Text className="text-3xl text-gray-300">
-                    .{(plan!.price! % 1).toFixed(2).slice(2)}
-                  </Text>
-                </Text>
+            <Pressable
+              onPress={() =>
+                setForm((prev) => ({ ...prev, isOverrideEnabled: true }))
+              }
+              className="mt-3"
+            >
+              <Text className="text-primary text-sm font-semibold">
+                {t("payments.override_amount")}
+              </Text>
+            </Pressable>
+          </>
+        ) : null}
+
+        {isFixedPlan && form.isOverrideEnabled ? (
+          <>
+            <View className="w-full gap-2 mb-2">
+              {(["plan", "custom"] as const).map((mode) => (
                 <Pressable
+                  key={mode}
                   onPress={() =>
-                    setForm((prev) => ({ ...prev, isOverrideEnabled: true }))
+                    setForm((prev) => ({ ...prev, amountMode: mode }))
                   }
-                  className="mt-3"
+                  className={`flex-row items-center border rounded-xl px-4 py-3 ${form.amountMode === mode ? "border-primary bg-indigo-50" : "border-gray-200 bg-white"}`}
                 >
-                  <Text className="text-primary text-sm font-semibold">
-                    {t("payments.override_amount")}
+                  <View
+                    className={`w-4 h-4 rounded-full border-2 me-3 items-center justify-center ${form.amountMode === mode ? "border-primary" : "border-gray-400"}`}
+                  >
+                    {form.amountMode === mode ? (
+                      <View className="w-2 h-2 rounded-full bg-primary" />
+                    ) : null}
+                  </View>
+                  <Text className="text-sm text-gray-700">
+                    {mode === "plan"
+                      ? t("payments.plan_price", {
+                          price: `$${plan!.price}`,
+                        })
+                      : t("payments.custom_amount")}
                   </Text>
                 </Pressable>
-              </>
-            ) : null}
-
-            {isFixedPlan && form.isOverrideEnabled ? (
-              <>
-                <View className="w-full gap-2 mb-2">
-                  {(["plan", "custom"] as const).map((mode) => (
-                    <Pressable
-                      key={mode}
-                      onPress={() =>
-                        setForm((prev) => ({ ...prev, amountMode: mode }))
-                      }
-                      className={`flex-row items-center border rounded-xl px-4 py-3 ${form.amountMode === mode ? "border-primary bg-indigo-50" : "border-gray-200 bg-white"}`}
-                    >
-                      <View
-                        className={`w-4 h-4 rounded-full border-2 me-3 items-center justify-center ${form.amountMode === mode ? "border-primary" : "border-gray-400"}`}
-                      >
-                        {form.amountMode === mode ? (
-                          <View className="w-2 h-2 rounded-full bg-primary" />
-                        ) : null}
-                      </View>
-                      <Text className="text-sm text-gray-700">
-                        {mode === "plan"
-                          ? t("payments.plan_price", {
-                              price: `$${plan!.price}`,
-                            })
-                          : t("payments.custom_amount")}
-                      </Text>
-                    </Pressable>
-                  ))}
-                </View>
-                {form.amountMode === "custom" ? (
-                  <Input
-                    value={form.customAmountText}
-                    onChangeText={(v) =>
-                      setForm((prev) => ({ ...prev, customAmountText: v }))
-                    }
-                    placeholder={t("payments.enter_amount")}
-                    keyboardType="decimal-pad"
-                    onFocus={clearError}
-                  />
-                ) : null}
-              </>
-            ) : null}
-
-            {isCustomOrNoPlan ? (
+              ))}
+            </View>
+            {form.amountMode === "custom" ? (
               <Input
                 value={form.customAmountText}
                 onChangeText={(v) =>
@@ -254,29 +217,41 @@ export function PaymentFormSheet({
                 onFocus={clearError}
               />
             ) : null}
-          </View>
+          </>
+        ) : null}
 
+        {isCustomOrNoPlan ? (
           <Input
-            label={t("payments.notes_optional")}
-            value={form.notes}
-            onChangeText={(v) => setForm((prev) => ({ ...prev, notes: v }))}
-            placeholder={t("payments.notes_placeholder")}
+            value={form.customAmountText}
+            onChangeText={(v) =>
+              setForm((prev) => ({ ...prev, customAmountText: v }))
+            }
+            placeholder={t("payments.enter_amount")}
+            keyboardType="decimal-pad"
             onFocus={clearError}
           />
-
-          <Button
-            label={t("payments.mark_as_paid")}
-            onPress={handleSubmit}
-            loading={loadingCreate}
-            disabled={!canSubmit}
-            fullWidth
-          />
-          <Text className="text-xs text-gray-400 text-center mt-2">
-            {t("payments.receipt_id_hint")}
-          </Text>
-          <View className="h-4" />
-        </ScrollView>
+        ) : null}
       </View>
-    </Modal>
+
+      <Input
+        label={t("payments.notes_optional")}
+        value={form.notes}
+        onChangeText={(v) => setForm((prev) => ({ ...prev, notes: v }))}
+        placeholder={t("payments.notes_placeholder")}
+        onFocus={clearError}
+      />
+
+      <Button
+        label={t("payments.mark_as_paid")}
+        onPress={handleSubmit}
+        loading={loadingCreate}
+        disabled={!canSubmit}
+        fullWidth
+      />
+      <Text className="text-xs text-gray-400 text-center mt-2">
+        {t("payments.receipt_id_hint")}
+      </Text>
+      <View className="h-4" />
+    </FormSheet>
   );
 }
