@@ -8,6 +8,7 @@ import { useUserStore } from "@/src/modules/users/store/userStore";
 import { ErrorBoundary } from "@/src/shared/components/ErrorBoundary";
 import { LoadingScreen } from "@/src/shared/components/LoadingScreen";
 import { Slot, useRouter, useSegments } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import * as Font from "expo-font";
 import { useEffect, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -74,6 +75,7 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
+      <StatusBar style="dark" />
       <ErrorBoundary>
         <Slot />
       </ErrorBoundary>

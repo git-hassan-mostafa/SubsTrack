@@ -241,13 +241,16 @@ export function UserFormSheet({ visible, user: editUser, onDismiss }: Props) {
                 }
                 if (!useUserStore.getState().error) onDismiss();
               }}
-              className={`mt-3 rounded-xl py-3 items-center mb-6 ${
-                editUser.active ? "bg-red-50" : "bg-green-50"
+              className={`mt-3 rounded-xl py-3.5 items-center mb-6 border ${
+                editUser.active
+                  ? "bg-red-50 border-red-200"
+                  : "bg-green-50 border-green-200"
               }`}
             >
               <Text
-                className={`text-sm font-semibold ${
-                  editUser.active ? "text-red-600" : "text-green-600"
+                fontWeight="SemiBold"
+                className={`text-base ${
+                  editUser.active ? "text-red-600" : "text-green-700"
                 }`}
               >
                 {editUser.active ? t("users.deactivate") : t("users.activate")}

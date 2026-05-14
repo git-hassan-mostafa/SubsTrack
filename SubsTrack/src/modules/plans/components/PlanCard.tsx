@@ -24,21 +24,29 @@ export function PlanCard({ plan, onEdit, onDelete }: Props) {
         <Ionicons name="pulse-outline" size={18} color={COLORS.primary} />
       </View>
 
-      {/* Name + count placeholder */}
+      {/* Name */}
       <View className="flex-1">
         <Text className="text-base font-semibold text-gray-900">
           {plan.name}
         </Text>
-        <Text fontWeight="Bold" className="text-xs text-black mt-0.5">
-          {plan.isCustomPrice ? "_" : `$${plan.price}`}
-        </Text>
       </View>
 
       {/* Price */}
-      <View className="items-end me-2">
-        <Text className="text-base font-semibold text-gray-400">
-          {plan.isCustomPrice ? t("common.custom") : t("plans.per_month")}
-        </Text>
+      <View className="items-end me-3">
+        {plan.isCustomPrice ? (
+          <View className="bg-indigo-50 rounded-lg px-2.5 py-1">
+            <Text fontWeight="SemiBold" className="text-xs text-indigo-500">
+              {t("common.custom")}
+            </Text>
+          </View>
+        ) : (
+          <>
+            <Text fontWeight="Bold" className="text-base text-gray-900">
+              ${plan.price}
+            </Text>
+            <Text className="text-xs text-gray-400">{t("plans.per_month")}</Text>
+          </>
+        )}
       </View>
 
       <DirectionalIcon name="chevron-forward" size={16} color={COLORS.gray300} />

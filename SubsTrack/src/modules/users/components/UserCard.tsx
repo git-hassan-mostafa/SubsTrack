@@ -88,8 +88,6 @@ export function UserCard({ user, currentUser, onEdit, onToggleActive }: Props) {
           </Text>
         </View>
       </View>
-
-      {/* Activate / Deactivate button */}
     </TouchableOpacity>
   );
 }

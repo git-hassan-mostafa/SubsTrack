@@ -1,27 +1,14 @@
+import { memo } from "react";
 import { Pressable, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
 import type { Customer } from "@/src/core/types";
 import { AVATAR_COLORS } from "../../../shared/constants";
 
-const MONTH_KEYS = [
-  "jan",
-  "feb",
-  "mar",
-  "apr",
-  "may",
-  "jun",
-  "jul",
-  "aug",
-  "sep",
-  "oct",
-  "nov",
-  "dec",
-] as const;
-
 interface Props {
   customer: Customer;
   isPaidThisMonth: boolean;
+  monthLabel: string;
   onPress: (customer: Customer) => void;
 }
 
@@ -35,12 +22,15 @@ function getInitials(name: string): string {
   return name.slice(0, 2).toUpperCase();
 }
 
-export function CustomerCard({ customer, isPaidThisMonth, onPress }: Props) {
+export const CustomerCard = memo(function CustomerCard({
+  customer,
+  isPaidThisMonth,
+  monthLabel,
+  onPress,
+}: Props) {
   const { t } = useTranslation();
   const initials = getInitials(customer.name);
   const avatarColor = getAvatarColor(customer.name);
-  const now = new Date();
-  const monthLabel = `${t(`months.${MONTH_KEYS[now.getMonth()]}`)} ${now.getFullYear()}`;
 
   return (
     <Pressable
@@ -99,4 +89,4 @@ export function CustomerCard({ customer, isPaidThisMonth, onPress }: Props) {
       </View>
     </Pressable>
   );
-}
+});

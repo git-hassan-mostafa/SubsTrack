@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -54,46 +54,44 @@ export function CustomerListScreen() {
     setSearchQuery(debouncedSearch);
   }, [debouncedSearch]);
 
-  const activeCount = customers.filter((c) => c.active).length;
-  const inactiveCount = customers.filter((c) => !c.active).length;
-  const unpaidCount = customers.filter(
-    (c) => c.active && !currentMonthPaidIds.has(c.id),
-  ).length;
+  const monthLabel = useMemo(() => {
+    const MONTH_KEYS = ["jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec"] as const;
+    const now = new Date();
+    return `${t(`months.${MONTH_KEYS[now.getMonth()]}`)} ${now.getFullYear()}`;
+  }, [t]);
 
-  const tabs = [
-    {
-      key: "active" as FilterTab,
-      label: t("common.active"),
-      count: activeCount,
-    },
-    {
-      key: "unpaid" as FilterTab,
-      label: t("dashboard.unpaid"),
-      count: unpaidCount,
-    },
-    {
-      key: "all" as FilterTab,
-      label: t("customers.all"),
-      count: customers.length,
-    },
-    {
-      key: "inactive" as FilterTab,
-      label: t("common.inactive"),
-      count: inactiveCount,
-    },
-  ];
+  const tabs = useMemo(() => {
+    const activeCount = customers.filter((c) => c.active).length;
+    const inactiveCount = customers.filter((c) => !c.active).length;
+    const unpaidCount = customers.filter((c) => c.active && !currentMonthPaidIds.has(c.id)).length;
+    return [
+      { key: "active" as FilterTab, label: t("common.active"), count: activeCount },
+      { key: "unpaid" as FilterTab, label: t("dashboard.unpaid"), count: unpaidCount },
+      { key: "all" as FilterTab, label: t("customers.all"), count: customers.length },
+      { key: "inactive" as FilterTab, label: t("common.inactive"), count: inactiveCount },
+    ];
+  }, [customers, currentMonthPaidIds, t]);
 
-  const filtered = (() => {
+  const filtered = useMemo(() => {
     if (activeTab === "active") return customers.filter((c) => c.active);
     if (activeTab === "inactive") return customers.filter((c) => !c.active);
     if (activeTab === "unpaid")
       return customers.filter((c) => c.active && !currentMonthPaidIds.has(c.id));
     return customers;
-  })();
+  }, [activeTab, customers, currentMonthPaidIds]);
 
-  function openDetail(customer: Customer) {
+  const openDetail = useCallback((customer: Customer) => {
     router.push(`/(app)/(tabs)/customers/${customer.id}`);
-  }
+  }, [router]);
+
+  const renderItem = useCallback(({ item }: { item: Customer }) => (
+    <CustomerCard
+      customer={item}
+      isPaidThisMonth={currentMonthPaidIds.has(item.id)}
+      monthLabel={monthLabel}
+      onPress={openDetail}
+    />
+  ), [currentMonthPaidIds, monthLabel, openDetail]);
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
@@ -156,13 +154,7 @@ export function CustomerListScreen() {
           }
           onEndReached={() => fetchMoreCustomers()}
           onEndReachedThreshold={0.3}
-          renderItem={({ item }) => (
-            <CustomerCard
-              customer={item}
-              isPaidThisMonth={currentMonthPaidIds.has(item.id)}
-              onPress={openDetail}
-            />
-          )}
+          renderItem={renderItem}
           ListFooterComponent={
             loadingMore ? (
               <ActivityIndicator color={COLORS.primary} className="py-4" />
