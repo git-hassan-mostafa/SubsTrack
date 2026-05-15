@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
+import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { ConfirmDialog } from "@/src/shared/components/ConfirmDialog";
 import type { Customer, MonthEntry } from "@/src/core/types";
@@ -123,15 +124,29 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
             <Pressable
               onPress={() => setYear((y) => y - 1)}
               disabled={year <= new Date(customer.startDate).getFullYear()}
-              className={`w-9 h-9 rounded-full items-center justify-center bg-gray-100 ${year <= new Date(customer.startDate).getFullYear() ? "opacity-30" : ""}`}
+              className="w-10 h-10 rounded-full items-center justify-center"
+              style={{
+                backgroundColor: COLORS.primaryLight,
+                opacity:
+                  year <= new Date(customer.startDate).getFullYear() ? 0.35 : 1,
+              }}
             >
-              <Text className="text-gray-700 font-semibold text-base">‹</Text>
+              <DirectionalIcon
+                name="chevron-back"
+                size={20}
+                color={COLORS.primary}
+              />
             </Pressable>
             <Pressable
               onPress={() => setYear((y) => y + 1)}
-              className="w-9 h-9 rounded-full items-center justify-center bg-gray-100"
+              className="w-10 h-10 rounded-full items-center justify-center"
+              style={{ backgroundColor: COLORS.primaryLight }}
             >
-              <Text className="text-gray-700 font-semibold text-base">›</Text>
+              <DirectionalIcon
+                name="chevron-forward"
+                size={20}
+                color={COLORS.primary}
+              />
             </Pressable>
           </View>
         </View>

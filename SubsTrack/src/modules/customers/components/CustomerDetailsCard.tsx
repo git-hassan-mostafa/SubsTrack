@@ -3,6 +3,7 @@ import { Pressable, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/src/shared/components/Text";
+import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
 import { ConfirmDialog } from "@/src/shared/components/ConfirmDialog";
 import type { Customer } from "@/src/core/types";
 import { formatDate, getDateLocale } from "@/src/core/utils/date";
@@ -99,10 +100,20 @@ export function CustomerDetailsCard({ customer }: CustomerDetailsCardProps) {
           >
             <View className="flex-row items-center gap-3">
               <View
-                className={`w-4 h-4 rounded-full items-center justify-center ${customer.active ? "bg-green-100" : "bg-gray-100"}`}
+                className="w-4 h-4 rounded-full items-center justify-center"
+                style={{
+                  backgroundColor: customer.active
+                    ? "#dcfce7"
+                    : "#fff7ed",
+                }}
               >
                 <View
-                  className={`w-2 h-2 rounded-full ${customer.active ? "bg-success" : "bg-gray-400"}`}
+                  className="w-2 h-2 rounded-full"
+                  style={{
+                    backgroundColor: customer.active
+                      ? COLORS.success
+                      : COLORS.warning,
+                  }}
                 />
               </View>
               <Text className="text-sm text-gray-500">
@@ -111,14 +122,19 @@ export function CustomerDetailsCard({ customer }: CustomerDetailsCardProps) {
             </View>
             <View className="flex-row items-center gap-1.5">
               <Text
-                className={`text-sm font-semibold ${customer.active ? "text-success" : "text-gray-400"}`}
+                className="text-sm font-semibold"
+                style={{
+                  color: customer.active ? COLORS.success : COLORS.warning,
+                }}
               >
                 {customer.active ? t("common.active") : t("common.inactive")}
               </Text>
               {isAdmin && (
-                <Text className="text-xs text-primary">
-                  ({t("common.tap")})
-                </Text>
+                <DirectionalIcon
+                  name="chevron-forward"
+                  size={14}
+                  color={COLORS.gray400}
+                />
               )}
             </View>
           </Pressable>
