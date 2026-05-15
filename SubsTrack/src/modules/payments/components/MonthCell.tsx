@@ -8,34 +8,52 @@ import type { MonthEntry, MonthStatus } from "@/src/core/types";
 interface Props {
   entry: MonthEntry;
   onPress: (entry: MonthEntry) => void;
+  isRegular: boolean;
 }
 
-const bgColor: Record<MonthStatus, string> = {
+const regularBgColor: Record<MonthStatus, string> = {
   paid: "bg-green-500",
   unpaid: "bg-red-500",
   future: "bg-gray-100",
   before_start: "bg-gray-100",
 };
 
-const textColor: Record<MonthStatus, string> = {
+const nonRegularBgColor: Record<MonthStatus, string> = {
+  paid: "bg-yellow-400",
+  unpaid: "bg-gray-200",
+  future: "bg-gray-100",
+  before_start: "bg-gray-100",
+};
+
+const regularTextColor: Record<MonthStatus, string> = {
   paid: "text-white",
   unpaid: "text-white",
   future: "text-gray-400",
   before_start: "text-gray-300",
 };
 
-export const MonthCell = memo(function MonthCell({ entry, onPress }: Props) {
+const nonRegularTextColor: Record<MonthStatus, string> = {
+  paid: "text-white",
+  unpaid: "text-gray-400",
+  future: "text-gray-400",
+  before_start: "text-gray-300",
+};
+
+export const MonthCell = memo(function MonthCell({ entry, onPress, isRegular }: Props) {
   const { t } = useTranslation();
   const { year: cy, month: cm } = getCurrentYearMonth();
   const isCurrentMonth = entry.year === cy && entry.month === cm;
 
+  const bgColor = isRegular ? regularBgColor : nonRegularBgColor;
+  const textColor = isRegular ? regularTextColor : nonRegularTextColor;
+
   const containerBg =
-    isCurrentMonth && entry.status === "unpaid"
+    isRegular && isCurrentMonth && entry.status === "unpaid"
       ? "bg-red-100 border-2 border-red-500"
       : bgColor[entry.status];
 
   const labelColor =
-    isCurrentMonth && entry.status === "unpaid"
+    isRegular && isCurrentMonth && entry.status === "unpaid"
       ? "text-red-600"
       : textColor[entry.status];
 

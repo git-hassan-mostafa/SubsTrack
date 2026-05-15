@@ -46,6 +46,7 @@ export interface DbCustomer {
   phone_number: string | null;
   address: string | null;
   active: boolean;
+  is_regular: boolean;
   plan_id: string | null;
   tenant_id: string;
   start_date: string;

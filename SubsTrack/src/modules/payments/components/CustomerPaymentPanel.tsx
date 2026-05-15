@@ -80,7 +80,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
     (m) => m.year === cy && m.month === cm,
   );
   const showUnpaidBanner =
-    currentMonthEntry?.status === "unpaid" && year === cy;
+    customer.isRegular && currentMonthEntry?.status === "unpaid" && year === cy;
   const daysIntoMonth = new Date().getDate();
 
   const paidCount = paymentStore.monthGrid.filter(
@@ -144,6 +144,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
           <MonthGrid
             months={paymentStore.monthGrid}
             onCellPress={handleCellPress}
+            isRegular={customer.isRegular}
           />
         )}
       </View>

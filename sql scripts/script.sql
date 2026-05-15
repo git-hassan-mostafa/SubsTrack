@@ -122,6 +122,7 @@ CREATE TABLE IF NOT EXISTS customers (
     phone_number TEXT,
     address      TEXT,
     active       BOOLEAN     NOT NULL DEFAULT TRUE,
+    is_regular   BOOLEAN     NOT NULL DEFAULT TRUE,
     plan_id      UUID,
     tenant_id    UUID        NOT NULL,
     start_date   DATE        NOT NULL,

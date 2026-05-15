@@ -72,6 +72,12 @@ export const CustomerCard = memo(function CustomerCard({
               {t("common.inactive")}
             </Text>
           </View>
+        ) : !customer.isRegular ? (
+          <View className="bg-amber-100 rounded-lg px-2 py-0.5 mb-1">
+            <Text className="text-xs font-semibold text-amber-600">
+              {t("customers.non_regular")}
+            </Text>
+          </View>
         ) : isPaidThisMonth ? (
           <View className="bg-green-50 rounded-lg px-2 py-0.5 mb-1">
             <Text className="text-xs font-semibold text-green-600">

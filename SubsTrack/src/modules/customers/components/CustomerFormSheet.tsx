@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useState } from "react";
-import { Modal, Pressable, ScrollView, View } from "react-native";
+import { Modal, Pressable, ScrollView, Switch, View } from "react-native";
 import { Text } from "@/src/shared/components/Text";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/src/shared/components/Button";
@@ -26,6 +26,7 @@ type FormState = {
   address: string;
   planId: string | null;
   startDate: string;
+  isRegular: boolean;
 };
 
 export function CustomerFormSheet({ visible, customer, onDismiss }: Props) {
@@ -41,6 +42,7 @@ export function CustomerFormSheet({ visible, customer, onDismiss }: Props) {
     address: "",
     planId: null,
     startDate: "",
+    isRegular: true,
   });
 
   useEffect(() => {
@@ -51,6 +53,7 @@ export function CustomerFormSheet({ visible, customer, onDismiss }: Props) {
         address: customer?.address ?? "",
         planId: customer?.planId ?? null,
         startDate: customer?.startDate ?? "",
+        isRegular: customer?.isRegular ?? true,
       });
       clearError();
       getPlans();
@@ -67,6 +70,7 @@ export function CustomerFormSheet({ visible, customer, onDismiss }: Props) {
       address: form.address || null,
       planId: form.planId,
       startDate: form.startDate,
+      isRegular: form.isRegular,
     };
     if (customer) {
       await updateCustomer(customer.id, payload);
@@ -163,6 +167,22 @@ export function CustomerFormSheet({ visible, customer, onDismiss }: Props) {
             nullLabel={t("common.no_plan")}
             nullSublabel={t("customers.custom_plan_sublabel")}
           />
+
+          {/* Regular customer toggle */}
+          <View className="flex-row items-center justify-between py-3 border-t border-gray-100 mb-4">
+            <View className="flex-1 me-4">
+              <Text fontWeight="SemiBold" className="text-sm text-gray-900">
+                {t("customers.regular_label")}
+              </Text>
+              <Text className="text-xs text-gray-400 mt-0.5">
+                {t("customers.regular_hint")}
+              </Text>
+            </View>
+            <Switch
+              value={form.isRegular}
+              onValueChange={(v) => setForm((prev) => ({ ...prev, isRegular: v }))}
+            />
+          </View>
 
           <Button
             label={

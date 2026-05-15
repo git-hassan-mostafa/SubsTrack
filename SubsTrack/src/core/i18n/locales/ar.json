@@ -87,7 +87,10 @@
     "deactivate_title": "تعطيل العميل",
     "deactivate_message": "هل أنت متأكد من تعطيل الزبون{{name}}؟ سيُحدَّد كغير نشط.",
     "reactivate_title": "إعادة تفعيل العميل",
-    "reactivate_message": "هل أنت متأكد من إعادة تفعيل {{name}}؟"
+    "reactivate_message": "هل أنت متأكد من إعادة تفعيل {{name}}؟",
+    "non_regular": "غير منتظم",
+    "regular_label": "عميل منتظم",
+    "regular_hint": "العملاء المنتظمون مطلوب منهم الدفع كل شهر"
   },
   "plans": {
     "title": "الخطط",

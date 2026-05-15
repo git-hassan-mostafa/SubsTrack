@@ -86,7 +86,10 @@
     "deactivate_title": "Deactivate Customer",
     "deactivate_message": "Are you sure you want to deactivate Customer {{name}}? They will be marked as inactive.",
     "reactivate_title": "Reactivate Customer",
-    "reactivate_message": "Are you sure you want to reactivate {{name}}?"
+    "reactivate_message": "Are you sure you want to reactivate {{name}}?",
+    "non_regular": "Non-Regular",
+    "regular_label": "Regular Customer",
+    "regular_hint": "Regular customers are expected to pay every month"
   },
   "plans": {
     "title": "Plans",

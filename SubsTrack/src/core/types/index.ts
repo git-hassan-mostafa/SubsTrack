@@ -59,6 +59,7 @@ export interface Customer {
   phoneNumber: string | null;
   address: string | null;
   active: boolean;
+  isRegular: boolean;
   planId: string | null;
   tenantId: string;
   startDate: string;

@@ -332,7 +332,29 @@ Both admin and user roles can perform all customer operations.
 
 #### Customer list display
 
-Each row shows: customer name, plan name (or "No plan"), unpaid month count for current year, active/inactive badge.
+Each row shows: customer name, plan name (or "No plan"), and a status badge. Badge rules:
+- Inactive → gray "Inactive"
+- Active, non-regular → amber "Non-Regular" (replaces paid/unpaid badge)
+- Active, regular, paid this month → green "✓ Paid"
+- Active, regular, unpaid this month → red "Unpaid"
+
+The "Unpaid" tab and its count only include **regular** active customers with no payment for the current month.
+
+#### Regular vs Non-Regular customers
+
+Customers have an `is_regular` boolean (default `true`).
+
+| | Regular | Non-Regular |
+|-|---------|-------------|
+| Missing payment | Appears as "Unpaid" | No overdue indicator |
+| Unpaid tab | Included | Excluded |
+| Payment grid — paid cell | Green | Yellow |
+| Payment grid — unpaid cell | Red | Gray |
+| Unpaid banner (detail screen) | Shown | Hidden |
+| Dashboard unpaid count | Included | Excluded |
+| Payment recording | Available for any month | Available for any month |
+
+Toggle is set in the customer form (on by default). Existing customers default to regular.
 
 #### Edge cases
 
@@ -340,6 +362,7 @@ Each row shows: customer name, plan name (or "No plan"), unpaid month count for 
 - Plan changed mid-year → does not retroactively change existing payment amounts (snapshots)
 - Future start_date → months before start_date show as FUTURE regardless of status logic
 - Inactive customer → payment recording still allowed (may need to catch up arrears)
+- Non-regular customer → all unpaid month cells are gray (not red); no unpaid banner; excluded from unpaid counts
 
 ---
 

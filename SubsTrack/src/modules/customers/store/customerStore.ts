@@ -8,6 +8,7 @@ interface CustomerInput {
   address: string | null;
   planId: string | null;
   startDate: string;
+  isRegular: boolean;
 }
 
 interface CustomersState {

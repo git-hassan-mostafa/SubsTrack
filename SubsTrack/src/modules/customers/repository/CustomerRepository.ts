@@ -13,6 +13,7 @@ type CreateCustomerPayload = Pick<
   | 'tenant_id'
   | 'start_date'
   | 'active'
+  | 'is_regular'
   | 'cancelled_at'
 >;
 
@@ -59,7 +60,7 @@ export class CustomerRepository extends BaseRepository {
 
   async update(
     id: string,
-    payload: Partial<Pick<DbCustomer, 'name' | 'phone_number' | 'address' | 'plan_id' | 'start_date'>>,
+    payload: Partial<Pick<DbCustomer, 'name' | 'phone_number' | 'address' | 'plan_id' | 'start_date' | 'is_regular'>>,
   ): Promise<CustomerWithPlan> {
     const { data, error } = await this.db
       .from('customers')
@@ -124,7 +125,8 @@ export class CustomerRepository extends BaseRepository {
     const { data: active, error: cErr } = await this.db
       .from('customers')
       .select('id')
-      .eq('active', true);
+      .eq('active', true)
+      .eq('is_regular', true);
     if (cErr) this.handleError(cErr);
 
     return (active ?? []).filter((c: { id: string }) => !paidIds.has(c.id)).length;

@@ -24,6 +24,7 @@ function mapDbCustomerToCustomer(db: DbCustomerWithPlan): Customer {
     phoneNumber: db.phone_number,
     address: db.address,
     active: db.active,
+    isRegular: db.is_regular,
     planId: db.plan_id,
     tenantId: db.tenant_id,
     startDate: db.start_date,
@@ -36,7 +37,7 @@ function mapDbCustomerToCustomer(db: DbCustomerWithPlan): Customer {
 
 type CustomerInput = Pick<
   Customer,
-  "name" | "phoneNumber" | "address" | "planId" | "startDate"
+  "name" | "phoneNumber" | "address" | "planId" | "startDate" | "isRegular"
 >;
 
 export class CustomerService {
@@ -75,6 +76,7 @@ export class CustomerService {
       tenant_id: tenantId,
       start_date: data.startDate,
       active: true,
+      is_regular: data.isRegular,
       cancelled_at: null,
     });
     return mapDbCustomerToCustomer(row);
@@ -88,6 +90,7 @@ export class CustomerService {
       address: data.address?.trim() || null,
       plan_id: data.planId,
       start_date: data.startDate,
+      is_regular: data.isRegular,
     });
     return mapDbCustomerToCustomer(row);
   }
