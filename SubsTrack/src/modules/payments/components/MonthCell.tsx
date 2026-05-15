@@ -58,6 +58,7 @@ export const MonthCell = memo(function MonthCell({ entry, onPress, isRegular }: 
       : textColor[entry.status];
 
   const sublabel = (() => {
+    if (entry.status === "paid" && entry.isGroupSecondary) return t("payments.included_label");
     if (entry.status === "paid") return t("common.paid");
     if (isCurrentMonth) return t("payments.this_month").toUpperCase();
     return null;
@@ -74,6 +75,10 @@ export const MonthCell = memo(function MonthCell({ entry, onPress, isRegular }: 
         <Text className={`text-[8px] font-semibold mt-0.5 ${labelColor}`}>
           {sublabel ?? " "}
         </Text>
+        {/* Block indicator dot for secondary months */}
+        {entry.isGroupSecondary ? (
+          <View className="absolute top-1 end-1 w-1.5 h-1.5 rounded-full bg-white opacity-70" />
+        ) : null}
       </View>
     </Pressable>
   );

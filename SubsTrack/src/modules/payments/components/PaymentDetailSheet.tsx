@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import type { MonthEntry } from "@/src/core/types";
 import { formatDate } from "@/src/core/utils/date";
 import { COLORS } from "@/src/shared/constants";
+import { getBlockRangeLabel } from "../utils/blockRangeLabel";
 
 interface Props {
   visible: boolean;
@@ -14,6 +15,7 @@ interface Props {
   editLoading?: boolean;
   onDismiss: () => void;
 }
+
 
 export function PaymentDetailSheet({
   visible,
@@ -60,9 +62,15 @@ export function PaymentDetailSheet({
   })();
 
   const receiptId = payment ? payment.id.slice(-6).toUpperCase() : "—";
-  const monthYear = entry?.label
-    ? `${t(`months.${entry.label}`)} ${entry.year}`
+
+  const isMultiMonth = (payment?.durationMonths ?? 1) > 1;
+  const blockRangeLabel = payment
+    ? getBlockRangeLabel(payment.billingMonth, payment.durationMonths, t)
     : "";
+
+  const voidLabel = isMultiMonth
+    ? t("payments.void_entire_block")
+    : t("payments.void_this_payment");
 
   return (
     <Modal
@@ -78,7 +86,7 @@ export function PaymentDetailSheet({
         </View>
         <View className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
           <Text fontWeight="Bold" className="text-lg text-gray-900">
-            {t("payments.receipt_title")}
+            {isMultiMonth ? t("payments.block_receipt_title") : t("payments.receipt_title")}
           </Text>
           <Pressable onPress={handleDismiss}>
             <Text className="text-base text-primary font-medium">
@@ -99,8 +107,15 @@ export function PaymentDetailSheet({
               ${payment?.amount.toFixed(2) ?? "—"}
             </Text>
             <Text className="text-sm text-gray-400 mt-1">
-              {t("payments.paid_in_full", { monthYear })}
+              {t("payments.paid_in_full", { monthYear: blockRangeLabel })}
             </Text>
+            {isMultiMonth ? (
+              <View className="mt-2 bg-green-100 rounded-full px-3 py-1">
+                <Text className="text-xs text-green-700 font-semibold">
+                  {t("payments.block_months_label", { count: payment?.durationMonths })}
+                </Text>
+              </View>
+            ) : null}
           </View>
 
           {/* Detail rows */}
@@ -117,8 +132,8 @@ export function PaymentDetailSheet({
             </View>
           ) : null}
 
-          {/* Edit amount */}
-          {onEdit && !editMode ? (
+          {/* Edit amount — only for non-multi-month payments */}
+          {onEdit && !isMultiMonth && !editMode ? (
             <Pressable
               onPress={handleOpenEdit}
               className="border border-primary rounded-xl py-3 items-center mb-3"
@@ -129,7 +144,7 @@ export function PaymentDetailSheet({
             </Pressable>
           ) : null}
 
-          {onEdit && editMode ? (
+          {onEdit && !isMultiMonth && editMode ? (
             <View className="mb-3">
               <Text className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
                 {t("payments.amount_label")}
@@ -173,9 +188,7 @@ export function PaymentDetailSheet({
               onPress={onVoid}
               className="border border-red-300 rounded-xl py-3.5 items-center"
             >
-              <Text className="text-red-500 font-semibold">
-                {t("payments.void_this_payment")}
-              </Text>
+              <Text className="text-red-500 font-semibold">{voidLabel}</Text>
             </Pressable>
           ) : null}
         </View>

@@ -87,6 +87,9 @@ CREATE TABLE IF NOT EXISTS plans (
     name            TEXT          NOT NULL,
     price           NUMERIC(12,2) CHECK (price IS NULL OR price > 0),
     is_custom_price BOOLEAN       NOT NULL DEFAULT FALSE,
+    -- Number of months this plan covers per payment (1 = monthly, 3 = quarterly, etc.)
+    -- Multi-month plans must have a fixed bundle price (is_custom_price must be FALSE).
+    duration_months INTEGER       NOT NULL DEFAULT 1 CHECK (duration_months >= 1),
     tenant_id       UUID          NOT NULL,
     created_at      TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
 
@@ -97,6 +100,10 @@ CREATE TABLE IF NOT EXISTS plans (
             OR
             (is_custom_price = TRUE AND price IS NULL)
         ),
+
+    -- Multi-month plans cannot have custom pricing (bundle price must be fixed).
+    CONSTRAINT chk_multi_month_requires_fixed_price
+        CHECK (duration_months = 1 OR is_custom_price = FALSE),
 
     CONSTRAINT fk_plans_tenant
         FOREIGN KEY (tenant_id)
@@ -187,6 +194,10 @@ CREATE TABLE IF NOT EXISTS payments (
 
     -- Snapshot of the amount at time of payment. Never changes after insert.
     amount              NUMERIC(12,2) NOT NULL CHECK (amount > 0),
+
+    -- Number of consecutive months this payment covers (1 = single month, 3 = Jan+Feb+Mar, etc.)
+    -- billing_month is always the FIRST month of the block.
+    duration_months     INTEGER       NOT NULL DEFAULT 1 CHECK (duration_months >= 1),
 
     customer_id         UUID          NOT NULL,
     plan_id             UUID,

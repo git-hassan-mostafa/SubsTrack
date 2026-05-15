@@ -108,7 +108,12 @@
     "custom_pricing_hint": "يدخل الموظف المبلغ عند كل دفعة",
     "price_label": "السعر",
     "price_placeholder": "0.00",
-    "per_month": "شهرياً"
+    "per_month": "شهرياً",
+    "duration_label": "المدة",
+    "monthly": "شهري",
+    "n_months": "{{count}} أشهر",
+    "bundle_price_label": "سعر الباقة",
+    "bundle_price_hint": "السعر الإجمالي لجميع أشهر هذه الباقة"
   },
   "users": {
     "title": "الموظفون",
@@ -170,7 +175,18 @@
     "inactive_customer_future": "لا يمكن تسجيل دفعات مستقبلية لعملاء غير نشطين",
     "edit_amount": "تعديل المبلغ",
     "before_start_date": "هذا الشهر سابق لتاريخ بدء العميل. لا يمكن تسجيل دفعة هنا.",
-    "inactive_future_blocked": "هذا العميل غير نشط. لا يمكن تسجيل دفعات للأشهر المستقبلية لعملاء غير نشطين."
+    "inactive_future_blocked": "هذا العميل غير نشط. لا يمكن تسجيل دفعات للأشهر المستقبلية لعملاء غير نشطين.",
+    "included_label": "مضمّن",
+    "bundle_price_label": "سعر الباقة · يشمل جميع الأشهر",
+    "block_receipt_title": "إيصال الباقة",
+    "block_months_label": "باقة {{count}} أشهر",
+    "void_entire_block": "إلغاء الباقة بأكملها",
+    "void_block_title": "إلغاء الباقة؟",
+    "void_block_warning": "سيُعتبر {{blockRange}} غير مدفوع. يبقى السجل الأصلي في سجل التدقيق — لا يمكن التراجع عن الإبطال.",
+    "void_block_confirm": "إلغاء الباقة",
+    "block_conflict_title": "بعض الأشهر مدفوعة بالفعل",
+    "block_conflict_message": "{{months}} مدفوعة بالفعل وسيتم تخطيها.",
+    "block_conflict_proceed": "المتابعة (تخطي هذه الأشهر)"
   },
   "months": {
     "jan": "يناير",

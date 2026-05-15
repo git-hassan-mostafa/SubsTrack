@@ -1,11 +1,12 @@
 import { create } from "zustand";
-import type { Customer, MonthEntry, Payment } from "@/src/core/types";
+import type { Customer, MonthEntry, Payment, Plan } from "@/src/core/types";
 import { getCurrentYearMonth, toBillingMonth } from "@/src/core/utils/date";
-import { PaymentService } from "../services/PaymentService";
+import { PaymentService, type MultiMonthConflict } from "../services/PaymentService";
 
 interface CreatePaymentInput {
   billingMonth: string;
   amount: number;
+  durationMonths: number;
   customerId: string;
   planId: string | null;
   receivedByUserId: string | null;
@@ -34,6 +35,17 @@ interface PaymentsState {
     customer: Customer,
     graceDays: number,
   ) => Promise<void>;
+  createMultiMonthPayment: (
+    startMonth: string,
+    customer: Customer,
+    plan: Plan,
+    receivedByUserId: string,
+    notes: string | null,
+    tenantId: string,
+    skipConflicts: boolean,
+    year: number,
+    graceDays: number,
+  ) => Promise<MultiMonthConflict[]>;
   updatePaymentAmount: (
     id: string,
     amount: number,
@@ -92,14 +104,11 @@ export const usePaymentStore = create<PaymentsState>((set, get) => ({
   },
 
   createPayment: async (data, customer, graceDays) => {
-    if (get().loadingCreate) return; // in-flight guard
+    if (get().loadingCreate) return;
     set({ loadingCreate: true, error: null });
     try {
       const payment = await paymentService.createPayment(data);
-      const { year } = (() => {
-        const [y] = data.billingMonth.split("-").map(Number);
-        return { year: y };
-      })();
+      const [year] = data.billingMonth.split("-").map(Number);
       const payments = [...get().payments, payment];
       const monthGrid = paymentService.buildMonthGrid(
         customer,
@@ -118,6 +127,59 @@ export const usePaymentStore = create<PaymentsState>((set, get) => ({
       }));
     } catch (e) {
       set({ error: (e as Error).message, loadingCreate: false });
+    }
+  },
+
+  createMultiMonthPayment: async (
+    startMonth,
+    customer,
+    plan,
+    receivedByUserId,
+    notes,
+    tenantId,
+    skipConflicts,
+    year,
+    graceDays,
+  ) => {
+    if (get().loadingCreate) return [];
+    set({ loadingCreate: true, error: null });
+    try {
+      const { payment, skippedMonths } = await paymentService.createMultiMonthPayment(
+        startMonth,
+        customer,
+        plan,
+        receivedByUserId,
+        notes,
+        tenantId,
+        get().payments,
+        skipConflicts,
+      );
+      const payments = [...get().payments, payment];
+      const monthGrid = paymentService.buildMonthGrid(customer, payments, year, graceDays);
+      const { year: cy, month: cm } = getCurrentYearMonth();
+      const currentBillingMonth = toBillingMonth(cy, cm);
+      // Check if the new payment covers the current month.
+      const [pYear, pMonthNum] = payment.billingMonth.split("-").map(Number);
+      let coversCurrentMonth = false;
+      for (let d = 0; d < payment.durationMonths; d++) {
+        const date = new Date(pYear, pMonthNum - 1 + d, 1);
+        if (toBillingMonth(date.getFullYear(), date.getMonth() + 1) === currentBillingMonth) {
+          coversCurrentMonth = true;
+          break;
+        }
+      }
+      set((state) => ({
+        payments,
+        monthGrid,
+        loadingCreate: false,
+        currentMonthPaidIds: coversCurrentMonth
+          ? new Set([...state.currentMonthPaidIds, customer.id])
+          : state.currentMonthPaidIds,
+      }));
+      return skippedMonths;
+    } catch (e) {
+      set({ error: (e as Error).message, loadingCreate: false });
+      return [];
     }
   },
 
@@ -153,13 +215,24 @@ export const usePaymentStore = create<PaymentsState>((set, get) => ({
         graceDays,
       );
       const { year: cy, month: cm } = getCurrentYearMonth();
-      const isCurrentMonth =
-        paymentToVoid?.billingMonth === toBillingMonth(cy, cm);
+      const currentBillingMonth = toBillingMonth(cy, cm);
+      // Check if the voided payment covered the current month.
+      let voideCurrentMonth = false;
+      if (paymentToVoid) {
+        const [pYear, pMonthNum] = paymentToVoid.billingMonth.split("-").map(Number);
+        for (let d = 0; d < paymentToVoid.durationMonths; d++) {
+          const date = new Date(pYear, pMonthNum - 1 + d, 1);
+          if (toBillingMonth(date.getFullYear(), date.getMonth() + 1) === currentBillingMonth) {
+            voideCurrentMonth = true;
+            break;
+          }
+        }
+      }
       set((state) => ({
         payments,
         monthGrid,
         loadingVoid: false,
-        currentMonthPaidIds: isCurrentMonth
+        currentMonthPaidIds: voideCurrentMonth
           ? new Set(
               [...state.currentMonthPaidIds].filter(
                 (pid) => pid !== customer.id,

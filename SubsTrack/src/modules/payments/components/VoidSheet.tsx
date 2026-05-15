@@ -7,6 +7,7 @@ import type { Customer, MonthEntry } from "@/src/core/types";
 import { useAuth } from "@/src/modules/auth/hooks/useAuth";
 import { usePaymentStore } from "../store/paymentStore";
 import { COLORS } from "@/src/shared/constants";
+import { getBlockRangeLabel } from "../utils/blockRangeLabel";
 
 interface Props {
   visible: boolean;
@@ -16,6 +17,7 @@ interface Props {
   graceDays: number;
   onDismiss: () => void;
 }
+
 
 export function VoidSheet({
   visible,
@@ -52,15 +54,30 @@ export function VoidSheet({
     onDismiss();
   }
 
-  const monthLabel = entry?.label ? t(`months.${entry.label}`) : "";
-  const monthYear = `${monthLabel} ${entry?.year ?? ""}`.trim();
+  const payment = entry?.payment;
+  const isMultiMonth = (payment?.durationMonths ?? 1) > 1;
+
+  const blockRangeLabel = payment
+    ? getBlockRangeLabel(payment.billingMonth, payment.durationMonths, t)
+    : (() => {
+        const monthLabel = entry?.label ? t(`months.${entry.label}`) : "";
+        return `${monthLabel} ${entry?.year ?? ""}`.trim();
+      })();
+
+  const title = isMultiMonth
+    ? t("payments.void_block_title")
+    : t("payments.void_payment");
+
+  const message = isMultiMonth
+    ? t("payments.void_block_warning", { blockRange: blockRangeLabel })
+    : t("payments.void_warning", { monthYear: blockRangeLabel });
 
   return (
     <ConfirmDialog
       visible={visible}
-      title={t("payments.void_payment")}
-      message={t("payments.void_warning", { monthYear })}
-      confirmLabel={loadingVoid ? "..." : t("payments.void_payment")}
+      title={title}
+      message={message}
+      confirmLabel={loadingVoid ? "..." : isMultiMonth ? t("payments.void_block_confirm") : t("payments.void_payment")}
       destructive
       confirmDisabled={!reason.trim() || loadingVoid}
       onConfirm={handleConfirm}

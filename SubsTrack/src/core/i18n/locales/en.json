@@ -107,7 +107,12 @@
     "price_label": "Price",
     "price_placeholder": "0.00",
     "per_month": "Per month",
-    "no_plans_hint": "Tap \"+ New Plan\" to create one"
+    "no_plans_hint": "Tap \"+ New Plan\" to create one",
+    "duration_label": "Duration",
+    "monthly": "Monthly",
+    "n_months": "{{count}}mo",
+    "bundle_price_label": "Bundle Price",
+    "bundle_price_hint": "Total price for all months in this block"
   },
   "users": {
     "title": "Staff",
@@ -169,7 +174,18 @@
     "inactive_customer_future": "Cannot record future payments for inactive customers",
     "edit_amount": "Edit Amount",
     "before_start_date": "This month is before the customer's start date. No payment can be recorded here.",
-    "inactive_future_blocked": "This customer is inactive. Future month payments cannot be recorded for inactive customers."
+    "inactive_future_blocked": "This customer is inactive. Future month payments cannot be recorded for inactive customers.",
+    "included_label": "INCL.",
+    "bundle_price_label": "Bundle price · covers all months",
+    "block_receipt_title": "Block Receipt",
+    "block_months_label": "{{count}}-month block",
+    "void_entire_block": "Void Entire Block",
+    "void_block_title": "Void Block?",
+    "void_block_warning": "{{blockRange}} will be marked unpaid. The original record stays in the audit log — voids cannot be undone.",
+    "void_block_confirm": "Void Block",
+    "block_conflict_title": "Some months already paid",
+    "block_conflict_message": "{{months}} already paid and will be skipped.",
+    "block_conflict_proceed": "Proceed (skip those months)"
   },
   "months": {
     "jan": "Jan",

@@ -44,7 +44,11 @@ export function PlanCard({ plan, onEdit, onDelete }: Props) {
             <Text fontWeight="Bold" className="text-base text-gray-900">
               ${plan.price}
             </Text>
-            <Text className="text-xs text-gray-400">{t("plans.per_month")}</Text>
+            <Text className="text-xs text-gray-400">
+              {plan.durationMonths > 1
+                ? t("plans.n_months", { count: plan.durationMonths })
+                : t("plans.per_month")}
+            </Text>
           </>
         )}
       </View>
