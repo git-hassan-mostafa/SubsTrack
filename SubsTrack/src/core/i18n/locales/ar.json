@@ -186,7 +186,8 @@
     "void_block_confirm": "إلغاء الباقة",
     "block_conflict_title": "بعض الأشهر مدفوعة بالفعل",
     "block_conflict_message": "{{months}} مدفوعة بالفعل وسيتم تخطيها.",
-    "block_conflict_proceed": "المتابعة (تخطي هذه الأشهر)"
+    "block_conflict_proceed": "المتابعة (تخطي هذه الأشهر)",
+    "per_n_months": "/ {{count}} أشهر"
   },
   "months": {
     "jan": "يناير",

@@ -185,7 +185,8 @@
     "void_block_confirm": "Void Block",
     "block_conflict_title": "Some months already paid",
     "block_conflict_message": "{{months}} already paid and will be skipped.",
-    "block_conflict_proceed": "Proceed (skip those months)"
+    "block_conflict_proceed": "Proceed (skip those months)",
+    "per_n_months": "/ {{count}} months"
   },
   "months": {
     "jan": "Jan",
