@@ -89,8 +89,8 @@ export const MonthCell = memo(function MonthCell({
 
   let roundClass: string;
   if (leftSquare && rightSquare) roundClass = "rounded-none";
-  else if (leftSquare) roundClass = "rounded-e-xl";
-  else if (rightSquare) roundClass = "rounded-s-xl";
+  else if (leftSquare) roundClass = "rounded-tr-xl rounded-br-xl";
+  else if (rightSquare) roundClass = "rounded-tl-xl rounded-bl-xl";
   else roundClass = "rounded-xl";
 
   return (
