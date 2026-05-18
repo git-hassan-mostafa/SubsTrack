@@ -23,7 +23,6 @@ function getInitials(name: string): string {
   return name.slice(0, 2).toUpperCase();
 }
 
-
 interface Props {
   visible: boolean;
   entry: MonthEntry | null;
@@ -59,7 +58,13 @@ export function PaymentFormSheet({
 }: Props) {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const { createPayment, createMultiMonthPayment, loadingCreate, error, clearError } = usePaymentStore();
+  const {
+    createPayment,
+    createMultiMonthPayment,
+    loadingCreate,
+    error,
+    clearError,
+  } = usePaymentStore();
 
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
 
@@ -82,7 +87,9 @@ export function PaymentFormSheet({
     for (let d = 0; d < plan.durationMonths; d++) {
       const date = new Date(entry.year, entry.month - 1 + d, 1);
       const bm = toBillingMonth(date.getFullYear(), date.getMonth() + 1);
-      const gridEntry = monthGrid.find((m) => m.billingMonth === bm);
+      const gridEntry = monthGrid.find(
+        (m) => m.billingMonth === bm && date.getFullYear() === m.year,
+      );
       if (gridEntry?.status === "paid") {
         conflicts.push(t(`months.${MONTHS[date.getMonth()]}`));
       }
@@ -155,9 +162,14 @@ export function PaymentFormSheet({
 
   const avatarColor = getAvatarColor(customer.name);
 
-  const blockRangeLabel = isMultiMonth && plan
-    ? getBlockRangeLabel(toBillingMonth(entry.year, entry.month), plan.durationMonths, t)
-    : t(`months.${entry.label}`) + " " + entry.year;
+  const blockRangeLabel =
+    isMultiMonth && plan
+      ? getBlockRangeLabel(
+          toBillingMonth(entry.year, entry.month),
+          plan.durationMonths,
+          t,
+        )
+      : t(`months.${entry.label}`) + " " + entry.year;
 
   return (
     <Modal
@@ -210,7 +222,9 @@ export function PaymentFormSheet({
                 })}
               </Text>
               <Pressable
-                onPress={() => setForm((prev) => ({ ...prev, conflictConfirmed: true }))}
+                onPress={() =>
+                  setForm((prev) => ({ ...prev, conflictConfirmed: true }))
+                }
                 className="mt-2 bg-amber-100 border border-amber-300 rounded-lg px-3 py-2 self-start"
               >
                 <Text className="text-sm font-semibold text-amber-800">
