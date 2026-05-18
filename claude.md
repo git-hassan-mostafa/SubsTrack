@@ -1,4 +1,10 @@
-<!-- Do not re-explore the codebase at the start of new sessions. Treat CLAUDE.md as the source of truth for project context and start from it directly. -->
+## Cluade aknowledgment instructions
+
+- Do not re-explore the codebase at the start of new sessions. Treat CLAUDE.md as the source of truth for project context and start from it directly.
+- Whenever any architecture or context changed in this project directly update the CLAUDE.md to reflect it.
+- After the first message of each conversation say "Hello From CLAUDE.md, This message is to let you know that i am taking instructions from CLAUDE.md file successfully.", so i know you are reading from ClAUDE.md
+
+---
 
 ## Project Overview
 
@@ -271,6 +277,7 @@ interface Plan {
   name;
   price;
   isCustomPrice;
+  durationMonths;  // 1–12; how many consecutive months the plan covers
   tenantId;
   createdAt;
 }
@@ -280,6 +287,7 @@ interface Customer {
   phoneNumber;
   address;
   active;
+  isRegular;  // true = subscription customer (affects grid colors, unpaid counts); false = occasional
   planId;
   tenantId;
   startDate;
@@ -292,6 +300,7 @@ interface Payment {
   id;
   billingMonth;
   amount;
+  durationMonths;  // how many consecutive months this payment covers (≥ 1)
   customerId;
   planId;
   receivedByUserId;
@@ -309,6 +318,7 @@ interface MonthEntry {
   billingMonth;
   status: MonthStatus;
   payment: Payment | null;
+  isGroupSecondary: boolean;  // true for months 2+ covered by a multi-month payment
 }
 interface DashboardMetrics {
   totalCustomers;
@@ -331,9 +341,9 @@ interface DashboardMetrics {
 | `tenants`    | `id`, `name`, `tenant_code`, `active`                                                                                                                    |
 | `saas_tiers` | `id`, `name`, `max_users`, `max_customers`, `price`, `grace_days`, `tenant_id`                                                                           |
 | `users`      | `id` (= auth.users.id), `username`, `full_name`, `phone_number`, `role`, `active`, `tenant_id`                                                           |
-| `plans`      | `id`, `name`, `price`, `is_custom_price`, `tenant_id`                                                                                                    |
-| `customers`  | `id`, `name`, `phone_number`, `address`, `active`, `plan_id`, `tenant_id`, `start_date`, `cancelled_at`                                                  |
-| `payments`   | `id`, `billing_month` (YYYY-MM-01), `amount`, `customer_id`, `plan_id`, `received_by_user_id`, `tenant_id`, `paid_at`, `voided_at`, `voided_by`, `notes` |
+| `plans`      | `id`, `name`, `price`, `is_custom_price`, `duration_months`, `tenant_id`                                                                                 |
+| `customers`  | `id`, `name`, `phone_number`, `address`, `active`, `is_regular`, `plan_id`, `tenant_id`, `start_date`, `cancelled_at`                                    |
+| `payments`   | `id`, `billing_month` (YYYY-MM-01), `amount`, `duration_months`, `customer_id`, `plan_id`, `received_by_user_id`, `tenant_id`, `paid_at`, `voided_at`, `voided_by`, `notes` |
 
 **Key constraints:**
 
@@ -385,15 +395,51 @@ app/(app)/_layout.tsx
 ```
 Status algorithm per month:
 1. month < customer.startDate          → "before_start" (gray, non-tappable)
-2. payment exists AND voidedAt === null → "paid" (green)
+2. payment exists AND voidedAt === null → "paid" (green for regular, yellow for non-regular)
 3. month is in the future              → "future" (gray)
 4. now ≤ first-of-month + graceDays    → "future" (gray, within grace window)
-5. otherwise                           → "unpaid" (red)
+5. otherwise                           → "unpaid" (red for regular, light gray for non-regular)
 ```
 
 - Months are **never stored in DB** — generated dynamically from the payment list for a given year.
 - Voided payments are invisible to the grid (treated as non-existent).
 - `graceDays` comes from `SaasTier` (fetched during auth flow).
+- Multi-month payments build a **coverage map**: each payment with `durationMonths > 1` covers consecutive months. Months 2+ in a block have `isGroupSecondary = true` and display "Included" instead of "Paid".
+- `customer.isRegular` controls grid cell colors and unpaid banner visibility.
+
+## Multi-Month Plans
+
+Plans can cover 1–12 consecutive months. When `durationMonths > 1`:
+
+- The plan represents a **bundled price** for the entire period (not per-month).
+- Multi-month plans **must have a fixed price** — `isCustomPrice` must be `false`.
+- A single `Payment` record is created with `durationMonths` matching the plan. That payment covers all months in the range.
+
+**Recording a multi-month payment (`PaymentService.createMultiMonthPayment()`):**
+
+1. Builds a coverage set from existing active payments to detect conflicts.
+2. If any months in the proposed range are already paid:
+   - With `skipConflicts = false` → throws an error listing the conflicting months.
+   - With `skipConflicts = true` → finds the first uncovered month, adjusts `effectiveStart` and `effectiveDuration`, records a single payment for the remaining range.
+3. Returns `{ payment, skippedMonths }` so the UI can surface conflict info.
+
+**Return types:**
+```typescript
+type MultiMonthConflict = { billingMonth: string; label: string };
+type CreateMultiMonthPaymentResult = { payment: Payment; skippedMonths: MultiMonthConflict[] };
+```
+
+## Regular Customer
+
+`Customer.isRegular` (default `true`) distinguishes subscription customers from occasional ones.
+
+| Behavior                  | Regular (`isRegular = true`)       | Non-regular (`isRegular = false`) |
+| ------------------------- | ---------------------------------- | ---------------------------------- |
+| Paid cell color           | Green                              | Yellow/Gold                        |
+| Unpaid cell color         | Red                                | Light gray                         |
+| Unpaid banner shown       | Yes (current month, if unpaid)     | No                                 |
+| Counted in "unpaid" tab   | Yes                                | No                                 |
+| Dashboard `unpaidThisMonth` | Counted                          | Excluded                           |
 
 ---
 
@@ -434,11 +480,12 @@ export const useFeatureStore = create<FeatureState>((set, get) => ({
 
 ## Payment Scenarios
 
-| Scenario     | Condition                            | Amount field                            |
-| ------------ | ------------------------------------ | --------------------------------------- |
-| A — Fixed    | Plan exists, `isCustomPrice = false` | Pre-filled with `plan.price`, read-only |
-| B — Override | Same as A, user toggles override     | Radio: "Plan price" or "Custom amount"  |
-| C — Custom   | `isCustomPrice = true`, or no plan   | Amount input required, no default       |
+| Scenario        | Condition                                          | Amount field                                       |
+| --------------- | -------------------------------------------------- | -------------------------------------------------- |
+| A — Fixed       | Plan exists, `isCustomPrice = false`, `durationMonths = 1` | Pre-filled with `plan.price`, read-only   |
+| B — Override    | Same as A, user toggles override                   | Radio: "Plan price" or "Custom amount"             |
+| C — Custom      | `isCustomPrice = true`, or no plan                 | Amount input required, no default                  |
+| D — Multi-month | Plan exists, `isCustomPrice = false`, `durationMonths > 1` | Pre-filled with `plan.price` (bundle), read-only; calls `createMultiMonthPayment()` |
 
 Payments have **no update operation** — wrong payments are voided, then a new correct one is created.
 
@@ -500,6 +547,16 @@ Located at `SubsTrack/supabase/functions/create-user/index.ts` (Deno runtime).
 11. **Cairo font for Arabic** — loaded via `expo-font` at root layout; `useAppFont` hook applies it. The custom `Text` component selects font family per current language.
 
 12. **`billing_month` is always YYYY-MM-01** — the first day of the month, always. Validated in PaymentService before insert.
+
+13. **Multi-month payments store the bundle price, not per-month** — `payment.amount` is the total bundle price. The `durationMonths` field on the payment record tells the grid how many consecutive months are covered from `billingMonth` forward.
+
+14. **`isGroupSecondary` flag in MonthEntry** — months 2+ in a multi-month payment block have `isGroupSecondary = true`. The grid uses this for visual merging (no gap between cells, "Included" sublabel) and to prevent double-tapping secondary months.
+
+15. **Multi-month conflict resolution** — `createMultiMonthPayment` shifts `effectiveStart` and reduces `effectiveDuration` when leading months are already paid. The recorded payment starts at the first uncovered month, not the requested start, and covers only the remaining months in the original block.
+
+16. **Non-regular customers never appear in unpaid counts** — dashboard `unpaidThisMonth` and the "Unpaid" tab filter only query regular (`is_regular = true`) active customers. Non-regular customers can still have payments recorded normally.
+
+17. **EmptyState first-data button** — `EmptyState` accepts an optional `onAction` + `actionLabel` prop. Lists (plans, customers, users) pass these to render a "Create First X" button when the list is empty and the user is not actively searching.
 
 ---
 
