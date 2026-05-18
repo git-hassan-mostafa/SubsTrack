@@ -185,6 +185,8 @@ export function CustomerListScreen() {
                   ? t("customers.no_search_results")
                   : t("customers.no_customers_hint")
               }
+              actionLabel={!debouncedSearch ? t("customers.create_first_customer") : undefined}
+              onAction={!debouncedSearch ? () => setFormVisible(true) : undefined}
             />
           }
         />

@@ -10,6 +10,7 @@ import type { DropdownOption } from "@/src/shared/components/Dropdown";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { Input } from "@/src/shared/components/Input";
 import type { Customer, Plan } from "@/src/core/types";
+import { getTodayDateString } from "@/src/core/utils/date";
 import { useAuth } from "@/src/modules/auth/hooks/useAuth";
 import { usePlanStore } from "@/src/modules/plans/store/planStore";
 import { useCustomerStore } from "../store/customerStore";
@@ -41,7 +42,7 @@ export function CustomerFormSheet({ visible, customer, onDismiss }: Props) {
     phoneNumber: "",
     address: "",
     planId: null,
-    startDate: "",
+    startDate: getTodayDateString(),
     isRegular: true,
   });
 
@@ -52,7 +53,7 @@ export function CustomerFormSheet({ visible, customer, onDismiss }: Props) {
         phoneNumber: customer?.phoneNumber ?? "",
         address: customer?.address ?? "",
         planId: customer?.planId ?? null,
-        startDate: customer?.startDate ?? "",
+        startDate: customer?.startDate ?? getTodayDateString(),
         isRegular: customer?.isRegular ?? true,
       });
       clearError();
@@ -85,7 +86,7 @@ export function CustomerFormSheet({ visible, customer, onDismiss }: Props) {
     label: p.name,
     sublabel: p.isCustomPrice
       ? t("common.custom_pricing")
-      : `$${p.price} / month`,
+      : `$${p.price} / ${p.durationMonths === 1 ? t("plans.per_month") : t("plans.n_months", { count: p.durationMonths })}`,
   }));
 
   return (

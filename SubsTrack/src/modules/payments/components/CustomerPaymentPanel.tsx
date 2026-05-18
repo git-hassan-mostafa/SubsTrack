@@ -32,7 +32,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
 
   useEffect(() => {
     paymentStore.fetchPayments(customer.id, year, customer, DEFAULT_GRACE_DAYS);
-  }, [customer.id, year]);
+  }, [customer.id, year, customer.startDate]);
 
   useEffect(() => {
     return () => paymentStore.reset();

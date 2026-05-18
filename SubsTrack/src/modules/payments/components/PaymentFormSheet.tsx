@@ -97,6 +97,20 @@ export function PaymentFormSheet({
     return conflicts;
   }, [isMultiMonth, plan, entry, monthGrid, t]);
 
+  const coveredMonths = useMemo(() => {
+    if (!isMultiMonth || !plan) return [];
+    return Array.from({ length: plan.durationMonths }, (_, d) => {
+      const date = new Date(entry.year, entry.month - 1 + d, 1);
+      const bm = toBillingMonth(date.getFullYear(), date.getMonth() + 1);
+      const gridEntry = monthGrid.find((m) => m.billingMonth === bm);
+      return {
+        label: t(`months.${MONTHS[date.getMonth()]}`),
+        billingMonth: bm,
+        isConflict: gridEntry?.status === "paid",
+      };
+    });
+  }, [isMultiMonth, plan, entry, monthGrid, t]);
+
   const hasConflicts = conflictingLabels.length > 0;
   const showConflictWarning = hasConflicts && !form.conflictConfirmed;
 
@@ -273,9 +287,28 @@ export function PaymentFormSheet({
                     .{(plan!.price! % 1).toFixed(2).slice(2)}
                   </Text>
                 </Text>
-                <Text className="text-xs text-gray-400 mt-2">
-                  {t("payments.bundle_price_label")}
+                <Text className="text-sm text-gray-400 mt-1">
+                  {t("payments.per_n_months", { count: plan!.durationMonths })}
                 </Text>
+                <View className="flex-row flex-wrap justify-center gap-1.5 mt-3">
+                  {coveredMonths.map(({ label, billingMonth, isConflict }) => (
+                    <View
+                      key={billingMonth}
+                      className={`px-3 py-1 rounded-full border ${
+                        isConflict
+                          ? "bg-gray-50 border-gray-200"
+                          : "bg-indigo-50 border-indigo-200"
+                      }`}
+                    >
+                      <Text
+                        fontWeight="SemiBold"
+                        className={`text-xs ${isConflict ? "text-gray-400 line-through" : "text-primary"}`}
+                      >
+                        {label}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
               </>
             ) : null}
 

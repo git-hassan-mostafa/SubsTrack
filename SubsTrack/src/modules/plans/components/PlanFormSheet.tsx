@@ -133,46 +133,68 @@ export function PlanFormSheet({
             <Text className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
               {t("plans.duration_label")}
             </Text>
-            <View className="flex-row items-center gap-2">
-              {DURATION_OPTIONS.map((d) => (
-                <Pressable
-                  key={d}
-                  onPress={() =>
-                    setForm((prev) => ({
-                      ...prev,
-                      durationMonths: d,
-                      isCustomPrice: d > 1 ? false : prev.isCustomPrice,
-                    }))
-                  }
-                  className={`flex-1 py-2.5 rounded-xl items-center border ${
-                    form.durationMonths === d
-                      ? "bg-primary border-primary"
-                      : "bg-white border-gray-200"
-                  }`}
-                >
-                  <Text
-                    fontWeight="SemiBold"
-                    className={`text-sm ${
-                      form.durationMonths === d ? "text-white" : "text-gray-700"
+
+            {/* Preset chips — wrap naturally so labels are never squeezed */}
+            <View className="flex-row flex-wrap" style={{ gap: 8 }}>
+              {DURATION_OPTIONS.map((d) => {
+                const selected = form.durationMonths === d;
+                return (
+                  <Pressable
+                    key={d}
+                    onPress={() =>
+                      setForm((prev) => ({
+                        ...prev,
+                        durationMonths: d,
+                        isCustomPrice: d > 1 ? false : prev.isCustomPrice,
+                      }))
+                    }
+                    className={`px-4 py-2.5 rounded-xl border ${
+                      selected
+                        ? "bg-primary border-primary"
+                        : "bg-white border-gray-200"
                     }`}
                   >
-                    {d === 1 ? t("plans.monthly") : t("plans.n_months", { count: d })}
-                  </Text>
+                    <Text
+                      fontWeight="SemiBold"
+                      className={`text-sm ${
+                        selected ? "text-white" : "text-gray-700"
+                      }`}
+                    >
+                      {d === 1
+                        ? t("plans.monthly")
+                        : t("plans.n_months", { count: d })}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            {/* Fine-tune stepper on its own row */}
+            <View className="flex-row items-center justify-between mt-3 px-4 py-2 border border-gray-200 rounded-xl">
+              <Text className="text-sm text-gray-700">
+                {form.durationMonths === 1
+                  ? t("plans.monthly")
+                  : t("plans.n_months", { count: form.durationMonths })}
+              </Text>
+              <View className="flex-row items-center">
+                <Pressable
+                  onPress={() => setDuration(-1)}
+                  className="w-9 h-9 rounded-lg bg-gray-100 items-center justify-center"
+                >
+                  <Text className="text-gray-700 text-lg font-bold">−</Text>
                 </Pressable>
-              ))}
-              {/* Custom duration input if not in presets */}
-              <View className="flex-row items-center border border-gray-200 rounded-xl px-2">
-                <Pressable onPress={() => setDuration(-1)} className="p-2">
-                  <Text className="text-gray-700 text-base font-bold">−</Text>
-                </Pressable>
-                <Text className="text-sm font-semibold text-gray-900 w-6 text-center">
+                <Text className="text-base font-semibold text-gray-900 w-10 text-center">
                   {form.durationMonths}
                 </Text>
-                <Pressable onPress={() => setDuration(1)} className="p-2">
-                  <Text className="text-gray-700 text-base font-bold">+</Text>
+                <Pressable
+                  onPress={() => setDuration(1)}
+                  className="w-9 h-9 rounded-lg bg-gray-100 items-center justify-center"
+                >
+                  <Text className="text-gray-700 text-lg font-bold">+</Text>
                 </Pressable>
               </View>
             </View>
+
             <Text className="text-xs text-gray-400 mt-1.5">
               {isMultiMonth
                 ? t("plans.bundle_price_hint")

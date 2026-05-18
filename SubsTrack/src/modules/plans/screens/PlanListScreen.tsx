@@ -113,6 +113,8 @@ export function PlanListScreen() {
             <EmptyState
               message={t("plans.no_plans")}
               subMessage={t("plans.no_plans_hint")}
+              actionLabel={!debouncedSearch ? t("plans.create_first_plan") : undefined}
+              onAction={!debouncedSearch ? openCreate : undefined}
             />
           }
         />

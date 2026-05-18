@@ -67,6 +67,7 @@
     "no_customers": "No customers found",
     "no_customers_hint": "Tap \"+ Add\" to add your first customer",
     "no_search_results": "Try a different search",
+    "create_first_customer": "+ Add Your First Customer",
     "plan_label": "Plan",
     "phone_label": "Phone",
     "address_label": "Address",
@@ -108,6 +109,7 @@
     "price_placeholder": "0.00",
     "per_month": "Per month",
     "no_plans_hint": "Tap \"+ New Plan\" to create one",
+    "create_first_plan": "+ Add Your First Plan",
     "duration_label": "Duration",
     "monthly": "Monthly",
     "n_months": "{{count}}mo",
@@ -125,6 +127,7 @@
     "deactivate": "Deactivate",
     "no_staff": "No staff yet",
     "no_staff_hint": "Tap \"+ Add Staff\" to create one",
+    "create_first_staff": "+ Add Your First Staff Member",
     "members_summary": "{{count}} members · {{admins}} admin",
     "edit_title": "Edit Staff",
     "add_title": "Add Staff",
@@ -185,7 +188,8 @@
     "void_block_confirm": "Void Block",
     "block_conflict_title": "Some months already paid",
     "block_conflict_message": "{{months}} already paid and will be skipped.",
-    "block_conflict_proceed": "Proceed (skip those months)"
+    "block_conflict_proceed": "Proceed (skip those months)",
+    "per_n_months": "/ {{count}} months"
   },
   "months": {
     "jan": "Jan",
