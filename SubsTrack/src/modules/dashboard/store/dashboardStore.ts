@@ -2,16 +2,6 @@ import { create } from "zustand";
 import type { DashboardMetrics } from "@/src/core/types";
 import { DashboardService } from "../services/DashboardService";
 
-interface DashboardState {
-  metrics: DashboardMetrics | null;
-  loading: boolean;
-  error: string | null;
-  getMetrics: () => Promise<void>;
-  fetchMetrics: () => Promise<void>;
-  clearError: () => void;
-  reset: () => void;
-}
-
 const dashboardService = new DashboardService();
 
 export const useDashboardStore = create<DashboardState>((set, get) => ({
@@ -36,3 +26,13 @@ export const useDashboardStore = create<DashboardState>((set, get) => ({
   clearError: () => set({ error: null }),
   reset: () => set({ metrics: null, loading: false, error: null }),
 }));
+
+interface DashboardState {
+  metrics: DashboardMetrics | null;
+  loading: boolean;
+  error: string | null;
+  getMetrics: () => Promise<void>;
+  fetchMetrics: () => Promise<void>;
+  clearError: () => void;
+  reset: () => void;
+}

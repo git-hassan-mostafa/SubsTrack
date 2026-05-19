@@ -2,33 +2,6 @@ import { create } from "zustand";
 import type { AppUser, UserRole } from "@/src/core/types";
 import { UserService } from "../services/UserService";
 
-interface UsersState {
-  users: AppUser[];
-  loading: boolean;
-  error: string | null;
-  getUsers: () => Promise<void>;
-  fetchUsers: () => Promise<void>;
-  createUser: (
-    data: {
-      username: string;
-      fullName: string;
-      password: string;
-      phone: string | null;
-      role: "admin" | "user";
-    },
-    tenantId: string,
-  ) => Promise<void>;
-  updateUser: (
-    id: string,
-    currentUserId: string,
-    currentUserRole: string,
-    data: { username: string; fullName: string; phone: string | null; role: "admin" | "user" },
-  ) => Promise<void>;
-  deactivateUser: (id: string, callerId: string, callerRole: UserRole, targetRole: UserRole) => Promise<void>;
-  activateUser: (id: string, callerId: string, callerRole: UserRole, targetRole: UserRole) => Promise<void>;
-  clearError: () => void;
-  reset: () => void;
-}
 
 const userService = new UserService();
 
@@ -108,3 +81,32 @@ export const useUserStore = create<UsersState>((set, get) => ({
   clearError: () => set({ error: null }),
   reset: () => set({ users: [], loading: false, error: null }),
 }));
+
+
+interface UsersState {
+  users: AppUser[];
+  loading: boolean;
+  error: string | null;
+  getUsers: () => Promise<void>;
+  fetchUsers: () => Promise<void>;
+  createUser: (
+    data: {
+      username: string;
+      fullName: string;
+      password: string;
+      phone: string | null;
+      role: "admin" | "user";
+    },
+    tenantId: string,
+  ) => Promise<void>;
+  updateUser: (
+    id: string,
+    currentUserId: string,
+    currentUserRole: string,
+    data: { username: string; fullName: string; phone: string | null; role: "admin" | "user" },
+  ) => Promise<void>;
+  deactivateUser: (id: string, callerId: string, callerRole: UserRole, targetRole: UserRole) => Promise<void>;
+  activateUser: (id: string, callerId: string, callerRole: UserRole, targetRole: UserRole) => Promise<void>;
+  clearError: () => void;
+  reset: () => void;
+}

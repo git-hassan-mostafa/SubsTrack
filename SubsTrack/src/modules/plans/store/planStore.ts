@@ -2,24 +2,6 @@ import { create } from "zustand";
 import type { Plan } from "@/src/core/types";
 import { PlanService } from "../services/PlanService";
 
-interface PlansState {
-  plans: Plan[];
-  loading: boolean;
-  error: string | null;
-  getPlans: () => Promise<void>;
-  fetchPlans: () => Promise<void>;
-  createPlan: (
-    data: { name: string; isCustomPrice: boolean; price: number | null; durationMonths: number },
-    tenantId: string,
-  ) => Promise<void>;
-  updatePlan: (
-    id: string,
-    data: { name: string; isCustomPrice: boolean; price: number | null; durationMonths: number },
-  ) => Promise<void>;
-  deletePlan: (id: string) => Promise<void>;
-  clearError: () => void;
-  reset: () => void;
-}
 
 const planService = new PlanService();
 
@@ -81,3 +63,23 @@ export const usePlanStore = create<PlansState>((set, get) => ({
   clearError: () => set({ error: null }),
   reset: () => set({ plans: [], loading: false, error: null }),
 }));
+
+
+interface PlansState {
+  plans: Plan[];
+  loading: boolean;
+  error: string | null;
+  getPlans: () => Promise<void>;
+  fetchPlans: () => Promise<void>;
+  createPlan: (
+    data: { name: string; isCustomPrice: boolean; price: number | null; durationMonths: number },
+    tenantId: string,
+  ) => Promise<void>;
+  updatePlan: (
+    id: string,
+    data: { name: string; isCustomPrice: boolean; price: number | null; durationMonths: number },
+  ) => Promise<void>;
+  deletePlan: (id: string) => Promise<void>;
+  clearError: () => void;
+  reset: () => void;
+}

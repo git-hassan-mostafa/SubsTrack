@@ -3,67 +3,6 @@ import type { Customer, MonthEntry, Payment, Plan } from "@/src/core/types";
 import { getCurrentYearMonth, toBillingMonth } from "@/src/core/utils/date";
 import { PaymentService, type MultiMonthConflict } from "../services/PaymentService";
 
-interface CreatePaymentInput {
-  billingMonth: string;
-  amount: number;
-  durationMonths: number;
-  customerId: string;
-  planId: string | null;
-  receivedByUserId: string | null;
-  tenantId: string;
-  notes: string | null;
-}
-
-interface PaymentsState {
-  payments: Payment[];
-  monthGrid: MonthEntry[];
-  currentMonthPaidIds: Set<string>;
-  loading: boolean;
-  loadingCreate: boolean;
-  loadingVoid: boolean;
-  loadingUpdate: boolean;
-  error: string | null;
-  fetchCurrentMonthPaidIds: () => Promise<void>;
-  fetchPayments: (
-    customerId: string,
-    year: number,
-    customer: Customer,
-    graceDays: number,
-  ) => Promise<void>;
-  createPayment: (
-    data: CreatePaymentInput,
-    customer: Customer,
-    graceDays: number,
-  ) => Promise<void>;
-  createMultiMonthPayment: (
-    startMonth: string,
-    customer: Customer,
-    plan: Plan,
-    receivedByUserId: string,
-    notes: string | null,
-    tenantId: string,
-    skipConflicts: boolean,
-    year: number,
-    graceDays: number,
-  ) => Promise<MultiMonthConflict[]>;
-  updatePaymentAmount: (
-    id: string,
-    amount: number,
-    customer: Customer,
-    year: number,
-    graceDays: number,
-  ) => Promise<void>;
-  voidPayment: (
-    id: string,
-    voidedBy: string,
-    notes: string,
-    customer: Customer,
-    year: number,
-    graceDays: number,
-  ) => Promise<void>;
-  clearError: () => void;
-  reset: () => void;
-}
 
 const paymentService = new PaymentService();
 
@@ -234,10 +173,10 @@ export const usePaymentStore = create<PaymentsState>((set, get) => ({
         loadingVoid: false,
         currentMonthPaidIds: voideCurrentMonth
           ? new Set(
-              [...state.currentMonthPaidIds].filter(
-                (pid) => pid !== customer.id,
-              ),
-            )
+            [...state.currentMonthPaidIds].filter(
+              (pid) => pid !== customer.id,
+            ),
+          )
           : state.currentMonthPaidIds,
       }));
     } catch (e) {
@@ -258,3 +197,66 @@ export const usePaymentStore = create<PaymentsState>((set, get) => ({
       error: null,
     }),
 }));
+
+
+interface CreatePaymentInput {
+  billingMonth: string;
+  amount: number;
+  durationMonths: number;
+  customerId: string;
+  planId: string | null;
+  receivedByUserId: string | null;
+  tenantId: string;
+  notes: string | null;
+}
+
+interface PaymentsState {
+  payments: Payment[];
+  monthGrid: MonthEntry[];
+  currentMonthPaidIds: Set<string>;
+  loading: boolean;
+  loadingCreate: boolean;
+  loadingVoid: boolean;
+  loadingUpdate: boolean;
+  error: string | null;
+  fetchCurrentMonthPaidIds: () => Promise<void>;
+  fetchPayments: (
+    customerId: string,
+    year: number,
+    customer: Customer,
+    graceDays: number,
+  ) => Promise<void>;
+  createPayment: (
+    data: CreatePaymentInput,
+    customer: Customer,
+    graceDays: number,
+  ) => Promise<void>;
+  createMultiMonthPayment: (
+    startMonth: string,
+    customer: Customer,
+    plan: Plan,
+    receivedByUserId: string,
+    notes: string | null,
+    tenantId: string,
+    skipConflicts: boolean,
+    year: number,
+    graceDays: number,
+  ) => Promise<MultiMonthConflict[]>;
+  updatePaymentAmount: (
+    id: string,
+    amount: number,
+    customer: Customer,
+    year: number,
+    graceDays: number,
+  ) => Promise<void>;
+  voidPayment: (
+    id: string,
+    voidedBy: string,
+    notes: string,
+    customer: Customer,
+    year: number,
+    graceDays: number,
+  ) => Promise<void>;
+  clearError: () => void;
+  reset: () => void;
+}

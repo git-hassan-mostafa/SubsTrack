@@ -18,7 +18,7 @@ import type { Customer } from "@/src/core/types";
 import { CustomerCard } from "../components/CustomerCard";
 import { CustomerFormSheet } from "../components/CustomerFormSheet";
 import { useCustomerStore } from "../store/customerStore";
-import { usePaymentStore } from "../../payments/store/paymentStore";
+import { usePaymentStore } from "../../customer-payments/store/paymentStore";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
 import { PageHeader } from "@/src/shared/components/PageHeader";
 
@@ -185,8 +185,14 @@ export function CustomerListScreen() {
                   ? t("customers.no_search_results")
                   : t("customers.no_customers_hint")
               }
-              actionLabel={!debouncedSearch ? t("customers.create_first_customer") : undefined}
-              onAction={!debouncedSearch ? () => setFormVisible(true) : undefined}
+              actionLabel={
+                !debouncedSearch
+                  ? t("customers.create_first_customer")
+                  : undefined
+              }
+              onAction={
+                !debouncedSearch ? () => setFormVisible(true) : undefined
+              }
             />
           }
         />

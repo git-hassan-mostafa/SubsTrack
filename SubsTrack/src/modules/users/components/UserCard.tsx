@@ -35,10 +35,6 @@ export function UserCard({ user, currentUser, onEdit, onToggleActive }: Props) {
   const badge = roleBadgeStyle[user.role] ?? roleBadgeStyle.user;
   const { t } = useTranslation();
 
-  const canToggleActive =
-    (currentUser.role === "superadmin" && user.id !== currentUser.id) ||
-    (currentUser.role === "admin" && user.role === "user");
-
   return (
     <Pressable
       onPress={() => onEdit(user)}

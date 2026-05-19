@@ -15,7 +15,7 @@ import { COLORS } from "@/src/shared/constants";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { getDateLocale } from "@/src/core/utils/date";
 import { useAuth } from "@/src/modules/auth/hooks/useAuth";
-import { CustomerPaymentPanel } from "@/src/modules/payments/components/CustomerPaymentPanel";
+import { CustomerPaymentPanel } from "@/src/modules/customer-payments/components/CustomerPaymentPanel";
 import { CustomerDetailsCard } from "../components/CustomerDetailsCard";
 import { CustomerFormSheet } from "../components/CustomerFormSheet";
 import { useCustomerStore } from "../store/customerStore";

@@ -2,21 +2,6 @@ import { create } from "zustand";
 import type { AuthUser } from "@/src/core/types";
 import { AuthService } from "../services/AuthService";
 
-interface AuthState {
-  user: AuthUser | null;
-  tenantActive: boolean;
-  loading: boolean;
-  error: string | null;
-  login: (
-    username: string,
-    tenantName: string,
-    password: string,
-  ) => Promise<void>;
-  restoreSession: () => Promise<void>;
-  logout: () => Promise<void>;
-  clearError: () => void;
-}
-
 const authService = new AuthService();
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -63,3 +48,18 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   clearError: () => set({ error: null }),
 }));
+
+interface AuthState {
+  user: AuthUser | null;
+  tenantActive: boolean;
+  loading: boolean;
+  error: string | null;
+  login: (
+    username: string,
+    tenantName: string,
+    password: string,
+  ) => Promise<void>;
+  restoreSession: () => Promise<void>;
+  logout: () => Promise<void>;
+  clearError: () => void;
+}

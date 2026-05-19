@@ -2,7 +2,7 @@ import { useAuthStore } from "@/src/modules/auth/store/authStore";
 import { useCustomerStore } from "@/src/modules/customers/store/customerStore";
 import { useDashboardStore } from "@/src/modules/dashboard/store/dashboardStore";
 import { initI18n } from "@/src/core/i18n";
-import { usePaymentStore } from "@/src/modules/payments/store/paymentStore";
+import { usePaymentStore } from "@/src/modules/customer-payments/store/paymentStore";
 import { usePlanStore } from "@/src/modules/plans/store/planStore";
 import { useUserStore } from "@/src/modules/users/store/userStore";
 import { ErrorBoundary } from "@/src/shared/components/ErrorBoundary";

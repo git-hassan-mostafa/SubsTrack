@@ -1,7 +1,7 @@
 import type { DashboardMetrics } from '@/src/core/types';
 import { getCurrentYearMonth, toBillingMonth } from '@/src/core/utils/date';
 import { CustomerRepository } from '@/src/modules/customers/repository/CustomerRepository';
-import { PaymentRepository } from '@/src/modules/payments/repository/PaymentRepository';
+import { PaymentRepository } from '@/src/modules/customer-payments/repository/PaymentRepository';
 import { PlanRepository } from '@/src/modules/plans/repository/PlanRepository';
 import { UserRepository } from '@/src/modules/users/repository/UserRepository';
 

@@ -2,42 +2,6 @@ import { create } from "zustand";
 import type { Customer } from "@/src/core/types";
 import { CustomerService } from "../services/CustomerService";
 
-interface CustomerInput {
-  name: string;
-  phoneNumber: string | null;
-  address: string | null;
-  planId: string | null;
-  startDate: string;
-  isRegular: boolean;
-}
-
-interface CustomersState {
-  customers: Customer[];
-  totalCount: number;
-  page: number;
-  hasMore: boolean;
-  loading: boolean;
-  loadingMore: boolean;
-  error: string | null;
-  searchQuery: string;
-  searchToken: number;
-  getCustomers: () => Promise<void>;
-  fetchCustomers: () => Promise<void>;
-  fetchMoreCustomers: () => Promise<void>;
-  setSearchQuery: (q: string) => Promise<void>;
-  getCustomer: (id: string) => Promise<Customer | null>;
-  fetchCustomer: (id: string) => Promise<Customer | null>;
-  createCustomer: (data: CustomerInput, tenantId: string) => Promise<void>;
-  updateCustomer: (
-    id: string,
-    data: CustomerInput,
-  ) => Promise<void>;
-  deactivateCustomer: (id: string) => Promise<void>;
-  reactivateCustomer: (id: string) => Promise<void>;
-  clearError: () => void;
-  reset: () => void;
-}
-
 const customerService = new CustomerService();
 
 export const useCustomerStore = create<CustomersState>((set, get) => ({
@@ -200,3 +164,39 @@ export const useCustomerStore = create<CustomersState>((set, get) => ({
       searchToken: s.searchToken + 1,
     })),
 }));
+
+interface CustomerInput {
+  name: string;
+  phoneNumber: string | null;
+  address: string | null;
+  planId: string | null;
+  startDate: string;
+  isRegular: boolean;
+}
+
+interface CustomersState {
+  customers: Customer[];
+  totalCount: number;
+  page: number;
+  hasMore: boolean;
+  loading: boolean;
+  loadingMore: boolean;
+  error: string | null;
+  searchQuery: string;
+  searchToken: number;
+  getCustomers: () => Promise<void>;
+  fetchCustomers: () => Promise<void>;
+  fetchMoreCustomers: () => Promise<void>;
+  setSearchQuery: (q: string) => Promise<void>;
+  getCustomer: (id: string) => Promise<Customer | null>;
+  fetchCustomer: (id: string) => Promise<Customer | null>;
+  createCustomer: (data: CustomerInput, tenantId: string) => Promise<void>;
+  updateCustomer: (
+    id: string,
+    data: CustomerInput,
+  ) => Promise<void>;
+  deactivateCustomer: (id: string) => Promise<void>;
+  reactivateCustomer: (id: string) => Promise<void>;
+  clearError: () => void;
+  reset: () => void;
+}
