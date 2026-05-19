@@ -36,6 +36,7 @@ export interface DbPlan {
   name: string;
   price: number | null;
   is_custom_price: boolean;
+  duration_months: number;
   tenant_id: string;
   created_at: string;
 }
@@ -61,6 +62,7 @@ export interface DbPayment {
   id: string;
   billing_month: string;
   amount: number;
+  duration_months: number;
   customer_id: string;
   plan_id: string | null;
   received_by_user_id: string | null;

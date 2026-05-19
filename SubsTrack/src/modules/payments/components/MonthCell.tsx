@@ -3,12 +3,17 @@ import { Pressable, View } from "react-native";
 import { Text } from "@/src/shared/components/Text";
 import { useTranslation } from "react-i18next";
 import { getCurrentYearMonth } from "@/src/core/utils/date";
+import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
 import type { MonthEntry, MonthStatus } from "@/src/core/types";
 
 interface Props {
   entry: MonthEntry;
   onPress: (entry: MonthEntry) => void;
   isRegular: boolean;
+  connectLeft?: boolean;
+  connectRight?: boolean;
+  wrapFromPrev?: boolean;
+  wrapToNext?: boolean;
 }
 
 const regularBgColor: Record<MonthStatus, string> = {
@@ -39,7 +44,15 @@ const nonRegularTextColor: Record<MonthStatus, string> = {
   before_start: "text-gray-300",
 };
 
-export const MonthCell = memo(function MonthCell({ entry, onPress, isRegular }: Props) {
+export const MonthCell = memo(function MonthCell({
+  entry,
+  onPress,
+  isRegular,
+  connectLeft = false,
+  connectRight = false,
+  wrapFromPrev = false,
+  wrapToNext = false,
+}: Props) {
   const { t } = useTranslation();
   const { year: cy, month: cm } = getCurrentYearMonth();
   const isCurrentMonth = entry.year === cy && entry.month === cm;
@@ -58,15 +71,32 @@ export const MonthCell = memo(function MonthCell({ entry, onPress, isRegular }: 
       : textColor[entry.status];
 
   const sublabel = (() => {
+    if (entry.status === "paid" && entry.isGroupSecondary) return t("payments.included_label");
     if (entry.status === "paid") return t("common.paid");
     if (isCurrentMonth) return t("payments.this_month").toUpperCase();
     return null;
   })();
 
+  // In-row neighbours: drop the outer gap on the connecting side so cells touch.
+  // Cross-row neighbours: keep the gap but square the corner on that side and
+  // render a chevron, so the wrap reads as continuation rather than a separate pill.
+  const padClass = `${connectLeft ? "ps-0" : "ps-1"} ${
+    connectRight ? "pe-0" : "pe-1"
+  } py-1`;
+
+  const leftSquare = connectLeft || wrapFromPrev;
+  const rightSquare = connectRight || wrapToNext;
+
+  let roundClass: string;
+  if (leftSquare && rightSquare) roundClass = "rounded-none";
+  else if (leftSquare) roundClass = "rounded-tr-xl rounded-br-xl";
+  else if (rightSquare) roundClass = "rounded-tl-xl rounded-bl-xl";
+  else roundClass = "rounded-xl";
+
   return (
-    <Pressable onPress={() => onPress(entry)} className="w-1/4 p-1">
+    <Pressable onPress={() => onPress(entry)} className={`w-1/4 ${padClass}`}>
       <View
-        className={`rounded-xl items-center justify-center py-3 ${containerBg}`}
+        className={`${roundClass} items-center justify-center py-3 ${containerBg}`}
       >
         <Text fontWeight="SemiBold" className={`text-sm ${labelColor}`}>
           {t(`months.${entry.label}`)}
@@ -74,6 +104,16 @@ export const MonthCell = memo(function MonthCell({ entry, onPress, isRegular }: 
         <Text className={`text-[8px] font-semibold mt-0.5 ${labelColor}`}>
           {sublabel ?? " "}
         </Text>
+        {wrapFromPrev ? (
+          <View className="absolute top-0 bottom-0 start-0.5 justify-center">
+            <DirectionalIcon name="chevron-back" size={10} color="white" />
+          </View>
+        ) : null}
+        {wrapToNext ? (
+          <View className="absolute top-0 bottom-0 end-0.5 justify-center">
+            <DirectionalIcon name="chevron-forward" size={10} color="white" />
+          </View>
+        ) : null}
       </View>
     </Pressable>
   );

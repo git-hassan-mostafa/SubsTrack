@@ -10,7 +10,6 @@ import { useAuth } from "@/src/modules/auth/hooks/useAuth";
 import { useUserStore } from "../store/userStore";
 
 interface Props {
-  visible: boolean;
   user?: AppUser | null;
   onDismiss: () => void;
 }
@@ -24,18 +23,18 @@ type FormState = {
   role: "admin" | "user";
 };
 
-export function UserFormSheet({ visible, user: editUser, onDismiss }: Props) {
+export function UserFormSheet({ user: editUser, onDismiss }: Props) {
   const { t } = useTranslation();
   const { user: currentUser } = useAuth();
   const { createUser, updateUser, deactivateUser, activateUser, loading, error, clearError } = useUserStore();
 
   const [form, setForm] = useState<FormState>({
-    username: "",
-    fullName: "",
+    username: editUser?.username ?? "",
+    fullName: editUser?.fullName ?? "",
     password: "",
     confirmPassword: "",
-    phoneNumber: "",
-    role: "user",
+    phoneNumber: editUser?.phoneNumber ?? "",
+    role: (editUser?.role as "admin" | "user") ?? "user",
   });
 
   const isOwnAccount = editUser?.id === currentUser?.id;
@@ -56,19 +55,9 @@ export function UserFormSheet({ visible, user: editUser, onDismiss }: Props) {
     form.password !== form.confirmPassword;
 
   useEffect(() => {
-    if (visible) {
-      setForm({
-        username: editUser?.username ?? "",
-        fullName: editUser?.fullName ?? "",
-        password: "",
-        confirmPassword: "",
-        phoneNumber: editUser?.phoneNumber ?? "",
-        role: (editUser?.role as "admin" | "user") ?? "user",
-      });
-      clearError();
-    }
+    clearError();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible, editUser]);
+  }, []);
 
   async function handleSubmit() {
     if (!currentUser) return;
@@ -103,7 +92,7 @@ export function UserFormSheet({ visible, user: editUser, onDismiss }: Props) {
 
   return (
     <Modal
-      visible={visible}
+      visible
       animationType="slide"
       presentationStyle="pageSheet"
       onRequestClose={onDismiss}

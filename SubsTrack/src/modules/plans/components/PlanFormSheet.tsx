@@ -11,7 +11,6 @@ import { usePlanStore } from "../store/planStore";
 import { COLORS } from "@/src/shared/constants";
 
 interface Props {
-  visible: boolean;
   plan?: Plan | null;
   onDismiss: () => void;
   onRequestDelete?: (plan: Plan) => void;
@@ -21,10 +20,13 @@ type FormState = {
   name: string;
   isCustomPrice: boolean;
   priceText: string;
+  durationMonths: number;
 };
 
+const DURATION_OPTIONS = [1, 2, 3, 6, 12];
+const MAX_DURATION = 12;
+
 export function PlanFormSheet({
-  visible,
   plan,
   onDismiss,
   onRequestDelete,
@@ -34,44 +36,52 @@ export function PlanFormSheet({
   const { createPlan, updatePlan, loading, error, clearError } = usePlanStore();
 
   const [form, setForm] = useState<FormState>({
-    name: "",
-    isCustomPrice: false,
-    priceText: "",
+    name: plan?.name ?? "",
+    isCustomPrice: plan?.isCustomPrice ?? false,
+    priceText: plan?.price != null ? String(plan.price) : "",
+    durationMonths: plan?.durationMonths ?? 1,
   });
 
   useEffect(() => {
-    if (visible) {
-      setForm({
-        name: plan?.name ?? "",
-        isCustomPrice: plan?.isCustomPrice ?? false,
-        priceText: plan?.price != null ? String(plan.price) : "",
-      });
-      clearError();
-    }
+    clearError();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible, plan]);
+  }, []);
+
+  const isMultiMonth = form.durationMonths > 1;
+
+  function setDuration(delta: number) {
+    setForm((prev) => ({
+      ...prev,
+      durationMonths: Math.min(MAX_DURATION, Math.max(1, prev.durationMonths + delta)),
+      isCustomPrice: false, // reset when changing duration
+    }));
+  }
 
   async function handleSubmit() {
     if (!user) return;
     const price = form.isCustomPrice ? null : parseFloat(form.priceText);
+    const data = {
+      name: form.name,
+      isCustomPrice: form.isCustomPrice,
+      price,
+      durationMonths: form.durationMonths,
+    };
     if (plan) {
-      await updatePlan(plan.id, {
-        name: form.name,
-        isCustomPrice: form.isCustomPrice,
-        price,
-      });
+      await updatePlan(plan.id, data);
     } else {
-      await createPlan(
-        { name: form.name, isCustomPrice: form.isCustomPrice, price },
-        user.tenantId,
-      );
+      await createPlan(data, user.tenantId);
     }
     if (!usePlanStore.getState().error) onDismiss();
   }
 
+  const submitDisabled =
+    !form.name.trim() ||
+    (!form.isCustomPrice && !form.priceText) ||
+    loading;
+
   return (
     <Modal
-      visible={visible}
+      visible
       animationType="slide"
       presentationStyle="pageSheet"
       onRequestClose={onDismiss}
@@ -108,9 +118,83 @@ export function PlanFormSheet({
             onFocus={clearError}
           />
 
+          {/* Duration picker */}
+          <View className="mb-4">
+            <Text className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+              {t("plans.duration_label")}
+            </Text>
+
+            {/* Preset chips — wrap naturally so labels are never squeezed */}
+            <View className="flex-row flex-wrap" style={{ gap: 8 }}>
+              {DURATION_OPTIONS.map((d) => {
+                const selected = form.durationMonths === d;
+                return (
+                  <Pressable
+                    key={d}
+                    onPress={() =>
+                      setForm((prev) => ({
+                        ...prev,
+                        durationMonths: d,
+                        isCustomPrice: d > 1 ? false : prev.isCustomPrice,
+                      }))
+                    }
+                    className={`px-4 py-2.5 rounded-xl border ${
+                      selected
+                        ? "bg-primary border-primary"
+                        : "bg-white border-gray-200"
+                    }`}
+                  >
+                    <Text
+                      fontWeight="SemiBold"
+                      className={`text-sm ${
+                        selected ? "text-white" : "text-gray-700"
+                      }`}
+                    >
+                      {d === 1
+                        ? t("plans.monthly")
+                        : t("plans.n_months", { count: d })}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </View>
+
+            {/* Fine-tune stepper on its own row */}
+            <View className="flex-row items-center justify-between mt-3 px-4 py-2 border border-gray-200 rounded-xl">
+              <Text className="text-sm text-gray-700">
+                {form.durationMonths === 1
+                  ? t("plans.monthly")
+                  : t("plans.n_months", { count: form.durationMonths })}
+              </Text>
+              <View className="flex-row items-center">
+                <Pressable
+                  onPress={() => setDuration(-1)}
+                  className="w-9 h-9 rounded-lg bg-gray-100 items-center justify-center"
+                >
+                  <Text className="text-gray-700 text-lg font-bold">−</Text>
+                </Pressable>
+                <Text className="text-base font-semibold text-gray-900 w-10 text-center">
+                  {form.durationMonths}
+                </Text>
+                <Pressable
+                  onPress={() => setDuration(1)}
+                  className="w-9 h-9 rounded-lg bg-gray-100 items-center justify-center"
+                >
+                  <Text className="text-gray-700 text-lg font-bold">+</Text>
+                </Pressable>
+              </View>
+            </View>
+
+            <Text className="text-xs text-gray-400 mt-1.5">
+              {isMultiMonth
+                ? t("plans.bundle_price_hint")
+                : t("plans.per_month")}
+            </Text>
+          </View>
+
           {!form.isCustomPrice ? (
             <Input
-              label={t("plans.price_label")}
+              label={isMultiMonth ? t("plans.bundle_price_label") : t("plans.price_label")}
               value={form.priceText}
               onChangeText={(v) =>
                 setForm((prev) => ({ ...prev, priceText: v }))
@@ -121,32 +205,34 @@ export function PlanFormSheet({
             />
           ) : null}
 
-          {/* Custom pricing toggle */}
-          <View className="flex-row items-center justify-between py-4 border border-gray-100 rounded-xl px-4 mb-6">
-            <View>
-              <Text className="text-sm font-semibold text-gray-900">
-                {t("plans.custom_pricing_label")}
-              </Text>
-              <Text className="text-xs text-gray-400 mt-0.5">
-                {t("plans.custom_pricing_hint")}
-              </Text>
+          {/* Custom pricing toggle — hidden for multi-month plans */}
+          {!isMultiMonth ? (
+            <View className="flex-row items-center justify-between py-4 border border-gray-100 rounded-xl px-4 mb-6">
+              <View>
+                <Text className="text-sm font-semibold text-gray-900">
+                  {t("plans.custom_pricing_label")}
+                </Text>
+                <Text className="text-xs text-gray-400 mt-0.5">
+                  {t("plans.custom_pricing_hint")}
+                </Text>
+              </View>
+              <Switch
+                value={form.isCustomPrice}
+                onValueChange={(v) =>
+                  setForm((prev) => ({ ...prev, isCustomPrice: v }))
+                }
+                trackColor={{ true: COLORS.primary }}
+              />
             </View>
-            <Switch
-              value={form.isCustomPrice}
-              onValueChange={(v) =>
-                setForm((prev) => ({ ...prev, isCustomPrice: v }))
-              }
-              trackColor={{ true: COLORS.primary }}
-            />
-          </View>
+          ) : (
+            <View className="mb-6" />
+          )}
 
           <Button
             label={plan ? t("common.save_changes") : t("plans.add_title")}
             onPress={handleSubmit}
             loading={loading}
-            disabled={
-              !form.name.trim() || (!form.isCustomPrice && !form.priceText)
-            }
+            disabled={submitDisabled}
             fullWidth
           />
 

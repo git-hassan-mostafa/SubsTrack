@@ -112,15 +112,31 @@ export class CustomerRepository extends BaseRepository {
   }
 
   async countUnpaidForMonth(billingMonth: string): Promise<number> {
-    // Count active customers who do NOT have a non-voided payment for the given month
-    const { data: paid, error: pErr } = await this.db
+    // Count active regular customers who do NOT have a payment covering the given month.
+    // Includes multi-month payments that started earlier but still cover this month.
+    const [year, monthStr] = billingMonth.split('-').map(Number);
+    const cutoffDate = new Date(year, monthStr - 1 - 12, 1);
+    const cutoff = `${cutoffDate.getFullYear()}-${String(cutoffDate.getMonth() + 1).padStart(2, '0')}-01`;
+    const target = new Date(billingMonth);
+
+    const { data: payments, error: pErr } = await this.db
       .from('payments')
-      .select('customer_id')
-      .eq('billing_month', billingMonth)
+      .select('customer_id, billing_month, duration_months')
+      .lte('billing_month', billingMonth)
+      .gte('billing_month', cutoff)
       .is('voided_at', null);
     if (pErr) this.handleError(pErr);
 
-    const paidIds = new Set((paid ?? []).map((r: { customer_id: string }) => r.customer_id));
+    const paidIds = new Set(
+      (payments ?? [])
+        .filter((r: { billing_month: string; duration_months: number }) => {
+          const start = new Date(r.billing_month);
+          const end = new Date(start);
+          end.setMonth(end.getMonth() + r.duration_months - 1);
+          return end >= target;
+        })
+        .map((r: { customer_id: string }) => r.customer_id),
+    );
 
     const { data: active, error: cErr } = await this.db
       .from('customers')

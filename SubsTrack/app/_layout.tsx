@@ -75,7 +75,7 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <StatusBar style="dark" />
+      <StatusBar style="dark" backgroundColor="white" />
       <ErrorBoundary>
         <Slot />
       </ErrorBoundary>

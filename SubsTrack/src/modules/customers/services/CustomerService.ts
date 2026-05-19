@@ -13,6 +13,7 @@ function mapDbCustomerToCustomer(db: DbCustomerWithPlan): Customer {
       name: db.plans.name,
       price: db.plans.price,
       isCustomPrice: db.plans.is_custom_price,
+      durationMonths: db.plans.duration_months,
       tenantId: db.plans.tenant_id,
       createdAt: db.plans.created_at,
     }

@@ -148,13 +148,12 @@ export function CustomerDetailScreen() {
         </ScrollView>
       ) : null}
 
-      {customer ? (
+      {editVisible && customer && (
         <CustomerFormSheet
-          visible={editVisible}
           customer={customer}
           onDismiss={() => setEditVisible(false)}
         />
-      ) : null}
+      )}
     </SafeAreaView>
   );
 }

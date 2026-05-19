@@ -113,20 +113,23 @@ export function PlanListScreen() {
             <EmptyState
               message={t("plans.no_plans")}
               subMessage={t("plans.no_plans_hint")}
+              actionLabel={!debouncedSearch ? t("plans.create_first_plan") : undefined}
+              onAction={!debouncedSearch ? openCreate : undefined}
             />
           }
         />
       )}
 
-      <PlanFormSheet
-        visible={formVisible}
-        plan={editingPlan}
-        onDismiss={() => {
-          setFormVisible(false);
-          setEditingPlan(null);
-        }}
-        onRequestDelete={setDeletingPlan}
-      />
+      {formVisible && (
+        <PlanFormSheet
+          plan={editingPlan}
+          onDismiss={() => {
+            setFormVisible(false);
+            setEditingPlan(null);
+          }}
+          onRequestDelete={setDeletingPlan}
+        />
+      )}
 
       <ConfirmDialog
         visible={!!deletingPlan}

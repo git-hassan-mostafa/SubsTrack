@@ -32,7 +32,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
 
   useEffect(() => {
     paymentStore.fetchPayments(customer.id, year, customer, DEFAULT_GRACE_DAYS);
-  }, [customer.id, year]);
+  }, [customer.id, year, customer.startDate]);
 
   useEffect(() => {
     return () => paymentStore.reset();
@@ -53,7 +53,9 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
     }
 
     setSelectedEntry(entry);
+
     if (entry.status === "paid" && entry.payment) {
+      // Both primary and secondary grouped months open the same detail sheet.
       setDetailVisible(true);
     } else {
       setFormVisible(true);
@@ -93,6 +95,12 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
   const collectedTotal = paymentStore.payments
     .filter((p) => !p.voidedAt && p.billingMonth.startsWith(String(year)))
     .reduce((sum, p) => sum + p.amount, 0);
+
+  // Edit amount is only available for non-multi-month, non-fixed-price payments.
+  const canEditAmount =
+    selectedEntry?.payment &&
+    selectedEntry.payment.durationMonths === 1 &&
+    (!customer.plan || customer.plan.isCustomPrice);
 
   return (
     <>
@@ -191,22 +199,20 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
         </View>
       ) : null}
 
-      <PaymentFormSheet
-        visible={formVisible}
-        entry={selectedEntry}
-        customer={customer}
-        graceDays={DEFAULT_GRACE_DAYS}
-        onDismiss={() => setFormVisible(false)}
-      />
+      {formVisible && selectedEntry && (
+        <PaymentFormSheet
+          entry={selectedEntry}
+          customer={customer}
+          graceDays={DEFAULT_GRACE_DAYS}
+          monthGrid={paymentStore.monthGrid}
+          onDismiss={() => setFormVisible(false)}
+        />
+      )}
       <PaymentDetailSheet
         visible={detailVisible}
         entry={selectedEntry}
         onVoid={handleVoidPress}
-        onEdit={
-          !customer.plan || customer.plan.isCustomPrice
-            ? handleEditAmount
-            : undefined
-        }
+        onEdit={canEditAmount ? handleEditAmount : undefined}
         editLoading={paymentStore.loadingUpdate}
         onDismiss={() => setDetailVisible(false)}
       />

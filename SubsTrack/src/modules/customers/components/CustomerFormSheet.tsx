@@ -1,5 +1,4 @@
-import { useEffect } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Modal, Pressable, ScrollView, Switch, View } from "react-native";
 import { Text } from "@/src/shared/components/Text";
 import { useTranslation } from "react-i18next";
@@ -10,12 +9,12 @@ import type { DropdownOption } from "@/src/shared/components/Dropdown";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { Input } from "@/src/shared/components/Input";
 import type { Customer, Plan } from "@/src/core/types";
+import { getTodayDateString } from "@/src/core/utils/date";
 import { useAuth } from "@/src/modules/auth/hooks/useAuth";
 import { usePlanStore } from "@/src/modules/plans/store/planStore";
 import { useCustomerStore } from "../store/customerStore";
 
 interface Props {
-  visible: boolean;
   customer?: Customer | null;
   onDismiss: () => void;
 }
@@ -29,7 +28,7 @@ type FormState = {
   isRegular: boolean;
 };
 
-export function CustomerFormSheet({ visible, customer, onDismiss }: Props) {
+export function CustomerFormSheet({ customer, onDismiss }: Props) {
   const { t } = useTranslation();
   const { user, isAdmin } = useAuth();
   const { createCustomer, updateCustomer, loading, error, clearError } =
@@ -37,29 +36,19 @@ export function CustomerFormSheet({ visible, customer, onDismiss }: Props) {
   const { plans, getPlans } = usePlanStore();
 
   const [form, setForm] = useState<FormState>({
-    name: "",
-    phoneNumber: "",
-    address: "",
-    planId: null,
-    startDate: "",
-    isRegular: true,
+    name: customer?.name ?? "",
+    phoneNumber: customer?.phoneNumber ?? "",
+    address: customer?.address ?? "",
+    planId: customer?.planId ?? null,
+    startDate: customer?.startDate ?? getTodayDateString(),
+    isRegular: customer?.isRegular ?? true,
   });
 
   useEffect(() => {
-    if (visible) {
-      setForm({
-        name: customer?.name ?? "",
-        phoneNumber: customer?.phoneNumber ?? "",
-        address: customer?.address ?? "",
-        planId: customer?.planId ?? null,
-        startDate: customer?.startDate ?? "",
-        isRegular: customer?.isRegular ?? true,
-      });
-      clearError();
-      getPlans();
-    }
+    clearError();
+    getPlans();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible, customer]);
+  }, []);
 
   async function handleSubmit() {
     if (!user) return;
@@ -85,12 +74,12 @@ export function CustomerFormSheet({ visible, customer, onDismiss }: Props) {
     label: p.name,
     sublabel: p.isCustomPrice
       ? t("common.custom_pricing")
-      : `$${p.price} / month`,
+      : `$${p.price} / ${p.durationMonths === 1 ? t("plans.per_month") : t("plans.n_months", { count: p.durationMonths })}`,
   }));
 
   return (
     <Modal
-      visible={visible}
+      visible
       animationType="slide"
       presentationStyle="pageSheet"
       onRequestClose={onDismiss}

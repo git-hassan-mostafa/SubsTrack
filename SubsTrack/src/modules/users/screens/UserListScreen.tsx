@@ -120,16 +120,19 @@ export function UserListScreen() {
             <EmptyState
               message={t("users.no_staff")}
               subMessage={t("users.no_staff_hint")}
+              actionLabel={!debouncedSearch ? t("users.create_first_staff") : undefined}
+              onAction={!debouncedSearch ? openCreate : undefined}
             />
           }
         />
       )}
 
-      <UserFormSheet
-        visible={formVisible}
-        user={editingUser}
-        onDismiss={() => setFormVisible(false)}
-      />
+      {formVisible && (
+        <UserFormSheet
+          user={editingUser}
+          onDismiss={() => setFormVisible(false)}
+        />
+      )}
     </SafeAreaView>
   );
 }

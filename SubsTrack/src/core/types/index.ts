@@ -49,6 +49,7 @@ export interface Plan {
   name: string;
   price: number | null;
   isCustomPrice: boolean;
+  durationMonths: number;
   tenantId: string;
   createdAt: string;
 }
@@ -73,6 +74,7 @@ export interface Payment {
   id: string;
   billingMonth: string;
   amount: number;
+  durationMonths: number;
   customerId: string;
   planId: string | null;
   receivedByUserId: string | null;
@@ -91,6 +93,7 @@ export interface MonthEntry {
   billingMonth: string;
   status: MonthStatus;
   payment: Payment | null;
+  isGroupSecondary: boolean;
 }
 
 export interface DashboardMetrics {

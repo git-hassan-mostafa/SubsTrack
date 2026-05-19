@@ -8,12 +8,13 @@ function mapDbPlanToPlan(db: DbPlan): Plan {
     name: db.name,
     price: db.price,
     isCustomPrice: db.is_custom_price,
+    durationMonths: db.duration_months,
     tenantId: db.tenant_id,
     createdAt: db.created_at,
   };
 }
 
-type PlanInput = Pick<Plan, 'name' | 'isCustomPrice' | 'price'>
+type PlanInput = Pick<Plan, 'name' | 'isCustomPrice' | 'price' | 'durationMonths'>
 
 export class PlanService {
   private repository = new PlanRepository();
@@ -30,6 +31,7 @@ export class PlanService {
         name: data.name.trim(),
         price: data.isCustomPrice ? null : data.price,
         is_custom_price: data.isCustomPrice,
+        duration_months: data.durationMonths,
         tenant_id: tenantId,
       });
       return mapDbPlanToPlan(row);
@@ -45,6 +47,7 @@ export class PlanService {
         name: data.name.trim(),
         price: data.isCustomPrice ? null : data.price,
         is_custom_price: data.isCustomPrice,
+        duration_months: data.durationMonths,
       });
       return mapDbPlanToPlan(row);
     } catch (err) {
@@ -58,6 +61,12 @@ export class PlanService {
 
   private validate(data: PlanInput): void {
     if (!data.name.trim()) throw new Error('Plan name is required');
+    if (data.durationMonths < 1 || !Number.isInteger(data.durationMonths)) {
+      throw new Error('Duration must be a whole number of at least 1');
+    }
+    if (data.durationMonths > 1 && data.isCustomPrice) {
+      throw new Error('Multi-month plans cannot use custom pricing');
+    }
     if (!data.isCustomPrice) {
       if (data.price === null || data.price === undefined) throw new Error('Fixed plans require a price');
       if (typeof data.price !== 'number' || Number.isNaN(data.price)) throw new Error('Fixed plans require a price');
