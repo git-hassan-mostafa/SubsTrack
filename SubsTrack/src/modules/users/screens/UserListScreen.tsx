@@ -127,11 +127,12 @@ export function UserListScreen() {
         />
       )}
 
-      <UserFormSheet
-        visible={formVisible}
-        user={editingUser}
-        onDismiss={() => setFormVisible(false)}
-      />
+      {formVisible && (
+        <UserFormSheet
+          user={editingUser}
+          onDismiss={() => setFormVisible(false)}
+        />
+      )}
     </SafeAreaView>
   );
 }

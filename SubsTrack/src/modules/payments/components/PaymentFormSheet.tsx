@@ -24,8 +24,7 @@ function getInitials(name: string): string {
 }
 
 interface Props {
-  visible: boolean;
-  entry: MonthEntry | null;
+  entry: MonthEntry;
   customer: Customer;
   graceDays: number;
   monthGrid: MonthEntry[];
@@ -49,7 +48,6 @@ const EMPTY_FORM: FormState = {
 };
 
 export function PaymentFormSheet({
-  visible,
   entry,
   customer,
   graceDays,
@@ -68,8 +66,6 @@ export function PaymentFormSheet({
 
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
 
-  if (!entry) return null;
-
   const plan = customer.plan;
   const isMultiMonth = (plan?.durationMonths ?? 1) > 1;
   const isFixedPlan = !!plan && !plan.isCustomPrice;
@@ -80,7 +76,6 @@ export function PaymentFormSheet({
     entry.year > cy || (entry.year === cy && entry.month > cm);
   const blockedForInactive = !customer.active && isFutureMonth;
 
-  // Detect conflicts within the current monthGrid for multi-month plans.
   const conflictingLabels = useMemo(() => {
     if (!isMultiMonth || !plan) return [];
     const conflicts: string[] = [];
@@ -134,22 +129,21 @@ export function PaymentFormSheet({
     if (!user || !canSubmit || loadingCreate) return;
 
     if (isMultiMonth && plan) {
-      const year = entry!.year;
       await createMultiMonthPayment(
-        entry!.billingMonth,
+        entry.billingMonth,
         customer,
         plan,
         user.id,
         form.notes.trim() || null,
         user.tenantId,
         true, // skipConflicts — conflicts already confirmed or absent
-        year,
+        entry.year,
         graceDays,
       );
     } else {
       await createPayment(
         {
-          billingMonth: entry!.billingMonth,
+          billingMonth: entry.billingMonth,
           amount: resolvedAmount!,
           durationMonths: 1,
           customerId: customer.id,
@@ -163,13 +157,11 @@ export function PaymentFormSheet({
       );
     }
     if (!usePaymentStore.getState().error) {
-      setForm(EMPTY_FORM);
       onDismiss();
     }
   }
 
   function handleDismiss() {
-    setForm(EMPTY_FORM);
     clearError();
     onDismiss();
   }
@@ -187,7 +179,7 @@ export function PaymentFormSheet({
 
   return (
     <Modal
-      visible={visible}
+      visible
       animationType="slide"
       presentationStyle="pageSheet"
       onRequestClose={handleDismiss}

@@ -11,7 +11,6 @@ import { usePlanStore } from "../store/planStore";
 import { COLORS } from "@/src/shared/constants";
 
 interface Props {
-  visible: boolean;
   plan?: Plan | null;
   onDismiss: () => void;
   onRequestDelete?: (plan: Plan) => void;
@@ -28,7 +27,6 @@ const DURATION_OPTIONS = [1, 2, 3, 6, 12];
 const MAX_DURATION = 12;
 
 export function PlanFormSheet({
-  visible,
   plan,
   onDismiss,
   onRequestDelete,
@@ -38,24 +36,16 @@ export function PlanFormSheet({
   const { createPlan, updatePlan, loading, error, clearError } = usePlanStore();
 
   const [form, setForm] = useState<FormState>({
-    name: "",
-    isCustomPrice: false,
-    priceText: "",
-    durationMonths: 1,
+    name: plan?.name ?? "",
+    isCustomPrice: plan?.isCustomPrice ?? false,
+    priceText: plan?.price != null ? String(plan.price) : "",
+    durationMonths: plan?.durationMonths ?? 1,
   });
 
   useEffect(() => {
-    if (visible) {
-      setForm({
-        name: plan?.name ?? "",
-        isCustomPrice: plan?.isCustomPrice ?? false,
-        priceText: plan?.price != null ? String(plan.price) : "",
-        durationMonths: plan?.durationMonths ?? 1,
-      });
-      clearError();
-    }
+    clearError();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible, plan]);
+  }, []);
 
   const isMultiMonth = form.durationMonths > 1;
 
@@ -91,7 +81,7 @@ export function PlanFormSheet({
 
   return (
     <Modal
-      visible={visible}
+      visible
       animationType="slide"
       presentationStyle="pageSheet"
       onRequestClose={onDismiss}

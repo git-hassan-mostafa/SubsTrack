@@ -192,10 +192,9 @@ export function CustomerListScreen() {
         />
       )}
 
-      <CustomerFormSheet
-        visible={formVisible}
-        onDismiss={() => setFormVisible(false)}
-      />
+      {formVisible && (
+        <CustomerFormSheet onDismiss={() => setFormVisible(false)} />
+      )}
     </SafeAreaView>
   );
 }

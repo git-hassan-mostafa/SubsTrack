@@ -3,6 +3,7 @@
 - Do not re-explore the codebase at the start of new sessions. Treat CLAUDE.md as the source of truth for project context and start from it directly.
 - Whenever any architecture or context changed in this project directly update the CLAUDE.md to reflect it.
 - After the first message of each conversation say "Hello From CLAUDE.md, This message is to let you know that i am taking instructions from CLAUDE.md file successfully.", so i know you are reading from ClAUDE.md
+- I am still in Development phase, so i am open to change architectures and DB schema if needed.
 
 ---
 
@@ -277,7 +278,7 @@ interface Plan {
   name;
   price;
   isCustomPrice;
-  durationMonths;  // 1–12; how many consecutive months the plan covers
+  durationMonths; // 1–12; how many consecutive months the plan covers
   tenantId;
   createdAt;
 }
@@ -287,7 +288,7 @@ interface Customer {
   phoneNumber;
   address;
   active;
-  isRegular;  // true = subscription customer (affects grid colors, unpaid counts); false = occasional
+  isRegular; // true = subscription customer (affects grid colors, unpaid counts); false = occasional
   planId;
   tenantId;
   startDate;
@@ -300,7 +301,7 @@ interface Payment {
   id;
   billingMonth;
   amount;
-  durationMonths;  // how many consecutive months this payment covers (≥ 1)
+  durationMonths; // how many consecutive months this payment covers (≥ 1)
   customerId;
   planId;
   receivedByUserId;
@@ -318,7 +319,7 @@ interface MonthEntry {
   billingMonth;
   status: MonthStatus;
   payment: Payment | null;
-  isGroupSecondary: boolean;  // true for months 2+ covered by a multi-month payment
+  isGroupSecondary: boolean; // true for months 2+ covered by a multi-month payment
 }
 interface DashboardMetrics {
   totalCustomers;
@@ -336,13 +337,13 @@ interface DashboardMetrics {
 
 ## Database Schema (Supabase PostgreSQL)
 
-| Table        | Key columns                                                                                                                                              |
-| ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `tenants`    | `id`, `name`, `tenant_code`, `active`                                                                                                                    |
-| `saas_tiers` | `id`, `name`, `max_users`, `max_customers`, `price`, `grace_days`, `tenant_id`                                                                           |
-| `users`      | `id` (= auth.users.id), `username`, `full_name`, `phone_number`, `role`, `active`, `tenant_id`                                                           |
-| `plans`      | `id`, `name`, `price`, `is_custom_price`, `duration_months`, `tenant_id`                                                                                 |
-| `customers`  | `id`, `name`, `phone_number`, `address`, `active`, `is_regular`, `plan_id`, `tenant_id`, `start_date`, `cancelled_at`                                    |
+| Table        | Key columns                                                                                                                                                                 |
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tenants`    | `id`, `name`, `tenant_code`, `active`                                                                                                                                       |
+| `saas_tiers` | `id`, `name`, `max_users`, `max_customers`, `price`, `grace_days`, `tenant_id`                                                                                              |
+| `users`      | `id` (= auth.users.id), `username`, `full_name`, `phone_number`, `role`, `active`, `tenant_id`                                                                              |
+| `plans`      | `id`, `name`, `price`, `is_custom_price`, `duration_months`, `tenant_id`                                                                                                    |
+| `customers`  | `id`, `name`, `phone_number`, `address`, `active`, `is_regular`, `plan_id`, `tenant_id`, `start_date`, `cancelled_at`                                                       |
 | `payments`   | `id`, `billing_month` (YYYY-MM-01), `amount`, `duration_months`, `customer_id`, `plan_id`, `received_by_user_id`, `tenant_id`, `paid_at`, `voided_at`, `voided_by`, `notes` |
 
 **Key constraints:**
@@ -424,22 +425,26 @@ Plans can cover 1–12 consecutive months. When `durationMonths > 1`:
 3. Returns `{ payment, skippedMonths }` so the UI can surface conflict info.
 
 **Return types:**
+
 ```typescript
 type MultiMonthConflict = { billingMonth: string; label: string };
-type CreateMultiMonthPaymentResult = { payment: Payment; skippedMonths: MultiMonthConflict[] };
+type CreateMultiMonthPaymentResult = {
+  payment: Payment;
+  skippedMonths: MultiMonthConflict[];
+};
 ```
 
 ## Regular Customer
 
 `Customer.isRegular` (default `true`) distinguishes subscription customers from occasional ones.
 
-| Behavior                  | Regular (`isRegular = true`)       | Non-regular (`isRegular = false`) |
-| ------------------------- | ---------------------------------- | ---------------------------------- |
-| Paid cell color           | Green                              | Yellow/Gold                        |
-| Unpaid cell color         | Red                                | Light gray                         |
-| Unpaid banner shown       | Yes (current month, if unpaid)     | No                                 |
-| Counted in "unpaid" tab   | Yes                                | No                                 |
-| Dashboard `unpaidThisMonth` | Counted                          | Excluded                           |
+| Behavior                    | Regular (`isRegular = true`)   | Non-regular (`isRegular = false`) |
+| --------------------------- | ------------------------------ | --------------------------------- |
+| Paid cell color             | Green                          | Yellow/Gold                       |
+| Unpaid cell color           | Red                            | Light gray                        |
+| Unpaid banner shown         | Yes (current month, if unpaid) | No                                |
+| Counted in "unpaid" tab     | Yes                            | No                                |
+| Dashboard `unpaidThisMonth` | Counted                        | Excluded                          |
 
 ---
 
@@ -480,11 +485,11 @@ export const useFeatureStore = create<FeatureState>((set, get) => ({
 
 ## Payment Scenarios
 
-| Scenario        | Condition                                          | Amount field                                       |
-| --------------- | -------------------------------------------------- | -------------------------------------------------- |
-| A — Fixed       | Plan exists, `isCustomPrice = false`, `durationMonths = 1` | Pre-filled with `plan.price`, read-only   |
-| B — Override    | Same as A, user toggles override                   | Radio: "Plan price" or "Custom amount"             |
-| C — Custom      | `isCustomPrice = true`, or no plan                 | Amount input required, no default                  |
+| Scenario        | Condition                                                  | Amount field                                                                        |
+| --------------- | ---------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| A — Fixed       | Plan exists, `isCustomPrice = false`, `durationMonths = 1` | Pre-filled with `plan.price`, read-only                                             |
+| B — Override    | Same as A, user toggles override                           | Radio: "Plan price" or "Custom amount"                                              |
+| C — Custom      | `isCustomPrice = true`, or no plan                         | Amount input required, no default                                                   |
 | D — Multi-month | Plan exists, `isCustomPrice = false`, `durationMonths > 1` | Pre-filled with `plan.price` (bundle), read-only; calls `createMultiMonthPayment()` |
 
 Payments have **no update operation** — wrong payments are voided, then a new correct one is created.

@@ -120,15 +120,16 @@ export function PlanListScreen() {
         />
       )}
 
-      <PlanFormSheet
-        visible={formVisible}
-        plan={editingPlan}
-        onDismiss={() => {
-          setFormVisible(false);
-          setEditingPlan(null);
-        }}
-        onRequestDelete={setDeletingPlan}
-      />
+      {formVisible && (
+        <PlanFormSheet
+          plan={editingPlan}
+          onDismiss={() => {
+            setFormVisible(false);
+            setEditingPlan(null);
+          }}
+          onRequestDelete={setDeletingPlan}
+        />
+      )}
 
       <ConfirmDialog
         visible={!!deletingPlan}

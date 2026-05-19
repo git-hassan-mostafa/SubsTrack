@@ -199,14 +199,15 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
         </View>
       ) : null}
 
-      <PaymentFormSheet
-        visible={formVisible}
-        entry={selectedEntry}
-        customer={customer}
-        graceDays={DEFAULT_GRACE_DAYS}
-        monthGrid={paymentStore.monthGrid}
-        onDismiss={() => setFormVisible(false)}
-      />
+      {formVisible && selectedEntry && (
+        <PaymentFormSheet
+          entry={selectedEntry}
+          customer={customer}
+          graceDays={DEFAULT_GRACE_DAYS}
+          monthGrid={paymentStore.monthGrid}
+          onDismiss={() => setFormVisible(false)}
+        />
+      )}
       <PaymentDetailSheet
         visible={detailVisible}
         entry={selectedEntry}
