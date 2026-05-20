@@ -8,7 +8,6 @@ import { COLORS } from "@/src/shared/constants";
 import { getBlockRangeLabel } from "../utils/blockRangeLabel";
 
 interface Props {
-  visible: boolean;
   entry: MonthEntry | null;
   onVoid?: () => void;
   onEdit?: (newAmount: number) => void;
@@ -16,9 +15,7 @@ interface Props {
   onDismiss: () => void;
 }
 
-
 export function PaymentDetailSheet({
-  visible,
   entry,
   onVoid,
   onEdit,
@@ -74,7 +71,7 @@ export function PaymentDetailSheet({
 
   return (
     <Modal
-      visible={visible}
+      visible
       animationType="slide"
       presentationStyle="pageSheet"
       onRequestClose={handleDismiss}
@@ -86,7 +83,9 @@ export function PaymentDetailSheet({
         </View>
         <View className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
           <Text fontWeight="Bold" className="text-lg text-gray-900">
-            {isMultiMonth ? t("payments.block_receipt_title") : t("payments.receipt_title")}
+            {isMultiMonth
+              ? t("payments.block_receipt_title")
+              : t("payments.receipt_title")}
           </Text>
           <Pressable onPress={handleDismiss}>
             <Text className="text-base text-primary font-medium">
@@ -112,7 +111,9 @@ export function PaymentDetailSheet({
             {isMultiMonth ? (
               <View className="mt-2 bg-green-100 rounded-full px-3 py-1">
                 <Text className="text-xs text-green-700 font-semibold">
-                  {t("payments.block_months_label", { count: payment?.durationMonths })}
+                  {t("payments.block_months_label", {
+                    count: payment?.durationMonths,
+                  })}
                 </Text>
               </View>
             ) : null}

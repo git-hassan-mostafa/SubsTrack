@@ -208,25 +208,27 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
           onDismiss={() => setFormVisible(false)}
         />
       )}
-      <PaymentDetailSheet
-        visible={detailVisible}
-        entry={selectedEntry}
-        onVoid={handleVoidPress}
-        onEdit={canEditAmount ? handleEditAmount : undefined}
-        editLoading={paymentStore.loadingUpdate}
-        onDismiss={() => setDetailVisible(false)}
-      />
-      <VoidSheet
-        visible={voidVisible}
-        entry={selectedEntry}
-        customer={customer}
-        year={year}
-        graceDays={DEFAULT_GRACE_DAYS}
-        onDismiss={() => {
-          setDetailVisible(false);
-          setVoidVisible(false);
-        }}
-      />
+      {detailVisible && selectedEntry && (
+        <PaymentDetailSheet
+          entry={selectedEntry}
+          onVoid={handleVoidPress}
+          onEdit={canEditAmount ? handleEditAmount : undefined}
+          editLoading={paymentStore.loadingUpdate}
+          onDismiss={() => setDetailVisible(false)}
+        />
+      )}
+      {voidVisible && selectedEntry && (
+        <VoidSheet
+          entry={selectedEntry}
+          customer={customer}
+          year={year}
+          graceDays={DEFAULT_GRACE_DAYS}
+          onDismiss={() => {
+            setDetailVisible(false);
+            setVoidVisible(false);
+          }}
+        />
+      )}
       <ConfirmDialog
         visible={infoPopupMessage !== null}
         title={t("common.not_available")}

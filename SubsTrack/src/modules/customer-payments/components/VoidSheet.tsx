@@ -10,7 +10,6 @@ import { COLORS } from "@/src/shared/constants";
 import { getBlockRangeLabel } from "../utils/blockRangeLabel";
 
 interface Props {
-  visible: boolean;
   entry: MonthEntry | null;
   customer: Customer;
   year: number;
@@ -18,9 +17,7 @@ interface Props {
   onDismiss: () => void;
 }
 
-
 export function VoidSheet({
-  visible,
   entry,
   customer,
   year,
@@ -74,10 +71,16 @@ export function VoidSheet({
 
   return (
     <ConfirmDialog
-      visible={visible}
+      visible
       title={title}
       message={message}
-      confirmLabel={loadingVoid ? "..." : isMultiMonth ? t("payments.void_block_confirm") : t("payments.void_payment")}
+      confirmLabel={
+        loadingVoid
+          ? "..."
+          : isMultiMonth
+            ? t("payments.void_block_confirm")
+            : t("payments.void_payment")
+      }
       destructive
       confirmDisabled={!reason.trim() || loadingVoid}
       onConfirm={handleConfirm}

@@ -90,7 +90,7 @@ export function PaymentFormSheet({
       }
     }
     return conflicts;
-  }, [isMultiMonth, plan, entry, monthGrid, t]);
+  }, [entry]);
 
   const coveredMonths = useMemo(() => {
     if (!isMultiMonth || !plan) return [];
@@ -104,7 +104,7 @@ export function PaymentFormSheet({
         isConflict: gridEntry?.status === "paid",
       };
     });
-  }, [isMultiMonth, plan, entry, monthGrid, t]);
+  }, [entry]);
 
   const hasConflicts = conflictingLabels.length > 0;
   const showConflictWarning = hasConflicts && !form.conflictConfirmed;
