@@ -189,7 +189,21 @@
     "block_conflict_title": "Some months already paid",
     "block_conflict_message": "{{months}} already paid and will be skipped.",
     "block_conflict_proceed": "Proceed (skip those months)",
-    "per_n_months": "/ {{count}} months"
+    "per_n_months": "/ {{count}} months",
+    "full_payment": "Full payment",
+    "partial_payment": "Partial payment",
+    "amount_due_label": "Amount Due",
+    "amount_paid_label": "Amount Paid",
+    "balance_label": "Balance",
+    "balance_remaining": "${{amount}} remaining",
+    "balance_cleared": "Fully paid",
+    "partial_badge": "PARTIAL",
+    "record_payment_action": "Record Payment",
+    "outstanding_balance": "Outstanding",
+    "update_paid_amount": "Update Paid Amount",
+    "edit_amount_hint": "Balance: ${{balance}} — enter new amount paid",
+    "amount_paid_exceeds_due": "Amount paid cannot exceed amount due (${{due}})",
+    "paid_partial": "{{monthYear}} · partial payment"
   },
   "months": {
     "jan": "Jan",

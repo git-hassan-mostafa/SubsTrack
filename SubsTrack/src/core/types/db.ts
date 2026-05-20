@@ -61,7 +61,9 @@ export interface DbCustomer {
 export interface DbPayment {
   id: string;
   billing_month: string;
-  amount: number;
+  amount_due: number;
+  amount_paid: number;
+  balance: number;
   duration_months: number;
   customer_id: string;
   plan_id: string | null;

@@ -192,8 +192,15 @@ CREATE TABLE IF NOT EXISTS payments (
     -- Always the first day of the month (YYYY-MM-01). Enforced by constraint.
     billing_month       DATE          NOT NULL,
 
-    -- Snapshot of the amount at time of payment. Never changes after insert.
-    amount              NUMERIC(12,2) NOT NULL CHECK (amount > 0),
+    -- Snapshot of what was owed at time of recording. Never changes after insert.
+    amount_due          NUMERIC(12,2) NOT NULL CHECK (amount_due > 0),
+
+    -- What was actually collected. Can be less than amount_due (partial payment).
+    -- 0 is allowed (reserves the slot but treated as unpaid in the grid).
+    amount_paid         NUMERIC(12,2) NOT NULL CHECK (amount_paid >= 0 AND amount_paid <= amount_due),
+
+    -- Computed balance. Read-only — never written by the app.
+    balance             NUMERIC(12,2) GENERATED ALWAYS AS (amount_due - amount_paid) STORED,
 
     -- Number of consecutive months this payment covers (1 = single month, 3 = Jan+Feb+Mar, etc.)
     -- billing_month is always the FIRST month of the block.
@@ -438,7 +445,9 @@ END $$;
 -- 3. PAYMENT INTEGRITY
 --    billing_month MUST be YYYY-MM-01. The chk_billing_month_first_day constraint
 --    enforces this at the DB level. The app must also normalize before inserting.
---    amount is a SNAPSHOT. Never read plan.price to display a payment's value.
+--    amount_due and amount_paid are SNAPSHOTS. Never recompute from plan.price.
+--    amount_paid < amount_due = partial payment; balance holds the outstanding debt.
+--    amount_paid = 0 is treated as unpaid in the app (reserves the row slot).
 --    voided payments are retained forever. uq_payments_customer_month_active
 --    only blocks duplicate ACTIVE (non-voided) payments, allowing a re-payment
 --    after a void.

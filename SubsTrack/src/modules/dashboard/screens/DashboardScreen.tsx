@@ -141,6 +141,20 @@ export function DashboardScreen() {
               </View>
             </View>
 
+            {(metrics?.totalOutstandingBalance ?? 0) > 0 ? (
+              <View className="mx-4 mt-3 bg-white border border-gray-100 rounded-2xl p-4">
+                <View className="flex-row items-center gap-1.5 mb-2">
+                  <View className="w-2 h-2 rounded-full bg-warning" />
+                  <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
+                    {t("payments.outstanding_balance")}
+                  </Text>
+                </View>
+                <Text fontWeight="Bold" className="text-3xl text-gray-900">
+                  {formatCurrency(metrics?.totalOutstandingBalance ?? 0)}
+                </Text>
+              </View>
+            ) : null}
+
             <View className="h-6" />
           </>
         )}

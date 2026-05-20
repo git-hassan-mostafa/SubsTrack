@@ -72,6 +72,7 @@ export const MonthCell = memo(function MonthCell({
 
   const sublabel = (() => {
     if (entry.status === "paid" && entry.isGroupSecondary) return t("payments.included_label");
+    if (entry.status === "paid" && entry.balance > 0) return t("payments.partial_badge");
     if (entry.status === "paid") return t("common.paid");
     if (isCurrentMonth) return t("payments.this_month").toUpperCase();
     return null;
@@ -104,6 +105,9 @@ export const MonthCell = memo(function MonthCell({
         <Text className={`text-[8px] font-semibold mt-0.5 ${labelColor}`}>
           {sublabel ?? " "}
         </Text>
+        {entry.status === "paid" && entry.balance > 0 ? (
+          <View className="absolute top-1 end-1 w-1.5 h-1.5 rounded-full bg-orange-400" />
+        ) : null}
         {wrapFromPrev ? (
           <View className="absolute top-0 bottom-0 start-0.5 justify-center">
             <DirectionalIcon name="chevron-back" size={10} color="white" />

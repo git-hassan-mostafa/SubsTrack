@@ -32,7 +32,7 @@ export function PaymentDetailSheet({
   const [amountText, setAmountText] = useState("");
 
   function handleOpenEdit() {
-    setAmountText(payment ? String(payment.amount) : "");
+    setAmountText(payment ? String(payment.amountPaid) : "");
     setEditMode(true);
   }
 
@@ -58,7 +58,7 @@ export function PaymentDetailSheet({
 
   const saveDisabled = (() => {
     const val = parseFloat(amountText);
-    return isNaN(val) || val <= 0 || editLoading;
+    return isNaN(val) || val < 0 || val > (payment?.amountDue ?? Infinity) || editLoading;
   })();
 
   const receiptId = payment ? payment.id.slice(-6).toUpperCase() : "—";
@@ -96,27 +96,49 @@ export function PaymentDetailSheet({
         </View>
 
         <View className="px-6 pt-5">
-          {/* Green success card */}
-          <View className="bg-green-50 border border-green-100 rounded-2xl px-4 py-5 items-center mb-6">
-            <View className="w-10 h-10 rounded-full bg-green-500 items-center justify-center mb-3">
-              <Text fontWeight="Bold" className="text-white text-lg">
-                ✓
-              </Text>
-            </View>
-            <Text fontWeight="Bold" className="text-3xl text-green-600">
-              ${payment?.amount.toFixed(2) ?? "—"}
-            </Text>
-            <Text className="text-sm text-gray-400 mt-1">
-              {t("payments.paid_in_full", { monthYear: blockRangeLabel })}
-            </Text>
-            {isMultiMonth ? (
-              <View className="mt-2 bg-green-100 rounded-full px-3 py-1">
-                <Text className="text-xs text-green-700 font-semibold">
-                  {t("payments.block_months_label", { count: payment?.durationMonths })}
-                </Text>
+          {/* Success card — green for full payment, amber for partial */}
+          {payment?.balance != null && payment.balance > 0 ? (
+            <View className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-5 items-center mb-6">
+              <View className="w-10 h-10 rounded-full bg-warning items-center justify-center mb-3">
+                <Text fontWeight="Bold" className="text-white text-lg">!</Text>
               </View>
-            ) : null}
-          </View>
+              <Text fontWeight="Bold" className="text-3xl text-amber-600">
+                ${payment.amountPaid.toFixed(2)}
+              </Text>
+              <Text className="text-sm text-gray-400 mt-1">
+                {t("payments.paid_partial", { monthYear: blockRangeLabel })}
+              </Text>
+              <Text className="text-xs text-amber-600 font-semibold mt-1">
+                {t("payments.balance_remaining", { amount: payment.balance.toFixed(2) })}
+              </Text>
+              {isMultiMonth ? (
+                <View className="mt-2 bg-amber-100 rounded-full px-3 py-1">
+                  <Text className="text-xs text-amber-700 font-semibold">
+                    {t("payments.block_months_label", { count: payment.durationMonths })}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+          ) : (
+            <View className="bg-green-50 border border-green-100 rounded-2xl px-4 py-5 items-center mb-6">
+              <View className="w-10 h-10 rounded-full bg-green-500 items-center justify-center mb-3">
+                <Text fontWeight="Bold" className="text-white text-lg">✓</Text>
+              </View>
+              <Text fontWeight="Bold" className="text-3xl text-green-600">
+                ${payment?.amountPaid.toFixed(2) ?? "—"}
+              </Text>
+              <Text className="text-sm text-gray-400 mt-1">
+                {t("payments.paid_in_full", { monthYear: blockRangeLabel })}
+              </Text>
+              {isMultiMonth ? (
+                <View className="mt-2 bg-green-100 rounded-full px-3 py-1">
+                  <Text className="text-xs text-green-700 font-semibold">
+                    {t("payments.block_months_label", { count: payment?.durationMonths })}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+          )}
 
           {/* Detail rows */}
           {payment ? (
@@ -126,28 +148,43 @@ export function PaymentDetailSheet({
                 value={formatDate(payment.paidAt, i18n.language)}
               />
               <Row label={t("payments.receipt_id")} value={receiptId} />
+              <Row
+                label={t("payments.amount_due_label")}
+                value={`$${payment.amountDue.toFixed(2)}`}
+              />
+              <Row
+                label={t("payments.amount_paid_label")}
+                value={`$${payment.amountPaid.toFixed(2)}`}
+              />
+              {payment.balance > 0 ? (
+                <Row
+                  label={t("payments.balance_label")}
+                  value={`$${payment.balance.toFixed(2)}`}
+                  valueColor="text-amber-600"
+                />
+              ) : null}
               {payment.notes ? (
                 <Row label={t("payments.notes")} value={payment.notes} last />
               ) : null}
             </View>
           ) : null}
 
-          {/* Edit amount — only for non-multi-month payments */}
-          {onEdit && !isMultiMonth && !editMode ? (
+          {/* Update paid amount */}
+          {onEdit && !editMode ? (
             <Pressable
               onPress={handleOpenEdit}
               className="border border-primary rounded-xl py-3 items-center mb-3"
             >
               <Text className="text-primary font-semibold">
-                {t("payments.edit_amount")}
+                {t("payments.update_paid_amount")}
               </Text>
             </Pressable>
           ) : null}
 
-          {onEdit && !isMultiMonth && editMode ? (
+          {onEdit && editMode ? (
             <View className="mb-3">
               <Text className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
-                {t("payments.amount_label")}
+                {t("payments.amount_paid_label")}
               </Text>
               <TextInput
                 value={amountText}
@@ -155,10 +192,15 @@ export function PaymentDetailSheet({
                 keyboardType="decimal-pad"
                 placeholder={t("payments.enter_amount")}
                 placeholderTextColor={COLORS.gray400}
-                className="border border-gray-200 rounded-xl px-4 py-3 text-base text-gray-900 bg-white mb-3"
+                className="border border-gray-200 rounded-xl px-4 py-3 text-base text-gray-900 bg-white mb-1"
                 autoFocus
               />
-              <View className="flex-row gap-3">
+              {payment && payment.balance > 0 ? (
+                <Text className="text-xs text-amber-600 mb-2">
+                  {t("payments.edit_amount_hint", { balance: payment.balance.toFixed(2) })}
+                </Text>
+              ) : null}
+              <View className="flex-row gap-3 mt-2">
                 <Pressable
                   onPress={handleCancelEdit}
                   className="flex-1 border border-gray-200 rounded-xl py-3 items-center"
@@ -201,17 +243,19 @@ function Row({
   label,
   value,
   last,
+  valueColor = "text-gray-900",
 }: {
   label: string;
   value: string;
   last?: boolean;
+  valueColor?: string;
 }) {
   return (
     <View
       className={`flex-row justify-between items-center px-4 py-3.5 ${last ? "" : "border-b border-gray-100"}`}
     >
       <Text className="text-sm text-gray-400">{label}</Text>
-      <Text className="text-sm font-semibold text-gray-900 flex-1 ms-4 text-right">
+      <Text className={`text-sm font-semibold flex-1 ms-4 text-right ${valueColor}`}>
         {value}
       </Text>
     </View>

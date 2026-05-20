@@ -68,7 +68,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
 
   async function handleEditAmount(newAmount: number) {
     if (!selectedEntry?.payment) return;
-    await paymentStore.updatePaymentAmount(
+    await paymentStore.updatePaymentAmountPaid(
       selectedEntry.payment.id,
       newAmount,
       customer,
@@ -94,13 +94,13 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
   ).length;
   const collectedTotal = paymentStore.payments
     .filter((p) => !p.voidedAt && p.billingMonth.startsWith(String(year)))
-    .reduce((sum, p) => sum + p.amount, 0);
+    .reduce((sum, p) => sum + p.amountPaid, 0);
 
-  // Edit amount is only available for non-multi-month, non-fixed-price payments.
+  // Edit (update amountPaid) is available for any active, non-secondary payment.
   const canEditAmount =
-    selectedEntry?.payment &&
-    selectedEntry.payment.durationMonths === 1 &&
-    (!customer.plan || customer.plan.isCustomPrice);
+    selectedEntry?.payment != null &&
+    !selectedEntry.isGroupSecondary &&
+    selectedEntry.payment.voidedAt === null;
 
   return (
     <>

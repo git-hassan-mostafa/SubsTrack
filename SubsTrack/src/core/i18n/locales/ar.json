@@ -190,7 +190,21 @@
     "block_conflict_title": "بعض الأشهر مدفوعة بالفعل",
     "block_conflict_message": "{{months}} مدفوعة بالفعل وسيتم تخطيها.",
     "block_conflict_proceed": "المتابعة (تخطي هذه الأشهر)",
-    "per_n_months": "/ {{count}} أشهر"
+    "per_n_months": "/ {{count}} أشهر",
+    "full_payment": "دفع كامل",
+    "partial_payment": "دفع جزئي",
+    "amount_due_label": "المبلغ المستحق",
+    "amount_paid_label": "المبلغ المدفوع",
+    "balance_label": "الرصيد",
+    "balance_remaining": "{{amount}}$ متبقٍ",
+    "balance_cleared": "مدفوع بالكامل",
+    "partial_badge": "جزئي",
+    "record_payment_action": "تسجيل الدفعة",
+    "outstanding_balance": "متبقٍ",
+    "update_paid_amount": "تحديث المبلغ المدفوع",
+    "edit_amount_hint": "الرصيد: {{balance}}$ — أدخل المبلغ المدفوع الجديد",
+    "amount_paid_exceeds_due": "المبلغ المدفوع لا يمكن أن يتجاوز المبلغ المستحق ({{due}}$)",
+    "paid_partial": "{{monthYear}} · دفعة جزئية"
   },
   "months": {
     "jan": "يناير",

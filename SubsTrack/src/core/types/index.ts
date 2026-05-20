@@ -73,7 +73,9 @@ export interface Customer {
 export interface Payment {
   id: string;
   billingMonth: string;
-  amount: number;
+  amountDue: number;
+  amountPaid: number;
+  balance: number;
   durationMonths: number;
   customerId: string;
   planId: string | null;
@@ -94,6 +96,7 @@ export interface MonthEntry {
   status: MonthStatus;
   payment: Payment | null;
   isGroupSecondary: boolean;
+  balance: number;
 }
 
 export interface DashboardMetrics {
@@ -103,4 +106,5 @@ export interface DashboardMetrics {
   unpaidThisMonth: number;
   totalUsers: number;
   totalPlans: number;
+  totalOutstandingBalance: number;
 }

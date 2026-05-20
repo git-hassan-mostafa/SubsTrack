@@ -35,6 +35,9 @@ type FormState = {
   customAmountText: string;
   isOverrideEnabled: boolean;
   amountMode: "plan" | "custom";
+  paymentMode: "full" | "partial";
+  amountDueText: string;
+  amountPaidText: string;
   notes: string;
   conflictConfirmed: boolean;
 };
@@ -43,6 +46,9 @@ const EMPTY_FORM: FormState = {
   customAmountText: "",
   isOverrideEnabled: false,
   amountMode: "plan",
+  paymentMode: "full",
+  amountDueText: "",
+  amountPaidText: "",
   notes: "",
   conflictConfirmed: false,
 };
@@ -109,30 +115,41 @@ export function PaymentFormSheet({
   const hasConflicts = conflictingLabels.length > 0;
   const showConflictWarning = hasConflicts && !form.conflictConfirmed;
 
-  const resolvedAmount = (() => {
-    if (isMultiMonth) return plan!.price!; // multi-month: always the bundle price
-    if (isFixedPlan && !form.isOverrideEnabled) return plan!.price!;
-    if (isFixedPlan && form.isOverrideEnabled && form.amountMode === "plan")
-      return plan!.price!;
-    const v = parseFloat(form.customAmountText);
-    return isNaN(v) ? null : v;
-  })();
+  const resolvedAmounts = useMemo((): { amountDue: number | null; amountPaid: number | null } => {
+    if (isMultiMonth) {
+      const due = plan!.price!;
+      if (form.paymentMode === "full") return { amountDue: due, amountPaid: due };
+      const paid = parseFloat(form.amountPaidText);
+      return { amountDue: due, amountPaid: isNaN(paid) ? null : paid };
+    }
+    if (isFixedPlan && !form.isOverrideEnabled) return { amountDue: plan!.price!, amountPaid: plan!.price! };
+    if (isFixedPlan && form.isOverrideEnabled && form.amountMode === "plan") return { amountDue: plan!.price!, amountPaid: plan!.price! };
+    if (form.paymentMode === "full") {
+      const v = parseFloat(form.customAmountText);
+      return { amountDue: isNaN(v) ? null : v, amountPaid: isNaN(v) ? null : v };
+    }
+    const due = parseFloat(form.amountDueText);
+    const paid = parseFloat(form.amountPaidText);
+    return { amountDue: isNaN(due) ? null : due, amountPaid: isNaN(paid) ? null : paid };
+  }, [isMultiMonth, isFixedPlan, plan, form]);
 
+  const { amountDue: resolvedDue, amountPaid: resolvedPaid } = resolvedAmounts;
   const canSubmit =
-    resolvedAmount !== null &&
-    resolvedAmount > 0 &&
-    !loadingCreate &&
-    !blockedForInactive &&
-    !showConflictWarning;
+    resolvedDue !== null && resolvedDue > 0 &&
+    resolvedPaid !== null && resolvedPaid >= 0 &&
+    resolvedPaid <= resolvedDue &&
+    !loadingCreate && !blockedForInactive && !showConflictWarning;
 
   async function handleSubmit() {
     if (!user || !canSubmit || loadingCreate) return;
+    if (resolvedDue === null || resolvedPaid === null) return;
 
     if (isMultiMonth && plan) {
       await createMultiMonthPayment(
         entry.billingMonth,
         customer,
         plan,
+        resolvedPaid,
         user.id,
         form.notes.trim() || null,
         user.tenantId,
@@ -144,7 +161,8 @@ export function PaymentFormSheet({
       await createPayment(
         {
           billingMonth: entry.billingMonth,
-          amount: resolvedAmount!,
+          amountDue: resolvedDue,
+          amountPaid: resolvedPaid,
           durationMonths: 1,
           customerId: customer.id,
           planId: customer.planId,
@@ -270,7 +288,7 @@ export function PaymentFormSheet({
               {t("payments.amount_section")}
             </Text>
 
-            {/* Multi-month: always shows fixed bundle price */}
+            {/* Multi-month: fixed bundle price + optional partial toggle */}
             {isMultiMonth ? (
               <>
                 <Text fontWeight="Bold" className="text-5xl text-gray-900">
@@ -301,6 +319,49 @@ export function PaymentFormSheet({
                     </View>
                   ))}
                 </View>
+                {/* Full / partial toggle */}
+                <View className="w-full gap-2 mt-4">
+                  {(["full", "partial"] as const).map((mode) => (
+                    <Pressable
+                      key={mode}
+                      onPress={() => setForm((prev) => ({ ...prev, paymentMode: mode, amountPaidText: "" }))}
+                      className={`flex-row items-center border rounded-xl px-4 py-3 ${form.paymentMode === mode ? "border-primary bg-indigo-50" : "border-gray-200 bg-white"}`}
+                    >
+                      <View className={`w-4 h-4 rounded-full border-2 me-3 items-center justify-center ${form.paymentMode === mode ? "border-primary" : "border-gray-400"}`}>
+                        {form.paymentMode === mode ? <View className="w-2 h-2 rounded-full bg-primary" /> : null}
+                      </View>
+                      <Text className="text-sm text-gray-700">
+                        {mode === "full" ? t("payments.full_payment") : t("payments.partial_payment")}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+                {form.paymentMode === "partial" ? (
+                  <View className="w-full mt-3">
+                    <Input
+                      label={t("payments.amount_paid_label")}
+                      value={form.amountPaidText}
+                      onChangeText={(v) => setForm((prev) => ({ ...prev, amountPaidText: v }))}
+                      placeholder={t("payments.enter_amount")}
+                      keyboardType="decimal-pad"
+                      onFocus={clearError}
+                    />
+                    {(() => {
+                      const paid = parseFloat(form.amountPaidText);
+                      if (!isNaN(paid)) {
+                        const balance = plan!.price! - paid;
+                        return (
+                          <Text className={`text-sm font-semibold mt-1 ${balance > 0 ? "text-amber-600" : "text-green-600"}`}>
+                            {balance > 0
+                              ? t("payments.balance_remaining", { amount: balance.toFixed(2) })
+                              : t("payments.balance_cleared")}
+                          </Text>
+                        );
+                      }
+                      return null;
+                    })()}
+                  </View>
+                ) : null}
               </>
             ) : null}
 
@@ -355,29 +416,135 @@ export function PaymentFormSheet({
                   ))}
                 </View>
                 {form.amountMode === "custom" ? (
-                  <Input
-                    value={form.customAmountText}
-                    onChangeText={(v) =>
-                      setForm((prev) => ({ ...prev, customAmountText: v }))
-                    }
-                    placeholder={t("payments.enter_amount")}
-                    keyboardType="decimal-pad"
-                    onFocus={clearError}
-                  />
+                  <>
+                    <View className="w-full gap-2 mt-1">
+                      {(["full", "partial"] as const).map((mode) => (
+                        <Pressable
+                          key={mode}
+                          onPress={() => setForm((prev) => ({ ...prev, paymentMode: mode, amountDueText: "", amountPaidText: "", customAmountText: "" }))}
+                          className={`flex-row items-center border rounded-xl px-4 py-3 ${form.paymentMode === mode ? "border-primary bg-indigo-50" : "border-gray-200 bg-white"}`}
+                        >
+                          <View className={`w-4 h-4 rounded-full border-2 me-3 items-center justify-center ${form.paymentMode === mode ? "border-primary" : "border-gray-400"}`}>
+                            {form.paymentMode === mode ? <View className="w-2 h-2 rounded-full bg-primary" /> : null}
+                          </View>
+                          <Text className="text-sm text-gray-700">
+                            {mode === "full" ? t("payments.full_payment") : t("payments.partial_payment")}
+                          </Text>
+                        </Pressable>
+                      ))}
+                    </View>
+                    {form.paymentMode === "full" ? (
+                      <View className="w-full mt-2">
+                        <Input
+                          value={form.customAmountText}
+                          onChangeText={(v) => setForm((prev) => ({ ...prev, customAmountText: v }))}
+                          placeholder={t("payments.enter_amount")}
+                          keyboardType="decimal-pad"
+                          onFocus={clearError}
+                        />
+                      </View>
+                    ) : (
+                      <View className="w-full mt-2 gap-2">
+                        <Input
+                          label={t("payments.amount_due_label")}
+                          value={form.amountDueText}
+                          onChangeText={(v) => setForm((prev) => ({ ...prev, amountDueText: v }))}
+                          placeholder={t("payments.enter_amount")}
+                          keyboardType="decimal-pad"
+                          onFocus={clearError}
+                        />
+                        <Input
+                          label={t("payments.amount_paid_label")}
+                          value={form.amountPaidText}
+                          onChangeText={(v) => setForm((prev) => ({ ...prev, amountPaidText: v }))}
+                          placeholder={t("payments.enter_amount")}
+                          keyboardType="decimal-pad"
+                          onFocus={clearError}
+                        />
+                        {(() => {
+                          const due = parseFloat(form.amountDueText);
+                          const paid = parseFloat(form.amountPaidText);
+                          if (!isNaN(due) && !isNaN(paid)) {
+                            const balance = due - paid;
+                            return (
+                              <Text className={`text-sm font-semibold ${balance > 0 ? "text-amber-600" : "text-green-600"}`}>
+                                {balance > 0
+                                  ? t("payments.balance_remaining", { amount: balance.toFixed(2) })
+                                  : t("payments.balance_cleared")}
+                              </Text>
+                            );
+                          }
+                          return null;
+                        })()}
+                      </View>
+                    )}
+                  </>
                 ) : null}
               </>
             ) : null}
 
             {!isMultiMonth && isCustomOrNoPlan ? (
-              <Input
-                value={form.customAmountText}
-                onChangeText={(v) =>
-                  setForm((prev) => ({ ...prev, customAmountText: v }))
-                }
-                placeholder={t("payments.enter_amount")}
-                keyboardType="decimal-pad"
-                onFocus={clearError}
-              />
+              <>
+                <View className="w-full gap-2 mb-2">
+                  {(["full", "partial"] as const).map((mode) => (
+                    <Pressable
+                      key={mode}
+                      onPress={() => setForm((prev) => ({ ...prev, paymentMode: mode, amountDueText: "", amountPaidText: "", customAmountText: "" }))}
+                      className={`flex-row items-center border rounded-xl px-4 py-3 ${form.paymentMode === mode ? "border-primary bg-indigo-50" : "border-gray-200 bg-white"}`}
+                    >
+                      <View className={`w-4 h-4 rounded-full border-2 me-3 items-center justify-center ${form.paymentMode === mode ? "border-primary" : "border-gray-400"}`}>
+                        {form.paymentMode === mode ? <View className="w-2 h-2 rounded-full bg-primary" /> : null}
+                      </View>
+                      <Text className="text-sm text-gray-700">
+                        {mode === "full" ? t("payments.full_payment") : t("payments.partial_payment")}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+                {form.paymentMode === "full" ? (
+                  <Input
+                    value={form.customAmountText}
+                    onChangeText={(v) => setForm((prev) => ({ ...prev, customAmountText: v }))}
+                    placeholder={t("payments.enter_amount")}
+                    keyboardType="decimal-pad"
+                    onFocus={clearError}
+                  />
+                ) : (
+                  <View className="w-full gap-2">
+                    <Input
+                      label={t("payments.amount_due_label")}
+                      value={form.amountDueText}
+                      onChangeText={(v) => setForm((prev) => ({ ...prev, amountDueText: v }))}
+                      placeholder={t("payments.enter_amount")}
+                      keyboardType="decimal-pad"
+                      onFocus={clearError}
+                    />
+                    <Input
+                      label={t("payments.amount_paid_label")}
+                      value={form.amountPaidText}
+                      onChangeText={(v) => setForm((prev) => ({ ...prev, amountPaidText: v }))}
+                      placeholder={t("payments.enter_amount")}
+                      keyboardType="decimal-pad"
+                      onFocus={clearError}
+                    />
+                    {(() => {
+                      const due = parseFloat(form.amountDueText);
+                      const paid = parseFloat(form.amountPaidText);
+                      if (!isNaN(due) && !isNaN(paid)) {
+                        const balance = due - paid;
+                        return (
+                          <Text className={`text-sm font-semibold ${balance > 0 ? "text-amber-600" : "text-green-600"}`}>
+                            {balance > 0
+                              ? t("payments.balance_remaining", { amount: balance.toFixed(2) })
+                              : t("payments.balance_cleared")}
+                          </Text>
+                        );
+                      }
+                      return null;
+                    })()}
+                  </View>
+                )}
+              </>
             ) : null}
           </View>
 
@@ -390,7 +557,11 @@ export function PaymentFormSheet({
           />
 
           <Button
-            label={t("payments.mark_as_paid")}
+            label={
+              resolvedDue !== null && resolvedPaid !== null && resolvedPaid < resolvedDue
+                ? t("payments.record_payment_action")
+                : t("payments.mark_as_paid")
+            }
             onPress={handleSubmit}
             loading={loadingCreate}
             disabled={!canSubmit}

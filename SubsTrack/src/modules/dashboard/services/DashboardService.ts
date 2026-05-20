@@ -15,7 +15,7 @@ export class DashboardService {
     const { year, month } = getCurrentYearMonth();
     const billingMonth = toBillingMonth(year, month);
 
-    const [totalCustomers, activeCustomers, monthlyRevenue, unpaidThisMonth, totalUsers, totalPlans] =
+    const [totalCustomers, activeCustomers, monthlyRevenue, unpaidThisMonth, totalUsers, totalPlans, totalOutstandingBalance] =
       await Promise.all([
         this.customerRepo.countAll(),
         this.customerRepo.countActive(),
@@ -23,8 +23,9 @@ export class DashboardService {
         this.customerRepo.countUnpaidForMonth(billingMonth),
         this.userRepo.countAll(),
         this.planRepo.countAll(),
+        this.paymentRepo.sumBalanceForMonth(billingMonth),
       ]);
 
-    return { totalCustomers, activeCustomers, monthlyRevenue, unpaidThisMonth, totalUsers, totalPlans };
+    return { totalCustomers, activeCustomers, monthlyRevenue, unpaidThisMonth, totalUsers, totalPlans, totalOutstandingBalance };
   }
 }
