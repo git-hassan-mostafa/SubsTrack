@@ -13,21 +13,7 @@ import { formatCurrency, getDateLocale } from "@/src/core/utils/date";
 import { useAuth } from "@/src/modules/auth/hooks/useAuth";
 import { useDashboardStore } from "../store/dashboardStore";
 import { COLORS } from "@/src/shared/constants";
-
-const MONTH_KEYS = [
-  "jan",
-  "feb",
-  "mar",
-  "apr",
-  "may",
-  "jun",
-  "jul",
-  "aug",
-  "sep",
-  "oct",
-  "nov",
-  "dec",
-] as const;
+import { MONTHS } from "@/src/core/constants";
 
 export function DashboardScreen() {
   const { t, i18n } = useTranslation();
@@ -41,7 +27,7 @@ export function DashboardScreen() {
 
   const now = new Date();
   const locale = getDateLocale(i18n.language);
-  const monthLabel = t(`months.${MONTH_KEYS[now.getMonth()]}`);
+  const monthLabel = t(`months.${MONTHS[now.getMonth()]}`);
   const year = now.getFullYear();
   const dateLabel = now.toLocaleDateString(locale, {
     weekday: "long",

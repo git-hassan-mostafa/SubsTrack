@@ -7,6 +7,54 @@
 
 ---
 
+**Stack:**
+
+- React Native with Expo (latest SDK)
+- Supabase (Auth + PostgreSQL + RLS)
+- Zustand (state management)
+- TypeScript (strict mode)
+- NativeWind (Tailwind CSS for React Native — chosen for performance, zero runtime overhead, and excellent grid/layout support)
+
+---
+
+## Design Philosophy
+
+Minimal, clean, and professional. The app is used daily by non-technical staff on mobile devices. Every screen must be immediately understandable. No animations, no decorative elements, no unnecessary complexity.
+
+Priority order: clarity → speed → correctness → completeness.
+
+---
+
+## Architecture (MANDATORY)
+
+Follow strict layered clean architecture. Dependencies only flow downward. No layer may import from a layer above it.
+
+```
+Presentation  →  State  →  Business Logic  →  Repository  →  Database
+```
+
+### Layer 1 — Presentation
+
+Screens, UI components, and UI-only hooks. Components read from stores and dispatch store actions. Zero business logic. Zero direct Supabase calls.
+
+### Layer 2 — State (Zustand)
+
+One store per feature module. Stores hold loading/error state and the feature's data. Async actions call services — never repositories directly.
+
+### Layer 3 — Business Logic (Services)
+
+Pure TypeScript classes. No UI imports. No Supabase imports. Handles all validation, transformation, and decision logic. Receives domain models, returns domain models or throws typed errors.
+
+### Layer 4 — Repository
+
+TypeScript classes. The only layer that imports Supabase. Responsible for all DB calls and bidirectional mapping between DB row types (snake_case) and domain models (camelCase). Each repository corresponds to exactly one table.
+
+### Layer 5 — Core
+
+Shared types, interfaces, constants, and utilities. Imported by all layers. Never imports from any other layer.
+
+---
+
 ## Project Overview
 
 **SubsTrack** is a multi-tenant subscription management mobile application built for small businesses (ISPs, gyms, delivery services) that collect monthly fees from customers. Staff log in, manage customer lists, assign subscription plans, and record monthly payments. The system tracks which customers have paid and which are overdue using a dynamically generated monthly grid — months are never stored in the database, only payments are.
