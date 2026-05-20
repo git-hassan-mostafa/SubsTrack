@@ -18,8 +18,11 @@ function mapDbPaymentToPayment(db: DbPayment): Payment {
   return {
     id: db.id,
     billingMonth: db.billing_month,
-    amount: db.amount,
+    amountDue: Number(db.amount_due),
+    amountPaid: Number(db.amount_paid),
+    balance: Number(db.balance),
     durationMonths: db.duration_months,
+    currencyId: db.currency_id,
     customerId: db.customer_id,
     planId: db.plan_id,
     receivedByUserId: db.received_by_user_id,
@@ -32,7 +35,7 @@ function mapDbPaymentToPayment(db: DbPayment): Payment {
   };
 }
 
-type CreatePaymentInput = Pick<Payment, 'billingMonth' | 'amount' | 'durationMonths' | 'customerId' | 'planId' | 'receivedByUserId' | 'tenantId' | 'notes'>
+type CreatePaymentInput = Pick<Payment, 'billingMonth' | 'amountDue' | 'amountPaid' | 'durationMonths' | 'currencyId' | 'customerId' | 'planId' | 'receivedByUserId' | 'tenantId' | 'notes'>
 
 export type MultiMonthConflict = {
   billingMonth: string;
@@ -56,15 +59,21 @@ export class PaymentService {
   }
 
   async createPayment(data: CreatePaymentInput): Promise<Payment> {
-    if (data.amount <= 0) throw new Error("Amount must be greater than 0");
+    if (data.amountDue <= 0) throw new Error("Amount due must be greater than 0");
+    if (data.amountPaid < 0) throw new Error("Amount paid cannot be negative");
+    if (data.amountPaid > data.amountDue) {
+      throw new Error("Amount paid cannot exceed amount due");
+    }
     if (!data.billingMonth.endsWith("-01")) {
       throw new Error("Billing month must be the first day of the month");
     }
 
     const row = await this.repository.create({
       billing_month: data.billingMonth,
-      amount: data.amount,
+      amount_due: data.amountDue,
+      amount_paid: data.amountPaid,
       duration_months: data.durationMonths,
+      currency_id: data.currencyId,
       customer_id: data.customerId,
       plan_id: data.planId,
       received_by_user_id: data.receivedByUserId,
@@ -75,12 +84,14 @@ export class PaymentService {
   }
 
   // Creates a multi-month payment starting at startMonth covering durationMonths months.
+  // amountPaid: what was actually collected (may be less than plan.price for partial payments).
   // existingPayments: the current payments for this customer (to detect conflicts).
   // skipConflicts: if true, skips already-covered months; if false, throws on conflict.
   async createMultiMonthPayment(
     startMonth: string,
     customer: Customer,
     plan: Plan,
+    amountPaid: number,
     receivedByUserId: string,
     notes: string | null,
     tenantId: string,
@@ -92,6 +103,9 @@ export class PaymentService {
     }
     if (!plan.price || plan.price <= 0) {
       throw new Error("Plan must have a fixed price to record a multi-month payment");
+    }
+    if (amountPaid > plan.price) {
+      throw new Error("Amount paid cannot exceed amount due");
     }
 
     const coveredByExisting = buildCoverageSet(existingPayments);
@@ -142,8 +156,10 @@ export class PaymentService {
 
     const row = await this.repository.create({
       billing_month: effectiveStart,
-      amount: plan.price,
+      amount_due: plan.price,
+      amount_paid: amountPaid,
       duration_months: effectiveDuration,
+      currency_id: plan.currencyId,
       customer_id: customer.id,
       plan_id: plan.id,
       received_by_user_id: receivedByUserId,
@@ -154,9 +170,12 @@ export class PaymentService {
     return { payment: mapDbPaymentToPayment(row), skippedMonths };
   }
 
-  async updatePaymentAmount(id: string, amount: number): Promise<Payment> {
-    if (amount <= 0) throw new Error("Amount must be greater than 0");
-    const row = await this.repository.updateAmount(id, amount);
+  async updatePaymentAmountPaid(id: string, amountPaid: number, amountDue: number): Promise<Payment> {
+    if (amountPaid < 0) throw new Error("Amount paid cannot be negative");
+    if (amountPaid > amountDue) {
+      throw new Error("Amount paid cannot exceed amount due");
+    }
+    const row = await this.repository.updateAmountPaid(id, amountPaid);
     return mapDbPaymentToPayment(row);
   }
 
@@ -216,11 +235,15 @@ export class PaymentService {
           status: "before_start" as MonthStatus,
           payment: null,
           isGroupSecondary: false,
+          balance: 0,
         };
       }
 
+      // A payment with amountPaid = 0 is treated as no payment (slot reserved but unpaid).
+      const isEffectivelyPaid = payment !== null && payment.voidedAt === null && payment.amountPaid > 0;
+
       let status: MonthStatus;
-      if (payment !== null && payment.voidedAt === null) {
+      if (isEffectivelyPaid) {
         status = "paid";
       } else if (year > cy || (year === cy && month > cm)) {
         status = "future";
@@ -231,16 +254,19 @@ export class PaymentService {
         status = new Date() <= graceCutoff ? "future" : "unpaid";
       }
 
-      return { year, month, label, billingMonth, status, payment, isGroupSecondary };
+      const balance = isEffectivelyPaid ? (payment?.balance ?? 0) : 0;
+
+      return { year, month, label, billingMonth, status, payment, isGroupSecondary, balance };
     });
   }
 }
 
 // Returns a Set of billing months already covered by the given payments (including multi-month ranges).
+// Payments with amountPaid = 0 are excluded — they are treated as unpaid (slot reserved only).
 function buildCoverageSet(payments: Payment[]): Set<string> {
   const covered = new Set<string>();
   for (const payment of payments) {
-    if (payment.voidedAt !== null) continue;
+    if (payment.voidedAt !== null || payment.amountPaid === 0) continue;
     const [pYear, pMonthNum] = payment.billingMonth.split("-").map(Number);
     for (let d = 0; d < payment.durationMonths; d++) {
       const date = new Date(pYear, pMonthNum - 1 + d, 1);

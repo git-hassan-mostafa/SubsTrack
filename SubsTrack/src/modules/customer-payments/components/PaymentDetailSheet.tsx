@@ -1,11 +1,15 @@
 import { useState } from "react";
-import { Modal, Pressable, TextInput, View } from "react-native";
+import { Modal, Pressable, View } from "react-native";
 import { Text } from "@/src/shared/components/Text";
 import { useTranslation } from "react-i18next";
 import type { MonthEntry } from "@/src/core/types";
 import { formatDate } from "@/src/core/utils/date";
-import { COLORS } from "@/src/shared/constants";
+import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { getBlockRangeLabel } from "../utils/blockRangeLabel";
+import { CurrencyInput } from "@/src/shared/components/CurrencyInput";
+import { useCurrencyStore } from "@/src/modules/currencies/store/currencyStore";
+import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
+import { useLanguageStore } from "@/src/core/i18n/languageStore";
 
 interface Props {
   entry: MonthEntry | null;
@@ -24,39 +28,52 @@ export function PaymentDetailSheet({
 }: Props) {
   const { t, i18n } = useTranslation();
   const payment = entry?.payment;
+  const { currencies } = useCurrencyStore();
+  const { displayCurrencyId } = useUiPrefStore();
+  const { language } = useLanguageStore();
+  const locale = language === "ar" ? "ar" : "en-US";
+  const source = findCurrency(currencies, payment?.currencyId ?? null);
+  const target = findCurrency(currencies, displayCurrencyId);
+  // Primary display = stored (source) currency (preserves the literal amount
+  // collected). When the user's display currency differs, also show the
+  // equivalent in the display currency as a secondary line.
+  const fmtSource = (v: number) => formatMoney(v, source, source, locale);
+  const fmtTarget = (v: number) => formatMoney(v, source, target, locale);
+  const showEquivalent =
+    payment != null && (source?.id ?? null) !== (target?.id ?? null);
 
   const [editMode, setEditMode] = useState(false);
-  const [amountText, setAmountText] = useState("");
+  const [amountPaid, setAmountPaid] = useState<number | null>(null);
 
   function handleOpenEdit() {
-    setAmountText(payment ? String(payment.amount) : "");
+    setAmountPaid(payment ? payment.amountPaid : null);
     setEditMode(true);
   }
 
   function handleCancelEdit() {
     setEditMode(false);
-    setAmountText("");
+    setAmountPaid(null);
   }
 
   function handleSaveEdit() {
-    const val = parseFloat(amountText);
-    if (!isNaN(val) && val > 0 && onEdit) {
-      onEdit(val);
+    if (amountPaid != null && amountPaid >= 0 && onEdit) {
+      onEdit(amountPaid);
       setEditMode(false);
-      setAmountText("");
+      setAmountPaid(null);
     }
   }
 
   function handleDismiss() {
     setEditMode(false);
-    setAmountText("");
+    setAmountPaid(null);
     onDismiss();
   }
 
-  const saveDisabled = (() => {
-    const val = parseFloat(amountText);
-    return isNaN(val) || val <= 0 || editLoading;
-  })();
+  const saveDisabled =
+    amountPaid == null ||
+    amountPaid < 0 ||
+    amountPaid > (payment?.amountDue ?? Infinity) ||
+    !!editLoading;
 
   const receiptId = payment ? payment.id.slice(-6).toUpperCase() : "—";
 
@@ -95,29 +112,69 @@ export function PaymentDetailSheet({
         </View>
 
         <View className="px-6 pt-5">
-          {/* Green success card */}
-          <View className="bg-green-50 border border-green-100 rounded-2xl px-4 py-5 items-center mb-6">
-            <View className="w-10 h-10 rounded-full bg-green-500 items-center justify-center mb-3">
-              <Text fontWeight="Bold" className="text-white text-lg">
-                ✓
-              </Text>
-            </View>
-            <Text fontWeight="Bold" className="text-3xl text-green-600">
-              ${payment?.amount.toFixed(2) ?? "—"}
-            </Text>
-            <Text className="text-sm text-gray-400 mt-1">
-              {t("payments.paid_in_full", { monthYear: blockRangeLabel })}
-            </Text>
-            {isMultiMonth ? (
-              <View className="mt-2 bg-green-100 rounded-full px-3 py-1">
-                <Text className="text-xs text-green-700 font-semibold">
-                  {t("payments.block_months_label", {
-                    count: payment?.durationMonths,
-                  })}
+          {/* Success card — green for full payment, amber for partial */}
+          {payment?.balance != null && payment.balance > 0 ? (
+            <View className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-5 items-center mb-6">
+              <View className="w-10 h-10 rounded-full bg-warning items-center justify-center mb-3">
+                <Text fontWeight="Bold" className="text-white text-lg">
+                  !
                 </Text>
               </View>
-            ) : null}
-          </View>
+              <Text fontWeight="Bold" className="text-3xl text-amber-600">
+                {fmtSource(payment.amountPaid)}
+              </Text>
+              {showEquivalent ? (
+                <Text className="text-xs text-gray-400 mt-0.5">
+                  ≈ {fmtTarget(payment.amountPaid)}
+                </Text>
+              ) : null}
+              <Text className="text-sm text-gray-400 mt-1">
+                {t("payments.paid_partial", { monthYear: blockRangeLabel })}
+              </Text>
+              <Text className="text-xs text-amber-600 font-semibold mt-1">
+                {t("payments.balance_remaining", {
+                  amount: fmtSource(payment.balance),
+                })}
+              </Text>
+              {isMultiMonth ? (
+                <View className="mt-2 bg-amber-100 rounded-full px-3 py-1">
+                  <Text className="text-xs text-amber-700 font-semibold">
+                    {t("payments.block_months_label", {
+                      count: payment.durationMonths,
+                    })}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+          ) : (
+            <View className="bg-green-50 border border-green-100 rounded-2xl px-4 py-5 items-center mb-6">
+              <View className="w-10 h-10 rounded-full bg-green-500 items-center justify-center mb-3">
+                <Text fontWeight="Bold" className="text-white text-lg">
+                  ✓
+                </Text>
+              </View>
+              <Text fontWeight="Bold" className="text-3xl text-green-600">
+                {payment ? fmtSource(payment.amountPaid) : "—"}
+              </Text>
+              {showEquivalent && payment ? (
+                <Text className="text-xs text-gray-400 mt-0.5">
+                  ≈ {fmtTarget(payment.amountPaid)}
+                </Text>
+              ) : null}
+              <Text className="text-sm text-gray-400 mt-1">
+                {t("payments.paid_in_full", { monthYear: blockRangeLabel })}
+              </Text>
+              {isMultiMonth ? (
+                <View className="mt-2 bg-green-100 rounded-full px-3 py-1">
+                  <Text className="text-xs text-green-700 font-semibold">
+                    {t("payments.block_months_label", {
+                      count: payment?.durationMonths,
+                    })}
+                  </Text>
+                </View>
+              ) : null}
+            </View>
+          )}
 
           {/* Detail rows */}
           {payment ? (
@@ -127,39 +184,60 @@ export function PaymentDetailSheet({
                 value={formatDate(payment.paidAt, i18n.language)}
               />
               <Row label={t("payments.receipt_id")} value={receiptId} />
+              <Row
+                label={t("payments.amount_due_label")}
+                value={fmtSource(payment.amountDue)}
+              />
+              <Row
+                label={t("payments.amount_paid_label")}
+                value={fmtSource(payment.amountPaid)}
+              />
+              {payment.balance > 0 ? (
+                <Row
+                  label={t("payments.balance_label")}
+                  value={fmtSource(payment.balance)}
+                  valueColor="text-amber-600"
+                />
+              ) : null}
               {payment.notes ? (
                 <Row label={t("payments.notes")} value={payment.notes} last />
               ) : null}
             </View>
           ) : null}
 
-          {/* Edit amount — only for non-multi-month payments */}
-          {onEdit && !isMultiMonth && !editMode ? (
+          {/* Update paid amount */}
+          {onEdit && !editMode ? (
             <Pressable
               onPress={handleOpenEdit}
               className="border border-primary rounded-xl py-3 items-center mb-3"
             >
               <Text className="text-primary font-semibold">
-                {t("payments.edit_amount")}
+                {t("payments.update_paid_amount")}
               </Text>
             </Pressable>
           ) : null}
 
-          {onEdit && !isMultiMonth && editMode ? (
+          {onEdit && editMode ? (
             <View className="mb-3">
-              <Text className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
-                {t("payments.amount_label")}
-              </Text>
-              <TextInput
-                value={amountText}
-                onChangeText={setAmountText}
-                keyboardType="decimal-pad"
+              {/* Locked to the payment's original currency — you can't change
+                  what currency a payment was recorded in after the fact. */}
+              <CurrencyInput
+                label={t("payments.amount_paid_label")}
+                amount={amountPaid}
+                currencyId={payment?.currencyId ?? null}
+                onChange={({ amount }) => setAmountPaid(amount)}
+                currencies={currencies}
                 placeholder={t("payments.enter_amount")}
-                placeholderTextColor={COLORS.gray400}
-                className="border border-gray-200 rounded-xl px-4 py-3 text-base text-gray-900 bg-white mb-3"
-                autoFocus
+                lockCurrency
               />
-              <View className="flex-row gap-3">
+              {payment && payment.balance > 0 ? (
+                <Text className="text-xs text-amber-600 mb-2">
+                  {t("payments.edit_amount_hint", {
+                    balance: fmtSource(payment.balance),
+                  })}
+                </Text>
+              ) : null}
+              <View className="flex-row gap-3 mt-2">
                 <Pressable
                   onPress={handleCancelEdit}
                   className="flex-1 border border-gray-200 rounded-xl py-3 items-center"
@@ -202,17 +280,21 @@ function Row({
   label,
   value,
   last,
+  valueColor = "text-gray-900",
 }: {
   label: string;
   value: string;
   last?: boolean;
+  valueColor?: string;
 }) {
   return (
     <View
       className={`flex-row justify-between items-center px-4 py-3.5 ${last ? "" : "border-b border-gray-100"}`}
     >
       <Text className="text-sm text-gray-400">{label}</Text>
-      <Text className="text-sm font-semibold text-gray-900 flex-1 ms-4 text-right">
+      <Text
+        className={`text-sm font-semibold flex-1 ms-4 text-right ${valueColor}`}
+      >
         {value}
       </Text>
     </View>

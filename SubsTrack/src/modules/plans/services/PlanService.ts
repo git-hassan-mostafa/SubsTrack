@@ -6,15 +6,16 @@ function mapDbPlanToPlan(db: DbPlan): Plan {
   return {
     id: db.id,
     name: db.name,
-    price: db.price,
+    price: db.price != null ? Number(db.price) : null,
     isCustomPrice: db.is_custom_price,
     durationMonths: db.duration_months,
+    currencyId: db.currency_id,
     tenantId: db.tenant_id,
     createdAt: db.created_at,
   };
 }
 
-type PlanInput = Pick<Plan, 'name' | 'isCustomPrice' | 'price' | 'durationMonths'>
+type PlanInput = Pick<Plan, 'name' | 'isCustomPrice' | 'price' | 'durationMonths' | 'currencyId'>
 
 export class PlanService {
   private repository = new PlanRepository();
@@ -32,6 +33,7 @@ export class PlanService {
         price: data.isCustomPrice ? null : data.price,
         is_custom_price: data.isCustomPrice,
         duration_months: data.durationMonths,
+        currency_id: data.isCustomPrice ? null : data.currencyId,
         tenant_id: tenantId,
       });
       return mapDbPlanToPlan(row);
@@ -48,6 +50,7 @@ export class PlanService {
         price: data.isCustomPrice ? null : data.price,
         is_custom_price: data.isCustomPrice,
         duration_months: data.durationMonths,
+        currency_id: data.isCustomPrice ? null : data.currencyId,
       });
       return mapDbPlanToPlan(row);
     } catch (err) {

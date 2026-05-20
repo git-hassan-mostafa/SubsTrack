@@ -5,23 +5,26 @@
 -- ============================================================
 
 -- ── TRIGGERS ─────────────────────────────────────────────────
-DROP TRIGGER IF EXISTS trg_customers_updated_at ON customers;
+DROP TRIGGER IF EXISTS trg_customers_updated_at  ON customers;
+DROP TRIGGER IF EXISTS trg_currencies_updated_at ON currencies;
 
 -- ── RLS POLICIES ─────────────────────────────────────────────
-DROP POLICY IF EXISTS payments_all   ON payments;
-DROP POLICY IF EXISTS customers_all  ON customers;
-DROP POLICY IF EXISTS plans_all      ON plans;
-DROP POLICY IF EXISTS users_update   ON users;
-DROP POLICY IF EXISTS users_insert   ON users;
-DROP POLICY IF EXISTS users_select   ON users;
+DROP POLICY IF EXISTS payments_all      ON payments;
+DROP POLICY IF EXISTS customers_all     ON customers;
+DROP POLICY IF EXISTS plans_all         ON plans;
+DROP POLICY IF EXISTS currencies_all    ON currencies;
+DROP POLICY IF EXISTS users_update      ON users;
+DROP POLICY IF EXISTS users_insert      ON users;
+DROP POLICY IF EXISTS users_select      ON users;
 DROP POLICY IF EXISTS saas_tiers_select ON saas_tiers;
-DROP POLICY IF EXISTS tenants_select ON tenants;
+DROP POLICY IF EXISTS tenants_select    ON tenants;
 
 -- ── TABLES (reverse FK order) ─────────────────────────────────
 DROP TABLE IF EXISTS payments   CASCADE;
 DROP TABLE IF EXISTS customers  CASCADE;
 DROP TABLE IF EXISTS plans      CASCADE;
 DROP TABLE IF EXISTS users      CASCADE;
+DROP TABLE IF EXISTS currencies CASCADE;
 DROP TABLE IF EXISTS saas_tiers CASCADE;
 DROP TABLE IF EXISTS tenants    CASCADE;
 

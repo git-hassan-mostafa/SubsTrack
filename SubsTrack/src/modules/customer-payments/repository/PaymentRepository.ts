@@ -1,7 +1,7 @@
 import { BaseRepository } from '@/src/core/utils/BaseRepository';
 import type { DbPayment } from '@/src/core/types/db';
 
-type CreatePaymentPayload = Pick<DbPayment, 'billing_month' | 'amount' | 'duration_months' | 'customer_id' | 'plan_id' | 'received_by_user_id' | 'tenant_id' | 'notes'>
+type CreatePaymentPayload = Pick<DbPayment, 'billing_month' | 'amount_due' | 'amount_paid' | 'duration_months' | 'currency_id' | 'customer_id' | 'plan_id' | 'received_by_user_id' | 'tenant_id' | 'notes'>
 
 export class PaymentRepository extends BaseRepository {
   // Fetches payments that START within the given year, plus payments that
@@ -32,10 +32,10 @@ export class PaymentRepository extends BaseRepository {
     return data as DbPayment;
   }
 
-  async updateAmount(id: string, amount: number): Promise<DbPayment> {
+  async updateAmountPaid(id: string, amountPaid: number): Promise<DbPayment> {
     const { data, error } = await this.db
       .from('payments')
-      .update({ amount })
+      .update({ amount_paid: amountPaid })
       .eq('id', id)
       .is('voided_at', null)
       .select()
@@ -59,8 +59,10 @@ export class PaymentRepository extends BaseRepository {
     return data as DbPayment;
   }
 
-  // Returns the set of customer IDs that have an active (non-voided) payment covering
-  // the given billing month. Handles multi-month payments by checking date ranges.
+  // Returns the set of customer IDs that have an active (non-voided), non-zero-paid
+  // payment covering the given billing month. Handles multi-month payments.
+  // NOTE: amount_paid = 0 is intentionally excluded — it is treated as unpaid.
+  //       This must stay in sync with PaymentService.buildMonthGrid().
   async findPaidCustomerIdsForMonth(billingMonth: string): Promise<Set<string>> {
     const [year, monthStr] = billingMonth.split('-').map(Number);
     // A payment from up to 12 months prior could still cover this month (max duration = 12).
@@ -70,10 +72,11 @@ export class PaymentRepository extends BaseRepository {
 
     const { data, error } = await this.db
       .from('payments')
-      .select('customer_id, billing_month, duration_months')
+      .select('customer_id, billing_month, duration_months, amount_paid')
       .lte('billing_month', billingMonth)
       .gte('billing_month', cutoff)
-      .is('voided_at', null);
+      .is('voided_at', null)
+      .gt('amount_paid', 0);
     if (error) this.handleError(error);
 
     return new Set(
@@ -88,13 +91,32 @@ export class PaymentRepository extends BaseRepository {
     );
   }
 
-  async sumForMonth(billingMonth: string): Promise<number> {
+  // Returns raw paid amounts + their currency IDs so the service layer can
+  // convert to a canonical unit (USD) before summing across mixed currencies.
+  async paidAmountsForMonth(billingMonth: string): Promise<{ amount: number; currencyId: string | null }[]> {
     const { data, error } = await this.db
       .from('payments')
-      .select('amount')
+      .select('amount_paid, currency_id')
       .eq('billing_month', billingMonth)
       .is('voided_at', null);
     if (error) this.handleError(error);
-    return (data ?? []).reduce((sum: number, row: { amount: number }) => sum + row.amount, 0);
+    return (data ?? []).map((r: { amount_paid: number; currency_id: string | null }) => ({
+      amount: Number(r.amount_paid),
+      currencyId: r.currency_id,
+    }));
+  }
+
+  async balancesForMonth(billingMonth: string): Promise<{ amount: number; currencyId: string | null }[]> {
+    const { data, error } = await this.db
+      .from('payments')
+      .select('balance, currency_id')
+      .eq('billing_month', billingMonth)
+      .is('voided_at', null)
+      .gt('amount_paid', 0);
+    if (error) this.handleError(error);
+    return (data ?? []).map((r: { balance: number; currency_id: string | null }) => ({
+      amount: Number(r.balance),
+      currencyId: r.currency_id,
+    }));
   }
 }

@@ -5,11 +5,15 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/src/shared/components/Button";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { Input } from "@/src/shared/components/Input";
+import { CurrencyInput } from "@/src/shared/components/CurrencyInput";
 import type { Customer, MonthEntry } from "@/src/core/types";
 import { getCurrentYearMonth, toBillingMonth } from "@/src/core/utils/date";
 import { getBlockRangeLabel } from "../utils/blockRangeLabel";
 import { useAuth } from "@/src/modules/auth/hooks/useAuth";
 import { usePaymentStore } from "../store/paymentStore";
+import { useCurrencyStore } from "@/src/modules/currencies/store/currencyStore";
+import { findCurrency, formatMoney } from "@/src/core/utils/currency";
+import { useLanguageStore } from "@/src/core/i18n/languageStore";
 import { AVATAR_COLORS } from "../../../shared/constants";
 import { MONTHS } from "@/src/core/constants";
 
@@ -32,17 +36,25 @@ interface Props {
 }
 
 type FormState = {
-  customAmountText: string;
+  customAmount: number | null;
   isOverrideEnabled: boolean;
   amountMode: "plan" | "custom";
+  paymentMode: "full" | "partial";
+  amountDue: number | null;
+  amountPaid: number | null;
+  customCurrencyId: string | null;
   notes: string;
   conflictConfirmed: boolean;
 };
 
 const EMPTY_FORM: FormState = {
-  customAmountText: "",
+  customAmount: null,
   isOverrideEnabled: false,
   amountMode: "plan",
+  paymentMode: "full",
+  amountDue: null,
+  amountPaid: null,
+  customCurrencyId: null,
   notes: "",
   conflictConfirmed: false,
 };
@@ -63,8 +75,18 @@ export function PaymentFormSheet({
     error,
     clearError,
   } = usePaymentStore();
+  const { currencies } = useCurrencyStore();
+  const { language } = useLanguageStore();
+  const locale = language === "ar" ? "ar" : "en-US";
 
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
+
+  // Resolve the active source currency (the one amounts are denominated in
+  // for the current input mode). null = USD.
+  const planCurrency = findCurrency(currencies, customer.plan?.currencyId ?? null);
+  const customCurrency = findCurrency(currencies, form.customCurrencyId);
+  const formatAmount = (amount: number, isCustom: boolean) =>
+    formatMoney(amount, isCustom ? customCurrency : planCurrency, isCustom ? customCurrency : planCurrency, locale);
 
   const plan = customer.plan;
   const isMultiMonth = (plan?.durationMonths ?? 1) > 1;
@@ -109,30 +131,59 @@ export function PaymentFormSheet({
   const hasConflicts = conflictingLabels.length > 0;
   const showConflictWarning = hasConflicts && !form.conflictConfirmed;
 
-  const resolvedAmount = (() => {
-    if (isMultiMonth) return plan!.price!; // multi-month: always the bundle price
-    if (isFixedPlan && !form.isOverrideEnabled) return plan!.price!;
-    if (isFixedPlan && form.isOverrideEnabled && form.amountMode === "plan")
-      return plan!.price!;
-    const v = parseFloat(form.customAmountText);
-    return isNaN(v) ? null : v;
-  })();
+  // Resolves the final amount_due, amount_paid, and currency_id about to be
+  // saved. When the user is using the plan price, the currency comes from the
+  // plan; when entering a custom amount the user picks via CurrencyInput.
+  const resolvedAmounts = useMemo((): {
+    amountDue: number | null;
+    amountPaid: number | null;
+    currencyId: string | null;
+  } => {
+    if (isMultiMonth) {
+      const due = plan!.price!;
+      if (form.paymentMode === "full") {
+        return { amountDue: due, amountPaid: due, currencyId: plan!.currencyId };
+      }
+      return { amountDue: due, amountPaid: form.amountPaid, currencyId: plan!.currencyId };
+    }
+    if (isFixedPlan && !form.isOverrideEnabled) {
+      return { amountDue: plan!.price!, amountPaid: plan!.price!, currencyId: plan!.currencyId };
+    }
+    if (isFixedPlan && form.isOverrideEnabled && form.amountMode === "plan") {
+      return { amountDue: plan!.price!, amountPaid: plan!.price!, currencyId: plan!.currencyId };
+    }
+    // Custom amount path — currency comes from the CurrencyInput state.
+    if (form.paymentMode === "full") {
+      return {
+        amountDue: form.customAmount,
+        amountPaid: form.customAmount,
+        currencyId: form.customCurrencyId,
+      };
+    }
+    return {
+      amountDue: form.amountDue,
+      amountPaid: form.amountPaid,
+      currencyId: form.customCurrencyId,
+    };
+  }, [isMultiMonth, isFixedPlan, plan, form]);
 
+  const { amountDue: resolvedDue, amountPaid: resolvedPaid, currencyId: resolvedCurrencyId } = resolvedAmounts;
   const canSubmit =
-    resolvedAmount !== null &&
-    resolvedAmount > 0 &&
-    !loadingCreate &&
-    !blockedForInactive &&
-    !showConflictWarning;
+    resolvedDue !== null && resolvedDue > 0 &&
+    resolvedPaid !== null && resolvedPaid >= 0 &&
+    resolvedPaid <= resolvedDue &&
+    !loadingCreate && !blockedForInactive && !showConflictWarning;
 
   async function handleSubmit() {
     if (!user || !canSubmit || loadingCreate) return;
+    if (resolvedDue === null || resolvedPaid === null) return;
 
     if (isMultiMonth && plan) {
       await createMultiMonthPayment(
         entry.billingMonth,
         customer,
         plan,
+        resolvedPaid,
         user.id,
         form.notes.trim() || null,
         user.tenantId,
@@ -144,8 +195,10 @@ export function PaymentFormSheet({
       await createPayment(
         {
           billingMonth: entry.billingMonth,
-          amount: resolvedAmount!,
+          amountDue: resolvedDue,
+          amountPaid: resolvedPaid,
           durationMonths: 1,
+          currencyId: resolvedCurrencyId,
           customerId: customer.id,
           planId: customer.planId,
           receivedByUserId: user.id,
@@ -270,14 +323,11 @@ export function PaymentFormSheet({
               {t("payments.amount_section")}
             </Text>
 
-            {/* Multi-month: always shows fixed bundle price */}
+            {/* Multi-month: fixed bundle price + optional partial toggle */}
             {isMultiMonth ? (
               <>
-                <Text fontWeight="Bold" className="text-5xl text-gray-900">
-                  ${plan!.price!.toFixed(0)}
-                  <Text className="text-3xl text-gray-300">
-                    .{(plan!.price! % 1).toFixed(2).slice(2)}
-                  </Text>
+                <Text fontWeight="Bold" className="text-4xl text-gray-900">
+                  {formatAmount(plan!.price!, false)}
                 </Text>
                 <Text className="text-sm text-gray-400 mt-1">
                   {t("payments.per_n_months", { count: plan!.durationMonths })}
@@ -301,17 +351,59 @@ export function PaymentFormSheet({
                     </View>
                   ))}
                 </View>
+                {/* Full / partial toggle */}
+                <View className="w-full gap-2 mt-4">
+                  {(["full", "partial"] as const).map((mode) => (
+                    <Pressable
+                      key={mode}
+                      onPress={() => setForm((prev) => ({ ...prev, paymentMode: mode, amountPaid: null }))}
+                      className={`flex-row items-center border rounded-xl px-4 py-3 ${form.paymentMode === mode ? "border-primary bg-indigo-50" : "border-gray-200 bg-white"}`}
+                    >
+                      <View className={`w-4 h-4 rounded-full border-2 me-3 items-center justify-center ${form.paymentMode === mode ? "border-primary" : "border-gray-400"}`}>
+                        {form.paymentMode === mode ? <View className="w-2 h-2 rounded-full bg-primary" /> : null}
+                      </View>
+                      <Text className="text-sm text-gray-700">
+                        {mode === "full" ? t("payments.full_payment") : t("payments.partial_payment")}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+                {form.paymentMode === "partial" ? (
+                  <View className="w-full mt-3">
+                    {/* Lock the currency to the plan's currency — partial pays of a
+                        bundle must be denominated in the same unit. */}
+                    <CurrencyInput
+                      label={t("payments.amount_paid_label")}
+                      amount={form.amountPaid}
+                      currencyId={plan!.currencyId}
+                      onChange={({ amount }) => setForm((prev) => ({ ...prev, amountPaid: amount }))}
+                      currencies={currencies}
+                      placeholder={t("payments.enter_amount")}
+                      lockCurrency
+                      onFocus={clearError}
+                    />
+                    {form.amountPaid != null
+                      ? (() => {
+                          const balance = plan!.price! - form.amountPaid;
+                          return (
+                            <Text className={`text-sm font-semibold mt-1 ${balance > 0 ? "text-amber-600" : "text-green-600"}`}>
+                              {balance > 0
+                                ? t("payments.balance_remaining", { amount: formatAmount(balance, false) })
+                                : t("payments.balance_cleared")}
+                            </Text>
+                          );
+                        })()
+                      : null}
+                  </View>
+                ) : null}
               </>
             ) : null}
 
             {/* Single-month fixed plan */}
             {!isMultiMonth && isFixedPlan && !form.isOverrideEnabled ? (
               <>
-                <Text fontWeight="Bold" className="text-5xl text-gray-900">
-                  ${plan!.price!.toFixed(0)}
-                  <Text className="text-3xl text-gray-300">
-                    .{(plan!.price! % 1).toFixed(2).slice(2)}
-                  </Text>
+                <Text fontWeight="Bold" className="text-4xl text-gray-900">
+                  {formatAmount(plan!.price!, false)}
                 </Text>
                 <Pressable
                   onPress={() =>
@@ -347,7 +439,7 @@ export function PaymentFormSheet({
                       <Text className="text-sm text-gray-700">
                         {mode === "plan"
                           ? t("payments.plan_price", {
-                              price: `$${plan!.price}`,
+                              price: formatAmount(plan!.price!, false),
                             })
                           : t("payments.custom_amount")}
                       </Text>
@@ -355,28 +447,26 @@ export function PaymentFormSheet({
                   ))}
                 </View>
                 {form.amountMode === "custom" ? (
-                  <Input
-                    value={form.customAmountText}
-                    onChangeText={(v) =>
-                      setForm((prev) => ({ ...prev, customAmountText: v }))
-                    }
-                    placeholder={t("payments.enter_amount")}
-                    keyboardType="decimal-pad"
-                    onFocus={clearError}
+                  <CustomAmountFields
+                    form={form}
+                    setForm={setForm}
+                    currencies={currencies}
+                    customCurrency={customCurrency}
+                    clearError={clearError}
+                    locale={locale}
                   />
                 ) : null}
               </>
             ) : null}
 
             {!isMultiMonth && isCustomOrNoPlan ? (
-              <Input
-                value={form.customAmountText}
-                onChangeText={(v) =>
-                  setForm((prev) => ({ ...prev, customAmountText: v }))
-                }
-                placeholder={t("payments.enter_amount")}
-                keyboardType="decimal-pad"
-                onFocus={clearError}
+              <CustomAmountFields
+                form={form}
+                setForm={setForm}
+                currencies={currencies}
+                customCurrency={customCurrency}
+                clearError={clearError}
+                locale={locale}
               />
             ) : null}
           </View>
@@ -390,7 +480,11 @@ export function PaymentFormSheet({
           />
 
           <Button
-            label={t("payments.mark_as_paid")}
+            label={
+              resolvedDue !== null && resolvedPaid !== null && resolvedPaid < resolvedDue
+                ? t("payments.record_payment_action")
+                : t("payments.mark_as_paid")
+            }
             onPress={handleSubmit}
             loading={loadingCreate}
             disabled={!canSubmit}
@@ -403,5 +497,114 @@ export function PaymentFormSheet({
         </ScrollView>
       </View>
     </Modal>
+  );
+}
+
+// Custom-amount subform — used in both the override-with-custom path and the
+// no-plan/custom-plan path. Renders a full/partial toggle, then either a single
+// CurrencyInput or a pair of amount-due/amount-paid CurrencyInputs sharing the
+// same selected currency.
+function CustomAmountFields({
+  form,
+  setForm,
+  currencies,
+  customCurrency,
+  clearError,
+  locale,
+}: {
+  form: FormState;
+  setForm: React.Dispatch<React.SetStateAction<FormState>>;
+  currencies: import("@/src/core/types").Currency[];
+  customCurrency: import("@/src/core/types").Currency | null;
+  clearError: () => void;
+  locale: string;
+}) {
+  const { t } = useTranslation();
+
+  function resetAmounts(mode: "full" | "partial") {
+    setForm((prev) => ({
+      ...prev,
+      paymentMode: mode,
+      customAmount: null,
+      amountDue: null,
+      amountPaid: null,
+    }));
+  }
+
+  return (
+    <>
+      <View className="w-full gap-2 mb-2">
+        {(["full", "partial"] as const).map((mode) => (
+          <Pressable
+            key={mode}
+            onPress={() => resetAmounts(mode)}
+            className={`flex-row items-center border rounded-xl px-4 py-3 ${form.paymentMode === mode ? "border-primary bg-indigo-50" : "border-gray-200 bg-white"}`}
+          >
+            <View className={`w-4 h-4 rounded-full border-2 me-3 items-center justify-center ${form.paymentMode === mode ? "border-primary" : "border-gray-400"}`}>
+              {form.paymentMode === mode ? <View className="w-2 h-2 rounded-full bg-primary" /> : null}
+            </View>
+            <Text className="text-sm text-gray-700">
+              {mode === "full" ? t("payments.full_payment") : t("payments.partial_payment")}
+            </Text>
+          </Pressable>
+        ))}
+      </View>
+
+      {form.paymentMode === "full" ? (
+        <View className="w-full">
+          <CurrencyInput
+            amount={form.customAmount}
+            currencyId={form.customCurrencyId}
+            onChange={({ amount, currencyId }) =>
+              setForm((prev) => ({ ...prev, customAmount: amount, customCurrencyId: currencyId }))
+            }
+            currencies={currencies}
+            placeholder={t("payments.enter_amount")}
+            onFocus={clearError}
+          />
+        </View>
+      ) : (
+        <View className="w-full gap-2">
+          <CurrencyInput
+            label={t("payments.amount_due_label")}
+            amount={form.amountDue}
+            currencyId={form.customCurrencyId}
+            onChange={({ amount, currencyId }) =>
+              setForm((prev) => ({ ...prev, amountDue: amount, customCurrencyId: currencyId }))
+            }
+            currencies={currencies}
+            placeholder={t("payments.enter_amount")}
+            onFocus={clearError}
+          />
+          <CurrencyInput
+            label={t("payments.amount_paid_label")}
+            amount={form.amountPaid}
+            currencyId={form.customCurrencyId}
+            onChange={({ amount }) =>
+              setForm((prev) => ({ ...prev, amountPaid: amount }))
+            }
+            currencies={currencies}
+            placeholder={t("payments.enter_amount")}
+            // Lock so the two amounts always share the same unit.
+            lockCurrency
+            onFocus={clearError}
+          />
+          {form.amountDue != null && form.amountPaid != null
+            ? (() => {
+                const balance = form.amountDue - form.amountPaid;
+                return (
+                  <Text className={`text-sm font-semibold ${balance > 0 ? "text-amber-600" : "text-green-600"}`}>
+                    {balance > 0
+                      ? t("payments.balance_remaining", {
+                          amount: formatMoney(balance, customCurrency, customCurrency, locale),
+                        })
+                      : t("payments.balance_cleared")}
+                  </Text>
+                );
+              })()
+            : null}
+        </View>
+      )}
+    </>
   );
 }

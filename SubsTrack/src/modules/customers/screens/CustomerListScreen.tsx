@@ -21,6 +21,7 @@ import { useCustomerStore } from "../store/customerStore";
 import { usePaymentStore } from "../../customer-payments/store/paymentStore";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
 import { PageHeader } from "@/src/shared/components/PageHeader";
+import { MONTHS } from "@/src/core/constants";
 
 type FilterTab = "all" | "unpaid" | "active" | "inactive";
 
@@ -55,22 +56,8 @@ export function CustomerListScreen() {
   }, [debouncedSearch]);
 
   const monthLabel = useMemo(() => {
-    const MONTH_KEYS = [
-      "jan",
-      "feb",
-      "mar",
-      "apr",
-      "may",
-      "jun",
-      "jul",
-      "aug",
-      "sep",
-      "oct",
-      "nov",
-      "dec",
-    ] as const;
     const now = new Date();
-    return `${t(`months.${MONTH_KEYS[now.getMonth()]}`)} ${now.getFullYear()}`;
+    return `${t(`months.${MONTHS[now.getMonth()]}`)} ${now.getFullYear()}`;
   }, [t]);
 
   const tabs = useMemo(() => {

@@ -59,10 +59,9 @@ export const usePaymentStore = create<PaymentsState>((set, get) => ({
         payments,
         monthGrid,
         loadingCreate: false,
-        currentMonthPaidIds: new Set([
-          ...state.currentMonthPaidIds,
-          data.customerId,
-        ]),
+        currentMonthPaidIds: payment.amountPaid > 0
+          ? new Set([...state.currentMonthPaidIds, data.customerId])
+          : state.currentMonthPaidIds,
       }));
     } catch (e) {
       set({ error: (e as Error).message, loadingCreate: false });
@@ -73,6 +72,7 @@ export const usePaymentStore = create<PaymentsState>((set, get) => ({
     startMonth,
     customer,
     plan,
+    amountPaid,
     receivedByUserId,
     notes,
     tenantId,
@@ -87,6 +87,7 @@ export const usePaymentStore = create<PaymentsState>((set, get) => ({
         startMonth,
         customer,
         plan,
+        amountPaid,
         receivedByUserId,
         notes,
         tenantId,
@@ -111,7 +112,7 @@ export const usePaymentStore = create<PaymentsState>((set, get) => ({
         payments,
         monthGrid,
         loadingCreate: false,
-        currentMonthPaidIds: coversCurrentMonth
+        currentMonthPaidIds: coversCurrentMonth && payment.amountPaid > 0
           ? new Set([...state.currentMonthPaidIds, customer.id])
           : state.currentMonthPaidIds,
       }));
@@ -122,11 +123,13 @@ export const usePaymentStore = create<PaymentsState>((set, get) => ({
     }
   },
 
-  updatePaymentAmount: async (id, amount, customer, year, graceDays) => {
+  updatePaymentAmountPaid: async (id, amountPaid, customer, year, graceDays) => {
     if (get().loadingUpdate) return;
+    const existing = get().payments.find((p) => p.id === id);
+    if (!existing) return;
     set({ loadingUpdate: true, error: null });
     try {
-      const updated = await paymentService.updatePaymentAmount(id, amount);
+      const updated = await paymentService.updatePaymentAmountPaid(id, amountPaid, existing.amountDue);
       const payments = get().payments.map((p) => (p.id === id ? updated : p));
       const monthGrid = paymentService.buildMonthGrid(
         customer,
@@ -201,8 +204,10 @@ export const usePaymentStore = create<PaymentsState>((set, get) => ({
 
 interface CreatePaymentInput {
   billingMonth: string;
-  amount: number;
+  amountDue: number;
+  amountPaid: number;
   durationMonths: number;
+  currencyId: string | null;
   customerId: string;
   planId: string | null;
   receivedByUserId: string | null;
@@ -235,6 +240,7 @@ interface PaymentsState {
     startMonth: string,
     customer: Customer,
     plan: Plan,
+    amountPaid: number,
     receivedByUserId: string,
     notes: string | null,
     tenantId: string,
@@ -242,9 +248,9 @@ interface PaymentsState {
     year: number,
     graceDays: number,
   ) => Promise<MultiMonthConflict[]>;
-  updatePaymentAmount: (
+  updatePaymentAmountPaid: (
     id: string,
-    amount: number,
+    amountPaid: number,
     customer: Customer,
     year: number,
     graceDays: number,

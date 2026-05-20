@@ -5,6 +5,10 @@ import { Text } from "@/src/shared/components/Text";
 import { Ionicons } from "@expo/vector-icons";
 import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
 import { COLORS } from "@/src/shared/constants";
+import { findCurrency, formatMoney } from "@/src/core/utils/currency";
+import { useCurrencyStore } from "@/src/modules/currencies/store/currencyStore";
+import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
+import { useLanguageStore } from "@/src/core/i18n/languageStore";
 
 interface Props {
   plan: Plan;
@@ -14,6 +18,15 @@ interface Props {
 
 export function PlanCard({ plan, onEdit, onDelete }: Props) {
   const { t } = useTranslation();
+  const { currencies } = useCurrencyStore();
+  const { displayCurrencyId } = useUiPrefStore();
+  const { language } = useLanguageStore();
+  const source = findCurrency(currencies, plan.currencyId);
+  const target = findCurrency(currencies, displayCurrencyId);
+  const priceLabel =
+    plan.price != null
+      ? formatMoney(plan.price, source, target, language === "ar" ? "ar" : "en-US")
+      : "";
   return (
     <Pressable
       onPress={() => onEdit(plan)}
@@ -42,7 +55,7 @@ export function PlanCard({ plan, onEdit, onDelete }: Props) {
         ) : (
           <>
             <Text fontWeight="Bold" className="text-base text-gray-900">
-              ${plan.price}
+              {priceLabel}
             </Text>
             <Text className="text-xs text-gray-400">
               {plan.durationMonths > 1

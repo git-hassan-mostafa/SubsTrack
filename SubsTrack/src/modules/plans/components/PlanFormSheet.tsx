@@ -5,9 +5,11 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/src/shared/components/Button";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { Input } from "@/src/shared/components/Input";
+import { CurrencyInput } from "@/src/shared/components/CurrencyInput";
 import type { Plan } from "@/src/core/types";
 import { useAuth } from "@/src/modules/auth/hooks/useAuth";
 import { usePlanStore } from "../store/planStore";
+import { useCurrencyStore } from "@/src/modules/currencies/store/currencyStore";
 import { COLORS } from "@/src/shared/constants";
 
 interface Props {
@@ -19,7 +21,8 @@ interface Props {
 type FormState = {
   name: string;
   isCustomPrice: boolean;
-  priceText: string;
+  price: number | null;
+  currencyId: string | null;
   durationMonths: number;
 };
 
@@ -34,11 +37,13 @@ export function PlanFormSheet({
   const { t } = useTranslation();
   const { user } = useAuth();
   const { createPlan, updatePlan, loading, error, clearError } = usePlanStore();
+  const { currencies } = useCurrencyStore();
 
   const [form, setForm] = useState<FormState>({
     name: plan?.name ?? "",
     isCustomPrice: plan?.isCustomPrice ?? false,
-    priceText: plan?.price != null ? String(plan.price) : "",
+    price: plan?.price ?? null,
+    currencyId: plan?.currencyId ?? null,
     durationMonths: plan?.durationMonths ?? 1,
   });
 
@@ -59,11 +64,12 @@ export function PlanFormSheet({
 
   async function handleSubmit() {
     if (!user) return;
-    const price = form.isCustomPrice ? null : parseFloat(form.priceText);
+    const price = form.isCustomPrice ? null : form.price;
     const data = {
       name: form.name,
       isCustomPrice: form.isCustomPrice,
       price,
+      currencyId: form.isCustomPrice ? null : form.currencyId,
       durationMonths: form.durationMonths,
     };
     if (plan) {
@@ -76,7 +82,7 @@ export function PlanFormSheet({
 
   const submitDisabled =
     !form.name.trim() ||
-    (!form.isCustomPrice && !form.priceText) ||
+    (!form.isCustomPrice && (form.price == null || form.price <= 0)) ||
     loading;
 
   return (
@@ -193,14 +199,15 @@ export function PlanFormSheet({
           </View>
 
           {!form.isCustomPrice ? (
-            <Input
+            <CurrencyInput
               label={isMultiMonth ? t("plans.bundle_price_label") : t("plans.price_label")}
-              value={form.priceText}
-              onChangeText={(v) =>
-                setForm((prev) => ({ ...prev, priceText: v }))
+              amount={form.price}
+              currencyId={form.currencyId}
+              onChange={({ amount, currencyId }) =>
+                setForm((prev) => ({ ...prev, price: amount, currencyId }))
               }
-              placeholder="$0.00"
-              keyboardType="decimal-pad"
+              currencies={currencies}
+              placeholder="0.00"
               onFocus={clearError}
             />
           ) : null}

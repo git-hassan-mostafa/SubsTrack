@@ -23,14 +23,6 @@ export function isBeforeStartDate(
   return year < sy || (year === sy && month < sm);
 }
 
-export function formatCurrency(amount: number, locale = "en-US"): string {
-  return new Intl.NumberFormat(locale, {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 2,
-  }).format(amount);
-}
-
 export function formatDate(iso: string, locale = "en-US"): string {
   return new Date(iso).toLocaleDateString(locale, {
     month: "short",

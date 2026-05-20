@@ -119,12 +119,14 @@ export class CustomerRepository extends BaseRepository {
     const cutoff = `${cutoffDate.getFullYear()}-${String(cutoffDate.getMonth() + 1).padStart(2, '0')}-01`;
     const target = new Date(billingMonth);
 
+    // amount_paid = 0 is excluded — a zero-paid partial is treated as unpaid.
     const { data: payments, error: pErr } = await this.db
       .from('payments')
-      .select('customer_id, billing_month, duration_months')
+      .select('customer_id, billing_month, duration_months, amount_paid')
       .lte('billing_month', billingMonth)
       .gte('billing_month', cutoff)
-      .is('voided_at', null);
+      .is('voided_at', null)
+      .gt('amount_paid', 0);
     if (pErr) this.handleError(pErr);
 
     const paidIds = new Set(

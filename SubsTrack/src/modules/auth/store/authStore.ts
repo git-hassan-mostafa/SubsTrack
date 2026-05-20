@@ -1,8 +1,15 @@
 import { create } from "zustand";
 import type { AuthUser } from "@/src/core/types";
 import { AuthService } from "../services/AuthService";
+import { useCurrencyStore } from "@/src/modules/currencies/store/currencyStore";
 
 const authService = new AuthService();
+
+// After a successful auth (login or session restore), prime the currency
+// store so all downstream CurrencyInputs and formatters have data ready.
+async function primeCurrencies() {
+  await useCurrencyStore.getState().fetchCurrencies();
+}
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
@@ -19,6 +26,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         tenantActive: result.tenantActive,
         loading: false,
       });
+      await primeCurrencies();
     } catch (e) {
       set({ error: (e as Error).message, loading: false });
     }
@@ -32,6 +40,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         tenantActive: result?.tenantActive ?? true,
         loading: false,
       });
+      if (result?.user) await primeCurrencies();
     } catch {
       set({ user: null, tenantActive: true, loading: false });
     }
@@ -43,6 +52,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     } catch {
       // ignore logout errors — clear state regardless
     }
+    useCurrencyStore.getState().reset();
     set({ user: null, tenantActive: true, loading: false, error: null });
   },
 

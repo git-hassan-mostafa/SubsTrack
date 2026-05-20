@@ -11,9 +11,10 @@ function mapDbCustomerToCustomer(db: DbCustomerWithPlan): Customer {
     ? {
       id: db.plans.id,
       name: db.plans.name,
-      price: db.plans.price,
+      price: db.plans.price != null ? Number(db.plans.price) : null,
       isCustomPrice: db.plans.is_custom_price,
       durationMonths: db.plans.duration_months,
+      currencyId: db.plans.currency_id,
       tenantId: db.plans.tenant_id,
       createdAt: db.plans.created_at,
     }

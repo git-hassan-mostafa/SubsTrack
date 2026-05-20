@@ -42,10 +42,45 @@ CREATE TABLE IF NOT EXISTS saas_tiers (
 );
 
 -- ============================================================
+-- CURRENCIES
+-- Per-tenant supported non-USD currencies with current rate.
+-- USD is the implicit base — never stored as a row.
+-- active = false hides the currency from new selections but preserves history.
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS currencies (
+    id            UUID          PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id     UUID          NOT NULL,
+    code          TEXT          NOT NULL,
+    name          TEXT          NOT NULL,
+    symbol        TEXT,
+    rate_per_usd  NUMERIC(20,8) NOT NULL CHECK (rate_per_usd > 0),
+    decimals      INTEGER       NOT NULL DEFAULT 2 CHECK (decimals BETWEEN 0 AND 6),
+    active        BOOLEAN       NOT NULL DEFAULT TRUE,
+    created_at    TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    updated_at    TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT chk_currency_code_format
+        CHECK (code ~ '^[A-Z]{2,8}$' AND code <> 'USD'),
+
+    CONSTRAINT fk_currencies_tenant
+        FOREIGN KEY (tenant_id)
+        REFERENCES tenants(id)
+        ON DELETE CASCADE
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_currencies_code_tenant
+    ON currencies (tenant_id, code);
+
+CREATE INDEX IF NOT EXISTS idx_currencies_tenant_id
+    ON currencies (tenant_id);
+
+-- ============================================================
 -- USERS
 -- App-level user records. id mirrors auth.users.id.
 -- Each tenant has exactly one superadmin (enforced by uq_users_superadmin_per_tenant).
 -- Only active users can log in.
+-- Display currency preference is stored client-side in AsyncStorage (no DB column).
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS users (
@@ -85,11 +120,14 @@ CREATE INDEX IF NOT EXISTS idx_users_tenant_id
 CREATE TABLE IF NOT EXISTS plans (
     id              UUID          PRIMARY KEY DEFAULT uuid_generate_v4(),
     name            TEXT          NOT NULL,
-    price           NUMERIC(12,2) CHECK (price IS NULL OR price > 0),
+    price           NUMERIC(20,8) CHECK (price IS NULL OR price > 0),
     is_custom_price BOOLEAN       NOT NULL DEFAULT FALSE,
     -- Number of months this plan covers per payment (1 = monthly, 3 = quarterly, etc.)
     -- Multi-month plans must have a fixed bundle price (is_custom_price must be FALSE).
     duration_months INTEGER       NOT NULL DEFAULT 1 CHECK (duration_months >= 1),
+    -- Currency of the stored price. NULL = USD (the base currency).
+    -- ON DELETE RESTRICT: cannot drop a currency referenced by a plan.
+    currency_id     UUID,
     tenant_id       UUID          NOT NULL,
     created_at      TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
 
@@ -108,7 +146,12 @@ CREATE TABLE IF NOT EXISTS plans (
     CONSTRAINT fk_plans_tenant
         FOREIGN KEY (tenant_id)
         REFERENCES tenants(id)
-        ON DELETE CASCADE
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_plans_currency
+        FOREIGN KEY (currency_id)
+        REFERENCES currencies(id)
+        ON DELETE RESTRICT
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_plans_name_tenant
@@ -179,6 +222,11 @@ CREATE OR REPLACE TRIGGER trg_customers_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION set_updated_at();
 
+CREATE OR REPLACE TRIGGER trg_currencies_updated_at
+    BEFORE UPDATE ON currencies
+    FOR EACH ROW
+    EXECUTE FUNCTION set_updated_at();
+
 -- ============================================================
 -- PAYMENTS
 -- Append-only audit log. Hard deletes are NEVER performed.
@@ -192,12 +240,25 @@ CREATE TABLE IF NOT EXISTS payments (
     -- Always the first day of the month (YYYY-MM-01). Enforced by constraint.
     billing_month       DATE          NOT NULL,
 
-    -- Snapshot of the amount at time of payment. Never changes after insert.
-    amount              NUMERIC(12,2) NOT NULL CHECK (amount > 0),
+    -- Snapshot of what was owed at time of recording. Never changes after insert.
+    -- Stored in the CURRENCY indicated by currency_id (NULL = USD).
+    amount_due          NUMERIC(20,8) NOT NULL CHECK (amount_due > 0),
+
+    -- What was actually collected. Can be less than amount_due (partial payment).
+    -- 0 is allowed (reserves the slot but treated as unpaid in the grid).
+    -- Same currency as amount_due.
+    amount_paid         NUMERIC(20,8) NOT NULL CHECK (amount_paid >= 0 AND amount_paid <= amount_due),
+
+    -- Computed balance. Read-only — never written by the app.
+    balance             NUMERIC(20,8) GENERATED ALWAYS AS (amount_due - amount_paid) STORED,
 
     -- Number of consecutive months this payment covers (1 = single month, 3 = Jan+Feb+Mar, etc.)
     -- billing_month is always the FIRST month of the block.
     duration_months     INTEGER       NOT NULL DEFAULT 1 CHECK (duration_months >= 1),
+
+    -- Currency the amounts above are stored in. NULL = USD.
+    -- ON DELETE RESTRICT: cannot drop a currency referenced by a payment.
+    currency_id         UUID,
 
     customer_id         UUID          NOT NULL,
     plan_id             UUID,
@@ -257,6 +318,11 @@ CREATE TABLE IF NOT EXISTS payments (
         REFERENCES tenants(id)
         ON DELETE CASCADE,
 
+    CONSTRAINT fk_payments_currency
+        FOREIGN KEY (currency_id)
+        REFERENCES currencies(id)
+        ON DELETE RESTRICT,
+
     -- One payment record per customer per month (void + re-pay updates the same row)
     CONSTRAINT uq_payments_customer_month
         UNIQUE (customer_id, billing_month)
@@ -278,8 +344,9 @@ CREATE INDEX IF NOT EXISTS idx_payments_customer_month
 -- ROW LEVEL SECURITY
 -- ============================================================
 
-ALTER TABLE tenants   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tenants    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE saas_tiers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE currencies ENABLE ROW LEVEL SECURITY;
 ALTER TABLE users      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE plans      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE customers  ENABLE ROW LEVEL SECURITY;
@@ -384,6 +451,17 @@ DO $$ BEGIN
             WITH CHECK (tenant_id = current_tenant_id());
     END IF;
 
+    -- ── CURRENCIES ───────────────────────────────────────────
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE tablename = 'currencies' AND policyname = 'currencies_all'
+    ) THEN
+        CREATE POLICY currencies_all ON currencies
+            FOR ALL
+            USING     (tenant_id = current_tenant_id())
+            WITH CHECK (tenant_id = current_tenant_id());
+    END IF;
+
     -- ── PLANS ────────────────────────────────────────────────
     IF NOT EXISTS (
         SELECT 1 FROM pg_policies
@@ -438,7 +516,9 @@ END $$;
 -- 3. PAYMENT INTEGRITY
 --    billing_month MUST be YYYY-MM-01. The chk_billing_month_first_day constraint
 --    enforces this at the DB level. The app must also normalize before inserting.
---    amount is a SNAPSHOT. Never read plan.price to display a payment's value.
+--    amount_due and amount_paid are SNAPSHOTS. Never recompute from plan.price.
+--    amount_paid < amount_due = partial payment; balance holds the outstanding debt.
+--    amount_paid = 0 is treated as unpaid in the app (reserves the row slot).
 --    voided payments are retained forever. uq_payments_customer_month_active
 --    only blocks duplicate ACTIVE (non-voided) payments, allowing a re-payment
 --    after a void.

@@ -11,6 +11,21 @@ export interface Tenant {
   createdAt: string;
 }
 
+// Per-tenant non-USD currency. USD is implicit (never stored as a row).
+// Convention everywhere in the app: a null Currency reference means USD.
+export interface Currency {
+  id: string;
+  tenantId: string;
+  code: string;
+  name: string;
+  symbol: string | null;
+  ratePerUsd: number;
+  decimals: number;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface AuthUser {
   id: string;
   username: string;
@@ -50,6 +65,8 @@ export interface Plan {
   price: number | null;
   isCustomPrice: boolean;
   durationMonths: number;
+  // Currency the stored price is in. null = USD.
+  currencyId: string | null;
   tenantId: string;
   createdAt: string;
 }
@@ -73,8 +90,12 @@ export interface Customer {
 export interface Payment {
   id: string;
   billingMonth: string;
-  amount: number;
+  amountDue: number;
+  amountPaid: number;
+  balance: number;
   durationMonths: number;
+  // Currency the amounts above are stored in. null = USD.
+  currencyId: string | null;
   customerId: string;
   planId: string | null;
   receivedByUserId: string | null;
@@ -94,6 +115,7 @@ export interface MonthEntry {
   status: MonthStatus;
   payment: Payment | null;
   isGroupSecondary: boolean;
+  balance: number;
 }
 
 export interface DashboardMetrics {
@@ -103,4 +125,5 @@ export interface DashboardMetrics {
   unpaidThisMonth: number;
   totalUsers: number;
   totalPlans: number;
+  totalOutstandingBalance: number;
 }

@@ -7,6 +7,9 @@ import { ActivityIndicator, Pressable, View } from "react-native";
 import { Text } from "@/src/shared/components/Text";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useDashboardStore } from "@/src/modules/dashboard/store/dashboardStore";
+import { useCurrencyStore } from "@/src/modules/currencies/store/currencyStore";
+import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
+import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { COLORS } from "@/src/shared/constants";
 import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
 
@@ -44,16 +47,32 @@ const MENU_ITEMS: MenuItem[] = [
     iconColor: COLORS.warning,
     route: "/(app)/(tabs)/admin/plans",
   },
+  {
+    labelKey: "tenant_settings.title",
+    subtitleKey: "tenant_settings.menu_sub",
+    icon: "settings-outline",
+    iconBg: COLORS.primaryLight,
+    iconColor: COLORS.primary,
+    route: "/(app)/(tabs)/admin/tenant-settings",
+  },
 ];
 
-function formatCompact(amount: number): string {
-  if (amount >= 1000) return `$${(amount / 1000).toFixed(1)}k`;
-  return `$${amount.toFixed(0)}`;
-}
-
 export default function AdminMenuScreen() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { metrics, loading, fetchMetrics } = useDashboardStore();
+  const { currencies } = useCurrencyStore();
+  const { displayCurrencyId } = useUiPrefStore();
+  const displayCurrency = findCurrency(currencies, displayCurrencyId);
+  const locale = i18n.language === "ar" ? "ar" : "en-US";
+
+  // Compact summary: divides by 1000 above $1k for readability. Metrics are
+  // canonical USD; we display in the user's chosen currency.
+  function formatCompact(usd: number): string {
+    if (usd >= 1000) {
+      return formatMoney(usd / 1000, null, displayCurrency, locale) + "k";
+    }
+    return formatMoney(usd, null, displayCurrency, locale);
+  }
 
   useFocusEffect(
     useCallback(() => {
