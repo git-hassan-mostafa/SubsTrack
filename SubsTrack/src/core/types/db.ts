@@ -20,6 +20,19 @@ export interface DbSaasTier {
   created_at: string;
 }
 
+export interface DbCurrency {
+  id: string;
+  tenant_id: string;
+  code: string;
+  name: string;
+  symbol: string | null;
+  rate_per_usd: number;
+  decimals: number;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface DbUser {
   id: string;
   username: string;
@@ -37,6 +50,7 @@ export interface DbPlan {
   price: number | null;
   is_custom_price: boolean;
   duration_months: number;
+  currency_id: string | null;
   tenant_id: string;
   created_at: string;
 }
@@ -65,6 +79,7 @@ export interface DbPayment {
   amount_paid: number;
   balance: number;
   duration_months: number;
+  currency_id: string | null;
   customer_id: string;
   plan_id: string | null;
   received_by_user_id: string | null;

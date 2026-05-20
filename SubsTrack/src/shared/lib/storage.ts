@@ -3,6 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 export const STORAGE_KEYS = {
   LANGUAGE_STORE: "language-store",
   RTL_RELOAD_COUNT: "rtl-reload-count",
+  UI_PREF_STORE: "ui-pref-store",
 };
 
 export const MAX_RTL_RELOADS = 3;
@@ -53,6 +54,16 @@ export async function clearRTLReloadCount(): Promise<void> {
     // ignore
   }
 }
+
+// ── UI preferences ────────────────────────────────────────────────────────────
+
+// Zustand persist adapter for ad-hoc UI prefs (e.g. last-used currency).
+export const uiPrefPersistStorage = {
+  getItem: (_name: string) => AsyncStorage.getItem(STORAGE_KEYS.UI_PREF_STORE),
+  setItem: (_name: string, value: string) =>
+    AsyncStorage.setItem(STORAGE_KEYS.UI_PREF_STORE, value),
+  removeItem: (_name: string) => AsyncStorage.removeItem(STORAGE_KEYS.UI_PREF_STORE),
+};
 
 // ── Supabase ──────────────────────────────────────────────────────────────────
 

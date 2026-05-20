@@ -207,6 +207,7 @@ interface CreatePaymentInput {
   amountDue: number;
   amountPaid: number;
   durationMonths: number;
+  currencyId: string | null;
   customerId: string;
   planId: string | null;
   receivedByUserId: string | null;

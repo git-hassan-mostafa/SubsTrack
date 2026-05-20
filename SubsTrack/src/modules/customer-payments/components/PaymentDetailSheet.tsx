@@ -1,11 +1,15 @@
 import { useState } from "react";
-import { Modal, Pressable, TextInput, View } from "react-native";
+import { Modal, Pressable, View } from "react-native";
 import { Text } from "@/src/shared/components/Text";
 import { useTranslation } from "react-i18next";
 import type { MonthEntry } from "@/src/core/types";
 import { formatDate } from "@/src/core/utils/date";
-import { COLORS } from "@/src/shared/constants";
+import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { getBlockRangeLabel } from "../utils/blockRangeLabel";
+import { CurrencyInput } from "@/src/shared/components/CurrencyInput";
+import { useCurrencyStore } from "@/src/modules/currencies/store/currencyStore";
+import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
+import { useLanguageStore } from "@/src/core/i18n/languageStore";
 
 interface Props {
   visible: boolean;
@@ -27,39 +31,52 @@ export function PaymentDetailSheet({
 }: Props) {
   const { t, i18n } = useTranslation();
   const payment = entry?.payment;
+  const { currencies } = useCurrencyStore();
+  const { displayCurrencyId } = useUiPrefStore();
+  const { language } = useLanguageStore();
+  const locale = language === "ar" ? "ar" : "en-US";
+  const source = findCurrency(currencies, payment?.currencyId ?? null);
+  const target = findCurrency(currencies, displayCurrencyId);
+  // Primary display = stored (source) currency (preserves the literal amount
+  // collected). When the user's display currency differs, also show the
+  // equivalent in the display currency as a secondary line.
+  const fmtSource = (v: number) => formatMoney(v, source, source, locale);
+  const fmtTarget = (v: number) => formatMoney(v, source, target, locale);
+  const showEquivalent =
+    payment != null && (source?.id ?? null) !== (target?.id ?? null);
 
   const [editMode, setEditMode] = useState(false);
-  const [amountText, setAmountText] = useState("");
+  const [amountPaid, setAmountPaid] = useState<number | null>(null);
 
   function handleOpenEdit() {
-    setAmountText(payment ? String(payment.amountPaid) : "");
+    setAmountPaid(payment ? payment.amountPaid : null);
     setEditMode(true);
   }
 
   function handleCancelEdit() {
     setEditMode(false);
-    setAmountText("");
+    setAmountPaid(null);
   }
 
   function handleSaveEdit() {
-    const val = parseFloat(amountText);
-    if (!isNaN(val) && val > 0 && onEdit) {
-      onEdit(val);
+    if (amountPaid != null && amountPaid >= 0 && onEdit) {
+      onEdit(amountPaid);
       setEditMode(false);
-      setAmountText("");
+      setAmountPaid(null);
     }
   }
 
   function handleDismiss() {
     setEditMode(false);
-    setAmountText("");
+    setAmountPaid(null);
     onDismiss();
   }
 
-  const saveDisabled = (() => {
-    const val = parseFloat(amountText);
-    return isNaN(val) || val < 0 || val > (payment?.amountDue ?? Infinity) || editLoading;
-  })();
+  const saveDisabled =
+    amountPaid == null ||
+    amountPaid < 0 ||
+    amountPaid > (payment?.amountDue ?? Infinity) ||
+    !!editLoading;
 
   const receiptId = payment ? payment.id.slice(-6).toUpperCase() : "—";
 
@@ -103,13 +120,18 @@ export function PaymentDetailSheet({
                 <Text fontWeight="Bold" className="text-white text-lg">!</Text>
               </View>
               <Text fontWeight="Bold" className="text-3xl text-amber-600">
-                ${payment.amountPaid.toFixed(2)}
+                {fmtSource(payment.amountPaid)}
               </Text>
+              {showEquivalent ? (
+                <Text className="text-xs text-gray-400 mt-0.5">
+                  ≈ {fmtTarget(payment.amountPaid)}
+                </Text>
+              ) : null}
               <Text className="text-sm text-gray-400 mt-1">
                 {t("payments.paid_partial", { monthYear: blockRangeLabel })}
               </Text>
               <Text className="text-xs text-amber-600 font-semibold mt-1">
-                {t("payments.balance_remaining", { amount: payment.balance.toFixed(2) })}
+                {t("payments.balance_remaining", { amount: fmtSource(payment.balance) })}
               </Text>
               {isMultiMonth ? (
                 <View className="mt-2 bg-amber-100 rounded-full px-3 py-1">
@@ -125,8 +147,13 @@ export function PaymentDetailSheet({
                 <Text fontWeight="Bold" className="text-white text-lg">✓</Text>
               </View>
               <Text fontWeight="Bold" className="text-3xl text-green-600">
-                ${payment?.amountPaid.toFixed(2) ?? "—"}
+                {payment ? fmtSource(payment.amountPaid) : "—"}
               </Text>
+              {showEquivalent && payment ? (
+                <Text className="text-xs text-gray-400 mt-0.5">
+                  ≈ {fmtTarget(payment.amountPaid)}
+                </Text>
+              ) : null}
               <Text className="text-sm text-gray-400 mt-1">
                 {t("payments.paid_in_full", { monthYear: blockRangeLabel })}
               </Text>
@@ -150,16 +177,16 @@ export function PaymentDetailSheet({
               <Row label={t("payments.receipt_id")} value={receiptId} />
               <Row
                 label={t("payments.amount_due_label")}
-                value={`$${payment.amountDue.toFixed(2)}`}
+                value={fmtSource(payment.amountDue)}
               />
               <Row
                 label={t("payments.amount_paid_label")}
-                value={`$${payment.amountPaid.toFixed(2)}`}
+                value={fmtSource(payment.amountPaid)}
               />
               {payment.balance > 0 ? (
                 <Row
                   label={t("payments.balance_label")}
-                  value={`$${payment.balance.toFixed(2)}`}
+                  value={fmtSource(payment.balance)}
                   valueColor="text-amber-600"
                 />
               ) : null}
@@ -183,21 +210,20 @@ export function PaymentDetailSheet({
 
           {onEdit && editMode ? (
             <View className="mb-3">
-              <Text className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
-                {t("payments.amount_paid_label")}
-              </Text>
-              <TextInput
-                value={amountText}
-                onChangeText={setAmountText}
-                keyboardType="decimal-pad"
+              {/* Locked to the payment's original currency — you can't change
+                  what currency a payment was recorded in after the fact. */}
+              <CurrencyInput
+                label={t("payments.amount_paid_label")}
+                amount={amountPaid}
+                currencyId={payment?.currencyId ?? null}
+                onChange={({ amount }) => setAmountPaid(amount)}
+                currencies={currencies}
                 placeholder={t("payments.enter_amount")}
-                placeholderTextColor={COLORS.gray400}
-                className="border border-gray-200 rounded-xl px-4 py-3 text-base text-gray-900 bg-white mb-1"
-                autoFocus
+                lockCurrency
               />
               {payment && payment.balance > 0 ? (
                 <Text className="text-xs text-amber-600 mb-2">
-                  {t("payments.edit_amount_hint", { balance: payment.balance.toFixed(2) })}
+                  {t("payments.edit_amount_hint", { balance: fmtSource(payment.balance) })}
                 </Text>
               ) : null}
               <View className="flex-row gap-3 mt-2">

@@ -7,12 +7,15 @@ import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { ConfirmDialog } from "@/src/shared/components/ConfirmDialog";
 import type { Customer, MonthEntry } from "@/src/core/types";
 import { getCurrentYearMonth, getDateLocale } from "@/src/core/utils/date";
+import { findCurrency, formatMoney, toUsd } from "@/src/core/utils/currency";
 import { COLORS, DEFAULT_GRACE_DAYS } from "@/src/shared/constants";
+import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
 import { MonthGrid } from "./MonthGrid";
 import { PaymentDetailSheet } from "./PaymentDetailSheet";
 import { PaymentFormSheet } from "./PaymentFormSheet";
 import { VoidSheet } from "./VoidSheet";
 import { usePaymentStore } from "../store/paymentStore";
+import { useCurrencyStore } from "@/src/modules/currencies/store/currencyStore";
 
 interface CustomerPaymentPanelProps {
   customer: Customer;
@@ -22,6 +25,9 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
   const { t, i18n } = useTranslation();
   const locale = getDateLocale(i18n.language);
   const paymentStore = usePaymentStore();
+  const { currencies } = useCurrencyStore();
+  const { displayCurrencyId } = useUiPrefStore();
+  const displayCurrency = findCurrency(currencies, displayCurrencyId);
 
   const [year, setYear] = useState(getCurrentYearMonth().year);
   const [selectedEntry, setSelectedEntry] = useState<MonthEntry | null>(null);
@@ -92,9 +98,12 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
   const unpaidCount = paymentStore.monthGrid.filter(
     (m) => m.status === "unpaid",
   ).length;
-  const collectedTotal = paymentStore.payments
+  // Sum payments across mixed currencies by converting each to USD first,
+  // then format the total in the user's display currency.
+  const collectedTotalUsd = paymentStore.payments
     .filter((p) => !p.voidedAt && p.billingMonth.startsWith(String(year)))
-    .reduce((sum, p) => sum + p.amountPaid, 0);
+    .reduce((sum, p) => sum + toUsd(p.amountPaid, findCurrency(currencies, p.currencyId)), 0);
+  const collectedTotalLabel = formatMoney(collectedTotalUsd, null, displayCurrency, locale);
 
   // Edit (update amountPaid) is available for any active, non-secondary payment.
   const canEditAmount =
@@ -124,7 +133,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
               {t("customers.year_summary", {
                 paidCount,
                 unpaidCount,
-                collectedTotal: collectedTotal.toFixed(0),
+                collectedTotal: collectedTotalLabel,
               })}
             </Text>
           </View>

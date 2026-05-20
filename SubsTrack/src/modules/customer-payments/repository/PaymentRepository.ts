@@ -1,7 +1,7 @@
 import { BaseRepository } from '@/src/core/utils/BaseRepository';
 import type { DbPayment } from '@/src/core/types/db';
 
-type CreatePaymentPayload = Pick<DbPayment, 'billing_month' | 'amount_due' | 'amount_paid' | 'duration_months' | 'customer_id' | 'plan_id' | 'received_by_user_id' | 'tenant_id' | 'notes'>
+type CreatePaymentPayload = Pick<DbPayment, 'billing_month' | 'amount_due' | 'amount_paid' | 'duration_months' | 'currency_id' | 'customer_id' | 'plan_id' | 'received_by_user_id' | 'tenant_id' | 'notes'>
 
 export class PaymentRepository extends BaseRepository {
   // Fetches payments that START within the given year, plus payments that
@@ -91,24 +91,32 @@ export class PaymentRepository extends BaseRepository {
     );
   }
 
-  async sumForMonth(billingMonth: string): Promise<number> {
+  // Returns raw paid amounts + their currency IDs so the service layer can
+  // convert to a canonical unit (USD) before summing across mixed currencies.
+  async paidAmountsForMonth(billingMonth: string): Promise<{ amount: number; currencyId: string | null }[]> {
     const { data, error } = await this.db
       .from('payments')
-      .select('amount_paid')
+      .select('amount_paid, currency_id')
       .eq('billing_month', billingMonth)
       .is('voided_at', null);
     if (error) this.handleError(error);
-    return (data ?? []).reduce((sum: number, row: { amount_paid: number }) => sum + row.amount_paid, 0);
+    return (data ?? []).map((r: { amount_paid: number; currency_id: string | null }) => ({
+      amount: Number(r.amount_paid),
+      currencyId: r.currency_id,
+    }));
   }
 
-  async sumBalanceForMonth(billingMonth: string): Promise<number> {
+  async balancesForMonth(billingMonth: string): Promise<{ amount: number; currencyId: string | null }[]> {
     const { data, error } = await this.db
       .from('payments')
-      .select('balance')
+      .select('balance, currency_id')
       .eq('billing_month', billingMonth)
       .is('voided_at', null)
       .gt('amount_paid', 0);
     if (error) this.handleError(error);
-    return (data ?? []).reduce((sum: number, row: { balance: number }) => sum + row.balance, 0);
+    return (data ?? []).map((r: { balance: number; currency_id: string | null }) => ({
+      amount: Number(r.balance),
+      currencyId: r.currency_id,
+    }));
   }
 }

@@ -18,10 +18,11 @@ function mapDbPaymentToPayment(db: DbPayment): Payment {
   return {
     id: db.id,
     billingMonth: db.billing_month,
-    amountDue: db.amount_due,
-    amountPaid: db.amount_paid,
-    balance: db.balance,
+    amountDue: Number(db.amount_due),
+    amountPaid: Number(db.amount_paid),
+    balance: Number(db.balance),
     durationMonths: db.duration_months,
+    currencyId: db.currency_id,
     customerId: db.customer_id,
     planId: db.plan_id,
     receivedByUserId: db.received_by_user_id,
@@ -34,7 +35,7 @@ function mapDbPaymentToPayment(db: DbPayment): Payment {
   };
 }
 
-type CreatePaymentInput = Pick<Payment, 'billingMonth' | 'amountDue' | 'amountPaid' | 'durationMonths' | 'customerId' | 'planId' | 'receivedByUserId' | 'tenantId' | 'notes'>
+type CreatePaymentInput = Pick<Payment, 'billingMonth' | 'amountDue' | 'amountPaid' | 'durationMonths' | 'currencyId' | 'customerId' | 'planId' | 'receivedByUserId' | 'tenantId' | 'notes'>
 
 export type MultiMonthConflict = {
   billingMonth: string;
@@ -61,7 +62,7 @@ export class PaymentService {
     if (data.amountDue <= 0) throw new Error("Amount due must be greater than 0");
     if (data.amountPaid < 0) throw new Error("Amount paid cannot be negative");
     if (data.amountPaid > data.amountDue) {
-      throw new Error(`Amount paid cannot exceed amount due ($${data.amountDue.toFixed(2)})`);
+      throw new Error("Amount paid cannot exceed amount due");
     }
     if (!data.billingMonth.endsWith("-01")) {
       throw new Error("Billing month must be the first day of the month");
@@ -72,6 +73,7 @@ export class PaymentService {
       amount_due: data.amountDue,
       amount_paid: data.amountPaid,
       duration_months: data.durationMonths,
+      currency_id: data.currencyId,
       customer_id: data.customerId,
       plan_id: data.planId,
       received_by_user_id: data.receivedByUserId,
@@ -103,7 +105,7 @@ export class PaymentService {
       throw new Error("Plan must have a fixed price to record a multi-month payment");
     }
     if (amountPaid > plan.price) {
-      throw new Error(`Amount paid cannot exceed amount due ($${plan.price.toFixed(2)})`);
+      throw new Error("Amount paid cannot exceed amount due");
     }
 
     const coveredByExisting = buildCoverageSet(existingPayments);
@@ -157,6 +159,7 @@ export class PaymentService {
       amount_due: plan.price,
       amount_paid: amountPaid,
       duration_months: effectiveDuration,
+      currency_id: plan.currencyId,
       customer_id: customer.id,
       plan_id: plan.id,
       received_by_user_id: receivedByUserId,
@@ -170,7 +173,7 @@ export class PaymentService {
   async updatePaymentAmountPaid(id: string, amountPaid: number, amountDue: number): Promise<Payment> {
     if (amountPaid < 0) throw new Error("Amount paid cannot be negative");
     if (amountPaid > amountDue) {
-      throw new Error(`Amount paid cannot exceed amount due ($${amountDue.toFixed(2)})`);
+      throw new Error("Amount paid cannot exceed amount due");
     }
     const row = await this.repository.updateAmountPaid(id, amountPaid);
     return mapDbPaymentToPayment(row);

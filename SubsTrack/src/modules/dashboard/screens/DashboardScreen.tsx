@@ -9,9 +9,12 @@ import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
-import { formatCurrency, getDateLocale } from "@/src/core/utils/date";
+import { getDateLocale } from "@/src/core/utils/date";
+import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { useAuth } from "@/src/modules/auth/hooks/useAuth";
 import { useDashboardStore } from "../store/dashboardStore";
+import { useCurrencyStore } from "@/src/modules/currencies/store/currencyStore";
+import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
 import { COLORS } from "@/src/shared/constants";
 import { MONTHS } from "@/src/core/constants";
 
@@ -20,6 +23,11 @@ export function DashboardScreen() {
   const { user } = useAuth();
   const { metrics, loading, error, getMetrics, fetchMetrics, clearError } =
     useDashboardStore();
+  const { currencies } = useCurrencyStore();
+  const { displayCurrencyId } = useUiPrefStore();
+  // Metrics are stored canonical-USD; format for the user's display preference.
+  const displayCurrency = findCurrency(currencies, displayCurrencyId);
+  const fmt = (usd: number) => formatMoney(usd, null, displayCurrency, getDateLocale(i18n.language));
 
   useEffect(() => {
     getMetrics();
@@ -96,7 +104,7 @@ export function DashboardScreen() {
                 })}
               </Text>
               <Text fontWeight="Bold" className="text-4xl text-white mb-1">
-                {formatCurrency(metrics?.monthlyRevenue ?? 0)}
+                {fmt(metrics?.monthlyRevenue ?? 0)}
               </Text>
               <Text className="text-sm text-indigo-200 mb-3">
                 {t("dashboard.collected_summary", {
@@ -150,7 +158,7 @@ export function DashboardScreen() {
                   </Text>
                 </View>
                 <Text fontWeight="Bold" className="text-3xl text-gray-900">
-                  {formatCurrency(metrics?.totalOutstandingBalance ?? 0)}
+                  {fmt(metrics?.totalOutstandingBalance ?? 0)}
                 </Text>
               </View>
             ) : null}

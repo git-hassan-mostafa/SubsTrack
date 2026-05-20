@@ -72,12 +72,12 @@ interface PlansState {
   getPlans: () => Promise<void>;
   fetchPlans: () => Promise<void>;
   createPlan: (
-    data: { name: string; isCustomPrice: boolean; price: number | null; durationMonths: number },
+    data: { name: string; isCustomPrice: boolean; price: number | null; durationMonths: number; currencyId: string | null },
     tenantId: string,
   ) => Promise<void>;
   updatePlan: (
     id: string,
-    data: { name: string; isCustomPrice: boolean; price: number | null; durationMonths: number },
+    data: { name: string; isCustomPrice: boolean; price: number | null; durationMonths: number; currencyId: string | null },
   ) => Promise<void>;
   deletePlan: (id: string) => Promise<void>;
   clearError: () => void;

@@ -21,7 +21,7 @@ export class PlanRepository extends BaseRepository {
     return data as DbPlan;
   }
 
-  async update(id: string, payload: Partial<Pick<DbPlan, 'name' | 'price' | 'is_custom_price' | 'duration_months'>>): Promise<DbPlan> {
+  async update(id: string, payload: Partial<Pick<DbPlan, 'name' | 'price' | 'is_custom_price' | 'duration_months' | 'currency_id'>>): Promise<DbPlan> {
     const { data, error } = await this.db
       .from('plans')
       .update(payload)

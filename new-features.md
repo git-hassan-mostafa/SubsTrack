@@ -18,12 +18,14 @@ These require DB schema changes that are expensive to apply retroactively.
 
 ---
 
-### 1.1 Partial Payments
+### 1.1 Partial Payments ✅
+
 **Priority:** 🔴 High
 
 **Purpose:** Allow recording that a customer paid only part of their due amount. Very common in Lebanon — "he paid half this month." Enables running debt tracking per customer.
 
 **Schema changes:**
+
 ```sql
 payments:
   + amount_due      NUMERIC  -- what was owed at the time of recording
@@ -32,18 +34,21 @@ payments:
 ```
 
 **Business logic impact:**
+
 - `buildMonthGrid()` still marks the month as "paid" (cell is green/yellow) but shows a debt indicator if `balance > 0`.
 - Dashboard `unpaidThisMonth` and debt aging reports use `balance`.
 - A payment with `amount_paid = 0` is treated the same as no payment (unpaid).
 
 ---
 
-### 1.2 Dual Currency (USD / LBP)
+### 1.2 Dual Currency (USD / LBP) ✅
+
 **Priority:** 🔴 High (Lebanon-specific)
 
 **Purpose:** Lebanese businesses price in USD but sometimes collect in LBP. Staff need to record the exchange rate used at collection time. Historical amounts must reflect the rate at the time they were recorded — never recomputed.
 
 **Schema changes:**
+
 ```sql
 tenants:
   + default_currency  TEXT DEFAULT 'USD'
@@ -58,6 +63,7 @@ payments:
 ```
 
 **Notes:**
+
 - Exchange rate is a snapshot on the payment row, never recomputed (same principle as `amount`).
 - Tenants update their current exchange rate in Settings; it pre-fills the payment form.
 - All reporting shows amounts in the tenant's `display_currency` with conversion where needed.
@@ -65,11 +71,13 @@ payments:
 ---
 
 ### 1.3 Branch / Zone Management
+
 **Priority:** 🟡 Medium
 
 **Purpose:** Businesses with multiple locations or ISPs with geographic zones want staff to see only their assigned area. The admin sees everything consolidated.
 
 **Schema changes:**
+
 ```sql
 CREATE TABLE branches (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -84,6 +92,7 @@ expenses:  + branch_id  UUID REFERENCES branches(id)  -- nullable
 ```
 
 **RLS impact:**
+
 - Staff with a `branch_id` only see customers in their branch.
 - Admin role sees all branches.
 - Single-branch businesses leave `branch_id` null — fully backward compatible.
@@ -93,6 +102,7 @@ expenses:  + branch_id  UUID REFERENCES branches(id)  -- nullable
 ## 2. Customer Management Enhancements
 
 ### 2.1 Customer Notes
+
 **Priority:** 🔴 High
 
 **Purpose:** Free-text field per customer for staff to record context. "Router is on the third floor." "Call before visiting." Builds product stickiness.
@@ -102,6 +112,7 @@ expenses:  + branch_id  UUID REFERENCES branches(id)  -- nullable
 ---
 
 ### 2.2 Customer Area / Zone
+
 **Priority:** 🔴 High
 
 **Purpose:** Group and filter customers by neighborhood or service zone. Essential for ISPs and delivery services that organize by route.
@@ -111,6 +122,7 @@ expenses:  + branch_id  UUID REFERENCES branches(id)  -- nullable
 ---
 
 ### 2.3 Customer Tags
+
 **Priority:** 🟡 Medium
 
 **Purpose:** Custom labels staff can apply — "VIP", "Problem Payer", "Corporate", "Referred". Filterable on the customer list.
@@ -120,6 +132,7 @@ expenses:  + branch_id  UUID REFERENCES branches(id)  -- nullable
 ---
 
 ### 2.4 Customer Referral Source
+
 **Priority:** 🟢 Low
 
 **Purpose:** Track where each customer came from — word of mouth, social media, walk-in. Informs marketing decisions over time.
@@ -131,6 +144,7 @@ expenses:  + branch_id  UUID REFERENCES branches(id)  -- nullable
 ## 3. Payment Enhancements
 
 ### 3.1 Advance Payments
+
 **Purpose:** A customer pays 3 months ahead. The system marks future months as paid up front.
 
 **Priority:** 🟡 Medium
@@ -142,6 +156,7 @@ expenses:  + branch_id  UUID REFERENCES branches(id)  -- nullable
 ---
 
 ### 3.2 Debt Aging Report
+
 **Priority:** 🔴 High
 
 **Purpose:** List of regular customers sorted by how long they have been unpaid — 1 month overdue, 2 months, 3+ months. ISPs use this to decide who to cut off.
@@ -155,6 +170,7 @@ expenses:  + branch_id  UUID REFERENCES branches(id)  -- nullable
 ## 4. Operational Features
 
 ### 4.1 Quick Pay (One-Tap Current Month)
+
 **Priority:** 🔴 High
 
 **Purpose:** Staff collecting payments in the field need speed. A "Pay Now" button on the customer card for the current month — no drilling into the payment grid required.
@@ -164,6 +180,7 @@ expenses:  + branch_id  UUID REFERENCES branches(id)  -- nullable
 ---
 
 ### 4.2 Bulk Payment Recording
+
 **Priority:** 🟡 Medium
 
 **Purpose:** End of day a collector has 20 cash payments to record. A checklist-style bulk flow avoids tapping each customer individually.
@@ -173,6 +190,7 @@ expenses:  + branch_id  UUID REFERENCES branches(id)  -- nullable
 ---
 
 ### 4.3 Daily Collection Summary
+
 **Priority:** 🟡 Medium
 
 **Purpose:** At end of day: how much cash was collected, by which staff member, broken down by customer. Admin accountability view.
@@ -182,6 +200,7 @@ expenses:  + branch_id  UUID REFERENCES branches(id)  -- nullable
 ---
 
 ### 4.4 Field Collection Mode
+
 **Priority:** 🟢 Low
 
 **Purpose:** A simplified view for collectors on the street — customer name, current status, and one tap to record payment. All other UI hidden. Reduces errors on mobile in the field.
@@ -193,11 +212,13 @@ expenses:  + branch_id  UUID REFERENCES branches(id)  -- nullable
 ## 5. Equipment / Asset Tracking
 
 ### 5.1 Equipment Assigned to Customers
+
 **Priority:** 🟡 Medium (high for ISPs)
 
 **Purpose:** ISPs lend out routers and modems. Track which device (model, serial number) is with which customer, and when it was assigned or returned.
 
 **Schema:**
+
 ```sql
 CREATE TABLE equipment (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -218,11 +239,13 @@ CREATE TABLE equipment (
 ## 6. Financial Features
 
 ### 6.1 Expense Tracking
+
 **Priority:** 🟡 Medium
 
 **Purpose:** Log monthly business expenses (rent, salaries, internet uplink). Combined with revenue, gives the owner a rough net profit figure without needing separate accounting software.
 
 **Schema:**
+
 ```sql
 CREATE TABLE expenses (
   id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -241,11 +264,13 @@ CREATE TABLE expenses (
 ---
 
 ### 6.2 Plan Price History
+
 **Priority:** 🟡 Medium
 
 **Purpose:** When a plan's price changes, keep an append-only log. Staff and admin can see what price was in effect at any given time, and customer detail can show "this customer was on the old price."
 
 **Schema:**
+
 ```sql
 CREATE TABLE plan_price_snapshots (
   id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -261,6 +286,7 @@ CREATE TABLE plan_price_snapshots (
 ---
 
 ### 6.3 Revenue Reports (Exportable)
+
 **Priority:** 🔴 High
 
 **Purpose:** Monthly revenue summary: total collected, per plan, per branch, per staff member. Exportable to PDF or CSV. This is the "proof of value" that justifies the subscription fee.
@@ -272,6 +298,7 @@ CREATE TABLE plan_price_snapshots (
 ## 7. Communication Features
 
 ### 7.1 WhatsApp Reminders
+
 **Priority:** 🔴 High (Lebanon-specific)
 
 **Purpose:** One-tap to send a payment reminder to a customer via WhatsApp. WhatsApp is the primary communication channel in Lebanon. This single feature could be the strongest sales differentiator.
@@ -279,6 +306,7 @@ CREATE TABLE plan_price_snapshots (
 **Implementation:** Uses WhatsApp deep-link (`https://wa.me/<phone>?text=<template>`) as a minimum viable approach. Full WhatsApp Business API integration is a later phase.
 
 **Schema:**
+
 ```sql
 CREATE TABLE notification_templates (
   id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -305,6 +333,7 @@ CREATE TABLE notification_log (
 ---
 
 ### 7.2 SMS Integration
+
 **Priority:** 🟡 Medium
 
 **Purpose:** Universal fallback when WhatsApp is not available. Integrate with an SMS gateway (Twilio or a local Lebanese provider) for automated reminders.
@@ -314,6 +343,7 @@ CREATE TABLE notification_log (
 ---
 
 ### 7.3 Broadcast Message
+
 **Priority:** 🟡 Medium
 
 **Purpose:** Send a reminder to all unpaid customers at once. One action, reaches everyone. Useful for end-of-month collection drives.
@@ -325,6 +355,7 @@ CREATE TABLE notification_log (
 ## 8. Reporting & Analytics
 
 ### 8.1 Churn Tracking
+
 **Priority:** 🟡 Medium
 
 **Purpose:** Month-over-month: new customers joined vs. customers cancelled. Retention rate over time. The metric subscription businesses live and die by.
@@ -334,6 +365,7 @@ CREATE TABLE notification_log (
 ---
 
 ### 8.2 Plan Distribution
+
 **Priority:** 🟢 Low
 
 **Purpose:** Which plans are most popular? How many customers are on each plan? Informs pricing decisions.
@@ -343,6 +375,7 @@ CREATE TABLE notification_log (
 ---
 
 ### 8.3 Staff Performance
+
 **Priority:** 🟡 Medium
 
 **Purpose:** Which staff member collected the most payments this month? Useful for accountability and commission incentives.
@@ -352,6 +385,7 @@ CREATE TABLE notification_log (
 ---
 
 ### 8.4 Customer Lifetime Value
+
 **Priority:** 🟢 Low
 
 **Purpose:** Total amount collected from a customer since their start date. Shows who the most valuable customers are.
@@ -363,6 +397,7 @@ CREATE TABLE notification_log (
 ## 9. Trust & Compliance
 
 ### 9.1 Audit Log
+
 **Priority:** 🔴 High
 
 **Purpose:** Track every create, update, void, and delete action — who did it, when, and what the data looked like before and after. Critical for resolving disputes between staff and admin.
@@ -370,6 +405,7 @@ CREATE TABLE notification_log (
 **Implementation:** Postgres triggers populate the table automatically. No app-layer code required for writes.
 
 **Schema:**
+
 ```sql
 CREATE TABLE audit_log (
   id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -387,6 +423,7 @@ CREATE TABLE audit_log (
 ---
 
 ### 9.2 Printed Receipt (PDF)
+
 **Priority:** 🔴 High
 
 **Purpose:** A formatted receipt the staff member can hand to the customer or share via WhatsApp. Includes: business name, customer name, amount, month covered, date, staff name.
@@ -398,6 +435,7 @@ CREATE TABLE audit_log (
 ---
 
 ### 9.3 Data Export (Excel / CSV)
+
 **Priority:** 🟡 Medium
 
 **Purpose:** Full export of customers and payment history to Excel or CSV. Removes lock-in anxiety — owners want to know they can get their data out at any time.
@@ -411,6 +449,7 @@ CREATE TABLE audit_log (
 ## 10. Long-Term / Strategic Features
 
 ### 10.1 Customer Self-Service Portal
+
 **Priority:** 🟢 Low
 
 **Purpose:** A link or QR code a customer can open to see their own payment history and current status. Reduces "am I paid up?" phone calls to staff.
@@ -420,6 +459,7 @@ CREATE TABLE audit_log (
 ---
 
 ### 10.2 API Access
+
 **Priority:** 🟢 Low
 
 **Purpose:** Tech-savvy ISPs already have billing systems or CRMs. A documented REST API lets them sync SubsTrack with existing tools and opens a B2B integration market.
@@ -429,6 +469,7 @@ CREATE TABLE audit_log (
 ---
 
 ### 10.3 White-Label Option
+
 **Priority:** 🟢 Low
 
 **Purpose:** Sell the platform to a reseller or large ISP chain under their own brand. Higher-value deal, less marketing effort per customer.
@@ -439,30 +480,30 @@ CREATE TABLE audit_log (
 
 ## Summary Table
 
-| Feature | Priority | Schema Change |
-|---|---|---|
-| Partial payments | 🔴 High | Yes — `amount_due`, `amount_paid`, `balance` on payments |
-| Dual currency (USD/LBP) | 🔴 High | Yes — `currency`, `exchange_rate` on payments; `currency` on plans |
-| Branch / zone management | 🟡 Medium | Yes — new `branches` table; `branch_id` on users, customers, expenses |
-| Customer notes | 🔴 High | Yes — `notes` on customers |
-| Customer area/zone | 🔴 High | Yes — `area` on customers |
-| Customer tags | 🟡 Medium | Yes — `tags[]` on customers |
-| Quick pay (one-tap) | 🔴 High | No |
-| Debt aging report | 🔴 High | No |
-| Daily collection summary | 🟡 Medium | No |
-| Bulk payment recording | 🟡 Medium | No |
-| Equipment tracking | 🟡 Medium | Yes — new `equipment` table |
-| Expense tracking | 🟡 Medium | Yes — new `expenses` table |
-| Plan price history | 🟡 Medium | Yes — new `plan_price_snapshots` table |
-| Revenue reports + export | 🔴 High | No |
-| WhatsApp reminders | 🔴 High | Yes — new `notification_templates` + `notification_log` tables |
-| SMS integration | 🟡 Medium | No (reuses notification tables) |
-| Broadcast message | 🟡 Medium | No |
-| Audit log | 🔴 High | Yes — new `audit_log` table |
-| Printed receipt (PDF) | 🔴 High | No |
-| Data export (CSV) | 🟡 Medium | No |
-| Churn tracking | 🟡 Medium | No |
-| Staff performance report | 🟡 Medium | No |
-| Customer self-service portal | 🟢 Low | No (separate app) |
-| API access | 🟢 Low | No |
-| White-label | 🟢 Low | Minor — theming columns on tenants |
+| Feature                      | Priority  | Schema Change                                                         |
+| ---------------------------- | --------- | --------------------------------------------------------------------- |
+| Partial payments             | 🔴 High   | Yes — `amount_due`, `amount_paid`, `balance` on payments              |
+| Dual currency (USD/LBP)      | 🔴 High   | Yes — `currency`, `exchange_rate` on payments; `currency` on plans    |
+| Branch / zone management     | 🟡 Medium | Yes — new `branches` table; `branch_id` on users, customers, expenses |
+| Customer notes               | 🔴 High   | Yes — `notes` on customers                                            |
+| Customer area/zone           | 🔴 High   | Yes — `area` on customers                                             |
+| Customer tags                | 🟡 Medium | Yes — `tags[]` on customers                                           |
+| Quick pay (one-tap)          | 🔴 High   | No                                                                    |
+| Debt aging report            | 🔴 High   | No                                                                    |
+| Daily collection summary     | 🟡 Medium | No                                                                    |
+| Bulk payment recording       | 🟡 Medium | No                                                                    |
+| Equipment tracking           | 🟡 Medium | Yes — new `equipment` table                                           |
+| Expense tracking             | 🟡 Medium | Yes — new `expenses` table                                            |
+| Plan price history           | 🟡 Medium | Yes — new `plan_price_snapshots` table                                |
+| Revenue reports + export     | 🔴 High   | No                                                                    |
+| WhatsApp reminders           | 🔴 High   | Yes — new `notification_templates` + `notification_log` tables        |
+| SMS integration              | 🟡 Medium | No (reuses notification tables)                                       |
+| Broadcast message            | 🟡 Medium | No                                                                    |
+| Audit log                    | 🔴 High   | Yes — new `audit_log` table                                           |
+| Printed receipt (PDF)        | 🔴 High   | No                                                                    |
+| Data export (CSV)            | 🟡 Medium | No                                                                    |
+| Churn tracking               | 🟡 Medium | No                                                                    |
+| Staff performance report     | 🟡 Medium | No                                                                    |
+| Customer self-service portal | 🟢 Low    | No (separate app)                                                     |
+| API access                   | 🟢 Low    | No                                                                    |
+| White-label                  | 🟢 Low    | Minor — theming columns on tenants                                    |

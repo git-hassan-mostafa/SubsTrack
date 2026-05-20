@@ -163,10 +163,19 @@ SubsTrack/
 │   │   ├── auth/
 │   │   │   ├── repository/AuthRepository.ts    # signIn, getSession, getUserProfile, getTenant, signOut
 │   │   │   ├── services/AuthService.ts         # login(), restoreSession(), logout()
-│   │   │   ├── store/authStore.ts              # user, tenantActive, loading
+│   │   │   ├── store/authStore.ts              # user, tenantActive, loading, setDisplayCurrency()
 │   │   │   ├── screens/LoginScreen.tsx
 │   │   │   ├── screens/TenantInactiveScreen.tsx
 │   │   │   └── hooks/useAuth.ts
+│   │   │
+│   │   ├── currencies/
+│   │   │   ├── repository/CurrencyRepository.ts  # CRUD + countReferences (joins plans + payments)
+│   │   │   ├── services/CurrencyService.ts       # validation; deleteCurrency() hard- or soft-deletes
+│   │   │   ├── store/currencyStore.ts            # currencies[], CRUD, fetched after login
+│   │   │   └── components/{CurrencyCard, UsdBaseCard, CurrencyFormSheet}.tsx
+│   │   │
+│   │   ├── tenant-settings/
+│   │   │   └── screens/TenantSettingsScreen.tsx  # admin-only: per-user display currency + currencies CRUD
 │   │   │
 │   │   ├── customers/
 │   │   │   ├── repository/CustomerRepository.ts
@@ -176,9 +185,9 @@ SubsTrack/
 │   │   │   ├── screens/CustomerDetailScreen.tsx
 │   │   │   └── components/{CustomerCard, CustomerDetailsCard, CustomerFormSheet}.tsx
 │   │   │
-│   │   ├── payments/
+│   │   ├── customer-payments/                    # (note: directory name is customer-payments)
 │   │   │   ├── repository/PaymentRepository.ts
-│   │   │   ├── services/PaymentService.ts      # ← buildMonthGrid() lives here ONLY
+│   │   │   ├── services/PaymentService.ts        # ← buildMonthGrid() lives here ONLY
 │   │   │   ├── store/paymentStore.ts
 │   │   │   └── components/{MonthGrid, MonthCell, YearNavigator, PaymentFormSheet,
 │   │   │                    PaymentDetailSheet, VoidSheet, CustomerPaymentPanel}.tsx
@@ -209,6 +218,7 @@ SubsTrack/
 │   └── shared/
 │       ├── components/
 │       │   ├── Button.tsx, Input.tsx, Text.tsx  # Custom primitives
+│       │   ├── CurrencyInput.tsx  # Numeric input + embedded currency dropdown (USD + tenant currencies)
 │       │   ├── FormSheet.tsx      # Reusable @gorhom/bottom-sheet wrapper
 │       │   ├── ErrorBanner.tsx    # Inline error display (never toast/alert)
 │       │   ├── Dropdown.tsx, DatePickerInput.tsx
@@ -220,7 +230,8 @@ SubsTrack/
 │       ├── constants/colors.ts    # Design tokens
 │       └── lib/
 │           ├── supabase.ts        # Supabase singleton (reads EXPO_PUBLIC_ env vars)
-│           └── storage.ts         # AsyncStorage adapter for Supabase + RTL reload guard
+│           ├── storage.ts         # AsyncStorage adapter for Supabase + RTL reload guard
+│           └── uiPrefStore.ts     # Persisted UI prefs (currently: last-used currency in CurrencyInput)
 │
 └── supabase/
     └── functions/create-user/index.ts   # Deno edge function: atomically creates auth.users + public.users
@@ -311,6 +322,18 @@ interface Tenant {
   active;
   createdAt;
 }
+interface Currency {
+  id;
+  tenantId;
+  code;        // e.g. 'LBP', 'EUR' — USD is implicit, never stored
+  name;        // e.g. 'Lebanese Pound'
+  symbol;      // e.g. 'ل.ل', '€'
+  ratePerUsd;  // current rate: 1 USD = this many units
+  decimals;    // 0–6 (USD=2, LBP=0, ...)
+  active;      // soft-delete flag; preserves history
+  createdAt;
+  updatedAt;
+}
 interface SaasTier {
   id;
   name;
@@ -327,6 +350,7 @@ interface Plan {
   price;
   isCustomPrice;
   durationMonths; // 1–12; how many consecutive months the plan covers
+  currencyId;     // currency the stored price is in; null = USD
   tenantId;
   createdAt;
 }
@@ -348,8 +372,11 @@ interface Customer {
 interface Payment {
   id;
   billingMonth;
-  amount;
-  durationMonths; // how many consecutive months this payment covers (≥ 1)
+  amountDue;       // snapshot of what was owed at recording time
+  amountPaid;      // what was actually collected (≤ amountDue; 0 = unpaid slot)
+  balance;         // generated column: amountDue - amountPaid
+  durationMonths;  // how many consecutive months this payment covers (≥ 1)
+  currencyId;      // currency the amounts above are denominated in; null = USD
   customerId;
   planId;
   receivedByUserId;
@@ -385,22 +412,25 @@ interface DashboardMetrics {
 
 ## Database Schema (Supabase PostgreSQL)
 
-| Table        | Key columns                                                                                                                                                                 |
-| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `tenants`    | `id`, `name`, `tenant_code`, `active`                                                                                                                                       |
-| `saas_tiers` | `id`, `name`, `max_users`, `max_customers`, `price`, `grace_days`, `tenant_id`                                                                                              |
-| `users`      | `id` (= auth.users.id), `username`, `full_name`, `phone_number`, `role`, `active`, `tenant_id`                                                                              |
-| `plans`      | `id`, `name`, `price`, `is_custom_price`, `duration_months`, `tenant_id`                                                                                                    |
-| `customers`  | `id`, `name`, `phone_number`, `address`, `active`, `is_regular`, `plan_id`, `tenant_id`, `start_date`, `cancelled_at`                                                       |
-| `payments`   | `id`, `billing_month` (YYYY-MM-01), `amount`, `duration_months`, `customer_id`, `plan_id`, `received_by_user_id`, `tenant_id`, `paid_at`, `voided_at`, `voided_by`, `notes` |
+| Table        | Key columns                                                                                                                                                                                                              |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `tenants`    | `id`, `name`, `tenant_code`, `active`                                                                                                                                                                                    |
+| `saas_tiers` | `id`, `name`, `max_users`, `max_customers`, `price`, `grace_days`, `tenant_id`                                                                                                                                           |
+| `currencies` | `id`, `tenant_id`, `code`, `name`, `symbol`, `rate_per_usd`, `decimals`, `active`                                                                                                                                        |
+| `users`      | `id` (= auth.users.id), `username`, `full_name`, `phone_number`, `role`, `active`, `tenant_id`                                                                                                                           |
+| `plans`      | `id`, `name`, `price`, `is_custom_price`, `duration_months`, `currency_id`, `tenant_id`                                                                                                                                  |
+| `customers`  | `id`, `name`, `phone_number`, `address`, `active`, `is_regular`, `plan_id`, `tenant_id`, `start_date`, `cancelled_at`                                                                                                    |
+| `payments`   | `id`, `billing_month` (YYYY-MM-01), `amount_due`, `amount_paid`, `balance` (gen), `duration_months`, `currency_id`, `customer_id`, `plan_id`, `received_by_user_id`, `tenant_id`, `paid_at`, `voided_at`, `voided_by`, `notes` |
 
 **Key constraints:**
 
 - `UNIQUE(username, tenant_id)` on users
 - `UNIQUE(name, tenant_id)` on plans
+- `UNIQUE(tenant_id, code)` on currencies; `code` is enforced uppercase and not 'USD'
 - `UNIQUE(customer_id, billing_month)` on payments (enforced at DB level and in PaymentService)
 - `plan_id` on customers: `ON DELETE SET NULL`
 - `customer_id` on payments: `ON DELETE CASCADE`
+- `currency_id` on plans and payments: `ON DELETE RESTRICT` (use `active = false` soft-delete on currencies instead)
 
 ---
 
@@ -481,6 +511,36 @@ type CreateMultiMonthPaymentResult = {
   skippedMonths: MultiMonthConflict[];
 };
 ```
+
+## Multi-Currency
+
+The app supports an arbitrary list of non-USD currencies per tenant. USD is the implicit base — never stored in the `currencies` table.
+
+**Storage model: amount is as-typed, paired with `currency_id`.**
+
+- `plans.price` + `plans.currency_id` — the price was literally `89000` in LBP (not 1.00 USD).
+- `payments.amount_due` / `amount_paid` + `payments.currency_id` — the customer literally handed over `89000 LBP`. **The LBP value is preserved forever**, even if the LBP→USD rate later moves. The USD equivalent is recomputed live at display time using the *current* rate in `currencies.rate_per_usd`.
+- `null currency_id` means USD throughout the codebase.
+
+**Conversion helpers** ([src/core/utils/currency.ts](SubsTrack/src/core/utils/currency.ts)):
+
+```ts
+toUsd(amount, source: Currency | null): number       // null source → amount unchanged
+fromUsd(amountUsd, target: Currency | null): number  // null target → amount unchanged
+convert(amount, source, target): number              // go via USD
+formatMoney(amount, source, target, locale): string  // convert + Intl.NumberFormat
+findCurrency(currencies, id | null): Currency | null
+```
+
+**`CurrencyInput`** ([src/shared/components/CurrencyInput.tsx](SubsTrack/src/shared/components/CurrencyInput.tsx)) — the reusable input with an embedded currency dropdown. Used in PlanFormSheet (price) and PaymentFormSheet (custom amounts). The dropdown lists USD + active tenant currencies. Switching currency does NOT convert the typed number — switching means "I meant this number in the new currency."
+
+**Display preference** is per-user, stored in **AsyncStorage** via `uiPrefStore.displayCurrencyId` (settable from Tenant Settings — no DB column). All read-only displays (PlanCard, DashboardScreen, admin/index revenue card, CustomerPaymentPanel year summary) convert their values to this currency at render. The currency a value was **stored in** is preserved in PaymentDetailSheet's primary line for receipt fidelity, with the user's display-currency equivalent as a secondary "≈" line.
+
+**Aggregates** (Dashboard) sum across mixed currencies by converting each row to USD first in `DashboardService.getMetrics()`. The screen then formats the USD total in the user's display currency.
+
+**Last-used currency** persists in [src/shared/lib/uiPrefStore.ts](SubsTrack/src/shared/lib/uiPrefStore.ts) so the `CurrencyInput` dropdown defaults to whatever the user typed in last time.
+
+**Currency deletion** is safety-guarded: `CurrencyService.deleteCurrency()` counts references in `plans` + `payments`. If non-zero, it does a soft-delete (sets `active = false`); otherwise it hard-deletes. `ON DELETE RESTRICT` on the FKs prevents any chance of orphaning historical data.
 
 ## Regular Customer
 
@@ -610,6 +670,20 @@ Located at `SubsTrack/supabase/functions/create-user/index.ts` (Deno runtime).
 16. **Non-regular customers never appear in unpaid counts** — dashboard `unpaidThisMonth` and the "Unpaid" tab filter only query regular (`is_regular = true`) active customers. Non-regular customers can still have payments recorded normally.
 
 17. **EmptyState first-data button** — `EmptyState` accepts an optional `onAction` + `actionLabel` prop. Lists (plans, customers, users) pass these to render a "Create First X" button when the list is empty and the user is not actively searching.
+
+18. **`null currency_id` means USD** — every money column (`plans.price`, `payments.amount_due`/`amount_paid`, `users.display_currency_id`) treats `null` as USD. USD is never inserted as a `currencies` row.
+
+19. **CurrencyInput does NOT convert on currency change** — switching the dropdown from USD to LBP keeps the typed `100` literal, reinterpreting it as `100 LBP`. This is correct because the user is saying "I meant this number in the other unit," not "convert what I typed."
+
+20. **Display currency lives in AsyncStorage, not the DB** — `uiPrefStore.displayCurrencyId` (persisted via Zustand `persist` + `AsyncStorage`). There is no `display_currency_id` column on `users`. This keeps it a pure UI preference that doesn't round-trip through Supabase on every session restore.
+
+20. **Historical USD value drifts with rate changes** — payments preserve their source-currency amount forever, but the USD-equivalent (used in dashboard aggregates and display-currency conversion) reflects the *current* rate in `currencies`, not the rate when the payment was recorded. This is intentional per product call; if receipt-historic-USD is needed later, add `rate_per_usd_snapshot` to payments.
+
+21. **Dashboard aggregates in USD** — `DashboardService.getMetrics()` fetches raw `{amount, currency_id}` rows for the month and converts each via `toUsd()` before summing. The screen then re-formats the USD total into the user's display currency.
+
+22. **`authStore.restoreSession` / `login` prime the currency store** — after auth succeeds, `useCurrencyStore.fetchCurrencies()` is called so all downstream `CurrencyInput`s and formatters have data immediately. `logout` resets the currency store.
+
+23. **`currencies.code` is uppercase A-Z, 2-8 chars, and never 'USD'** — enforced by a CHECK constraint and validated again in `CurrencyService.validate()`.
 
 ---
 
