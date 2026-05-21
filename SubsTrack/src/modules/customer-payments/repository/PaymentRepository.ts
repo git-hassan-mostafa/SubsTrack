@@ -32,10 +32,23 @@ export class PaymentRepository extends BaseRepository {
     return data as DbPayment;
   }
 
-  async updateAmountPaid(id: string, amountPaid: number): Promise<DbPayment> {
+  async updatePayment(
+    id: string,
+    payload: {
+      amountDue: number;
+      amountPaid: number;
+      currencyId: string | null;
+      ratePerUsdSnapshot: number;
+    },
+  ): Promise<DbPayment> {
     const { data, error } = await this.db
       .from('payments')
-      .update({ amount_paid: amountPaid })
+      .update({
+        amount_due: payload.amountDue,
+        amount_paid: payload.amountPaid,
+        currency_id: payload.currencyId,
+        rate_per_usd_snapshot: payload.ratePerUsdSnapshot,
+      })
       .eq('id', id)
       .is('voided_at', null)
       .select()

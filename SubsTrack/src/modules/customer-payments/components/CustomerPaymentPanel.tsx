@@ -72,11 +72,17 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
     setVoidVisible(true);
   }
 
-  async function handleEditAmount(newAmount: number) {
+  async function handleEditAmount(next: {
+    amountDue: number;
+    amountPaid: number;
+    currencyId: string | null;
+  }) {
     if (!selectedEntry?.payment) return;
-    await paymentStore.updatePaymentAmountPaid(
+    await paymentStore.updatePayment(
       selectedEntry.payment.id,
-      newAmount,
+      next.amountDue,
+      next.amountPaid,
+      findCurrency(currencies, next.currencyId),
       customer,
       year,
       DEFAULT_GRACE_DAYS,

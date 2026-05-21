@@ -193,6 +193,7 @@
     "per_n_months": "/ {{count}} أشهر",
     "full_payment": "دفع كامل",
     "partial_payment": "دفع جزئي",
+    "enter_amount_to_enable_partial": "أدخل المبلغ أعلاه لتفعيل الدفع الجزئي.",
     "amount_due_label": "المبلغ المستحق",
     "amount_paid_label": "المبلغ المدفوع",
     "balance_label": "الرصيد",
@@ -201,8 +202,7 @@
     "partial_badge": "جزئي",
     "record_payment_action": "تسجيل الدفعة",
     "outstanding_balance": "متبقٍ",
-    "update_paid_amount": "تحديث المبلغ المدفوع",
-    "edit_amount_hint": "الرصيد: {{balance}} — أدخل المبلغ المدفوع الجديد",
+    "edit_payment": "تعديل الدفعة",
     "amount_paid_exceeds_due": "المبلغ المدفوع لا يمكن أن يتجاوز المبلغ المستحق ({{due}})",
     "paid_partial": "{{monthYear}} · دفعة جزئية"
   },

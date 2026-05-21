@@ -14,7 +14,11 @@ import { useLanguageStore } from "@/src/core/i18n/languageStore";
 interface Props {
   entry: MonthEntry | null;
   onVoid?: () => void;
-  onEdit?: (newAmount: number) => void;
+  onEdit?: (next: {
+    amountDue: number;
+    amountPaid: number;
+    currencyId: string | null;
+  }) => void;
   editLoading?: boolean;
   onDismiss: () => void;
 }
@@ -45,36 +49,59 @@ export function PaymentDetailSheet({
     payment != null && (source?.id ?? null) !== (target?.id ?? null);
 
   const [editMode, setEditMode] = useState(false);
-  const [amountPaid, setAmountPaid] = useState<number | null>(null);
+  const [editDue, setEditDue] = useState<number | null>(null);
+  const [editPaid, setEditPaid] = useState<number | null>(null);
+  const [editCurrencyId, setEditCurrencyId] = useState<string | null>(null);
 
   function handleOpenEdit() {
-    setAmountPaid(payment ? payment.amountPaid : null);
+    setEditDue(payment ? payment.amountDue : null);
+    setEditPaid(payment ? payment.amountPaid : null);
+    setEditCurrencyId(payment ? payment.currencyId : null);
     setEditMode(true);
   }
 
   function handleCancelEdit() {
     setEditMode(false);
-    setAmountPaid(null);
+    setEditDue(null);
+    setEditPaid(null);
+    setEditCurrencyId(null);
   }
 
   function handleSaveEdit() {
-    if (amountPaid != null && amountPaid >= 0 && onEdit) {
-      onEdit(amountPaid);
+    if (
+      editDue != null &&
+      editDue > 0 &&
+      editPaid != null &&
+      editPaid >= 0 &&
+      editPaid <= editDue &&
+      onEdit
+    ) {
+      onEdit({
+        amountDue: editDue,
+        amountPaid: editPaid,
+        currencyId: editCurrencyId,
+      });
       setEditMode(false);
-      setAmountPaid(null);
+      setEditDue(null);
+      setEditPaid(null);
+      setEditCurrencyId(null);
     }
   }
 
   function handleDismiss() {
     setEditMode(false);
-    setAmountPaid(null);
+    setEditDue(null);
+    setEditPaid(null);
+    setEditCurrencyId(null);
     onDismiss();
   }
 
   const saveDisabled =
-    amountPaid == null ||
-    amountPaid < 0 ||
-    amountPaid > (payment?.amountDue ?? Infinity) ||
+    editDue == null ||
+    editDue <= 0 ||
+    editPaid == null ||
+    editPaid < 0 ||
+    editPaid > editDue ||
     !!editLoading;
 
   const receiptId = payment ? payment.id.slice(-6).toUpperCase() : "—";
@@ -207,38 +234,49 @@ export function PaymentDetailSheet({
             </View>
           ) : null}
 
-          {/* Update paid amount */}
+          {/* Edit payment */}
           {onEdit && !editMode ? (
             <Pressable
               onPress={handleOpenEdit}
               className="border border-primary rounded-xl py-3 items-center mb-3"
             >
               <Text className="text-primary font-semibold">
-                {t("payments.update_paid_amount")}
+                {t("payments.edit_payment")}
               </Text>
             </Pressable>
           ) : null}
 
           {onEdit && editMode ? (
             <View className="mb-3">
-              {/* Locked to the payment's original currency — you can't change
-                  what currency a payment was recorded in after the fact. */}
+              {/* Amount Due — currency picker unlocked. Switching currency
+                  re-snapshots the FX rate at save time (handled by the service). */}
+              <CurrencyInput
+                label={t("payments.amount_due_label")}
+                amount={editDue}
+                currencyId={editCurrencyId}
+                onChange={({ amount, currencyId }) => {
+                  setEditDue(amount);
+                  if (currencyId !== editCurrencyId) {
+                    setEditCurrencyId(currencyId);
+                    // Switching currency invalidates the previously-typed paid
+                    // value in the old unit.
+                    setEditPaid(null);
+                  }
+                }}
+                currencies={currencies}
+                placeholder={t("payments.enter_amount")}
+              />
+              {/* Amount Paid — locked to whatever currency Amount Due is in. */}
+              <View className="h-2" />
               <CurrencyInput
                 label={t("payments.amount_paid_label")}
-                amount={amountPaid}
-                currencyId={payment?.currencyId ?? null}
-                onChange={({ amount }) => setAmountPaid(amount)}
+                amount={editPaid}
+                currencyId={editCurrencyId}
+                onChange={({ amount }) => setEditPaid(amount)}
                 currencies={currencies}
                 placeholder={t("payments.enter_amount")}
                 lockCurrency
               />
-              {payment && payment.balance > 0 ? (
-                <Text className="text-xs text-amber-600 mb-2">
-                  {t("payments.edit_amount_hint", {
-                    balance: fmtSource(payment.balance),
-                  })}
-                </Text>
-              ) : null}
               <View className="flex-row gap-3 mt-2">
                 <Pressable
                   onPress={handleCancelEdit}

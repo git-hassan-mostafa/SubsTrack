@@ -192,6 +192,7 @@
     "per_n_months": "/ {{count}} months",
     "full_payment": "Full payment",
     "partial_payment": "Partial payment",
+    "enter_amount_to_enable_partial": "Enter an amount above to enable partial payment.",
     "amount_due_label": "Amount Due",
     "amount_paid_label": "Amount Paid",
     "balance_label": "Balance",
@@ -200,8 +201,7 @@
     "partial_badge": "PARTIAL",
     "record_payment_action": "Record Payment",
     "outstanding_balance": "Outstanding",
-    "update_paid_amount": "Update Paid Amount",
-    "edit_amount_hint": "Balance: {{balance}} — enter new amount paid",
+    "edit_payment": "Edit Payment",
     "amount_paid_exceeds_due": "Amount paid cannot exceed amount due ({{due}})",
     "paid_partial": "{{monthYear}} · partial payment"
   },

@@ -132,13 +132,13 @@ export const usePaymentStore = create<PaymentsState>((set, get) => ({
     }
   },
 
-  updatePaymentAmountPaid: async (id, amountPaid, customer, year, graceDays) => {
+  updatePayment: async (id, amountDue, amountPaid, currency, customer, year, graceDays) => {
     if (get().loadingUpdate) return;
     const existing = get().payments.find((p) => p.id === id);
     if (!existing) return;
     set({ loadingUpdate: true, error: null });
     try {
-      const updated = await paymentService.updatePaymentAmountPaid(id, amountPaid, existing.amountDue);
+      const updated = await paymentService.updatePayment(id, amountDue, amountPaid, currency);
       const payments = get().payments.map((p) => (p.id === id ? updated : p));
       const monthGrid = paymentService.buildMonthGrid(
         customer,
@@ -259,9 +259,11 @@ interface PaymentsState {
     year: number,
     graceDays: number,
   ) => Promise<MultiMonthConflict[]>;
-  updatePaymentAmountPaid: (
+  updatePayment: (
     id: string,
+    amountDue: number,
     amountPaid: number,
+    currency: Currency | null,
     customer: Customer,
     year: number,
     graceDays: number,

@@ -1,4 +1,5 @@
 import type {
+  Currency,
   Customer,
   MonthEntry,
   MonthStatus,
@@ -180,12 +181,31 @@ export class PaymentService {
     return { payment: mapDbPaymentToPayment(row), skippedMonths };
   }
 
-  async updatePaymentAmountPaid(id: string, amountPaid: number, amountDue: number): Promise<Payment> {
+  // Updates an existing (non-voided) payment's amounts and currency in place.
+  // Re-snapshots ratePerUsdSnapshot from the (possibly newly chosen) currency at
+  // edit time — the "user fixing the record" semantic. Voided payments stay
+  // locked via the repository's voided_at IS NULL filter.
+  async updatePayment(
+    id: string,
+    amountDue: number,
+    amountPaid: number,
+    currency: Currency | null,
+  ): Promise<Payment> {
+    if (amountDue <= 0) throw new Error("Amount due must be greater than 0");
     if (amountPaid < 0) throw new Error("Amount paid cannot be negative");
     if (amountPaid > amountDue) {
       throw new Error("Amount paid cannot exceed amount due");
     }
-    const row = await this.repository.updateAmountPaid(id, amountPaid);
+    const ratePerUsdSnapshot = currency?.ratePerUsd ?? 1;
+    if (!(ratePerUsdSnapshot > 0)) {
+      throw new Error("Exchange rate snapshot must be positive");
+    }
+    const row = await this.repository.updatePayment(id, {
+      amountDue,
+      amountPaid,
+      currencyId: currency?.id ?? null,
+      ratePerUsdSnapshot,
+    });
     return mapDbPaymentToPayment(row);
   }
 
