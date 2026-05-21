@@ -23,6 +23,8 @@ type FormState = {
   name: string;
   phoneNumber: string;
   address: string;
+  area: string;
+  notes: string;
   planId: string | null;
   startDate: string;
   isRegular: boolean;
@@ -39,6 +41,8 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
     name: customer?.name ?? "",
     phoneNumber: customer?.phoneNumber ?? "",
     address: customer?.address ?? "",
+    area: customer?.area ?? "",
+    notes: customer?.notes ?? "",
     planId: customer?.planId ?? null,
     startDate: customer?.startDate ?? getTodayDateString(),
     isRegular: customer?.isRegular ?? true,
@@ -57,6 +61,8 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
       name: form.name,
       phoneNumber: form.phoneNumber || null,
       address: form.address || null,
+      area: form.area || null,
+      notes: form.notes || null,
       planId: form.planId,
       startDate: form.startDate,
       isRegular: form.isRegular,
@@ -146,6 +152,13 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
             placeholder={t("common.optional")}
           />
 
+          <Input
+            label={t("customers.area_label")}
+            value={form.area}
+            onChangeText={(v) => setForm((prev) => ({ ...prev, area: v }))}
+            placeholder={t("customers.area_placeholder")}
+          />
+
           <Dropdown
             label={t("customers.plan_label")}
             placeholder={t("customers.select_plan")}
@@ -155,6 +168,17 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
             nullable
             nullLabel={t("common.no_plan")}
             nullSublabel={t("customers.custom_plan_sublabel")}
+          />
+
+          <Input
+            label={t("customers.notes_label")}
+            value={form.notes}
+            onChangeText={(v) => setForm((prev) => ({ ...prev, notes: v }))}
+            placeholder={t("customers.notes_placeholder")}
+            multiline
+            numberOfLines={3}
+            textAlignVertical="top"
+            style={{ minHeight: 80 }}
           />
 
           {/* Regular customer toggle */}

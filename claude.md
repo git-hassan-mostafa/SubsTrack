@@ -359,6 +359,8 @@ interface Customer {
   name;
   phoneNumber;
   address;
+  area;       // optional free-text neighborhood/zone label (searchable on customer list)
+  notes;      // optional free-text staff notes (rendered in CustomerDetailsCard)
   active;
   isRegular; // true = subscription customer (affects grid colors, unpaid counts); false = occasional
   planId;
@@ -420,7 +422,7 @@ interface DashboardMetrics {
 | `currencies` | `id`, `tenant_id`, `code`, `name`, `symbol`, `rate_per_usd`, `decimals`, `active`                                                                                                                                        |
 | `users`      | `id` (= auth.users.id), `username`, `full_name`, `phone_number`, `role`, `active`, `tenant_id`                                                                                                                           |
 | `plans`      | `id`, `name`, `price`, `is_custom_price`, `duration_months`, `currency_id`, `tenant_id`                                                                                                                                  |
-| `customers`  | `id`, `name`, `phone_number`, `address`, `active`, `is_regular`, `plan_id`, `tenant_id`, `start_date`, `cancelled_at`                                                                                                    |
+| `customers`  | `id`, `name`, `phone_number`, `address`, `area`, `notes`, `active`, `is_regular`, `plan_id`, `tenant_id`, `start_date`, `cancelled_at`                                                                                   |
 | `payments`   | `id`, `billing_month` (YYYY-MM-01), `amount_due`, `amount_paid`, `balance` (gen), `duration_months`, `currency_id`, `rate_per_usd_snapshot`, `customer_id`, `plan_id`, `received_by_user_id`, `tenant_id`, `paid_at`, `voided_at`, `voided_by`, `notes` |
 
 **Key constraints:**

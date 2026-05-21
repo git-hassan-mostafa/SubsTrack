@@ -101,7 +101,7 @@ expenses:  + branch_id  UUID REFERENCES branches(id)  -- nullable
 
 ## 2. Customer Management Enhancements
 
-### 2.1 Customer Notes
+### 2.1 Customer Notes ✅
 
 **Priority:** 🔴 High
 
@@ -111,13 +111,13 @@ expenses:  + branch_id  UUID REFERENCES branches(id)  -- nullable
 
 ---
 
-### 2.2 Customer Area / Zone
+### 2.2 Customer Area / Zone ✅
 
 **Priority:** 🔴 High
 
 **Purpose:** Group and filter customers by neighborhood or service zone. Essential for ISPs and delivery services that organize by route.
 
-**Schema:** `customers: + area TEXT`
+**Schema:** `customers: + area TEXT`. Searchable from the customer list alongside name/phone/address.
 
 ---
 
@@ -485,8 +485,8 @@ CREATE TABLE audit_log (
 | Partial payments             | 🔴 High   | Yes — `amount_due`, `amount_paid`, `balance` on payments              |
 | Dual currency (USD/LBP)      | 🔴 High   | Yes — `currency`, `exchange_rate` on payments; `currency` on plans    |
 | Branch / zone management     | 🟡 Medium | Yes — new `branches` table; `branch_id` on users, customers, expenses |
-| Customer notes               | 🔴 High   | Yes — `notes` on customers                                            |
-| Customer area/zone           | 🔴 High   | Yes — `area` on customers                                             |
+| Customer notes ✅            | 🔴 High   | Yes — `notes` on customers                                            |
+| Customer area/zone ✅        | 🔴 High   | Yes — `area` on customers                                             |
 | Customer tags                | 🟡 Medium | Yes — `tags[]` on customers                                           |
 | Quick pay (one-tap)          | 🔴 High   | No                                                                    |
 | Debt aging report            | 🔴 High   | No                                                                    |

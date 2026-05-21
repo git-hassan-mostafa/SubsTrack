@@ -78,6 +78,27 @@ export function CustomerDetailsCard({ customer }: CustomerDetailsCardProps) {
             </View>
           ) : null}
 
+          {customer.area ? (
+            <View className="flex-row items-center justify-between px-4 py-3.5 border-b border-gray-100">
+              <View className="flex-row items-center gap-3">
+                <Ionicons
+                  name="map-outline"
+                  size={16}
+                  color={COLORS.gray400}
+                />
+                <Text className="text-sm text-gray-500">
+                  {t("customers.area_label")}
+                </Text>
+              </View>
+              <Text
+                className="text-sm font-semibold text-gray-900 flex-1 ms-4 text-right"
+                numberOfLines={1}
+              >
+                {customer.area}
+              </Text>
+            </View>
+          ) : null}
+
           <View className="flex-row items-center justify-between px-4 py-3.5 border-b border-gray-100">
             <View className="flex-row items-center gap-3">
               <Ionicons
@@ -93,6 +114,24 @@ export function CustomerDetailsCard({ customer }: CustomerDetailsCardProps) {
               {formatDate(customer.startDate, locale)}
             </Text>
           </View>
+
+          {customer.notes ? (
+            <View className="px-4 py-3.5 border-b border-gray-100">
+              <View className="flex-row items-center gap-3 mb-1.5">
+                <Ionicons
+                  name="document-text-outline"
+                  size={16}
+                  color={COLORS.gray400}
+                />
+                <Text className="text-sm text-gray-500">
+                  {t("customers.notes_label")}
+                </Text>
+              </View>
+              <Text className="text-sm font-medium text-gray-900 leading-5">
+                {customer.notes}
+              </Text>
+            </View>
+          ) : null}
 
           <Pressable
             onPress={() => isAdmin && setToggleConfirmVisible(true)}

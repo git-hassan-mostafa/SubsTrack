@@ -9,6 +9,8 @@ type CreateCustomerPayload = Pick<
   | 'name'
   | 'phone_number'
   | 'address'
+  | 'area'
+  | 'notes'
   | 'plan_id'
   | 'tenant_id'
   | 'start_date'
@@ -29,7 +31,7 @@ export class CustomerRepository extends BaseRepository {
       .order('name');
     if (q) {
       query = query.or(
-        `name.ilike.%${q}%,phone_number.ilike.%${q}%,address.ilike.%${q}%`,
+        `name.ilike.%${q}%,phone_number.ilike.%${q}%,address.ilike.%${q}%,area.ilike.%${q}%`,
       );
     }
     const { data, error } = await query.range(from, to);
@@ -60,7 +62,7 @@ export class CustomerRepository extends BaseRepository {
 
   async update(
     id: string,
-    payload: Partial<Pick<DbCustomer, 'name' | 'phone_number' | 'address' | 'plan_id' | 'start_date' | 'is_regular'>>,
+    payload: Partial<Pick<DbCustomer, 'name' | 'phone_number' | 'address' | 'area' | 'notes' | 'plan_id' | 'start_date' | 'is_regular'>>,
   ): Promise<CustomerWithPlan> {
     const { data, error } = await this.db
       .from('customers')

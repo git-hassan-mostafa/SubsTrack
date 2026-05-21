@@ -7,7 +7,7 @@ interface InputProps extends TextInputProps {
   error?: string | null;
 }
 
-export function Input({ label, error, ...props }: InputProps) {
+export function Input({ label, error, style, ...props }: InputProps) {
   return (
     <View className="mb-4">
       {label ? (
@@ -20,7 +20,7 @@ export function Input({ label, error, ...props }: InputProps) {
         className={`border rounded-xl px-4 py-3 text-base text-gray-900 bg-white ${
           error ? "border-danger" : "border-gray-200"
         }`}
-        style={{ fontFamily: "Cairo" }}
+        style={[{ fontFamily: "Cairo" }, style]}
         placeholderTextColor={COLORS.gray400}
       />
       {error ? <Text className="text-sm text-danger mt-1">{error}</Text> : null}

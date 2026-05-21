@@ -76,6 +76,8 @@ export interface Customer {
   name: string;
   phoneNumber: string | null;
   address: string | null;
+  area: string | null;
+  notes: string | null;
   active: boolean;
   isRegular: boolean;
   planId: string | null;

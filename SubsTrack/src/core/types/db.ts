@@ -60,6 +60,8 @@ export interface DbCustomer {
   name: string;
   phone_number: string | null;
   address: string | null;
+  area: string | null;
+  notes: string | null;
   active: boolean;
   is_regular: boolean;
   plan_id: string | null;

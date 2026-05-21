@@ -171,6 +171,8 @@ CREATE TABLE IF NOT EXISTS customers (
     name         TEXT        NOT NULL,
     phone_number TEXT,
     address      TEXT,
+    area         TEXT,
+    notes        TEXT,
     active       BOOLEAN     NOT NULL DEFAULT TRUE,
     is_regular   BOOLEAN     NOT NULL DEFAULT TRUE,
     plan_id      UUID,

@@ -169,6 +169,8 @@ interface CustomerInput {
   name: string;
   phoneNumber: string | null;
   address: string | null;
+  area: string | null;
+  notes: string | null;
   planId: string | null;
   startDate: string;
   isRegular: boolean;
