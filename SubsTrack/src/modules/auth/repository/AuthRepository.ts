@@ -20,7 +20,11 @@ export class AuthRepository {
 
   async getSession(): Promise<Session | null> {
     const { data, error } = await supabase.auth.getSession();
-    if (error) throw new Error(error.message);
+    if (error) {
+      // Stale/invalid token (e.g. after a DB reset) — clear it and treat as no session
+      await supabase.auth.signOut().catch(() => {});
+      return null;
+    }
     return data.session;
   }
 
