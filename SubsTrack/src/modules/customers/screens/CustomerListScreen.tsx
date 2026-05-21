@@ -12,13 +12,24 @@ import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { EmptyState } from "@/src/shared/components/EmptyState";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
+import { ConfirmDialog } from "@/src/shared/components/ConfirmDialog";
 import { useDebounce } from "@/src/shared/hooks/useDebounce";
-import { COLORS } from "@/src/shared/constants";
+import { COLORS, DEFAULT_GRACE_DAYS } from "@/src/shared/constants";
 import type { Customer } from "@/src/core/types";
 import { CustomerCard } from "../components/CustomerCard";
 import { CustomerFormSheet } from "../components/CustomerFormSheet";
 import { useCustomerStore } from "../store/customerStore";
 import { usePaymentStore } from "../../customer-payments/store/paymentStore";
+import { useCurrencyStore } from "../../currencies/store/currencyStore";
+import { useAuth } from "../../auth/hooks/useAuth";
+import { findCurrency, formatMoney } from "@/src/core/utils/currency";
+import {
+  getCurrentYearMonth,
+  getDateLocale,
+  isBeforeStartDate,
+  toBillingMonth,
+} from "@/src/core/utils/date";
+import { getBlockRangeLabel } from "../../customer-payments/utils/blockRangeLabel";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
 import { PageHeader } from "@/src/shared/components/PageHeader";
 import { MONTHS } from "@/src/core/constants";
@@ -26,8 +37,10 @@ import { MONTHS } from "@/src/core/constants";
 type FilterTab = "all" | "unpaid" | "active" | "inactive";
 
 export function CustomerListScreen() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const locale = getDateLocale(i18n.language);
   const router = useRouter();
+  const { user } = useAuth();
   const {
     customers,
     totalCount,
@@ -40,10 +53,26 @@ export function CustomerListScreen() {
     setSearchQuery,
     clearError,
   } = useCustomerStore();
-  const { currentMonthPaidIds, fetchCurrentMonthPaidIds } = usePaymentStore();
+  const {
+    currentMonthPaidIds,
+    fetchCurrentMonthPaidIds,
+    createPayment,
+    createMultiMonthPayment,
+    error: paymentError,
+    clearError: clearPaymentError,
+  } = usePaymentStore();
+  const { currencies } = useCurrencyStore();
   const [formVisible, setFormVisible] = useState(false);
   const [searchText, setSearchText] = useState("");
   const [activeTab, setActiveTab] = useState<FilterTab>("active");
+  const [quickPayCustomerId, setQuickPayCustomerId] = useState<string | null>(
+    null,
+  );
+  const [multiMonthConfirm, setMultiMonthConfirm] = useState<{
+    customer: Customer;
+    monthsLabel: string;
+    amountLabel: string;
+  } | null>(null);
   const debouncedSearch = useDebounce(searchText);
 
   useEffect(() => {
@@ -86,6 +115,102 @@ export function CustomerListScreen() {
     [router],
   );
 
+  async function recordSingleMonth(customer: Customer) {
+    if (!customer.plan || customer.plan.price === null || !user) return;
+    setQuickPayCustomerId(customer.id);
+    try {
+      const { year, month } = getCurrentYearMonth();
+      const planCurrency = findCurrency(currencies, customer.plan.currencyId);
+      await createPayment(
+        {
+          billingMonth: toBillingMonth(year, month),
+          amountDue: customer.plan.price,
+          amountPaid: customer.plan.price,
+          durationMonths: 1,
+          currencyId: customer.plan.currencyId,
+          customerId: customer.id,
+          planId: customer.plan.id,
+          receivedByUserId: user.id,
+          tenantId: user.tenantId,
+          notes: null,
+        },
+        planCurrency,
+        customer,
+        DEFAULT_GRACE_DAYS,
+      );
+    } finally {
+      setQuickPayCustomerId(null);
+    }
+  }
+
+  function handleQuickPay(customer: Customer) {
+    if (!customer.plan || customer.plan.isCustomPrice) {
+      router.push({
+        pathname: "/(app)/(tabs)/customers/[id]",
+        params: { id: customer.id, quickPay: "1" },
+      });
+      return;
+    }
+    if (customer.plan.durationMonths > 1) {
+      if (customer.plan.price === null) return;
+      const { year, month } = getCurrentYearMonth();
+      const startMonth = toBillingMonth(year, month);
+      const planCurrency = findCurrency(currencies, customer.plan.currencyId);
+      setMultiMonthConfirm({
+        customer,
+        monthsLabel: getBlockRangeLabel(
+          startMonth,
+          customer.plan.durationMonths,
+          t,
+        ),
+        amountLabel: formatMoney(
+          customer.plan.price,
+          planCurrency,
+          planCurrency,
+          locale,
+        ),
+      });
+      return;
+    }
+    void recordSingleMonth(customer);
+  }
+
+  async function confirmMultiMonth() {
+    if (!multiMonthConfirm || !user) return;
+    const { customer } = multiMonthConfirm;
+    if (!customer.plan || customer.plan.price === null) return;
+    const { year, month } = getCurrentYearMonth();
+    const startMonth = toBillingMonth(year, month);
+    const planCurrency = findCurrency(currencies, customer.plan.currencyId);
+    setQuickPayCustomerId(customer.id);
+    try {
+      await createMultiMonthPayment(
+        startMonth,
+        customer,
+        customer.plan,
+        planCurrency,
+        customer.plan.price,
+        user.id,
+        null,
+        user.tenantId,
+        false,
+        year,
+        DEFAULT_GRACE_DAYS,
+      );
+    } finally {
+      setQuickPayCustomerId(null);
+      setMultiMonthConfirm(null);
+    }
+  }
+
+  function shouldShowQuickPay(customer: Customer): boolean {
+    if (!customer.active || !customer.isRegular) return false;
+    if (currentMonthPaidIds.has(customer.id)) return false;
+    const { year, month } = getCurrentYearMonth();
+    if (isBeforeStartDate(year, month, customer.startDate)) return false;
+    return true;
+  }
+
   const renderItem = useCallback(
     ({ item }: { item: Customer }) => (
       <CustomerCard
@@ -93,9 +218,18 @@ export function CustomerListScreen() {
         isPaidThisMonth={currentMonthPaidIds.has(item.id)}
         monthLabel={monthLabel}
         onPress={openDetail}
+        onQuickPay={shouldShowQuickPay(item) ? handleQuickPay : undefined}
+        quickPayDisabled={quickPayCustomerId === item.id}
       />
     ),
-    [currentMonthPaidIds, monthLabel, openDetail],
+    [
+      currentMonthPaidIds,
+      monthLabel,
+      openDetail,
+      quickPayCustomerId,
+      currencies,
+      user,
+    ],
   );
 
   return (
@@ -134,6 +268,11 @@ export function CustomerListScreen() {
       {error ? (
         <View className="px-4 pt-4">
           <ErrorBanner message={error} onDismiss={clearError} />
+        </View>
+      ) : null}
+      {paymentError ? (
+        <View className="px-4 pt-4">
+          <ErrorBanner message={paymentError} onDismiss={clearPaymentError} />
         </View>
       ) : null}
 
@@ -190,6 +329,22 @@ export function CustomerListScreen() {
       {formVisible && (
         <CustomerFormSheet onDismiss={() => setFormVisible(false)} />
       )}
+
+      <ConfirmDialog
+        visible={multiMonthConfirm !== null}
+        title={t("payments.quick_pay.confirm_multi_month_title")}
+        message={
+          multiMonthConfirm
+            ? t("payments.quick_pay.confirm_multi_month_message", {
+                amount: multiMonthConfirm.amountLabel,
+                months: multiMonthConfirm.monthsLabel,
+              })
+            : ""
+        }
+        confirmLabel={t("payments.quick_pay.confirm")}
+        onConfirm={confirmMultiMonth}
+        onCancel={() => setMultiMonthConfirm(null)}
+      />
     </SafeAreaView>
   );
 }

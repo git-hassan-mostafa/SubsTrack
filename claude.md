@@ -4,6 +4,7 @@
 - Whenever any architecture or context changed in this project directly update the CLAUDE.md to reflect it.
 - After the first message of each conversation say "Hello From CLAUDE.md, This message is to let you know that i am taking instructions from CLAUDE.md file successfully.", so i know you are reading from ClAUDE.md
 - I am still in Development phase, so i am open to change architectures and DB schema if needed.
+- whenever a feature from the file new-features.md file is done, mark it as done.
 
 ---
 
@@ -325,12 +326,12 @@ interface Tenant {
 interface Currency {
   id;
   tenantId;
-  code;        // e.g. 'LBP', 'EUR' — USD is implicit, never stored
-  name;        // e.g. 'Lebanese Pound'
-  symbol;      // e.g. 'ل.ل', '€'
-  ratePerUsd;  // current rate: 1 USD = this many units
-  decimals;    // 0–6 (USD=2, LBP=0, ...)
-  active;      // soft-delete flag; preserves history
+  code; // e.g. 'LBP', 'EUR' — USD is implicit, never stored
+  name; // e.g. 'Lebanese Pound'
+  symbol; // e.g. 'ل.ل', '€'
+  ratePerUsd; // current rate: 1 USD = this many units
+  decimals; // 0–6 (USD=2, LBP=0, ...)
+  active; // soft-delete flag; preserves history
   createdAt;
   updatedAt;
 }
@@ -350,7 +351,7 @@ interface Plan {
   price;
   isCustomPrice;
   durationMonths; // 1–12; how many consecutive months the plan covers
-  currencyId;     // currency the stored price is in; null = USD
+  currencyId; // currency the stored price is in; null = USD
   tenantId;
   createdAt;
 }
@@ -359,8 +360,8 @@ interface Customer {
   name;
   phoneNumber;
   address;
-  area;       // optional free-text neighborhood/zone label (searchable on customer list)
-  notes;      // optional free-text staff notes (rendered in CustomerDetailsCard)
+  area; // optional free-text neighborhood/zone label (searchable on customer list)
+  notes; // optional free-text staff notes (rendered in CustomerDetailsCard)
   active;
   isRegular; // true = subscription customer (affects grid colors, unpaid counts); false = occasional
   planId;
@@ -374,11 +375,11 @@ interface Customer {
 interface Payment {
   id;
   billingMonth;
-  amountDue;       // snapshot of what was owed at recording time
-  amountPaid;      // what was actually collected (≤ amountDue; 0 = unpaid slot)
-  balance;         // generated column: amountDue - amountPaid
-  durationMonths;  // how many consecutive months this payment covers (≥ 1)
-  currencyId;      // currency the amounts above are denominated in; null = USD
+  amountDue; // snapshot of what was owed at recording time
+  amountPaid; // what was actually collected (≤ amountDue; 0 = unpaid slot)
+  balance; // generated column: amountDue - amountPaid
+  durationMonths; // how many consecutive months this payment covers (≥ 1)
+  currencyId; // currency the amounts above are denominated in; null = USD
   ratePerUsdSnapshot; // exchange rate (units of currencyId per 1 USD) frozen at recording time; USD payments store 1
   customerId;
   planId;
@@ -415,14 +416,14 @@ interface DashboardMetrics {
 
 ## Database Schema (Supabase PostgreSQL)
 
-| Table        | Key columns                                                                                                                                                                                                              |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `tenants`    | `id`, `name`, `tenant_code`, `active`                                                                                                                                                                                    |
-| `saas_tiers` | `id`, `name`, `max_users`, `max_customers`, `price`, `grace_days`, `tenant_id`                                                                                                                                           |
-| `currencies` | `id`, `tenant_id`, `code`, `name`, `symbol`, `rate_per_usd`, `decimals`, `active`                                                                                                                                        |
-| `users`      | `id` (= auth.users.id), `username`, `full_name`, `phone_number`, `role`, `active`, `tenant_id`                                                                                                                           |
-| `plans`      | `id`, `name`, `price`, `is_custom_price`, `duration_months`, `currency_id`, `tenant_id`                                                                                                                                  |
-| `customers`  | `id`, `name`, `phone_number`, `address`, `area`, `notes`, `active`, `is_regular`, `plan_id`, `tenant_id`, `start_date`, `cancelled_at`                                                                                   |
+| Table        | Key columns                                                                                                                                                                                                                                             |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tenants`    | `id`, `name`, `tenant_code`, `active`                                                                                                                                                                                                                   |
+| `saas_tiers` | `id`, `name`, `max_users`, `max_customers`, `price`, `grace_days`, `tenant_id`                                                                                                                                                                          |
+| `currencies` | `id`, `tenant_id`, `code`, `name`, `symbol`, `rate_per_usd`, `decimals`, `active`                                                                                                                                                                       |
+| `users`      | `id` (= auth.users.id), `username`, `full_name`, `phone_number`, `role`, `active`, `tenant_id`                                                                                                                                                          |
+| `plans`      | `id`, `name`, `price`, `is_custom_price`, `duration_months`, `currency_id`, `tenant_id`                                                                                                                                                                 |
+| `customers`  | `id`, `name`, `phone_number`, `address`, `area`, `notes`, `active`, `is_regular`, `plan_id`, `tenant_id`, `start_date`, `cancelled_at`                                                                                                                  |
 | `payments`   | `id`, `billing_month` (YYYY-MM-01), `amount_due`, `amount_paid`, `balance` (gen), `duration_months`, `currency_id`, `rate_per_usd_snapshot`, `customer_id`, `plan_id`, `received_by_user_id`, `tenant_id`, `paid_at`, `voided_at`, `voided_by`, `notes` |
 
 **Key constraints:**
@@ -683,13 +684,15 @@ Located at `SubsTrack/supabase/functions/create-user/index.ts` (Deno runtime).
 
 20. **Display currency lives in AsyncStorage, not the DB** — `uiPrefStore.displayCurrencyId` (persisted via Zustand `persist` + `AsyncStorage`). There is no `display_currency_id` column on `users`. This keeps it a pure UI preference that doesn't round-trip through Supabase on every session restore.
 
-20. **`rate_per_usd_snapshot` freezes payment USD value** — every payment row carries `rate_per_usd_snapshot`, the live `currencies.rate_per_usd` at the moment the payment was recorded. PaymentDetailSheet (receipt), CustomerPaymentPanel year total, and Dashboard aggregates all convert via this frozen rate, so editing a currency's live rate never retroactively shifts historical USD values. USD payments (`currencyId === null`) store snapshot = 1. **Plan prices** still use the live rate (forward-looking pricing — that's the desired behavior). The snapshot is captured at the boundary: `PaymentFormSheet` resolves the `Currency` from `useCurrencyStore` and passes it into `paymentStore.createPayment` / `createMultiMonthPayment`, which extract `currency?.ratePerUsd ?? 1` and forward to `PaymentService`. **Editing** a payment also re-snapshots: `PaymentService.updatePayment(id, amountDue, amountPaid, currency)` recomputes `ratePerUsdSnapshot` from the (possibly newly chosen) currency at edit time, so historical USD totals reflect the corrected record. Use the `paymentSnapshotCurrency(payment, currencies)` helper in `src/core/utils/currency.ts` when displaying a payment — it clones the live `Currency` with `ratePerUsd` overridden by the snapshot.
+21. **`rate_per_usd_snapshot` freezes payment USD value** — every payment row carries `rate_per_usd_snapshot`, the live `currencies.rate_per_usd` at the moment the payment was recorded. PaymentDetailSheet (receipt), CustomerPaymentPanel year total, and Dashboard aggregates all convert via this frozen rate, so editing a currency's live rate never retroactively shifts historical USD values. USD payments (`currencyId === null`) store snapshot = 1. **Plan prices** still use the live rate (forward-looking pricing — that's the desired behavior). The snapshot is captured at the boundary: `PaymentFormSheet` resolves the `Currency` from `useCurrencyStore` and passes it into `paymentStore.createPayment` / `createMultiMonthPayment`, which extract `currency?.ratePerUsd ?? 1` and forward to `PaymentService`. **Editing** a payment also re-snapshots: `PaymentService.updatePayment(id, amountDue, amountPaid, currency)` recomputes `ratePerUsdSnapshot` from the (possibly newly chosen) currency at edit time, so historical USD totals reflect the corrected record. Use the `paymentSnapshotCurrency(payment, currencies)` helper in `src/core/utils/currency.ts` when displaying a payment — it clones the live `Currency` with `ratePerUsd` overridden by the snapshot.
 
-21. **Dashboard aggregates in USD using snapshots** — `DashboardService.getMetrics()` fetches `{amount, rate_per_usd_snapshot}` rows for the month and divides each by its snapshot before summing. The screen then re-formats the USD total into the user's display currency. No live-currencies lookup is needed for the sum — the snapshot is the rate.
+22. **Dashboard aggregates in USD using snapshots** — `DashboardService.getMetrics()` fetches `{amount, rate_per_usd_snapshot}` rows for the month and divides each by its snapshot before summing. The screen then re-formats the USD total into the user's display currency. No live-currencies lookup is needed for the sum — the snapshot is the rate.
 
-22. **`authStore.restoreSession` / `login` prime the currency store** — after auth succeeds, `useCurrencyStore.fetchCurrencies()` is called so all downstream `CurrencyInput`s and formatters have data immediately. `logout` resets the currency store.
+23. **`authStore.restoreSession` / `login` prime the currency store** — after auth succeeds, `useCurrencyStore.fetchCurrencies()` is called so all downstream `CurrencyInput`s and formatters have data immediately. `logout` resets the currency store.
 
-23. **`currencies.code` is uppercase A-Z, 2-8 chars, and never 'USD'** — enforced by a CHECK constraint and validated again in `CurrencyService.validate()`.
+24. **`currencies.code` is uppercase A-Z, 2-8 chars, and never 'USD'** — enforced by a CHECK constraint and validated again in `CurrencyService.validate()`.
+
+25. **Quick Pay `?quickPay=1` handshake** — the customer list dispatches Scenario C (no plan / custom-price) Quick Pay taps by navigating to `customers/[id]?quickPay=1`. `CustomerPaymentPanel` reads the param, waits for `monthGrid` to load, then auto-selects the current-month entry and opens `PaymentFormSheet`. A `useRef` guard ensures it fires once per mount; `router.setParams({ quickPay: undefined })` clears the param so refresh/back navigation doesn't re-trigger. Scenarios A (single-month fixed) and D (multi-month) bypass this and call `paymentStore.createPayment` / `createMultiMonthPayment` directly from the list — D shows a `ConfirmDialog` first to explicitly disclose the bundle range.
 
 ---
 

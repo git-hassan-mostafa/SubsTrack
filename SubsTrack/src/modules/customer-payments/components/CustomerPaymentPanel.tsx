@@ -1,5 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, View } from "react-native";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
 import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
@@ -24,6 +25,8 @@ interface CustomerPaymentPanelProps {
 export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
   const { t, i18n } = useTranslation();
   const locale = getDateLocale(i18n.language);
+  const router = useRouter();
+  const { quickPay } = useLocalSearchParams<{ quickPay?: string }>();
   const paymentStore = usePaymentStore();
   const { currencies } = useCurrencyStore();
   const { displayCurrencyId } = useUiPrefStore();
@@ -35,6 +38,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
   const [formVisible, setFormVisible] = useState(false);
   const [voidVisible, setVoidVisible] = useState(false);
   const [infoPopupMessage, setInfoPopupMessage] = useState<string | null>(null);
+  const quickPayHandledRef = useRef(false);
 
   useEffect(() => {
     paymentStore.fetchPayments(customer.id, year, customer, DEFAULT_GRACE_DAYS);
@@ -43,6 +47,22 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
   useEffect(() => {
     return () => paymentStore.reset();
   }, []);
+
+  // Handle ?quickPay=1 handshake from the customer list: auto-open the payment
+  // form for the current month once the grid is ready. Fires at most once.
+  useEffect(() => {
+    if (quickPay !== "1" || quickPayHandledRef.current) return;
+    if (paymentStore.loading || paymentStore.monthGrid.length === 0) return;
+    const { year: cy, month: cm } = getCurrentYearMonth();
+    const currentEntry = paymentStore.monthGrid.find(
+      (m) => m.year === cy && m.month === cm,
+    );
+    if (!currentEntry) return;
+    quickPayHandledRef.current = true;
+    setSelectedEntry(currentEntry);
+    setFormVisible(true);
+    router.setParams({ quickPay: undefined });
+  }, [quickPay, paymentStore.loading, paymentStore.monthGrid, router]);
 
   function handleCellPress(entry: MonthEntry) {
     if (entry.status === "before_start") {

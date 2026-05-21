@@ -1,15 +1,17 @@
 import { memo } from "react";
-import { Pressable, View } from "react-native";
+import { ActivityIndicator, Pressable, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
 import type { Customer } from "@/src/core/types";
-import { AVATAR_COLORS } from "../../../shared/constants";
+import { AVATAR_COLORS, COLORS } from "../../../shared/constants";
 
 interface Props {
   customer: Customer;
   isPaidThisMonth: boolean;
   monthLabel: string;
   onPress: (customer: Customer) => void;
+  onQuickPay?: (customer: Customer) => void;
+  quickPayDisabled?: boolean;
 }
 
 function getAvatarColor(name: string): string {
@@ -27,6 +29,8 @@ export const CustomerCard = memo(function CustomerCard({
   isPaidThisMonth,
   monthLabel,
   onPress,
+  onQuickPay,
+  quickPayDisabled = false,
 }: Props) {
   const { t } = useTranslation();
   const initials = getInitials(customer.name);
@@ -93,6 +97,24 @@ export const CustomerCard = memo(function CustomerCard({
         )}
         <Text className="text-xs text-gray-400">{monthLabel}</Text>
       </View>
+
+      {onQuickPay ? (
+        <Pressable
+          onPress={() => onQuickPay(customer)}
+          disabled={quickPayDisabled}
+          className={`ms-3 bg-green-600 rounded-xl px-3 py-1.5 items-center justify-center ${quickPayDisabled ? "opacity-50" : ""}`}
+          style={{ minWidth: 56 }}
+          hitSlop={6}
+        >
+          {quickPayDisabled ? (
+            <ActivityIndicator size="small" color={COLORS.white} />
+          ) : (
+            <Text fontWeight="SemiBold" className="text-white text-xs">
+              {t("payments.quick_pay.pay_now")}
+            </Text>
+          )}
+        </Pressable>
+      ) : null}
     </Pressable>
   );
 });

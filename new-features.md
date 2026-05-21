@@ -169,7 +169,7 @@ expenses:  + branch_id  UUID REFERENCES branches(id)  -- nullable
 
 ## 4. Operational Features
 
-### 4.1 Quick Pay (One-Tap Current Month)
+### 4.1 Quick Pay (One-Tap Current Month) ✅
 
 **Priority:** 🔴 High
 
@@ -488,7 +488,7 @@ CREATE TABLE audit_log (
 | Customer notes ✅            | 🔴 High   | Yes — `notes` on customers                                            |
 | Customer area/zone ✅        | 🔴 High   | Yes — `area` on customers                                             |
 | Customer tags                | 🟡 Medium | Yes — `tags[]` on customers                                           |
-| Quick pay (one-tap)          | 🔴 High   | No                                                                    |
+| Quick pay (one-tap) ✅        | 🔴 High   | No                                                                    |
 | Debt aging report            | 🔴 High   | No                                                                    |
 | Daily collection summary     | 🟡 Medium | No                                                                    |
 | Bulk payment recording       | 🟡 Medium | No                                                                    |

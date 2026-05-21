@@ -207,7 +207,13 @@
     "outstanding_balance": "Outstanding",
     "edit_payment": "Edit Payment",
     "amount_paid_exceeds_due": "Amount paid cannot exceed amount due ({{due}})",
-    "paid_partial": "{{monthYear}} · partial payment"
+    "paid_partial": "{{monthYear}} · partial payment",
+    "quick_pay": {
+      "pay_now": "Pay",
+      "confirm_multi_month_title": "Record bundle payment?",
+      "confirm_multi_month_message": "This will record a payment of {{amount}} covering {{months}}.",
+      "confirm": "Record"
+    }
   },
   "months": {
     "jan": "Jan",
