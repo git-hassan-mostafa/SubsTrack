@@ -23,6 +23,7 @@ function mapDbPaymentToPayment(db: DbPayment): Payment {
     balance: Number(db.balance),
     durationMonths: db.duration_months,
     currencyId: db.currency_id,
+    ratePerUsdSnapshot: Number(db.rate_per_usd_snapshot),
     customerId: db.customer_id,
     planId: db.plan_id,
     receivedByUserId: db.received_by_user_id,
@@ -35,7 +36,7 @@ function mapDbPaymentToPayment(db: DbPayment): Payment {
   };
 }
 
-type CreatePaymentInput = Pick<Payment, 'billingMonth' | 'amountDue' | 'amountPaid' | 'durationMonths' | 'currencyId' | 'customerId' | 'planId' | 'receivedByUserId' | 'tenantId' | 'notes'>
+type CreatePaymentInput = Pick<Payment, 'billingMonth' | 'amountDue' | 'amountPaid' | 'durationMonths' | 'currencyId' | 'ratePerUsdSnapshot' | 'customerId' | 'planId' | 'receivedByUserId' | 'tenantId' | 'notes'>
 
 export type MultiMonthConflict = {
   billingMonth: string;
@@ -67,6 +68,9 @@ export class PaymentService {
     if (!data.billingMonth.endsWith("-01")) {
       throw new Error("Billing month must be the first day of the month");
     }
+    if (!(data.ratePerUsdSnapshot > 0)) {
+      throw new Error("Exchange rate snapshot must be positive");
+    }
 
     const row = await this.repository.create({
       billing_month: data.billingMonth,
@@ -74,6 +78,7 @@ export class PaymentService {
       amount_paid: data.amountPaid,
       duration_months: data.durationMonths,
       currency_id: data.currencyId,
+      rate_per_usd_snapshot: data.ratePerUsdSnapshot,
       customer_id: data.customerId,
       plan_id: data.planId,
       received_by_user_id: data.receivedByUserId,
@@ -97,6 +102,7 @@ export class PaymentService {
     tenantId: string,
     existingPayments: Payment[],
     skipConflicts: boolean,
+    ratePerUsdSnapshot: number,
   ): Promise<CreateMultiMonthPaymentResult> {
     if (!startMonth.endsWith("-01")) {
       throw new Error("Billing month must be the first day of the month");
@@ -106,6 +112,9 @@ export class PaymentService {
     }
     if (amountPaid > plan.price) {
       throw new Error("Amount paid cannot exceed amount due");
+    }
+    if (!(ratePerUsdSnapshot > 0)) {
+      throw new Error("Exchange rate snapshot must be positive");
     }
 
     const coveredByExisting = buildCoverageSet(existingPayments);
@@ -160,6 +169,7 @@ export class PaymentService {
       amount_paid: amountPaid,
       duration_months: effectiveDuration,
       currency_id: plan.currencyId,
+      rate_per_usd_snapshot: ratePerUsdSnapshot,
       customer_id: customer.id,
       plan_id: plan.id,
       received_by_user_id: receivedByUserId,

@@ -80,6 +80,7 @@ export interface DbPayment {
   balance: number;
   duration_months: number;
   currency_id: string | null;
+  rate_per_usd_snapshot: number;
   customer_id: string;
   plan_id: string | null;
   received_by_user_id: string | null;

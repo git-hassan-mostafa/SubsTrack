@@ -1,7 +1,11 @@
 import { create } from "zustand";
-import type { Customer, MonthEntry, Payment, Plan } from "@/src/core/types";
+import type { Currency, Customer, MonthEntry, Payment, Plan } from "@/src/core/types";
 import { getCurrentYearMonth, toBillingMonth } from "@/src/core/utils/date";
 import { PaymentService, type MultiMonthConflict } from "../services/PaymentService";
+
+// USD payments (currency === null) snapshot at rate 1. Otherwise, freeze the live rate.
+const snapshotRate = (currency: Currency | null): number =>
+  currency?.ratePerUsd ?? 1;
 
 
 const paymentService = new PaymentService();
@@ -42,11 +46,14 @@ export const usePaymentStore = create<PaymentsState>((set, get) => ({
     }
   },
 
-  createPayment: async (data, customer, graceDays) => {
+  createPayment: async (data, currency, customer, graceDays) => {
     if (get().loadingCreate) return;
     set({ loadingCreate: true, error: null });
     try {
-      const payment = await paymentService.createPayment(data);
+      const payment = await paymentService.createPayment({
+        ...data,
+        ratePerUsdSnapshot: snapshotRate(currency),
+      });
       const [year] = data.billingMonth.split("-").map(Number);
       const payments = [...get().payments, payment];
       const monthGrid = paymentService.buildMonthGrid(
@@ -72,6 +79,7 @@ export const usePaymentStore = create<PaymentsState>((set, get) => ({
     startMonth,
     customer,
     plan,
+    planCurrency,
     amountPaid,
     receivedByUserId,
     notes,
@@ -93,6 +101,7 @@ export const usePaymentStore = create<PaymentsState>((set, get) => ({
         tenantId,
         get().payments,
         skipConflicts,
+        snapshotRate(planCurrency),
       );
       const payments = [...get().payments, payment];
       const monthGrid = paymentService.buildMonthGrid(customer, payments, year, graceDays);
@@ -233,6 +242,7 @@ interface PaymentsState {
   ) => Promise<void>;
   createPayment: (
     data: CreatePaymentInput,
+    currency: Currency | null,
     customer: Customer,
     graceDays: number,
   ) => Promise<void>;
@@ -240,6 +250,7 @@ interface PaymentsState {
     startMonth: string,
     customer: Customer,
     plan: Plan,
+    planCurrency: Currency | null,
     amountPaid: number,
     receivedByUserId: string,
     notes: string | null,

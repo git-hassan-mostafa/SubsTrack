@@ -4,7 +4,7 @@ import { Text } from "@/src/shared/components/Text";
 import { useTranslation } from "react-i18next";
 import type { MonthEntry } from "@/src/core/types";
 import { formatDate } from "@/src/core/utils/date";
-import { findCurrency, formatMoney } from "@/src/core/utils/currency";
+import { findCurrency, formatMoney, paymentSnapshotCurrency } from "@/src/core/utils/currency";
 import { getBlockRangeLabel } from "../utils/blockRangeLabel";
 import { CurrencyInput } from "@/src/shared/components/CurrencyInput";
 import { useCurrencyStore } from "@/src/modules/currencies/store/currencyStore";
@@ -32,7 +32,9 @@ export function PaymentDetailSheet({
   const { displayCurrencyId } = useUiPrefStore();
   const { language } = useLanguageStore();
   const locale = language === "ar" ? "ar" : "en-US";
-  const source = findCurrency(currencies, payment?.currencyId ?? null);
+  // Use the snapshot rate frozen on the payment so historical USD equivalents
+  // don't drift when the live currencies.ratePerUsd is later edited.
+  const source = payment ? paymentSnapshotCurrency(payment, currencies) : null;
   const target = findCurrency(currencies, displayCurrencyId);
   // Primary display = stored (source) currency (preserves the literal amount
   // collected). When the user's display currency differs, also show the

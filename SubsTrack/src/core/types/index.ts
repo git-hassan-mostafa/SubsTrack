@@ -96,6 +96,10 @@ export interface Payment {
   durationMonths: number;
   // Currency the amounts above are stored in. null = USD.
   currencyId: string | null;
+  // Exchange rate (units of currencyId per 1 USD) captured at recording time.
+  // USD payments (currencyId === null) always store 1. Frozen — receipt and aggregate
+  // USD values use this instead of the live currencies.rate_per_usd.
+  ratePerUsdSnapshot: number;
   customerId: string;
   planId: string | null;
   receivedByUserId: string | null;

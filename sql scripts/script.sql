@@ -260,6 +260,11 @@ CREATE TABLE IF NOT EXISTS payments (
     -- ON DELETE RESTRICT: cannot drop a currency referenced by a payment.
     currency_id         UUID,
 
+    -- Exchange rate (units of currency_id per 1 USD) captured at recording time.
+    -- For USD payments (currency_id IS NULL), this is always 1.
+    -- Frozen snapshot so historical USD-equivalent values never drift when currencies.rate_per_usd is edited.
+    rate_per_usd_snapshot NUMERIC(20,8) NOT NULL CHECK (rate_per_usd_snapshot > 0),
+
     customer_id         UUID          NOT NULL,
     plan_id             UUID,
     received_by_user_id UUID,

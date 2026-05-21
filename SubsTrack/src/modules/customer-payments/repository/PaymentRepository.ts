@@ -1,7 +1,7 @@
 import { BaseRepository } from '@/src/core/utils/BaseRepository';
 import type { DbPayment } from '@/src/core/types/db';
 
-type CreatePaymentPayload = Pick<DbPayment, 'billing_month' | 'amount_due' | 'amount_paid' | 'duration_months' | 'currency_id' | 'customer_id' | 'plan_id' | 'received_by_user_id' | 'tenant_id' | 'notes'>
+type CreatePaymentPayload = Pick<DbPayment, 'billing_month' | 'amount_due' | 'amount_paid' | 'duration_months' | 'currency_id' | 'rate_per_usd_snapshot' | 'customer_id' | 'plan_id' | 'received_by_user_id' | 'tenant_id' | 'notes'>
 
 export class PaymentRepository extends BaseRepository {
   // Fetches payments that START within the given year, plus payments that
@@ -91,32 +91,32 @@ export class PaymentRepository extends BaseRepository {
     );
   }
 
-  // Returns raw paid amounts + their currency IDs so the service layer can
-  // convert to a canonical unit (USD) before summing across mixed currencies.
-  async paidAmountsForMonth(billingMonth: string): Promise<{ amount: number; currencyId: string | null }[]> {
+  // Returns raw paid amounts + their snapshot rate so the service layer can
+  // convert to USD using the frozen rate (drift-free aggregation).
+  async paidAmountsForMonth(billingMonth: string): Promise<{ amount: number; ratePerUsdSnapshot: number }[]> {
     const { data, error } = await this.db
       .from('payments')
-      .select('amount_paid, currency_id')
+      .select('amount_paid, rate_per_usd_snapshot')
       .eq('billing_month', billingMonth)
       .is('voided_at', null);
     if (error) this.handleError(error);
-    return (data ?? []).map((r: { amount_paid: number; currency_id: string | null }) => ({
+    return (data ?? []).map((r: { amount_paid: number; rate_per_usd_snapshot: number }) => ({
       amount: Number(r.amount_paid),
-      currencyId: r.currency_id,
+      ratePerUsdSnapshot: Number(r.rate_per_usd_snapshot),
     }));
   }
 
-  async balancesForMonth(billingMonth: string): Promise<{ amount: number; currencyId: string | null }[]> {
+  async balancesForMonth(billingMonth: string): Promise<{ amount: number; ratePerUsdSnapshot: number }[]> {
     const { data, error } = await this.db
       .from('payments')
-      .select('balance, currency_id')
+      .select('balance, rate_per_usd_snapshot')
       .eq('billing_month', billingMonth)
       .is('voided_at', null)
       .gt('amount_paid', 0);
     if (error) this.handleError(error);
-    return (data ?? []).map((r: { balance: number; currency_id: string | null }) => ({
+    return (data ?? []).map((r: { balance: number; rate_per_usd_snapshot: number }) => ({
       amount: Number(r.balance),
-      currencyId: r.currency_id,
+      ratePerUsdSnapshot: Number(r.rate_per_usd_snapshot),
     }));
   }
 }

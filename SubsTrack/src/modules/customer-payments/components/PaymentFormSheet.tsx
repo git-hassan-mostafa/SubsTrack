@@ -183,6 +183,7 @@ export function PaymentFormSheet({
         entry.billingMonth,
         customer,
         plan,
+        planCurrency,
         resolvedPaid,
         user.id,
         form.notes.trim() || null,
@@ -205,6 +206,7 @@ export function PaymentFormSheet({
           tenantId: user.tenantId,
           notes: form.notes.trim() || null,
         },
+        findCurrency(currencies, resolvedCurrencyId),
         customer,
         graceDays,
       );

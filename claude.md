@@ -377,6 +377,7 @@ interface Payment {
   balance;         // generated column: amountDue - amountPaid
   durationMonths;  // how many consecutive months this payment covers (≥ 1)
   currencyId;      // currency the amounts above are denominated in; null = USD
+  ratePerUsdSnapshot; // exchange rate (units of currencyId per 1 USD) frozen at recording time; USD payments store 1
   customerId;
   planId;
   receivedByUserId;
@@ -420,7 +421,7 @@ interface DashboardMetrics {
 | `users`      | `id` (= auth.users.id), `username`, `full_name`, `phone_number`, `role`, `active`, `tenant_id`                                                                                                                           |
 | `plans`      | `id`, `name`, `price`, `is_custom_price`, `duration_months`, `currency_id`, `tenant_id`                                                                                                                                  |
 | `customers`  | `id`, `name`, `phone_number`, `address`, `active`, `is_regular`, `plan_id`, `tenant_id`, `start_date`, `cancelled_at`                                                                                                    |
-| `payments`   | `id`, `billing_month` (YYYY-MM-01), `amount_due`, `amount_paid`, `balance` (gen), `duration_months`, `currency_id`, `customer_id`, `plan_id`, `received_by_user_id`, `tenant_id`, `paid_at`, `voided_at`, `voided_by`, `notes` |
+| `payments`   | `id`, `billing_month` (YYYY-MM-01), `amount_due`, `amount_paid`, `balance` (gen), `duration_months`, `currency_id`, `rate_per_usd_snapshot`, `customer_id`, `plan_id`, `received_by_user_id`, `tenant_id`, `paid_at`, `voided_at`, `voided_by`, `notes` |
 
 **Key constraints:**
 
@@ -518,9 +519,9 @@ The app supports an arbitrary list of non-USD currencies per tenant. USD is the 
 
 **Storage model: amount is as-typed, paired with `currency_id`.**
 
-- `plans.price` + `plans.currency_id` — the price was literally `89000` in LBP (not 1.00 USD).
-- `payments.amount_due` / `amount_paid` + `payments.currency_id` — the customer literally handed over `89000 LBP`. **The LBP value is preserved forever**, even if the LBP→USD rate later moves. The USD equivalent is recomputed live at display time using the *current* rate in `currencies.rate_per_usd`.
-- `null currency_id` means USD throughout the codebase.
+- `plans.price` + `plans.currency_id` — the price was literally `89000` in LBP (not 1.00 USD). Plan USD equivalents use the **live** rate (forward-looking pricing).
+- `payments.amount_due` / `amount_paid` + `payments.currency_id` + `payments.rate_per_usd_snapshot` — the customer literally handed over `89000 LBP`. **The LBP value is preserved forever**, and the USD equivalent is also frozen: every payment captures `currencies.rate_per_usd` at recording time into `rate_per_usd_snapshot`. PaymentDetailSheet, CustomerPaymentPanel year totals, and Dashboard aggregates all convert via this snapshot — they do not drift when the live rate is edited.
+- `null currency_id` means USD throughout the codebase; USD payments store snapshot = 1.
 
 **Conversion helpers** ([src/core/utils/currency.ts](SubsTrack/src/core/utils/currency.ts)):
 
@@ -530,13 +531,14 @@ fromUsd(amountUsd, target: Currency | null): number  // null target → amount u
 convert(amount, source, target): number              // go via USD
 formatMoney(amount, source, target, locale): string  // convert + Intl.NumberFormat
 findCurrency(currencies, id | null): Currency | null
+paymentSnapshotCurrency(payment, currencies): Currency | null  // returns the source Currency with ratePerUsd overridden by the payment's snapshot — use everywhere a historical payment amount is displayed
 ```
 
 **`CurrencyInput`** ([src/shared/components/CurrencyInput.tsx](SubsTrack/src/shared/components/CurrencyInput.tsx)) — the reusable input with an embedded currency dropdown. Used in PlanFormSheet (price) and PaymentFormSheet (custom amounts). The dropdown lists USD + active tenant currencies. Switching currency does NOT convert the typed number — switching means "I meant this number in the new currency."
 
 **Display preference** is per-user, stored in **AsyncStorage** via `uiPrefStore.displayCurrencyId` (settable from Tenant Settings — no DB column). All read-only displays (PlanCard, DashboardScreen, admin/index revenue card, CustomerPaymentPanel year summary) convert their values to this currency at render. The currency a value was **stored in** is preserved in PaymentDetailSheet's primary line for receipt fidelity, with the user's display-currency equivalent as a secondary "≈" line.
 
-**Aggregates** (Dashboard) sum across mixed currencies by converting each row to USD first in `DashboardService.getMetrics()`. The screen then formats the USD total in the user's display currency.
+**Aggregates** (Dashboard) sum across mixed currencies by converting each row to USD using its `rate_per_usd_snapshot` (drift-free historical totals) in `DashboardService.getMetrics()`. The screen then formats the USD total in the user's display currency.
 
 **Last-used currency** persists in [src/shared/lib/uiPrefStore.ts](SubsTrack/src/shared/lib/uiPrefStore.ts) so the `CurrencyInput` dropdown defaults to whatever the user typed in last time.
 
@@ -677,9 +679,9 @@ Located at `SubsTrack/supabase/functions/create-user/index.ts` (Deno runtime).
 
 20. **Display currency lives in AsyncStorage, not the DB** — `uiPrefStore.displayCurrencyId` (persisted via Zustand `persist` + `AsyncStorage`). There is no `display_currency_id` column on `users`. This keeps it a pure UI preference that doesn't round-trip through Supabase on every session restore.
 
-20. **Historical USD value drifts with rate changes** — payments preserve their source-currency amount forever, but the USD-equivalent (used in dashboard aggregates and display-currency conversion) reflects the *current* rate in `currencies`, not the rate when the payment was recorded. This is intentional per product call; if receipt-historic-USD is needed later, add `rate_per_usd_snapshot` to payments.
+20. **`rate_per_usd_snapshot` freezes payment USD value** — every payment row carries `rate_per_usd_snapshot`, the live `currencies.rate_per_usd` at the moment the payment was recorded. PaymentDetailSheet (receipt), CustomerPaymentPanel year total, and Dashboard aggregates all convert via this frozen rate, so editing a currency's live rate never retroactively shifts historical USD values. USD payments (`currencyId === null`) store snapshot = 1. **Plan prices** still use the live rate (forward-looking pricing — that's the desired behavior). The snapshot is captured at the boundary: `PaymentFormSheet` resolves the `Currency` from `useCurrencyStore` and passes it into `paymentStore.createPayment` / `createMultiMonthPayment`, which extract `currency?.ratePerUsd ?? 1` and forward to `PaymentService`. Use the `paymentSnapshotCurrency(payment, currencies)` helper in `src/core/utils/currency.ts` when displaying a payment — it clones the live `Currency` with `ratePerUsd` overridden by the snapshot.
 
-21. **Dashboard aggregates in USD** — `DashboardService.getMetrics()` fetches raw `{amount, currency_id}` rows for the month and converts each via `toUsd()` before summing. The screen then re-formats the USD total into the user's display currency.
+21. **Dashboard aggregates in USD using snapshots** — `DashboardService.getMetrics()` fetches `{amount, rate_per_usd_snapshot}` rows for the month and divides each by its snapshot before summing. The screen then re-formats the USD total into the user's display currency. No live-currencies lookup is needed for the sum — the snapshot is the rate.
 
 22. **`authStore.restoreSession` / `login` prime the currency store** — after auth succeeds, `useCurrencyStore.fetchCurrencies()` is called so all downstream `CurrencyInput`s and formatters have data immediately. `logout` resets the currency store.
 

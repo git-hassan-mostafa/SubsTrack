@@ -7,7 +7,7 @@ import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { ConfirmDialog } from "@/src/shared/components/ConfirmDialog";
 import type { Customer, MonthEntry } from "@/src/core/types";
 import { getCurrentYearMonth, getDateLocale } from "@/src/core/utils/date";
-import { findCurrency, formatMoney, toUsd } from "@/src/core/utils/currency";
+import { findCurrency, formatMoney, paymentSnapshotCurrency, toUsd } from "@/src/core/utils/currency";
 import { COLORS, DEFAULT_GRACE_DAYS } from "@/src/shared/constants";
 import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
 import { MonthGrid } from "./MonthGrid";
@@ -98,11 +98,12 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
   const unpaidCount = paymentStore.monthGrid.filter(
     (m) => m.status === "unpaid",
   ).length;
-  // Sum payments across mixed currencies by converting each to USD first,
-  // then format the total in the user's display currency.
+  // Sum payments across mixed currencies in USD using each payment's frozen
+  // snapshot rate (drift-free historical total), then format in the user's
+  // display currency.
   const collectedTotalUsd = paymentStore.payments
     .filter((p) => !p.voidedAt && p.billingMonth.startsWith(String(year)))
-    .reduce((sum, p) => sum + toUsd(p.amountPaid, findCurrency(currencies, p.currencyId)), 0);
+    .reduce((sum, p) => sum + toUsd(p.amountPaid, paymentSnapshotCurrency(p, currencies)), 0);
   const collectedTotalLabel = formatMoney(collectedTotalUsd, null, displayCurrency, locale);
 
   // Edit (update amountPaid) is available for any active, non-secondary payment.
