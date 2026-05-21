@@ -243,7 +243,7 @@
     "tenant_code_hint": "Lowercase letters and numbers only, no spaces"
   },
   "tenant_settings": {
-    "title": "Tenant Settings",
+    "title": "Workspace Settings",
     "subtitle": "Configure your workspace",
     "menu_sub": "Currencies · preferences",
     "display_section_title": "Display",
