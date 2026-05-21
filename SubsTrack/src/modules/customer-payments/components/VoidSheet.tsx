@@ -26,7 +26,7 @@ export function VoidSheet({
 }: Props) {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const { voidPayment, loadingVoid, error, clearError } = usePaymentStore();
+  const { voidPayment, error, clearError } = usePaymentStore();
   const [reason, setReason] = useState("");
 
   async function handleConfirm() {
@@ -75,14 +75,12 @@ export function VoidSheet({
       title={title}
       message={message}
       confirmLabel={
-        loadingVoid
-          ? "..."
-          : isMultiMonth
-            ? t("payments.void_block_confirm")
-            : t("payments.void_payment")
+        isMultiMonth
+          ? t("payments.void_block_confirm")
+          : t("payments.void_payment")
       }
       destructive
-      confirmDisabled={!reason.trim() || loadingVoid}
+      confirmDisabled={!reason.trim()}
       onConfirm={handleConfirm}
       onCancel={handleDismiss}
     >

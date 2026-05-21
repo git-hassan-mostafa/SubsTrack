@@ -97,6 +97,10 @@ export function SettingsScreen() {
     setPendingLanguage(null);
   }
 
+  async function handleLogout() {
+    await logout();
+    setLogoutConfirmVisible(false);
+  }
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
       <ScrollView>
@@ -216,10 +220,7 @@ export function SettingsScreen() {
         message={t("settings.logout_confirm")}
         confirmLabel={t("settings.logout")}
         destructive
-        onConfirm={() => {
-          setLogoutConfirmVisible(false);
-          logout();
-        }}
+        onConfirm={handleLogout}
         onCancel={() => setLogoutConfirmVisible(false)}
       />
 

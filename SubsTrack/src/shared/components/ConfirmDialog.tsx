@@ -1,6 +1,7 @@
-import { Modal, Pressable, View } from 'react-native';
-import type { ReactNode } from 'react';
+import { ActivityIndicator, Modal, Pressable, View } from 'react-native';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Text } from '@/src/shared/components/Text';
+import { COLORS } from '@/src/shared/constants';
 import { useTranslation } from 'react-i18next';
 
 interface ConfirmDialogProps {
@@ -12,9 +13,13 @@ interface ConfirmDialogProps {
   destructive?: boolean;
   hideCancel?: boolean;
   confirmDisabled?: boolean;
-  onConfirm: () => void;
+  onConfirm: () => void | Promise<void>;
   onCancel: () => void;
   children?: ReactNode;
+}
+
+function isThenable(value: unknown): value is Promise<unknown> {
+  return !!value && typeof (value as { then?: unknown }).then === 'function';
 }
 
 export function ConfirmDialog({
@@ -31,9 +36,36 @@ export function ConfirmDialog({
   children,
 }: ConfirmDialogProps) {
   const { t } = useTranslation();
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!visible) setLoading(false);
+  }, [visible]);
+
+  async function handleConfirm() {
+    if (loading || confirmDisabled) return;
+    const result = onConfirm();
+    if (!isThenable(result)) return;
+    setLoading(true);
+    try {
+      await result;
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const confirmIsDisabled = confirmDisabled || loading;
+  const cancelIsDisabled = loading;
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onCancel}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={() => {
+        if (!loading) onCancel();
+      }}
+    >
       <View className="flex-1 bg-black/50 items-center justify-center px-8">
         <View className="bg-white rounded-2xl p-6 w-full">
           <Text className="text-lg font-semibold text-gray-900 mb-2">{title}</Text>
@@ -43,17 +75,22 @@ export function ConfirmDialog({
             {!hideCancel ? (
               <Pressable
                 onPress={onCancel}
-                className="flex-1 border border-gray-300 rounded-lg py-3 items-center"
+                disabled={cancelIsDisabled}
+                className={`flex-1 border border-gray-300 rounded-lg py-3 items-center ${cancelIsDisabled ? 'opacity-40' : ''}`}
               >
                 <Text className="text-gray-700 font-medium">{cancelLabel ?? t('common.cancel')}</Text>
               </Pressable>
             ) : null}
             <Pressable
-              onPress={onConfirm}
-              disabled={confirmDisabled}
-              className={`flex-1 rounded-lg py-3 items-center ${confirmDisabled ? 'opacity-40' : ''} ${destructive ? 'bg-danger' : 'bg-primary'}`}
+              onPress={handleConfirm}
+              disabled={confirmIsDisabled}
+              className={`flex-1 rounded-lg py-3 items-center justify-center ${confirmIsDisabled ? 'opacity-40' : ''} ${destructive ? 'bg-danger' : 'bg-primary'}`}
             >
-              <Text className="text-white font-medium">{confirmLabel ?? t('common.confirm')}</Text>
+              {loading ? (
+                <ActivityIndicator color={COLORS.white} size="small" />
+              ) : (
+                <Text className="text-white font-medium">{confirmLabel ?? t('common.confirm')}</Text>
+              )}
             </Pressable>
           </View>
         </View>

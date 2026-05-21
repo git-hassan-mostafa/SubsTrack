@@ -24,12 +24,12 @@ export function CustomerDetailsCard({ customer }: CustomerDetailsCardProps) {
   const [toggleConfirmVisible, setToggleConfirmVisible] = useState(false);
 
   async function handleToggleActiveConfirmed() {
-    setToggleConfirmVisible(false);
     if (customer.active) {
       await customerStore.deactivateCustomer(customer.id);
     } else {
       await customerStore.reactivateCustomer(customer.id);
     }
+    setToggleConfirmVisible(false);
   }
 
   return (
