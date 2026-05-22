@@ -22,7 +22,8 @@
     "not_available": "Not Available",
     "close_label": "Close",
     "tap":"Tap",
-    "input_search":"Search..."
+    "input_search":"Search...",
+    "no_actions_available": "No actions available"
   },
   "auth": {
     "title": "SubsTrack",
@@ -88,6 +89,8 @@
     "start_date_placeholder": "Select start date",
     "plan_optional": "Plan (optional)",
     "select_plan": "Select a plan...",
+    "activate": "Activate",
+    "deactivate": "Deactivate",
     "deactivate_title": "Deactivate Customer",
     "deactivate_message": "Are you sure you want to deactivate Customer {{name}}? They will be marked as inactive.",
     "reactivate_title": "Reactivate Customer",

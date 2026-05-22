@@ -22,7 +22,8 @@
     "not_available": "غير متاح",
     "close_label": "إغلاق",
     "tap":"اضغط",
-    "input_search":"بحث..."
+    "input_search":"بحث...",
+    "no_actions_available": "لا توجد إجراءات متاحة"
 
   },
   "auth": {
@@ -89,6 +90,8 @@
     "start_date_placeholder": "اختر تاريخ البداية",
     "plan_optional": "الخطة (اختيارية)",
     "select_plan": "اختر خطة...",
+    "activate": "تفعيل",
+    "deactivate": "تعطيل",
     "deactivate_title": "تعطيل العميل",
     "deactivate_message": "هل أنت متأكد من تعطيل الزبون{{name}}؟ سيُحدَّد كغير نشط.",
     "reactivate_title": "إعادة تفعيل العميل",

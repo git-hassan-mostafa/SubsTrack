@@ -1,5 +1,6 @@
 import { memo } from "react";
 import { ActivityIndicator, Pressable, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
 import type { Customer } from "@/src/core/types";
@@ -10,8 +11,8 @@ interface Props {
   isPaidThisMonth: boolean;
   monthLabel: string;
   onPress: (customer: Customer) => void;
-  onQuickPay?: (customer: Customer) => void;
-  quickPayDisabled?: boolean;
+  onMenu: (customer: Customer) => void;
+  menuLoading?: boolean;
 }
 
 function getAvatarColor(name: string): string {
@@ -29,8 +30,8 @@ export const CustomerCard = memo(function CustomerCard({
   isPaidThisMonth,
   monthLabel,
   onPress,
-  onQuickPay,
-  quickPayDisabled = false,
+  onMenu,
+  menuLoading = false,
 }: Props) {
   const { t } = useTranslation();
   const initials = getInitials(customer.name);
@@ -39,6 +40,7 @@ export const CustomerCard = memo(function CustomerCard({
   return (
     <Pressable
       onPress={() => onPress(customer)}
+      onLongPress={() => onMenu(customer)}
       className="bg-white border border-gray-100 rounded-2xl px-4 py-3.5 mb-2.5 flex-row items-center"
     >
       {/* Avatar */}
@@ -98,23 +100,22 @@ export const CustomerCard = memo(function CustomerCard({
         <Text className="text-xs text-gray-400">{monthLabel}</Text>
       </View>
 
-      {onQuickPay ? (
-        <Pressable
-          onPress={() => onQuickPay(customer)}
-          disabled={quickPayDisabled}
-          className={`ms-3 bg-green-600 rounded-xl px-3 py-1.5 items-center justify-center ${quickPayDisabled ? "opacity-50" : ""}`}
-          style={{ minWidth: 56 }}
-          hitSlop={6}
-        >
-          {quickPayDisabled ? (
-            <ActivityIndicator size="small" color={COLORS.white} />
-          ) : (
-            <Text fontWeight="SemiBold" className="text-white text-xs">
-              {t("payments.quick_pay.pay_now")}
-            </Text>
-          )}
-        </Pressable>
-      ) : null}
+      <Pressable
+        onPress={() => onMenu(customer)}
+        disabled={menuLoading}
+        hitSlop={8}
+        className="ms-2 w-9 h-9 items-center justify-center rounded-full"
+      >
+        {menuLoading ? (
+          <ActivityIndicator size="small" color={COLORS.gray600} />
+        ) : (
+          <Ionicons
+            name="ellipsis-vertical"
+            size={20}
+            color={COLORS.gray600}
+          />
+        )}
+      </Pressable>
     </Pressable>
   );
 });

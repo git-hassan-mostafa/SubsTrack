@@ -13,6 +13,10 @@ import { useTranslation } from "react-i18next";
 import { EmptyState } from "@/src/shared/components/EmptyState";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { ConfirmDialog } from "@/src/shared/components/ConfirmDialog";
+import {
+  ActionMenu,
+  type ActionMenuItem,
+} from "@/src/shared/components/ActionMenu";
 import { useDebounce } from "@/src/shared/hooks/useDebounce";
 import { COLORS, DEFAULT_GRACE_DAYS } from "@/src/shared/constants";
 import type { Customer } from "@/src/core/types";
@@ -40,7 +44,7 @@ export function CustomerListScreen() {
   const { t, i18n } = useTranslation();
   const locale = getDateLocale(i18n.language);
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const {
     customers,
     totalCount,
@@ -52,6 +56,8 @@ export function CustomerListScreen() {
     fetchMoreCustomers,
     setSearchQuery,
     clearError,
+    deactivateCustomer,
+    reactivateCustomer,
   } = useCustomerStore();
   const {
     currentMonthPaidIds,
@@ -73,6 +79,9 @@ export function CustomerListScreen() {
     monthsLabel: string;
     amountLabel: string;
   } | null>(null);
+  const [menuCustomer, setMenuCustomer] = useState<Customer | null>(null);
+  const [toggleActiveCustomer, setToggleActiveCustomer] =
+    useState<Customer | null>(null);
   const debouncedSearch = useDebounce(searchText);
 
   useEffect(() => {
@@ -211,6 +220,10 @@ export function CustomerListScreen() {
     return true;
   }
 
+  const openMenu = useCallback((customer: Customer) => {
+    setMenuCustomer(customer);
+  }, []);
+
   const renderItem = useCallback(
     ({ item }: { item: Customer }) => (
       <CustomerCard
@@ -218,19 +231,54 @@ export function CustomerListScreen() {
         isPaidThisMonth={currentMonthPaidIds.has(item.id)}
         monthLabel={monthLabel}
         onPress={openDetail}
-        onQuickPay={shouldShowQuickPay(item) ? handleQuickPay : undefined}
-        quickPayDisabled={quickPayCustomerId === item.id}
+        onMenu={openMenu}
+        menuLoading={quickPayCustomerId === item.id}
       />
     ),
     [
       currentMonthPaidIds,
       monthLabel,
       openDetail,
+      openMenu,
       quickPayCustomerId,
-      currencies,
-      user,
     ],
   );
+
+  async function confirmToggleActive() {
+    if (!toggleActiveCustomer) return;
+    const { id, active } = toggleActiveCustomer;
+    if (active) {
+      await deactivateCustomer(id);
+    } else {
+      await reactivateCustomer(id);
+    }
+    setToggleActiveCustomer(null);
+  }
+
+  function buildMenuActions(customer: Customer | null): ActionMenuItem[] {
+    if (!customer) return [];
+    const items: ActionMenuItem[] = [];
+    if (shouldShowQuickPay(customer)) {
+      items.push({
+        key: "quick-pay",
+        label: t("payments.quick_pay.pay_now"),
+        icon: "flash-outline",
+        onPress: () => handleQuickPay(customer),
+      });
+    }
+    if (isAdmin) {
+      items.push({
+        key: "toggle-active",
+        label: customer.active
+          ? t("customers.deactivate")
+          : t("customers.activate"),
+        icon: customer.active ? "pause-circle-outline" : "play-circle-outline",
+        destructive: customer.active,
+        onPress: () => setToggleActiveCustomer(customer),
+      });
+    }
+    return items;
+  }
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
@@ -344,6 +392,38 @@ export function CustomerListScreen() {
         confirmLabel={t("payments.quick_pay.confirm")}
         onConfirm={confirmMultiMonth}
         onCancel={() => setMultiMonthConfirm(null)}
+      />
+
+      <ActionMenu
+        visible={menuCustomer !== null}
+        title={menuCustomer?.name}
+        actions={buildMenuActions(menuCustomer)}
+        onDismiss={() => setMenuCustomer(null)}
+      />
+
+      <ConfirmDialog
+        visible={toggleActiveCustomer !== null}
+        title={
+          toggleActiveCustomer
+            ? toggleActiveCustomer.active
+              ? t("customers.deactivate_title")
+              : t("customers.reactivate_title")
+            : ""
+        }
+        message={
+          toggleActiveCustomer
+            ? toggleActiveCustomer.active
+              ? t("customers.deactivate_message", {
+                  name: toggleActiveCustomer.name,
+                })
+              : t("customers.reactivate_message", {
+                  name: toggleActiveCustomer.name,
+                })
+            : ""
+        }
+        destructive={toggleActiveCustomer?.active ?? false}
+        onConfirm={confirmToggleActive}
+        onCancel={() => setToggleActiveCustomer(null)}
       />
     </SafeAreaView>
   );
