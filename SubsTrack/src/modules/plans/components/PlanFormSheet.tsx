@@ -6,6 +6,7 @@ import { Button } from "@/src/shared/components/Button";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { Input } from "@/src/shared/components/Input";
 import { CurrencyInput } from "@/src/shared/components/CurrencyInput";
+import { BranchPicker } from "@/src/shared/components/BranchPicker";
 import type { Plan } from "@/src/core/types";
 import { useAuth } from "@/src/modules/auth/hooks/useAuth";
 import { usePlanStore } from "../store/planStore";
@@ -23,6 +24,7 @@ type FormState = {
   isCustomPrice: boolean;
   price: number | null;
   currencyId: string | null;
+  branchId: string | null;
   durationMonths: number;
 };
 
@@ -39,11 +41,16 @@ export function PlanFormSheet({
   const { createPlan, updatePlan, loading, error, clearError } = usePlanStore();
   const { currencies } = useCurrencyStore();
 
+  // For NEW plans: branch-scoped admin's plans default to their branch;
+  // tenant-wide admin's plans default to SHARED (null).
+  const defaultBranchId = plan ? plan.branchId : (user?.branchId ?? null);
+
   const [form, setForm] = useState<FormState>({
     name: plan?.name ?? "",
     isCustomPrice: plan?.isCustomPrice ?? false,
     price: plan?.price ?? null,
     currencyId: plan?.currencyId ?? null,
+    branchId: defaultBranchId,
     durationMonths: plan?.durationMonths ?? 1,
   });
 
@@ -70,6 +77,7 @@ export function PlanFormSheet({
       isCustomPrice: form.isCustomPrice,
       price,
       currencyId: form.isCustomPrice ? null : form.currencyId,
+      branchId: form.branchId,
       durationMonths: form.durationMonths,
     };
     if (plan) {
@@ -122,6 +130,13 @@ export function PlanFormSheet({
             onChangeText={(v) => setForm((prev) => ({ ...prev, name: v }))}
             placeholder={t("plans.plan_name_placeholder")}
             onFocus={clearError}
+          />
+
+          <BranchPicker
+            value={form.branchId}
+            onChange={(v) => setForm((prev) => ({ ...prev, branchId: v }))}
+            nullLabel={t("branches.shared_all_branches")}
+            nullSublabel={t("branches.shared_hint")}
           />
 
           {/* Duration picker */}

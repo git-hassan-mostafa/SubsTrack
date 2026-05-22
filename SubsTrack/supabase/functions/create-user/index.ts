@@ -52,10 +52,10 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Look up caller's profile to get their role and tenant
+    // Look up caller's profile to get their role, tenant, and branch
     const { data: callerProfile, error: profileLookupErr } = await serviceClient
       .from("users")
-      .select("role, tenant_id")
+      .select("role, tenant_id, branch_id")
       .eq("id", caller.id)
       .single();
 
@@ -77,7 +77,7 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    const { username, fullName, password, phone, role, tenantId } = body;
+    const { username, fullName, password, phone, role, tenantId, branchId } = body;
 
     if (!fullName?.trim()) {
       return new Response(JSON.stringify({ error: "Full name is required" }), {
@@ -105,6 +105,64 @@ Deno.serve(async (req) => {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    // Enforce branch isolation: branch-scoped admins can only create users in
+    // their own branch (no tenant-wide admins, no cross-branch creation).
+    // Tenant-wide admins (caller.branch_id IS NULL) can assign any branch
+    // (including NULL = unassigned / tenant-wide) within the same tenant.
+    let resolvedBranchId: string | null;
+    if (callerProfile.branch_id !== null) {
+      // Branch-scoped: ignore client-supplied branchId; force their own branch.
+      resolvedBranchId = callerProfile.branch_id;
+    } else {
+      resolvedBranchId = branchId ?? null;
+      if (resolvedBranchId !== null) {
+        // Verify the branch belongs to the same tenant.
+        const { data: branchRow, error: branchErr } = await serviceClient
+          .from("branches")
+          .select("id, tenant_id")
+          .eq("id", resolvedBranchId)
+          .single();
+        if (branchErr || !branchRow || branchRow.tenant_id !== tenantId) {
+          return new Response(
+            JSON.stringify({ error: "Invalid branch for this tenant" }),
+            {
+              status: 400,
+              headers: { ...corsHeaders, "Content-Type": "application/json" },
+            },
+          );
+        }
+      }
+    }
+
+    // Server-side mirror of UserService.validate: once the tenant has any
+    // branches, role='user' must be assigned to a branch. Branch-scoped
+    // callers can never trigger this (resolvedBranchId is forced to their
+    // own branch above), so the check only matters for tenant-wide admins.
+    if (role === "user" && resolvedBranchId === null) {
+      const { count, error: countErr } = await serviceClient
+        .from("branches")
+        .select("id", { count: "exact", head: true })
+        .eq("tenant_id", tenantId);
+      if (countErr) {
+        return new Response(
+          JSON.stringify({ error: countErr.message }),
+          {
+            status: 500,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
+      }
+      if ((count ?? 0) > 0) {
+        return new Response(
+          JSON.stringify({ error: "Staff users must be assigned to a branch" }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
+      }
     }
 
     // Look up tenant_code to build email matching the login convention
@@ -147,6 +205,7 @@ Deno.serve(async (req) => {
         phone_number: phone ?? null,
         role,
         tenant_id: tenantId,
+        branch_id: resolvedBranchId,
       })
       .select()
       .single();

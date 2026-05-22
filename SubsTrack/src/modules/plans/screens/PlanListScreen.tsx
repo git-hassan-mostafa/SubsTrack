@@ -19,6 +19,8 @@ import { PlanFormSheet } from "../components/PlanFormSheet";
 import { usePlanStore } from "../store/planStore";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
 import { PageHeader } from "@/src/shared/components/PageHeader";
+import { BranchSelector } from "@/src/shared/components/BranchSelector";
+import { useEffectiveBranchFilter } from "@/src/shared/lib/branchFilter";
 
 export function PlanListScreen() {
   const { t } = useTranslation();
@@ -27,7 +29,6 @@ export function PlanListScreen() {
     plans,
     loading,
     error,
-    getPlans,
     fetchPlans,
     deletePlan,
     clearError,
@@ -37,10 +38,13 @@ export function PlanListScreen() {
   const [deletingPlan, setDeletingPlan] = useState<Plan | null>(null);
   const [searchText, setSearchText] = useState("");
   const debouncedSearch = useDebounce(searchText);
+  const branchFilter = useEffectiveBranchFilter();
 
+  // Loads on mount AND re-fetches when the user switches the branch chip.
   useEffect(() => {
-    getPlans();
-  }, []);
+    fetchPlans();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [branchFilter]);
 
   function openCreate() {
     setEditingPlan(null);
@@ -75,6 +79,7 @@ export function PlanListScreen() {
         actionLabel={t("common.add")}
         onAction={openCreate}
       />
+      <BranchSelector />
 
       {/* Inline search */}
       <View className="px-4 pt-4">

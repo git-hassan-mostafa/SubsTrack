@@ -1,5 +1,7 @@
 import { BaseRepository } from '@/src/core/utils/BaseRepository';
+import type { BranchFilter } from '@/src/core/constants';
 import type { DbPayment } from '@/src/core/types/db';
+import { applyBranchFilter, BRANCH_SCOPES } from '@/src/shared/lib/branchFilter';
 
 type CreatePaymentPayload = Pick<DbPayment, 'billing_month' | 'amount_due' | 'amount_paid' | 'duration_months' | 'currency_id' | 'rate_per_usd_snapshot' | 'customer_id' | 'plan_id' | 'received_by_user_id' | 'tenant_id' | 'notes'>
 
@@ -106,12 +108,17 @@ export class PaymentRepository extends BaseRepository {
 
   // Returns raw paid amounts + their snapshot rate so the service layer can
   // convert to USD using the frozen rate (drift-free aggregation).
-  async paidAmountsForMonth(billingMonth: string): Promise<{ amount: number; ratePerUsdSnapshot: number }[]> {
-    const { data, error } = await this.db
+  async paidAmountsForMonth(
+    billingMonth: string,
+    branchFilter: BranchFilter = null,
+  ): Promise<{ amount: number; ratePerUsdSnapshot: number }[]> {
+    let query = this.db
       .from('payments')
-      .select('amount_paid, rate_per_usd_snapshot')
+      .select('amount_paid, rate_per_usd_snapshot, customers!inner(branch_id)')
       .eq('billing_month', billingMonth)
       .is('voided_at', null);
+    query = applyBranchFilter(query, branchFilter, BRANCH_SCOPES.payments);
+    const { data, error } = await query;
     if (error) this.handleError(error);
     return (data ?? []).map((r: { amount_paid: number; rate_per_usd_snapshot: number }) => ({
       amount: Number(r.amount_paid),
@@ -119,13 +126,18 @@ export class PaymentRepository extends BaseRepository {
     }));
   }
 
-  async balancesForMonth(billingMonth: string): Promise<{ amount: number; ratePerUsdSnapshot: number }[]> {
-    const { data, error } = await this.db
+  async balancesForMonth(
+    billingMonth: string,
+    branchFilter: BranchFilter = null,
+  ): Promise<{ amount: number; ratePerUsdSnapshot: number }[]> {
+    let query = this.db
       .from('payments')
-      .select('balance, rate_per_usd_snapshot')
+      .select('balance, rate_per_usd_snapshot, customers!inner(branch_id)')
       .eq('billing_month', billingMonth)
       .is('voided_at', null)
       .gt('amount_paid', 0);
+    query = applyBranchFilter(query, branchFilter, BRANCH_SCOPES.payments);
+    const { data, error } = await query;
     if (error) this.handleError(error);
     return (data ?? []).map((r: { balance: number; rate_per_usd_snapshot: number }) => ({
       amount: Number(r.balance),

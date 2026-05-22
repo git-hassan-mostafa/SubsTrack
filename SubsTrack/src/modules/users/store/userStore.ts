@@ -1,9 +1,17 @@
 import { create } from "zustand";
 import type { AppUser, UserRole } from "@/src/core/types";
 import { UserService } from "../services/UserService";
+import { useBranchStore } from "@/src/modules/branches/store/branchStore";
+import { resolveBranchFilter } from "@/src/shared/lib/branchFilter";
+import { useAuthStore } from "@/src/modules/auth/store/authStore";
 
 
 const userService = new UserService();
+
+function tenantHasBranches(): boolean {
+  // A tenant "has branches" once at least one active branch is created.
+  return useBranchStore.getState().branches.some((b) => b.active);
+}
 
 export const useUserStore = create<UsersState>((set, get) => ({
   users: [],
@@ -17,7 +25,8 @@ export const useUserStore = create<UsersState>((set, get) => ({
   fetchUsers: async () => {
     set({ loading: true, error: null });
     try {
-      const users = await userService.getUsers();
+      const branchFilter = resolveBranchFilter(useAuthStore.getState().user);
+      const users = await userService.getUsers(branchFilter);
       set({ users, loading: false });
     } catch (e) {
       set({ error: (e as Error).message, loading: false });
@@ -27,7 +36,7 @@ export const useUserStore = create<UsersState>((set, get) => ({
   createUser: async (data, tenantId) => {
     set({ loading: true, error: null });
     try {
-      const user = await userService.createUser(data, tenantId);
+      const user = await userService.createUser(data, tenantId, tenantHasBranches());
       set((state) => ({ users: [...state.users, user], loading: false }));
     } catch (e) {
       set({ error: (e as Error).message, loading: false });
@@ -42,6 +51,7 @@ export const useUserStore = create<UsersState>((set, get) => ({
         currentUserId,
         currentUserRole,
         data,
+        tenantHasBranches(),
       );
       set((state) => ({
         users: state.users.map((u) => (u.id === id ? updated : u)),
@@ -96,6 +106,7 @@ interface UsersState {
       password: string;
       phone: string | null;
       role: "admin" | "user";
+      branchId: string | null;
     },
     tenantId: string,
   ) => Promise<void>;
@@ -103,7 +114,7 @@ interface UsersState {
     id: string,
     currentUserId: string,
     currentUserRole: string,
-    data: { username: string; fullName: string; phone: string | null; role: "admin" | "user" },
+    data: { username: string; fullName: string; phone: string | null; role: "admin" | "user"; branchId: string | null },
   ) => Promise<void>;
   deactivateUser: (id: string, callerId: string, callerRole: UserRole, targetRole: UserRole) => Promise<void>;
   activateUser: (id: string, callerId: string, callerRole: UserRole, targetRole: UserRole) => Promise<void>;

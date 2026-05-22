@@ -1,12 +1,16 @@
 import { BaseRepository } from '@/src/core/utils/BaseRepository';
+import type { BranchFilter } from '@/src/core/constants';
 import type { DbPlan } from '@/src/core/types/db';
+import { applyBranchFilter, BRANCH_SCOPES } from '@/src/shared/lib/branchFilter';
 
 export class PlanRepository extends BaseRepository {
-  async findAll(): Promise<DbPlan[]> {
-    const { data, error } = await this.db
+  async findAll(branchFilter: BranchFilter = null): Promise<DbPlan[]> {
+    let query = this.db
       .from('plans')
       .select('*')
       .order('name');
+    query = applyBranchFilter(query, branchFilter, BRANCH_SCOPES.plans);
+    const { data, error } = await query;
     if (error) this.handleError(error);
     return (data ?? []) as DbPlan[];
   }
@@ -21,7 +25,7 @@ export class PlanRepository extends BaseRepository {
     return data as DbPlan;
   }
 
-  async update(id: string, payload: Partial<Pick<DbPlan, 'name' | 'price' | 'is_custom_price' | 'duration_months' | 'currency_id'>>): Promise<DbPlan> {
+  async update(id: string, payload: Partial<Pick<DbPlan, 'name' | 'price' | 'is_custom_price' | 'duration_months' | 'currency_id' | 'branch_id'>>): Promise<DbPlan> {
     const { data, error } = await this.db
       .from('plans')
       .update(payload)
@@ -37,10 +41,15 @@ export class PlanRepository extends BaseRepository {
     if (error) this.handleError(error);
   }
 
-  async countAll(): Promise<number> {
-    const { count, error } = await this.db
+  // Plans use the 'shared' scope: NULL means "available to every branch".
+  // Filtering by a specific branch therefore includes shared plans alongside
+  // that branch's plans. See BRANCH_SCOPES.plans.
+  async countAll(branchFilter: BranchFilter = null): Promise<number> {
+    let query = this.db
       .from('plans')
       .select('id', { count: 'exact', head: true });
+    query = applyBranchFilter(query, branchFilter, BRANCH_SCOPES.plans);
+    const { count, error } = await query;
     if (error) this.handleError(error);
     return count ?? 0;
   }

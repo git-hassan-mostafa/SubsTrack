@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import type { Plan } from "@/src/core/types";
 import { PlanService } from "../services/PlanService";
+import { resolveBranchFilter } from "@/src/shared/lib/branchFilter";
+import { useAuthStore } from "@/src/modules/auth/store/authStore";
 
 
 const planService = new PlanService();
@@ -17,7 +19,8 @@ export const usePlanStore = create<PlansState>((set, get) => ({
   fetchPlans: async () => {
     set({ loading: true, error: null });
     try {
-      const plans = await planService.getPlans();
+      const branchFilter = resolveBranchFilter(useAuthStore.getState().user);
+      const plans = await planService.getPlans(branchFilter);
       set({ plans, loading: false });
     } catch (e) {
       set({ error: (e as Error).message, loading: false });
@@ -72,12 +75,12 @@ interface PlansState {
   getPlans: () => Promise<void>;
   fetchPlans: () => Promise<void>;
   createPlan: (
-    data: { name: string; isCustomPrice: boolean; price: number | null; durationMonths: number; currencyId: string | null },
+    data: { name: string; isCustomPrice: boolean; price: number | null; durationMonths: number; currencyId: string | null; branchId: string | null },
     tenantId: string,
   ) => Promise<void>;
   updatePlan: (
     id: string,
-    data: { name: string; isCustomPrice: boolean; price: number | null; durationMonths: number; currencyId: string | null },
+    data: { name: string; isCustomPrice: boolean; price: number | null; durationMonths: number; currencyId: string | null; branchId: string | null },
   ) => Promise<void>;
   deletePlan: (id: string) => Promise<void>;
   clearError: () => void;

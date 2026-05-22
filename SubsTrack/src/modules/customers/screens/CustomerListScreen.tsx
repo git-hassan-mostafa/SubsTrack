@@ -36,6 +36,8 @@ import {
 import { getBlockRangeLabel } from "../../customer-payments/utils/blockRangeLabel";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
 import { PageHeader } from "@/src/shared/components/PageHeader";
+import { BranchSelector } from "@/src/shared/components/BranchSelector";
+import { useEffectiveBranchFilter } from "@/src/shared/lib/branchFilter";
 import { MONTHS } from "@/src/core/constants";
 
 type FilterTab = "all" | "unpaid" | "active" | "inactive";
@@ -51,7 +53,6 @@ export function CustomerListScreen() {
     loading,
     loadingMore,
     error,
-    getCustomers,
     fetchCustomers,
     fetchMoreCustomers,
     setSearchQuery,
@@ -83,15 +84,18 @@ export function CustomerListScreen() {
   const [toggleActiveCustomer, setToggleActiveCustomer] =
     useState<Customer | null>(null);
   const debouncedSearch = useDebounce(searchText);
-
-  useEffect(() => {
-    getCustomers();
-    fetchCurrentMonthPaidIds();
-  }, []);
+  const branchFilter = useEffectiveBranchFilter();
 
   useEffect(() => {
     setSearchQuery(debouncedSearch);
   }, [debouncedSearch]);
+
+  // Loads on mount AND re-fetches when the user switches the branch chip.
+  useEffect(() => {
+    fetchCustomers();
+    fetchCurrentMonthPaidIds();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [branchFilter]);
 
   const monthLabel = useMemo(() => {
     const now = new Date();
@@ -288,6 +292,7 @@ export function CustomerListScreen() {
         actionLabel={t("common.add")}
         onAction={() => setFormVisible(true)}
       />
+      <BranchSelector />
 
       <View className="px-4 pt-4">
         {/* Search */}

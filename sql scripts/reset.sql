@@ -7,12 +7,16 @@
 -- ── TRIGGERS ─────────────────────────────────────────────────
 DROP TRIGGER IF EXISTS trg_customers_updated_at  ON customers;
 DROP TRIGGER IF EXISTS trg_currencies_updated_at ON currencies;
+DROP TRIGGER IF EXISTS trg_branches_updated_at   ON branches;
 
 -- ── RLS POLICIES ─────────────────────────────────────────────
 DROP POLICY IF EXISTS payments_all      ON payments;
 DROP POLICY IF EXISTS customers_all     ON customers;
+DROP POLICY IF EXISTS plans_modify      ON plans;
+DROP POLICY IF EXISTS plans_select      ON plans;
 DROP POLICY IF EXISTS plans_all         ON plans;
 DROP POLICY IF EXISTS currencies_all    ON currencies;
+DROP POLICY IF EXISTS branches_all      ON branches;
 DROP POLICY IF EXISTS users_update      ON users;
 DROP POLICY IF EXISTS users_insert      ON users;
 DROP POLICY IF EXISTS users_select      ON users;
@@ -24,6 +28,7 @@ DROP TABLE IF EXISTS payments   CASCADE;
 DROP TABLE IF EXISTS customers  CASCADE;
 DROP TABLE IF EXISTS plans      CASCADE;
 DROP TABLE IF EXISTS users      CASCADE;
+DROP TABLE IF EXISTS branches   CASCADE;
 DROP TABLE IF EXISTS currencies CASCADE;
 DROP TABLE IF EXISTS saas_tiers CASCADE;
 DROP TABLE IF EXISTS tenants    CASCADE;
@@ -32,6 +37,7 @@ DROP TABLE IF EXISTS tenants    CASCADE;
 DROP FUNCTION IF EXISTS public.custom_access_token_hook(jsonb);
 DROP FUNCTION IF EXISTS public.current_user_role();
 DROP FUNCTION IF EXISTS public.current_tenant_id();
+DROP FUNCTION IF EXISTS public.current_branch_id();
 DROP FUNCTION IF EXISTS public.set_updated_at();
 
 -- ── AUTH USERS ───────────────────────────────────────────────

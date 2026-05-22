@@ -1,6 +1,7 @@
 import type { AuthUser, Tenant } from "@/src/core/types";
 import type { DbTenant, DbUser } from "@/src/core/types/db";
 import { AuthRepository } from "../repository/AuthRepository";
+import { mapDbBranchToBranch } from "@/src/modules/branches/services/BranchService";
 
 export interface AuthResult {
   user: AuthUser;
@@ -26,6 +27,8 @@ function mapDbUserToAuthUser(db: DbUser, tenant: DbTenant): AuthUser {
     active: db.active,
     tenantId: db.tenant_id,
     tenant: mapDbTenantToTenant(tenant),
+    branchId: db.branch_id,
+    branch: db.branches ? mapDbBranchToBranch(db.branches) : null,
   };
 }
 

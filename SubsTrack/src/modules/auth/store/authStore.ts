@@ -2,13 +2,22 @@ import { create } from "zustand";
 import type { AuthUser } from "@/src/core/types";
 import { AuthService } from "../services/AuthService";
 import { useCurrencyStore } from "@/src/modules/currencies/store/currencyStore";
+import { useBranchStore } from "@/src/modules/branches/store/branchStore";
+import { usePlanStore } from "@/src/modules/plans/store/planStore";
+import { useUserStore } from "@/src/modules/users/store/userStore";
+import { useCustomerStore } from "@/src/modules/customers/store/customerStore";
+import { usePaymentStore } from "@/src/modules/customer-payments/store/paymentStore";
+import { useDashboardStore } from "@/src/modules/dashboard/store/dashboardStore";
 
 const authService = new AuthService();
 
-// After a successful auth (login or session restore), prime the currency
-// store so all downstream CurrencyInputs and formatters have data ready.
-async function primeCurrencies() {
-  await useCurrencyStore.getState().fetchCurrencies();
+// After a successful auth (login or session restore), prime supporting stores
+// in parallel so all downstream pickers/formatters have data ready.
+async function primePostAuth() {
+  await Promise.all([
+    useCurrencyStore.getState().fetchCurrencies(),
+    useBranchStore.getState().fetchBranches(),
+  ]);
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -26,7 +35,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         tenantActive: result.tenantActive,
         loading: false,
       });
-      await primeCurrencies();
+      await primePostAuth();
     } catch (e) {
       set({ error: (e as Error).message, loading: false });
     }
@@ -40,7 +49,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         tenantActive: result?.tenantActive ?? true,
         loading: false,
       });
-      if (result?.user) await primeCurrencies();
+      if (result?.user) await primePostAuth();
     } catch {
       set({ user: null, tenantActive: true, loading: false });
     }
@@ -52,7 +61,16 @@ export const useAuthStore = create<AuthState>((set) => ({
     } catch {
       // ignore logout errors — clear state regardless
     }
+    // Reset every domain store so a different user logging in on the same
+    // device doesn't see the previous session's data (or have it leak into
+    // queries that short-circuit on cached state).
     useCurrencyStore.getState().reset();
+    useBranchStore.getState().reset();
+    usePlanStore.getState().reset();
+    useUserStore.getState().reset();
+    useCustomerStore.getState().reset();
+    usePaymentStore.getState().reset();
+    useDashboardStore.getState().reset();
     set({ user: null, tenantActive: true, loading: false, error: null });
   },
 

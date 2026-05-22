@@ -6,12 +6,15 @@ import { Button } from "@/src/shared/components/Button";
 import { DatePickerInput } from "@/src/shared/components/DatePickerInput";
 import { Dropdown } from "@/src/shared/components/Dropdown";
 import type { DropdownOption } from "@/src/shared/components/Dropdown";
+import { BranchPicker } from "@/src/shared/components/BranchPicker";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { Input } from "@/src/shared/components/Input";
 import type { Customer, Plan } from "@/src/core/types";
 import { getTodayDateString } from "@/src/core/utils/date";
 import { useAuth } from "@/src/modules/auth/hooks/useAuth";
 import { usePlanStore } from "@/src/modules/plans/store/planStore";
+import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
+import { BRANCH_FILTER_UNASSIGNED } from "@/src/core/constants";
 import { useCustomerStore } from "../store/customerStore";
 
 interface Props {
@@ -26,6 +29,7 @@ type FormState = {
   area: string;
   notes: string;
   planId: string | null;
+  branchId: string | null;
   startDate: string;
   isRegular: boolean;
 };
@@ -36,6 +40,18 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
   const { createCustomer, updateCustomer, loading, error, clearError } =
     useCustomerStore();
   const { plans, getPlans } = usePlanStore();
+  const { currentBranchId } = useUiPrefStore();
+
+  // For a new customer: default branch is the user's own branch (if scoped),
+  // otherwise the currently-selected branch in the header (unless that's "All"
+  // or "Unassigned", in which case start unassigned). For an existing customer
+  // we always preserve their stored branch.
+  const defaultBranchId = (() => {
+    if (customer) return customer.branchId;
+    if (user?.branchId) return user.branchId;
+    if (currentBranchId === null || currentBranchId === BRANCH_FILTER_UNASSIGNED) return null;
+    return currentBranchId;
+  })();
 
   const [form, setForm] = useState<FormState>({
     name: customer?.name ?? "",
@@ -44,6 +60,7 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
     area: customer?.area ?? "",
     notes: customer?.notes ?? "",
     planId: customer?.planId ?? null,
+    branchId: defaultBranchId,
     startDate: customer?.startDate ?? getTodayDateString(),
     isRegular: customer?.isRegular ?? true,
   });
@@ -64,6 +81,7 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
       area: form.area || null,
       notes: form.notes || null,
       planId: form.planId,
+      branchId: form.branchId,
       startDate: form.startDate,
       isRegular: form.isRegular,
     };
@@ -75,13 +93,17 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
     if (!useCustomerStore.getState().error) onDismiss();
   }
 
-  const planOptions: DropdownOption<string>[] = plans.map((p: Plan) => ({
-    value: p.id,
-    label: p.name,
-    sublabel: p.isCustomPrice
-      ? t("common.custom_pricing")
-      : `$${p.price} / ${p.durationMonths === 1 ? t("plans.per_month") : t("plans.n_months", { count: p.durationMonths })}`,
-  }));
+  // Filter plans by the customer's selected branch: branch-specific plans only
+  // appear when they match. Shared plans (branchId === null) appear for everyone.
+  const planOptions: DropdownOption<string>[] = plans
+    .filter((p: Plan) => p.branchId === null || p.branchId === form.branchId)
+    .map((p: Plan) => ({
+      value: p.id,
+      label: p.name,
+      sublabel: p.isCustomPrice
+        ? t("common.custom_pricing")
+        : `$${p.price} / ${p.durationMonths === 1 ? t("plans.per_month") : t("plans.n_months", { count: p.durationMonths })}`,
+    }));
 
   return (
     <Modal
@@ -157,6 +179,26 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
             value={form.area}
             onChangeText={(v) => setForm((prev) => ({ ...prev, area: v }))}
             placeholder={t("customers.area_placeholder")}
+          />
+
+          <BranchPicker
+            value={form.branchId}
+            onChange={(v) =>
+              setForm((prev) => ({
+                ...prev,
+                branchId: v,
+                // Clear the selected plan if it's branch-specific to a different branch.
+                // Shared plans (branchId === null) remain valid for any branch.
+                planId:
+                  prev.planId &&
+                  plans.find((p) => p.id === prev.planId)?.branchId !== null &&
+                  plans.find((p) => p.id === prev.planId)?.branchId !== v
+                    ? null
+                    : prev.planId,
+              }))
+            }
+            nullLabel={t("branches.unassigned")}
+            nullSublabel={t("branches.unassigned_hint")}
           />
 
           <Dropdown

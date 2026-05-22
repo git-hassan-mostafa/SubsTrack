@@ -26,6 +26,17 @@ export interface Currency {
   updatedAt: string;
 }
 
+// Per-tenant branch/zone. Zero branches = single-location tenant.
+// Soft-delete via active = false.
+export interface Branch {
+  id: string;
+  tenantId: string;
+  name: string;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface AuthUser {
   id: string;
   username: string;
@@ -34,6 +45,9 @@ export interface AuthUser {
   active: boolean;
   tenantId: string;
   tenant: Tenant;
+  // null = tenant-wide admin (sees all branches and unassigned records).
+  branchId: string | null;
+  branch?: Branch | null;
 }
 
 // Full user record (shown in Users list screen)
@@ -45,6 +59,9 @@ export interface AppUser {
   role: UserRole;
   active: boolean;
   tenantId: string;
+  // null = tenant-wide admin. For role='user', a branch is required once
+  // the tenant has >=1 branch (enforced in UserService.validate).
+  branchId: string | null;
   createdAt: string;
 }
 
@@ -67,6 +84,9 @@ export interface Plan {
   durationMonths: number;
   // Currency the stored price is in. null = USD.
   currencyId: string | null;
+  // Branch this plan belongs to. null = SHARED catalog item (available to every branch).
+  // Note this is the OPPOSITE semantic of Customer.branchId (where null = unassigned/hidden).
+  branchId: string | null;
   tenantId: string;
   createdAt: string;
 }
@@ -81,6 +101,9 @@ export interface Customer {
   active: boolean;
   isRegular: boolean;
   planId: string | null;
+  // Branch this customer belongs to. null = UNASSIGNED — visible only to
+  // tenant-wide admins. Branch-scoped users never see unassigned customers.
+  branchId: string | null;
   tenantId: string;
   startDate: string;
   cancelledAt: string | null;

@@ -76,6 +76,33 @@ CREATE INDEX IF NOT EXISTS idx_currencies_tenant_id
     ON currencies (tenant_id);
 
 -- ============================================================
+-- BRANCHES
+-- Multi-location support. A tenant can have zero, one, or many branches.
+-- Zero branches = single-location tenant (branch_id NULL everywhere).
+-- Soft-delete via active = false (records keep their branch_id references).
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS branches (
+    id          UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id   UUID        NOT NULL,
+    name        TEXT        NOT NULL,
+    active      BOOLEAN     NOT NULL DEFAULT TRUE,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT fk_branches_tenant
+        FOREIGN KEY (tenant_id)
+        REFERENCES tenants(id)
+        ON DELETE CASCADE
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS uq_branches_name_tenant
+    ON branches (tenant_id, name);
+
+CREATE INDEX IF NOT EXISTS idx_branches_tenant_id
+    ON branches (tenant_id);
+
+-- ============================================================
 -- USERS
 -- App-level user records. id mirrors auth.users.id.
 -- Each tenant has exactly one superadmin (enforced by uq_users_superadmin_per_tenant).
@@ -92,12 +119,22 @@ CREATE TABLE IF NOT EXISTS users (
                              CHECK (role IN ('superadmin', 'admin', 'user')),
     active       BOOLEAN     NOT NULL DEFAULT TRUE,
     tenant_id    UUID        NOT NULL,
+    -- Branch assignment. NULL = tenant-wide admin (sees all branches).
+    -- App-level rule (UserService.validate): role = 'user' requires a branch
+    -- once the tenant has >= 1 branch. Not enforced by DB CHECK because it
+    -- depends on a count from another table.
+    branch_id    UUID,
     created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
     CONSTRAINT fk_users_tenant
         FOREIGN KEY (tenant_id)
         REFERENCES tenants(id)
-        ON DELETE CASCADE
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_users_branch
+        FOREIGN KEY (branch_id)
+        REFERENCES branches(id)
+        ON DELETE SET NULL
 );
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_users_username_tenant
@@ -129,6 +166,9 @@ CREATE TABLE IF NOT EXISTS plans (
     -- ON DELETE RESTRICT: cannot drop a currency referenced by a plan.
     currency_id     UUID,
     tenant_id       UUID          NOT NULL,
+    -- Branch this plan belongs to. NULL = SHARED catalog item (available at every branch).
+    -- This is the OPPOSITE semantic of customers.branch_id (where NULL = unassigned/hidden).
+    branch_id       UUID,
     created_at      TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
 
     -- A fixed plan must have a price; a custom-price plan must not.
@@ -151,14 +191,24 @@ CREATE TABLE IF NOT EXISTS plans (
     CONSTRAINT fk_plans_currency
         FOREIGN KEY (currency_id)
         REFERENCES currencies(id)
-        ON DELETE RESTRICT
+        ON DELETE RESTRICT,
+
+    CONSTRAINT fk_plans_branch
+        FOREIGN KEY (branch_id)
+        REFERENCES branches(id)
+        ON DELETE SET NULL
 );
 
-CREATE UNIQUE INDEX IF NOT EXISTS uq_plans_name_tenant
-    ON plans (name, tenant_id);
+-- Uniqueness allows the same plan name across branches (NULLs compare unequal in PG unique).
+-- Example: "Basic" shared (branch_id NULL) AND "Basic" Beirut (branch_id X) coexist.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_plans_name_tenant_branch
+    ON plans (tenant_id, branch_id, name);
 
 CREATE INDEX IF NOT EXISTS idx_plans_tenant_id
     ON plans (tenant_id);
+
+CREATE INDEX IF NOT EXISTS idx_plans_branch_id
+    ON plans (branch_id);
 
 -- ============================================================
 -- CUSTOMERS
@@ -177,6 +227,10 @@ CREATE TABLE IF NOT EXISTS customers (
     is_regular   BOOLEAN     NOT NULL DEFAULT TRUE,
     plan_id      UUID,
     tenant_id    UUID        NOT NULL,
+    -- Branch this customer belongs to. NULL = UNASSIGNED — visible ONLY to
+    -- tenant-wide admins (users with users.branch_id IS NULL). Branch-scoped
+    -- users do not see unassigned customers.
+    branch_id    UUID,
     start_date   DATE        NOT NULL,
     cancelled_at TIMESTAMPTZ,
     created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -198,6 +252,11 @@ CREATE TABLE IF NOT EXISTS customers (
     CONSTRAINT fk_customers_plan
         FOREIGN KEY (plan_id)
         REFERENCES plans(id)
+        ON DELETE SET NULL,
+
+    CONSTRAINT fk_customers_branch
+        FOREIGN KEY (branch_id)
+        REFERENCES branches(id)
         ON DELETE SET NULL
 );
 
@@ -209,6 +268,9 @@ CREATE INDEX IF NOT EXISTS idx_customers_plan_id
 
 CREATE INDEX IF NOT EXISTS idx_customers_active
     ON customers (tenant_id, active);
+
+CREATE INDEX IF NOT EXISTS idx_customers_branch_id
+    ON customers (branch_id);
 
 -- Auto-update updated_at on any row change
 CREATE OR REPLACE FUNCTION set_updated_at()
@@ -226,6 +288,11 @@ CREATE OR REPLACE TRIGGER trg_customers_updated_at
 
 CREATE OR REPLACE TRIGGER trg_currencies_updated_at
     BEFORE UPDATE ON currencies
+    FOR EACH ROW
+    EXECUTE FUNCTION set_updated_at();
+
+CREATE OR REPLACE TRIGGER trg_branches_updated_at
+    BEFORE UPDATE ON branches
     FOR EACH ROW
     EXECUTE FUNCTION set_updated_at();
 
@@ -354,6 +421,7 @@ CREATE INDEX IF NOT EXISTS idx_payments_customer_month
 ALTER TABLE tenants    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE saas_tiers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE currencies ENABLE ROW LEVEL SECURITY;
+ALTER TABLE branches   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE users      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE plans      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE customers  ENABLE ROW LEVEL SECURITY;
@@ -370,6 +438,18 @@ ALTER TABLE payments   ENABLE ROW LEVEL SECURITY;
 CREATE OR REPLACE FUNCTION current_tenant_id()
 RETURNS UUID AS $$
     SELECT (auth.jwt() ->> 'tenant_id')::uuid;
+$$ LANGUAGE SQL STABLE SECURITY DEFINER;
+
+-- ============================================================
+-- HELPER FUNCTION
+-- Returns the calling user's branch_id, or NULL if they are a
+-- tenant-wide admin (branch_id IS NULL in public.users).
+-- Used by branch-aware RLS policies.
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION current_branch_id()
+RETURNS UUID AS $$
+    SELECT branch_id FROM public.users WHERE id = auth.uid();
 $$ LANGUAGE SQL STABLE SECURITY DEFINER;
 
 -- ============================================================
@@ -410,6 +490,15 @@ REVOKE EXECUTE ON FUNCTION public.custom_access_token_hook FROM authenticated, a
 -- RLS POLICIES
 -- ============================================================
 
+-- Drop the old non-branch-aware policies before recreating them.
+-- These were tenant-only — branch awareness is layered in below.
+DROP POLICY IF EXISTS customers_all ON customers;
+DROP POLICY IF EXISTS plans_all     ON plans;
+DROP POLICY IF EXISTS payments_all  ON payments;
+DROP POLICY IF EXISTS users_select  ON users;
+DROP POLICY IF EXISTS users_insert  ON users;
+DROP POLICY IF EXISTS users_update  ON users;
+
 DO $$ BEGIN
 
     -- ── TENANTS ──────────────────────────────────────────────
@@ -432,33 +521,8 @@ DO $$ BEGIN
             FOR SELECT USING (tenant_id = current_tenant_id());
     END IF;
 
-    -- ── USERS ────────────────────────────────────────────────
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_policies
-        WHERE tablename = 'users' AND policyname = 'users_select'
-    ) THEN
-        CREATE POLICY users_select ON users
-            FOR SELECT USING (tenant_id = current_tenant_id());
-    END IF;
-
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_policies
-        WHERE tablename = 'users' AND policyname = 'users_insert'
-    ) THEN
-        CREATE POLICY users_insert ON users
-            FOR INSERT WITH CHECK (tenant_id = current_tenant_id());
-    END IF;
-
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_policies
-        WHERE tablename = 'users' AND policyname = 'users_update'
-    ) THEN
-        CREATE POLICY users_update ON users
-            FOR UPDATE USING (tenant_id = current_tenant_id())
-            WITH CHECK (tenant_id = current_tenant_id());
-    END IF;
-
     -- ── CURRENCIES ───────────────────────────────────────────
+    -- Tenant-wide; not branch-scoped.
     IF NOT EXISTS (
         SELECT 1 FROM pg_policies
         WHERE tablename = 'currencies' AND policyname = 'currencies_all'
@@ -469,37 +533,175 @@ DO $$ BEGIN
             WITH CHECK (tenant_id = current_tenant_id());
     END IF;
 
-    -- ── PLANS ────────────────────────────────────────────────
+    -- ── BRANCHES ─────────────────────────────────────────────
+    -- All tenant members can SELECT branches (the list is needed to render
+    -- assignment dropdowns even for branch-scoped users). Mutation is
+    -- restricted at the app layer (admin-only).
     IF NOT EXISTS (
         SELECT 1 FROM pg_policies
-        WHERE tablename = 'plans' AND policyname = 'plans_all'
+        WHERE tablename = 'branches' AND policyname = 'branches_all'
     ) THEN
-        CREATE POLICY plans_all ON plans
+        CREATE POLICY branches_all ON branches
             FOR ALL
             USING     (tenant_id = current_tenant_id())
             WITH CHECK (tenant_id = current_tenant_id());
     END IF;
 
+    -- ── USERS ────────────────────────────────────────────────
+    -- Branch-aware:
+    --   tenant-wide user (current_branch_id() IS NULL) sees ALL users in tenant
+    --   branch-scoped user sees ONLY users in their own branch (incl. self)
+    --   Unassigned users (branch_id IS NULL) are visible ONLY to tenant-wide.
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE tablename = 'users' AND policyname = 'users_select'
+    ) THEN
+        CREATE POLICY users_select ON users
+            FOR SELECT USING (
+                tenant_id = current_tenant_id()
+                AND (
+                    current_branch_id() IS NULL
+                    OR branch_id = current_branch_id()
+                )
+            );
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE tablename = 'users' AND policyname = 'users_insert'
+    ) THEN
+        CREATE POLICY users_insert ON users
+            FOR INSERT WITH CHECK (
+                tenant_id = current_tenant_id()
+                AND (
+                    current_branch_id() IS NULL
+                    OR branch_id = current_branch_id()
+                )
+            );
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE tablename = 'users' AND policyname = 'users_update'
+    ) THEN
+        CREATE POLICY users_update ON users
+            FOR UPDATE
+            USING (
+                tenant_id = current_tenant_id()
+                AND (
+                    current_branch_id() IS NULL
+                    OR branch_id = current_branch_id()
+                )
+            )
+            WITH CHECK (
+                tenant_id = current_tenant_id()
+                AND (
+                    current_branch_id() IS NULL
+                    OR branch_id = current_branch_id()
+                )
+            );
+    END IF;
+
+    -- ── PLANS ────────────────────────────────────────────────
+    -- Plans use SHARED-CATALOG semantics: branch_id IS NULL means
+    -- "available to every branch" (visible to everyone). Branch-scoped
+    -- users see shared plans + their own branch plans.
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE tablename = 'plans' AND policyname = 'plans_select'
+    ) THEN
+        CREATE POLICY plans_select ON plans
+            FOR SELECT USING (
+                tenant_id = current_tenant_id()
+                AND (
+                    current_branch_id() IS NULL
+                    OR branch_id IS NULL
+                    OR branch_id = current_branch_id()
+                )
+            );
+    END IF;
+
+    -- Branch-scoped admins can only create/modify plans for their own branch
+    -- (cannot create shared plans). Tenant-wide admins can do either.
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE tablename = 'plans' AND policyname = 'plans_modify'
+    ) THEN
+        CREATE POLICY plans_modify ON plans
+            FOR ALL
+            USING (
+                tenant_id = current_tenant_id()
+                AND (
+                    current_branch_id() IS NULL
+                    OR branch_id = current_branch_id()
+                )
+            )
+            WITH CHECK (
+                tenant_id = current_tenant_id()
+                AND (
+                    current_branch_id() IS NULL
+                    OR branch_id = current_branch_id()
+                )
+            );
+    END IF;
+
     -- ── CUSTOMERS ────────────────────────────────────────────
+    -- Strict isolation: branch_id IS NULL is UNASSIGNED — visible only
+    -- to tenant-wide admins. Branch-scoped users never see unassigned.
     IF NOT EXISTS (
         SELECT 1 FROM pg_policies
         WHERE tablename = 'customers' AND policyname = 'customers_all'
     ) THEN
         CREATE POLICY customers_all ON customers
             FOR ALL
-            USING     (tenant_id = current_tenant_id())
-            WITH CHECK (tenant_id = current_tenant_id());
+            USING (
+                tenant_id = current_tenant_id()
+                AND (
+                    current_branch_id() IS NULL
+                    OR branch_id = current_branch_id()
+                )
+            )
+            WITH CHECK (
+                tenant_id = current_tenant_id()
+                AND (
+                    current_branch_id() IS NULL
+                    OR branch_id = current_branch_id()
+                )
+            );
     END IF;
 
     -- ── PAYMENTS ─────────────────────────────────────────────
+    -- Payments don't have their own branch_id; they inherit from the
+    -- customer. Tenant-wide users see all; branch-scoped see only
+    -- payments whose customer.branch_id matches theirs.
     IF NOT EXISTS (
         SELECT 1 FROM pg_policies
         WHERE tablename = 'payments' AND policyname = 'payments_all'
     ) THEN
         CREATE POLICY payments_all ON payments
             FOR ALL
-            USING     (tenant_id = current_tenant_id())
-            WITH CHECK (tenant_id = current_tenant_id());
+            USING (
+                tenant_id = current_tenant_id()
+                AND (
+                    current_branch_id() IS NULL
+                    OR EXISTS (
+                        SELECT 1 FROM customers c
+                        WHERE c.id = payments.customer_id
+                          AND c.branch_id = current_branch_id()
+                    )
+                )
+            )
+            WITH CHECK (
+                tenant_id = current_tenant_id()
+                AND (
+                    current_branch_id() IS NULL
+                    OR EXISTS (
+                        SELECT 1 FROM customers c
+                        WHERE c.id = payments.customer_id
+                          AND c.branch_id = current_branch_id()
+                    )
+                )
+            );
     END IF;
 
 END $$;
@@ -539,3 +741,18 @@ END $$;
 --    App-level tenant_id filtering is secondary. RLS alone is enough,
 --    but the app filters by tenant_id too for defence in depth.
 --    Never call supabase.rpc() with SECURITY DEFINER unless you've audited it.
+
+-- 6. BRANCHES (multi-location support)
+--    Branches live INSIDE a tenant. Tenant isolation stays in current_tenant_id();
+--    branch isolation layers on top via current_branch_id().
+--
+--    users.branch_id       NULL = tenant-wide admin (sees all branches + unassigned)
+--                          NOT NULL = scoped to that branch only
+--    customers.branch_id   NULL = UNASSIGNED (visible only to tenant-wide admins)
+--                          NOT NULL = belongs to that branch (visible to that branch's staff)
+--    plans.branch_id       NULL = SHARED (visible to everyone in the tenant)
+--                          NOT NULL = branch-specific (only that branch sees it)
+--    payments              No branch_id; inherits from customers.branch_id via JOIN.
+--
+--    Single-branch tenants leave branch_id NULL on every row — the feature is invisible.
+--    Branch-scoped admins cannot create shared plans (WITH CHECK enforces branch match).

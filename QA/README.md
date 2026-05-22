@@ -24,6 +24,7 @@ This folder contains the production QA test plan for the SubsTrack mobile app. E
 | Settings | [settings.md](settings.md) | Profile, language switcher with restart, logout |
 | Admin & Navigation | [admin-and-navigation.md](admin-and-navigation.md) | Tab visibility, role gating, routing, deep links |
 | Multi-tenancy | [multi-tenancy.md](multi-tenancy.md) | Tenant isolation reads/writes, tenant inactive, workspace code |
+| Branches | [branches.md](branches.md) | Multi-location: branch CRUD, BranchSelector, RLS isolation, form scoping |
 | Non-functional | [non-functional.md](non-functional.md) | Performance, accessibility, i18n/RTL, security, resilience |
 
 ## Pre-release checklist (high level)

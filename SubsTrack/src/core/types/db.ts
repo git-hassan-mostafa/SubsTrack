@@ -33,6 +33,15 @@ export interface DbCurrency {
   updated_at: string;
 }
 
+export interface DbBranch {
+  id: string;
+  tenant_id: string;
+  name: string;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface DbUser {
   id: string;
   username: string;
@@ -41,7 +50,10 @@ export interface DbUser {
   role: 'superadmin' | 'admin' | 'user';
   active: boolean;
   tenant_id: string;
+  branch_id: string | null;
   created_at: string;
+  // joined relation — present when .select('*, branches(*)')
+  branches?: DbBranch | null;
 }
 
 export interface DbPlan {
@@ -51,6 +63,7 @@ export interface DbPlan {
   is_custom_price: boolean;
   duration_months: number;
   currency_id: string | null;
+  branch_id: string | null;
   tenant_id: string;
   created_at: string;
 }
@@ -65,6 +78,7 @@ export interface DbCustomer {
   active: boolean;
   is_regular: boolean;
   plan_id: string | null;
+  branch_id: string | null;
   tenant_id: string;
   start_date: string;
   cancelled_at: string | null;

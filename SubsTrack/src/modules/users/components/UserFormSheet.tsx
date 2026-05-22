@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/src/shared/components/Button";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { Input } from "@/src/shared/components/Input";
+import { BranchPicker, useActiveBranches } from "@/src/shared/components/BranchPicker";
 import type { AppUser } from "@/src/core/types";
 import { useAuth } from "@/src/modules/auth/hooks/useAuth";
 import { useUserStore } from "../store/userStore";
@@ -21,12 +22,18 @@ type FormState = {
   confirmPassword: string;
   phoneNumber: string;
   role: "admin" | "user";
+  branchId: string | null;
 };
 
 export function UserFormSheet({ user: editUser, onDismiss }: Props) {
   const { t } = useTranslation();
   const { user: currentUser } = useAuth();
   const { createUser, updateUser, deactivateUser, activateUser, loading, error, clearError } = useUserStore();
+  const activeBranches = useActiveBranches();
+
+  // For new users: branch-scoped admin → assign to their branch.
+  // Tenant-wide admin → start unassigned and let them pick.
+  const defaultBranchId = editUser ? editUser.branchId : (currentUser?.branchId ?? null);
 
   const [form, setForm] = useState<FormState>({
     username: editUser?.username ?? "",
@@ -35,6 +42,7 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
     confirmPassword: "",
     phoneNumber: editUser?.phoneNumber ?? "",
     role: (editUser?.role as "admin" | "user") ?? "user",
+    branchId: defaultBranchId,
   });
 
   const isOwnAccount = editUser?.id === currentUser?.id;
@@ -59,6 +67,12 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Staff users must be assigned to a branch once the tenant has any.
+  // BranchPicker hides itself when there are no branches, so this validation
+  // only fires in the "we have branches AND staff role AND no branch picked" case.
+  const branchMissingForStaff =
+    activeBranches.length > 0 && form.role === "user" && !form.branchId;
+
   async function handleSubmit() {
     if (!currentUser) return;
     if (editUser) {
@@ -67,6 +81,7 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
         fullName: form.fullName,
         phone: form.phoneNumber || null,
         role: form.role,
+        branchId: form.branchId,
       });
     } else {
       await createUser(
@@ -76,6 +91,7 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
           password: form.password,
           phone: form.phoneNumber || null,
           role: form.role,
+          branchId: form.branchId,
         },
         currentUser.tenantId,
       );
@@ -87,6 +103,7 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
     !!form.username.trim() &&
     !!form.fullName.trim() &&
     !usernameInvalid &&
+    !branchMissingForStaff &&
     (!!editUser ||
       (form.password.length >= 8 && form.password === form.confirmPassword));
 
@@ -179,6 +196,21 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
             }
             placeholder={t("customers.phone_placeholder")}
             keyboardType="phone-pad"
+          />
+
+          <BranchPicker
+            value={form.branchId}
+            onChange={(v) => setForm((prev) => ({ ...prev, branchId: v }))}
+            nullLabel={
+              form.role === "admin"
+                ? t("branches.tenant_wide_admin")
+                : t("branches.unassigned")
+            }
+            nullSublabel={
+              form.role === "admin"
+                ? t("branches.tenant_wide_hint")
+                : t("branches.staff_needs_branch_hint")
+            }
           />
 
           <Text className="text-sm font-medium text-gray-700 mb-2">

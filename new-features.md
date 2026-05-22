@@ -70,7 +70,7 @@ payments:
 
 ---
 
-### 1.3 Branch / Zone Management
+### 1.3 Branch / Zone Management ✅
 
 **Priority:** 🟡 Medium
 
@@ -484,7 +484,7 @@ CREATE TABLE audit_log (
 | ---------------------------- | --------- | --------------------------------------------------------------------- |
 | Partial payments             | 🔴 High   | Yes — `amount_due`, `amount_paid`, `balance` on payments              |
 | Dual currency (USD/LBP)      | 🔴 High   | Yes — `currency`, `exchange_rate` on payments; `currency` on plans    |
-| Branch / zone management     | 🟡 Medium | Yes — new `branches` table; `branch_id` on users, customers, expenses |
+| Branch / zone management ✅  | 🟡 Medium | Yes — new `branches` table; `branch_id` on users, customers, plans     |
 | Customer notes ✅            | 🔴 High   | Yes — `notes` on customers                                            |
 | Customer area/zone ✅        | 🔴 High   | Yes — `area` on customers                                             |
 | Customer tags                | 🟡 Medium | Yes — `tags[]` on customers                                           |

@@ -1,4 +1,5 @@
 import type { DashboardMetrics } from '@/src/core/types';
+import type { BranchFilter } from '@/src/core/constants';
 import { getCurrentYearMonth, toBillingMonth } from '@/src/core/utils/date';
 import { CustomerRepository } from '@/src/modules/customers/repository/CustomerRepository';
 import { PaymentRepository } from '@/src/modules/customer-payments/repository/PaymentRepository';
@@ -18,7 +19,7 @@ export class DashboardService {
   private planRepo = new PlanRepository();
   private userRepo = new UserRepository();
 
-  async getMetrics(): Promise<DashboardMetrics> {
+  async getMetrics(branchFilter: BranchFilter = null): Promise<DashboardMetrics> {
     const { year, month } = getCurrentYearMonth();
     const billingMonth = toBillingMonth(year, month);
 
@@ -31,13 +32,13 @@ export class DashboardService {
       totalPlans,
       balanceRows,
     ] = await Promise.all([
-      this.customerRepo.countAll(),
-      this.customerRepo.countActive(),
-      this.paymentRepo.paidAmountsForMonth(billingMonth),
-      this.customerRepo.countUnpaidForMonth(billingMonth),
-      this.userRepo.countAll(),
-      this.planRepo.countAll(),
-      this.paymentRepo.balancesForMonth(billingMonth),
+      this.customerRepo.countAll(branchFilter),
+      this.customerRepo.countActive(branchFilter),
+      this.paymentRepo.paidAmountsForMonth(billingMonth, branchFilter),
+      this.customerRepo.countUnpaidForMonth(billingMonth, branchFilter),
+      this.userRepo.countAll(branchFilter),
+      this.planRepo.countAll(branchFilter),
+      this.paymentRepo.balancesForMonth(billingMonth, branchFilter),
     ]);
 
     return {

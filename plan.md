@@ -569,3 +569,48 @@ The core screen of the app. Shown inside Customer Detail.
 - NativeWind for styling
 - No business logic in components or stores
 - No raw DB types outside repository layer
+
+---
+
+## Branches / Zone Management (Multi-Location)
+
+Tenants can optionally create branches/zones to scope users, customers, and plans by location. Single-branch tenants leave `branch_id = NULL` everywhere and never see the feature.
+
+### Roles vs branches
+
+| Role · branch | Visibility |
+| --- | --- |
+| `admin`, branch_id NULL | Tenant-wide admin — all branches + unassigned records ("super admin" for the tenant; multiple allowed) |
+| `admin`, branch_id X | Branch admin — only branch X |
+| `user`, branch_id X | Branch staff — only branch X |
+| `user`, branch_id NULL | Disallowed once the tenant has ≥1 branch (validated in `UserService`) |
+
+### Tables
+
+- `branches(id, tenant_id, name, active)` — soft-delete via `active = false`.
+- `users.branch_id` nullable — NULL = tenant-wide.
+- `customers.branch_id` nullable — NULL = unassigned, hidden from branch-scoped users.
+- `plans.branch_id` nullable — NULL = SHARED across all branches (opposite semantic).
+- `payments` has no `branch_id` — inherits from customer via JOIN.
+- Uniqueness on plans changed to `(tenant_id, branch_id, name)` so "Basic" can coexist as Shared + per-branch.
+
+### RLS
+
+`public.current_branch_id()` returns the caller's `users.branch_id` (or NULL). Branch-aware policies admit a row when `tenant_id` matches AND either:
+- `current_branch_id() IS NULL` (tenant-wide sees everything), OR
+- `row.branch_id = current_branch_id()` (branch match), OR
+- (plans only) `row.branch_id IS NULL` (shared).
+
+Payments use an `EXISTS` against `customers.branch_id`.
+
+### UI
+
+- BranchSelector chip below PageHeader on Customers, Dashboard, Plans, Users. Self-conceals for branch-scoped users and for tenants with zero branches. Three filter states: All Branches (`null`) / specific branch (UUID) / Unassigned (`BRANCH_FILTER_UNASSIGNED`).
+- Persistent per-user in `uiPrefStore.currentBranchId` (AsyncStorage).
+- Forms (Customer/Plan/User) show a Branch dropdown only for tenant-wide admins; branch-scoped users auto-inherit. Plan pickers in CustomerFormSheet filter to shared + selected branch.
+- `create-user` edge function validates the supplied `branchId` belongs to the tenant; branch-scoped callers cannot escalate by passing another branch.
+
+### Migration
+
+- `branch_id` is declared inline in the `CREATE TABLE` definitions for `users`, `customers`, and `plans`. Plans uniqueness is `uq_plans_name_tenant_branch` (`tenant_id`, `branch_id`, `name`). Run `reset.sql` then `script.sql` on a fresh project — there is no forward-migration path for older databases.
+- After migration, all existing rows have `branch_id = NULL`. Existing single-branch tenants see no behavior change. To go multi-branch, an admin creates branches in Settings → Branches and reassigns existing records.

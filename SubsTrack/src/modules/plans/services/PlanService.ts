@@ -1,4 +1,5 @@
 import type { Plan } from '@/src/core/types';
+import type { BranchFilter } from '@/src/core/constants';
 import type { DbPlan } from '@/src/core/types/db';
 import { PlanRepository } from '../repository/PlanRepository';
 
@@ -10,18 +11,19 @@ function mapDbPlanToPlan(db: DbPlan): Plan {
     isCustomPrice: db.is_custom_price,
     durationMonths: db.duration_months,
     currencyId: db.currency_id,
+    branchId: db.branch_id,
     tenantId: db.tenant_id,
     createdAt: db.created_at,
   };
 }
 
-type PlanInput = Pick<Plan, 'name' | 'isCustomPrice' | 'price' | 'durationMonths' | 'currencyId'>
+type PlanInput = Pick<Plan, 'name' | 'isCustomPrice' | 'price' | 'durationMonths' | 'currencyId' | 'branchId'>
 
 export class PlanService {
   private repository = new PlanRepository();
 
-  async getPlans(): Promise<Plan[]> {
-    const rows = await this.repository.findAll();
+  async getPlans(branchFilter: BranchFilter = null): Promise<Plan[]> {
+    const rows = await this.repository.findAll(branchFilter);
     return rows.map(mapDbPlanToPlan);
   }
 
@@ -34,6 +36,7 @@ export class PlanService {
         is_custom_price: data.isCustomPrice,
         duration_months: data.durationMonths,
         currency_id: data.isCustomPrice ? null : data.currencyId,
+        branch_id: data.branchId,
         tenant_id: tenantId,
       });
       return mapDbPlanToPlan(row);
@@ -51,6 +54,7 @@ export class PlanService {
         is_custom_price: data.isCustomPrice,
         duration_months: data.durationMonths,
         currency_id: data.isCustomPrice ? null : data.currencyId,
+        branch_id: data.branchId,
       });
       return mapDbPlanToPlan(row);
     } catch (err) {
@@ -79,7 +83,7 @@ export class PlanService {
 
   private rethrow(err: unknown): never {
     const msg = err instanceof Error ? err.message : '';
-    if (msg.includes('uq_plans_name_tenant') || msg.includes('duplicate')) {
+    if (msg.includes('uq_plans_name_tenant') || msg.includes('uq_plans_name_tenant_branch') || msg.includes('duplicate')) {
       throw new Error('A plan with this name already exists');
     }
     throw err instanceof Error ? err : new Error('Connection error. Please try again.');

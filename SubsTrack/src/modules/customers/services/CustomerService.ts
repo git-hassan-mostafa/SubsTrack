@@ -1,6 +1,6 @@
 import type { Customer, Plan } from "@/src/core/types";
 import type { DbCustomer, DbPlan } from "@/src/core/types/db";
-import { PAGE_SIZE } from "@/src/core/constants";
+import { PAGE_SIZE, type BranchFilter } from "@/src/core/constants";
 import { isValidDateString } from "@/src/core/utils/date";
 import { CustomerRepository } from "../repository/CustomerRepository";
 
@@ -15,6 +15,7 @@ function mapDbCustomerToCustomer(db: DbCustomerWithPlan): Customer {
       isCustomPrice: db.plans.is_custom_price,
       durationMonths: db.plans.duration_months,
       currencyId: db.plans.currency_id,
+      branchId: db.plans.branch_id,
       tenantId: db.plans.tenant_id,
       createdAt: db.plans.created_at,
     }
@@ -30,6 +31,7 @@ function mapDbCustomerToCustomer(db: DbCustomerWithPlan): Customer {
     active: db.active,
     isRegular: db.is_regular,
     planId: db.plan_id,
+    branchId: db.branch_id,
     tenantId: db.tenant_id,
     startDate: db.start_date,
     cancelledAt: db.cancelled_at,
@@ -41,7 +43,7 @@ function mapDbCustomerToCustomer(db: DbCustomerWithPlan): Customer {
 
 type CustomerInput = Pick<
   Customer,
-  "name" | "phoneNumber" | "address" | "area" | "notes" | "planId" | "startDate" | "isRegular"
+  "name" | "phoneNumber" | "address" | "area" | "notes" | "planId" | "branchId" | "startDate" | "isRegular"
 >;
 
 export class CustomerService {
@@ -50,10 +52,11 @@ export class CustomerService {
   async getCustomers(
     page: number,
     searchQuery?: string,
+    branchFilter: BranchFilter = null,
   ): Promise<{ customers: Customer[]; hasMore: boolean; totalCount: number }> {
     const [rows, totalCount] = await Promise.all([
-      this.repository.findAll(page, searchQuery),
-      this.repository.countAll(),
+      this.repository.findAll(page, searchQuery, branchFilter),
+      this.repository.countAll(branchFilter),
     ]);
     return {
       customers: rows.map(mapDbCustomerToCustomer),
@@ -79,6 +82,7 @@ export class CustomerService {
       area: data.area?.trim() || null,
       notes: data.notes?.trim() || null,
       plan_id: data.planId,
+      branch_id: data.branchId,
       tenant_id: tenantId,
       start_date: data.startDate,
       active: true,
@@ -97,6 +101,7 @@ export class CustomerService {
       area: data.area?.trim() || null,
       notes: data.notes?.trim() || null,
       plan_id: data.planId,
+      branch_id: data.branchId,
       start_date: data.startDate,
       is_regular: data.isRegular,
     });

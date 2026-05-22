@@ -31,7 +31,8 @@ export class AuthRepository {
   async getUserProfile(userId: string): Promise<DbUser | null> {
     const { data, error } = await supabase
       .from("users")
-      .select("*")
+      // join the user's branch so the header can show "Beirut" without an extra round-trip
+      .select("*, branches(*)")
       .eq("id", userId)
       .single();
     if (error) {

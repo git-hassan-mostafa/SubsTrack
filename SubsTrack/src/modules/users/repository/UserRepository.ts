@@ -1,4 +1,6 @@
 import { BaseRepository } from "@/src/core/utils/BaseRepository";
+import { applyBranchFilter, BRANCH_SCOPES } from "@/src/shared/lib/branchFilter";
+import type { BranchFilter } from "@/src/core/constants";
 import type { DbUser } from "@/src/core/types/db";
 
 interface CreateUserPayload {
@@ -8,14 +10,17 @@ interface CreateUserPayload {
   phone: string | null;
   role: "admin" | "user";
   tenantId: string;
+  branchId: string | null;
 }
 
 export class UserRepository extends BaseRepository {
-  async findAll(): Promise<DbUser[]> {
-    const { data, error } = await this.db
+  async findAll(branchFilter: BranchFilter = null): Promise<DbUser[]> {
+    let query = this.db
       .from("users")
       .select("*")
       .order("username");
+    query = applyBranchFilter(query, branchFilter, BRANCH_SCOPES.users);
+    const { data, error } = await query;
     if (error) this.handleError(error);
     return (data ?? []) as DbUser[];
   }
@@ -30,7 +35,7 @@ export class UserRepository extends BaseRepository {
 
   async update(
     id: string,
-    payload: Partial<Pick<DbUser, "username" | "full_name" | "phone_number" | "role">>,
+    payload: Partial<Pick<DbUser, "username" | "full_name" | "phone_number" | "role" | "branch_id">>,
   ): Promise<DbUser> {
     const { data, error } = await this.db
       .from("users")
@@ -53,10 +58,12 @@ export class UserRepository extends BaseRepository {
     return data as DbUser;
   }
 
-  async countAll(): Promise<number> {
-    const { count, error } = await this.db
+  async countAll(branchFilter: BranchFilter = null): Promise<number> {
+    let query = this.db
       .from("users")
       .select("id", { count: "exact", head: true });
+    query = applyBranchFilter(query, branchFilter, BRANCH_SCOPES.users);
+    const { count, error } = await query;
     if (error) this.handleError(error);
     return count ?? 0;
   }

@@ -175,8 +175,14 @@ SubsTrack/
 │   │   │   ├── store/currencyStore.ts            # currencies[], CRUD, fetched after login
 │   │   │   └── components/{CurrencyCard, UsdBaseCard, CurrencyFormSheet}.tsx
 │   │   │
+│   │   ├── branches/
+│   │   │   ├── repository/BranchRepository.ts    # CRUD + countReferences (joins users + customers + plans)
+│   │   │   ├── services/BranchService.ts         # validation; deleteBranch() hard- or soft-deletes
+│   │   │   ├── store/branchStore.ts              # branches[], CRUD, fetched after login (parallel to currencies)
+│   │   │   └── components/{BranchCard, BranchFormSheet}.tsx
+│   │   │
 │   │   ├── tenant-settings/
-│   │   │   └── screens/TenantSettingsScreen.tsx  # admin-only: per-user display currency + currencies CRUD
+│   │   │   └── screens/TenantSettingsScreen.tsx  # admin-only: display currency + branches CRUD + currencies CRUD
 │   │   │
 │   │   ├── customers/
 │   │   │   ├── repository/CustomerRepository.ts
@@ -220,6 +226,7 @@ SubsTrack/
 │       ├── components/
 │       │   ├── Button.tsx, Input.tsx, Text.tsx  # Custom primitives
 │       │   ├── CurrencyInput.tsx  # Numeric input + embedded currency dropdown (USD + tenant currencies)
+│       │   ├── BranchSelector.tsx # Header chip for tenant-wide admins; self-conceals otherwise
 │       │   ├── FormSheet.tsx      # Reusable @gorhom/bottom-sheet wrapper
 │       │   ├── ErrorBanner.tsx    # Inline error display (never toast/alert)
 │       │   ├── Dropdown.tsx, DatePickerInput.tsx
@@ -232,7 +239,8 @@ SubsTrack/
 │       └── lib/
 │           ├── supabase.ts        # Supabase singleton (reads EXPO_PUBLIC_ env vars)
 │           ├── storage.ts         # AsyncStorage adapter for Supabase + RTL reload guard
-│           └── uiPrefStore.ts     # Persisted UI prefs (currently: last-used currency in CurrencyInput)
+│           ├── uiPrefStore.ts     # Persisted UI prefs (display currency, last-used currency, currentBranchId)
+│           └── branchFilter.ts    # resolveBranchFilter(user) / useEffectiveBranchFilter() / applyBranchFilter(query)
 │
 └── supabase/
     └── functions/create-user/index.ts   # Deno edge function: atomically creates auth.users + public.users
@@ -305,6 +313,8 @@ interface AuthUser {
   active;
   tenantId;
   tenant;
+  branchId; // null = tenant-wide admin (sees all branches and unassigned records)
+  branch?; // joined Branch row when branchId is not null
 }
 interface AppUser {
   id;
@@ -314,7 +324,16 @@ interface AppUser {
   role;
   active;
   tenantId;
+  branchId; // null = tenant-wide admin
   createdAt;
+}
+interface Branch {
+  id;
+  tenantId;
+  name;
+  active; // soft-delete flag; preserves history
+  createdAt;
+  updatedAt;
 }
 interface Tenant {
   id;
@@ -352,6 +371,7 @@ interface Plan {
   isCustomPrice;
   durationMonths; // 1–12; how many consecutive months the plan covers
   currencyId; // currency the stored price is in; null = USD
+  branchId; // null = SHARED catalog item (visible to every branch)
   tenantId;
   createdAt;
 }
@@ -365,6 +385,7 @@ interface Customer {
   active;
   isRegular; // true = subscription customer (affects grid colors, unpaid counts); false = occasional
   planId;
+  branchId; // null = UNASSIGNED (visible only to tenant-wide admins)
   tenantId;
   startDate;
   cancelledAt;
@@ -421,19 +442,22 @@ interface DashboardMetrics {
 | `tenants`    | `id`, `name`, `tenant_code`, `active`                                                                                                                                                                                                                   |
 | `saas_tiers` | `id`, `name`, `max_users`, `max_customers`, `price`, `grace_days`, `tenant_id`                                                                                                                                                                          |
 | `currencies` | `id`, `tenant_id`, `code`, `name`, `symbol`, `rate_per_usd`, `decimals`, `active`                                                                                                                                                                       |
-| `users`      | `id` (= auth.users.id), `username`, `full_name`, `phone_number`, `role`, `active`, `tenant_id`                                                                                                                                                          |
-| `plans`      | `id`, `name`, `price`, `is_custom_price`, `duration_months`, `currency_id`, `tenant_id`                                                                                                                                                                 |
-| `customers`  | `id`, `name`, `phone_number`, `address`, `area`, `notes`, `active`, `is_regular`, `plan_id`, `tenant_id`, `start_date`, `cancelled_at`                                                                                                                  |
+| `branches`   | `id`, `tenant_id`, `name`, `active`                                                                                                                                                                                                                     |
+| `users`      | `id` (= auth.users.id), `username`, `full_name`, `phone_number`, `role`, `active`, `tenant_id`, `branch_id`                                                                                                                                             |
+| `plans`      | `id`, `name`, `price`, `is_custom_price`, `duration_months`, `currency_id`, `branch_id`, `tenant_id`                                                                                                                                                    |
+| `customers`  | `id`, `name`, `phone_number`, `address`, `area`, `notes`, `active`, `is_regular`, `plan_id`, `branch_id`, `tenant_id`, `start_date`, `cancelled_at`                                                                                                     |
 | `payments`   | `id`, `billing_month` (YYYY-MM-01), `amount_due`, `amount_paid`, `balance` (gen), `duration_months`, `currency_id`, `rate_per_usd_snapshot`, `customer_id`, `plan_id`, `received_by_user_id`, `tenant_id`, `paid_at`, `voided_at`, `voided_by`, `notes` |
 
 **Key constraints:**
 
 - `UNIQUE(username, tenant_id)` on users
-- `UNIQUE(name, tenant_id)` on plans
+- `UNIQUE(tenant_id, branch_id, name)` on plans — same plan name can coexist as "Shared" + branch-specific (NULLs are unequal in PG)
+- `UNIQUE(tenant_id, name)` on branches
 - `UNIQUE(tenant_id, code)` on currencies; `code` is enforced uppercase and not 'USD'
 - `UNIQUE(customer_id, billing_month)` on payments (enforced at DB level and in PaymentService)
 - `plan_id` on customers: `ON DELETE SET NULL`
 - `customer_id` on payments: `ON DELETE CASCADE`
+- `branch_id` on users / customers / plans: `ON DELETE SET NULL` (deleting a branch reverts records to "unassigned" / "shared")
 - `currency_id` on plans and payments: `ON DELETE RESTRICT` (use `active = false` soft-delete on currencies instead)
 
 ---
@@ -444,6 +468,41 @@ interface DashboardMetrics {
 - **App-level filtering** (`tenant_id` from `authStore`) is a secondary belt-and-suspenders guard.
 - `tenant_id` is injected into the JWT by a Supabase auth hook at login. **Never derive it from client input.**
 - Login email convention: `username@tenantcode.com` (synthetic, not a real email address).
+
+---
+
+## Branches (multi-location)
+
+Tenants can optionally create branches/zones. A tenant with zero branches behaves exactly as before — feature is invisible.
+
+**NULL semantics differ per table:**
+
+| Table         | `branch_id IS NULL` means                                                |
+| ------------- | ------------------------------------------------------------------------ |
+| `users`       | Tenant-wide admin (sees all branches and unassigned records).            |
+| `customers`   | UNASSIGNED — visible only to tenant-wide admins.                          |
+| `plans`       | SHARED catalog item — visible to every branch.                            |
+| `payments`    | (no `branch_id` column — inherits from customer via FK + JOIN)            |
+
+**RLS layered on tenant_id:**
+
+- `public.current_branch_id()` reads `users.branch_id` for the calling user (SECURITY DEFINER).
+- Policies admit a row when `tenant_id` matches AND either the caller is tenant-wide (`current_branch_id() IS NULL`) or the row's branch matches. Plans additionally admit `branch_id IS NULL` (shared) for everyone.
+- Payments inherit via `EXISTS (SELECT 1 FROM customers c WHERE c.id = payments.customer_id AND c.branch_id = current_branch_id())`.
+- Branch switching for tenant-wide admins is purely UI state in `uiPrefStore.currentBranchId` — no JWT change.
+
+**UI:**
+
+- [BranchSelector](SubsTrack/src/shared/components/BranchSelector.tsx) is a chip rendered below `PageHeader` on Customers/Dashboard/Plans/Users. It self-conceals: only renders for tenant-wide admins (`user.branchId === null`) when ≥1 active branch exists.
+- Options: All Branches (`null`) / each active branch / Unassigned (`BRANCH_FILTER_UNASSIGNED`).
+- `useEffectiveBranchFilter()` / `resolveBranchFilter(user)` in [branchFilter.ts](SubsTrack/src/shared/lib/branchFilter.ts) returns the active filter: branch-scoped users always get their own `branchId`; tenant-wide admins get `uiPrefStore.currentBranchId`.
+- `applyBranchFilter(query, filter, column?)` mutates a supabase query builder: `null` → no-op, `BRANCH_FILTER_UNASSIGNED` → `.is(column, null)`, UUID → `.eq(column, uuid)`.
+
+**Form behavior:**
+
+- CustomerFormSheet: Branch picker only shown to tenant-wide admins. Branch-scoped users auto-assign their own branch. The plan dropdown filters to `branch_id IS NULL OR branch_id = selected_branch`.
+- PlanFormSheet: Branch picker only for tenant-wide admins; nullable (= Shared). Branch-scoped admins always create branch-scoped plans (their own).
+- UserFormSheet: Branch picker for tenant-wide admin. Once ≥1 branch exists, role=`user` requires a branch (enforced in `UserService.validate`). The `create-user` edge function additionally validates and forces branch_id for branch-scoped callers.
 
 ---
 
@@ -693,6 +752,14 @@ Located at `SubsTrack/supabase/functions/create-user/index.ts` (Deno runtime).
 24. **`currencies.code` is uppercase A-Z, 2-8 chars, and never 'USD'** — enforced by a CHECK constraint and validated again in `CurrencyService.validate()`.
 
 25. **Quick Pay `?quickPay=1` handshake** — the customer list dispatches Scenario C (no plan / custom-price) Quick Pay taps by navigating to `customers/[id]?quickPay=1`. `CustomerPaymentPanel` reads the param, waits for `monthGrid` to load, then auto-selects the current-month entry and opens `PaymentFormSheet`. A `useRef` guard ensures it fires once per mount; `router.setParams({ quickPay: undefined })` clears the param so refresh/back navigation doesn't re-trigger. Scenarios A (single-month fixed) and D (multi-month) bypass this and call `paymentStore.createPayment` / `createMultiMonthPayment` directly from the list — D shows a `ConfirmDialog` first to explicitly disclose the bundle range.
+
+26. **`branch_id NULL` means different things on different tables** — on `users` it's a tenant-wide admin; on `customers` it's UNASSIGNED (hidden from branch-scoped users); on `plans` it's SHARED (visible to everyone). Always check the table when reasoning about a `branch_id IS NULL` row.
+
+27. **Tenant-wide admin = `users.branch_id IS NULL`** — there is no separate role for them. Any admin without a branch is effectively a "super admin" for the tenant. Multiple are allowed. The existing SaaS-level `superadmin` role (separate SuperAdmin app) is unrelated.
+
+28. **Branch filter is purely UI state** — `uiPrefStore.currentBranchId` (persisted to AsyncStorage). RLS lets tenant-wide admins see everything; the app passes `?branch=X` filters per-query to narrow the view. Branch-scoped users ignore `currentBranchId` and always see only their branch (their `users.branch_id` is the only possible filter, enforced by RLS).
+
+29. **`BranchSelector` self-conceals** — it returns `null` for branch-scoped users and for tenants with no active branches. Screens render `<BranchSelector />` unconditionally below their `PageHeader`; the component decides whether to appear.
 
 ---
 

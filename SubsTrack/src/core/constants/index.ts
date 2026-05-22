@@ -9,3 +9,9 @@ export const MONTHS = [
 export type MonthKey = (typeof MONTHS)[number];
 
 export const EXPOSED_ROLES: ('admin' | 'user')[] = ['admin', 'user'];
+
+// Sentinel used in BranchSelector / uiPrefStore to represent the
+// "show only unassigned records" filter. Distinct from null (= All Branches).
+// Visible only to tenant-wide admins.
+export const BRANCH_FILTER_UNASSIGNED = 'unassigned' as const;
+export type BranchFilter = string | null | typeof BRANCH_FILTER_UNASSIGNED;

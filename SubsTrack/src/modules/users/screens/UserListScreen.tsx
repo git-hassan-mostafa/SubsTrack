@@ -19,21 +19,26 @@ import { UserFormSheet } from "../components/UserFormSheet";
 import { useUserStore } from "../store/userStore";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
 import { PageHeader } from "@/src/shared/components/PageHeader";
+import { BranchSelector } from "@/src/shared/components/BranchSelector";
+import { useEffectiveBranchFilter } from "@/src/shared/lib/branchFilter";
 
 export function UserListScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const { user: currentUser } = useAuth();
-  const { users, loading, error, getUsers, fetchUsers, clearError, deactivateUser, activateUser } =
+  const { users, loading, error, fetchUsers, clearError, deactivateUser, activateUser } =
     useUserStore();
   const [formVisible, setFormVisible] = useState(false);
   const [editingUser, setEditingUser] = useState<AppUser | null>(null);
   const [searchText, setSearchText] = useState("");
   const debouncedSearch = useDebounce(searchText);
+  const branchFilter = useEffectiveBranchFilter();
 
+  // Loads on mount AND re-fetches when the user switches the branch chip.
   useEffect(() => {
-    getUsers();
-  }, []);
+    fetchUsers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [branchFilter]);
 
   function openCreate() {
     setEditingUser(null);
@@ -80,6 +85,7 @@ export function UserListScreen() {
         actionLabel={t("common.add")}
         onAction={openCreate}
       />
+      <BranchSelector />
       {/* Inline search */}
       <View className="px-4 pt-4">
         <SearchTextBox searchText={searchText} setSearchText={setSearchText} />

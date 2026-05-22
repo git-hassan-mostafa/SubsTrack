@@ -15,13 +15,15 @@ import { useAuth } from "@/src/modules/auth/hooks/useAuth";
 import { useDashboardStore } from "../store/dashboardStore";
 import { useCurrencyStore } from "@/src/modules/currencies/store/currencyStore";
 import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
+import { BranchSelector } from "@/src/shared/components/BranchSelector";
+import { useEffectiveBranchFilter } from "@/src/shared/lib/branchFilter";
 import { COLORS } from "@/src/shared/constants";
 import { MONTHS } from "@/src/core/constants";
 
 export function DashboardScreen() {
   const { t, i18n } = useTranslation();
   const { user } = useAuth();
-  const { metrics, loading, error, getMetrics, fetchMetrics, clearError } =
+  const { metrics, loading, error, fetchMetrics, clearError } =
     useDashboardStore();
   const { currencies } = useCurrencyStore();
   const { displayCurrencyId } = useUiPrefStore();
@@ -29,9 +31,13 @@ export function DashboardScreen() {
   const displayCurrency = findCurrency(currencies, displayCurrencyId);
   const fmt = (usd: number) => formatMoney(usd, null, displayCurrency, getDateLocale(i18n.language));
 
+  const branchFilter = useEffectiveBranchFilter();
+
+  // Loads on mount AND re-fetches when the user switches the branch chip.
   useEffect(() => {
-    getMetrics();
-  }, []);
+    fetchMetrics();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [branchFilter]);
 
   const now = new Date();
   const locale = getDateLocale(i18n.language);
@@ -55,6 +61,7 @@ export function DashboardScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
+      <BranchSelector />
       <ScrollView
         className="flex-1"
         refreshControl={

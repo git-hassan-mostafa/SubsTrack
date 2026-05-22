@@ -1,6 +1,8 @@
 import { create } from "zustand";
 import type { Customer } from "@/src/core/types";
 import { CustomerService } from "../services/CustomerService";
+import { resolveBranchFilter } from "@/src/shared/lib/branchFilter";
+import { useAuthStore } from "@/src/modules/auth/store/authStore";
 
 const customerService = new CustomerService();
 
@@ -21,9 +23,10 @@ export const useCustomerStore = create<CustomersState>((set, get) => ({
   fetchCustomers: async () => {
     const token = get().searchToken;
     const query = get().searchQuery;
+    const branchFilter = resolveBranchFilter(useAuthStore.getState().user);
     set({ loading: true, error: null, page: 0 });
     try {
-      const { customers, hasMore, totalCount } = await customerService.getCustomers(0, query);
+      const { customers, hasMore, totalCount } = await customerService.getCustomers(0, query, branchFilter);
       if (get().searchToken !== token) return;
       set({ customers, hasMore, totalCount, page: 0, loading: false });
     } catch (e) {
@@ -36,12 +39,14 @@ export const useCustomerStore = create<CustomersState>((set, get) => ({
     const { loadingMore, hasMore, page, searchToken, searchQuery } = get();
     if (loadingMore || !hasMore) return;
     const token = searchToken;
+    const branchFilter = resolveBranchFilter(useAuthStore.getState().user);
     set({ loadingMore: true });
     try {
       const nextPage = page + 1;
       const { customers, hasMore: more } = await customerService.getCustomers(
         nextPage,
         searchQuery,
+        branchFilter,
       );
       if (get().searchToken !== token) {
         set({ loadingMore: false });
@@ -172,6 +177,7 @@ interface CustomerInput {
   area: string | null;
   notes: string | null;
   planId: string | null;
+  branchId: string | null;
   startDate: string;
   isRegular: boolean;
 }
