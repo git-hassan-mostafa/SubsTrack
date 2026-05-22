@@ -247,7 +247,7 @@
     "tenant_code_hint": "أحرف إنجليزية وأرقام فقط، بدون مسافات"
   },
   "tenant_settings": {
-    "title": "إعدادات المستأجر",
+    "title": "إعدادات المساحة",
     "subtitle": "تهيئة مساحة عملك",
     "menu_sub": "العملات · التفضيلات",
     "display_section_title": "العرض",
