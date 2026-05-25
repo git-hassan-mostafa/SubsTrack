@@ -52,6 +52,10 @@ export class BranchService {
   // Soft-delete if the branch is referenced; hard-delete otherwise.
   // Returns the mode so the UI can communicate the outcome.
   async deleteBranch(id: string): Promise<'hard' | 'soft'> {
+    const activeCount = await this.repository.countActive();
+    if (activeCount <= 1) {
+      throw new Error('Cannot delete the only active branch. Add another branch first.');
+    }
     const refs = await this.repository.countReferences(id);
     if (refs > 0) {
       await this.repository.update(id, { active: false });

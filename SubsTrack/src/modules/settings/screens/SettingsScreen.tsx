@@ -14,6 +14,7 @@ import {
 } from "@/src/core/i18n/languageStore";
 import { useAuth } from "@/src/modules/auth/hooks/useAuth";
 import { useAuthStore } from "@/src/modules/auth/store/authStore";
+import { useBranchStore } from "@/src/modules/branches/store/branchStore";
 import { resetAllDomainStores } from "@/src/shared/lib/storeReset";
 import { AVATAR_COLORS } from "../../../shared/constants";
 
@@ -198,6 +199,16 @@ export function SettingsScreen() {
               icon="grid-outline"
               label={t("settings.workspace")}
               value={user?.tenant.name}
+            />
+            <SettingsRow
+              icon="git-branch-outline"
+              label={t("settings.branch")}
+              value={
+                user?.branchId
+                  ? (user.branch?.name ?? "")
+                  : t("branches.tenant_wide_admin")
+              }
+              last
             />
           </View>
         </View>

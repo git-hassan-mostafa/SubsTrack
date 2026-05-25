@@ -43,6 +43,15 @@ export class BranchRepository extends BaseRepository {
     if (error) this.handleError(error);
   }
 
+  async countActive(): Promise<number> {
+    const { count, error } = await this.db
+      .from('branches')
+      .select('id', { count: 'exact', head: true })
+      .eq('active', true);
+    if (error) this.handleError(error);
+    return count ?? 0;
+  }
+
   // Total references across users + customers + plans for this branch.
   // Used by BranchService to choose hard-delete vs soft-delete.
   async countReferences(id: string): Promise<number> {

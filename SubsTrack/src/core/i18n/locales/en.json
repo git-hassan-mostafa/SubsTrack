@@ -316,6 +316,7 @@
     "english": "English",
     "arabic": "Arabic",
     "restart_notice": "The app will restart to apply the new language.",
+    "branch": "Branch",
     "logout": "Log Out",
     "logout_confirm": "Are you sure you want to log out?"
   },
