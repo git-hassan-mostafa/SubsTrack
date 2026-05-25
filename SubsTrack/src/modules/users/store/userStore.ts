@@ -88,6 +88,28 @@ export const useUserStore = create<UsersState>((set, get) => ({
     }
   },
 
+  deleteUser: async (id, callerId, callerRole, targetRole) => {
+    set({ loading: true, error: null });
+    try {
+      const result = await userService.deleteUser(id, callerId, callerRole, targetRole);
+      if (result.mode === 'hard') {
+        set((state) => ({
+          users: state.users.filter((u) => u.id !== id),
+          loading: false,
+        }));
+      } else {
+        set((state) => ({
+          users: state.users.map((u) => (u.id === id ? result.user : u)),
+          loading: false,
+        }));
+      }
+      return result.mode;
+    } catch (e) {
+      set({ error: (e as Error).message, loading: false });
+      return null;
+    }
+  },
+
   clearError: () => set({ error: null }),
   reset: () => set({ users: [], loading: false, error: null }),
 }));
@@ -118,6 +140,7 @@ interface UsersState {
   ) => Promise<void>;
   deactivateUser: (id: string, callerId: string, callerRole: UserRole, targetRole: UserRole) => Promise<void>;
   activateUser: (id: string, callerId: string, callerRole: UserRole, targetRole: UserRole) => Promise<void>;
+  deleteUser: (id: string, callerId: string, callerRole: UserRole, targetRole: UserRole) => Promise<'hard' | 'soft' | null>;
   clearError: () => void;
   reset: () => void;
 }

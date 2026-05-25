@@ -6,6 +6,7 @@ import { Button } from "@/src/shared/components/Button";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { Input } from "@/src/shared/components/Input";
 import { BranchPicker } from "@/src/shared/components/BranchPicker";
+import { ConfirmDialog } from "@/src/shared/components/ConfirmDialog";
 import type { AppUser } from "@/src/core/types";
 import { useAuth } from "@/src/modules/auth/hooks/useAuth";
 import { useUserStore } from "../store/userStore";
@@ -34,6 +35,7 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
     updateUser,
     deactivateUser,
     activateUser,
+    deleteUser,
     loading,
     error,
     clearError,
@@ -54,6 +56,8 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
     return null;
   })();
 
+  const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
+
   const [form, setForm] = useState<FormState>({
     username: editUser?.username ?? "",
     fullName: editUser?.fullName ?? "",
@@ -71,6 +75,20 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
     !!currentUser &&
     ((currentUser.role === "superadmin" && !isOwnAccount) ||
       (currentUser.role === "admin" && editUser.role === "user"));
+
+  const canDelete = canToggleActive;
+
+  async function handleDelete() {
+    if (!editUser || !currentUser) return;
+    const result = await deleteUser(
+      editUser.id,
+      currentUser.id,
+      currentUser.role,
+      editUser.role,
+    );
+    setDeleteConfirmVisible(false);
+    if (result !== null) onDismiss();
+  }
 
   const usernameInvalid =
     form.username.length > 0 && !/^[a-zA-Z0-9._]+$/.test(form.username);
@@ -284,7 +302,7 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
                 }
                 if (!useUserStore.getState().error) onDismiss();
               }}
-              className={`mt-3 rounded-xl py-3.5 items-center mb-6 border ${
+              className={`mt-3 rounded-xl py-3.5 items-center mb-3 border ${
                 editUser.active
                   ? "bg-red-50 border-red-200"
                   : "bg-green-50 border-green-200"
@@ -300,9 +318,30 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
               </Text>
             </Pressable>
           ) : null}
+
+          {canDelete && editUser ? (
+            <Pressable
+              onPress={() => setDeleteConfirmVisible(true)}
+              className="rounded-xl py-3.5 items-center mb-6 border bg-red-50 border-red-200"
+            >
+              <Text fontWeight="SemiBold" className="text-base text-red-600">
+                {t("users.delete_label")}
+              </Text>
+            </Pressable>
+          ) : null}
+
           <View className="h-10" />
         </ScrollView>
       </View>
+
+      <ConfirmDialog
+        visible={deleteConfirmVisible}
+        title={t("users.delete_title")}
+        message={t("users.delete_message", { name: editUser?.fullName ?? "" })}
+        destructive
+        onConfirm={handleDelete}
+        onCancel={() => setDeleteConfirmVisible(false)}
+      />
     </Modal>
   );
 }

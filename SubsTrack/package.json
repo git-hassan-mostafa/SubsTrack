@@ -9,7 +9,8 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "expo lint",
-    "deploy-create-user-edge-function":"supabase functions deploy create-user"
+    "deploy-create-user-edge-function":"supabase functions deploy create-user",
+    "deploy-delete-user-edge-function":"supabase functions deploy delete-user"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",

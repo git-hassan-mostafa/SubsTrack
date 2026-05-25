@@ -152,7 +152,10 @@
     "fullname_label": "Full Name",
     "fullname_placeholder": "e.g. John Smith",
     "phone_optional": "Phone (optional)",
-    "role_label": "Role"
+    "role_label": "Role",
+    "delete_label": "Delete Staff Member",
+    "delete_title": "Delete Staff Member",
+    "delete_message": "Delete {{name}}? If they have no recorded payments they will be permanently removed, otherwise they will be deactivated."
   },
   "payments": {
     "this_month":"This Month",

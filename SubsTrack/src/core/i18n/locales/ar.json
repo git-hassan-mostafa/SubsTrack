@@ -153,6 +153,9 @@
     "fullname_placeholder": "مثل: محمد أحمد",
     "phone_optional": "الهاتف (اختياري)",
     "role_label": "الدور",
+    "delete_label": "حذف الموظف",
+    "delete_title": "حذف الموظف",
+    "delete_message": "هل تريد حذف {{name}}؟ إذا لم يسجّل أي دفعات سيتم حذفه نهائياً، وإلا سيتم تعطيله.",
     "create_first_staff": "+ أضف أول موظف"
   },
   "payments": {

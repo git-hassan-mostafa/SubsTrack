@@ -117,6 +117,30 @@ export class UserService {
     }
   }
 
+  async deleteUser(
+    id: string,
+    callerId: string,
+    callerRole: UserRole,
+    targetRole: UserRole,
+  ): Promise<{ mode: 'hard' } | { mode: 'soft'; user: AppUser }> {
+    this.checkToggleActivePermission(id, callerId, callerRole, targetRole);
+    const paymentCount = await this.repository.countPayments(id);
+    if (paymentCount === 0) {
+      try {
+        await this.repository.delete(id);
+      } catch (err) {
+        this.rethrow(err);
+      }
+      return { mode: 'hard' };
+    }
+    try {
+      const row = await this.repository.setActive(id, false);
+      return { mode: 'soft', user: mapDbUserToAppUser(row) };
+    } catch (err) {
+      this.rethrow(err);
+    }
+  }
+
   async deactivateUser(
     id: string,
     callerId: string,

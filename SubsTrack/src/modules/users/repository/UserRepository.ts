@@ -58,6 +58,22 @@ export class UserRepository extends BaseRepository {
     return data as DbUser;
   }
 
+  async countPayments(id: string): Promise<number> {
+    const { count, error } = await this.db
+      .from('payments')
+      .select('id', { count: 'exact', head: true })
+      .eq('received_by_user_id', id);
+    if (error) this.handleError(error);
+    return count ?? 0;
+  }
+
+  async delete(id: string): Promise<void> {
+    const { error } = await this.db.functions.invoke('delete-user', {
+      body: { userId: id },
+    });
+    if (error) this.handleError(error);
+  }
+
   async countAll(branchFilter: BranchFilter = null): Promise<number> {
     let query = this.db
       .from("users")
