@@ -1,6 +1,7 @@
 import type { Plan } from '@/src/core/types';
 import type { BranchFilter } from '@/src/core/constants';
 import type { DbPlan } from '@/src/core/types/db';
+import i18n from '@/src/core/i18n';
 import { PlanRepository } from '../repository/PlanRepository';
 
 function mapDbPlanToPlan(db: DbPlan): Plan {
@@ -67,28 +68,28 @@ export class PlanService {
   }
 
   private validate(data: PlanInput): void {
-    if (!data.name.trim()) throw new Error('Plan name is required');
+    if (!data.name.trim()) throw new Error(i18n.t('errors.plan_name_required'));
     if (data.durationMonths < 1 || !Number.isInteger(data.durationMonths)) {
-      throw new Error('Duration must be a whole number of at least 1');
+      throw new Error(i18n.t('errors.plan_duration_invalid'));
     }
     if (data.durationMonths > 1 && data.isCustomPrice) {
-      throw new Error('Multi-month plans cannot use custom pricing');
+      throw new Error(i18n.t('errors.multimonth_no_custom_price'));
     }
     if (!data.isCustomPrice) {
-      if (data.price === null || data.price === undefined) throw new Error('Fixed plans require a price');
-      if (typeof data.price !== 'number' || Number.isNaN(data.price)) throw new Error('Fixed plans require a price');
-      if (data.price <= 0) throw new Error('Price must be greater than 0');
+      if (data.price === null || data.price === undefined) throw new Error(i18n.t('errors.plan_fixed_needs_price'));
+      if (typeof data.price !== 'number' || Number.isNaN(data.price)) throw new Error(i18n.t('errors.plan_fixed_needs_price'));
+      if (data.price <= 0) throw new Error(i18n.t('errors.plan_price_positive'));
     }
     if (!data.branchId) {
-      throw new Error('Plan must be assigned to a branch');
+      throw new Error(i18n.t('errors.plan_needs_branch'));
     }
   }
 
   private rethrow(err: unknown): never {
     const msg = err instanceof Error ? err.message : '';
     if (msg.includes('uq_plans_name_tenant') || msg.includes('uq_plans_name_tenant_branch') || msg.includes('duplicate')) {
-      throw new Error('A plan with this name already exists');
+      throw new Error(i18n.t('errors.plan_name_exists'));
     }
-    throw err instanceof Error ? err : new Error('Connection error. Please try again.');
+    throw err instanceof Error ? err : new Error(i18n.t('errors.connection_error'));
   }
 }

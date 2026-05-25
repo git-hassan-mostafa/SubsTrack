@@ -1,6 +1,7 @@
 import type { AppUser, UserRole } from '@/src/core/types';
 import type { BranchFilter } from '@/src/core/constants';
 import type { DbUser } from '@/src/core/types/db';
+import i18n from '@/src/core/i18n';
 import { UserRepository } from '../repository/UserRepository';
 
 function mapDbUserToAppUser(db: DbUser): AppUser {
@@ -43,9 +44,9 @@ export class UserService {
   }
 
   private validateUsername(username: string): void {
-    if (!username.trim()) throw new Error('Username is required');
+    if (!username.trim()) throw new Error(i18n.t('errors.username_required'));
     if (!/^[a-zA-Z0-9._]+$/.test(username.trim())) {
-      throw new Error('Username can only contain letters, numbers, dots, and underscores');
+      throw new Error(i18n.t('errors.username_invalid_chars'));
     }
   }
 
@@ -55,9 +56,9 @@ export class UserService {
     tenantHasBranches: boolean,
   ): Promise<AppUser> {
     this.validateUsername(data.username);
-    if (!data.fullName.trim()) throw new Error('Full name is required');
-    if (data.password.length < 8) throw new Error('Password must be at least 8 characters');
-    if (!['admin', 'user'].includes(data.role)) throw new Error('Invalid role');
+    if (!data.fullName.trim()) throw new Error(i18n.t('errors.fullname_required'));
+    if (data.password.length < 8) throw new Error(i18n.t('errors.password_too_short'));
+    if (!['admin', 'user'].includes(data.role)) throw new Error(i18n.t('errors.role_invalid'));
     this.validateBranchAssignment(data.role, data.branchId, tenantHasBranches);
 
     try {
@@ -84,9 +85,9 @@ export class UserService {
     tenantHasBranches: boolean,
   ): Promise<AppUser> {
     this.validateUsername(data.username);
-    if (!data.fullName.trim()) throw new Error('Full name is required');
+    if (!data.fullName.trim()) throw new Error(i18n.t('errors.fullname_required'));
     if (id === currentUserId && data.role !== currentUserRole) {
-      throw new Error('Cannot change your own role');
+      throw new Error(i18n.t('errors.cannot_change_own_role'));
     }
     this.validateBranchAssignment(data.role, data.branchId, tenantHasBranches);
     try {
@@ -112,7 +113,7 @@ export class UserService {
   ): void {
     if (!tenantHasBranches) return;
     if (role === 'user' && !branchId) {
-      throw new Error('Staff users must be assigned to a branch');
+      throw new Error(i18n.t('errors.staff_needs_branch'));
     }
   }
 
@@ -153,21 +154,21 @@ export class UserService {
     targetRole: UserRole,
   ): void {
     if (callerRole === 'user') {
-      throw new Error('Forbidden');
+      throw new Error(i18n.t('errors.forbidden'));
     }
     if (callerRole === 'admin' && targetRole !== 'user') {
-      throw new Error('Admins can only activate or deactivate staff users');
+      throw new Error(i18n.t('errors.admin_can_only_toggle_staff'));
     }
     if (callerRole === 'superadmin' && targetId === callerId) {
-      throw new Error('Cannot deactivate your own account');
+      throw new Error(i18n.t('errors.cannot_deactivate_self'));
     }
   }
 
   private rethrow(err: unknown): never {
     const msg = err instanceof Error ? err.message : '';
     if (msg.includes('uq_users_username_tenant') || msg.includes('duplicate')) {
-      throw new Error('A user with this username already exists');
+      throw new Error(i18n.t('errors.username_exists'));
     }
-    throw err instanceof Error ? err : new Error('Connection error. Please try again.');
+    throw err instanceof Error ? err : new Error(i18n.t('errors.connection_error'));
   }
 }

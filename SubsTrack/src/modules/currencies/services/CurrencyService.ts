@@ -1,5 +1,6 @@
 import type { Currency } from '@/src/core/types';
 import type { DbCurrency } from '@/src/core/types/db';
+import i18n from '@/src/core/i18n';
 import { CurrencyRepository } from '../repository/CurrencyRepository';
 
 function mapDbCurrencyToCurrency(db: DbCurrency): Currency {
@@ -88,19 +89,19 @@ export class CurrencyService {
   private validate(data: CurrencyInput): CurrencyInput {
     const code = (data.code ?? '').trim().toUpperCase();
     if (!/^[A-Z]{2,8}$/.test(code)) {
-      throw new Error('Currency code must be 2-8 uppercase letters');
+      throw new Error(i18n.t('errors.currency_code_invalid'));
     }
     if (code === 'USD') {
-      throw new Error('USD is the base currency and cannot be added');
+      throw new Error(i18n.t('errors.currency_usd_reserved'));
     }
     const name = (data.name ?? '').trim();
-    if (!name) throw new Error('Currency name is required');
+    if (!name) throw new Error(i18n.t('errors.currency_name_required'));
     const symbol = data.symbol?.trim() || null;
     if (typeof data.ratePerUsd !== 'number' || !Number.isFinite(data.ratePerUsd) || data.ratePerUsd <= 0) {
-      throw new Error('Rate per USD must be a positive number');
+      throw new Error(i18n.t('errors.currency_rate_invalid'));
     }
     if (!Number.isInteger(data.decimals) || data.decimals < 0 || data.decimals > 6) {
-      throw new Error('Decimals must be a whole number between 0 and 6');
+      throw new Error(i18n.t('errors.currency_decimals_invalid'));
     }
     return { code, name, symbol, ratePerUsd: data.ratePerUsd, decimals: data.decimals };
   }
@@ -108,8 +109,8 @@ export class CurrencyService {
   private rethrow(err: unknown): never {
     const msg = err instanceof Error ? err.message : '';
     if (msg.includes('uq_currencies_code_tenant') || msg.includes('duplicate')) {
-      throw new Error('A currency with this code already exists');
+      throw new Error(i18n.t('errors.currency_code_exists'));
     }
-    throw err instanceof Error ? err : new Error('Connection error. Please try again.');
+    throw err instanceof Error ? err : new Error(i18n.t('errors.connection_error'));
   }
 }

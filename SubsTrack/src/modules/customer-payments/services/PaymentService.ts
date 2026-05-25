@@ -13,6 +13,7 @@ import {
   isBeforeStartDate,
   toBillingMonth,
 } from "@/src/core/utils/date";
+import i18n from "@/src/core/i18n";
 import { PaymentRepository } from "../repository/PaymentRepository";
 
 function mapDbPaymentToPayment(db: DbPayment): Payment {
@@ -61,16 +62,16 @@ export class PaymentService {
   }
 
   async createPayment(data: CreatePaymentInput): Promise<Payment> {
-    if (data.amountDue <= 0) throw new Error("Amount due must be greater than 0");
-    if (data.amountPaid < 0) throw new Error("Amount paid cannot be negative");
+    if (data.amountDue <= 0) throw new Error(i18n.t("errors.amount_due_positive"));
+    if (data.amountPaid < 0) throw new Error(i18n.t("errors.amount_paid_negative"));
     if (data.amountPaid > data.amountDue) {
-      throw new Error("Amount paid cannot exceed amount due");
+      throw new Error(i18n.t("errors.amount_paid_exceeds_due"));
     }
     if (!data.billingMonth.endsWith("-01")) {
-      throw new Error("Billing month must be the first day of the month");
+      throw new Error(i18n.t("errors.billing_month_format"));
     }
     if (!(data.ratePerUsdSnapshot > 0)) {
-      throw new Error("Exchange rate snapshot must be positive");
+      throw new Error(i18n.t("errors.rate_snapshot_positive"));
     }
 
     const row = await this.repository.create({
@@ -106,16 +107,16 @@ export class PaymentService {
     ratePerUsdSnapshot: number,
   ): Promise<CreateMultiMonthPaymentResult> {
     if (!startMonth.endsWith("-01")) {
-      throw new Error("Billing month must be the first day of the month");
+      throw new Error(i18n.t("errors.billing_month_format"));
     }
     if (!plan.price || plan.price <= 0) {
-      throw new Error("Plan must have a fixed price to record a multi-month payment");
+      throw new Error(i18n.t("errors.plan_fixed_for_multimonth"));
     }
     if (amountPaid > plan.price) {
-      throw new Error("Amount paid cannot exceed amount due");
+      throw new Error(i18n.t("errors.amount_paid_exceeds_due"));
     }
     if (!(ratePerUsdSnapshot > 0)) {
-      throw new Error("Exchange rate snapshot must be positive");
+      throw new Error(i18n.t("errors.rate_snapshot_positive"));
     }
 
     const coveredByExisting = buildCoverageSet(existingPayments);
@@ -137,7 +138,7 @@ export class PaymentService {
 
     if (!skipConflicts && skippedMonths.length > 0) {
       throw new Error(
-        `The following months are already paid: ${skippedMonths.map((m) => m.label).join(", ")}`,
+        i18n.t("errors.months_already_paid", { months: skippedMonths.map((m) => m.label).join(", ") }),
       );
     }
 
@@ -160,7 +161,7 @@ export class PaymentService {
       }
       // If all months are covered, nothing to create.
       if (effectiveDuration <= 0) {
-        throw new Error("All months in this block are already paid");
+        throw new Error(i18n.t("errors.all_months_paid"));
       }
     }
 
@@ -191,14 +192,14 @@ export class PaymentService {
     amountPaid: number,
     currency: Currency | null,
   ): Promise<Payment> {
-    if (amountDue <= 0) throw new Error("Amount due must be greater than 0");
-    if (amountPaid < 0) throw new Error("Amount paid cannot be negative");
+    if (amountDue <= 0) throw new Error(i18n.t("errors.amount_due_positive"));
+    if (amountPaid < 0) throw new Error(i18n.t("errors.amount_paid_negative"));
     if (amountPaid > amountDue) {
-      throw new Error("Amount paid cannot exceed amount due");
+      throw new Error(i18n.t("errors.amount_paid_exceeds_due"));
     }
     const ratePerUsdSnapshot = currency?.ratePerUsd ?? 1;
     if (!(ratePerUsdSnapshot > 0)) {
-      throw new Error("Exchange rate snapshot must be positive");
+      throw new Error(i18n.t("errors.rate_snapshot_positive"));
     }
     const row = await this.repository.updatePayment(id, {
       amountDue,
@@ -215,7 +216,7 @@ export class PaymentService {
     notes: string,
   ): Promise<Payment> {
     if (!notes.trim())
-      throw new Error("A reason is required to void a payment");
+      throw new Error(i18n.t("errors.void_reason_required"));
     const row = await this.repository.voidPayment(id, voidedBy, notes.trim());
     return mapDbPaymentToPayment(row);
   }

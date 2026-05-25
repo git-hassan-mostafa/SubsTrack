@@ -1,5 +1,6 @@
 import type { AuthUser, Tenant } from "@/src/core/types";
 import type { DbTenant, DbUser } from "@/src/core/types/db";
+import i18n from "@/src/core/i18n";
 import { AuthRepository } from "../repository/AuthRepository";
 import { mapDbBranchToBranch } from "@/src/modules/branches/services/BranchService";
 
@@ -40,9 +41,9 @@ export class AuthService {
     tenantCode: string,
     password: string,
   ): Promise<AuthResult> {
-    if (!username.trim()) throw new Error("Username is required");
-    if (!tenantCode.trim()) throw new Error("Tenant code is required");
-    if (!password) throw new Error("Password is required");
+    if (!username.trim()) throw new Error(i18n.t("errors.username_required"));
+    if (!tenantCode.trim()) throw new Error(i18n.t("errors.tenant_code_required"));
+    if (!password) throw new Error(i18n.t("errors.password_required"));
 
     const email = `${username.trim().toLowerCase()}@${tenantCode.trim().toLowerCase()}.com`;
 
@@ -56,9 +57,9 @@ export class AuthService {
         msg.toLowerCase().includes("invalid") ||
         msg.toLowerCase().includes("credentials")
       ) {
-        throw new Error("Invalid username or password");
+        throw new Error(i18n.t("errors.invalid_credentials"));
       }
-      throw new Error("Connection error. Please try again.");
+      throw new Error(i18n.t("errors.connection_error"));
     }
 
     const profile = await this.repository.getUserProfile(session.user.id);
@@ -68,7 +69,7 @@ export class AuthService {
     }
     if (!profile.active) {
       await this.repository.signOut().catch(() => { });
-      throw new Error("Your account has been deactivated. Contact your administrator.");
+      throw new Error(i18n.t("errors.account_deactivated"));
     }
     const tenant = await this.repository.getTenant(profile.tenant_id);
     if (!tenant) {

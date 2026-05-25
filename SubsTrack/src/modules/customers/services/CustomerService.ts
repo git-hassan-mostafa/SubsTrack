@@ -2,6 +2,7 @@ import type { Customer, Plan } from "@/src/core/types";
 import type { DbCustomer, DbPlan } from "@/src/core/types/db";
 import { PAGE_SIZE, type BranchFilter } from "@/src/core/constants";
 import { isValidDateString } from "@/src/core/utils/date";
+import i18n from "@/src/core/i18n";
 import { CustomerRepository } from "../repository/CustomerRepository";
 
 type DbCustomerWithPlan = DbCustomer & { plans?: DbPlan | null };
@@ -119,12 +120,12 @@ export class CustomerService {
   }
 
   private validateInput(data: CustomerInput): void {
-    if (!data.name.trim()) throw new Error("Customer name is required");
-    if (!data.startDate) throw new Error("Start date is required");
+    if (!data.name.trim()) throw new Error(i18n.t("errors.customer_name_required"));
+    if (!data.startDate) throw new Error(i18n.t("errors.start_date_required"));
     if (!isValidDateString(data.startDate))
-      throw new Error("Start date must be in YYYY-MM-DD format");
+      throw new Error(i18n.t("errors.start_date_format"));
     if (!data.branchId) {
-      throw new Error("Customer must be assigned to a branch");
+      throw new Error(i18n.t("errors.customer_needs_branch"));
     }
   }
 }

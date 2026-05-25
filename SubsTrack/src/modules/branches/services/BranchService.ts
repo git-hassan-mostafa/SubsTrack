@@ -1,5 +1,6 @@
 import type { Branch } from '@/src/core/types';
 import type { DbBranch } from '@/src/core/types/db';
+import i18n from '@/src/core/i18n';
 import { BranchRepository } from '../repository/BranchRepository';
 
 export function mapDbBranchToBranch(db: DbBranch): Branch {
@@ -54,7 +55,7 @@ export class BranchService {
   async deleteBranch(id: string): Promise<'hard' | 'soft'> {
     const activeCount = await this.repository.countActive();
     if (activeCount <= 1) {
-      throw new Error('Cannot delete the only active branch. Add another branch first.');
+      throw new Error(i18n.t('errors.branch_last_active'));
     }
     const refs = await this.repository.countReferences(id);
     if (refs > 0) {
@@ -72,16 +73,16 @@ export class BranchService {
 
   private validate(data: BranchInput): BranchInput {
     const name = (data.name ?? '').trim();
-    if (!name) throw new Error('Branch name is required');
-    if (name.length > 60) throw new Error('Branch name is too long');
+    if (!name) throw new Error(i18n.t('errors.branch_name_required'));
+    if (name.length > 60) throw new Error(i18n.t('errors.branch_name_too_long'));
     return { name };
   }
 
   private rethrow(err: unknown): never {
     const msg = err instanceof Error ? err.message : '';
     if (msg.includes('uq_branches_name_tenant') || msg.includes('duplicate')) {
-      throw new Error('A branch with this name already exists');
+      throw new Error(i18n.t('errors.branch_name_exists'));
     }
-    throw err instanceof Error ? err : new Error('Connection error. Please try again.');
+    throw err instanceof Error ? err : new Error(i18n.t('errors.connection_error'));
   }
 }
