@@ -8,10 +8,13 @@ import { Text } from "@/src/shared/components/Text";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useDashboardStore } from "@/src/modules/dashboard/store/dashboardStore";
 import { useCurrencyStore } from "@/src/modules/currencies/store/currencyStore";
+import { useBranchStore } from "@/src/modules/branches/store/branchStore";
 import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { COLORS } from "@/src/shared/constants";
 import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
+
+type CountKey = 'users' | 'plans' | 'branches' | 'currencies';
 
 type MenuItem = {
   labelKey: string;
@@ -20,6 +23,7 @@ type MenuItem = {
   iconBg: string;
   iconColor: string;
   route: string;
+  countKey?: CountKey;
 };
 
 const MENU_ITEMS: MenuItem[] = [
@@ -38,6 +42,7 @@ const MENU_ITEMS: MenuItem[] = [
     iconBg: COLORS.successLight,
     iconColor: COLORS.success,
     route: "/(app)/(tabs)/admin/users",
+    countKey: "users",
   },
   {
     labelKey: "plans.title",
@@ -46,6 +51,25 @@ const MENU_ITEMS: MenuItem[] = [
     iconBg: COLORS.warningLight,
     iconColor: COLORS.warning,
     route: "/(app)/(tabs)/admin/plans",
+    countKey: "plans",
+  },
+  {
+    labelKey: "branches.section_title",
+    subtitleKey: "admin.branches_sub",
+    icon: "business-outline",
+    iconBg: COLORS.successLight,
+    iconColor: COLORS.success,
+    route: "/(app)/(tabs)/admin/branches",
+    countKey: "branches",
+  },
+  {
+    labelKey: "tenant_settings.currencies_section_title",
+    subtitleKey: "admin.currencies_sub",
+    icon: "cash-outline",
+    iconBg: COLORS.warningLight,
+    iconColor: COLORS.warning,
+    route: "/(app)/(tabs)/admin/currencies",
+    countKey: "currencies",
   },
   {
     labelKey: "tenant_settings.title",
@@ -61,7 +85,11 @@ export default function AdminMenuScreen() {
   const { t, i18n } = useTranslation();
   const { metrics, loading, fetchMetrics } = useDashboardStore();
   const { currencies } = useCurrencyStore();
+  const { branches } = useBranchStore();
   const { displayCurrencyId } = useUiPrefStore();
+
+  const branchCount = branches.filter((b) => b.active).length;
+  const currencyCount = currencies.filter((c) => c.active).length;
   const displayCurrency = findCurrency(currencies, displayCurrencyId);
   const locale = i18n.language === "ar" ? "ar" : "en-US";
 
@@ -150,12 +178,11 @@ export default function AdminMenuScreen() {
                   </Text>
                   <Text className="text-xs text-gray-400 mt-0.5">
                     {t(item.subtitleKey, {
-                      count:
-                        item.labelKey === "users.title"
-                          ? (metrics?.totalUsers ?? 0)
-                          : item.labelKey === "plans.title"
-                            ? (metrics?.totalPlans ?? 0)
-                            : undefined,
+                      count: item.countKey === 'users' ? (metrics?.totalUsers ?? 0)
+                        : item.countKey === 'plans' ? (metrics?.totalPlans ?? 0)
+                        : item.countKey === 'branches' ? branchCount
+                        : item.countKey === 'currencies' ? currencyCount
+                        : undefined,
                     })}
                   </Text>
                 </View>

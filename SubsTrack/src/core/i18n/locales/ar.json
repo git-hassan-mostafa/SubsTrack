@@ -240,6 +240,8 @@
     "dashboard_sub": "الإيرادات · التحصيل · النشاط",
     "staff_sub": "{{count}} أعضاء",
     "plans_sub": "{{count}} خطط",
+    "branches_sub": "{{count}} فرع",
+    "currencies_sub": "{{count}} عملة",
     "collected": "محصل",
     "tenants_title": "المستأجرون",
     "tenant_code_label": "كود المستأجر",
@@ -249,7 +251,8 @@
   "tenant_settings": {
     "title": "إعدادات المساحة",
     "subtitle": "تهيئة مساحة عملك",
-    "menu_sub": "العملات · التفضيلات",
+    "menu_sub": "تفضيلات العرض",
+    "currencies_count": "{{count}} نشط",
     "display_section_title": "العرض",
     "display_currency_label": "عملة العرض",
     "display_currency_hint": "تُعرض المبالغ بهذه العملة. القيم المخزنة لا تتغير.",
@@ -279,6 +282,7 @@
   },
   "branches": {
     "section_title": "الفروع",
+    "count": "{{count}} نشط",
     "section_hint": "أنشئ فروعاً للأعمال متعددة المواقع. يمكن تخصيص المستخدمين والعملاء لفرع معين.",
     "no_branches": "لا توجد فروع بعد",
     "no_branches_hint": "اضغط على ‫\"+ إضافة\"‬ لإنشاء أول فرع",

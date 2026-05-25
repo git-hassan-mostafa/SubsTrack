@@ -1,0 +1,117 @@
+import { useEffect, useState } from 'react';
+import { ActivityIndicator, FlatList, RefreshControl, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
+import { useRouter } from 'expo-router';
+import { COLORS } from '@/src/shared/constants';
+import { PageHeader } from '@/src/shared/components/PageHeader';
+import { ErrorBanner } from '@/src/shared/components/ErrorBanner';
+import { EmptyState } from '@/src/shared/components/EmptyState';
+import { ConfirmDialog } from '@/src/shared/components/ConfirmDialog';
+import type { Currency } from '@/src/core/types';
+import { useCurrencyStore } from '../store/currencyStore';
+import { CurrencyCard, UsdBaseCard } from '../components/CurrencyCard';
+import { CurrencyFormSheet } from '../components/CurrencyFormSheet';
+
+export function CurrenciesScreen() {
+  const { t } = useTranslation();
+  const router = useRouter();
+  const { currencies, loading, error, fetchCurrencies, deleteCurrency, clearError } =
+    useCurrencyStore();
+
+  const [formVisible, setFormVisible] = useState(false);
+  const [editing, setEditing] = useState<Currency | null>(null);
+  const [deleting, setDeleting] = useState<Currency | null>(null);
+
+  useEffect(() => {
+    fetchCurrencies();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function openCreate() {
+    setEditing(null);
+    setFormVisible(true);
+  }
+
+  function openEdit(currency: Currency) {
+    setEditing(currency);
+    setFormVisible(true);
+  }
+
+  async function confirmDelete() {
+    if (!deleting) return;
+    await deleteCurrency(deleting.id);
+    setDeleting(null);
+  }
+
+  const activeCount = currencies.filter((c) => c.active).length;
+
+  return (
+    <SafeAreaView className="flex-1 bg-gray-50">
+      <PageHeader
+        title={t('tenant_settings.currencies_section_title')}
+        subtitle={t('tenant_settings.currencies_count', { count: activeCount })}
+        showBack
+        onBack={() => router.back()}
+        actionLabel={t('tenant_settings.add_currency')}
+        onAction={openCreate}
+      />
+
+      {error ? (
+        <View className="px-4 pt-4">
+          <ErrorBanner message={error} onDismiss={clearError} />
+        </View>
+      ) : null}
+
+      {loading && currencies.length === 0 ? (
+        <View className="flex-1 items-center justify-center">
+          <ActivityIndicator color={COLORS.primary} />
+        </View>
+      ) : (
+        <FlatList
+          data={currencies}
+          keyExtractor={(c) => c.id}
+          contentContainerStyle={{ padding: 16, flexGrow: 1 }}
+          refreshControl={
+            <RefreshControl
+              refreshing={loading}
+              onRefresh={fetchCurrencies}
+              tintColor={COLORS.primary}
+            />
+          }
+          ListHeaderComponent={<UsdBaseCard />}
+          renderItem={({ item }) => <CurrencyCard currency={item} onEdit={openEdit} />}
+          ListEmptyComponent={
+            <EmptyState
+              message={t('tenant_settings.no_currencies')}
+              subMessage={t('tenant_settings.no_currencies_hint')}
+              actionLabel={t('tenant_settings.add_currency')}
+              onAction={openCreate}
+            />
+          }
+        />
+      )}
+
+      {formVisible && (
+        <CurrencyFormSheet
+          currency={editing}
+          onDismiss={() => {
+            setFormVisible(false);
+            setEditing(null);
+          }}
+          onRequestDelete={setDeleting}
+        />
+      )}
+
+      <ConfirmDialog
+        visible={!!deleting}
+        title={t('tenant_settings.delete_title')}
+        message={t('tenant_settings.delete_message', { code: deleting?.code ?? '' })}
+        confirmLabel={t('common.delete')}
+        destructive
+        onConfirm={confirmDelete}
+        onCancel={() => setDeleting(null)}
+      />
+    </SafeAreaView>
+  );
+}

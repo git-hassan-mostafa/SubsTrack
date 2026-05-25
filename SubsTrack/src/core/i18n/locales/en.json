@@ -239,6 +239,8 @@
     "dashboard_sub": "Revenue · collections · activity",
     "staff_sub": "{{count}} members",
     "plans_sub": "{{count}} plans",
+    "branches_sub": "{{count}} branches",
+    "currencies_sub": "{{count}} currencies",
     "collected": "Collected",
     "tenants_title": "Tenants",
     "tenant_code_label": "Tenant Code",
@@ -248,7 +250,8 @@
   "tenant_settings": {
     "title": "Workspace Settings",
     "subtitle": "Configure your workspace",
-    "menu_sub": "Currencies · preferences",
+    "menu_sub": "Display preferences",
+    "currencies_count": "{{count}} active",
     "display_section_title": "Display",
     "display_currency_label": "Display currency",
     "display_currency_hint": "Amounts are shown to you in this currency. Stored values are unchanged.",
@@ -278,6 +281,7 @@
   },
   "branches": {
     "section_title": "Branches",
+    "count": "{{count}} active",
     "section_hint": "Create branches for multi-location businesses. Users and customers can be scoped to a branch.",
     "no_branches": "No branches yet",
     "no_branches_hint": "Tap \"+ Add\" to create your first branch",
