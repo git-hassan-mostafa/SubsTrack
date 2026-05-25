@@ -41,4 +41,11 @@ export class TenantRepository extends BaseRepository {
     const { error } = await this.db.from("tenants").delete().eq("id", id);
     if (error) this.handleError(error);
   }
+
+  async createDefaultBranch(tenantId: string): Promise<void> {
+    const { error } = await this.db
+      .from("branches")
+      .insert({ tenant_id: tenantId, name: "Default Branch" });
+    if (error) this.handleError(error);
+  }
 }

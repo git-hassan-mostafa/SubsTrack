@@ -1,29 +1,8 @@
-import { useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
-import { Dropdown, type DropdownOption } from './Dropdown';
-import { useAuthStore } from '@/src/modules/auth/store/authStore';
-import { useBranchStore } from '@/src/modules/branches/store/branchStore';
-import type { Branch } from '@/src/core/types';
-
-/**
- * Returns the tenant's active branches, ensuring they've been loaded.
- *
- * Use this when a screen or form needs to react to "does this tenant have
- * any branches?" — for example UserFormSheet enforces "staff users must be
- * assigned to a branch" only when at least one branch exists.
- *
- * Safe to call from multiple components; `getBranches()` short-circuits when
- * the store is already populated.
- */
-export function useActiveBranches(): Branch[] {
-  const branches = useBranchStore((s) => s.branches);
-  const getBranches = useBranchStore((s) => s.getBranches);
-  useEffect(() => {
-    getBranches();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  return branches.filter((b) => b.active);
-}
+import { useTranslation } from "react-i18next";
+import { Dropdown, type DropdownOption } from "./Dropdown";
+import { useAuthStore } from "@/src/modules/auth/store/authStore";
+import { useActiveBranches } from "@/src/modules/branches/hooks/useActiveBranches";
+import { useIsMultiBranchActive } from "@/src/modules/branches/hooks/useIsMultiBranchActive";
 
 interface BranchPickerProps {
   value: string | null;
@@ -65,8 +44,9 @@ export function BranchPicker({
   const { t } = useTranslation();
   const user = useAuthStore((s) => s.user);
   const activeBranches = useActiveBranches();
+  const isMultiBranchActive = useIsMultiBranchActive();
 
-  if (!user || user.branchId !== null || activeBranches.length === 0) return null;
+  if (!user || user.branchId !== null || !isMultiBranchActive) return null;
 
   const options: DropdownOption<string>[] = activeBranches.map((b) => ({
     value: b.id,
@@ -75,7 +55,7 @@ export function BranchPicker({
 
   return (
     <Dropdown
-      label={label ?? t('branches.branch_label')}
+      label={label ?? t("branches.branch_label")}
       placeholder={nullLabel}
       options={options}
       value={value}

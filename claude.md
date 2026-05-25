@@ -759,7 +759,11 @@ Located at `SubsTrack/supabase/functions/create-user/index.ts` (Deno runtime).
 
 28. **Branch filter is purely UI state** — `uiPrefStore.currentBranchId` (persisted to AsyncStorage). RLS lets tenant-wide admins see everything; the app passes `?branch=X` filters per-query to narrow the view. Branch-scoped users ignore `currentBranchId` and always see only their branch (their `users.branch_id` is the only possible filter, enforced by RLS).
 
-29. **`BranchSelector` self-conceals** — it returns `null` for branch-scoped users and for tenants with no active branches. Screens render `<BranchSelector />` unconditionally below their `PageHeader`; the component decides whether to appear.
+29. **`BranchSelector` self-conceals** — it returns `null` for branch-scoped users and for tenants with fewer than 2 active branches. Screens render `<BranchSelector />` unconditionally below their `PageHeader`; the component decides whether to appear. The same "≥2 active branches" gate is exposed as `useIsMultiBranchActive()` in [BranchPicker.tsx](SubsTrack/src/shared/components/BranchPicker.tsx) and shared with `BranchPicker` so every dropdown / picker / filter hides in lockstep.
+
+30. **New tenants auto-get a "Default Branch"** — [TenantService.createTenant](SuperAdmin/src/modules/tenants/services/TenantService.ts) inserts a `Default Branch` row right after the tenant row, before the admin auth user is created. `branches.tenant_id` has `ON DELETE CASCADE` so the existing rollback paths still clean up correctly.
+
+31. **Single-branch tenants behave as if branches don't exist** — with exactly 1 active branch, `BranchSelector` + every `BranchPicker` hide. Form sheets auto-bind new records to that lone branch (`CustomerFormSheet`, `PlanFormSheet`, `UserFormSheet` for `role='user'`). `UserFormSheet` toggles `branchId` back to `null` when the role flips to `admin` because admins remain tenant-wide. The auto-fill applies only on *create*, never on edit. The Branches admin CRUD screen stays reachable so admins can add a 2nd branch and activate multi-branch UI.
 
 ---
 

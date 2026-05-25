@@ -47,6 +47,13 @@ export class TenantService {
     });
     const tenant = mapDbTenantToTenant(row);
 
+    try {
+      await this.repository.createDefaultBranch(tenant.id);
+    } catch (e) {
+      await this.repository.delete(tenant.id).catch(() => null);
+      throw e;
+    }
+
     const { data: authData, error: authError } =
       await supabaseAdmin.auth.admin.createUser({
         email:

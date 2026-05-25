@@ -12,6 +12,7 @@ import { useAuth } from "@/src/modules/auth/hooks/useAuth";
 import { usePlanStore } from "../store/planStore";
 import { useCurrencyStore } from "@/src/modules/currencies/store/currencyStore";
 import { COLORS } from "@/src/shared/constants";
+import { useActiveBranches } from "../../branches/hooks/useActiveBranches";
 
 interface Props {
   plan?: Plan | null;
@@ -31,19 +32,23 @@ type FormState = {
 const DURATION_OPTIONS = [1, 2, 3, 6, 12];
 const MAX_DURATION = 12;
 
-export function PlanFormSheet({
-  plan,
-  onDismiss,
-  onRequestDelete,
-}: Props) {
+export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
   const { t } = useTranslation();
   const { user } = useAuth();
   const { createPlan, updatePlan, loading, error, clearError } = usePlanStore();
   const { currencies } = useCurrencyStore();
+  const activeBranches = useActiveBranches();
 
   // For NEW plans: branch-scoped admin's plans default to their branch;
-  // tenant-wide admin's plans default to SHARED (null).
-  const defaultBranchId = plan ? plan.branchId : (user?.branchId ?? null);
+  // tenant-wide admin's plans default to SHARED (null) when branch UI is
+  // active, but bind to the single Default Branch when the tenant has exactly
+  // 1 branch (picker is hidden in that case — keeps records consistent).
+  const defaultBranchId = (() => {
+    if (plan) return plan.branchId;
+    if (user?.branchId) return user.branchId;
+    if (activeBranches.length === 1) return activeBranches[0].id;
+    return null;
+  })();
 
   const [form, setForm] = useState<FormState>({
     name: plan?.name ?? "",
@@ -64,7 +69,10 @@ export function PlanFormSheet({
   function setDuration(delta: number) {
     setForm((prev) => ({
       ...prev,
-      durationMonths: Math.min(MAX_DURATION, Math.max(1, prev.durationMonths + delta)),
+      durationMonths: Math.min(
+        MAX_DURATION,
+        Math.max(1, prev.durationMonths + delta),
+      ),
       isCustomPrice: false, // reset when changing duration
     }));
   }
@@ -215,7 +223,11 @@ export function PlanFormSheet({
 
           {!form.isCustomPrice ? (
             <CurrencyInput
-              label={isMultiMonth ? t("plans.bundle_price_label") : t("plans.price_label")}
+              label={
+                isMultiMonth
+                  ? t("plans.bundle_price_label")
+                  : t("plans.price_label")
+              }
               amount={form.price}
               currencyId={form.currencyId}
               onChange={({ amount, currencyId }) =>

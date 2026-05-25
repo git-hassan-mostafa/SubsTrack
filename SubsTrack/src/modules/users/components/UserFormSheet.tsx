@@ -5,10 +5,11 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/src/shared/components/Button";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { Input } from "@/src/shared/components/Input";
-import { BranchPicker, useActiveBranches } from "@/src/shared/components/BranchPicker";
+import { BranchPicker } from "@/src/shared/components/BranchPicker";
 import type { AppUser } from "@/src/core/types";
 import { useAuth } from "@/src/modules/auth/hooks/useAuth";
 import { useUserStore } from "../store/userStore";
+import { useActiveBranches } from "../../branches/hooks/useActiveBranches";
 
 interface Props {
   user?: AppUser | null;
@@ -28,12 +29,30 @@ type FormState = {
 export function UserFormSheet({ user: editUser, onDismiss }: Props) {
   const { t } = useTranslation();
   const { user: currentUser } = useAuth();
-  const { createUser, updateUser, deactivateUser, activateUser, loading, error, clearError } = useUserStore();
+  const {
+    createUser,
+    updateUser,
+    deactivateUser,
+    activateUser,
+    loading,
+    error,
+    clearError,
+  } = useUserStore();
   const activeBranches = useActiveBranches();
 
   // For new users: branch-scoped admin → assign to their branch.
   // Tenant-wide admin → start unassigned and let them pick.
-  const defaultBranchId = editUser ? editUser.branchId : (currentUser?.branchId ?? null);
+  //
+  // Single-branch tenant (picker hidden): silently bind staff to the only
+  // branch. The initial role on a new user is "user" (staff), so default to
+  // that branch; the role-toggle handler below flips this to null when the
+  // role is switched to admin.
+  const defaultBranchId = (() => {
+    if (editUser) return editUser.branchId;
+    if (currentUser?.branchId) return currentUser.branchId;
+    if (activeBranches.length === 1) return activeBranches[0].id;
+    return null;
+  })();
 
   const [form, setForm] = useState<FormState>({
     username: editUser?.username ?? "",
@@ -256,9 +275,19 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
               onPress={async () => {
                 if (!currentUser) return;
                 if (editUser.active) {
-                  await deactivateUser(editUser.id, currentUser.id, currentUser.role, editUser.role);
+                  await deactivateUser(
+                    editUser.id,
+                    currentUser.id,
+                    currentUser.role,
+                    editUser.role,
+                  );
                 } else {
-                  await activateUser(editUser.id, currentUser.id, currentUser.role, editUser.role);
+                  await activateUser(
+                    editUser.id,
+                    currentUser.id,
+                    currentUser.role,
+                    editUser.role,
+                  );
                 }
                 if (!useUserStore.getState().error) onDismiss();
               }}

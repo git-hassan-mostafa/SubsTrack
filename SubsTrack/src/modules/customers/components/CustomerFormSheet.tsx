@@ -16,6 +16,7 @@ import { usePlanStore } from "@/src/modules/plans/store/planStore";
 import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
 import { BRANCH_FILTER_UNASSIGNED } from "@/src/core/constants";
 import { useCustomerStore } from "../store/customerStore";
+import { useActiveBranches } from "../../branches/hooks/useActiveBranches";
 
 interface Props {
   customer?: Customer | null;
@@ -41,15 +42,25 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
     useCustomerStore();
   const { plans, getPlans } = usePlanStore();
   const { currentBranchId } = useUiPrefStore();
+  const activeBranches = useActiveBranches();
 
   // For a new customer: default branch is the user's own branch (if scoped),
   // otherwise the currently-selected branch in the header (unless that's "All"
   // or "Unassigned", in which case start unassigned). For an existing customer
   // we always preserve their stored branch.
+  //
+  // Special case: when the tenant has exactly 1 active branch the BranchPicker
+  // self-conceals, so silently bind new customers to that branch — keeps the
+  // data consistent once a 2nd branch is later added.
   const defaultBranchId = (() => {
     if (customer) return customer.branchId;
     if (user?.branchId) return user.branchId;
-    if (currentBranchId === null || currentBranchId === BRANCH_FILTER_UNASSIGNED) return null;
+    if (activeBranches.length === 1) return activeBranches[0].id;
+    if (
+      currentBranchId === null ||
+      currentBranchId === BRANCH_FILTER_UNASSIGNED
+    )
+      return null;
     return currentBranchId;
   })();
 
@@ -234,7 +245,9 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
             </View>
             <Switch
               value={form.isRegular}
-              onValueChange={(v) => setForm((prev) => ({ ...prev, isRegular: v }))}
+              onValueChange={(v) =>
+                setForm((prev) => ({ ...prev, isRegular: v }))
+              }
             />
           </View>
 
