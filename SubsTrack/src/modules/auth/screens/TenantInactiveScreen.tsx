@@ -3,10 +3,16 @@ import { Text } from "@/src/shared/components/Text";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useAuthStore } from "../store/authStore";
+import { resetAllDomainStores } from "@/src/shared/lib/storeReset";
 
 export function TenantInactiveScreen() {
   const { t } = useTranslation();
   const logout = useAuthStore((s) => s.logout);
+
+  async function handleLogout() {
+    await logout();
+    resetAllDomainStores();
+  }
 
   return (
     <SafeAreaView className="flex-1 bg-white items-center justify-center px-8">
@@ -26,7 +32,7 @@ export function TenantInactiveScreen() {
         {t("tenant_inactive.contact_hint")}
       </Text>
       <Pressable
-        onPress={logout}
+        onPress={handleLogout}
         className="border border-gray-300 rounded-lg px-6 py-3"
       >
         <Text className="text-gray-700 font-medium">{t("common.back")}</Text>

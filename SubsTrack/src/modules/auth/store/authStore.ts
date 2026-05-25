@@ -3,11 +3,6 @@ import type { AuthUser } from "@/src/core/types";
 import { AuthService } from "../services/AuthService";
 import { useCurrencyStore } from "@/src/modules/currencies/store/currencyStore";
 import { useBranchStore } from "@/src/modules/branches/store/branchStore";
-import { usePlanStore } from "@/src/modules/plans/store/planStore";
-import { useUserStore } from "@/src/modules/users/store/userStore";
-import { useCustomerStore } from "@/src/modules/customers/store/customerStore";
-import { usePaymentStore } from "@/src/modules/customer-payments/store/paymentStore";
-import { useDashboardStore } from "@/src/modules/dashboard/store/dashboardStore";
 
 const authService = new AuthService();
 
@@ -61,16 +56,6 @@ export const useAuthStore = create<AuthState>((set) => ({
     } catch {
       // ignore logout errors — clear state regardless
     }
-    // Reset every domain store so a different user logging in on the same
-    // device doesn't see the previous session's data (or have it leak into
-    // queries that short-circuit on cached state).
-    useCurrencyStore.getState().reset();
-    useBranchStore.getState().reset();
-    usePlanStore.getState().reset();
-    useUserStore.getState().reset();
-    useCustomerStore.getState().reset();
-    usePaymentStore.getState().reset();
-    useDashboardStore.getState().reset();
     set({ user: null, tenantActive: true, loading: false, error: null });
   },
 
