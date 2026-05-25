@@ -198,7 +198,7 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
                 ...prev,
                 branchId: v,
                 // Clear the selected plan if it's branch-specific to a different branch.
-                // Shared plans (branchId === null) remain valid for any branch.
+                // Legacy shared plans (branchId === null) remain valid for any branch.
                 planId:
                   prev.planId &&
                   plans.find((p) => p.id === prev.planId)?.branchId !== null &&
@@ -208,7 +208,7 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
               }))
             }
             nullLabel={t("branches.unassigned")}
-            nullSublabel={t("branches.unassigned_hint")}
+            nullable={false}
           />
 
           <Dropdown
@@ -257,7 +257,7 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
             }
             onPress={handleSubmit}
             loading={loading}
-            disabled={!form.name.trim() || !form.startDate}
+            disabled={!form.name.trim() || !form.startDate || !form.branchId}
             fullWidth
           />
           <View className="h-10" />

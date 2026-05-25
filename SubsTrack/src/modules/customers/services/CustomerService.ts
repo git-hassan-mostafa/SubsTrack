@@ -123,5 +123,8 @@ export class CustomerService {
     if (!data.startDate) throw new Error("Start date is required");
     if (!isValidDateString(data.startDate))
       throw new Error("Start date must be in YYYY-MM-DD format");
+    if (!data.branchId) {
+      throw new Error("Customer must be assigned to a branch");
+    }
   }
 }

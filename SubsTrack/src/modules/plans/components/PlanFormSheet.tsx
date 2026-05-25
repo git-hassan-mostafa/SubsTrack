@@ -40,9 +40,9 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
   const activeBranches = useActiveBranches();
 
   // For NEW plans: branch-scoped admin's plans default to their branch;
-  // tenant-wide admin's plans default to SHARED (null) when branch UI is
-  // active, but bind to the single Default Branch when the tenant has exactly
-  // 1 branch (picker is hidden in that case — keeps records consistent).
+  // single-branch tenant binds to the only branch (picker is hidden); a
+  // tenant-wide admin in a multi-branch tenant starts with no selection and
+  // must pick a branch before submit — plans can no longer be SHARED (null).
   const defaultBranchId = (() => {
     if (plan) return plan.branchId;
     if (user?.branchId) return user.branchId;
@@ -99,6 +99,7 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
   const submitDisabled =
     !form.name.trim() ||
     (!form.isCustomPrice && (form.price == null || form.price <= 0)) ||
+    !form.branchId ||
     loading;
 
   return (
@@ -144,7 +145,7 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
             value={form.branchId}
             onChange={(v) => setForm((prev) => ({ ...prev, branchId: v }))}
             nullLabel={t("branches.shared_all_branches")}
-            nullSublabel={t("branches.shared_hint")}
+            nullable={false}
           />
 
           {/* Duration picker */}

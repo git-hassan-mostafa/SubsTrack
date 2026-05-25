@@ -79,6 +79,9 @@ export class PlanService {
       if (typeof data.price !== 'number' || Number.isNaN(data.price)) throw new Error('Fixed plans require a price');
       if (data.price <= 0) throw new Error('Price must be greater than 0');
     }
+    if (!data.branchId) {
+      throw new Error('Plan must be assigned to a branch');
+    }
   }
 
   private rethrow(err: unknown): never {

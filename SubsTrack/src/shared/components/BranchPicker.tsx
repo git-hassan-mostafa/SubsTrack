@@ -10,15 +10,20 @@ interface BranchPickerProps {
   /** Defaults to t('branches.branch_label'). */
   label?: string;
   /**
-   * What "no branch" means in this context. Required because the semantic
-   * differs per entity:
-   *   customers   → "Unassigned"
-   *   plans       → "Shared (all branches)"
+   * What "no branch" means in this context. Only surfaced when
+   * `nullable !== false`. Required because the semantic differs per entity:
    *   users/admin → "Tenant-wide admin"
-   *   users/staff → "Unassigned"
+   * Customers, plans, and staff users no longer accept a null branch — the
+   * picker is rendered with `nullable={false}` in those forms and this label
+   * is ignored.
    */
   nullLabel: string;
   nullSublabel?: string;
+  /**
+   * When false, the picker omits the null option entirely — the user MUST
+   * pick a real branch. Defaults to true for backwards compatibility.
+   */
+  nullable?: boolean;
 }
 
 /**
@@ -40,6 +45,7 @@ export function BranchPicker({
   label,
   nullLabel,
   nullSublabel,
+  nullable = true,
 }: BranchPickerProps) {
   const { t } = useTranslation();
   const user = useAuthStore((s) => s.user);
@@ -53,16 +59,18 @@ export function BranchPicker({
     label: b.name,
   }));
 
+  const resolvedLabel = label ?? t("branches.branch_label");
+
   return (
     <Dropdown
-      label={label ?? t("branches.branch_label")}
-      placeholder={nullLabel}
+      label={resolvedLabel}
+      placeholder={nullable ? nullLabel : resolvedLabel}
       options={options}
       value={value}
       onChange={onChange}
-      nullable
-      nullLabel={nullLabel}
-      nullSublabel={nullSublabel}
+      nullable={nullable}
+      nullLabel={nullable ? nullLabel : undefined}
+      nullSublabel={nullable ? nullSublabel : undefined}
     />
   );
 }

@@ -220,16 +220,9 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
           <BranchPicker
             value={form.branchId}
             onChange={(v) => setForm((prev) => ({ ...prev, branchId: v }))}
-            nullLabel={
-              form.role === "admin"
-                ? t("branches.tenant_wide_admin")
-                : t("branches.unassigned")
-            }
-            nullSublabel={
-              form.role === "admin"
-                ? t("branches.tenant_wide_hint")
-                : t("branches.staff_needs_branch_hint")
-            }
+            nullLabel={t("branches.tenant_wide_admin")}
+            nullSublabel={t("branches.tenant_wide_hint")}
+            nullable={form.role === "admin"}
           />
 
           <Text className="text-sm font-medium text-gray-700 mb-2">
