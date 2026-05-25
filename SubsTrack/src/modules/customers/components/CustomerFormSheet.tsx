@@ -248,7 +248,7 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
             disabled={!form.name.trim() || !form.startDate}
             fullWidth
           />
-          <View className="h-4" />
+          <View className="h-10" />
         </ScrollView>
       </View>
     </Modal>

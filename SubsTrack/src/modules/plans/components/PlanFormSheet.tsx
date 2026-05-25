@@ -277,7 +277,7 @@ export function PlanFormSheet({
             </>
           ) : null}
 
-          <View className="h-4" />
+          <View className="h-10" />
         </ScrollView>
       </View>
     </Modal>

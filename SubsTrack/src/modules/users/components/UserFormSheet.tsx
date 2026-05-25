@@ -278,6 +278,7 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
               </Text>
             </Pressable>
           ) : null}
+          <View className="h-10" />
         </ScrollView>
       </View>
     </Modal>
