@@ -36,7 +36,7 @@ type FormState = {
 
 export function CustomerFormSheet({ customer, onDismiss }: Props) {
   const { t } = useTranslation();
-  const { user, isAdmin } = useAuth();
+  const { user } = useAuth();
   const { createCustomer, updateCustomer, loading, error, clearError } =
     useCustomerStore();
   const { plans, getPlans } = usePlanStore();
@@ -73,7 +73,6 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
 
   async function handleSubmit() {
     if (!user) return;
-    if (!isAdmin) return;
     const payload = {
       name: form.name,
       phoneNumber: form.phoneNumber || null,
