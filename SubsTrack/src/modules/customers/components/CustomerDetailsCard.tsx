@@ -13,15 +13,17 @@ import { useCustomerStore } from "../store/customerStore";
 
 interface CustomerDetailsCardProps {
   customer: Customer;
+  onDeleted?: () => void;
 }
 
-export function CustomerDetailsCard({ customer }: CustomerDetailsCardProps) {
+export function CustomerDetailsCard({ customer, onDeleted }: CustomerDetailsCardProps) {
   const { t, i18n } = useTranslation();
   const locale = getDateLocale(i18n.language);
   const customerStore = useCustomerStore();
   const { isAdmin } = useAuth();
 
   const [toggleConfirmVisible, setToggleConfirmVisible] = useState(false);
+  const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
 
   async function handleToggleActiveConfirmed() {
     if (customer.active) {
@@ -30,6 +32,14 @@ export function CustomerDetailsCard({ customer }: CustomerDetailsCardProps) {
       await customerStore.reactivateCustomer(customer.id);
     }
     setToggleConfirmVisible(false);
+  }
+
+  async function handleDeleteConfirmed() {
+    const result = await customerStore.deleteCustomer(customer.id);
+    setDeleteConfirmVisible(false);
+    if (result === 'hard') {
+      onDeleted?.();
+    }
   }
 
   return (
@@ -135,7 +145,7 @@ export function CustomerDetailsCard({ customer }: CustomerDetailsCardProps) {
 
           <Pressable
             onPress={() => isAdmin && setToggleConfirmVisible(true)}
-            className="flex-row items-center justify-between px-4 py-3.5"
+            className="flex-row items-center justify-between px-4 py-3.5 border-b border-gray-100"
           >
             <View className="flex-row items-center gap-3">
               <View
@@ -177,6 +187,21 @@ export function CustomerDetailsCard({ customer }: CustomerDetailsCardProps) {
               )}
             </View>
           </Pressable>
+
+          {isAdmin && (
+            <Pressable
+              onPress={() => setDeleteConfirmVisible(true)}
+              className="flex-row items-center justify-between px-4 py-3.5"
+            >
+              <View className="flex-row items-center gap-3">
+                <Ionicons name="trash-outline" size={16} color={COLORS.danger} />
+                <Text className="text-sm" style={{ color: COLORS.danger }}>
+                  {t("customers.delete_label")}
+                </Text>
+              </View>
+              <DirectionalIcon name="chevron-forward" size={14} color={COLORS.danger} />
+            </Pressable>
+          )}
         </View>
       </View>
 
@@ -195,6 +220,15 @@ export function CustomerDetailsCard({ customer }: CustomerDetailsCardProps) {
         destructive={customer.active}
         onConfirm={handleToggleActiveConfirmed}
         onCancel={() => setToggleConfirmVisible(false)}
+      />
+
+      <ConfirmDialog
+        visible={deleteConfirmVisible}
+        title={t("customers.delete_title")}
+        message={t("customers.delete_message", { name: customer.name })}
+        destructive
+        onConfirm={handleDeleteConfirmed}
+        onCancel={() => setDeleteConfirmVisible(false)}
       />
     </>
   );

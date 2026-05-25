@@ -92,7 +92,7 @@ export function CustomerDetailScreen() {
           }
         >
           <CustomerPaymentPanel customer={customer} />
-          <CustomerDetailsCard customer={customer} />
+          <CustomerDetailsCard customer={customer} onDeleted={() => router.back()} />
           <View className="h-8" />
         </ScrollView>
       ) : null}

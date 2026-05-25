@@ -97,7 +97,10 @@
     "reactivate_message": "Are you sure you want to reactivate {{name}}?",
     "non_regular": "Non-Regular",
     "regular_label": "Regular Customer",
-    "regular_hint": "Regular customers are expected to pay every month"
+    "regular_hint": "Regular customers are expected to pay every month",
+    "delete_label": "Delete Customer",
+    "delete_title": "Delete Customer",
+    "delete_message": "Delete {{name}}? If they have no payment history they will be permanently removed, otherwise they will be deactivated."
   },
   "plans": {
     "title": "Plans",

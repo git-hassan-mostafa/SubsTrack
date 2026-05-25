@@ -114,6 +114,16 @@ export class CustomerService {
     return mapDbCustomerToCustomer(row);
   }
 
+  async deleteCustomer(id: string): Promise<{ mode: 'hard' } | { mode: 'soft'; customer: Customer }> {
+    const paymentCount = await this.repository.countPayments(id);
+    if (paymentCount === 0) {
+      await this.repository.delete(id);
+      return { mode: 'hard' };
+    }
+    const row = await this.repository.deactivate(id);
+    return { mode: 'soft', customer: mapDbCustomerToCustomer(row) };
+  }
+
   async reactivateCustomer(id: string): Promise<Customer> {
     const row = await this.repository.reactivate(id);
     return mapDbCustomerToCustomer(row);

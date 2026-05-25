@@ -158,6 +158,29 @@ export const useCustomerStore = create<CustomersState>((set, get) => ({
     }
   },
 
+  deleteCustomer: async (id) => {
+    set({ loading: true, error: null });
+    try {
+      const result = await customerService.deleteCustomer(id);
+      if (result.mode === 'hard') {
+        set((state) => ({
+          customers: state.customers.filter((c) => c.id !== id),
+          totalCount: Math.max(0, state.totalCount - 1),
+          loading: false,
+        }));
+      } else {
+        set((state) => ({
+          customers: state.customers.map((c) => (c.id === id ? result.customer : c)),
+          loading: false,
+        }));
+      }
+      return result.mode;
+    } catch (e) {
+      set({ error: (e as Error).message, loading: false });
+      return null;
+    }
+  },
+
   clearError: () => set({ error: null }),
   reset: () =>
     set((s) => ({
@@ -205,6 +228,7 @@ interface CustomersState {
   ) => Promise<void>;
   deactivateCustomer: (id: string) => Promise<void>;
   reactivateCustomer: (id: string) => Promise<void>;
+  deleteCustomer: (id: string) => Promise<'hard' | 'soft' | null>;
   clearError: () => void;
   reset: () => void;
 }
