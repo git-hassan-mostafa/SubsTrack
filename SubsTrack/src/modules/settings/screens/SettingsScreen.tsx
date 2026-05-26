@@ -15,7 +15,6 @@ import {
 } from "@/src/core/i18n/languageStore";
 import { useAuth } from "@/src/modules/auth/hooks/useAuth";
 import { useAuthStore } from "@/src/modules/auth/store/authStore";
-import { useBranchStore } from "@/src/modules/branches/store/branchStore";
 import { resetAllDomainStores } from "@/src/shared/lib/storeReset";
 import { AVATAR_COLORS } from "../../../shared/constants";
 
