@@ -9,6 +9,7 @@ import type { Customer } from "@/src/core/types";
 import { formatDate, getDateLocale } from "@/src/core/utils/date";
 import { COLORS } from "@/src/shared/constants";
 import { useAuth } from "@/src/modules/auth/hooks/useAuth";
+import { useBranchStore } from "@/src/modules/branches/store/branchStore";
 import { useCustomerStore } from "../store/customerStore";
 
 interface CustomerDetailsCardProps {
@@ -21,6 +22,9 @@ export function CustomerDetailsCard({ customer, onDeleted }: CustomerDetailsCard
   const locale = getDateLocale(i18n.language);
   const customerStore = useCustomerStore();
   const { isAdmin } = useAuth();
+  const branch = useBranchStore((state) =>
+    state.branches.find((b) => b.id === customer.branchId) ?? null,
+  );
 
   const [toggleConfirmVisible, setToggleConfirmVisible] = useState(false);
   const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
@@ -63,6 +67,24 @@ export function CustomerDetailsCard({ customer, onDeleted }: CustomerDetailsCard
               </View>
               <Text className="text-sm font-semibold text-gray-900">
                 {customer.phoneNumber}
+              </Text>
+            </View>
+          ) : null}
+
+          {branch ? (
+            <View className="flex-row items-center justify-between px-4 py-3.5 border-b border-gray-100">
+              <View className="flex-row items-center gap-3">
+                <Ionicons
+                  name="git-branch-outline"
+                  size={16}
+                  color={COLORS.gray400}
+                />
+                <Text className="text-sm text-gray-500">
+                  {t("branches.branch_label")}
+                </Text>
+              </View>
+              <Text className="text-sm font-semibold text-gray-900">
+                {branch.name}
               </Text>
             </View>
           ) : null}
