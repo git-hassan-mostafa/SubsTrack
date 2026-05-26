@@ -103,7 +103,7 @@ export const MonthCell = memo(function MonthCell({
       className={`w-1/4 ${padClass}`}
     >
       <View
-        className={`${roundClass} items-center justify-center py-3 ${containerBg}`}
+        className={`${roundClass} items-center justify-center aspect-square ${containerBg}`}
       >
         <Text fontWeight="SemiBold" className={`text-sm ${labelColor}`}>
           {t(`months.${entry.label}`)}
