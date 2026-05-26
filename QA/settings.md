@@ -1,6 +1,6 @@
 # Settings — QA Scenarios
 
-Covers the Settings tab: profile card, language switcher (with restart), workspace info row, support row, and logout.
+Covers the **user-level** Settings tab: profile card, language switcher (with restart), workspace info row, support row, and logout. Admin-level tenant configuration (display currency, currencies CRUD, branches CRUD) lives separately in [tenant-settings.md](tenant-settings.md).
 
 **Reference code:**
 - Screen: [SettingsScreen.tsx](SubsTrack/src/modules/settings/screens/SettingsScreen.tsx)
