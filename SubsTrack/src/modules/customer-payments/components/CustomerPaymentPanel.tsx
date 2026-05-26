@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, Pressable, View } from "react-native";
+import { ActivityIndicator, View } from "react-native";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
@@ -8,7 +9,12 @@ import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { ConfirmDialog } from "@/src/shared/components/ConfirmDialog";
 import type { Customer, MonthEntry } from "@/src/core/types";
 import { getCurrentYearMonth, getDateLocale } from "@/src/core/utils/date";
-import { findCurrency, formatMoney, paymentSnapshotCurrency, toUsd } from "@/src/core/utils/currency";
+import {
+  findCurrency,
+  formatMoney,
+  paymentSnapshotCurrency,
+  toUsd,
+} from "@/src/core/utils/currency";
 import { COLORS, DEFAULT_GRACE_DAYS } from "@/src/shared/constants";
 import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
 import { MonthGrid } from "./MonthGrid";
@@ -129,8 +135,17 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
   // display currency.
   const collectedTotalUsd = paymentStore.payments
     .filter((p) => !p.voidedAt && p.billingMonth.startsWith(String(year)))
-    .reduce((sum, p) => sum + toUsd(p.amountPaid, paymentSnapshotCurrency(p, currencies)), 0);
-  const collectedTotalLabel = formatMoney(collectedTotalUsd, null, displayCurrency, locale);
+    .reduce(
+      (sum, p) =>
+        sum + toUsd(p.amountPaid, paymentSnapshotCurrency(p, currencies)),
+      0,
+    );
+  const collectedTotalLabel = formatMoney(
+    collectedTotalUsd,
+    null,
+    displayCurrency,
+    locale,
+  );
 
   // Edit (update amountPaid) is available for any active, non-secondary payment.
   const canEditAmount =
@@ -165,7 +180,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
             </Text>
           </View>
           <View className="flex-row gap-2">
-            <Pressable
+            <PressableOpacity
               onPress={() => setYear((y) => y - 1)}
               disabled={year <= new Date(customer.startDate).getFullYear()}
               className="w-10 h-10 rounded-full items-center justify-center"
@@ -180,8 +195,8 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
                 size={20}
                 color={COLORS.primary}
               />
-            </Pressable>
-            <Pressable
+            </PressableOpacity>
+            <PressableOpacity
               onPress={() => setYear((y) => y + 1)}
               className="w-10 h-10 rounded-full items-center justify-center"
               style={{ backgroundColor: COLORS.primaryLight }}
@@ -191,7 +206,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
                 size={20}
                 color={COLORS.primary}
               />
-            </Pressable>
+            </PressableOpacity>
           </View>
         </View>
 
@@ -224,14 +239,14 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
               {t("payments.amount_due")} · {daysIntoMonth} days into the month
             </Text>
           </View>
-          <Pressable
+          <PressableOpacity
             onPress={() => handleCellPress(currentMonthEntry)}
             className="bg-red-500 rounded-xl px-3 py-2 ms-2"
           >
             <Text className="text-white text-sm font-semibold">
               {t("payments.collect")}
             </Text>
-          </Pressable>
+          </PressableOpacity>
         </View>
       ) : null}
 

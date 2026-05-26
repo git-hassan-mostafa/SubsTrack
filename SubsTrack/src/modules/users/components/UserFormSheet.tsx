@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Modal, Pressable, ScrollView, View } from "react-native";
+import { Modal, ScrollView, View } from "react-native";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/src/shared/components/Button";
@@ -161,11 +162,11 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
           <Text fontWeight="Bold" className="text-lg text-gray-900">
             {editUser ? t("users.edit_title") : t("users.add_title")}
           </Text>
-          <Pressable onPress={onDismiss}>
+          <PressableOpacity onPress={onDismiss}>
             <Text className="text-base text-primary font-medium">
               {t("common.cancel")}
             </Text>
-          </Pressable>
+          </PressableOpacity>
         </View>
 
         <ScrollView
@@ -177,7 +178,7 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
           ) : null}
 
           <Input
-            label={t("users.username_label") + ' *'}
+            label={t("users.username_label") + " *"}
             value={form.username}
             onChangeText={(v) => setForm((prev) => ({ ...prev, username: v }))}
             placeholder={t("users.username_placeholder")}
@@ -189,7 +190,7 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
           />
 
           <Input
-            label={t("users.fullname_label") + ' *'}
+            label={t("users.fullname_label") + " *"}
             value={form.fullName}
             onChangeText={(v) => setForm((prev) => ({ ...prev, fullName: v }))}
             placeholder={t("users.fullname_placeholder")}
@@ -200,7 +201,7 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
           {!editUser ? (
             <>
               <Input
-                label={t("users.password_label") + ' *'}
+                label={t("users.password_label") + " *"}
                 value={form.password}
                 onChangeText={(v) =>
                   setForm((prev) => ({ ...prev, password: v }))
@@ -210,7 +211,7 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
                 onFocus={clearError}
               />
               <Input
-                label={t("users.confirm_password_label") + ' *'}
+                label={t("users.confirm_password_label") + " *"}
                 value={form.confirmPassword}
                 onChangeText={(v) =>
                   setForm((prev) => ({ ...prev, confirmPassword: v }))
@@ -248,7 +249,7 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
           </Text>
           <View className="flex-row gap-3 mb-6">
             {(["user", "admin"] as const).map((r) => (
-              <Pressable
+              <PressableOpacity
                 key={r}
                 onPress={() =>
                   !isOwnAccount && setForm((prev) => ({ ...prev, role: r }))
@@ -264,7 +265,7 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
                 >
                   {t(`users.${r}`)}
                 </Text>
-              </Pressable>
+              </PressableOpacity>
             ))}
           </View>
           {isOwnAccount ? (
@@ -282,7 +283,7 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
           />
 
           {canToggleActive && editUser ? (
-            <Pressable
+            <PressableOpacity
               onPress={async () => {
                 if (!currentUser) return;
                 if (editUser.active) {
@@ -316,18 +317,18 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
               >
                 {editUser.active ? t("users.deactivate") : t("users.activate")}
               </Text>
-            </Pressable>
+            </PressableOpacity>
           ) : null}
 
           {canDelete && editUser ? (
-            <Pressable
+            <PressableOpacity
               onPress={() => setDeleteConfirmVisible(true)}
               className="rounded-xl py-3.5 items-center mb-6 border bg-red-50 border-red-200"
             >
               <Text fontWeight="SemiBold" className="text-base text-red-600">
                 {t("users.delete_label")}
               </Text>
-            </Pressable>
+            </PressableOpacity>
           ) : null}
 
           <View className="h-10" />

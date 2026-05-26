@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Pressable, View } from "react-native";
+import { View } from "react-native";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/src/shared/components/Text";
@@ -17,13 +18,16 @@ interface CustomerDetailsCardProps {
   onDeleted?: () => void;
 }
 
-export function CustomerDetailsCard({ customer, onDeleted }: CustomerDetailsCardProps) {
+export function CustomerDetailsCard({
+  customer,
+  onDeleted,
+}: CustomerDetailsCardProps) {
   const { t, i18n } = useTranslation();
   const locale = getDateLocale(i18n.language);
   const customerStore = useCustomerStore();
   const { isAdmin } = useAuth();
-  const branch = useBranchStore((state) =>
-    state.branches.find((b) => b.id === customer.branchId) ?? null,
+  const branch = useBranchStore(
+    (state) => state.branches.find((b) => b.id === customer.branchId) ?? null,
   );
 
   const [toggleConfirmVisible, setToggleConfirmVisible] = useState(false);
@@ -41,7 +45,7 @@ export function CustomerDetailsCard({ customer, onDeleted }: CustomerDetailsCard
   async function handleDeleteConfirmed() {
     const result = await customerStore.deleteCustomer(customer.id);
     setDeleteConfirmVisible(false);
-    if (result === 'hard') {
+    if (result === "hard") {
       onDeleted?.();
     }
   }
@@ -113,11 +117,7 @@ export function CustomerDetailsCard({ customer, onDeleted }: CustomerDetailsCard
           {customer.area ? (
             <View className="flex-row items-center justify-between px-4 py-3.5 border-b border-gray-100">
               <View className="flex-row items-center gap-3">
-                <Ionicons
-                  name="map-outline"
-                  size={16}
-                  color={COLORS.gray400}
-                />
+                <Ionicons name="map-outline" size={16} color={COLORS.gray400} />
                 <Text className="text-sm text-gray-500">
                   {t("customers.area_label")}
                 </Text>
@@ -165,7 +165,7 @@ export function CustomerDetailsCard({ customer, onDeleted }: CustomerDetailsCard
             </View>
           ) : null}
 
-          <Pressable
+          <PressableOpacity
             onPress={() => isAdmin && setToggleConfirmVisible(true)}
             className="flex-row items-center justify-between px-4 py-3.5 border-b border-gray-100"
           >
@@ -173,9 +173,7 @@ export function CustomerDetailsCard({ customer, onDeleted }: CustomerDetailsCard
               <View
                 className="w-4 h-4 rounded-full items-center justify-center"
                 style={{
-                  backgroundColor: customer.active
-                    ? "#dcfce7"
-                    : "#fff7ed",
+                  backgroundColor: customer.active ? "#dcfce7" : "#fff7ed",
                 }}
               >
                 <View
@@ -208,21 +206,29 @@ export function CustomerDetailsCard({ customer, onDeleted }: CustomerDetailsCard
                 />
               )}
             </View>
-          </Pressable>
+          </PressableOpacity>
 
           {isAdmin && (
-            <Pressable
+            <PressableOpacity
               onPress={() => setDeleteConfirmVisible(true)}
               className="flex-row items-center justify-between px-4 py-3.5"
             >
               <View className="flex-row items-center gap-3">
-                <Ionicons name="trash-outline" size={16} color={COLORS.danger} />
+                <Ionicons
+                  name="trash-outline"
+                  size={16}
+                  color={COLORS.danger}
+                />
                 <Text className="text-sm" style={{ color: COLORS.danger }}>
                   {t("customers.delete_label")}
                 </Text>
               </View>
-              <DirectionalIcon name="chevron-forward" size={14} color={COLORS.danger} />
-            </Pressable>
+              <DirectionalIcon
+                name="chevron-forward"
+                size={14}
+                color={COLORS.danger}
+              />
+            </PressableOpacity>
           )}
         </View>
       </View>

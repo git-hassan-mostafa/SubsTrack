@@ -1,5 +1,6 @@
 import { useMemo, useRef } from "react";
 import { FlatList, Modal, Pressable, View } from "react-native";
+import { PressableOpacity } from "./PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { useTranslation } from "react-i18next";
 import { useState } from "react";
@@ -78,7 +79,7 @@ function ScrollColumn({
         })}
         initialScrollIndex={selectedIndex}
         renderItem={({ item: v }) => (
-          <Pressable
+          <PressableOpacity
             onPress={() => onSelect(v)}
             style={{ height: ITEM_HEIGHT }}
             className={`rounded-lg items-center justify-center ${selected === v ? "bg-primary" : ""}`}
@@ -88,7 +89,7 @@ function ScrollColumn({
             >
               {renderItem ? renderItem(v) : pad(v)}
             </Text>
-          </Pressable>
+          </PressableOpacity>
         )}
       />
     </View>
@@ -128,7 +129,7 @@ function MonthScrollColumn({
         renderItem={({ item: name, index: i }) => {
           const m = i + 1;
           return (
-            <Pressable
+            <PressableOpacity
               onPress={() => onSelect(m)}
               style={{ height: ITEM_HEIGHT }}
               className={`rounded-lg items-center justify-center ${selected === m ? "bg-primary" : ""}`}
@@ -138,7 +139,7 @@ function MonthScrollColumn({
               >
                 {name}
               </Text>
-            </Pressable>
+            </PressableOpacity>
           );
         }}
       />
@@ -244,7 +245,7 @@ export function DatePickerInput({
       {label ? (
         <Text className="text-sm font-medium text-gray-700 mb-1">{label}</Text>
       ) : null}
-      <Pressable
+      <PressableOpacity
         onPress={handleOpen}
         className="border border-gray-300 rounded-lg px-4 py-3 bg-white flex-row items-center justify-between"
       >
@@ -254,7 +255,7 @@ export function DatePickerInput({
           {displayValue ?? placeholder ?? t("customers.start_date_placeholder")}
         </Text>
         <Text className="text-gray-400 text-base">📅</Text>
-      </Pressable>
+      </PressableOpacity>
 
       <Modal
         visible={open}
@@ -272,19 +273,19 @@ export function DatePickerInput({
           >
             {/* Header */}
             <View className="flex-row justify-between items-center px-5 py-4 border-b border-gray-100">
-              <Pressable onPress={() => setOpen(false)}>
+              <PressableOpacity onPress={() => setOpen(false)}>
                 <Text className="text-base text-primary font-medium">
                   {t("common.cancel")}
                 </Text>
-              </Pressable>
+              </PressableOpacity>
               <Text className="text-base font-semibold text-gray-900">
                 {label ?? t("customers.start_date_label")}
               </Text>
-              <Pressable onPress={handleConfirm}>
+              <PressableOpacity onPress={handleConfirm}>
                 <Text className="text-base font-semibold text-primary">
                   {t("common.confirm")}
                 </Text>
-              </Pressable>
+              </PressableOpacity>
             </View>
 
             {/* Columns */}

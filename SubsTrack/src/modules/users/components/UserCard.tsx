@@ -1,4 +1,5 @@
-import { Pressable, View } from "react-native";
+import { View } from "react-native";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/src/shared/components/Text";
 import type { AppUser } from "@/src/core/types";
@@ -36,7 +37,7 @@ export function UserCard({ user, onEdit, onMenu }: Props) {
   const { t } = useTranslation();
 
   return (
-    <Pressable
+    <PressableOpacity
       onPress={() => onEdit(user)}
       onLongPress={() => onMenu(user)}
       className="bg-white border border-gray-100 rounded-2xl px-4 py-3.5 mb-2.5"
@@ -85,18 +86,14 @@ export function UserCard({ user, onEdit, onMenu }: Props) {
           </Text>
         </View>
 
-        <Pressable
+        <PressableOpacity
           onPress={() => onMenu(user)}
           hitSlop={8}
           className="ms-2 w-9 h-9 items-center justify-center rounded-full"
         >
-          <Ionicons
-            name="ellipsis-vertical"
-            size={20}
-            color={COLORS.gray600}
-          />
-        </Pressable>
+          <Ionicons name="ellipsis-vertical" size={20} color={COLORS.gray600} />
+        </PressableOpacity>
       </View>
-    </Pressable>
+    </PressableOpacity>
   );
 }

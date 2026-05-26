@@ -1,5 +1,6 @@
 import { Component, type ReactNode } from "react";
-import { View, Pressable } from "react-native";
+import { View } from "react-native";
+import { PressableOpacity } from "./PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import i18n from "i18next";
 
@@ -45,14 +46,14 @@ export class ErrorBoundary extends Component<Props, State> {
           <Text className="text-sm text-gray-500 text-center mb-6">
             {this.state.message}
           </Text>
-          <Pressable
+          <PressableOpacity
             onPress={this.handleReset}
             className="bg-primary px-6 py-3 rounded-lg"
           >
             <Text className="text-white font-medium">
               {i18n.t("common.try_again")}
             </Text>
-          </Pressable>
+          </PressableOpacity>
         </View>
       );
     }

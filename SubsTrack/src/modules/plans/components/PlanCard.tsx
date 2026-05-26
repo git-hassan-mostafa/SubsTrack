@@ -1,5 +1,6 @@
 import type { Plan } from "@/src/core/types";
-import { Pressable, View } from "react-native";
+import { View } from "react-native";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
 import { Ionicons } from "@expo/vector-icons";
@@ -24,10 +25,15 @@ export function PlanCard({ plan, onEdit, onMenu }: Props) {
   const target = findCurrency(currencies, displayCurrencyId);
   const priceLabel =
     plan.price != null
-      ? formatMoney(plan.price, source, target, language === "ar" ? "ar" : "en-US")
+      ? formatMoney(
+          plan.price,
+          source,
+          target,
+          language === "ar" ? "ar" : "en-US",
+        )
       : "";
   return (
-    <Pressable
+    <PressableOpacity
       onPress={() => onEdit(plan)}
       onLongPress={() => onMenu(plan)}
       className="bg-white border border-gray-100 rounded-2xl px-4 py-4 mb-2.5 flex-row items-center"
@@ -66,17 +72,13 @@ export function PlanCard({ plan, onEdit, onMenu }: Props) {
         )}
       </View>
 
-      <Pressable
+      <PressableOpacity
         onPress={() => onMenu(plan)}
         hitSlop={8}
         className="ms-1 w-9 h-9 items-center justify-center rounded-full"
       >
-        <Ionicons
-          name="ellipsis-vertical"
-          size={20}
-          color={COLORS.gray600}
-        />
-      </Pressable>
-    </Pressable>
+        <Ionicons name="ellipsis-vertical" size={20} color={COLORS.gray600} />
+      </PressableOpacity>
+    </PressableOpacity>
   );
 }

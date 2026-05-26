@@ -2,10 +2,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
-  Pressable,
   RefreshControl,
   View,
 } from "react-native";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -244,13 +244,7 @@ export function CustomerListScreen() {
         menuLoading={quickPayCustomerId === item.id}
       />
     ),
-    [
-      currentMonthPaidIds,
-      monthLabel,
-      openDetail,
-      openMenu,
-      quickPayCustomerId,
-    ],
+    [currentMonthPaidIds, monthLabel, openDetail, openMenu, quickPayCustomerId],
   );
 
   async function confirmToggleActive() {
@@ -328,7 +322,7 @@ export function CustomerListScreen() {
         {/* Filter tabs */}
         <View className="flex-row gap-2 mt-4">
           {tabs.map((tab) => (
-            <Pressable
+            <PressableOpacity
               key={tab.key}
               onPress={() => setActiveTab(tab.key)}
               className={`rounded-full px-3 py-1.5 ${activeTab === tab.key ? "bg-gray-900" : "bg-gray-100"}`}
@@ -338,7 +332,7 @@ export function CustomerListScreen() {
               >
                 {tab.label}
               </Text>
-            </Pressable>
+            </PressableOpacity>
           ))}
         </View>
       </View>

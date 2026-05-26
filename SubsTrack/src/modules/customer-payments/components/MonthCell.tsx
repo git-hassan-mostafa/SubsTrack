@@ -1,5 +1,6 @@
 import { memo } from "react";
-import { Pressable, View } from "react-native";
+import { View } from "react-native";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { useTranslation } from "react-i18next";
 import { getCurrentYearMonth } from "@/src/core/utils/date";
@@ -71,8 +72,10 @@ export const MonthCell = memo(function MonthCell({
       : textColor[entry.status];
 
   const sublabel = (() => {
-    if (entry.status === "paid" && entry.isGroupSecondary) return t("payments.included_label");
-    if (entry.status === "paid" && entry.balance > 0) return t("payments.partial_badge");
+    if (entry.status === "paid" && entry.isGroupSecondary)
+      return t("payments.included_label");
+    if (entry.status === "paid" && entry.balance > 0)
+      return t("payments.partial_badge");
     if (entry.status === "paid") return t("common.paid");
     if (isCurrentMonth) return t("payments.this_month").toUpperCase();
     return null;
@@ -95,7 +98,10 @@ export const MonthCell = memo(function MonthCell({
   else roundClass = "rounded-xl";
 
   return (
-    <Pressable onPress={() => onPress(entry)} className={`w-1/4 ${padClass}`}>
+    <PressableOpacity
+      onPress={() => onPress(entry)}
+      className={`w-1/4 ${padClass}`}
+    >
       <View
         className={`${roundClass} items-center justify-center py-3 ${containerBg}`}
       >
@@ -119,6 +125,6 @@ export const MonthCell = memo(function MonthCell({
           </View>
         ) : null}
       </View>
-    </Pressable>
+    </PressableOpacity>
   );
 });

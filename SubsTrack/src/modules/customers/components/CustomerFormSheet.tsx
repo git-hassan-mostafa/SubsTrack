@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Modal, Pressable, ScrollView, Switch, View } from "react-native";
+import { Modal, ScrollView, Switch, View } from "react-native";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/src/shared/components/Button";
@@ -131,11 +132,11 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
           <Text fontWeight="Bold" className="text-lg text-gray-900">
             {customer ? t("customers.edit_title") : t("customers.add_title")}
           </Text>
-          <Pressable onPress={onDismiss}>
+          <PressableOpacity onPress={onDismiss}>
             <Text className="text-base text-primary font-medium">
               {t("common.cancel")}
             </Text>
-          </Pressable>
+          </PressableOpacity>
         </View>
 
         <ScrollView
@@ -147,7 +148,7 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
           ) : null}
 
           <Input
-            label={t("customers.name_label") + ' *'}
+            label={t("customers.name_label") + " *"}
             value={form.name}
             onChangeText={(v) => setForm((prev) => ({ ...prev, name: v }))}
             placeholder={t("customers.name_placeholder")}
@@ -169,7 +170,7 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
             </View>
             <View className="flex-1">
               <DatePickerInput
-                label={t("customers.start_date_label") + ' *'}
+                label={t("customers.start_date_label") + " *"}
                 value={form.startDate}
                 onChange={(v) => setForm((prev) => ({ ...prev, startDate: v }))}
                 placeholder={t("customers.start_date_placeholder")}
@@ -192,7 +193,7 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
           />
 
           <BranchPicker
-            label={t("branches.branch_label") + ' *'}
+            label={t("branches.branch_label") + " *"}
             value={form.branchId}
             onChange={(v) =>
               setForm((prev) => ({

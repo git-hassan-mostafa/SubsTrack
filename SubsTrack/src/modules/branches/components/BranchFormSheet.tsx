@@ -1,13 +1,14 @@
-import { useEffect, useState } from 'react';
-import { Modal, Pressable, ScrollView, View } from 'react-native';
-import { useTranslation } from 'react-i18next';
-import { Text } from '@/src/shared/components/Text';
-import { Button } from '@/src/shared/components/Button';
-import { Input } from '@/src/shared/components/Input';
-import { ErrorBanner } from '@/src/shared/components/ErrorBanner';
-import { useAuth } from '@/src/modules/auth/hooks/useAuth';
-import type { Branch } from '@/src/core/types';
-import { useBranchStore } from '../store/branchStore';
+import { useEffect, useState } from "react";
+import { Modal, ScrollView, View } from "react-native";
+import { useTranslation } from "react-i18next";
+import { Text } from "@/src/shared/components/Text";
+import { Button } from "@/src/shared/components/Button";
+import { Input } from "@/src/shared/components/Input";
+import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
+import { useAuth } from "@/src/modules/auth/hooks/useAuth";
+import type { Branch } from "@/src/core/types";
+import { useBranchStore } from "../store/branchStore";
 
 interface Props {
   branch?: Branch | null;
@@ -18,10 +19,16 @@ interface Props {
 export function BranchFormSheet({ branch, onDismiss, onRequestDelete }: Props) {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const { createBranch, updateBranch, reactivateBranch, loading, error, clearError } =
-    useBranchStore();
+  const {
+    createBranch,
+    updateBranch,
+    reactivateBranch,
+    loading,
+    error,
+    clearError,
+  } = useBranchStore();
 
-  const [name, setName] = useState(branch?.name ?? '');
+  const [name, setName] = useState(branch?.name ?? "");
 
   useEffect(() => {
     clearError();
@@ -47,42 +54,54 @@ export function BranchFormSheet({ branch, onDismiss, onRequestDelete }: Props) {
   const submitDisabled = !name.trim() || loading;
 
   return (
-    <Modal visible animationType="slide" presentationStyle="pageSheet" onRequestClose={onDismiss}>
+    <Modal
+      visible
+      animationType="slide"
+      presentationStyle="pageSheet"
+      onRequestClose={onDismiss}
+    >
       <View className="flex-1 bg-white">
         <View className="items-center pt-3 pb-1">
           <View className="w-10 h-1 rounded-full bg-gray-300" />
         </View>
         <View className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
           <Text fontWeight="Bold" className="text-lg text-gray-900">
-            {branch ? t('branches.edit_branch') : t('branches.add_branch')}
+            {branch ? t("branches.edit_branch") : t("branches.add_branch")}
           </Text>
-          <Pressable onPress={onDismiss}>
-            <Text className="text-base text-primary font-medium">{t('common.cancel')}</Text>
-          </Pressable>
+          <PressableOpacity onPress={onDismiss}>
+            <Text className="text-base text-primary font-medium">
+              {t("common.cancel")}
+            </Text>
+          </PressableOpacity>
         </View>
 
-        <ScrollView className="flex-1 px-6 pt-6" keyboardShouldPersistTaps="handled">
-          {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}
+        <ScrollView
+          className="flex-1 px-6 pt-6"
+          keyboardShouldPersistTaps="handled"
+        >
+          {error ? (
+            <ErrorBanner message={error} onDismiss={clearError} />
+          ) : null}
 
           {branch && !branch.active ? (
             <View className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-4">
               <Text className="text-sm text-amber-800">
-                {t('branches.inactive_branch_note')}
+                {t("branches.inactive_branch_note")}
               </Text>
             </View>
           ) : null}
 
           <Input
-            label={t('branches.name_label') + ' *'}
+            label={t("branches.name_label") + " *"}
             value={name}
             onChangeText={setName}
-            placeholder={t('branches.name_placeholder')}
+            placeholder={t("branches.name_placeholder")}
             maxLength={60}
             onFocus={clearError}
           />
 
           <Button
-            label={branch ? t('common.save_changes') : t('branches.add_branch')}
+            label={branch ? t("common.save_changes") : t("branches.add_branch")}
             onPress={handleSubmit}
             loading={loading}
             disabled={submitDisabled}
@@ -90,23 +109,25 @@ export function BranchFormSheet({ branch, onDismiss, onRequestDelete }: Props) {
           />
 
           {branch && branch.active && onRequestDelete ? (
-            <Pressable
+            <PressableOpacity
               onPress={() => onRequestDelete(branch)}
               className="border border-red-200 rounded-xl py-3.5 items-center mt-3"
             >
-              <Text className="text-red-500 font-semibold">{t('common.delete')}</Text>
-            </Pressable>
+              <Text className="text-red-500 font-semibold">
+                {t("common.delete")}
+              </Text>
+            </PressableOpacity>
           ) : null}
 
           {branch && !branch.active ? (
-            <Pressable
+            <PressableOpacity
               onPress={handleReactivate}
               className="border border-indigo-200 rounded-xl py-3.5 items-center mt-3"
             >
               <Text className="text-primary font-semibold">
-                {t('branches.reactivate')}
+                {t("branches.reactivate")}
               </Text>
-            </Pressable>
+            </PressableOpacity>
           ) : null}
 
           <View className="h-6" />

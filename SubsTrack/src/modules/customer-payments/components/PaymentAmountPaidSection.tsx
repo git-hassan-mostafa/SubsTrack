@@ -1,4 +1,5 @@
-import { Pressable, View } from "react-native";
+import { View } from "react-native";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
 import { CurrencyInput } from "@/src/shared/components/CurrencyInput";
@@ -42,7 +43,7 @@ export function PaymentAmountPaidSection({
           const isSelected = paymentMode === mode;
           const isDisabled = mode === "partial" && partialDisabled;
           return (
-            <Pressable
+            <PressableOpacity
               key={mode}
               onPress={() => {
                 if (isDisabled) return;
@@ -59,9 +60,11 @@ export function PaymentAmountPaidSection({
                 ) : null}
               </View>
               <Text className="text-sm text-gray-700">
-                {mode === "full" ? t("payments.full_payment") : t("payments.partial_payment")}
+                {mode === "full"
+                  ? t("payments.full_payment")
+                  : t("payments.partial_payment")}
               </Text>
-            </Pressable>
+            </PressableOpacity>
           );
         })}
       </View>

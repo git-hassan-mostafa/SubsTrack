@@ -1,11 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { FlatList, Modal, Pressable, TextInput, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useTranslation } from 'react-i18next';
-import { Text } from './Text';
-import { COLORS } from '@/src/shared/constants';
-import type { Currency } from '@/src/core/types';
-import { useUiPrefStore } from '@/src/shared/lib/uiPrefStore';
+import { useEffect, useMemo, useRef, useState } from "react";
+import { FlatList, Modal, Pressable, TextInput, View } from "react-native";
+import { PressableOpacity } from "./PressableOpacity";
+import { Ionicons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
+import { Text } from "./Text";
+import { COLORS } from "@/src/shared/constants";
+import type { Currency } from "@/src/core/types";
+import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
 
 interface CurrencyInputProps {
   label?: string;
@@ -13,7 +14,10 @@ interface CurrencyInputProps {
   amount: number | null;
   // The currency that `amount` is denominated in. null = USD.
   currencyId: string | null;
-  onChange: (next: { amount: number | null; currencyId: string | null }) => void;
+  onChange: (next: {
+    amount: number | null;
+    currencyId: string | null;
+  }) => void;
   currencies: Currency[];
   error?: string | null;
   placeholder?: string;
@@ -53,7 +57,9 @@ export function CurrencyInput({
     if (initialDefaultApplied.current) return;
     initialDefaultApplied.current = true;
     if (currencyId === null && amount === null && lastUsedCurrencyId) {
-      const exists = currencies.some((c) => c.id === lastUsedCurrencyId && c.active);
+      const exists = currencies.some(
+        (c) => c.id === lastUsedCurrencyId && c.active,
+      );
       if (exists) onChange({ amount: null, currencyId: lastUsedCurrencyId });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -68,19 +74,21 @@ export function CurrencyInput({
     [activeCurrencies, currencyId],
   );
 
-  const [text, setText] = useState<string>(amount != null ? String(amount) : '');
+  const [text, setText] = useState<string>(
+    amount != null ? String(amount) : "",
+  );
   // Keep local text in sync when parent resets `amount` programmatically.
   useEffect(() => {
-    const incoming = amount != null ? String(amount) : '';
+    const incoming = amount != null ? String(amount) : "";
     setText((prev) => (Number(prev) === amount ? prev : incoming));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [amount]);
 
   function handleText(next: string) {
     // Allow empty, partial decimal like "12." while typing.
-    const cleaned = next.replace(/[^0-9.]/g, '');
+    const cleaned = next.replace(/[^0-9.]/g, "");
     setText(cleaned);
-    if (cleaned === '' || cleaned === '.') {
+    if (cleaned === "" || cleaned === ".") {
       onChange({ amount: null, currencyId });
       return;
     }
@@ -105,22 +113,22 @@ export function CurrencyInput({
 
       <View
         className={`flex-row items-center border rounded-xl bg-white px-4 ${
-          error ? 'border-danger' : 'border-gray-200'
+          error ? "border-danger" : "border-gray-200"
         }`}
       >
         <TextInput
           value={text}
           onChangeText={handleText}
           onFocus={onFocus}
-          placeholder={placeholder ?? '0.00'}
+          placeholder={placeholder ?? "0.00"}
           placeholderTextColor={COLORS.gray400}
           keyboardType="decimal-pad"
           editable={editable}
           className="flex-1 py-3 text-base text-gray-900"
-          style={{ fontFamily: 'Cairo' }}
+          style={{ fontFamily: "Cairo" }}
         />
 
-        <Pressable
+        <PressableOpacity
           onPress={() => {
             if (!lockCurrency) setPickerOpen(true);
           }}
@@ -128,7 +136,7 @@ export function CurrencyInput({
           className="flex-row items-center ps-3 ms-2 border-s border-gray-100 py-2.5"
         >
           <Text fontWeight="SemiBold" className="text-sm text-gray-700">
-            {selected ? selected.code : 'USD'}
+            {selected ? selected.code : "USD"}
           </Text>
           {!lockCurrency ? (
             <Ionicons
@@ -138,7 +146,7 @@ export function CurrencyInput({
               style={{ marginInlineStart: 4 }}
             />
           ) : null}
-        </Pressable>
+        </PressableOpacity>
       </View>
 
       {error ? <Text className="text-sm text-danger mt-1">{error}</Text> : null}
@@ -159,18 +167,23 @@ export function CurrencyInput({
           >
             <View className="flex-row items-center justify-between px-5 py-4 border-b border-gray-100">
               <Text className="text-base font-semibold text-gray-900">
-                {t('tenant_settings.currencies_section_title')}
+                {t("tenant_settings.currencies_section_title")}
               </Text>
-              <Pressable onPress={() => setPickerOpen(false)}>
+              <PressableOpacity onPress={() => setPickerOpen(false)}>
                 <Text className="text-base text-primary font-medium">
-                  {t('common.cancel')}
+                  {t("common.cancel")}
                 </Text>
-              </Pressable>
+              </PressableOpacity>
             </View>
 
             <FlatList
               data={[
-                { id: null as string | null, code: 'USD', label: 'USD', sublabel: null as string | null },
+                {
+                  id: null as string | null,
+                  code: "USD",
+                  label: "USD",
+                  sublabel: null as string | null,
+                },
                 ...activeCurrencies.map((c) => ({
                   id: c.id as string | null,
                   code: c.code,
@@ -178,36 +191,42 @@ export function CurrencyInput({
                   sublabel: c.name,
                 })),
               ]}
-              keyExtractor={(item) => item.id ?? '__usd__'}
+              keyExtractor={(item) => item.id ?? "__usd__"}
               style={{ maxHeight: 320 }}
               renderItem={({ item }) => {
                 const isSelected = item.id === currencyId;
                 return (
-                  <Pressable
+                  <PressableOpacity
                     onPress={() => {
                       handleCurrencyChange(item.id);
                       setPickerOpen(false);
                     }}
                     className={`flex-row items-center px-5 py-3.5 border-b border-gray-50 ${
-                      isSelected ? 'bg-indigo-50' : 'bg-white'
+                      isSelected ? "bg-indigo-50" : "bg-white"
                     }`}
                   >
                     <View className="flex-1">
                       <Text
                         className={`text-base font-semibold ${
-                          isSelected ? 'text-primary' : 'text-gray-900'
+                          isSelected ? "text-primary" : "text-gray-900"
                         }`}
                       >
                         {item.label}
                       </Text>
                       {item.sublabel ? (
-                        <Text className="text-xs text-gray-400 mt-0.5">{item.sublabel}</Text>
+                        <Text className="text-xs text-gray-400 mt-0.5">
+                          {item.sublabel}
+                        </Text>
                       ) : null}
                     </View>
                     {isSelected ? (
-                      <Ionicons name="checkmark" size={18} color={COLORS.primary} />
+                      <Ionicons
+                        name="checkmark"
+                        size={18}
+                        color={COLORS.primary}
+                      />
                     ) : null}
-                  </Pressable>
+                  </PressableOpacity>
                 );
               }}
             />

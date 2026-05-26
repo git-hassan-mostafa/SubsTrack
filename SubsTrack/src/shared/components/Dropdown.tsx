@@ -1,9 +1,10 @@
-import { useState } from 'react';
-import { FlatList, Modal, Pressable, TextInput, View } from 'react-native';
-import { Text } from '@/src/shared/components/Text';
-import { useTranslation } from 'react-i18next';
-import { Ionicons } from '@expo/vector-icons';
-import { COLORS } from '@/src/shared/constants';
+import { useState } from "react";
+import { FlatList, Modal, Pressable, TextInput, View } from "react-native";
+import { PressableOpacity } from "./PressableOpacity";
+import { Text } from "@/src/shared/components/Text";
+import { useTranslation } from "react-i18next";
+import { Ionicons } from "@expo/vector-icons";
+import { COLORS } from "@/src/shared/constants";
 
 export interface DropdownOption<T = string> {
   label: string;
@@ -34,18 +35,19 @@ export function Dropdown<T extends string | number | null = string>({
 }: DropdownProps<T>) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState("");
 
   const selectedOption = options.find((o) => o.value === value);
-  const displayLabel = selectedOption?.label ?? (nullable && value === null ? nullLabel : null);
+  const displayLabel =
+    selectedOption?.label ?? (nullable && value === null ? nullLabel : null);
 
   function handleOpen() {
-    setSearch('');
+    setSearch("");
     setOpen(true);
   }
 
   function handleClose() {
-    setSearch('');
+    setSearch("");
     setOpen(false);
   }
 
@@ -54,36 +56,63 @@ export function Dropdown<T extends string | number | null = string>({
     handleClose();
   }
 
-  type ListItem = { label: string; sublabel?: string; value: T | null; isNull: boolean };
+  type ListItem = {
+    label: string;
+    sublabel?: string;
+    value: T | null;
+    isNull: boolean;
+  };
 
   const allItems: ListItem[] = [
     ...(nullable
-      ? [{ label: nullLabel ?? t('common.no_plan'), sublabel: nullSublabel, value: null as T | null, isNull: true }]
+      ? [
+          {
+            label: nullLabel ?? t("common.no_plan"),
+            sublabel: nullSublabel,
+            value: null as T | null,
+            isNull: true,
+          },
+        ]
       : []),
-    ...options.map((o) => ({ ...o, value: o.value as T | null, isNull: false })),
+    ...options.map((o) => ({
+      ...o,
+      value: o.value as T | null,
+      isNull: false,
+    })),
   ];
 
   const listItems = search.trim()
-    ? allItems.filter((item) => item.label.toLowerCase().includes(search.toLowerCase()))
+    ? allItems.filter((item) =>
+        item.label.toLowerCase().includes(search.toLowerCase()),
+      )
     : allItems;
 
   return (
     <View className="mb-4">
       {label ? (
-        <Text className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">{label}</Text>
+        <Text className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+          {label}
+        </Text>
       ) : null}
 
-      <Pressable
+      <PressableOpacity
         onPress={handleOpen}
         className="border border-gray-200 rounded-xl px-4 py-3 bg-white flex-row items-center justify-between"
       >
-        <Text className={`text-base flex-1 ${displayLabel ? 'text-gray-900' : 'text-gray-400'}`}>
-          {displayLabel ?? placeholder ?? t('customers.select_plan')}
+        <Text
+          className={`text-base flex-1 ${displayLabel ? "text-gray-900" : "text-gray-400"}`}
+        >
+          {displayLabel ?? placeholder ?? t("customers.select_plan")}
         </Text>
         <Ionicons name="chevron-down" size={16} color={COLORS.gray400} />
-      </Pressable>
+      </PressableOpacity>
 
-      <Modal visible={open} transparent animationType="fade" onRequestClose={handleClose}>
+      <Modal
+        visible={open}
+        transparent
+        animationType="fade"
+        onRequestClose={handleClose}
+      >
         <Pressable
           className="flex-1 bg-black/40 items-center justify-center px-6"
           onPress={handleClose}
@@ -93,17 +122,21 @@ export function Dropdown<T extends string | number | null = string>({
             onPress={(e) => e.stopPropagation()}
           >
             <View className="flex-row items-center justify-between px-5 py-4 border-b border-gray-100">
-              <Text className="text-base font-semibold text-gray-900">{label ?? placeholder ?? ''}</Text>
-              <Pressable onPress={handleClose}>
-                <Text className="text-base text-primary font-medium">{t('common.cancel')}</Text>
-              </Pressable>
+              <Text className="text-base font-semibold text-gray-900">
+                {label ?? placeholder ?? ""}
+              </Text>
+              <PressableOpacity onPress={handleClose}>
+                <Text className="text-base text-primary font-medium">
+                  {t("common.cancel")}
+                </Text>
+              </PressableOpacity>
             </View>
 
             <View className="px-4 py-2 border-b border-gray-100">
               <TextInput
                 value={search}
                 onChangeText={setSearch}
-                placeholder={t('common.input_search')}
+                placeholder={t("common.input_search")}
                 placeholderTextColor={COLORS.gray400}
                 className="bg-gray-50 rounded-xl px-4 py-2.5 text-base text-gray-900"
                 autoCorrect={false}
@@ -112,27 +145,37 @@ export function Dropdown<T extends string | number | null = string>({
 
             <FlatList
               data={listItems}
-              keyExtractor={(item) => String(item.value ?? '__null__')}
+              keyExtractor={(item) => String(item.value ?? "__null__")}
               style={{ maxHeight: 320 }}
               renderItem={({ item }) => {
-                const isSelected = item.isNull ? value === null : item.value === value;
+                const isSelected = item.isNull
+                  ? value === null
+                  : item.value === value;
                 return (
-                  <Pressable
+                  <PressableOpacity
                     onPress={() => handleSelect(item.value)}
-                    className={`flex-row items-center px-5 py-3.5 border-b border-gray-50 ${isSelected ? 'bg-indigo-50' : 'bg-white'}`}
+                    className={`flex-row items-center px-5 py-3.5 border-b border-gray-50 ${isSelected ? "bg-indigo-50" : "bg-white"}`}
                   >
                     <View className="flex-1">
-                      <Text className={`text-base font-semibold ${isSelected ? 'text-primary' : 'text-gray-900'}`}>
+                      <Text
+                        className={`text-base font-semibold ${isSelected ? "text-primary" : "text-gray-900"}`}
+                      >
                         {item.label}
                       </Text>
                       {item.sublabel ? (
-                        <Text className="text-xs text-gray-400 mt-0.5">{item.sublabel}</Text>
+                        <Text className="text-xs text-gray-400 mt-0.5">
+                          {item.sublabel}
+                        </Text>
                       ) : null}
                     </View>
                     {isSelected ? (
-                      <Ionicons name="checkmark" size={18} color={COLORS.primary} />
+                      <Ionicons
+                        name="checkmark"
+                        size={18}
+                        color={COLORS.primary}
+                      />
                     ) : null}
-                  </Pressable>
+                  </PressableOpacity>
                 );
               }}
             />
