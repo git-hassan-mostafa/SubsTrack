@@ -99,7 +99,7 @@ export function CurrencyFormSheet({ currency, onDismiss, onRequestDelete }: Prop
           ) : null}
 
           <Input
-            label={t('tenant_settings.code_label')}
+            label={t('tenant_settings.code_label') + ' *'}
             value={form.code}
             onChangeText={(v) => setForm((p) => ({ ...p, code: v.toUpperCase() }))}
             placeholder={t('tenant_settings.code_placeholder')}
@@ -109,7 +109,7 @@ export function CurrencyFormSheet({ currency, onDismiss, onRequestDelete }: Prop
           />
 
           <Input
-            label={t('tenant_settings.name_label')}
+            label={t('tenant_settings.name_label') + ' *'}
             value={form.name}
             onChangeText={(v) => setForm((p) => ({ ...p, name: v }))}
             placeholder={t('tenant_settings.name_placeholder')}
@@ -128,7 +128,7 @@ export function CurrencyFormSheet({ currency, onDismiss, onRequestDelete }: Prop
           <Input
             label={t('tenant_settings.rate_label', {
               code: form.code || t('tenant_settings.rate_label_fallback'),
-            })}
+            }) + ' *'}
             value={form.rateText}
             onChangeText={(v) => setForm((p) => ({ ...p, rateText: v.replace(/[^0-9.]/g, '') }))}
             placeholder="0"
@@ -140,7 +140,7 @@ export function CurrencyFormSheet({ currency, onDismiss, onRequestDelete }: Prop
           </Text>
 
           <Input
-            label={t('tenant_settings.decimals_label')}
+            label={t('tenant_settings.decimals_label') + ' *'}
             value={form.decimalsText}
             onChangeText={(v) =>
               setForm((p) => ({ ...p, decimalsText: v.replace(/[^0-9]/g, '').slice(0, 1) }))

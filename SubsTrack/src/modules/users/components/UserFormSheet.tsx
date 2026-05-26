@@ -177,7 +177,7 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
           ) : null}
 
           <Input
-            label={t("users.username_label")}
+            label={t("users.username_label") + ' *'}
             value={form.username}
             onChangeText={(v) => setForm((prev) => ({ ...prev, username: v }))}
             placeholder={t("users.username_placeholder")}
@@ -189,7 +189,7 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
           />
 
           <Input
-            label={t("users.fullname_label")}
+            label={t("users.fullname_label") + ' *'}
             value={form.fullName}
             onChangeText={(v) => setForm((prev) => ({ ...prev, fullName: v }))}
             placeholder={t("users.fullname_placeholder")}
@@ -200,7 +200,7 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
           {!editUser ? (
             <>
               <Input
-                label={t("users.password_label")}
+                label={t("users.password_label") + ' *'}
                 value={form.password}
                 onChangeText={(v) =>
                   setForm((prev) => ({ ...prev, password: v }))
@@ -210,7 +210,7 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
                 onFocus={clearError}
               />
               <Input
-                label={t("users.confirm_password_label")}
+                label={t("users.confirm_password_label") + ' *'}
                 value={form.confirmPassword}
                 onChangeText={(v) =>
                   setForm((prev) => ({ ...prev, confirmPassword: v }))

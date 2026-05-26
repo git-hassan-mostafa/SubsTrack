@@ -134,7 +134,7 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
           ) : null}
 
           <Input
-            label={t("plans.plan_name_label")}
+            label={t("plans.plan_name_label") + ' *'}
             value={form.name}
             onChangeText={(v) => setForm((prev) => ({ ...prev, name: v }))}
             placeholder={t("plans.plan_name_placeholder")}
@@ -142,6 +142,7 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
           />
 
           <BranchPicker
+            label={t("branches.branch_label") + ' *'}
             value={form.branchId}
             onChange={(v) => setForm((prev) => ({ ...prev, branchId: v }))}
             nullLabel={t("branches.shared_all_branches")}
@@ -226,8 +227,8 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
             <CurrencyInput
               label={
                 isMultiMonth
-                  ? t("plans.bundle_price_label")
-                  : t("plans.price_label")
+                  ? t("plans.bundle_price_label") + ' *'
+                  : t("plans.price_label") + ' *'
               }
               amount={form.price}
               currencyId={form.currencyId}

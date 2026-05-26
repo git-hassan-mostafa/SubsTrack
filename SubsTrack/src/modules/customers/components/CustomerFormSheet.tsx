@@ -147,7 +147,7 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
           ) : null}
 
           <Input
-            label={t("customers.name_label")}
+            label={t("customers.name_label") + ' *'}
             value={form.name}
             onChangeText={(v) => setForm((prev) => ({ ...prev, name: v }))}
             placeholder={t("customers.name_placeholder")}
@@ -169,7 +169,7 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
             </View>
             <View className="flex-1">
               <DatePickerInput
-                label={t("customers.start_date_label")}
+                label={t("customers.start_date_label") + ' *'}
                 value={form.startDate}
                 onChange={(v) => setForm((prev) => ({ ...prev, startDate: v }))}
                 placeholder={t("customers.start_date_placeholder")}
@@ -192,6 +192,7 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
           />
 
           <BranchPicker
+            label={t("branches.branch_label") + ' *'}
             value={form.branchId}
             onChange={(v) =>
               setForm((prev) => ({

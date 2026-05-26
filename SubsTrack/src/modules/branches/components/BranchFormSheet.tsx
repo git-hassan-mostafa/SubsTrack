@@ -73,7 +73,7 @@ export function BranchFormSheet({ branch, onDismiss, onRequestDelete }: Props) {
           ) : null}
 
           <Input
-            label={t('branches.name_label')}
+            label={t('branches.name_label') + ' *'}
             value={name}
             onChangeText={setName}
             placeholder={t('branches.name_placeholder')}
