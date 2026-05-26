@@ -59,6 +59,7 @@ export function CustomerListScreen() {
     clearError,
     deactivateCustomer,
     reactivateCustomer,
+    deleteCustomer,
   } = useCustomerStore();
   const {
     currentMonthPaidIds,
@@ -81,6 +82,10 @@ export function CustomerListScreen() {
     amountLabel: string;
   } | null>(null);
   const [menuCustomer, setMenuCustomer] = useState<Customer | null>(null);
+  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const [deletingCustomer, setDeletingCustomer] = useState<Customer | null>(
+    null,
+  );
   const [toggleActiveCustomer, setToggleActiveCustomer] =
     useState<Customer | null>(null);
   const debouncedSearch = useDebounce(searchText);
@@ -259,6 +264,12 @@ export function CustomerListScreen() {
     setToggleActiveCustomer(null);
   }
 
+  async function confirmDeleteCustomer() {
+    if (!deletingCustomer) return;
+    await deleteCustomer(deletingCustomer.id);
+    setDeletingCustomer(null);
+  }
+
   function buildMenuActions(customer: Customer | null): ActionMenuItem[] {
     if (!customer) return [];
     const items: ActionMenuItem[] = [];
@@ -270,6 +281,12 @@ export function CustomerListScreen() {
         onPress: () => handleQuickPay(customer),
       });
     }
+    items.push({
+      key: "edit",
+      label: t("common.edit"),
+      icon: "create-outline",
+      onPress: () => setEditingCustomer(customer),
+    });
     if (isAdmin) {
       items.push({
         key: "toggle-active",
@@ -279,6 +296,13 @@ export function CustomerListScreen() {
         icon: customer.active ? "pause-circle-outline" : "play-circle-outline",
         destructive: customer.active,
         onPress: () => setToggleActiveCustomer(customer),
+      });
+      items.push({
+        key: "delete",
+        label: t("common.delete"),
+        icon: "trash-outline",
+        destructive: true,
+        onPress: () => setDeletingCustomer(customer),
       });
     }
     return items;
@@ -383,6 +407,13 @@ export function CustomerListScreen() {
         <CustomerFormSheet onDismiss={() => setFormVisible(false)} />
       )}
 
+      {editingCustomer && (
+        <CustomerFormSheet
+          customer={editingCustomer}
+          onDismiss={() => setEditingCustomer(null)}
+        />
+      )}
+
       <ConfirmDialog
         visible={multiMonthConfirm !== null}
         title={t("payments.quick_pay.confirm_multi_month_title")}
@@ -404,6 +435,20 @@ export function CustomerListScreen() {
         title={menuCustomer?.name}
         actions={buildMenuActions(menuCustomer)}
         onDismiss={() => setMenuCustomer(null)}
+      />
+
+      <ConfirmDialog
+        visible={deletingCustomer !== null}
+        title={t("customers.delete_title")}
+        message={
+          deletingCustomer
+            ? t("customers.delete_message", { name: deletingCustomer.name })
+            : ""
+        }
+        confirmLabel={t("common.delete")}
+        destructive
+        onConfirm={confirmDeleteCustomer}
+        onCancel={() => setDeletingCustomer(null)}
       />
 
       <ConfirmDialog

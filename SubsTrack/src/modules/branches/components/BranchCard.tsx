@@ -3,19 +3,20 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import type { Branch } from '@/src/core/types';
 import { Text } from '@/src/shared/components/Text';
-import { DirectionalIcon } from '@/src/shared/components/DirectionalIcon';
 import { COLORS } from '@/src/shared/constants';
 
 interface Props {
   branch: Branch;
   onEdit: (branch: Branch) => void;
+  onMenu: (branch: Branch) => void;
 }
 
-export function BranchCard({ branch, onEdit }: Props) {
+export function BranchCard({ branch, onEdit, onMenu }: Props) {
   const { t } = useTranslation();
   return (
     <Pressable
       onPress={() => onEdit(branch)}
+      onLongPress={() => onMenu(branch)}
       className={`bg-white border rounded-2xl px-4 py-4 mb-2.5 flex-row items-center ${
         branch.active ? 'border-gray-100' : 'border-gray-200 opacity-60'
       }`}
@@ -37,7 +38,13 @@ export function BranchCard({ branch, onEdit }: Props) {
         </View>
       </View>
 
-      <DirectionalIcon name="chevron-forward" size={16} color={COLORS.gray300} />
+      <Pressable
+        onPress={() => onMenu(branch)}
+        hitSlop={8}
+        className="ms-1 w-9 h-9 items-center justify-center rounded-full"
+      >
+        <Ionicons name="ellipsis-vertical" size={20} color={COLORS.gray600} />
+      </Pressable>
     </Pressable>
   );
 }

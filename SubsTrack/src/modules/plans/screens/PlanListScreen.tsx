@@ -12,6 +12,10 @@ import { COLORS } from "@/src/shared/constants";
 import { ConfirmDialog } from "@/src/shared/components/ConfirmDialog";
 import { EmptyState } from "@/src/shared/components/EmptyState";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
+import {
+  ActionMenu,
+  type ActionMenuItem,
+} from "@/src/shared/components/ActionMenu";
 import { useDebounce } from "@/src/shared/hooks/useDebounce";
 import type { Plan } from "@/src/core/types";
 import { PlanCard } from "../components/PlanCard";
@@ -36,6 +40,7 @@ export function PlanListScreen() {
   const [formVisible, setFormVisible] = useState(false);
   const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
   const [deletingPlan, setDeletingPlan] = useState<Plan | null>(null);
+  const [menuPlan, setMenuPlan] = useState<Plan | null>(null);
   const [searchText, setSearchText] = useState("");
   const debouncedSearch = useDebounce(searchText);
   const branchFilter = useEffectiveBranchFilter();
@@ -61,6 +66,25 @@ export function PlanListScreen() {
     await deletePlan(deletingPlan.id);
     setFormVisible(false);
     setDeletingPlan(null);
+  }
+
+  function buildMenuActions(plan: Plan | null): ActionMenuItem[] {
+    if (!plan) return [];
+    return [
+      {
+        key: "edit",
+        label: t("common.edit"),
+        icon: "create-outline",
+        onPress: () => openEdit(plan),
+      },
+      {
+        key: "delete",
+        label: t("common.delete"),
+        icon: "trash-outline",
+        destructive: true,
+        onPress: () => setDeletingPlan(plan),
+      },
+    ];
   }
 
   const filtered = debouncedSearch
@@ -108,11 +132,7 @@ export function PlanListScreen() {
             />
           }
           renderItem={({ item }) => (
-            <PlanCard
-              plan={item}
-              onEdit={openEdit}
-              onDelete={setDeletingPlan}
-            />
+            <PlanCard plan={item} onEdit={openEdit} onMenu={setMenuPlan} />
           )}
           ListEmptyComponent={
             <EmptyState
@@ -135,6 +155,13 @@ export function PlanListScreen() {
           onRequestDelete={setDeletingPlan}
         />
       )}
+
+      <ActionMenu
+        visible={menuPlan !== null}
+        title={menuPlan?.name}
+        actions={buildMenuActions(menuPlan)}
+        onDismiss={() => setMenuPlan(null)}
+      />
 
       <ConfirmDialog
         visible={!!deletingPlan}

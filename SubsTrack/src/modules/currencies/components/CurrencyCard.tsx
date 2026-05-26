@@ -3,15 +3,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import type { Currency } from '@/src/core/types';
 import { Text } from '@/src/shared/components/Text';
-import { DirectionalIcon } from '@/src/shared/components/DirectionalIcon';
 import { COLORS } from '@/src/shared/constants';
 
 interface Props {
   currency: Currency;
   onEdit: (currency: Currency) => void;
+  onMenu: (currency: Currency) => void;
 }
 
-export function CurrencyCard({ currency, onEdit }: Props) {
+export function CurrencyCard({ currency, onEdit, onMenu }: Props) {
   const { t } = useTranslation();
   const rateLabel = new Intl.NumberFormat('en-US', {
     minimumFractionDigits: 0,
@@ -21,6 +21,7 @@ export function CurrencyCard({ currency, onEdit }: Props) {
   return (
     <Pressable
       onPress={() => onEdit(currency)}
+      onLongPress={() => onMenu(currency)}
       className={`bg-white border rounded-2xl px-4 py-4 mb-2.5 flex-row items-center ${
         currency.active ? 'border-gray-100' : 'border-gray-200 opacity-60'
       }`}
@@ -45,7 +46,7 @@ export function CurrencyCard({ currency, onEdit }: Props) {
         </Text>
       </View>
 
-      <View className="items-end me-3">
+      <View className="items-end me-2">
         <Text fontWeight="Bold" className="text-base text-gray-900">
           {rateLabel}
         </Text>
@@ -54,7 +55,13 @@ export function CurrencyCard({ currency, onEdit }: Props) {
         </Text>
       </View>
 
-      <DirectionalIcon name="chevron-forward" size={16} color={COLORS.gray300} />
+      <Pressable
+        onPress={() => onMenu(currency)}
+        hitSlop={8}
+        className="ms-1 w-9 h-9 items-center justify-center rounded-full"
+      >
+        <Ionicons name="ellipsis-vertical" size={20} color={COLORS.gray600} />
+      </Pressable>
     </Pressable>
   );
 }

@@ -283,6 +283,9 @@
     "rate_hint": "How many {{code}} equal 1 USD.",
     "decimals_label": "Decimal places",
     "reactivate": "Reactivate",
+    "deactivate": "Deactivate",
+    "deactivate_title": "Deactivate Currency",
+    "deactivate_message": "Hide \"{{code}}\"? It will be kept for history but no longer selectable for new plans or payments.",
     "inactive_currency_note": "This currency is hidden because it's still referenced by existing records. Reactivate to use it again."
   },
   "branches": {
@@ -297,6 +300,9 @@
     "name_placeholder": "e.g. Beirut",
     "delete_title": "Delete Branch",
     "delete_message": "Delete \"{{name}}\"? If it's still in use, it will be hidden but kept for history.",
+    "deactivate": "Deactivate",
+    "deactivate_title": "Deactivate Branch",
+    "deactivate_message": "Hide \"{{name}}\"? It will be kept for history but no longer selectable.",
     "reactivate": "Reactivate",
     "inactive_branch_note": "This branch is hidden because records still reference it. Reactivate to use it again.",
     "all_branches": "All Branches",
