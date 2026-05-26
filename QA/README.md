@@ -21,6 +21,7 @@ This folder contains the production QA test plan for the SubsTrack mobile app. E
 | Plans | [plans.md](plans.md) | List, create/edit/delete, fixed vs custom pricing, multi-month bundles (1–12), per-currency price, branch scoping (shared vs branch-specific) |
 | Users (Staff) | [users.md](users.md) | List, create/edit, role assignment, password rules, branch enforcement, delete user |
 | Currencies | [currencies.md](currencies.md) | Tenant currencies CRUD, USD base, rate per USD + snapshots, CurrencyInput, display currency preference, soft/hard delete |
+| Currency × Payments | [currency-payments.md](currency-payments.md) | End-to-end: plan pricing in non-USD, snapshot capture/immunity, CurrencyInput in payment form, receipt primary/secondary display, edit re-snapshot, display-currency conversions, dashboard/year aggregation, partial + multi-month in non-USD, edge cases |
 | Branches | [branches.md](branches.md) | Multi-location: branch CRUD, default branch, single-branch UI hiding, BranchSelector, RLS isolation, form scoping, mandatory branch enforcement |
 | Tenant Settings | [tenant-settings.md](tenant-settings.md) | Admin-only hub: display currency preference, links to currencies + branches |
 | Dashboard | [dashboard.md](dashboard.md) | Hero card (USD-aggregated via snapshots, display-currency formatted), stat cards, admin compact stats, refresh, branch scoping |
@@ -37,7 +38,7 @@ This folder contains the production QA test plan for the SubsTrack mobile app. E
 - [ ] [Plans](plans.md), [Users](users.md), [Dashboard](dashboard.md), [Currencies](currencies.md), [Branches](branches.md), [Tenant Settings](tenant-settings.md) pass for `admin` (and confirm hidden for `user`).
 - [ ] [Settings](settings.md) passes including language restart on iOS, Android, and Expo Go.
 - [ ] [Non-functional](non-functional.md) sections 1 (performance), 2 (errors), 5 (i18n/RTL), 7 (security), 8 (data integrity) pass.
-- [ ] Multi-currency invariants: snapshot rate freeze on payments, live rate edit doesn't shift history, display currency preference persists, USD is implicit (`currency_id = NULL`).
+- [ ] Multi-currency invariants: snapshot rate freeze on payments, live rate edit doesn't shift history, display currency preference persists, USD is implicit (`currency_id = NULL`). Full cross-cutting coverage in [currency-payments.md](currency-payments.md).
 - [ ] Branch invariants: tenants with ≥1 branch require branch on customers/plans/staff users; tenant-wide admins remain the only `branch_id IS NULL` users; new tenants auto-get "Default Branch".
 - [ ] Multi-month invariants: bundle creates a single payment row with `duration_months > 1`; `isGroupSecondary` cells render "Included"; conflict detection on overlap.
 - [ ] Partial payment invariants: `balance > 0` triggers orange dot + amber receipt; `amount_paid = 0` rendered as unpaid.
