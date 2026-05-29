@@ -290,7 +290,7 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
             </>
           ) : null}
 
-          <View className="h-10" />
+          <View className="h-24" />
         </ScrollView>
       </View>
     </Modal>
