@@ -1,9 +1,9 @@
 import type { Plan } from "@/src/core/types";
-import { Pressable, View } from "react-native";
+import { View } from "react-native";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
 import { Ionicons } from "@expo/vector-icons";
-import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
 import { COLORS } from "@/src/shared/constants";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { useCurrencyStore } from "@/src/modules/currencies/store/currencyStore";
@@ -13,10 +13,10 @@ import { useLanguageStore } from "@/src/core/i18n/languageStore";
 interface Props {
   plan: Plan;
   onEdit: (plan: Plan) => void;
-  onDelete: (plan: Plan) => void;
+  onMenu: (plan: Plan) => void;
 }
 
-export function PlanCard({ plan, onEdit, onDelete }: Props) {
+export function PlanCard({ plan, onEdit, onMenu }: Props) {
   const { t } = useTranslation();
   const { currencies } = useCurrencyStore();
   const { displayCurrencyId } = useUiPrefStore();
@@ -25,11 +25,17 @@ export function PlanCard({ plan, onEdit, onDelete }: Props) {
   const target = findCurrency(currencies, displayCurrencyId);
   const priceLabel =
     plan.price != null
-      ? formatMoney(plan.price, source, target, language === "ar" ? "ar" : "en-US")
+      ? formatMoney(
+          plan.price,
+          source,
+          target,
+          language === "ar" ? "ar" : "en-US",
+        )
       : "";
   return (
-    <Pressable
+    <PressableOpacity
       onPress={() => onEdit(plan)}
+      onLongPress={() => onMenu(plan)}
       className="bg-white border border-gray-100 rounded-2xl px-4 py-4 mb-2.5 flex-row items-center"
     >
       {/* Icon */}
@@ -45,7 +51,7 @@ export function PlanCard({ plan, onEdit, onDelete }: Props) {
       </View>
 
       {/* Price */}
-      <View className="items-end me-3">
+      <View className="items-end me-2">
         {plan.isCustomPrice ? (
           <View className="bg-indigo-50 rounded-lg px-2.5 py-1">
             <Text fontWeight="SemiBold" className="text-xs text-indigo-500">
@@ -66,7 +72,13 @@ export function PlanCard({ plan, onEdit, onDelete }: Props) {
         )}
       </View>
 
-      <DirectionalIcon name="chevron-forward" size={16} color={COLORS.gray300} />
-    </Pressable>
+      <PressableOpacity
+        onPress={() => onMenu(plan)}
+        hitSlop={8}
+        className="ms-1 w-9 h-9 items-center justify-center rounded-full"
+      >
+        <Ionicons name="ellipsis-vertical" size={20} color={COLORS.gray600} />
+      </PressableOpacity>
+    </PressableOpacity>
   );
 }

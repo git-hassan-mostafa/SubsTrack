@@ -1,5 +1,6 @@
 import { memo } from "react";
-import { ActivityIndicator, Pressable, View } from "react-native";
+import { ActivityIndicator, View } from "react-native";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
@@ -38,7 +39,7 @@ export const CustomerCard = memo(function CustomerCard({
   const avatarColor = getAvatarColor(customer.name);
 
   return (
-    <Pressable
+    <PressableOpacity
       onPress={() => onPress(customer)}
       onLongPress={() => onMenu(customer)}
       className="bg-white border border-gray-100 rounded-2xl px-4 py-3.5 mb-2.5 flex-row items-center"
@@ -100,7 +101,7 @@ export const CustomerCard = memo(function CustomerCard({
         <Text className="text-xs text-gray-400">{monthLabel}</Text>
       </View>
 
-      <Pressable
+      <PressableOpacity
         onPress={() => onMenu(customer)}
         disabled={menuLoading}
         hitSlop={8}
@@ -109,13 +110,9 @@ export const CustomerCard = memo(function CustomerCard({
         {menuLoading ? (
           <ActivityIndicator size="small" color={COLORS.gray600} />
         ) : (
-          <Ionicons
-            name="ellipsis-vertical"
-            size={20}
-            color={COLORS.gray600}
-          />
+          <Ionicons name="ellipsis-vertical" size={20} color={COLORS.gray600} />
         )}
-      </Pressable>
-    </Pressable>
+      </PressableOpacity>
+    </PressableOpacity>
   );
 });

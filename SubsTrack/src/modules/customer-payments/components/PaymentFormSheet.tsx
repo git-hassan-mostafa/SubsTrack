@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
-import { Modal, Pressable, ScrollView, View } from "react-native";
+import { Modal, ScrollView, View } from "react-native";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/src/shared/components/Button";
@@ -85,7 +86,10 @@ export function PaymentFormSheet({
   const isFixedPlan = !!plan && !plan.isCustomPrice;
   const isCustomOrNoPlan = !plan || plan.isCustomPrice;
 
-  const planCurrency = findCurrency(currencies, customer.plan?.currencyId ?? null);
+  const planCurrency = findCurrency(
+    currencies,
+    customer.plan?.currencyId ?? null,
+  );
   const customCurrency = findCurrency(currencies, form.customCurrencyId);
 
   const { year: cy, month: cm } = getCurrentYearMonth();
@@ -150,10 +154,14 @@ export function PaymentFormSheet({
     formatMoney(amount, resolvedCurrency, resolvedCurrency, locale);
 
   const canSubmit =
-    resolvedDue !== null && resolvedDue > 0 &&
-    resolvedPaid !== null && resolvedPaid >= 0 &&
+    resolvedDue !== null &&
+    resolvedDue > 0 &&
+    resolvedPaid !== null &&
+    resolvedPaid >= 0 &&
     resolvedPaid <= resolvedDue &&
-    !loadingCreate && !blockedForInactive && !showConflictWarning;
+    !loadingCreate &&
+    !blockedForInactive &&
+    !showConflictWarning;
 
   // Switching between plan/custom amount or toggling override invalidates any
   // previously-entered partial amount paid — reset back to "full" so the user
@@ -251,11 +259,11 @@ export function PaymentFormSheet({
           <Text fontWeight="Bold" className="text-lg text-gray-900">
             {t("payments.record_payment")}
           </Text>
-          <Pressable onPress={handleDismiss}>
+          <PressableOpacity onPress={handleDismiss}>
             <Text className="text-base text-primary font-medium">
               {t("common.cancel")}
             </Text>
-          </Pressable>
+          </PressableOpacity>
         </View>
 
         <ScrollView
@@ -285,7 +293,7 @@ export function PaymentFormSheet({
                   months: conflictingLabels.join(", "),
                 })}
               </Text>
-              <Pressable
+              <PressableOpacity
                 onPress={() =>
                   setForm((prev) => ({ ...prev, conflictConfirmed: true }))
                 }
@@ -294,7 +302,7 @@ export function PaymentFormSheet({
                 <Text className="text-sm font-semibold text-amber-800">
                   {t("payments.block_conflict_proceed")}
                 </Text>
-              </Pressable>
+              </PressableOpacity>
             </View>
           ) : null}
 
@@ -333,7 +341,12 @@ export function PaymentFormSheet({
             {isMultiMonth ? (
               <>
                 <Text fontWeight="Bold" className="text-4xl text-gray-900">
-                  {formatMoney(plan!.price!, planCurrency, planCurrency, locale)}
+                  {formatMoney(
+                    plan!.price!,
+                    planCurrency,
+                    planCurrency,
+                    locale,
+                  )}
                 </Text>
                 <Text className="text-sm text-gray-400 mt-1">
                   {t("payments.per_n_months", { count: plan!.durationMonths })}
@@ -364,13 +377,18 @@ export function PaymentFormSheet({
             {!isMultiMonth && isFixedPlan && !form.isOverrideEnabled ? (
               <>
                 <Text fontWeight="Bold" className="text-4xl text-gray-900">
-                  {formatMoney(plan!.price!, planCurrency, planCurrency, locale)}
+                  {formatMoney(
+                    plan!.price!,
+                    planCurrency,
+                    planCurrency,
+                    locale,
+                  )}
                 </Text>
-                <Pressable onPress={enableOverride} className="mt-3">
+                <PressableOpacity onPress={enableOverride} className="mt-3">
                   <Text className="text-primary text-sm font-semibold">
                     {t("payments.override_amount")}
                   </Text>
-                </Pressable>
+                </PressableOpacity>
               </>
             ) : null}
 
@@ -379,7 +397,7 @@ export function PaymentFormSheet({
               <>
                 <View className="w-full gap-2 mb-2">
                   {(["plan", "custom"] as const).map((mode) => (
-                    <Pressable
+                    <PressableOpacity
                       key={mode}
                       onPress={() => setAmountMode(mode)}
                       className={`flex-row items-center border rounded-xl px-4 py-3 ${form.amountMode === mode ? "border-primary bg-indigo-50" : "border-gray-200 bg-white"}`}
@@ -403,7 +421,7 @@ export function PaymentFormSheet({
                             })
                           : t("payments.custom_amount")}
                       </Text>
-                    </Pressable>
+                    </PressableOpacity>
                   ))}
                 </View>
                 {form.amountMode === "custom" ? (
@@ -413,7 +431,8 @@ export function PaymentFormSheet({
                       currencyId={form.customCurrencyId}
                       onChange={({ amount, currencyId }) =>
                         setForm((prev) => {
-                          const currencyChanged = currencyId !== prev.customCurrencyId;
+                          const currencyChanged =
+                            currencyId !== prev.customCurrencyId;
                           const amountCleared = amount === null || amount <= 0;
                           return {
                             ...prev,
@@ -421,9 +440,13 @@ export function PaymentFormSheet({
                             customCurrencyId: currencyId,
                             // Without an Amount Due, Partial can't be evaluated —
                             // revert to Full and drop any stale amount paid.
-                            paymentMode: amountCleared ? "full" : prev.paymentMode,
+                            paymentMode: amountCleared
+                              ? "full"
+                              : prev.paymentMode,
                             amountPaid:
-                              amountCleared || currencyChanged ? null : prev.amountPaid,
+                              amountCleared || currencyChanged
+                                ? null
+                                : prev.amountPaid,
                           };
                         })
                       }
@@ -444,7 +467,8 @@ export function PaymentFormSheet({
                   currencyId={form.customCurrencyId}
                   onChange={({ amount, currencyId }) =>
                     setForm((prev) => {
-                      const currencyChanged = currencyId !== prev.customCurrencyId;
+                      const currencyChanged =
+                        currencyId !== prev.customCurrencyId;
                       const amountCleared = amount === null || amount <= 0;
                       return {
                         ...prev,
@@ -452,7 +476,9 @@ export function PaymentFormSheet({
                         customCurrencyId: currencyId,
                         paymentMode: amountCleared ? "full" : prev.paymentMode,
                         amountPaid:
-                          amountCleared || currencyChanged ? null : prev.amountPaid,
+                          amountCleared || currencyChanged
+                            ? null
+                            : prev.amountPaid,
                       };
                     })
                   }
@@ -497,7 +523,9 @@ export function PaymentFormSheet({
 
           <Button
             label={
-              resolvedDue !== null && resolvedPaid !== null && resolvedPaid < resolvedDue
+              resolvedDue !== null &&
+              resolvedPaid !== null &&
+              resolvedPaid < resolvedDue
                 ? t("payments.record_payment_action")
                 : t("payments.mark_as_paid")
             }

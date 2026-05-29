@@ -8,6 +8,10 @@ import { PageHeader } from '@/src/shared/components/PageHeader';
 import { ErrorBanner } from '@/src/shared/components/ErrorBanner';
 import { EmptyState } from '@/src/shared/components/EmptyState';
 import { ConfirmDialog } from '@/src/shared/components/ConfirmDialog';
+import {
+  ActionMenu,
+  type ActionMenuItem,
+} from '@/src/shared/components/ActionMenu';
 import type { Currency } from '@/src/core/types';
 import { useCurrencyStore } from '../store/currencyStore';
 import { CurrencyCard, UsdBaseCard } from '../components/CurrencyCard';
@@ -16,12 +20,21 @@ import { CurrencyFormSheet } from '../components/CurrencyFormSheet';
 export function CurrenciesScreen() {
   const { t } = useTranslation();
   const router = useRouter();
-  const { currencies, loading, error, fetchCurrencies, deleteCurrency, clearError } =
-    useCurrencyStore();
+  const {
+    currencies,
+    loading,
+    error,
+    fetchCurrencies,
+    deleteCurrency,
+    reactivateCurrency,
+    clearError,
+  } = useCurrencyStore();
 
   const [formVisible, setFormVisible] = useState(false);
   const [editing, setEditing] = useState<Currency | null>(null);
   const [deleting, setDeleting] = useState<Currency | null>(null);
+  const [deactivating, setDeactivating] = useState<Currency | null>(null);
+  const [menuCurrency, setMenuCurrency] = useState<Currency | null>(null);
 
   useEffect(() => {
     fetchCurrencies();
@@ -42,6 +55,48 @@ export function CurrenciesScreen() {
     if (!deleting) return;
     await deleteCurrency(deleting.id);
     setDeleting(null);
+  }
+
+  async function confirmDeactivate() {
+    if (!deactivating) return;
+    await deleteCurrency(deactivating.id);
+    setDeactivating(null);
+  }
+
+  function buildMenuActions(currency: Currency | null): ActionMenuItem[] {
+    if (!currency) return [];
+    const items: ActionMenuItem[] = [
+      {
+        key: 'edit',
+        label: t('common.edit'),
+        icon: 'create-outline',
+        onPress: () => openEdit(currency),
+      },
+    ];
+    if (currency.active) {
+      items.push({
+        key: 'deactivate',
+        label: t('tenant_settings.deactivate'),
+        icon: 'pause-circle-outline',
+        destructive: true,
+        onPress: () => setDeactivating(currency),
+      });
+    } else {
+      items.push({
+        key: 'reactivate',
+        label: t('tenant_settings.reactivate'),
+        icon: 'play-circle-outline',
+        onPress: () => reactivateCurrency(currency.id),
+      });
+    }
+    items.push({
+      key: 'delete',
+      label: t('common.delete'),
+      icon: 'trash-outline',
+      destructive: true,
+      onPress: () => setDeleting(currency),
+    });
+    return items;
   }
 
   const activeCount = currencies.filter((c) => c.active).length;
@@ -80,7 +135,13 @@ export function CurrenciesScreen() {
             />
           }
           ListHeaderComponent={<UsdBaseCard />}
-          renderItem={({ item }) => <CurrencyCard currency={item} onEdit={openEdit} />}
+          renderItem={({ item }) => (
+            <CurrencyCard
+              currency={item}
+              onEdit={openEdit}
+              onMenu={setMenuCurrency}
+            />
+          )}
           ListEmptyComponent={
             <EmptyState
               message={t('tenant_settings.no_currencies')}
@@ -103,6 +164,13 @@ export function CurrenciesScreen() {
         />
       )}
 
+      <ActionMenu
+        visible={menuCurrency !== null}
+        title={menuCurrency?.code}
+        actions={buildMenuActions(menuCurrency)}
+        onDismiss={() => setMenuCurrency(null)}
+      />
+
       <ConfirmDialog
         visible={!!deleting}
         title={t('tenant_settings.delete_title')}
@@ -111,6 +179,17 @@ export function CurrenciesScreen() {
         destructive
         onConfirm={confirmDelete}
         onCancel={() => setDeleting(null)}
+      />
+
+      <ConfirmDialog
+        visible={!!deactivating}
+        title={t('tenant_settings.deactivate_title')}
+        message={t('tenant_settings.deactivate_message', {
+          code: deactivating?.code ?? '',
+        })}
+        destructive
+        onConfirm={confirmDeactivate}
+        onCancel={() => setDeactivating(null)}
       />
     </SafeAreaView>
   );

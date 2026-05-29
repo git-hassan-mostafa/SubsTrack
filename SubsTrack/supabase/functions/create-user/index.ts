@@ -12,10 +12,6 @@ const corsHeaders = {
 };
 
 Deno.serve(async (req) => {
-  console.log("Supabase url", Deno.env.get("SUPABASE_URL"));
-  console.log("Service role key", Deno.env.get("SERVICE_ROLE_KEY"));
-  console.log("Anon key", Deno.env.get("ANON_KEY"));
-
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
@@ -34,17 +30,19 @@ Deno.serve(async (req) => {
       Deno.env.get("SERVICE_ROLE_KEY"),
     );
 
-    // Verify caller identity via their JWT
     const callerClient = createClient(
       Deno.env.get("SUPABASE_URL"),
       Deno.env.get("ANON_KEY"),
       { global: { headers: { Authorization: authHeader } } },
     );
 
-    const {
-      data: { user: caller },
-      error: callerErr,
-    } = await callerClient.auth.getUser();
+    // Parse body and verify JWT in parallel — body parsing has no security
+    // implications since we validate the caller before acting on the body.
+    const [body, { data: { user: caller }, error: callerErr }] = await Promise.all([
+      req.json(),
+      callerClient.auth.getUser(),
+    ]);
+
     if (callerErr || !caller) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
@@ -76,7 +74,6 @@ Deno.serve(async (req) => {
       );
     }
 
-    const body = await req.json();
     const { username, fullName, password, phone, role, tenantId, branchId } = body;
 
     if (!fullName?.trim()) {
@@ -108,43 +105,54 @@ Deno.serve(async (req) => {
     }
 
     // Enforce branch isolation: branch-scoped admins can only create users in
-    // their own branch (no tenant-wide admins, no cross-branch creation).
-    // Tenant-wide admins (caller.branch_id IS NULL) can assign any branch
-    // (including NULL = unassigned / tenant-wide) within the same tenant.
-    let resolvedBranchId: string | null;
-    if (callerProfile.branch_id !== null) {
-      // Branch-scoped: ignore client-supplied branchId; force their own branch.
-      resolvedBranchId = callerProfile.branch_id;
-    } else {
-      resolvedBranchId = branchId ?? null;
-      if (resolvedBranchId !== null) {
-        // Verify the branch belongs to the same tenant.
-        const { data: branchRow, error: branchErr } = await serviceClient
-          .from("branches")
-          .select("id, tenant_id")
-          .eq("id", resolvedBranchId)
-          .single();
-        if (branchErr || !branchRow || branchRow.tenant_id !== tenantId) {
-          return new Response(
-            JSON.stringify({ error: "Invalid branch for this tenant" }),
-            {
-              status: 400,
-              headers: { ...corsHeaders, "Content-Type": "application/json" },
-            },
-          );
-        }
-      }
+    // their own branch. Tenant-wide admins (branch_id IS NULL) can assign any
+    // branch (including NULL = tenant-wide) within the same tenant.
+    const resolvedBranchId: string | null = callerProfile.branch_id !== null
+      ? callerProfile.branch_id   // branch-scoped: force their own branch
+      : (branchId ?? null);
+
+    // Fan out all independent lookups in parallel:
+    //   - tenant_code is always needed
+    //   - branch ownership check: only for tenant-wide admins supplying an explicit branchId
+    //   - branch existence count: only for role='user' with no assigned branch
+    const needsBranchValidation = callerProfile.branch_id === null && resolvedBranchId !== null;
+    const needsBranchCount = role === "user" && resolvedBranchId === null;
+
+    const [
+      { data: tenant, error: tenantErr },
+      { data: branchRow, error: branchErr },
+      { count, error: countErr },
+    ] = await Promise.all([
+      serviceClient.from("tenants").select("tenant_code").eq("id", tenantId).single(),
+      needsBranchValidation
+        ? serviceClient.from("branches").select("id, tenant_id").eq("id", resolvedBranchId).single()
+        : Promise.resolve({ data: null, error: null }),
+      needsBranchCount
+        ? serviceClient.from("branches").select("id", { count: "exact", head: true }).eq("tenant_id", tenantId)
+        : Promise.resolve({ count: 0, error: null }),
+    ]);
+
+    if (tenantErr || !tenant?.tenant_code) {
+      return new Response(
+        JSON.stringify({ error: "Tenant not found or missing tenant_code" }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
-    // Server-side mirror of UserService.validate: once the tenant has any
-    // branches, role='user' must be assigned to a branch. Branch-scoped
-    // callers can never trigger this (resolvedBranchId is forced to their
-    // own branch above), so the check only matters for tenant-wide admins.
-    if (role === "user" && resolvedBranchId === null) {
-      const { count, error: countErr } = await serviceClient
-        .from("branches")
-        .select("id", { count: "exact", head: true })
-        .eq("tenant_id", tenantId);
+    if (needsBranchValidation && (branchErr || !branchRow || branchRow.tenant_id !== tenantId)) {
+      return new Response(
+        JSON.stringify({ error: "Invalid branch for this tenant" }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    if (needsBranchCount) {
       if (countErr) {
         return new Response(
           JSON.stringify({ error: countErr.message }),
@@ -163,22 +171,6 @@ Deno.serve(async (req) => {
           },
         );
       }
-    }
-
-    // Look up tenant_code to build email matching the login convention
-    const { data: tenant, error: tenantErr } = await serviceClient
-      .from("tenants")
-      .select("tenant_code")
-      .eq("id", tenantId)
-      .single();
-    if (tenantErr || !tenant?.tenant_code) {
-      return new Response(
-        JSON.stringify({ error: "Tenant not found or missing tenant_code" }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
-      );
     }
 
     // Construct synthetic email matching the login convention: username@tenantcode.com

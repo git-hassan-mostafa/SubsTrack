@@ -1,5 +1,6 @@
-import { I18nManager, Pressable, View } from "react-native";
+import { I18nManager, View } from "react-native";
 import { Text } from "@/src/shared/components/Text";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 
 interface Props {
   year: number;
@@ -14,7 +15,7 @@ export function YearNavigator({ year, minYear, onPrev, onNext }: Props) {
 
   return (
     <View className="flex-row items-center justify-between px-4 py-3">
-      <Pressable
+      <PressableOpacity
         onPress={onPrev}
         disabled={!canGoPrev}
         className={`w-10 h-10 items-center justify-center rounded-full ${canGoPrev ? "bg-gray-100" : "opacity-30"}`}
@@ -25,11 +26,11 @@ export function YearNavigator({ year, minYear, onPrev, onNext }: Props) {
         >
           ‹
         </Text>
-      </Pressable>
+      </PressableOpacity>
       <Text fontWeight="Bold" className="text-lg text-gray-900">
         {year}
       </Text>
-      <Pressable
+      <PressableOpacity
         onPress={onNext}
         className="w-10 h-10 items-center justify-center rounded-full bg-gray-100"
       >
@@ -39,7 +40,7 @@ export function YearNavigator({ year, minYear, onPrev, onNext }: Props) {
         >
           ›
         </Text>
-      </Pressable>
+      </PressableOpacity>
     </View>
   );
 }

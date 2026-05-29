@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Pressable, ScrollView, View } from "react-native";
+import { ScrollView, View } from "react-native";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
@@ -14,7 +15,6 @@ import {
 } from "@/src/core/i18n/languageStore";
 import { useAuth } from "@/src/modules/auth/hooks/useAuth";
 import { useAuthStore } from "@/src/modules/auth/store/authStore";
-import { useBranchStore } from "@/src/modules/branches/store/branchStore";
 import { resetAllDomainStores } from "@/src/shared/lib/storeReset";
 import { AVATAR_COLORS } from "../../../shared/constants";
 
@@ -49,7 +49,7 @@ function SettingsRow({
   destructive?: boolean;
 }) {
   return (
-    <Pressable
+    <PressableOpacity
       onPress={onPress}
       className={`flex-row items-center justify-between px-4 py-3.5 ${last ? "" : "border-b border-gray-100"}`}
     >
@@ -73,7 +73,7 @@ function SettingsRow({
           color={COLORS.gray300}
         />
       </View>
-    </Pressable>
+    </PressableOpacity>
   );
 }
 
@@ -151,7 +151,7 @@ export function SettingsScreen() {
           </Text>
           <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
             {SUPPORTED_LANGUAGES.map((lang, index) => (
-              <Pressable
+              <PressableOpacity
                 key={lang}
                 onPress={() => handleLanguageSelect(lang)}
                 className={`flex-row items-center justify-between px-4 py-3.5 ${index < SUPPORTED_LANGUAGES.length - 1 ? "border-b border-gray-100" : ""}`}
@@ -184,7 +184,7 @@ export function SettingsScreen() {
                     />
                   )}
                 </View>
-              </Pressable>
+              </PressableOpacity>
             ))}
           </View>
         </View>

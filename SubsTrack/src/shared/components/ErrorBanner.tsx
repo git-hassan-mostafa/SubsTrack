@@ -1,5 +1,6 @@
-import { Pressable, View } from "react-native";
+import { View } from "react-native";
 import { Text } from "@/src/shared/components/Text";
+import { PressableOpacity } from "./PressableOpacity";
 
 interface ErrorBannerProps {
   message: string;
@@ -11,11 +12,11 @@ export function ErrorBanner({ message, onDismiss }: ErrorBannerProps) {
     <View className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 mb-4 flex-row items-center justify-between">
       <Text className="text-danger text-sm flex-1">{message}</Text>
       {onDismiss ? (
-        <Pressable onPress={onDismiss} className="ms-3">
+        <PressableOpacity onPress={onDismiss} className="ms-3">
           <Text fontWeight="Bold" className="text-danger text-base">
             ✕
           </Text>
-        </Pressable>
+        </PressableOpacity>
       ) : null}
     </View>
   );

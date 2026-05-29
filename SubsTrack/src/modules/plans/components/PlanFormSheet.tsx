@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Modal, Pressable, ScrollView, Switch, View } from "react-native";
+import { Modal, ScrollView, Switch, View } from "react-native";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/src/shared/components/Button";
@@ -118,11 +119,11 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
           <Text fontWeight="Bold" className="text-lg text-gray-900">
             {plan ? t("plans.edit_title") : t("plans.add_title")}
           </Text>
-          <Pressable onPress={onDismiss}>
+          <PressableOpacity onPress={onDismiss}>
             <Text className="text-base text-primary font-medium">
               {t("common.cancel")}
             </Text>
-          </Pressable>
+          </PressableOpacity>
         </View>
 
         <ScrollView
@@ -134,7 +135,7 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
           ) : null}
 
           <Input
-            label={t("plans.plan_name_label")}
+            label={t("plans.plan_name_label") + " *"}
             value={form.name}
             onChangeText={(v) => setForm((prev) => ({ ...prev, name: v }))}
             placeholder={t("plans.plan_name_placeholder")}
@@ -142,6 +143,7 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
           />
 
           <BranchPicker
+            label={t("branches.branch_label") + " *"}
             value={form.branchId}
             onChange={(v) => setForm((prev) => ({ ...prev, branchId: v }))}
             nullLabel={t("branches.shared_all_branches")}
@@ -159,7 +161,7 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
               {DURATION_OPTIONS.map((d) => {
                 const selected = form.durationMonths === d;
                 return (
-                  <Pressable
+                  <PressableOpacity
                     key={d}
                     onPress={() =>
                       setForm((prev) => ({
@@ -184,7 +186,7 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
                         ? t("plans.monthly")
                         : t("plans.n_months", { count: d })}
                     </Text>
-                  </Pressable>
+                  </PressableOpacity>
                 );
               })}
             </View>
@@ -197,21 +199,21 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
                   : t("plans.n_months", { count: form.durationMonths })}
               </Text>
               <View className="flex-row items-center">
-                <Pressable
+                <PressableOpacity
                   onPress={() => setDuration(-1)}
                   className="w-9 h-9 rounded-lg bg-gray-100 items-center justify-center"
                 >
                   <Text className="text-gray-700 text-lg font-bold">−</Text>
-                </Pressable>
+                </PressableOpacity>
                 <Text className="text-base font-semibold text-gray-900 w-10 text-center">
                   {form.durationMonths}
                 </Text>
-                <Pressable
+                <PressableOpacity
                   onPress={() => setDuration(1)}
                   className="w-9 h-9 rounded-lg bg-gray-100 items-center justify-center"
                 >
                   <Text className="text-gray-700 text-lg font-bold">+</Text>
-                </Pressable>
+                </PressableOpacity>
               </View>
             </View>
 
@@ -226,8 +228,8 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
             <CurrencyInput
               label={
                 isMultiMonth
-                  ? t("plans.bundle_price_label")
-                  : t("plans.price_label")
+                  ? t("plans.bundle_price_label") + " *"
+                  : t("plans.price_label") + " *"
               }
               amount={form.price}
               currencyId={form.currencyId}
@@ -274,7 +276,7 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
           {/* Delete plan (edit mode only) */}
           {plan && onRequestDelete ? (
             <>
-              <Pressable
+              <PressableOpacity
                 onPress={() => {
                   onRequestDelete(plan);
                 }}
@@ -283,7 +285,7 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
                 <Text className="text-red-500 font-semibold">
                   {t("common.delete")}
                 </Text>
-              </Pressable>
+              </PressableOpacity>
               <Text className="text-xs text-gray-400 text-center mt-3">
                 {t("plans.delete_warning")}
               </Text>

@@ -1,4 +1,5 @@
-import { Pressable, View } from "react-native";
+import { View } from "react-native";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
@@ -31,12 +32,12 @@ export function TenantInactiveScreen() {
       <Text className="text-xs text-gray-400 text-center mb-8">
         {t("tenant_inactive.contact_hint")}
       </Text>
-      <Pressable
+      <PressableOpacity
         onPress={handleLogout}
         className="border border-gray-300 rounded-lg px-6 py-3"
       >
         <Text className="text-gray-700 font-medium">{t("common.back")}</Text>
-      </Pressable>
+      </PressableOpacity>
     </SafeAreaView>
   );
 }

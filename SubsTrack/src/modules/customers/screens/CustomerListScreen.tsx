@@ -2,10 +2,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
-  Pressable,
   RefreshControl,
   View,
 } from "react-native";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
@@ -59,6 +59,7 @@ export function CustomerListScreen() {
     clearError,
     deactivateCustomer,
     reactivateCustomer,
+    deleteCustomer,
   } = useCustomerStore();
   const {
     currentMonthPaidIds,
@@ -81,6 +82,10 @@ export function CustomerListScreen() {
     amountLabel: string;
   } | null>(null);
   const [menuCustomer, setMenuCustomer] = useState<Customer | null>(null);
+  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const [deletingCustomer, setDeletingCustomer] = useState<Customer | null>(
+    null,
+  );
   const [toggleActiveCustomer, setToggleActiveCustomer] =
     useState<Customer | null>(null);
   const debouncedSearch = useDebounce(searchText);
@@ -239,13 +244,7 @@ export function CustomerListScreen() {
         menuLoading={quickPayCustomerId === item.id}
       />
     ),
-    [
-      currentMonthPaidIds,
-      monthLabel,
-      openDetail,
-      openMenu,
-      quickPayCustomerId,
-    ],
+    [currentMonthPaidIds, monthLabel, openDetail, openMenu, quickPayCustomerId],
   );
 
   async function confirmToggleActive() {
@@ -259,6 +258,12 @@ export function CustomerListScreen() {
     setToggleActiveCustomer(null);
   }
 
+  async function confirmDeleteCustomer() {
+    if (!deletingCustomer) return;
+    await deleteCustomer(deletingCustomer.id);
+    setDeletingCustomer(null);
+  }
+
   function buildMenuActions(customer: Customer | null): ActionMenuItem[] {
     if (!customer) return [];
     const items: ActionMenuItem[] = [];
@@ -270,6 +275,12 @@ export function CustomerListScreen() {
         onPress: () => handleQuickPay(customer),
       });
     }
+    items.push({
+      key: "edit",
+      label: t("common.edit"),
+      icon: "create-outline",
+      onPress: () => setEditingCustomer(customer),
+    });
     if (isAdmin) {
       items.push({
         key: "toggle-active",
@@ -279,6 +290,13 @@ export function CustomerListScreen() {
         icon: customer.active ? "pause-circle-outline" : "play-circle-outline",
         destructive: customer.active,
         onPress: () => setToggleActiveCustomer(customer),
+      });
+      items.push({
+        key: "delete",
+        label: t("common.delete"),
+        icon: "trash-outline",
+        destructive: true,
+        onPress: () => setDeletingCustomer(customer),
       });
     }
     return items;
@@ -304,7 +322,7 @@ export function CustomerListScreen() {
         {/* Filter tabs */}
         <View className="flex-row gap-2 mt-4">
           {tabs.map((tab) => (
-            <Pressable
+            <PressableOpacity
               key={tab.key}
               onPress={() => setActiveTab(tab.key)}
               className={`rounded-full px-3 py-1.5 ${activeTab === tab.key ? "bg-gray-900" : "bg-gray-100"}`}
@@ -314,7 +332,7 @@ export function CustomerListScreen() {
               >
                 {tab.label}
               </Text>
-            </Pressable>
+            </PressableOpacity>
           ))}
         </View>
       </View>
@@ -383,6 +401,13 @@ export function CustomerListScreen() {
         <CustomerFormSheet onDismiss={() => setFormVisible(false)} />
       )}
 
+      {editingCustomer && (
+        <CustomerFormSheet
+          customer={editingCustomer}
+          onDismiss={() => setEditingCustomer(null)}
+        />
+      )}
+
       <ConfirmDialog
         visible={multiMonthConfirm !== null}
         title={t("payments.quick_pay.confirm_multi_month_title")}
@@ -404,6 +429,20 @@ export function CustomerListScreen() {
         title={menuCustomer?.name}
         actions={buildMenuActions(menuCustomer)}
         onDismiss={() => setMenuCustomer(null)}
+      />
+
+      <ConfirmDialog
+        visible={deletingCustomer !== null}
+        title={t("customers.delete_title")}
+        message={
+          deletingCustomer
+            ? t("customers.delete_message", { name: deletingCustomer.name })
+            : ""
+        }
+        confirmLabel={t("common.delete")}
+        destructive
+        onConfirm={confirmDeleteCustomer}
+        onCancel={() => setDeletingCustomer(null)}
       />
 
       <ConfirmDialog

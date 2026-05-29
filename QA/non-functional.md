@@ -63,9 +63,11 @@ Cross-cutting concerns that don't fit a single feature: performance, error handl
 | 5.1 | All visible strings i18n-ed | Switch language | Every label translates. Hardcoded English strings (e.g. "Welcome back", "Inactive", "+ Add") should be flagged for translation |
 | 5.2 | RTL layout | Switch to Arabic | Layouts mirror; logical paddings (`me-`, `ms-`) work |
 | 5.3 | Cairo font | Switch to Arabic | Cairo font applied to all Text components |
-| 5.4 | Number formatting | Currency in Arabic | Currently uses `en-US`; verify whether Arabic numerals are required |
-| 5.5 | Date formatting | Customer "since" date in Arabic | Uses `en-US` (hard-coded). File a finding |
+| 5.4 | Number formatting | Currency in Arabic | Locale-aware via `Intl.NumberFormat`; verify display currency formatting in both locales |
+| 5.5 | Date formatting | Customer "since" date in Arabic | Locale-aware via `getDateLocale`; spot-check for any remaining hardcoded en-US |
 | 5.6 | Long translations | Some Arabic strings are longer | UI layouts (cards, buttons) accommodate longer text without truncation |
+| 5.7 | Multi-currency symbols | LBP "ل.ل", EUR "€", USD "$" | Render correctly in receipts, plan cards, CurrencyInput dropdown |
+| 5.8 | Multi-month chevrons in RTL | Pay Dec–Feb bundle, switch to Arabic | Chevrons on `wrapFromPrev` / `wrapToNext` cells point in the RTL-correct direction (via `DirectionalIcon`) |
 
 ## 6. Observability & logs
 
@@ -97,6 +99,13 @@ Cross-cutting concerns that don't fit a single feature: performance, error handl
 | 8.4 | Voiding twice | Void a payment, void it again from another device | Second succeeds idempotently or no-ops; verify; no data corruption |
 | 8.5 | Clock skew on device | Set device clock 1 day ahead | Status logic uses device clock for current month; verify acceptable behavior at month boundary |
 | 8.6 | DB unique constraint failure | Force a duplicate insert | Service translates to user-friendly message |
+| 8.7 | Payment amount/balance snapshot integrity | Edit a plan's price after payments exist | Existing payment `amount_due / amount_paid / balance` unchanged |
+| 8.8 | Payment FX snapshot integrity | Edit a currency's `rate_per_usd` after payments exist | Existing payments' USD equivalents (via `rate_per_usd_snapshot`) unchanged on Dashboard, Receipt, Year totals |
+| 8.9 | Multi-month coverage integrity | Pay a Jan–Mar bundle, then void | Single row voided, all 3 months revert in one atomic operation |
+| 8.10 | Multi-month conflict atomicity | Two devices submit overlapping multi-month bundles | First succeeds; second's conflict detection adjusts effectiveStart/effectiveDuration, OR rejects depending on `skipConflicts` flag |
+| 8.11 | Soft-delete preservation | Delete a referenced currency / branch | Referenced rows keep their FK pointing at the soft-deleted (active=false) entity. No cascading data loss |
+| 8.12 | Hard-delete cascades | Delete a customer with no payments → hard delete | Customer row removed. Deletion of customer WITH payments soft-deletes instead |
+| 8.13 | Cross-tenant FK | Force a write linking entities from two tenants | RLS denies at insert/update time. No corruption |
 
 ## 9. Device matrix
 

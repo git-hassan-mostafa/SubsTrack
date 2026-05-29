@@ -1,28 +1,30 @@
-import { Pressable, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useTranslation } from 'react-i18next';
-import type { Currency } from '@/src/core/types';
-import { Text } from '@/src/shared/components/Text';
-import { DirectionalIcon } from '@/src/shared/components/DirectionalIcon';
-import { COLORS } from '@/src/shared/constants';
+import { View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
+import type { Currency } from "@/src/core/types";
+import { Text } from "@/src/shared/components/Text";
+import { COLORS } from "@/src/shared/constants";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 
 interface Props {
   currency: Currency;
   onEdit: (currency: Currency) => void;
+  onMenu: (currency: Currency) => void;
 }
 
-export function CurrencyCard({ currency, onEdit }: Props) {
+export function CurrencyCard({ currency, onEdit, onMenu }: Props) {
   const { t } = useTranslation();
-  const rateLabel = new Intl.NumberFormat('en-US', {
+  const rateLabel = new Intl.NumberFormat("en-US", {
     minimumFractionDigits: 0,
     maximumFractionDigits: 6,
   }).format(currency.ratePerUsd);
 
   return (
-    <Pressable
+    <PressableOpacity
       onPress={() => onEdit(currency)}
+      onLongPress={() => onMenu(currency)}
       className={`bg-white border rounded-2xl px-4 py-4 mb-2.5 flex-row items-center ${
-        currency.active ? 'border-gray-100' : 'border-gray-200 opacity-60'
+        currency.active ? "border-gray-100" : "border-gray-200 opacity-60"
       }`}
     >
       <View className="w-10 h-10 rounded-xl bg-indigo-50 items-center justify-center me-3">
@@ -31,11 +33,13 @@ export function CurrencyCard({ currency, onEdit }: Props) {
 
       <View className="flex-1">
         <View className="flex-row items-center">
-          <Text className="text-base font-semibold text-gray-900">{currency.code}</Text>
+          <Text className="text-base font-semibold text-gray-900">
+            {currency.code}
+          </Text>
           {!currency.active ? (
             <View className="bg-gray-100 rounded-lg px-2 py-0.5 ms-2">
               <Text className="text-[10px] font-semibold text-gray-500 uppercase">
-                {t('common.inactive')}
+                {t("common.inactive")}
               </Text>
             </View>
           ) : null}
@@ -45,17 +49,23 @@ export function CurrencyCard({ currency, onEdit }: Props) {
         </Text>
       </View>
 
-      <View className="items-end me-3">
+      <View className="items-end me-2">
         <Text fontWeight="Bold" className="text-base text-gray-900">
           {rateLabel}
         </Text>
         <Text className="text-xs text-gray-400">
-          {t('tenant_settings.rate_per_usd', { code: currency.code })}
+          {t("tenant_settings.rate_per_usd", { code: currency.code })}
         </Text>
       </View>
 
-      <DirectionalIcon name="chevron-forward" size={16} color={COLORS.gray300} />
-    </Pressable>
+      <PressableOpacity
+        onPress={() => onMenu(currency)}
+        hitSlop={8}
+        className="ms-1 w-9 h-9 items-center justify-center rounded-full"
+      >
+        <Ionicons name="ellipsis-vertical" size={20} color={COLORS.gray600} />
+      </PressableOpacity>
+    </PressableOpacity>
   );
 }
 
@@ -70,14 +80,16 @@ export function UsdBaseCard() {
       <View className="flex-1">
         <Text className="text-base font-semibold text-gray-900">USD</Text>
         <Text className="text-xs text-gray-500 mt-0.5">
-          {t('tenant_settings.usd_base_note')}
+          {t("tenant_settings.usd_base_note")}
         </Text>
       </View>
       <View className="items-end">
         <Text fontWeight="Bold" className="text-base text-gray-900">
           1
         </Text>
-        <Text className="text-xs text-gray-400">{t('tenant_settings.base')}</Text>
+        <Text className="text-xs text-gray-400">
+          {t("tenant_settings.base")}
+        </Text>
       </View>
     </View>
   );

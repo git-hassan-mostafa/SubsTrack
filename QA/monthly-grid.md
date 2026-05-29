@@ -1,12 +1,15 @@
 # Monthly Grid — QA Scenarios
 
-The 12-cell grid is the core of the customer detail screen. Each cell encodes a month's status: PAID (green), UNPAID (red), FUTURE (gray), or BEFORE_START (gray, slightly dimmer). The status logic lives in exactly one place: `PaymentService.buildMonthGrid`. Verify nothing else re-implements it.
+The 12-cell grid is the core of the customer detail screen. Each cell encodes a month's status: PAID (green for regular / yellow for non-regular), UNPAID (red for regular / light gray for non-regular), FUTURE (gray), or BEFORE_START (gray, slightly dimmer). **Multi-month payments** visually merge consecutive cells with a "Included" sublabel for months 2+. **Partial payments** show an orange dot in the corner of the paid cell.
+
+The status logic lives in exactly one place: `PaymentService.buildMonthGrid`. Verify nothing else re-implements it.
 
 **Reference code:**
-- Service (logic): [PaymentService.ts buildMonthGrid](SubsTrack/src/modules/payments/services/PaymentService.ts)
-- Grid: [MonthGrid.tsx](SubsTrack/src/modules/payments/components/MonthGrid.tsx)
-- Cell: [MonthCell.tsx](SubsTrack/src/modules/payments/components/MonthCell.tsx)
-- Year navigator: [YearNavigator.tsx](SubsTrack/src/modules/payments/components/YearNavigator.tsx)
+- Service (logic): [PaymentService.buildMonthGrid](SubsTrack/src/modules/customer-payments/services/PaymentService.ts)
+- Grid: [MonthGrid.tsx](SubsTrack/src/modules/customer-payments/components/MonthGrid.tsx)
+- Cell: [MonthCell.tsx](SubsTrack/src/modules/customer-payments/components/MonthCell.tsx)
+- Year navigator: [YearNavigator.tsx](SubsTrack/src/modules/customer-payments/components/YearNavigator.tsx)
+- Customer panel (host): [CustomerPaymentPanel.tsx](SubsTrack/src/modules/customer-payments/components/CustomerPaymentPanel.tsx)
 - Date utils: [date.ts](SubsTrack/src/core/utils/date.ts)
 
 ---
@@ -18,122 +21,155 @@ For year Y, month M, given today = (CY, CM), customer.startDate = SY-SM-SD, grac
 | Condition | Status |
 |-----------|--------|
 | Y < SY OR (Y == SY AND M < SM) | `before_start` |
-| Payment exists for Y-M-01 AND voided_at IS NULL | `paid` |
+| A covering payment exists for Y-M (single OR via multi-month range) AND `voided_at IS NULL` AND `amount_paid > 0` | `paid` (with `isGroupSecondary = true` for months 2+ in a multi-month block) |
 | Y > CY OR (Y == CY AND M > CM) | `future` |
 | First-of-month ≤ today ≤ first-of-month + G days | `future` (within grace) |
 | Otherwise | `unpaid` |
 
-## 2. Cell rendering
+Notes:
+- A payment with `amount_paid = 0` is treated as "no payment" — cell shows unpaid (slot reserved but not paid). This lets staff reserve a row without recording a collection.
+- A payment with `0 < amount_paid < amount_due` (partial) renders as `paid` with `balance > 0` — orange dot indicator on the cell.
+
+## 2. Cell rendering — regular customer (default)
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 2.1 | PAID cell | Customer paid March 2026 | Green background, white "Mar" text, "PAID" sublabel |
-| 2.2 | UNPAID cell (past) | Past month with no payment | Red background, white "Mar" text, sublabel blank (only PAID and current-month show sublabels) |
-| 2.3 | UNPAID cell (current month) | Current month with no payment | Red-100 background with red-500 border (highlight), red text "May", sublabel "THIS MONTH" |
-| 2.4 | FUTURE cell | A month after today | Gray-100 background, gray-400 text, blank sublabel |
-| 2.5 | BEFORE_START cell | Month before customer.start_date | Gray-100 background, gray-300 text (slightly lighter than future), blank sublabel |
-| 2.6 | Grid layout | All 12 months render | 4-column grid, evenly spaced (w-1/4 per cell) |
-| 2.7 | RTL grid | Arabic | Months still ordered Jan → Dec (data order), but visually right-to-left if container is RTL |
-| 2.8 | Cell tap area | Tap edge of a cell | Triggers `onCellPress` (entire cell is pressable) |
-| 2.9 | Localization of month labels | Switch language | "Jan/Feb/..." replaced with locale equivalents |
-| 2.10 | memo on MonthCell | Re-render scenario | MonthCell does not re-render unless `entry` prop changes (verify with React DevTools) |
+| 2.1 | PAID cell | Regular customer paid March | Green background, white "Mar" text, "PAID" sublabel |
+| 2.2 | PAID partial cell | Regular customer with `balance > 0` | Same green cell + small orange dot in top-end corner. Sublabel = "PARTIAL" (verify the exact i18n key) |
+| 2.3 | UNPAID cell (past) | Past month with no payment | Red background, white "Mar" text, blank sublabel |
+| 2.4 | UNPAID cell (current month) | Current month with no payment | Red-100 background with red-500 border (highlight), red text, "THIS MONTH" sublabel |
+| 2.5 | FUTURE cell | A month after today | Gray-100 background, gray-400 text, blank sublabel |
+| 2.6 | BEFORE_START cell | Month before customer.start_date | Gray-100 background, gray-300 text (lighter than future), blank sublabel |
+| 2.7 | Multi-month source cell | First month of a multi-month block | Green, "PAID" sublabel |
+| 2.8 | Multi-month secondary cell | Months 2+ in a multi-month block | Green, "Included" sublabel (`isGroupSecondary = true`). Visually merged with adjacent cells (no gap, square inner corners) |
+| 2.9 | Multi-month spanning year boundary | Block covers Dec → Feb | In year Y: Dec source. In year Y+1: Jan + Feb secondary, with chevron indicator that the block continues from the previous year |
+| 2.10 | Grid layout | All 12 months render | 4-column grid, evenly spaced |
+| 2.11 | Localization of month labels | Switch language | "Jan/Feb/..." replaced with locale equivalents |
+| 2.12 | memo on MonthCell | Tap a cell | Other cells do NOT re-render (verify with React DevTools) |
 
-## 3. Status-by-status behavioural cases
-
-### 3.1 BEFORE_START (gray, dim)
-
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 3.1.1 | Customer started 2024-06 | View 2024 grid | Jan–May = before_start (gray), Jun → status logic |
-| 3.1.2 | Same customer in 2023 | Navigate to 2023 | All 12 months = before_start |
-| 3.1.3 | Tap a before_start cell | Tap | Info popup: "This month is before the customer's start date. No payment can be recorded here." |
-| 3.1.4 | Customer with start_date today | Today is 2026-05-08 | Months Jan–Apr 2026 = before_start. May = current/unpaid. |
-| 3.1.5 | Customer with future start_date | Start date = next month | Current month + earlier = before_start; the start month onward follows future/unpaid logic |
-
-### 3.2 PAID (green)
+## 3. Cell rendering — non-regular customer
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 3.2.1 | New payment | Pay May 2026 | Cell turns green immediately on form dismiss |
-| 3.2.2 | Voided payment | Void Mar 2026 (was paid) | Mar 2026 cell reverts to UNPAID |
-| 3.2.3 | Multiple payments same year | Pay several months | All paid cells render green; year card "paid" count matches |
-| 3.2.4 | Tap a paid cell | Tap | Receipt sheet opens (read-only) |
+| 3.1 | PAID cell | Non-regular paid March | Yellow/Gold background, white "Mar" text, "PAID" sublabel |
+| 3.2 | PAID partial | Non-regular with balance > 0 | Yellow + orange dot |
+| 3.3 | UNPAID cell (past) | Non-regular past month with no payment | Light gray background (NOT red), gray text, blank sublabel |
+| 3.4 | UNPAID cell (current month) | Non-regular current month, no payment | Light gray. NO red highlight. NO "THIS MONTH" sublabel — because non-regular is never "overdue" |
+| 3.5 | FUTURE cell | Same as regular | Gray-100, gray-400 text |
+| 3.6 | BEFORE_START | Same as regular | Gray-100, gray-300 text |
+| 3.7 | Unpaid banner | Non-regular customer, current month unpaid | Banner NOT shown |
+| 3.8 | Unpaid tab membership | Non-regular customer with no current-month payment | NOT included in "Unpaid" tab on customer list |
+| 3.9 | Dashboard unpaid count | Non-regular customer with no current-month payment | NOT counted in `unpaidThisMonth` |
+| 3.10 | Toggling regular ↔ non-regular | Edit customer, flip `isRegular` | Grid colors swap immediately on next render |
 
-### 3.3 FUTURE (gray)
+## 4. Status-by-status behavioural cases
 
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 3.3.1 | Today is 2026-05-08, view 2026 | Look at Jun–Dec | Each rendered as future (gray) |
-| 3.3.2 | Future cell — active customer | Tap a future cell | Form opens (allowed) |
-| 3.3.3 | Future cell — inactive customer | Tap a future cell on inactive customer | Info popup: "This customer is inactive. Future month payments cannot be recorded for inactive customers." |
-| 3.3.4 | Navigate to future year | Year navigator forward | All cells = future (assuming no future-dated payments) |
-| 3.3.5 | Future-dated payment exists | Customer pre-paid for next year | That cell renders PAID (green) instead of future |
-
-### 3.4 UNPAID (red)
+### 4.1 BEFORE_START
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 3.4.1 | Past month, no payment | Tap | Form opens, can record arrears |
-| 3.4.2 | Current month, no payment | Tap | Same, with banner shown above grid |
-| 3.4.3 | Voided payment leaves cell unpaid | Void a paid month, look at cell | Cell now red |
-| 3.4.4 | Re-pay after void | Tap voided-month cell, save | Cell green again |
+| 4.1.1 | Customer started 2024-06 | View 2024 grid | Jan–May = before_start, Jun → status logic |
+| 4.1.2 | Same customer in 2023 | Navigate to 2023 | All 12 months = before_start |
+| 4.1.3 | Tap a before_start cell | Tap | Info popup: "This month is before the customer's start date. No payment can be recorded here." |
+| 4.1.4 | Customer with start_date today | Today is 2026-05-08 | Jan–Apr 2026 = before_start. May = current/unpaid |
+| 4.1.5 | Customer with future start_date | Start = next month | Current month + earlier = before_start; start month onward follows future/unpaid logic |
+| 4.1.6 | start_date day in middle of month | start_date = "2024-03-15" | Mar 2024 is NOT before_start (month-level comparison). Customer can pay for March |
 
-## 4. Year navigation
-
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 4.1 | Default year | Open detail | Current year selected |
-| 4.2 | Backward limit | Tap "‹" repeatedly | Stops at customer's startDate.year. Button disabled at limit |
-| 4.3 | Forward unlimited | Tap "›" repeatedly | No upper limit (in current implementation) |
-| 4.4 | Year fetch | Switch year | New API call for that year's payments; spinner replaces grid until loaded |
-| 4.5 | Year totals update | Switch to a different year | "<paid>/<unpaid>/<collected>" updated for that year |
-| 4.6 | Concurrent switch | Tap "‹" twice fast | Latest fetch wins (verify no flickering or stale data) |
-
-## 5. Grace period interaction
+### 4.2 PAID
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 5.1 | graceDays = 0 (current default) | Day 1 of month, no payment | Cell renders UNPAID immediately |
-| 5.2 | graceDays = 5, day 3 | Within grace | Cell renders FUTURE (highlight is current month only when status = unpaid) |
-| 5.3 | graceDays = 5, day 6 | Past grace cutoff | Cell renders UNPAID |
-| 5.4 | Grace edge — day 5 (== cutoff) | Today equals firstOfMonth + 5 | Cell renders FUTURE (`<= cutoff`) |
+| 4.2.1 | New payment | Pay May 2026 | Cell turns green/yellow (regular/non-regular) immediately on form dismiss |
+| 4.2.2 | Voided payment | Void Mar 2026 (was paid) | Mar 2026 reverts to UNPAID (cell color follows isRegular) |
+| 4.2.3 | Multi-month block | Pay Jan–Mar bundle | All 3 cells become PAID; Jan has "PAID" sublabel; Feb + Mar have "Included" |
+| 4.2.4 | Multiple payments same year | Pay several months | All paid cells render correctly; year card "paid" count matches |
+| 4.2.5 | Tap a single-month paid cell | Tap | Receipt sheet opens (read-only) |
+| 4.2.6 | Tap a multi-month secondary cell | Tap a Feb cell that is `isGroupSecondary` | Opens the source payment's receipt (the Jan record) |
+| 4.2.7 | Partial paid cell | Tap a cell with balance > 0 | Receipt opens with amber theme + "Balance remaining" row |
+| 4.2.8 | amount_paid = 0 payment exists | Inspect the cell | Cell is UNPAID (slot exists in DB but treated as unpaid) |
 
-## 6. Date / timezone correctness
-
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 6.1 | Local midnight transitions | Force device clock to 23:59 then 00:01 of next day | Current month / day-of-month update without crash; status logic uses local time |
-| 6.2 | DST transitions | Force a DST shift | Status logic uses pure year/month integer comparisons → unaffected |
-| 6.3 | Customer start_date with leading zero | start_date = "2024-03-05" | `isBeforeStartDate` compares year/month only — March 2024 is allowed |
-| 6.4 | Customer start_date day in middle of month | start_date = "2024-03-15" | Mar 2024 is NOT before_start (month-level comparison). Customer can pay for March even though started day 15 — verify intent |
-| 6.5 | Year boundary | Today = Jan 1 | Dec of last year follows status logic for "past" months (UNPAID if not paid) |
-
-## 7. Performance
+### 4.3 FUTURE
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 7.1 | useMemo on grid | Re-render parent | Grid recomputed only when payments / customer / year / graceDays change |
-| 7.2 | React.memo on cells | Tap a cell | Other 11 cells do not re-render |
-| 7.3 | Smooth tap | Tap rapidly across cells | Transitions are smooth (memoization keeps rendering cheap) |
-| 7.4 | Large payment count | Customer with 12 payments in the year | Grid still computes in <16ms |
+| 4.3.1 | Today is 2026-05-08, view 2026 | Look at Jun–Dec | Future (gray) |
+| 4.3.2 | Future cell — active customer | Tap | PaymentFormSheet opens (allowed) |
+| 4.3.3 | Future cell — inactive customer | Tap | PaymentFormSheet opens but submit blocked with inline amber banner |
+| 4.3.4 | Navigate to future year | All cells future (unless future-dated payments exist) |
+| 4.3.5 | Future-dated payment | Customer pre-paid for next year | That cell renders PAID instead of future |
 
-## 8. Visual / accessibility
-
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 8.1 | Color contrast | Inspect with accessibility tool | PAID green and UNPAID red against white text meet WCAG AA contrast |
-| 8.2 | Color blindness | Simulate red/green color blindness | The cell ALSO encodes status via the "PAID" / "THIS MONTH" sublabel — verify it is sufficient |
-| 8.3 | Tap target size | Each cell | ≥ 44pt tall (py-3 + text rows ≈ 56pt) |
-| 8.4 | Screen reader | Enable VoiceOver / TalkBack on a cell | Reads month label and status (verify accessibilityLabel; if missing, file a finding) |
-
-## 9. Edge cases
+### 4.4 UNPAID
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 9.1 | Year with no payments | Navigate to a year before customer was active | All before_start (gray) |
-| 9.2 | Year with all 12 paid | Pay all 12 months | All green; year card 12 paid / 0 unpaid |
-| 9.3 | Year mixing all statuses | A customer started May 2024, today is May 2026 | 2024 grid: Jan–Apr before_start, May–Dec mix; 2025: full mix; 2026: Jan–Apr based on payments, May current, Jun–Dec future |
-| 9.4 | Customer plan removed mid-year | Customer changed from Plan A to no plan in July | Earlier paid months retain plan_id A snapshot; later payments require manual amount |
-| 9.5 | Plan deleted | Plan A is deleted | Earlier months still show as paid (snapshot amount intact). plan_id becomes null on those rows |
-| 9.6 | Leap year February | View Feb 2024 | Renders normally; leap-day logic doesn't matter for monthly billing |
-| 9.7 | Customer reactivated mid-year | Deactivate in March, reactivate in June | Payment recording allowed for current/past at all times; future months blocked while inactive only |
+| 4.4.1 | Past month, no payment (regular) | Tap | Form opens, arrears recordable |
+| 4.4.2 | Current month, no payment (regular) | Tap | Form opens; current-month highlight in cell |
+| 4.4.3 | Voided payment leaves cell unpaid | Void a paid month | Cell flips to red (regular) / gray (non-regular) |
+| 4.4.4 | Re-pay after void | Tap voided-month cell, save | Cell green/yellow again |
+
+## 5. Year navigation
+
+| # | Scenario | Steps | Expected result |
+|---|----------|-------|-----------------|
+| 5.1 | Default year | Open detail | Current year |
+| 5.2 | Backward limit | Tap "‹" repeatedly | Stops at customer's startDate.year. Button disabled at limit |
+| 5.3 | Forward unlimited | Tap "›" repeatedly | No upper limit |
+| 5.4 | Year fetch | Switch year | New API call for that year's payments; spinner replaces grid until loaded |
+| 5.5 | Year totals update | Switch | Updated paid/unpaid/collected for that year |
+| 5.6 | Concurrent switch | Tap "‹" twice fast | Latest fetch wins (no flickering or stale data) |
+| 5.7 | Multi-month visible in both years | Block crossing year boundary | Source in year Y; secondary cells in year Y+1 |
+
+## 6. Grace period interaction
+
+| # | Scenario | Steps | Expected result |
+|---|----------|-------|-----------------|
+| 6.1 | graceDays = 0 (default) | Day 1 of month, no payment | Cell UNPAID immediately |
+| 6.2 | graceDays = 5, day 3 | Within grace | Cell FUTURE (no current-month highlight since status = future) |
+| 6.3 | graceDays = 5, day 6 | Past cutoff | Cell UNPAID with current-month highlight |
+| 6.4 | Grace edge — day 5 (== cutoff) | Today equals firstOfMonth + 5 | Cell FUTURE (`<=` cutoff) |
+
+## 7. Date / timezone correctness
+
+| # | Scenario | Steps | Expected result |
+|---|----------|-------|-----------------|
+| 7.1 | Local midnight transitions | Device clock at 23:59 then 00:01 of next day | Current month / day-of-month update without crash |
+| 7.2 | DST transitions | Force DST shift | Status logic uses pure year/month integer comparisons → unaffected |
+| 7.3 | start_date with leading zero | start_date = "2024-03-05" | `isBeforeStartDate` compares year/month only — March 2024 is allowed |
+| 7.4 | Year boundary | Today = Jan 1 | Dec of last year follows status logic for "past" months (UNPAID if not paid) |
+
+## 8. Performance
+
+| # | Scenario | Steps | Expected result |
+|---|----------|-------|-----------------|
+| 8.1 | useMemo on grid | Re-render parent | Grid recomputed only when payments / customer / year / graceDays change |
+| 8.2 | React.memo on cells | Tap a cell | Other 11 cells do not re-render |
+| 8.3 | Smooth tap | Tap rapidly across cells | Transitions smooth (memoization keeps rendering cheap) |
+| 8.4 | Large payment count | Customer with many payments in the year | Grid still computes in <16ms |
+
+## 9. Visual / accessibility
+
+| # | Scenario | Steps | Expected result |
+|---|----------|-------|-----------------|
+| 9.1 | Color contrast | Inspect with accessibility tool | PAID green and UNPAID red against white text meet WCAG AA |
+| 9.2 | Color blindness | Simulate red/green color blindness | Cell ALSO encodes status via "PAID" / "Included" / "THIS MONTH" sublabel — verify sufficient |
+| 9.3 | Tap target size | Each cell | ≥ 44pt tall |
+| 9.4 | Screen reader | Enable VoiceOver / TalkBack on a cell | Reads month label and status (verify accessibilityLabel; if missing, file a finding) |
+| 9.5 | RTL grid | Arabic | Months ordered Jan → Dec (data order); visually right-to-left if container is RTL. Multi-month chevrons point in the right RTL direction |
+
+## 10. Edge cases
+
+| # | Scenario | Steps | Expected result |
+|---|----------|-------|-----------------|
+| 10.1 | Year with no payments | Navigate to a year before customer was active | All before_start |
+| 10.2 | Year with all 12 paid (single-month plan) | Pay all 12 months | All green/yellow; year card 12 paid / 0 unpaid |
+| 10.3 | Year fully covered by multi-month payments | Pay Jan–Dec via four 3-month bundles | All 12 PAID with `isGroupSecondary` on months 2/3 of each bundle |
+| 10.4 | Year mixing all statuses | Customer started May 2024, today is May 2026 | 2024: Jan–Apr before_start, May–Dec mix; 2025: full mix; 2026: Jan–Apr based on payments, May current, Jun–Dec future |
+| 10.5 | Customer plan removed mid-year | Customer changed from Plan A to no plan in July | Earlier paid months retain plan_id A snapshot; later payments require manual amount |
+| 10.6 | Plan deleted | Plan A deleted | Earlier months still PAID (snapshot amount intact). plan_id becomes null on those rows |
+| 10.7 | Leap year February | View Feb 2024 | Renders normally |
+| 10.8 | Customer reactivated mid-year | Deactivate in March, reactivate in June | Payment recording allowed for current/past at all times; future months blocked while inactive only |
+| 10.9 | Partial payment then voided | Pay 50/100 in May, then void | May reverts to UNPAID |
+| 10.10 | Multi-month with mid-block void | Pay Jan–Mar bundle, then void | All 3 months revert in a single op |
+| 10.11 | Voided payment in legacy data | Customer with voided payment for current month | Cell renders UNPAID (voided row filtered out) |
+| 10.12 | amount_paid = 0 "reserved" row | Save with `amount_paid = 0` (if allowed via API) | Cell shows UNPAID; row exists but is invisible to coverage logic |
+| 10.13 | RTL multi-month chevrons | Arabic | Chevrons reverse direction via `DirectionalIcon` |

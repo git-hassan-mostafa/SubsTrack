@@ -1,14 +1,15 @@
-import { Pressable, View } from "react-native";
+import { View } from "react-native";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
+import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/src/shared/components/Text";
-import type { AppUser, AuthUser } from "@/src/core/types";
-import { AVATAR_COLORS } from "../../../shared/constants";
+import type { AppUser } from "@/src/core/types";
+import { AVATAR_COLORS, COLORS } from "../../../shared/constants";
 import { useTranslation } from "react-i18next";
 
 interface Props {
   user: AppUser;
-  currentUser: AuthUser;
   onEdit: (user: AppUser) => void;
-  onToggleActive: (user: AppUser) => void;
+  onMenu: (user: AppUser) => void;
 }
 
 function getAvatarColor(name: string): string {
@@ -30,14 +31,15 @@ const roleBadgeStyle: Record<
   superadmin: { bg: "bg-purple-100", text: "text-purple-700", label: "Super" },
 };
 
-export function UserCard({ user, currentUser, onEdit, onToggleActive }: Props) {
+export function UserCard({ user, onEdit, onMenu }: Props) {
   const avatarColor = getAvatarColor(user.fullName);
   const badge = roleBadgeStyle[user.role] ?? roleBadgeStyle.user;
   const { t } = useTranslation();
 
   return (
-    <Pressable
+    <PressableOpacity
       onPress={() => onEdit(user)}
+      onLongPress={() => onMenu(user)}
       className="bg-white border border-gray-100 rounded-2xl px-4 py-3.5 mb-2.5"
     >
       <View className="flex-row items-center">
@@ -83,7 +85,15 @@ export function UserCard({ user, currentUser, onEdit, onToggleActive }: Props) {
             {t(`users.${badge.label.toLowerCase()}`)}
           </Text>
         </View>
+
+        <PressableOpacity
+          onPress={() => onMenu(user)}
+          hitSlop={8}
+          className="ms-2 w-9 h-9 items-center justify-center rounded-full"
+        >
+          <Ionicons name="ellipsis-vertical" size={20} color={COLORS.gray600} />
+        </PressableOpacity>
       </View>
-    </Pressable>
+    </PressableOpacity>
   );
 }

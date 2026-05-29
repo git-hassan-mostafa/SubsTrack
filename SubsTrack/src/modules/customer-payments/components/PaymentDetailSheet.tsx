@@ -1,10 +1,15 @@
 import { useState } from "react";
-import { Modal, Pressable, View } from "react-native";
+import { Modal, View } from "react-native";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { useTranslation } from "react-i18next";
 import type { MonthEntry } from "@/src/core/types";
 import { formatDate } from "@/src/core/utils/date";
-import { findCurrency, formatMoney, paymentSnapshotCurrency } from "@/src/core/utils/currency";
+import {
+  findCurrency,
+  formatMoney,
+  paymentSnapshotCurrency,
+} from "@/src/core/utils/currency";
 import { getBlockRangeLabel } from "../utils/blockRangeLabel";
 import { CurrencyInput } from "@/src/shared/components/CurrencyInput";
 import { useCurrencyStore } from "@/src/modules/currencies/store/currencyStore";
@@ -133,11 +138,11 @@ export function PaymentDetailSheet({
               ? t("payments.block_receipt_title")
               : t("payments.receipt_title")}
           </Text>
-          <Pressable onPress={handleDismiss}>
+          <PressableOpacity onPress={handleDismiss}>
             <Text className="text-base text-primary font-medium">
               {t("common.close")}
             </Text>
-          </Pressable>
+          </PressableOpacity>
         </View>
 
         <View className="px-6 pt-5">
@@ -236,14 +241,14 @@ export function PaymentDetailSheet({
 
           {/* Edit payment */}
           {onEdit && !editMode ? (
-            <Pressable
+            <PressableOpacity
               onPress={handleOpenEdit}
               className="border border-primary rounded-xl py-3 items-center mb-3"
             >
               <Text className="text-primary font-semibold">
                 {t("payments.edit_payment")}
               </Text>
-            </Pressable>
+            </PressableOpacity>
           ) : null}
 
           {onEdit && editMode ? (
@@ -278,15 +283,15 @@ export function PaymentDetailSheet({
                 lockCurrency
               />
               <View className="flex-row gap-3 mt-2">
-                <Pressable
+                <PressableOpacity
                   onPress={handleCancelEdit}
                   className="flex-1 border border-gray-200 rounded-xl py-3 items-center"
                 >
                   <Text className="text-gray-600 font-medium">
                     {t("common.cancel")}
                   </Text>
-                </Pressable>
-                <Pressable
+                </PressableOpacity>
+                <PressableOpacity
                   onPress={handleSaveEdit}
                   disabled={saveDisabled}
                   className={`flex-1 rounded-xl py-3 items-center ${saveDisabled ? "bg-gray-200" : "bg-primary"}`}
@@ -296,19 +301,19 @@ export function PaymentDetailSheet({
                   >
                     {editLoading ? "..." : t("common.save_changes")}
                   </Text>
-                </Pressable>
+                </PressableOpacity>
               </View>
             </View>
           ) : null}
 
           {/* Void button */}
           {onVoid && !editMode ? (
-            <Pressable
+            <PressableOpacity
               onPress={onVoid}
               className="border border-red-300 rounded-xl py-3.5 items-center"
             >
               <Text className="text-red-500 font-semibold">{voidLabel}</Text>
-            </Pressable>
+            </PressableOpacity>
           ) : null}
         </View>
       </View>
