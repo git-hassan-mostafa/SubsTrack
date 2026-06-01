@@ -1,27 +1,32 @@
+import { useState } from "react";
 import { View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { Dropdown, type DropdownOption } from "./Dropdown";
+import { Ionicons } from "@expo/vector-icons";
+import { PressableOpacity } from "./PressableOpacity";
+import { Text } from "@/src/shared/components/Text";
+import { DropdownModal, type DropdownOption } from "./Dropdown";
 import {
   BRANCH_FILTER_UNASSIGNED,
   type BranchFilter,
 } from "@/src/core/constants";
+import { COLORS } from "@/src/shared/constants";
 import { useAuthStore } from "@/src/modules/auth/store/authStore";
 import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
 import { useActiveBranches } from "@/src/modules/branches/hooks/useActiveBranches";
 import { useIsMultiBranchActive } from "@/src/modules/branches/hooks/useIsMultiBranchActive";
 
 /**
- * Header branch filter for tenant-wide admins. Sits below PageHeader on
- * Customers / Dashboard / Plans / Users.
+ * Header branch filter chip for tenant-wide admins. Renders inside PageHeader
+ * (under the subtitle) on Customers / Plans / Users, and inside the greeting
+ * block on Dashboard.
  *
  * Self-conceals (returns null) when:
  *   - There is no logged-in user
  *   - The user is branch-scoped (RLS already pins them to their branch)
- *   - The tenant has fewer than 2 active branches (with 0 the feature isn't
- *     relevant; with 1 the dropdown offers no real choice)
+ *   - The tenant has fewer than 2 active branches
  *
  * Filter states stored in uiPrefStore.currentBranchId:
- *   null                      → "All Branches" — no filter, see everything
+ *   null                      → "All Branches" — no filter
  *   <UUID>                    → that specific branch
  *   BRANCH_FILTER_UNASSIGNED  → only rows with branch_id IS NULL
  */
@@ -32,11 +37,10 @@ export function BranchSelector() {
   const isMultiBranchActive = useIsMultiBranchActive();
   const currentBranchId = useUiPrefStore((s) => s.currentBranchId);
   const setCurrentBranchId = useUiPrefStore((s) => s.setCurrentBranchId);
+  const [open, setOpen] = useState(false);
 
   if (!user || user.branchId !== null || !isMultiBranchActive) return null;
 
-  // "Unassigned" is a real option (a non-UUID sentinel), not the null state.
-  // null is reserved for "All Branches" and handled by Dropdown's `nullable`.
   const options: DropdownOption<BranchFilter>[] = [
     ...activeBranches.map((b) => ({
       value: b.id as BranchFilter,
@@ -45,14 +49,46 @@ export function BranchSelector() {
     { value: BRANCH_FILTER_UNASSIGNED, label: t("branches.unassigned") },
   ];
 
+  const allBranchesLabel = t("branches.all_branches");
+  const isFiltered = currentBranchId !== null;
+  const selectedLabel =
+    currentBranchId === null
+      ? allBranchesLabel
+      : currentBranchId === BRANCH_FILTER_UNASSIGNED
+        ? t("branches.unassigned")
+        : (activeBranches.find((b) => b.id === currentBranchId)?.name ??
+          allBranchesLabel);
+
+  const tint = isFiltered ? COLORS.primary : COLORS.gray600;
+
   return (
-    <View className="bg-white px-4 pt-3 border-b border-gray-100">
-      <Dropdown<BranchFilter>
+    <View className="mt-2 self-start">
+      <PressableOpacity
+        onPress={() => setOpen(true)}
+        className={`flex-row items-center gap-1.5 rounded-full px-3 py-1 ${
+          isFiltered ? "bg-indigo-50" : "bg-gray-100"
+        }`}
+      >
+        <Ionicons name="git-branch-outline" size={12} color={tint} />
+        <Text
+          className={`text-xs font-semibold ${
+            isFiltered ? "text-primary" : "text-gray-600"
+          }`}
+        >
+          {selectedLabel}
+        </Text>
+        <Ionicons name="chevron-down" size={12} color={tint} />
+      </PressableOpacity>
+
+      <DropdownModal<BranchFilter>
+        visible={open}
+        onClose={() => setOpen(false)}
+        title={t("branches.branch_label")}
         options={options}
         value={currentBranchId}
         onChange={setCurrentBranchId}
         nullable
-        nullLabel={t("branches.all_branches")}
+        nullLabel={allBranchesLabel}
       />
     </View>
   );

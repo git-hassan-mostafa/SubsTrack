@@ -61,7 +61,6 @@ export function DashboardScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
-      <BranchSelector />
       <ScrollView
         className="flex-1"
         refreshControl={
@@ -80,6 +79,7 @@ export function DashboardScreen() {
             })}
           </Text>
           <Text className="text-sm text-gray-500 mt-0.5">{dateLabel}</Text>
+          <BranchSelector />
         </View>
 
         {error ? (

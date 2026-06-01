@@ -3,6 +3,7 @@ import { Text } from "@/src/shared/components/Text";
 import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
 import { COLORS } from "@/src/shared/constants";
 import { PressableOpacity } from "./PressableOpacity";
+import { BranchSelector } from "./BranchSelector";
 
 interface PageHeaderProps {
   title: string;
@@ -39,6 +40,7 @@ export function PageHeader({
         {subtitle ? (
           <Text className="text-sm text-gray-400 mt-0.5">{subtitle}</Text>
         ) : null}
+        <BranchSelector />
       </View>
       {actionLabel && onAction ? (
         <PressableOpacity

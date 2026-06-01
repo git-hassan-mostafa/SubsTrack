@@ -24,7 +24,6 @@ import { UserFormSheet } from "../components/UserFormSheet";
 import { useUserStore } from "../store/userStore";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
 import { PageHeader } from "@/src/shared/components/PageHeader";
-import { BranchSelector } from "@/src/shared/components/BranchSelector";
 import { useEffectiveBranchFilter } from "@/src/shared/lib/branchFilter";
 
 export function UserListScreen() {
@@ -159,7 +158,6 @@ export function UserListScreen() {
         actionLabel={t("common.add")}
         onAction={openCreate}
       />
-      <BranchSelector />
       {/* Inline search */}
       <View className="px-4 pt-4">
         <SearchTextBox searchText={searchText} setSearchText={setSearchText} />

@@ -36,7 +36,6 @@ import {
 import { getBlockRangeLabel } from "../../customer-payments/utils/blockRangeLabel";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
 import { PageHeader } from "@/src/shared/components/PageHeader";
-import { BranchSelector } from "@/src/shared/components/BranchSelector";
 import { useEffectiveBranchFilter } from "@/src/shared/lib/branchFilter";
 import { MONTHS } from "@/src/core/constants";
 
@@ -310,7 +309,6 @@ export function CustomerListScreen() {
         actionLabel={t("common.add")}
         onAction={() => setFormVisible(true)}
       />
-      <BranchSelector />
 
       <View className="px-4 pt-4">
         {/* Search */}

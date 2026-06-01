@@ -23,7 +23,6 @@ import { PlanFormSheet } from "../components/PlanFormSheet";
 import { usePlanStore } from "../store/planStore";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
 import { PageHeader } from "@/src/shared/components/PageHeader";
-import { BranchSelector } from "@/src/shared/components/BranchSelector";
 import { useEffectiveBranchFilter } from "@/src/shared/lib/branchFilter";
 
 export function PlanListScreen() {
@@ -103,7 +102,6 @@ export function PlanListScreen() {
         actionLabel={t("common.add")}
         onAction={openCreate}
       />
-      <BranchSelector />
 
       {/* Inline search */}
       <View className="px-4 pt-4">
