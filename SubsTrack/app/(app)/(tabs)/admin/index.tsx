@@ -28,14 +28,6 @@ type MenuItem = {
 
 const MENU_ITEMS: MenuItem[] = [
   {
-    labelKey: "dashboard.title",
-    subtitleKey: "admin.dashboard_sub",
-    icon: "bar-chart-outline",
-    iconBg: COLORS.primaryLight,
-    iconColor: COLORS.primary,
-    route: "/(app)/(tabs)/admin/dashboard",
-  },
-  {
     labelKey: "users.title",
     subtitleKey: "admin.staff_sub",
     icon: "people-outline",

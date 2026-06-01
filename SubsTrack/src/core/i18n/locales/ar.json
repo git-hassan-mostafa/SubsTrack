@@ -42,6 +42,9 @@
     "sign_in": "تسجيل الدخول",
     "account_not_configured": "الحساب غير مهيأ. تواصل مع المسؤول."
   },
+  "home": {
+    "title": "الرئيسية"
+  },
   "dashboard": {
     "title": "لوحة التحكم",
     "greeting": "مرحباً، {{name}}",
@@ -243,7 +246,6 @@
     "title": "الإدارة",
     "description": "إدارة مساحة عملك",
     "manage_section": "الإدارة",
-    "dashboard_sub": "الإيرادات · التحصيل · النشاط",
     "staff_sub": "{{count}} أعضاء",
     "plans_sub": "{{count}} خطط",
     "branches_sub": "{{count}} فرع",

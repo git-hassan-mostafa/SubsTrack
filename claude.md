@@ -134,11 +134,12 @@ SubsTrack/
 │       ├── _layout.tsx            # Auth guard (checks authStore, tenantActive)
 │       └── (tabs)/
 │           ├── _layout.tsx        # Bottom tab bar (role-aware)
+│           ├── home/
+│           │   └── index.tsx      # Home tab (admin only) — renders DashboardScreen
 │           ├── admin/
-│           │   ├── dashboard.tsx  # Dashboard route (admin only)
 │           │   ├── plans.tsx      # Plans list route
 │           │   ├── users.tsx      # Users list route
-│           │   └── index.tsx      # Redirect to dashboard
+│           │   └── index.tsx      # Admin menu (manage section)
 │           ├── customers/
 │           │   ├── index.tsx      # Customer list
 │           │   └── [id].tsx       # Customer detail + payment grid
@@ -512,7 +513,7 @@ Tenants can optionally create branches/zones. A tenant with zero branches behave
 app/index.tsx
   → authStore.restoreSession()   (on mount)
   → if no session → redirect to (auth)/login
-  → if session → redirect to (app)/(tabs)/customers
+  → if session → redirect to (app)/(tabs)/home (admin) or (app)/(tabs)/customers (user)
 
 LoginScreen
   → authStore.login(username, tenantCode, password)

@@ -11,5 +11,10 @@ export default function RootIndex() {
     return <Redirect href="/(auth)/login" />;
   }
 
-  return <Redirect href="/(app)/(tabs)/customers" />;
+  const isAdmin = user.role === "admin" || user.role === "superadmin";
+  return (
+    <Redirect
+      href={isAdmin ? "/(app)/(tabs)/home" : "/(app)/(tabs)/customers"}
+    />
+  );
 }

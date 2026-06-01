@@ -41,6 +41,9 @@
     "sign_in": "Sign In",
     "account_not_configured": "Account not configured. Contact your administrator."
   },
+  "home": {
+    "title": "Home"
+  },
   "dashboard": {
     "title": "Dashboard",
     "greeting": "Hello, {{name}}",
@@ -242,7 +245,6 @@
     "title": "Admin",
     "description": "Manage your workspace",
     "manage_section": "Manage",
-    "dashboard_sub": "Revenue · collections · activity",
     "staff_sub": "{{count}} members",
     "plans_sub": "{{count}} plans",
     "branches_sub": "{{count}} branches",
