@@ -12,6 +12,7 @@ interface PageHeaderProps {
   onBack?: () => void;
   actionLabel?: string;
   onAction?: () => void;
+  hideBranchSelector?: boolean;
 }
 
 export function PageHeader({
@@ -21,9 +22,10 @@ export function PageHeader({
   onBack,
   actionLabel,
   onAction,
+  hideBranchSelector,
 }: PageHeaderProps) {
   return (
-    <View className="flex-row items-center px-4 pt-4 pb-4 bg-white border-b border-gray-100 gap-2">
+    <View className="flex-row px-4 pt-4 pb-4 bg-white border-b border-gray-100 gap-2">
       {showBack ? (
         <PressableOpacity onPress={onBack} className="p-1 me-1">
           <DirectionalIcon
@@ -40,7 +42,7 @@ export function PageHeader({
         {subtitle ? (
           <Text className="text-sm text-gray-400 mt-0.5">{subtitle}</Text>
         ) : null}
-        <BranchSelector />
+        {!hideBranchSelector && <BranchSelector />}
       </View>
       {actionLabel && onAction ? (
         <PressableOpacity

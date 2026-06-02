@@ -65,6 +65,7 @@ export function CustomerDetailScreen() {
         onBack={() => router.back()}
         actionLabel={t("common.edit")}
         onAction={() => setEditVisible(true)}
+        hideBranchSelector
       />
 
       {customerStore.error ? (
@@ -92,7 +93,10 @@ export function CustomerDetailScreen() {
           }
         >
           <CustomerPaymentPanel customer={customer} />
-          <CustomerDetailsCard customer={customer} onDeleted={() => router.back()} />
+          <CustomerDetailsCard
+            customer={customer}
+            onDeleted={() => router.back()}
+          />
           <View className="h-8" />
         </ScrollView>
       ) : null}
