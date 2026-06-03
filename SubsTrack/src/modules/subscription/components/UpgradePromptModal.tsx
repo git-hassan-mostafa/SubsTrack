@@ -1,15 +1,15 @@
-import { Modal, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
-import { useTranslation } from 'react-i18next';
-import { useRouter, type Href } from 'expo-router';
-import { Text } from '@/src/shared/components/Text';
-import { PressableOpacity } from '@/src/shared/components/PressableOpacity';
-import { COLORS } from '@/src/shared/constants';
-import { useSubscriptionStore } from '../store/subscriptionStore';
-import type { TierResource, TierCode } from '@/src/core/types';
+import { Modal, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { useTranslation } from "react-i18next";
+import { useRouter, type Href } from "expo-router";
+import { Text } from "@/src/shared/components/Text";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
+import { COLORS } from "@/src/shared/constants";
+import { useSubscriptionStore } from "../store/subscriptionStore";
+import type { TierResource, TierCode } from "@/src/core/types";
 
 export interface TierLimitErrorPayload {
-  resource: TierResource | 'multi_currency' | 'multi_month';
+  resource: TierResource | "multi_currency" | "multi_month";
   limit: number | null;
   tierCode: TierCode;
 }
@@ -28,26 +28,28 @@ export function UpgradePromptModal({ payload, onClose }: Props) {
 
   const currentTier = tiers.find((tt) => tt.code === payload.tierCode);
   const nextTier = currentTier
-    ? tiers.filter((tt) => tt.sortOrder > currentTier.sortOrder).sort((a, b) => a.sortOrder - b.sortOrder)[0]
+    ? tiers
+        .filter((tt) => tt.sortOrder > currentTier.sortOrder)
+        .sort((a, b) => a.sortOrder - b.sortOrder)[0]
     : null;
 
   const titleKey =
-    payload.resource === 'multi_currency'
-      ? 'subscription.locked.multi_currency_title'
-      : payload.resource === 'multi_month'
-        ? 'subscription.locked.multi_month_title'
-        : 'subscription.locked.limit_reached_title';
+    payload.resource === "multi_currency"
+      ? "subscription.locked.multi_currency_title"
+      : payload.resource === "multi_month"
+        ? "subscription.locked.multi_month_title"
+        : "subscription.locked.limit_reached_title";
 
   const bodyKey =
-    payload.resource === 'multi_currency'
-      ? 'subscription.locked.multi_currency_body'
-      : payload.resource === 'multi_month'
-        ? 'subscription.locked.multi_month_body'
-        : 'subscription.locked.limit_reached_body';
+    payload.resource === "multi_currency"
+      ? "subscription.locked.multi_currency_body"
+      : payload.resource === "multi_month"
+        ? "subscription.locked.multi_month_body"
+        : "subscription.locked.limit_reached_body";
 
   function handleViewPlans() {
     onClose();
-    router.push('/(app)/(tabs)/admin/subscription' as Href);
+    router.push("/(app)/(tabs)/admin/subscription" as Href);
   }
 
   return (
@@ -62,16 +64,23 @@ export function UpgradePromptModal({ payload, onClose }: Props) {
 
           <Text className="text-lg font-semibold text-gray-900 text-center mb-2">
             {t(titleKey, {
-              resource: t(`subscription.resource.${payload.resource}`, payload.resource),
+              resource: t(
+                `subscription.resource.${payload.resource}`,
+                payload.resource,
+              ),
               tierName: currentTier?.name ?? payload.tierCode,
             })}
           </Text>
 
           <Text className="text-sm text-gray-600 text-center mb-5">
             {t(bodyKey, {
-              limit: payload.limit ?? '∞',
-              nextTierName: nextTier?.name ?? t('subscription.next_tier'),
-              resource: t(`subscription.resource.${payload.resource}`, payload.resource),
+              tierName: currentTier?.name ?? payload.tierCode,
+              limit: payload.limit ?? "∞",
+              nextTierName: nextTier?.name ?? t("subscription.next_tier"),
+              resource: t(
+                `subscription.resource.${payload.resource}`,
+                payload.resource,
+              ),
             })}
           </Text>
 
@@ -81,7 +90,7 @@ export function UpgradePromptModal({ payload, onClose }: Props) {
               className="flex-1 border border-gray-300 rounded-lg py-3 items-center"
             >
               <Text className="text-gray-700 font-medium">
-                {t('subscription.not_now')}
+                {t("subscription.not_now")}
               </Text>
             </PressableOpacity>
             <PressableOpacity
@@ -89,7 +98,7 @@ export function UpgradePromptModal({ payload, onClose }: Props) {
               className="flex-1 bg-primary rounded-lg py-3 items-center"
             >
               <Text className="text-white font-medium">
-                {t('subscription.view_plans')}
+                {t("subscription.view_plans")}
               </Text>
             </PressableOpacity>
           </View>

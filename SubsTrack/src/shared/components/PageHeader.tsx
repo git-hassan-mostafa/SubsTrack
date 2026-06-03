@@ -25,7 +25,7 @@ export function PageHeader({
   hideBranchSelector,
 }: PageHeaderProps) {
   return (
-    <View className="flex-row px-4 pt-4 pb-4 bg-white border-b border-gray-100 gap-2">
+    <View className="flex-row items-start px-4 pt-4 pb-4 bg-white border-b border-gray-100 gap-2">
       {showBack ? (
         <PressableOpacity onPress={onBack} className="p-1 me-1">
           <DirectionalIcon

@@ -65,6 +65,15 @@ ON CONFLICT (code) DO NOTHING;
 -- writes to this table with the anon key.
 -- ============================================================
 
+CREATE OR REPLACE FUNCTION get_free_tier_id()
+RETURNS UUID
+LANGUAGE SQL
+AS $$
+    SELECT id
+    FROM tier_plans
+    WHERE code = 'free'
+$$;
+
 CREATE TABLE IF NOT EXISTS tenants (
     id               UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
     name             TEXT        NOT NULL UNIQUE,
@@ -74,7 +83,7 @@ CREATE TABLE IF NOT EXISTS tenants (
     -- Subscription tier. Defaults to Free; SuperAdmin or in-app upgrade flow
     -- swaps it. ON DELETE RESTRICT — never lose tier association silently.
     tier_id          UUID        NOT NULL
-                                 DEFAULT (SELECT id FROM tier_plans WHERE code = 'free'),
+                                 DEFAULT get_free_tier_id(),
     tier_upgraded_at TIMESTAMPTZ,
     created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
@@ -472,6 +481,16 @@ ALTER TABLE users      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE plans      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE customers  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE payments   ENABLE ROW LEVEL SECURITY;
+
+-- ==============================================================
+CREATE OR REPLACE FUNCTION get_free_tier_id()
+RETURNS UUID
+LANGUAGE SQL
+AS $$
+    SELECT id
+    FROM tier_plans
+    WHERE code = 'free'
+$$;
 
 -- ============================================================
 -- HELPER FUNCTION
