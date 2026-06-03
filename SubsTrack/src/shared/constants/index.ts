@@ -1,7 +1,5 @@
 export { COLORS } from "./colors";
 
-export const DEFAULT_GRACE_DAYS = 0;
-
 export const AVATAR_COLORS = [
   "#6366f1",
   "#ec4899",

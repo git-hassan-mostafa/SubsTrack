@@ -6,16 +6,29 @@ export interface DbTenant {
   name: string;
   tenant_code: string;
   active: boolean;
+  tier_id: string;
+  tier_upgraded_at: string | null;
   created_at: string;
+  // joined relation — present when .select('*, tier_plans(*)')
+  tier_plans?: DbTierPlan | null;
 }
 
-export interface DbSaasTier {
+export interface DbTierPlan {
   id: string;
+  code: 'free' | 'pro' | 'business';
   name: string;
-  max_users: number;
-  max_customers: number;
-  price: number;
+  sort_order: number;
+  max_customers: number | null;
+  max_users: number | null;
+  max_plans: number | null;
+  max_branches: number | null;
+  max_currencies: number | null;
+  multi_currency_enabled: boolean;
+  multi_month_plans_enabled: boolean;
   grace_days: number;
-  tenant_id: string;
+  price_monthly_usd: number;
+  price_yearly_usd: number | null;
+  active: boolean;
   created_at: string;
+  updated_at: string;
 }

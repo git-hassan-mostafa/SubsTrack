@@ -18,6 +18,8 @@ import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
 import { BRANCH_FILTER_UNASSIGNED } from "@/src/core/constants";
 import { useCustomerStore } from "../store/customerStore";
 import { useActiveBranches } from "../../branches/hooks/useActiveBranches";
+import { useSubscriptionStore } from "@/src/modules/subscription/store/subscriptionStore";
+import { UpgradePromptModal } from "@/src/modules/subscription/components/UpgradePromptModal";
 
 interface Props {
   customer?: Customer | null;
@@ -39,8 +41,17 @@ type FormState = {
 export function CustomerFormSheet({ customer, onDismiss }: Props) {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const { createCustomer, updateCustomer, loading, error, clearError } =
-    useCustomerStore();
+  const {
+    createCustomer,
+    updateCustomer,
+    loading,
+    error,
+    clearError,
+    tierLimitError,
+    clearTierLimitError,
+  } = useCustomerStore();
+  const currentTier = useSubscriptionStore((s) => s.currentTier);
+  const usage = useSubscriptionStore((s) => s.usage);
   const { plans, getPlans } = usePlanStore();
   const { currentBranchId } = useUiPrefStore();
   const activeBranches = useActiveBranches();
@@ -99,9 +110,12 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
     if (customer) {
       await updateCustomer(customer.id, payload);
     } else {
-      await createCustomer(payload, user.tenantId);
+      if (!currentTier) return;
+      await createCustomer(payload, user.tenantId, currentTier, usage);
     }
-    if (!useCustomerStore.getState().error) onDismiss();
+    const { error: nextError, tierLimitError: nextTierLimit } =
+      useCustomerStore.getState();
+    if (!nextError && !nextTierLimit) onDismiss();
   }
 
   // Filter plans by the customer's selected branch: branch-specific plans only
@@ -265,6 +279,13 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
           <View className="h-24" />
         </ScrollView>
       </View>
+      <UpgradePromptModal
+        payload={tierLimitError}
+        onClose={() => {
+          clearTierLimitError();
+          onDismiss();
+        }}
+      />
     </Modal>
   );
 }

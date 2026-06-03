@@ -5,6 +5,7 @@ import type {
   MonthStatus,
   Payment,
   Plan,
+  TierPlan,
 } from "@/src/core/types";
 import type { DbPayment } from "@/src/core/types/db";
 import { MONTHS } from "@/src/core/constants";
@@ -15,6 +16,7 @@ import {
 } from "@/src/core/utils/date";
 import i18n from "@/src/core/i18n";
 import { PaymentRepository } from "../repository/PaymentRepository";
+import { tierService } from "@/src/modules/subscription/services/TierService";
 
 function mapDbPaymentToPayment(db: DbPayment): Payment {
   return {
@@ -105,7 +107,9 @@ export class PaymentService {
     existingPayments: Payment[],
     skipConflicts: boolean,
     ratePerUsdSnapshot: number,
+    tier: TierPlan,
   ): Promise<CreateMultiMonthPaymentResult> {
+    tierService.assertMultiMonth(tier);
     if (!startMonth.endsWith("-01")) {
       throw new Error(i18n.t("errors.billing_month_format"));
     }

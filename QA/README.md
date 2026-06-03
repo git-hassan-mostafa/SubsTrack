@@ -24,6 +24,7 @@ This folder contains the production QA test plan for the SubsTrack mobile app. E
 | Currency × Payments | [currency-payments.md](currency-payments.md) | End-to-end: plan pricing in non-USD, snapshot capture/immunity, CurrencyInput in payment form, receipt primary/secondary display, edit re-snapshot, display-currency conversions, dashboard/year aggregation, partial + multi-month in non-USD, edge cases |
 | Branches | [branches.md](branches.md) | Multi-location: branch CRUD, default branch, single-branch UI hiding, BranchSelector, RLS isolation, form scoping, mandatory branch enforcement |
 | Tenant Settings | [tenant-settings.md](tenant-settings.md) | Admin-only hub: display currency preference, links to currencies + branches |
+| Subscription Tiers | [subscription.md](subscription.md) | Free / Pro / Business limits, gates, upgrade/downgrade flow, SuperAdmin tier editor + manual upgrade |
 | Dashboard | [dashboard.md](dashboard.md) | Hero card (USD-aggregated via snapshots, display-currency formatted), stat cards, admin compact stats, refresh, branch scoping |
 | Settings | [settings.md](settings.md) | User-level prefs: profile, language switcher with restart, logout |
 | Admin & Navigation | [admin-and-navigation.md](admin-and-navigation.md) | Tab visibility, role gating, routing, deep links, ActionMenu pattern, PressableOpacity feedback, asterisk required fields |

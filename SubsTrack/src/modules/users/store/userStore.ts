@@ -1,9 +1,12 @@
 import { create } from "zustand";
-import type { AppUser, UserRole } from "@/src/core/types";
+import type { AppUser, UserRole, TierPlan, TenantUsage } from "@/src/core/types";
 import { UserService } from "../services/UserService";
 import { useBranchStore } from "@/src/modules/branches/store/branchStore";
 import { resolveBranchFilter } from "@/src/shared/lib/branchFilter";
 import { useAuthStore } from "@/src/modules/auth/store/authStore";
+import { useSubscriptionStore } from "@/src/modules/subscription/store/subscriptionStore";
+import { TierLimitError } from "@/src/modules/subscription/services/TierService";
+import type { TierLimitErrorPayload } from "@/src/modules/subscription/components/UpgradePromptModal";
 
 
 const userService = new UserService();
@@ -17,6 +20,7 @@ export const useUserStore = create<UsersState>((set, get) => ({
   users: [],
   loading: false,
   error: null,
+  tierLimitError: null,
 
   getUsers: async () => {
     if (!!get().users && get().users.length > 0) return;
@@ -33,13 +37,27 @@ export const useUserStore = create<UsersState>((set, get) => ({
     }
   },
 
-  createUser: async (data, tenantId) => {
-    set({ loading: true, error: null });
+  createUser: async (data, tenantId, tier, usage) => {
+    set({ loading: true, error: null, tierLimitError: null });
     try {
-      const user = await userService.createUser(data, tenantId, tenantHasBranches());
+      const user = await userService.createUser(
+        data,
+        tenantId,
+        tenantHasBranches(),
+        tier,
+        usage,
+      );
       set((state) => ({ users: [...state.users, user], loading: false }));
+      void useSubscriptionStore.getState().refreshUsage();
     } catch (e) {
-      set({ error: (e as Error).message, loading: false });
+      if (e instanceof TierLimitError) {
+        set({
+          tierLimitError: { resource: e.resource, limit: e.limit, tierCode: e.tierCode },
+          loading: false,
+        });
+      } else {
+        set({ error: (e as Error).message, loading: false });
+      }
     }
   },
 
@@ -111,7 +129,8 @@ export const useUserStore = create<UsersState>((set, get) => ({
   },
 
   clearError: () => set({ error: null }),
-  reset: () => set({ users: [], loading: false, error: null }),
+  clearTierLimitError: () => set({ tierLimitError: null }),
+  reset: () => set({ users: [], loading: false, error: null, tierLimitError: null }),
 }));
 
 
@@ -119,6 +138,7 @@ interface UsersState {
   users: AppUser[];
   loading: boolean;
   error: string | null;
+  tierLimitError: TierLimitErrorPayload | null;
   getUsers: () => Promise<void>;
   fetchUsers: () => Promise<void>;
   createUser: (
@@ -131,6 +151,8 @@ interface UsersState {
       branchId: string | null;
     },
     tenantId: string,
+    tier: TierPlan,
+    usage: TenantUsage,
   ) => Promise<void>;
   updateUser: (
     id: string,
@@ -142,5 +164,6 @@ interface UsersState {
   activateUser: (id: string, callerId: string, callerRole: UserRole, targetRole: UserRole) => Promise<void>;
   deleteUser: (id: string, callerId: string, callerRole: UserRole, targetRole: UserRole) => Promise<'hard' | 'soft' | null>;
   clearError: () => void;
+  clearTierLimitError: () => void;
   reset: () => void;
 }

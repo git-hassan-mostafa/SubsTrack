@@ -12,6 +12,8 @@ import type { AppUser } from "@/src/core/types";
 import { useAuth } from "@/src/modules/auth/hooks/useAuth";
 import { useUserStore } from "../store/userStore";
 import { useActiveBranches } from "../../branches/hooks/useActiveBranches";
+import { useSubscriptionStore } from "@/src/modules/subscription/store/subscriptionStore";
+import { UpgradePromptModal } from "@/src/modules/subscription/components/UpgradePromptModal";
 
 interface Props {
   user?: AppUser | null;
@@ -40,8 +42,12 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
     loading,
     error,
     clearError,
+    tierLimitError,
+    clearTierLimitError,
   } = useUserStore();
   const activeBranches = useActiveBranches();
+  const currentTier = useSubscriptionStore((s) => s.currentTier);
+  const usage = useSubscriptionStore((s) => s.usage);
 
   // For new users: branch-scoped admin → assign to their branch.
   // Tenant-wide admin → start unassigned and let them pick.
@@ -122,6 +128,7 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
         branchId: form.branchId,
       });
     } else {
+      if (!currentTier) return;
       await createUser(
         {
           username: form.username,
@@ -132,9 +139,12 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
           branchId: form.branchId,
         },
         currentUser.tenantId,
+        currentTier,
+        usage,
       );
     }
-    if (!useUserStore.getState().error) onDismiss();
+    const { error: nextError, tierLimitError: nextTierLimit } = useUserStore.getState();
+    if (!nextError && !nextTierLimit) onDismiss();
   }
 
   const canSubmit =
@@ -342,6 +352,13 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
         destructive
         onConfirm={handleDelete}
         onCancel={() => setDeleteConfirmVisible(false)}
+      />
+      <UpgradePromptModal
+        payload={tierLimitError}
+        onClose={() => {
+          clearTierLimitError();
+          onDismiss();
+        }}
       />
     </Modal>
   );

@@ -20,7 +20,7 @@ DROP POLICY IF EXISTS branches_all      ON branches;
 DROP POLICY IF EXISTS users_update      ON users;
 DROP POLICY IF EXISTS users_insert      ON users;
 DROP POLICY IF EXISTS users_select      ON users;
-DROP POLICY IF EXISTS saas_tiers_select ON saas_tiers;
+DROP POLICY IF EXISTS tier_plans_select ON tier_plans;
 DROP POLICY IF EXISTS tenants_select    ON tenants;
 
 -- ── TABLES (reverse FK order) ─────────────────────────────────
@@ -30,8 +30,8 @@ DROP TABLE IF EXISTS plans      CASCADE;
 DROP TABLE IF EXISTS users      CASCADE;
 DROP TABLE IF EXISTS branches   CASCADE;
 DROP TABLE IF EXISTS currencies CASCADE;
-DROP TABLE IF EXISTS saas_tiers CASCADE;
 DROP TABLE IF EXISTS tenants    CASCADE;
+DROP TABLE IF EXISTS tier_plans CASCADE;
 
 -- ── FUNCTIONS ────────────────────────────────────────────────
 DROP FUNCTION IF EXISTS public.custom_access_token_hook(jsonb);

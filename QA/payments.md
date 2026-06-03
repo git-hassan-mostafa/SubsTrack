@@ -221,7 +221,7 @@ Edit re-snapshots `rate_per_usd_snapshot` from the currency live rate at edit ti
 
 ## 12. Grace period
 
-`PaymentService.buildMonthGrid` accepts `graceDays`. Currently `DEFAULT_GRACE_DAYS = 0` (see [src/shared/constants.ts](SubsTrack/src/shared/constants.ts)).
+`PaymentService.buildMonthGrid` accepts `graceDays`. The value comes from the tenant's current `TierPlan.graceDays`, read via the `useGraceDays()` selector hook from `subscriptionStore`. Defaults are Free = 0, Pro = 3, Business = 7 (editable from SuperAdmin's tier-plans editor).
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|

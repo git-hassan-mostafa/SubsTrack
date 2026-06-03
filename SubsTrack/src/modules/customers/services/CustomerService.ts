@@ -1,9 +1,10 @@
-import type { Customer, Plan } from "@/src/core/types";
+import type { Customer, Plan, TierPlan, TenantUsage } from "@/src/core/types";
 import type { DbCustomer, DbPlan } from "@/src/core/types/db";
 import { PAGE_SIZE, type BranchFilter } from "@/src/core/constants";
 import { isValidDateString } from "@/src/core/utils/date";
 import i18n from "@/src/core/i18n";
 import { CustomerRepository } from "../repository/CustomerRepository";
+import { tierService } from "@/src/modules/subscription/services/TierService";
 
 type DbCustomerWithPlan = DbCustomer & { plans?: DbPlan | null };
 
@@ -74,8 +75,11 @@ export class CustomerService {
   async createCustomer(
     data: CustomerInput,
     tenantId: string,
+    tier: TierPlan,
+    usage: TenantUsage,
   ): Promise<Customer> {
     this.validateInput(data);
+    tierService.assertCanCreate(tier, usage, 'customers');
     const row = await this.repository.create({
       name: data.name.trim(),
       phone_number: data.phoneNumber?.trim() || null,

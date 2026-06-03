@@ -1,6 +1,9 @@
 import { create } from 'zustand';
-import type { Branch } from '@/src/core/types';
+import type { Branch, TierPlan, TenantUsage } from '@/src/core/types';
 import { BranchService, type BranchInput } from '../services/BranchService';
+import { useSubscriptionStore } from '@/src/modules/subscription/store/subscriptionStore';
+import { TierLimitError } from '@/src/modules/subscription/services/TierService';
+import type { TierLimitErrorPayload } from '@/src/modules/subscription/components/UpgradePromptModal';
 
 const branchService = new BranchService();
 
@@ -8,13 +11,20 @@ interface BranchesState {
   branches: Branch[];
   loading: boolean;
   error: string | null;
+  tierLimitError: TierLimitErrorPayload | null;
   getBranches: () => Promise<void>;
   fetchBranches: () => Promise<void>;
-  createBranch: (data: BranchInput, tenantId: string) => Promise<void>;
+  createBranch: (
+    data: BranchInput,
+    tenantId: string,
+    tier: TierPlan,
+    usage: TenantUsage,
+  ) => Promise<void>;
   updateBranch: (id: string, data: BranchInput) => Promise<void>;
   deleteBranch: (id: string) => Promise<'hard' | 'soft' | null>;
   reactivateBranch: (id: string) => Promise<void>;
   clearError: () => void;
+  clearTierLimitError: () => void;
   reset: () => void;
 }
 
@@ -22,6 +32,7 @@ export const useBranchStore = create<BranchesState>((set, get) => ({
   branches: [],
   loading: false,
   error: null,
+  tierLimitError: null,
 
   getBranches: async () => {
     if (get().branches.length > 0) return;
@@ -38,14 +49,22 @@ export const useBranchStore = create<BranchesState>((set, get) => ({
     }
   },
 
-  createBranch: async (data, tenantId) => {
+  createBranch: async (data, tenantId, tier, usage) => {
     if (get().loading) return;
-    set({ loading: true, error: null });
+    set({ loading: true, error: null, tierLimitError: null });
     try {
-      const branch = await branchService.createBranch(data, tenantId);
+      const branch = await branchService.createBranch(data, tenantId, tier, usage);
       set((state) => ({ branches: [...state.branches, branch], loading: false }));
+      void useSubscriptionStore.getState().refreshUsage();
     } catch (e) {
-      set({ error: (e as Error).message, loading: false });
+      if (e instanceof TierLimitError) {
+        set({
+          tierLimitError: { resource: e.resource, limit: e.limit, tierCode: e.tierCode },
+          loading: false,
+        });
+      } else {
+        set({ error: (e as Error).message, loading: false });
+      }
     }
   },
 
@@ -101,5 +120,6 @@ export const useBranchStore = create<BranchesState>((set, get) => ({
   },
 
   clearError: () => set({ error: null }),
-  reset: () => set({ branches: [], loading: false, error: null }),
+  clearTierLimitError: () => set({ tierLimitError: null }),
+  reset: () => set({ branches: [], loading: false, error: null, tierLimitError: null }),
 }));

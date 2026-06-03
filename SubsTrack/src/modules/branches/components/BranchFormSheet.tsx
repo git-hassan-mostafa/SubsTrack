@@ -9,6 +9,8 @@ import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { useAuth } from "@/src/modules/auth/hooks/useAuth";
 import type { Branch } from "@/src/core/types";
 import { useBranchStore } from "../store/branchStore";
+import { useSubscriptionStore } from "@/src/modules/subscription/store/subscriptionStore";
+import { UpgradePromptModal } from "@/src/modules/subscription/components/UpgradePromptModal";
 
 interface Props {
   branch?: Branch | null;
@@ -26,7 +28,11 @@ export function BranchFormSheet({ branch, onDismiss, onRequestDelete }: Props) {
     loading,
     error,
     clearError,
+    tierLimitError,
+    clearTierLimitError,
   } = useBranchStore();
+  const currentTier = useSubscriptionStore((s) => s.currentTier);
+  const usage = useSubscriptionStore((s) => s.usage);
 
   const [name, setName] = useState(branch?.name ?? "");
 
@@ -40,9 +46,11 @@ export function BranchFormSheet({ branch, onDismiss, onRequestDelete }: Props) {
     if (branch) {
       await updateBranch(branch.id, { name });
     } else {
-      await createBranch({ name }, user.tenantId);
+      if (!currentTier) return;
+      await createBranch({ name }, user.tenantId, currentTier, usage);
     }
-    if (!useBranchStore.getState().error) onDismiss();
+    const { error: nextError, tierLimitError: nextTierLimit } = useBranchStore.getState();
+    if (!nextError && !nextTierLimit) onDismiss();
   }
 
   async function handleReactivate() {
@@ -133,6 +141,13 @@ export function BranchFormSheet({ branch, onDismiss, onRequestDelete }: Props) {
           <View className="h-6" />
         </ScrollView>
       </View>
+      <UpgradePromptModal
+        payload={tierLimitError}
+        onClose={() => {
+          clearTierLimitError();
+          onDismiss();
+        }}
+      />
     </Modal>
   );
 }

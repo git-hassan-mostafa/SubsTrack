@@ -14,6 +14,8 @@ import { usePlanStore } from "../store/planStore";
 import { useCurrencyStore } from "@/src/modules/currencies/store/currencyStore";
 import { COLORS } from "@/src/shared/constants";
 import { useActiveBranches } from "../../branches/hooks/useActiveBranches";
+import { useSubscriptionStore } from "@/src/modules/subscription/store/subscriptionStore";
+import { UpgradePromptModal } from "@/src/modules/subscription/components/UpgradePromptModal";
 
 interface Props {
   plan?: Plan | null;
@@ -36,9 +38,20 @@ const MAX_DURATION = 12;
 export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const { createPlan, updatePlan, loading, error, clearError } = usePlanStore();
+  const {
+    createPlan,
+    updatePlan,
+    loading,
+    error,
+    clearError,
+    tierLimitError,
+    clearTierLimitError,
+  } = usePlanStore();
   const { currencies } = useCurrencyStore();
   const activeBranches = useActiveBranches();
+  const currentTier = useSubscriptionStore((s) => s.currentTier);
+  const usage = useSubscriptionStore((s) => s.usage);
+  const multiMonthAllowed = currentTier?.multiMonthPlansEnabled ?? true;
 
   // For NEW plans: branch-scoped admin's plans default to their branch;
   // single-branch tenant binds to the only branch (picker is hidden); a
@@ -89,12 +102,14 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
       branchId: form.branchId,
       durationMonths: form.durationMonths,
     };
+    if (!currentTier) return;
     if (plan) {
-      await updatePlan(plan.id, data);
+      await updatePlan(plan.id, data, currentTier);
     } else {
-      await createPlan(data, user.tenantId);
+      await createPlan(data, user.tenantId, currentTier, usage);
     }
-    if (!usePlanStore.getState().error) onDismiss();
+    const { error: nextError, tierLimitError: nextTierLimit } = usePlanStore.getState();
+    if (!nextError && !nextTierLimit) onDismiss();
   }
 
   const submitDisabled =
@@ -150,79 +165,87 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
             nullable={false}
           />
 
-          {/* Duration picker */}
-          <View className="mb-4">
-            <Text className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-              {t("plans.duration_label")}
-            </Text>
+          {/* Duration picker — multi-month UI hidden behind tier flag */}
+          {multiMonthAllowed ? (
+            <View className="mb-4">
+              <Text className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+                {t("plans.duration_label")}
+              </Text>
 
-            {/* Preset chips — wrap naturally so labels are never squeezed */}
-            <View className="flex-row flex-wrap" style={{ gap: 8 }}>
-              {DURATION_OPTIONS.map((d) => {
-                const selected = form.durationMonths === d;
-                return (
-                  <PressableOpacity
-                    key={d}
-                    onPress={() =>
-                      setForm((prev) => ({
-                        ...prev,
-                        durationMonths: d,
-                        isCustomPrice: d > 1 ? false : prev.isCustomPrice,
-                      }))
-                    }
-                    className={`px-4 py-2.5 rounded-xl border ${
-                      selected
-                        ? "bg-primary border-primary"
-                        : "bg-white border-gray-200"
-                    }`}
-                  >
-                    <Text
-                      fontWeight="SemiBold"
-                      className={`text-sm ${
-                        selected ? "text-white" : "text-gray-700"
+              <View className="flex-row flex-wrap" style={{ gap: 8 }}>
+                {DURATION_OPTIONS.map((d) => {
+                  const selected = form.durationMonths === d;
+                  return (
+                    <PressableOpacity
+                      key={d}
+                      onPress={() =>
+                        setForm((prev) => ({
+                          ...prev,
+                          durationMonths: d,
+                          isCustomPrice: d > 1 ? false : prev.isCustomPrice,
+                        }))
+                      }
+                      className={`px-4 py-2.5 rounded-xl border ${
+                        selected
+                          ? "bg-primary border-primary"
+                          : "bg-white border-gray-200"
                       }`}
                     >
-                      {d === 1
-                        ? t("plans.monthly")
-                        : t("plans.n_months", { count: d })}
-                    </Text>
-                  </PressableOpacity>
-                );
-              })}
-            </View>
-
-            {/* Fine-tune stepper on its own row */}
-            <View className="flex-row items-center justify-between mt-3 px-4 py-2 border border-gray-200 rounded-xl">
-              <Text className="text-sm text-gray-700">
-                {form.durationMonths === 1
-                  ? t("plans.monthly")
-                  : t("plans.n_months", { count: form.durationMonths })}
-              </Text>
-              <View className="flex-row items-center">
-                <PressableOpacity
-                  onPress={() => setDuration(-1)}
-                  className="w-9 h-9 rounded-lg bg-gray-100 items-center justify-center"
-                >
-                  <Text className="text-gray-700 text-lg font-bold">−</Text>
-                </PressableOpacity>
-                <Text className="text-base font-semibold text-gray-900 w-10 text-center">
-                  {form.durationMonths}
-                </Text>
-                <PressableOpacity
-                  onPress={() => setDuration(1)}
-                  className="w-9 h-9 rounded-lg bg-gray-100 items-center justify-center"
-                >
-                  <Text className="text-gray-700 text-lg font-bold">+</Text>
-                </PressableOpacity>
+                      <Text
+                        fontWeight="SemiBold"
+                        className={`text-sm ${
+                          selected ? "text-white" : "text-gray-700"
+                        }`}
+                      >
+                        {d === 1
+                          ? t("plans.monthly")
+                          : t("plans.n_months", { count: d })}
+                      </Text>
+                    </PressableOpacity>
+                  );
+                })}
               </View>
-            </View>
 
-            <Text className="text-xs text-gray-400 mt-1.5">
-              {isMultiMonth
-                ? t("plans.bundle_price_hint")
-                : t("plans.per_month")}
-            </Text>
-          </View>
+              <View className="flex-row items-center justify-between mt-3 px-4 py-2 border border-gray-200 rounded-xl">
+                <Text className="text-sm text-gray-700">
+                  {form.durationMonths === 1
+                    ? t("plans.monthly")
+                    : t("plans.n_months", { count: form.durationMonths })}
+                </Text>
+                <View className="flex-row items-center">
+                  <PressableOpacity
+                    onPress={() => setDuration(-1)}
+                    className="w-9 h-9 rounded-lg bg-gray-100 items-center justify-center"
+                  >
+                    <Text className="text-gray-700 text-lg font-bold">−</Text>
+                  </PressableOpacity>
+                  <Text className="text-base font-semibold text-gray-900 w-10 text-center">
+                    {form.durationMonths}
+                  </Text>
+                  <PressableOpacity
+                    onPress={() => setDuration(1)}
+                    className="w-9 h-9 rounded-lg bg-gray-100 items-center justify-center"
+                  >
+                    <Text className="text-gray-700 text-lg font-bold">+</Text>
+                  </PressableOpacity>
+                </View>
+              </View>
+
+              <Text className="text-xs text-gray-400 mt-1.5">
+                {isMultiMonth
+                  ? t("plans.bundle_price_hint")
+                  : t("plans.per_month")}
+              </Text>
+            </View>
+          ) : (
+            <View className="mb-4 rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-3">
+              <Text className="text-xs text-gray-500">
+                {t("subscription.locked.multi_month_body", {
+                  nextTierName: t("subscription.next_tier"),
+                })}
+              </Text>
+            </View>
+          )}
 
           {!form.isCustomPrice ? (
             <CurrencyInput
@@ -295,6 +318,13 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
           <View className="h-24" />
         </ScrollView>
       </View>
+      <UpgradePromptModal
+        payload={tierLimitError}
+        onClose={() => {
+          clearTierLimitError();
+          onDismiss();
+        }}
+      />
     </Modal>
   );
 }

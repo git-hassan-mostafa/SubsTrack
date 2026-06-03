@@ -15,8 +15,9 @@ import {
   paymentSnapshotCurrency,
   toUsd,
 } from "@/src/core/utils/currency";
-import { COLORS, DEFAULT_GRACE_DAYS } from "@/src/shared/constants";
+import { COLORS } from "@/src/shared/constants";
 import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
+import { useGraceDays } from "@/src/modules/subscription/store/subscriptionStore";
 import { MonthGrid } from "./MonthGrid";
 import { PaymentDetailSheet } from "./PaymentDetailSheet";
 import { PaymentFormSheet } from "./PaymentFormSheet";
@@ -37,6 +38,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
   const { currencies } = useCurrencyStore();
   const { displayCurrencyId } = useUiPrefStore();
   const displayCurrency = findCurrency(currencies, displayCurrencyId);
+  const graceDays = useGraceDays();
 
   const [year, setYear] = useState(getCurrentYearMonth().year);
   const [selectedEntry, setSelectedEntry] = useState<MonthEntry | null>(null);
@@ -47,7 +49,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
   const quickPayHandledRef = useRef(false);
 
   useEffect(() => {
-    paymentStore.fetchPayments(customer.id, year, customer, DEFAULT_GRACE_DAYS);
+    paymentStore.fetchPayments(customer.id, year, customer, graceDays);
   }, [customer.id, year, customer.startDate]);
 
   useEffect(() => {
@@ -111,7 +113,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
       findCurrency(currencies, next.currencyId),
       customer,
       year,
-      DEFAULT_GRACE_DAYS,
+      graceDays,
     );
     if (!usePaymentStore.getState().error) setDetailVisible(false);
   }
@@ -254,7 +256,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
         <PaymentFormSheet
           entry={selectedEntry}
           customer={customer}
-          graceDays={DEFAULT_GRACE_DAYS}
+          graceDays={graceDays}
           monthGrid={paymentStore.monthGrid}
           onDismiss={() => setFormVisible(false)}
         />
@@ -273,7 +275,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
           entry={selectedEntry}
           customer={customer}
           year={year}
-          graceDays={DEFAULT_GRACE_DAYS}
+          graceDays={graceDays}
           onDismiss={() => {
             setDetailVisible(false);
             setVoidVisible(false);

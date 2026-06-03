@@ -23,7 +23,10 @@
     "close_label": "إغلاق",
     "tap":"اضغط",
     "input_search":"بحث...",
-    "no_actions_available": "لا توجد إجراءات متاحة"
+    "no_actions_available": "لا توجد إجراءات متاحة",
+    "yes": "نعم",
+    "no": "لا",
+    "ok": "حسناً"
 
   },
   "auth": {
@@ -426,6 +429,52 @@
     "plan_fixed_for_multimonth": "يجب أن تكون الخطة بسعر ثابت لتسجيل دفعة متعددة الأشهر",
     "months_already_paid": "الأشهر التالية مدفوعة بالفعل: {{months}}",
     "all_months_paid": "جميع أشهر هذه الباقة مدفوعة بالفعل",
-    "void_reason_required": "سبب إلغاء الدفعة مطلوب"
+    "void_reason_required": "سبب إلغاء الدفعة مطلوب",
+    "tier_limit_reached": "لقد وصلت إلى الحد الأقصى لـ {{resource}} ({{limit}}) في باقتك الحالية",
+    "tier_multi_currency_locked": "العملات المتعددة غير متاحة في باقتك الحالية",
+    "tier_multi_month_locked": "الخطط متعددة الأشهر غير متاحة في باقتك الحالية"
+  },
+  "subscription": {
+    "title": "الاشتراك",
+    "subtitle": "إدارة باقتك",
+    "menu_sub": "عرض الحدود والاستخدام والترقية",
+    "your_usage": "استخدامك الحالي",
+    "current_plan": "الحالية",
+    "per_month": "/ شهرياً",
+    "upgrade_to": "الترقية إلى {{name}}",
+    "downgrade_to": "التراجع إلى {{name}}",
+    "view_plans": "عرض الباقات",
+    "not_now": "ليس الآن",
+    "next_tier": "الباقة التالية",
+    "confirm_upgrade_title": "الترقية إلى {{name}}؟",
+    "confirm_upgrade_body": "سيتم تبديل حسابك إلى الباقة الجديدة فوراً. يمكنك تغيير الباقة لاحقاً.",
+    "confirm_upgrade": "ترقية",
+    "confirm_downgrade_title": "التراجع إلى {{name}}؟",
+    "confirm_downgrade_body": "ستحتفظ بجميع بياناتك الحالية لكن سيتم تطبيق حدود الباقة الجديدة من الآن فصاعداً.",
+    "confirm_downgrade": "تراجع",
+    "downgrade_blocked_title": "لا يمكن التراجع الآن",
+    "downgrade_blocked_body": "استخدامك الحالي يتجاوز ما تسمح به باقة {{name}}. قم بتعديل العناصر التالية أولاً:",
+    "resource": {
+      "customers": "العملاء",
+      "users": "المستخدمون",
+      "plans": "الخطط",
+      "branches": "الفروع",
+      "currencies": "العملات",
+      "multi_currency": "العملات المتعددة",
+      "multi_month": "الخطط متعددة الأشهر"
+    },
+    "feature": {
+      "multi_currency": "تعدد العملات",
+      "multi_month": "خطط متعددة الأشهر",
+      "grace_days": "أيام السماح"
+    },
+    "locked": {
+      "limit_reached_title": "لقد وصلت إلى الحد الأقصى لـ {{resource}}",
+      "limit_reached_body": "تسمح باقة {{tierName}} بحد أقصى {{limit}}. قم بالترقية إلى {{nextTierName}} لإضافة المزيد.",
+      "multi_currency_title": "العملات المتعددة ميزة مدفوعة",
+      "multi_currency_body": "قم بالترقية إلى {{nextTierName}} لإدارة عملات أخرى غير الدولار الأمريكي.",
+      "multi_month_title": "الخطط متعددة الأشهر ميزة مدفوعة",
+      "multi_month_body": "قم بالترقية إلى {{nextTierName}} لتجميع أشهر متعددة في دفعة واحدة."
+    }
   }
 }

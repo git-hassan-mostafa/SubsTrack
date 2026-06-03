@@ -5,6 +5,59 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- ============================================================
+-- TIER PLANS
+-- Global subscription tier catalog (Free, Pro, Business).
+-- A fixed, small set of rows shared across all tenants — each
+-- tenant.tier_id points at one. Managed by the SaaS owner via
+-- SuperAdmin (service role). Mobile app reads via RLS; signup
+-- screen reads as anon to display pricing.
+-- NULL on any *max_ column means "unlimited".
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS tier_plans (
+    id                        UUID          PRIMARY KEY DEFAULT uuid_generate_v4(),
+    code                      TEXT          NOT NULL UNIQUE
+                                            CHECK (code IN ('free', 'pro', 'business')),
+    name                      TEXT          NOT NULL,
+    sort_order                INT           NOT NULL,
+
+    -- Numeric limits (NULL = unlimited)
+    max_customers             INT           CHECK (max_customers IS NULL OR max_customers >= 0),
+    max_users                 INT           CHECK (max_users     IS NULL OR max_users     >= 0),
+    max_plans                 INT           CHECK (max_plans     IS NULL OR max_plans     >= 0),
+    max_branches              INT           CHECK (max_branches  IS NULL OR max_branches  >= 0),
+    max_currencies            INT           CHECK (max_currencies IS NULL OR max_currencies >= 0),
+
+    -- Feature flags
+    multi_currency_enabled    BOOLEAN       NOT NULL DEFAULT FALSE,
+    multi_month_plans_enabled BOOLEAN       NOT NULL DEFAULT FALSE,
+
+    -- Operational
+    grace_days                INT           NOT NULL DEFAULT 0 CHECK (grace_days >= 0),
+
+    -- Pricing (USD). Stripe price IDs can be added later as nullable columns.
+    price_monthly_usd         NUMERIC(10,2) NOT NULL DEFAULT 0 CHECK (price_monthly_usd >= 0),
+    price_yearly_usd          NUMERIC(10,2)             CHECK (price_yearly_usd IS NULL OR price_yearly_usd >= 0),
+
+    active                    BOOLEAN       NOT NULL DEFAULT TRUE,
+    created_at                TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    updated_at                TIMESTAMPTZ   NOT NULL DEFAULT NOW()
+);
+
+-- Seed the three tiers. Idempotent via ON CONFLICT — re-runs of the script
+-- preserve any limit/price tweaks made later via SuperAdmin.
+INSERT INTO tier_plans (
+    code, name, sort_order,
+    max_customers, max_users, max_plans, max_branches, max_currencies,
+    multi_currency_enabled, multi_month_plans_enabled,
+    grace_days, price_monthly_usd
+) VALUES
+    ('free',     'Free',     0,   30,   1,    3,    1,    0, FALSE, FALSE, 0,  0),
+    ('pro',      'Pro',      1,  300,   5, NULL,    3, NULL, TRUE,  TRUE,  3,  9),
+    ('business', 'Business', 2, NULL, NULL, NULL, NULL, NULL, TRUE,  TRUE,  7, 29)
+ON CONFLICT (code) DO NOTHING;
+
+-- ============================================================
 -- TENANTS
 -- Managed by the SaaS owner via the SuperAdmin app (service role)
 -- and by new users via the public `create-tenant` Edge Function
@@ -13,36 +66,26 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS tenants (
-    id          UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name        TEXT        NOT NULL UNIQUE,
-    tenant_code TEXT        NOT NULL UNIQUE
-                            CHECK (tenant_code ~ '^[a-z0-9]+$'),
-    active      BOOLEAN     NOT NULL DEFAULT TRUE,
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    id               UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
+    name             TEXT        NOT NULL UNIQUE,
+    tenant_code      TEXT        NOT NULL UNIQUE
+                                 CHECK (tenant_code ~ '^[a-z0-9]+$'),
+    active           BOOLEAN     NOT NULL DEFAULT TRUE,
+    -- Subscription tier. Defaults to Free; SuperAdmin or in-app upgrade flow
+    -- swaps it. ON DELETE RESTRICT — never lose tier association silently.
+    tier_id          UUID        NOT NULL
+                                 DEFAULT (SELECT id FROM tier_plans WHERE code = 'free'),
+    tier_upgraded_at TIMESTAMPTZ,
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT fk_tenants_tier
+        FOREIGN KEY (tier_id)
+        REFERENCES tier_plans(id)
+        ON DELETE RESTRICT
 );
 
--- ============================================================
--- SAAS TIERS
--- Billing tiers for tenants (renamed from tenant_plans to avoid
--- confusion with the per-tenant customer subscription plans).
--- Managed by the SaaS owner only. Never written to by the app.
--- ============================================================
-
-CREATE TABLE IF NOT EXISTS saas_tiers (
-    id            UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name          TEXT        NOT NULL,
-    max_users     INT         NOT NULL CHECK (max_users > 0),
-    max_customers INT         NOT NULL CHECK (max_customers > 0),
-    price         NUMERIC(12,2) NOT NULL CHECK (price >= 0),
-    grace_days    INT         NOT NULL DEFAULT 0 CHECK (grace_days >= 0),
-    tenant_id     UUID        NOT NULL UNIQUE,
-    created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-
-    CONSTRAINT fk_saas_tiers_tenant
-        FOREIGN KEY (tenant_id)
-        REFERENCES tenants(id)
-        ON DELETE CASCADE
-);
+CREATE INDEX IF NOT EXISTS idx_tenants_tier_id
+    ON tenants (tier_id);
 
 -- ============================================================
 -- CURRENCIES
@@ -154,7 +197,7 @@ CREATE INDEX IF NOT EXISTS idx_users_tenant_id
 -- ============================================================
 -- PLANS
 -- Customer subscription packages defined per tenant.
--- NOT the same as saas_tiers (SaaS billing) — completely separate concept.
+-- NOT the same as tier_plans (SaaS subscription tiers) — completely separate concept.
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS plans (
@@ -422,7 +465,7 @@ CREATE INDEX IF NOT EXISTS idx_payments_customer_month
 -- ============================================================
 
 ALTER TABLE tenants    ENABLE ROW LEVEL SECURITY;
-ALTER TABLE saas_tiers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tier_plans ENABLE ROW LEVEL SECURITY;
 ALTER TABLE currencies ENABLE ROW LEVEL SECURITY;
 ALTER TABLE branches   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE users      ENABLE ROW LEVEL SECURITY;
@@ -514,14 +557,19 @@ DO $$ BEGIN
             FOR SELECT USING (id = current_tenant_id());
     END IF;
 
-    -- ── SAAS TIERS ───────────────────────────────────────────
-    -- App users can read their own tier (e.g. to display grace_days).
+    -- ── TIER PLANS ───────────────────────────────────────────
+    -- Readable by everyone (anon + authenticated) so the signup screen
+    -- can display pricing/limits and the in-app Subscription screen can
+    -- show the tier comparison. Mutations are denied to all roles via
+    -- the absence of any other policy — only service_role bypasses RLS.
     IF NOT EXISTS (
         SELECT 1 FROM pg_policies
-        WHERE tablename = 'saas_tiers' AND policyname = 'saas_tiers_select'
+        WHERE tablename = 'tier_plans' AND policyname = 'tier_plans_select'
     ) THEN
-        CREATE POLICY saas_tiers_select ON saas_tiers
-            FOR SELECT USING (tenant_id = current_tenant_id());
+        CREATE POLICY tier_plans_select ON tier_plans
+            FOR SELECT
+            TO anon, authenticated
+            USING (TRUE);
     END IF;
 
     -- ── CURRENCIES ───────────────────────────────────────────
@@ -749,8 +797,9 @@ GRANT EXECUTE ON FUNCTION public.is_tenant_code_available(TEXT) TO anon, authent
 --    Without this, RLS will block all queries silently (returns empty, not error).
 
 -- 2. NAMING (READ)
---    saas_tiers = SaaS billing tiers (you manage this, one row per tenant)
---    plans      = customer subscription packages (tenant's staff manage this)
+--    tier_plans = SaaS subscription tiers (3 global rows: Free, Pro, Business).
+--                 Each tenant.tier_id points at one. SuperAdmin edits limits/prices.
+--    plans      = customer subscription packages (tenant's staff manage this).
 --    These are entirely different concepts. Do not confuse them.
 
 -- 3. PAYMENT INTEGRITY

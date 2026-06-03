@@ -1,22 +1,13 @@
-import type { AuthUser, Tenant } from "@/src/core/types";
+import type { AuthUser } from "@/src/core/types";
 import type { DbTenant, DbUser } from "@/src/core/types/db";
 import i18n from "@/src/core/i18n";
 import { AuthRepository } from "../repository/AuthRepository";
 import { mapDbBranchToBranch } from "@/src/modules/branches/services/BranchService";
+import { mapDbTenantToTenant } from "@/src/modules/subscription/services/TierService";
 
 export interface AuthResult {
   user: AuthUser;
   tenantActive: boolean;
-}
-
-function mapDbTenantToTenant(db: DbTenant): Tenant {
-  return {
-    id: db.id,
-    name: db.name,
-    tenantCode: db.tenant_code,
-    active: db.active,
-    createdAt: db.created_at,
-  };
 }
 
 function mapDbUserToAuthUser(db: DbUser, tenant: DbTenant): AuthUser {

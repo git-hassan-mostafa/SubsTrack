@@ -8,8 +8,45 @@ export interface Tenant {
   name: string;
   tenantCode: string;
   active: boolean;
+  tierId: string;
+  tier?: TierPlan | null;
+  tierUpgradedAt: string | null;
   createdAt: string;
 }
+
+export type TierCode = 'free' | 'pro' | 'business';
+
+// Subscription tier definition (Free / Pro / Business). Read-only from the app;
+// edits happen via SuperAdmin. Numeric *max_ columns are null = unlimited.
+export interface TierPlan {
+  id: string;
+  code: TierCode;
+  name: string;
+  sortOrder: number;
+  maxCustomers: number | null;
+  maxUsers: number | null;
+  maxPlans: number | null;
+  maxBranches: number | null;
+  maxCurrencies: number | null;
+  multiCurrencyEnabled: boolean;
+  multiMonthPlansEnabled: boolean;
+  graceDays: number;
+  priceMonthlyUsd: number;
+  priceYearlyUsd: number | null;
+  active: boolean;
+}
+
+// Current usage counts for a tenant, paired with TierPlan limits to drive
+// enforcement and the Subscription screen usage bars.
+export interface TenantUsage {
+  customers: number;
+  users: number;
+  plans: number;
+  branches: number;
+  currencies: number;
+}
+
+export type TierResource = 'customers' | 'users' | 'plans' | 'branches' | 'currencies';
 
 // Per-tenant non-USD currency. USD is implicit (never stored as a row).
 // Convention everywhere in the app: a null Currency reference means USD.
@@ -62,17 +99,6 @@ export interface AppUser {
   // null = tenant-wide admin. For role='user', a branch is required once
   // the tenant has >=1 branch (enforced in UserService.validate).
   branchId: string | null;
-  createdAt: string;
-}
-
-export interface SaasTier {
-  id: string;
-  name: string;
-  maxUsers: number;
-  maxCustomers: number;
-  price: number;
-  graceDays: number;
-  tenantId: string;
   createdAt: string;
 }
 

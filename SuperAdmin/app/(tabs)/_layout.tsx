@@ -23,9 +23,9 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="saas-tiers"
+        name="tier-plans"
         options={{
-          title: 'SaaS Tiers',
+          title: 'Tier Plans',
           tabBarIcon: ({ color }) => <IconSymbol size={26} name="list.star" color={color} />,
         }}
       />

@@ -5,22 +5,23 @@ import { useFocusEffect } from 'expo-router';
 import { ConfirmDialog } from '@/src/shared/components/ConfirmDialog';
 import { EmptyState } from '@/src/shared/components/EmptyState';
 import { ErrorBanner } from '@/src/shared/components/ErrorBanner';
-import type { SaasTier, Tenant } from '@/src/core/types';
+import type { Tenant } from '@/src/core/types';
 import { TenantCard } from '../components/TenantCard';
 import { TenantFormSheet } from '../components/TenantFormSheet';
 import { useTenantStore } from '../store/tenantStore';
+import { useTierPlanStore } from '@/src/modules/tier-plans/store/tierPlanStore';
 
-interface Props {
-  saasTiers: SaasTier[];
-}
-
-export function TenantListScreen({ saasTiers }: Props) {
+export function TenantListScreen() {
+  const { tierPlans, fetchTierPlans } = useTierPlanStore();
   const { tenants, loading, error, fetchTenants, deleteTenant, clearError } = useTenantStore();
   const [formVisible, setFormVisible] = useState(false);
   const [editingTenant, setEditingTenant] = useState<Tenant | null>(null);
   const [deletingTenant, setDeletingTenant] = useState<Tenant | null>(null);
 
-  useFocusEffect(useCallback(() => { fetchTenants(); }, []));
+  useFocusEffect(useCallback(() => {
+    fetchTenants();
+    fetchTierPlans();
+  }, []));
 
   function openCreate() {
     setEditingTenant(null);
@@ -36,10 +37,6 @@ export function TenantListScreen({ saasTiers }: Props) {
     if (!deletingTenant) return;
     await deleteTenant(deletingTenant.id);
     setDeletingTenant(null);
-  }
-
-  function getTierForTenant(tenantId: string): SaasTier | null {
-    return saasTiers.find((t) => t.tenantId === tenantId) ?? null;
   }
 
   return (
@@ -70,7 +67,6 @@ export function TenantListScreen({ saasTiers }: Props) {
           renderItem={({ item }) => (
             <TenantCard
               tenant={item}
-              saasTier={getTierForTenant(item.id)}
               onEdit={openEdit}
               onDelete={setDeletingTenant}
             />

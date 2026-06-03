@@ -9,6 +9,8 @@ import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { useAuth } from "@/src/modules/auth/hooks/useAuth";
 import type { Currency } from "@/src/core/types";
 import { useCurrencyStore } from "../store/currencyStore";
+import { useSubscriptionStore } from "@/src/modules/subscription/store/subscriptionStore";
+import { UpgradePromptModal } from "@/src/modules/subscription/components/UpgradePromptModal";
 
 interface Props {
   currency?: Currency | null;
@@ -38,7 +40,10 @@ export function CurrencyFormSheet({
     loading,
     error,
     clearError,
+    tierLimitError,
+    clearTierLimitError,
   } = useCurrencyStore();
+  const currentTier = useSubscriptionStore((s) => s.currentTier);
 
   const [form, setForm] = useState<FormState>({
     code: currency?.code ?? "",
@@ -65,9 +70,12 @@ export function CurrencyFormSheet({
     if (currency) {
       await updateCurrency(currency.id, data);
     } else {
-      await createCurrency(data, user.tenantId);
+      if (!currentTier) return;
+      await createCurrency(data, user.tenantId, currentTier);
     }
-    if (!useCurrencyStore.getState().error) onDismiss();
+    const { error: nextError, tierLimitError: nextTierLimit } =
+      useCurrencyStore.getState();
+    if (!nextError && !nextTierLimit) onDismiss();
   }
 
   async function handleReactivate() {
@@ -221,6 +229,13 @@ export function CurrencyFormSheet({
           <View className="h-6" />
         </ScrollView>
       </View>
+      <UpgradePromptModal
+        payload={tierLimitError}
+        onClose={() => {
+          clearTierLimitError();
+          onDismiss();
+        }}
+      />
     </Modal>
   );
 }

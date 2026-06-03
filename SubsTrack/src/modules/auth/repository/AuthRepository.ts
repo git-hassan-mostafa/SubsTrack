@@ -47,7 +47,7 @@ export class AuthRepository {
   async getTenant(tenantId: string): Promise<DbTenant | null> {
     const { data, error } = await supabase
       .from("tenants")
-      .select("*")
+      .select("*, tier_plans(*)")
       .eq("id", tenantId)
       .single();
     if (error) {
@@ -60,7 +60,7 @@ export class AuthRepository {
   async getTenantByCode(tenantCode: string): Promise<DbTenant | null> {
     const { data, error } = await supabase
       .from("tenants")
-      .select("*")
+      .select("*, tier_plans(*)")
       .eq("tenant_code", tenantCode.trim().toLowerCase())
       .single();
     if (error) {

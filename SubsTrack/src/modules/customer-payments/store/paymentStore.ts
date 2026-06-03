@@ -1,7 +1,9 @@
 import { create } from "zustand";
-import type { Currency, Customer, MonthEntry, Payment, Plan } from "@/src/core/types";
+import type { Currency, Customer, MonthEntry, Payment, Plan, TierPlan } from "@/src/core/types";
 import { getCurrentYearMonth, toBillingMonth } from "@/src/core/utils/date";
 import { PaymentService, type MultiMonthConflict } from "../services/PaymentService";
+import { TierLimitError } from "@/src/modules/subscription/services/TierService";
+import type { TierLimitErrorPayload } from "@/src/modules/subscription/components/UpgradePromptModal";
 
 // USD payments (currency === null) snapshot at rate 1. Otherwise, freeze the live rate.
 const snapshotRate = (currency: Currency | null): number =>
@@ -19,6 +21,7 @@ export const usePaymentStore = create<PaymentsState>((set, get) => ({
   loadingVoid: false,
   loadingUpdate: false,
   error: null,
+  tierLimitError: null,
 
   fetchCurrentMonthPaidIds: async () => {
     const { year, month } = getCurrentYearMonth();
@@ -87,9 +90,10 @@ export const usePaymentStore = create<PaymentsState>((set, get) => ({
     skipConflicts,
     year,
     graceDays,
+    tier,
   ) => {
     if (get().loadingCreate) return [];
-    set({ loadingCreate: true, error: null });
+    set({ loadingCreate: true, error: null, tierLimitError: null });
     try {
       const { payment, skippedMonths } = await paymentService.createMultiMonthPayment(
         startMonth,
@@ -102,6 +106,7 @@ export const usePaymentStore = create<PaymentsState>((set, get) => ({
         get().payments,
         skipConflicts,
         snapshotRate(planCurrency),
+        tier,
       );
       const payments = [...get().payments, payment];
       const monthGrid = paymentService.buildMonthGrid(customer, payments, year, graceDays);
@@ -127,7 +132,14 @@ export const usePaymentStore = create<PaymentsState>((set, get) => ({
       }));
       return skippedMonths;
     } catch (e) {
-      set({ error: (e as Error).message, loadingCreate: false });
+      if (e instanceof TierLimitError) {
+        set({
+          tierLimitError: { resource: e.resource, limit: e.limit, tierCode: e.tierCode },
+          loadingCreate: false,
+        });
+      } else {
+        set({ error: (e as Error).message, loadingCreate: false });
+      }
       return [];
     }
   },
@@ -197,6 +209,7 @@ export const usePaymentStore = create<PaymentsState>((set, get) => ({
   },
 
   clearError: () => set({ error: null }),
+  clearTierLimitError: () => set({ tierLimitError: null }),
 
   reset: () =>
     set({
@@ -207,6 +220,7 @@ export const usePaymentStore = create<PaymentsState>((set, get) => ({
       loadingVoid: false,
       loadingUpdate: false,
       error: null,
+      tierLimitError: null,
     }),
 }));
 
@@ -233,6 +247,7 @@ interface PaymentsState {
   loadingVoid: boolean;
   loadingUpdate: boolean;
   error: string | null;
+  tierLimitError: TierLimitErrorPayload | null;
   fetchCurrentMonthPaidIds: () => Promise<void>;
   fetchPayments: (
     customerId: string,
@@ -258,6 +273,7 @@ interface PaymentsState {
     skipConflicts: boolean,
     year: number,
     graceDays: number,
+    tier: TierPlan,
   ) => Promise<MultiMonthConflict[]>;
   updatePayment: (
     id: string,
@@ -277,5 +293,6 @@ interface PaymentsState {
     graceDays: number,
   ) => Promise<void>;
   clearError: () => void;
+  clearTierLimitError: () => void;
   reset: () => void;
 }

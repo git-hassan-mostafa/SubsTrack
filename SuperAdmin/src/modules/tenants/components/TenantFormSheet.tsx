@@ -13,6 +13,7 @@ import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { Input } from "@/src/shared/components/Input";
 import type { Tenant } from "@/src/core/types";
 import { useTenantStore } from "../store/tenantStore";
+import { useTierPlanStore } from "@/src/modules/tier-plans/store/tierPlanStore";
 
 interface Props {
   visible: boolean;
@@ -23,12 +24,14 @@ interface Props {
 export function TenantFormSheet({ visible, tenant, onDismiss }: Props) {
   const { createTenant, updateTenant, loading, error, clearError } =
     useTenantStore();
+  const { tierPlans, fetchTierPlans } = useTierPlanStore();
 
   const isEditing = !!tenant;
 
   const [name, setName] = useState("");
   const [tenantCode, setTenantCode] = useState("");
   const [active, setActive] = useState(true);
+  const [tierId, setTierId] = useState<string | null>(null);
   const [adminUserName, setAdminUserName] = useState("");
   const [adminFullName, setAdminFullName] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
@@ -38,10 +41,12 @@ export function TenantFormSheet({ visible, tenant, onDismiss }: Props) {
       setName(tenant?.name ?? "");
       setTenantCode(tenant?.tenantCode ?? "");
       setActive(tenant?.active ?? true);
+      setTierId(tenant?.tierId ?? null);
       setAdminUserName("");
       setAdminFullName("");
       setAdminPassword("");
       clearError();
+      if (tierPlans.length === 0) fetchTierPlans();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, tenant]);
@@ -49,7 +54,13 @@ export function TenantFormSheet({ visible, tenant, onDismiss }: Props) {
   async function handleSubmit() {
     let success: boolean;
     if (isEditing) {
-      success = await updateTenant(tenant.id, { name, active });
+      // Only send tierId if it actually changed — preserves tier_upgraded_at otherwise.
+      const tierChanged = tierId && tierId !== tenant!.tierId;
+      success = await updateTenant(tenant!.id, {
+        name,
+        active,
+        tierId: tierChanged ? tierId! : undefined,
+      });
     } else {
       success = await createTenant({
         name,
@@ -57,6 +68,7 @@ export function TenantFormSheet({ visible, tenant, onDismiss }: Props) {
         adminUserName,
         adminFullName,
         adminPassword,
+        tierId: tierId ?? undefined,
       });
     }
     if (success) onDismiss();
@@ -109,6 +121,34 @@ export function TenantFormSheet({ visible, tenant, onDismiss }: Props) {
               autoCapitalize="none"
             />
           )}
+
+          <Text style={styles.fieldLabel}>Tier</Text>
+          <View style={styles.tierRow}>
+            {tierPlans.map((tp) => {
+              const selected = tierId === tp.id;
+              return (
+                <Pressable
+                  key={tp.id}
+                  onPress={() => setTierId(tp.id)}
+                  style={[styles.tierChip, selected && styles.tierChipSelected]}
+                >
+                  <Text
+                    style={[
+                      styles.tierChipText,
+                      selected && styles.tierChipTextSelected,
+                    ]}
+                  >
+                    {tp.name}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          <Text style={styles.tierHint}>
+            {isEditing
+              ? "Changing the tier swaps it immediately for manual / out-of-band billing."
+              : "Defaults to Free. Set higher to onboard a paying tenant directly."}
+          </Text>
 
           {isEditing ? (
             <View style={styles.switchRow}>
@@ -223,4 +263,23 @@ const styles = StyleSheet.create({
   sectionHint: { fontSize: 13, color: "#64748b" },
   hint: { fontSize: 13, color: "#f59e0b", marginTop: -8, marginBottom: 12 },
   submitRow: { marginTop: 8, marginBottom: 32 },
+  fieldLabel: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#374151",
+    marginBottom: 8,
+  },
+  tierRow: { flexDirection: "row", gap: 8, marginBottom: 8 },
+  tierChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    backgroundColor: "#fff",
+  },
+  tierChipSelected: { backgroundColor: "#0a7ea4", borderColor: "#0a7ea4" },
+  tierChipText: { fontSize: 13, color: "#374151", fontWeight: "500" },
+  tierChipTextSelected: { color: "#fff" },
+  tierHint: { fontSize: 12, color: "#94a3b8", marginBottom: 16 },
 });

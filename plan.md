@@ -111,25 +111,43 @@ src/
 
 ## Database Schema
 
-### saas_tiers (managed by SaaS owner only, never touched by app)
+### tier_plans (global subscription tier catalog — Free / Pro / Business)
 
 ```
-id            uuid pk
-name          text
-max_users     int
-max_customers int
-price         numeric(12,2)
-tenant_id     uuid fk → tenants unique
-created_at    timestamptz
+id                        uuid pk
+code                      text unique  — 'free' | 'pro' | 'business'
+name                      text
+sort_order                int
+max_customers             int nullable  — NULL = unlimited
+max_users                 int nullable
+max_plans                 int nullable
+max_branches              int nullable
+max_currencies            int nullable
+multi_currency_enabled    boolean
+multi_month_plans_enabled boolean
+grace_days                int
+price_monthly_usd         numeric(10,2)
+price_yearly_usd          numeric(10,2) nullable
+active                    boolean
+created_at                timestamptz
+updated_at                timestamptz
 ```
 
-### tenants (managed by SaaS owner only)
+A small fixed catalog of 3 rows seeded by `script.sql`. Editable by the SaaS
+owner via the SuperAdmin app (which bypasses RLS with the service-role key).
+The mobile app and the public signup page read it via RLS (`SELECT` granted
+to `anon` + `authenticated`); mutations are denied.
+
+### tenants (managed by SaaS owner + public self-service signup)
 
 ```
-id         uuid pk
-name       text
-active     boolean default true
-created_at timestamptz
+id               uuid pk
+name             text unique
+tenant_code      text unique
+active           boolean default true
+tier_id          uuid fk → tier_plans  — defaults to the Free tier id
+tier_upgraded_at timestamptz nullable
+created_at       timestamptz
 ```
 
 ### users (app-level, mirrors auth.users)
@@ -201,7 +219,7 @@ Constraint: UNIQUE(customer_id, billing_month) — enforced at DB level, also va
 
 ## Multi-Tenancy Rules (NON-NEGOTIABLE)
 
-- Every table except `saas_tiers` and `tenants` includes `tenant_id`.
+- Every table except `tier_plans` and `tenants` includes `tenant_id`.
 - All repository queries filter by `tenant_id` via RLS (Row Level Security). RLS is the primary guard. App-level filtering is a secondary belt-and-suspenders guard.
 - `tenant_id` is read from the Supabase JWT claim `tenant_id`, injected at login via a Supabase auth hook.
 - Never pass `tenant_id` from the client as a query parameter — always derive it server-side from the authenticated JWT.
@@ -247,7 +265,35 @@ else → UNPAID
 
 ### Grace period
 
-`saas_tiers` has a `grace_days` field (integer, default 0). A month is not marked UNPAID until `grace_days` days after the first of that month have passed. This lets tenants configure a collection window before accounts show as overdue.
+`tier_plans` has a `grace_days` field (integer). A month is not marked UNPAID until `grace_days` days after the first of that month have passed. This lets the SaaS owner reward paid tiers with a longer collection window before accounts show as overdue. Defaults: Free = 0, Pro = 3, Business = 7. Each tenant inherits the value from its `tier_id`.
+
+### Subscription Tiers (Free / Pro / Business)
+
+Every tenant lives on one of three global `tier_plans`. Tier defines hard limits (max customers / users / plans / branches / currencies — NULL = unlimited) plus feature flags (multi-currency, multi-month plans, grace days) and a USD monthly price stored on the row.
+
+**Default values per tier:**
+
+| | Free | Pro | Business |
+|---|---|---|---|
+| max_customers | 30 | 300 | ∞ |
+| max_users | 1 | 5 | ∞ |
+| max_plans | 3 | ∞ | ∞ |
+| max_branches | 1 | 3 | ∞ |
+| max_currencies | 0 | ∞ | ∞ |
+| multi_currency | off | on | on |
+| multi_month plans | off | on | on |
+| grace_days | 0 | 3 | 7 |
+| $ / month | 0 | 9 | 29 |
+
+**Enforcement:** every feature `Service.createX()` calls `tierService.assertCanCreate(tier, usage, resource)` right after its existing `validate()`. On failure it throws a typed `TierLimitError` carrying `{resource, limit, tierCode}`. The store catches that, sets a structured `tierLimitError` field, and the form sheet renders an `UpgradePromptModal` with "View plans" / "Not now" instead of an ErrorBanner.
+
+**Upgrade UX:** dedicated Subscription screen under admin (`/(app)/(tabs)/admin/subscription`) shows the 3 tiers side-by-side with usage bars for the current tier, an Upgrade button per higher tier (instant swap — no billing yet) and a Downgrade button per lower tier (blocked if current usage exceeds the target tier).
+
+**Hydration:** `authStore.primePostAuth` calls `useSubscriptionStore.init(tenantId, user.tenant.tier)` in parallel with currencies and branches. The store fetches all 3 tier rows, picks up the tenant's current tier from the auth payload, and counts current usage.
+
+**Tenant creation:** both the self-service `create-tenant` edge function and SuperAdmin's `TenantService.createTenant` look up the Free tier id and stamp it on the new `tenants` row. SuperAdmin can override the initial tier (manual paid-tenant onboarding) and can change it later from the tenant edit form (manual paid-upgrade flow).
+
+**Future-proofing:** Stripe integration drops in by adding nullable `stripe_price_id_*` columns to `tier_plans` and `stripe_customer_id` / `stripe_subscription_id` to `tenants`. Only `subscriptionStore.upgrade()`'s implementation changes; the rest of the app already reads from `currentTier` and adapts automatically.
 
 ---
 

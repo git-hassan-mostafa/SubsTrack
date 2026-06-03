@@ -13,6 +13,8 @@ import { getBlockRangeLabel } from "../utils/blockRangeLabel";
 import { useAuth } from "@/src/modules/auth/hooks/useAuth";
 import { usePaymentStore } from "../store/paymentStore";
 import { useCurrencyStore } from "@/src/modules/currencies/store/currencyStore";
+import { useSubscriptionStore } from "@/src/modules/subscription/store/subscriptionStore";
+import { UpgradePromptModal } from "@/src/modules/subscription/components/UpgradePromptModal";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { useLanguageStore } from "@/src/core/i18n/languageStore";
 import { AVATAR_COLORS } from "../../../shared/constants";
@@ -74,7 +76,10 @@ export function PaymentFormSheet({
     loadingCreate,
     error,
     clearError,
+    tierLimitError,
+    clearTierLimitError,
   } = usePaymentStore();
+  const currentTier = useSubscriptionStore((s) => s.currentTier);
   const { currencies } = useCurrencyStore();
   const { language } = useLanguageStore();
   const locale = language === "ar" ? "ar" : "en-US";
@@ -190,6 +195,7 @@ export function PaymentFormSheet({
     if (resolvedDue === null || resolvedPaid === null) return;
 
     if (isMultiMonth && plan) {
+      if (!currentTier) return;
       await createMultiMonthPayment(
         entry.billingMonth,
         customer,
@@ -202,6 +208,7 @@ export function PaymentFormSheet({
         true, // skipConflicts — conflicts already confirmed or absent
         entry.year,
         graceDays,
+        currentTier,
       );
     } else {
       await createPayment(
@@ -540,6 +547,13 @@ export function PaymentFormSheet({
           <View className="h-4" />
         </ScrollView>
       </View>
+      <UpgradePromptModal
+        payload={tierLimitError}
+        onClose={() => {
+          clearTierLimitError();
+          onDismiss();
+        }}
+      />
     </Modal>
   );
 }

@@ -18,7 +18,8 @@ import {
   type ActionMenuItem,
 } from "@/src/shared/components/ActionMenu";
 import { useDebounce } from "@/src/shared/hooks/useDebounce";
-import { COLORS, DEFAULT_GRACE_DAYS } from "@/src/shared/constants";
+import { COLORS } from "@/src/shared/constants";
+import { useGraceDays, useSubscriptionStore } from "@/src/modules/subscription/store/subscriptionStore";
 import type { Customer } from "@/src/core/types";
 import { CustomerCard } from "../components/CustomerCard";
 import { CustomerFormSheet } from "../components/CustomerFormSheet";
@@ -46,6 +47,8 @@ export function CustomerListScreen() {
   const locale = getDateLocale(i18n.language);
   const router = useRouter();
   const { user, isAdmin } = useAuth();
+  const graceDays = useGraceDays();
+  const currentTier = useSubscriptionStore((s) => s.currentTier);
   const {
     customers,
     totalCount,
@@ -153,7 +156,7 @@ export function CustomerListScreen() {
         },
         planCurrency,
         customer,
-        DEFAULT_GRACE_DAYS,
+        graceDays,
       );
     } finally {
       setQuickPayCustomerId(null);
@@ -201,6 +204,7 @@ export function CustomerListScreen() {
     const planCurrency = findCurrency(currencies, customer.plan.currencyId);
     setQuickPayCustomerId(customer.id);
     try {
+      if (!currentTier) return;
       await createMultiMonthPayment(
         startMonth,
         customer,
@@ -212,7 +216,8 @@ export function CustomerListScreen() {
         user.tenantId,
         false,
         year,
-        DEFAULT_GRACE_DAYS,
+        graceDays,
+        currentTier,
       );
     } finally {
       setQuickPayCustomerId(null);

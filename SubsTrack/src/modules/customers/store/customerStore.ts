@@ -1,8 +1,11 @@
 import { create } from "zustand";
-import type { Customer } from "@/src/core/types";
+import type { Customer, TierPlan, TenantUsage } from "@/src/core/types";
 import { CustomerService } from "../services/CustomerService";
 import { resolveBranchFilter } from "@/src/shared/lib/branchFilter";
 import { useAuthStore } from "@/src/modules/auth/store/authStore";
+import { useSubscriptionStore } from "@/src/modules/subscription/store/subscriptionStore";
+import { TierLimitError } from "@/src/modules/subscription/services/TierService";
+import type { TierLimitErrorPayload } from "@/src/modules/subscription/components/UpgradePromptModal";
 
 const customerService = new CustomerService();
 
@@ -14,6 +17,7 @@ export const useCustomerStore = create<CustomersState>((set, get) => ({
   loading: false,
   loadingMore: false,
   error: null,
+  tierLimitError: null,
   searchQuery: "",
   searchToken: 0,
   getCustomers: async () => {
@@ -105,17 +109,25 @@ export const useCustomerStore = create<CustomersState>((set, get) => ({
     }
   },
 
-  createCustomer: async (data, tenantId) => {
-    set({ loading: true, error: null });
+  createCustomer: async (data, tenantId, tier, usage) => {
+    set({ loading: true, error: null, tierLimitError: null });
     try {
-      const customer = await customerService.createCustomer(data, tenantId);
+      const customer = await customerService.createCustomer(data, tenantId, tier, usage);
       set((state) => ({
         customers: [customer, ...state.customers],
         totalCount: state.totalCount + 1,
         loading: false,
       }));
+      void useSubscriptionStore.getState().refreshUsage();
     } catch (e) {
-      set({ error: (e as Error).message, loading: false });
+      if (e instanceof TierLimitError) {
+        set({
+          tierLimitError: { resource: e.resource, limit: e.limit, tierCode: e.tierCode },
+          loading: false,
+        });
+      } else {
+        set({ error: (e as Error).message, loading: false });
+      }
     }
   },
 
@@ -182,12 +194,14 @@ export const useCustomerStore = create<CustomersState>((set, get) => ({
   },
 
   clearError: () => set({ error: null }),
+  clearTierLimitError: () => set({ tierLimitError: null }),
   reset: () =>
     set((s) => ({
       customers: [],
       totalCount: 0,
       page: 0,
       hasMore: true,
+      tierLimitError: null,
       searchQuery: "",
       searchToken: s.searchToken + 1,
     })),
@@ -213,6 +227,7 @@ interface CustomersState {
   loading: boolean;
   loadingMore: boolean;
   error: string | null;
+  tierLimitError: TierLimitErrorPayload | null;
   searchQuery: string;
   searchToken: number;
   getCustomers: () => Promise<void>;
@@ -221,7 +236,12 @@ interface CustomersState {
   setSearchQuery: (q: string) => Promise<void>;
   getCustomer: (id: string) => Promise<Customer | null>;
   fetchCustomer: (id: string) => Promise<Customer | null>;
-  createCustomer: (data: CustomerInput, tenantId: string) => Promise<void>;
+  createCustomer: (
+    data: CustomerInput,
+    tenantId: string,
+    tier: TierPlan,
+    usage: TenantUsage,
+  ) => Promise<void>;
   updateCustomer: (
     id: string,
     data: CustomerInput,
@@ -230,5 +250,6 @@ interface CustomersState {
   reactivateCustomer: (id: string) => Promise<void>;
   deleteCustomer: (id: string) => Promise<'hard' | 'soft' | null>;
   clearError: () => void;
+  clearTierLimitError: () => void;
   reset: () => void;
 }

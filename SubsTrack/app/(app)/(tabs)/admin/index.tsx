@@ -71,6 +71,14 @@ const MENU_ITEMS: MenuItem[] = [
     iconColor: COLORS.primary,
     route: "/(app)/(tabs)/admin/tenant-settings",
   },
+  {
+    labelKey: "subscription.title",
+    subtitleKey: "subscription.menu_sub",
+    icon: "diamond-outline",
+    iconBg: COLORS.primaryLight,
+    iconColor: COLORS.primary,
+    route: "/(app)/(tabs)/admin/subscription",
+  },
 ];
 
 export default function AdminMenuScreen() {

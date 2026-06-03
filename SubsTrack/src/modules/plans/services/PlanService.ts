@@ -1,8 +1,9 @@
-import type { Plan } from '@/src/core/types';
+import type { Plan, TierPlan, TenantUsage } from '@/src/core/types';
 import type { BranchFilter } from '@/src/core/constants';
 import type { DbPlan } from '@/src/core/types/db';
 import i18n from '@/src/core/i18n';
 import { PlanRepository } from '../repository/PlanRepository';
+import { tierService } from '@/src/modules/subscription/services/TierService';
 
 function mapDbPlanToPlan(db: DbPlan): Plan {
   return {
@@ -28,8 +29,15 @@ export class PlanService {
     return rows.map(mapDbPlanToPlan);
   }
 
-  async createPlan(data: PlanInput, tenantId: string): Promise<Plan> {
+  async createPlan(
+    data: PlanInput,
+    tenantId: string,
+    tier: TierPlan,
+    usage: TenantUsage,
+  ): Promise<Plan> {
     this.validate(data);
+    tierService.assertCanCreate(tier, usage, 'plans');
+    if (data.durationMonths > 1) tierService.assertMultiMonth(tier);
     try {
       const row = await this.repository.create({
         name: data.name.trim(),
@@ -46,8 +54,9 @@ export class PlanService {
     }
   }
 
-  async updatePlan(id: string, data: PlanInput): Promise<Plan> {
+  async updatePlan(id: string, data: PlanInput, tier: TierPlan): Promise<Plan> {
     this.validate(data);
+    if (data.durationMonths > 1) tierService.assertMultiMonth(tier);
     try {
       const row = await this.repository.update(id, {
         name: data.name.trim(),

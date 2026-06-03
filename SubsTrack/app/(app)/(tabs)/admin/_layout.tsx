@@ -12,6 +12,7 @@ export default function AdminLayout() {
       <Stack.Screen name="tenant-settings" options={{ headerShown: false }} />
       <Stack.Screen name="branches" options={{ headerShown: false }} />
       <Stack.Screen name="currencies" options={{ headerShown: false }} />
+      <Stack.Screen name="subscription" options={{ headerShown: false }} />
     </Stack>
   );
 }

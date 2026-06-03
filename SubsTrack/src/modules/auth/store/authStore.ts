@@ -1,17 +1,19 @@
 import { create } from "zustand";
-import type { AuthUser } from "@/src/core/types";
+import type { AuthUser, TierPlan } from "@/src/core/types";
 import { AuthService } from "../services/AuthService";
 import { useCurrencyStore } from "@/src/modules/currencies/store/currencyStore";
 import { useBranchStore } from "@/src/modules/branches/store/branchStore";
+import { useSubscriptionStore } from "@/src/modules/subscription/store/subscriptionStore";
 
 const authService = new AuthService();
 
 // After a successful auth (login or session restore), prime supporting stores
 // in parallel so all downstream pickers/formatters have data ready.
-async function primePostAuth() {
+async function primePostAuth(user: AuthUser) {
   await Promise.all([
     useCurrencyStore.getState().fetchCurrencies(),
     useBranchStore.getState().fetchBranches(),
+    useSubscriptionStore.getState().init(user.tenantId, user.tenant.tier ?? null),
   ]);
 }
 
@@ -30,7 +32,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         tenantActive: result.tenantActive,
         loading: false,
       });
-      await primePostAuth();
+      await primePostAuth(result.user);
     } catch (e) {
       set({ error: (e as Error).message, loading: false });
     }
@@ -44,7 +46,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         tenantActive: result?.tenantActive ?? true,
         loading: false,
       });
-      if (result?.user) await primePostAuth();
+      if (result?.user) await primePostAuth(result.user);
     } catch {
       set({ user: null, tenantActive: true, loading: false });
     }
@@ -56,8 +58,21 @@ export const useAuthStore = create<AuthState>((set) => ({
     } catch {
       // ignore logout errors — clear state regardless
     }
+    useSubscriptionStore.getState().reset();
     set({ user: null, tenantActive: true, loading: false, error: null });
   },
+
+  setUserTier: (tier: TierPlan) =>
+    set((state) =>
+      state.user
+        ? {
+            user: {
+              ...state.user,
+              tenant: { ...state.user.tenant, tierId: tier.id, tier },
+            },
+          }
+        : {},
+    ),
 
   clearError: () => set({ error: null }),
 }));
@@ -74,5 +89,6 @@ interface AuthState {
   ) => Promise<void>;
   restoreSession: () => Promise<void>;
   logout: () => Promise<void>;
+  setUserTier: (tier: TierPlan) => void;
   clearError: () => void;
 }

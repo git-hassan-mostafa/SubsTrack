@@ -1,7 +1,27 @@
-import type { Tenant } from "@/src/core/types";
-import type { DbTenant } from "@/src/core/types/db";
+import type { Tenant, TierPlan } from "@/src/core/types";
+import type { DbTenant, DbTierPlan } from "@/src/core/types/db";
 import { supabaseAdmin } from "@/src/shared/lib/supabaseAdmin";
 import { TenantRepository } from "../repository/TenantRepository";
+
+function mapDbTierPlanToTierPlan(db: DbTierPlan): TierPlan {
+  return {
+    id: db.id,
+    code: db.code,
+    name: db.name,
+    sortOrder: db.sort_order,
+    maxCustomers: db.max_customers,
+    maxUsers: db.max_users,
+    maxPlans: db.max_plans,
+    maxBranches: db.max_branches,
+    maxCurrencies: db.max_currencies,
+    multiCurrencyEnabled: db.multi_currency_enabled,
+    multiMonthPlansEnabled: db.multi_month_plans_enabled,
+    graceDays: db.grace_days,
+    priceMonthlyUsd: Number(db.price_monthly_usd),
+    priceYearlyUsd: db.price_yearly_usd === null ? null : Number(db.price_yearly_usd),
+    active: db.active,
+  };
+}
 
 function mapDbTenantToTenant(db: DbTenant): Tenant {
   return {
@@ -9,6 +29,9 @@ function mapDbTenantToTenant(db: DbTenant): Tenant {
     name: db.name,
     tenantCode: db.tenant_code,
     active: db.active,
+    tierId: db.tier_id,
+    tier: db.tier_plans ? mapDbTierPlanToTierPlan(db.tier_plans) : null,
+    tierUpgradedAt: db.tier_upgraded_at,
     createdAt: db.created_at,
   };
 }
@@ -19,11 +42,17 @@ export interface CreateTenantInput {
   adminUserName: string;
   adminFullName: string;
   adminPassword: string;
+  // Optional override for manual paid-tenant creation by the SaaS owner.
+  // Defaults to Free when omitted.
+  tierId?: string;
 }
 
 export interface UpdateTenantInput {
   name: string;
   active: boolean;
+  // When provided, performs a manual upgrade/downgrade. tier_upgraded_at is
+  // touched on every tier change so we can audit when the swap happened.
+  tierId?: string;
 }
 
 export class TenantService {
@@ -41,9 +70,12 @@ export class TenantService {
     if (data.adminPassword.length < 8)
       throw new Error("Password must be at least 8 characters");
 
+    const tierId = data.tierId ?? (await this.repository.getFreeTierId());
+
     const row = await this.repository.create({
       name: data.name.trim(),
       tenant_code: data.tenantCode.toLowerCase().trim(),
+      tier_id: tierId,
     });
     const tenant = mapDbTenantToTenant(row);
 
@@ -91,10 +123,15 @@ export class TenantService {
 
   async updateTenant(id: string, data: UpdateTenantInput): Promise<Tenant> {
     if (!data.name.trim()) throw new Error("Tenant name is required");
-    const row = await this.repository.update(id, {
+    const payload: Partial<Pick<DbTenant, "name" | "active" | "tier_id" | "tier_upgraded_at">> = {
       name: data.name.trim(),
       active: data.active,
-    });
+    };
+    if (data.tierId) {
+      payload.tier_id = data.tierId;
+      payload.tier_upgraded_at = new Date().toISOString();
+    }
+    const row = await this.repository.update(id, payload);
     return mapDbTenantToTenant(row);
   }
 

@@ -23,7 +23,10 @@
     "close_label": "Close",
     "tap":"Tap",
     "input_search":"Search...",
-    "no_actions_available": "No actions available"
+    "no_actions_available": "No actions available",
+    "yes": "Yes",
+    "no": "No",
+    "ok": "OK"
   },
   "auth": {
     "title": "SubsTrack",
@@ -425,6 +428,52 @@
     "plan_fixed_for_multimonth": "Plan must have a fixed price to record a multi-month payment",
     "months_already_paid": "The following months are already paid: {{months}}",
     "all_months_paid": "All months in this block are already paid",
-    "void_reason_required": "A reason is required to void a payment"
+    "void_reason_required": "A reason is required to void a payment",
+    "tier_limit_reached": "You've reached the {{resource}} limit ({{limit}}) for your current plan",
+    "tier_multi_currency_locked": "Multiple currencies are not available on your current plan",
+    "tier_multi_month_locked": "Multi-month plans are not available on your current plan"
+  },
+  "subscription": {
+    "title": "Subscription",
+    "subtitle": "Manage your plan",
+    "menu_sub": "View limits, usage, and upgrade",
+    "your_usage": "Your usage",
+    "current_plan": "Current",
+    "per_month": "/ month",
+    "upgrade_to": "Upgrade to {{name}}",
+    "downgrade_to": "Downgrade to {{name}}",
+    "view_plans": "View plans",
+    "not_now": "Not now",
+    "next_tier": "the next tier",
+    "confirm_upgrade_title": "Upgrade to {{name}}?",
+    "confirm_upgrade_body": "Your account will switch to the new plan immediately. You can change plans again later.",
+    "confirm_upgrade": "Upgrade",
+    "confirm_downgrade_title": "Downgrade to {{name}}?",
+    "confirm_downgrade_body": "You'll keep all your existing data but will be limited by the new plan going forward.",
+    "confirm_downgrade": "Downgrade",
+    "downgrade_blocked_title": "Cannot downgrade yet",
+    "downgrade_blocked_body": "Your current usage exceeds what {{name}} allows. Adjust the items below first:",
+    "resource": {
+      "customers": "Customers",
+      "users": "Users",
+      "plans": "Plans",
+      "branches": "Branches",
+      "currencies": "Currencies",
+      "multi_currency": "Multiple currencies",
+      "multi_month": "Multi-month plans"
+    },
+    "feature": {
+      "multi_currency": "Multi-currency",
+      "multi_month": "Multi-month plans",
+      "grace_days": "Grace days"
+    },
+    "locked": {
+      "limit_reached_title": "You've reached your {{resource}} limit",
+      "limit_reached_body": "Your {{tierName}} plan allows up to {{limit}}. Upgrade to {{nextTierName}} to add more.",
+      "multi_currency_title": "Multi-currency is a paid feature",
+      "multi_currency_body": "Upgrade to {{nextTierName}} to manage currencies other than USD.",
+      "multi_month_title": "Multi-month plans are a paid feature",
+      "multi_month_body": "Upgrade to {{nextTierName}} to bundle multiple months into a single payment."
+    }
   }
 }

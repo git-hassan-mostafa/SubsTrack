@@ -1,7 +1,8 @@
-import type { Currency } from '@/src/core/types';
+import type { Currency, TierPlan } from '@/src/core/types';
 import type { DbCurrency } from '@/src/core/types/db';
 import i18n from '@/src/core/i18n';
 import { CurrencyRepository } from '../repository/CurrencyRepository';
+import { tierService } from '@/src/modules/subscription/services/TierService';
 
 function mapDbCurrencyToCurrency(db: DbCurrency): Currency {
   return {
@@ -34,7 +35,12 @@ export class CurrencyService {
     return rows.map(mapDbCurrencyToCurrency);
   }
 
-  async createCurrency(data: CurrencyInput, tenantId: string): Promise<Currency> {
+  async createCurrency(
+    data: CurrencyInput,
+    tenantId: string,
+    tier: TierPlan,
+  ): Promise<Currency> {
+    tierService.assertMultiCurrency(tier);
     const normalized = this.validate(data);
     try {
       const row = await this.repository.create({

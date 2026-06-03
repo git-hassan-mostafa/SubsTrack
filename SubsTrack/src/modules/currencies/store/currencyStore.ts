@@ -1,6 +1,9 @@
 import { create } from 'zustand';
-import type { Currency } from '@/src/core/types';
+import type { Currency, TierPlan } from '@/src/core/types';
 import { CurrencyService, type CurrencyInput } from '../services/CurrencyService';
+import { useSubscriptionStore } from '@/src/modules/subscription/store/subscriptionStore';
+import { TierLimitError } from '@/src/modules/subscription/services/TierService';
+import type { TierLimitErrorPayload } from '@/src/modules/subscription/components/UpgradePromptModal';
 
 const currencyService = new CurrencyService();
 
@@ -8,13 +11,15 @@ interface CurrenciesState {
   currencies: Currency[];
   loading: boolean;
   error: string | null;
+  tierLimitError: TierLimitErrorPayload | null;
   getCurrencies: () => Promise<void>;
   fetchCurrencies: () => Promise<void>;
-  createCurrency: (data: CurrencyInput, tenantId: string) => Promise<void>;
+  createCurrency: (data: CurrencyInput, tenantId: string, tier: TierPlan) => Promise<void>;
   updateCurrency: (id: string, data: CurrencyInput) => Promise<void>;
   deleteCurrency: (id: string) => Promise<'hard' | 'soft' | null>;
   reactivateCurrency: (id: string) => Promise<void>;
   clearError: () => void;
+  clearTierLimitError: () => void;
   reset: () => void;
 }
 
@@ -22,6 +27,7 @@ export const useCurrencyStore = create<CurrenciesState>((set, get) => ({
   currencies: [],
   loading: false,
   error: null,
+  tierLimitError: null,
 
   getCurrencies: async () => {
     if (get().currencies.length > 0) return;
@@ -38,14 +44,22 @@ export const useCurrencyStore = create<CurrenciesState>((set, get) => ({
     }
   },
 
-  createCurrency: async (data, tenantId) => {
+  createCurrency: async (data, tenantId, tier) => {
     if (get().loading) return;
-    set({ loading: true, error: null });
+    set({ loading: true, error: null, tierLimitError: null });
     try {
-      const currency = await currencyService.createCurrency(data, tenantId);
+      const currency = await currencyService.createCurrency(data, tenantId, tier);
       set((state) => ({ currencies: [...state.currencies, currency], loading: false }));
+      void useSubscriptionStore.getState().refreshUsage();
     } catch (e) {
-      set({ error: (e as Error).message, loading: false });
+      if (e instanceof TierLimitError) {
+        set({
+          tierLimitError: { resource: e.resource, limit: e.limit, tierCode: e.tierCode },
+          loading: false,
+        });
+      } else {
+        set({ error: (e as Error).message, loading: false });
+      }
     }
   },
 
@@ -103,5 +117,6 @@ export const useCurrencyStore = create<CurrenciesState>((set, get) => ({
   },
 
   clearError: () => set({ error: null }),
-  reset: () => set({ currencies: [], loading: false, error: null }),
+  clearTierLimitError: () => set({ tierLimitError: null }),
+  reset: () => set({ currencies: [], loading: false, error: null, tierLimitError: null }),
 }));

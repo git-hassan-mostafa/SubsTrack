@@ -5,19 +5,29 @@ export class TenantRepository extends BaseRepository {
   async findAll(): Promise<DbTenant[]> {
     const { data, error } = await this.db
       .from("tenants")
-      .select("*")
+      .select("*, tier_plans(*)")
       .order("name");
     if (error) this.handleError(error);
     return (data ?? []) as DbTenant[];
   }
 
+  async getFreeTierId(): Promise<string> {
+    const { data, error } = await this.db
+      .from("tier_plans")
+      .select("id")
+      .eq("code", "free")
+      .single();
+    if (error) this.handleError(error);
+    return (data as { id: string }).id;
+  }
+
   async create(
-    payload: Pick<DbTenant, "name" | "tenant_code">,
+    payload: Pick<DbTenant, "name" | "tenant_code" | "tier_id">,
   ): Promise<DbTenant> {
     const { data, error } = await this.db
       .from("tenants")
       .insert(payload)
-      .select()
+      .select("*, tier_plans(*)")
       .single();
     if (error) this.handleError(error);
     return data as DbTenant;
@@ -25,13 +35,13 @@ export class TenantRepository extends BaseRepository {
 
   async update(
     id: string,
-    payload: Partial<Pick<DbTenant, "name" | "active">>,
+    payload: Partial<Pick<DbTenant, "name" | "active" | "tier_id" | "tier_upgraded_at">>,
   ): Promise<DbTenant> {
     const { data, error } = await this.db
       .from("tenants")
       .update(payload)
       .eq("id", id)
-      .select()
+      .select("*, tier_plans(*)")
       .single();
     if (error) this.handleError(error);
     return data as DbTenant;

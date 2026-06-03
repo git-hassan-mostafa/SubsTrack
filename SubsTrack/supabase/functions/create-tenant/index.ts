@@ -80,9 +80,21 @@ Deno.serve(async (req) => {
     }
 
     // ---- 1. tenants ----
+    // Look up the Free tier id. The tenants.tier_id column has a default that
+    // resolves to Free, but we set it explicitly so the future paid-plan flow
+    // can swap in a different tier without changing the schema.
+    const { data: freeTier, error: freeTierErr } = await serviceClient
+      .from("tier_plans")
+      .select("id")
+      .eq("code", "free")
+      .single();
+    if (freeTierErr || !freeTier) {
+      return jsonResponse({ error: "Free tier is not configured" }, 500);
+    }
+
     const { data: tenantRow, error: tenantErr } = await serviceClient
       .from("tenants")
-      .insert({ name, tenant_code: tenantCode })
+      .insert({ name, tenant_code: tenantCode, tier_id: freeTier.id })
       .select("id, tenant_code")
       .single();
 

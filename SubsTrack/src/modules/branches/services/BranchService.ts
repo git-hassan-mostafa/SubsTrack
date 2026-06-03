@@ -1,7 +1,8 @@
-import type { Branch } from '@/src/core/types';
+import type { Branch, TierPlan, TenantUsage } from '@/src/core/types';
 import type { DbBranch } from '@/src/core/types/db';
 import i18n from '@/src/core/i18n';
 import { BranchRepository } from '../repository/BranchRepository';
+import { tierService } from '@/src/modules/subscription/services/TierService';
 
 export function mapDbBranchToBranch(db: DbBranch): Branch {
   return {
@@ -26,8 +27,14 @@ export class BranchService {
     return rows.map(mapDbBranchToBranch);
   }
 
-  async createBranch(data: BranchInput, tenantId: string): Promise<Branch> {
+  async createBranch(
+    data: BranchInput,
+    tenantId: string,
+    tier: TierPlan,
+    usage: TenantUsage,
+  ): Promise<Branch> {
     const normalized = this.validate(data);
+    tierService.assertCanCreate(tier, usage, 'branches');
     try {
       const row = await this.repository.create({
         tenant_id: tenantId,

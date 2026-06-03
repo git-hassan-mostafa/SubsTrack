@@ -1,16 +1,14 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
-import type { SaasTier, Tenant } from "@/src/core/types";
+import type { Tenant } from "@/src/core/types";
 
 interface TenantCardProps {
   tenant: Tenant;
-  saasTier: SaasTier | null;
   onEdit: (tenant: Tenant) => void;
   onDelete: (tenant: Tenant) => void;
 }
 
 export function TenantCard({
   tenant,
-  saasTier,
   onEdit,
   onDelete,
 }: TenantCardProps) {
@@ -41,7 +39,7 @@ export function TenantCard({
         <View style={styles.meta}>
           <View style={styles.tierBadge}>
             <Text style={styles.tierText}>
-              {saasTier ? `Tier: ${saasTier.name}` : "No tier assigned"}
+              {tenant.tier ? `Tier: ${tenant.tier.name}` : "No tier assigned"}
             </Text>
           </View>
           <Text style={styles.date}>

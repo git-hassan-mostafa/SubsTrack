@@ -140,9 +140,10 @@ SubsTrack/
 │           ├── home/
 │           │   └── index.tsx      # Home tab (admin only) — renders DashboardScreen
 │           ├── admin/
-│           │   ├── plans.tsx      # Plans list route
-│           │   ├── users.tsx      # Users list route
-│           │   └── index.tsx      # Admin menu (manage section)
+│           │   ├── plans.tsx          # Plans list route
+│           │   ├── users.tsx          # Users list route
+│           │   ├── subscription.tsx   # Tier comparison + usage + upgrade route
+│           │   └── index.tsx          # Admin menu (manage section)
 │           ├── customers/
 │           │   ├── index.tsx      # Customer list
 │           │   └── [id].tsx       # Customer detail + payment grid
@@ -178,6 +179,13 @@ SubsTrack/
 │   │   │   ├── services/SignupService.ts       # workspace + account validation (no Supabase)
 │   │   │   ├── store/signupStore.ts            # 2-step form state, validateAndCheckCode(), submit()
 │   │   │   └── screens/{SignupWorkspaceScreen, SignupAccountScreen}.tsx
+│   │   │
+│   │   ├── subscription/                       # Tier limits + upgrade flow
+│   │   │   ├── repository/SubscriptionRepository.ts  # findAllTiers, getTenantWithTier, countTenantUsage, upgradeTenant
+│   │   │   ├── services/TierService.ts         # assertCanCreate/assertMultiCurrency/assertMultiMonth, TierLimitError, canDowngradeTo
+│   │   │   ├── store/subscriptionStore.ts      # tiers[], currentTier, usage, init(), refreshUsage(), upgrade(); exports useGraceDays()
+│   │   │   ├── screens/SubscriptionScreen.tsx  # 3 tier cards + usage bars + upgrade/downgrade buttons
+│   │   │   └── components/{TierCard, UsageBar, TierBadge, UpgradePromptModal}.tsx
 │   │   │
 │   │   ├── currencies/
 │   │   │   ├── repository/CurrencyRepository.ts  # CRUD + countReferences (joins plans + payments)
@@ -268,14 +276,14 @@ SuperAdmin/
 │   ├── _layout.tsx
 │   └── (tabs)/
 │       ├── index.tsx          # Tenants list
-│       ├── saas-tiers.tsx     # SaaS tiers list
+│       ├── tier-plans.tsx     # Global Free / Pro / Business tier editor
 │       └── _layout.tsx
 └── src/
     ├── core/types/{index,db}.ts
     ├── core/utils/BaseRepository.ts
     ├── modules/
     │   ├── tenants/{repository,services,store,screens,components}
-    │   └── saas-tiers/{repository,services,store,screens,components}
+    │   └── tier-plans/{repository,services,store,screens,components}  # SaaS owner edits the global tier catalog
     └── shared/
         ├── components/{Button,Input,ErrorBanner,LoadingScreen,EmptyState,ConfirmDialog}
         └── lib/supabaseAdmin.ts   # Uses SERVICE_ROLE_KEY (bypasses RLS — full DB access)
@@ -352,6 +360,9 @@ interface Tenant {
   name;
   tenantCode;
   active;
+  tierId;
+  tier?: TierPlan | null; // joined from tier_plans on getTenant
+  tierUpgradedAt;
   createdAt;
 }
 interface Currency {
@@ -366,16 +377,27 @@ interface Currency {
   createdAt;
   updatedAt;
 }
-interface SaasTier {
+interface TierPlan {
   id;
+  code; // 'free' | 'pro' | 'business'
   name;
-  maxUsers;
-  maxCustomers;
-  price;
+  sortOrder;
+  maxCustomers; // null = unlimited
+  maxUsers; // null = unlimited
+  maxPlans; // null = unlimited
+  maxBranches; // null = unlimited
+  maxCurrencies; // null = unlimited
+  multiCurrencyEnabled;
+  multiMonthPlansEnabled;
   graceDays;
-  tenantId;
-  createdAt;
+  priceMonthlyUsd;
+  priceYearlyUsd; // nullable
+  active;
 }
+interface TenantUsage {
+  customers; users; plans; branches; currencies;
+}
+type TierResource = 'customers' | 'users' | 'plans' | 'branches' | 'currencies';
 interface Plan {
   id;
   name;
@@ -451,8 +473,8 @@ interface DashboardMetrics {
 
 | Table        | Key columns                                                                                                                                                                                                                                             |
 | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `tenants`    | `id`, `name`, `tenant_code`, `active`                                                                                                                                                                                                                   |
-| `saas_tiers` | `id`, `name`, `max_users`, `max_customers`, `price`, `grace_days`, `tenant_id`                                                                                                                                                                          |
+| `tenants`    | `id`, `name`, `tenant_code`, `active`, `tier_id`, `tier_upgraded_at`                                                                                                                                                                                    |
+| `tier_plans` | `id`, `code`, `name`, `sort_order`, `max_customers`, `max_users`, `max_plans`, `max_branches`, `max_currencies`, `multi_currency_enabled`, `multi_month_plans_enabled`, `grace_days`, `price_monthly_usd`, `price_yearly_usd`, `active`                |
 | `currencies` | `id`, `tenant_id`, `code`, `name`, `symbol`, `rate_per_usd`, `decimals`, `active`                                                                                                                                                                       |
 | `branches`   | `id`, `tenant_id`, `name`, `active`                                                                                                                                                                                                                     |
 | `users`      | `id` (= auth.users.id), `username`, `full_name`, `phone_number`, `role`, `active`, `tenant_id`, `branch_id`                                                                                                                                             |
@@ -531,8 +553,14 @@ LoginScreen
   → AuthService: email = `${username}@${tenantCode}.com`
   → AuthRepository.signIn(email, password)   [Supabase Auth]
   → AuthRepository.getUserProfile(userId)    [public.users]
-  → AuthRepository.getTenant(tenantId)       [tenants]
+  → AuthRepository.getTenant(tenantId)       [tenants joined with tier_plans]
   → stores AuthUser + tenantActive in authStore
+  → primePostAuth(user) — Promise.all of:
+       useCurrencyStore.fetchCurrencies()
+       useBranchStore.fetchBranches()
+       useSubscriptionStore.init(tenantId, user.tenant.tier)
+         → tierService.fetchTiers() (3 tier_plans rows)
+         → tierService.fetchUsage() (counts customers/users/plans/branches/currencies)
 
 LoginScreen also exposes "Create a new workspace" → signupStore (2-step form):
   Step 1 (SignupWorkspaceScreen)
@@ -543,7 +571,8 @@ LoginScreen also exposes "Create a new workspace" → signupStore (2-step form):
     → signupStore.submit()
     → SignupService.createTenant() → SignupRepository.createTenant()
     → supabase.functions.invoke('create-tenant') [service-role server-side]
-       atomically: tenants → branches('Default Branch') → auth.users → public.users(role=superadmin, branch_id=null)
+       atomically: tier_plans (lookup Free id) → tenants(tier_id=Free) →
+       branches('Default Branch') → auth.users → public.users(role=superadmin, branch_id=null)
        cascading rollback on any step
     → auto-login via authStore.login(...) with the just-entered credentials
     → root layout reacts to authStore.user and routes into the app
@@ -571,7 +600,7 @@ Status algorithm per month:
 
 - Months are **never stored in DB** — generated dynamically from the payment list for a given year.
 - Voided payments are invisible to the grid (treated as non-existent).
-- `graceDays` comes from `SaasTier` (fetched during auth flow).
+- `graceDays` comes from the tenant's current `TierPlan` (the `subscription` module fetches it during the auth flow). The `useGraceDays()` selector hook from `subscriptionStore` is the single read site for components.
 - Multi-month payments build a **coverage map**: each payment with `durationMonths > 1` covers consecutive months. Months 2+ in a block have `isGroupSecondary = true` and display "Included" instead of "Paid".
 - `customer.isRegular` controls grid cell colors and unpaid banner visibility.
 
@@ -631,6 +660,43 @@ paymentSnapshotCurrency(payment, currencies): Currency | null  // returns the so
 **Last-used currency** persists in [src/shared/lib/uiPrefStore.ts](SubsTrack/src/shared/lib/uiPrefStore.ts) so the `CurrencyInput` dropdown defaults to whatever the user typed in last time.
 
 **Currency deletion** is safety-guarded: `CurrencyService.deleteCurrency()` counts references in `plans` + `payments`. If non-zero, it does a soft-delete (sets `active = false`); otherwise it hard-deletes. `ON DELETE RESTRICT` on the FKs prevents any chance of orphaning historical data.
+
+## Subscription Tiers
+
+Every tenant lives on one of three global `tier_plans` rows: **Free**, **Pro**, **Business**. The catalog is small and fixed (3 rows seeded by `script.sql`, editable by the SaaS owner via SuperAdmin's tier-plans module). Each tier defines numeric limits (`max_customers`, `max_users`, `max_plans`, `max_branches`, `max_currencies` — NULL means unlimited), feature flags (`multi_currency_enabled`, `multi_month_plans_enabled`), `grace_days` (drives the month grid), and a USD monthly price.
+
+**Enforcement is service-layer.** Every feature `Service.createX()` calls `tierService.assertCanCreate(tier, usage, resource)` immediately after its existing `validate()`. Failures throw a typed `TierLimitError` (from [TierService.ts](SubsTrack/src/modules/subscription/services/TierService.ts)) carrying `{resource, limit, tierCode}`. Stores catch via `instanceof` and set a structured `tierLimitError` field next to the standard `error: string`. Form sheets check `tierLimitError` and render an `UpgradePromptModal` (the existing `ErrorBanner` path stays for regular validation errors). This avoids parsing error strings.
+
+**Tier and usage are passed in as parameters**, never imported across stores (per rule #9). The pattern in stores:
+
+```ts
+createCustomer: async (data, tenantId, tier, usage) => {
+  set({ loading: true, error: null, tierLimitError: null });
+  try {
+    const customer = await customerService.createCustomer(data, tenantId, tier, usage);
+    set(...);
+    void useSubscriptionStore.getState().refreshUsage();
+  } catch (e) {
+    if (e instanceof TierLimitError) {
+      set({ tierLimitError: { resource: e.resource, limit: e.limit, tierCode: e.tierCode }, loading: false });
+    } else {
+      set({ error: (e as Error).message, loading: false });
+    }
+  }
+}
+```
+
+Components read `currentTier` and `usage` from `useSubscriptionStore` and forward them into the action.
+
+**Hydration:** `authStore.primePostAuth(user)` calls `useSubscriptionStore.init(tenantId, user.tenant.tier)` in parallel with currencies + branches. The init fetches all tier rows for the comparison screen + counts current usage. The tenant's current tier comes joined onto `getTenant` (`.select('*, tier_plans(*)')`).
+
+**Upgrade UX:** dedicated screen at [SubscriptionScreen.tsx](SubsTrack/src/modules/subscription/screens/SubscriptionScreen.tsx) (routed at `/(app)/(tabs)/admin/subscription`). Shows 3 stacked TierCards with usage bars for the current tier and Upgrade/Downgrade buttons for the others. Upgrades are instant swaps via `subscriptionStore.upgrade(tenantId, tierId)` — no billing wired up yet. Downgrades call `TierService.canDowngradeTo(targetTier, usage)` first; if usage exceeds the target tier's limits the dialog lists blockers ("42 / 30 customers") and refuses to swap. The `UpgradePromptModal` is also triggered inline whenever a form sheet hits a `TierLimitError`.
+
+**Soft UX gates** beyond the hard service-layer block: PlanFormSheet hides multi-month duration UI when `tier.multiMonthPlansEnabled === false`; CurrencyFormSheet hides itself behind the same `assertMultiCurrency` check; the Add buttons on list screens stay enabled so the user always reaches an explanation.
+
+**Tenant creation defaults to Free.** Both the public `create-tenant` edge function and SuperAdmin's `TenantService.createTenant` look up the Free tier id and stamp it on the new `tenants` row. SuperAdmin's `TenantFormSheet` exposes a tier dropdown so the SaaS owner can onboard paid tenants directly or change a tenant's tier later (the manual paid-upgrade path). `tier_upgraded_at` is touched on every change.
+
+**Future-proofing:** to add Stripe, append nullable `stripe_price_id_monthly` / `stripe_price_id_yearly` to `tier_plans` and `stripe_customer_id` / `stripe_subscription_id` to `tenants`. Only `subscriptionStore.upgrade()` changes — it redirects to a Checkout session, the webhook updates `tier_id`. Every other call site already reads from `currentTier`.
 
 ## Regular Customer
 
@@ -793,7 +859,7 @@ Located at `SubsTrack/supabase/functions/create-user/index.ts` (Deno runtime).
 
 32. **Branch is mandatory for customers, plans, and staff users once any branch exists** — `BranchPicker` is passed `nullable={false}` in `CustomerFormSheet`, `PlanFormSheet`, and (when `role === 'user'`) `UserFormSheet`. Submit buttons are disabled until a branch is picked, and the services re-validate (`CustomerService.validateInput`, `PlanService.validate`, `UserService.validateBranchAssignment`) using a `tenantHasBranches` flag that each store reads from `useBranchStore`. Tenant-wide admins (`users.role === 'admin'` with `branch_id = null`) remain the sole exception. The 0-branch case (legacy tenants with no branches yet) skips the enforcement entirely.
 
-33. **Self-service tenant signup goes through an Edge Function, never direct inserts** — the SubsTrack mobile app ships only the anon key, and there is no INSERT policy on `tenants`/`branches`/`saas_tiers`. The public [create-tenant](SubsTrack/supabase/functions/create-tenant/index.ts) edge function (deployed with `--no-verify-jwt`) is the **sole** anon-accessible path for creating a tenant. It uses the service-role key to perform the full sequence with cascading rollback: `tenants` → `branches` ('Default Branch') → `auth.users` → `public.users` (role=`superadmin`, branch_id=null). The pre-check on the workspace screen uses [`is_tenant_code_available`](sql%20scripts/script.sql) — a SECURITY DEFINER RPC granted to `anon` that returns a boolean (no row data, just a yes/no oracle). Self-signup mirrors the role assignment SuperAdmin's `TenantService.createTenant` uses (`superadmin`), which means the new owner is filtered from their own Users screen per note #3 — same behavior as tenants created from SuperAdmin today. Future paid-plan gating plugs into this edge function (the `paymentToken` field is already accepted-but-ignored in the request body).
+33. **Self-service tenant signup goes through an Edge Function, never direct inserts** — the SubsTrack mobile app ships only the anon key, and there is no INSERT policy on `tenants`/`branches`/`tier_plans`. The public [create-tenant](SubsTrack/supabase/functions/create-tenant/index.ts) edge function (deployed with `--no-verify-jwt`) is the **sole** anon-accessible path for creating a tenant. It uses the service-role key to perform the full sequence with cascading rollback: lookup Free tier id → `tenants(tier_id=Free)` → `branches` ('Default Branch') → `auth.users` → `public.users` (role=`superadmin`, branch_id=null). The pre-check on the workspace screen uses [`is_tenant_code_available`](sql%20scripts/script.sql) — a SECURITY DEFINER RPC granted to `anon` that returns a boolean (no row data, just a yes/no oracle). Self-signup mirrors the role assignment SuperAdmin's `TenantService.createTenant` uses (`superadmin`), which means the new owner is filtered from their own Users screen per note #3 — same behavior as tenants created from SuperAdmin today. Future paid-plan gating plugs into this edge function (the `paymentToken` field is already accepted-but-ignored in the request body) and into `subscriptionStore.upgrade()`.
 
 ---
 
@@ -851,3 +917,4 @@ Located at `SubsTrack/supabase/functions/create-user/index.ts` (Deno runtime).
 8. **Payment amount is a snapshot** — never recompute from `plan.price` after recording.
 9. **No cross-store state sharing** — pass data as parameters to actions.
 10. **All errors caught and stored in state** — never surface raw Supabase error messages to the user.
+11. **Tier limits enforced at the service layer** — every `Service.createX()` calls `tierService.assertCanCreate(tier, usage, resource)` after `validate()`. `TierLimitError` flows through stores as a structured `tierLimitError` field; never parse error strings.
