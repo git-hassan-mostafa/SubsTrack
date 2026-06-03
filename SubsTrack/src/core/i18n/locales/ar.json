@@ -40,7 +40,39 @@
     "username_placeholder": "اسم المستخدم",
     "password_placeholder": "••••••••",
     "sign_in": "تسجيل الدخول",
-    "account_not_configured": "الحساب غير مهيأ. تواصل مع المسؤول."
+    "account_not_configured": "الحساب غير مهيأ. تواصل مع المسؤول.",
+    "or": "أو",
+    "create_workspace": "إنشاء مساحة عمل جديدة"
+  },
+  "signup": {
+    "workspace_title": "أنشئ مساحة عملك",
+    "workspace_subtitle": "أخبرنا عن عملك. يمكنك تغيير اسم العرض لاحقاً.",
+    "step_label": "الخطوة {{current}} من {{total}}",
+    "workspace_name_label": "اسم مساحة العمل",
+    "workspace_name_placeholder": "مثل: أكمي للإنترنت",
+    "tenant_code_label": "كود مساحة العمل",
+    "tenant_code_placeholder": "acme-isp",
+    "tenant_code_hint": "أحرف إنجليزية صغيرة وأرقام فقط، بدون مسافات. هذا ما سيستخدمه موظفوك لتسجيل الدخول.",
+    "next": "التالي",
+    "account_title": "أنشئ حسابك",
+    "account_subtitle": "ستكون مالك مساحة {{tenantCode}}.",
+    "fullname_label": "الاسم الكامل",
+    "fullname_placeholder": "مثل: محمد أحمد",
+    "username_label": "اسم المستخدم",
+    "username_placeholder": "اسم المستخدم",
+    "password_label": "كلمة المرور",
+    "password_placeholder": "8 أحرف على الأقل",
+    "confirm_password_label": "تأكيد كلمة المرور",
+    "confirm_password_placeholder": "أعد إدخال كلمة المرور",
+    "create_workspace": "إنشاء مساحة العمل",
+    "errors": {
+      "name_required": "اسم مساحة العمل مطلوب",
+      "tenant_code_required": "كود مساحة العمل مطلوب",
+      "tenant_code_length": "يجب أن يكون كود مساحة العمل بين 2 و 32 حرفاً",
+      "tenant_code_format": "كود مساحة العمل يقبل أحرفاً إنجليزية صغيرة وأرقاماً فقط",
+      "tenant_code_reserved": "هذا الكود محجوز",
+      "tenant_code_taken": "هذا الكود مستخدم بالفعل"
+    }
   },
   "home": {
     "title": "الرئيسية"

@@ -6,7 +6,10 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- ============================================================
 -- TENANTS
--- Managed by the SaaS owner only. Never written to by the app.
+-- Managed by the SaaS owner via the SuperAdmin app (service role)
+-- and by new users via the public `create-tenant` Edge Function
+-- (service role, server-side). The SubsTrack mobile app never
+-- writes to this table with the anon key.
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS tenants (
@@ -705,6 +708,34 @@ DO $$ BEGIN
     END IF;
 
 END $$;
+
+-- ============================================================
+-- PUBLIC RPC: is_tenant_code_available
+-- Exposed to the anon role so the public signup flow in SubsTrack
+-- can pre-check workspace-code availability before walking the user
+-- through the account form. SECURITY DEFINER is required because the
+-- tenants SELECT policy hides every row from anon callers — without
+-- it the function would always return TRUE. Returning only a boolean
+-- (not the row) keeps tenant enumeration limited to a yes/no oracle,
+-- which is acceptable since tenant_code is user-chosen and treated
+-- like a username.
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION public.is_tenant_code_available(code TEXT)
+RETURNS BOOLEAN
+LANGUAGE SQL
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+    SELECT NOT EXISTS (
+        SELECT 1 FROM public.tenants
+        WHERE tenant_code = lower(trim(code))
+    );
+$$;
+
+REVOKE ALL ON FUNCTION public.is_tenant_code_available(TEXT) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.is_tenant_code_available(TEXT) TO anon, authenticated;
 
 -- ============================================================
 -- SETUP NOTES (READ BEFORE DEPLOYING)

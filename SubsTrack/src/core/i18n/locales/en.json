@@ -39,7 +39,39 @@
     "username_placeholder": "username",
     "password_placeholder": "••••••••",
     "sign_in": "Sign In",
-    "account_not_configured": "Account not configured. Contact your administrator."
+    "account_not_configured": "Account not configured. Contact your administrator.",
+    "or": "or",
+    "create_workspace": "Create a new workspace"
+  },
+  "signup": {
+    "workspace_title": "Create your workspace",
+    "workspace_subtitle": "Tell us about your business. You can change the display name later.",
+    "step_label": "Step {{current}} of {{total}}",
+    "workspace_name_label": "Workspace Name",
+    "workspace_name_placeholder": "e.g. Acme Internet",
+    "tenant_code_label": "Workspace Code",
+    "tenant_code_placeholder": "acme-isp",
+    "tenant_code_hint": "Lowercase letters and numbers only, no spaces. This is what your staff will use to sign in.",
+    "next": "Next",
+    "account_title": "Create your account",
+    "account_subtitle": "You'll be the owner of {{tenantCode}}.",
+    "fullname_label": "Full Name",
+    "fullname_placeholder": "e.g. Jane Smith",
+    "username_label": "Username",
+    "username_placeholder": "username",
+    "password_label": "Password",
+    "password_placeholder": "Minimum 8 characters",
+    "confirm_password_label": "Confirm Password",
+    "confirm_password_placeholder": "Re-enter password",
+    "create_workspace": "Create Workspace",
+    "errors": {
+      "name_required": "Workspace name is required",
+      "tenant_code_required": "Workspace code is required",
+      "tenant_code_length": "Workspace code must be between 2 and 32 characters",
+      "tenant_code_format": "Workspace code can only contain lowercase letters and numbers",
+      "tenant_code_reserved": "This workspace code is reserved",
+      "tenant_code_taken": "This workspace code is already taken"
+    }
   },
   "home": {
     "title": "Home"

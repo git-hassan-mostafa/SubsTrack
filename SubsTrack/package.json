@@ -10,7 +10,8 @@
     "web": "expo start --web",
     "lint": "expo lint",
     "deploy-create-user-edge-function":"supabase functions deploy create-user",
-    "deploy-delete-user-edge-function":"supabase functions deploy delete-user"
+    "deploy-delete-user-edge-function":"supabase functions deploy delete-user",
+    "deploy-create-tenant-edge-function":"supabase functions deploy create-tenant --no-verify-jwt"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",

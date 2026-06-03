@@ -85,7 +85,8 @@ yarn install
 yarn start          # Expo dev server (scan QR with Expo Go)
 yarn android        # Android emulator
 yarn ios            # iOS simulator
-yarn deploy-create-user-edge-function  # Deploy Supabase Edge Function
+yarn deploy-create-user-edge-function    # Deploy Supabase Edge Function
+yarn deploy-create-tenant-edge-function  # Deploy self-service tenant signup function (public, --no-verify-jwt)
 
 # SuperAdmin
 cd SuperAdmin
@@ -129,7 +130,9 @@ SubsTrack/
 │   ├── index.tsx                  # Entry: redirects to login or home
 │   ├── (auth)/
 │   │   ├── _layout.tsx
-│   │   └── login.tsx              # Login route
+│   │   ├── login.tsx              # Login route (also exposes "Create a new workspace" CTA)
+│   │   ├── signup-workspace.tsx   # Step 1 of self-service signup (workspace name + code)
+│   │   └── signup-account.tsx     # Step 2 (owner account); creates tenant + auto-logs in
 │   └── (app)/
 │       ├── _layout.tsx            # Auth guard (checks authStore, tenantActive)
 │       └── (tabs)/
@@ -166,9 +169,15 @@ SubsTrack/
 │   │   │   ├── repository/AuthRepository.ts    # signIn, getSession, getUserProfile, getTenant, signOut
 │   │   │   ├── services/AuthService.ts         # login(), restoreSession(), logout()
 │   │   │   ├── store/authStore.ts              # user, tenantActive, loading, setDisplayCurrency()
-│   │   │   ├── screens/LoginScreen.tsx
+│   │   │   ├── screens/LoginScreen.tsx         # also routes into the signup flow
 │   │   │   ├── screens/TenantInactiveScreen.tsx
 │   │   │   └── hooks/useAuth.ts
+│   │   │
+│   │   ├── signup/                             # public self-service tenant creation
+│   │   │   ├── repository/SignupRepository.ts  # calls is_tenant_code_available RPC + create-tenant edge fn
+│   │   │   ├── services/SignupService.ts       # workspace + account validation (no Supabase)
+│   │   │   ├── store/signupStore.ts            # 2-step form state, validateAndCheckCode(), submit()
+│   │   │   └── screens/{SignupWorkspaceScreen, SignupAccountScreen}.tsx
 │   │   │
 │   │   ├── currencies/
 │   │   │   ├── repository/CurrencyRepository.ts  # CRUD + countReferences (joins plans + payments)
@@ -244,7 +253,9 @@ SubsTrack/
 │           └── branchFilter.ts    # resolveBranchFilter(user) / useEffectiveBranchFilter() / applyBranchFilter(query)
 │
 └── supabase/
-    └── functions/create-user/index.ts   # Deno edge function: atomically creates auth.users + public.users
+    └── functions/
+        ├── create-user/index.ts        # Admin-only edge function: atomically creates auth.users + public.users
+        └── create-tenant/index.ts      # Public edge function (no JWT): atomically creates tenant + default branch + auth.users + owner public.users
 ```
 
 ---
@@ -523,6 +534,20 @@ LoginScreen
   → AuthRepository.getTenant(tenantId)       [tenants]
   → stores AuthUser + tenantActive in authStore
 
+LoginScreen also exposes "Create a new workspace" → signupStore (2-step form):
+  Step 1 (SignupWorkspaceScreen)
+    → signupStore.validateAndCheckCode()
+    → SignupService.validateWorkspace() + repo.isTenantCodeAvailable()
+    → on success → push /(auth)/signup-account
+  Step 2 (SignupAccountScreen)
+    → signupStore.submit()
+    → SignupService.createTenant() → SignupRepository.createTenant()
+    → supabase.functions.invoke('create-tenant') [service-role server-side]
+       atomically: tenants → branches('Default Branch') → auth.users → public.users(role=superadmin, branch_id=null)
+       cascading rollback on any step
+    → auto-login via authStore.login(...) with the just-entered credentials
+    → root layout reacts to authStore.user and routes into the app
+
 app/(app)/_layout.tsx
   → if !user → redirect to login
   → if !tenantActive → show TenantInactiveScreen
@@ -767,6 +792,8 @@ Located at `SubsTrack/supabase/functions/create-user/index.ts` (Deno runtime).
 31. **Single-branch tenants behave as if branches don't exist** — with exactly 1 active branch, `BranchSelector` + every `BranchPicker` hide. Form sheets auto-bind new records to that lone branch (`CustomerFormSheet`, `PlanFormSheet`, `UserFormSheet` for `role='user'`). `UserFormSheet` toggles `branchId` back to `null` when the role flips to `admin` because admins remain tenant-wide. The auto-fill applies only on *create*, never on edit. The Branches admin CRUD screen stays reachable so admins can add a 2nd branch and activate multi-branch UI.
 
 32. **Branch is mandatory for customers, plans, and staff users once any branch exists** — `BranchPicker` is passed `nullable={false}` in `CustomerFormSheet`, `PlanFormSheet`, and (when `role === 'user'`) `UserFormSheet`. Submit buttons are disabled until a branch is picked, and the services re-validate (`CustomerService.validateInput`, `PlanService.validate`, `UserService.validateBranchAssignment`) using a `tenantHasBranches` flag that each store reads from `useBranchStore`. Tenant-wide admins (`users.role === 'admin'` with `branch_id = null`) remain the sole exception. The 0-branch case (legacy tenants with no branches yet) skips the enforcement entirely.
+
+33. **Self-service tenant signup goes through an Edge Function, never direct inserts** — the SubsTrack mobile app ships only the anon key, and there is no INSERT policy on `tenants`/`branches`/`saas_tiers`. The public [create-tenant](SubsTrack/supabase/functions/create-tenant/index.ts) edge function (deployed with `--no-verify-jwt`) is the **sole** anon-accessible path for creating a tenant. It uses the service-role key to perform the full sequence with cascading rollback: `tenants` → `branches` ('Default Branch') → `auth.users` → `public.users` (role=`superadmin`, branch_id=null). The pre-check on the workspace screen uses [`is_tenant_code_available`](sql%20scripts/script.sql) — a SECURITY DEFINER RPC granted to `anon` that returns a boolean (no row data, just a yes/no oracle). Self-signup mirrors the role assignment SuperAdmin's `TenantService.createTenant` uses (`superadmin`), which means the new owner is filtered from their own Users screen per note #3 — same behavior as tenants created from SuperAdmin today. Future paid-plan gating plugs into this edge function (the `paymentToken` field is already accepted-but-ignored in the request body).
 
 ---
 
