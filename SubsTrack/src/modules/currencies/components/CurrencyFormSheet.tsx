@@ -8,8 +8,9 @@ import { Input } from "@/src/shared/components/Input";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { useAuth } from "@/src/modules/auth/hooks/useAuth";
 import type { Currency } from "@/src/core/types";
-import { useCurrencyStore } from "../store/currencyStore";
-import { useSubscriptionStore } from "@/src/modules/subscription/store/subscriptionStore";
+import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
+import { getStore } from "@/src/state/globalStore";
+import { useSubscriptionSlice } from "@/src/state/hooks/useSubscriptionSlice";
 import { UpgradePromptModal } from "@/src/modules/subscription/components/UpgradePromptModal";
 
 interface Props {
@@ -33,17 +34,15 @@ export function CurrencyFormSheet({
 }: Props) {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const {
-    createCurrency,
-    updateCurrency,
-    reactivateCurrency,
-    loading,
-    error,
-    clearError,
-    tierLimitError,
-    clearTierLimitError,
-  } = useCurrencyStore();
-  const currentTier = useSubscriptionStore((s) => s.currentTier);
+  const createCurrency = useCurrencySlice((s) => s.createCurrency);
+  const updateCurrency = useCurrencySlice((s) => s.updateCurrency);
+  const reactivateCurrency = useCurrencySlice((s) => s.reactivateCurrency);
+  const loading = useCurrencySlice((s) => s.loading);
+  const error = useCurrencySlice((s) => s.error);
+  const clearError = useCurrencySlice((s) => s.clearError);
+  const tierLimitError = useCurrencySlice((s) => s.tierLimitError);
+  const clearTierLimitError = useCurrencySlice((s) => s.clearTierLimitError);
+  const currentTier = useSubscriptionSlice((s) => s.currentTier);
 
   const [form, setForm] = useState<FormState>({
     code: currency?.code ?? "",
@@ -74,14 +73,14 @@ export function CurrencyFormSheet({
       await createCurrency(data, user.tenantId, currentTier);
     }
     const { error: nextError, tierLimitError: nextTierLimit } =
-      useCurrencyStore.getState();
+      getStore().getState().currencies;
     if (!nextError && !nextTierLimit) onDismiss();
   }
 
   async function handleReactivate() {
     if (!currency) return;
     await reactivateCurrency(currency.id);
-    if (!useCurrencyStore.getState().error) onDismiss();
+    if (!getStore().getState().currencies.error) onDismiss();
   }
 
   const submitDisabled =

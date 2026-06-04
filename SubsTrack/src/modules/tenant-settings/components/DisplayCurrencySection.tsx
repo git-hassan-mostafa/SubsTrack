@@ -3,12 +3,12 @@ import { View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Text } from '@/src/shared/components/Text';
 import { Dropdown, type DropdownOption } from '@/src/shared/components/Dropdown';
-import { useCurrencyStore } from '@/src/modules/currencies/store/currencyStore';
+import { useCurrencySlice } from '@/src/state/hooks/useCurrencySlice';
 import { useUiPrefStore } from '@/src/shared/lib/uiPrefStore';
 
 export function DisplayCurrencySection() {
   const { t } = useTranslation();
-  const { currencies } = useCurrencyStore();
+  const currencies = useCurrencySlice((s) => s.items);
   const { displayCurrencyId, setDisplayCurrencyId } = useUiPrefStore();
 
   const displayCurrencyOptions: DropdownOption<string>[] = useMemo(

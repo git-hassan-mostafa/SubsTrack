@@ -6,9 +6,9 @@ import { useTranslation } from "react-i18next";
 import { ActivityIndicator, Pressable, View } from "react-native";
 import { Text } from "@/src/shared/components/Text";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useDashboardStore } from "@/src/modules/dashboard/store/dashboardStore";
-import { useCurrencyStore } from "@/src/modules/currencies/store/currencyStore";
-import { useBranchStore } from "@/src/modules/branches/store/branchStore";
+import { useDashboardSlice } from "@/src/state/hooks/useDashboardSlice";
+import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
+import { useBranchSlice } from "@/src/state/hooks/useBranchSlice";
 import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { COLORS } from "@/src/shared/constants";
@@ -83,9 +83,11 @@ const MENU_ITEMS: MenuItem[] = [
 
 export default function AdminMenuScreen() {
   const { t, i18n } = useTranslation();
-  const { metrics, loading, fetchMetrics } = useDashboardStore();
-  const { currencies } = useCurrencyStore();
-  const { branches } = useBranchStore();
+  const metrics = useDashboardSlice((s) => s.metrics);
+  const loading = useDashboardSlice((s) => s.loading);
+  const fetchMetrics = useDashboardSlice((s) => s.fetchMetrics);
+  const currencies = useCurrencySlice((s) => s.items);
+  const branches = useBranchSlice((s) => s.items);
   const { displayCurrencyId } = useUiPrefStore();
 
   const branchCount = branches.filter((b) => b.active).length;

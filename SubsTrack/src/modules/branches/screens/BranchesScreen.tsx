@@ -13,22 +13,20 @@ import {
   type ActionMenuItem,
 } from '@/src/shared/components/ActionMenu';
 import type { Branch } from '@/src/core/types';
-import { useBranchStore } from '../store/branchStore';
+import { useBranchSlice } from '@/src/state/hooks/useBranchSlice';
 import { BranchCard } from '../components/BranchCard';
 import { BranchFormSheet } from '../components/BranchFormSheet';
 
 export function BranchesScreen() {
   const { t } = useTranslation();
   const router = useRouter();
-  const {
-    branches,
-    loading,
-    error,
-    fetchBranches,
-    deleteBranch,
-    reactivateBranch,
-    clearError,
-  } = useBranchStore();
+  const branches = useBranchSlice((s) => s.items);
+  const loading = useBranchSlice((s) => s.loading);
+  const error = useBranchSlice((s) => s.error);
+  const fetchBranches = useBranchSlice((s) => s.fetchBranches);
+  const deleteBranch = useBranchSlice((s) => s.deleteBranch);
+  const reactivateBranch = useBranchSlice((s) => s.reactivateBranch);
+  const clearError = useBranchSlice((s) => s.clearError);
 
   const [formVisible, setFormVisible] = useState(false);
   const [editing, setEditing] = useState<Branch | null>(null);

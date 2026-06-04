@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { Dropdown, type DropdownOption } from "./Dropdown";
-import { useAuthStore } from "@/src/modules/auth/store/authStore";
+import { useAuthSlice } from "@/src/state/hooks/useAuthSlice";
 import { useActiveBranches } from "@/src/modules/branches/hooks/useActiveBranches";
 import { useIsMultiBranchActive } from "@/src/modules/branches/hooks/useIsMultiBranchActive";
 
@@ -48,7 +48,7 @@ export function BranchPicker({
   nullable = true,
 }: BranchPickerProps) {
   const { t } = useTranslation();
-  const user = useAuthStore((s) => s.user);
+  const user = useAuthSlice((s) => s.user);
   const activeBranches = useActiveBranches();
   const isMultiBranchActive = useIsMultiBranchActive();
 

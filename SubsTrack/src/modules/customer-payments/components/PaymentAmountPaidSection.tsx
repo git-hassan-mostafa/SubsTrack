@@ -3,7 +3,7 @@ import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
 import { CurrencyInput } from "@/src/shared/components/CurrencyInput";
-import { useCurrencyStore } from "@/src/modules/currencies/store/currencyStore";
+import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 
 interface Props {
   paymentMode: "full" | "partial";
@@ -34,7 +34,7 @@ export function PaymentAmountPaidSection({
   partialDisabled = false,
 }: Props) {
   const { t } = useTranslation();
-  const { currencies } = useCurrencyStore();
+  const currencies = useCurrencySlice((s) => s.items);
 
   return (
     <View className="bg-gray-50 rounded-2xl px-4 py-4 mb-4">

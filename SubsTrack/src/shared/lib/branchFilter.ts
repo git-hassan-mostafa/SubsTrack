@@ -1,6 +1,6 @@
 import type { AuthUser } from '@/src/core/types';
 import { type BranchFilter, BRANCH_FILTER_UNASSIGNED } from '@/src/core/constants';
-import { useAuthStore } from '@/src/modules/auth/store/authStore';
+import { useAuthSlice } from '@/src/state/hooks/useAuthSlice';
 import { useUiPrefStore } from './uiPrefStore';
 
 // ──────────────────────────────────────────────────────────────────────
@@ -29,7 +29,7 @@ export function resolveBranchFilter(user: AuthUser | null): BranchFilter {
 
 /** Hook variant. Re-renders when either auth or uiPref changes. */
 export function useEffectiveBranchFilter(): BranchFilter {
-  const user = useAuthStore((s) => s.user);
+  const user = useAuthSlice((s) => s.user);
   const currentBranchId = useUiPrefStore((s) => s.currentBranchId);
   if (!user) return null;
   if (user.branchId !== null) return user.branchId;

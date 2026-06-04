@@ -5,7 +5,7 @@ import { useRouter, type Href } from "expo-router";
 import { Text } from "@/src/shared/components/Text";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { COLORS } from "@/src/shared/constants";
-import { useSubscriptionStore } from "../store/subscriptionStore";
+import { useSubscriptionSlice } from "@/src/state/hooks/useSubscriptionSlice";
 import type { TierResource, TierCode } from "@/src/core/types";
 
 export interface TierLimitErrorPayload {
@@ -22,7 +22,7 @@ interface Props {
 export function UpgradePromptModal({ payload, onClose }: Props) {
   const { t } = useTranslation();
   const router = useRouter();
-  const tiers = useSubscriptionStore((s) => s.tiers);
+  const tiers = useSubscriptionSlice((s) => s.tiers);
 
   if (!payload) return null;
 

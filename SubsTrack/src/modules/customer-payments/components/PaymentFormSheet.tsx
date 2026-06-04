@@ -11,9 +11,10 @@ import type { Customer, MonthEntry } from "@/src/core/types";
 import { getCurrentYearMonth, toBillingMonth } from "@/src/core/utils/date";
 import { getBlockRangeLabel } from "../utils/blockRangeLabel";
 import { useAuth } from "@/src/modules/auth/hooks/useAuth";
-import { usePaymentStore } from "../store/paymentStore";
-import { useCurrencyStore } from "@/src/modules/currencies/store/currencyStore";
-import { useSubscriptionStore } from "@/src/modules/subscription/store/subscriptionStore";
+import { usePaymentSlice } from "@/src/state/hooks/usePaymentSlice";
+import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
+import { useSubscriptionSlice } from "@/src/state/hooks/useSubscriptionSlice";
+import { getStore } from "@/src/state/globalStore";
 import { UpgradePromptModal } from "@/src/modules/subscription/components/UpgradePromptModal";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { useLanguageStore } from "@/src/core/i18n/languageStore";
@@ -70,17 +71,15 @@ export function PaymentFormSheet({
 }: Props) {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const {
-    createPayment,
-    createMultiMonthPayment,
-    loadingCreate,
-    error,
-    clearError,
-    tierLimitError,
-    clearTierLimitError,
-  } = usePaymentStore();
-  const currentTier = useSubscriptionStore((s) => s.currentTier);
-  const { currencies } = useCurrencyStore();
+  const createPayment = usePaymentSlice((s) => s.createPayment);
+  const createMultiMonthPayment = usePaymentSlice((s) => s.createMultiMonthPayment);
+  const loadingCreate = usePaymentSlice((s) => s.loadingCreate);
+  const error = usePaymentSlice((s) => s.error);
+  const clearError = usePaymentSlice((s) => s.clearError);
+  const tierLimitError = usePaymentSlice((s) => s.tierLimitError);
+  const clearTierLimitError = usePaymentSlice((s) => s.clearTierLimitError);
+  const currentTier = useSubscriptionSlice((s) => s.currentTier);
+  const currencies = useCurrencySlice((s) => s.items);
   const { language } = useLanguageStore();
   const locale = language === "ar" ? "ar" : "en-US";
 
@@ -229,7 +228,7 @@ export function PaymentFormSheet({
         graceDays,
       );
     }
-    if (!usePaymentStore.getState().error) {
+    if (!getStore().getState().payments.error) {
       onDismiss();
     }
   }

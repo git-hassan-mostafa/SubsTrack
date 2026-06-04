@@ -22,6 +22,7 @@ DROP POLICY IF EXISTS users_insert      ON users;
 DROP POLICY IF EXISTS users_select      ON users;
 DROP POLICY IF EXISTS tier_plans_select ON tier_plans;
 DROP POLICY IF EXISTS tenants_select    ON tenants;
+DROP POLICY IF EXISTS tenants_update    ON tenants;
 
 -- ── TABLES (reverse FK order) ─────────────────────────────────
 DROP TABLE IF EXISTS payments   CASCADE;

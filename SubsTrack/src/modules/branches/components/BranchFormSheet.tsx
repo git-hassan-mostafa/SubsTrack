@@ -8,8 +8,9 @@ import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { useAuth } from "@/src/modules/auth/hooks/useAuth";
 import type { Branch } from "@/src/core/types";
-import { useBranchStore } from "../store/branchStore";
-import { useSubscriptionStore } from "@/src/modules/subscription/store/subscriptionStore";
+import { useBranchSlice } from "@/src/state/hooks/useBranchSlice";
+import { getStore } from "@/src/state/globalStore";
+import { useSubscriptionSlice } from "@/src/state/hooks/useSubscriptionSlice";
 import { UpgradePromptModal } from "@/src/modules/subscription/components/UpgradePromptModal";
 
 interface Props {
@@ -21,18 +22,16 @@ interface Props {
 export function BranchFormSheet({ branch, onDismiss, onRequestDelete }: Props) {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const {
-    createBranch,
-    updateBranch,
-    reactivateBranch,
-    loading,
-    error,
-    clearError,
-    tierLimitError,
-    clearTierLimitError,
-  } = useBranchStore();
-  const currentTier = useSubscriptionStore((s) => s.currentTier);
-  const usage = useSubscriptionStore((s) => s.usage);
+  const createBranch = useBranchSlice((s) => s.createBranch);
+  const updateBranch = useBranchSlice((s) => s.updateBranch);
+  const reactivateBranch = useBranchSlice((s) => s.reactivateBranch);
+  const loading = useBranchSlice((s) => s.loading);
+  const error = useBranchSlice((s) => s.error);
+  const clearError = useBranchSlice((s) => s.clearError);
+  const tierLimitError = useBranchSlice((s) => s.tierLimitError);
+  const clearTierLimitError = useBranchSlice((s) => s.clearTierLimitError);
+  const currentTier = useSubscriptionSlice((s) => s.currentTier);
+  const usage = useSubscriptionSlice((s) => s.usage);
 
   const [name, setName] = useState(branch?.name ?? "");
 
@@ -49,14 +48,14 @@ export function BranchFormSheet({ branch, onDismiss, onRequestDelete }: Props) {
       if (!currentTier) return;
       await createBranch({ name }, user.tenantId, currentTier, usage);
     }
-    const { error: nextError, tierLimitError: nextTierLimit } = useBranchStore.getState();
+    const { error: nextError, tierLimitError: nextTierLimit } = getStore().getState().branches;
     if (!nextError && !nextTierLimit) onDismiss();
   }
 
   async function handleReactivate() {
     if (!branch) return;
     await reactivateBranch(branch.id);
-    if (!useBranchStore.getState().error) onDismiss();
+    if (!getStore().getState().branches.error) onDismiss();
   }
 
   const submitDisabled = !name.trim() || loading;

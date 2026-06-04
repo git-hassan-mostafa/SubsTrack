@@ -38,9 +38,9 @@ Presentation  →  State  →  Business Logic  →  Repository  →  Database
 
 Screens, UI components, and UI-only hooks. Components read from stores and dispatch store actions. Zero business logic. Zero direct Supabase calls.
 
-### Layer 2 — State (Zustand)
+### Layer 2 — State (Zustand slice pattern)
 
-One store per feature module. Stores hold loading/error state and the feature's data. Async actions call services — never repositories directly.
+One global Zustand store assembled from per-feature slices in `src/state/slices/`. The store uses `immer` middleware for nested mutations. Components read through per-slice hooks (`useCustomerSlice`, `useAuthSlice`, …) with selectors. Async slice actions call services — never repositories directly. Cross-slice reads happen via `get().<otherSlice>` inside actions; slice files never import other slices' creators or hooks.
 
 ### Layer 3 — Business Logic (Services)
 
@@ -165,11 +165,27 @@ SubsTrack/
 │   │       ├── useAppFont.ts      # Font loader hook (Cairo for Arabic, System for English)
 │   │       └── locales/{en,ar}.json
 │   │
-│   ├── modules/                   # Feature modules
+│   ├── state/                     # Global Zustand store (slice pattern, immer middleware)
+│   │   ├── globalStore.ts         # GlobalState + getStore() singleton (stashed on globalThis)
+│   │   ├── hooks/
+│   │   │   ├── useGlobalStore.ts  # Overloaded wrapper around useStore(getStore(), sel)
+│   │   │   └── use<Feature>Slice.ts × 10  # Per-slice overloaded hooks (e.g. useCustomerSlice, useGraceDays exported from useSubscriptionSlice)
+│   │   └── slices/
+│   │       ├── auth/authSlice.ts
+│   │       ├── subscription/subscriptionSlice.ts
+│   │       ├── customers/customerSlice.ts
+│   │       ├── payments/paymentSlice.ts
+│   │       ├── plans/planSlice.ts
+│   │       ├── users/userSlice.ts
+│   │       ├── dashboard/dashboardSlice.ts
+│   │       ├── branches/branchSlice.ts
+│   │       ├── currencies/currencySlice.ts
+│   │       └── signup/signupSlice.ts
+│   │
+│   ├── modules/                   # Feature modules (state moved out — see src/state/)
 │   │   ├── auth/
 │   │   │   ├── repository/AuthRepository.ts    # signIn, getSession, getUserProfile, getTenant, signOut
 │   │   │   ├── services/AuthService.ts         # login(), restoreSession(), logout()
-│   │   │   ├── store/authStore.ts              # user, tenantActive, loading, setDisplayCurrency()
 │   │   │   ├── screens/LoginScreen.tsx         # also routes into the signup flow
 │   │   │   ├── screens/TenantInactiveScreen.tsx
 │   │   │   └── hooks/useAuth.ts
@@ -177,26 +193,23 @@ SubsTrack/
 │   │   ├── signup/                             # public self-service tenant creation
 │   │   │   ├── repository/SignupRepository.ts  # calls is_tenant_code_available RPC + create-tenant edge fn
 │   │   │   ├── services/SignupService.ts       # workspace + account validation (no Supabase)
-│   │   │   ├── store/signupStore.ts            # 2-step form state, validateAndCheckCode(), submit()
 │   │   │   └── screens/{SignupWorkspaceScreen, SignupAccountScreen}.tsx
 │   │   │
 │   │   ├── subscription/                       # Tier limits + upgrade flow
 │   │   │   ├── repository/SubscriptionRepository.ts  # findAllTiers, getTenantWithTier, countTenantUsage, upgradeTenant
 │   │   │   ├── services/TierService.ts         # assertCanCreate/assertMultiCurrency/assertMultiMonth, TierLimitError, canDowngradeTo
-│   │   │   ├── store/subscriptionStore.ts      # tiers[], currentTier, usage, init(), refreshUsage(), upgrade(); exports useGraceDays()
 │   │   │   ├── screens/SubscriptionScreen.tsx  # 3 tier cards + usage bars + upgrade/downgrade buttons
 │   │   │   └── components/{TierCard, UsageBar, TierBadge, UpgradePromptModal}.tsx
 │   │   │
 │   │   ├── currencies/
 │   │   │   ├── repository/CurrencyRepository.ts  # CRUD + countReferences (joins plans + payments)
 │   │   │   ├── services/CurrencyService.ts       # validation; deleteCurrency() hard- or soft-deletes
-│   │   │   ├── store/currencyStore.ts            # currencies[], CRUD, fetched after login
 │   │   │   └── components/{CurrencyCard, UsdBaseCard, CurrencyFormSheet}.tsx
 │   │   │
 │   │   ├── branches/
 │   │   │   ├── repository/BranchRepository.ts    # CRUD + countReferences (joins users + customers + plans)
 │   │   │   ├── services/BranchService.ts         # validation; deleteBranch() hard- or soft-deletes
-│   │   │   ├── store/branchStore.ts              # branches[], CRUD, fetched after login (parallel to currencies)
+│   │   │   ├── hooks/{useActiveBranches, useIsMultiBranchActive}.ts
 │   │   │   └── components/{BranchCard, BranchFormSheet}.tsx
 │   │   │
 │   │   ├── tenant-settings/
@@ -205,7 +218,6 @@ SubsTrack/
 │   │   ├── customers/
 │   │   │   ├── repository/CustomerRepository.ts
 │   │   │   ├── services/CustomerService.ts
-│   │   │   ├── store/customerStore.ts
 │   │   │   ├── screens/CustomerListScreen.tsx
 │   │   │   ├── screens/CustomerDetailScreen.tsx
 │   │   │   └── components/{CustomerCard, CustomerDetailsCard, CustomerFormSheet}.tsx
@@ -213,27 +225,23 @@ SubsTrack/
 │   │   ├── customer-payments/                    # (note: directory name is customer-payments)
 │   │   │   ├── repository/PaymentRepository.ts
 │   │   │   ├── services/PaymentService.ts        # ← buildMonthGrid() lives here ONLY
-│   │   │   ├── store/paymentStore.ts
 │   │   │   └── components/{MonthGrid, MonthCell, YearNavigator, PaymentFormSheet,
 │   │   │                    PaymentDetailSheet, VoidSheet, CustomerPaymentPanel}.tsx
 │   │   │
 │   │   ├── plans/
 │   │   │   ├── repository/PlanRepository.ts
 │   │   │   ├── services/PlanService.ts
-│   │   │   ├── store/planStore.ts
 │   │   │   ├── screens/PlanListScreen.tsx
 │   │   │   └── components/{PlanCard, PlanFormSheet}.tsx
 │   │   │
 │   │   ├── users/
 │   │   │   ├── repository/UserRepository.ts    # create calls edge function create-user
 │   │   │   ├── services/UserService.ts
-│   │   │   ├── store/userStore.ts
 │   │   │   ├── screens/UserListScreen.tsx
 │   │   │   └── components/{UserCard, UserFormSheet}.tsx
 │   │   │
 │   │   ├── dashboard/
 │   │   │   ├── services/DashboardService.ts    # Promise.all() for 6 metrics
-│   │   │   ├── store/dashboardStore.ts
 │   │   │   ├── screens/DashboardScreen.tsx
 │   │   │   └── components/MetricCard.tsx
 │   │   │
@@ -310,7 +318,7 @@ Database (Supabase)
 **Layer rules:**
 
 - **Presentation** — reads store state, dispatches store actions. Zero business logic. Zero Supabase calls.
-- **State (Zustand)** — holds data arrays + `loading`/`error`. Calls services, never repositories. Never imports another store.
+- **State (Zustand slices)** — one global store with per-feature slices in `src/state/slices/`. Slices hold data + `loading`/`error`/`tierLimitError`. Call services, never repositories. Cross-slice access happens via `get().<otherSlice>` inside actions; slice files never import peer slices' creators or hooks at module scope.
 - **Business Logic (Services)** — pure TypeScript classes. No React, no Supabase. All validation, transformation, algorithm logic.
 - **Repository** — the **only** layer that imports Supabase. Maps DB row types ↔ domain types. Zero business logic.
 - **Core** — types, constants, utils. Imported by all layers. Never imports from any module.
@@ -544,38 +552,38 @@ Tenants can optionally create branches/zones. A tenant with zero branches behave
 
 ```
 app/index.tsx
-  → authStore.restoreSession()   (on mount)
+  → authSlice.restoreSession()   (on mount)
   → if no session → redirect to (auth)/login
   → if session → redirect to (app)/(tabs)/home (admin) or (app)/(tabs)/customers (user)
 
 LoginScreen
-  → authStore.login(username, tenantCode, password)
+  → authSlice.login(username, tenantCode, password)
   → AuthService: email = `${username}@${tenantCode}.com`
   → AuthRepository.signIn(email, password)   [Supabase Auth]
   → AuthRepository.getUserProfile(userId)    [public.users]
   → AuthRepository.getTenant(tenantId)       [tenants joined with tier_plans]
-  → stores AuthUser + tenantActive in authStore
+  → stores AuthUser + tenantActive in authSlice
   → primePostAuth(user) — Promise.all of:
-       useCurrencyStore.fetchCurrencies()
-       useBranchStore.fetchBranches()
-       useSubscriptionStore.init(tenantId, user.tenant.tier)
+       get().currencies.fetchCurrencies()
+       get().branches.fetchBranches()
+       get().subscription.init(tenantId, user.tenant.tier)
          → tierService.fetchTiers() (3 tier_plans rows)
          → tierService.fetchUsage() (counts customers/users/plans/branches/currencies)
 
-LoginScreen also exposes "Create a new workspace" → signupStore (2-step form):
+LoginScreen also exposes "Create a new workspace" → signupSlice (2-step form):
   Step 1 (SignupWorkspaceScreen)
-    → signupStore.validateAndCheckCode()
+    → signupSlice.validateAndCheckCode()
     → SignupService.validateWorkspace() + repo.isTenantCodeAvailable()
     → on success → push /(auth)/signup-account
   Step 2 (SignupAccountScreen)
-    → signupStore.submit()
+    → signupSlice.submit()
     → SignupService.createTenant() → SignupRepository.createTenant()
     → supabase.functions.invoke('create-tenant') [service-role server-side]
        atomically: tier_plans (lookup Free id) → tenants(tier_id=Free) →
        branches('Default Branch') → auth.users → public.users(role=superadmin, branch_id=null)
        cascading rollback on any step
-    → auto-login via authStore.login(...) with the just-entered credentials
-    → root layout reacts to authStore.user and routes into the app
+    → auto-login via authSlice.login(...) with the just-entered credentials
+    → root layout reacts to authSlice.user and routes into the app
 
 app/(app)/_layout.tsx
   → if !user → redirect to login
@@ -665,38 +673,38 @@ paymentSnapshotCurrency(payment, currencies): Currency | null  // returns the so
 
 Every tenant lives on one of three global `tier_plans` rows: **Free**, **Pro**, **Business**. The catalog is small and fixed (3 rows seeded by `script.sql`, editable by the SaaS owner via SuperAdmin's tier-plans module). Each tier defines numeric limits (`max_customers`, `max_users`, `max_plans`, `max_branches`, `max_currencies` — NULL means unlimited), feature flags (`multi_currency_enabled`, `multi_month_plans_enabled`), `grace_days` (drives the month grid), and a USD monthly price.
 
-**Enforcement is service-layer.** Every feature `Service.createX()` calls `tierService.assertCanCreate(tier, usage, resource)` immediately after its existing `validate()`. Failures throw a typed `TierLimitError` (from [TierService.ts](SubsTrack/src/modules/subscription/services/TierService.ts)) carrying `{resource, limit, tierCode}`. Stores catch via `instanceof` and set a structured `tierLimitError` field next to the standard `error: string`. Form sheets check `tierLimitError` and render an `UpgradePromptModal` (the existing `ErrorBanner` path stays for regular validation errors). This avoids parsing error strings.
+**Enforcement is service-layer.** Every feature `Service.createX()` calls `tierService.assertCanCreate(tier, usage, resource)` immediately after its existing `validate()`. Failures throw a typed `TierLimitError` (from [TierService.ts](SubsTrack/src/modules/subscription/services/TierService.ts)) carrying `{resource, limit, tierCode}`. Slice actions catch via `instanceof` and set a structured `tierLimitError` field next to the standard `error: string`. Form sheets check `tierLimitError` and render an `UpgradePromptModal` (the existing `ErrorBanner` path stays for regular validation errors). This avoids parsing error strings.
 
-**Tier and usage are passed in as parameters**, never imported across stores (per rule #9). The pattern in stores:
+**Tier and usage are passed in as parameters from components**, not read across slices in actions (slice actions still touch `get().subscription.refreshUsage()` after creates, but the *input* tier/usage comes from the caller). The pattern in slices:
 
 ```ts
 createCustomer: async (data, tenantId, tier, usage) => {
-  set({ loading: true, error: null, tierLimitError: null });
+  set((s) => { s.customers.loading = true; s.customers.error = null; s.customers.tierLimitError = null; });
   try {
     const customer = await customerService.createCustomer(data, tenantId, tier, usage);
-    set(...);
-    void useSubscriptionStore.getState().refreshUsage();
+    set((s) => { s.customers.items.unshift(customer); s.customers.loading = false; });
+    void get().subscription.refreshUsage();  // ← cross-slice via get()
   } catch (e) {
     if (e instanceof TierLimitError) {
-      set({ tierLimitError: { resource: e.resource, limit: e.limit, tierCode: e.tierCode }, loading: false });
+      set((s) => { s.customers.tierLimitError = { resource: e.resource, limit: e.limit, tierCode: e.tierCode }; s.customers.loading = false; });
     } else {
-      set({ error: (e as Error).message, loading: false });
+      set((s) => { s.customers.error = (e as Error).message; s.customers.loading = false; });
     }
   }
 }
 ```
 
-Components read `currentTier` and `usage` from `useSubscriptionStore` and forward them into the action.
+Components read `currentTier` and `usage` from `useSubscriptionSlice` and forward them into the action.
 
-**Hydration:** `authStore.primePostAuth(user)` calls `useSubscriptionStore.init(tenantId, user.tenant.tier)` in parallel with currencies + branches. The init fetches all tier rows for the comparison screen + counts current usage. The tenant's current tier comes joined onto `getTenant` (`.select('*, tier_plans(*)')`).
+**Hydration:** `authSlice` exports an internal `primePostAuth(get, user)` helper called by `login` and `restoreSession`. It runs `get().currencies.fetchCurrencies()`, `get().branches.fetchBranches()`, and `get().subscription.init(tenantId, user.tenant.tier)` in parallel via `Promise.all`. The init fetches all tier rows for the comparison screen + counts current usage. The tenant's current tier comes joined onto `getTenant` (`.select('*, tier_plans(*)')`).
 
-**Upgrade UX:** dedicated screen at [SubscriptionScreen.tsx](SubsTrack/src/modules/subscription/screens/SubscriptionScreen.tsx) (routed at `/(app)/(tabs)/admin/subscription`). Shows 3 stacked TierCards with usage bars for the current tier and Upgrade/Downgrade buttons for the others. Upgrades are instant swaps via `subscriptionStore.upgrade(tenantId, tierId)` — no billing wired up yet. Downgrades call `TierService.canDowngradeTo(targetTier, usage)` first; if usage exceeds the target tier's limits the dialog lists blockers ("42 / 30 customers") and refuses to swap. The `UpgradePromptModal` is also triggered inline whenever a form sheet hits a `TierLimitError`.
+**Upgrade UX:** dedicated screen at [SubscriptionScreen.tsx](SubsTrack/src/modules/subscription/screens/SubscriptionScreen.tsx) (routed at `/(app)/(tabs)/admin/subscription`). Shows 3 stacked TierCards with usage bars for the current tier and Upgrade/Downgrade buttons for the others. Upgrades are instant swaps via `subscriptionSlice.upgrade(tenantId, tierId)` — no billing wired up yet. Downgrades call `TierService.canDowngradeTo(targetTier, usage)` first; if usage exceeds the target tier's limits the dialog lists blockers ("42 / 30 customers") and refuses to swap. The `UpgradePromptModal` is also triggered inline whenever a form sheet hits a `TierLimitError`.
 
 **Soft UX gates** beyond the hard service-layer block: PlanFormSheet hides multi-month duration UI when `tier.multiMonthPlansEnabled === false`; CurrencyFormSheet hides itself behind the same `assertMultiCurrency` check; the Add buttons on list screens stay enabled so the user always reaches an explanation.
 
 **Tenant creation defaults to Free.** Both the public `create-tenant` edge function and SuperAdmin's `TenantService.createTenant` look up the Free tier id and stamp it on the new `tenants` row. SuperAdmin's `TenantFormSheet` exposes a tier dropdown so the SaaS owner can onboard paid tenants directly or change a tenant's tier later (the manual paid-upgrade path). `tier_upgraded_at` is touched on every change.
 
-**Future-proofing:** to add Stripe, append nullable `stripe_price_id_monthly` / `stripe_price_id_yearly` to `tier_plans` and `stripe_customer_id` / `stripe_subscription_id` to `tenants`. Only `subscriptionStore.upgrade()` changes — it redirects to a Checkout session, the webhook updates `tier_id`. Every other call site already reads from `currentTier`.
+**Future-proofing:** to add Stripe, append nullable `stripe_price_id_monthly` / `stripe_price_id_yearly` to `tier_plans` and `stripe_customer_id` / `stripe_subscription_id` to `tenants`. Only `subscriptionSlice.upgrade()` changes — it redirects to a Checkout session, the webhook updates `tier_id`. Every other call site already reads from `currentTier`.
 
 ## Regular Customer
 
@@ -712,38 +720,98 @@ Components read `currentTier` and `usage` from `useSubscriptionStore` and forwar
 
 ---
 
-## State Management Pattern (Zustand)
+## State Management Pattern (Zustand slice pattern)
 
-Every store follows this exact pattern:
+All app state lives in one global Zustand store assembled from per-feature slices under `src/state/`. The store is configured with `immer` middleware so mutations are idiomatic drafts. There is no per-feature `useFeatureStore` — everything reads through per-slice hooks that wrap the global store.
 
-```typescript
-interface FeatureState {
-  data: DataType[];
-  loading: boolean;
-  error: string | null;
-  fetch: () => Promise<void>;
-  create: (input: InputType) => Promise<void>;
-  clearError: () => void;
-  reset: () => void;
+**Global assembly** ([src/state/globalStore.ts](SubsTrack/src/state/globalStore.ts)):
+
+```ts
+export interface GlobalState {
+  auth: AuthSlice;
+  subscription: SubscriptionSlice;
+  customers: CustomerSlice;
+  payments: PaymentSlice;
+  // ... etc
 }
 
-export const useFeatureStore = create<FeatureState>((set, get) => ({
-  data: [],
+const initStore = () => create<GlobalState>()(
+  immer((set, get, store) => ({
+    auth: createAuthSlice(set, get, store),
+    customers: createCustomerSlice(set, get, store),
+    // ...
+  })),
+);
+
+// Stashed on globalThis so the store survives Metro Fast Refresh.
+export const getStore = (): StoreApi<GlobalState> => { /* ... */ };
+```
+
+**Slice template** ([src/state/slices/customers/customerSlice.ts](SubsTrack/src/state/slices/customers/customerSlice.ts)):
+
+```ts
+export interface CustomerSlice {
+  items: Customer[];
+  loading: boolean;
+  error: string | null;
+  fetchCustomers: () => Promise<void>;
+  createCustomer: (data, tenantId, tier, usage) => Promise<void>;
+  // ...
+}
+
+export const createCustomerSlice: StateCreator<
+  GlobalState,
+  [['zustand/immer', never]],
+  [],
+  CustomerSlice
+> = (set, get) => ({
+  items: [],
   loading: false,
   error: null,
-  fetch: async () => {
-    set({ loading: true, error: null });
+
+  fetchCustomers: async () => {
+    const branchFilter = resolveBranchFilter(get().auth.user); // ← cross-slice via get()
+    set((state) => { state.customers.loading = true; });
     try {
-      const data = await featureService.getData();
-      set({ data, loading: false });
+      const result = await customerService.getCustomers(...);
+      set((state) => { state.customers.items = result; state.customers.loading = false; });
     } catch (e) {
-      set({ error: (e as Error).message, loading: false });
+      set((state) => { state.customers.error = (e as Error).message; state.customers.loading = false; });
     }
   },
-  clearError: () => set({ error: null }),
-  reset: () => set({ data: [], loading: false, error: null }),
-}));
+  // ...
+});
 ```
+
+**Per-slice hook** ([src/state/hooks/useCustomerSlice.ts](SubsTrack/src/state/hooks/useCustomerSlice.ts)) — overloaded for ergonomics. **Always pass a selector in component bodies** to avoid re-rendering on every slice change:
+
+```ts
+export function useCustomerSlice(): CustomerSlice;
+export function useCustomerSlice<T>(selector: (state: CustomerSlice) => T): T;
+export function useCustomerSlice<T = CustomerSlice>(selector?: (state: CustomerSlice) => T): T {
+  return useGlobalStore((state) => {
+    const slice = state.customers;
+    return selector ? selector(slice) : (slice as T);
+  });
+}
+```
+
+**Component usage:**
+
+```ts
+// Correct — granular selector
+const items = useCustomerSlice((s) => s.items);
+const fetchCustomers = useCustomerSlice((s) => s.fetchCustomers);
+
+// Banned in component bodies — subscribes to whole slice, re-renders on every change
+const slice = useCustomerSlice();
+```
+
+**Naming convention.** Arrays inside slices are named `items` (not `customers.customers`). Other state fields keep their semantic names (`metrics`, `tiers`, `currentTier`, `monthGrid`, etc.).
+
+**Cross-slice access from inside an action** uses `get().<otherSlice>`. Never import another slice's hook or creator at module scope — only types are allowed across slice files (and those flow through `GlobalState` in `globalStore.ts`).
+
+**Two intentional exceptions** (standalone Zustand stores with `persist` middleware, no cross-coupling): `src/shared/lib/uiPrefStore.ts` (display currency, last-used currency, currentBranchId) and `src/core/i18n/languageStore.ts` (en/ar language preference). These are persisted to AsyncStorage; folding them into the global store would risk accidentally persisting domain state.
 
 ---
 
@@ -811,7 +879,7 @@ Located at `SubsTrack/supabase/functions/create-user/index.ts` (Deno runtime).
 
 8. **`before_start` is a 4th month status** — months before `customer.startDate` are non-tappable and shown gray regardless of other logic.
 
-9. **No cross-store imports** — if a store action needs data from another module, it receives it as a parameter (e.g. `paymentStore.createPayment(data, customer, graceDays)`).
+9. **No cross-slice imports at module scope** — slice files may import types from peer slices but never the slice creator or per-slice hook. Cross-slice reads happen inside actions via `get().<otherSlice>`. Caller-supplied data (tier, usage, currency) still flows in as parameters from the component.
 
 10. **SuperAdmin uses service role key** — `supabaseAdmin.ts` bypasses RLS entirely, giving full DB access. This is intentional for the SaaS owner's admin operations.
 
@@ -915,6 +983,6 @@ Located at `SubsTrack/supabase/functions/create-user/index.ts` (Deno runtime).
 6. **RLS enforces multi-tenancy** — app-level filtering is secondary.
 7. **No hard deletes** — use `voided_at` for payments, `active = false` / `cancelled_at` for customers.
 8. **Payment amount is a snapshot** — never recompute from `plan.price` after recording.
-9. **No cross-store state sharing** — pass data as parameters to actions.
+9. **All app state lives in one global Zustand store** assembled from per-feature slices in `src/state/slices/`. Slice files may import peer-slice *types* but never their creators or hooks. Cross-slice reads happen inside actions via `get().<otherSlice>`. Caller-supplied data (tier, usage, currency) still flows in as parameters from the component.
 10. **All errors caught and stored in state** — never surface raw Supabase error messages to the user.
 11. **Tier limits enforced at the service layer** — every `Service.createX()` calls `tierService.assertCanCreate(tier, usage, resource)` after `validate()`. `TierLimitError` flows through stores as a structured `tierLimitError` field; never parse error strings.

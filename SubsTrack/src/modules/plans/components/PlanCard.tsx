@@ -6,7 +6,7 @@ import { Text } from "@/src/shared/components/Text";
 import { Ionicons } from "@expo/vector-icons";
 import { COLORS } from "@/src/shared/constants";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
-import { useCurrencyStore } from "@/src/modules/currencies/store/currencyStore";
+import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
 import { useLanguageStore } from "@/src/core/i18n/languageStore";
 
@@ -18,7 +18,7 @@ interface Props {
 
 export function PlanCard({ plan, onEdit, onMenu }: Props) {
   const { t } = useTranslation();
-  const { currencies } = useCurrencyStore();
+  const currencies = useCurrencySlice((s) => s.items);
   const { displayCurrencyId } = useUiPrefStore();
   const { language } = useLanguageStore();
   const source = findCurrency(currencies, plan.currencyId);

@@ -7,20 +7,18 @@ import { Button } from "@/src/shared/components/Button";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { Input } from "@/src/shared/components/Input";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
-import { useSignupStore } from "../store/signupStore";
+import { useSignupSlice } from "@/src/state/hooks/useSignupSlice";
 
 export function SignupWorkspaceScreen() {
   const { t } = useTranslation();
   const router = useRouter();
-  const {
-    name,
-    tenantCode,
-    error,
-    checkingCode,
-    setWorkspace,
-    validateAndCheckCode,
-    clearError,
-  } = useSignupStore();
+  const name = useSignupSlice((s) => s.name);
+  const tenantCode = useSignupSlice((s) => s.tenantCode);
+  const error = useSignupSlice((s) => s.error);
+  const checkingCode = useSignupSlice((s) => s.checkingCode);
+  const setWorkspace = useSignupSlice((s) => s.setWorkspace);
+  const validateAndCheckCode = useSignupSlice((s) => s.validateAndCheckCode);
+  const clearError = useSignupSlice((s) => s.clearError);
 
   const canSubmit = name.trim().length > 0 && tenantCode.trim().length > 0;
 

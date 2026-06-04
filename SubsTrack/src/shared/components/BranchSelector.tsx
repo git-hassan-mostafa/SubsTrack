@@ -10,7 +10,7 @@ import {
   type BranchFilter,
 } from "@/src/core/constants";
 import { COLORS } from "@/src/shared/constants";
-import { useAuthStore } from "@/src/modules/auth/store/authStore";
+import { useAuthSlice } from "@/src/state/hooks/useAuthSlice";
 import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
 import { useActiveBranches } from "@/src/modules/branches/hooks/useActiveBranches";
 import { useIsMultiBranchActive } from "@/src/modules/branches/hooks/useIsMultiBranchActive";
@@ -32,7 +32,7 @@ import { useIsMultiBranchActive } from "@/src/modules/branches/hooks/useIsMultiB
  */
 export function BranchSelector() {
   const { t } = useTranslation();
-  const user = useAuthStore((s) => s.user);
+  const user = useAuthSlice((s) => s.user);
   const activeBranches = useActiveBranches();
   const isMultiBranchActive = useIsMultiBranchActive();
   const currentBranchId = useUiPrefStore((s) => s.currentBranchId);

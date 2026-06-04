@@ -3,13 +3,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 import { PageHeader } from '@/src/shared/components/PageHeader';
-import { useAuthStore } from '@/src/modules/auth/store/authStore';
+import { useAuthSlice } from '@/src/state/hooks/useAuthSlice';
 import { DisplayCurrencySection } from '../components/DisplayCurrencySection';
 
 export function TenantSettingsScreen() {
   const { t } = useTranslation();
   const router = useRouter();
-  const { user } = useAuthStore();
+  const user = useAuthSlice((s) => s.user);
 
   if (!user) return null;
 

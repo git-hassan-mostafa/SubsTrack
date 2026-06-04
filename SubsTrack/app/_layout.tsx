@@ -1,10 +1,10 @@
-import { useAuthStore } from "@/src/modules/auth/store/authStore";
-import { useCustomerStore } from "@/src/modules/customers/store/customerStore";
-import { useDashboardStore } from "@/src/modules/dashboard/store/dashboardStore";
+import { useAuthSlice } from "@/src/state/hooks/useAuthSlice";
+import { useCustomerSlice } from "@/src/state/hooks/useCustomerSlice";
+import { useDashboardSlice } from "@/src/state/hooks/useDashboardSlice";
 import { initI18n } from "@/src/core/i18n";
-import { usePaymentStore } from "@/src/modules/customer-payments/store/paymentStore";
-import { usePlanStore } from "@/src/modules/plans/store/planStore";
-import { useUserStore } from "@/src/modules/users/store/userStore";
+import { usePaymentSlice } from "@/src/state/hooks/usePaymentSlice";
+import { usePlanSlice } from "@/src/state/hooks/usePlanSlice";
+import { useUserSlice } from "@/src/state/hooks/useUserSlice";
 import { ErrorBoundary } from "@/src/shared/components/ErrorBoundary";
 import { LoadingScreen } from "@/src/shared/components/LoadingScreen";
 import { Slot, useRouter, useSegments } from "expo-router";
@@ -24,12 +24,14 @@ export default function RootLayout() {
   });
   const fontsReady = fontsLoaded || !!fontsError;
 
-  const { user, loading, restoreSession } = useAuthStore();
-  const resetPlans = usePlanStore((s) => s.reset);
-  const resetUsers = useUserStore((s) => s.reset);
-  const resetCustomers = useCustomerStore((s) => s.reset);
-  const resetPayments = usePaymentStore((s) => s.reset);
-  const resetDashboard = useDashboardStore((s) => s.reset);
+  const user = useAuthSlice((s) => s.user);
+  const loading = useAuthSlice((s) => s.loading);
+  const restoreSession = useAuthSlice((s) => s.restoreSession);
+  const resetPlans = usePlanSlice((s) => s.reset);
+  const resetUsers = useUserSlice((s) => s.reset);
+  const resetCustomers = useCustomerSlice((s) => s.reset);
+  const resetPayments = usePaymentSlice((s) => s.reset);
+  const resetDashboard = useDashboardSlice((s) => s.reset);
   const segments = useSegments();
   const router = useRouter();
 

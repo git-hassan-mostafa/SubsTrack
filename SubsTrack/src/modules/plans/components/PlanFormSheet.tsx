@@ -10,11 +10,12 @@ import { CurrencyInput } from "@/src/shared/components/CurrencyInput";
 import { BranchPicker } from "@/src/shared/components/BranchPicker";
 import type { Plan } from "@/src/core/types";
 import { useAuth } from "@/src/modules/auth/hooks/useAuth";
-import { usePlanStore } from "../store/planStore";
-import { useCurrencyStore } from "@/src/modules/currencies/store/currencyStore";
+import { usePlanSlice } from "@/src/state/hooks/usePlanSlice";
+import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
+import { getStore } from "@/src/state/globalStore";
 import { COLORS } from "@/src/shared/constants";
 import { useActiveBranches } from "../../branches/hooks/useActiveBranches";
-import { useSubscriptionStore } from "@/src/modules/subscription/store/subscriptionStore";
+import { useSubscriptionSlice } from "@/src/state/hooks/useSubscriptionSlice";
 import { UpgradePromptModal } from "@/src/modules/subscription/components/UpgradePromptModal";
 
 interface Props {
@@ -38,19 +39,17 @@ const MAX_DURATION = 12;
 export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const {
-    createPlan,
-    updatePlan,
-    loading,
-    error,
-    clearError,
-    tierLimitError,
-    clearTierLimitError,
-  } = usePlanStore();
-  const { currencies } = useCurrencyStore();
+  const createPlan = usePlanSlice((s) => s.createPlan);
+  const updatePlan = usePlanSlice((s) => s.updatePlan);
+  const loading = usePlanSlice((s) => s.loading);
+  const error = usePlanSlice((s) => s.error);
+  const clearError = usePlanSlice((s) => s.clearError);
+  const tierLimitError = usePlanSlice((s) => s.tierLimitError);
+  const clearTierLimitError = usePlanSlice((s) => s.clearTierLimitError);
+  const currencies = useCurrencySlice((s) => s.items);
   const activeBranches = useActiveBranches();
-  const currentTier = useSubscriptionStore((s) => s.currentTier);
-  const usage = useSubscriptionStore((s) => s.usage);
+  const currentTier = useSubscriptionSlice((s) => s.currentTier);
+  const usage = useSubscriptionSlice((s) => s.usage);
   const multiMonthAllowed = currentTier?.multiMonthPlansEnabled ?? true;
 
   // For NEW plans: branch-scoped admin's plans default to their branch;
@@ -108,7 +107,7 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
     } else {
       await createPlan(data, user.tenantId, currentTier, usage);
     }
-    const { error: nextError, tierLimitError: nextTierLimit } = usePlanStore.getState();
+    const { error: nextError, tierLimitError: nextTierLimit } = getStore().getState().plans;
     if (!nextError && !nextTierLimit) onDismiss();
   }
 

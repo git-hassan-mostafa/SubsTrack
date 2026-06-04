@@ -19,13 +19,13 @@ import {
 } from "@/src/shared/components/ActionMenu";
 import { useDebounce } from "@/src/shared/hooks/useDebounce";
 import { COLORS } from "@/src/shared/constants";
-import { useGraceDays, useSubscriptionStore } from "@/src/modules/subscription/store/subscriptionStore";
+import { useGraceDays, useSubscriptionSlice } from "@/src/state/hooks/useSubscriptionSlice";
 import type { Customer } from "@/src/core/types";
 import { CustomerCard } from "../components/CustomerCard";
 import { CustomerFormSheet } from "../components/CustomerFormSheet";
-import { useCustomerStore } from "../store/customerStore";
-import { usePaymentStore } from "../../customer-payments/store/paymentStore";
-import { useCurrencyStore } from "../../currencies/store/currencyStore";
+import { useCustomerSlice } from "@/src/state/hooks/useCustomerSlice";
+import { usePaymentSlice } from "@/src/state/hooks/usePaymentSlice";
+import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useAuth } from "../../auth/hooks/useAuth";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import {
@@ -48,30 +48,26 @@ export function CustomerListScreen() {
   const router = useRouter();
   const { user, isAdmin } = useAuth();
   const graceDays = useGraceDays();
-  const currentTier = useSubscriptionStore((s) => s.currentTier);
-  const {
-    customers,
-    totalCount,
-    loading,
-    loadingMore,
-    error,
-    fetchCustomers,
-    fetchMoreCustomers,
-    setSearchQuery,
-    clearError,
-    deactivateCustomer,
-    reactivateCustomer,
-    deleteCustomer,
-  } = useCustomerStore();
-  const {
-    currentMonthPaidIds,
-    fetchCurrentMonthPaidIds,
-    createPayment,
-    createMultiMonthPayment,
-    error: paymentError,
-    clearError: clearPaymentError,
-  } = usePaymentStore();
-  const { currencies } = useCurrencyStore();
+  const currentTier = useSubscriptionSlice((s) => s.currentTier);
+  const customers = useCustomerSlice((s) => s.items);
+  const totalCount = useCustomerSlice((s) => s.totalCount);
+  const loading = useCustomerSlice((s) => s.loading);
+  const loadingMore = useCustomerSlice((s) => s.loadingMore);
+  const error = useCustomerSlice((s) => s.error);
+  const fetchCustomers = useCustomerSlice((s) => s.fetchCustomers);
+  const fetchMoreCustomers = useCustomerSlice((s) => s.fetchMoreCustomers);
+  const setSearchQuery = useCustomerSlice((s) => s.setSearchQuery);
+  const clearError = useCustomerSlice((s) => s.clearError);
+  const deactivateCustomer = useCustomerSlice((s) => s.deactivateCustomer);
+  const reactivateCustomer = useCustomerSlice((s) => s.reactivateCustomer);
+  const deleteCustomer = useCustomerSlice((s) => s.deleteCustomer);
+  const currentMonthPaidIds = usePaymentSlice((s) => s.currentMonthPaidIds);
+  const fetchCurrentMonthPaidIds = usePaymentSlice((s) => s.fetchCurrentMonthPaidIds);
+  const createPayment = usePaymentSlice((s) => s.createPayment);
+  const createMultiMonthPayment = usePaymentSlice((s) => s.createMultiMonthPayment);
+  const paymentError = usePaymentSlice((s) => s.error);
+  const clearPaymentError = usePaymentSlice((s) => s.clearError);
+  const currencies = useCurrencySlice((s) => s.items);
   const [formVisible, setFormVisible] = useState(false);
   const [searchText, setSearchText] = useState("");
   const [activeTab, setActiveTab] = useState<FilterTab>("active");

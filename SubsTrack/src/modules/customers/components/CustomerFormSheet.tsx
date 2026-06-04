@@ -13,12 +13,13 @@ import { Input } from "@/src/shared/components/Input";
 import type { Customer, Plan } from "@/src/core/types";
 import { getTodayDateString } from "@/src/core/utils/date";
 import { useAuth } from "@/src/modules/auth/hooks/useAuth";
-import { usePlanStore } from "@/src/modules/plans/store/planStore";
+import { usePlanSlice } from "@/src/state/hooks/usePlanSlice";
 import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
 import { BRANCH_FILTER_UNASSIGNED } from "@/src/core/constants";
-import { useCustomerStore } from "../store/customerStore";
+import { useCustomerSlice } from "@/src/state/hooks/useCustomerSlice";
+import { getStore } from "@/src/state/globalStore";
 import { useActiveBranches } from "../../branches/hooks/useActiveBranches";
-import { useSubscriptionStore } from "@/src/modules/subscription/store/subscriptionStore";
+import { useSubscriptionSlice } from "@/src/state/hooks/useSubscriptionSlice";
 import { UpgradePromptModal } from "@/src/modules/subscription/components/UpgradePromptModal";
 
 interface Props {
@@ -41,18 +42,17 @@ type FormState = {
 export function CustomerFormSheet({ customer, onDismiss }: Props) {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const {
-    createCustomer,
-    updateCustomer,
-    loading,
-    error,
-    clearError,
-    tierLimitError,
-    clearTierLimitError,
-  } = useCustomerStore();
-  const currentTier = useSubscriptionStore((s) => s.currentTier);
-  const usage = useSubscriptionStore((s) => s.usage);
-  const { plans, getPlans } = usePlanStore();
+  const createCustomer = useCustomerSlice((s) => s.createCustomer);
+  const updateCustomer = useCustomerSlice((s) => s.updateCustomer);
+  const loading = useCustomerSlice((s) => s.loading);
+  const error = useCustomerSlice((s) => s.error);
+  const clearError = useCustomerSlice((s) => s.clearError);
+  const tierLimitError = useCustomerSlice((s) => s.tierLimitError);
+  const clearTierLimitError = useCustomerSlice((s) => s.clearTierLimitError);
+  const currentTier = useSubscriptionSlice((s) => s.currentTier);
+  const usage = useSubscriptionSlice((s) => s.usage);
+  const plans = usePlanSlice((s) => s.items);
+  const getPlans = usePlanSlice((s) => s.getPlans);
   const { currentBranchId } = useUiPrefStore();
   const activeBranches = useActiveBranches();
 
@@ -114,7 +114,7 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
       await createCustomer(payload, user.tenantId, currentTier, usage);
     }
     const { error: nextError, tierLimitError: nextTierLimit } =
-      useCustomerStore.getState();
+      getStore().getState().customers;
     if (!nextError && !nextTierLimit) onDismiss();
   }
 

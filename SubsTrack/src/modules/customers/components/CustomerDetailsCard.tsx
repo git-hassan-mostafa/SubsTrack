@@ -10,8 +10,8 @@ import type { Customer } from "@/src/core/types";
 import { formatDate, getDateLocale } from "@/src/core/utils/date";
 import { COLORS } from "@/src/shared/constants";
 import { useAuth } from "@/src/modules/auth/hooks/useAuth";
-import { useBranchStore } from "@/src/modules/branches/store/branchStore";
-import { useCustomerStore } from "../store/customerStore";
+import { useBranchSlice } from "@/src/state/hooks/useBranchSlice";
+import { useCustomerSlice } from "@/src/state/hooks/useCustomerSlice";
 
 interface CustomerDetailsCardProps {
   customer: Customer;
@@ -24,10 +24,10 @@ export function CustomerDetailsCard({
 }: CustomerDetailsCardProps) {
   const { t, i18n } = useTranslation();
   const locale = getDateLocale(i18n.language);
-  const customerStore = useCustomerStore();
+  const customerStore = useCustomerSlice();
   const { isAdmin } = useAuth();
-  const branch = useBranchStore(
-    (state) => state.branches.find((b) => b.id === customer.branchId) ?? null,
+  const branch = useBranchSlice(
+    (state) => state.items.find((b) => b.id === customer.branchId) ?? null,
   );
 
   const [toggleConfirmVisible, setToggleConfirmVisible] = useState(false);

@@ -17,13 +17,14 @@ import {
 } from "@/src/core/utils/currency";
 import { COLORS } from "@/src/shared/constants";
 import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
-import { useGraceDays } from "@/src/modules/subscription/store/subscriptionStore";
+import { useGraceDays } from "@/src/state/hooks/useSubscriptionSlice";
 import { MonthGrid } from "./MonthGrid";
 import { PaymentDetailSheet } from "./PaymentDetailSheet";
 import { PaymentFormSheet } from "./PaymentFormSheet";
 import { VoidSheet } from "./VoidSheet";
-import { usePaymentStore } from "../store/paymentStore";
-import { useCurrencyStore } from "@/src/modules/currencies/store/currencyStore";
+import { usePaymentSlice } from "@/src/state/hooks/usePaymentSlice";
+import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
+import { getStore } from "@/src/state/globalStore";
 
 interface CustomerPaymentPanelProps {
   customer: Customer;
@@ -34,8 +35,8 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
   const locale = getDateLocale(i18n.language);
   const router = useRouter();
   const { quickPay } = useLocalSearchParams<{ quickPay?: string }>();
-  const paymentStore = usePaymentStore();
-  const { currencies } = useCurrencyStore();
+  const paymentStore = usePaymentSlice();
+  const currencies = useCurrencySlice((s) => s.items);
   const { displayCurrencyId } = useUiPrefStore();
   const displayCurrency = findCurrency(currencies, displayCurrencyId);
   const graceDays = useGraceDays();
@@ -115,7 +116,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
       year,
       graceDays,
     );
-    if (!usePaymentStore.getState().error) setDetailVisible(false);
+    if (!getStore().getState().payments.error) setDetailVisible(false);
   }
 
   const { year: cy, month: cm } = getCurrentYearMonth();
@@ -135,7 +136,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
   // Sum payments across mixed currencies in USD using each payment's frozen
   // snapshot rate (drift-free historical total), then format in the user's
   // display currency.
-  const collectedTotalUsd = paymentStore.payments
+  const collectedTotalUsd = paymentStore.items
     .filter((p) => !p.voidedAt && p.billingMonth.startsWith(String(year)))
     .reduce(
       (sum, p) =>

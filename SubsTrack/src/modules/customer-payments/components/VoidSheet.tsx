@@ -5,7 +5,8 @@ import { ConfirmDialog } from "@/src/shared/components/ConfirmDialog";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import type { Customer, MonthEntry } from "@/src/core/types";
 import { useAuth } from "@/src/modules/auth/hooks/useAuth";
-import { usePaymentStore } from "../store/paymentStore";
+import { usePaymentSlice } from "@/src/state/hooks/usePaymentSlice";
+import { getStore } from "@/src/state/globalStore";
 import { COLORS } from "@/src/shared/constants";
 import { getBlockRangeLabel } from "../utils/blockRangeLabel";
 
@@ -26,7 +27,9 @@ export function VoidSheet({
 }: Props) {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const { voidPayment, error, clearError } = usePaymentStore();
+  const voidPayment = usePaymentSlice((s) => s.voidPayment);
+  const error = usePaymentSlice((s) => s.error);
+  const clearError = usePaymentSlice((s) => s.clearError);
   const [reason, setReason] = useState("");
 
   async function handleConfirm() {
@@ -39,7 +42,7 @@ export function VoidSheet({
       year,
       graceDays,
     );
-    if (!usePaymentStore.getState().error) {
+    if (!getStore().getState().payments.error) {
       setReason("");
       onDismiss();
     }

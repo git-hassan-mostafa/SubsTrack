@@ -10,9 +10,10 @@ import { BranchPicker } from "@/src/shared/components/BranchPicker";
 import { ConfirmDialog } from "@/src/shared/components/ConfirmDialog";
 import type { AppUser } from "@/src/core/types";
 import { useAuth } from "@/src/modules/auth/hooks/useAuth";
-import { useUserStore } from "../store/userStore";
+import { useUserSlice } from "@/src/state/hooks/useUserSlice";
+import { getStore } from "@/src/state/globalStore";
 import { useActiveBranches } from "../../branches/hooks/useActiveBranches";
-import { useSubscriptionStore } from "@/src/modules/subscription/store/subscriptionStore";
+import { useSubscriptionSlice } from "@/src/state/hooks/useSubscriptionSlice";
 import { UpgradePromptModal } from "@/src/modules/subscription/components/UpgradePromptModal";
 
 interface Props {
@@ -33,21 +34,19 @@ type FormState = {
 export function UserFormSheet({ user: editUser, onDismiss }: Props) {
   const { t } = useTranslation();
   const { user: currentUser } = useAuth();
-  const {
-    createUser,
-    updateUser,
-    deactivateUser,
-    activateUser,
-    deleteUser,
-    loading,
-    error,
-    clearError,
-    tierLimitError,
-    clearTierLimitError,
-  } = useUserStore();
+  const createUser = useUserSlice((s) => s.createUser);
+  const updateUser = useUserSlice((s) => s.updateUser);
+  const deactivateUser = useUserSlice((s) => s.deactivateUser);
+  const activateUser = useUserSlice((s) => s.activateUser);
+  const deleteUser = useUserSlice((s) => s.deleteUser);
+  const loading = useUserSlice((s) => s.loading);
+  const error = useUserSlice((s) => s.error);
+  const clearError = useUserSlice((s) => s.clearError);
+  const tierLimitError = useUserSlice((s) => s.tierLimitError);
+  const clearTierLimitError = useUserSlice((s) => s.clearTierLimitError);
   const activeBranches = useActiveBranches();
-  const currentTier = useSubscriptionStore((s) => s.currentTier);
-  const usage = useSubscriptionStore((s) => s.usage);
+  const currentTier = useSubscriptionSlice((s) => s.currentTier);
+  const usage = useSubscriptionSlice((s) => s.usage);
 
   // For new users: branch-scoped admin → assign to their branch.
   // Tenant-wide admin → start unassigned and let them pick.
@@ -143,7 +142,7 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
         usage,
       );
     }
-    const { error: nextError, tierLimitError: nextTierLimit } = useUserStore.getState();
+    const { error: nextError, tierLimitError: nextTierLimit } = getStore().getState().users;
     if (!nextError && !nextTierLimit) onDismiss();
   }
 
@@ -311,7 +310,7 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
                     editUser.role,
                   );
                 }
-                if (!useUserStore.getState().error) onDismiss();
+                if (!getStore().getState().users.error) onDismiss();
               }}
               className={`mt-3 rounded-xl py-3.5 items-center mb-3 border ${
                 editUser.active

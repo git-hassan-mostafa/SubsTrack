@@ -12,8 +12,8 @@ import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { getDateLocale } from "@/src/core/utils/date";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { useAuth } from "@/src/modules/auth/hooks/useAuth";
-import { useDashboardStore } from "../store/dashboardStore";
-import { useCurrencyStore } from "@/src/modules/currencies/store/currencyStore";
+import { useDashboardSlice } from "@/src/state/hooks/useDashboardSlice";
+import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
 import { BranchSelector } from "@/src/shared/components/BranchSelector";
 import { useEffectiveBranchFilter } from "@/src/shared/lib/branchFilter";
@@ -23,9 +23,12 @@ import { MONTHS } from "@/src/core/constants";
 export function DashboardScreen() {
   const { t, i18n } = useTranslation();
   const { user } = useAuth();
-  const { metrics, loading, error, fetchMetrics, clearError } =
-    useDashboardStore();
-  const { currencies } = useCurrencyStore();
+  const metrics = useDashboardSlice((s) => s.metrics);
+  const loading = useDashboardSlice((s) => s.loading);
+  const error = useDashboardSlice((s) => s.error);
+  const fetchMetrics = useDashboardSlice((s) => s.fetchMetrics);
+  const clearError = useDashboardSlice((s) => s.clearError);
+  const currencies = useCurrencySlice((s) => s.items);
   const { displayCurrencyId } = useUiPrefStore();
   // Metrics are stored canonical-USD; format for the user's display preference.
   const displayCurrency = findCurrency(currencies, displayCurrencyId);

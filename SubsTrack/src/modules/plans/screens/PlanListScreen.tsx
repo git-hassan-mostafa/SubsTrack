@@ -20,7 +20,7 @@ import { useDebounce } from "@/src/shared/hooks/useDebounce";
 import type { Plan } from "@/src/core/types";
 import { PlanCard } from "../components/PlanCard";
 import { PlanFormSheet } from "../components/PlanFormSheet";
-import { usePlanStore } from "../store/planStore";
+import { usePlanSlice } from "@/src/state/hooks/usePlanSlice";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
 import { PageHeader } from "@/src/shared/components/PageHeader";
 import { useEffectiveBranchFilter } from "@/src/shared/lib/branchFilter";
@@ -28,14 +28,12 @@ import { useEffectiveBranchFilter } from "@/src/shared/lib/branchFilter";
 export function PlanListScreen() {
   const { t } = useTranslation();
   const router = useRouter();
-  const {
-    plans,
-    loading,
-    error,
-    fetchPlans,
-    deletePlan,
-    clearError,
-  } = usePlanStore();
+  const plans = usePlanSlice((s) => s.items);
+  const loading = usePlanSlice((s) => s.loading);
+  const error = usePlanSlice((s) => s.error);
+  const fetchPlans = usePlanSlice((s) => s.fetchPlans);
+  const deletePlan = usePlanSlice((s) => s.deletePlan);
+  const clearError = usePlanSlice((s) => s.clearError);
   const [formVisible, setFormVisible] = useState(false);
   const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
   const [deletingPlan, setDeletingPlan] = useState<Plan | null>(null);

@@ -7,25 +7,23 @@ import { Button } from "@/src/shared/components/Button";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { Input } from "@/src/shared/components/Input";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
-import { useSignupStore } from "../store/signupStore";
-import { useAuthStore } from "@/src/modules/auth/store/authStore";
+import { useSignupSlice } from "@/src/state/hooks/useSignupSlice";
+import { getStore } from "@/src/state/globalStore";
 
 export function SignupAccountScreen() {
   const { t } = useTranslation();
   const router = useRouter();
-  const {
-    tenantCode,
-    adminUserName,
-    adminFullName,
-    adminPassword,
-    confirmPassword,
-    error,
-    loading,
-    setAccount,
-    submit,
-    clearError,
-    reset,
-  } = useSignupStore();
+  const tenantCode = useSignupSlice((s) => s.tenantCode);
+  const adminUserName = useSignupSlice((s) => s.adminUserName);
+  const adminFullName = useSignupSlice((s) => s.adminFullName);
+  const adminPassword = useSignupSlice((s) => s.adminPassword);
+  const confirmPassword = useSignupSlice((s) => s.confirmPassword);
+  const error = useSignupSlice((s) => s.error);
+  const loading = useSignupSlice((s) => s.loading);
+  const setAccount = useSignupSlice((s) => s.setAccount);
+  const submit = useSignupSlice((s) => s.submit);
+  const clearError = useSignupSlice((s) => s.clearError);
+  const reset = useSignupSlice((s) => s.reset);
 
   const canSubmit =
     adminUserName.trim().length > 0 &&
@@ -40,16 +38,16 @@ export function SignupAccountScreen() {
     // Edge function succeeded — try to auto-login. If the JWT/profile lookup
     // races and login fails, fall back to the login screen with the workspace
     // code pre-filled rather than leaving the user staring at this form.
-    await useAuthStore
+    await getStore()
       .getState()
-      .login(credentials.username, credentials.tenantCode, credentials.password);
+      .auth.login(credentials.username, credentials.tenantCode, credentials.password);
 
-    const auth = useAuthStore.getState();
+    const auth = getStore().getState().auth;
     reset();
     if (!auth.user) {
       router.replace("/(auth)/login" as Href);
     }
-    // On success the root (app)/_layout reacts to authStore.user and routes
+    // On success the root (app)/_layout reacts to authSlice.user and routes
     // into the app — no explicit navigation needed here.
   }
 

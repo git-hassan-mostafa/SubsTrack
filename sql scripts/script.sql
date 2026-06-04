@@ -567,13 +567,32 @@ DROP POLICY IF EXISTS users_update  ON users;
 DO $$ BEGIN
 
     -- ── TENANTS ──────────────────────────────────────────────
-    -- App users can only read their own tenant row.
+    -- App users can read their own tenant row.
     IF NOT EXISTS (
         SELECT 1 FROM pg_policies
         WHERE tablename = 'tenants' AND policyname = 'tenants_select'
     ) THEN
         CREATE POLICY tenants_select ON tenants
             FOR SELECT USING (id = current_tenant_id());
+    END IF;
+
+    -- Admins and superadmins can update their own tenant (e.g. tier upgrades).
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE tablename = 'tenants' AND policyname = 'tenants_update'
+    ) THEN
+        CREATE POLICY tenants_update ON tenants
+            FOR UPDATE
+            USING (
+                id = current_tenant_id()
+                AND EXISTS (
+                    SELECT 1 FROM public.users u
+                    WHERE u.id = auth.uid()
+                      AND u.role IN ('admin', 'superadmin')
+                      AND u.active = true
+                )
+            )
+            WITH CHECK (id = current_tenant_id());
     END IF;
 
     -- ── TIER PLANS ───────────────────────────────────────────

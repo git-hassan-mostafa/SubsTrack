@@ -14,7 +14,7 @@ import {
   type SupportedLanguage,
 } from "@/src/core/i18n/languageStore";
 import { useAuth } from "@/src/modules/auth/hooks/useAuth";
-import { useAuthStore } from "@/src/modules/auth/store/authStore";
+import { useAuthSlice } from "@/src/state/hooks/useAuthSlice";
 import { resetAllDomainStores } from "@/src/shared/lib/storeReset";
 import { AVATAR_COLORS } from "../../../shared/constants";
 
@@ -81,7 +81,7 @@ export function SettingsScreen() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const { language, setLanguage } = useLanguageStore();
-  const { logout } = useAuthStore();
+  const logout = useAuthSlice((s) => s.logout);
   const avatarColor = user ? getAvatarColor(user.fullName) : COLORS.primary;
   const initials = user ? getInitials(user.fullName) : "?";
 

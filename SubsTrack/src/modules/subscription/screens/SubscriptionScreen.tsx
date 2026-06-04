@@ -8,8 +8,8 @@ import { ErrorBanner } from '@/src/shared/components/ErrorBanner';
 import { ConfirmDialog } from '@/src/shared/components/ConfirmDialog';
 import { LoadingScreen } from '@/src/shared/components/LoadingScreen';
 import { Text } from '@/src/shared/components/Text';
-import { useAuthStore } from '@/src/modules/auth/store/authStore';
-import { useSubscriptionStore } from '../store/subscriptionStore';
+import { useAuthSlice } from '@/src/state/hooks/useAuthSlice';
+import { useSubscriptionSlice } from '@/src/state/hooks/useSubscriptionSlice';
 import { tierService } from '../services/TierService';
 import { TierCard } from '../components/TierCard';
 import { UsageBar } from '../components/UsageBar';
@@ -18,11 +18,17 @@ import type { TierPlan, TierResource } from '@/src/core/types';
 export function SubscriptionScreen() {
   const { t } = useTranslation();
   const router = useRouter();
-  const user = useAuthStore((s) => s.user);
-  const setUserTier = useAuthStore((s) => s.setUserTier);
+  const user = useAuthSlice((s) => s.user);
+  const setUserTier = useAuthSlice((s) => s.setUserTier);
 
-  const { tiers, currentTier, usage, loading, upgrading, error, upgrade, clearError } =
-    useSubscriptionStore();
+  const tiers = useSubscriptionSlice((s) => s.tiers);
+  const currentTier = useSubscriptionSlice((s) => s.currentTier);
+  const usage = useSubscriptionSlice((s) => s.usage);
+  const loading = useSubscriptionSlice((s) => s.loading);
+  const upgrading = useSubscriptionSlice((s) => s.upgrading);
+  const error = useSubscriptionSlice((s) => s.error);
+  const upgrade = useSubscriptionSlice((s) => s.upgrade);
+  const clearError = useSubscriptionSlice((s) => s.clearError);
 
   const [pendingTier, setPendingTier] = useState<TierPlan | null>(null);
   const [downgradeBlockers, setDowngradeBlockers] = useState<

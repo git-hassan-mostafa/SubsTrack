@@ -1,6 +1,6 @@
 import { Branch } from "@/src/core/types";
 import { useEffect } from "react";
-import { useBranchStore } from "../store/branchStore";
+import { useBranchSlice } from "@/src/state/hooks/useBranchSlice";
 
 /**
  * Returns the tenant's active branches, ensuring they've been loaded.
@@ -13,8 +13,8 @@ import { useBranchStore } from "../store/branchStore";
  * the store is already populated.
  */
 export function useActiveBranches(): Branch[] {
-    const branches = useBranchStore((s) => s.branches);
-    const getBranches = useBranchStore((s) => s.getBranches);
+    const branches = useBranchSlice((s) => s.items);
+    const getBranches = useBranchSlice((s) => s.getBranches);
     useEffect(() => {
         getBranches();
         // eslint-disable-next-line react-hooks/exhaustive-deps

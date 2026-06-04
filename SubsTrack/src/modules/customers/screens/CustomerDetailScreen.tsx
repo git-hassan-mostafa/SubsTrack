@@ -15,7 +15,7 @@ import { getDateLocale } from "@/src/core/utils/date";
 import { CustomerPaymentPanel } from "@/src/modules/customer-payments/components/CustomerPaymentPanel";
 import { CustomerDetailsCard } from "../components/CustomerDetailsCard";
 import { CustomerFormSheet } from "../components/CustomerFormSheet";
-import { useCustomerStore } from "../store/customerStore";
+import { useCustomerSlice } from "@/src/state/hooks/useCustomerSlice";
 
 export function CustomerDetailScreen() {
   const { t, i18n } = useTranslation();
@@ -23,9 +23,9 @@ export function CustomerDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
 
-  const customerStore = useCustomerStore();
-  const customer = useCustomerStore(
-    (state) => state.customers.find((c) => c.id === id) ?? null,
+  const customerStore = useCustomerSlice();
+  const customer = useCustomerSlice(
+    (state) => state.items.find((c) => c.id === id) ?? null,
   );
 
   const [editVisible, setEditVisible] = useState(false);

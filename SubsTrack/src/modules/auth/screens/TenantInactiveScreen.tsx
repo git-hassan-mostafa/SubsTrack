@@ -3,12 +3,12 @@ import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
-import { useAuthStore } from "../store/authStore";
+import { useAuthSlice } from "@/src/state/hooks/useAuthSlice";
 import { resetAllDomainStores } from "@/src/shared/lib/storeReset";
 
 export function TenantInactiveScreen() {
   const { t } = useTranslation();
-  const logout = useAuthStore((s) => s.logout);
+  const logout = useAuthSlice((s) => s.logout);
 
   async function handleLogout() {
     await logout();

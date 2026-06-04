@@ -13,22 +13,20 @@ import {
   type ActionMenuItem,
 } from '@/src/shared/components/ActionMenu';
 import type { Currency } from '@/src/core/types';
-import { useCurrencyStore } from '../store/currencyStore';
+import { useCurrencySlice } from '@/src/state/hooks/useCurrencySlice';
 import { CurrencyCard, UsdBaseCard } from '../components/CurrencyCard';
 import { CurrencyFormSheet } from '../components/CurrencyFormSheet';
 
 export function CurrenciesScreen() {
   const { t } = useTranslation();
   const router = useRouter();
-  const {
-    currencies,
-    loading,
-    error,
-    fetchCurrencies,
-    deleteCurrency,
-    reactivateCurrency,
-    clearError,
-  } = useCurrencyStore();
+  const currencies = useCurrencySlice((s) => s.items);
+  const loading = useCurrencySlice((s) => s.loading);
+  const error = useCurrencySlice((s) => s.error);
+  const fetchCurrencies = useCurrencySlice((s) => s.fetchCurrencies);
+  const deleteCurrency = useCurrencySlice((s) => s.deleteCurrency);
+  const reactivateCurrency = useCurrencySlice((s) => s.reactivateCurrency);
+  const clearError = useCurrencySlice((s) => s.clearError);
 
   const [formVisible, setFormVisible] = useState(false);
   const [editing, setEditing] = useState<Currency | null>(null);

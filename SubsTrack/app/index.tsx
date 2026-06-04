@@ -1,9 +1,10 @@
 import { Redirect } from "expo-router";
-import { useAuthStore } from "@/src/modules/auth/store/authStore";
+import { useAuthSlice } from "@/src/state/hooks/useAuthSlice";
 import { LoadingScreen } from "@/src/shared/components/LoadingScreen";
 
 export default function RootIndex() {
-  const { user, loading } = useAuthStore();
+  const user = useAuthSlice((s) => s.user);
+  const loading = useAuthSlice((s) => s.loading);
 
   if (loading) return <LoadingScreen />;
 

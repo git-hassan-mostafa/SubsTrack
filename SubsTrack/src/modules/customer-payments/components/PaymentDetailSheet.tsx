@@ -12,7 +12,7 @@ import {
 } from "@/src/core/utils/currency";
 import { getBlockRangeLabel } from "../utils/blockRangeLabel";
 import { CurrencyInput } from "@/src/shared/components/CurrencyInput";
-import { useCurrencyStore } from "@/src/modules/currencies/store/currencyStore";
+import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
 import { useLanguageStore } from "@/src/core/i18n/languageStore";
 
@@ -37,7 +37,7 @@ export function PaymentDetailSheet({
 }: Props) {
   const { t, i18n } = useTranslation();
   const payment = entry?.payment;
-  const { currencies } = useCurrencyStore();
+  const currencies = useCurrencySlice((s) => s.items);
   const { displayCurrencyId } = useUiPrefStore();
   const { language } = useLanguageStore();
   const locale = language === "ar" ? "ar" : "en-US";

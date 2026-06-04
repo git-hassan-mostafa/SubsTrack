@@ -21,7 +21,7 @@ import type { AppUser } from "@/src/core/types";
 import { useAuth } from "@/src/modules/auth/hooks/useAuth";
 import { UserCard } from "../components/UserCard";
 import { UserFormSheet } from "../components/UserFormSheet";
-import { useUserStore } from "../store/userStore";
+import { useUserSlice } from "@/src/state/hooks/useUserSlice";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
 import { PageHeader } from "@/src/shared/components/PageHeader";
 import { useEffectiveBranchFilter } from "@/src/shared/lib/branchFilter";
@@ -30,16 +30,14 @@ export function UserListScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const { user: currentUser } = useAuth();
-  const {
-    users,
-    loading,
-    error,
-    fetchUsers,
-    clearError,
-    deactivateUser,
-    activateUser,
-    deleteUser,
-  } = useUserStore();
+  const users = useUserSlice((s) => s.items);
+  const loading = useUserSlice((s) => s.loading);
+  const error = useUserSlice((s) => s.error);
+  const fetchUsers = useUserSlice((s) => s.fetchUsers);
+  const clearError = useUserSlice((s) => s.clearError);
+  const deactivateUser = useUserSlice((s) => s.deactivateUser);
+  const activateUser = useUserSlice((s) => s.activateUser);
+  const deleteUser = useUserSlice((s) => s.deleteUser);
   const [formVisible, setFormVisible] = useState(false);
   const [editingUser, setEditingUser] = useState<AppUser | null>(null);
   const [menuUser, setMenuUser] = useState<AppUser | null>(null);
