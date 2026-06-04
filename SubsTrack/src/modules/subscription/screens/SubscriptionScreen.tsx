@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 import { PageHeader } from '@/src/shared/components/PageHeader';
 import { ErrorBanner } from '@/src/shared/components/ErrorBanner';
+import { confirm } from '@/src/shared/lib/confirm';
 import { ConfirmDialog } from '@/src/shared/components/ConfirmDialog';
 import { LoadingScreen } from '@/src/shared/components/LoadingScreen';
 import { Text } from '@/src/shared/components/Text';
@@ -48,10 +49,9 @@ export function SubscriptionScreen() {
     return tier.sortOrder > currentTier.sortOrder ? 'upgrade' : 'downgrade';
   }
 
-  function handleAction(tier: TierPlan) {
-    if (!currentTier) return;
+  async function handleAction(tier: TierPlan) {
+    if (!currentTier || !user) return;
     if (tier.sortOrder < currentTier.sortOrder) {
-      // Downgrade: precheck for blockers before confirming
       const result = tierService.canDowngradeTo(tier, usage);
       if (!result.ok) {
         setDowngradeBlockers(result.blockers);
@@ -59,25 +59,27 @@ export function SubscriptionScreen() {
         return;
       }
     }
-    setDowngradeBlockers([]);
-    setPendingTier(tier);
-  }
-
-  async function confirmSwap() {
-    if (!pendingTier || !user) return;
-    const tenant = await upgrade(user.tenantId, pendingTier.id);
+    const isDowngrade = tier.sortOrder < currentTier.sortOrder;
+    const ok = await confirm({
+      title: isDowngrade
+        ? t('subscription.confirm_downgrade_title', { name: tier.name })
+        : t('subscription.confirm_upgrade_title', { name: tier.name }),
+      message: isDowngrade
+        ? t('subscription.confirm_downgrade_body')
+        : t('subscription.confirm_upgrade_body'),
+      confirmLabel: isDowngrade
+        ? t('subscription.confirm_downgrade')
+        : t('subscription.confirm_upgrade'),
+    });
+    if (!ok) return;
+    const tenant = await upgrade(user.tenantId, tier.id);
     if (tenant.tier) setUserTier(tenant.tier);
-    setPendingTier(null);
-    setDowngradeBlockers([]);
   }
 
   function cancelSwap() {
     setPendingTier(null);
     setDowngradeBlockers([]);
   }
-
-  const isDowngrade =
-    pendingTier && currentTier ? pendingTier.sortOrder < currentTier.sortOrder : false;
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
@@ -117,25 +119,6 @@ export function SubscriptionScreen() {
           />
         ))}
       </ScrollView>
-
-      <ConfirmDialog
-        visible={!!pendingTier && downgradeBlockers.length === 0}
-        title={
-          isDowngrade
-            ? t('subscription.confirm_downgrade_title', { name: pendingTier?.name ?? '' })
-            : t('subscription.confirm_upgrade_title', { name: pendingTier?.name ?? '' })
-        }
-        message={
-          isDowngrade
-            ? t('subscription.confirm_downgrade_body')
-            : t('subscription.confirm_upgrade_body')
-        }
-        confirmLabel={
-          isDowngrade ? t('subscription.confirm_downgrade') : t('subscription.confirm_upgrade')
-        }
-        onConfirm={confirmSwap}
-        onCancel={cancelSwap}
-      />
 
       <ConfirmDialog
         visible={!!pendingTier && downgradeBlockers.length > 0}

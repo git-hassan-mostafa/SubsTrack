@@ -9,7 +9,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
 import { COLORS } from "@/src/shared/constants";
-import { ConfirmDialog } from "@/src/shared/components/ConfirmDialog";
+import { confirm } from "@/src/shared/lib/confirm";
 import { EmptyState } from "@/src/shared/components/EmptyState";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import {
@@ -36,7 +36,6 @@ export function PlanListScreen() {
   const clearError = usePlanSlice((s) => s.clearError);
   const [formVisible, setFormVisible] = useState(false);
   const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
-  const [deletingPlan, setDeletingPlan] = useState<Plan | null>(null);
   const [menuPlan, setMenuPlan] = useState<Plan | null>(null);
   const [searchText, setSearchText] = useState("");
   const debouncedSearch = useDebounce(searchText);
@@ -58,11 +57,16 @@ export function PlanListScreen() {
     setFormVisible(true);
   }
 
-  async function confirmDelete() {
-    if (!deletingPlan) return;
-    await deletePlan(deletingPlan.id);
+  async function handleDeletePlan(plan: Plan) {
+    const ok = await confirm({
+      title: t("plans.delete_title"),
+      message: t("plans.delete_message", { name: plan.name }),
+      confirmLabel: t("common.delete"),
+      destructive: true,
+    });
+    if (!ok) return;
+    await deletePlan(plan.id);
     setFormVisible(false);
-    setDeletingPlan(null);
   }
 
   function buildMenuActions(plan: Plan | null): ActionMenuItem[] {
@@ -79,7 +83,7 @@ export function PlanListScreen() {
         label: t("common.delete"),
         icon: "trash-outline",
         destructive: true,
-        onPress: () => setDeletingPlan(plan),
+        onPress: () => void handleDeletePlan(plan),
       },
     ];
   }
@@ -148,7 +152,7 @@ export function PlanListScreen() {
             setFormVisible(false);
             setEditingPlan(null);
           }}
-          onRequestDelete={setDeletingPlan}
+          onRequestDelete={(plan) => void handleDeletePlan(plan)}
         />
       )}
 
@@ -157,16 +161,6 @@ export function PlanListScreen() {
         title={menuPlan?.name}
         actions={buildMenuActions(menuPlan)}
         onDismiss={() => setMenuPlan(null)}
-      />
-
-      <ConfirmDialog
-        visible={!!deletingPlan}
-        title={t("plans.delete_title")}
-        message={t("plans.delete_message", { name: deletingPlan?.name ?? "" })}
-        confirmLabel={t("common.delete")}
-        destructive
-        onConfirm={confirmDelete}
-        onCancel={() => setDeletingPlan(null)}
       />
     </SafeAreaView>
   );

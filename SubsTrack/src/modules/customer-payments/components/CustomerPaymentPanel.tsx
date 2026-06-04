@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
 import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
-import { ConfirmDialog } from "@/src/shared/components/ConfirmDialog";
+import { confirm } from "@/src/shared/lib/confirm";
 import type { Customer, MonthEntry } from "@/src/core/types";
 import { getCurrentYearMonth, getDateLocale } from "@/src/core/utils/date";
 import {
@@ -46,7 +46,6 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
   const [detailVisible, setDetailVisible] = useState(false);
   const [formVisible, setFormVisible] = useState(false);
   const [voidVisible, setVoidVisible] = useState(false);
-  const [infoPopupMessage, setInfoPopupMessage] = useState<string | null>(null);
   const quickPayHandledRef = useRef(false);
 
   useEffect(() => {
@@ -75,7 +74,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
 
   function handleCellPress(entry: MonthEntry) {
     if (entry.status === "before_start") {
-      setInfoPopupMessage(t("payments.before_start_date"));
+      void confirm({ title: t("common.not_available"), message: t("payments.before_start_date"), confirmLabel: t("common.close"), hideCancel: true });
       return;
     }
 
@@ -83,7 +82,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
     const isFutureMonth =
       entry.year > cy || (entry.year === cy && entry.month > cm);
     if (!customer.active && isFutureMonth) {
-      setInfoPopupMessage(t("payments.inactive_future_blocked"));
+      void confirm({ title: t("common.not_available"), message: t("payments.inactive_future_blocked"), confirmLabel: t("common.close"), hideCancel: true });
       return;
     }
 
@@ -283,15 +282,6 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
           }}
         />
       )}
-      <ConfirmDialog
-        visible={infoPopupMessage !== null}
-        title={t("common.not_available")}
-        message={infoPopupMessage ?? ""}
-        confirmLabel={t("common.close")}
-        hideCancel
-        onConfirm={() => setInfoPopupMessage(null)}
-        onCancel={() => setInfoPopupMessage(null)}
-      />
     </>
   );
 }

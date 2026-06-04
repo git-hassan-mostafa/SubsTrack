@@ -7,7 +7,7 @@ import { COLORS } from '@/src/shared/constants';
 import { PageHeader } from '@/src/shared/components/PageHeader';
 import { ErrorBanner } from '@/src/shared/components/ErrorBanner';
 import { EmptyState } from '@/src/shared/components/EmptyState';
-import { ConfirmDialog } from '@/src/shared/components/ConfirmDialog';
+import { confirm } from '@/src/shared/lib/confirm';
 import {
   ActionMenu,
   type ActionMenuItem,
@@ -30,8 +30,6 @@ export function CurrenciesScreen() {
 
   const [formVisible, setFormVisible] = useState(false);
   const [editing, setEditing] = useState<Currency | null>(null);
-  const [deleting, setDeleting] = useState<Currency | null>(null);
-  const [deactivating, setDeactivating] = useState<Currency | null>(null);
   const [menuCurrency, setMenuCurrency] = useState<Currency | null>(null);
 
   useEffect(() => {
@@ -49,16 +47,25 @@ export function CurrenciesScreen() {
     setFormVisible(true);
   }
 
-  async function confirmDelete() {
-    if (!deleting) return;
-    await deleteCurrency(deleting.id);
-    setDeleting(null);
+  async function handleDeactivateCurrency(currency: Currency) {
+    const ok = await confirm({
+      title: t('tenant_settings.deactivate_title'),
+      message: t('tenant_settings.deactivate_message', { code: currency.code }),
+      destructive: true,
+    });
+    if (!ok) return;
+    await deleteCurrency(currency.id);
   }
 
-  async function confirmDeactivate() {
-    if (!deactivating) return;
-    await deleteCurrency(deactivating.id);
-    setDeactivating(null);
+  async function handleDeleteCurrency(currency: Currency) {
+    const ok = await confirm({
+      title: t('tenant_settings.delete_title'),
+      message: t('tenant_settings.delete_message', { code: currency.code }),
+      confirmLabel: t('common.delete'),
+      destructive: true,
+    });
+    if (!ok) return;
+    await deleteCurrency(currency.id);
   }
 
   function buildMenuActions(currency: Currency | null): ActionMenuItem[] {
@@ -77,7 +84,7 @@ export function CurrenciesScreen() {
         label: t('tenant_settings.deactivate'),
         icon: 'pause-circle-outline',
         destructive: true,
-        onPress: () => setDeactivating(currency),
+        onPress: () => void handleDeactivateCurrency(currency),
       });
     } else {
       items.push({
@@ -92,7 +99,7 @@ export function CurrenciesScreen() {
       label: t('common.delete'),
       icon: 'trash-outline',
       destructive: true,
-      onPress: () => setDeleting(currency),
+      onPress: () => void handleDeleteCurrency(currency),
     });
     return items;
   }
@@ -158,7 +165,7 @@ export function CurrenciesScreen() {
             setFormVisible(false);
             setEditing(null);
           }}
-          onRequestDelete={setDeleting}
+          onRequestDelete={(currency) => void handleDeleteCurrency(currency)}
         />
       )}
 
@@ -167,27 +174,6 @@ export function CurrenciesScreen() {
         title={menuCurrency?.code}
         actions={buildMenuActions(menuCurrency)}
         onDismiss={() => setMenuCurrency(null)}
-      />
-
-      <ConfirmDialog
-        visible={!!deleting}
-        title={t('tenant_settings.delete_title')}
-        message={t('tenant_settings.delete_message', { code: deleting?.code ?? '' })}
-        confirmLabel={t('common.delete')}
-        destructive
-        onConfirm={confirmDelete}
-        onCancel={() => setDeleting(null)}
-      />
-
-      <ConfirmDialog
-        visible={!!deactivating}
-        title={t('tenant_settings.deactivate_title')}
-        message={t('tenant_settings.deactivate_message', {
-          code: deactivating?.code ?? '',
-        })}
-        destructive
-        onConfirm={confirmDeactivate}
-        onCancel={() => setDeactivating(null)}
       />
     </SafeAreaView>
   );

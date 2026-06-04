@@ -12,7 +12,7 @@ import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { EmptyState } from "@/src/shared/components/EmptyState";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
-import { ConfirmDialog } from "@/src/shared/components/ConfirmDialog";
+import { confirm } from "@/src/shared/lib/confirm";
 import {
   ActionMenu,
   type ActionMenuItem,
@@ -74,18 +74,8 @@ export function CustomerListScreen() {
   const [quickPayCustomerId, setQuickPayCustomerId] = useState<string | null>(
     null,
   );
-  const [multiMonthConfirm, setMultiMonthConfirm] = useState<{
-    customer: Customer;
-    monthsLabel: string;
-    amountLabel: string;
-  } | null>(null);
   const [menuCustomer, setMenuCustomer] = useState<Customer | null>(null);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
-  const [deletingCustomer, setDeletingCustomer] = useState<Customer | null>(
-    null,
-  );
-  const [toggleActiveCustomer, setToggleActiveCustomer] =
-    useState<Customer | null>(null);
   const debouncedSearch = useDebounce(searchText);
   const branchFilter = useEffectiveBranchFilter();
 
@@ -159,6 +149,31 @@ export function CustomerListScreen() {
     }
   }
 
+  async function handleMultiMonthQuickPay(customer: Customer) {
+    if (!customer.plan || customer.plan.price === null || !user || !currentTier) return;
+    const { year, month } = getCurrentYearMonth();
+    const startMonth = toBillingMonth(year, month);
+    const planCurrency = findCurrency(currencies, customer.plan.currencyId);
+    const ok = await confirm({
+      title: t("payments.quick_pay.confirm_multi_month_title"),
+      message: t("payments.quick_pay.confirm_multi_month_message", {
+        amount: formatMoney(customer.plan.price, planCurrency, planCurrency, locale),
+        months: getBlockRangeLabel(startMonth, customer.plan.durationMonths, t),
+      }),
+      confirmLabel: t("payments.quick_pay.confirm"),
+    });
+    if (!ok) return;
+    setQuickPayCustomerId(customer.id);
+    try {
+      await createMultiMonthPayment(
+        startMonth, customer, customer.plan, planCurrency, customer.plan.price,
+        user.id, null, user.tenantId, false, year, graceDays, currentTier,
+      );
+    } finally {
+      setQuickPayCustomerId(null);
+    }
+  }
+
   function handleQuickPay(customer: Customer) {
     if (!customer.plan || customer.plan.isCustomPrice) {
       router.push({
@@ -168,57 +183,10 @@ export function CustomerListScreen() {
       return;
     }
     if (customer.plan.durationMonths > 1) {
-      if (customer.plan.price === null) return;
-      const { year, month } = getCurrentYearMonth();
-      const startMonth = toBillingMonth(year, month);
-      const planCurrency = findCurrency(currencies, customer.plan.currencyId);
-      setMultiMonthConfirm({
-        customer,
-        monthsLabel: getBlockRangeLabel(
-          startMonth,
-          customer.plan.durationMonths,
-          t,
-        ),
-        amountLabel: formatMoney(
-          customer.plan.price,
-          planCurrency,
-          planCurrency,
-          locale,
-        ),
-      });
+      void handleMultiMonthQuickPay(customer);
       return;
     }
     void recordSingleMonth(customer);
-  }
-
-  async function confirmMultiMonth() {
-    if (!multiMonthConfirm || !user) return;
-    const { customer } = multiMonthConfirm;
-    if (!customer.plan || customer.plan.price === null) return;
-    const { year, month } = getCurrentYearMonth();
-    const startMonth = toBillingMonth(year, month);
-    const planCurrency = findCurrency(currencies, customer.plan.currencyId);
-    setQuickPayCustomerId(customer.id);
-    try {
-      if (!currentTier) return;
-      await createMultiMonthPayment(
-        startMonth,
-        customer,
-        customer.plan,
-        planCurrency,
-        customer.plan.price,
-        user.id,
-        null,
-        user.tenantId,
-        false,
-        year,
-        graceDays,
-        currentTier,
-      );
-    } finally {
-      setQuickPayCustomerId(null);
-      setMultiMonthConfirm(null);
-    }
   }
 
   function shouldShowQuickPay(customer: Customer): boolean {
@@ -247,21 +215,31 @@ export function CustomerListScreen() {
     [currentMonthPaidIds, monthLabel, openDetail, openMenu, quickPayCustomerId],
   );
 
-  async function confirmToggleActive() {
-    if (!toggleActiveCustomer) return;
-    const { id, active } = toggleActiveCustomer;
-    if (active) {
-      await deactivateCustomer(id);
+  async function handleToggleActiveCustomer(customer: Customer) {
+    const ok = await confirm({
+      title: customer.active ? t("customers.deactivate_title") : t("customers.reactivate_title"),
+      message: customer.active
+        ? t("customers.deactivate_message", { name: customer.name })
+        : t("customers.reactivate_message", { name: customer.name }),
+      destructive: customer.active,
+    });
+    if (!ok) return;
+    if (customer.active) {
+      await deactivateCustomer(customer.id);
     } else {
-      await reactivateCustomer(id);
+      await reactivateCustomer(customer.id);
     }
-    setToggleActiveCustomer(null);
   }
 
-  async function confirmDeleteCustomer() {
-    if (!deletingCustomer) return;
-    await deleteCustomer(deletingCustomer.id);
-    setDeletingCustomer(null);
+  async function handleDeleteCustomer(customer: Customer) {
+    const ok = await confirm({
+      title: t("customers.delete_title"),
+      message: t("customers.delete_message", { name: customer.name }),
+      confirmLabel: t("common.delete"),
+      destructive: true,
+    });
+    if (!ok) return;
+    await deleteCustomer(customer.id);
   }
 
   function buildMenuActions(customer: Customer | null): ActionMenuItem[] {
@@ -289,14 +267,14 @@ export function CustomerListScreen() {
           : t("customers.activate"),
         icon: customer.active ? "pause-circle-outline" : "play-circle-outline",
         destructive: customer.active,
-        onPress: () => setToggleActiveCustomer(customer),
+        onPress: () => void handleToggleActiveCustomer(customer),
       });
       items.push({
         key: "delete",
         label: t("common.delete"),
         icon: "trash-outline",
         destructive: true,
-        onPress: () => setDeletingCustomer(customer),
+        onPress: () => void handleDeleteCustomer(customer),
       });
     }
     return items;
@@ -407,22 +385,6 @@ export function CustomerListScreen() {
         />
       )}
 
-      <ConfirmDialog
-        visible={multiMonthConfirm !== null}
-        title={t("payments.quick_pay.confirm_multi_month_title")}
-        message={
-          multiMonthConfirm
-            ? t("payments.quick_pay.confirm_multi_month_message", {
-                amount: multiMonthConfirm.amountLabel,
-                months: multiMonthConfirm.monthsLabel,
-              })
-            : ""
-        }
-        confirmLabel={t("payments.quick_pay.confirm")}
-        onConfirm={confirmMultiMonth}
-        onCancel={() => setMultiMonthConfirm(null)}
-      />
-
       <ActionMenu
         visible={menuCustomer !== null}
         title={menuCustomer?.name}
@@ -430,44 +392,6 @@ export function CustomerListScreen() {
         onDismiss={() => setMenuCustomer(null)}
       />
 
-      <ConfirmDialog
-        visible={deletingCustomer !== null}
-        title={t("customers.delete_title")}
-        message={
-          deletingCustomer
-            ? t("customers.delete_message", { name: deletingCustomer.name })
-            : ""
-        }
-        confirmLabel={t("common.delete")}
-        destructive
-        onConfirm={confirmDeleteCustomer}
-        onCancel={() => setDeletingCustomer(null)}
-      />
-
-      <ConfirmDialog
-        visible={toggleActiveCustomer !== null}
-        title={
-          toggleActiveCustomer
-            ? toggleActiveCustomer.active
-              ? t("customers.deactivate_title")
-              : t("customers.reactivate_title")
-            : ""
-        }
-        message={
-          toggleActiveCustomer
-            ? toggleActiveCustomer.active
-              ? t("customers.deactivate_message", {
-                  name: toggleActiveCustomer.name,
-                })
-              : t("customers.reactivate_message", {
-                  name: toggleActiveCustomer.name,
-                })
-            : ""
-        }
-        destructive={toggleActiveCustomer?.active ?? false}
-        onConfirm={confirmToggleActive}
-        onCancel={() => setToggleActiveCustomer(null)}
-      />
     </SafeAreaView>
   );
 }

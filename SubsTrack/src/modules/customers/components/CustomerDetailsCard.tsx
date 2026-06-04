@@ -1,11 +1,10 @@
-import { useState } from "react";
 import { View } from "react-native";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/src/shared/components/Text";
 import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
-import { ConfirmDialog } from "@/src/shared/components/ConfirmDialog";
+import { confirm } from "@/src/shared/lib/confirm";
 import type { Customer } from "@/src/core/types";
 import { formatDate, getDateLocale } from "@/src/core/utils/date";
 import { COLORS } from "@/src/shared/constants";
@@ -30,21 +29,30 @@ export function CustomerDetailsCard({
     (state) => state.items.find((b) => b.id === customer.branchId) ?? null,
   );
 
-  const [toggleConfirmVisible, setToggleConfirmVisible] = useState(false);
-  const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
-
-  async function handleToggleActiveConfirmed() {
+  async function handleToggleActive() {
+    const ok = await confirm({
+      title: customer.active ? t("customers.deactivate_title") : t("customers.reactivate_title"),
+      message: customer.active
+        ? t("customers.deactivate_message", { name: customer.name })
+        : t("customers.reactivate_message", { name: customer.name }),
+      destructive: customer.active,
+    });
+    if (!ok) return;
     if (customer.active) {
       await customerStore.deactivateCustomer(customer.id);
     } else {
       await customerStore.reactivateCustomer(customer.id);
     }
-    setToggleConfirmVisible(false);
   }
 
-  async function handleDeleteConfirmed() {
+  async function handleDelete() {
+    const ok = await confirm({
+      title: t("customers.delete_title"),
+      message: t("customers.delete_message", { name: customer.name }),
+      destructive: true,
+    });
+    if (!ok) return;
     const result = await customerStore.deleteCustomer(customer.id);
-    setDeleteConfirmVisible(false);
     if (result === "hard") {
       onDeleted?.();
     }
@@ -166,7 +174,7 @@ export function CustomerDetailsCard({
           ) : null}
 
           <PressableOpacity
-            onPress={() => isAdmin && setToggleConfirmVisible(true)}
+            onPress={() => isAdmin && void handleToggleActive()}
             className="flex-row items-center justify-between px-4 py-3.5 border-b border-gray-100"
           >
             <View className="flex-row items-center gap-3">
@@ -210,7 +218,7 @@ export function CustomerDetailsCard({
 
           {isAdmin && (
             <PressableOpacity
-              onPress={() => setDeleteConfirmVisible(true)}
+              onPress={() => void handleDelete()}
               className="flex-row items-center justify-between px-4 py-3.5"
             >
               <View className="flex-row items-center gap-3">
@@ -233,31 +241,6 @@ export function CustomerDetailsCard({
         </View>
       </View>
 
-      <ConfirmDialog
-        visible={toggleConfirmVisible}
-        title={
-          customer.active
-            ? t("customers.deactivate_title")
-            : t("customers.reactivate_title")
-        }
-        message={
-          customer.active
-            ? t("customers.deactivate_message", { name: customer.name })
-            : t("customers.reactivate_message", { name: customer.name })
-        }
-        destructive={customer.active}
-        onConfirm={handleToggleActiveConfirmed}
-        onCancel={() => setToggleConfirmVisible(false)}
-      />
-
-      <ConfirmDialog
-        visible={deleteConfirmVisible}
-        title={t("customers.delete_title")}
-        message={t("customers.delete_message", { name: customer.name })}
-        destructive
-        onConfirm={handleDeleteConfirmed}
-        onCancel={() => setDeleteConfirmVisible(false)}
-      />
     </>
   );
 }

@@ -11,7 +11,7 @@ import { useRouter } from "expo-router";
 import { COLORS } from "@/src/shared/constants";
 import { EmptyState } from "@/src/shared/components/EmptyState";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
-import { ConfirmDialog } from "@/src/shared/components/ConfirmDialog";
+import { confirm } from "@/src/shared/lib/confirm";
 import {
   ActionMenu,
   type ActionMenuItem,
@@ -41,10 +41,6 @@ export function UserListScreen() {
   const [formVisible, setFormVisible] = useState(false);
   const [editingUser, setEditingUser] = useState<AppUser | null>(null);
   const [menuUser, setMenuUser] = useState<AppUser | null>(null);
-  const [toggleActiveUser, setToggleActiveUser] = useState<AppUser | null>(
-    null,
-  );
-  const [deletingUser, setDeletingUser] = useState<AppUser | null>(null);
   const [searchText, setSearchText] = useState("");
   const debouncedSearch = useDebounce(searchText);
   const branchFilter = useEffectiveBranchFilter();
@@ -65,35 +61,33 @@ export function UserListScreen() {
     setFormVisible(true);
   }
 
-  async function confirmToggleActive() {
-    if (!toggleActiveUser || !currentUser) return;
-    if (toggleActiveUser.active) {
-      await deactivateUser(
-        toggleActiveUser.id,
-        currentUser.id,
-        currentUser.role,
-        toggleActiveUser.role,
-      );
+  async function handleToggleActiveUser(user: AppUser) {
+    if (!currentUser) return;
+    const ok = await confirm({
+      title: user.active ? t("users.deactivate") : t("users.activate"),
+      message: user.active
+        ? t("customers.deactivate_message", { name: user.fullName })
+        : t("customers.reactivate_message", { name: user.fullName }),
+      destructive: user.active,
+    });
+    if (!ok) return;
+    if (user.active) {
+      await deactivateUser(user.id, currentUser.id, currentUser.role, user.role);
     } else {
-      await activateUser(
-        toggleActiveUser.id,
-        currentUser.id,
-        currentUser.role,
-        toggleActiveUser.role,
-      );
+      await activateUser(user.id, currentUser.id, currentUser.role, user.role);
     }
-    setToggleActiveUser(null);
   }
 
-  async function confirmDelete() {
-    if (!deletingUser || !currentUser) return;
-    await deleteUser(
-      deletingUser.id,
-      currentUser.id,
-      currentUser.role,
-      deletingUser.role,
-    );
-    setDeletingUser(null);
+  async function handleDeleteUser(user: AppUser) {
+    if (!currentUser) return;
+    const ok = await confirm({
+      title: t("users.delete_title"),
+      message: t("users.delete_message", { name: user.fullName }),
+      confirmLabel: t("common.delete"),
+      destructive: true,
+    });
+    if (!ok) return;
+    await deleteUser(user.id, currentUser.id, currentUser.role, user.role);
   }
 
   function buildMenuActions(user: AppUser | null): ActionMenuItem[] {
@@ -117,14 +111,14 @@ export function UserListScreen() {
         label: user.active ? t("users.deactivate") : t("users.activate"),
         icon: user.active ? "pause-circle-outline" : "play-circle-outline",
         destructive: user.active,
-        onPress: () => setToggleActiveUser(user),
+        onPress: () => void handleToggleActiveUser(user),
       });
       items.push({
         key: "delete",
         label: t("common.delete"),
         icon: "trash-outline",
         destructive: true,
-        onPress: () => setDeletingUser(user),
+        onPress: () => void handleDeleteUser(user),
       });
     }
     return items;
@@ -214,44 +208,6 @@ export function UserListScreen() {
         onDismiss={() => setMenuUser(null)}
       />
 
-      <ConfirmDialog
-        visible={toggleActiveUser !== null}
-        title={
-          toggleActiveUser
-            ? toggleActiveUser.active
-              ? t("users.deactivate")
-              : t("users.activate")
-            : ""
-        }
-        message={
-          toggleActiveUser
-            ? toggleActiveUser.active
-              ? t("customers.deactivate_message", {
-                  name: toggleActiveUser.fullName,
-                })
-              : t("customers.reactivate_message", {
-                  name: toggleActiveUser.fullName,
-                })
-            : ""
-        }
-        destructive={toggleActiveUser?.active ?? false}
-        onConfirm={confirmToggleActive}
-        onCancel={() => setToggleActiveUser(null)}
-      />
-
-      <ConfirmDialog
-        visible={deletingUser !== null}
-        title={t("users.delete_title")}
-        message={
-          deletingUser
-            ? t("users.delete_message", { name: deletingUser.fullName })
-            : ""
-        }
-        confirmLabel={t("common.delete")}
-        destructive
-        onConfirm={confirmDelete}
-        onCancel={() => setDeletingUser(null)}
-      />
     </SafeAreaView>
   );
 }

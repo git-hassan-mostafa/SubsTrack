@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { ScrollView, View } from "react-native";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
@@ -7,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
 import { COLORS } from "@/src/shared/constants";
-import { ConfirmDialog } from "@/src/shared/components/ConfirmDialog";
+import { confirm } from "@/src/shared/lib/confirm";
 import {
   useLanguageStore,
   SUPPORTED_LANGUAGES,
@@ -85,24 +84,27 @@ export function SettingsScreen() {
   const avatarColor = user ? getAvatarColor(user.fullName) : COLORS.primary;
   const initials = user ? getInitials(user.fullName) : "?";
 
-  const [logoutConfirmVisible, setLogoutConfirmVisible] = useState(false);
-  const [pendingLanguage, setPendingLanguage] =
-    useState<SupportedLanguage | null>(null);
-
-  function handleLanguageSelect(lang: SupportedLanguage) {
+  async function handleLanguageSelect(lang: SupportedLanguage) {
     if (lang === language) return;
-    setPendingLanguage(lang);
+    const ok = await confirm({
+      title: t("settings.language_section"),
+      message: t("settings.restart_notice"),
+      confirmLabel: t("common.confirm"),
+    });
+    if (!ok) return;
+    setLanguage(lang);
   }
 
-  function handleLanguageConfirm() {
-    if (pendingLanguage) setLanguage(pendingLanguage);
-    setPendingLanguage(null);
-  }
-
-  async function handleLogout() {
+  async function handleLogoutPress() {
+    const ok = await confirm({
+      title: t("settings.logout"),
+      message: t("settings.logout_confirm"),
+      confirmLabel: t("settings.logout"),
+      destructive: true,
+    });
+    if (!ok) return;
     await logout();
     resetAllDomainStores();
-    setLogoutConfirmVisible(false);
   }
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
@@ -153,7 +155,7 @@ export function SettingsScreen() {
             {SUPPORTED_LANGUAGES.map((lang, index) => (
               <PressableOpacity
                 key={lang}
-                onPress={() => handleLanguageSelect(lang)}
+                onPress={() => void handleLanguageSelect(lang)}
                 className={`flex-row items-center justify-between px-4 py-3.5 ${index < SUPPORTED_LANGUAGES.length - 1 ? "border-b border-gray-100" : ""}`}
               >
                 <View className="flex-row items-center gap-3">
@@ -220,31 +222,13 @@ export function SettingsScreen() {
               icon="log-out-outline"
               label={t("settings.logout")}
               last
-              onPress={() => setLogoutConfirmVisible(true)}
+              onPress={() => void handleLogoutPress()}
               destructive
             />
           </View>
         </View>
       </ScrollView>
 
-      <ConfirmDialog
-        visible={logoutConfirmVisible}
-        title={t("settings.logout")}
-        message={t("settings.logout_confirm")}
-        confirmLabel={t("settings.logout")}
-        destructive
-        onConfirm={handleLogout}
-        onCancel={() => setLogoutConfirmVisible(false)}
-      />
-
-      <ConfirmDialog
-        visible={pendingLanguage !== null}
-        title={t("settings.language_section")}
-        message={t("settings.restart_notice")}
-        confirmLabel={t("common.confirm")}
-        onConfirm={handleLanguageConfirm}
-        onCancel={() => setPendingLanguage(null)}
-      />
     </SafeAreaView>
   );
 }

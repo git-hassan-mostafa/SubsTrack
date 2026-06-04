@@ -7,7 +7,7 @@ import { COLORS } from '@/src/shared/constants';
 import { PageHeader } from '@/src/shared/components/PageHeader';
 import { ErrorBanner } from '@/src/shared/components/ErrorBanner';
 import { EmptyState } from '@/src/shared/components/EmptyState';
-import { ConfirmDialog } from '@/src/shared/components/ConfirmDialog';
+import { confirm } from '@/src/shared/lib/confirm';
 import {
   ActionMenu,
   type ActionMenuItem,
@@ -30,8 +30,6 @@ export function BranchesScreen() {
 
   const [formVisible, setFormVisible] = useState(false);
   const [editing, setEditing] = useState<Branch | null>(null);
-  const [deleting, setDeleting] = useState<Branch | null>(null);
-  const [deactivating, setDeactivating] = useState<Branch | null>(null);
   const [menuBranch, setMenuBranch] = useState<Branch | null>(null);
 
   useEffect(() => {
@@ -49,16 +47,25 @@ export function BranchesScreen() {
     setFormVisible(true);
   }
 
-  async function confirmDelete() {
-    if (!deleting) return;
-    await deleteBranch(deleting.id);
-    setDeleting(null);
+  async function handleDeactivateBranch(branch: Branch) {
+    const ok = await confirm({
+      title: t('branches.deactivate_title'),
+      message: t('branches.deactivate_message', { name: branch.name }),
+      destructive: true,
+    });
+    if (!ok) return;
+    await deleteBranch(branch.id);
   }
 
-  async function confirmDeactivate() {
-    if (!deactivating) return;
-    await deleteBranch(deactivating.id);
-    setDeactivating(null);
+  async function handleDeleteBranch(branch: Branch) {
+    const ok = await confirm({
+      title: t('branches.delete_title'),
+      message: t('branches.delete_message', { name: branch.name }),
+      confirmLabel: t('common.delete'),
+      destructive: true,
+    });
+    if (!ok) return;
+    await deleteBranch(branch.id);
   }
 
   function buildMenuActions(branch: Branch | null): ActionMenuItem[] {
@@ -77,7 +84,7 @@ export function BranchesScreen() {
         label: t('branches.deactivate'),
         icon: 'pause-circle-outline',
         destructive: true,
-        onPress: () => setDeactivating(branch),
+        onPress: () => void handleDeactivateBranch(branch),
       });
     } else {
       items.push({
@@ -92,7 +99,7 @@ export function BranchesScreen() {
       label: t('common.delete'),
       icon: 'trash-outline',
       destructive: true,
-      onPress: () => setDeleting(branch),
+      onPress: () => void handleDeleteBranch(branch),
     });
     return items;
   }
@@ -153,7 +160,7 @@ export function BranchesScreen() {
             setFormVisible(false);
             setEditing(null);
           }}
-          onRequestDelete={setDeleting}
+          onRequestDelete={(branch) => void handleDeleteBranch(branch)}
         />
       )}
 
@@ -162,27 +169,6 @@ export function BranchesScreen() {
         title={menuBranch?.name}
         actions={buildMenuActions(menuBranch)}
         onDismiss={() => setMenuBranch(null)}
-      />
-
-      <ConfirmDialog
-        visible={!!deleting}
-        title={t('branches.delete_title')}
-        message={t('branches.delete_message', { name: deleting?.name ?? '' })}
-        confirmLabel={t('common.delete')}
-        destructive
-        onConfirm={confirmDelete}
-        onCancel={() => setDeleting(null)}
-      />
-
-      <ConfirmDialog
-        visible={!!deactivating}
-        title={t('branches.deactivate_title')}
-        message={t('branches.deactivate_message', {
-          name: deactivating?.name ?? '',
-        })}
-        destructive
-        onConfirm={confirmDeactivate}
-        onCancel={() => setDeactivating(null)}
       />
     </SafeAreaView>
   );

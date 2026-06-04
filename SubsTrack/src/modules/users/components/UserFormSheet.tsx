@@ -7,7 +7,7 @@ import { Button } from "@/src/shared/components/Button";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { Input } from "@/src/shared/components/Input";
 import { BranchPicker } from "@/src/shared/components/BranchPicker";
-import { ConfirmDialog } from "@/src/shared/components/ConfirmDialog";
+import { confirm } from "@/src/shared/lib/confirm";
 import type { AppUser } from "@/src/core/types";
 import { useAuth } from "@/src/modules/auth/hooks/useAuth";
 import { useUserSlice } from "@/src/state/hooks/useUserSlice";
@@ -62,8 +62,6 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
     return null;
   })();
 
-  const [deleteConfirmVisible, setDeleteConfirmVisible] = useState(false);
-
   const [form, setForm] = useState<FormState>({
     username: editUser?.username ?? "",
     fullName: editUser?.fullName ?? "",
@@ -84,15 +82,15 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
 
   const canDelete = canToggleActive;
 
-  async function handleDelete() {
+  async function handleDeletePress() {
     if (!editUser || !currentUser) return;
-    const result = await deleteUser(
-      editUser.id,
-      currentUser.id,
-      currentUser.role,
-      editUser.role,
-    );
-    setDeleteConfirmVisible(false);
+    const ok = await confirm({
+      title: t("users.delete_title"),
+      message: t("users.delete_message", { name: editUser.fullName }),
+      destructive: true,
+    });
+    if (!ok) return;
+    const result = await deleteUser(editUser.id, currentUser.id, currentUser.role, editUser.role);
     if (result !== null) onDismiss();
   }
 
@@ -331,7 +329,7 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
 
           {canDelete && editUser ? (
             <PressableOpacity
-              onPress={() => setDeleteConfirmVisible(true)}
+              onPress={() => void handleDeletePress()}
               className="rounded-xl py-3.5 items-center mb-6 border bg-red-50 border-red-200"
             >
               <Text fontWeight="SemiBold" className="text-base text-red-600">
@@ -344,14 +342,6 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
         </ScrollView>
       </View>
 
-      <ConfirmDialog
-        visible={deleteConfirmVisible}
-        title={t("users.delete_title")}
-        message={t("users.delete_message", { name: editUser?.fullName ?? "" })}
-        destructive
-        onConfirm={handleDelete}
-        onCancel={() => setDeleteConfirmVisible(false)}
-      />
       <UpgradePromptModal
         payload={tierLimitError}
         onClose={() => {

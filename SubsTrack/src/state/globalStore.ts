@@ -11,6 +11,7 @@ import { createDashboardSlice, type DashboardSlice } from './slices/dashboard/da
 import { createBranchSlice, type BranchSlice } from './slices/branches/branchSlice';
 import { createCurrencySlice, type CurrencySlice } from './slices/currencies/currencySlice';
 import { createSignupSlice, type SignupSlice } from './slices/signup/signupSlice';
+import { createConfirmSlice, type ConfirmSlice } from './slices/confirm/confirmSlice';
 
 export interface GlobalState {
   auth: AuthSlice;
@@ -23,6 +24,7 @@ export interface GlobalState {
   branches: BranchSlice;
   currencies: CurrencySlice;
   signup: SignupSlice;
+  confirm: ConfirmSlice;
 }
 
 const STORE_KEY = '__SUBSTRACK_GLOBAL_STORE__';
@@ -40,6 +42,7 @@ const initStore = (): StoreApi<GlobalState> =>
       branches: createBranchSlice(set, get, store),
       currencies: createCurrencySlice(set, get, store),
       signup: createSignupSlice(set, get, store),
+      confirm: createConfirmSlice(set, get, store),
     })),
   );
 
