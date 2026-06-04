@@ -225,8 +225,10 @@ export class PaymentService {
     return mapDbPaymentToPayment(row);
   }
 
-  async findPaidCustomerIdsForMonth(billingMonth: string): Promise<Set<string>> {
-    return this.repository.findPaidCustomerIdsForMonth(billingMonth);
+  async findPaymentStatusForMonth(
+    billingMonth: string,
+  ): Promise<{ fullyPaidIds: Set<string>; partialIds: Set<string> }> {
+    return this.repository.findPaymentStatusForMonth(billingMonth);
   }
 
   // THE single source of truth for month status logic. No other file may reimplement this.
@@ -279,7 +281,7 @@ export class PaymentService {
 
       let status: MonthStatus;
       if (isEffectivelyPaid) {
-        status = "paid";
+        status = payment!.balance > 0 ? "partial" : "paid";
       } else if (year > cy || (year === cy && month > cm)) {
         status = "future";
       } else {

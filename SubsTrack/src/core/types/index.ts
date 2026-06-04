@@ -1,7 +1,7 @@
 // Domain models — camelCase. Used by all layers except repositories (which use db.ts).
 
 export type UserRole = 'superadmin' | 'admin' | 'user';
-export type MonthStatus = 'paid' | 'unpaid' | 'future' | 'before_start';
+export type MonthStatus = 'paid' | 'partial' | 'unpaid' | 'future' | 'before_start';
 
 export interface Tenant {
   id: string;

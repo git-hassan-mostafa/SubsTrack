@@ -88,7 +88,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
 
     setSelectedEntry(entry);
 
-    if (entry.status === "paid" && entry.payment) {
+    if ((entry.status === "paid" || entry.status === "partial") && entry.payment) {
       // Both primary and secondary grouped months open the same detail sheet.
       setDetailVisible(true);
     } else {
@@ -126,8 +126,11 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
     customer.isRegular && currentMonthEntry?.status === "unpaid" && year === cy;
   const daysIntoMonth = new Date().getDate();
 
+  // Partial months count toward "paid" in the year summary — a payment exists,
+  // even if the balance isn't fully settled. The partial signal is conveyed by
+  // the amber cell in the grid itself.
   const paidCount = paymentStore.monthGrid.filter(
-    (m) => m.status === "paid",
+    (m) => m.status === "paid" || m.status === "partial",
   ).length;
   const unpaidCount = paymentStore.monthGrid.filter(
     (m) => m.status === "unpaid",

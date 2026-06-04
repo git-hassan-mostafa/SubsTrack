@@ -332,7 +332,7 @@ Database (Supabase)
 
 ```typescript
 type UserRole = "superadmin" | "admin" | "user";
-type MonthStatus = "paid" | "unpaid" | "future" | "before_start";
+type MonthStatus = "paid" | "partial" | "unpaid" | "future" | "before_start";
 
 interface AuthUser {
   id;
@@ -604,18 +604,20 @@ app/(app)/_layout.tsx
 
 ```
 Status algorithm per month:
-1. month < customer.startDate          → "before_start" (gray, non-tappable)
-2. payment exists AND voidedAt === null → "paid" (green for regular, yellow for non-regular)
-3. month is in the future              → "future" (gray)
-4. now ≤ first-of-month + graceDays    → "future" (gray, within grace window)
-5. otherwise                           → "unpaid" (red for regular, light gray for non-regular)
+1. month < customer.startDate                              → "before_start" (gray, non-tappable)
+2. payment exists, voidedAt === null, balance === 0        → "paid" (green for regular, yellow for non-regular)
+3. payment exists, voidedAt === null, balance > 0          → "partial" (amber for both regular + non-regular)
+4. month is in the future                                  → "future" (gray)
+5. now ≤ first-of-month + graceDays                        → "future" (gray, within grace window)
+6. otherwise                                               → "unpaid" (red for regular, light gray for non-regular)
 ```
 
 - Months are **never stored in DB** — generated dynamically from the payment list for a given year.
 - Voided payments are invisible to the grid (treated as non-existent).
 - `graceDays` comes from the tenant's current `TierPlan` (the `subscription` module fetches it during the auth flow). The `useGraceDays()` selector hook from `subscriptionStore` is the single read site for components.
-- Multi-month payments build a **coverage map**: each payment with `durationMonths > 1` covers consecutive months. Months 2+ in a block have `isGroupSecondary = true` and display "Included" instead of "Paid".
-- `customer.isRegular` controls grid cell colors and unpaid banner visibility.
+- Multi-month payments build a **coverage map**: each payment with `durationMonths > 1` covers consecutive months. Months 2+ in a block have `isGroupSecondary = true` and display "Included" instead of "Paid". A partial bundle shows every covered month as `"partial"`.
+- `customer.isRegular` controls grid cell colors and unpaid banner visibility. The `"partial"` status uses amber for both regular and non-regular customers — a balance is owed either way.
+- A `"partial"` month behaves like `"paid"` everywhere a payment record matters: tapping opens `PaymentDetailSheet`, multi-month grouping (visual merging + chevrons) treats them as the same group, the year summary counts them toward `paidCount`, and `PaymentFormSheet`'s multi-month conflict detection treats them as conflicts. The unpaid banner / unpaid tab only fire for `"unpaid"`.
 
 ## Multi-Month Plans
 
@@ -962,6 +964,8 @@ Located at `SubsTrack/supabase/functions/create-user/index.ts` (Deno runtime).
 32. **Branch is mandatory for customers, plans, and staff users once any branch exists** — `BranchPicker` is passed `nullable={false}` in `CustomerFormSheet`, `PlanFormSheet`, and (when `role === 'user'`) `UserFormSheet`. Submit buttons are disabled until a branch is picked, and the services re-validate (`CustomerService.validateInput`, `PlanService.validate`, `UserService.validateBranchAssignment`) using a `tenantHasBranches` flag that each store reads from `useBranchStore`. Tenant-wide admins (`users.role === 'admin'` with `branch_id = null`) remain the sole exception. The 0-branch case (legacy tenants with no branches yet) skips the enforcement entirely.
 
 33. **Self-service tenant signup goes through an Edge Function, never direct inserts** — the SubsTrack mobile app ships only the anon key, and there is no INSERT policy on `tenants`/`branches`/`tier_plans`. The public [create-tenant](SubsTrack/supabase/functions/create-tenant/index.ts) edge function (deployed with `--no-verify-jwt`) is the **sole** anon-accessible path for creating a tenant. It uses the service-role key to perform the full sequence with cascading rollback: lookup Free tier id → `tenants(tier_id=Free)` → `branches` ('Default Branch') → `auth.users` → `public.users` (role=`superadmin`, branch_id=null). The pre-check on the workspace screen uses [`is_tenant_code_available`](sql%20scripts/script.sql) — a SECURITY DEFINER RPC granted to `anon` that returns a boolean (no row data, just a yes/no oracle). Self-signup mirrors the role assignment SuperAdmin's `TenantService.createTenant` uses (`superadmin`), which means the new owner is filtered from their own Users screen per note #3 — same behavior as tenants created from SuperAdmin today. Future paid-plan gating plugs into this edge function (the `paymentToken` field is already accepted-but-ignored in the request body) and into `subscriptionStore.upgrade()`.
+
+34. **`partial` is a first-class `MonthStatus`** — when a payment covers a month and its `balance > 0` (amount_paid < amount_due), `PaymentService.buildMonthGrid` emits `status: "partial"` instead of `"paid"`. Amber cells in the grid replace the old paid-with-orange-dot rendering. Customer-list badges reflect the same: `paymentSlice` exposes **two** sets — `currentMonthFullyPaidIds` and `currentMonthPartialIds` — populated by `fetchCurrentMonthPaymentStatus()` (repository selects `balance` alongside `amount_paid`). Slice mutations (`createPayment`, `createMultiMonthPayment`, `updatePayment`, `voidPayment`) recompute set membership via the `applyPaymentStatus` / `clearPaymentStatus` helpers so editing a payment between full↔partial keeps the list badge correct. The unpaid tab + Quick Pay gating both treat membership in **either** set as "already has a payment record for this month." A `partial` month behaves like `paid` everywhere a payment record matters (`PaymentDetailSheet` opens on tap, `MonthGrid` multi-month grouping merges them, `PaymentFormSheet` treats them as multi-month conflicts, `CustomerPaymentPanel`'s `paidCount` includes them). The unpaid banner / unpaid tab only fire for `"unpaid"`.
 
 ---
 

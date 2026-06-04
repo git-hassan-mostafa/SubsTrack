@@ -9,7 +9,7 @@ import { AVATAR_COLORS, COLORS } from "../../../shared/constants";
 
 interface Props {
   customer: Customer;
-  isPaidThisMonth: boolean;
+  paymentStatus: "paid" | "partial" | "unpaid";
   monthLabel: string;
   onPress: (customer: Customer) => void;
   onMenu: (customer: Customer) => void;
@@ -28,7 +28,7 @@ function getInitials(name: string): string {
 
 export const CustomerCard = memo(function CustomerCard({
   customer,
-  isPaidThisMonth,
+  paymentStatus,
   monthLabel,
   onPress,
   onMenu,
@@ -85,10 +85,16 @@ export const CustomerCard = memo(function CustomerCard({
               {t("customers.non_regular")}
             </Text>
           </View>
-        ) : isPaidThisMonth ? (
+        ) : paymentStatus === "paid" ? (
           <View className="bg-green-50 rounded-lg px-2 py-0.5 mb-1">
             <Text className="text-xs font-semibold text-green-600">
               ✓ {t("common.paid")}
+            </Text>
+          </View>
+        ) : paymentStatus === "partial" ? (
+          <View className="bg-amber-50 rounded-lg px-2 py-0.5 mb-1">
+            <Text className="text-xs font-semibold text-amber-600">
+              {t("common.partial")}
             </Text>
           </View>
         ) : (

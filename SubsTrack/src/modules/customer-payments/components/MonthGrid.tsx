@@ -11,9 +11,12 @@ interface Props {
 // The grid always has 4 cells per row (Jan–Apr, May–Aug, Sep–Dec).
 const COLUMNS = 4;
 
-// Returns the payment ID if the month is paid, or null — used to detect which cells share the same multi-month payment.
+// Returns the payment ID if the month is settled by a payment (fully or partially),
+// or null — used to detect which cells share the same multi-month payment.
 function groupIdOf(entry: MonthEntry): string | null {
-  return entry.status === 'paid' && entry.payment ? entry.payment.id : null;
+  return (entry.status === 'paid' || entry.status === 'partial') && entry.payment
+    ? entry.payment.id
+    : null;
 }
 
 // Checks whether a payment that starts in currentYear extends at least into January of the next year.
@@ -55,12 +58,15 @@ export function MonthGrid({ months, onCellPress, isRegular }: Props) {
         const wrapToNext = sameGroupAsNext && atRowEnd;
 
         // Different years — January continuing a payment from December of the previous year.
-        const crossYearFromPrev = i === 0 && entry.status === 'paid' && entry.isGroupSecondary;
+        const crossYearFromPrev =
+          i === 0 &&
+          (entry.status === 'paid' || entry.status === 'partial') &&
+          entry.isGroupSecondary;
 
         // Different years — December whose payment spills into January of the next year.
         const crossYearToNext =
           i === months.length - 1 &&
-          entry.status === 'paid' &&
+          (entry.status === 'paid' || entry.status === 'partial') &&
           entry.payment != null &&
           paymentCoversNextYearJanuary(entry.payment, entry.year);
 

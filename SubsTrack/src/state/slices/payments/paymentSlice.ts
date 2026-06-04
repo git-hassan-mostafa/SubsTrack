@@ -26,14 +26,17 @@ interface CreatePaymentInput {
 export interface PaymentSlice {
   items: Payment[];
   monthGrid: MonthEntry[];
-  currentMonthPaidIds: Set<string>;
+  // Customers fully settled for the current month (payment exists, balance == 0).
+  currentMonthFullyPaidIds: Set<string>;
+  // Customers with a payment for the current month that still has outstanding balance.
+  currentMonthPartialIds: Set<string>;
   loading: boolean;
   loadingCreate: boolean;
   loadingVoid: boolean;
   loadingUpdate: boolean;
   error: string | null;
   tierLimitError: TierLimitErrorPayload | null;
-  fetchCurrentMonthPaidIds: () => Promise<void>;
+  fetchCurrentMonthPaymentStatus: () => Promise<void>;
   fetchPayments: (
     customerId: string,
     year: number,
@@ -90,7 +93,8 @@ export const createPaymentSlice: StateCreator<
 > = (set, get) => ({
   items: [],
   monthGrid: [],
-  currentMonthPaidIds: new Set(),
+  currentMonthFullyPaidIds: new Set(),
+  currentMonthPartialIds: new Set(),
   loading: false,
   loadingCreate: false,
   loadingVoid: false,
@@ -98,12 +102,13 @@ export const createPaymentSlice: StateCreator<
   error: null,
   tierLimitError: null,
 
-  fetchCurrentMonthPaidIds: async () => {
+  fetchCurrentMonthPaymentStatus: async () => {
     const { year, month } = getCurrentYearMonth();
     const billingMonth = toBillingMonth(year, month);
-    const ids = await paymentService.findPaidCustomerIdsForMonth(billingMonth);
+    const { fullyPaidIds, partialIds } = await paymentService.findPaymentStatusForMonth(billingMonth);
     set((state) => {
-      state.payments.currentMonthPaidIds = ids;
+      state.payments.currentMonthFullyPaidIds = fullyPaidIds;
+      state.payments.currentMonthPartialIds = partialIds;
     });
   },
 
@@ -142,15 +147,14 @@ export const createPaymentSlice: StateCreator<
       const [year] = data.billingMonth.split('-').map(Number);
       const items = [...get().payments.items, payment];
       const monthGrid = paymentService.buildMonthGrid(customer, items, year, graceDays);
+      const { year: cy, month: cm } = getCurrentYearMonth();
+      const isCurrentMonth = data.billingMonth === toBillingMonth(cy, cm);
       set((state) => {
         state.payments.items = items;
         state.payments.monthGrid = monthGrid;
         state.payments.loadingCreate = false;
-        if (payment.amountPaid > 0) {
-          state.payments.currentMonthPaidIds = new Set([
-            ...state.payments.currentMonthPaidIds,
-            data.customerId,
-          ]);
+        if (isCurrentMonth && payment.amountPaid > 0) {
+          applyPaymentStatus(state.payments, data.customerId, payment.balance > 0);
         }
       });
     } catch (e) {
@@ -213,10 +217,7 @@ export const createPaymentSlice: StateCreator<
         state.payments.monthGrid = monthGrid;
         state.payments.loadingCreate = false;
         if (coversCurrentMonth && payment.amountPaid > 0) {
-          state.payments.currentMonthPaidIds = new Set([
-            ...state.payments.currentMonthPaidIds,
-            customer.id,
-          ]);
+          applyPaymentStatus(state.payments, customer.id, payment.balance > 0);
         }
       });
       return skippedMonths;
@@ -252,10 +253,28 @@ export const createPaymentSlice: StateCreator<
       const updated = await paymentService.updatePayment(id, amountDue, amountPaid, currency);
       const items = get().payments.items.map((p) => (p.id === id ? updated : p));
       const monthGrid = paymentService.buildMonthGrid(customer, items, year, graceDays);
+      const { year: cy, month: cm } = getCurrentYearMonth();
+      const currentBillingMonth = toBillingMonth(cy, cm);
+      let coversCurrentMonth = false;
+      const [pYear, pMonthNum] = updated.billingMonth.split('-').map(Number);
+      for (let d = 0; d < updated.durationMonths; d++) {
+        const date = new Date(pYear, pMonthNum - 1 + d, 1);
+        if (toBillingMonth(date.getFullYear(), date.getMonth() + 1) === currentBillingMonth) {
+          coversCurrentMonth = true;
+          break;
+        }
+      }
       set((state) => {
         state.payments.items = items;
         state.payments.monthGrid = monthGrid;
         state.payments.loadingUpdate = false;
+        if (coversCurrentMonth) {
+          if (updated.amountPaid > 0) {
+            applyPaymentStatus(state.payments, customer.id, updated.balance > 0);
+          } else {
+            clearPaymentStatus(state.payments, customer.id);
+          }
+        }
       });
     } catch (e) {
       set((state) => {
@@ -294,9 +313,7 @@ export const createPaymentSlice: StateCreator<
         state.payments.monthGrid = monthGrid;
         state.payments.loadingVoid = false;
         if (voidedCurrentMonth) {
-          state.payments.currentMonthPaidIds = new Set(
-            [...state.payments.currentMonthPaidIds].filter((pid) => pid !== customer.id),
-          );
+          clearPaymentStatus(state.payments, customer.id);
         }
       });
     } catch (e) {
@@ -327,3 +344,41 @@ export const createPaymentSlice: StateCreator<
       state.payments.tierLimitError = null;
     }),
 });
+
+// Mutates the partial / fully-paid sets so the customer sits in exactly one
+// (or neither). Used after creates / edits to keep the customer-list badge in
+// sync without re-fetching from the DB.
+function applyPaymentStatus(
+  slice: { currentMonthFullyPaidIds: Set<string>; currentMonthPartialIds: Set<string> },
+  customerId: string,
+  isPartial: boolean,
+): void {
+  const targetFull = isPartial ? slice.currentMonthPartialIds : slice.currentMonthFullyPaidIds;
+  const targetOther = isPartial ? slice.currentMonthFullyPaidIds : slice.currentMonthPartialIds;
+  const nextTarget = new Set(targetFull);
+  nextTarget.add(customerId);
+  if (isPartial) slice.currentMonthPartialIds = nextTarget;
+  else slice.currentMonthFullyPaidIds = nextTarget;
+  if (targetOther.has(customerId)) {
+    const nextOther = new Set(targetOther);
+    nextOther.delete(customerId);
+    if (isPartial) slice.currentMonthFullyPaidIds = nextOther;
+    else slice.currentMonthPartialIds = nextOther;
+  }
+}
+
+function clearPaymentStatus(
+  slice: { currentMonthFullyPaidIds: Set<string>; currentMonthPartialIds: Set<string> },
+  customerId: string,
+): void {
+  if (slice.currentMonthFullyPaidIds.has(customerId)) {
+    const next = new Set(slice.currentMonthFullyPaidIds);
+    next.delete(customerId);
+    slice.currentMonthFullyPaidIds = next;
+  }
+  if (slice.currentMonthPartialIds.has(customerId)) {
+    const next = new Set(slice.currentMonthPartialIds);
+    next.delete(customerId);
+    slice.currentMonthPartialIds = next;
+  }
+}

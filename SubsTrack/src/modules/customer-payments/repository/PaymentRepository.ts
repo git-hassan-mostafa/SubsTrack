@@ -74,11 +74,15 @@ export class PaymentRepository extends BaseRepository {
     return data as DbPayment;
   }
 
-  // Returns the set of customer IDs that have an active (non-voided), non-zero-paid
-  // payment covering the given billing month. Handles multi-month payments.
-  // NOTE: amount_paid = 0 is intentionally excluded — it is treated as unpaid.
-  //       This must stay in sync with PaymentService.buildMonthGrid().
-  async findPaidCustomerIdsForMonth(billingMonth: string): Promise<Set<string>> {
+  // Returns the customer IDs that have an active (non-voided), non-zero-paid
+  // payment covering the given billing month, split into:
+  //   - fullyPaidIds — payment fully settled (balance == 0)
+  //   - partialIds   — payment recorded but balance > 0
+  // Handles multi-month payments. amount_paid = 0 is intentionally excluded —
+  // it is treated as unpaid. This must stay in sync with PaymentService.buildMonthGrid().
+  async findPaymentStatusForMonth(
+    billingMonth: string,
+  ): Promise<{ fullyPaidIds: Set<string>; partialIds: Set<string> }> {
     const [year, monthStr] = billingMonth.split('-').map(Number);
     // A payment from up to 12 months prior could still cover this month (max duration = 12).
     const cutoffDate = new Date(year, monthStr - 1 - 12, 1);
@@ -87,23 +91,29 @@ export class PaymentRepository extends BaseRepository {
 
     const { data, error } = await this.db
       .from('payments')
-      .select('customer_id, billing_month, duration_months, amount_paid')
+      .select('customer_id, billing_month, duration_months, amount_paid, balance')
       .lte('billing_month', billingMonth)
       .gte('billing_month', cutoff)
       .is('voided_at', null)
       .gt('amount_paid', 0);
     if (error) this.handleError(error);
 
-    return new Set(
-      (data ?? [])
-        .filter((r: { billing_month: string; duration_months: number }) => {
-          const start = new Date(r.billing_month);
-          const end = new Date(start);
-          end.setMonth(end.getMonth() + r.duration_months - 1);
-          return end >= target;
-        })
-        .map((r: { customer_id: string }) => r.customer_id),
-    );
+    const fullyPaidIds = new Set<string>();
+    const partialIds = new Set<string>();
+    for (const r of (data ?? []) as {
+      customer_id: string;
+      billing_month: string;
+      duration_months: number;
+      balance: string | number;
+    }[]) {
+      const start = new Date(r.billing_month);
+      const end = new Date(start);
+      end.setMonth(end.getMonth() + r.duration_months - 1);
+      if (end < target) continue;
+      if (Number(r.balance) > 0) partialIds.add(r.customer_id);
+      else fullyPaidIds.add(r.customer_id);
+    }
+    return { fullyPaidIds, partialIds };
   }
 
   // Returns raw paid amounts + their snapshot rate so the service layer can

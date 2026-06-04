@@ -61,8 +61,9 @@ export function CustomerListScreen() {
   const deactivateCustomer = useCustomerSlice((s) => s.deactivateCustomer);
   const reactivateCustomer = useCustomerSlice((s) => s.reactivateCustomer);
   const deleteCustomer = useCustomerSlice((s) => s.deleteCustomer);
-  const currentMonthPaidIds = usePaymentSlice((s) => s.currentMonthPaidIds);
-  const fetchCurrentMonthPaidIds = usePaymentSlice((s) => s.fetchCurrentMonthPaidIds);
+  const currentMonthFullyPaidIds = usePaymentSlice((s) => s.currentMonthFullyPaidIds);
+  const currentMonthPartialIds = usePaymentSlice((s) => s.currentMonthPartialIds);
+  const fetchCurrentMonthPaymentStatus = usePaymentSlice((s) => s.fetchCurrentMonthPaymentStatus);
   const createPayment = usePaymentSlice((s) => s.createPayment);
   const createMultiMonthPayment = usePaymentSlice((s) => s.createMultiMonthPayment);
   const paymentError = usePaymentSlice((s) => s.error);
@@ -86,7 +87,7 @@ export function CustomerListScreen() {
   // Loads on mount AND re-fetches when the user switches the branch chip.
   useEffect(() => {
     fetchCustomers();
-    fetchCurrentMonthPaidIds();
+    fetchCurrentMonthPaymentStatus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [branchFilter]);
 
@@ -102,17 +103,25 @@ export function CustomerListScreen() {
       { key: "all" as FilterTab, label: t("customers.all") },
       { key: "inactive" as FilterTab, label: t("common.inactive") },
     ];
-  }, [customers, currentMonthPaidIds, t]);
+  }, [t]);
+
+  // A customer has *any* payment record for the current month when either set holds them.
+  // Used by the unpaid tab + Quick Pay gating to mean "already has a record this month."
+  const hasCurrentMonthPayment = useCallback(
+    (id: string) =>
+      currentMonthFullyPaidIds.has(id) || currentMonthPartialIds.has(id),
+    [currentMonthFullyPaidIds, currentMonthPartialIds],
+  );
 
   const filtered = useMemo(() => {
     if (activeTab === "active") return customers.filter((c) => c.active);
     if (activeTab === "inactive") return customers.filter((c) => !c.active);
     if (activeTab === "unpaid")
       return customers.filter(
-        (c) => c.active && c.isRegular && !currentMonthPaidIds.has(c.id),
+        (c) => c.active && c.isRegular && !hasCurrentMonthPayment(c.id),
       );
     return customers;
-  }, [activeTab, customers, currentMonthPaidIds]);
+  }, [activeTab, customers, hasCurrentMonthPayment]);
 
   const openDetail = useCallback(
     (customer: Customer) => {
@@ -191,7 +200,7 @@ export function CustomerListScreen() {
 
   function shouldShowQuickPay(customer: Customer): boolean {
     if (!customer.active || !customer.isRegular) return false;
-    if (currentMonthPaidIds.has(customer.id)) return false;
+    if (hasCurrentMonthPayment(customer.id)) return false;
     const { year, month } = getCurrentYearMonth();
     if (isBeforeStartDate(year, month, customer.startDate)) return false;
     return true;
@@ -202,17 +211,25 @@ export function CustomerListScreen() {
   }, []);
 
   const renderItem = useCallback(
-    ({ item }: { item: Customer }) => (
-      <CustomerCard
-        customer={item}
-        isPaidThisMonth={currentMonthPaidIds.has(item.id)}
-        monthLabel={monthLabel}
-        onPress={openDetail}
-        onMenu={openMenu}
-        menuLoading={quickPayCustomerId === item.id}
-      />
-    ),
-    [currentMonthPaidIds, monthLabel, openDetail, openMenu, quickPayCustomerId],
+    ({ item }: { item: Customer }) => {
+      const paymentStatus: "paid" | "partial" | "unpaid" =
+        currentMonthFullyPaidIds.has(item.id)
+          ? "paid"
+          : currentMonthPartialIds.has(item.id)
+            ? "partial"
+            : "unpaid";
+      return (
+        <CustomerCard
+          customer={item}
+          paymentStatus={paymentStatus}
+          monthLabel={monthLabel}
+          onPress={openDetail}
+          onMenu={openMenu}
+          menuLoading={quickPayCustomerId === item.id}
+        />
+      );
+    },
+    [currentMonthFullyPaidIds, currentMonthPartialIds, monthLabel, openDetail, openMenu, quickPayCustomerId],
   );
 
   async function handleToggleActiveCustomer(customer: Customer) {
@@ -338,7 +355,7 @@ export function CustomerListScreen() {
               refreshing={loading}
               onRefresh={() => {
                 fetchCustomers();
-                fetchCurrentMonthPaidIds();
+                fetchCurrentMonthPaymentStatus();
               }}
               tintColor={COLORS.primary}
             />

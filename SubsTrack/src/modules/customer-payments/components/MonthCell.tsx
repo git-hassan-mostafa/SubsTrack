@@ -19,6 +19,7 @@ interface Props {
 
 const regularBgColor: Record<MonthStatus, string> = {
   paid: "bg-green-500",
+  partial: "bg-amber-500",
   unpaid: "bg-red-500",
   future: "bg-gray-100",
   before_start: "bg-gray-100",
@@ -26,6 +27,7 @@ const regularBgColor: Record<MonthStatus, string> = {
 
 const nonRegularBgColor: Record<MonthStatus, string> = {
   paid: "bg-yellow-400",
+  partial: "bg-amber-500",
   unpaid: "bg-gray-200",
   future: "bg-gray-100",
   before_start: "bg-gray-100",
@@ -33,6 +35,7 @@ const nonRegularBgColor: Record<MonthStatus, string> = {
 
 const regularTextColor: Record<MonthStatus, string> = {
   paid: "text-white",
+  partial: "text-white",
   unpaid: "text-white",
   future: "text-gray-400",
   before_start: "text-gray-300",
@@ -40,6 +43,7 @@ const regularTextColor: Record<MonthStatus, string> = {
 
 const nonRegularTextColor: Record<MonthStatus, string> = {
   paid: "text-white",
+  partial: "text-white",
   unpaid: "text-gray-400",
   future: "text-gray-400",
   before_start: "text-gray-300",
@@ -72,10 +76,9 @@ export const MonthCell = memo(function MonthCell({
       : textColor[entry.status];
 
   const sublabel = (() => {
-    if (entry.status === "paid" && entry.isGroupSecondary)
+    if ((entry.status === "paid" || entry.status === "partial") && entry.isGroupSecondary)
       return t("payments.included_label");
-    if (entry.status === "paid" && entry.balance > 0)
-      return t("payments.partial_badge");
+    if (entry.status === "partial") return t("payments.partial_badge");
     if (entry.status === "paid") return t("common.paid");
     if (isCurrentMonth) return t("payments.this_month").toUpperCase();
     return null;
@@ -111,9 +114,6 @@ export const MonthCell = memo(function MonthCell({
         <Text className={`text-[8px] font-semibold mt-0.5 ${labelColor}`}>
           {sublabel ?? " "}
         </Text>
-        {entry.status === "paid" && entry.balance > 0 ? (
-          <View className="absolute top-1 end-1 w-1.5 h-1.5 rounded-full bg-orange-400" />
-        ) : null}
         {wrapFromPrev ? (
           <View className="absolute top-0 bottom-0 start-0.5 justify-center">
             <DirectionalIcon name="chevron-back" size={10} color="white" />
