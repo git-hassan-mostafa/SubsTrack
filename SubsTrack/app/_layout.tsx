@@ -13,6 +13,7 @@ import * as Font from "expo-font";
 import { useEffect, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import "../global.css";
+import { enableMapSet } from "immer";
 
 export default function RootLayout() {
   const [i18nReady, setI18nReady] = useState(false);
@@ -36,6 +37,7 @@ export default function RootLayout() {
   const router = useRouter();
 
   useEffect(() => {
+    enableMapSet(); /* enable map set for immer */
     initI18n()
       .then(() => {
         setI18nReady(true);

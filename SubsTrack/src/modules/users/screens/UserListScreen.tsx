@@ -24,7 +24,7 @@ import { UserFormSheet } from "../components/UserFormSheet";
 import { useUserSlice } from "@/src/state/hooks/useUserSlice";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
 import { PageHeader } from "@/src/shared/components/PageHeader";
-import { useEffectiveBranchFilter } from "@/src/shared/lib/branchFilter";
+import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
 
 export function UserListScreen() {
   const { t } = useTranslation();
@@ -72,7 +72,12 @@ export function UserListScreen() {
     });
     if (!ok) return;
     if (user.active) {
-      await deactivateUser(user.id, currentUser.id, currentUser.role, user.role);
+      await deactivateUser(
+        user.id,
+        currentUser.id,
+        currentUser.role,
+        user.role,
+      );
     } else {
       await activateUser(user.id, currentUser.id, currentUser.role, user.role);
     }
@@ -207,7 +212,6 @@ export function UserListScreen() {
         actions={buildMenuActions(menuUser)}
         onDismiss={() => setMenuUser(null)}
       />
-
     </SafeAreaView>
   );
 }

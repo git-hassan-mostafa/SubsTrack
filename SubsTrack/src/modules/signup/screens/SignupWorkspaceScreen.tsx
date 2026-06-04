@@ -47,9 +47,10 @@ export function SignupWorkspaceScreen() {
             <Text className="text-base text-gray-500 mb-6">
               {t("signup.workspace_subtitle")}
             </Text>
-            <StepIndicator current={1} total={2} />
 
-            {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}
+            {error ? (
+              <ErrorBanner message={error} onDismiss={clearError} />
+            ) : null}
 
             <Input
               label={t("signup.workspace_name_label")}
@@ -63,7 +64,9 @@ export function SignupWorkspaceScreen() {
               label={t("signup.tenant_code_label")}
               value={tenantCode}
               onChangeText={(v) =>
-                setWorkspace({ tenantCode: v.toLowerCase().replace(/\s+/g, "") })
+                setWorkspace({
+                  tenantCode: v.toLowerCase().replace(/\s+/g, ""),
+                })
               }
               placeholder={t("signup.tenant_code_placeholder")}
               autoCapitalize="none"
@@ -73,6 +76,7 @@ export function SignupWorkspaceScreen() {
               {t("signup.tenant_code_hint")}
             </Text>
           </View>
+          <StepIndicator current={1} total={2} />
         </ScrollView>
 
         <View className="flex-row items-center justify-between px-6 py-4 border-t border-gray-100 bg-white">

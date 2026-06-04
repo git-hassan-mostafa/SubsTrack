@@ -1,26 +1,26 @@
-import { BaseRepository } from '@/src/core/utils/BaseRepository';
-import type { DbTierPlan, DbTenant } from '@/src/core/types/db';
-import type { TenantUsage } from '@/src/core/types';
+import { BaseRepository } from "@/src/core/utils/BaseRepository";
+import type { DbTierPlan, DbTenant } from "@/src/core/types/db";
+import type { TenantUsage } from "@/src/core/types";
 
 export class SubscriptionRepository extends BaseRepository {
   async findAllTiers(): Promise<DbTierPlan[]> {
     const { data, error } = await this.db
-      .from('tier_plans')
-      .select('*')
-      .eq('active', true)
-      .order('sort_order');
+      .from("tier_plans")
+      .select("*")
+      .eq("active", true)
+      .order("sort_order");
     if (error) this.handleError(error);
     return (data ?? []) as DbTierPlan[];
   }
 
   async getTenantWithTier(tenantId: string): Promise<DbTenant | null> {
     const { data, error } = await this.db
-      .from('tenants')
-      .select('*, tier_plans(*)')
-      .eq('id', tenantId)
+      .from("tenants")
+      .select("*, tier_plans(*)")
+      .eq("id", tenantId)
       .single();
     if (error) {
-      if (error.code === 'PGRST116') return null;
+      if (error.code === "PGRST116") return null;
       this.handleError(error);
     }
     return data as DbTenant;
@@ -31,11 +31,23 @@ export class SubscriptionRepository extends BaseRepository {
   // tenant_id filter is passed (and the count would be wrong without RLS).
   async countTenantUsage(): Promise<TenantUsage> {
     const [customers, users, plans, branches, currencies] = await Promise.all([
-      this.db.from('customers').select('id', { count: 'exact', head: true }).eq('active', true),
-      this.db.from('users').select('id', { count: 'exact', head: true }).eq('active', true),
-      this.db.from('plans').select('id', { count: 'exact', head: true }),
-      this.db.from('branches').select('id', { count: 'exact', head: true }).eq('active', true),
-      this.db.from('currencies').select('id', { count: 'exact', head: true }).eq('active', true),
+      this.db
+        .from("customers")
+        .select("id", { count: "exact", head: true })
+        .eq("active", true),
+      this.db
+        .from("users")
+        .select("id", { count: "exact", head: true })
+        .eq("active", true),
+      this.db.from("plans").select("id", { count: "exact", head: true }),
+      this.db
+        .from("branches")
+        .select("id", { count: "exact", head: true })
+        .eq("active", true),
+      this.db
+        .from("currencies")
+        .select("id", { count: "exact", head: true })
+        .eq("active", true),
     ]);
     if (customers.error) this.handleError(customers.error);
     if (users.error) this.handleError(users.error);
@@ -52,11 +64,15 @@ export class SubscriptionRepository extends BaseRepository {
   }
 
   async upgradeTenant(tenantId: string, tierId: string): Promise<DbTenant> {
-    const { data, error } = await this.db
-      .from('tenants')
+    await this.db
+      .from("tenants")
       .update({ tier_id: tierId, tier_upgraded_at: new Date().toISOString() })
-      .eq('id', tenantId)
-      .select('*, tier_plans(*)')
+      .eq("id", tenantId);
+
+    const { data, error } = await this.db
+      .from("tenants")
+      .select("*, tier_plans(*)")
+      .eq("id", tenantId)
       .single();
     if (error) this.handleError(error);
     return data as DbTenant;

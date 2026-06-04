@@ -23,7 +23,7 @@ import { PlanFormSheet } from "../components/PlanFormSheet";
 import { usePlanSlice } from "@/src/state/hooks/usePlanSlice";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
 import { PageHeader } from "@/src/shared/components/PageHeader";
-import { useEffectiveBranchFilter } from "@/src/shared/lib/branchFilter";
+import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
 
 export function PlanListScreen() {
   const { t } = useTranslation();
@@ -138,7 +138,9 @@ export function PlanListScreen() {
             <EmptyState
               message={t("plans.no_plans")}
               subMessage={t("plans.no_plans_hint")}
-              actionLabel={!debouncedSearch ? t("plans.create_first_plan") : undefined}
+              actionLabel={
+                !debouncedSearch ? t("plans.create_first_plan") : undefined
+              }
               onAction={!debouncedSearch ? openCreate : undefined}
             />
           }

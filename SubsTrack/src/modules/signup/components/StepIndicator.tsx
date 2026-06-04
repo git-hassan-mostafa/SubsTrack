@@ -7,7 +7,7 @@ interface Props {
 
 export function StepIndicator({ current, total }: Props) {
   return (
-    <View className="flex-row gap-2 mb-8">
+    <View className="flex-row gap-2 my-8 justify-center">
       {Array.from({ length: total }).map((_, i) => {
         const filled = i < current;
         return (

@@ -1,7 +1,9 @@
-import type { AuthUser } from '@/src/core/types';
-import { type BranchFilter, BRANCH_FILTER_UNASSIGNED } from '@/src/core/constants';
-import { useAuthSlice } from '@/src/state/hooks/useAuthSlice';
-import { useUiPrefStore } from './uiPrefStore';
+import type { AuthUser } from "@/src/core/types";
+import {
+  type BranchFilter,
+  BRANCH_FILTER_UNASSIGNED,
+} from "@/src/core/constants";
+import { useUiPrefStore } from "./uiPrefStore";
 
 // ──────────────────────────────────────────────────────────────────────
 // Resolving the filter — what should we filter to?
@@ -25,15 +27,6 @@ export function resolveBranchFilter(user: AuthUser | null): BranchFilter {
   if (!user) return null;
   if (user.branchId !== null) return user.branchId;
   return useUiPrefStore.getState().currentBranchId;
-}
-
-/** Hook variant. Re-renders when either auth or uiPref changes. */
-export function useEffectiveBranchFilter(): BranchFilter {
-  const user = useAuthSlice((s) => s.user);
-  const currentBranchId = useUiPrefStore((s) => s.currentBranchId);
-  if (!user) return null;
-  if (user.branchId !== null) return user.branchId;
-  return currentBranchId;
 }
 
 // ──────────────────────────────────────────────────────────────────────
@@ -60,19 +53,19 @@ export function useEffectiveBranchFilter(): BranchFilter {
  *                 Used by: payments (inherits from customers).
  */
 export type BranchScope =
-  | { kind: 'owned'; column?: string }
-  | { kind: 'shared'; column?: string }
-  | { kind: 'inherited'; joinedTable: string; column?: string };
+  | { kind: "owned"; column?: string }
+  | { kind: "shared"; column?: string }
+  | { kind: "inherited"; joinedTable: string; column?: string };
 
 /**
  * The single source of truth for "how does each table relate to a branch?"
  * Adding a new branch-aware table means adding one line here.
  */
 export const BRANCH_SCOPES = {
-  customers: { kind: 'owned' },
-  users: { kind: 'owned' },
-  plans: { kind: 'shared' },
-  payments: { kind: 'inherited', joinedTable: 'customers' },
+  customers: { kind: "owned" },
+  users: { kind: "owned" },
+  plans: { kind: "shared" },
+  payments: { kind: "inherited", joinedTable: "customers" },
 } satisfies Record<string, BranchScope>;
 
 /**
@@ -94,13 +87,14 @@ export function applyBranchFilter<T extends Record<string, any>>(
 ): T {
   if (filter === null) return query;
 
-  const column = scope.column ?? 'branch_id';
-  const path = scope.kind === 'inherited' ? `${scope.joinedTable}.${column}` : column;
+  const column = scope.column ?? "branch_id";
+  const path =
+    scope.kind === "inherited" ? `${scope.joinedTable}.${column}` : column;
 
   if (filter === BRANCH_FILTER_UNASSIGNED) {
     return query.is(path, null);
   }
-  if (scope.kind === 'shared') {
+  if (scope.kind === "shared") {
     // Include shared rows (branch_id IS NULL) alongside this branch's rows.
     return query.or(`${column}.is.null,${column}.eq.${filter}`);
   }

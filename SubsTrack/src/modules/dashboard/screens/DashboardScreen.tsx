@@ -16,9 +16,9 @@ import { useDashboardSlice } from "@/src/state/hooks/useDashboardSlice";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
 import { BranchSelector } from "@/src/shared/components/BranchSelector";
-import { useEffectiveBranchFilter } from "@/src/shared/lib/branchFilter";
 import { COLORS } from "@/src/shared/constants";
 import { MONTHS } from "@/src/core/constants";
+import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
 
 export function DashboardScreen() {
   const { t, i18n } = useTranslation();
@@ -32,7 +32,8 @@ export function DashboardScreen() {
   const { displayCurrencyId } = useUiPrefStore();
   // Metrics are stored canonical-USD; format for the user's display preference.
   const displayCurrency = findCurrency(currencies, displayCurrencyId);
-  const fmt = (usd: number) => formatMoney(usd, null, displayCurrency, getDateLocale(i18n.language));
+  const fmt = (usd: number) =>
+    formatMoney(usd, null, displayCurrency, getDateLocale(i18n.language));
 
   const branchFilter = useEffectiveBranchFilter();
 

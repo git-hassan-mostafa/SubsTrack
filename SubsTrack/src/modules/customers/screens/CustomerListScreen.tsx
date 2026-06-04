@@ -19,7 +19,10 @@ import {
 } from "@/src/shared/components/ActionMenu";
 import { useDebounce } from "@/src/shared/hooks/useDebounce";
 import { COLORS } from "@/src/shared/constants";
-import { useGraceDays, useSubscriptionSlice } from "@/src/state/hooks/useSubscriptionSlice";
+import {
+  useGraceDays,
+  useSubscriptionSlice,
+} from "@/src/state/hooks/useSubscriptionSlice";
 import type { Customer } from "@/src/core/types";
 import { CustomerCard } from "../components/CustomerCard";
 import { CustomerFormSheet } from "../components/CustomerFormSheet";
@@ -37,8 +40,8 @@ import {
 import { getBlockRangeLabel } from "../../customer-payments/utils/blockRangeLabel";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
 import { PageHeader } from "@/src/shared/components/PageHeader";
-import { useEffectiveBranchFilter } from "@/src/shared/lib/branchFilter";
 import { MONTHS } from "@/src/core/constants";
+import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
 
 type FilterTab = "all" | "unpaid" | "active" | "inactive";
 
@@ -61,11 +64,19 @@ export function CustomerListScreen() {
   const deactivateCustomer = useCustomerSlice((s) => s.deactivateCustomer);
   const reactivateCustomer = useCustomerSlice((s) => s.reactivateCustomer);
   const deleteCustomer = useCustomerSlice((s) => s.deleteCustomer);
-  const currentMonthFullyPaidIds = usePaymentSlice((s) => s.currentMonthFullyPaidIds);
-  const currentMonthPartialIds = usePaymentSlice((s) => s.currentMonthPartialIds);
-  const fetchCurrentMonthPaymentStatus = usePaymentSlice((s) => s.fetchCurrentMonthPaymentStatus);
+  const currentMonthFullyPaidIds = usePaymentSlice(
+    (s) => s.currentMonthFullyPaidIds,
+  );
+  const currentMonthPartialIds = usePaymentSlice(
+    (s) => s.currentMonthPartialIds,
+  );
+  const fetchCurrentMonthPaymentStatus = usePaymentSlice(
+    (s) => s.fetchCurrentMonthPaymentStatus,
+  );
   const createPayment = usePaymentSlice((s) => s.createPayment);
-  const createMultiMonthPayment = usePaymentSlice((s) => s.createMultiMonthPayment);
+  const createMultiMonthPayment = usePaymentSlice(
+    (s) => s.createMultiMonthPayment,
+  );
   const paymentError = usePaymentSlice((s) => s.error);
   const clearPaymentError = usePaymentSlice((s) => s.clearError);
   const currencies = useCurrencySlice((s) => s.items);
@@ -159,14 +170,20 @@ export function CustomerListScreen() {
   }
 
   async function handleMultiMonthQuickPay(customer: Customer) {
-    if (!customer.plan || customer.plan.price === null || !user || !currentTier) return;
+    if (!customer.plan || customer.plan.price === null || !user || !currentTier)
+      return;
     const { year, month } = getCurrentYearMonth();
     const startMonth = toBillingMonth(year, month);
     const planCurrency = findCurrency(currencies, customer.plan.currencyId);
     const ok = await confirm({
       title: t("payments.quick_pay.confirm_multi_month_title"),
       message: t("payments.quick_pay.confirm_multi_month_message", {
-        amount: formatMoney(customer.plan.price, planCurrency, planCurrency, locale),
+        amount: formatMoney(
+          customer.plan.price,
+          planCurrency,
+          planCurrency,
+          locale,
+        ),
         months: getBlockRangeLabel(startMonth, customer.plan.durationMonths, t),
       }),
       confirmLabel: t("payments.quick_pay.confirm"),
@@ -175,8 +192,18 @@ export function CustomerListScreen() {
     setQuickPayCustomerId(customer.id);
     try {
       await createMultiMonthPayment(
-        startMonth, customer, customer.plan, planCurrency, customer.plan.price,
-        user.id, null, user.tenantId, false, year, graceDays, currentTier,
+        startMonth,
+        customer,
+        customer.plan,
+        planCurrency,
+        customer.plan.price,
+        user.id,
+        null,
+        user.tenantId,
+        false,
+        year,
+        graceDays,
+        currentTier,
       );
     } finally {
       setQuickPayCustomerId(null);
@@ -229,12 +256,21 @@ export function CustomerListScreen() {
         />
       );
     },
-    [currentMonthFullyPaidIds, currentMonthPartialIds, monthLabel, openDetail, openMenu, quickPayCustomerId],
+    [
+      currentMonthFullyPaidIds,
+      currentMonthPartialIds,
+      monthLabel,
+      openDetail,
+      openMenu,
+      quickPayCustomerId,
+    ],
   );
 
   async function handleToggleActiveCustomer(customer: Customer) {
     const ok = await confirm({
-      title: customer.active ? t("customers.deactivate_title") : t("customers.reactivate_title"),
+      title: customer.active
+        ? t("customers.deactivate_title")
+        : t("customers.reactivate_title"),
       message: customer.active
         ? t("customers.deactivate_message", { name: customer.name })
         : t("customers.reactivate_message", { name: customer.name }),
@@ -408,7 +444,6 @@ export function CustomerListScreen() {
         actions={buildMenuActions(menuCustomer)}
         onDismiss={() => setMenuCustomer(null)}
       />
-
     </SafeAreaView>
   );
 }

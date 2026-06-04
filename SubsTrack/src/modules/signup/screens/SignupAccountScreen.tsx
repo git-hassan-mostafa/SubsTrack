@@ -40,7 +40,11 @@ export function SignupAccountScreen() {
     // code pre-filled rather than leaving the user staring at this form.
     await getStore()
       .getState()
-      .auth.login(credentials.username, credentials.tenantCode, credentials.password);
+      .auth.login(
+        credentials.username,
+        credentials.tenantCode,
+        credentials.password,
+      );
 
     const auth = getStore().getState().auth;
     reset();
@@ -70,9 +74,10 @@ export function SignupAccountScreen() {
             <Text className="text-base text-gray-500 mb-6">
               {t("signup.account_subtitle", { tenantCode })}
             </Text>
-            <StepIndicator current={2} total={2} />
 
-            {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}
+            {error ? (
+              <ErrorBanner message={error} onDismiss={clearError} />
+            ) : null}
 
             <Input
               label={t("signup.fullname_label")}
@@ -86,7 +91,9 @@ export function SignupAccountScreen() {
               label={t("signup.username_label")}
               value={adminUserName}
               onChangeText={(v) =>
-                setAccount({ adminUserName: v.toLowerCase().replace(/\s+/g, "") })
+                setAccount({
+                  adminUserName: v.toLowerCase().replace(/\s+/g, ""),
+                })
               }
               placeholder={t("signup.username_placeholder")}
               autoCapitalize="none"
@@ -109,9 +116,10 @@ export function SignupAccountScreen() {
               secureTextEntry
             />
           </View>
+          <StepIndicator current={2} total={2} />
         </ScrollView>
 
-        <View className="flex-row items-center justify-between px-6 py-4 border-t border-gray-100 bg-white">
+        <View className="flex-row items-center justify-between px-6 py-8 border-t border-gray-100 bg-white">
           <Button
             label={t("common.back")}
             onPress={() => router.back()}
