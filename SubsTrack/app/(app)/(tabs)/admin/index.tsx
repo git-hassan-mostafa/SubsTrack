@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { Href, router } from "expo-router";
 import { useFocusEffect } from "expo-router";
@@ -9,12 +9,13 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useDashboardSlice } from "@/src/state/hooks/useDashboardSlice";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useBranchSlice } from "@/src/state/hooks/useBranchSlice";
+import { useAuth } from "@/src/modules/auth/hooks/useAuth";
 import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { COLORS } from "@/src/shared/constants";
 import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
 
-type CountKey = 'users' | 'plans' | 'branches' | 'currencies';
+type CountKey = "users" | "plans" | "branches" | "currencies";
 
 type MenuItem = {
   labelKey: string;
@@ -83,12 +84,24 @@ const MENU_ITEMS: MenuItem[] = [
 
 export default function AdminMenuScreen() {
   const { t, i18n } = useTranslation();
+  const { user } = useAuth();
   const metrics = useDashboardSlice((s) => s.metrics);
   const loading = useDashboardSlice((s) => s.loading);
   const fetchMetrics = useDashboardSlice((s) => s.fetchMetrics);
   const currencies = useCurrencySlice((s) => s.items);
   const branches = useBranchSlice((s) => s.items);
   const { displayCurrencyId } = useUiPrefStore();
+
+  const isTenantWideAdmin = user?.branchId === null;
+  const menuItems = useMemo(
+    () =>
+      isTenantWideAdmin
+        ? MENU_ITEMS
+        : MENU_ITEMS.filter(
+            (item) => item.route !== "/(app)/(tabs)/admin/subscription",
+          ),
+    [user],
+  );
 
   const branchCount = branches.filter((b) => b.active).length;
   const currencyCount = currencies.filter((c) => c.active).length;
@@ -161,11 +174,11 @@ export default function AdminMenuScreen() {
           {t("admin.manage_section")}
         </Text>
         <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-          {MENU_ITEMS.map((item, index) => (
+          {menuItems.map((item, index) => (
             <Pressable
               key={item.route}
               onPress={() => router.push(item.route as Href)}
-              className={`flex-row items-center justify-between px-4 py-4 ${index < MENU_ITEMS.length - 1 ? "border-b border-gray-100" : ""}`}
+              className={`flex-row items-center justify-between px-4 py-4 ${index < menuItems.length - 1 ? "border-b border-gray-100" : ""}`}
             >
               <View className="flex-row items-center gap-3">
                 <View
@@ -180,11 +193,16 @@ export default function AdminMenuScreen() {
                   </Text>
                   <Text className="text-xs text-gray-400 mt-0.5">
                     {t(item.subtitleKey, {
-                      count: item.countKey === 'users' ? (metrics?.totalUsers ?? 0)
-                        : item.countKey === 'plans' ? (metrics?.totalPlans ?? 0)
-                        : item.countKey === 'branches' ? branchCount
-                        : item.countKey === 'currencies' ? currencyCount
-                        : undefined,
+                      count:
+                        item.countKey === "users"
+                          ? (metrics?.totalUsers ?? 0)
+                          : item.countKey === "plans"
+                            ? (metrics?.totalPlans ?? 0)
+                            : item.countKey === "branches"
+                              ? branchCount
+                              : item.countKey === "currencies"
+                                ? currencyCount
+                                : undefined,
                     })}
                   </Text>
                 </View>

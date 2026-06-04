@@ -469,12 +469,17 @@
       "grace_days": "أيام السماح"
     },
     "locked": {
+      "upgrade_title": "ترقية باقتك",
       "limit_reached_title": "لقد وصلت إلى الحد الأقصى لـ {{resource}}",
       "limit_reached_body": "تسمح باقة {{tierName}} بحد أقصى {{limit}}. قم بالترقية إلى {{nextTierName}} لإضافة المزيد.",
       "multi_currency_title": "العملات المتعددة ميزة مدفوعة",
       "multi_currency_body": "قم بالترقية إلى {{nextTierName}} لإدارة عملات أخرى غير الدولار الأمريكي.",
       "multi_month_title": "الخطط متعددة الأشهر ميزة مدفوعة",
-      "multi_month_body": "قم بالترقية إلى {{nextTierName}} لتجميع أشهر متعددة في دفعة واحدة."
-    }
+      "multi_month_body": "قم بالترقية إلى {{nextTierName}} لتجميع أشهر متعددة في دفعة واحدة.",
+      "contact_admin_title": "تم بلوغ الحد الأقصى",
+      "contact_admin_body": "تم بلوغ الحد الأقصى لهذه الباقة. تواصل مع المسؤول للترقية."
+    },
+    "unlimited": "غير محدود",
+    "up_to": "حتى {{count}}"
   }
 }

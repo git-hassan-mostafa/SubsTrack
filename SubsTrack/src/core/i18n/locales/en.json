@@ -468,12 +468,17 @@
       "grace_days": "Grace days"
     },
     "locked": {
+      "upgrade_title": "Upgrade your plan",
       "limit_reached_title": "You've reached your {{resource}} limit",
       "limit_reached_body": "Your {{tierName}} plan allows up to {{limit}}. Upgrade to {{nextTierName}} to add more.",
       "multi_currency_title": "Multi-currency is a paid feature",
       "multi_currency_body": "Upgrade to {{nextTierName}} to manage currencies other than USD.",
       "multi_month_title": "Multi-month plans are a paid feature",
-      "multi_month_body": "Upgrade to {{nextTierName}} to bundle multiple months into a single payment."
-    }
+      "multi_month_body": "Upgrade to {{nextTierName}} to bundle multiple months into a single payment.",
+      "contact_admin_title": "Limit reached",
+      "contact_admin_body": "This plan's limit has been reached. Contact your administrator to upgrade."
+    },
+    "unlimited": "Unlimited",
+    "up_to": "Up to {{count}}"
   }
 }

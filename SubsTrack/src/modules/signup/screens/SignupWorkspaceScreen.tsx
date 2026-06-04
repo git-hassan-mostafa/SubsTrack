@@ -6,8 +6,8 @@ import { Text } from "@/src/shared/components/Text";
 import { Button } from "@/src/shared/components/Button";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { Input } from "@/src/shared/components/Input";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { useSignupSlice } from "@/src/state/hooks/useSignupSlice";
+import { StepIndicator } from "../components/StepIndicator";
 
 export function SignupWorkspaceScreen() {
   const { t } = useTranslation();
@@ -35,24 +35,19 @@ export function SignupWorkspaceScreen() {
         className="flex-1"
       >
         <ScrollView
-          contentContainerStyle={{ flexGrow: 1, justifyContent: "center" }}
+          className="flex-1"
+          contentContainerStyle={{ flexGrow: 1 }}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <View className="px-6 py-8">
-            <PressableOpacity onPress={() => router.back()} className="mb-6">
-              <Text className="text-sm text-primary">{t("common.back")}</Text>
-            </PressableOpacity>
-
+          <View className="flex-1 px-6 py-8">
             <Text fontWeight="Bold" className="text-3xl text-gray-900 mb-2">
               {t("signup.workspace_title")}
             </Text>
-            <Text className="text-base text-gray-500 mb-2">
+            <Text className="text-base text-gray-500 mb-6">
               {t("signup.workspace_subtitle")}
             </Text>
-            <Text className="text-xs text-gray-400 mb-8">
-              {t("signup.step_label", { current: 1, total: 2 })}
-            </Text>
+            <StepIndicator current={1} total={2} />
 
             {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}
 
@@ -77,16 +72,22 @@ export function SignupWorkspaceScreen() {
             <Text className="text-xs text-gray-400 -mt-2 mb-6">
               {t("signup.tenant_code_hint")}
             </Text>
-
-            <Button
-              label={t("signup.next")}
-              onPress={handleNext}
-              loading={checkingCode}
-              disabled={!canSubmit}
-              fullWidth
-            />
           </View>
         </ScrollView>
+
+        <View className="flex-row items-center justify-between px-6 py-4 border-t border-gray-100 bg-white">
+          <Button
+            label={t("common.back")}
+            onPress={() => router.back()}
+            variant="ghost"
+          />
+          <Button
+            label={t("signup.next")}
+            onPress={handleNext}
+            loading={checkingCode}
+            disabled={!canSubmit}
+          />
+        </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

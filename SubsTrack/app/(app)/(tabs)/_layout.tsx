@@ -1,7 +1,7 @@
 import { Tabs } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/src/modules/auth/hooks/useAuth";
-import { Ionicons } from "@expo/vector-icons";
+import { Feather, Ionicons } from "@expo/vector-icons";
 import { COLORS } from "@/src/shared/constants";
 
 export default function TabsLayout() {
@@ -35,7 +35,7 @@ export default function TabsLayout() {
           title: t("home.title"),
           href: isAdmin ? undefined : null,
           tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home-outline" size={size} color={color} />
+            <Feather name="home" size={size} color={color} />
           ),
         }}
       />

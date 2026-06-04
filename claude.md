@@ -193,6 +193,7 @@ SubsTrack/
 │   │   ├── signup/                             # public self-service tenant creation
 │   │   │   ├── repository/SignupRepository.ts  # calls is_tenant_code_available RPC + create-tenant edge fn
 │   │   │   ├── services/SignupService.ts       # workspace + account validation (no Supabase)
+│   │   │   ├── components/StepIndicator.tsx    # fillable dot progress (1/2, 2/2)
 │   │   │   └── screens/{SignupWorkspaceScreen, SignupAccountScreen}.tsx
 │   │   │
 │   │   ├── subscription/                       # Tier limits + upgrade flow
@@ -403,9 +404,13 @@ interface TierPlan {
   active;
 }
 interface TenantUsage {
-  customers; users; plans; branches; currencies;
+  customers;
+  users;
+  plans;
+  branches;
+  currencies;
 }
-type TierResource = 'customers' | 'users' | 'plans' | 'branches' | 'currencies';
+type TierResource = "customers" | "users" | "plans" | "branches" | "currencies";
 interface Plan {
   id;
   name;
@@ -482,7 +487,7 @@ interface DashboardMetrics {
 | Table        | Key columns                                                                                                                                                                                                                                             |
 | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `tenants`    | `id`, `name`, `tenant_code`, `active`, `tier_id`, `tier_upgraded_at`                                                                                                                                                                                    |
-| `tier_plans` | `id`, `code`, `name`, `sort_order`, `max_customers`, `max_users`, `max_plans`, `max_branches`, `max_currencies`, `multi_currency_enabled`, `multi_month_plans_enabled`, `grace_days`, `price_monthly_usd`, `price_yearly_usd`, `active`                |
+| `tier_plans` | `id`, `code`, `name`, `sort_order`, `max_customers`, `max_users`, `max_plans`, `max_branches`, `max_currencies`, `multi_currency_enabled`, `multi_month_plans_enabled`, `grace_days`, `price_monthly_usd`, `price_yearly_usd`, `active`                 |
 | `currencies` | `id`, `tenant_id`, `code`, `name`, `symbol`, `rate_per_usd`, `decimals`, `active`                                                                                                                                                                       |
 | `branches`   | `id`, `tenant_id`, `name`, `active`                                                                                                                                                                                                                     |
 | `users`      | `id` (= auth.users.id), `username`, `full_name`, `phone_number`, `role`, `active`, `tenant_id`, `branch_id`                                                                                                                                             |
@@ -519,12 +524,12 @@ Tenants can optionally create branches/zones. A tenant with zero branches behave
 
 **NULL semantics differ per table:**
 
-| Table         | `branch_id IS NULL` means                                                |
-| ------------- | ------------------------------------------------------------------------ |
-| `users`       | Tenant-wide admin (sees all branches and unassigned records).            |
-| `customers`   | UNASSIGNED — visible only to tenant-wide admins.                          |
-| `plans`       | SHARED catalog item — visible to every branch.                            |
-| `payments`    | (no `branch_id` column — inherits from customer via FK + JOIN)            |
+| Table       | `branch_id IS NULL` means                                      |
+| ----------- | -------------------------------------------------------------- |
+| `users`     | Tenant-wide admin (sees all branches and unassigned records).  |
+| `customers` | UNASSIGNED — visible only to tenant-wide admins.               |
+| `plans`     | SHARED catalog item — visible to every branch.                 |
+| `payments`  | (no `branch_id` column — inherits from customer via FK + JOIN) |
 
 **RLS layered on tenant_id:**
 
@@ -675,30 +680,54 @@ Every tenant lives on one of three global `tier_plans` rows: **Free**, **Pro**, 
 
 **Enforcement is service-layer.** Every feature `Service.createX()` calls `tierService.assertCanCreate(tier, usage, resource)` immediately after its existing `validate()`. Failures throw a typed `TierLimitError` (from [TierService.ts](SubsTrack/src/modules/subscription/services/TierService.ts)) carrying `{resource, limit, tierCode}`. Slice actions catch via `instanceof` and set a structured `tierLimitError` field next to the standard `error: string`. Form sheets check `tierLimitError` and render an `UpgradePromptModal` (the existing `ErrorBanner` path stays for regular validation errors). This avoids parsing error strings.
 
-**Tier and usage are passed in as parameters from components**, not read across slices in actions (slice actions still touch `get().subscription.refreshUsage()` after creates, but the *input* tier/usage comes from the caller). The pattern in slices:
+**Tier and usage are passed in as parameters from components**, not read across slices in actions (slice actions still touch `get().subscription.refreshUsage()` after creates, but the _input_ tier/usage comes from the caller). The pattern in slices:
 
 ```ts
 createCustomer: async (data, tenantId, tier, usage) => {
-  set((s) => { s.customers.loading = true; s.customers.error = null; s.customers.tierLimitError = null; });
+  set((s) => {
+    s.customers.loading = true;
+    s.customers.error = null;
+    s.customers.tierLimitError = null;
+  });
   try {
-    const customer = await customerService.createCustomer(data, tenantId, tier, usage);
-    set((s) => { s.customers.items.unshift(customer); s.customers.loading = false; });
-    void get().subscription.refreshUsage();  // ← cross-slice via get()
+    const customer = await customerService.createCustomer(
+      data,
+      tenantId,
+      tier,
+      usage,
+    );
+    set((s) => {
+      s.customers.items.unshift(customer);
+      s.customers.loading = false;
+    });
+    void get().subscription.refreshUsage(); // ← cross-slice via get()
   } catch (e) {
     if (e instanceof TierLimitError) {
-      set((s) => { s.customers.tierLimitError = { resource: e.resource, limit: e.limit, tierCode: e.tierCode }; s.customers.loading = false; });
+      set((s) => {
+        s.customers.tierLimitError = {
+          resource: e.resource,
+          limit: e.limit,
+          tierCode: e.tierCode,
+        };
+        s.customers.loading = false;
+      });
     } else {
-      set((s) => { s.customers.error = (e as Error).message; s.customers.loading = false; });
+      set((s) => {
+        s.customers.error = (e as Error).message;
+        s.customers.loading = false;
+      });
     }
   }
-}
+};
 ```
 
 Components read `currentTier` and `usage` from `useSubscriptionSlice` and forward them into the action.
 
 **Hydration:** `authSlice` exports an internal `primePostAuth(get, user)` helper called by `login` and `restoreSession`. It runs `get().currencies.fetchCurrencies()`, `get().branches.fetchBranches()`, and `get().subscription.init(tenantId, user.tenant.tier)` in parallel via `Promise.all`. The init fetches all tier rows for the comparison screen + counts current usage. The tenant's current tier comes joined onto `getTenant` (`.select('*, tier_plans(*)')`).
 
-**Upgrade UX:** dedicated screen at [SubscriptionScreen.tsx](SubsTrack/src/modules/subscription/screens/SubscriptionScreen.tsx) (routed at `/(app)/(tabs)/admin/subscription`). Shows 3 stacked TierCards with usage bars for the current tier and Upgrade/Downgrade buttons for the others. Upgrades are instant swaps via `subscriptionSlice.upgrade(tenantId, tierId)` — no billing wired up yet. Downgrades call `TierService.canDowngradeTo(targetTier, usage)` first; if usage exceeds the target tier's limits the dialog lists blockers ("42 / 30 customers") and refuses to swap. The `UpgradePromptModal` is also triggered inline whenever a form sheet hits a `TierLimitError`.
+**Upgrade UX:** dedicated screen at [SubscriptionScreen.tsx](SubsTrack/src/modules/subscription/screens/SubscriptionScreen.tsx) (routed at `/(app)/(tabs)/admin/subscription`). Shows 3 stacked TierCards with usage bars for the current tier and Upgrade/Downgrade buttons for the others. Upgrades are instant swaps via `subscriptionSlice.upgrade(tenantId, tierId)` — no billing wired up yet. Downgrades call `TierService.canDowngradeTo(targetTier, usage)` first; if usage exceeds the target tier's limits the dialog lists blockers ("42 / 30 customers") and refuses to swap. The `UpgradePromptModal` is also triggered inline whenever a form sheet hits a `TierLimitError`. The "Subscription" entry in the admin menu ([admin/index.tsx](<SubsTrack/app/(app)/(tabs)/admin/index.tsx>)) is rendered only for tenant-wide admins (`user.branchId === null`) — branch-scoped admins don't see it.
+
+**`UpgradePromptModal` design:** for tenant-wide admins, the modal renders compact preview cards for the available upgrade tiers (every tier with `sortOrder > currentTier.sortOrder`), each showing name, monthly price, and a few key perks (customer/user caps, multi-month/multi-currency flags). The footer has "Not now" + "View plans"; "View plans" pushes `/(app)/(tabs)/admin/subscription`. Branch-scoped admins and staff see a stripped-down "Limit reached — contact your administrator" notice with just a Close button (they can't change the tier themselves).
 
 **Soft UX gates** beyond the hard service-layer block: PlanFormSheet hides multi-month duration UI when `tier.multiMonthPlansEnabled === false`; CurrencyFormSheet hides itself behind the same `assertMultiCurrency` check; the Add buttons on list screens stay enabled so the user always reaches an explanation.
 
@@ -735,16 +764,19 @@ export interface GlobalState {
   // ... etc
 }
 
-const initStore = () => create<GlobalState>()(
-  immer((set, get, store) => ({
-    auth: createAuthSlice(set, get, store),
-    customers: createCustomerSlice(set, get, store),
-    // ...
-  })),
-);
+const initStore = () =>
+  create<GlobalState>()(
+    immer((set, get, store) => ({
+      auth: createAuthSlice(set, get, store),
+      customers: createCustomerSlice(set, get, store),
+      // ...
+    })),
+  );
 
 // Stashed on globalThis so the store survives Metro Fast Refresh.
-export const getStore = (): StoreApi<GlobalState> => { /* ... */ };
+export const getStore = (): StoreApi<GlobalState> => {
+  /* ... */
+};
 ```
 
 **Slice template** ([src/state/slices/customers/customerSlice.ts](SubsTrack/src/state/slices/customers/customerSlice.ts)):
@@ -788,7 +820,9 @@ export const createCustomerSlice: StateCreator<
 ```ts
 export function useCustomerSlice(): CustomerSlice;
 export function useCustomerSlice<T>(selector: (state: CustomerSlice) => T): T;
-export function useCustomerSlice<T = CustomerSlice>(selector?: (state: CustomerSlice) => T): T {
+export function useCustomerSlice<T = CustomerSlice>(
+  selector?: (state: CustomerSlice) => T,
+): T {
   return useGlobalStore((state) => {
     const slice = state.customers;
     return selector ? selector(slice) : (slice as T);
@@ -923,7 +957,7 @@ Located at `SubsTrack/supabase/functions/create-user/index.ts` (Deno runtime).
 
 30. **New tenants auto-get a "Default Branch"** — [TenantService.createTenant](SuperAdmin/src/modules/tenants/services/TenantService.ts) inserts a `Default Branch` row right after the tenant row, before the admin auth user is created. `branches.tenant_id` has `ON DELETE CASCADE` so the existing rollback paths still clean up correctly.
 
-31. **Single-branch tenants behave as if branches don't exist** — with exactly 1 active branch, `BranchSelector` + every `BranchPicker` hide. Form sheets auto-bind new records to that lone branch (`CustomerFormSheet`, `PlanFormSheet`, `UserFormSheet` for `role='user'`). `UserFormSheet` toggles `branchId` back to `null` when the role flips to `admin` because admins remain tenant-wide. The auto-fill applies only on *create*, never on edit. The Branches admin CRUD screen stays reachable so admins can add a 2nd branch and activate multi-branch UI.
+31. **Single-branch tenants behave as if branches don't exist** — with exactly 1 active branch, `BranchSelector` + every `BranchPicker` hide. Form sheets auto-bind new records to that lone branch (`CustomerFormSheet`, `PlanFormSheet`, `UserFormSheet` for `role='user'`). `UserFormSheet` toggles `branchId` back to `null` when the role flips to `admin` because admins remain tenant-wide. The auto-fill applies only on _create_, never on edit. The Branches admin CRUD screen stays reachable so admins can add a 2nd branch and activate multi-branch UI.
 
 32. **Branch is mandatory for customers, plans, and staff users once any branch exists** — `BranchPicker` is passed `nullable={false}` in `CustomerFormSheet`, `PlanFormSheet`, and (when `role === 'user'`) `UserFormSheet`. Submit buttons are disabled until a branch is picked, and the services re-validate (`CustomerService.validateInput`, `PlanService.validate`, `UserService.validateBranchAssignment`) using a `tenantHasBranches` flag that each store reads from `useBranchStore`. Tenant-wide admins (`users.role === 'admin'` with `branch_id = null`) remain the sole exception. The 0-branch case (legacy tenants with no branches yet) skips the enforcement entirely.
 
@@ -983,6 +1017,6 @@ Located at `SubsTrack/supabase/functions/create-user/index.ts` (Deno runtime).
 6. **RLS enforces multi-tenancy** — app-level filtering is secondary.
 7. **No hard deletes** — use `voided_at` for payments, `active = false` / `cancelled_at` for customers.
 8. **Payment amount is a snapshot** — never recompute from `plan.price` after recording.
-9. **All app state lives in one global Zustand store** assembled from per-feature slices in `src/state/slices/`. Slice files may import peer-slice *types* but never their creators or hooks. Cross-slice reads happen inside actions via `get().<otherSlice>`. Caller-supplied data (tier, usage, currency) still flows in as parameters from the component.
+9. **All app state lives in one global Zustand store** assembled from per-feature slices in `src/state/slices/`. Slice files may import peer-slice _types_ but never their creators or hooks. Cross-slice reads happen inside actions via `get().<otherSlice>`. Caller-supplied data (tier, usage, currency) still flows in as parameters from the component.
 10. **All errors caught and stored in state** — never surface raw Supabase error messages to the user.
 11. **Tier limits enforced at the service layer** — every `Service.createX()` calls `tierService.assertCanCreate(tier, usage, resource)` after `validate()`. `TierLimitError` flows through stores as a structured `tierLimitError` field; never parse error strings.
