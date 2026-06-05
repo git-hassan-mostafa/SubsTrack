@@ -28,6 +28,7 @@ export interface TierPlan {
   maxPlans: number | null;
   maxBranches: number | null;
   maxCurrencies: number | null;
+  maxProducts: number | null;
   multiCurrencyEnabled: boolean;
   multiMonthPlansEnabled: boolean;
   graceDays: number;
@@ -44,9 +45,10 @@ export interface TenantUsage {
   plans: number;
   branches: number;
   currencies: number;
+  products: number;
 }
 
-export type TierResource = 'customers' | 'users' | 'plans' | 'branches' | 'currencies';
+export type TierResource = 'customers' | 'users' | 'plans' | 'branches' | 'currencies' | 'products';
 
 // Per-tenant non-USD currency. USD is implicit (never stored as a row).
 // Convention everywhere in the app: a null Currency reference means USD.
@@ -177,8 +179,56 @@ export interface DashboardMetrics {
   totalCustomers: number;
   activeCustomers: number;
   monthlyRevenue: number;
+  subscriptionRevenue: number;
+  salesRevenue: number;
   unpaidThisMonth: number;
   totalUsers: number;
   totalPlans: number;
   totalOutstandingBalance: number;
+}
+
+// One-off sellable item. Distinct from Plan (recurring subscription).
+// branchId: null = SHARED catalog item (visible to every branch) — same semantic as Plan.
+// active = false is a soft-delete (preserves Sale history).
+export interface Product {
+  id: string;
+  tenantId: string;
+  branchId: string | null;
+  name: string;
+  description: string | null;
+  price: number;
+  // Currency the stored price is in. null = USD.
+  currencyId: string | null;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// A single product sale. customerId is OPTIONAL (walk-in supported).
+// productNameSnapshot, unitAmount, and ratePerUsdSnapshot are FROZEN at create time —
+// receipts and historical totals never drift when the catalog or FX rates change.
+export interface Sale {
+  id: string;
+  tenantId: string;
+  branchId: string | null;
+  productId: string;
+  productNameSnapshot: string;
+  customerId: string | null;
+  recordedByUserId: string | null;
+  quantity: number;
+  unitAmount: number;
+  totalAmount: number;
+  // Currency the amounts are stored in. null = USD.
+  currencyId: string | null;
+  // USD sales store 1. Mirrors Payment.ratePerUsdSnapshot.
+  ratePerUsdSnapshot: number;
+  soldAt: string;
+  voidedAt: string | null;
+  voidedBy: string | null;
+  voidReason: string | null;
+  notes: string | null;
+  createdAt: string;
+  // Joined for display in lists/receipts.
+  product?: Product | null;
+  customer?: Customer | null;
 }

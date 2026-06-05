@@ -30,7 +30,7 @@ export class SubscriptionRepository extends BaseRepository {
   // RLS restricts the counts to the caller's tenant automatically, so no
   // tenant_id filter is passed (and the count would be wrong without RLS).
   async countTenantUsage(): Promise<TenantUsage> {
-    const [customers, users, plans, branches, currencies] = await Promise.all([
+    const [customers, users, plans, branches, currencies, products] = await Promise.all([
       this.db
         .from("customers")
         .select("id", { count: "exact", head: true })
@@ -48,18 +48,24 @@ export class SubscriptionRepository extends BaseRepository {
         .from("currencies")
         .select("id", { count: "exact", head: true })
         .eq("active", true),
+      this.db
+        .from("products")
+        .select("id", { count: "exact", head: true })
+        .eq("active", true),
     ]);
     if (customers.error) this.handleError(customers.error);
     if (users.error) this.handleError(users.error);
     if (plans.error) this.handleError(plans.error);
     if (branches.error) this.handleError(branches.error);
     if (currencies.error) this.handleError(currencies.error);
+    if (products.error) this.handleError(products.error);
     return {
       customers: customers.count ?? 0,
       users: users.count ?? 0,
       plans: plans.count ?? 0,
       branches: branches.count ?? 0,
       currencies: currencies.count ?? 0,
+      products: products.count ?? 0,
     };
   }
 

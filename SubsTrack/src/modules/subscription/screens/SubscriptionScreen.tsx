@@ -143,6 +143,7 @@ export function SubscriptionScreen() {
               <UsageBar resource="plans"     current={usage.plans}     limit={currentTier.maxPlans} />
               <UsageBar resource="branches"  current={usage.branches}  limit={currentTier.maxBranches} />
               <UsageBar resource="currencies" current={usage.currencies} limit={currentTier.maxCurrencies} />
+              <UsageBar resource="products"  current={usage.products}  limit={currentTier.maxProducts} />
             </View>
           </View>
         ) : null}

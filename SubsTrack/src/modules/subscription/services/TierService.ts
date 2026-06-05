@@ -33,6 +33,7 @@ export function mapDbTierPlanToTierPlan(db: DbTierPlan): TierPlan {
     maxPlans: db.max_plans,
     maxBranches: db.max_branches,
     maxCurrencies: db.max_currencies,
+    maxProducts: db.max_products,
     multiCurrencyEnabled: db.multi_currency_enabled,
     multiMonthPlansEnabled: db.multi_month_plans_enabled,
     graceDays: db.grace_days,
@@ -69,6 +70,7 @@ interface MaxField {
   plans: 'maxPlans';
   branches: 'maxBranches';
   currencies: 'maxCurrencies';
+  products: 'maxProducts';
 }
 const MAX_FIELD: MaxField = {
   customers: 'maxCustomers',
@@ -76,6 +78,7 @@ const MAX_FIELD: MaxField = {
   plans: 'maxPlans',
   branches: 'maxBranches',
   currencies: 'maxCurrencies',
+  products: 'maxProducts',
 };
 
 export class TierService {

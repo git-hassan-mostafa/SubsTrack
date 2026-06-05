@@ -9,6 +9,7 @@ const EMPTY_USAGE: TenantUsage = {
   plans: 0,
   branches: 0,
   currencies: 0,
+  products: 0
 };
 
 export interface SubscriptionSlice {

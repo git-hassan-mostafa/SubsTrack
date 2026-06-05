@@ -21,6 +21,7 @@ export interface TierPlan {
   maxPlans: number | null;
   maxBranches: number | null;
   maxCurrencies: number | null;
+  maxProducts: number | null;
   multiCurrencyEnabled: boolean;
   multiMonthPlansEnabled: boolean;
   graceDays: number;

@@ -27,6 +27,7 @@ CREATE TABLE IF NOT EXISTS tier_plans (
     max_plans                 INT           CHECK (max_plans     IS NULL OR max_plans     >= 0),
     max_branches              INT           CHECK (max_branches  IS NULL OR max_branches  >= 0),
     max_currencies            INT           CHECK (max_currencies IS NULL OR max_currencies >= 0),
+    max_products              INT           CHECK (max_products  IS NULL OR max_products  >= 0),
 
     -- Feature flags
     multi_currency_enabled    BOOLEAN       NOT NULL DEFAULT FALSE,
@@ -48,13 +49,13 @@ CREATE TABLE IF NOT EXISTS tier_plans (
 -- preserve any limit/price tweaks made later via SuperAdmin.
 INSERT INTO tier_plans (
     code, name, sort_order,
-    max_customers, max_users, max_plans, max_branches, max_currencies,
+    max_customers, max_users, max_plans, max_branches, max_currencies, max_products,
     multi_currency_enabled, multi_month_plans_enabled,
     grace_days, price_monthly_usd
 ) VALUES
-    ('free',     'Free',     0,   30,   1,    3,    1,    0, FALSE, FALSE, 0,  0),
-    ('pro',      'Pro',      1,  300,   5, NULL,    3, NULL, TRUE,  TRUE,  3,  9),
-    ('business', 'Business', 2, NULL, NULL, NULL, NULL, NULL, TRUE,  TRUE,  7, 29)
+    ('free',     'Free',     0,   30,   1,    3,    1,    0,    5, FALSE, FALSE, 0,  0),
+    ('pro',      'Pro',      1,  300,   5, NULL,    3, NULL, NULL, TRUE,  TRUE,  3,  9),
+    ('business', 'Business', 2, NULL, NULL, NULL, NULL, NULL, NULL, TRUE,  TRUE,  7, 29)
 ON CONFLICT (code) DO NOTHING;
 
 -- ============================================================
@@ -470,6 +471,161 @@ CREATE INDEX IF NOT EXISTS idx_payments_customer_month
     ON payments (customer_id, billing_month);
 
 -- ============================================================
+-- PRODUCTS
+-- One-off sellable items (routers, supplements, installation fees…).
+-- Distinct from `plans` (recurring subscriptions). Soft-delete via
+-- active = false — preserves sale history when a product is retired.
+-- Branch semantics mirror plans: branch_id IS NULL = SHARED catalog item.
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS products (
+    id          UUID          PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id   UUID          NOT NULL,
+    -- NULL = SHARED (visible to every branch). NOT NULL = scoped to one branch.
+    branch_id   UUID,
+    name        TEXT          NOT NULL,
+    description TEXT,
+    price       NUMERIC(20,8) NOT NULL CHECK (price > 0),
+    -- Currency the price is stored in. NULL = USD (the base).
+    currency_id UUID,
+    active      BOOLEAN       NOT NULL DEFAULT TRUE,
+    created_at  TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    updated_at  TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT fk_products_tenant
+        FOREIGN KEY (tenant_id)
+        REFERENCES tenants(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_products_branch
+        FOREIGN KEY (branch_id)
+        REFERENCES branches(id)
+        ON DELETE SET NULL,
+
+    CONSTRAINT fk_products_currency
+        FOREIGN KEY (currency_id)
+        REFERENCES currencies(id)
+        ON DELETE RESTRICT
+);
+
+-- Same-name uniqueness rules as plans: shared + branch-specific can coexist
+-- because NULLs compare unequal in a Postgres unique index.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_products_name_tenant_branch
+    ON products (tenant_id, branch_id, name);
+
+CREATE INDEX IF NOT EXISTS idx_products_tenant_id
+    ON products (tenant_id);
+
+CREATE INDEX IF NOT EXISTS idx_products_branch_id
+    ON products (branch_id);
+
+CREATE OR REPLACE TRIGGER trg_products_updated_at
+    BEFORE UPDATE ON products
+    FOR EACH ROW
+    EXECUTE FUNCTION set_updated_at();
+
+-- ============================================================
+-- SALES
+-- Ledger of one-off product sales. Customer is OPTIONAL (walk-in supported).
+-- Mirrors the snapshot principle from payments: unit_amount,
+-- product_name_snapshot, and rate_per_usd_snapshot are frozen at write
+-- time and never recomputed. Soft-void only — historical totals stay accurate.
+-- No UNIQUE constraint on (customer, product, day) — the same customer can
+-- buy the same product twice in a day legitimately.
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS sales (
+    id                    UUID          PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id             UUID          NOT NULL,
+    -- Branch where the sale was recorded. Inherited from the recording user
+    -- (or chosen by tenant-wide admins). NULL = sold by a tenant-wide admin
+    -- with no branch context (rare but legal).
+    branch_id             UUID,
+    product_id            UUID          NOT NULL,
+    -- Snapshot of product.name at sale time. Survives product renames or
+    -- soft-deletes (active = false) so receipts always show what was sold.
+    product_name_snapshot TEXT          NOT NULL,
+    -- NULL = walk-in / anonymous sale.
+    customer_id           UUID,
+    recorded_by_user_id   UUID,
+    quantity              INTEGER       NOT NULL DEFAULT 1 CHECK (quantity > 0),
+    -- Per-unit price at sale time. May differ from product.price (staff
+    -- gave a discount, rounded, etc.). Snapshot — never recomputed.
+    unit_amount           NUMERIC(20,8) NOT NULL CHECK (unit_amount > 0),
+    -- Read-only computed total. App never writes this.
+    total_amount          NUMERIC(20,8) GENERATED ALWAYS AS (unit_amount * quantity) STORED,
+    -- Currency the amounts above are stored in. NULL = USD.
+    currency_id           UUID,
+    -- Exchange rate (units of currency_id per 1 USD) frozen at recording time.
+    -- USD sales (currency_id IS NULL) always store 1. Mirrors payments.rate_per_usd_snapshot.
+    rate_per_usd_snapshot NUMERIC(20,8) NOT NULL CHECK (rate_per_usd_snapshot > 0),
+    sold_at               TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    created_at            TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    -- Soft-void fields. Set together or not at all. Reason required when set.
+    voided_at             TIMESTAMPTZ,
+    voided_by             UUID,
+    void_reason           TEXT,
+    notes                 TEXT,
+
+    CONSTRAINT chk_sale_void_consistency
+        CHECK (
+            (voided_at IS NULL AND voided_by IS NULL AND void_reason IS NULL)
+            OR
+            (voided_at IS NOT NULL AND voided_by IS NOT NULL AND void_reason IS NOT NULL AND void_reason <> '')
+        ),
+
+    CONSTRAINT fk_sales_tenant
+        FOREIGN KEY (tenant_id)
+        REFERENCES tenants(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_sales_branch
+        FOREIGN KEY (branch_id)
+        REFERENCES branches(id)
+        ON DELETE SET NULL,
+
+    -- Products referenced by sales cannot be hard-deleted. Use active = false.
+    CONSTRAINT fk_sales_product
+        FOREIGN KEY (product_id)
+        REFERENCES products(id)
+        ON DELETE RESTRICT,
+
+    -- Customer can be removed without orphaning the sale.
+    CONSTRAINT fk_sales_customer
+        FOREIGN KEY (customer_id)
+        REFERENCES customers(id)
+        ON DELETE SET NULL,
+
+    CONSTRAINT fk_sales_recorded_by
+        FOREIGN KEY (recorded_by_user_id)
+        REFERENCES users(id)
+        ON DELETE SET NULL,
+
+    CONSTRAINT fk_sales_voided_by
+        FOREIGN KEY (voided_by)
+        REFERENCES users(id)
+        ON DELETE SET NULL,
+
+    CONSTRAINT fk_sales_currency
+        FOREIGN KEY (currency_id)
+        REFERENCES currencies(id)
+        ON DELETE RESTRICT
+);
+
+CREATE INDEX IF NOT EXISTS idx_sales_tenant_sold_at
+    ON sales (tenant_id, sold_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_sales_customer
+    ON sales (customer_id)
+    WHERE customer_id IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_sales_branch
+    ON sales (branch_id);
+
+CREATE INDEX IF NOT EXISTS idx_sales_product
+    ON sales (product_id);
+
+-- ============================================================
 -- ROW LEVEL SECURITY
 -- ============================================================
 
@@ -481,6 +637,8 @@ ALTER TABLE users      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE plans      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE customers  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE payments   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE products   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sales      ENABLE ROW LEVEL SECURITY;
 
 -- ==============================================================
 CREATE OR REPLACE FUNCTION get_free_tier_id()
@@ -789,6 +947,74 @@ DO $$ BEGIN
                         WHERE c.id = payments.customer_id
                           AND c.branch_id = current_branch_id()
                     )
+                )
+            );
+    END IF;
+
+    -- ── PRODUCTS ─────────────────────────────────────────────
+    -- Identical semantics to plans: shared catalog (branch_id IS NULL)
+    -- visible to everyone in the tenant; branch-specific visible to that
+    -- branch + tenant-wide admins. Branch-scoped admins cannot create
+    -- shared products (WITH CHECK forces branch match).
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE tablename = 'products' AND policyname = 'products_select'
+    ) THEN
+        CREATE POLICY products_select ON products
+            FOR SELECT USING (
+                tenant_id = current_tenant_id()
+                AND (
+                    current_branch_id() IS NULL
+                    OR branch_id IS NULL
+                    OR branch_id = current_branch_id()
+                )
+            );
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE tablename = 'products' AND policyname = 'products_modify'
+    ) THEN
+        CREATE POLICY products_modify ON products
+            FOR ALL
+            USING (
+                tenant_id = current_tenant_id()
+                AND (
+                    current_branch_id() IS NULL
+                    OR branch_id = current_branch_id()
+                )
+            )
+            WITH CHECK (
+                tenant_id = current_tenant_id()
+                AND (
+                    current_branch_id() IS NULL
+                    OR branch_id = current_branch_id()
+                )
+            );
+    END IF;
+
+    -- ── SALES ────────────────────────────────────────────────
+    -- Tenant-wide users see everything. Branch-scoped users only see
+    -- sales recorded in their own branch. Walk-in sales (customer_id IS NULL)
+    -- are scoped via sales.branch_id, not the customer.
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE tablename = 'sales' AND policyname = 'sales_all'
+    ) THEN
+        CREATE POLICY sales_all ON sales
+            FOR ALL
+            USING (
+                tenant_id = current_tenant_id()
+                AND (
+                    current_branch_id() IS NULL
+                    OR branch_id = current_branch_id()
+                )
+            )
+            WITH CHECK (
+                tenant_id = current_tenant_id()
+                AND (
+                    current_branch_id() IS NULL
+                    OR branch_id = current_branch_id()
                 )
             );
     END IF;

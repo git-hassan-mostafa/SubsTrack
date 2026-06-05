@@ -40,6 +40,7 @@ export function TierPlanFormSheet({ visible, tierPlan, onDismiss }: Props) {
   const [maxPlans, setMaxPlans] = useState("");
   const [maxBranches, setMaxBranches] = useState("");
   const [maxCurrencies, setMaxCurrencies] = useState("");
+  const [maxProducts, setMaxProducts] = useState("");
   const [multiCurrency, setMultiCurrency] = useState(false);
   const [multiMonth, setMultiMonth] = useState(false);
   const [graceDays, setGraceDays] = useState("0");
@@ -54,6 +55,7 @@ export function TierPlanFormSheet({ visible, tierPlan, onDismiss }: Props) {
       setMaxPlans(toLimitText(tierPlan.maxPlans));
       setMaxBranches(toLimitText(tierPlan.maxBranches));
       setMaxCurrencies(toLimitText(tierPlan.maxCurrencies));
+      setMaxProducts(toLimitText(tierPlan.maxProducts));
       setMultiCurrency(tierPlan.multiCurrencyEnabled);
       setMultiMonth(tierPlan.multiMonthPlansEnabled);
       setGraceDays(String(tierPlan.graceDays));
@@ -73,6 +75,7 @@ export function TierPlanFormSheet({ visible, tierPlan, onDismiss }: Props) {
       maxPlans: parseLimit(maxPlans),
       maxBranches: parseLimit(maxBranches),
       maxCurrencies: parseLimit(maxCurrencies),
+      maxProducts: parseLimit(maxProducts),
       multiCurrencyEnabled: multiCurrency,
       multiMonthPlansEnabled: multiMonth,
       graceDays: parseInt(graceDays, 10) || 0,
@@ -147,6 +150,14 @@ export function TierPlanFormSheet({ visible, tierPlan, onDismiss }: Props) {
             value={maxCurrencies}
             onChangeText={setMaxCurrencies}
             placeholder="e.g. 0"
+            keyboardType="number-pad"
+            onFocus={clearError}
+          />
+          <Input
+            label="Max products"
+            value={maxProducts}
+            onChangeText={setMaxProducts}
+            placeholder="e.g. 5"
             keyboardType="number-pad"
             onFocus={clearError}
           />

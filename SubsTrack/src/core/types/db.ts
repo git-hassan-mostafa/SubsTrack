@@ -23,6 +23,7 @@ export interface DbTierPlan {
   max_plans: number | null;
   max_branches: number | null;
   max_currencies: number | null;
+  max_products: number | null;
   multi_currency_enabled: boolean;
   multi_month_plans_enabled: boolean;
   grace_days: number;
@@ -119,4 +120,41 @@ export interface DbPayment {
   voided_by: string | null;
   notes: string | null;
   created_at: string;
+}
+
+export interface DbProduct {
+  id: string;
+  tenant_id: string;
+  branch_id: string | null;
+  name: string;
+  description: string | null;
+  price: number;
+  currency_id: string | null;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DbSale {
+  id: string;
+  tenant_id: string;
+  branch_id: string | null;
+  product_id: string;
+  product_name_snapshot: string;
+  customer_id: string | null;
+  recorded_by_user_id: string | null;
+  quantity: number;
+  unit_amount: number;
+  total_amount: number;
+  currency_id: string | null;
+  rate_per_usd_snapshot: number;
+  sold_at: string;
+  voided_at: string | null;
+  voided_by: string | null;
+  void_reason: string | null;
+  notes: string | null;
+  created_at: string;
+  // joined relations — present when .select('*, products(*), customers(*)')
+  products?: DbProduct | null;
+  customers?: DbCustomer | null;
 }

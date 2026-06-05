@@ -66,6 +66,8 @@ export const BRANCH_SCOPES = {
   users: { kind: "owned" },
   plans: { kind: "shared" },
   payments: { kind: "inherited", joinedTable: "customers" },
+  products: { kind: "shared" },
+  sales: { kind: "owned" },
 } satisfies Record<string, BranchScope>;
 
 /**

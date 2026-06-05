@@ -23,6 +23,7 @@ export interface DbTierPlan {
   max_plans: number | null;
   max_branches: number | null;
   max_currencies: number | null;
+  max_products: number | null;
   multi_currency_enabled: boolean;
   multi_month_plans_enabled: boolean;
   grace_days: number;

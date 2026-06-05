@@ -501,10 +501,44 @@ Load on screen focus. All metrics scoped to current tenant.
 |--------|-------------|
 | Total customers | COUNT all customers |
 | Active customers | COUNT where active = true |
-| Monthly revenue | SUM of non-voided payment amounts for current billing month |
-| Unpaid this month | COUNT active customers with no non-voided payment for current billing month |
+| Monthly revenue | (Subscription revenue + Sales revenue) summed in USD via each row's `rate_per_usd_snapshot` |
+| Subscription revenue | SUM of non-voided payment `amount_paid` for current billing month (USD-converted) |
+| Sales revenue | SUM of non-voided sale `total_amount` for current calendar month (USD-converted) |
+| Unpaid this month | COUNT active regular customers with no non-voided payment for current billing month |
+
+The dashboard's Revenue card shows the combined figure with a sub-line "Subscriptions: $X · Sales: $Y" when sales are non-zero.
 
 Use `Promise.all` for parallel queries. Do not use N+1 queries.
+
+---
+
+### Module: Products (admin only) + Sales
+
+One-off sellable items distinct from subscription plans. Routers sold outright, installation fees, supplements, deposits, merchandise, etc.
+
+**Products** (catalog):
+
+- Per-tenant catalog. Mirrors plans: `branch_id IS NULL` = SHARED catalog item visible to every branch.
+- Currency on the row (`currency_id`, NULL = USD).
+- Soft-delete when referenced by sales (preserves history); hard-delete otherwise.
+- Tier-gated via `tier_plans.max_products` — Free: 5, Pro: unlimited, Business: unlimited.
+
+**Sales** (ledger):
+
+- One-off sale record. Independent table from `payments` — no shared schema.
+- `customer_id` is **nullable** — walk-in / anonymous sales supported.
+- Snapshot fields (frozen at write time, never recomputed):
+  - `product_name_snapshot` — survives product rename / soft-delete
+  - `unit_amount` — defaults to `product.price` but is overridable on the form
+  - `rate_per_usd_snapshot` — same drift-free principle as `payments.rate_per_usd_snapshot`
+- `total_amount` = generated column `unit_amount * quantity`.
+- Soft-void only (`voided_at`, `voided_by`, `void_reason`). No hard delete.
+
+**Entry points:**
+
+- New "Sales" bottom tab — recent sales list + record-sale FAB. Customer picker uses the reusable `AsyncEntityPicker` (paginated, server-side search).
+- `CustomerSalesPanel` rendered under the month grid on the customer detail screen — pre-fills the customer when launching the form.
+- "Products" entry in the admin menu — catalog CRUD admin screen.
 
 ---
 

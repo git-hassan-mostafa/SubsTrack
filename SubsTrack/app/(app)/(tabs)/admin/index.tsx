@@ -9,13 +9,14 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useDashboardSlice } from "@/src/state/hooks/useDashboardSlice";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useBranchSlice } from "@/src/state/hooks/useBranchSlice";
+import { useSubscriptionSlice } from "@/src/state/hooks/useSubscriptionSlice";
 import { useAuth } from "@/src/modules/auth/hooks/useAuth";
 import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { COLORS } from "@/src/shared/constants";
 import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
 
-type CountKey = "users" | "plans" | "branches" | "currencies";
+type CountKey = "users" | "plans" | "branches" | "currencies" | "products";
 
 type MenuItem = {
   labelKey: string;
@@ -45,6 +46,15 @@ const MENU_ITEMS: MenuItem[] = [
     iconColor: COLORS.warning,
     route: "/(app)/(tabs)/admin/plans",
     countKey: "plans",
+  },
+  {
+    labelKey: "products.title",
+    subtitleKey: "admin.products_sub",
+    icon: "cube-outline",
+    iconBg: COLORS.successLight,
+    iconColor: COLORS.success,
+    route: "/(app)/(tabs)/admin/products",
+    countKey: "products",
   },
   {
     labelKey: "branches.section_title",
@@ -90,6 +100,7 @@ export default function AdminMenuScreen() {
   const fetchMetrics = useDashboardSlice((s) => s.fetchMetrics);
   const currencies = useCurrencySlice((s) => s.items);
   const branches = useBranchSlice((s) => s.items);
+  const productCount = useSubscriptionSlice((s) => s.usage.products);
   const { displayCurrencyId } = useUiPrefStore();
 
   const isTenantWideAdmin = user?.branchId === null;
@@ -202,7 +213,9 @@ export default function AdminMenuScreen() {
                               ? branchCount
                               : item.countKey === "currencies"
                                 ? currencyCount
-                                : undefined,
+                                : item.countKey === "products"
+                                  ? productCount
+                                  : undefined,
                     })}
                   </Text>
                 </View>

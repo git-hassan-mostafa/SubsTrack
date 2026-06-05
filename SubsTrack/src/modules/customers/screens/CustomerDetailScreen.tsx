@@ -13,6 +13,7 @@ import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { PageHeader } from "@/src/shared/components/PageHeader";
 import { getDateLocale } from "@/src/core/utils/date";
 import { CustomerPaymentPanel } from "@/src/modules/customer-payments/components/CustomerPaymentPanel";
+import { CustomerSalesPanel } from "@/src/modules/sales/components/CustomerSalesPanel";
 import { CustomerDetailsCard } from "../components/CustomerDetailsCard";
 import { CustomerFormSheet } from "../components/CustomerFormSheet";
 import { useCustomerSlice } from "@/src/state/hooks/useCustomerSlice";
@@ -93,6 +94,7 @@ export function CustomerDetailScreen() {
           }
         >
           <CustomerPaymentPanel customer={customer} />
+          <CustomerSalesPanel customer={customer} />
           <CustomerDetailsCard
             customer={customer}
             onDeleted={() => router.back()}

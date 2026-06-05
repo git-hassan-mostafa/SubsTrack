@@ -141,12 +141,15 @@ SubsTrack/
 │           │   └── index.tsx      # Home tab (admin only) — renders DashboardScreen
 │           ├── admin/
 │           │   ├── plans.tsx          # Plans list route
+│           │   ├── products.tsx       # Products catalog route (admin-only)
 │           │   ├── users.tsx          # Users list route
 │           │   ├── subscription.tsx   # Tier comparison + usage + upgrade route
 │           │   └── index.tsx          # Admin menu (manage section)
 │           ├── customers/
 │           │   ├── index.tsx      # Customer list
-│           │   └── [id].tsx       # Customer detail + payment grid
+│           │   └── [id].tsx       # Customer detail + payment grid + sales panel
+│           ├── sales/
+│           │   └── index.tsx      # Sales tab — recent sales list + record-sale FAB
 │           └── settings/
 │               └── index.tsx      # Language & user info
 │
@@ -180,7 +183,9 @@ SubsTrack/
 │   │       ├── dashboard/dashboardSlice.ts
 │   │       ├── branches/branchSlice.ts
 │   │       ├── currencies/currencySlice.ts
-│   │       └── signup/signupSlice.ts
+│   │       ├── signup/signupSlice.ts
+│   │       ├── products/productSlice.ts
+│   │       └── sales/saleSlice.ts
 │   │
 │   ├── modules/                   # Feature modules (state moved out — see src/state/)
 │   │   ├── auth/
@@ -242,9 +247,21 @@ SubsTrack/
 │   │   │   └── components/{UserCard, UserFormSheet}.tsx
 │   │   │
 │   │   ├── dashboard/
-│   │   │   ├── services/DashboardService.ts    # Promise.all() for 6 metrics
-│   │   │   ├── screens/DashboardScreen.tsx
+│   │   │   ├── services/DashboardService.ts    # Promise.all() for metrics including monthly sales sum (USD)
+│   │   │   ├── screens/DashboardScreen.tsx     # Revenue card now combines subscriptions + sales with sub-breakdown
 │   │   │   └── components/MetricCard.tsx
+│   │   │
+│   │   ├── products/                            # One-off sellable items catalog
+│   │   │   ├── repository/ProductRepository.ts # CRUD + countAll + countReferences (sales)
+│   │   │   ├── services/ProductService.ts      # validate, createProduct (tier-gated), deleteProduct (soft if referenced)
+│   │   │   ├── screens/ProductListScreen.tsx   # admin-only at app/(app)/(tabs)/admin/products.tsx
+│   │   │   └── components/{ProductCard, ProductFormSheet}.tsx
+│   │   │
+│   │   ├── sales/                               # One-off sale ledger (separate from subscription payments)
+│   │   │   ├── repository/SaleRepository.ts    # paginated findAll w/ search, findByCustomer, voidSale, totalsForMonth (drift-free USD)
+│   │   │   ├── services/SaleService.ts         # createSale snapshots productName + unitAmount + ratePerUsd; voidSale; sumForMonthUsd
+│   │   │   ├── screens/SalesListScreen.tsx     # bottom-tab at app/(app)/(tabs)/sales/index.tsx
+│   │   │   └── components/{SaleCard, SaleFormSheet, SaleDetailSheet, CustomerSalesPanel}.tsx
 │   │   │
 │   │   └── settings/
 │   │       └── screens/SettingsScreen.tsx
@@ -257,6 +274,7 @@ SubsTrack/
 │       │   ├── FormSheet.tsx      # Reusable @gorhom/bottom-sheet wrapper
 │       │   ├── ErrorBanner.tsx    # Inline error display (never toast/alert)
 │       │   ├── Dropdown.tsx, DatePickerInput.tsx
+│       │   ├── AsyncEntityPicker.tsx # Searchable + paginated picker for large entity lists (used for customer picker in SaleFormSheet)
 │       │   ├── SearchTextBox.tsx, EmptyState.tsx
 │       │   ├── PageHeader.tsx, LoadingScreen.tsx
 │       │   ├── ConfirmDialog.tsx, ErrorBoundary.tsx
@@ -739,6 +757,32 @@ Components read `currentTier` and `usage` from `useSubscriptionSlice` and forwar
 
 **Future-proofing:** to add Stripe, append nullable `stripe_price_id_monthly` / `stripe_price_id_yearly` to `tier_plans` and `stripe_customer_id` / `stripe_subscription_id` to `tenants`. Only `subscriptionSlice.upgrade()` changes — it redirects to a Checkout session, the webhook updates `tier_id`. Every other call site already reads from `currentTier`.
 
+## Products & One-Off Sales
+
+`products` + `sales` extend SubsTrack beyond recurring subscriptions. `payments` (subscriptions) and `sales` are deliberately separate ledgers — they don't share schema or service code. Subscription month-grid logic is untouched.
+
+**Products** mirror `plans` exactly: per-tenant catalog, optional currency, `branch_id IS NULL` = SHARED, soft-delete via `active = false` when a product has historical sales (hard-delete otherwise — mirrors `CurrencyService.deleteCurrency`). Tier-gated through `tier_plans.max_products` (Free: 5, Pro/Business: unlimited).
+
+**Sales** are a one-off ledger with snapshots throughout (gotcha #21 generalizes here):
+
+- `product_name_snapshot` — frozen product name at sale time, survives product renames/soft-deletes.
+- `unit_amount` — per-unit price at sale time. Defaults to `product.price` in the form but is editable (discounts, rounding).
+- `total_amount` — `GENERATED ALWAYS AS (unit_amount * quantity) STORED`, read-only.
+- `rate_per_usd_snapshot` — currency rate at sale time, same drift-free principle as `payments.rate_per_usd_snapshot`. Use `paymentSnapshotCurrency(sale, currencies)` to display — it works for any row with `currencyId` + `ratePerUsdSnapshot` despite the name.
+- `customer_id` is **nullable** — walk-in sales are recorded with `customer_id = NULL`.
+- `voided_at` / `voided_by` / `void_reason` for soft-void. Voided sales drop out of the active list but remain in the DB. No hard delete.
+
+**Branch semantics:**
+
+- `products.branch_id`: same as `plans` — `NULL` = SHARED catalog item visible to every branch.
+- `sales.branch_id`: same as `customers` — `NULL` only when a tenant-wide admin records a walk-in without picking a branch. RLS scopes branch-scoped users to their own branch.
+
+**`AsyncEntityPicker`** ([src/shared/components/AsyncEntityPicker.tsx](SubsTrack/src/shared/components/AsyncEntityPicker.tsx)) is the reusable customer picker built for `SaleFormSheet`. Generic over `<T>`; the caller passes a `loadPage(search, page)` callback. Reuses `SearchTextBox`, `useDebounce` (300 ms), and a `requestToken` ref to discard stale responses when the user types fast (same pattern as `customerSlice.searchToken`). Use it any time the option list is too large to fit in memory — small static lists keep using `Dropdown`.
+
+**Dashboard:** `DashboardService.getMetrics()` parallel-fetches `sales.totalsForMonth(monthStart, monthEndExclusive, branchFilter)` alongside the existing payment queries. The Revenue card on the home dashboard shows `monthlyRevenue = subscriptionRevenue + salesRevenue`, with a sub-line "Subscriptions: $X · Sales: $Y" rendered when `salesRevenue > 0`. All values are summed in USD via each row's frozen `rate_per_usd_snapshot`, then formatted into the user's display currency at render.
+
+**Tier-gating** is sale-blind: products consume a slot (gated by `max_products`), but recording sales is unlimited on every tier.
+
 ## Regular Customer
 
 `Customer.isRegular` (default `true`) distinguishes subscription customers from occasional ones.
@@ -968,6 +1012,12 @@ Located at `SubsTrack/supabase/functions/create-user/index.ts` (Deno runtime).
 33. **Self-service tenant signup goes through an Edge Function, never direct inserts** — the SubsTrack mobile app ships only the anon key, and there is no INSERT policy on `tenants`/`branches`/`tier_plans`. The public [create-tenant](SubsTrack/supabase/functions/create-tenant/index.ts) edge function (deployed with `--no-verify-jwt`) is the **sole** anon-accessible path for creating a tenant. It uses the service-role key to perform the full sequence with cascading rollback: lookup Free tier id → `tenants(tier_id=Free)` → `branches` ('Default Branch') → `auth.users` → `public.users` (role=`superadmin`, branch_id=null). The pre-check on the workspace screen uses [`is_tenant_code_available`](sql%20scripts/script.sql) — a SECURITY DEFINER RPC granted to `anon` that returns a boolean (no row data, just a yes/no oracle). Self-signup mirrors the role assignment SuperAdmin's `TenantService.createTenant` uses (`superadmin`), which means the new owner is filtered from their own Users screen per note #3 — same behavior as tenants created from SuperAdmin today. Future paid-plan gating plugs into this edge function (the `paymentToken` field is already accepted-but-ignored in the request body) and into `subscriptionStore.upgrade()`.
 
 34. **`partial` is a first-class `MonthStatus`** — when a payment covers a month and its `balance > 0` (amount_paid < amount_due), `PaymentService.buildMonthGrid` emits `status: "partial"` instead of `"paid"`. Amber cells in the grid replace the old paid-with-orange-dot rendering. Customer-list badges reflect the same: `paymentSlice` exposes **two** sets — `currentMonthFullyPaidIds` and `currentMonthPartialIds` — populated by `fetchCurrentMonthPaymentStatus()` (repository selects `balance` alongside `amount_paid`). Slice mutations (`createPayment`, `createMultiMonthPayment`, `updatePayment`, `voidPayment`) recompute set membership via the `applyPaymentStatus` / `clearPaymentStatus` helpers so editing a payment between full↔partial keeps the list badge correct. The unpaid tab + Quick Pay gating both treat membership in **either** set as "already has a payment record for this month." A `partial` month behaves like `paid` everywhere a payment record matters (`PaymentDetailSheet` opens on tap, `MonthGrid` multi-month grouping merges them, `PaymentFormSheet` treats them as multi-month conflicts, `CustomerPaymentPanel`'s `paidCount` includes them). The unpaid banner / unpaid tab only fire for `"unpaid"`.
+
+35. **Sales are independent from subscription payments** — `sales` and `payments` are separate tables with separate services, slices, and screens. They share zero code beyond the snapshot rate principle (`rate_per_usd_snapshot`). Don't try to unify them — subscriptions are month-shaped (`billing_month`, `duration_months`, multi-month coverage), one-off sales are not. The only place they intersect is `DashboardService.getMetrics()`, which sums both in USD using each row's frozen snapshot rate and returns `subscriptionRevenue` + `salesRevenue` + their combined `monthlyRevenue`.
+
+36. **`paymentSnapshotCurrency()` works on any row with `currencyId` + `ratePerUsdSnapshot`** — despite the name, the helper in `src/core/utils/currency.ts` is shape-based, not payment-specific. Reuse it for sales (`SaleCard`, `SaleDetailSheet`) so historical USD-equivalent values stay drift-free when a tenant edits the live `currencies.rate_per_usd`. If you later add another snapshot-bearing entity (refunds, deposits), reuse it again rather than copying the pattern.
+
+37. **`AsyncEntityPicker` replaces `Dropdown` only when the option list is too large to fit in memory** — `Dropdown` does client-side filtering against a pre-loaded options array (perfect for branches, currencies, plans). `AsyncEntityPicker` accepts a `loadPage(search, page)` callback, debounces input via `useDebounce` (300 ms), paginates via `FlatList.onEndReached`, and discards stale responses via a `requestToken` ref (same pattern as `customerSlice.searchToken`). Reach for it for customers (used in `SaleFormSheet`) and any future large-entity picker. Don't migrate small static-list dropdowns — `Dropdown` is fine there.
 
 ---
 

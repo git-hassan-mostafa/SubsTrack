@@ -26,6 +26,7 @@ export function TierCard({ tier, isCurrent, direction, onAction, disabled }: Pro
     { key: 'users',         label: t('subscription.resource.users'),         value: formatLimit(tier.maxUsers) },
     { key: 'plans',         label: t('subscription.resource.plans'),         value: formatLimit(tier.maxPlans) },
     { key: 'branches',      label: t('subscription.resource.branches'),      value: formatLimit(tier.maxBranches) },
+    { key: 'products',      label: t('subscription.resource.products'),      value: formatLimit(tier.maxProducts) },
     {
       key: 'multi_currency',
       label: t('subscription.feature.multi_currency'),

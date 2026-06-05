@@ -211,6 +211,58 @@ expenses:  + branch_id  UUID REFERENCES branches(id)  -- nullable
 
 ## 5. Equipment / Asset Tracking
 
+### 5.0 Products & One-Off Sales ✅
+
+**Priority:** 🔴 High
+
+**Purpose:** Subscription businesses also sell one-off items — ISP-sold routers, installation fees, gym supplements, deposits. Without this, those sales either inflate a "custom" subscription payment (losing what was actually sold) or go unrecorded entirely. Owners now see combined revenue and per-product reporting.
+
+**Schema:**
+
+```sql
+ALTER TABLE tier_plans ADD COLUMN max_products INT;  -- Free: 5, Pro/Business: NULL
+
+CREATE TABLE products (
+  id, tenant_id, branch_id (NULL = SHARED — mirrors plans),
+  name, description, price, currency_id (NULL = USD),
+  active (soft-delete preserves history),
+  created_at, updated_at,
+  UNIQUE(tenant_id, branch_id, name)
+);
+
+CREATE TABLE sales (
+  id, tenant_id, branch_id,
+  product_id (ON DELETE RESTRICT),
+  product_name_snapshot,             -- frozen at sale time
+  customer_id (NULL = walk-in),
+  recorded_by_user_id,
+  quantity, unit_amount,
+  total_amount (GENERATED unit_amount * quantity),
+  currency_id (NULL = USD),
+  rate_per_usd_snapshot,             -- frozen at sale time
+  sold_at, created_at,
+  voided_at, voided_by, void_reason  -- soft-void only
+);
+```
+
+**Module layout:**
+
+- `src/modules/products/` — catalog admin CRUD (mirrors plans/)
+- `src/modules/sales/` — sale ledger + sale form + customer panel
+- `src/state/slices/{products,sales}/` — Zustand slices
+- `src/shared/components/AsyncEntityPicker.tsx` — reusable paginated/searchable picker (built specifically to wrap CustomerRepository for the sale's customer picker; reusable for any large-entity list)
+
+**Notes:**
+
+- Sales are tied to a customer optionally — walk-in sales are supported.
+- No stock tracking in v1 — just a price catalog + sale log.
+- Tier-gated via `tier_plans.max_products` (Free: 5, Pro/Business: unlimited).
+- Dashboard `monthlyRevenue` now = subscription revenue + sales revenue, with a sub-breakdown rendered when sales are non-zero.
+- Snapshot principle (CLAUDE.md gotcha #21) applies: `product_name_snapshot`, `unit_amount`, and `rate_per_usd_snapshot` are frozen at sale time so receipts and historical USD totals never drift.
+- Branch-scoped semantics mirror plans: `branch_id IS NULL` = SHARED catalog item visible to every branch.
+
+---
+
 ### 5.1 Equipment Assigned to Customers
 
 **Priority:** 🟡 Medium (high for ISPs)

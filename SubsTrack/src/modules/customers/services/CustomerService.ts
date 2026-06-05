@@ -6,9 +6,9 @@ import i18n from "@/src/core/i18n";
 import { CustomerRepository } from "../repository/CustomerRepository";
 import { tierService } from "@/src/modules/subscription/services/TierService";
 
-type DbCustomerWithPlan = DbCustomer & { plans?: DbPlan | null };
+export type DbCustomerWithPlan = DbCustomer & { plans?: DbPlan | null };
 
-function mapDbCustomerToCustomer(db: DbCustomerWithPlan): Customer {
+export function mapDbCustomerToCustomer(db: DbCustomerWithPlan): Customer {
   const plan: Plan | null = db.plans
     ? {
       id: db.plans.id,

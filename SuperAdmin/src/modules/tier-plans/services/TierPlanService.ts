@@ -13,6 +13,7 @@ export function mapDbTierPlanToTierPlan(db: DbTierPlan): TierPlan {
     maxPlans: db.max_plans,
     maxBranches: db.max_branches,
     maxCurrencies: db.max_currencies,
+    maxProducts: db.max_products,
     multiCurrencyEnabled: db.multi_currency_enabled,
     multiMonthPlansEnabled: db.multi_month_plans_enabled,
     graceDays: db.grace_days,
@@ -29,6 +30,7 @@ export interface TierPlanInput {
   maxPlans: number | null;
   maxBranches: number | null;
   maxCurrencies: number | null;
+  maxProducts: number | null;
   multiCurrencyEnabled: boolean;
   multiMonthPlansEnabled: boolean;
   graceDays: number;
@@ -54,6 +56,7 @@ export class TierPlanService {
       max_plans: data.maxPlans,
       max_branches: data.maxBranches,
       max_currencies: data.maxCurrencies,
+      max_products: data.maxProducts,
       multi_currency_enabled: data.multiCurrencyEnabled,
       multi_month_plans_enabled: data.multiMonthPlansEnabled,
       grace_days: data.graceDays,
@@ -78,6 +81,7 @@ export class TierPlanService {
       "maxPlans",
       "maxBranches",
       "maxCurrencies",
+      "maxProducts",
     ];
     for (const f of numericFields) {
       const v = data[f] as number | null;

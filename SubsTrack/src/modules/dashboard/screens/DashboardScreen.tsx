@@ -117,6 +117,14 @@ export function DashboardScreen() {
               <Text fontWeight="Bold" className="text-4xl text-white mb-1">
                 {fmt(metrics?.monthlyRevenue ?? 0)}
               </Text>
+              {(metrics?.salesRevenue ?? 0) > 0 ? (
+                <Text className="text-xs text-indigo-100 mb-2">
+                  {t("dashboard.revenue_breakdown", {
+                    subscriptions: fmt(metrics?.subscriptionRevenue ?? 0),
+                    sales: fmt(metrics?.salesRevenue ?? 0),
+                  })}
+                </Text>
+              ) : null}
               <Text className="text-sm text-indigo-200 mb-3">
                 {t("dashboard.collected_summary", {
                   paidCustomers,
