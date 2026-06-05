@@ -18,7 +18,7 @@ export interface SubscriptionSlice {
   loading: boolean;
   upgrading: boolean;
   error: string | null;
-  init: (tenantId: string, tier: TierPlan | null) => Promise<void>;
+  init: (tenantId: string) => Promise<void>;
   refreshUsage: () => Promise<void>;
   upgrade: (tenantId: string, tierId: string) => Promise<Tenant>;
   clearError: () => void;
@@ -38,22 +38,27 @@ export const createSubscriptionSlice: StateCreator<
   upgrading: false,
   error: null,
 
-  init: async (_tenantId, tier) => {
+  // Fetches the tenant's current tier directly from the DB on every app open
+  // so an upgrade made in a previous session is always reflected after restart.
+  // Also syncs auth.user.tenant.tier so consumers of that field stay in sync.
+  init: async (tenantId) => {
     set((state) => {
       state.subscription.loading = true;
       state.subscription.error = null;
-      state.subscription.currentTier = tier;
     });
     try {
-      const [tiers, usage] = await Promise.all([
+      const [tiers, usage, tenant] = await Promise.all([
         tierService.fetchTiers(),
         tierService.fetchUsage(),
+        tierService.getTenantWithTier(tenantId),
       ]);
       set((state) => {
         state.subscription.tiers = tiers;
         state.subscription.usage = usage;
+        state.subscription.currentTier = tenant?.tier ?? null;
         state.subscription.loading = false;
       });
+      if (tenant?.tier) get().auth.setUserTier(tenant.tier);
     } catch (e) {
       set((state) => {
         state.subscription.error = (e as Error).message;

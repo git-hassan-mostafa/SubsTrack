@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 import { PageHeader } from '@/src/shared/components/PageHeader';
@@ -9,6 +10,7 @@ import { confirm } from '@/src/shared/lib/confirm';
 import { ConfirmDialog } from '@/src/shared/components/ConfirmDialog';
 import { LoadingScreen } from '@/src/shared/components/LoadingScreen';
 import { Text } from '@/src/shared/components/Text';
+import { COLORS } from '@/src/shared/constants';
 import { useAuthSlice } from '@/src/state/hooks/useAuthSlice';
 import { useSubscriptionSlice } from '@/src/state/hooks/useSubscriptionSlice';
 import { tierService } from '../services/TierService';
@@ -39,6 +41,11 @@ export function SubscriptionScreen() {
   const sortedTiers = useMemo(
     () => [...tiers].sort((a, b) => a.sortOrder - b.sortOrder),
     [tiers],
+  );
+
+  const otherTiers = useMemo(
+    () => sortedTiers.filter((tier) => tier.id !== currentTier?.id),
+    [sortedTiers, currentTier],
   );
 
   if (!user) return null;
@@ -96,28 +103,73 @@ export function SubscriptionScreen() {
         {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}
 
         {currentTier ? (
-          <View className="bg-white rounded-2xl p-5 mb-4 border border-gray-100">
-            <Text className="text-sm text-gray-500 mb-3">
-              {t('subscription.your_usage')}
-            </Text>
-            <UsageBar resource="customers" current={usage.customers} limit={currentTier.maxCustomers} />
-            <UsageBar resource="users"     current={usage.users}     limit={currentTier.maxUsers} />
-            <UsageBar resource="plans"     current={usage.plans}     limit={currentTier.maxPlans} />
-            <UsageBar resource="branches"  current={usage.branches}  limit={currentTier.maxBranches} />
-            <UsageBar resource="currencies" current={usage.currencies} limit={currentTier.maxCurrencies} />
+          <View className="bg-white rounded-2xl mb-4 overflow-hidden border border-gray-100">
+            <View className="bg-primary px-5 pt-4 pb-5">
+              <View className="flex-row items-center justify-between mb-3">
+                <View className="bg-white/20 rounded-full px-2.5 py-0.5 flex-row items-center">
+                  <Ionicons
+                    name="shield-checkmark"
+                    size={11}
+                    color={COLORS.white}
+                  />
+                  <Text className="text-[10px] font-semibold uppercase text-white ms-1">
+                    {t('subscription.current_plan')}
+                  </Text>
+                </View>
+              </View>
+              <View className="flex-row items-end justify-between">
+                <Text fontWeight="Bold" className="text-white text-2xl">
+                  {currentTier.name}
+                </Text>
+                <View className="flex-row items-baseline">
+                  <Text fontWeight="Bold" className="text-white text-2xl">
+                    ${currentTier.priceMonthlyUsd}
+                  </Text>
+                  <Text className="text-white/80 text-xs ms-1">
+                    {t('subscription.per_month')}
+                  </Text>
+                </View>
+              </View>
+            </View>
+            <View className="px-5 pt-4 pb-4">
+              <View className="flex-row items-center mb-3">
+                <Ionicons name="analytics" size={14} color={COLORS.gray500} />
+                <Text className="text-sm text-gray-500 ms-1.5">
+                  {t('subscription.your_usage')}
+                </Text>
+              </View>
+              <UsageBar resource="customers" current={usage.customers} limit={currentTier.maxCustomers} />
+              <UsageBar resource="users"     current={usage.users}     limit={currentTier.maxUsers} />
+              <UsageBar resource="plans"     current={usage.plans}     limit={currentTier.maxPlans} />
+              <UsageBar resource="branches"  current={usage.branches}  limit={currentTier.maxBranches} />
+              <UsageBar resource="currencies" current={usage.currencies} limit={currentTier.maxCurrencies} />
+            </View>
           </View>
         ) : null}
 
-        {sortedTiers.map((tier) => (
+        {otherTiers.map((tier) => (
           <TierCard
             key={tier.id}
             tier={tier}
-            isCurrent={currentTier?.id === tier.id}
+            isCurrent={false}
             direction={getDirection(tier)}
             onAction={handleAction}
             disabled={upgrading}
           />
         ))}
+
+        {!currentTier
+          ? sortedTiers.map((tier) => (
+              <TierCard
+                key={tier.id}
+                tier={tier}
+                isCurrent={false}
+                direction={getDirection(tier)}
+                onAction={handleAction}
+                disabled={upgrading}
+              />
+            ))
+          : null}
       </ScrollView>
 
       <ConfirmDialog

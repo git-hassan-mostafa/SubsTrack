@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { ScrollView, View } from "react-native";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
@@ -5,6 +6,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
+import { DropdownModal } from "@/src/shared/components/Dropdown";
 import { COLORS } from "@/src/shared/constants";
 import { confirm } from "@/src/shared/lib/confirm";
 import {
@@ -81,11 +83,17 @@ export function SettingsScreen() {
   const { user } = useAuth();
   const { language, setLanguage } = useLanguageStore();
   const logout = useAuthSlice((s) => s.logout);
+  const [languagePickerOpen, setLanguagePickerOpen] = useState(false);
   const avatarColor = user ? getAvatarColor(user.fullName) : COLORS.primary;
   const initials = user ? getInitials(user.fullName) : "?";
 
-  async function handleLanguageSelect(lang: SupportedLanguage) {
-    if (lang === language) return;
+  const languageOptions = SUPPORTED_LANGUAGES.map((lang) => ({
+    label: LANGUAGE_LABELS[lang],
+    value: lang,
+  }));
+
+  async function handleLanguageSelect(lang: SupportedLanguage | null) {
+    if (!lang || lang === language) return;
     const ok = await confirm({
       title: t("settings.language_section"),
       message: t("settings.restart_notice"),
@@ -152,42 +160,31 @@ export function SettingsScreen() {
             {t("settings.preferences_section")}
           </Text>
           <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-            {SUPPORTED_LANGUAGES.map((lang, index) => (
-              <PressableOpacity
-                key={lang}
-                onPress={() => void handleLanguageSelect(lang)}
-                className={`flex-row items-center justify-between px-4 py-3.5 ${index < SUPPORTED_LANGUAGES.length - 1 ? "border-b border-gray-100" : ""}`}
-              >
-                <View className="flex-row items-center gap-3">
-                  <Ionicons
-                    name="globe-outline"
-                    size={18}
-                    color={COLORS.gray500}
-                  />
-                  <Text className="text-sm font-medium text-gray-900">
-                    {t("settings.language_section")}
-                  </Text>
-                </View>
-                <View className="flex-row items-center gap-1">
-                  <Text className="text-sm text-gray-400">
-                    {LANGUAGE_LABELS[lang]}
-                  </Text>
-                  {lang === language ? (
-                    <View className="w-4 h-4 rounded-full bg-primary items-center justify-center ms-1">
-                      <Text fontWeight="Bold" className="text-white text-[9px]">
-                        ✓
-                      </Text>
-                    </View>
-                  ) : (
-                    <DirectionalIcon
-                      name="chevron-forward"
-                      size={14}
-                      color={COLORS.gray300}
-                    />
-                  )}
-                </View>
-              </PressableOpacity>
-            ))}
+            <PressableOpacity
+              onPress={() => setLanguagePickerOpen(true)}
+              className="flex-row items-center justify-between px-4 py-3.5"
+            >
+              <View className="flex-row items-center gap-3">
+                <Ionicons
+                  name="globe-outline"
+                  size={18}
+                  color={COLORS.gray500}
+                />
+                <Text className="text-sm font-medium text-gray-900">
+                  {t("settings.language_section")}
+                </Text>
+              </View>
+              <View className="flex-row items-center gap-1">
+                <Text className="text-sm text-gray-400">
+                  {LANGUAGE_LABELS[language]}
+                </Text>
+                <Ionicons
+                  name="chevron-down"
+                  size={14}
+                  color={COLORS.gray400}
+                />
+              </View>
+            </PressableOpacity>
           </View>
         </View>
 
@@ -229,6 +226,14 @@ export function SettingsScreen() {
         </View>
       </ScrollView>
 
+      <DropdownModal<SupportedLanguage>
+        visible={languagePickerOpen}
+        onClose={() => setLanguagePickerOpen(false)}
+        title={t("settings.language_section")}
+        options={languageOptions}
+        value={language}
+        onChange={(val) => void handleLanguageSelect(val)}
+      />
     </SafeAreaView>
   );
 }

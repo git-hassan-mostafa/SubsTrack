@@ -1,4 +1,4 @@
-import { Modal, ScrollView, View } from "react-native";
+import { Modal, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { useRouter, type Href } from "expo-router";
@@ -47,19 +47,31 @@ export function UpgradePromptModal({ payload, onClose }: Props) {
     return (
       <Modal visible transparent animationType="fade" onRequestClose={onClose}>
         <View className="flex-1 bg-black/50 items-center justify-center px-8">
-          <View className="bg-white rounded-2xl p-6 w-full">
-            <Text fontWeight="Bold" className="text-lg text-gray-900 text-center mb-2">
-              {t("subscription.locked.contact_admin_title")}
-            </Text>
-            <Text className="text-sm text-gray-600 text-center mb-5">
-              {t("subscription.locked.contact_admin_body")}
-            </Text>
-            <PressableOpacity
-              onPress={onClose}
-              className="bg-primary rounded-lg py-3 items-center"
-            >
-              <Text className="text-white font-medium">{t("common.close")}</Text>
-            </PressableOpacity>
+          <View className="bg-white rounded-3xl w-full overflow-hidden">
+            <View className="bg-amber-50 px-6 pt-6 pb-5 items-center">
+              <View className="bg-white rounded-full w-14 h-14 items-center justify-center mb-3 border border-amber-200">
+                <Ionicons name="lock-closed" size={24} color={COLORS.warning} />
+              </View>
+              <Text
+                fontWeight="Bold"
+                className="text-lg text-gray-900 text-center mb-1"
+              >
+                {t("subscription.locked.contact_admin_title")}
+              </Text>
+              <Text className="text-sm text-gray-600 text-center">
+                {t("subscription.locked.contact_admin_body")}
+              </Text>
+            </View>
+            <View className="px-5 pt-4">
+              <PressableOpacity
+                onPress={onClose}
+                className="bg-primary rounded-xl py-3 items-center"
+              >
+                <Text className="text-white font-medium">
+                  {t("common.close")}
+                </Text>
+              </PressableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -81,47 +93,74 @@ export function UpgradePromptModal({ payload, onClose }: Props) {
   return (
     <Modal visible transparent animationType="fade" onRequestClose={onClose}>
       <View className="flex-1 bg-black/50 items-center justify-center px-6">
-        <View className="bg-white rounded-2xl w-full max-w-md overflow-hidden">
-          <ScrollView
-            className="max-h-[80%]"
-            contentContainerStyle={{ padding: 20 }}
-            showsVerticalScrollIndicator={false}
-          >
-            <Text fontWeight="Bold" className="text-xl text-gray-900 mb-1">
-              {t("subscription.locked.upgrade_title")}
-            </Text>
-            <Text className="text-sm text-gray-600 mb-5">{headline}</Text>
-
-            {upgradeTiers.map((tier) => (
-              <TierPreviewCard key={tier.id} tier={tier} />
-            ))}
-
-            <View className="flex-row gap-3 mt-1">
+        <View className="bg-white rounded-3xl w-full max-w-md overflow-hidden">
+          <View className="bg-primary px-5 pt-5 pb-5">
+            <View className="flex-row items-start justify-between mb-3">
+              <View className="bg-white/20 rounded-2xl w-11 h-11 items-center justify-center">
+                <Ionicons name="rocket" size={22} color={COLORS.white} />
+              </View>
               <PressableOpacity
                 onPress={onClose}
-                className="flex-1 border border-gray-300 rounded-lg py-3 items-center"
+                hitSlop={8}
+                className="bg-white/20 rounded-full w-8 h-8 items-center justify-center"
               >
-                <Text className="text-gray-700 font-medium">
-                  {t("subscription.not_now")}
-                </Text>
-              </PressableOpacity>
-              <PressableOpacity
-                onPress={handleViewPlans}
-                className="flex-1 bg-primary rounded-lg py-3 items-center"
-              >
-                <Text className="text-white font-medium">
-                  {t("subscription.view_plans")}
-                </Text>
+                <Ionicons name="close" size={16} color={COLORS.white} />
               </PressableOpacity>
             </View>
-          </ScrollView>
+            <Text fontWeight="Bold" className="text-white text-xl mb-1">
+              {t("subscription.locked.upgrade_title")}
+            </Text>
+            <Text className="text-white/80 text-xs leading-4">{headline}</Text>
+          </View>
+
+          <View className="px-4 pt-4">
+            {upgradeTiers.map((tier, index) => (
+              <TierPreviewCard
+                key={tier.id}
+                tier={tier}
+                highlighted={index === 0}
+              />
+            ))}
+          </View>
+
+          <View className="flex-row gap-2 px-4 pt-1 pb-4">
+            <PressableOpacity
+              onPress={onClose}
+              className="flex-1 border border-gray-200 rounded-xl py-3 items-center"
+            >
+              <Text className="text-gray-700 font-medium text-sm">
+                {t("subscription.not_now")}
+              </Text>
+            </PressableOpacity>
+            <PressableOpacity
+              onPress={handleViewPlans}
+              className="flex-[1.4] bg-primary rounded-xl py-3 flex-row items-center justify-center"
+            >
+              <Text className="text-white font-medium text-sm">
+                {t("subscription.view_plans")}
+              </Text>
+              <View className="ms-1.5">
+                <Ionicons
+                  name="arrow-forward"
+                  size={14}
+                  color={COLORS.white}
+                />
+              </View>
+            </PressableOpacity>
+          </View>
         </View>
       </View>
     </Modal>
   );
 }
 
-function TierPreviewCard({ tier }: { tier: TierPlan }) {
+function TierPreviewCard({
+  tier,
+  highlighted,
+}: {
+  tier: TierPlan;
+  highlighted?: boolean;
+}) {
   const { t } = useTranslation();
 
   const lines: string[] = [];
@@ -135,30 +174,60 @@ function TierPreviewCard({ tier }: { tier: TierPlan }) {
       ? `${t("subscription.unlimited")} ${t("subscription.resource.users").toLowerCase()}`
       : `${t("subscription.up_to", { count: tier.maxUsers })} ${t("subscription.resource.users").toLowerCase()}`,
   );
-  if (tier.multiMonthPlansEnabled) lines.push(t("subscription.feature.multi_month"));
-  if (tier.multiCurrencyEnabled) lines.push(t("subscription.feature.multi_currency"));
+  if (tier.multiMonthPlansEnabled)
+    lines.push(t("subscription.feature.multi_month"));
+  if (tier.multiCurrencyEnabled)
+    lines.push(t("subscription.feature.multi_currency"));
 
   return (
-    <View className="border border-gray-200 rounded-xl p-4 mb-3">
-      <View className="flex-row items-baseline justify-between mb-3">
-        <Text fontWeight="Bold" className="text-base text-gray-900">
-          {tier.name}
-        </Text>
+    <View
+      className={`rounded-2xl p-3.5 mb-2.5 border ${
+        highlighted
+          ? "border-primary bg-indigo-50/40"
+          : "border-gray-200 bg-white"
+      }`}
+    >
+      <View className="flex-row items-center justify-between mb-2.5">
+        <View className="flex-row items-center">
+          <View
+            className={`w-7 h-7 rounded-full items-center justify-center me-2 ${
+              highlighted ? "bg-primary" : "bg-gray-100"
+            }`}
+          >
+            <Ionicons
+              name="star"
+              size={13}
+              color={highlighted ? COLORS.white : COLORS.gray500}
+            />
+          </View>
+          <Text fontWeight="Bold" className="text-base text-gray-900">
+            {tier.name}
+          </Text>
+        </View>
         <View className="flex-row items-baseline">
-          <Text fontWeight="Bold" className="text-lg text-primary">
+          <Text
+            fontWeight="Bold"
+            className={`text-lg ${highlighted ? "text-primary" : "text-gray-900"}`}
+          >
             ${tier.priceMonthlyUsd}
           </Text>
-          <Text className="text-xs text-gray-500 ms-1">
+          <Text className="text-[10px] text-gray-500 ms-1">
             {t("subscription.per_month")}
           </Text>
         </View>
       </View>
-      {lines.map((line) => (
-        <View key={line} className="flex-row items-center mb-1">
-          <Ionicons name="checkmark" size={14} color={COLORS.success} />
-          <Text className="text-xs text-gray-700 ms-2">{line}</Text>
-        </View>
-      ))}
+      <View className="flex-row flex-wrap">
+        {lines.map((line) => (
+          <View key={line} className="flex-row items-center me-3 mb-1">
+            <Ionicons
+              name="checkmark-circle"
+              size={13}
+              color={COLORS.success}
+            />
+            <Text className="text-[11px] text-gray-700 ms-1">{line}</Text>
+          </View>
+        ))}
+      </View>
     </View>
   );
 }

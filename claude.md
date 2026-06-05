@@ -571,9 +571,11 @@ LoginScreen
   → primePostAuth(user) — Promise.all of:
        get().currencies.fetchCurrencies()
        get().branches.fetchBranches()
-       get().subscription.init(tenantId, user.tenant.tier)
+       get().subscription.init(tenantId)
          → tierService.fetchTiers() (3 tier_plans rows)
          → tierService.fetchUsage() (counts customers/users/plans/branches/currencies)
+         → tierService.getTenantWithTier(tenantId) — fresh tenant + joined tier
+           → also writes back via authSlice.setUserTier so user.tenant.tier stays in sync
 
 LoginScreen also exposes "Create a new workspace" → signupSlice (2-step form):
   Step 1 (SignupWorkspaceScreen)
@@ -725,7 +727,7 @@ createCustomer: async (data, tenantId, tier, usage) => {
 
 Components read `currentTier` and `usage` from `useSubscriptionSlice` and forward them into the action.
 
-**Hydration:** `authSlice` exports an internal `primePostAuth(get, user)` helper called by `login` and `restoreSession`. It runs `get().currencies.fetchCurrencies()`, `get().branches.fetchBranches()`, and `get().subscription.init(tenantId, user.tenant.tier)` in parallel via `Promise.all`. The init fetches all tier rows for the comparison screen + counts current usage. The tenant's current tier comes joined onto `getTenant` (`.select('*, tier_plans(*)')`).
+**Hydration:** `authSlice` exports an internal `primePostAuth(get, user)` helper called by `login` and `restoreSession`. It runs `get().currencies.fetchCurrencies()`, `get().branches.fetchBranches()`, and `get().subscription.init(tenantId)` in parallel via `Promise.all`. `subscription.init` is the **source of truth** for the active tier: it concurrently fetches the tier catalog, the tenant's usage, and the tenant row with its joined tier (`tierService.getTenantWithTier`), then writes the resolved tier back to `auth.user.tenant.tier` via `authSlice.setUserTier` so the auth slice stays in sync. This is why a tier upgrade made in a previous session is reflected immediately on app restart — the subscription slice never trusts a parameter-passed tier; it always re-queries the DB.
 
 **Upgrade UX:** dedicated screen at [SubscriptionScreen.tsx](SubsTrack/src/modules/subscription/screens/SubscriptionScreen.tsx) (routed at `/(app)/(tabs)/admin/subscription`). Shows 3 stacked TierCards with usage bars for the current tier and Upgrade/Downgrade buttons for the others. Upgrades are instant swaps via `subscriptionSlice.upgrade(tenantId, tierId)` — no billing wired up yet. Downgrades call `TierService.canDowngradeTo(targetTier, usage)` first; if usage exceeds the target tier's limits the dialog lists blockers ("42 / 30 customers") and refuses to swap. The `UpgradePromptModal` is also triggered inline whenever a form sheet hits a `TierLimitError`. The "Subscription" entry in the admin menu ([admin/index.tsx](<SubsTrack/app/(app)/(tabs)/admin/index.tsx>)) is rendered only for tenant-wide admins (`user.branchId === null`) — branch-scoped admins don't see it.
 

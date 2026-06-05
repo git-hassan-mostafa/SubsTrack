@@ -19,11 +19,15 @@ export interface AuthSlice {
 
 // After a successful auth (login or session restore), prime supporting slices
 // in parallel so all downstream pickers/formatters have data ready.
+// subscription.init re-fetches the tenant's tier from the DB itself — this
+// keeps the active tier fresh after a previous-session upgrade, even if
+// user.tenant.tier (resolved via the auth-time tenants/tier_plans join) is
+// somehow stale.
 async function primePostAuth(get: () => GlobalState, user: AuthUser): Promise<void> {
   await Promise.all([
     get().currencies.fetchCurrencies(),
     get().branches.fetchBranches(),
-    get().subscription.init(user.tenantId, user.tenant.tier ?? null),
+    get().subscription.init(user.tenantId),
   ]);
 }
 
