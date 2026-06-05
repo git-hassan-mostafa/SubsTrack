@@ -1,9 +1,12 @@
-import type { StateCreator } from 'zustand';
-import type { Branch, TierPlan, TenantUsage } from '@/src/core/types';
-import { BranchService, type BranchInput } from '@/src/modules/branches/services/BranchService';
-import { TierLimitError } from '@/src/modules/subscription/services/TierService';
-import type { TierLimitErrorPayload } from '@/src/modules/subscription/components/UpgradePromptModal';
-import type { GlobalState } from '@/src/state/globalStore';
+import type { StateCreator } from "zustand";
+import type { Branch, TierPlan, TenantUsage } from "@/src/core/types";
+import {
+  BranchService,
+  type BranchInput,
+} from "@/src/modules/branches/services/BranchService";
+import { TierLimitError } from "@/src/modules/subscription/services/TierService";
+import type { TierLimitErrorPayload } from "@/src/modules/subscription/components/UpgradePromptModal";
+import type { GlobalState } from "@/src/state/globalStore";
 
 const branchService = new BranchService();
 
@@ -21,7 +24,7 @@ export interface BranchSlice {
     usage: TenantUsage,
   ) => Promise<void>;
   updateBranch: (id: string, data: BranchInput) => Promise<void>;
-  deleteBranch: (id: string) => Promise<'hard' | 'soft' | null>;
+  deleteBranch: (id: string) => Promise<"hard" | "soft" | null>;
   reactivateBranch: (id: string) => Promise<void>;
   clearError: () => void;
   clearTierLimitError: () => void;
@@ -30,7 +33,7 @@ export interface BranchSlice {
 
 export const createBranchSlice: StateCreator<
   GlobalState,
-  [['zustand/immer', never]],
+  [["zustand/immer", never]],
   [],
   BranchSlice
 > = (set, get) => ({
@@ -71,7 +74,12 @@ export const createBranchSlice: StateCreator<
       state.branches.tierLimitError = null;
     });
     try {
-      const branch = await branchService.createBranch(data, tenantId, tier, usage);
+      const branch = await branchService.createBranch(
+        data,
+        tenantId,
+        tier,
+        usage,
+      );
       set((state) => {
         state.branches.items.push(branch);
         state.branches.loading = false;
@@ -125,9 +133,11 @@ export const createBranchSlice: StateCreator<
     });
     try {
       const mode = await branchService.deleteBranch(id);
-      if (mode === 'hard') {
+      if (mode === "hard") {
         set((state) => {
-          state.branches.items = state.branches.items.filter((b) => b.id !== id);
+          state.branches.items = state.branches.items.filter(
+            (b) => b.id !== id,
+          );
           state.branches.loading = false;
         });
       } else {

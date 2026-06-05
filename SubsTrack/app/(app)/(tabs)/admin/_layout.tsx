@@ -1,17 +1,21 @@
-import { Stack } from 'expo-router';
-import { useTranslation } from 'react-i18next';
+import { Stack } from "expo-router";
+import { useTranslation } from "react-i18next";
 
 export default function AdminLayout() {
   const { t } = useTranslation();
 
   return (
     <Stack>
-      <Stack.Screen name="index" options={{ title: t('admin.title'), headerShown: false }} />
+      <Stack.Screen
+        name="index"
+        options={{ title: t("admin.title"), headerShown: false }}
+      />
       <Stack.Screen name="users" options={{ headerShown: false }} />
       <Stack.Screen name="plans" options={{ headerShown: false }} />
+      <Stack.Screen name="products" options={{ headerShown: false }} />
       <Stack.Screen name="tenant-settings" options={{ headerShown: false }} />
-      <Stack.Screen name="branches" options={{ headerShown: false }} />
       <Stack.Screen name="currencies" options={{ headerShown: false }} />
+      <Stack.Screen name="branches" options={{ headerShown: false }} />
       <Stack.Screen name="subscription" options={{ headerShown: false }} />
     </Stack>
   );

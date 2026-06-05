@@ -57,15 +57,6 @@ const MENU_ITEMS: MenuItem[] = [
     countKey: "products",
   },
   {
-    labelKey: "branches.section_title",
-    subtitleKey: "admin.branches_sub",
-    icon: "business-outline",
-    iconBg: COLORS.successLight,
-    iconColor: COLORS.success,
-    route: "/(app)/(tabs)/admin/branches",
-    countKey: "branches",
-  },
-  {
     labelKey: "tenant_settings.currencies_section_title",
     subtitleKey: "admin.currencies_sub",
     icon: "cash-outline",
@@ -73,6 +64,15 @@ const MENU_ITEMS: MenuItem[] = [
     iconColor: COLORS.warning,
     route: "/(app)/(tabs)/admin/currencies",
     countKey: "currencies",
+  },
+  {
+    labelKey: "branches.section_title",
+    subtitleKey: "admin.branches_sub",
+    icon: "business-outline",
+    iconBg: COLORS.successLight,
+    iconColor: COLORS.success,
+    route: "/(app)/(tabs)/admin/branches",
+    countKey: "branches",
   },
   {
     labelKey: "tenant_settings.title",

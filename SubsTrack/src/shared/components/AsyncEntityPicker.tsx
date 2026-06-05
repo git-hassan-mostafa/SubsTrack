@@ -36,7 +36,6 @@ interface AsyncEntityPickerProps<T> {
 }
 
 interface AsyncPickerModalProps<T> {
-  visible: boolean;
   onClose: () => void;
   title: string;
   value: T | null;
@@ -104,25 +103,25 @@ export function AsyncEntityPicker<T>({
         <Ionicons name="chevron-down" size={16} color={COLORS.gray400} />
       </PressableOpacity>
 
-      <AsyncPickerModal<T>
-        visible={open}
-        onClose={() => setOpen(false)}
-        title={label ?? placeholder ?? ""}
-        value={value}
-        onChange={onChange}
-        loadPage={loadPage}
-        renderItem={renderItem}
-        getKey={getKey}
-        nullable={nullable}
-        nullLabel={nullLabel}
-        pageSize={pageSize}
-      />
+      {open && (
+        <AsyncPickerModal<T>
+          onClose={() => setOpen(false)}
+          title={label ?? placeholder ?? ""}
+          value={value}
+          onChange={onChange}
+          loadPage={loadPage}
+          renderItem={renderItem}
+          getKey={getKey}
+          nullable={nullable}
+          nullLabel={nullLabel}
+          pageSize={pageSize}
+        />
+      )}
     </View>
   );
 }
 
 function AsyncPickerModal<T>({
-  visible,
   onClose,
   title,
   value,
@@ -139,7 +138,7 @@ function AsyncPickerModal<T>({
   const debouncedSearch = useDebounce(search, 300);
   const [items, setItems] = useState<T[]>([]);
   const [page, setPage] = useState(0);
-  const [hasMore, setHasMore] = useState(true);
+  const [hasMore, setHasMore] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -149,50 +148,48 @@ function AsyncPickerModal<T>({
   // first response can overwrite a faster second one.
   const requestTokenRef = useRef(0);
 
-  const loadFirstPage = useCallback(
-    async (term: string) => {
-      const token = ++requestTokenRef.current;
-      setLoading(true);
-      setError(null);
-      setPage(0);
-      try {
-        const next = await loadPage(term, 0);
-        if (requestTokenRef.current !== token) return;
-        setItems(next);
-        setHasMore(next.length === pageSize);
-      } catch (e) {
-        if (requestTokenRef.current !== token) return;
-        setError((e as Error).message);
-      } finally {
-        if (requestTokenRef.current === token) setLoading(false);
-      }
-    },
-    [loadPage, pageSize],
-  );
+  const loadFirstPage = useCallback(async (term: string) => {
+    const token = ++requestTokenRef.current;
+    setLoading(true);
+    setError(null);
+    setPage(0);
+    try {
+      const next = await loadPage(term, 0);
+      if (requestTokenRef.current !== token) return setLoading(false);
+      console.log("first ", next);
+      setItems(next);
+      setHasMore(next.length === pageSize);
+    } catch (e) {
+      if (requestTokenRef.current !== token) return setLoading(false);
+      setError((e as Error).message);
+    } finally {
+      if (requestTokenRef.current === token) setLoading(false);
+    }
+  }, []);
 
   const loadNextPage = useCallback(async () => {
-    if (loadingMore || !hasMore) return;
+    if (loadingMore || !hasMore || loading) return;
     const token = ++requestTokenRef.current;
     setLoadingMore(true);
     try {
       const next = await loadPage(debouncedSearch, page + 1);
-      if (requestTokenRef.current !== token) return;
+      console.log("next ", next);
+      if (requestTokenRef.current !== token) return setLoadingMore(false);
       setItems((prev) => [...prev, ...next]);
       setPage((p) => p + 1);
       setHasMore(next.length === pageSize);
     } catch (e) {
-      if (requestTokenRef.current !== token) return;
+      if (requestTokenRef.current !== token) return setLoadingMore(false);
       setError((e as Error).message);
     } finally {
       if (requestTokenRef.current === token) setLoadingMore(false);
     }
-  }, [debouncedSearch, hasMore, loadPage, loadingMore, page, pageSize]);
+  }, [debouncedSearch, hasMore, loading, loadingMore, page]);
 
   // Reset and reload whenever the modal opens or the search term changes.
   useEffect(() => {
-    if (!visible) return;
     loadFirstPage(debouncedSearch);
-  }, [visible, debouncedSearch, loadFirstPage]);
+  }, [debouncedSearch, loadFirstPage]);
 
   function handleClose() {
     setSearch("");
@@ -210,7 +207,7 @@ function AsyncPickerModal<T>({
 
   return (
     <Modal
-      visible={visible}
+      visible
       transparent
       animationType="fade"
       onRequestClose={handleClose}
