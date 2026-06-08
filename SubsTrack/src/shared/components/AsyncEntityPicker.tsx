@@ -156,7 +156,6 @@ function AsyncPickerModal<T>({
     try {
       const next = await loadPage(term, 0);
       if (requestTokenRef.current !== token) return setLoading(false);
-      console.log("first ", next);
       setItems(next);
       setHasMore(next.length === pageSize);
     } catch (e) {
@@ -173,7 +172,6 @@ function AsyncPickerModal<T>({
     setLoadingMore(true);
     try {
       const next = await loadPage(debouncedSearch, page + 1);
-      console.log("next ", next);
       if (requestTokenRef.current !== token) return setLoadingMore(false);
       setItems((prev) => [...prev, ...next]);
       setPage((p) => p + 1);
