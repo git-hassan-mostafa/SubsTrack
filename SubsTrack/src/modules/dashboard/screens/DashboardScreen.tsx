@@ -144,7 +144,7 @@ export function DashboardScreen() {
                   {collectedPct}%
                 </Text>
               </View>
-              <View className="bg-indigo-500 rounded-full h-2 mb-2">
+              <View className="bg-white/25 rounded-full h-2 mb-2">
                 <View
                   className="bg-white rounded-full h-2"
                   style={{ width: `${collectedPct}%` }}
@@ -165,7 +165,10 @@ export function DashboardScreen() {
                 <Text className="text-xs text-gray-400 uppercase tracking-wide mb-3">
                   {t("dashboard.unpaid")}
                 </Text>
-                <Text fontWeight="Bold" className="text-3xl text-danger leading-none mb-1">
+                <Text
+                  fontWeight="Bold"
+                  className="text-3xl text-danger leading-none mb-1"
+                >
                   {metrics?.unpaidThisMonth ?? 0}
                 </Text>
                 <Text className="text-xs text-gray-400">
@@ -178,7 +181,10 @@ export function DashboardScreen() {
                 <Text className="text-xs text-gray-400 uppercase tracking-wide mb-3">
                   {t("dashboard.active")}
                 </Text>
-                <Text fontWeight="Bold" className="text-3xl text-gray-900 leading-none mb-1">
+                <Text
+                  fontWeight="Bold"
+                  className="text-3xl text-gray-900 leading-none mb-1"
+                >
                   {activeCustomers}
                 </Text>
                 <Text className="text-xs text-gray-400">
@@ -195,7 +201,10 @@ export function DashboardScreen() {
                 <Text className="text-xs text-gray-400 uppercase tracking-wide mb-3">
                   {t("payments.outstanding_balance")}
                 </Text>
-                <Text fontWeight="Bold" className="text-3xl text-warning leading-none mb-1">
+                <Text
+                  fontWeight="Bold"
+                  className="text-3xl text-warning leading-none mb-1"
+                >
                   {fmt(metrics?.totalOutstandingBalance ?? 0)}
                 </Text>
                 <Text className="text-xs text-gray-400">

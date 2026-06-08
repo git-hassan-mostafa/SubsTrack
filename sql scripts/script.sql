@@ -567,13 +567,6 @@ CREATE TABLE IF NOT EXISTS sales (
     void_reason           TEXT,
     notes                 TEXT,
 
-    CONSTRAINT chk_sale_void_consistency
-        CHECK (
-            (voided_at IS NULL AND voided_by IS NULL AND void_reason IS NULL)
-            OR
-            (voided_at IS NOT NULL AND voided_by IS NOT NULL AND void_reason IS NOT NULL AND void_reason <> '')
-        ),
-
     CONSTRAINT fk_sales_tenant
         FOREIGN KEY (tenant_id)
         REFERENCES tenants(id)

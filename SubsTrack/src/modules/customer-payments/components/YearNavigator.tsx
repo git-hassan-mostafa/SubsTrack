@@ -24,7 +24,7 @@ export function YearNavigator({ year, minYear, onPrev, onNext }: Props) {
           style={{ transform: [{ scaleX: flip }] }}
           className="text-gray-700 text-lg font-semibold"
         >
-          ‹
+          {"<"}
         </Text>
       </PressableOpacity>
       <Text fontWeight="Bold" className="text-lg text-gray-900">
