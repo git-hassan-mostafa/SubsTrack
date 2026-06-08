@@ -74,7 +74,12 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
 
   function handleCellPress(entry: MonthEntry) {
     if (entry.status === "before_start") {
-      void confirm({ title: t("common.not_available"), message: t("payments.before_start_date"), confirmLabel: t("common.close"), hideCancel: true });
+      void confirm({
+        title: t("common.not_available"),
+        message: t("payments.before_start_date"),
+        confirmLabel: t("common.close"),
+        hideCancel: true,
+      });
       return;
     }
 
@@ -82,13 +87,21 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
     const isFutureMonth =
       entry.year > cy || (entry.year === cy && entry.month > cm);
     if (!customer.active && isFutureMonth) {
-      void confirm({ title: t("common.not_available"), message: t("payments.inactive_future_blocked"), confirmLabel: t("common.close"), hideCancel: true });
+      void confirm({
+        title: t("common.not_available"),
+        message: t("payments.inactive_future_blocked"),
+        confirmLabel: t("common.close"),
+        hideCancel: true,
+      });
       return;
     }
 
     setSelectedEntry(entry);
 
-    if ((entry.status === "paid" || entry.status === "partial") && entry.payment) {
+    if (
+      (entry.status === "paid" || entry.status === "partial") &&
+      entry.payment
+    ) {
       // Both primary and secondary grouped months open the same detail sheet.
       setDetailVisible(true);
     } else {
@@ -149,7 +162,6 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
     collectedTotalUsd,
     null,
     displayCurrency,
-    locale,
   );
 
   // Edit (update amountPaid) is available for any active, non-secondary payment.

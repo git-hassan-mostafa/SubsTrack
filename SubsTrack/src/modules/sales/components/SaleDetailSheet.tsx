@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Modal, ScrollView, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
@@ -24,7 +25,12 @@ interface Props {
   voidLoading?: boolean;
 }
 
-export function SaleDetailSheet({ sale, onDismiss, onVoid, voidLoading }: Props) {
+export function SaleDetailSheet({
+  sale,
+  onDismiss,
+  onVoid,
+  voidLoading,
+}: Props) {
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
   const { displayCurrencyId } = useUiPrefStore();
@@ -41,7 +47,7 @@ export function SaleDetailSheet({ sale, onDismiss, onVoid, voidLoading }: Props)
   }
 
   function handleConfirmVoid() {
-    if (!voidReason.trim() || !onVoid) return;
+    if (!onVoid) return;
     onVoid(voidReason.trim());
     setVoidMode(false);
     setVoidReason("");
@@ -53,8 +59,8 @@ export function SaleDetailSheet({ sale, onDismiss, onVoid, voidLoading }: Props)
   // rate is later edited. Same principle as PaymentDetailSheet.
   const source = paymentSnapshotCurrency(sale, currencies);
   const target = findCurrency(currencies, displayCurrencyId);
-  const fmtSource = (v: number) => formatMoney(v, source, source, locale);
-  const fmtTarget = (v: number) => formatMoney(v, source, target, locale);
+  const fmtSource = (v: number) => formatMoney(v, source, source);
+  const fmtTarget = (v: number) => formatMoney(v, source, target);
   const showEquivalent = (source?.id ?? null) !== (target?.id ?? null);
 
   const voided = sale.voidedAt !== null;
@@ -67,7 +73,7 @@ export function SaleDetailSheet({ sale, onDismiss, onVoid, voidLoading }: Props)
       presentationStyle="pageSheet"
       onRequestClose={handleDismiss}
     >
-      <View className="flex-1 bg-white">
+      <SafeAreaView className="flex-1 bg-white">
         <View className="items-center pt-3 pb-1">
           <View className="w-10 h-1 rounded-full bg-gray-300" />
         </View>
@@ -164,7 +170,7 @@ export function SaleDetailSheet({ sale, onDismiss, onVoid, voidLoading }: Props)
             voidMode ? (
               <View className="mt-6">
                 <Input
-                  label={t("sales.void_reason_label") + " *"}
+                  label={t("sales.void_reason_label")}
                   value={voidReason}
                   onChangeText={setVoidReason}
                   placeholder={t("sales.void_reason_placeholder")}
@@ -184,11 +190,9 @@ export function SaleDetailSheet({ sale, onDismiss, onVoid, voidLoading }: Props)
                   </PressableOpacity>
                   <PressableOpacity
                     onPress={handleConfirmVoid}
-                    disabled={!voidReason.trim() || voidLoading}
+                    disabled={voidLoading}
                     className={`flex-1 rounded-xl py-3 items-center ${
-                      !voidReason.trim() || voidLoading
-                        ? "bg-red-200"
-                        : "bg-red-500"
+                      voidLoading ? "bg-red-200" : "bg-red-500"
                     }`}
                   >
                     <Text className="text-white font-semibold">
@@ -211,7 +215,7 @@ export function SaleDetailSheet({ sale, onDismiss, onVoid, voidLoading }: Props)
 
           <View className="h-24" />
         </ScrollView>
-      </View>
+      </SafeAreaView>
     </Modal>
   );
 }

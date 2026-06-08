@@ -1,5 +1,6 @@
 import i18n from "i18next";
 import { I18nManager } from "react-native";
+import { getLocales } from "expo-localization";
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import {
@@ -10,9 +11,18 @@ import {
 import {
   RTL_LANGUAGES,
   SUPPORTED_LANGUAGES,
+  FALLBACK_LANGUAGE,
   reloadApp,
   type SupportedLanguage,
 } from "./index";
+
+function getDeviceLanguage(): SupportedLanguage {
+  const locales = getLocales();
+  const code = locales[0]?.languageCode ?? FALLBACK_LANGUAGE;
+  return (SUPPORTED_LANGUAGES as readonly string[]).includes(code)
+    ? (code as SupportedLanguage)
+    : FALLBACK_LANGUAGE;
+}
 
 interface LanguageState {
   language: SupportedLanguage;
@@ -22,7 +32,7 @@ interface LanguageState {
 export const useLanguageStore = create<LanguageState>()(
   persist(
     (set) => ({
-      language: "en",
+      language: getDeviceLanguage(),
 
       setLanguage: async (lang) => {
         const isRTL = (RTL_LANGUAGES as readonly string[]).includes(lang);

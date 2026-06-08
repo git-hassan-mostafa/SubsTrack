@@ -83,7 +83,6 @@ export class SaleService {
   }
 
   async voidSale(id: string, voidedBy: string, reason: string): Promise<Sale> {
-    if (!reason.trim()) throw new Error(i18n.t('errors.void_reason_required'));
     const row = await this.repository.voidSale(id, voidedBy, reason.trim());
     return mapDbSaleToSale(row);
   }

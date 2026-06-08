@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Modal, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { useTranslation } from "react-i18next";
@@ -48,8 +49,8 @@ export function PaymentDetailSheet({
   // Primary display = stored (source) currency (preserves the literal amount
   // collected). When the user's display currency differs, also show the
   // equivalent in the display currency as a secondary line.
-  const fmtSource = (v: number) => formatMoney(v, source, source, locale);
-  const fmtTarget = (v: number) => formatMoney(v, source, target, locale);
+  const fmtSource = (v: number) => formatMoney(v, source, source);
+  const fmtTarget = (v: number) => formatMoney(v, source, target);
   const showEquivalent =
     payment != null && (source?.id ?? null) !== (target?.id ?? null);
 
@@ -127,7 +128,7 @@ export function PaymentDetailSheet({
       presentationStyle="pageSheet"
       onRequestClose={handleDismiss}
     >
-      <View className="flex-1 bg-white">
+      <SafeAreaView className="flex-1 bg-white">
         {/* Handle + header */}
         <View className="items-center pt-3 pb-1">
           <View className="w-10 h-1 rounded-full bg-gray-300" />
@@ -316,7 +317,7 @@ export function PaymentDetailSheet({
             </PressableOpacity>
           ) : null}
         </View>
-      </View>
+      </SafeAreaView>
     </Modal>
   );
 }

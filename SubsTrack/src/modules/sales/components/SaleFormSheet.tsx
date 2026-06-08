@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Modal, ScrollView, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
@@ -121,7 +122,7 @@ export function SaleFormSheet({ initialCustomer, onDismiss, onCreated }: Props) 
       presentationStyle="pageSheet"
       onRequestClose={onDismiss}
     >
-      <View className="flex-1 bg-white">
+      <SafeAreaView className="flex-1 bg-white">
         <View className="items-center pt-3 pb-1">
           <View className="w-10 h-1 rounded-full bg-gray-300" />
         </View>
@@ -248,7 +249,7 @@ export function SaleFormSheet({ initialCustomer, onDismiss, onCreated }: Props) 
 
           <View className="h-24" />
         </ScrollView>
-      </View>
+      </SafeAreaView>
     </Modal>
   );
 }

@@ -20,7 +20,7 @@ export interface SubscriptionSlice {
   upgrading: boolean;
   error: string | null;
   init: (tenantId: string) => Promise<void>;
-  refreshUsage: () => Promise<void>;
+  refreshUsage: () => Promise<TenantUsage>;
   upgrade: (tenantId: string, tierId: string) => Promise<Tenant>;
   clearError: () => void;
   reset: () => void;
@@ -74,8 +74,10 @@ export const createSubscriptionSlice: StateCreator<
       set((state) => {
         state.subscription.usage = usage;
       });
+      return usage;
     } catch (e) {
       console.warn('[subscriptionSlice] refreshUsage failed', e);
+      return get().subscription.usage;
     }
   },
 

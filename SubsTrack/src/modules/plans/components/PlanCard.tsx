@@ -24,14 +24,7 @@ export function PlanCard({ plan, onEdit, onMenu }: Props) {
   const source = findCurrency(currencies, plan.currencyId);
   const target = findCurrency(currencies, displayCurrencyId);
   const priceLabel =
-    plan.price != null
-      ? formatMoney(
-          plan.price,
-          source,
-          target,
-          language === "ar" ? "ar" : "en-US",
-        )
-      : "";
+    plan.price != null ? formatMoney(plan.price, source, target) : "";
   return (
     <PressableOpacity
       onPress={() => onEdit(plan)}

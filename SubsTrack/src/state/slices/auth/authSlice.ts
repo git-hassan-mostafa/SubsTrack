@@ -44,7 +44,6 @@ export const createAuthSlice: StateCreator<
 
   login: async (username, tenantCode, password) => {
     set((state) => {
-      state.auth.loading = true;
       state.auth.error = null;
     });
     try {

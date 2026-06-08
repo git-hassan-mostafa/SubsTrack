@@ -32,7 +32,7 @@ export function SaleCard({ sale, onPress }: Props) {
   // The Sale shape matches that contract.
   const source = paymentSnapshotCurrency(sale, currencies);
   const target = findCurrency(currencies, displayCurrencyId);
-  const totalLabel = formatMoney(sale.totalAmount, source, target, locale);
+  const totalLabel = formatMoney(sale.totalAmount, source, target);
 
   return (
     <PressableOpacity
@@ -44,7 +44,10 @@ export function SaleCard({ sale, onPress }: Props) {
       </View>
 
       <View className="flex-1">
-        <Text className="text-base font-semibold text-gray-900" numberOfLines={1}>
+        <Text
+          className="text-base font-semibold text-gray-900"
+          numberOfLines={1}
+        >
           {sale.productNameSnapshot}
           {sale.quantity > 1 ? ` × ${sale.quantity}` : ""}
         </Text>

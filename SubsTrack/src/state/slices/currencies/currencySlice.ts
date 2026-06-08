@@ -132,6 +132,7 @@ export const createCurrencySlice: StateCreator<
           state.currencies.loading = false;
         });
       }
+      void get().subscription.refreshUsage();
       return mode;
     } catch (e) {
       set((state) => {

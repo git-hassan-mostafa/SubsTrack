@@ -32,8 +32,7 @@ export function DashboardScreen() {
   const { displayCurrencyId } = useUiPrefStore();
   // Metrics are stored canonical-USD; format for the user's display preference.
   const displayCurrency = findCurrency(currencies, displayCurrencyId);
-  const fmt = (usd: number) =>
-    formatMoney(usd, null, displayCurrency, getDateLocale(i18n.language));
+  const fmt = (usd: number) => formatMoney(usd, null, displayCurrency);
 
   const branchFilter = useEffectiveBranchFilter();
 

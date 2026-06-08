@@ -147,6 +147,7 @@ export const createBranchSlice: StateCreator<
           state.branches.loading = false;
         });
       }
+      void get().subscription.refreshUsage();
       return mode;
     } catch (e) {
       set((state) => {

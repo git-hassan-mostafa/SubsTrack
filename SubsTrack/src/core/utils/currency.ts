@@ -48,18 +48,17 @@ export function formatMoney(
   amount: number,
   source: Currency | null,
   target: Currency | null,
-  locale = 'en-US',
 ): string {
   const value = convert(amount, source, target);
   if (target === null) {
-    return new Intl.NumberFormat(locale, {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'USD',
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(value);
   }
-  const formatted = new Intl.NumberFormat(locale, {
+  const formatted = new Intl.NumberFormat('en-US', {
     minimumFractionDigits: target.decimals,
     maximumFractionDigits: target.decimals,
   }).format(value);

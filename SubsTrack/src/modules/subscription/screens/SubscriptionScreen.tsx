@@ -31,6 +31,7 @@ export function SubscriptionScreen() {
   const upgrading = useSubscriptionSlice((s) => s.upgrading);
   const error = useSubscriptionSlice((s) => s.error);
   const upgrade = useSubscriptionSlice((s) => s.upgrade);
+  const refreshUsage = useSubscriptionSlice((s) => s.refreshUsage);
   const clearError = useSubscriptionSlice((s) => s.clearError);
 
   const [pendingTier, setPendingTier] = useState<TierPlan | null>(null);
@@ -59,7 +60,8 @@ export function SubscriptionScreen() {
   async function handleAction(tier: TierPlan) {
     if (!currentTier || !user) return;
     if (tier.sortOrder < currentTier.sortOrder) {
-      const result = tierService.canDowngradeTo(tier, usage);
+      const freshUsage = await refreshUsage();
+      const result = tierService.canDowngradeTo(tier, freshUsage);
       if (!result.ok) {
         setDowngradeBlockers(result.blockers);
         setPendingTier(tier);

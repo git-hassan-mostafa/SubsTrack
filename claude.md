@@ -681,7 +681,7 @@ The app supports an arbitrary list of non-USD currencies per tenant. USD is the 
 toUsd(amount, source: Currency | null): number       // null source → amount unchanged
 fromUsd(amountUsd, target: Currency | null): number  // null target → amount unchanged
 convert(amount, source, target): number              // go via USD
-formatMoney(amount, source, target, locale): string  // convert + Intl.NumberFormat
+formatMoney(amount, source, target): string  // convert + Intl.NumberFormat
 findCurrency(currencies, id | null): Currency | null
 paymentSnapshotCurrency(payment, currencies): Currency | null  // returns the source Currency with ratePerUsd overridden by the payment's snapshot — use everywhere a historical payment amount is displayed
 ```

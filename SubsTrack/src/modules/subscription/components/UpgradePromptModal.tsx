@@ -8,6 +8,7 @@ import { COLORS } from "@/src/shared/constants";
 import { useAuthSlice } from "@/src/state/hooks/useAuthSlice";
 import { useSubscriptionSlice } from "@/src/state/hooks/useSubscriptionSlice";
 import type { TierPlan, TierResource, TierCode } from "@/src/core/types";
+import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
 
 export interface TierLimitErrorPayload {
   resource: TierResource | "multi_currency" | "multi_month";
@@ -140,7 +141,7 @@ export function UpgradePromptModal({ payload, onClose }: Props) {
                 {t("subscription.view_plans")}
               </Text>
               <View className="ms-1.5">
-                <Ionicons
+                <DirectionalIcon
                   name="arrow-forward"
                   size={14}
                   color={COLORS.white}

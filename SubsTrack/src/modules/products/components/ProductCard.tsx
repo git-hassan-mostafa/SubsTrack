@@ -23,12 +23,7 @@ export function ProductCard({ product, onEdit, onMenu }: Props) {
   const { language } = useLanguageStore();
   const source = findCurrency(currencies, product.currencyId);
   const target = findCurrency(currencies, displayCurrencyId);
-  const priceLabel = formatMoney(
-    product.price,
-    source,
-    target,
-    language === "ar" ? "ar" : "en-US",
-  );
+  const priceLabel = formatMoney(product.price, source, target);
 
   return (
     <PressableOpacity

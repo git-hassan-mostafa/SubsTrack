@@ -178,12 +178,7 @@ export function CustomerListScreen() {
     const ok = await confirm({
       title: t("payments.quick_pay.confirm_multi_month_title"),
       message: t("payments.quick_pay.confirm_multi_month_message", {
-        amount: formatMoney(
-          customer.plan.price,
-          planCurrency,
-          planCurrency,
-          locale,
-        ),
+        amount: formatMoney(customer.plan.price, planCurrency, planCurrency),
         months: getBlockRangeLabel(startMonth, customer.plan.durationMonths, t),
       }),
       confirmLabel: t("payments.quick_pay.confirm"),
