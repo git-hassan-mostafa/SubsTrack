@@ -86,7 +86,7 @@
   "dashboard": {
     "title": "Dashboard",
     "greeting": "Hello, {{name}}",
-    "monthly_collected": "{{month}} {{year}} collected",
+    "monthly_collected": "{{month}} {{year}}",
     "collected_summary": "{{paidCustomers}} of {{activeCustomers}} active customers · {{collectedPct}}% collected",
     "revenue_breakdown": "Subscriptions: {{subscriptions}} · Sales: {{sales}}",
     "new_this_month": "New This Month",
@@ -95,7 +95,14 @@
     "unpaid": "Unpaid",
     "customers_section": "Customers",
     "total_customers": "Total Customers",
-    "active": "Active"
+    "active": "Active Customers",
+    "subscriptions": "Subscriptions",
+    "sales_label": "Sales",
+    "collection_progress": "Collection Progress",
+    "paid_of_active": "{{paid}} of {{total}} customers paid",
+    "customers_this_month": "customers this month",
+    "of_total": "of {{total}} total",
+    "partial_payments_note": "from partial payments"
   },
   "customers": {
     "title": "Customers",

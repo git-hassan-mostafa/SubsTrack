@@ -87,7 +87,7 @@
   "dashboard": {
     "title": "لوحة التحكم",
     "greeting": "مرحباً، {{name}}",
-    "monthly_collected": "{{month}} {{year}} محصل",
+    "monthly_collected": "{{month}} {{year}}",
     "collected_summary": "{{paidCustomers}} من {{activeCustomers}} العملاء النشطين · {{collectedPct}}% تم تحصيلها",
     "revenue_breakdown": "الاشتراكات: {{subscriptions}} · المبيعات: {{sales}}",
     "new_this_month": "جديد هذا الشهر",
@@ -96,7 +96,14 @@
     "unpaid": "غير مدفوع",
     "customers_section": "العملاء",
     "total_customers": "إجمالي العملاء",
-    "active": "نشط"
+    "active": "العملاء النشطون",
+    "subscriptions": "الاشتراكات",
+    "sales_label": "المبيعات",
+    "collection_progress": "نسبة التحصيل",
+    "paid_of_active": "{{paid}} من {{total}} عميل دفعوا",
+    "customers_this_month": "عملاء هذا الشهر",
+    "of_total": "من أصل {{total}}",
+    "partial_payments_note": "من دفعات جزئية"
   },
   "customers": {
     "title": "العملاء",
