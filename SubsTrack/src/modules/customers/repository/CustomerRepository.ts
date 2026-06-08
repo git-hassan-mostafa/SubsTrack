@@ -21,7 +21,7 @@ type CreateCustomerPayload = Pick<
   | 'cancelled_at'
 >;
 
-export class CustomerRepository extends BaseRepository {
+class CustomerRepository extends BaseRepository {
   async findAll(
     page: number,
     searchQuery?: string,
@@ -192,3 +192,5 @@ export class CustomerRepository extends BaseRepository {
     return (active ?? []).filter((c: { id: string }) => !paidIds.has(c.id)).length;
   }
 }
+
+export default new CustomerRepository()

@@ -3,8 +3,8 @@ import type { DbCustomer, DbPlan } from "@/src/core/types/db";
 import { PAGE_SIZE, type BranchFilter } from "@/src/core/constants";
 import { isValidDateString } from "@/src/core/utils/date";
 import i18n from "@/src/core/i18n";
-import { CustomerRepository } from "../repository/CustomerRepository";
-import { tierService } from "@/src/modules/subscription/services/TierService";
+import repository from "../repository/CustomerRepository";
+import tierService from "@/src/modules/subscription/services/TierService";
 
 export type DbCustomerWithPlan = DbCustomer & { plans?: DbPlan | null };
 
@@ -48,17 +48,15 @@ type CustomerInput = Pick<
   "name" | "phoneNumber" | "address" | "area" | "notes" | "planId" | "branchId" | "startDate" | "isRegular"
 >;
 
-export class CustomerService {
-  private repository = new CustomerRepository();
-
+class CustomerService {
   async getCustomers(
     page: number,
     searchQuery?: string,
     branchFilter: BranchFilter = null,
   ): Promise<{ customers: Customer[]; hasMore: boolean; totalCount: number }> {
     const [rows, totalCount] = await Promise.all([
-      this.repository.findAll(page, searchQuery, branchFilter),
-      this.repository.countAll(branchFilter),
+      repository.findAll(page, searchQuery, branchFilter),
+      repository.countAll(branchFilter),
     ]);
     return {
       customers: rows.map(mapDbCustomerToCustomer),
@@ -68,7 +66,7 @@ export class CustomerService {
   }
 
   async getCustomer(id: string): Promise<Customer> {
-    const row = await this.repository.findById(id);
+    const row = await repository.findById(id);
     return mapDbCustomerToCustomer(row);
   }
 
@@ -80,7 +78,7 @@ export class CustomerService {
   ): Promise<Customer> {
     this.validateInput(data);
     tierService.assertCanCreate(tier, usage, 'customers');
-    const row = await this.repository.create({
+    const row = await repository.create({
       name: data.name.trim(),
       phone_number: data.phoneNumber?.trim() || null,
       address: data.address?.trim() || null,
@@ -99,7 +97,7 @@ export class CustomerService {
 
   async updateCustomer(id: string, data: CustomerInput): Promise<Customer> {
     this.validateInput(data);
-    const row = await this.repository.update(id, {
+    const row = await repository.update(id, {
       name: data.name.trim(),
       phone_number: data.phoneNumber?.trim() || null,
       address: data.address?.trim() || null,
@@ -114,22 +112,22 @@ export class CustomerService {
   }
 
   async deactivateCustomer(id: string): Promise<Customer> {
-    const row = await this.repository.deactivate(id);
+    const row = await repository.deactivate(id);
     return mapDbCustomerToCustomer(row);
   }
 
   async deleteCustomer(id: string): Promise<{ mode: 'hard' } | { mode: 'soft'; customer: Customer }> {
-    const paymentCount = await this.repository.countPayments(id);
+    const paymentCount = await repository.countPayments(id);
     if (paymentCount === 0) {
-      await this.repository.delete(id);
+      await repository.delete(id);
       return { mode: 'hard' };
     }
-    const row = await this.repository.deactivate(id);
+    const row = await repository.deactivate(id);
     return { mode: 'soft', customer: mapDbCustomerToCustomer(row) };
   }
 
   async reactivateCustomer(id: string): Promise<Customer> {
-    const row = await this.repository.reactivate(id);
+    const row = await repository.reactivate(id);
     return mapDbCustomerToCustomer(row);
   }
 
@@ -143,3 +141,5 @@ export class CustomerService {
     }
   }
 }
+
+export default new CustomerService()

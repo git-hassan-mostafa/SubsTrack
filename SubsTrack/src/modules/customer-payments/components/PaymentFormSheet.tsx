@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
 import { Modal, ScrollView, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { useTranslation } from "react-i18next";
@@ -72,7 +73,9 @@ export function PaymentFormSheet({
   const { t } = useTranslation();
   const { user } = useAuth();
   const createPayment = usePaymentSlice((s) => s.createPayment);
-  const createMultiMonthPayment = usePaymentSlice((s) => s.createMultiMonthPayment);
+  const createMultiMonthPayment = usePaymentSlice(
+    (s) => s.createMultiMonthPayment,
+  );
   const loadingCreate = usePaymentSlice((s) => s.loadingCreate);
   const error = usePaymentSlice((s) => s.error);
   const clearError = usePaymentSlice((s) => s.clearError);
@@ -126,7 +129,8 @@ export function PaymentFormSheet({
       return {
         label: t(`months.${MONTHS[date.getMonth()]}`),
         billingMonth: bm,
-        isConflict: gridEntry?.status === "paid" || gridEntry?.status === "partial",
+        isConflict:
+          gridEntry?.status === "paid" || gridEntry?.status === "partial",
       };
     });
   }, [entry]);
@@ -155,7 +159,7 @@ export function PaymentFormSheet({
 
   const resolvedCurrency = isOnCustomPath ? customCurrency : planCurrency;
   const formatResolved = (amount: number) =>
-    formatMoney(amount, resolvedCurrency, resolvedCurrency, locale);
+    formatMoney(amount, resolvedCurrency, resolvedCurrency);
 
   const canSubmit =
     resolvedDue !== null &&
@@ -256,7 +260,7 @@ export function PaymentFormSheet({
       presentationStyle="pageSheet"
       onRequestClose={handleDismiss}
     >
-      <View className="flex-1 bg-white">
+      <SafeAreaView className="flex-1 bg-white">
         {/* Handle + header */}
         <View className="items-center pt-3 pb-1">
           <View className="w-10 h-1 rounded-full bg-gray-300" />
@@ -347,12 +351,7 @@ export function PaymentFormSheet({
             {isMultiMonth ? (
               <>
                 <Text fontWeight="Bold" className="text-4xl text-gray-900">
-                  {formatMoney(
-                    plan!.price!,
-                    planCurrency,
-                    planCurrency,
-                    locale,
-                  )}
+                  {formatMoney(plan!.price!, planCurrency, planCurrency)}
                 </Text>
                 <Text className="text-sm text-gray-400 mt-1">
                   {t("payments.per_n_months", { count: plan!.durationMonths })}
@@ -383,12 +382,7 @@ export function PaymentFormSheet({
             {!isMultiMonth && isFixedPlan && !form.isOverrideEnabled ? (
               <>
                 <Text fontWeight="Bold" className="text-4xl text-gray-900">
-                  {formatMoney(
-                    plan!.price!,
-                    planCurrency,
-                    planCurrency,
-                    locale,
-                  )}
+                  {formatMoney(plan!.price!, planCurrency, planCurrency)}
                 </Text>
                 <PressableOpacity onPress={enableOverride} className="mt-3">
                   <Text className="text-primary text-sm font-semibold">
@@ -422,7 +416,6 @@ export function PaymentFormSheet({
                                 plan!.price!,
                                 planCurrency,
                                 planCurrency,
-                                locale,
                               ),
                             })
                           : t("payments.custom_amount")}
@@ -545,7 +538,7 @@ export function PaymentFormSheet({
           </Text>
           <View className="h-4" />
         </ScrollView>
-      </View>
+      </SafeAreaView>
       <UpgradePromptModal
         payload={tierLimitError}
         onClose={() => {

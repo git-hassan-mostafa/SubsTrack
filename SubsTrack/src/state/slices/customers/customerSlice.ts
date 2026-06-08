@@ -1,12 +1,10 @@
 import type { StateCreator } from 'zustand';
 import type { Customer, TierPlan, TenantUsage } from '@/src/core/types';
-import { CustomerService } from '@/src/modules/customers/services/CustomerService';
+import customerService from '@/src/modules/customers/services/CustomerService';
 import { resolveBranchFilter } from '@/src/shared/lib/branchFilter';
 import { TierLimitError } from '@/src/modules/subscription/services/TierService';
 import type { TierLimitErrorPayload } from '@/src/modules/subscription/components/UpgradePromptModal';
 import type { GlobalState } from '@/src/state/globalStore';
-
-const customerService = new CustomerService();
 
 interface CustomerInput {
   name: string;

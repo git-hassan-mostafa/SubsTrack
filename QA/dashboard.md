@@ -17,10 +17,11 @@ The compact stats card on the Admin landing screen also surfaces a subset of the
 ## 0. Critical invariants
 
 1. **Aggregates are USD-converted via snapshots.** `DashboardService.getMetrics()` fetches `{amount_paid, rate_per_usd_snapshot}` rows for the current billing month and divides each by its snapshot before summing. The total is then formatted in the user's display currency.
-2. **Voided payments are excluded** from monthly_revenue and from the "paid customers" count.
-3. **Non-regular customers are excluded** from `unpaidThisMonth` and the unpaid customer count on the hero.
-4. **Branch-aware metrics.** When BranchSelector is set to a specific branch, all 6 metrics scope to that branch (plans include shared).
-5. **Promise.all on 6 metrics.** Parallel fetch. One failure rejects the whole batch.
+2. **Revenue combines subscription payments AND one-off sales.** `monthlyRevenue = subscriptionRevenue + salesRevenue`. Both are summed in USD via `rate_per_usd_snapshot` and then formatted in the user's display currency. The hero card sub-line "Subscriptions: $X · Sales: $Y" is rendered when `salesRevenue > 0`.
+3. **Voided payments and voided sales are excluded** from monthly_revenue and from the "paid customers" count.
+4. **Non-regular customers are excluded** from `unpaidThisMonth` and the unpaid customer count on the hero.
+5. **Branch-aware metrics.** When BranchSelector is set to a specific branch, all metrics scope to that branch (plans include shared).
+6. **Promise.all parallelism.** `getMetrics()` fires subscription payment queries, sales total query, and customer count queries in parallel. One failure rejects the whole batch.
 
 ---
 
@@ -41,11 +42,15 @@ The compact stats card on the Admin landing screen also surfaces a subset of the
 | 2.2 | Amount | Big number | Total of `amount_paid / rate_per_usd_snapshot` for non-voided payments in the current billing month, formatted in the user's display currency |
 | 2.3 | Mixed currency totals | Pay $50 (USD) + 50,000 LBP (snapshot rate 50,000) | Both → 1 USD each → $2.00 (or LBP equivalent if display=LBP) |
 | 2.4 | Sub-text | Below amount | "<paidCustomers> of <activeCustomers> active customers · <pct>% collected" |
+| 2.4a | Sales sub-line — visible | Month has any non-voided sales | Secondary line beneath the amount: "Subscriptions: $X · Sales: $Y" (both formatted in display currency) |
+| 2.4b | Sales sub-line — hidden | Month has zero sales (salesRevenue = 0) | Sub-line NOT rendered; only the amount shown |
+| 2.4c | Sales-only revenue | Tenant records a sale but no subscription payment this month | Hero shows the sale amount; subscriptions = $0 sub-line NOT shown (salesRevenue > 0 but subscriptionRevenue = 0) |
 | 2.5 | Paid customers calc | Paid = activeCustomers − unpaidThisMonth (regular only) | Cannot go negative |
 | 2.6 | Progress bar — full | All active regulars paid | Bar at 100% width |
 | 2.7 | Progress bar — empty | No active customers | Bar at 0%; division-by-zero handled |
 | 2.8 | Progress bar — partial | 4 of 10 paid | 40% |
-| 2.9 | Voided payment excluded | Pay $100 then void | monthly_revenue drops by $100; collected % drops accordingly |
+| 2.9 | Voided payment excluded | Pay $100 subscription then void | monthly_revenue drops by $100; collected % drops accordingly |
+| 2.9a | Voided sale excluded | Record $50 sale then void it | monthly_revenue drops by $50; salesRevenue in sub-line drops |
 | 2.10 | Live currency rate change does NOT shift hero | Pay 50000 LBP at rate 50000 (= $1). Admin then edits LBP rate to 100000 | Hero still shows $1 from that payment (uses snapshot, not live rate) |
 | 2.11 | Display currency change | Switch display from USD to LBP | Hero immediately reformats (re-renders), still based on USD-aggregated total |
 | 2.12 | Inactive customer with current-month payment | Inactive customer paid this month (arrears) | Their amount is INCLUDED in monthly_revenue (revenue is collection-based). But they are NOT counted in active/paid customers (which uses `active = true`) |
@@ -115,7 +120,10 @@ The Admin tab landing screen has its own compact summary that shares the dashboa
 | 8.4 | Time zone day boundaries | Open dashboard at 23:59 vs 00:01 | "Current month" computed via `getCurrentYearMonth()` (local time); no flicker / double-counting |
 | 8.5 | Voided payment in current month | Void today's payment | unpaidThisMonth +1, monthlyRevenue -amount, paidCustomers -1 |
 | 8.6 | Many customers (perf) | 5000 customers | Counts use `count: 'exact', head: true`; verify performance |
-| 8.7 | Failed parallel fetch | One of the 6 parallel queries fails | Promise.all rejects → ErrorBanner. Existing values preserved |
+| 8.7 | Failed parallel fetch | One of the parallel queries fails | Promise.all rejects → ErrorBanner. Existing values preserved |
+| 8.14 | Sales snapshot immunity | Record $50 walk-in sale in LBP at rate 90000 (≈ $0.56). Admin edits LBP rate to 100000. Open dashboard | Hero still shows the original USD equivalent (uses `rate_per_usd_snapshot` on the sale row) |
+| 8.15 | Walk-in sale (no customer) | Record sale with customer = null | Sale is included in salesRevenue and monthly_revenue |
+| 8.16 | Sales from this month vs last month | Record sale in previous billing month | Previous month's sale does NOT appear in current month's salesRevenue |
 | 8.8 | Partial payment effect | Customer paid 50/100 for current month | Customer counted as PAID (their `paid_at` exists, not voided, `amount_paid > 0`). monthly_revenue includes the 50 |
 | 8.9 | Multi-month payment effect | Customer pays Jan–Mar in Jan | Only the source month (Jan) is in monthly_revenue. Feb and Mar dashboards (when viewed in Feb/Mar) will NOT show that payment in their monthly_revenue — but the customer is counted as PAID via the coverage map |
 | 8.10 | "Paid this month" via multi-month coverage | Look at Feb dashboard, customer is covered by a Jan–Mar bundle | Verify customer is counted as paid this month. Edge case: the `findPaidCustomerIdsForMonth` query may only check `billing_month = this month`. **File a finding if multi-month customers appear unpaid in months 2/3** |

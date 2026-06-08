@@ -14,7 +14,7 @@ export interface FindSalesOptions {
   includeVoided?: boolean;
 }
 
-export class SaleRepository extends BaseRepository {
+class SaleRepository extends BaseRepository {
   async findAll(opts: FindSalesOptions = {}): Promise<DbSale[]> {
     const page = opts.page ?? 0;
     const from = page * PAGE_SIZE;
@@ -120,3 +120,5 @@ export class SaleRepository extends BaseRepository {
     }));
   }
 }
+
+export default new SaleRepository()

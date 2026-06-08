@@ -1,12 +1,10 @@
 import type { StateCreator } from 'zustand';
 import type { Plan, TierPlan, TenantUsage } from '@/src/core/types';
-import { PlanService } from '@/src/modules/plans/services/PlanService';
+import planService from '@/src/modules/plans/services/PlanService';
 import { resolveBranchFilter } from '@/src/shared/lib/branchFilter';
 import { TierLimitError } from '@/src/modules/subscription/services/TierService';
 import type { TierLimitErrorPayload } from '@/src/modules/subscription/components/UpgradePromptModal';
 import type { GlobalState } from '@/src/state/globalStore';
-
-const planService = new PlanService();
 
 interface PlanInput {
   name: string;

@@ -1,6 +1,6 @@
 # Monthly Grid — QA Scenarios
 
-The 12-cell grid is the core of the customer detail screen. Each cell encodes a month's status: PAID (green for regular / yellow for non-regular), UNPAID (red for regular / light gray for non-regular), FUTURE (gray), or BEFORE_START (gray, slightly dimmer). **Multi-month payments** visually merge consecutive cells with a "Included" sublabel for months 2+. **Partial payments** show an orange dot in the corner of the paid cell.
+The 12-cell grid is the core of the customer detail screen. Each cell encodes a month's status: PAID (green for regular / yellow for non-regular), PARTIAL (amber for both regular and non-regular), UNPAID (red for regular / light gray for non-regular), FUTURE (gray), or BEFORE_START (gray, slightly dimmer). **Multi-month payments** visually merge consecutive cells with a "Included" sublabel for months 2+. **Partial payments** (`amount_paid < amount_due`) render as a distinct `"partial"` status — amber cells, NOT an orange dot on a green cell.
 
 The status logic lives in exactly one place: `PaymentService.buildMonthGrid`. Verify nothing else re-implements it.
 
@@ -21,21 +21,22 @@ For year Y, month M, given today = (CY, CM), customer.startDate = SY-SM-SD, grac
 | Condition | Status |
 |-----------|--------|
 | Y < SY OR (Y == SY AND M < SM) | `before_start` |
-| A covering payment exists for Y-M (single OR via multi-month range) AND `voided_at IS NULL` AND `amount_paid > 0` | `paid` (with `isGroupSecondary = true` for months 2+ in a multi-month block) |
+| A covering payment exists for Y-M AND `voided_at IS NULL` AND `amount_paid > 0` AND `balance = 0` | `paid` (green for regular, yellow for non-regular; `isGroupSecondary = true` for months 2+ in a multi-month block) |
+| A covering payment exists for Y-M AND `voided_at IS NULL` AND `0 < amount_paid < amount_due` (balance > 0) | `partial` (amber for both regular and non-regular) |
 | Y > CY OR (Y == CY AND M > CM) | `future` |
 | First-of-month ≤ today ≤ first-of-month + G days | `future` (within grace) |
 | Otherwise | `unpaid` |
 
 Notes:
 - A payment with `amount_paid = 0` is treated as "no payment" — cell shows unpaid (slot reserved but not paid). This lets staff reserve a row without recording a collection.
-- A payment with `0 < amount_paid < amount_due` (partial) renders as `paid` with `balance > 0` — orange dot indicator on the cell.
+- A payment with `0 < amount_paid < amount_due` (partial) renders as `partial` — amber cell for both regular and non-regular customers. Tapping opens the receipt sheet (amber theme), just like a `paid` cell.
 
 ## 2. Cell rendering — regular customer (default)
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
 | 2.1 | PAID cell | Regular customer paid March | Green background, white "Mar" text, "PAID" sublabel |
-| 2.2 | PAID partial cell | Regular customer with `balance > 0` | Same green cell + small orange dot in top-end corner. Sublabel = "PARTIAL" (verify the exact i18n key) |
+| 2.2 | PARTIAL cell | Regular customer with `balance > 0` | Amber background (NOT green), white text, "PARTIAL" sublabel. Tapping opens receipt in amber theme with "Balance remaining" row |
 | 2.3 | UNPAID cell (past) | Past month with no payment | Red background, white "Mar" text, blank sublabel |
 | 2.4 | UNPAID cell (current month) | Current month with no payment | Red-100 background with red-500 border (highlight), red text, "THIS MONTH" sublabel |
 | 2.5 | FUTURE cell | A month after today | Gray-100 background, gray-400 text, blank sublabel |
@@ -52,7 +53,7 @@ Notes:
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
 | 3.1 | PAID cell | Non-regular paid March | Yellow/Gold background, white "Mar" text, "PAID" sublabel |
-| 3.2 | PAID partial | Non-regular with balance > 0 | Yellow + orange dot |
+| 3.2 | PARTIAL | Non-regular with balance > 0 | Amber background (same amber as regular — PARTIAL is amber for all customers regardless of isRegular) |
 | 3.3 | UNPAID cell (past) | Non-regular past month with no payment | Light gray background (NOT red), gray text, blank sublabel |
 | 3.4 | UNPAID cell (current month) | Non-regular current month, no payment | Light gray. NO red highlight. NO "THIS MONTH" sublabel — because non-regular is never "overdue" |
 | 3.5 | FUTURE cell | Same as regular | Gray-100, gray-400 text |

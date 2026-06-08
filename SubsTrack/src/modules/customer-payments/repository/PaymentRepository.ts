@@ -5,7 +5,7 @@ import { applyBranchFilter, BRANCH_SCOPES } from '@/src/shared/lib/branchFilter'
 
 type CreatePaymentPayload = Pick<DbPayment, 'billing_month' | 'amount_due' | 'amount_paid' | 'duration_months' | 'currency_id' | 'rate_per_usd_snapshot' | 'customer_id' | 'plan_id' | 'received_by_user_id' | 'tenant_id' | 'notes'>
 
-export class PaymentRepository extends BaseRepository {
+class PaymentRepository extends BaseRepository {
   // Fetches payments that START within the given year, plus payments that
   // started in the previous year and may extend into this year (multi-month blocks).
   async findByCustomerAndYear(customerId: string, year: number): Promise<DbPayment[]> {
@@ -155,3 +155,5 @@ export class PaymentRepository extends BaseRepository {
     }));
   }
 }
+
+export default new PaymentRepository()

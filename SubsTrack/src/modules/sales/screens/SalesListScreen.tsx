@@ -13,6 +13,7 @@ import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { useDebounce } from "@/src/shared/hooks/useDebounce";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
 import { PageHeader } from "@/src/shared/components/PageHeader";
+import { CustomerPicker } from "@/src/modules/customers/components/CustomerPicker";
 import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
 import type { Sale } from "@/src/core/types";
 import { SaleCard } from "../components/SaleCard";
@@ -32,6 +33,8 @@ export function SalesListScreen() {
   const fetchSales = useSaleSlice((s) => s.fetchSales);
   const fetchMoreSales = useSaleSlice((s) => s.fetchMoreSales);
   const setSearchQuery = useSaleSlice((s) => s.setSearchQuery);
+  const customerFilter = useSaleSlice((s) => s.customerFilter);
+  const setCustomerFilter = useSaleSlice((s) => s.setCustomerFilter);
   const voidSale = useSaleSlice((s) => s.voidSale);
   const clearError = useSaleSlice((s) => s.clearError);
 
@@ -73,6 +76,13 @@ export function SalesListScreen() {
       />
 
       <View className="px-4 pt-4">
+        <CustomerPicker
+          placeholder={t("sales.filter_by_customer")}
+          value={customerFilter}
+          onChange={setCustomerFilter}
+          nullable
+          nullLabel={t("sales.all_customers")}
+        />
         <SearchTextBox
           searchText={searchText}
           setSearchText={setSearchText}
@@ -120,9 +130,15 @@ export function SalesListScreen() {
               message={t("sales.no_sales")}
               subMessage={t("sales.no_sales_hint")}
               actionLabel={
-                !debouncedSearch ? t("sales.record_first_sale") : undefined
+                !debouncedSearch && !customerFilter
+                  ? t("sales.record_first_sale")
+                  : undefined
               }
-              onAction={!debouncedSearch ? () => setFormOpen(true) : undefined}
+              onAction={
+                !debouncedSearch && !customerFilter
+                  ? () => setFormOpen(true)
+                  : undefined
+              }
             />
           }
         />

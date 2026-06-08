@@ -20,10 +20,10 @@ export function LoginScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const login = useAuthSlice((s) => s.login);
-  const loading = useAuthSlice((s) => s.loading);
   const error = useAuthSlice((s) => s.error);
   const clearError = useAuthSlice((s) => s.clearError);
 
+  const [loading, setLoading] = useState(false);
   const [form, setForm] = useState<FormState>({
     tenantName: "",
     username: "",
@@ -44,7 +44,9 @@ export function LoginScreen() {
   async function handleLogin() {
     if (!form.tenantName.trim() || !form.username.trim() || !form.password)
       return;
+    setLoading(true);
     await login(form.username, form.tenantName, form.password);
+    setLoading(false);
   }
 
   return (
@@ -58,101 +60,103 @@ export function LoginScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-        <View className="px-6 py-8">
-          {/* Brand logo */}
-          <View className="flex-row items-center mb-10">
-            <View className="w-11 h-11 bg-primary rounded-2xl items-center justify-center me-3">
-              <Text className="text-white text-xl">📅</Text>
+          <View className="px-6 py-8">
+            {/* Brand logo */}
+            <View className="flex-row items-center mb-10">
+              <View className="w-11 h-11 bg-primary rounded-2xl items-center justify-center me-3">
+                <Text className="text-white text-xl">📅</Text>
+              </View>
+              <Text fontWeight="Bold" className="text-xl text-gray-900">
+                SubsTrack
+              </Text>
             </View>
-            <Text fontWeight="Bold" className="text-xl text-gray-900">
-              SubsTrack
+
+            <Text fontWeight="Bold" className="text-3xl text-gray-900 mb-2">
+              {t("auth.welcome_back")}
             </Text>
-          </View>
+            <Text className="text-base text-gray-500 mb-8">
+              {t("auth.welcome_description")}
+            </Text>
 
-          <Text fontWeight="Bold" className="text-3xl text-gray-900 mb-2">
-            {t("auth.welcome_back")}
-          </Text>
-          <Text className="text-base text-gray-500 mb-8">
-            {t("auth.welcome_description")}
-          </Text>
+            {isAccountNotConfigured ? (
+              <ErrorBanner
+                message={t("auth.account_not_configured")}
+                onDismiss={clearError}
+              />
+            ) : null}
 
-          {isAccountNotConfigured ? (
-            <ErrorBanner
-              message={t("auth.account_not_configured")}
-              onDismiss={clearError}
+            <Input
+              label={t("auth.workspace_id")}
+              value={form.tenantName}
+              onChangeText={(v) => {
+                clearError();
+                setForm((prev) => ({ ...prev, tenantName: v }));
+              }}
+              placeholder="acme-isp"
+              autoCapitalize="none"
+              autoCorrect={false}
             />
-          ) : null}
 
-          <Input
-            label={t("auth.workspace_id")}
-            value={form.tenantName}
-            onChangeText={(v) => {
-              clearError();
-              setForm((prev) => ({ ...prev, tenantName: v }));
-            }}
-            placeholder="acme-isp"
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
+            <Input
+              label={t("auth.username")}
+              value={form.username}
+              onChangeText={(v) => {
+                clearError();
+                setForm((prev) => ({ ...prev, username: v }));
+              }}
+              placeholder={t("auth.username_placeholder")}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
 
-          <Input
-            label={t("auth.username")}
-            value={form.username}
-            onChangeText={(v) => {
-              clearError();
-              setForm((prev) => ({ ...prev, username: v }));
-            }}
-            placeholder={t("auth.username_placeholder")}
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
+            <Input
+              label={t("auth.password")}
+              value={form.password}
+              onChangeText={(v) => {
+                clearError();
+                setForm((prev) => ({ ...prev, password: v }));
+              }}
+              placeholder={t("auth.password_placeholder")}
+              secureTextEntry
+              error={fieldError}
+            />
 
-          <Input
-            label={t("auth.password")}
-            value={form.password}
-            onChangeText={(v) => {
-              clearError();
-              setForm((prev) => ({ ...prev, password: v }));
-            }}
-            placeholder={t("auth.password_placeholder")}
-            secureTextEntry
-            error={fieldError}
-          />
+            <Button
+              label={t("auth.sign_in")}
+              onPress={handleLogin}
+              loading={loading}
+              disabled={
+                !form.tenantName.trim() ||
+                !form.username.trim() ||
+                !form.password
+              }
+              fullWidth
+            />
 
-          <Button
-            label={t("auth.sign_in")}
-            onPress={handleLogin}
-            loading={loading}
-            disabled={
-              !form.tenantName.trim() || !form.username.trim() || !form.password
-            }
-            fullWidth
-          />
+            <View className="flex-row justify-center mt-5">
+              <Text className="text-sm text-gray-400">
+                {t("auth.lost_workspace_id")}{" "}
+              </Text>
+              <Text className="text-sm text-primary font-semibold">
+                {t("auth.get_help")}
+              </Text>
+            </View>
 
-          <View className="flex-row justify-center mt-5">
-            <Text className="text-sm text-gray-400">
-              {t("auth.lost_workspace_id")}{" "}
-            </Text>
-            <Text className="text-sm text-primary font-semibold">
-              {t("auth.get_help")}
-            </Text>
+            <View className="flex-row items-center my-6">
+              <View className="flex-1 h-px bg-gray-200" />
+              <Text className="mx-3 text-xs text-gray-400 uppercase tracking-wide">
+                {t("auth.or")}
+              </Text>
+              <View className="flex-1 h-px bg-gray-200" />
+            </View>
+
+            <Button
+              label={t("auth.create_workspace")}
+              onPress={handleCreateWorkspace}
+              variant="ghost"
+              fullWidth
+            />
           </View>
-
-          <View className="flex-row items-center my-6">
-            <View className="flex-1 h-px bg-gray-200" />
-            <Text className="mx-3 text-xs text-gray-400 uppercase tracking-wide">
-              {t("auth.or")}
-            </Text>
-            <View className="flex-1 h-px bg-gray-200" />
-          </View>
-
-          <Button
-            label={t("auth.create_workspace")}
-            onPress={handleCreateWorkspace}
-            variant="ghost"
-            fullWidth
-          />
-        </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

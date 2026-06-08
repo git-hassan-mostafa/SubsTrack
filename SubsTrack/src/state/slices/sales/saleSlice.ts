@@ -1,11 +1,9 @@
 import type { StateCreator } from 'zustand';
-import type { Sale } from '@/src/core/types';
+import type { Customer, Sale } from '@/src/core/types';
 import { PAGE_SIZE } from '@/src/core/constants';
-import { SaleService, type CreateSaleInput } from '@/src/modules/sales/services/SaleService';
+import saleService, { type CreateSaleInput } from '@/src/modules/sales/services/SaleService';
 import { resolveBranchFilter } from '@/src/shared/lib/branchFilter';
 import type { GlobalState } from '@/src/state/globalStore';
-
-const saleService = new SaleService();
 
 export interface SaleSlice {
   items: Sale[];
@@ -16,9 +14,11 @@ export interface SaleSlice {
   error: string | null;
   searchQuery: string;
   searchToken: number;
+  customerFilter: Customer | null;
   fetchSales: () => Promise<void>;
   fetchMoreSales: () => Promise<void>;
   setSearchQuery: (q: string) => Promise<void>;
+  setCustomerFilter: (customer: Customer | null) => Promise<void>;
   createSale: (input: CreateSaleInput) => Promise<Sale | null>;
   voidSale: (id: string, voidedBy: string, reason: string) => Promise<void>;
   clearError: () => void;
@@ -39,11 +39,13 @@ export const createSaleSlice: StateCreator<
   error: null,
   searchQuery: '',
   searchToken: 0,
+  customerFilter: null,
 
   fetchSales: async () => {
     const token = get().sales.searchToken;
     const branchFilter = resolveBranchFilter(get().auth.user);
     const searchQuery = get().sales.searchQuery;
+    const customerFilter = get().sales.customerFilter;
     set((state) => {
       state.sales.loading = true;
       state.sales.error = null;
@@ -54,6 +56,7 @@ export const createSaleSlice: StateCreator<
         page: 0,
         searchQuery: searchQuery || undefined,
         branchFilter,
+        customerId: customerFilter?.id ?? null,
       });
       if (get().sales.searchToken !== token) return;
       set((state) => {
@@ -72,7 +75,7 @@ export const createSaleSlice: StateCreator<
   },
 
   fetchMoreSales: async () => {
-    const { loadingMore, hasMore, page, searchToken, searchQuery } = get().sales;
+    const { loadingMore, hasMore, page, searchToken, searchQuery, customerFilter } = get().sales;
     if (loadingMore || !hasMore) return;
     const token = searchToken;
     const branchFilter = resolveBranchFilter(get().auth.user);
@@ -85,6 +88,7 @@ export const createSaleSlice: StateCreator<
         page: nextPage,
         searchQuery: searchQuery || undefined,
         branchFilter,
+        customerId: customerFilter?.id ?? null,
       });
       if (get().sales.searchToken !== token) {
         set((state) => {
@@ -117,6 +121,19 @@ export const createSaleSlice: StateCreator<
     if (trimmed === get().sales.searchQuery) return;
     set((state) => {
       state.sales.searchQuery = trimmed;
+      state.sales.searchToken += 1;
+      state.sales.page = 0;
+      state.sales.items = [];
+      state.sales.hasMore = true;
+    });
+    await get().sales.fetchSales();
+  },
+
+  setCustomerFilter: async (customer) => {
+    const current = get().sales.customerFilter;
+    if (current?.id === customer?.id) return;
+    set((state) => {
+      state.sales.customerFilter = customer;
       state.sales.searchToken += 1;
       state.sales.page = 0;
       state.sales.items = [];
@@ -182,5 +199,6 @@ export const createSaleSlice: StateCreator<
       state.sales.error = null;
       state.sales.searchQuery = '';
       state.sales.searchToken += 1;
+      state.sales.customerFilter = null;
     }),
 });

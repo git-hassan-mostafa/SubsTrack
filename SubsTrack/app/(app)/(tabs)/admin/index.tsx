@@ -123,9 +123,9 @@ export default function AdminMenuScreen() {
   // canonical USD; we display in the user's chosen currency.
   function formatCompact(usd: number): string {
     if (usd >= 1000) {
-      return formatMoney(usd / 1000, null, displayCurrency, locale) + "k";
+      return formatMoney(usd / 1000, null, displayCurrency) + "k";
     }
-    return formatMoney(usd, null, displayCurrency, locale);
+    return formatMoney(usd, null, displayCurrency);
   }
 
   useFocusEffect(

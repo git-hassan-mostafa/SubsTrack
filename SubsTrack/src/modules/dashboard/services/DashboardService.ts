@@ -1,11 +1,11 @@
 import type { DashboardMetrics } from '@/src/core/types';
 import type { BranchFilter } from '@/src/core/constants';
 import { getCurrentYearMonth, toBillingMonth } from '@/src/core/utils/date';
-import { CustomerRepository } from '@/src/modules/customers/repository/CustomerRepository';
-import { PaymentRepository } from '@/src/modules/customer-payments/repository/PaymentRepository';
-import { PlanRepository } from '@/src/modules/plans/repository/PlanRepository';
-import { UserRepository } from '@/src/modules/users/repository/UserRepository';
-import { SaleRepository } from '@/src/modules/sales/repository/SaleRepository';
+import customerRepo from '@/src/modules/customers/repository/CustomerRepository';
+import paymentRepo from '@/src/modules/customer-payments/repository/PaymentRepository';
+import planRepo from '@/src/modules/plans/repository/PlanRepository';
+import userRepo from '@/src/modules/users/repository/UserRepository';
+import saleRepo from '@/src/modules/sales/repository/SaleRepository';
 
 // Sums payment rows in USD using each row's frozen snapshot rate.
 // monthlyRevenue and totalOutstandingBalance are canonical USD so the screen
@@ -14,13 +14,7 @@ function sumInUsd(rows: { amount: number; ratePerUsdSnapshot: number }[]): numbe
   return rows.reduce((sum, r) => sum + r.amount / r.ratePerUsdSnapshot, 0);
 }
 
-export class DashboardService {
-  private customerRepo = new CustomerRepository();
-  private paymentRepo = new PaymentRepository();
-  private planRepo = new PlanRepository();
-  private userRepo = new UserRepository();
-  private saleRepo = new SaleRepository();
-
+class DashboardService {
   async getMetrics(branchFilter: BranchFilter = null): Promise<DashboardMetrics> {
     const { year, month } = getCurrentYearMonth();
     const billingMonth = toBillingMonth(year, month);
@@ -37,14 +31,14 @@ export class DashboardService {
       balanceRows,
       saleRows,
     ] = await Promise.all([
-      this.customerRepo.countAll(branchFilter),
-      this.customerRepo.countActive(branchFilter),
-      this.paymentRepo.paidAmountsForMonth(billingMonth, branchFilter),
-      this.customerRepo.countUnpaidForMonth(billingMonth, branchFilter),
-      this.userRepo.countAll(branchFilter),
-      this.planRepo.countAll(branchFilter),
-      this.paymentRepo.balancesForMonth(billingMonth, branchFilter),
-      this.saleRepo.totalsForMonth(monthStart, monthEndExclusive, branchFilter),
+      customerRepo.countAll(branchFilter),
+      customerRepo.countActive(branchFilter),
+      paymentRepo.paidAmountsForMonth(billingMonth, branchFilter),
+      customerRepo.countUnpaidForMonth(billingMonth, branchFilter),
+      userRepo.countAll(branchFilter),
+      planRepo.countAll(branchFilter),
+      paymentRepo.balancesForMonth(billingMonth, branchFilter),
+      saleRepo.totalsForMonth(monthStart, monthEndExclusive, branchFilter),
     ]);
 
     const subscriptionRevenue = sumInUsd(paidRows);
@@ -63,3 +57,5 @@ export class DashboardService {
     };
   }
 }
+
+export default new DashboardService()

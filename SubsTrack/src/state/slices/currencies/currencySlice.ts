@@ -1,11 +1,9 @@
 import type { StateCreator } from 'zustand';
 import type { Currency, TierPlan } from '@/src/core/types';
-import { CurrencyService, type CurrencyInput } from '@/src/modules/currencies/services/CurrencyService';
+import currencyService, { type CurrencyInput } from '@/src/modules/currencies/services/CurrencyService';
 import { TierLimitError } from '@/src/modules/subscription/services/TierService';
 import type { TierLimitErrorPayload } from '@/src/modules/subscription/components/UpgradePromptModal';
 import type { GlobalState } from '@/src/state/globalStore';
-
-const currencyService = new CurrencyService();
 
 export interface CurrencySlice {
   items: Currency[];
@@ -132,6 +130,7 @@ export const createCurrencySlice: StateCreator<
           state.currencies.loading = false;
         });
       }
+      void get().subscription.refreshUsage();
       return mode;
     } catch (e) {
       set((state) => {

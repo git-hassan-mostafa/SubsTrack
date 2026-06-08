@@ -30,14 +30,11 @@ export function DashboardScreen() {
   const clearError = useDashboardSlice((s) => s.clearError);
   const currencies = useCurrencySlice((s) => s.items);
   const { displayCurrencyId } = useUiPrefStore();
-  // Metrics are stored canonical-USD; format for the user's display preference.
   const displayCurrency = findCurrency(currencies, displayCurrencyId);
-  const fmt = (usd: number) =>
-    formatMoney(usd, null, displayCurrency, getDateLocale(i18n.language));
+  const fmt = (usd: number) => formatMoney(usd, null, displayCurrency);
 
   const branchFilter = useEffectiveBranchFilter();
 
-  // Loads on mount AND re-fetches when the user switches the branch chip.
   useEffect(() => {
     fetchMetrics();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -62,6 +59,8 @@ export function DashboardScreen() {
     activeCustomers > 0
       ? Math.round((paidCustomers / activeCustomers) * 100)
       : 0;
+  const hasSalesRevenue = (metrics?.salesRevenue ?? 0) > 0;
+  const hasOutstandingBalance = (metrics?.totalOutstandingBalance ?? 0) > 0;
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
@@ -98,86 +97,109 @@ export function DashboardScreen() {
           </View>
         ) : (
           <>
-            {/* Hero card */}
-            <View className="mx-4 mb-4 bg-primary rounded-2xl p-5 overflow-hidden">
-              <View
-                className="absolute w-40 h-40 rounded-full bg-white opacity-10"
-                style={{ right: -20, top: -20 }}
-              />
-              <View
-                className="absolute w-24 h-24 rounded-full bg-white opacity-10"
-                style={{ right: 20, bottom: -10 }}
-              />
-              <Text className="text-xs font-semibold text-indigo-200 uppercase tracking-widest mb-2">
-                {t("dashboard.monthly_collected", {
-                  month: monthLabel,
-                  year,
-                })}
+            {/* Hero card — revenue + collection progress */}
+            <View className="mx-4 mb-3 bg-primary rounded-2xl p-5">
+              {/* Month label */}
+              <Text className="text-xs text-indigo-300 uppercase tracking-widest mb-3">
+                {t("dashboard.monthly_collected", { month: monthLabel, year })}
               </Text>
-              <Text fontWeight="Bold" className="text-4xl text-white mb-1">
+
+              {/* Total revenue */}
+              <Text fontWeight="Bold" className="text-4xl text-white">
                 {fmt(metrics?.monthlyRevenue ?? 0)}
               </Text>
-              {(metrics?.salesRevenue ?? 0) > 0 ? (
-                <Text className="text-xs text-indigo-100 mb-2">
-                  {t("dashboard.revenue_breakdown", {
-                    subscriptions: fmt(metrics?.subscriptionRevenue ?? 0),
-                    sales: fmt(metrics?.salesRevenue ?? 0),
-                  })}
-                </Text>
+
+              {/* Revenue breakdown — only shown when sales revenue exists */}
+              {hasSalesRevenue ? (
+                <View className="flex-row mt-3 gap-6">
+                  <View>
+                    <Text className="text-xs text-indigo-300 mb-0.5">
+                      {t("dashboard.subscriptions")}
+                    </Text>
+                    <Text fontWeight="SemiBold" className="text-sm text-white">
+                      {fmt(metrics?.subscriptionRevenue ?? 0)}
+                    </Text>
+                  </View>
+                  <View className="w-px bg-indigo-500" />
+                  <View>
+                    <Text className="text-xs text-indigo-300 mb-0.5">
+                      {t("dashboard.sales_label")}
+                    </Text>
+                    <Text fontWeight="SemiBold" className="text-sm text-white">
+                      {fmt(metrics?.salesRevenue ?? 0)}
+                    </Text>
+                  </View>
+                </View>
               ) : null}
-              <Text className="text-sm text-indigo-200 mb-3">
-                {t("dashboard.collected_summary", {
-                  paidCustomers,
-                  activeCustomers,
-                  collectedPct,
-                })}
-              </Text>
-              {/* Progress bar */}
-              <View className="bg-indigo-400 rounded-full h-1.5">
+
+              {/* Divider */}
+              <View className="h-px bg-indigo-500 mt-4 mb-4" />
+
+              {/* Collection progress */}
+              <View className="flex-row justify-between items-center mb-2">
+                <Text className="text-xs text-indigo-300 uppercase tracking-widest">
+                  {t("dashboard.collection_progress")}
+                </Text>
+                <Text fontWeight="SemiBold" className="text-sm text-white">
+                  {collectedPct}%
+                </Text>
+              </View>
+              <View className="bg-indigo-500 rounded-full h-2 mb-2">
                 <View
-                  className="bg-white rounded-full h-1.5"
+                  className="bg-white rounded-full h-2"
                   style={{ width: `${collectedPct}%` }}
                 />
               </View>
+              <Text className="text-xs text-indigo-300">
+                {t("dashboard.paid_of_active", {
+                  paid: paidCustomers,
+                  total: activeCustomers,
+                })}
+              </Text>
             </View>
 
             {/* Stat cards */}
-            <View className="flex-row mx-4 gap-3">
+            <View className="flex-row mx-4 gap-3 mb-3">
+              {/* Unpaid this month */}
               <View className="flex-1 bg-white border border-gray-100 rounded-2xl p-4">
-                <View className="flex-row items-center gap-1.5 mb-2">
-                  <View className="w-2 h-2 rounded-full bg-danger" />
-                  <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
-                    {t("dashboard.unpaid")}
-                  </Text>
-                </View>
-                <Text fontWeight="Bold" className="text-3xl text-gray-900">
+                <Text className="text-xs text-gray-400 uppercase tracking-wide mb-3">
+                  {t("dashboard.unpaid")}
+                </Text>
+                <Text fontWeight="Bold" className="text-3xl text-danger leading-none mb-1">
                   {metrics?.unpaidThisMonth ?? 0}
+                </Text>
+                <Text className="text-xs text-gray-400">
+                  {t("dashboard.customers_this_month")}
                 </Text>
               </View>
 
+              {/* Active customers */}
               <View className="flex-1 bg-white border border-gray-100 rounded-2xl p-4">
-                <View className="flex-row items-center gap-1.5 mb-2">
-                  <View className="w-2 h-2 rounded-full bg-success" />
-                  <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
-                    {t("dashboard.new_this_month")}
-                  </Text>
-                </View>
-                <Text fontWeight="Bold" className="text-3xl text-gray-900">
-                  {metrics?.totalCustomers ?? 0}
+                <Text className="text-xs text-gray-400 uppercase tracking-wide mb-3">
+                  {t("dashboard.active")}
+                </Text>
+                <Text fontWeight="Bold" className="text-3xl text-gray-900 leading-none mb-1">
+                  {activeCustomers}
+                </Text>
+                <Text className="text-xs text-gray-400">
+                  {t("dashboard.of_total", {
+                    total: metrics?.totalCustomers ?? 0,
+                  })}
                 </Text>
               </View>
             </View>
 
-            {(metrics?.totalOutstandingBalance ?? 0) > 0 ? (
-              <View className="mx-4 mt-3 bg-white border border-gray-100 rounded-2xl p-4">
-                <View className="flex-row items-center gap-1.5 mb-2">
-                  <View className="w-2 h-2 rounded-full bg-warning" />
-                  <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
-                    {t("payments.outstanding_balance")}
-                  </Text>
-                </View>
-                <Text fontWeight="Bold" className="text-3xl text-gray-900">
+            {/* Outstanding balance — only shown when > 0 */}
+            {hasOutstandingBalance ? (
+              <View className="mx-4 mb-3 bg-white border border-amber-100 rounded-2xl p-4">
+                <Text className="text-xs text-gray-400 uppercase tracking-wide mb-3">
+                  {t("payments.outstanding_balance")}
+                </Text>
+                <Text fontWeight="Bold" className="text-3xl text-warning leading-none mb-1">
                   {fmt(metrics?.totalOutstandingBalance ?? 0)}
+                </Text>
+                <Text className="text-xs text-gray-400">
+                  {t("dashboard.partial_payments_note")}
                 </Text>
               </View>
             ) : null}

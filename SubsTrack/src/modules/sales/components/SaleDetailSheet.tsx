@@ -1,11 +1,10 @@
 import { useState } from "react";
 import { Modal, ScrollView, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
-import { Ionicons } from "@expo/vector-icons";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { Input } from "@/src/shared/components/Input";
-import { COLORS } from "@/src/shared/constants";
 import type { Sale } from "@/src/core/types";
 import {
   findCurrency,
@@ -24,7 +23,12 @@ interface Props {
   voidLoading?: boolean;
 }
 
-export function SaleDetailSheet({ sale, onDismiss, onVoid, voidLoading }: Props) {
+export function SaleDetailSheet({
+  sale,
+  onDismiss,
+  onVoid,
+  voidLoading,
+}: Props) {
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
   const { displayCurrencyId } = useUiPrefStore();
@@ -41,7 +45,7 @@ export function SaleDetailSheet({ sale, onDismiss, onVoid, voidLoading }: Props)
   }
 
   function handleConfirmVoid() {
-    if (!voidReason.trim() || !onVoid) return;
+    if (!onVoid) return;
     onVoid(voidReason.trim());
     setVoidMode(false);
     setVoidReason("");
@@ -49,16 +53,18 @@ export function SaleDetailSheet({ sale, onDismiss, onVoid, voidLoading }: Props)
 
   if (!sale) return null;
 
-  // Snapshot rate keeps historical USD equivalents stable when the live FX
-  // rate is later edited. Same principle as PaymentDetailSheet.
   const source = paymentSnapshotCurrency(sale, currencies);
   const target = findCurrency(currencies, displayCurrencyId);
-  const fmtSource = (v: number) => formatMoney(v, source, source, locale);
-  const fmtTarget = (v: number) => formatMoney(v, source, target, locale);
+  const fmtSource = (v: number) => formatMoney(v, source, source);
+  const fmtTarget = (v: number) => formatMoney(v, source, target);
   const showEquivalent = (source?.id ?? null) !== (target?.id ?? null);
 
   const voided = sale.voidedAt !== null;
   const receiptId = sale.id.slice(-6).toUpperCase();
+  const productLabel =
+    sale.quantity > 1
+      ? `${sale.productNameSnapshot} × ${sale.quantity}`
+      : sale.productNameSnapshot;
 
   return (
     <Modal
@@ -67,10 +73,13 @@ export function SaleDetailSheet({ sale, onDismiss, onVoid, voidLoading }: Props)
       presentationStyle="pageSheet"
       onRequestClose={handleDismiss}
     >
-      <View className="flex-1 bg-white">
+      <SafeAreaView className="flex-1 bg-white">
+        {/* Handle */}
         <View className="items-center pt-3 pb-1">
           <View className="w-10 h-1 rounded-full bg-gray-300" />
         </View>
+
+        {/* Header */}
         <View className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
           <Text fontWeight="Bold" className="text-lg text-gray-900">
             {t("sales.receipt_title")}
@@ -82,95 +91,99 @@ export function SaleDetailSheet({ sale, onDismiss, onVoid, voidLoading }: Props)
           </PressableOpacity>
         </View>
 
-        <ScrollView className="flex-1 px-6 pt-6">
-          {/* Status badge */}
-          <View
-            className={`self-start rounded-full px-3 py-1 flex-row items-center mb-4 ${
-              voided ? "bg-red-50" : "bg-emerald-50"
-            }`}
-          >
-            <Ionicons
-              name={voided ? "close-circle" : "checkmark-circle"}
-              size={14}
-              color={voided ? COLORS.danger : COLORS.success}
-            />
-            <Text
-              className={`text-xs font-semibold ms-1 ${
-                voided ? "text-red-600" : "text-emerald-700"
-              }`}
-            >
-              {voided ? t("sales.voided") : t("sales.sold")}
-            </Text>
-          </View>
-
-          {/* Product name + quantity */}
-          <Text className="text-2xl font-bold text-gray-900">
-            {sale.productNameSnapshot}
-            {sale.quantity > 1 ? ` × ${sale.quantity}` : ""}
-          </Text>
-
-          {/* Amounts */}
-          <View className="mt-6 mb-4">
-            <Text className="text-xs uppercase tracking-wide text-gray-500 mb-1">
-              {t("sales.total_label")}
-            </Text>
-            <Text className="text-3xl font-bold text-gray-900">
-              {fmtSource(sale.totalAmount)}
-            </Text>
-            {showEquivalent ? (
-              <Text className="text-sm text-gray-400 mt-1">
-                ≈ {fmtTarget(sale.totalAmount)}
+        <ScrollView className="flex-1 px-6 pt-5">
+          {/* Hero card */}
+          {voided ? (
+            <View className="bg-red-50 border border-red-100 rounded-2xl px-4 py-5 items-center mb-4">
+              <View className="w-10 h-10 rounded-full bg-red-400 items-center justify-center mb-3">
+                <Text fontWeight="Bold" className="text-white text-lg">
+                  ✕
+                </Text>
+              </View>
+              <Text fontWeight="Bold" className="text-3xl text-red-500">
+                {fmtSource(sale.totalAmount)}
               </Text>
+              {showEquivalent ? (
+                <Text className="text-xs text-gray-400 mt-0.5">
+                  ≈ {fmtTarget(sale.totalAmount)}
+                </Text>
+              ) : null}
+              <Text className="text-sm text-gray-400 mt-1">{productLabel}</Text>
+              <View className="mt-2 bg-red-100 rounded-full px-3 py-1">
+                <Text className="text-xs text-red-600 font-semibold">
+                  {t("sales.voided")}
+                </Text>
+              </View>
+            </View>
+          ) : (
+            <View className="bg-green-50 border border-green-100 rounded-2xl px-4 py-5 items-center mb-4">
+              <View className="w-10 h-10 rounded-full bg-green-500 items-center justify-center mb-3">
+                <Text fontWeight="Bold" className="text-white text-lg">
+                  ✓
+                </Text>
+              </View>
+              <Text fontWeight="Bold" className="text-3xl text-green-600">
+                {fmtSource(sale.totalAmount)}
+              </Text>
+              {showEquivalent ? (
+                <Text className="text-xs text-gray-400 mt-0.5">
+                  ≈ {fmtTarget(sale.totalAmount)}
+                </Text>
+              ) : null}
+              <Text className="text-sm text-gray-400 mt-1">{productLabel}</Text>
+            </View>
+          )}
+
+          {/* Detail rows card */}
+          <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden mb-4">
+            {sale.quantity > 1 ? (
+              <Row
+                label={t("sales.unit_amount_label")}
+                value={fmtSource(sale.unitAmount)}
+              />
+            ) : null}
+            <Row
+              label={t("sales.customer_label")}
+              value={sale.customer?.name ?? t("sales.walk_in")}
+            />
+            <Row
+              label={t("sales.sold_at_label")}
+              value={formatDate(sale.soldAt, locale)}
+            />
+            <Row
+              label={t("sales.receipt_id_label")}
+              value={receiptId}
+              last={!sale.notes && !(voided && sale.voidReason)}
+            />
+            {sale.notes ? (
+              <Row
+                label={t("sales.notes_label")}
+                value={sale.notes}
+                last={!(voided && sale.voidReason)}
+              />
+            ) : null}
+            {voided && sale.voidReason ? (
+              <Row
+                label={t("sales.void_reason_label")}
+                value={sale.voidReason}
+                valueColor="text-red-600"
+                last
+              />
             ) : null}
           </View>
-
-          {sale.quantity > 1 ? (
-            <DetailRow
-              label={t("sales.unit_amount_label")}
-              value={fmtSource(sale.unitAmount)}
-            />
-          ) : null}
-
-          <DetailRow
-            label={t("sales.customer_label")}
-            value={sale.customer?.name ?? t("sales.walk_in")}
-          />
-          <DetailRow
-            label={t("sales.sold_at_label")}
-            value={formatDate(sale.soldAt, locale)}
-          />
-          <DetailRow label={t("sales.receipt_id_label")} value={receiptId} />
-
-          {sale.notes ? (
-            <View className="mt-2 px-4 py-3 rounded-xl bg-gray-50">
-              <Text className="text-xs uppercase tracking-wide text-gray-500 mb-1">
-                {t("sales.notes_label")}
-              </Text>
-              <Text className="text-sm text-gray-700">{sale.notes}</Text>
-            </View>
-          ) : null}
-
-          {voided && sale.voidReason ? (
-            <View className="mt-2 px-4 py-3 rounded-xl bg-red-50">
-              <Text className="text-xs uppercase tracking-wide text-red-600 mb-1">
-                {t("sales.void_reason_label")}
-              </Text>
-              <Text className="text-sm text-red-700">{sale.voidReason}</Text>
-            </View>
-          ) : null}
 
           {/* Void controls (active sales only) */}
           {!voided && onVoid ? (
             voidMode ? (
-              <View className="mt-6">
+              <View className="mb-4">
                 <Input
-                  label={t("sales.void_reason_label") + " *"}
+                  label={t("sales.void_reason_label")}
                   value={voidReason}
                   onChangeText={setVoidReason}
                   placeholder={t("sales.void_reason_placeholder")}
                   multiline
                 />
-                <View className="flex-row" style={{ gap: 8 }}>
+                <View className="flex-row gap-3 mt-2">
                   <PressableOpacity
                     onPress={() => {
                       setVoidMode(false);
@@ -178,17 +191,15 @@ export function SaleDetailSheet({ sale, onDismiss, onVoid, voidLoading }: Props)
                     }}
                     className="flex-1 border border-gray-200 rounded-xl py-3 items-center"
                   >
-                    <Text className="text-gray-700 font-semibold">
+                    <Text className="text-gray-600 font-medium">
                       {t("common.cancel")}
                     </Text>
                   </PressableOpacity>
                   <PressableOpacity
                     onPress={handleConfirmVoid}
-                    disabled={!voidReason.trim() || voidLoading}
+                    disabled={voidLoading}
                     className={`flex-1 rounded-xl py-3 items-center ${
-                      !voidReason.trim() || voidLoading
-                        ? "bg-red-200"
-                        : "bg-red-500"
+                      voidLoading ? "bg-red-200" : "bg-red-500"
                     }`}
                   >
                     <Text className="text-white font-semibold">
@@ -200,7 +211,7 @@ export function SaleDetailSheet({ sale, onDismiss, onVoid, voidLoading }: Props)
             ) : (
               <PressableOpacity
                 onPress={() => setVoidMode(true)}
-                className="border border-red-200 rounded-xl py-3.5 items-center mt-6"
+                className="border border-red-300 rounded-xl py-3.5 items-center mb-4"
               >
                 <Text className="text-red-500 font-semibold">
                   {t("sales.void_sale")}
@@ -209,18 +220,34 @@ export function SaleDetailSheet({ sale, onDismiss, onVoid, voidLoading }: Props)
             )
           ) : null}
 
-          <View className="h-24" />
+          <View className="h-8" />
         </ScrollView>
-      </View>
+      </SafeAreaView>
     </Modal>
   );
 }
 
-function DetailRow({ label, value }: { label: string; value: string }) {
+function Row({
+  label,
+  value,
+  last,
+  valueColor = "text-gray-900",
+}: {
+  label: string;
+  value: string;
+  last?: boolean;
+  valueColor?: string;
+}) {
   return (
-    <View className="flex-row items-center justify-between py-2 border-b border-gray-50">
-      <Text className="text-sm text-gray-500">{label}</Text>
-      <Text className="text-sm text-gray-900 font-medium">{value}</Text>
+    <View
+      className={`flex-row justify-between items-center px-4 py-3.5 ${last ? "" : "border-b border-gray-100"}`}
+    >
+      <Text className="text-sm text-gray-400">{label}</Text>
+      <Text
+        className={`text-sm font-semibold flex-1 ms-4 text-right ${valueColor}`}
+      >
+        {value}
+      </Text>
     </View>
   );
 }

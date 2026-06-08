@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Modal, ScrollView, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
@@ -97,7 +98,7 @@ export function CurrencyFormSheet({
       presentationStyle="pageSheet"
       onRequestClose={onDismiss}
     >
-      <View className="flex-1 bg-white">
+      <SafeAreaView className="flex-1 bg-white">
         <View className="items-center pt-3 pb-1">
           <View className="w-10 h-1 rounded-full bg-gray-300" />
         </View>
@@ -227,7 +228,7 @@ export function CurrencyFormSheet({
 
           <View className="h-6" />
         </ScrollView>
-      </View>
+      </SafeAreaView>
       <UpgradePromptModal
         payload={tierLimitError}
         onClose={() => {

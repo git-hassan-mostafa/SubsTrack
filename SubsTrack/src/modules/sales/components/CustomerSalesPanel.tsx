@@ -6,7 +6,7 @@ import { Text } from "@/src/shared/components/Text";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { COLORS } from "@/src/shared/constants";
 import type { Customer, Sale } from "@/src/core/types";
-import { SaleService } from "../services/SaleService";
+import saleService from "../services/SaleService";
 import { SaleCard } from "./SaleCard";
 import { SaleFormSheet } from "./SaleFormSheet";
 import { SaleDetailSheet } from "./SaleDetailSheet";
@@ -15,8 +15,6 @@ import { useAuth } from "@/src/modules/auth/hooks/useAuth";
 interface Props {
   customer: Customer;
 }
-
-const saleService = new SaleService();
 
 // Renders below CustomerPaymentPanel on the customer detail screen.
 // Lists the most recent sales for this customer, with a button to record a new one.

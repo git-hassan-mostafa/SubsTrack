@@ -15,9 +15,10 @@ This folder contains the production QA test plan for the SubsTrack mobile app. E
 | Area | File | What it covers |
 |------|------|----------------|
 | Authentication | [authentication.md](authentication.md) | Login, session restore, tenant inactive, logout |
+| Signup | [signup.md](signup.md) | Self-service 2-step tenant creation: workspace name + code, owner account, Edge Function atomicity, auto-login, security |
 | Customers | [customers.md](customers.md) | List, search, filter, action menu, Quick Pay, create/edit, delete, deactivate/reactivate, detail (with branch + notes + area + isRegular) |
 | Payments | [payments.md](payments.md) | Record (Scenarios A/B/C/D), partial payments, multi-month bundles, multi-currency, edit payment, void, receipt sheet, grace period |
-| Monthly Grid | [monthly-grid.md](monthly-grid.md) | Cell statuses, regular vs non-regular colors, partial dot, multi-month merging, year navigation, date/timezone correctness |
+| Monthly Grid | [monthly-grid.md](monthly-grid.md) | Cell statuses (including PARTIAL/amber), regular vs non-regular colors, multi-month merging, year navigation, date/timezone correctness |
 | Plans | [plans.md](plans.md) | List, create/edit/delete, fixed vs custom pricing, multi-month bundles (1–12), per-currency price, branch scoping (shared vs branch-specific) |
 | Users (Staff) | [users.md](users.md) | List, create/edit, role assignment, password rules, branch enforcement, delete user |
 | Currencies | [currencies.md](currencies.md) | Tenant currencies CRUD, USD base, rate per USD + snapshots, CurrencyInput, display currency preference, soft/hard delete |
@@ -25,7 +26,9 @@ This folder contains the production QA test plan for the SubsTrack mobile app. E
 | Branches | [branches.md](branches.md) | Multi-location: branch CRUD, default branch, single-branch UI hiding, BranchSelector, RLS isolation, form scoping, mandatory branch enforcement |
 | Tenant Settings | [tenant-settings.md](tenant-settings.md) | Admin-only hub: display currency preference, links to currencies + branches |
 | Subscription Tiers | [subscription.md](subscription.md) | Free / Pro / Business limits, gates, upgrade/downgrade flow, SuperAdmin tier editor + manual upgrade |
-| Dashboard | [dashboard.md](dashboard.md) | Hero card (USD-aggregated via snapshots, display-currency formatted), stat cards, admin compact stats, refresh, branch scoping |
+| Products | [products.md](products.md) | Product catalog CRUD, branch scoping, tier gating (Free: 5), soft/hard delete, snapshot immunity in sales |
+| Sales | [sales.md](sales.md) | One-off sale recording, walk-in (no customer), product snapshots, async customer picker, void, customer panel, dashboard revenue integration |
+| Dashboard | [dashboard.md](dashboard.md) | Hero card (subscription + sales revenue, USD-aggregated via snapshots, display-currency formatted), stat cards, admin compact stats, refresh, branch scoping |
 | Settings | [settings.md](settings.md) | User-level prefs: profile, language switcher with restart, logout |
 | Admin & Navigation | [admin-and-navigation.md](admin-and-navigation.md) | Tab visibility, role gating, routing, deep links, ActionMenu pattern, PressableOpacity feedback, asterisk required fields |
 | Multi-tenancy | [multi-tenancy.md](multi-tenancy.md) | Tenant isolation reads/writes, tenant inactive, workspace code |
@@ -34,6 +37,7 @@ This folder contains the production QA test plan for the SubsTrack mobile app. E
 ## Pre-release checklist (high level)
 
 - [ ] All scenarios in [authentication.md](authentication.md) pass.
+- [ ] All scenarios in [signup.md](signup.md) pass — Edge Function atomicity and rollback are critical.
 - [ ] All scenarios in [multi-tenancy.md](multi-tenancy.md) pass — **release blocker.**
 - [ ] [Customers](customers.md), [Payments](payments.md), [Monthly Grid](monthly-grid.md) pass for both `admin` and `user` roles.
 - [ ] [Plans](plans.md), [Users](users.md), [Dashboard](dashboard.md), [Currencies](currencies.md), [Branches](branches.md), [Tenant Settings](tenant-settings.md) pass for `admin` (and confirm hidden for `user`).
@@ -42,7 +46,9 @@ This folder contains the production QA test plan for the SubsTrack mobile app. E
 - [ ] Multi-currency invariants: snapshot rate freeze on payments, live rate edit doesn't shift history, display currency preference persists, USD is implicit (`currency_id = NULL`). Full cross-cutting coverage in [currency-payments.md](currency-payments.md).
 - [ ] Branch invariants: tenants with ≥1 branch require branch on customers/plans/staff users; tenant-wide admins remain the only `branch_id IS NULL` users; new tenants auto-get "Default Branch".
 - [ ] Multi-month invariants: bundle creates a single payment row with `duration_months > 1`; `isGroupSecondary` cells render "Included"; conflict detection on overlap.
-- [ ] Partial payment invariants: `balance > 0` triggers orange dot + amber receipt; `amount_paid = 0` rendered as unpaid.
+- [ ] Partial payment invariants: `balance > 0` renders the cell amber with "PARTIAL" sublabel (NOT a green cell with an orange dot); `amount_paid = 0` rendered as unpaid; tapping a partial cell opens amber receipt.
+- [ ] [Products](products.md) passes: tier gating, soft/hard delete, branch scoping, snapshot immunity in sales.
+- [ ] [Sales](sales.md) passes: snapshots frozen at sale time, walk-in customer, void, customer panel, dashboard revenue included.
 - [ ] All identified findings ("verify…", "file a finding…" notes) reviewed and either fixed or signed off as known limitations.
 
 ## Test data needed
@@ -56,6 +62,8 @@ This folder contains the production QA test plan for the SubsTrack mobile app. E
 - 30+ customers in tenant A (to test pagination), mix of: active/inactive, regular/non-regular, assigned/unassigned plans, branched/unbranched.
 - Customers with start_dates spanning past, current and future to exercise the monthly grid.
 - Existing payments per customer covering: paid full, paid partial, voided, multi-month bundles, multi-year history, mixed currencies.
+- 5+ products per tenant (mix of SHARED and branch-specific, USD and non-USD prices, at least 1 with existing sales and 1 with none) to test soft vs hard delete.
+- 10+ sales: linked to customers, walk-in (customer = null), in multiple currencies, at least 1 voided, spanning current and prior months.
 
 ## Reporting findings
 

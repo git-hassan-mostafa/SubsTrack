@@ -3,10 +3,12 @@ import { useTranslation } from "react-i18next";
 import { useAuth } from "@/src/modules/auth/hooks/useAuth";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { COLORS } from "@/src/shared/constants";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 export default function TabsLayout() {
   const { isAdmin } = useAuth();
   const { t } = useTranslation();
+  const { bottom } = useSafeAreaInsets();
 
   return (
     <Tabs
@@ -15,9 +17,9 @@ export default function TabsLayout() {
         tabBarStyle: {
           backgroundColor: COLORS.white,
           borderTopColor: COLORS.gray200,
-          paddingBottom: 8,
+          paddingBottom: bottom + 8,
           paddingTop: 4,
-          height: 64,
+          height: 64 + bottom,
         },
         tabBarActiveTintColor: COLORS.primary,
         tabBarInactiveTintColor: COLORS.gray500,

@@ -2,8 +2,8 @@ import type { Plan, TierPlan, TenantUsage } from '@/src/core/types';
 import type { BranchFilter } from '@/src/core/constants';
 import type { DbPlan } from '@/src/core/types/db';
 import i18n from '@/src/core/i18n';
-import { PlanRepository } from '../repository/PlanRepository';
-import { tierService } from '@/src/modules/subscription/services/TierService';
+import repository from '../repository/PlanRepository';
+import tierService from '@/src/modules/subscription/services/TierService';
 
 function mapDbPlanToPlan(db: DbPlan): Plan {
   return {
@@ -21,11 +21,9 @@ function mapDbPlanToPlan(db: DbPlan): Plan {
 
 type PlanInput = Pick<Plan, 'name' | 'isCustomPrice' | 'price' | 'durationMonths' | 'currencyId' | 'branchId'>
 
-export class PlanService {
-  private repository = new PlanRepository();
-
+class PlanService {
   async getPlans(branchFilter: BranchFilter = null): Promise<Plan[]> {
-    const rows = await this.repository.findAll(branchFilter);
+    const rows = await repository.findAll(branchFilter);
     return rows.map(mapDbPlanToPlan);
   }
 
@@ -39,7 +37,7 @@ export class PlanService {
     tierService.assertCanCreate(tier, usage, 'plans');
     if (data.durationMonths > 1) tierService.assertMultiMonth(tier);
     try {
-      const row = await this.repository.create({
+      const row = await repository.create({
         name: data.name.trim(),
         price: data.isCustomPrice ? null : data.price,
         is_custom_price: data.isCustomPrice,
@@ -58,7 +56,7 @@ export class PlanService {
     this.validate(data);
     if (data.durationMonths > 1) tierService.assertMultiMonth(tier);
     try {
-      const row = await this.repository.update(id, {
+      const row = await repository.update(id, {
         name: data.name.trim(),
         price: data.isCustomPrice ? null : data.price,
         is_custom_price: data.isCustomPrice,
@@ -73,7 +71,7 @@ export class PlanService {
   }
 
   async deletePlan(id: string): Promise<void> {
-    await this.repository.delete(id);
+    await repository.delete(id);
   }
 
   private validate(data: PlanInput): void {
@@ -102,3 +100,5 @@ export class PlanService {
     throw err instanceof Error ? err : new Error(i18n.t('errors.connection_error'));
   }
 }
+
+export default new PlanService()

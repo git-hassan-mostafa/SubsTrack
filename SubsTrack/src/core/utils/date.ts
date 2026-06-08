@@ -1,7 +1,7 @@
 // All date utilities. Comparisons use integer year+month arithmetic to avoid timezone issues.
 
 export function getDateLocale(language: string): string {
-  return language === "ar" ? "ar" : "en-US";
+  return "en-US";
 }
 
 export function toBillingMonth(year: number, month: number): string {
@@ -23,12 +23,12 @@ export function isBeforeStartDate(
   return year < sy || (year === sy && month < sm);
 }
 
-export function formatDate(iso: string, locale = "en-US"): string {
-  return new Date(iso).toLocaleDateString(locale, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+export function formatDate(iso: string, locale = "en-US", options: Intl.DateTimeFormatOptions = {
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+}): string {
+  return new Date(iso).toLocaleDateString(locale, options);
 }
 
 export function isValidDateString(s: string): boolean {

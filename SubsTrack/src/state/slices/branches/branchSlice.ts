@@ -1,14 +1,11 @@
 import type { StateCreator } from "zustand";
 import type { Branch, TierPlan, TenantUsage } from "@/src/core/types";
-import {
-  BranchService,
+import branchService, {
   type BranchInput,
 } from "@/src/modules/branches/services/BranchService";
 import { TierLimitError } from "@/src/modules/subscription/services/TierService";
 import type { TierLimitErrorPayload } from "@/src/modules/subscription/components/UpgradePromptModal";
 import type { GlobalState } from "@/src/state/globalStore";
-
-const branchService = new BranchService();
 
 export interface BranchSlice {
   items: Branch[];
@@ -147,6 +144,7 @@ export const createBranchSlice: StateCreator<
           state.branches.loading = false;
         });
       }
+      void get().subscription.refreshUsage();
       return mode;
     } catch (e) {
       set((state) => {

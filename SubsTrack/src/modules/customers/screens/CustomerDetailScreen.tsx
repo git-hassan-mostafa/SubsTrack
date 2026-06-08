@@ -11,7 +11,7 @@ import { useTranslation } from "react-i18next";
 import { COLORS } from "@/src/shared/constants";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { PageHeader } from "@/src/shared/components/PageHeader";
-import { getDateLocale } from "@/src/core/utils/date";
+import { formatDate } from "@/src/core/utils/date";
 import { CustomerPaymentPanel } from "@/src/modules/customer-payments/components/CustomerPaymentPanel";
 import { CustomerSalesPanel } from "@/src/modules/sales/components/CustomerSalesPanel";
 import { CustomerDetailsCard } from "../components/CustomerDetailsCard";
@@ -20,7 +20,6 @@ import { useCustomerSlice } from "@/src/state/hooks/useCustomerSlice";
 
 export function CustomerDetailScreen() {
   const { t, i18n } = useTranslation();
-  const locale = getDateLocale(i18n.language);
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
 
@@ -50,7 +49,7 @@ export function CustomerDetailScreen() {
   const subtitle = customer
     ? t("customers.plan_since", {
         plan: customer.plan?.name ?? t("common.no_plan"),
-        date: new Date(customer.startDate).toLocaleDateString(locale, {
+        date: formatDate(customer.startDate, "en-US", {
           month: "short",
           year: "numeric",
         }),

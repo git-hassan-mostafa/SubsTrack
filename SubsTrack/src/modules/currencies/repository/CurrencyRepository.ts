@@ -1,7 +1,7 @@
 import { BaseRepository } from '@/src/core/utils/BaseRepository';
 import type { DbCurrency } from '@/src/core/types/db';
 
-export class CurrencyRepository extends BaseRepository {
+class CurrencyRepository extends BaseRepository {
   async findAll(): Promise<DbCurrency[]> {
     const { data, error } = await this.db
       .from('currencies')
@@ -60,3 +60,5 @@ export class CurrencyRepository extends BaseRepository {
     return (plans.count ?? 0) + (payments.count ?? 0);
   }
 }
+
+export default new CurrencyRepository()

@@ -13,7 +13,7 @@ export interface CreateTenantResult {
   tenantCode: string;
 }
 
-export class SignupRepository {
+class SignupRepository {
   async isTenantCodeAvailable(code: string): Promise<boolean> {
     const { data, error } = await supabase.rpc("is_tenant_code_available", {
       code: code.trim().toLowerCase(),
@@ -42,6 +42,8 @@ export class SignupRepository {
     return { tenantId: data.tenantId, tenantCode: data.tenantCode };
   }
 }
+
+export default new SignupRepository()
 
 // The shape of FunctionsHttpError is not in the public types; the response body
 // is on `error.context.response` as a Response object. Parse it defensively.

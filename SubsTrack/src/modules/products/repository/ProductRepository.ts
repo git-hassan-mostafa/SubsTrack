@@ -3,7 +3,7 @@ import type { BranchFilter } from '@/src/core/constants';
 import type { DbProduct } from '@/src/core/types/db';
 import { applyBranchFilter, BRANCH_SCOPES } from '@/src/shared/lib/branchFilter';
 
-export class ProductRepository extends BaseRepository {
+class ProductRepository extends BaseRepository {
   async findAll(branchFilter: BranchFilter = null): Promise<DbProduct[]> {
     let query = this.db
       .from('products')
@@ -71,3 +71,5 @@ export class ProductRepository extends BaseRepository {
     return count ?? 0;
   }
 }
+
+export default new ProductRepository()
