@@ -184,17 +184,36 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
       {/* Year card */}
       <View className="bg-white mx-4 mt-4 rounded-2xl border border-gray-100 overflow-hidden">
         <View className="flex-row items-center justify-between px-4 pt-4 pb-2">
-          <View>
+          <View className="flex-1 pe-3">
             <Text fontWeight="Bold" className="text-2xl text-gray-900">
               {year}
             </Text>
-            <Text className="text-xs text-gray-400 mt-0.5">
-              {t("customers.year_summary", {
-                paidCount,
-                unpaidCount,
-                collectedTotal: collectedTotalLabel,
-              })}
-            </Text>
+            <View className="flex-row items-center flex-wrap mt-1.5 gap-1.5">
+              <View className="flex-row items-center bg-gray-100 rounded-full px-2 py-0.5">
+                <Text fontWeight="SemiBold" className="text-xs text-gray-900">
+                  {paidCount}
+                </Text>
+                <Text className="text-xs text-gray-500 ms-1">
+                  {t("customers.year_paid").toLowerCase()}
+                </Text>
+              </View>
+              <View className="flex-row items-center bg-gray-100 rounded-full px-2 py-0.5">
+                <Text fontWeight="SemiBold" className="text-xs text-gray-900">
+                  {unpaidCount}
+                </Text>
+                <Text className="text-xs text-gray-500 ms-1">
+                  {t("customers.year_unpaid").toLowerCase()}
+                </Text>
+              </View>
+              <View className="flex-row items-center bg-gray-100 rounded-full px-2 py-0.5">
+                <Text fontWeight="SemiBold" className="text-xs text-gray-900">
+                  {collectedTotalLabel}
+                </Text>
+                <Text className="text-xs text-gray-500 ms-1">
+                  {t("customers.year_collected").toLowerCase()}
+                </Text>
+              </View>
+            </View>
           </View>
           <View className="flex-row gap-2">
             <PressableOpacity
