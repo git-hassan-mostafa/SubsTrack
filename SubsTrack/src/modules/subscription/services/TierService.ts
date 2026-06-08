@@ -7,7 +7,7 @@ import type {
 } from '@/src/core/types';
 import type { DbTierPlan, DbTenant } from '@/src/core/types/db';
 import i18n from '@/src/core/i18n';
-import { SubscriptionRepository } from '../repository/SubscriptionRepository';
+import repository from '../repository/SubscriptionRepository';
 
 export function mapDbTenantToTenant(db: DbTenant): Tenant {
   return {
@@ -81,25 +81,23 @@ const MAX_FIELD: MaxField = {
   products: 'maxProducts',
 };
 
-export class TierService {
-  private repository = new SubscriptionRepository();
-
+class TierService {
   async fetchTiers(): Promise<TierPlan[]> {
-    const rows = await this.repository.findAllTiers();
+    const rows = await repository.findAllTiers();
     return rows.map(mapDbTierPlanToTierPlan);
   }
 
   async fetchUsage(): Promise<TenantUsage> {
-    return this.repository.countTenantUsage();
+    return repository.countTenantUsage();
   }
 
   async upgradeTenant(tenantId: string, tierId: string): Promise<Tenant> {
-    const db = await this.repository.upgradeTenant(tenantId, tierId);
+    const db = await repository.upgradeTenant(tenantId, tierId);
     return mapDbTenantToTenant(db);
   }
 
   async getTenantWithTier(tenantId: string): Promise<Tenant | null> {
-    const db = await this.repository.getTenantWithTier(tenantId);
+    const db = await repository.getTenantWithTier(tenantId);
     return db ? mapDbTenantToTenant(db) : null;
   }
 
@@ -142,4 +140,4 @@ export class TierService {
   }
 }
 
-export const tierService = new TierService();
+export default new TierService();

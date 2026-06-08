@@ -2,7 +2,7 @@ import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/src/shared/lib/supabase";
 import type { DbTenant, DbUser } from "@/src/core/types/db";
 
-export class AuthRepository {
+class AuthRepository {
   async signIn(email: string, password: string): Promise<Session> {
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
@@ -22,7 +22,7 @@ export class AuthRepository {
     const { data, error } = await supabase.auth.getSession();
     if (error) {
       // Stale/invalid token (e.g. after a DB reset) — clear it and treat as no session
-      await supabase.auth.signOut().catch(() => {});
+      await supabase.auth.signOut().catch(() => { });
       return null;
     }
     return data.session;
@@ -76,3 +76,5 @@ export class AuthRepository {
     return supabase.auth.onAuthStateChange(callback);
   }
 }
+
+export default new AuthRepository()

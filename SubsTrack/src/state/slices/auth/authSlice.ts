@@ -1,9 +1,7 @@
 import type { StateCreator } from 'zustand';
 import type { AuthUser, TierPlan } from '@/src/core/types';
-import { AuthService } from '@/src/modules/auth/services/AuthService';
+import authService from '@/src/modules/auth/services/AuthService';
 import type { GlobalState } from '@/src/state/globalStore';
-
-const authService = new AuthService();
 
 export interface AuthSlice {
   user: AuthUser | null;

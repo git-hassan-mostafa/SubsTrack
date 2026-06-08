@@ -2,8 +2,8 @@ import type { Product, TierPlan, TenantUsage } from '@/src/core/types';
 import type { BranchFilter } from '@/src/core/constants';
 import type { DbProduct } from '@/src/core/types/db';
 import i18n from '@/src/core/i18n';
-import { ProductRepository } from '../repository/ProductRepository';
-import { tierService } from '@/src/modules/subscription/services/TierService';
+import repository from '../repository/ProductRepository';
+import tierService from '@/src/modules/subscription/services/TierService';
 
 export function mapDbProductToProduct(db: DbProduct): Product {
   return {
@@ -22,11 +22,9 @@ export function mapDbProductToProduct(db: DbProduct): Product {
 
 export type ProductInput = Pick<Product, 'name' | 'description' | 'price' | 'currencyId' | 'branchId'>;
 
-export class ProductService {
-  private repository = new ProductRepository();
-
+class ProductService {
   async getProducts(branchFilter: BranchFilter = null): Promise<Product[]> {
-    const rows = await this.repository.findAll(branchFilter);
+    const rows = await repository.findAll(branchFilter);
     return rows.map(mapDbProductToProduct);
   }
 
@@ -39,7 +37,7 @@ export class ProductService {
     this.validate(data);
     tierService.assertCanCreate(tier, usage, 'products');
     try {
-      const row = await this.repository.create({
+      const row = await repository.create({
         tenant_id: tenantId,
         branch_id: data.branchId,
         name: data.name.trim(),
@@ -57,7 +55,7 @@ export class ProductService {
   async updateProduct(id: string, data: ProductInput): Promise<Product> {
     this.validate(data);
     try {
-      const row = await this.repository.update(id, {
+      const row = await repository.update(id, {
         name: data.name.trim(),
         description: data.description?.trim() || null,
         price: data.price,
@@ -73,17 +71,17 @@ export class ProductService {
   // Soft-delete if any sales reference the product (preserves history); otherwise hard-delete.
   // Returns the mode so the UI can communicate the outcome — mirrors CurrencyService.deleteCurrency.
   async deleteProduct(id: string): Promise<'hard' | 'soft'> {
-    const refs = await this.repository.countReferences(id);
+    const refs = await repository.countReferences(id);
     if (refs > 0) {
-      await this.repository.update(id, { active: false });
+      await repository.update(id, { active: false });
       return 'soft';
     }
-    await this.repository.delete(id);
+    await repository.delete(id);
     return 'hard';
   }
 
   async reactivateProduct(id: string): Promise<Product> {
-    const row = await this.repository.update(id, { active: true });
+    const row = await repository.update(id, { active: true });
     return mapDbProductToProduct(row);
   }
 
@@ -103,3 +101,5 @@ export class ProductService {
     throw err instanceof Error ? err : new Error(i18n.t('errors.connection_error'));
   }
 }
+
+export default new ProductService()

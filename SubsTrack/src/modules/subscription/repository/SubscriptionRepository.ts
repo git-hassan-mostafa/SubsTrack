@@ -2,7 +2,7 @@ import { BaseRepository } from "@/src/core/utils/BaseRepository";
 import type { DbTierPlan, DbTenant } from "@/src/core/types/db";
 import type { TenantUsage } from "@/src/core/types";
 
-export class SubscriptionRepository extends BaseRepository {
+class SubscriptionRepository extends BaseRepository {
   async findAllTiers(): Promise<DbTierPlan[]> {
     const { data, error } = await this.db
       .from("tier_plans")
@@ -84,3 +84,5 @@ export class SubscriptionRepository extends BaseRepository {
     return data as DbTenant;
   }
 }
+
+export default new SubscriptionRepository()

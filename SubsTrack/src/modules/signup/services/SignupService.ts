@@ -1,6 +1,5 @@
 import i18n from "@/src/core/i18n";
-import {
-  SignupRepository,
+import repository, {
   type CreateTenantInput,
   type CreateTenantResult,
 } from "../repository/SignupRepository";
@@ -21,9 +20,7 @@ const TENANT_CODE_REGEX = /^[a-z0-9]+$/;
 const USERNAME_REGEX = /^[a-z0-9._]+$/;
 const RESERVED_TENANT_CODES = new Set(["usd", "www", "admin", "api"]);
 
-export class SignupService {
-  private repository = new SignupRepository();
-
+class SignupService {
   validateWorkspace(form: WorkspaceForm): void {
     const name = form.name.trim();
     const code = form.tenantCode.trim().toLowerCase();
@@ -57,7 +54,7 @@ export class SignupService {
   }
 
   async checkTenantCodeAvailable(code: string): Promise<boolean> {
-    return this.repository.isTenantCodeAvailable(code);
+    return repository.isTenantCodeAvailable(code);
   }
 
   async createTenant(
@@ -74,6 +71,8 @@ export class SignupService {
       adminFullName: account.adminFullName.trim(),
       adminPassword: account.adminPassword,
     };
-    return this.repository.createTenant(input);
+    return repository.createTenant(input);
   }
 }
+
+export default new SignupService()

@@ -3,7 +3,7 @@ import type { BranchFilter } from '@/src/core/constants';
 import type { DbPlan } from '@/src/core/types/db';
 import { applyBranchFilter, BRANCH_SCOPES } from '@/src/shared/lib/branchFilter';
 
-export class PlanRepository extends BaseRepository {
+class PlanRepository extends BaseRepository {
   async findAll(branchFilter: BranchFilter = null): Promise<DbPlan[]> {
     let query = this.db
       .from('plans')
@@ -54,3 +54,5 @@ export class PlanRepository extends BaseRepository {
     return count ?? 0;
   }
 }
+
+export default new PlanRepository()

@@ -1,8 +1,8 @@
 import type { Branch, TierPlan, TenantUsage } from '@/src/core/types';
 import type { DbBranch } from '@/src/core/types/db';
 import i18n from '@/src/core/i18n';
-import { BranchRepository } from '../repository/BranchRepository';
-import { tierService } from '@/src/modules/subscription/services/TierService';
+import repository from '../repository/BranchRepository';
+import tierService from '@/src/modules/subscription/services/TierService';
 
 export function mapDbBranchToBranch(db: DbBranch): Branch {
   return {
@@ -19,11 +19,9 @@ export type BranchInput = {
   name: string;
 };
 
-export class BranchService {
-  private repository = new BranchRepository();
-
+class BranchService {
   async getBranches(): Promise<Branch[]> {
-    const rows = await this.repository.findAll();
+    const rows = await repository.findAll();
     return rows.map(mapDbBranchToBranch);
   }
 
@@ -36,7 +34,7 @@ export class BranchService {
     const normalized = this.validate(data);
     tierService.assertCanCreate(tier, usage, 'branches');
     try {
-      const row = await this.repository.create({
+      const row = await repository.create({
         tenant_id: tenantId,
         name: normalized.name,
         active: true,
@@ -50,7 +48,7 @@ export class BranchService {
   async updateBranch(id: string, data: BranchInput): Promise<Branch> {
     const normalized = this.validate(data);
     try {
-      const row = await this.repository.update(id, { name: normalized.name });
+      const row = await repository.update(id, { name: normalized.name });
       return mapDbBranchToBranch(row);
     } catch (err) {
       return this.rethrow(err);
@@ -60,21 +58,21 @@ export class BranchService {
   // Soft-delete if the branch is referenced; hard-delete otherwise.
   // Returns the mode so the UI can communicate the outcome.
   async deleteBranch(id: string): Promise<'hard' | 'soft'> {
-    const activeCount = await this.repository.countActive();
+    const activeCount = await repository.countActive();
     if (activeCount <= 1) {
       throw new Error(i18n.t('errors.branch_last_active'));
     }
-    const refs = await this.repository.countReferences(id);
+    const refs = await repository.countReferences(id);
     if (refs > 0) {
-      await this.repository.update(id, { active: false });
+      await repository.update(id, { active: false });
       return 'soft';
     }
-    await this.repository.delete(id);
+    await repository.delete(id);
     return 'hard';
   }
 
   async reactivateBranch(id: string): Promise<Branch> {
-    const row = await this.repository.update(id, { active: true });
+    const row = await repository.update(id, { active: true });
     return mapDbBranchToBranch(row);
   }
 
@@ -93,3 +91,5 @@ export class BranchService {
     throw err instanceof Error ? err : new Error(i18n.t('errors.connection_error'));
   }
 }
+
+export default new BranchService()

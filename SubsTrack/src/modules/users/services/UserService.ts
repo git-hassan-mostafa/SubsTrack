@@ -2,8 +2,8 @@ import type { AppUser, UserRole, TierPlan, TenantUsage } from '@/src/core/types'
 import type { BranchFilter } from '@/src/core/constants';
 import type { DbUser } from '@/src/core/types/db';
 import i18n from '@/src/core/i18n';
-import { UserRepository } from '../repository/UserRepository';
-import { tierService } from '@/src/modules/subscription/services/TierService';
+import repository from '../repository/UserRepository';
+import tierService from '@/src/modules/subscription/services/TierService';
 
 function mapDbUserToAppUser(db: DbUser): AppUser {
   return {
@@ -36,11 +36,9 @@ interface UpdateUserInput {
   branchId: string | null;
 }
 
-export class UserService {
-  private repository = new UserRepository();
-
+class UserService {
   async getUsers(branchFilter: BranchFilter = null): Promise<AppUser[]> {
-    const rows = await this.repository.findAll(branchFilter);
+    const rows = await repository.findAll(branchFilter);
     return rows.map(mapDbUserToAppUser);
   }
 
@@ -66,7 +64,7 @@ export class UserService {
     tierService.assertCanCreate(tier, usage, 'users');
 
     try {
-      const row = await this.repository.create({
+      const row = await repository.create({
         username: data.username.trim().toLowerCase(),
         fullName: data.fullName.trim(),
         password: data.password,
@@ -95,7 +93,7 @@ export class UserService {
     }
     this.validateBranchAssignment(data.role, data.branchId, tenantHasBranches);
     try {
-      const row = await this.repository.update(id, {
+      const row = await repository.update(id, {
         username: data.username.trim().toLowerCase(),
         full_name: data.fullName.trim(),
         phone_number: data.phone?.trim() || null,
@@ -128,17 +126,17 @@ export class UserService {
     targetRole: UserRole,
   ): Promise<{ mode: 'hard' } | { mode: 'soft'; user: AppUser }> {
     this.checkToggleActivePermission(id, callerId, callerRole, targetRole);
-    const paymentCount = await this.repository.countPayments(id);
+    const paymentCount = await repository.countPayments(id);
     if (paymentCount === 0) {
       try {
-        await this.repository.delete(id);
+        await repository.delete(id);
       } catch (err) {
         this.rethrow(err);
       }
       return { mode: 'hard' };
     }
     try {
-      const row = await this.repository.setActive(id, false);
+      const row = await repository.setActive(id, false);
       return { mode: 'soft', user: mapDbUserToAppUser(row) };
     } catch (err) {
       this.rethrow(err);
@@ -153,7 +151,7 @@ export class UserService {
   ): Promise<AppUser> {
     this.checkToggleActivePermission(id, callerId, callerRole, targetRole);
     try {
-      const row = await this.repository.setActive(id, false);
+      const row = await repository.setActive(id, false);
       return mapDbUserToAppUser(row);
     } catch (err) {
       this.rethrow(err);
@@ -168,7 +166,7 @@ export class UserService {
   ): Promise<AppUser> {
     this.checkToggleActivePermission(id, callerId, callerRole, targetRole);
     try {
-      const row = await this.repository.setActive(id, true);
+      const row = await repository.setActive(id, true);
       return mapDbUserToAppUser(row);
     } catch (err) {
       this.rethrow(err);
@@ -200,3 +198,5 @@ export class UserService {
     throw err instanceof Error ? err : new Error(i18n.t('errors.connection_error'));
   }
 }
+
+export default new UserService()

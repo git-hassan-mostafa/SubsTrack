@@ -13,7 +13,7 @@ import { Text } from '@/src/shared/components/Text';
 import { COLORS } from '@/src/shared/constants';
 import { useAuthSlice } from '@/src/state/hooks/useAuthSlice';
 import { useSubscriptionSlice } from '@/src/state/hooks/useSubscriptionSlice';
-import { tierService } from '../services/TierService';
+import tierService from '../services/TierService';
 import { TierCard } from '../components/TierCard';
 import { UsageBar } from '../components/UsageBar';
 import type { TierPlan, TierResource } from '@/src/core/types';

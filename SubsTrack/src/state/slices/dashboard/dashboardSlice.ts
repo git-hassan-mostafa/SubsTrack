@@ -1,10 +1,8 @@
 import type { StateCreator } from 'zustand';
 import type { DashboardMetrics } from '@/src/core/types';
-import { DashboardService } from '@/src/modules/dashboard/services/DashboardService';
+import dashboardService from '@/src/modules/dashboard/services/DashboardService';
 import { resolveBranchFilter } from '@/src/shared/lib/branchFilter';
 import type { GlobalState } from '@/src/state/globalStore';
-
-const dashboardService = new DashboardService();
 
 export interface DashboardSlice {
   metrics: DashboardMetrics | null;

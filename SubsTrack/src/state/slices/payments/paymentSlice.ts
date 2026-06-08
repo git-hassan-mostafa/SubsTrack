@@ -1,14 +1,12 @@
 import type { StateCreator } from 'zustand';
 import type { Currency, Customer, MonthEntry, Payment, Plan, TierPlan } from '@/src/core/types';
 import { getCurrentYearMonth, toBillingMonth } from '@/src/core/utils/date';
-import { PaymentService, type MultiMonthConflict } from '@/src/modules/customer-payments/services/PaymentService';
+import paymentService, { type MultiMonthConflict } from '@/src/modules/customer-payments/services/PaymentService';
 import { TierLimitError } from '@/src/modules/subscription/services/TierService';
 import type { TierLimitErrorPayload } from '@/src/modules/subscription/components/UpgradePromptModal';
 import type { GlobalState } from '@/src/state/globalStore';
 
 const snapshotRate = (currency: Currency | null): number => currency?.ratePerUsd ?? 1;
-
-const paymentService = new PaymentService();
 
 interface CreatePaymentInput {
   billingMonth: string;

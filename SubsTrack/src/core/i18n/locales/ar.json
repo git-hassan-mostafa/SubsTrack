@@ -538,6 +538,8 @@
     "product_placeholder": "اختر منتجاً",
     "customer_label": "العميل",
     "customer_panel_title": "المبيعات",
+    "filter_by_customer": "تصفية حسب العميل",
+    "all_customers": "كل العملاء",
     "walk_in": "زبون عابر / بدون عميل",
     "quantity_label": "الكمية",
     "unit_amount_label": "سعر الوحدة",

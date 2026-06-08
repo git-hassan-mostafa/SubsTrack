@@ -8,17 +8,18 @@ import { Button } from "@/src/shared/components/Button";
 import { Input } from "@/src/shared/components/Input";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { CurrencyInput } from "@/src/shared/components/CurrencyInput";
-import { Dropdown, type DropdownOption } from "@/src/shared/components/Dropdown";
-import { AsyncEntityPicker } from "@/src/shared/components/AsyncEntityPicker";
+import {
+  Dropdown,
+  type DropdownOption,
+} from "@/src/shared/components/Dropdown";
+import { CustomerPicker } from "@/src/modules/customers/components/CustomerPicker";
 import { Ionicons } from "@expo/vector-icons";
 import { COLORS } from "@/src/shared/constants";
 import type { Customer, Product } from "@/src/core/types";
-import { CustomerService } from "@/src/modules/customers/services/CustomerService";
 import { useAuth } from "@/src/modules/auth/hooks/useAuth";
 import { useProductSlice } from "@/src/state/hooks/useProductSlice";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useSaleSlice } from "@/src/state/hooks/useSaleSlice";
-import { resolveBranchFilter } from "@/src/shared/lib/branchFilter";
 import { findCurrency } from "@/src/core/utils/currency";
 
 interface Props {
@@ -29,9 +30,11 @@ interface Props {
   onCreated?: () => void;
 }
 
-const customerService = new CustomerService();
-
-export function SaleFormSheet({ initialCustomer, onDismiss, onCreated }: Props) {
+export function SaleFormSheet({
+  initialCustomer,
+  onDismiss,
+  onCreated,
+}: Props) {
   const { t } = useTranslation();
   const { user } = useAuth();
   const products = useProductSlice((s) => s.items);
@@ -81,12 +84,6 @@ export function SaleFormSheet({ initialCustomer, onDismiss, onCreated }: Props) 
     label: p.name,
     value: p.id,
   }));
-
-  async function loadCustomerPage(search: string, page: number) {
-    const branchFilter = resolveBranchFilter(user);
-    const result = await customerService.getCustomers(page, search, branchFilter);
-    return result.customers;
-  }
 
   async function handleSubmit() {
     if (!user || !selectedProduct) return;
@@ -154,17 +151,11 @@ export function SaleFormSheet({ initialCustomer, onDismiss, onCreated }: Props) 
           />
 
           {!initialCustomer ? (
-            <AsyncEntityPicker<Customer>
+            <CustomerPicker
               label={t("sales.customer_label")}
               placeholder={t("sales.walk_in")}
               value={customer}
               onChange={setCustomer}
-              loadPage={loadCustomerPage}
-              renderItem={(c) => ({
-                label: c.name,
-                sublabel: c.phoneNumber ?? c.area ?? undefined,
-              })}
-              getKey={(c) => c.id}
               nullable
               nullLabel={t("sales.walk_in")}
             />

@@ -1,7 +1,7 @@
 import { BaseRepository } from '@/src/core/utils/BaseRepository';
 import type { DbBranch } from '@/src/core/types/db';
 
-export class BranchRepository extends BaseRepository {
+class BranchRepository extends BaseRepository {
   async findAll(): Promise<DbBranch[]> {
     const { data, error } = await this.db
       .from('branches')
@@ -66,3 +66,5 @@ export class BranchRepository extends BaseRepository {
     return (users.count ?? 0) + (customers.count ?? 0) + (plans.count ?? 0);
   }
 }
+
+export default new BranchRepository()

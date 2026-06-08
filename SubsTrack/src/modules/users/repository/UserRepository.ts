@@ -13,7 +13,7 @@ interface CreateUserPayload {
   branchId: string | null;
 }
 
-export class UserRepository extends BaseRepository {
+class UserRepository extends BaseRepository {
   async findAll(branchFilter: BranchFilter = null): Promise<DbUser[]> {
     let query = this.db
       .from("users")
@@ -84,3 +84,5 @@ export class UserRepository extends BaseRepository {
     return count ?? 0;
   }
 }
+
+export default new UserRepository()

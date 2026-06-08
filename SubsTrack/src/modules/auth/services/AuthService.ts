@@ -1,7 +1,7 @@
 import type { AuthUser } from "@/src/core/types";
 import type { DbTenant, DbUser } from "@/src/core/types/db";
 import i18n from "@/src/core/i18n";
-import { AuthRepository } from "../repository/AuthRepository";
+import repository from "../repository/AuthRepository";
 import { mapDbBranchToBranch } from "@/src/modules/branches/services/BranchService";
 import { mapDbTenantToTenant } from "@/src/modules/subscription/services/TierService";
 
@@ -24,8 +24,7 @@ function mapDbUserToAuthUser(db: DbUser, tenant: DbTenant): AuthUser {
   };
 }
 
-export class AuthService {
-  private repository = new AuthRepository();
+class AuthService {
 
   async login(
     username: string,
@@ -40,7 +39,7 @@ export class AuthService {
 
     let session;
     try {
-      session = await this.repository.signIn(email, password);
+      session = await repository.signIn(email, password);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "";
       console.log(msg);
@@ -53,18 +52,18 @@ export class AuthService {
       throw new Error(i18n.t("errors.connection_error"));
     }
 
-    const profile = await this.repository.getUserProfile(session.user.id);
+    const profile = await repository.getUserProfile(session.user.id);
     if (!profile) {
-      await this.repository.signOut().catch(() => { });
+      await repository.signOut().catch(() => { });
       throw new Error("account_not_configured");
     }
     if (!profile.active) {
-      await this.repository.signOut().catch(() => { });
+      await repository.signOut().catch(() => { });
       throw new Error(i18n.t("errors.account_deactivated"));
     }
-    const tenant = await this.repository.getTenant(profile.tenant_id);
+    const tenant = await repository.getTenant(profile.tenant_id);
     if (!tenant) {
-      await this.repository.signOut().catch(() => { });
+      await repository.signOut().catch(() => { });
       throw new Error("account_not_configured");
     }
     return {
@@ -74,22 +73,22 @@ export class AuthService {
   }
 
   async restoreSession(): Promise<AuthResult | null> {
-    const session = await this.repository.getSession();
+    const session = await repository.getSession();
     if (!session) return null;
 
-    const profile = await this.repository.getUserProfile(session.user.id);
+    const profile = await repository.getUserProfile(session.user.id);
     if (!profile) {
-      await this.repository.signOut().catch(() => { });
+      await repository.signOut().catch(() => { });
       return null;
     }
     if (!profile.active) {
-      await this.repository.signOut().catch(() => { });
+      await repository.signOut().catch(() => { });
       return null;
     }
 
-    const tenant = await this.repository.getTenant(profile.tenant_id);
+    const tenant = await repository.getTenant(profile.tenant_id);
     if (!tenant) {
-      await this.repository.signOut().catch(() => { });
+      await repository.signOut().catch(() => { });
       return null;
     }
     return {
@@ -99,6 +98,8 @@ export class AuthService {
   }
 
   async logout(): Promise<void> {
-    await this.repository.signOut();
+    await repository.signOut();
   }
 }
+
+export default new AuthService()

@@ -2,7 +2,7 @@ import type { Currency, Product, Sale } from '@/src/core/types';
 import type { BranchFilter } from '@/src/core/constants';
 import type { DbSale } from '@/src/core/types/db';
 import i18n from '@/src/core/i18n';
-import { SaleRepository, type FindSalesOptions } from '../repository/SaleRepository';
+import repository, { type FindSalesOptions } from '../repository/SaleRepository';
 import { mapDbProductToProduct } from '@/src/modules/products/services/ProductService';
 import { mapDbCustomerToCustomer } from '@/src/modules/customers/services/CustomerService';
 
@@ -46,16 +46,14 @@ export interface CreateSaleInput {
   notes: string | null;
 }
 
-export class SaleService {
-  private repository = new SaleRepository();
-
+class SaleService {
   async getSales(opts: FindSalesOptions = {}): Promise<Sale[]> {
-    const rows = await this.repository.findAll(opts);
+    const rows = await repository.findAll(opts);
     return rows.map(mapDbSaleToSale);
   }
 
   async getSalesForCustomer(customerId: string, limit = 20): Promise<Sale[]> {
-    const rows = await this.repository.findByCustomer(customerId, limit);
+    const rows = await repository.findByCustomer(customerId, limit);
     return rows.map(mapDbSaleToSale);
   }
 
@@ -65,7 +63,7 @@ export class SaleService {
     if (!(ratePerUsdSnapshot > 0)) {
       throw new Error(i18n.t('errors.rate_snapshot_positive'));
     }
-    const row = await this.repository.create({
+    const row = await repository.create({
       tenant_id: input.tenantId,
       branch_id: input.branchId,
       product_id: input.product.id,
@@ -83,7 +81,7 @@ export class SaleService {
   }
 
   async voidSale(id: string, voidedBy: string, reason: string): Promise<Sale> {
-    const row = await this.repository.voidSale(id, voidedBy, reason.trim());
+    const row = await repository.voidSale(id, voidedBy, reason.trim());
     return mapDbSaleToSale(row);
   }
 
@@ -93,7 +91,7 @@ export class SaleService {
   async sumForMonthUsd(year: number, month: number, branchFilter: BranchFilter = null): Promise<number> {
     const monthStart = new Date(year, month - 1, 1).toISOString();
     const monthEndExclusive = new Date(year, month, 1).toISOString();
-    const rows = await this.repository.totalsForMonth(monthStart, monthEndExclusive, branchFilter);
+    const rows = await repository.totalsForMonth(monthStart, monthEndExclusive, branchFilter);
     return rows.reduce((acc, r) => acc + r.amount / r.ratePerUsdSnapshot, 0);
   }
 
@@ -107,3 +105,5 @@ export class SaleService {
     }
   }
 }
+
+export default new SaleService()

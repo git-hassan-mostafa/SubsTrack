@@ -15,8 +15,8 @@ import {
   toBillingMonth,
 } from "@/src/core/utils/date";
 import i18n from "@/src/core/i18n";
-import { PaymentRepository } from "../repository/PaymentRepository";
-import { tierService } from "@/src/modules/subscription/services/TierService";
+import repository from "../repository/PaymentRepository";
+import tierService from "@/src/modules/subscription/services/TierService";
 
 function mapDbPaymentToPayment(db: DbPayment): Payment {
   return {
@@ -52,14 +52,12 @@ export type CreateMultiMonthPaymentResult = {
   skippedMonths: MultiMonthConflict[];
 };
 
-export class PaymentService {
-  private repository = new PaymentRepository();
-
+class PaymentService {
   async getPaymentsForYear(
     customerId: string,
     year: number,
   ): Promise<Payment[]> {
-    const rows = await this.repository.findByCustomerAndYear(customerId, year);
+    const rows = await repository.findByCustomerAndYear(customerId, year);
     return rows.map(mapDbPaymentToPayment);
   }
 
@@ -76,7 +74,7 @@ export class PaymentService {
       throw new Error(i18n.t("errors.rate_snapshot_positive"));
     }
 
-    const row = await this.repository.create({
+    const row = await repository.create({
       billing_month: data.billingMonth,
       amount_due: data.amountDue,
       amount_paid: data.amountPaid,
@@ -169,7 +167,7 @@ export class PaymentService {
       }
     }
 
-    const row = await this.repository.create({
+    const row = await repository.create({
       billing_month: effectiveStart,
       amount_due: plan.price,
       amount_paid: amountPaid,
@@ -205,7 +203,7 @@ export class PaymentService {
     if (!(ratePerUsdSnapshot > 0)) {
       throw new Error(i18n.t("errors.rate_snapshot_positive"));
     }
-    const row = await this.repository.updatePayment(id, {
+    const row = await repository.updatePayment(id, {
       amountDue,
       amountPaid,
       currencyId: currency?.id ?? null,
@@ -221,14 +219,14 @@ export class PaymentService {
   ): Promise<Payment> {
     if (!notes.trim())
       throw new Error(i18n.t("errors.void_reason_required"));
-    const row = await this.repository.voidPayment(id, voidedBy, notes.trim());
+    const row = await repository.voidPayment(id, voidedBy, notes.trim());
     return mapDbPaymentToPayment(row);
   }
 
   async findPaymentStatusForMonth(
     billingMonth: string,
   ): Promise<{ fullyPaidIds: Set<string>; partialIds: Set<string> }> {
-    return this.repository.findPaymentStatusForMonth(billingMonth);
+    return repository.findPaymentStatusForMonth(billingMonth);
   }
 
   // THE single source of truth for month status logic. No other file may reimplement this.
@@ -297,6 +295,8 @@ export class PaymentService {
     });
   }
 }
+
+export default new PaymentService()
 
 // Returns a Set of billing months already covered by the given payments (including multi-month ranges).
 // Payments with amountPaid = 0 are excluded — they are treated as unpaid (slot reserved only).
