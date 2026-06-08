@@ -55,7 +55,7 @@ Triggered when `customer.plan` exists, `plan.isCustomPrice = false`, and `plan.d
 | 2.3 | Notes optional | Leave Notes blank, submit | Payment created with notes = null |
 | 2.4 | Notes filled | Type "Cash collected", submit | Payment.notes = "Cash collected" (trimmed) |
 | 2.5 | Submit Full payment | Tap "Mark as paid" with Full selected (default) | `amount_due = amount_paid = plan.price`, `currency_id = plan.currencyId`, `rate_per_usd_snapshot = plan.currency.ratePerUsd` (or 1 for USD), cell turns green |
-| 2.6 | Submit Partial payment | Toggle "Partial", enter amount lower than plan price, submit | `amount_due = plan.price`, `amount_paid = typed`, `balance = due - paid`, cell turns green with orange dot |
+| 2.6 | Submit Partial payment | Toggle "Partial", enter amount lower than plan price, submit | `amount_due = plan.price`, `amount_paid = typed`, `balance = due - paid`, cell turns amber ("PARTIAL" status, "PARTIAL" sublabel) |
 | 2.7 | Partial amount equals due | Enter Partial value equal to plan.price | Treated as full payment (balance = 0), no orange dot |
 | 2.8 | Partial amount exceeds due | Enter Partial value > plan.price | Submit button disabled (validation: `amount_paid <= amount_due`) |
 | 2.9 | Partial amount = 0 | Enter Partial = 0 | Submit disabled (validation: `amount_paid > 0` for grid to show paid) — verify exact rule (service allows `>= 0` but month shows unpaid) |
@@ -109,7 +109,7 @@ Triggered when `customer.plan` exists, `plan.isCustomPrice = false`, `plan.durat
 | 5.1 | Multi-month card displays | Open form for a customer on a 3-month plan | Amount card shows `plan.price` with subtitle "/ 3 months". Below it: 3 chips labelled Jan, Feb, Mar (or whatever month range starts at tap) |
 | 5.2 | Submit Full multi-month | Tap "Mark as paid" with Full | 1 payment row created with `duration_months = 3, amount_due = plan.price, amount_paid = plan.price`. Grid shows 3 consecutive paid cells (month 2 + 3 have `isGroupSecondary = true`, "Included" sublabel) |
 | 5.3 | Multi-month receipt | Tap any of the 3 covered cells | Receipt opens with title "Payment block receipt" and a green badge "Covers 3 months" |
-| 5.4 | Submit Partial multi-month | Toggle Partial, enter amount < plan.price | One payment row created with the partial amount; `balance > 0`. Cells still show 3 consecutive paid cells but with orange dot on the source month; receipt uses amber theme |
+| 5.4 | Submit Partial multi-month | Toggle Partial, enter amount < plan.price | One payment row created with the partial amount; `balance > 0`. Source cell turns amber ("PARTIAL" sublabel); secondary cells (isGroupSecondary) also amber with "Included" sublabel; receipt uses amber theme |
 | 5.5 | Conflict detection | Tap a multi-month start where one or more of the covered months is already paid | Amber warning banner: "Some months already paid: <list>. Proceed and skip them?" Submit disabled until user taps "Proceed anyway" |
 | 5.6 | Proceed past conflicts | Tap "Proceed anyway", submit | Skipped months are skipped; the recorded payment starts at the first uncovered month and covers only the remaining range. Conflict month chips show line-through and gray |
 | 5.7 | All months covered | Try to multi-month into a range where every month is paid | Either button stays disabled, or service throws "All months already paid" — verify the surface |
@@ -178,7 +178,7 @@ Edit re-snapshots `rate_per_usd_snapshot` from the currency live rate at edit ti
 | 9.2 | Cancel | Tap Cancel | Returns to read-only mode, no change |
 | 9.3 | Save same values | Save unchanged | Payment row updated; UI no-op |
 | 9.4 | Edit amount due | Change Due from `50` to `60` (Paid auto-stays = 60 if was full) | `amount_due = 60`. Receipt updates; year-total updates |
-| 9.5 | Edit amount paid | Change Paid from `50` to `30` | `amount_paid = 30, balance = 30`. Receipt switches to amber theme. Cell shows orange dot |
+| 9.5 | Edit amount paid | Change Paid from `50` to `30` | `amount_paid = 30, balance = 30`. Receipt switches to amber theme. Cell switches from green/yellow to amber ("PARTIAL" status) |
 | 9.6 | Edit currency | Switch the Amount Due CurrencyInput from USD to LBP | Amount Paid is cleared (was in USD). User must re-enter Paid in LBP |
 | 9.7 | Save after currency change | Switch to LBP, enter new amounts, save | `currency_id = LBP_id, rate_per_usd_snapshot = LBP.ratePerUsd at THIS save's moment` (re-snapshot) |
 | 9.8 | Save with paid > due | Try to save with paid > due | Save Changes button disabled (validation) |
