@@ -13,6 +13,7 @@ import { Text } from "@/src/shared/components/Text";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { COLORS } from "@/src/shared/constants";
+import { Input } from "@/src/shared/components/Input";
 
 export interface DropdownOption<T = string> {
   label: string;
@@ -161,74 +162,74 @@ export function DropdownModal<T extends string | number | null = string>({
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={{ flex: 1 }}
       >
-      <Pressable
-        className="flex-1 bg-black/40 items-center justify-center px-6"
-        onPress={handleClose}
-      >
         <Pressable
-          className="bg-white rounded-2xl w-full overflow-hidden"
-          onPress={(e) => e.stopPropagation()}
+          className="flex-1 bg-black/40 items-center justify-center px-6"
+          onPress={handleClose}
         >
-          <View className="flex-row items-center justify-between px-5 py-4 border-b border-gray-100">
-            <Text className="text-base font-semibold text-gray-900">
-              {title}
-            </Text>
-            <PressableOpacity onPress={handleClose}>
-              <Text className="text-base text-primary font-medium">
-                {t("common.cancel")}
+          <Pressable
+            className="bg-white rounded-2xl w-full overflow-hidden"
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View className="flex-row items-center justify-between px-5 py-4 border-b border-gray-100">
+              <Text className="text-base font-semibold text-gray-900">
+                {title}
               </Text>
-            </PressableOpacity>
-          </View>
+              <PressableOpacity onPress={handleClose}>
+                <Text className="text-base text-primary font-medium">
+                  {t("common.cancel")}
+                </Text>
+              </PressableOpacity>
+            </View>
 
-          <View className="px-4 py-2 border-b border-gray-100">
-            <TextInput
-              value={search}
-              onChangeText={setSearch}
-              placeholder={t("common.input_search")}
-              placeholderTextColor={COLORS.gray400}
-              className="bg-gray-50 rounded-xl px-4 py-2.5 text-base text-gray-900"
-              autoCorrect={false}
-            />
-          </View>
+            <View className="px-4 py-2 border-b border-gray-100">
+              <Input
+                value={search}
+                onChangeText={setSearch}
+                placeholder={t("common.input_search")}
+                placeholderTextColor={COLORS.gray400}
+                className="bg-gray-50 rounded-xl px-4 py-2.5 text-base text-gray-900"
+                autoCorrect={false}
+              />
+            </View>
 
-          <FlatList
-            data={listItems}
-            keyExtractor={(item) => String(item.value ?? "__null__")}
-            style={{ maxHeight: 320 }}
-            renderItem={({ item }) => {
-              const isSelected = item.isNull
-                ? value === null
-                : item.value === value;
-              return (
-                <PressableOpacity
-                  onPress={() => handleSelect(item.value)}
-                  className={`flex-row items-center px-5 py-3.5 border-b border-gray-50 ${isSelected ? "bg-indigo-50" : "bg-white"}`}
-                >
-                  <View className="flex-1">
-                    <Text
-                      className={`text-base font-semibold ${isSelected ? "text-primary" : "text-gray-900"}`}
-                    >
-                      {item.label}
-                    </Text>
-                    {item.sublabel ? (
-                      <Text className="text-xs text-gray-400 mt-0.5">
-                        {item.sublabel}
+            <FlatList
+              data={listItems}
+              keyExtractor={(item) => String(item.value ?? "__null__")}
+              style={{ maxHeight: 320 }}
+              renderItem={({ item }) => {
+                const isSelected = item.isNull
+                  ? value === null
+                  : item.value === value;
+                return (
+                  <PressableOpacity
+                    onPress={() => handleSelect(item.value)}
+                    className={`flex-row items-center px-5 py-3.5 border-b border-gray-50 ${isSelected ? "bg-indigo-50" : "bg-white"}`}
+                  >
+                    <View className="flex-1">
+                      <Text
+                        className={`text-base font-semibold ${isSelected ? "text-primary" : "text-gray-900"}`}
+                      >
+                        {item.label}
                       </Text>
+                      {item.sublabel ? (
+                        <Text className="text-xs text-gray-400 mt-0.5">
+                          {item.sublabel}
+                        </Text>
+                      ) : null}
+                    </View>
+                    {isSelected ? (
+                      <Ionicons
+                        name="checkmark"
+                        size={18}
+                        color={COLORS.primary}
+                      />
                     ) : null}
-                  </View>
-                  {isSelected ? (
-                    <Ionicons
-                      name="checkmark"
-                      size={18}
-                      color={COLORS.primary}
-                    />
-                  ) : null}
-                </PressableOpacity>
-              );
-            }}
-          />
+                  </PressableOpacity>
+                );
+              }}
+            />
+          </Pressable>
         </Pressable>
-      </Pressable>
       </KeyboardAvoidingView>
     </Modal>
   );
