@@ -103,10 +103,10 @@ export const MonthCell = memo(function MonthCell({
   return (
     <PressableOpacity
       onPress={() => onPress(entry)}
-      className={`w-1/4 ${padClass}`}
+      className={`w-1/4 aspect-square ${padClass}`}
     >
       <View
-        className={`${roundClass} items-center justify-center aspect-square ${containerBg}`}
+        className={`${roundClass} items-center justify-center flex-1 w-full ${containerBg}`}
       >
         <Text fontWeight="SemiBold" className={`text-sm ${labelColor}`}>
           {t(`months.${entry.label}`)}

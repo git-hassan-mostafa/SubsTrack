@@ -70,10 +70,11 @@ class SubscriptionRepository extends BaseRepository {
   }
 
   async upgradeTenant(tenantId: string, tierId: string): Promise<DbTenant> {
-    await this.db
+    const { error: updateError } = await this.db
       .from("tenants")
       .update({ tier_id: tierId, tier_upgraded_at: new Date().toISOString() })
       .eq("id", tenantId);
+    if (updateError) return this.handleError(updateError)
 
     const { data, error } = await this.db
       .from("tenants")

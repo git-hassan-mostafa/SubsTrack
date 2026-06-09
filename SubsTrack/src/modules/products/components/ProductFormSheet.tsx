@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Modal, ScrollView, View } from "react-native";
+import { KeyboardAvoidingView, Modal, Platform, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
@@ -122,9 +122,14 @@ export function ProductFormSheet({
           </PressableOpacity>
         </View>
 
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          className="flex-1"
+        >
         <ScrollView
           className="flex-1 px-6 pt-6"
           keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ paddingBottom: 48 }}
         >
           {error ? (
             <ErrorBanner message={error} onDismiss={clearError} />
@@ -194,6 +199,7 @@ export function ProductFormSheet({
 
           <View className="h-24" />
         </ScrollView>
+        </KeyboardAvoidingView>
       </SafeAreaView>
       <UpgradePromptModal
         payload={tierLimitError}

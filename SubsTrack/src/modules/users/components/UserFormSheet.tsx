@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Modal, ScrollView, View } from "react-native";
+import { KeyboardAvoidingView, Modal, Platform, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
@@ -183,9 +183,14 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
           </PressableOpacity>
         </View>
 
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          className="flex-1"
+        >
         <ScrollView
           className="flex-1 px-6 pt-6"
           keyboardShouldPersistTaps="handled"
+          contentContainerStyle={{ paddingBottom: 48 }}
         >
           {error ? (
             <ErrorBanner message={error} onDismiss={clearError} />
@@ -347,6 +352,7 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
 
           <View className="h-24" />
         </ScrollView>
+        </KeyboardAvoidingView>
       </SafeAreaView>
 
       <UpgradePromptModal

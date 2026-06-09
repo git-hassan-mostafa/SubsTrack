@@ -2,7 +2,9 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   TextInput,
   View,
@@ -150,6 +152,7 @@ function AsyncPickerModal<T>({
 
   const loadFirstPage = useCallback(async (term: string) => {
     const token = ++requestTokenRef.current;
+    setItems([]);
     setLoading(true);
     setError(null);
     setPage(0);
@@ -210,6 +213,10 @@ function AsyncPickerModal<T>({
       animationType="fade"
       onRequestClose={handleClose}
     >
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={{ flex: 1 }}
+      >
       <Pressable
         className="flex-1 bg-black/40 items-center justify-center px-6"
         onPress={handleClose}
@@ -334,6 +341,7 @@ function AsyncPickerModal<T>({
           />
         </Pressable>
       </Pressable>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }

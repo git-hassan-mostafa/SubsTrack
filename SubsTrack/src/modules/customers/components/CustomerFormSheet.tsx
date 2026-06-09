@@ -1,17 +1,23 @@
 import { useEffect, useState } from "react";
-import { Modal, ScrollView, Switch, View } from "react-native";
+import {
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  ScrollView,
+  Switch,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/src/shared/components/Button";
 import { DatePickerInput } from "@/src/shared/components/DatePickerInput";
-import { Dropdown } from "@/src/shared/components/Dropdown";
-import type { DropdownOption } from "@/src/shared/components/Dropdown";
 import { BranchPicker } from "@/src/shared/components/BranchPicker";
+import { PlanPicker } from "@/src/shared/components/PlanPicker";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { Input } from "@/src/shared/components/Input";
-import type { Customer, Plan } from "@/src/core/types";
+import type { Customer } from "@/src/core/types";
 import { getTodayDateString } from "@/src/core/utils/date";
 import { useAuth } from "@/src/modules/auth/hooks/useAuth";
 import { usePlanSlice } from "@/src/state/hooks/usePlanSlice";
@@ -119,18 +125,6 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
     if (!nextError && !nextTierLimit) onDismiss();
   }
 
-  // Filter plans by the customer's selected branch: branch-specific plans only
-  // appear when they match. Shared plans (branchId === null) appear for everyone.
-  const planOptions: DropdownOption<string>[] = plans
-    .filter((p: Plan) => p.branchId === null || p.branchId === form.branchId)
-    .map((p: Plan) => ({
-      value: p.id,
-      label: p.name,
-      sublabel: p.isCustomPrice
-        ? t("common.custom_pricing")
-        : `$${p.price} / ${p.durationMonths === 1 ? t("plans.per_month") : t("plans.n_months", { count: p.durationMonths })}`,
-    }));
-
   return (
     <Modal
       visible
@@ -154,131 +148,135 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
           </PressableOpacity>
         </View>
 
-        <ScrollView
-          className="flex-1 px-6 pt-6"
-          keyboardShouldPersistTaps="handled"
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          className="flex-1"
         >
-          {error ? (
-            <ErrorBanner message={error} onDismiss={clearError} />
-          ) : null}
+          <ScrollView
+            className="flex-1 px-6 pt-6"
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={{ paddingBottom: 48 }}
+          >
+            {error ? (
+              <ErrorBanner message={error} onDismiss={clearError} />
+            ) : null}
 
-          <Input
-            label={t("customers.name_label") + " *"}
-            value={form.name}
-            onChangeText={(v) => setForm((prev) => ({ ...prev, name: v }))}
-            placeholder={t("customers.name_placeholder")}
-            onFocus={clearError}
-          />
-
-          {/* Phone + Start Date side by side */}
-          <View className="flex-row gap-3">
-            <View className="flex-1">
-              <Input
-                label={t("customers.phone_label")}
-                value={form.phoneNumber}
-                onChangeText={(v) =>
-                  setForm((prev) => ({ ...prev, phoneNumber: v }))
-                }
-                placeholder={t("customers.phone_placeholder")}
-                keyboardType="phone-pad"
-              />
-            </View>
-            <View className="flex-1">
-              <DatePickerInput
-                label={t("customers.start_date_label") + " *"}
-                value={form.startDate}
-                onChange={(v) => setForm((prev) => ({ ...prev, startDate: v }))}
-                placeholder={t("customers.start_date_placeholder")}
-              />
-            </View>
-          </View>
-
-          <Input
-            label={t("customers.address_label")}
-            value={form.address}
-            onChangeText={(v) => setForm((prev) => ({ ...prev, address: v }))}
-            placeholder={t("common.optional")}
-          />
-
-          <Input
-            label={t("customers.area_label")}
-            value={form.area}
-            onChangeText={(v) => setForm((prev) => ({ ...prev, area: v }))}
-            placeholder={t("customers.area_placeholder")}
-          />
-
-          <BranchPicker
-            label={t("branches.branch_label") + " *"}
-            value={form.branchId}
-            onChange={(v) =>
-              setForm((prev) => ({
-                ...prev,
-                branchId: v,
-                // Clear the selected plan if it's branch-specific to a different branch.
-                // Legacy shared plans (branchId === null) remain valid for any branch.
-                planId:
-                  prev.planId &&
-                  plans.find((p) => p.id === prev.planId)?.branchId !== null &&
-                  plans.find((p) => p.id === prev.planId)?.branchId !== v
-                    ? null
-                    : prev.planId,
-              }))
-            }
-            nullLabel={t("branches.unassigned")}
-            nullable={false}
-          />
-
-          <Dropdown
-            label={t("customers.plan_label")}
-            placeholder={t("customers.select_plan")}
-            options={planOptions}
-            value={form.planId}
-            onChange={(v) => setForm((prev) => ({ ...prev, planId: v }))}
-            nullable
-            nullLabel={t("common.no_plan")}
-            nullSublabel={t("customers.custom_plan_sublabel")}
-          />
-
-          <Input
-            label={t("customers.notes_label")}
-            value={form.notes}
-            onChangeText={(v) => setForm((prev) => ({ ...prev, notes: v }))}
-            placeholder={t("customers.notes_placeholder")}
-            multiline
-            numberOfLines={3}
-            textAlignVertical="top"
-            style={{ minHeight: 80 }}
-          />
-
-          {/* Regular customer toggle */}
-          <View className="flex-row items-center justify-between py-3 border-t border-gray-100 mb-4">
-            <View className="flex-1 me-4">
-              <Text fontWeight="SemiBold" className="text-sm text-gray-900">
-                {t("customers.regular_label")}
-              </Text>
-              <Text className="text-xs text-gray-400 mt-0.5">
-                {t("customers.regular_hint")}
-              </Text>
-            </View>
-            <Switch
-              value={form.isRegular}
-              onValueChange={(v) =>
-                setForm((prev) => ({ ...prev, isRegular: v }))
-              }
+            <Input
+              label={t("customers.name_label") + " *"}
+              value={form.name}
+              onChangeText={(v) => setForm((prev) => ({ ...prev, name: v }))}
+              placeholder={t("customers.name_placeholder")}
+              onFocus={clearError}
             />
-          </View>
 
-          <Button
-            label={
-              customer ? t("common.save_changes") : t("customers.add_title")
-            }
-            onPress={handleSubmit}
-            loading={loading}
-            disabled={!form.name.trim() || !form.startDate || !form.branchId}
-            fullWidth
-          />
-          <View className="h-24" />
-        </ScrollView>
+            {/* Phone + Start Date side by side */}
+            <View className="flex-row gap-3">
+              <View className="flex-1">
+                <Input
+                  label={t("customers.phone_label")}
+                  value={form.phoneNumber}
+                  onChangeText={(v) =>
+                    setForm((prev) => ({ ...prev, phoneNumber: v }))
+                  }
+                  placeholder={t("customers.phone_placeholder")}
+                  keyboardType="phone-pad"
+                />
+              </View>
+              <View className="flex-1">
+                <DatePickerInput
+                  label={t("customers.start_date_label") + " *"}
+                  value={form.startDate}
+                  onChange={(v) =>
+                    setForm((prev) => ({ ...prev, startDate: v }))
+                  }
+                  placeholder={t("customers.start_date_placeholder")}
+                />
+              </View>
+            </View>
+
+            <Input
+              label={t("customers.address_label")}
+              value={form.address}
+              onChangeText={(v) => setForm((prev) => ({ ...prev, address: v }))}
+              placeholder={t("common.optional")}
+            />
+
+            <Input
+              label={t("customers.area_label")}
+              value={form.area}
+              onChangeText={(v) => setForm((prev) => ({ ...prev, area: v }))}
+              placeholder={t("customers.area_placeholder")}
+            />
+
+            <BranchPicker
+              label={t("branches.branch_label") + " *"}
+              value={form.branchId}
+              onChange={(v) =>
+                setForm((prev) => ({
+                  ...prev,
+                  branchId: v,
+                  // Clear the selected plan if it's branch-specific to a different branch.
+                  // Legacy shared plans (branchId === null) remain valid for any branch.
+                  planId:
+                    prev.planId &&
+                    plans.find((p) => p.id === prev.planId)?.branchId !==
+                      null &&
+                    plans.find((p) => p.id === prev.planId)?.branchId !== v
+                      ? null
+                      : prev.planId,
+                }))
+              }
+              nullLabel={t("branches.unassigned")}
+              nullable={false}
+            />
+
+            <PlanPicker
+              branchId={form.branchId}
+              value={form.planId}
+              onChange={(v) => setForm((prev) => ({ ...prev, planId: v }))}
+            />
+
+            <Input
+              label={t("customers.notes_label")}
+              value={form.notes}
+              onChangeText={(v) => setForm((prev) => ({ ...prev, notes: v }))}
+              placeholder={t("customers.notes_placeholder")}
+              multiline
+              numberOfLines={3}
+              textAlignVertical="top"
+              style={{ minHeight: 80 }}
+            />
+
+            {/* Regular customer toggle */}
+            <View className="flex-row items-center justify-between py-3 border-t border-gray-100 mb-4">
+              <View className="flex-1 me-4">
+                <Text fontWeight="SemiBold" className="text-sm text-gray-900">
+                  {t("customers.regular_label")}
+                </Text>
+                <Text className="text-xs text-gray-400 mt-0.5">
+                  {t("customers.regular_hint")}
+                </Text>
+              </View>
+              <Switch
+                value={form.isRegular}
+                onValueChange={(v) =>
+                  setForm((prev) => ({ ...prev, isRegular: v }))
+                }
+              />
+            </View>
+
+            <Button
+              label={
+                customer ? t("common.save_changes") : t("customers.add_title")
+              }
+              onPress={handleSubmit}
+              loading={loading}
+              disabled={!form.name.trim() || !form.startDate || !form.branchId}
+              fullWidth
+            />
+            <View className="h-24" />
+          </ScrollView>
+        </KeyboardAvoidingView>
       </SafeAreaView>
       <UpgradePromptModal
         payload={tierLimitError}
