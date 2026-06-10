@@ -19,6 +19,7 @@ import {
 import { useDebounce } from "@/src/shared/hooks/useDebounce";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
 import { PageHeader } from "@/src/shared/components/PageHeader";
+import { FAB } from "@/src/shared/components/FAB";
 import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
 import type { Product } from "@/src/core/types";
 import { ProductCard } from "../components/ProductCard";
@@ -118,8 +119,6 @@ export function ProductListScreen() {
         subtitle={t("products.active_count", { count: activeCount })}
         showBack
         onBack={() => router.back()}
-        actionLabel={t("common.add")}
-        onAction={openCreate}
       />
 
       <View className="px-4 pt-4">
@@ -139,7 +138,11 @@ export function ProductListScreen() {
         <FlatList
           data={filtered}
           keyExtractor={(p) => p.id}
-          contentContainerStyle={{ padding: 16, flexGrow: 1 }}
+          contentContainerStyle={{
+            padding: 16,
+            paddingBottom: 96,
+            flexGrow: 1,
+          }}
           refreshControl={
             <RefreshControl
               refreshing={loading}
@@ -168,6 +171,8 @@ export function ProductListScreen() {
           }
         />
       )}
+
+      <FAB onPress={openCreate} accessibilityLabel={t("common.add")} />
 
       {formVisible && (
         <ProductFormSheet

@@ -1,21 +1,27 @@
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, RefreshControl, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useTranslation } from 'react-i18next';
-import { useRouter } from 'expo-router';
-import { COLORS } from '@/src/shared/constants';
-import { PageHeader } from '@/src/shared/components/PageHeader';
-import { ErrorBanner } from '@/src/shared/components/ErrorBanner';
-import { EmptyState } from '@/src/shared/components/EmptyState';
-import { confirm } from '@/src/shared/lib/confirm';
+import { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  FlatList,
+  RefreshControl,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useTranslation } from "react-i18next";
+import { useRouter } from "expo-router";
+import { COLORS } from "@/src/shared/constants";
+import { PageHeader } from "@/src/shared/components/PageHeader";
+import { FAB } from "@/src/shared/components/FAB";
+import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
+import { EmptyState } from "@/src/shared/components/EmptyState";
+import { confirm } from "@/src/shared/lib/confirm";
 import {
   ActionMenu,
   type ActionMenuItem,
-} from '@/src/shared/components/ActionMenu';
-import type { Branch } from '@/src/core/types';
-import { useBranchSlice } from '@/src/state/hooks/useBranchSlice';
-import { BranchCard } from '../components/BranchCard';
-import { BranchFormSheet } from '../components/BranchFormSheet';
+} from "@/src/shared/components/ActionMenu";
+import type { Branch } from "@/src/core/types";
+import { useBranchSlice } from "@/src/state/hooks/useBranchSlice";
+import { BranchCard } from "../components/BranchCard";
+import { BranchFormSheet } from "../components/BranchFormSheet";
 
 export function BranchesScreen() {
   const { t } = useTranslation();
@@ -49,8 +55,8 @@ export function BranchesScreen() {
 
   async function handleDeactivateBranch(branch: Branch) {
     const ok = await confirm({
-      title: t('branches.deactivate_title'),
-      message: t('branches.deactivate_message', { name: branch.name }),
+      title: t("branches.deactivate_title"),
+      message: t("branches.deactivate_message", { name: branch.name }),
       destructive: true,
     });
     if (!ok) return;
@@ -59,9 +65,9 @@ export function BranchesScreen() {
 
   async function handleDeleteBranch(branch: Branch) {
     const ok = await confirm({
-      title: t('branches.delete_title'),
-      message: t('branches.delete_message', { name: branch.name }),
-      confirmLabel: t('common.delete'),
+      title: t("branches.delete_title"),
+      message: t("branches.delete_message", { name: branch.name }),
+      confirmLabel: t("common.delete"),
       destructive: true,
     });
     if (!ok) return;
@@ -72,32 +78,32 @@ export function BranchesScreen() {
     if (!branch) return [];
     const items: ActionMenuItem[] = [
       {
-        key: 'edit',
-        label: t('common.edit'),
-        icon: 'create-outline',
+        key: "edit",
+        label: t("common.edit"),
+        icon: "create-outline",
         onPress: () => openEdit(branch),
       },
     ];
     if (branch.active) {
       items.push({
-        key: 'deactivate',
-        label: t('branches.deactivate'),
-        icon: 'pause-circle-outline',
+        key: "deactivate",
+        label: t("branches.deactivate"),
+        icon: "pause-circle-outline",
         destructive: true,
         onPress: () => void handleDeactivateBranch(branch),
       });
     } else {
       items.push({
-        key: 'reactivate',
-        label: t('branches.reactivate'),
-        icon: 'play-circle-outline',
+        key: "reactivate",
+        label: t("branches.reactivate"),
+        icon: "play-circle-outline",
         onPress: () => reactivateBranch(branch.id),
       });
     }
     items.push({
-      key: 'delete',
-      label: t('common.delete'),
-      icon: 'trash-outline',
+      key: "delete",
+      label: t("common.delete"),
+      icon: "trash-outline",
       destructive: true,
       onPress: () => void handleDeleteBranch(branch),
     });
@@ -109,12 +115,10 @@ export function BranchesScreen() {
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
       <PageHeader
-        title={t('branches.section_title')}
-        subtitle={t('branches.count', { count: activeCount })}
+        title={t("branches.section_title")}
+        subtitle={t("branches.count", { count: activeCount })}
         showBack
         onBack={() => router.back()}
-        actionLabel={t('branches.add_branch')}
-        onAction={openCreate}
       />
 
       {error ? (
@@ -131,7 +135,11 @@ export function BranchesScreen() {
         <FlatList
           data={branches}
           keyExtractor={(b) => b.id}
-          contentContainerStyle={{ padding: 16, flexGrow: 1 }}
+          contentContainerStyle={{
+            padding: 16,
+            paddingBottom: 96,
+            flexGrow: 1,
+          }}
           refreshControl={
             <RefreshControl
               refreshing={loading}
@@ -140,18 +148,24 @@ export function BranchesScreen() {
             />
           }
           renderItem={({ item }) => (
-            <BranchCard branch={item} onEdit={openEdit} onMenu={setMenuBranch} />
+            <BranchCard
+              branch={item}
+              onEdit={openEdit}
+              onMenu={setMenuBranch}
+            />
           )}
           ListEmptyComponent={
             <EmptyState
-              message={t('branches.no_branches')}
-              subMessage={t('branches.no_branches_hint')}
-              actionLabel={t('branches.add_branch')}
+              message={t("branches.no_branches")}
+              subMessage={t("branches.no_branches_hint")}
+              actionLabel={t("branches.add_branch")}
               onAction={openCreate}
             />
           }
         />
       )}
+
+      <FAB onPress={openCreate} accessibilityLabel={t("branches.add_branch")} />
 
       {formVisible && (
         <BranchFormSheet

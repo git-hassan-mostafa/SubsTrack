@@ -24,6 +24,7 @@ import { UserFormSheet } from "../components/UserFormSheet";
 import { useUserSlice } from "@/src/state/hooks/useUserSlice";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
 import { PageHeader } from "@/src/shared/components/PageHeader";
+import { FAB } from "@/src/shared/components/FAB";
 import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
 
 export function UserListScreen() {
@@ -152,8 +153,6 @@ export function UserListScreen() {
         })}
         showBack
         onBack={() => router.back()}
-        actionLabel={t("common.add")}
-        onAction={openCreate}
       />
       {/* Inline search */}
       <View className="px-4 pt-4">
@@ -173,7 +172,11 @@ export function UserListScreen() {
         <FlatList
           data={filtered}
           keyExtractor={(u) => u.id}
-          contentContainerStyle={{ padding: 16, flexGrow: 1 }}
+          contentContainerStyle={{
+            padding: 16,
+            paddingBottom: 96,
+            flexGrow: 1,
+          }}
           refreshControl={
             <RefreshControl
               refreshing={loading}
@@ -198,6 +201,8 @@ export function UserListScreen() {
           }
         />
       )}
+
+      <FAB onPress={openCreate} accessibilityLabel={t("common.add")} />
 
       {formVisible && (
         <UserFormSheet

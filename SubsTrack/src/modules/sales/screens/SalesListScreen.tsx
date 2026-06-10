@@ -13,6 +13,7 @@ import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { useDebounce } from "@/src/shared/hooks/useDebounce";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
 import { PageHeader } from "@/src/shared/components/PageHeader";
+import { FAB } from "@/src/shared/components/FAB";
 import { CustomerPicker } from "@/src/modules/customers/components/CustomerPicker";
 import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
 import type { Sale } from "@/src/core/types";
@@ -71,8 +72,6 @@ export function SalesListScreen() {
       <PageHeader
         title={t("sales.title")}
         subtitle={t("sales.recent_count", { count: sales.length })}
-        actionLabel={t("sales.record_button")}
-        onAction={() => setFormOpen(true)}
       />
 
       <View className="px-4 pt-4">
@@ -103,7 +102,11 @@ export function SalesListScreen() {
         <FlatList
           data={sales}
           keyExtractor={(s) => s.id}
-          contentContainerStyle={{ padding: 16, flexGrow: 1 }}
+          contentContainerStyle={{
+            padding: 16,
+            paddingBottom: 96,
+            flexGrow: 1,
+          }}
           refreshControl={
             <RefreshControl
               refreshing={loading}
@@ -143,6 +146,11 @@ export function SalesListScreen() {
           }
         />
       )}
+
+      <FAB
+        onPress={() => setFormOpen(true)}
+        accessibilityLabel={t("sales.record_button")}
+      />
 
       {formOpen && (
         <SaleFormSheet

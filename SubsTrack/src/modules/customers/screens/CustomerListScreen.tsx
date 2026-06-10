@@ -40,6 +40,7 @@ import {
 import { getBlockRangeLabel } from "../../customer-payments/utils/blockRangeLabel";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
 import { PageHeader } from "@/src/shared/components/PageHeader";
+import { FAB } from "@/src/shared/components/FAB";
 import { MONTHS } from "@/src/core/constants";
 import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
 
@@ -333,8 +334,6 @@ export function CustomerListScreen() {
       <PageHeader
         title={t("customers.title")}
         subtitle={t("customers.active_count", { count: activeCount })}
-        actionLabel={t("common.add")}
-        onAction={() => setFormVisible(true)}
       />
 
       <View className="px-4 pt-4">
@@ -380,7 +379,11 @@ export function CustomerListScreen() {
         <FlatList
           data={filtered}
           keyExtractor={(c) => c.id}
-          contentContainerStyle={{ padding: 16, flexGrow: 1 }}
+          contentContainerStyle={{
+            padding: 16,
+            paddingBottom: 96,
+            flexGrow: 1,
+          }}
           refreshControl={
             <RefreshControl
               refreshing={loading}
@@ -421,6 +424,11 @@ export function CustomerListScreen() {
           }
         />
       )}
+
+      <FAB
+        onPress={() => setFormVisible(true)}
+        accessibilityLabel={t("common.add")}
+      />
 
       {formVisible && (
         <CustomerFormSheet onDismiss={() => setFormVisible(false)} />

@@ -1,21 +1,27 @@
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, RefreshControl, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useTranslation } from 'react-i18next';
-import { useRouter } from 'expo-router';
-import { COLORS } from '@/src/shared/constants';
-import { PageHeader } from '@/src/shared/components/PageHeader';
-import { ErrorBanner } from '@/src/shared/components/ErrorBanner';
-import { EmptyState } from '@/src/shared/components/EmptyState';
-import { confirm } from '@/src/shared/lib/confirm';
+import { useEffect, useState } from "react";
+import {
+  ActivityIndicator,
+  FlatList,
+  RefreshControl,
+  View,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useTranslation } from "react-i18next";
+import { useRouter } from "expo-router";
+import { COLORS } from "@/src/shared/constants";
+import { PageHeader } from "@/src/shared/components/PageHeader";
+import { FAB } from "@/src/shared/components/FAB";
+import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
+import { EmptyState } from "@/src/shared/components/EmptyState";
+import { confirm } from "@/src/shared/lib/confirm";
 import {
   ActionMenu,
   type ActionMenuItem,
-} from '@/src/shared/components/ActionMenu';
-import type { Currency } from '@/src/core/types';
-import { useCurrencySlice } from '@/src/state/hooks/useCurrencySlice';
-import { CurrencyCard, UsdBaseCard } from '../components/CurrencyCard';
-import { CurrencyFormSheet } from '../components/CurrencyFormSheet';
+} from "@/src/shared/components/ActionMenu";
+import type { Currency } from "@/src/core/types";
+import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
+import { CurrencyCard, UsdBaseCard } from "../components/CurrencyCard";
+import { CurrencyFormSheet } from "../components/CurrencyFormSheet";
 
 export function CurrenciesScreen() {
   const { t } = useTranslation();
@@ -49,8 +55,8 @@ export function CurrenciesScreen() {
 
   async function handleDeactivateCurrency(currency: Currency) {
     const ok = await confirm({
-      title: t('tenant_settings.deactivate_title'),
-      message: t('tenant_settings.deactivate_message', { code: currency.code }),
+      title: t("tenant_settings.deactivate_title"),
+      message: t("tenant_settings.deactivate_message", { code: currency.code }),
       destructive: true,
     });
     if (!ok) return;
@@ -59,9 +65,9 @@ export function CurrenciesScreen() {
 
   async function handleDeleteCurrency(currency: Currency) {
     const ok = await confirm({
-      title: t('tenant_settings.delete_title'),
-      message: t('tenant_settings.delete_message', { code: currency.code }),
-      confirmLabel: t('common.delete'),
+      title: t("tenant_settings.delete_title"),
+      message: t("tenant_settings.delete_message", { code: currency.code }),
+      confirmLabel: t("common.delete"),
       destructive: true,
     });
     if (!ok) return;
@@ -72,32 +78,32 @@ export function CurrenciesScreen() {
     if (!currency) return [];
     const items: ActionMenuItem[] = [
       {
-        key: 'edit',
-        label: t('common.edit'),
-        icon: 'create-outline',
+        key: "edit",
+        label: t("common.edit"),
+        icon: "create-outline",
         onPress: () => openEdit(currency),
       },
     ];
     if (currency.active) {
       items.push({
-        key: 'deactivate',
-        label: t('tenant_settings.deactivate'),
-        icon: 'pause-circle-outline',
+        key: "deactivate",
+        label: t("tenant_settings.deactivate"),
+        icon: "pause-circle-outline",
         destructive: true,
         onPress: () => void handleDeactivateCurrency(currency),
       });
     } else {
       items.push({
-        key: 'reactivate',
-        label: t('tenant_settings.reactivate'),
-        icon: 'play-circle-outline',
+        key: "reactivate",
+        label: t("tenant_settings.reactivate"),
+        icon: "play-circle-outline",
         onPress: () => reactivateCurrency(currency.id),
       });
     }
     items.push({
-      key: 'delete',
-      label: t('common.delete'),
-      icon: 'trash-outline',
+      key: "delete",
+      label: t("common.delete"),
+      icon: "trash-outline",
       destructive: true,
       onPress: () => void handleDeleteCurrency(currency),
     });
@@ -109,12 +115,10 @@ export function CurrenciesScreen() {
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
       <PageHeader
-        title={t('tenant_settings.currencies_section_title')}
-        subtitle={t('tenant_settings.currencies_count', { count: activeCount })}
+        title={t("tenant_settings.currencies_section_title")}
+        subtitle={t("tenant_settings.currencies_count", { count: activeCount })}
         showBack
         onBack={() => router.back()}
-        actionLabel={t('tenant_settings.add_currency')}
-        onAction={openCreate}
       />
 
       {error ? (
@@ -131,7 +135,11 @@ export function CurrenciesScreen() {
         <FlatList
           data={currencies}
           keyExtractor={(c) => c.id}
-          contentContainerStyle={{ padding: 16, flexGrow: 1 }}
+          contentContainerStyle={{
+            padding: 16,
+            paddingBottom: 96,
+            flexGrow: 1,
+          }}
           refreshControl={
             <RefreshControl
               refreshing={loading}
@@ -149,14 +157,19 @@ export function CurrenciesScreen() {
           )}
           ListEmptyComponent={
             <EmptyState
-              message={t('tenant_settings.no_currencies')}
-              subMessage={t('tenant_settings.no_currencies_hint')}
-              actionLabel={t('tenant_settings.add_currency')}
+              message={t("tenant_settings.no_currencies")}
+              subMessage={t("tenant_settings.no_currencies_hint")}
+              actionLabel={t("tenant_settings.add_currency")}
               onAction={openCreate}
             />
           }
         />
       )}
+
+      <FAB
+        onPress={openCreate}
+        accessibilityLabel={t("tenant_settings.add_currency")}
+      />
 
       {formVisible && (
         <CurrencyFormSheet

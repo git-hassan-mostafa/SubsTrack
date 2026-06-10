@@ -23,6 +23,7 @@ import { PlanFormSheet } from "../components/PlanFormSheet";
 import { usePlanSlice } from "@/src/state/hooks/usePlanSlice";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
 import { PageHeader } from "@/src/shared/components/PageHeader";
+import { FAB } from "@/src/shared/components/FAB";
 import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
 
 export function PlanListScreen() {
@@ -101,8 +102,6 @@ export function PlanListScreen() {
         subtitle={t("plans.active_count", { count: plans.length })}
         showBack
         onBack={() => router.back()}
-        actionLabel={t("common.add")}
-        onAction={openCreate}
       />
 
       {/* Inline search */}
@@ -123,7 +122,11 @@ export function PlanListScreen() {
         <FlatList
           data={filtered}
           keyExtractor={(p) => p.id}
-          contentContainerStyle={{ padding: 16, flexGrow: 1 }}
+          contentContainerStyle={{
+            padding: 16,
+            paddingBottom: 96,
+            flexGrow: 1,
+          }}
           refreshControl={
             <RefreshControl
               refreshing={loading}
@@ -146,6 +149,8 @@ export function PlanListScreen() {
           }
         />
       )}
+
+      <FAB onPress={openCreate} accessibilityLabel={t("common.add")} />
 
       {formVisible && (
         <PlanFormSheet
