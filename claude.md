@@ -285,7 +285,7 @@ SubsTrack/
 │           ├── supabase.ts        # Supabase singleton (reads EXPO_PUBLIC_ env vars)
 │           ├── storage.ts         # AsyncStorage adapter for Supabase + RTL reload guard
 │           ├── uiPrefStore.ts     # Persisted UI prefs (display currency, last-used currency, currentBranchId)
-│           └── branchFilter.ts    # resolveBranchFilter(user) / useEffectiveBranchFilter() / applyBranchFilter(query)
+│           └── branchFilter.ts    # resolveBranchFilter(user) / useEffectiveBranchFilter() / applyBranchFilter(query) / ownedRowMatchesFilter(branchId, filter)
 │
 └── supabase/
     └── functions/

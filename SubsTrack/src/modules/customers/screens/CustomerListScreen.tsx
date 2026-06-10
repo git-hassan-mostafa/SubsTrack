@@ -53,7 +53,7 @@ export function CustomerListScreen() {
   const graceDays = useGraceDays();
   const currentTier = useSubscriptionSlice((s) => s.currentTier);
   const customers = useCustomerSlice((s) => s.items);
-  const totalCount = useCustomerSlice((s) => s.totalCount);
+  const activeCount = useCustomerSlice((s) => s.activeCount);
   const loading = useCustomerSlice((s) => s.loading);
   const loadingMore = useCustomerSlice((s) => s.loadingMore);
   const error = useCustomerSlice((s) => s.error);
@@ -332,7 +332,7 @@ export function CustomerListScreen() {
     <SafeAreaView className="flex-1 bg-gray-50">
       <PageHeader
         title={t("customers.title")}
-        subtitle={t("customers.total_count", { count: totalCount })}
+        subtitle={t("customers.active_count", { count: activeCount })}
         actionLabel={t("common.add")}
         onAction={() => setFormVisible(true)}
       />

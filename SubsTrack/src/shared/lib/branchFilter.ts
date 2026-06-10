@@ -102,3 +102,23 @@ export function applyBranchFilter<T extends Record<string, any>>(
   }
   return query.eq(path, filter);
 }
+
+/**
+ * Client-side counterpart to `applyBranchFilter` for an 'owned'-scope row: does a
+ * row with the given `branchId` belong to the set the active filter would return?
+ *
+ *   null                       → true  (no filter; every row counts)
+ *   BRANCH_FILTER_UNASSIGNED   → branchId === null
+ *   <UUID>                     → branchId === UUID
+ *
+ * Use when optimistically adjusting an 'owned' branch-scoped count after a
+ * mutation, so the count only moves when the row is part of the active view.
+ */
+export function ownedRowMatchesFilter(
+  branchId: string | null,
+  filter: BranchFilter,
+): boolean {
+  if (filter === null) return true;
+  if (filter === BRANCH_FILTER_UNASSIGNED) return branchId === null;
+  return branchId === filter;
+}

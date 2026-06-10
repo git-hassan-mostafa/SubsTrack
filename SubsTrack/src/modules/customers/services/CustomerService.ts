@@ -53,15 +53,15 @@ class CustomerService {
     page: number,
     searchQuery?: string,
     branchFilter: BranchFilter = null,
-  ): Promise<{ customers: Customer[]; hasMore: boolean; totalCount: number }> {
-    const [rows, totalCount] = await Promise.all([
+  ): Promise<{ customers: Customer[]; hasMore: boolean; activeCount: number }> {
+    const [rows, activeCount] = await Promise.all([
       repository.findAll(page, searchQuery, branchFilter),
-      repository.countAll(branchFilter),
+      repository.countActive(branchFilter),
     ]);
     return {
       customers: rows.map(mapDbCustomerToCustomer),
       hasMore: rows.length >= PAGE_SIZE,
-      totalCount,
+      activeCount,
     };
   }
 

@@ -1,7 +1,7 @@
 import type { StateCreator } from 'zustand';
 import type { Customer, TierPlan, TenantUsage } from '@/src/core/types';
 import customerService from '@/src/modules/customers/services/CustomerService';
-import { resolveBranchFilter } from '@/src/shared/lib/branchFilter';
+import { resolveBranchFilter, ownedRowMatchesFilter } from '@/src/shared/lib/branchFilter';
 import { TierLimitError } from '@/src/modules/subscription/services/TierService';
 import type { TierLimitErrorPayload } from '@/src/modules/subscription/components/UpgradePromptModal';
 import type { GlobalState } from '@/src/state/globalStore';
@@ -20,7 +20,7 @@ interface CustomerInput {
 
 export interface CustomerSlice {
   items: Customer[];
-  totalCount: number;
+  activeCount: number;
   page: number;
   hasMore: boolean;
   loading: boolean;
@@ -57,7 +57,7 @@ export const createCustomerSlice: StateCreator<
   CustomerSlice
 > = (set, get) => ({
   items: [],
-  totalCount: 0,
+  activeCount: 0,
   page: 0,
   hasMore: true,
   loading: false,
@@ -82,7 +82,7 @@ export const createCustomerSlice: StateCreator<
       state.customers.page = 0;
     });
     try {
-      const { customers, hasMore, totalCount } = await customerService.getCustomers(
+      const { customers, hasMore, activeCount } = await customerService.getCustomers(
         0,
         query,
         branchFilter,
@@ -91,7 +91,7 @@ export const createCustomerSlice: StateCreator<
       set((state) => {
         state.customers.items = customers;
         state.customers.hasMore = hasMore;
-        state.customers.totalCount = totalCount;
+        state.customers.activeCount = activeCount;
         state.customers.page = 0;
         state.customers.loading = false;
       });
@@ -188,6 +188,7 @@ export const createCustomerSlice: StateCreator<
   },
 
   createCustomer: async (data, tenantId, tier, usage) => {
+    const branchFilter = resolveBranchFilter(get().auth.user);
     set((state) => {
       state.customers.loading = true;
       state.customers.error = null;
@@ -197,7 +198,10 @@ export const createCustomerSlice: StateCreator<
       const customer = await customerService.createCustomer(data, tenantId, tier, usage);
       set((state) => {
         state.customers.items.unshift(customer);
-        state.customers.totalCount += 1;
+        // New customers are created active, but only count toward the subtitle
+        // when they belong to the currently filtered branch view.
+        if (ownedRowMatchesFilter(customer.branchId, branchFilter))
+          state.customers.activeCount += 1;
         state.customers.loading = false;
       });
       void get().subscription.refreshUsage();
@@ -241,6 +245,7 @@ export const createCustomerSlice: StateCreator<
   },
 
   deactivateCustomer: async (id) => {
+    const wasActive = get().customers.items.find((c) => c.id === id)?.active ?? false;
     set((state) => {
       state.customers.loading = true;
       state.customers.error = null;
@@ -250,6 +255,8 @@ export const createCustomerSlice: StateCreator<
       set((state) => {
         const i = state.customers.items.findIndex((c) => c.id === id);
         if (i !== -1) state.customers.items[i] = updated;
+        if (wasActive)
+          state.customers.activeCount = Math.max(0, state.customers.activeCount - 1);
         state.customers.loading = false;
       });
     } catch (e) {
@@ -261,6 +268,7 @@ export const createCustomerSlice: StateCreator<
   },
 
   reactivateCustomer: async (id) => {
+    const wasActive = get().customers.items.find((c) => c.id === id)?.active ?? false;
     set((state) => {
       state.customers.loading = true;
       state.customers.error = null;
@@ -270,6 +278,7 @@ export const createCustomerSlice: StateCreator<
       set((state) => {
         const i = state.customers.items.findIndex((c) => c.id === id);
         if (i !== -1) state.customers.items[i] = updated;
+        if (!wasActive) state.customers.activeCount += 1;
         state.customers.loading = false;
       });
     } catch (e) {
@@ -281,6 +290,9 @@ export const createCustomerSlice: StateCreator<
   },
 
   deleteCustomer: async (id) => {
+    // A hard delete removes the row; a soft delete deactivates it. Either way the
+    // active count drops only if the customer was active beforehand.
+    const wasActive = get().customers.items.find((c) => c.id === id)?.active ?? false;
     set((state) => {
       state.customers.loading = true;
       state.customers.error = null;
@@ -290,13 +302,16 @@ export const createCustomerSlice: StateCreator<
       if (result.mode === 'hard') {
         set((state) => {
           state.customers.items = state.customers.items.filter((c) => c.id !== id);
-          state.customers.totalCount = Math.max(0, state.customers.totalCount - 1);
+          if (wasActive)
+            state.customers.activeCount = Math.max(0, state.customers.activeCount - 1);
           state.customers.loading = false;
         });
       } else {
         set((state) => {
           const i = state.customers.items.findIndex((c) => c.id === id);
           if (i !== -1) state.customers.items[i] = result.customer;
+          if (wasActive)
+            state.customers.activeCount = Math.max(0, state.customers.activeCount - 1);
           state.customers.loading = false;
         });
       }
@@ -321,7 +336,7 @@ export const createCustomerSlice: StateCreator<
   reset: () =>
     set((state) => {
       state.customers.items = [];
-      state.customers.totalCount = 0;
+      state.customers.activeCount = 0;
       state.customers.page = 0;
       state.customers.hasMore = true;
       state.customers.tierLimitError = null;
