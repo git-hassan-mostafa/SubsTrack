@@ -59,7 +59,7 @@ class PaymentRepository extends BaseRepository {
     return data as DbPayment;
   }
 
-  async voidPayment(id: string, voidedBy: string, notes: string): Promise<DbPayment> {
+  async voidPayment(id: string, voidedBy: string, notes: string | null): Promise<DbPayment> {
     const { data, error } = await this.db
       .from('payments')
       .update({

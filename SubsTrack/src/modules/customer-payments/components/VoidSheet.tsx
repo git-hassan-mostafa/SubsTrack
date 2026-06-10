@@ -83,7 +83,6 @@ export function VoidSheet({
           : t("payments.void_payment")
       }
       destructive
-      confirmDisabled={!reason.trim()}
       onConfirm={handleConfirm}
       onCancel={handleDismiss}
     >

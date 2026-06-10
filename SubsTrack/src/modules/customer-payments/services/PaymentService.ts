@@ -217,9 +217,9 @@ class PaymentService {
     voidedBy: string,
     notes: string,
   ): Promise<Payment> {
-    if (!notes.trim())
-      throw new Error(i18n.t("errors.void_reason_required"));
-    const row = await repository.voidPayment(id, voidedBy, notes.trim());
+    // Reason is optional — store the trimmed note, or null when left blank.
+    const trimmed = notes.trim();
+    const row = await repository.voidPayment(id, voidedBy, trimmed || null);
     return mapDbPaymentToPayment(row);
   }
 

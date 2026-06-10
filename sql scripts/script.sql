@@ -415,14 +415,6 @@ CREATE TABLE IF NOT EXISTS payments (
             (voided_at IS NOT NULL AND voided_by IS NOT NULL)
         ),
 
-    -- Void requires a reason
-    CONSTRAINT chk_void_requires_notes
-        CHECK (
-            voided_at IS NULL
-            OR
-            (voided_at IS NOT NULL AND notes IS NOT NULL AND notes <> '')
-        ),
-
     CONSTRAINT fk_payments_customer
         FOREIGN KEY (customer_id)
         REFERENCES customers(id)
