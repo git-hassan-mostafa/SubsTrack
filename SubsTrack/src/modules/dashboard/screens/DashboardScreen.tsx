@@ -1,10 +1,11 @@
-import { useEffect } from "react";
+import { useCallback } from "react";
 import {
   ActivityIndicator,
   RefreshControl,
   ScrollView,
   View,
 } from "react-native";
+import { useFocusEffect } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -35,10 +36,13 @@ export function DashboardScreen() {
 
   const branchFilter = useEffectiveBranchFilter();
 
-  useEffect(() => {
-    fetchMetrics();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [branchFilter]);
+  // Refresh whenever Home gains focus (navigating back to it) and whenever the
+  // branch filter changes while focused.
+  useFocusEffect(
+    useCallback(() => {
+      fetchMetrics();
+    }, [branchFilter]), // eslint-disable-line react-hooks/exhaustive-deps
+  );
 
   const now = new Date();
   const locale = getDateLocale(i18n.language);

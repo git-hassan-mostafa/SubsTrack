@@ -1,18 +1,12 @@
 import { useCallback, useMemo } from "react";
 import { Ionicons } from "@expo/vector-icons";
-import { Href, router } from "expo-router";
-import { useFocusEffect } from "expo-router";
+import { Href, router, useFocusEffect } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { ActivityIndicator, Pressable, View } from "react-native";
+import { Pressable, View } from "react-native";
 import { Text } from "@/src/shared/components/Text";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useDashboardSlice } from "@/src/state/hooks/useDashboardSlice";
-import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
-import { useBranchSlice } from "@/src/state/hooks/useBranchSlice";
 import { useSubscriptionSlice } from "@/src/state/hooks/useSubscriptionSlice";
 import { useAuth } from "@/src/modules/auth/hooks/useAuth";
-import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
-import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { COLORS } from "@/src/shared/constants";
 import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
 
@@ -93,15 +87,10 @@ const MENU_ITEMS: MenuItem[] = [
 ];
 
 export default function AdminMenuScreen() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { user } = useAuth();
-  const metrics = useDashboardSlice((s) => s.metrics);
-  const loading = useDashboardSlice((s) => s.loading);
-  const fetchMetrics = useDashboardSlice((s) => s.fetchMetrics);
-  const currencies = useCurrencySlice((s) => s.items);
-  const branches = useBranchSlice((s) => s.items);
-  const productCount = useSubscriptionSlice((s) => s.usage.products);
-  const { displayCurrencyId } = useUiPrefStore();
+  const usage = useSubscriptionSlice((s) => s.usage);
+  const refreshUsage = useSubscriptionSlice((s) => s.refreshUsage);
 
   const isTenantWideAdmin = user?.branchId === null;
   const menuItems = useMemo(
@@ -111,27 +100,15 @@ export default function AdminMenuScreen() {
         : MENU_ITEMS.filter(
             (item) => item.route !== "/(app)/(tabs)/admin/subscription",
           ),
-    [user],
+    [isTenantWideAdmin],
   );
 
-  const branchCount = branches.filter((b) => b.active).length;
-  const currencyCount = currencies.filter((c) => c.active).length;
-  const displayCurrency = findCurrency(currencies, displayCurrencyId);
-  const locale = i18n.language === "ar" ? "ar" : "en-US";
-
-  // Compact summary: divides by 1000 above $1k for readability. Metrics are
-  // canonical USD; we display in the user's chosen currency.
-  function formatCompact(usd: number): string {
-    if (usd >= 1000) {
-      return formatMoney(usd / 1000, null, displayCurrency) + "k";
-    }
-    return formatMoney(usd, null, displayCurrency);
-  }
-
+  // Keep the per-resource counts current without touching the dashboard slice —
+  // navigating here must never trigger a Home-screen metrics refresh.
   useFocusEffect(
     useCallback(() => {
-      fetchMetrics();
-    }, []),
+      refreshUsage();
+    }, [refreshUsage]),
   );
 
   return (
@@ -143,40 +120,6 @@ export default function AdminMenuScreen() {
         <Text className="text-sm text-gray-400 mt-0.5">
           {t("admin.description")}
         </Text>
-      </View>
-
-      {/* Stats card */}
-      <View className="mx-4 mb-5 bg-white rounded-2xl border border-gray-100 flex-row">
-        <View className="flex-1 items-center py-4 border-r border-gray-100">
-          {loading && !metrics ? (
-            <ActivityIndicator size="small" color={COLORS.primary} />
-          ) : (
-            <>
-              <Text fontWeight="Bold" className="text-xl text-gray-900">
-                {formatCompact(metrics?.monthlyRevenue ?? 0)}
-              </Text>
-              <Text className="text-xs text-gray-400 mt-0.5">
-                {t("admin.collected")}
-              </Text>
-            </>
-          )}
-        </View>
-        <View className="flex-1 items-center py-4 border-r border-gray-100">
-          <Text fontWeight="Bold" className="text-xl text-red-500">
-            {metrics?.unpaidThisMonth ?? 0}
-          </Text>
-          <Text className="text-xs text-gray-400 mt-0.5">
-            {t("dashboard.unpaid")}
-          </Text>
-        </View>
-        <View className="flex-1 items-center py-4">
-          <Text fontWeight="Bold" className="text-xl text-gray-900">
-            {metrics?.totalCustomers ?? 0}
-          </Text>
-          <Text className="text-xs text-gray-400 mt-0.5">
-            {t("dashboard.customers_section")}
-          </Text>
-        </View>
       </View>
 
       {/* Manage section */}
@@ -204,18 +147,7 @@ export default function AdminMenuScreen() {
                   </Text>
                   <Text className="text-xs text-gray-400 mt-0.5">
                     {t(item.subtitleKey, {
-                      count:
-                        item.countKey === "users"
-                          ? (metrics?.totalUsers ?? 0)
-                          : item.countKey === "plans"
-                            ? (metrics?.totalPlans ?? 0)
-                            : item.countKey === "branches"
-                              ? branchCount
-                              : item.countKey === "currencies"
-                                ? currencyCount
-                                : item.countKey === "products"
-                                  ? productCount
-                                  : undefined,
+                      count: item.countKey ? usage[item.countKey] : undefined,
                     })}
                   </Text>
                 </View>
