@@ -570,6 +570,48 @@ ALTER TABLE tenants
 
 ---
 
+## 12. Global Configuration
+
+### 12.1 App Options & Default Lira Rate ✅
+
+**Priority:** 🔴 High (Lebanon-specific)
+
+**Purpose:** Give the SaaS owner a single, app-wide place to configure cross-tenant settings as key/value pairs, and use it to seed a default Lebanese Pound (LBP) currency on every new tenant. The first managed key is `LiraRate` — the default USD→LBP exchange rate (LBP per 1 USD).
+
+**Schema changes:**
+
+```sql
+-- Global key/value config (NOT tenant-scoped). Service role writes; authenticated reads.
+CREATE TABLE app_options (
+  id          UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  key         TEXT NOT NULL UNIQUE,
+  value       TEXT,
+  description TEXT,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Seeded row (idempotent)
+INSERT INTO app_options (key, value, description)
+VALUES ('LiraRate', '89000', 'Default USD→LBP rate seeded onto each new tenant''s LBP currency')
+ON CONFLICT (key) DO NOTHING;
+```
+
+RLS: `app_options_select` → `SELECT` to `authenticated` only. No write policy — only the service role (SuperAdmin + the `create-tenant` edge function) mutates.
+
+**Implementation:**
+
+- **SuperAdmin:** new **Options** tab + `options` module (repository + service + `optionStore` + `OptionsScreen` + `OptionFormSheet`) with full add/update/delete. The key is immutable after creation (only value + description editable).
+- **SubsTrack:** new **read-only** `options` module (repository + `OptionService` + `optionSlice` + `useOptionSlice`), primed in `primePostAuth`, reset on `logout`. Keys referenced via `OPTION_KEYS`.
+- **Default LBP currency:** both tenant-creation paths (SuperAdmin `TenantService.createTenant` and the public `create-tenant` edge function) auto-seed an `LBP` currency (`decimals 0`, symbol `ل.ل`) with `rate_per_usd` copied from `LiraRate` (fallback `DEFAULT_LIRA_RATE = 89000` if missing/invalid). The seed is a one-time starting value, not a live link — the tenant edits its own LBP rate afterward.
+
+**Notes:**
+
+- The `currencies → tenants` FK cascades on delete, so the existing tenant-creation rollback paths clean up the seeded LBP currency automatically.
+- Extensible: add new global keys (feature flags, support contact, etc.) by inserting more `app_options` rows — no schema change.
+
+---
+
 ## Summary Table
 
 | Feature                      | Priority  | Schema Change                                                         |
@@ -599,3 +641,4 @@ ALTER TABLE tenants
 | Customer self-service portal | 🟢 Low    | No (separate app)                                                     |
 | API access                   | 🟢 Low    | No                                                                    |
 | White-label                  | 🟢 Low    | Minor — theming columns on tenants                                    |
+| App options + default LBP ✅ | 🔴 High   | Yes — new `app_options` table; auto-seeded `LBP` currency per tenant   |

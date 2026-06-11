@@ -59,6 +59,32 @@ INSERT INTO tier_plans (
 ON CONFLICT (code) DO NOTHING;
 
 -- ============================================================
+-- APP OPTIONS
+-- Global key/value config shared across ALL tenants (NOT tenant-scoped).
+-- Managed by the SaaS owner via the SuperAdmin "Options" page (service role).
+-- The SubsTrack mobile app reads these via RLS (authenticated SELECT only);
+-- it never writes. Example: 'LiraRate' = default USD→LBP rate seeded onto
+-- each new tenant's auto-created Lebanese Pound (LBP) currency at signup.
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS app_options (
+    id          UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
+    key         TEXT        NOT NULL UNIQUE,
+    value       TEXT,
+    description TEXT,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Seed default global options. Idempotent via ON CONFLICT — re-runs of the
+-- script preserve any value edited later via SuperAdmin. 'LiraRate' is the
+-- default USD→LBP exchange rate (units of LBP per 1 USD) applied to each new
+-- tenant's auto-created LBP currency.
+INSERT INTO app_options (key, value, description) VALUES
+    ('LiraRate', '89000', 'Default USD→LBP exchange rate (LBP per 1 USD) seeded onto each new tenant''s Lebanese Pound currency.')
+ON CONFLICT (key) DO NOTHING;
+
+-- ============================================================
 -- TENANTS
 -- Managed by the SaaS owner via the SuperAdmin app (service role)
 -- and by new users via the public `create-tenant` Edge Function
@@ -352,6 +378,11 @@ CREATE OR REPLACE TRIGGER trg_branches_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION set_updated_at();
 
+CREATE OR REPLACE TRIGGER trg_app_options_updated_at
+    BEFORE UPDATE ON app_options
+    FOR EACH ROW
+    EXECUTE FUNCTION set_updated_at();
+
 -- ============================================================
 -- PAYMENTS
 -- Append-only audit log. Hard deletes are NEVER performed.
@@ -614,9 +645,10 @@ CREATE INDEX IF NOT EXISTS idx_sales_product
 -- ROW LEVEL SECURITY
 -- ============================================================
 
-ALTER TABLE tenants    ENABLE ROW LEVEL SECURITY;
-ALTER TABLE tier_plans ENABLE ROW LEVEL SECURITY;
-ALTER TABLE currencies ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tenants     ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tier_plans  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE app_options ENABLE ROW LEVEL SECURITY;
+ALTER TABLE currencies  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE branches   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE users      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE plans      ENABLE ROW LEVEL SECURITY;
@@ -750,6 +782,21 @@ DO $$ BEGIN
         CREATE POLICY tier_plans_select ON tier_plans
             FOR SELECT
             TO anon, authenticated
+            USING (TRUE);
+    END IF;
+
+    -- ── APP OPTIONS ──────────────────────────────────────────
+    -- Global config (e.g. LiraRate). Any AUTHENTICATED user may read; no
+    -- write policy exists, so only service_role (which bypasses RLS — used
+    -- by SuperAdmin and the create-tenant Edge Function) can mutate.
+    -- Unlike tier_plans, anon is NOT granted read access here.
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE tablename = 'app_options' AND policyname = 'app_options_select'
+    ) THEN
+        CREATE POLICY app_options_select ON app_options
+            FOR SELECT
+            TO authenticated
             USING (TRUE);
     END IF;
 

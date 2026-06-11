@@ -26,6 +26,7 @@ async function primePostAuth(get: () => GlobalState, user: AuthUser): Promise<vo
     get().currencies.fetchCurrencies(),
     get().branches.fetchBranches(),
     get().subscription.init(user.tenantId),
+    get().options.fetchOptions(),
   ]);
 }
 
@@ -85,6 +86,7 @@ export const createAuthSlice: StateCreator<
       // ignore logout errors — clear state regardless
     }
     get().subscription.reset();
+    get().options.reset();
     set((state) => {
       state.auth.user = null;
       state.auth.tenantActive = true;

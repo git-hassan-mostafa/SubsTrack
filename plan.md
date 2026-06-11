@@ -295,6 +295,14 @@ Every tenant lives on one of three global `tier_plans`. Tier defines hard limits
 
 **Future-proofing:** Stripe integration drops in by adding nullable `stripe_price_id_*` columns to `tier_plans` and `stripe_customer_id` / `stripe_subscription_id` to `tenants`. Only `subscriptionStore.upgrade()`'s implementation changes; the rest of the app already reads from `currentTier` and adapts automatically.
 
+### App Options & Default Lebanese Pound Currency
+
+A single global `app_options` table (key/value, NOT tenant-scoped) holds app-wide configuration the SaaS owner controls. Columns: `key` (unique), `value`, `description`, timestamps. RLS lets any authenticated user read; only the service role writes (SuperAdmin + the `create-tenant` edge function).
+
+The seeded key `LiraRate` is the default USD→LBP exchange rate (LBP per 1 USD). On tenant creation, both paths — SuperAdmin's `TenantService.createTenant` and the public `create-tenant` edge function — auto-create a default `LBP` currency for the new tenant (`decimals 0`, symbol `ل.ل`) seeded with `LiraRate` (fallback 89000 if missing/invalid). The seed is a one-time default; the tenant edits its own LBP rate afterward.
+
+SuperAdmin manages options from a new **Options** page (add / update / delete; the key is immutable after creation). SubsTrack ships a read-only `options` module that primes the options into state at login.
+
 ---
 
 ## Authentication

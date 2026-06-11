@@ -3,6 +3,11 @@ import type { DbTenant, DbTierPlan } from "@/src/core/types/db";
 import { supabaseAdmin } from "@/src/shared/lib/supabaseAdmin";
 import { TenantRepository } from "../repository/TenantRepository";
 
+// Fallback USD→LBP rate (LBP per 1 USD) used only when the global
+// app_options.LiraRate row is missing or invalid. A misconfigured option
+// must never block tenant creation.
+const DEFAULT_LIRA_RATE = 89000;
+
 function mapDbTierPlanToTierPlan(db: DbTierPlan): TierPlan {
   return {
     id: db.id,
@@ -20,6 +25,7 @@ function mapDbTierPlanToTierPlan(db: DbTierPlan): TierPlan {
     priceMonthlyUsd: Number(db.price_monthly_usd),
     priceYearlyUsd: db.price_yearly_usd === null ? null : Number(db.price_yearly_usd),
     active: db.active,
+    maxProducts: db.max_products,
   };
 }
 
@@ -81,6 +87,12 @@ export class TenantService {
 
     try {
       await this.repository.createDefaultBranch(tenant.id);
+      // Seed the tenant's default Lebanese Pound (LBP) currency from the
+      // global LiraRate option. currencies → tenants FK cascades on delete,
+      // so the rollback below cleans this up alongside the branch.
+      const liraRate =
+        (await this.repository.getLiraRate()) ?? DEFAULT_LIRA_RATE;
+      await this.repository.createLbpCurrency(tenant.id, liraRate);
     } catch (e) {
       await this.repository.delete(tenant.id).catch(() => null);
       throw e;

@@ -27,6 +27,11 @@ const corsHeaders = {
 const TENANT_CODE_REGEX = /^[a-z0-9]+$/;
 const USERNAME_REGEX = /^[a-z0-9._]+$/;
 
+// Fallback USD→LBP rate (LBP per 1 USD) used only if the global
+// app_options.LiraRate row is missing or invalid. A misconfigured option
+// must never block tenant signup.
+const DEFAULT_LIRA_RATE = 89000;
+
 function jsonResponse(body: unknown, status: number) {
   return new Response(JSON.stringify(body), {
     status,
@@ -92,6 +97,19 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Free tier is not configured" }, 500);
     }
 
+    // ---- read the global default LBP rate (seeded in app_options) ----
+    // Done before any tenant rows exist so a missing/invalid value can fall
+    // back to DEFAULT_LIRA_RATE without any rollback cost. Never blocks signup.
+    const { data: liraOption } = await serviceClient
+      .from("app_options")
+      .select("value")
+      .eq("key", "LiraRate")
+      .maybeSingle();
+    const parsedLiraRate = liraOption ? Number(liraOption.value) : NaN;
+    const liraRate = Number.isFinite(parsedLiraRate) && parsedLiraRate > 0
+      ? parsedLiraRate
+      : DEFAULT_LIRA_RATE;
+
     const { data: tenantRow, error: tenantErr } = await serviceClient
       .from("tenants")
       .insert({ name, tenant_code: tenantCode, tier_id: freeTier.id })
@@ -146,6 +164,22 @@ Deno.serve(async (req) => {
         branch_id: null,
       });
     if (profileErr) throw new Error(profileErr.message);
+
+    // ---- 5. seed the tenant's default Lebanese Pound (LBP) currency ----
+    // Rate comes from the global app_options.LiraRate (read above). The
+    // currencies → tenants FK cascades on tenant delete, so the catch-block
+    // rollback (which deletes the tenant) cleans this up automatically.
+    const { error: currencyErr } = await serviceClient
+      .from("currencies")
+      .insert({
+        tenant_id: createdTenantId,
+        code: "LBP",
+        name: "Lebanese Pound",
+        symbol: "ل.ل",
+        rate_per_usd: liraRate,
+        decimals: 0,
+      });
+    if (currencyErr) throw new Error(currencyErr.message);
 
     return jsonResponse(
       { tenantId: createdTenantId, tenantCode },

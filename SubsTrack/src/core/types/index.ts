@@ -232,3 +232,15 @@ export interface Sale {
   product?: Product | null;
   customer?: Customer | null;
 }
+
+// Global app-wide key/value config (NOT tenant-scoped). Managed by the SaaS
+// owner in the SuperAdmin "Options" page; READ-ONLY in SubsTrack.
+// e.g. key 'LiraRate' = default USD→LBP rate seeded onto new tenants.
+export interface AppOption {
+  id: string;
+  key: string;
+  value: string | null;
+  description: string | null;
+  createdAt: string;
+  updatedAt: string;
+}

@@ -158,3 +158,12 @@ export interface DbSale {
   products?: DbProduct | null;
   customers?: DbCustomer | null;
 }
+
+export interface DbAppOption {
+  id: string;
+  key: string;
+  value: string | null;
+  description: string | null;
+  created_at: string;
+  updated_at: string;
+}

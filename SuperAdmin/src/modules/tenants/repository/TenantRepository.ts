@@ -58,4 +58,31 @@ export class TenantRepository extends BaseRepository {
       .insert({ tenant_id: tenantId, name: "Default Branch" });
     if (error) this.handleError(error);
   }
+
+  // Reads the global default USD→LBP rate from app_options. Returns null when
+  // the row is missing or holds an invalid (non-positive) value so the caller
+  // can fall back to a default — a misconfigured option must not block signup.
+  async getLiraRate(): Promise<number | null> {
+    const { data, error } = await this.db
+      .from("app_options")
+      .select("value")
+      .eq("key", "LiraRate")
+      .maybeSingle();
+    if (error) this.handleError(error);
+    if (!data) return null;
+    const rate = Number((data as { value: string | null }).value);
+    return Number.isFinite(rate) && rate > 0 ? rate : null;
+  }
+
+  async createLbpCurrency(tenantId: string, ratePerUsd: number): Promise<void> {
+    const { error } = await this.db.from("currencies").insert({
+      tenant_id: tenantId,
+      code: "LBP",
+      name: "Lebanese Pound",
+      symbol: "ل.ل",
+      rate_per_usd: ratePerUsd,
+      decimals: 0,
+    });
+    if (error) this.handleError(error);
+  }
 }

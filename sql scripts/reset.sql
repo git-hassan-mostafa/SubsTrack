@@ -10,6 +10,7 @@ DROP TRIGGER IF EXISTS trg_customers_updated_at  ON customers;
 DROP TRIGGER IF EXISTS trg_currencies_updated_at ON currencies;
 DROP TRIGGER IF EXISTS trg_branches_updated_at   ON branches;
 DROP TRIGGER IF EXISTS trg_products_updated_at   ON products;
+DROP TRIGGER IF EXISTS trg_app_options_updated_at ON app_options;
 
 -- ── RLS POLICIES ─────────────────────────────────────────────
 DROP POLICY IF EXISTS sales_all         ON sales;
@@ -26,6 +27,7 @@ DROP POLICY IF EXISTS users_update      ON users;
 DROP POLICY IF EXISTS users_insert      ON users;
 DROP POLICY IF EXISTS users_select      ON users;
 DROP POLICY IF EXISTS tier_plans_select ON tier_plans;
+DROP POLICY IF EXISTS app_options_select ON app_options;
 DROP POLICY IF EXISTS tenants_select    ON tenants;
 DROP POLICY IF EXISTS tenants_update    ON tenants;
 
@@ -38,8 +40,9 @@ DROP TABLE IF EXISTS plans      CASCADE;
 DROP TABLE IF EXISTS users      CASCADE;
 DROP TABLE IF EXISTS branches   CASCADE;
 DROP TABLE IF EXISTS currencies CASCADE;
-DROP TABLE IF EXISTS tenants    CASCADE;
-DROP TABLE IF EXISTS tier_plans CASCADE;
+DROP TABLE IF EXISTS tenants     CASCADE;
+DROP TABLE IF EXISTS tier_plans  CASCADE;
+DROP TABLE IF EXISTS app_options CASCADE;
 
 -- ── FUNCTIONS ────────────────────────────────────────────────
 DROP FUNCTION IF EXISTS public.custom_access_token_hook(jsonb);

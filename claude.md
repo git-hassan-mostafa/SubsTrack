@@ -172,7 +172,7 @@ SubsTrack/
 │   │   ├── globalStore.ts         # GlobalState + getStore() singleton (stashed on globalThis)
 │   │   ├── hooks/
 │   │   │   ├── useGlobalStore.ts  # Overloaded wrapper around useStore(getStore(), sel)
-│   │   │   └── use<Feature>Slice.ts × 10  # Per-slice overloaded hooks (e.g. useCustomerSlice, useGraceDays exported from useSubscriptionSlice)
+│   │   │   └── use<Feature>Slice.ts × 11  # Per-slice overloaded hooks (e.g. useCustomerSlice, useOptionSlice, useGraceDays exported from useSubscriptionSlice)
 │   │   └── slices/
 │   │       ├── auth/authSlice.ts
 │   │       ├── subscription/subscriptionSlice.ts
@@ -185,7 +185,8 @@ SubsTrack/
 │   │       ├── currencies/currencySlice.ts
 │   │       ├── signup/signupSlice.ts
 │   │       ├── products/productSlice.ts
-│   │       └── sales/saleSlice.ts
+│   │       ├── sales/saleSlice.ts
+│   │       └── options/optionSlice.ts
 │   │
 │   ├── modules/                   # Feature modules (state moved out — see src/state/)
 │   │   ├── auth/
@@ -263,6 +264,10 @@ SubsTrack/
 │   │   │   ├── screens/SalesListScreen.tsx     # bottom-tab at app/(app)/(tabs)/sales/index.tsx
 │   │   │   └── components/{SaleCard, SaleFormSheet, SaleDetailSheet, CustomerSalesPanel}.tsx
 │   │   │
+│   │   ├── options/                             # Read-only global app config (key/value)
+│   │   │   ├── repository/OptionRepository.ts  # findAll + findByKey (authenticated SELECT only)
+│   │   │   └── services/OptionService.ts        # getOptions, getOptionValue, OPTION_KEYS
+│   │   │
 │   │   └── settings/
 │   │       └── screens/SettingsScreen.tsx
 │   │
@@ -304,13 +309,15 @@ SuperAdmin/
 │   └── (tabs)/
 │       ├── index.tsx          # Tenants list
 │       ├── tier-plans.tsx     # Global Free / Pro / Business tier editor
+│       ├── options.tsx        # Global app options (key/value) editor — add/update/delete
 │       └── _layout.tsx
 └── src/
     ├── core/types/{index,db}.ts
     ├── core/utils/BaseRepository.ts
     ├── modules/
     │   ├── tenants/{repository,services,store,screens,components}
-    │   └── tier-plans/{repository,services,store,screens,components}  # SaaS owner edits the global tier catalog
+    │   ├── tier-plans/{repository,services,store,screens,components}  # SaaS owner edits the global tier catalog
+    │   └── options/{repository,services,store,screens,components}     # global app_options key/value CRUD (e.g. LiraRate)
     └── shared/
         ├── components/{Button,Input,ErrorBanner,LoadingScreen,EmptyState,ConfirmDialog}
         └── lib/supabaseAdmin.ts   # Uses SERVICE_ROLE_KEY (bypasses RLS — full DB access)
@@ -506,6 +513,7 @@ interface DashboardMetrics {
 | ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `tenants`    | `id`, `name`, `tenant_code`, `active`, `tier_id`, `tier_upgraded_at`                                                                                                                                                                                    |
 | `tier_plans` | `id`, `code`, `name`, `sort_order`, `max_customers`, `max_users`, `max_plans`, `max_branches`, `max_currencies`, `multi_currency_enabled`, `multi_month_plans_enabled`, `grace_days`, `price_monthly_usd`, `price_yearly_usd`, `active`                 |
+| `app_options`| `id`, `key` (unique), `value`, `description`, `created_at`, `updated_at` — **global** app-wide key/value config (e.g. `LiraRate`); NOT tenant-scoped. SuperAdmin writes (service role); SubsTrack reads (authenticated SELECT only)                      |
 | `currencies` | `id`, `tenant_id`, `code`, `name`, `symbol`, `rate_per_usd`, `decimals`, `active`                                                                                                                                                                       |
 | `branches`   | `id`, `tenant_id`, `name`, `active`                                                                                                                                                                                                                     |
 | `users`      | `id` (= auth.users.id), `username`, `full_name`, `phone_number`, `role`, `active`, `tenant_id`, `branch_id`                                                                                                                                             |
@@ -589,6 +597,7 @@ LoginScreen
   → primePostAuth(user) — Promise.all of:
        get().currencies.fetchCurrencies()
        get().branches.fetchBranches()
+       get().options.fetchOptions()         (loads global app_options — e.g. LiraRate)
        get().subscription.init(tenantId)
          → tierService.fetchTiers() (3 tier_plans rows)
          → tierService.fetchUsage() (counts customers/users/plans/branches/currencies)
@@ -696,6 +705,16 @@ paymentSnapshotCurrency(payment, currencies): Currency | null  // returns the so
 
 **Currency deletion** is safety-guarded: `CurrencyService.deleteCurrency()` counts references in `plans` + `payments`. If non-zero, it does a soft-delete (sets `active = false`); otherwise it hard-deletes. `ON DELETE RESTRICT` on the FKs prevents any chance of orphaning historical data.
 
+**Default Lebanese Pound currency.** Every newly created tenant is auto-seeded with an `LBP` (Lebanese Pound) currency (`decimals = 0`, `symbol = 'ل.ل'`). Its `rate_per_usd` is copied **once, at creation time**, from the global `app_options.LiraRate` option (see **App Options** below). After creation it is an ordinary editable tenant currency — the seed is a starting default, not a live link. Both tenant-creation paths seed it: SuperAdmin's `TenantService.createTenant` (via `TenantRepository.getLiraRate` + `createLbpCurrency`) and the public `create-tenant` edge function. A missing/invalid `LiraRate` never blocks signup — both paths fall back to `DEFAULT_LIRA_RATE = 89000`.
+
+## App Options (Global Config)
+
+`app_options` is a **global, app-wide** key/value table (NOT tenant-scoped — no `tenant_id`). Columns: `id`, `key` (unique), `value` (text), `description`, timestamps. It holds cross-tenant configuration the SaaS owner controls. The seeded row today is `LiraRate` — the default USD→LBP rate (LBP per 1 USD) used when seeding each new tenant's LBP currency.
+
+- **RLS:** `app_options_select` grants `SELECT` to `authenticated` only (anon has no access, unlike `tier_plans`). There is **no** write policy, so only the **service role** (SuperAdmin app + the `create-tenant` edge function) can insert/update/delete — RLS bypass is the write path.
+- **SuperAdmin** owns full CRUD via the **Options** tab ([app/(tabs)/options.tsx](<SuperAdmin/app/(tabs)/options.tsx>) → `OptionsScreen`). The `options` module mirrors `tier-plans` (repository + service + standalone `optionStore` + screen + `OptionFormSheet`) but adds create + delete. The option **key is immutable after creation** (only `value` + `description` are editable), so well-known keys like `LiraRate` can't be renamed out from under the code that reads them.
+- **SubsTrack** has a **read-only** `options` module (repository `findAll`/`findByKey` + `OptionService.getOptions`/`getOptionValue` + `optionSlice` + `useOptionSlice`). It never writes. Options are primed into state on login/restore via `primePostAuth` (alongside currencies/branches) and cleared on `logout`. Reference keys through `OPTION_KEYS` (e.g. `OPTION_KEYS.liraRate`), never magic strings.
+
 ## Subscription Tiers
 
 Every tenant lives on one of three global `tier_plans` rows: **Free**, **Pro**, **Business**. The catalog is small and fixed (3 rows seeded by `script.sql`, editable by the SaaS owner via SuperAdmin's tier-plans module). Each tier defines numeric limits (`max_customers`, `max_users`, `max_plans`, `max_branches`, `max_currencies` — NULL means unlimited), feature flags (`multi_currency_enabled`, `multi_month_plans_enabled`), `grace_days` (drives the month grid), and a USD monthly price.
@@ -745,7 +764,7 @@ createCustomer: async (data, tenantId, tier, usage) => {
 
 Components read `currentTier` and `usage` from `useSubscriptionSlice` and forward them into the action.
 
-**Hydration:** `authSlice` exports an internal `primePostAuth(get, user)` helper called by `login` and `restoreSession`. It runs `get().currencies.fetchCurrencies()`, `get().branches.fetchBranches()`, and `get().subscription.init(tenantId)` in parallel via `Promise.all`. `subscription.init` is the **source of truth** for the active tier: it concurrently fetches the tier catalog, the tenant's usage, and the tenant row with its joined tier (`tierService.getTenantWithTier`), then writes the resolved tier back to `auth.user.tenant.tier` via `authSlice.setUserTier` so the auth slice stays in sync. This is why a tier upgrade made in a previous session is reflected immediately on app restart — the subscription slice never trusts a parameter-passed tier; it always re-queries the DB.
+**Hydration:** `authSlice` exports an internal `primePostAuth(get, user)` helper called by `login` and `restoreSession`. It runs `get().currencies.fetchCurrencies()`, `get().branches.fetchBranches()`, `get().options.fetchOptions()`, and `get().subscription.init(tenantId)` in parallel via `Promise.all`. `subscription.init` is the **source of truth** for the active tier: it concurrently fetches the tier catalog, the tenant's usage, and the tenant row with its joined tier (`tierService.getTenantWithTier`), then writes the resolved tier back to `auth.user.tenant.tier` via `authSlice.setUserTier` so the auth slice stays in sync. This is why a tier upgrade made in a previous session is reflected immediately on app restart — the subscription slice never trusts a parameter-passed tier; it always re-queries the DB.
 
 **Upgrade UX:** dedicated screen at [SubscriptionScreen.tsx](SubsTrack/src/modules/subscription/screens/SubscriptionScreen.tsx) (routed at `/(app)/(tabs)/admin/subscription`). Shows 3 stacked TierCards with usage bars for the current tier and Upgrade/Downgrade buttons for the others. Upgrades are instant swaps via `subscriptionSlice.upgrade(tenantId, tierId)` — no billing wired up yet. Downgrades call `TierService.canDowngradeTo(targetTier, usage)` first; if usage exceeds the target tier's limits the dialog lists blockers ("42 / 30 customers") and refuses to swap. The `UpgradePromptModal` is also triggered inline whenever a form sheet hits a `TierLimitError`. The "Subscription" entry in the admin menu ([admin/index.tsx](<SubsTrack/app/(app)/(tabs)/admin/index.tsx>)) is rendered only for tenant-wide admins (`user.branchId === null`) — branch-scoped admins don't see it.
 
@@ -1018,6 +1037,8 @@ Located at `SubsTrack/supabase/functions/create-user/index.ts` (Deno runtime).
 36. **`paymentSnapshotCurrency()` works on any row with `currencyId` + `ratePerUsdSnapshot`** — despite the name, the helper in `src/core/utils/currency.ts` is shape-based, not payment-specific. Reuse it for sales (`SaleCard`, `SaleDetailSheet`) so historical USD-equivalent values stay drift-free when a tenant edits the live `currencies.rate_per_usd`. If you later add another snapshot-bearing entity (refunds, deposits), reuse it again rather than copying the pattern.
 
 37. **`AsyncEntityPicker` replaces `Dropdown` only when the option list is too large to fit in memory** — `Dropdown` does client-side filtering against a pre-loaded options array (perfect for branches, currencies, plans). `AsyncEntityPicker` accepts a `loadPage(search, page)` callback, debounces input via `useDebounce` (300 ms), paginates via `FlatList.onEndReached`, and discards stale responses via a `requestToken` ref (same pattern as `customerSlice.searchToken`). Reach for it for customers (used in `SaleFormSheet`) and any future large-entity picker. Don't migrate small static-list dropdowns — `Dropdown` is fine there.
+
+38. **`app_options` is global config + seeds the default LBP currency** — `app_options` is a single app-wide key/value table (no `tenant_id`), managed by the SaaS owner from SuperAdmin's **Options** tab (full CRUD, service-role writes) and read-only in SubsTrack (`options` module + `optionSlice`, primed in `primePostAuth`, reset on `logout`; RLS = authenticated `SELECT` only). The `LiraRate` row holds the default USD→LBP rate. On tenant creation BOTH paths — SuperAdmin `TenantService.createTenant` and the public `create-tenant` edge function — auto-seed an `LBP` currency (`decimals 0`, symbol `ل.ل`) whose `rate_per_usd` is copied from `LiraRate` (falling back to `DEFAULT_LIRA_RATE = 89000` when missing/invalid, so a bad option never blocks signup). The seed is a one-time starting value, not a live link — the tenant edits its own LBP rate afterward. Option keys are immutable after creation; reference them via `OPTION_KEYS`.
 
 ---
 

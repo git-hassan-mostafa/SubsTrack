@@ -14,6 +14,7 @@ import { createSignupSlice, type SignupSlice } from './slices/signup/signupSlice
 import { createConfirmSlice, type ConfirmSlice } from './slices/confirm/confirmSlice';
 import { createProductSlice, type ProductSlice } from './slices/products/productSlice';
 import { createSaleSlice, type SaleSlice } from './slices/sales/saleSlice';
+import { createOptionSlice, type OptionSlice } from './slices/options/optionSlice';
 
 export interface GlobalState {
   auth: AuthSlice;
@@ -29,6 +30,7 @@ export interface GlobalState {
   confirm: ConfirmSlice;
   products: ProductSlice;
   sales: SaleSlice;
+  options: OptionSlice;
 }
 
 const STORE_KEY = '__SUBSTRACK_GLOBAL_STORE__';
@@ -49,6 +51,7 @@ const initStore = (): StoreApi<GlobalState> =>
       confirm: createConfirmSlice(set, get, store),
       products: createProductSlice(set, get, store),
       sales: createSaleSlice(set, get, store),
+      options: createOptionSlice(set, get, store),
     })),
   );
 
