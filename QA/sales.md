@@ -129,18 +129,43 @@ Covers the one-off sales ledger: recording a sale against an optional customer, 
 
 ## 5. Customer sales panel (CustomerSalesPanel)
 
-Displayed in the customer detail screen as a tab or panel alongside the payment grid.
+Displayed at the **bottom** of the customer detail screen, below the payment grid and the details card. Shows a 5-sale preview with a "Show all" link to the full per-customer sales page.
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 5.1 | Panel visible | Open a customer with sales | Sales panel / tab visible in customer detail |
-| 5.2 | Empty panel | Customer has no sales | "No sales" empty state in panel |
+| 5.1 | Panel position | Open a customer detail | Sales panel is the LAST section, after the payment grid + details card |
+| 5.2 | Empty panel | Customer has no sales | "No sales" empty state in panel; no "Show all" link |
 | 5.3 | Sale card in panel | Look at a sale entry | Product name snapshot, amount in stored currency, date |
 | 5.4 | Tap a sale in panel | Tap | SaleDetailSheet opens (same receipt as from Sales tab) |
 | 5.5 | Walk-in sales excluded | Customer panel | Only sales linked to THIS customer; walk-ins (customer_id = null) do NOT appear |
 | 5.6 | Voided sales excluded | Panel | Voided sales not shown |
-| 5.7 | Snapshot rate in panel total | Panel shows year or total amount | Converted via `rate_per_usd_snapshot` (not live rate) |
+| 5.7 | Snapshot rate in panel total | Panel shows amount | Converted via `rate_per_usd_snapshot` (not live rate) |
 | 5.8 | Panel updates after void | Void a sale via receipt | Panel refreshes, sale disappears |
+| 5.9 | Preview cap = 5 | Customer with ≤5 sales | All sales shown; NO "Show all" link |
+| 5.10 | "Show all" link appears | Customer with >5 sales | Only 5 shown + "Show all" link below them |
+| 5.11 | Record from panel | Tap "Record Sale" | Form opens pre-filled with this customer; on save the preview refreshes |
+| 5.12 | Refresh on focus | Record/void a sale on the full page, navigate back | Panel reflects the change without a manual pull-to-refresh |
+
+---
+
+## 5b. Full per-customer sales page (CustomerSalesListScreen)
+
+Reached via the panel's "Show all" link. Route: `customers/[id]/sales`. Mirrors the Sales tab but locked to one customer (no customer filter).
+
+| # | Scenario | Steps | Expected result |
+|---|----------|-------|-----------------|
+| 5b.1 | Open full list | Tap "Show all" on a customer with >5 sales | Full-screen list titled "Sales" with the customer name as subtitle + back button |
+| 5b.2 | Customer-scoped only | Inspect rows | Every row belongs to THIS customer; no other customers' sales, no walk-ins |
+| 5b.3 | All sales regardless of branch | Tenant-wide admin with a branch filter active | Page shows ALL of the customer's sales — branch filter is NOT applied here |
+| 5b.4 | Infinite scroll | Customer with >30 (PAGE_SIZE) sales | Scrolling to the end loads the next page |
+| 5b.5 | Search | Type a product name in the search box | List filters to matching sales for this customer (debounced) |
+| 5b.6 | Pull to refresh | Pull down | List re-fetches page 0 |
+| 5b.7 | Record FAB | Tap the + FAB | SaleFormSheet opens pre-filled with this customer; on save the list refreshes |
+| 5b.8 | Tap a sale | Tap a row | SaleDetailSheet (receipt) opens |
+| 5b.9 | Void from full page | Void via the receipt | Sale disappears from the list after refresh |
+| 5b.10 | Empty + search | Search a term with no matches | Empty state shown; the "Record Sale" action is hidden while searching |
+| 5b.11 | No Sales-tab collision | Set a customer filter on the Sales tab, open a different customer's full page, return to Sales tab | The Sales tab still shows its own filter/list — unchanged by the per-customer page |
+| 5b.12 | RTL | Arabic language | Header, search box, list, FAB, and the panel "Show all" chevron all mirror correctly |
 
 ---
 

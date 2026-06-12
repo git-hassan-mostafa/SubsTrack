@@ -1,9 +1,11 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { useTranslation } from "react-i18next";
+import { useRouter, type Href } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/src/shared/components/Text";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
+import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
 import { COLORS } from "@/src/shared/constants";
 import type { Customer, Sale } from "@/src/core/types";
 import saleService from "../services/SaleService";
@@ -11,33 +13,48 @@ import { SaleCard } from "./SaleCard";
 import { SaleFormSheet } from "./SaleFormSheet";
 import { SaleDetailSheet } from "./SaleDetailSheet";
 import { useAuth } from "@/src/modules/auth/hooks/useAuth";
+import { useSaleSlice } from "@/src/state/hooks/useSaleSlice";
+
+const PREVIEW_LIMIT = 5;
 
 interface Props {
   customer: Customer;
 }
 
-// Renders below CustomerPaymentPanel on the customer detail screen.
-// Lists the most recent sales for this customer, with a button to record a new one.
-// Reads independently from saleSlice so the customer-scoped view never collides
-// with the global Sales tab's list state.
+// Renders at the bottom of the customer detail screen. Shows a short preview
+// (PREVIEW_LIMIT) of the customer's most recent sales with a "Show all" link to
+// the full customer-scoped sales page. Reads independently from saleSlice so the
+// customer-scoped view never collides with the global Sales tab's list state.
 export function CustomerSalesPanel({ customer }: Props) {
   const { t } = useTranslation();
   const { user } = useAuth();
+  const router = useRouter();
+  // Void via the canonical global slice action so the voided sale also drops
+  // out of the Sales tab's cached list, not just this preview.
+  const voidSaleGlobal = useSaleSlice((s) => s.voidSale);
   const [sales, setSales] = useState<Sale[]>([]);
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
   const [activeSale, setActiveSale] = useState<Sale | null>(null);
   const [voidLoading, setVoidLoading] = useState(false);
+  // Discards out-of-order responses if focus fires refresh while one is in flight.
+  const tokenRef = useRef(0);
 
-  async function refresh() {
+  const refresh = useCallback(async () => {
+    const token = ++tokenRef.current;
     setLoading(true);
     try {
-      const items = await saleService.getSalesForCustomer(customer.id);
+      // Fetch one past the preview limit so we know whether to show "Show all".
+      const items = await saleService.getSalesForCustomer(
+        customer.id,
+        PREVIEW_LIMIT + 1,
+      );
+      if (tokenRef.current !== token) return;
       setSales(items);
     } finally {
-      setLoading(false);
+      if (tokenRef.current === token) setLoading(false);
     }
-  }
+  }, [customer.id]);
 
   useEffect(() => {
     refresh();
@@ -48,13 +65,23 @@ export function CustomerSalesPanel({ customer }: Props) {
     if (!activeSale || !user) return;
     setVoidLoading(true);
     try {
-      await saleService.voidSale(activeSale.id, user.id, reason);
+      await voidSaleGlobal(activeSale.id, user.id, reason);
       setActiveSale(null);
       await refresh();
     } finally {
       setVoidLoading(false);
     }
   }
+
+  function openAll() {
+    // Cast: the nested /customers/[id]/sales route is not yet in the (stale)
+    // generated router types; Expo regenerates them on the next dev-server run.
+    // Matches the existing `"..." as Href` convention used for newer routes.
+    router.push(`/(app)/(tabs)/customers/${customer.id}/sales` as Href);
+  }
+
+  const preview = sales.slice(0, PREVIEW_LIMIT);
+  const hasMore = sales.length > PREVIEW_LIMIT;
 
   return (
     <View className="px-4 mt-4">
@@ -84,9 +111,26 @@ export function CustomerSalesPanel({ customer }: Props) {
           </Text>
         </View>
       ) : (
-        sales.map((sale) => (
-          <SaleCard key={sale.id} sale={sale} onPress={setActiveSale} />
-        ))
+        <>
+          {preview.map((sale) => (
+            <SaleCard key={sale.id} sale={sale} onPress={setActiveSale} />
+          ))}
+          {hasMore ? (
+            <PressableOpacity
+              onPress={openAll}
+              className="flex-row items-center justify-center py-3"
+            >
+              <Text className="text-sm font-semibold text-primary me-1">
+                {t("sales.show_all")}
+              </Text>
+              <DirectionalIcon
+                name="chevron-forward"
+                size={16}
+                color={COLORS.primary}
+              />
+            </PressableOpacity>
+          ) : null}
+        </>
       )}
 
       {formOpen && (

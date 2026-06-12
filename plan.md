@@ -545,7 +545,7 @@ One-off sellable items distinct from subscription plans. Routers sold outright, 
 **Entry points:**
 
 - New "Sales" bottom tab — recent sales list + record-sale FAB. Customer picker uses the reusable `AsyncEntityPicker` (paginated, server-side search).
-- `CustomerSalesPanel` rendered under the month grid on the customer detail screen — pre-fills the customer when launching the form.
+- `CustomerSalesPanel` rendered at the **bottom** of the customer detail screen (below the month grid and details card) — pre-fills the customer when launching the form. It shows only a 5-sale preview; a "Show all" link opens `CustomerSalesListScreen` (route `customers/[id]/sales`), a full per-customer sales page that mirrors the Sales tab (search + infinite scroll + record FAB + void) but is locked to one customer and shows all their sales regardless of branch view.
 - "Products" entry in the admin menu — catalog CRUD admin screen.
 
 ---

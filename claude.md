@@ -147,7 +147,9 @@ SubsTrack/
 │           │   └── index.tsx          # Admin menu (manage section)
 │           ├── customers/
 │           │   ├── index.tsx      # Customer list
-│           │   └── [id].tsx       # Customer detail + payment grid + sales panel
+│           │   └── [id]/
+│           │       ├── index.tsx  # Customer detail + payment grid + sales panel
+│           │       └── sales.tsx  # All sales for one customer (full paginated list)
 │           ├── sales/
 │           │   └── index.tsx      # Sales tab — recent sales list + record-sale FAB
 │           └── settings/
@@ -261,7 +263,9 @@ SubsTrack/
 │   │   ├── sales/                               # One-off sale ledger (separate from subscription payments)
 │   │   │   ├── repository/SaleRepository.ts    # paginated findAll w/ search, findByCustomer, voidSale, totalsForMonth (drift-free USD)
 │   │   │   ├── services/SaleService.ts         # createSale snapshots productName + unitAmount + ratePerUsd; voidSale; sumForMonthUsd
-│   │   │   ├── screens/SalesListScreen.tsx     # bottom-tab at app/(app)/(tabs)/sales/index.tsx
+│   │   │   ├── hooks/useCustomerSalesList.ts    # paginated customer-scoped sales-list state, independent of saleSlice (avoids Sales-tab collision)
+│   │   │   ├── screens/SalesListScreen.tsx          # bottom-tab at app/(app)/(tabs)/sales/index.tsx
+│   │   │   ├── screens/CustomerSalesListScreen.tsx  # full per-customer sales list at customers/[id]/sales
 │   │   │   └── components/{SaleCard, SaleFormSheet, SaleDetailSheet, CustomerSalesPanel}.tsx
 │   │   │
 │   │   ├── options/                             # Read-only global app config (key/value)
@@ -797,6 +801,8 @@ Components read `currentTier` and `usage` from `useSubscriptionSlice` and forwar
 - `sales.branch_id`: same as `customers` — `NULL` only when a tenant-wide admin records a walk-in without picking a branch. RLS scopes branch-scoped users to their own branch.
 
 **`AsyncEntityPicker`** ([src/shared/components/AsyncEntityPicker.tsx](SubsTrack/src/shared/components/AsyncEntityPicker.tsx)) is the reusable customer picker built for `SaleFormSheet`. Generic over `<T>`; the caller passes a `loadPage(search, page)` callback. Reuses `SearchTextBox`, `useDebounce` (300 ms), and a `requestToken` ref to discard stale responses when the user types fast (same pattern as `customerSlice.searchToken`). Use it any time the option list is too large to fit in memory — small static lists keep using `Dropdown`.
+
+**Customer sales surfaces:** the customer detail screen renders `CustomerSalesPanel` at the **bottom** (below the payment grid + details card). The panel shows only a **5-sale preview**; when the customer has more it renders a "Show all" link to a dedicated full-page list (`CustomerSalesListScreen` at `customers/[id]/sales`) that mirrors the Sales tab (search + infinite scroll + record FAB + void) but is locked to one customer. Both surfaces keep their **list reads** independent of the global `sales` slice — the panel via `saleService.getSalesForCustomer` (with a stale-response token guard), the full page via the `useCustomerSalesList` hook — so neither clobbers the Sales tab's filter/search/list state. **Mutations, however, route through the global slice** so the Sales tab cache stays coherent: creates go through `SaleFormSheet` → `saleSlice.createSale` (unshift), and voids go through `saleSlice.voidSale` (drops the row from `sales.items`); each surface then refreshes its own local list. The panel additionally refreshes on focus (`useFocusEffect`) so changes made on the full page reflect on return. Neither surface applies a branch filter: they show **all** of the customer's sales regardless of the admin's current branch view.
 
 **Dashboard:** `DashboardService.getMetrics()` parallel-fetches `sales.totalsForMonth(monthStart, monthEndExclusive, branchFilter)` alongside the existing payment queries. The Revenue card on the home dashboard shows `monthlyRevenue = subscriptionRevenue + salesRevenue`, with a sub-line "Subscriptions: $X · Sales: $Y" rendered when `salesRevenue > 0`. All values are summed in USD via each row's frozen `rate_per_usd_snapshot`, then formatted into the user's display currency at render.
 
