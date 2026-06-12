@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
-import { KeyboardAvoidingView, Modal, Platform, ScrollView, View } from "react-native";
+import { Modal, View } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
@@ -276,14 +277,11 @@ export function PaymentFormSheet({
           </PressableOpacity>
         </View>
 
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          className="flex-1"
-        >
-        <ScrollView
+        <KeyboardAwareScrollView
           className="flex-1 px-6 pt-5"
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ paddingBottom: 48 }}
+          bottomOffset={24}
         >
           {error ? (
             <ErrorBanner message={error} onDismiss={clearError} />
@@ -542,8 +540,7 @@ export function PaymentFormSheet({
             {t("payments.receipt_id_hint")}
           </Text>
           <View className="h-4" />
-        </ScrollView>
-        </KeyboardAvoidingView>
+        </KeyboardAwareScrollView>
       </SafeAreaView>
       <UpgradePromptModal
         payload={tierLimitError}

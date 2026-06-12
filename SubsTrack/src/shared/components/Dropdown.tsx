@@ -1,13 +1,6 @@
 import { useState } from "react";
-import {
-  FlatList,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  TextInput,
-  View,
-} from "react-native";
+import { FlatList, Modal, Pressable, View } from "react-native";
+import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { PressableOpacity } from "./PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { useTranslation } from "react-i18next";
@@ -158,10 +151,7 @@ export function DropdownModal<T extends string | number | null = string>({
       animationType="fade"
       onRequestClose={handleClose}
     >
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={{ flex: 1 }}
-      >
+      <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
         <Pressable
           className="flex-1 bg-black/40 items-center justify-center px-6"
           onPress={handleClose}

@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { KeyboardAvoidingView, Modal, Platform, ScrollView, View } from "react-native";
+import { Modal, View } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
@@ -91,14 +92,11 @@ export function SaleDetailSheet({
           </PressableOpacity>
         </View>
 
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          className="flex-1"
-        >
-        <ScrollView
+        <KeyboardAwareScrollView
           className="flex-1 px-6 pt-5"
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ paddingBottom: 48 }}
+          bottomOffset={24}
         >
           {/* Hero card */}
           {voided ? (
@@ -229,8 +227,7 @@ export function SaleDetailSheet({
           ) : null}
 
           <View className="h-8" />
-        </ScrollView>
-        </KeyboardAvoidingView>
+        </KeyboardAwareScrollView>
       </SafeAreaView>
     </Modal>
   );

@@ -12,6 +12,7 @@ import { StatusBar } from "expo-status-bar";
 import * as Font from "expo-font";
 import { useEffect, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
+import { KeyboardProvider } from "react-native-keyboard-controller";
 import "../global.css";
 import { enableMapSet } from "immer";
 
@@ -79,10 +80,12 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <StatusBar style="dark" backgroundColor="white" />
-      <ErrorBoundary>
-        <Slot />
-      </ErrorBoundary>
+      <KeyboardProvider>
+        <StatusBar style="dark" backgroundColor="white" />
+        <ErrorBoundary>
+          <Slot />
+        </ErrorBoundary>
+      </KeyboardProvider>
     </GestureHandlerRootView>
   );
 }

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { KeyboardAvoidingView, Modal, Platform, ScrollView, View } from "react-native";
+import { Modal, View } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { useTranslation } from "react-i18next";
@@ -115,14 +116,11 @@ export function CurrencyFormSheet({
           </PressableOpacity>
         </View>
 
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-          className="flex-1"
-        >
-        <ScrollView
+        <KeyboardAwareScrollView
           className="flex-1 px-6 pt-6"
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ paddingBottom: 48 }}
+          bottomOffset={24}
         >
           {error ? (
             <ErrorBanner message={error} onDismiss={clearError} />
@@ -232,8 +230,7 @@ export function CurrencyFormSheet({
           ) : null}
 
           <View className="h-6" />
-        </ScrollView>
-        </KeyboardAvoidingView>
+        </KeyboardAwareScrollView>
       </SafeAreaView>
       <UpgradePromptModal
         payload={tierLimitError}
