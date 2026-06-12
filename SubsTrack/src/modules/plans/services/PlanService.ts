@@ -87,9 +87,6 @@ class PlanService {
       if (typeof data.price !== 'number' || Number.isNaN(data.price)) throw new Error(i18n.t('errors.plan_fixed_needs_price'));
       if (data.price <= 0) throw new Error(i18n.t('errors.plan_price_positive'));
     }
-    if (!data.branchId) {
-      throw new Error(i18n.t('errors.plan_needs_branch'));
-    }
   }
 
   private rethrow(err: unknown): never {

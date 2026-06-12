@@ -42,7 +42,6 @@ export function PageHeader({
         {subtitle ? (
           <Text className="text-sm text-gray-400 mt-0.5">{subtitle}</Text>
         ) : null}
-        {!hideBranchSelector && <BranchSelector />}
       </View>
       {actionLabel && onAction ? (
         <PressableOpacity
@@ -54,6 +53,7 @@ export function PageHeader({
           </Text>
         </PressableOpacity>
       ) : null}
+      {!hideBranchSelector && <BranchSelector className="self-start" />}
     </View>
   );
 }

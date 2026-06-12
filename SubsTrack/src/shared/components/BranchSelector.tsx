@@ -16,9 +16,9 @@ import { useActiveBranches } from "@/src/modules/branches/hooks/useActiveBranche
 import { useIsMultiBranchActive } from "@/src/modules/branches/hooks/useIsMultiBranchActive";
 
 /**
- * Header branch filter chip for tenant-wide admins. Renders inside PageHeader
- * (under the subtitle) on Customers / Plans / Users, and inside the greeting
- * block on Dashboard.
+ * Header branch filter chip for tenant-wide admins. Renders on the top-right of
+ * PageHeader on Customers / Plans / Users, and inside the greeting block on
+ * Dashboard.
  *
  * Self-conceals (returns null) when:
  *   - There is no logged-in user
@@ -29,8 +29,16 @@ import { useIsMultiBranchActive } from "@/src/modules/branches/hooks/useIsMultiB
  *   null                      → "All Branches" — no filter
  *   <UUID>                    → that specific branch
  *   BRANCH_FILTER_UNASSIGNED  → only rows with branch_id IS NULL
+ *
+ * `className` styles the container so each call site controls placement
+ * (Dashboard keeps the default top margin; PageHeader drops it for the
+ * right-aligned slot).
  */
-export function BranchSelector() {
+export function BranchSelector({
+  className = "mt-2 self-start",
+}: {
+  className?: string;
+}) {
   const { t } = useTranslation();
   const user = useAuthSlice((s) => s.user);
   const activeBranches = useActiveBranches();
@@ -62,7 +70,7 @@ export function BranchSelector() {
   const tint = isFiltered ? COLORS.primary : COLORS.gray600;
 
   return (
-    <View className="mt-2 self-start">
+    <View className={className}>
       <PressableOpacity
         onPress={() => setOpen(true)}
         className={`flex-row items-center gap-1.5 rounded-full px-3 py-1 ${

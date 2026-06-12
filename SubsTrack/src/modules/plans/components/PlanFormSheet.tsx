@@ -53,16 +53,20 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
   const usage = useSubscriptionSlice((s) => s.usage);
   const multiMonthAllowed = currentTier?.multiMonthPlansEnabled ?? true;
 
-  // For NEW plans: branch-scoped admin's plans default to their branch;
-  // single-branch tenant binds to the only branch (picker is hidden); a
-  // tenant-wide admin in a multi-branch tenant starts with no selection and
-  // must pick a branch before submit — plans can no longer be SHARED (null).
+  // For new plans: branch-scoped admin's plans bind to their branch;
+  // single-branch tenant picks the only branch; multi-branch tenant-wide admin
+  // can leave it as Shared (null) — plans mirror product branch semantics.
   const defaultBranchId = (() => {
     if (plan) return plan.branchId;
     if (user?.branchId) return user.branchId;
     if (activeBranches.length === 1) return activeBranches[0].id;
     return null;
   })();
+
+  // Tenant-wide admins can create SHARED plans (null branch_id) visible to every
+  // branch. Branch-scoped users always submit their own branch and the picker is
+  // locked + hidden.
+  const branchPickerNullable = user?.branchId === null;
 
   const [form, setForm] = useState<FormState>({
     name: plan?.name ?? "",
@@ -115,7 +119,6 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
   const submitDisabled =
     !form.name.trim() ||
     (!form.isCustomPrice && (form.price == null || form.price <= 0)) ||
-    !form.branchId ||
     loading;
 
   return (
@@ -163,11 +166,13 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
           />
 
           <BranchPicker
-            label={t("branches.branch_label") + " *"}
+            label={
+              t("branches.branch_label") + (branchPickerNullable ? "" : " *")
+            }
             value={form.branchId}
             onChange={(v) => setForm((prev) => ({ ...prev, branchId: v }))}
             nullLabel={t("branches.shared_all_branches")}
-            nullable={false}
+            nullable={branchPickerNullable}
           />
 
           {/* Duration picker — multi-month UI hidden behind tier flag */}

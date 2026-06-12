@@ -428,7 +428,6 @@
     "multimonth_no_custom_price": "خطط متعددة الأشهر لا تدعم التسعير المخصص",
     "plan_fixed_needs_price": "الخطط الثابتة تتطلب سعراً",
     "plan_price_positive": "يجب أن يكون السعر أكبر من 0",
-    "plan_needs_branch": "يجب تعيين الخطة لفرع",
     "plan_name_exists": "توجد خطة بهذا الاسم مسبقاً",
     "customer_name_required": "اسم العميل مطلوب",
     "start_date_required": "تاريخ البداية مطلوب",

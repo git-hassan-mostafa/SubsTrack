@@ -427,7 +427,6 @@
     "multimonth_no_custom_price": "Multi-month plans cannot use custom pricing",
     "plan_fixed_needs_price": "Fixed plans require a price",
     "plan_price_positive": "Price must be greater than 0",
-    "plan_needs_branch": "Plan must be assigned to a branch",
     "plan_name_exists": "A plan with this name already exists",
     "customer_name_required": "Customer name is required",
     "start_date_required": "Start date is required",

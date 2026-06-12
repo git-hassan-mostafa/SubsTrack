@@ -29,7 +29,7 @@ New tenants created via SuperAdmin auto-get a `"Default Branch"` so the tenant i
 ## 0. Critical invariants
 
 1. **`useIsMultiBranchActive()` returns true only when tenant has ≥2 active branches.** Used to gate BranchSelector and BranchPicker visibility globally.
-2. **Branch is mandatory** for customers, plans, and staff users once any branch exists (`tenantHasBranches = true`). Tenant-wide admins (role=admin + branch_id NULL) are the only exception.
+2. **Branch is mandatory** for customers and staff users once any branch exists (`tenantHasBranches = true`). **Plans (like products) are NOT mandatory** — tenant-wide admins may create SHARED (null-branch) plans visible to every branch. Tenant-wide admins (role=admin + branch_id NULL) are also the exception for customers/users.
 3. **NULL semantics differ per table:**
    - `users.branch_id IS NULL` = tenant-wide admin (intentional).
    - `customers.branch_id IS NULL` = UNASSIGNED, legacy state only (only reachable today by branch deletion).
@@ -140,20 +140,23 @@ Once tenant has any branch (`tenantHasBranches = true`), every form re-checks th
 | # | Scenario | User context | Expected result |
 |---|----------|-------|-----------------|
 | 6.9 | Branch picker — scoped admin | Beirut admin | NO picker. Plan auto-saved with `branch_id = Beirut` |
-| 6.10 | Branch picker — tenant-wide admin (multi-branch) | Tenant-wide admin | Picker shown with "Shared (all branches)" + each active branch. Picker is `nullable=false` for branch-specific plans; "Shared" option produces null. Verify exact wording |
-| 6.11 | Duplicate name across branches | Same name in Beirut + Tripoli + Shared | All three coexist (NULLs unequal in unique index) |
-| 6.12 | Duplicate name in same branch | Two "Basic" in Beirut | "A plan with this name already exists" |
+| 6.10 | Branch picker — tenant-wide admin (multi-branch) | Tenant-wide admin | Picker shown, `nullable=true`, label has NO `*`. Lists "Shared (all branches)" (null) + each active branch. Mirrors ProductFormSheet |
+| 6.11 | Create SHARED plan | Tenant-wide admin, leaves picker on "Shared (all branches)" | Submit ENABLED; plan saved with `branch_id = NULL`. No "must pick a branch" error |
+| 6.12 | Shared plan visible to all branches | Create shared plan, login as Beirut admin | Beirut admin sees the shared plan (RLS admits `branch_id IS NULL`); selectable in CustomerFormSheet plan dropdown |
+| 6.13 | Single-branch tenant | Tenant-wide admin, 1 active branch | Picker hidden. Plan auto-bound to the lone branch (not shared) |
+| 6.14 | Duplicate name across branches | Same name in Beirut + Tripoli + Shared | All three coexist (NULLs unequal in unique index) |
+| 6.15 | Duplicate name in same branch | Two "Basic" in Beirut | "A plan with this name already exists" |
 
 ### UserFormSheet
 
 | # | Scenario | User context | Expected result |
 |---|----------|-------|-----------------|
-| 6.13 | Branch picker — scoped admin | Beirut admin | NO picker. New user gets `branch_id = Beirut` |
-| 6.14 | Branch picker — tenant-wide admin | Tenant-wide admin | Dropdown with per-branch options + "Tenant-wide" (only for role=admin) |
-| 6.15 | Staff requires branch (multi-branch tenant) | role=user, branch unset | Submit disabled with hint "Staff users must be assigned to a branch" |
-| 6.16 | Admin can stay tenant-wide | role=admin, branch unset | Save succeeds. New admin is tenant-wide |
-| 6.17 | Edge function — cross-branch attack | Beirut admin POSTs `branchId = Tripoli` | Edge function ignores supplied branchId, forces caller's own branch |
-| 6.18 | Edge function — invalid branchId | Tenant-wide admin passes branchId from another tenant | Returns "Invalid branch for this tenant" |
+| 6.16 | Branch picker — scoped admin | Beirut admin | NO picker. New user gets `branch_id = Beirut` |
+| 6.17 | Branch picker — tenant-wide admin | Tenant-wide admin | Dropdown with per-branch options + "Tenant-wide" (only for role=admin) |
+| 6.18 | Staff requires branch (multi-branch tenant) | role=user, branch unset | Submit disabled with hint "Staff users must be assigned to a branch" |
+| 6.19 | Admin can stay tenant-wide | role=admin, branch unset | Save succeeds. New admin is tenant-wide |
+| 6.20 | Edge function — cross-branch attack | Beirut admin POSTs `branchId = Tripoli` | Edge function ignores supplied branchId, forces caller's own branch |
+| 6.21 | Edge function — invalid branchId | Tenant-wide admin passes branchId from another tenant | Returns "Invalid branch for this tenant" |
 
 ## 7. Migration / mixed-mode
 
