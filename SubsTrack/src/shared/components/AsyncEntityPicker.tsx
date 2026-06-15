@@ -16,6 +16,10 @@ import { useDebounce } from "@/src/shared/hooks/useDebounce";
 import { PAGE_SIZE } from "@/src/core/constants";
 import { COLORS } from "@/src/shared/constants";
 
+// "default" — full-width form field with label, used inside form sheets.
+// "chip"    — compact fit-content pill, used in filter bars alongside other chips.
+export type AsyncEntityPickerTriggerStyle = "default" | "chip";
+
 interface AsyncEntityPickerProps<T> {
   label?: string;
   placeholder?: string;
@@ -34,6 +38,7 @@ interface AsyncEntityPickerProps<T> {
   nullLabel?: string;
   pageSize?: number;
   disabled?: boolean;
+  triggerStyle?: AsyncEntityPickerTriggerStyle;
 }
 
 interface AsyncPickerModalProps<T> {
@@ -68,6 +73,7 @@ export function AsyncEntityPicker<T>({
   nullLabel,
   pageSize = PAGE_SIZE,
   disabled = false,
+  triggerStyle = "default",
 }: AsyncEntityPickerProps<T>) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -78,6 +84,53 @@ export function AsyncEntityPicker<T>({
       : nullable
         ? (nullLabel ?? null)
         : null;
+
+  const isActive = value !== null;
+
+  if (triggerStyle === "chip") {
+    return (
+      <>
+        <PressableOpacity
+          onPress={() => !disabled && setOpen(true)}
+          disabled={disabled}
+          className={`flex-row items-center gap-x-1.5 rounded-full px-3 py-1.5 border ${
+            isActive
+              ? "bg-indigo-50 border-indigo-200"
+              : "bg-white border-gray-200"
+          }`}
+        >
+          <Text
+            className={`text-sm font-medium ${
+              isActive ? "text-primary" : "text-gray-500"
+            }`}
+            numberOfLines={1}
+          >
+            {displayLabel ?? placeholder ?? t("common.input_search")}
+          </Text>
+          <Ionicons
+            name="chevron-down"
+            size={12}
+            color={isActive ? COLORS.primary : COLORS.gray400}
+          />
+        </PressableOpacity>
+
+        {open && (
+          <AsyncPickerModal<T>
+            onClose={() => setOpen(false)}
+            title={label ?? placeholder ?? ""}
+            value={value}
+            onChange={onChange}
+            loadPage={loadPage}
+            renderItem={renderItem}
+            getKey={getKey}
+            nullable={nullable}
+            nullLabel={nullLabel}
+            pageSize={pageSize}
+          />
+        )}
+      </>
+    );
+  }
 
   return (
     <View className="mb-4">

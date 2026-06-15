@@ -14,6 +14,10 @@ export interface DropdownOption<T = string> {
   value: T;
 }
 
+// "default" — full-width form field with label, used inside form sheets.
+// "chip"    — compact fit-content pill, used in filter bars alongside other chips.
+export type DropdownTriggerStyle = "default" | "chip";
+
 interface DropdownProps<T = string> {
   label?: string;
   placeholder?: string;
@@ -23,6 +27,7 @@ interface DropdownProps<T = string> {
   nullable?: boolean;
   nullLabel?: string;
   nullSublabel?: string;
+  triggerStyle?: DropdownTriggerStyle;
 }
 
 export function Dropdown<T extends string | number | null = string>({
@@ -34,6 +39,7 @@ export function Dropdown<T extends string | number | null = string>({
   nullable = false,
   nullLabel,
   nullSublabel,
+  triggerStyle = "default",
 }: DropdownProps<T>) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -41,6 +47,49 @@ export function Dropdown<T extends string | number | null = string>({
   const selectedOption = options.find((o) => o.value === value);
   const displayLabel =
     selectedOption?.label ?? (nullable && value === null ? nullLabel : null);
+
+  const isActive = value !== null;
+
+  if (triggerStyle === "chip") {
+    return (
+      <>
+        <PressableOpacity
+          onPress={() => setOpen(true)}
+          className={`flex-row items-center gap-x-1.5 rounded-full px-3 py-1.5 border ${
+            isActive
+              ? "bg-indigo-50 border-indigo-200"
+              : "bg-white border-gray-200"
+          }`}
+        >
+          <Text
+            className={`text-sm font-medium ${
+              isActive ? "text-primary" : "text-gray-500"
+            }`}
+            numberOfLines={1}
+          >
+            {displayLabel ?? placeholder ?? t("customers.select_plan")}
+          </Text>
+          <Ionicons
+            name="chevron-down"
+            size={12}
+            color={isActive ? COLORS.primary : COLORS.gray400}
+          />
+        </PressableOpacity>
+
+        <DropdownModal<T>
+          visible={open}
+          onClose={() => setOpen(false)}
+          title={label ?? placeholder ?? ""}
+          options={options}
+          value={value}
+          onChange={onChange}
+          nullable={nullable}
+          nullLabel={nullLabel}
+          nullSublabel={nullSublabel}
+        />
+      </>
+    );
+  }
 
   return (
     <View className="mb-4">
@@ -87,6 +136,7 @@ interface DropdownModalProps<T> {
   nullable?: boolean;
   nullLabel?: string;
   nullSublabel?: string;
+  hideSearch?: boolean;
 }
 
 export function DropdownModal<T extends string | number | null = string>({
@@ -99,6 +149,7 @@ export function DropdownModal<T extends string | number | null = string>({
   nullable = false,
   nullLabel,
   nullSublabel,
+  hideSearch,
 }: DropdownModalProps<T>) {
   const { t } = useTranslation();
   const [search, setSearch] = useState("");
@@ -171,16 +222,18 @@ export function DropdownModal<T extends string | number | null = string>({
               </PressableOpacity>
             </View>
 
-            <View className="px-4 py-2 border-b border-gray-100">
-              <Input
-                value={search}
-                onChangeText={setSearch}
-                placeholder={t("common.input_search")}
-                placeholderTextColor={COLORS.gray400}
-                className="bg-gray-50 rounded-xl px-4 py-2.5 text-base text-gray-900"
-                autoCorrect={false}
-              />
-            </View>
+            {hideSearch == false && (
+              <View className="px-4 py-2 border-b border-gray-100">
+                <Input
+                  value={search}
+                  onChangeText={setSearch}
+                  placeholder={t("common.input_search")}
+                  placeholderTextColor={COLORS.gray400}
+                  className="bg-gray-50 rounded-xl px-4 py-2.5 text-base text-gray-900"
+                  autoCorrect={false}
+                />
+              </View>
+            )}
 
             <FlatList
               data={listItems}

@@ -1,6 +1,9 @@
 import { useCallback } from "react";
 import type { Customer } from "@/src/core/types";
-import { AsyncEntityPicker } from "@/src/shared/components/AsyncEntityPicker";
+import {
+  AsyncEntityPicker,
+  type AsyncEntityPickerTriggerStyle,
+} from "@/src/shared/components/AsyncEntityPicker";
 import { useAuth } from "@/src/modules/auth";
 import { resolveBranchFilter } from "@/src/shared/lib/branchFilter";
 import customerService from "../services/CustomerService";
@@ -13,6 +16,7 @@ interface CustomerPickerProps {
   nullable?: boolean;
   nullLabel?: string;
   disabled?: boolean;
+  triggerStyle?: AsyncEntityPickerTriggerStyle;
 }
 
 export function CustomerPicker({
@@ -23,6 +27,7 @@ export function CustomerPicker({
   nullable,
   nullLabel,
   disabled,
+  triggerStyle,
 }: CustomerPickerProps) {
   const { user } = useAuth();
 
@@ -53,6 +58,7 @@ export function CustomerPicker({
       nullable={nullable}
       nullLabel={nullLabel}
       disabled={disabled}
+      triggerStyle={triggerStyle}
     />
   );
 }
