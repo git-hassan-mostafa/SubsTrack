@@ -398,15 +398,15 @@ export function PaymentFormSheet({
             {/* Single-month fixed plan with override: pick plan price or custom */}
             {!isMultiMonth && isFixedPlan && form.isOverrideEnabled ? (
               <>
-                <View className="w-full gap-2 mb-2">
+                <View className="flex-row gap-6 mb-3">
                   {(["plan", "custom"] as const).map((mode) => (
                     <PressableOpacity
                       key={mode}
                       onPress={() => setAmountMode(mode)}
-                      className={`flex-row items-center border rounded-xl px-4 py-3 ${form.amountMode === mode ? "border-primary bg-indigo-50" : "border-gray-200 bg-white"}`}
+                      className="flex-row items-center gap-2"
                     >
                       <View
-                        className={`w-4 h-4 rounded-full border-2 me-3 items-center justify-center ${form.amountMode === mode ? "border-primary" : "border-gray-400"}`}
+                        className={`w-4 h-4 rounded-full border-2 items-center justify-center ${form.amountMode === mode ? "border-primary" : "border-gray-400"}`}
                       >
                         {form.amountMode === mode ? (
                           <View className="w-2 h-2 rounded-full bg-primary" />

@@ -15,7 +15,9 @@
     "deploy-create-tenant-edge-function": "supabase functions deploy create-tenant --no-verify-jwt",
     "eas-configure": "eas build:configure",
     "build-preview": "eas build --platform android --profile preview",
-    "build-prod": "eas build --platform android --profile production"
+    "build-prod": "eas build --platform android --profile production",
+    "build-web": "npx expo export -p web",
+    "serve-web": "npm run build-web && node -e \"require('fs').copyFileSync('serve.json', 'dist/serve.json')\" && npx serve dist"
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",

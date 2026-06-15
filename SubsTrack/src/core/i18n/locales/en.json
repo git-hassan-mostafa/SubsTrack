@@ -105,6 +105,7 @@
   },
   "customers": {
     "title": "Customers",
+    "add": "Add Customer",
     "search_placeholder": "Search customers...",
     "search_hint": "Search customers, phone, address, area...",
     "all": "All",

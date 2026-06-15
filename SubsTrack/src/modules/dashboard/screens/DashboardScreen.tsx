@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   RefreshControl,
@@ -9,6 +9,8 @@ import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
+import { Ionicons } from "@expo/vector-icons";
 import { getDateLocale } from "@/src/core/utils/date";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { useAuth } from "@/src/modules/auth";
@@ -19,6 +21,8 @@ import { BranchSelector } from "@/src/shared/components/BranchSelector";
 import { COLORS } from "@/src/shared/constants";
 import { MONTHS } from "@/src/core/constants";
 import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
+import { CustomerFormSheet } from "@/src/modules/customers/components/CustomerFormSheet";
+import { SaleFormSheet } from "@/src/modules/sales/components/SaleFormSheet";
 
 export function DashboardScreen() {
   const { t, i18n } = useTranslation();
@@ -34,6 +38,8 @@ export function DashboardScreen() {
   const fmt = (usd: number) => formatMoney(usd, null, displayCurrency);
 
   const branchFilter = useEffectiveBranchFilter();
+  const [customerFormOpen, setCustomerFormOpen] = useState(false);
+  const [saleFormOpen, setSaleFormOpen] = useState(false);
 
   useEffect(() => {
     fetchMetrics();
@@ -82,6 +88,36 @@ export function DashboardScreen() {
           </Text>
           <Text className="text-sm text-gray-500 mt-0.5">{dateLabel}</Text>
           <BranchSelector />
+        </View>
+
+        {/* Quick actions */}
+        <View className="flex-row mx-4 gap-3 mb-4">
+          <PressableOpacity
+            onPress={() => setCustomerFormOpen(true)}
+            className="flex-1 flex-row items-center gap-3 bg-white border border-gray-100 rounded-2xl px-4 py-3"
+          >
+            <View className="w-9 h-9 rounded-xl bg-indigo-50 items-center justify-center">
+              <Ionicons name="person-add-outline" size={18} color={COLORS.primary} />
+            </View>
+            <Text fontWeight="SemiBold" className="text-sm text-gray-800">
+              {t("customers.add")}
+            </Text>
+          </PressableOpacity>
+
+          <PressableOpacity
+            onPress={() => setSaleFormOpen(true)}
+            className="flex-1 flex-row items-center gap-3 bg-white border border-gray-100 rounded-2xl px-4 py-3"
+          >
+            <View className="w-9 h-9 rounded-xl bg-emerald-50 items-center justify-center">
+              <Ionicons name="receipt-outline" size={18} color={COLORS.success} />
+              <View className="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 rounded-full bg-emerald-50 items-center justify-center">
+                <Ionicons name="add" size={11} color={COLORS.success} />
+              </View>
+            </View>
+            <Text fontWeight="SemiBold" className="text-sm text-gray-800">
+              {t("sales.record_button")}
+            </Text>
+          </PressableOpacity>
         </View>
 
         {error ? (
@@ -216,6 +252,14 @@ export function DashboardScreen() {
           </>
         )}
       </ScrollView>
+
+      {customerFormOpen && (
+        <CustomerFormSheet onDismiss={() => setCustomerFormOpen(false)} />
+      )}
+
+      {saleFormOpen && (
+        <SaleFormSheet onDismiss={() => setSaleFormOpen(false)} />
+      )}
     </SafeAreaView>
   );
 }

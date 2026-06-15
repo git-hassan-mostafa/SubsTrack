@@ -74,19 +74,22 @@ export function SalesListScreen() {
         subtitle={t("sales.recent_count", { count: sales.length })}
       />
 
-      <View className="px-4 pt-4">
-        <CustomerPicker
-          placeholder={t("sales.filter_by_customer")}
-          value={customerFilter}
-          onChange={setCustomerFilter}
-          nullable
-          nullLabel={t("sales.all_customers")}
-        />
+      <View className="px-4 pt-4 gap-y-2">
         <SearchTextBox
           searchText={searchText}
           setSearchText={setSearchText}
           placeholder={t("sales.search_placeholder")}
         />
+        <View className="flex-row flex-wrap gap-2">
+          <CustomerPicker
+            placeholder={t("sales.filter_by_customer")}
+            value={customerFilter}
+            onChange={setCustomerFilter}
+            nullable
+            nullLabel={t("sales.all_customers")}
+            triggerStyle="chip"
+          />
+        </View>
       </View>
       {error ? (
         <View className="px-4 pt-4">
