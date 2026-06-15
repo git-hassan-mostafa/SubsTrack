@@ -37,8 +37,8 @@ export function PaymentAmountPaidSection({
   const currencies = useCurrencySlice((s) => s.items);
 
   return (
-    <View className="bg-gray-50 rounded-2xl px-4 py-4 mb-4">
-      <View className="w-full gap-2">
+    <View className="mb-4">
+      <View className="flex-row gap-6">
         {(["full", "partial"] as const).map((mode) => {
           const isSelected = paymentMode === mode;
           const isDisabled = mode === "partial" && partialDisabled;
@@ -50,10 +50,10 @@ export function PaymentAmountPaidSection({
                 onPaymentModeChange(mode);
               }}
               disabled={isDisabled}
-              className={`flex-row items-center border rounded-xl px-4 py-3 ${isSelected ? "border-primary bg-indigo-50" : "border-gray-200 bg-white"} ${isDisabled ? "opacity-50" : ""}`}
+              className={`flex-row items-center gap-2 ${isDisabled ? "opacity-40" : ""}`}
             >
               <View
-                className={`w-4 h-4 rounded-full border-2 me-3 items-center justify-center ${isSelected ? "border-primary" : "border-gray-400"}`}
+                className={`w-4 h-4 rounded-full border-2 items-center justify-center ${isSelected ? "border-primary" : "border-gray-400"}`}
               >
                 {isSelected ? (
                   <View className="w-2 h-2 rounded-full bg-primary" />
@@ -69,7 +69,7 @@ export function PaymentAmountPaidSection({
         })}
       </View>
       {partialDisabled ? (
-        <Text className="text-xs text-gray-400 mt-2">
+        <Text className="text-xs text-gray-400 mt-1">
           {t("payments.enter_amount_to_enable_partial")}
         </Text>
       ) : null}
