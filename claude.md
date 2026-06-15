@@ -300,8 +300,9 @@ SubsTrack/
 │
 └── supabase/
     └── functions/
-        ├── create-user/index.ts        # Admin-only edge function: atomically creates auth.users + public.users
-        └── create-tenant/index.ts      # Public edge function (no JWT): atomically creates tenant + default branch + auth.users + owner public.users
+        ├── create-user/index.ts              # Admin-only edge function: atomically creates auth.users + public.users
+        ├── update-user-password/index.ts     # Admin-only edge function: changes a user's auth.users password via service role; enforces same-tenant + role checks
+        └── create-tenant/index.ts            # Public edge function (no JWT): atomically creates tenant + default branch + auth.users + owner public.users
 ```
 
 ---

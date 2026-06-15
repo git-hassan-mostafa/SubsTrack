@@ -21,6 +21,7 @@ interface UserUpdateInput {
   phone: string | null;
   role: 'admin' | 'user';
   branchId: string | null;
+  newPassword?: string;
 }
 
 export interface UserSlice {

@@ -31,6 +31,9 @@ type FormState = {
   phoneNumber: string;
   role: "admin" | "user";
   branchId: string | null;
+  changePassword: boolean;
+  newPassword: string;
+  confirmNewPassword: string;
 };
 
 export function UserFormSheet({ user: editUser, onDismiss }: Props) {
@@ -72,6 +75,9 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
     phoneNumber: editUser?.phoneNumber ?? "",
     role: (editUser?.role as "admin" | "user") ?? "user",
     branchId: defaultBranchId,
+    changePassword: false,
+    newPassword: "",
+    confirmNewPassword: "",
   });
 
   const isOwnAccount = editUser?.id === currentUser?.id;
@@ -110,6 +116,13 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
     form.confirmPassword.length > 0 &&
     form.password !== form.confirmPassword;
 
+  const newPasswordMismatch =
+    !!editUser &&
+    form.changePassword &&
+    form.newPassword.length >= 8 &&
+    form.confirmNewPassword.length > 0 &&
+    form.newPassword !== form.confirmNewPassword;
+
   useEffect(() => {
     clearError();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -130,6 +143,7 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
         phone: form.phoneNumber || null,
         role: form.role,
         branchId: form.branchId,
+        newPassword: form.changePassword ? form.newPassword : undefined,
       });
     } else {
       if (!currentTier) return;
@@ -157,8 +171,10 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
     !!form.fullName.trim() &&
     !usernameInvalid &&
     !branchMissingForStaff &&
-    (!!editUser ||
-      (form.password.length >= 8 && form.password === form.confirmPassword));
+    (!!editUser
+      ? !form.changePassword ||
+        (form.newPassword.length >= 8 && form.newPassword === form.confirmNewPassword)
+      : form.password.length >= 8 && form.password === form.confirmPassword);
 
   return (
     <Modal
@@ -241,7 +257,71 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
                 }
               />
             </>
-          ) : null}
+          ) : (
+            <>
+              <PressableOpacity
+                onPress={() =>
+                  setForm((prev) => ({
+                    ...prev,
+                    changePassword: !prev.changePassword,
+                    newPassword: "",
+                    confirmNewPassword: "",
+                  }))
+                }
+                className={`flex-row items-center justify-between border rounded-xl px-4 py-3.5 mb-4 ${
+                  form.changePassword
+                    ? "border-primary bg-indigo-50"
+                    : "border-gray-300 bg-white"
+                }`}
+              >
+                <Text
+                  fontWeight="Medium"
+                  className={`text-sm ${form.changePassword ? "text-primary" : "text-gray-700"}`}
+                >
+                  {t("users.change_password_label")}
+                </Text>
+                <View
+                  className={`w-5 h-5 rounded border-2 items-center justify-center ${
+                    form.changePassword ? "bg-primary border-primary" : "border-gray-400"
+                  }`}
+                >
+                  {form.changePassword ? (
+                    <Text className="text-white text-xs font-bold">✓</Text>
+                  ) : null}
+                </View>
+              </PressableOpacity>
+
+              {form.changePassword ? (
+                <>
+                  <Input
+                    label={t("users.new_password_label") + " *"}
+                    value={form.newPassword}
+                    onChangeText={(v) =>
+                      setForm((prev) => ({ ...prev, newPassword: v }))
+                    }
+                    placeholder={t("users.new_password_placeholder")}
+                    secureTextEntry
+                    onFocus={clearError}
+                  />
+                  <Input
+                    label={t("users.confirm_new_password_label") + " *"}
+                    value={form.confirmNewPassword}
+                    onChangeText={(v) =>
+                      setForm((prev) => ({ ...prev, confirmNewPassword: v }))
+                    }
+                    placeholder={t("users.confirm_new_password_placeholder")}
+                    secureTextEntry
+                    onFocus={clearError}
+                    error={
+                      newPasswordMismatch
+                        ? t("users.password_mismatch")
+                        : undefined
+                    }
+                  />
+                </>
+              ) : null}
+            </>
+          )}
 
           <Input
             label={t("users.phone_optional")}

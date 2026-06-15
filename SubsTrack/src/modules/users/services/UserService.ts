@@ -20,6 +20,7 @@ interface UpdateUserInput {
   phone: string | null;
   role: 'admin' | 'user';
   branchId: string | null;
+  newPassword?: string;
 }
 
 class UserService {
@@ -77,15 +78,21 @@ class UserService {
     if (id === currentUserId && data.role !== currentUserRole) {
       throw new Error(i18n.t('errors.cannot_change_own_role'));
     }
+    if (data.newPassword !== undefined && data.newPassword.length < 8) {
+      throw new Error(i18n.t('errors.password_too_short'));
+    }
     this.validateBranchAssignment(data.role, data.branchId, tenantHasBranches);
     try {
-      const row = await repository.update(id, {
-        username: data.username.trim().toLowerCase(),
-        full_name: data.fullName.trim(),
-        phone_number: data.phone?.trim() || null,
-        role: data.role,
-        branch_id: data.branchId,
-      });
+      const [row] = await Promise.all([
+        repository.update(id, {
+          username: data.username.trim().toLowerCase(),
+          full_name: data.fullName.trim(),
+          phone_number: data.phone?.trim() || null,
+          role: data.role,
+          branch_id: data.branchId,
+        }),
+        data.newPassword ? repository.updatePassword(id, data.newPassword) : Promise.resolve(),
+      ]);
       return mapDbUserToAppUser(row);
     } catch (err) {
       this.rethrow(err);

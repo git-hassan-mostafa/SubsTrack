@@ -11,6 +11,7 @@
     "lint": "expo lint",
     "deploy-create-user-edge-function": "supabase functions deploy create-user",
     "deploy-delete-user-edge-function": "supabase functions deploy delete-user",
+    "deploy-update-user-password-edge-function": "supabase functions deploy update-user-password",
     "deploy-create-tenant-edge-function": "supabase functions deploy create-tenant --no-verify-jwt",
     "eas-configure": "eas build:configure",
     "build-preview": "eas build --platform android --profile preview",

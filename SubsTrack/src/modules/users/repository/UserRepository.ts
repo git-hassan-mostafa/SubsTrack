@@ -73,6 +73,13 @@ class UserRepository extends BaseRepository {
     if (error) this.handleError(error);
   }
 
+  async updatePassword(userId: string, newPassword: string): Promise<void> {
+    const { error } = await this.db.functions.invoke('update-user-password', {
+      body: { userId, newPassword },
+    });
+    if (error) this.handleError(error);
+  }
+
   async countAll(branchFilter: BranchFilter = null): Promise<number> {
     let query = this.db
       .from("users")
