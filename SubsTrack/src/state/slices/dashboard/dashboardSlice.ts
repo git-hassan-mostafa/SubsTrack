@@ -1,6 +1,6 @@
 import type { StateCreator } from 'zustand';
 import type { DashboardMetrics } from '@/src/core/types';
-import dashboardService from '@/src/modules/dashboard/services/DashboardService';
+import { dashboardService } from '@/src/modules/dashboard';
 import { resolveBranchFilter } from '@/src/shared/lib/branchFilter';
 import type { GlobalState } from '@/src/state/globalStore';
 

@@ -1,17 +1,5 @@
 import { supabase } from "@/src/shared/lib/supabase";
-
-export interface CreateTenantInput {
-  name: string;
-  tenantCode: string;
-  adminUserName: string;
-  adminFullName: string;
-  adminPassword: string;
-}
-
-export interface CreateTenantResult {
-  tenantId: string;
-  tenantCode: string;
-}
+import { CreateTenantInput, CreateTenantResult } from "../utils/types";
 
 class SignupRepository {
   async isTenantCodeAvailable(code: string): Promise<boolean> {

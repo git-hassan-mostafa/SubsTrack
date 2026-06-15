@@ -18,7 +18,7 @@ import {
 } from "@/src/shared/components/ActionMenu";
 import { useDebounce } from "@/src/shared/hooks/useDebounce";
 import type { AppUser } from "@/src/core/types";
-import { useAuth } from "@/src/modules/auth/hooks/useAuth";
+import { useAuth } from "@/src/modules/auth";
 import { UserCard } from "../components/UserCard";
 import { UserFormSheet } from "../components/UserFormSheet";
 import { useUserSlice } from "@/src/state/hooks/useUserSlice";

@@ -12,14 +12,14 @@ import { COLORS } from "@/src/shared/constants";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { PageHeader } from "@/src/shared/components/PageHeader";
 import { formatDate } from "@/src/core/utils/date";
-import { CustomerPaymentPanel } from "@/src/modules/customer-payments/components/CustomerPaymentPanel";
-import { CustomerSalesPanel } from "@/src/modules/sales/components/CustomerSalesPanel";
+import { CustomerPaymentPanel } from "@/src/modules/customer-payments";
+import { CustomerSalesPanel } from "@/src/modules/sales";
 import { CustomerDetailsCard } from "../components/CustomerDetailsCard";
 import { CustomerFormSheet } from "../components/CustomerFormSheet";
 import { useCustomerSlice } from "@/src/state/hooks/useCustomerSlice";
 
 export function CustomerDetailScreen() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
 

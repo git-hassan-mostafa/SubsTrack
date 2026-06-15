@@ -1,4 +1,4 @@
-import { CustomerSalesListScreen } from "@/src/modules/sales/screens/CustomerSalesListScreen";
+import { CustomerSalesListScreen } from "@/src/modules/sales";
 
 export default function CustomerSales() {
   return <CustomerSalesListScreen />;

@@ -1,5 +1,4 @@
 import { BaseRepository } from "@/src/core/utils/BaseRepository";
-import { applyBranchFilter, BRANCH_SCOPES } from "@/src/shared/lib/branchFilter";
 import type { BranchFilter } from "@/src/core/constants";
 import type { DbUser } from "@/src/core/types/db";
 
@@ -19,7 +18,7 @@ class UserRepository extends BaseRepository {
       .from("users")
       .select("*")
       .order("username");
-    query = applyBranchFilter(query, branchFilter, BRANCH_SCOPES.users);
+    query = this.applyBranchFilter(query, branchFilter, this.BRANCH_SCOPES.users);
     const { data, error } = await query;
     if (error) this.handleError(error);
     return (data ?? []) as DbUser[];
@@ -78,7 +77,7 @@ class UserRepository extends BaseRepository {
     let query = this.db
       .from("users")
       .select("id", { count: "exact", head: true });
-    query = applyBranchFilter(query, branchFilter, BRANCH_SCOPES.users);
+    query = this.applyBranchFilter(query, branchFilter, this.BRANCH_SCOPES.users);
     const { count, error } = await query;
     if (error) this.handleError(error);
     return count ?? 0;

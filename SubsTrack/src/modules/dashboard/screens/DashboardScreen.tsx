@@ -12,7 +12,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { getDateLocale } from "@/src/core/utils/date";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
-import { useAuth } from "@/src/modules/auth/hooks/useAuth";
+import { useAuth } from "@/src/modules/auth";
 import { useDashboardSlice } from "@/src/state/hooks/useDashboardSlice";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";

@@ -1,26 +1,11 @@
 import type { Product, TierPlan, TenantUsage } from '@/src/core/types';
 import type { BranchFilter } from '@/src/core/constants';
-import type { DbProduct } from '@/src/core/types/db';
 import i18n from '@/src/core/i18n';
 import repository from '../repository/ProductRepository';
-import tierService from '@/src/modules/subscription/services/TierService';
+import { tierService } from '@/src/modules/subscription';
+import { mapDbProductToProduct } from '../utils/mapper';
+import { ProductInput } from '../utils/types';
 
-export function mapDbProductToProduct(db: DbProduct): Product {
-  return {
-    id: db.id,
-    tenantId: db.tenant_id,
-    branchId: db.branch_id,
-    name: db.name,
-    description: db.description,
-    price: Number(db.price),
-    currencyId: db.currency_id,
-    active: db.active,
-    createdAt: db.created_at,
-    updatedAt: db.updated_at,
-  };
-}
-
-export type ProductInput = Pick<Product, 'name' | 'description' | 'price' | 'currencyId' | 'branchId'>;
 
 class ProductService {
   async getProducts(branchFilter: BranchFilter = null): Promise<Product[]> {

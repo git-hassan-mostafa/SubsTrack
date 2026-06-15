@@ -1,7 +1,6 @@
 import { BaseRepository } from '@/src/core/utils/BaseRepository';
 import type { BranchFilter } from '@/src/core/constants';
 import type { DbPlan } from '@/src/core/types/db';
-import { applyBranchFilter, BRANCH_SCOPES } from '@/src/shared/lib/branchFilter';
 
 class PlanRepository extends BaseRepository {
   async findAll(branchFilter: BranchFilter = null): Promise<DbPlan[]> {
@@ -9,7 +8,7 @@ class PlanRepository extends BaseRepository {
       .from('plans')
       .select('*')
       .order('name');
-    query = applyBranchFilter(query, branchFilter, BRANCH_SCOPES.plans);
+    query = this.applyBranchFilter(query, branchFilter, this.BRANCH_SCOPES.plans);
     const { data, error } = await query;
     if (error) this.handleError(error);
     return (data ?? []) as DbPlan[];
@@ -53,7 +52,7 @@ class PlanRepository extends BaseRepository {
     let query = this.db
       .from('plans')
       .select('id', { count: 'exact', head: true });
-    query = applyBranchFilter(query, branchFilter, BRANCH_SCOPES.plans);
+    query = this.applyBranchFilter(query, branchFilter, this.BRANCH_SCOPES.plans);
     const { count, error } = await query;
     if (error) this.handleError(error);
     return count ?? 0;

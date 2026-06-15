@@ -1,27 +1,11 @@
-import type { AuthUser } from "@/src/core/types";
-import type { DbTenant, DbUser } from "@/src/core/types/db";
 import i18n from "@/src/core/i18n";
 import repository from "../repository/AuthRepository";
-import { mapDbBranchToBranch } from "@/src/modules/branches/services/BranchService";
-import { mapDbTenantToTenant } from "@/src/modules/subscription/services/TierService";
+import { mapDbUserToAuthUser } from "../utils/mapper";
+import { AuthUser } from "@/src/core/types";
 
-export interface AuthResult {
+interface AuthResult {
   user: AuthUser;
   tenantActive: boolean;
-}
-
-function mapDbUserToAuthUser(db: DbUser, tenant: DbTenant): AuthUser {
-  return {
-    id: db.id,
-    username: db.username,
-    fullName: db.full_name,
-    role: db.role,
-    active: db.active,
-    tenantId: db.tenant_id,
-    tenant: mapDbTenantToTenant(tenant),
-    branchId: db.branch_id,
-    branch: db.branches ? mapDbBranchToBranch(db.branches) : null,
-  };
 }
 
 class AuthService {

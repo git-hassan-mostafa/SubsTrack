@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { ConfirmDialog } from "@/src/shared/components/ConfirmDialog";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import type { Customer, MonthEntry } from "@/src/core/types";
-import { useAuth } from "@/src/modules/auth/hooks/useAuth";
+import { useAuth } from "@/src/modules/auth";
 import { usePaymentSlice } from "@/src/state/hooks/usePaymentSlice";
 import { getStore } from "@/src/state/globalStore";
 import { COLORS } from "@/src/shared/constants";

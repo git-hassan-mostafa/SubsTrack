@@ -14,7 +14,7 @@ import {
   SUPPORTED_LANGUAGES,
   type SupportedLanguage,
 } from "@/src/core/i18n/languageStore";
-import { useAuth } from "@/src/modules/auth/hooks/useAuth";
+import { useAuth } from "@/src/modules/auth";
 import { useAuthSlice } from "@/src/state/hooks/useAuthSlice";
 import { resetAllDomainStores } from "@/src/shared/lib/storeReset";
 import { AVATAR_COLORS } from "../../../shared/constants";

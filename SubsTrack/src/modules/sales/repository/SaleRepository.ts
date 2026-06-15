@@ -1,18 +1,9 @@
 import { BaseRepository } from '@/src/core/utils/BaseRepository';
 import { PAGE_SIZE, type BranchFilter } from '@/src/core/constants';
 import type { DbSale } from '@/src/core/types/db';
-import { applyBranchFilter, BRANCH_SCOPES } from '@/src/shared/lib/branchFilter';
+import { FindSalesOptions } from '../utils/types';
 
 const SALE_SELECT = '*, products(*), customers(*)';
-
-export interface FindSalesOptions {
-  page?: number;
-  searchQuery?: string;
-  customerId?: string | null;
-  productId?: string | null;
-  branchFilter?: BranchFilter;
-  includeVoided?: boolean;
-}
 
 class SaleRepository extends BaseRepository {
   async findAll(opts: FindSalesOptions = {}): Promise<DbSale[]> {
@@ -38,7 +29,7 @@ class SaleRepository extends BaseRepository {
       query = query.or(`product_name_snapshot.ilike.%${term}%,customers.name.ilike.%${term}%`);
     }
 
-    query = applyBranchFilter(query, opts.branchFilter ?? null, BRANCH_SCOPES.sales);
+    query = this.applyBranchFilter(query, opts.branchFilter ?? null, this.BRANCH_SCOPES.sales);
 
     const { data, error } = await query;
     if (error) this.handleError(error);
@@ -111,7 +102,7 @@ class SaleRepository extends BaseRepository {
       .gte('sold_at', monthStart)
       .lt('sold_at', monthEndExclusive)
       .is('voided_at', null);
-    query = applyBranchFilter(query, branchFilter, BRANCH_SCOPES.sales);
+    query = this.applyBranchFilter(query, branchFilter, this.BRANCH_SCOPES.sales);
     const { data, error } = await query;
     if (error) this.handleError(error);
     return (data ?? []).map((r: { total_amount: number; rate_per_usd_snapshot: number }) => ({

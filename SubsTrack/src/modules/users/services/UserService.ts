@@ -1,23 +1,9 @@
 import type { AppUser, UserRole, TierPlan, TenantUsage } from '@/src/core/types';
 import type { BranchFilter } from '@/src/core/constants';
-import type { DbUser } from '@/src/core/types/db';
 import i18n from '@/src/core/i18n';
 import repository from '../repository/UserRepository';
-import tierService from '@/src/modules/subscription/services/TierService';
-
-function mapDbUserToAppUser(db: DbUser): AppUser {
-  return {
-    id: db.id,
-    username: db.username,
-    fullName: db.full_name,
-    phoneNumber: db.phone_number,
-    role: db.role,
-    active: db.active,
-    tenantId: db.tenant_id,
-    branchId: db.branch_id,
-    createdAt: db.created_at,
-  };
-}
+import { tierService } from '@/src/modules/subscription';
+import { mapDbUserToAppUser } from '../utils/mapper';
 
 interface CreateUserInput {
   username: string;

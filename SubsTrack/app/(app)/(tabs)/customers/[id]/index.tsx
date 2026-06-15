@@ -1,4 +1,4 @@
-import { CustomerDetailScreen } from "@/src/modules/customers/screens/CustomerDetailScreen";
+import { CustomerDetailScreen } from "@/src/modules/customers";
 
 export default function Index() {
   return <CustomerDetailScreen />;

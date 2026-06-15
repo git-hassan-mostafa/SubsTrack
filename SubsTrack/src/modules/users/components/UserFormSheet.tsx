@@ -11,12 +11,12 @@ import { Input } from "@/src/shared/components/Input";
 import { BranchPicker } from "@/src/shared/components/BranchPicker";
 import { confirm } from "@/src/shared/lib/confirm";
 import type { AppUser } from "@/src/core/types";
-import { useAuth } from "@/src/modules/auth/hooks/useAuth";
+import { useAuth } from "@/src/modules/auth";
 import { useUserSlice } from "@/src/state/hooks/useUserSlice";
 import { getStore } from "@/src/state/globalStore";
-import { useActiveBranches } from "../../branches/hooks/useActiveBranches";
+import { useActiveBranches } from "@/src/modules/branches";
 import { useSubscriptionSlice } from "@/src/state/hooks/useSubscriptionSlice";
-import { UpgradePromptModal } from "@/src/modules/subscription/components/UpgradePromptModal";
+import { UpgradePromptModal } from "@/src/modules/subscription";
 
 interface Props {
   user?: AppUser | null;

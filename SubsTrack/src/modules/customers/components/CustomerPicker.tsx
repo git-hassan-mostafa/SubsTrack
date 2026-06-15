@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import type { Customer } from "@/src/core/types";
 import { AsyncEntityPicker } from "@/src/shared/components/AsyncEntityPicker";
-import { useAuth } from "@/src/modules/auth/hooks/useAuth";
+import { useAuth } from "@/src/modules/auth";
 import { resolveBranchFilter } from "@/src/shared/lib/branchFilter";
 import customerService from "../services/CustomerService";
 

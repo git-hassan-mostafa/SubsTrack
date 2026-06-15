@@ -22,7 +22,7 @@ import { SaleDetailSheet } from "../components/SaleDetailSheet";
 import { useCustomerSalesList } from "../hooks/useCustomerSalesList";
 import { useCustomerSlice } from "@/src/state/hooks/useCustomerSlice";
 import { useSaleSlice } from "@/src/state/hooks/useSaleSlice";
-import { useAuth } from "@/src/modules/auth/hooks/useAuth";
+import { useAuth } from "@/src/modules/auth";
 
 // Full-page list of every sale for a single customer. Reachable from the
 // "Show all" button on CustomerSalesPanel. Mirrors SalesListScreen (search +

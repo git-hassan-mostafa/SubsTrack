@@ -13,15 +13,15 @@ import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { Input } from "@/src/shared/components/Input";
 import type { Customer } from "@/src/core/types";
 import { getTodayDateString } from "@/src/core/utils/date";
-import { useAuth } from "@/src/modules/auth/hooks/useAuth";
+import { useAuth } from "@/src/modules/auth";
 import { usePlanSlice } from "@/src/state/hooks/usePlanSlice";
 import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
 import { BRANCH_FILTER_UNASSIGNED } from "@/src/core/constants";
 import { useCustomerSlice } from "@/src/state/hooks/useCustomerSlice";
 import { getStore } from "@/src/state/globalStore";
-import { useActiveBranches } from "../../branches/hooks/useActiveBranches";
+import { useActiveBranches } from "@/src/modules/branches";
 import { useSubscriptionSlice } from "@/src/state/hooks/useSubscriptionSlice";
-import { UpgradePromptModal } from "@/src/modules/subscription/components/UpgradePromptModal";
+import { UpgradePromptModal } from "@/src/modules/subscription";
 
 interface Props {
   customer?: Customer | null;

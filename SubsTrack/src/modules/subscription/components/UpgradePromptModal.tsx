@@ -7,14 +7,9 @@ import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { COLORS } from "@/src/shared/constants";
 import { useAuthSlice } from "@/src/state/hooks/useAuthSlice";
 import { useSubscriptionSlice } from "@/src/state/hooks/useSubscriptionSlice";
-import type { TierPlan, TierResource, TierCode } from "@/src/core/types";
+import type { TierPlan } from "@/src/core/types";
 import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
-
-export interface TierLimitErrorPayload {
-  resource: TierResource | "multi_currency" | "multi_month";
-  limit: number | null;
-  tierCode: TierCode;
-}
+import { TierLimitErrorPayload } from "../utils/types";
 
 interface Props {
   payload: TierLimitErrorPayload | null;

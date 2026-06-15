@@ -11,14 +11,14 @@ import { Input } from "@/src/shared/components/Input";
 import { CurrencyInput } from "@/src/shared/components/CurrencyInput";
 import { BranchPicker } from "@/src/shared/components/BranchPicker";
 import type { Plan } from "@/src/core/types";
-import { useAuth } from "@/src/modules/auth/hooks/useAuth";
+import { useAuth } from "@/src/modules/auth";
 import { usePlanSlice } from "@/src/state/hooks/usePlanSlice";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { getStore } from "@/src/state/globalStore";
 import { COLORS } from "@/src/shared/constants";
-import { useActiveBranches } from "../../branches/hooks/useActiveBranches";
+import { useActiveBranches } from "@/src/modules/branches";
 import { useSubscriptionSlice } from "@/src/state/hooks/useSubscriptionSlice";
-import { UpgradePromptModal } from "@/src/modules/subscription/components/UpgradePromptModal";
+import { UpgradePromptModal } from "@/src/modules/subscription";
 
 interface Props {
   plan?: Plan | null;

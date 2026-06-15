@@ -1,15 +1,16 @@
 import i18n from "@/src/core/i18n";
-import repository, {
+import repository from '../repository/SignupRepository';
+import {
   type CreateTenantInput,
   type CreateTenantResult,
-} from "../repository/SignupRepository";
+} from "../utils/types";
 
-export interface WorkspaceForm {
+interface WorkspaceForm {
   name: string;
   tenantCode: string;
 }
 
-export interface AccountForm {
+interface AccountForm {
   adminUserName: string;
   adminFullName: string;
   adminPassword: string;

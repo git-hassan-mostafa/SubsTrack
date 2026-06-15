@@ -1,9 +1,9 @@
 import type { StateCreator } from 'zustand';
 import type { Currency, Customer, MonthEntry, Payment, Plan, TierPlan } from '@/src/core/types';
 import { getCurrentYearMonth, toBillingMonth } from '@/src/core/utils/date';
-import paymentService, { type MultiMonthConflict } from '@/src/modules/customer-payments/services/PaymentService';
-import { TierLimitError } from '@/src/modules/subscription/services/TierService';
-import type { TierLimitErrorPayload } from '@/src/modules/subscription/components/UpgradePromptModal';
+import { paymentService, type MultiMonthConflict } from '@/src/modules/customer-payments';
+import { TierLimitError } from '@/src/modules/subscription';
+import type { TierLimitErrorPayload } from '@/src/modules/subscription';
 import type { GlobalState } from '@/src/state/globalStore';
 
 const snapshotRate = (currency: Currency | null): number => currency?.ratePerUsd ?? 1;

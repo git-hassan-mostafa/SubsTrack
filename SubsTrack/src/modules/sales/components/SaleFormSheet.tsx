@@ -13,11 +13,11 @@ import {
   Dropdown,
   type DropdownOption,
 } from "@/src/shared/components/Dropdown";
-import { CustomerPicker } from "@/src/modules/customers/components/CustomerPicker";
+import { CustomerPicker } from "@/src/modules/customers";
 import { Ionicons } from "@expo/vector-icons";
 import { COLORS } from "@/src/shared/constants";
 import type { Customer, Product } from "@/src/core/types";
-import { useAuth } from "@/src/modules/auth/hooks/useAuth";
+import { useAuth } from "@/src/modules/auth";
 import { useProductSlice } from "@/src/state/hooks/useProductSlice";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useSaleSlice } from "@/src/state/hooks/useSaleSlice";

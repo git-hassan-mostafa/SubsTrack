@@ -1,11 +1,11 @@
 import type { DashboardMetrics } from '@/src/core/types';
 import type { BranchFilter } from '@/src/core/constants';
 import { getCurrentYearMonth, toBillingMonth } from '@/src/core/utils/date';
-import customerRepo from '@/src/modules/customers/repository/CustomerRepository';
-import paymentRepo from '@/src/modules/customer-payments/repository/PaymentRepository';
-import planRepo from '@/src/modules/plans/repository/PlanRepository';
-import userRepo from '@/src/modules/users/repository/UserRepository';
-import saleRepo from '@/src/modules/sales/repository/SaleRepository';
+import { customerRepository as customerRepo } from '@/src/modules/customers';
+import { paymentRepository as paymentRepo } from '@/src/modules/customer-payments';
+import { planRepository as planRepo } from '@/src/modules/plans';
+import { userRepository as userRepo } from '@/src/modules/users';
+import { saleRepository as saleRepo } from '@/src/modules/sales';
 
 // Sums payment rows in USD using each row's frozen snapshot rate.
 // monthlyRevenue and totalOutstandingBalance are canonical USD so the screen

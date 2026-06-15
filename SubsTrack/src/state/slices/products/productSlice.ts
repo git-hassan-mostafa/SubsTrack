@@ -1,9 +1,9 @@
 import type { StateCreator } from 'zustand';
 import type { Product, TierPlan, TenantUsage } from '@/src/core/types';
-import productService, { type ProductInput } from '@/src/modules/products/services/ProductService';
+import { productService, type ProductInput } from '@/src/modules/products';
 import { resolveBranchFilter } from '@/src/shared/lib/branchFilter';
-import { TierLimitError } from '@/src/modules/subscription/services/TierService';
-import type { TierLimitErrorPayload } from '@/src/modules/subscription/components/UpgradePromptModal';
+import { TierLimitError } from '@/src/modules/subscription';
+import type { TierLimitErrorPayload } from '@/src/modules/subscription';
 import type { GlobalState } from '@/src/state/globalStore';
 
 export interface ProductSlice {

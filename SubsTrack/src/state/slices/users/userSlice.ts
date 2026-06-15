@@ -1,9 +1,9 @@
 import type { StateCreator } from 'zustand';
 import type { AppUser, UserRole, TierPlan, TenantUsage } from '@/src/core/types';
-import userService from '@/src/modules/users/services/UserService';
+import { userService } from '@/src/modules/users';
 import { resolveBranchFilter } from '@/src/shared/lib/branchFilter';
-import { TierLimitError } from '@/src/modules/subscription/services/TierService';
-import type { TierLimitErrorPayload } from '@/src/modules/subscription/components/UpgradePromptModal';
+import { TierLimitError } from '@/src/modules/subscription';
+import type { TierLimitErrorPayload } from '@/src/modules/subscription';
 import type { GlobalState } from '@/src/state/globalStore';
 
 interface UserCreateInput {

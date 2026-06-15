@@ -1,6 +1,6 @@
 import type { StateCreator } from 'zustand';
 import type { TierPlan, TenantUsage, Tenant } from '@/src/core/types';
-import tierService from '@/src/modules/subscription/services/TierService';
+import { tierService } from '@/src/modules/subscription';
 import type { GlobalState } from '@/src/state/globalStore';
 
 const EMPTY_USAGE: TenantUsage = {

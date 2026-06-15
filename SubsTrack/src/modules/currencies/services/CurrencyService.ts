@@ -1,31 +1,11 @@
 import type { Currency, TierPlan } from '@/src/core/types';
-import type { DbCurrency } from '@/src/core/types/db';
 import i18n from '@/src/core/i18n';
 import repository from '../repository/CurrencyRepository';
-import tierService from '@/src/modules/subscription/services/TierService';
+import { tierService } from '@/src/modules/subscription';
+import { mapDbCurrencyToCurrency } from '../utils/mapper';
+import { CurrencyInput } from '../utils/types';
 
-function mapDbCurrencyToCurrency(db: DbCurrency): Currency {
-  return {
-    id: db.id,
-    tenantId: db.tenant_id,
-    code: db.code,
-    name: db.name,
-    symbol: db.symbol,
-    ratePerUsd: Number(db.rate_per_usd),
-    decimals: db.decimals,
-    active: db.active,
-    createdAt: db.created_at,
-    updatedAt: db.updated_at,
-  };
-}
 
-export type CurrencyInput = {
-  code: string;
-  name: string;
-  symbol: string | null;
-  ratePerUsd: number;
-  decimals: number;
-};
 
 class CurrencyService {
   async getCurrencies(): Promise<Currency[]> {

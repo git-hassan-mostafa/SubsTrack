@@ -11,13 +11,13 @@ import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { CurrencyInput } from "@/src/shared/components/CurrencyInput";
 import { BranchPicker } from "@/src/shared/components/BranchPicker";
 import type { Product } from "@/src/core/types";
-import { useAuth } from "@/src/modules/auth/hooks/useAuth";
+import { useAuth } from "@/src/modules/auth";
 import { useProductSlice } from "@/src/state/hooks/useProductSlice";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useSubscriptionSlice } from "@/src/state/hooks/useSubscriptionSlice";
-import { useActiveBranches } from "@/src/modules/branches/hooks/useActiveBranches";
+import { useActiveBranches } from "@/src/modules/branches";
 import { getStore } from "@/src/state/globalStore";
-import { UpgradePromptModal } from "@/src/modules/subscription/components/UpgradePromptModal";
+import { UpgradePromptModal } from "@/src/modules/subscription";
 
 interface Props {
   product?: Product | null;

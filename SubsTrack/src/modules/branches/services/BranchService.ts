@@ -1,23 +1,10 @@
 import type { Branch, TierPlan, TenantUsage } from '@/src/core/types';
-import type { DbBranch } from '@/src/core/types/db';
 import i18n from '@/src/core/i18n';
 import repository from '../repository/BranchRepository';
-import tierService from '@/src/modules/subscription/services/TierService';
+import { tierService } from '@/src/modules/subscription';
+import { mapDbBranchToBranch } from '../utils/mapper';
+import { BranchInput } from '../utils/types';
 
-export function mapDbBranchToBranch(db: DbBranch): Branch {
-  return {
-    id: db.id,
-    tenantId: db.tenant_id,
-    name: db.name,
-    active: db.active,
-    createdAt: db.created_at,
-    updatedAt: db.updated_at,
-  };
-}
-
-export type BranchInput = {
-  name: string;
-};
 
 class BranchService {
   async getBranches(): Promise<Branch[]> {

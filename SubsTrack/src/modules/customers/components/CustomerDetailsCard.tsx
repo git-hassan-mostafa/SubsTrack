@@ -8,7 +8,7 @@ import { confirm } from "@/src/shared/lib/confirm";
 import type { Customer } from "@/src/core/types";
 import { formatDate, getDateLocale } from "@/src/core/utils/date";
 import { COLORS } from "@/src/shared/constants";
-import { useAuth } from "@/src/modules/auth/hooks/useAuth";
+import { useAuth } from "@/src/modules/auth";
 import { useBranchSlice } from "@/src/state/hooks/useBranchSlice";
 import { useCustomerSlice } from "@/src/state/hooks/useCustomerSlice";
 

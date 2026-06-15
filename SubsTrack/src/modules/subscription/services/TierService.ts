@@ -2,67 +2,15 @@ import type {
   TierPlan,
   TenantUsage,
   TierResource,
-  TierCode,
   Tenant,
 } from '@/src/core/types';
-import type { DbTierPlan, DbTenant } from '@/src/core/types/db';
-import i18n from '@/src/core/i18n';
 import repository from '../repository/SubscriptionRepository';
-
-export function mapDbTenantToTenant(db: DbTenant): Tenant {
-  return {
-    id: db.id,
-    name: db.name,
-    tenantCode: db.tenant_code,
-    active: db.active,
-    tierId: db.tier_id,
-    tier: db.tier_plans ? mapDbTierPlanToTierPlan(db.tier_plans) : null,
-    tierUpgradedAt: db.tier_upgraded_at,
-    createdAt: db.created_at,
-  };
-}
-
-export function mapDbTierPlanToTierPlan(db: DbTierPlan): TierPlan {
-  return {
-    id: db.id,
-    code: db.code,
-    name: db.name,
-    sortOrder: db.sort_order,
-    maxCustomers: db.max_customers,
-    maxUsers: db.max_users,
-    maxPlans: db.max_plans,
-    maxBranches: db.max_branches,
-    maxCurrencies: db.max_currencies,
-    maxProducts: db.max_products,
-    multiCurrencyEnabled: db.multi_currency_enabled,
-    multiMonthPlansEnabled: db.multi_month_plans_enabled,
-    graceDays: db.grace_days,
-    priceMonthlyUsd: Number(db.price_monthly_usd),
-    priceYearlyUsd: db.price_yearly_usd === null ? null : Number(db.price_yearly_usd),
-    active: db.active,
-  };
-}
+import { mapDbTenantToTenant, mapDbTierPlanToTierPlan } from '../utils/mapper';
+import { TierLimitError } from '../utils/tierLimitError';
 
 // Thrown when a service-level limit check fails. The store catches this
 // (instanceof check), reads the structured fields, and the UI swaps in
 // the UpgradePromptModal instead of an ErrorBanner. We do NOT parse strings.
-export class TierLimitError extends Error {
-  readonly resource: TierResource | 'multi_currency' | 'multi_month';
-  readonly limit: number | null;
-  readonly tierCode: TierCode;
-
-  constructor(
-    resource: TierLimitError['resource'],
-    limit: number | null,
-    tierCode: TierCode,
-  ) {
-    super(i18n.t('errors.tier_limit_reached', { resource, limit: limit ?? '∞' }));
-    this.name = 'TierLimitError';
-    this.resource = resource;
-    this.limit = limit;
-    this.tierCode = tierCode;
-  }
-}
 
 interface MaxField {
   customers: 'maxCustomers';

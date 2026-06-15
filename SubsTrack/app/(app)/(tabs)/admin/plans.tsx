@@ -1,4 +1,4 @@
-import { PlanListScreen } from "@/src/modules/plans/screens/PlanListScreen";
+import { PlanListScreen } from "@/src/modules/plans";
 
 export default function Index() {
   return <PlanListScreen />;

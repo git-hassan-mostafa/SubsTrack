@@ -12,7 +12,7 @@ import saleService from "../services/SaleService";
 import { SaleCard } from "./SaleCard";
 import { SaleFormSheet } from "./SaleFormSheet";
 import { SaleDetailSheet } from "./SaleDetailSheet";
-import { useAuth } from "@/src/modules/auth/hooks/useAuth";
+import { useAuth } from "@/src/modules/auth";
 import { useSaleSlice } from "@/src/state/hooks/useSaleSlice";
 
 const PREVIEW_LIMIT = 5;

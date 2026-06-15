@@ -1,4 +1,4 @@
-import { SignupAccountScreen } from "@/src/modules/signup/screens/SignupAccountScreen";
+import { SignupAccountScreen } from "@/src/modules/signup";
 
 export default function SignupAccount() {
   return <SignupAccountScreen />;

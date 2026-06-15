@@ -3,7 +3,7 @@ import { PAGE_SIZE } from "@/src/core/constants";
 import type { Sale } from "@/src/core/types";
 import saleService from "../services/SaleService";
 
-export interface CustomerSalesList {
+interface CustomerSalesList {
   items: Sale[];
   loading: boolean;
   loadingMore: boolean;

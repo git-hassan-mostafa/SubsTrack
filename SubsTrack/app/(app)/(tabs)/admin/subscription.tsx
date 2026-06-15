@@ -1,4 +1,4 @@
-import { SubscriptionScreen } from '@/src/modules/subscription/screens/SubscriptionScreen';
+import { SubscriptionScreen } from '@/src/modules/subscription';
 
 export default function Index() {
   return <SubscriptionScreen />;

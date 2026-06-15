@@ -7,7 +7,6 @@ import type {
   Plan,
   TierPlan,
 } from "@/src/core/types";
-import type { DbPayment } from "@/src/core/types/db";
 import { MONTHS } from "@/src/core/constants";
 import {
   getCurrentYearMonth,
@@ -16,41 +15,11 @@ import {
 } from "@/src/core/utils/date";
 import i18n from "@/src/core/i18n";
 import repository from "../repository/PaymentRepository";
-import tierService from "@/src/modules/subscription/services/TierService";
-
-function mapDbPaymentToPayment(db: DbPayment): Payment {
-  return {
-    id: db.id,
-    billingMonth: db.billing_month,
-    amountDue: Number(db.amount_due),
-    amountPaid: Number(db.amount_paid),
-    balance: Number(db.balance),
-    durationMonths: db.duration_months,
-    currencyId: db.currency_id,
-    ratePerUsdSnapshot: Number(db.rate_per_usd_snapshot),
-    customerId: db.customer_id,
-    planId: db.plan_id,
-    receivedByUserId: db.received_by_user_id,
-    tenantId: db.tenant_id,
-    paidAt: db.paid_at,
-    voidedAt: db.voided_at,
-    voidedBy: db.voided_by,
-    notes: db.notes,
-    createdAt: db.created_at,
-  };
-}
+import { tierService } from "@/src/modules/subscription";
+import { mapDbPaymentToPayment } from "../utils/mapper";
+import { CreateMultiMonthPaymentResult, MultiMonthConflict } from "../utils/types";
 
 type CreatePaymentInput = Pick<Payment, 'billingMonth' | 'amountDue' | 'amountPaid' | 'durationMonths' | 'currencyId' | 'ratePerUsdSnapshot' | 'customerId' | 'planId' | 'receivedByUserId' | 'tenantId' | 'notes'>
-
-export type MultiMonthConflict = {
-  billingMonth: string;
-  label: string;
-};
-
-export type CreateMultiMonthPaymentResult = {
-  payment: Payment;
-  skippedMonths: MultiMonthConflict[];
-};
 
 class PaymentService {
   async getPaymentsForYear(

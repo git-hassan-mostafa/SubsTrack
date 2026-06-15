@@ -1,7 +1,6 @@
 import { BaseRepository } from '@/src/core/utils/BaseRepository';
 import type { BranchFilter } from '@/src/core/constants';
 import type { DbProduct } from '@/src/core/types/db';
-import { applyBranchFilter, BRANCH_SCOPES } from '@/src/shared/lib/branchFilter';
 
 class ProductRepository extends BaseRepository {
   async findAll(branchFilter: BranchFilter = null): Promise<DbProduct[]> {
@@ -10,7 +9,7 @@ class ProductRepository extends BaseRepository {
       .select('*')
       .order('active', { ascending: false })
       .order('name');
-    query = applyBranchFilter(query, branchFilter, BRANCH_SCOPES.products);
+    query = this.applyBranchFilter(query, branchFilter, this.BRANCH_SCOPES.products);
     const { data, error } = await query;
     if (error) this.handleError(error);
     return (data ?? []) as DbProduct[];
@@ -55,7 +54,7 @@ class ProductRepository extends BaseRepository {
       .from('products')
       .select('id', { count: 'exact', head: true })
       .eq('active', true);
-    query = applyBranchFilter(query, branchFilter, BRANCH_SCOPES.products);
+    query = this.applyBranchFilter(query, branchFilter, this.BRANCH_SCOPES.products);
     const { count, error } = await query;
     if (error) this.handleError(error);
     return count ?? 0;

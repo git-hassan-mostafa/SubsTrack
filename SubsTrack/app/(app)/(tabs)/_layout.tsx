@@ -1,6 +1,6 @@
 import { Tabs } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { useAuth } from "@/src/modules/auth/hooks/useAuth";
+import { useAuth } from "@/src/modules/auth";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { COLORS } from "@/src/shared/constants";
 import { useSafeAreaInsets } from "react-native-safe-area-context";

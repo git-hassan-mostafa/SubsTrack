@@ -1,7 +1,6 @@
 import { BaseRepository } from '@/src/core/utils/BaseRepository';
 import { PAGE_SIZE, type BranchFilter } from '@/src/core/constants';
 import type { DbCustomer } from '@/src/core/types/db';
-import { applyBranchFilter, BRANCH_SCOPES } from '@/src/shared/lib/branchFilter';
 
 type CustomerWithPlan = DbCustomer & { plans: DbCustomer['plans'] };
 
@@ -35,7 +34,7 @@ class CustomerRepository extends BaseRepository {
       .from('customers')
       .select('*, plans(*)')
       .order('name');
-    query = applyBranchFilter(query, branchFilter, BRANCH_SCOPES.customers);
+    query = this.applyBranchFilter(query, branchFilter, this.BRANCH_SCOPES.customers);
     if (q) {
       query = query.or(
         `name.ilike.%${q}%,phone_number.ilike.%${q}%,address.ilike.%${q}%,area.ilike.%${q}%`,
@@ -121,7 +120,7 @@ class CustomerRepository extends BaseRepository {
     let query = this.db
       .from('customers')
       .select('id', { count: 'exact', head: true });
-    query = applyBranchFilter(query, branchFilter, BRANCH_SCOPES.customers);
+    query = this.applyBranchFilter(query, branchFilter, this.BRANCH_SCOPES.customers);
     const { count, error } = await query;
     if (error) this.handleError(error);
     return count ?? 0;
@@ -132,7 +131,7 @@ class CustomerRepository extends BaseRepository {
       .from('customers')
       .select('id', { count: 'exact', head: true })
       .eq('active', true);
-    query = applyBranchFilter(query, branchFilter, BRANCH_SCOPES.customers);
+    query = this.applyBranchFilter(query, branchFilter, this.BRANCH_SCOPES.customers);
     const { count, error } = await query;
     if (error) this.handleError(error);
     return count ?? 0;
@@ -160,7 +159,7 @@ class CustomerRepository extends BaseRepository {
       .gte('billing_month', cutoff)
       .is('voided_at', null)
       .gt('amount_paid', 0);
-    paymentsQuery = applyBranchFilter(paymentsQuery, branchFilter, BRANCH_SCOPES.payments);
+    paymentsQuery = this.applyBranchFilter(paymentsQuery, branchFilter, this.BRANCH_SCOPES.payments);
     const { data: payments, error: pErr } = await paymentsQuery;
     if (pErr) this.handleError(pErr);
 
@@ -185,7 +184,7 @@ class CustomerRepository extends BaseRepository {
       .select('id')
       .eq('active', true)
       .eq('is_regular', true);
-    activeQuery = applyBranchFilter(activeQuery, branchFilter, BRANCH_SCOPES.customers);
+    activeQuery = this.applyBranchFilter(activeQuery, branchFilter, this.BRANCH_SCOPES.customers);
     const { data: active, error: cErr } = await activeQuery;
     if (cErr) this.handleError(cErr);
 

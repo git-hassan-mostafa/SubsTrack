@@ -1,50 +1,10 @@
-import type { Currency, Product, Sale } from '@/src/core/types';
+import type { Sale } from '@/src/core/types';
 import type { BranchFilter } from '@/src/core/constants';
-import type { DbSale } from '@/src/core/types/db';
 import i18n from '@/src/core/i18n';
-import repository, { type FindSalesOptions } from '../repository/SaleRepository';
-import { mapDbProductToProduct } from '@/src/modules/products/services/ProductService';
-import { mapDbCustomerToCustomer } from '@/src/modules/customers/services/CustomerService';
+import repository from '../repository/SaleRepository';
+import { CreateSaleInput, type FindSalesOptions } from '../utils/types'
+import { mapDbSaleToSale } from '../utils/mapper';
 
-export function mapDbSaleToSale(db: DbSale): Sale {
-  return {
-    id: db.id,
-    tenantId: db.tenant_id,
-    branchId: db.branch_id,
-    productId: db.product_id,
-    productNameSnapshot: db.product_name_snapshot,
-    customerId: db.customer_id,
-    recordedByUserId: db.recorded_by_user_id,
-    quantity: db.quantity,
-    unitAmount: Number(db.unit_amount),
-    totalAmount: Number(db.total_amount),
-    currencyId: db.currency_id,
-    ratePerUsdSnapshot: Number(db.rate_per_usd_snapshot),
-    soldAt: db.sold_at,
-    voidedAt: db.voided_at,
-    voidedBy: db.voided_by,
-    voidReason: db.void_reason,
-    notes: db.notes,
-    createdAt: db.created_at,
-    product: db.products ? mapDbProductToProduct(db.products) : null,
-    customer: db.customers ? mapDbCustomerToCustomer(db.customers) : null,
-  };
-}
-
-// Input shape from the form. `product` is the resolved Product (we use it to
-// snapshot the name + product_id). `currency` is the chosen non-USD Currency
-// or null for USD — we snapshot ratePerUsd from this.
-export interface CreateSaleInput {
-  product: Product;
-  customerId: string | null;
-  branchId: string | null;
-  quantity: number;
-  unitAmount: number;
-  currency: Currency | null;
-  recordedByUserId: string | null;
-  tenantId: string;
-  notes: string | null;
-}
 
 class SaleService {
   async getSales(opts: FindSalesOptions = {}): Promise<Sale[]> {

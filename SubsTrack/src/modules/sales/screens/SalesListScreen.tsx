@@ -14,14 +14,14 @@ import { useDebounce } from "@/src/shared/hooks/useDebounce";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
 import { PageHeader } from "@/src/shared/components/PageHeader";
 import { FAB } from "@/src/shared/components/FAB";
-import { CustomerPicker } from "@/src/modules/customers/components/CustomerPicker";
+import { CustomerPicker } from "@/src/modules/customers";
 import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
 import type { Sale } from "@/src/core/types";
 import { SaleCard } from "../components/SaleCard";
 import { SaleFormSheet } from "../components/SaleFormSheet";
 import { SaleDetailSheet } from "../components/SaleDetailSheet";
 import { useSaleSlice } from "@/src/state/hooks/useSaleSlice";
-import { useAuth } from "@/src/modules/auth/hooks/useAuth";
+import { useAuth } from "@/src/modules/auth";
 
 export function SalesListScreen() {
   const { t } = useTranslation();
