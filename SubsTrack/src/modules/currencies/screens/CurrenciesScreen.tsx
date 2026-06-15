@@ -30,6 +30,7 @@ export function CurrenciesScreen() {
   const loading = useCurrencySlice((s) => s.loading);
   const error = useCurrencySlice((s) => s.error);
   const fetchCurrencies = useCurrencySlice((s) => s.fetchCurrencies);
+  const getCurrencies = useCurrencySlice((s) => s.getCurrencies);
   const deleteCurrency = useCurrencySlice((s) => s.deleteCurrency);
   const reactivateCurrency = useCurrencySlice((s) => s.reactivateCurrency);
   const clearError = useCurrencySlice((s) => s.clearError);
@@ -39,7 +40,7 @@ export function CurrenciesScreen() {
   const [menuCurrency, setMenuCurrency] = useState<Currency | null>(null);
 
   useEffect(() => {
-    fetchCurrencies();
+    getCurrencies();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

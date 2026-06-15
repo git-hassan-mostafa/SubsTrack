@@ -30,6 +30,7 @@ export function BranchesScreen() {
   const loading = useBranchSlice((s) => s.loading);
   const error = useBranchSlice((s) => s.error);
   const fetchBranches = useBranchSlice((s) => s.fetchBranches);
+  const getBranches = useBranchSlice((s) => s.getBranches);
   const deleteBranch = useBranchSlice((s) => s.deleteBranch);
   const reactivateBranch = useBranchSlice((s) => s.reactivateBranch);
   const clearError = useBranchSlice((s) => s.clearError);
@@ -39,7 +40,7 @@ export function BranchesScreen() {
   const [menuBranch, setMenuBranch] = useState<Branch | null>(null);
 
   useEffect(() => {
-    fetchBranches();
+    getBranches();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

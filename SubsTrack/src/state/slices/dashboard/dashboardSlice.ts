@@ -8,7 +8,6 @@ export interface DashboardSlice {
   metrics: DashboardMetrics | null;
   loading: boolean;
   error: string | null;
-  getMetrics: () => Promise<void>;
   fetchMetrics: () => Promise<void>;
   clearError: () => void;
   reset: () => void;
@@ -23,11 +22,6 @@ export const createDashboardSlice: StateCreator<
   metrics: null,
   loading: false,
   error: null,
-
-  getMetrics: async () => {
-    if (get().dashboard.metrics) return;
-    await get().dashboard.fetchMetrics();
-  },
 
   fetchMetrics: async () => {
     set((state) => {
