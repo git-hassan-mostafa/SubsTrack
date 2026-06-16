@@ -7,6 +7,10 @@ import { Text } from "@/src/shared/components/Text";
 import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { confirm } from "@/src/shared/lib/confirm";
+import {
+  ActionMenu,
+  type ActionMenuItem,
+} from "@/src/shared/components/ActionMenu";
 import type { Customer, MonthEntry } from "@/src/core/types";
 import { getCurrentYearMonth, getDateLocale } from "@/src/core/utils/date";
 import {
@@ -17,7 +21,12 @@ import {
 } from "@/src/core/utils/currency";
 import { COLORS } from "@/src/shared/constants";
 import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
-import { useGraceDays } from "@/src/state/hooks/useSubscriptionSlice";
+import {
+  useGraceDays,
+  useSubscriptionSlice,
+} from "@/src/state/hooks/useSubscriptionSlice";
+import { useAuth } from "@/src/modules/auth";
+import { getBlockRangeLabel } from "../utils/blockRangeLabel";
 import { MonthGrid } from "./MonthGrid";
 import { PaymentDetailSheet } from "./PaymentDetailSheet";
 import { PaymentFormSheet } from "./PaymentFormSheet";
@@ -35,14 +44,18 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
   const locale = getDateLocale(i18n.language);
   const router = useRouter();
   const { quickPay } = useLocalSearchParams<{ quickPay?: string }>();
+  const { user } = useAuth();
   const paymentStore = usePaymentSlice();
   const currencies = useCurrencySlice((s) => s.items);
+  const currentTier = useSubscriptionSlice((s) => s.currentTier);
   const { displayCurrencyId } = useUiPrefStore();
   const displayCurrency = findCurrency(currencies, displayCurrencyId);
   const graceDays = useGraceDays();
 
   const [year, setYear] = useState(getCurrentYearMonth().year);
   const [selectedEntry, setSelectedEntry] = useState<MonthEntry | null>(null);
+  const [menuEntry, setMenuEntry] = useState<MonthEntry | null>(null);
+  const [quickPayMonth, setQuickPayMonth] = useState<string | null>(null);
   const [detailVisible, setDetailVisible] = useState(false);
   const [formVisible, setFormVisible] = useState(false);
   const [voidVisible, setVoidVisible] = useState(false);
@@ -111,6 +124,129 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
 
   function handleVoidPress() {
     setVoidVisible(true);
+  }
+
+  // Quick Pay is available on unpaid months with a fixed-price plan — custom-price
+  // or planless months fall back to the form (handled in handleQuickPay).
+  function canQuickPay(entry: MonthEntry): boolean {
+    return (
+      customer.active &&
+      entry.status === "unpaid" &&
+      customer.plan != null &&
+      !customer.plan.isCustomPrice &&
+      customer.plan.price !== null
+    );
+  }
+
+  // A non-voided payment exists on this month (primary or grouped secondary cell).
+  function hasActivePayment(entry: MonthEntry): boolean {
+    return (
+      (entry.status === "paid" || entry.status === "partial") &&
+      entry.payment != null &&
+      entry.payment.voidedAt === null
+    );
+  }
+
+  // Records a full payment for the tapped month without opening the form, mirroring
+  // the customer-list Quick Pay: single-month plans pay instantly, multi-month plans
+  // confirm first, and custom-price / planless plans defer to the manual form.
+  async function handleQuickPay(entry: MonthEntry) {
+    const plan = customer.plan;
+    if (!plan || plan.isCustomPrice || plan.price === null || !user) {
+      setSelectedEntry(entry);
+      setFormVisible(true);
+      return;
+    }
+    const planCurrency = findCurrency(currencies, plan.currencyId);
+
+    if (plan.durationMonths > 1) {
+      if (!currentTier) return;
+      const ok = await confirm({
+        title: t("payments.quick_pay.confirm_multi_month_title"),
+        message: t("payments.quick_pay.confirm_multi_month_message", {
+          amount: formatMoney(plan.price, planCurrency, planCurrency),
+          months: getBlockRangeLabel(entry.billingMonth, plan.durationMonths, t),
+        }),
+        confirmLabel: t("payments.quick_pay.confirm"),
+      });
+      if (!ok) return;
+      setQuickPayMonth(entry.billingMonth);
+      try {
+        await paymentStore.createMultiMonthPayment(
+          entry.billingMonth,
+          customer,
+          plan,
+          planCurrency,
+          plan.price,
+          user.id,
+          null,
+          user.tenantId,
+          false,
+          year,
+          graceDays,
+          currentTier,
+        );
+      } finally {
+        setQuickPayMonth(null);
+      }
+      return;
+    }
+
+    setQuickPayMonth(entry.billingMonth);
+    try {
+      await paymentStore.createPayment(
+        {
+          billingMonth: entry.billingMonth,
+          amountDue: plan.price,
+          amountPaid: plan.price,
+          durationMonths: 1,
+          currencyId: plan.currencyId,
+          customerId: customer.id,
+          planId: plan.id,
+          receivedByUserId: user.id,
+          tenantId: user.tenantId,
+          notes: null,
+        },
+        planCurrency,
+        customer,
+        graceDays,
+      );
+    } finally {
+      setQuickPayMonth(null);
+    }
+  }
+
+  function buildMonthMenuActions(entry: MonthEntry | null): ActionMenuItem[] {
+    if (!entry) return [];
+    const items: ActionMenuItem[] = [
+      {
+        key: "open",
+        label: t("common.open"),
+        icon: "open-outline",
+        onPress: () => handleCellPress(entry),
+      },
+    ];
+    if (canQuickPay(entry)) {
+      items.push({
+        key: "quick-pay",
+        label: t("payments.quick_pay.pay_now"),
+        icon: "flash-outline",
+        onPress: () => void handleQuickPay(entry),
+      });
+    }
+    if (hasActivePayment(entry)) {
+      items.push({
+        key: "void",
+        label: t("payments.void_payment"),
+        icon: "trash-outline",
+        destructive: true,
+        onPress: () => {
+          setSelectedEntry(entry);
+          setVoidVisible(true);
+        },
+      });
+    }
+    return items;
   }
 
   async function handleEditAmount(next: {
@@ -254,6 +390,8 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
           <MonthGrid
             months={paymentStore.monthGrid}
             onCellPress={handleCellPress}
+            onCellMenu={setMenuEntry}
+            loadingBillingMonth={quickPayMonth}
             isRegular={customer.isRegular}
           />
         )}
@@ -316,6 +454,17 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
           }}
         />
       )}
+
+      <ActionMenu
+        visible={menuEntry !== null}
+        title={
+          menuEntry
+            ? `${t(`months.${menuEntry.label}`)} ${menuEntry.year}`
+            : undefined
+        }
+        actions={buildMonthMenuActions(menuEntry)}
+        onDismiss={() => setMenuEntry(null)}
+      />
     </>
   );
 }

@@ -5,6 +5,9 @@ import { MonthCell } from './MonthCell';
 interface Props {
   months: MonthEntry[];
   onCellPress: (entry: MonthEntry) => void;
+  onCellMenu?: (entry: MonthEntry) => void;
+  // Billing month currently being quick-paid — its cell shows a spinner.
+  loadingBillingMonth?: string | null;
   isRegular: boolean;
 }
 
@@ -27,7 +30,13 @@ function paymentCoversNextYearJanuary(payment: Payment, currentYear: number): bo
   return endAbsolute >= (currentYear + 1) * 12 + 1;
 }
 
-export function MonthGrid({ months, onCellPress, isRegular }: Props) {
+export function MonthGrid({
+  months,
+  onCellPress,
+  onCellMenu,
+  loadingBillingMonth,
+  isRegular,
+}: Props) {
   return (
     <View className="flex-row flex-wrap px-1 pb-2">
       {months.map((entry, i) => {
@@ -75,6 +84,8 @@ export function MonthGrid({ months, onCellPress, isRegular }: Props) {
             key={entry.billingMonth}
             entry={entry}
             onPress={onCellPress}
+            onMenu={onCellMenu}
+            menuLoading={loadingBillingMonth === entry.billingMonth}
             isRegular={isRegular}
             connectLeft={connectLeft}
             connectRight={connectRight}

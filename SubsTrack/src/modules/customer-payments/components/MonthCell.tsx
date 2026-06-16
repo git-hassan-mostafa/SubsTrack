@@ -1,15 +1,19 @@
 import { memo } from "react";
-import { View } from "react-native";
+import { ActivityIndicator, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { useTranslation } from "react-i18next";
 import { getCurrentYearMonth } from "@/src/core/utils/date";
 import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
+import { COLORS } from "@/src/shared/constants";
 import type { MonthEntry, MonthStatus } from "@/src/core/types";
 
 interface Props {
   entry: MonthEntry;
   onPress: (entry: MonthEntry) => void;
+  onMenu?: (entry: MonthEntry) => void;
+  menuLoading?: boolean;
   isRegular: boolean;
   connectLeft?: boolean;
   connectRight?: boolean;
@@ -52,6 +56,8 @@ const nonRegularTextColor: Record<MonthStatus, string> = {
 export const MonthCell = memo(function MonthCell({
   entry,
   onPress,
+  onMenu,
+  menuLoading = false,
   isRegular,
   connectLeft = false,
   connectRight = false,
@@ -74,6 +80,27 @@ export const MonthCell = memo(function MonthCell({
     isRegular && isCurrentMonth && entry.status === "unpaid"
       ? "text-red-600"
       : textColor[entry.status];
+
+  // The 3-dot menu only makes sense on months that can be acted on: record a
+  // payment (unpaid) or open / void an existing one (paid / partial). Future
+  // and before-start cells stay tap-only.
+  const showMenu =
+    !!onMenu &&
+    (entry.status === "unpaid" ||
+      entry.status === "paid" ||
+      entry.status === "partial");
+
+  // Match the dots to the label colour so they stay visible on every cell type.
+  const usesWhiteText =
+    entry.status === "paid" ||
+    entry.status === "partial" ||
+    (isRegular && entry.status === "unpaid");
+  const menuIconColor =
+    isRegular && isCurrentMonth && entry.status === "unpaid"
+      ? COLORS.danger
+      : usesWhiteText
+        ? COLORS.white
+        : COLORS.gray500;
 
   const sublabel = (() => {
     if ((entry.status === "paid" || entry.status === "partial") && entry.isGroupSecondary)
@@ -123,6 +150,24 @@ export const MonthCell = memo(function MonthCell({
           <View className="absolute top-0 bottom-0 end-0.5 justify-center">
             <DirectionalIcon name="chevron-forward" size={10} color="white" />
           </View>
+        ) : null}
+        {showMenu ? (
+          <PressableOpacity
+            onPress={() => onMenu?.(entry)}
+            disabled={menuLoading}
+            hitSlop={8}
+            className="absolute top-0 end-0 w-5 h-5 items-center justify-center"
+          >
+            {menuLoading ? (
+              <ActivityIndicator size="small" color={menuIconColor} />
+            ) : (
+              <Ionicons
+                name="ellipsis-horizontal"
+                size={14}
+                color={menuIconColor}
+              />
+            )}
+          </PressableOpacity>
         ) : null}
       </View>
     </PressableOpacity>
