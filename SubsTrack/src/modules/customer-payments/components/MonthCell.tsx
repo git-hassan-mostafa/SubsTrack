@@ -82,13 +82,9 @@ export const MonthCell = memo(function MonthCell({
       : textColor[entry.status];
 
   // The 3-dot menu only makes sense on months that can be acted on: record a
-  // payment (unpaid) or open / void an existing one (paid / partial). Future
-  // and before-start cells stay tap-only.
-  const showMenu =
-    !!onMenu &&
-    (entry.status === "unpaid" ||
-      entry.status === "paid" ||
-      entry.status === "partial");
+  // payment (unpaid / future) or open / void an existing one (paid / partial).
+  // Only before-start cells stay tap-only.
+  const showMenu = !!onMenu && entry.status !== "before_start";
 
   // Match the dots to the label colour so they stay visible on every cell type.
   const usesWhiteText =
@@ -155,15 +151,15 @@ export const MonthCell = memo(function MonthCell({
           <PressableOpacity
             onPress={() => onMenu?.(entry)}
             disabled={menuLoading}
-            hitSlop={8}
-            className="absolute top-0 end-0 w-5 h-5 items-center justify-center"
+            hitSlop={10}
+            className="absolute top-1 end-1 w-6 h-6 rounded-full items-center justify-center"
           >
             {menuLoading ? (
               <ActivityIndicator size="small" color={menuIconColor} />
             ) : (
               <Ionicons
                 name="ellipsis-horizontal"
-                size={14}
+                size={16}
                 color={menuIconColor}
               />
             )}

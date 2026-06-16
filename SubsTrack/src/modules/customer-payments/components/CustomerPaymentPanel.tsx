@@ -126,12 +126,13 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
     setVoidVisible(true);
   }
 
-  // Quick Pay is available on unpaid months with a fixed-price plan — custom-price
-  // or planless months fall back to the form (handled in handleQuickPay).
+  // Quick Pay is available on unpaid + future (prepay) months with a fixed-price
+  // plan — custom-price or planless months fall back to the form (handled in
+  // handleQuickPay).
   function canQuickPay(entry: MonthEntry): boolean {
     return (
       customer.active &&
-      entry.status === "unpaid" &&
+      (entry.status === "unpaid" || entry.status === "future") &&
       customer.plan != null &&
       !customer.plan.isCustomPrice &&
       customer.plan.price !== null

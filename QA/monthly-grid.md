@@ -179,15 +179,16 @@ Notes:
 
 ## 11. Cell action menu (3-dot)
 
-Each actionable cell shows a small 3-dot button in its top-end corner. Tapping it opens an `ActionMenu` titled with the month + year. The cell body tap still works as before. The menu is shown only on `unpaid`, `paid`, and `partial` cells — `future` and `before_start` cells stay tap-only.
+Each actionable cell shows a small 3-dot button in its top-end corner. Tapping it opens an `ActionMenu` titled with the month + year. The cell body tap still works as before. The menu is shown on every cell except `before_start` (which stays tap-only).
 
 | #     | Scenario                          | Steps                                          | Expected result                                                                                          |
 | ----- | --------------------------------- | ---------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| 11.1  | Button visibility                 | Inspect cells of each status                   | 3-dot shown on unpaid/paid/partial; NOT on future/before_start. Icon color contrasts with the cell       |
+| 11.1  | Button visibility                 | Inspect cells of each status                   | 3-dot shown on unpaid/paid/partial/future; NOT on before_start. Icon color contrasts with the cell       |
 | 11.2  | Open action — unpaid              | 3-dot → Open on an unpaid month                | PaymentFormSheet opens (same as tapping the cell)                                                        |
 | 11.3  | Open action — paid/partial        | 3-dot → Open on a paid/partial month           | PaymentDetailSheet (receipt) opens                                                                       |
 | 11.4  | Quick Pay — fixed single-month    | 3-dot → Pay on unpaid month, 1-month plan      | Full plan price recorded immediately for that month; cell spinner then turns paid. No form shown          |
 | 11.5  | Quick Pay — multi-month plan      | 3-dot → Pay on unpaid month, plan duration > 1 | Confirm dialog with bundle amount + month range; on confirm records the block starting at that month      |
+| 11.5b | Quick Pay — future month (prepay) | 3-dot → Pay on a future month, fixed plan      | Records a prepayment for that future month; cell turns paid. Multi-month confirms first as in 11.5         |
 | 11.6  | Quick Pay — custom-price/no plan  | 3-dot → Pay where plan is custom or absent     | Quick Pay NOT offered; Open falls back to the form for manual amount entry                                |
 | 11.7  | Quick Pay hidden on paid/partial  | 3-dot on a paid or partial month               | Quick Pay action NOT listed (a payment already exists)                                                   |
 | 11.8  | Quick Pay hidden — inactive       | Inactive customer, unpaid month                | Quick Pay NOT offered                                                                                     |

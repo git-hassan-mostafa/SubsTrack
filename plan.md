@@ -441,7 +441,7 @@ Payments have NO update operation. A wrong payment is voided, then a correct one
 - If month is PAID (and not voided): open read-only detail sheet showing amount, paid_at, received_by, notes.
 - If month is UNPAID or FUTURE: open payment form sheet.
 
-Actionable cells (UNPAID / PAID / PARTIAL) also show a 3-dot menu in the corner with: **Open** (same as tapping), **Pay** (Quick Pay for the tapped month — only on UNPAID with a fixed-price plan; multi-month plans confirm first, custom-price/no-plan fall back to the form), and **Void** (only when a non-voided payment exists). FUTURE / BEFORE_START cells stay tap-only.
+All cells except BEFORE_START show a 3-dot menu in the corner with: **Open** (same as tapping), **Pay** (Quick Pay for the tapped month — on UNPAID or FUTURE/prepay with a fixed-price plan; multi-month plans confirm first, custom-price/no-plan fall back to the form), and **Void** (only when a non-voided payment exists). BEFORE_START cells stay tap-only.
 
 **Step 2 — Determine scenario based on customer's plan**
 

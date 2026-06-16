@@ -3,6 +3,7 @@ import {
   ActivityIndicator,
   FlatList,
   RefreshControl,
+  ScrollView,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -115,7 +116,17 @@ export function SalesListScreen() {
           setSearchText={setSearchText}
           placeholder={t("sales.search_placeholder")}
         />
-        <View className="flex-row flex-wrap items-center gap-2">
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          className="-mx-4"
+          contentContainerStyle={{
+            paddingHorizontal: 16,
+            gap: 8,
+            alignItems: "center",
+          }}
+        >
           <CustomerPicker
             placeholder={t("sales.filter_by_customer")}
             value={customerFilter}
@@ -162,7 +173,7 @@ export function SalesListScreen() {
               </Text>
             </PressableOpacity>
           ) : null}
-        </View>
+        </ScrollView>
       </View>
       {error ? (
         <View className="px-4 pt-4">
