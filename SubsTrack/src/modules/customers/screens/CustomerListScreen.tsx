@@ -39,10 +39,19 @@ import {
 } from "@/src/core/utils/date";
 import { getBlockRangeLabel } from "../../customer-payments/utils/blockRangeLabel";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
-import { PageHeader } from "@/src/shared/components/PageHeader";
+import {
+  PageHeader,
+  type SelectionAction,
+} from "@/src/shared/components/PageHeader";
 import { FAB } from "@/src/shared/components/FAB";
 import { MONTHS } from "@/src/core/constants";
 import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
+import {
+  useSelection,
+  useSelectionBackHandler,
+} from "@/src/shared/hooks/useSelection";
+import { getStore } from "@/src/state/globalStore";
+import type { MultiMonthConflict } from "@/src/modules/customer-payments";
 
 type FilterTab = "all" | "unpaid" | "active" | "inactive";
 
@@ -80,6 +89,9 @@ export function CustomerListScreen() {
   );
   const paymentError = usePaymentSlice((s) => s.error);
   const clearPaymentError = usePaymentSlice((s) => s.clearError);
+  const clearPaymentTierLimitError = usePaymentSlice(
+    (s) => s.clearTierLimitError,
+  );
   const currencies = useCurrencySlice((s) => s.items);
   const [formVisible, setFormVisible] = useState(false);
   const [searchText, setSearchText] = useState("");
@@ -89,6 +101,17 @@ export function CustomerListScreen() {
   );
   const [menuCustomer, setMenuCustomer] = useState<Customer | null>(null);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  const selection = useSelection();
+  const {
+    active: selectionActive,
+    selectedIds,
+    toggle: toggleSelect,
+    enterWith: enterSelection,
+    clear: clearSelection,
+  } = selection;
+  useSelectionBackHandler(selectionActive, clearSelection);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkNotice, setBulkNotice] = useState<string | null>(null);
   const debouncedSearch = useDebounce(searchText);
   const branchFilter = useEffectiveBranchFilter();
 
@@ -98,6 +121,7 @@ export function CustomerListScreen() {
 
   // Loads on mount AND re-fetches when the user switches the branch chip.
   useEffect(() => {
+    clearSelection();
     fetchCustomers();
     fetchCurrentMonthPaymentStatus();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -135,6 +159,22 @@ export function CustomerListScreen() {
     return customers;
   }, [activeTab, customers, hasCurrentMonthPayment]);
 
+  // Resolve selected ids against the VISIBLE list, so a selected-then-filtered-out
+  // customer can never be acted on invisibly.
+  const selectedCustomers = useMemo(
+    () => filtered.filter((c) => selectedIds.has(c.id)),
+    [filtered, selectedIds],
+  );
+
+  const handleToggleSelect = useCallback(
+    (c: Customer) => toggleSelect(c.id),
+    [toggleSelect],
+  );
+  const handleEnterSelection = useCallback(
+    (c: Customer) => enterSelection(c.id),
+    [enterSelection],
+  );
+
   const openDetail = useCallback(
     (customer: Customer) => {
       router.push(`/(app)/(tabs)/customers/${customer.id}`);
@@ -142,29 +182,59 @@ export function CustomerListScreen() {
     [router],
   );
 
+  // Records a quick payment (single OR multi-month) for one eligible, fixed-price
+  // customer. No dialogs, no per-card spinner — callers own the confirm + loading
+  // UI. `bulk` controls multi-month conflict behavior: false (single-tap) keeps
+  // the legacy throw-on-conflict; true (bulk) skips already-paid months instead
+  // of aborting the batch. Custom-price / no-plan customers never reach here.
+  async function payCustomerQuick(
+    customer: Customer,
+    opts: { bulk: boolean },
+  ): Promise<MultiMonthConflict[]> {
+    if (!customer.plan || customer.plan.price === null || !user) return [];
+    const { year, month } = getCurrentYearMonth();
+    const planCurrency = findCurrency(currencies, customer.plan.currencyId);
+    if (customer.plan.durationMonths > 1) {
+      if (!currentTier) return [];
+      return await createMultiMonthPayment(
+        toBillingMonth(year, month),
+        customer,
+        customer.plan,
+        planCurrency,
+        customer.plan.price,
+        user.id,
+        null,
+        user.tenantId,
+        opts.bulk,
+        year,
+        graceDays,
+        currentTier,
+      );
+    }
+    await createPayment(
+      {
+        billingMonth: toBillingMonth(year, month),
+        amountDue: customer.plan.price,
+        amountPaid: customer.plan.price,
+        durationMonths: 1,
+        currencyId: customer.plan.currencyId,
+        customerId: customer.id,
+        planId: customer.plan.id,
+        receivedByUserId: user.id,
+        tenantId: user.tenantId,
+        notes: null,
+      },
+      planCurrency,
+      customer,
+      graceDays,
+    );
+    return [];
+  }
+
   async function recordSingleMonth(customer: Customer) {
-    if (!customer.plan || customer.plan.price === null || !user) return;
     setQuickPayCustomerId(customer.id);
     try {
-      const { year, month } = getCurrentYearMonth();
-      const planCurrency = findCurrency(currencies, customer.plan.currencyId);
-      await createPayment(
-        {
-          billingMonth: toBillingMonth(year, month),
-          amountDue: customer.plan.price,
-          amountPaid: customer.plan.price,
-          durationMonths: 1,
-          currencyId: customer.plan.currencyId,
-          customerId: customer.id,
-          planId: customer.plan.id,
-          receivedByUserId: user.id,
-          tenantId: user.tenantId,
-          notes: null,
-        },
-        planCurrency,
-        customer,
-        graceDays,
-      );
+      await payCustomerQuick(customer, { bulk: false });
     } finally {
       setQuickPayCustomerId(null);
     }
@@ -187,20 +257,7 @@ export function CustomerListScreen() {
     if (!ok) return;
     setQuickPayCustomerId(customer.id);
     try {
-      await createMultiMonthPayment(
-        startMonth,
-        customer,
-        customer.plan,
-        planCurrency,
-        customer.plan.price,
-        user.id,
-        null,
-        user.tenantId,
-        false,
-        year,
-        graceDays,
-        currentTier,
-      );
+      await payCustomerQuick(customer, { bulk: false });
     } finally {
       setQuickPayCustomerId(null);
     }
@@ -249,6 +306,10 @@ export function CustomerListScreen() {
           onPress={openDetail}
           onMenu={openMenu}
           menuLoading={quickPayCustomerId === item.id}
+          selectionMode={selectionActive}
+          selected={selectedIds.has(item.id)}
+          onToggleSelect={handleToggleSelect}
+          onEnterSelection={handleEnterSelection}
         />
       );
     },
@@ -259,6 +320,10 @@ export function CustomerListScreen() {
       openDetail,
       openMenu,
       quickPayCustomerId,
+      selectionActive,
+      selectedIds,
+      handleToggleSelect,
+      handleEnterSelection,
     ],
   );
 
@@ -289,6 +354,181 @@ export function CustomerListScreen() {
     });
     if (!ok) return;
     await deleteCustomer(customer.id);
+  }
+
+  // Bulk quick pay: pay every eligible fixed-price customer (single AND
+  // multi-month). Custom-price/no-plan are skipped; multi-month are paid but
+  // flagged in the confirm. The loop is SEQUENTIAL — paymentSlice early-returns
+  // while `loadingCreate` is true, so a parallel run would silently drop pays.
+  async function runBulkQuickPay(selected: Customer[]) {
+    if (bulkBusy || selected.length === 0) return;
+    const payable: Customer[] = [];
+    let multiCount = 0;
+    let customCount = 0;
+    for (const c of selected) {
+      if (!shouldShowQuickPay(c)) continue; // inactive / non-regular / already paid / before start
+      if (!c.plan || c.plan.isCustomPrice) {
+        customCount++;
+        continue;
+      }
+      payable.push(c);
+      if (c.plan.durationMonths > 1) multiCount++;
+    }
+
+    if (payable.length === 0) {
+      await confirm({
+        title: t("payments.quick_pay.pay_now"),
+        message: t("customers.bulk_pay_none"),
+        confirmLabel: t("common.ok"),
+        hideCancel: true,
+      });
+      return;
+    }
+
+    const warnings: string[] = [];
+    if (multiCount > 0)
+      warnings.push(t("customers.bulk_pay_warn_multi", { count: multiCount }));
+    if (customCount > 0)
+      warnings.push(t("customers.bulk_pay_skip_custom", { count: customCount }));
+    const ok = await confirm({
+      title: t("payments.quick_pay.pay_now"),
+      message:
+        t("customers.bulk_pay_message", { count: payable.length }) +
+        (warnings.length > 0 ? "\n\n" + warnings.join("\n") : ""),
+      confirmLabel: t("payments.quick_pay.pay_now"),
+    });
+    if (!ok) return;
+
+    setBulkBusy(true);
+    let okCount = 0;
+    let failedCount = 0;
+    try {
+      for (const c of payable) {
+        if (hasCurrentMonthPayment(c.id)) continue; // re-check: flipped under us
+        // Multi-month needs the tier for its limit check; without it payCustomerQuick
+        // no-ops silently, so count it as a failure rather than a phantom success.
+        if (c.plan && c.plan.durationMonths > 1 && !currentTier) {
+          failedCount++;
+          continue;
+        }
+        clearPaymentError();
+        clearPaymentTierLimitError();
+        await payCustomerQuick(c, { bulk: true });
+        // The slice swallows failures into error/tierLimitError (last-writer-wins),
+        // so read fresh store state per iteration rather than the stale hook value.
+        const ps = getStore().getState().payments;
+        if (ps.error || ps.tierLimitError) {
+          failedCount++;
+          clearPaymentError();
+          clearPaymentTierLimitError();
+        } else {
+          okCount++;
+        }
+      }
+    } finally {
+      setBulkBusy(false);
+    }
+    clearSelection();
+    fetchCurrentMonthPaymentStatus();
+    if (failedCount > 0) {
+      setBulkNotice(
+        t("customers.bulk_pay_summary", { ok: okCount, failed: failedCount }),
+      );
+    }
+  }
+
+  async function runBulkDelete(selected: Customer[]) {
+    if (bulkBusy || selected.length === 0) return;
+    if (selected.length === 1) {
+      await handleDeleteCustomer(selected[0]);
+      clearSelection();
+      return;
+    }
+    const ok = await confirm({
+      title: t("customers.bulk_delete_title", { count: selected.length }),
+      message: t("customers.bulk_delete_message", { count: selected.length }),
+      confirmLabel: t("common.delete"),
+      destructive: true,
+    });
+    if (!ok) return;
+    setBulkBusy(true);
+    let okCount = 0;
+    let failedCount = 0;
+    try {
+      for (const c of selected) {
+        const result = await deleteCustomer(c.id);
+        if (result === null) failedCount++;
+        else okCount++;
+      }
+    } finally {
+      setBulkBusy(false);
+    }
+    clearSelection();
+    if (failedCount > 0) {
+      clearError();
+      setBulkNotice(
+        t("customers.bulk_delete_summary", {
+          ok: okCount,
+          failed: failedCount,
+        }),
+      );
+    }
+  }
+
+  // Toolbar actions for the selection header. 1 selected → edit / toggle / delete
+  // / quick-pay (toggle + delete admin-only); >1 → delete / quick-pay only.
+  function buildSelectionActions(selected: Customer[]): SelectionAction[] {
+    if (selected.length === 0) return [];
+    const actions: SelectionAction[] = [];
+    if (selected.length === 1) {
+      const one = selected[0];
+      actions.push({
+        key: "edit",
+        icon: "create-outline",
+        label: t("common.edit"),
+        onPress: () => {
+          setEditingCustomer(one);
+          clearSelection();
+        },
+      });
+      if (isAdmin) {
+        actions.push({
+          key: "toggle-active",
+          icon: one.active ? "pause-circle-outline" : "play-circle-outline",
+          label: one.active
+            ? t("customers.deactivate")
+            : t("customers.activate"),
+          destructive: one.active,
+          onPress: () =>
+            void handleToggleActiveCustomer(one).then(clearSelection),
+        });
+      }
+    }
+    if (isAdmin) {
+      actions.push({
+        key: "delete",
+        icon: "trash-outline",
+        label: t("common.delete"),
+        destructive: true,
+        disabled: bulkBusy,
+        onPress: () => void runBulkDelete(selected),
+      });
+    }
+    actions.push({
+      key: "quick-pay",
+      icon: "flash-outline",
+      label: t("payments.quick_pay.pay_now"),
+      disabled: bulkBusy,
+      onPress: () => {
+        if (selected.length === 1) {
+          handleQuickPay(selected[0]);
+          clearSelection();
+        } else {
+          void runBulkQuickPay(selected);
+        }
+      },
+    });
+    return actions;
   }
 
   function buildMenuActions(customer: Customer | null): ActionMenuItem[] {
@@ -334,21 +574,32 @@ export function CustomerListScreen() {
       <PageHeader
         title={t("customers.title")}
         subtitle={t("customers.active_count", { count: activeCount })}
+        selection={{
+          active: selectionActive,
+          count: selection.count,
+          actions: buildSelectionActions(selectedCustomers),
+          onClose: clearSelection,
+        }}
       />
 
       <View className="px-4 pt-4">
-        {/* Search */}
-        <SearchTextBox
-          searchText={searchText}
-          setSearchText={setSearchText}
-          placeholder={t("customers.search_hint")}
-        />
+        {/* Search — hidden while selecting */}
+        {!selectionActive && (
+          <SearchTextBox
+            searchText={searchText}
+            setSearchText={setSearchText}
+            placeholder={t("customers.search_hint")}
+          />
+        )}
         {/* Filter tabs */}
-        <View className="flex-row gap-2 mt-4">
+        <View className={`flex-row gap-2 ${selectionActive ? "" : "mt-4"}`}>
           {tabs.map((tab) => (
             <PressableOpacity
               key={tab.key}
-              onPress={() => setActiveTab(tab.key)}
+              onPress={() => {
+                setActiveTab(tab.key);
+                clearSelection();
+              }}
               className={`rounded-full px-3 py-1.5 ${activeTab === tab.key ? "bg-gray-900" : "bg-gray-100"}`}
             >
               <Text
@@ -370,6 +621,14 @@ export function CustomerListScreen() {
           <ErrorBanner message={paymentError} onDismiss={clearPaymentError} />
         </View>
       ) : null}
+      {bulkNotice ? (
+        <View className="px-4 pt-4">
+          <ErrorBanner
+            message={bulkNotice}
+            onDismiss={() => setBulkNotice(null)}
+          />
+        </View>
+      ) : null}
 
       {loading && customers.length === 0 ? (
         <View className="flex-1 items-center justify-center">
@@ -388,6 +647,7 @@ export function CustomerListScreen() {
             <RefreshControl
               refreshing={loading}
               onRefresh={() => {
+                clearSelection();
                 fetchCustomers();
                 fetchCurrentMonthPaymentStatus();
               }}
@@ -425,10 +685,12 @@ export function CustomerListScreen() {
         />
       )}
 
-      <FAB
-        onPress={() => setFormVisible(true)}
-        accessibilityLabel={t("common.add")}
-      />
+      {!selectionActive && (
+        <FAB
+          onPress={() => setFormVisible(true)}
+          accessibilityLabel={t("common.add")}
+        />
+      )}
 
       {formVisible && (
         <CustomerFormSheet onDismiss={() => setFormVisible(false)} />

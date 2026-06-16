@@ -15,6 +15,7 @@
 - [Products & One-Off Sales](#products--one-off-sales)
 - [Regular Customer](#regular-customer)
 - [Payment Scenarios](#payment-scenarios)
+- [Multi-Select & Bulk Actions](#multi-select--bulk-actions)
 
 ---
 
@@ -320,3 +321,24 @@ See gotcha #16.
 **Full vs Partial** is decided in the `PaymentAmountPaidSection` at the bottom of the form, just above the submit button. Default is Full → `amount_paid = amount_due`. Partial reveals a single Amount Paid input locked to the resolved currency; the Amount Due is always derived from the upper section (plan price for A/D, plan or custom for B, custom for C).
 
 Payments are **never re-recorded**, but the **Edit Payment** action on the receipt sheet can update `amount_due`, `amount_paid`, and `currency_id` in place via `PaymentService.updatePayment()`. Editing re-snapshots `rate_per_usd_snapshot` from the (possibly newly chosen) currency's live rate at edit time — the "user fixing the record" semantic. Voided payments remain locked. Wholesale corrections (changing `duration_months`, or restoring a voided payment) still require void + re-record.
+
+---
+
+## Multi-Select & Bulk Actions
+
+A reusable list selection mode: long-press a card to enter it, every card's avatar becomes a checkbox, and the `PageHeader` is replaced by a toolbar of icon actions. Selection state is **ephemeral Presentation-layer state** — no slice/service/repo involvement.
+
+**Reusable building blocks (domain-agnostic):**
+
+- `useSelection()` — [`src/shared/hooks/useSelection.ts`](../SubsTrack/src/shared/hooks/useSelection.ts). Returns `{ active, selectedIds, count, isSelected, toggle, enterWith, clear }`. `active` is **derived** from `selectedIds.size > 0`, so deselecting the last card auto-exits. `toggle/enterWith/clear` are `useCallback([])`-stable; `enterWith(id)` is the long-press entry.
+- `useSelectionBackHandler(active, onExit)` — same file. Registers a focus-gated Android `BackHandler` (via expo-router `useFocusEffect`) so hardware back exits selection instead of navigating. The app's only `BackHandler` site; no-op on iOS/web.
+- `PageHeader` `selection?: { active, count, actions, onClose }` prop — [`PageHeader.tsx`](../SubsTrack/src/shared/components/PageHeader.tsx). When `active`, an early-return renders `SelectionToolbar` (close button · "N selected" · icon-only action row) **in place of** the whole header, so the branch selector disappears automatically. Action shape `SelectionAction = { key, icon, label /*=a11y label*/, onPress, destructive?, disabled? }`. All other callers are untouched (prop is optional).
+- `Checkbox` — [`Checkbox.tsx`](../SubsTrack/src/shared/components/Checkbox.tsx). Presentational by default (parent owns the tap).
+
+**Card participation** (the repeatable card change): `CustomerCard` takes optional `selectionMode`, `selected`, `onToggleSelect`, `onEnterSelection`. In selection mode tap toggles (not open-detail), long-press is disabled, the avatar `<View>` is swapped for a `<Checkbox>` of the **same footprint**, and the 3-dots button is hidden. Outside selection mode the 3-dots `ActionMenu` is unchanged.
+
+**Customers wiring** ([`CustomerListScreen.tsx`](../SubsTrack/src/modules/customers/screens/CustomerListScreen.tsx)): selected ids are resolved against the **visible** `filtered` list (`selectedCustomers`) so a filtered-out row can't be acted on. Toolbar actions are count-dependent — **1 selected:** edit · activate/deactivate · delete · quick-pay (toggle + delete admin-only); **>1:** delete · quick-pay only (a single toggle verb is ambiguous over a mixed active/inactive set). In selection mode the search box and FAB are hidden. Selection is cleared on tab switch, pull-to-refresh, and branch change (search/branch are unreachable while selecting; pagination keeps it).
+
+**Bulk quick pay** reuses a no-UI core `payCustomerQuick(customer, { bulk })` extracted from the single-tap flow (single-month → `createPayment`; multi-month → `createMultiMonthPayment` with `skipConflicts = bulk`). Selected customers are partitioned: eligible fixed-price → **paid** (single + multi-month); custom-price/no-plan → **skipped**; ineligible (inactive / non-regular / already paid / before start) → silently dropped. A confirm dialog always shows, warning how many multi-month customers will be charged for their full duration and how many custom-plan customers are skipped (info dialog with `hideCancel` when nothing is payable). The pay loop is **sequential** — `paymentSlice` early-returns while `loadingCreate` is true, so a parallel run would silently drop payments. Failures are detected per-iteration by reading fresh `getStore().getState().payments.error / .tierLimitError` (the slice swallows errors last-writer-wins), aggregated into a `bulkNotice` `ErrorBanner`. Single-selection quick-pay calls the existing `handleQuickPay` (so a lone custom-price customer still routes to the manual form). **Bulk delete** loops `deleteCustomer` (returns `'hard'|'soft'|null`) with a count-aware confirm.
+
+**Adopting it for Plans/Users/Products:** add `useSelection()` + `useSelectionBackHandler()` in the screen, build a `SelectionAction[]` from that module's existing handlers (clearing after), pass `selection={…}` to its `<PageHeader>`, give its card the same four optional props + `<Checkbox>` swap, and hide its search/FAB in selection mode. No backend changes.

@@ -26,6 +26,7 @@
     "tap":"Tap",
     "input_search":"Search...",
     "no_actions_available": "No actions available",
+    "selected_count": "{{count}} selected",
     "yes": "Yes",
     "no": "No",
     "ok": "OK",
@@ -155,7 +156,15 @@
     "regular_hint": "Regular customers are expected to pay every month",
     "delete_label": "Delete Customer",
     "delete_title": "Delete Customer",
-    "delete_message": "Delete {{name}}? If they have no payment history they will be permanently removed, otherwise they will be deactivated."
+    "delete_message": "Delete {{name}}? If they have no payment history they will be permanently removed, otherwise they will be deactivated.",
+    "bulk_pay_message": "Pay {{count}} customer(s) now?",
+    "bulk_pay_warn_multi": "{{count}} on multi-month plans will be charged for their full duration.",
+    "bulk_pay_skip_custom": "{{count}} on custom plans will be skipped.",
+    "bulk_pay_none": "None of the selected customers can be quick-paid.",
+    "bulk_pay_summary": "Paid {{ok}} · {{failed}} failed.",
+    "bulk_delete_title": "Delete {{count}} customers",
+    "bulk_delete_message": "Delete {{count}} customers? Those with no payment history are removed permanently; the rest are deactivated.",
+    "bulk_delete_summary": "Deleted {{ok}} · {{failed}} failed."
   },
   "plans": {
     "title": "Plans",

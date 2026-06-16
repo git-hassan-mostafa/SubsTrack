@@ -4,6 +4,7 @@ import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
+import { Checkbox } from "@/src/shared/components/Checkbox";
 import type { Customer } from "@/src/core/types";
 import { AVATAR_COLORS, COLORS } from "../../../shared/constants";
 
@@ -14,6 +15,10 @@ interface Props {
   onPress: (customer: Customer) => void;
   onMenu: (customer: Customer) => void;
   menuLoading?: boolean;
+  selectionMode?: boolean;
+  selected?: boolean;
+  onToggleSelect?: (customer: Customer) => void;
+  onEnterSelection?: (customer: Customer) => void;
 }
 
 function getAvatarColor(name: string): string {
@@ -33,6 +38,10 @@ export const CustomerCard = memo(function CustomerCard({
   onPress,
   onMenu,
   menuLoading = false,
+  selectionMode = false,
+  selected = false,
+  onToggleSelect,
+  onEnterSelection,
 }: Props) {
   const { t } = useTranslation();
   const initials = getInitials(customer.name);
@@ -40,23 +49,35 @@ export const CustomerCard = memo(function CustomerCard({
 
   return (
     <PressableOpacity
-      onPress={() => onPress(customer)}
-      onLongPress={() => onMenu(customer)}
+      onPress={() =>
+        selectionMode ? onToggleSelect?.(customer) : onPress(customer)
+      }
+      onLongPress={
+        selectionMode
+          ? undefined
+          : () => (onEnterSelection ?? onMenu)(customer)
+      }
       className="bg-white border border-gray-100 rounded-2xl px-4 py-3.5 mb-2.5 flex-row items-center"
     >
-      {/* Avatar */}
-      <View
-        className="w-10 h-10 rounded-xl items-center justify-center me-3 flex-shrink-0"
-        style={{ backgroundColor: avatarColor + "22" }}
-      >
-        <Text
-          fontWeight="Bold"
-          className="text-sm"
-          style={{ color: avatarColor }}
+      {/* Avatar — replaced by a checkbox in selection mode (same footprint) */}
+      {selectionMode ? (
+        <View className="w-10 h-10 items-center justify-center me-3 flex-shrink-0">
+          <Checkbox checked={selected} />
+        </View>
+      ) : (
+        <View
+          className="w-10 h-10 rounded-xl items-center justify-center me-3 flex-shrink-0"
+          style={{ backgroundColor: avatarColor + "22" }}
         >
-          {initials}
-        </Text>
-      </View>
+          <Text
+            fontWeight="Bold"
+            className="text-sm"
+            style={{ color: avatarColor }}
+          >
+            {initials}
+          </Text>
+        </View>
+      )}
 
       {/* Name + Plan */}
       <View className="flex-1 me-2">
@@ -115,18 +136,24 @@ export const CustomerCard = memo(function CustomerCard({
         <Text className="text-xs text-gray-400">{monthLabel}</Text>
       </View>
 
-      <PressableOpacity
-        onPress={() => onMenu(customer)}
-        disabled={menuLoading}
-        hitSlop={8}
-        className="ms-2 w-9 h-9 items-center justify-center rounded-full"
-      >
-        {menuLoading ? (
-          <ActivityIndicator size="small" color={COLORS.gray600} />
-        ) : (
-          <Ionicons name="ellipsis-vertical" size={20} color={COLORS.gray600} />
-        )}
-      </PressableOpacity>
+      {!selectionMode && (
+        <PressableOpacity
+          onPress={() => onMenu(customer)}
+          disabled={menuLoading}
+          hitSlop={8}
+          className="ms-2 w-9 h-9 items-center justify-center rounded-full"
+        >
+          {menuLoading ? (
+            <ActivityIndicator size="small" color={COLORS.gray600} />
+          ) : (
+            <Ionicons
+              name="ellipsis-vertical"
+              size={20}
+              color={COLORS.gray600}
+            />
+          )}
+        </PressableOpacity>
+      )}
     </PressableOpacity>
   );
 });

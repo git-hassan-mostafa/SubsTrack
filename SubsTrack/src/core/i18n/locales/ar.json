@@ -26,6 +26,7 @@
     "tap":"اضغط",
     "input_search":"بحث...",
     "no_actions_available": "لا توجد إجراءات متاحة",
+    "selected_count": "تم تحديد {{count}}",
     "yes": "نعم",
     "no": "لا",
     "ok": "حسناً",
@@ -156,7 +157,15 @@
     "regular_hint": "العملاء المنتظمون مطلوب منهم الدفع كل شهر",
     "delete_label": "حذف العميل",
     "delete_title": "حذف العميل",
-    "delete_message": "هل تريد حذف {{name}}؟ إذا لم يكن لديه سجل دفعات سيتم حذفه نهائياً، وإلا سيتم تعطيله."
+    "delete_message": "هل تريد حذف {{name}}؟ إذا لم يكن لديه سجل دفعات سيتم حذفه نهائياً، وإلا سيتم تعطيله.",
+    "bulk_pay_message": "هل تريد دفع {{count}} عميل الآن؟",
+    "bulk_pay_warn_multi": "{{count}} على خطط متعددة الأشهر سيتم تحصيل كامل مدتها.",
+    "bulk_pay_skip_custom": "{{count}} على خطط مخصصة سيتم تخطيهم.",
+    "bulk_pay_none": "لا يمكن الدفع السريع لأي من العملاء المحددين.",
+    "bulk_pay_summary": "تم الدفع لـ {{ok}} · فشل {{failed}}.",
+    "bulk_delete_title": "حذف {{count}} عملاء",
+    "bulk_delete_message": "هل تريد حذف {{count}} عملاء؟ من ليس لديهم سجل دفعات سيتم حذفهم نهائياً، والباقي سيتم تعطيلهم.",
+    "bulk_delete_summary": "تم حذف {{ok}} · فشل {{failed}}."
   },
   "plans": {
     "title": "الخطط",
