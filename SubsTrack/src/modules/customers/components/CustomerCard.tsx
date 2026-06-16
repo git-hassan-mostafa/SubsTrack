@@ -66,9 +66,17 @@ export const CustomerCard = memo(function CustomerCard({
         >
           {customer.name}
         </Text>
-        <Text className="text-sm text-gray-400 mt-0.5">
+        <Text className="text-sm text-gray-400 mt-0.5" numberOfLines={1}>
           {customer.plan?.name ?? t("common.no_plan")}
         </Text>
+        {!!customer.phoneNumber && (
+          <View className="flex-row items-center mt-1">
+            <Ionicons name="call-outline" size={12} color={COLORS.gray400} />
+            <Text className="text-xs text-gray-400 ms-1" numberOfLines={1}>
+              {customer.phoneNumber}
+            </Text>
+          </View>
+        )}
       </View>
 
       {/* Status + Date */}

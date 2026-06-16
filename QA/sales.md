@@ -53,6 +53,31 @@ Covers the one-off sales ledger: recording a sale against an optional customer, 
 
 ---
 
+## 1A. Sales filter bar (Sales tab)
+
+| # | Scenario | Steps | Expected result |
+| --- | --- | --- | --- |
+| 1A.1 | Customer filter | Tap customer chip, pick a customer | List scopes to that customer's sales; chip shows active (indigo) style |
+| 1A.2 | Customer filter cleared | In customer chip, pick "All customers" | Full list restored |
+| 1A.3 | Product filter | Tap product chip, pick a product | List scopes to that product's sales |
+| 1A.4 | Product list lazy-loaded | Open Sales tab fresh (Products tab never visited), tap product chip | Active products are loaded and listed in the dropdown |
+| 1A.5 | Soft-deleted product excluded | A product was soft-deleted | Does NOT appear in the product filter dropdown |
+| 1A.6 | Product filter cleared | In product chip, pick "All products" | Full list restored |
+| 1A.7 | From date | Tap "From" chip, pick a date, confirm | List shows sales on/after that day; chip shows "From <date>" in active style |
+| 1A.8 | To date (inclusive) | Set "To" = today, record/inspect a sale dated today | Today's sale is included (end bound is inclusive) |
+| 1A.9 | Date range together | Set From = 1st, To = 7th | Only sales within that 7-day window (both ends inclusive) show |
+| 1A.10 | Range cross-constraint | Set From = 10th | "To" picker disallows dates before the 10th (minDate); inverse for "From" maxDate |
+| 1A.11 | Clear a single date | Open a set date chip, tap "Clear" in the picker | That date bound resets; chip returns to placeholder |
+| 1A.12 | Clear filters chip hidden | No filter active | "Clear filters" chip is not shown |
+| 1A.13 | Clear filters chip | Apply ≥1 filter (customer/product/date) | "Clear filters" chip appears |
+| 1A.14 | Clear all filters | Tap "Clear filters" | Customer, product, and both dates reset in one tap; full list restored |
+| 1A.15 | Filters + search combine | Set product filter AND type a search term | Results match both (AND) |
+| 1A.16 | Empty state with filters | Apply a filter that matches nothing | "No sales yet" empty state; "Record First Sale" action hidden (only shown when unfiltered) |
+| 1A.17 | Filters + pagination | Apply a filter on a large dataset, scroll | Next pages keep the same filter applied |
+| 1A.18 | Filters survive branch change | Set a filter, switch BranchSelector | Filter is re-applied against the new branch scope |
+
+---
+
 ## 2. Record a sale (SaleFormSheet)
 
 | # | Scenario | Steps | Expected result |

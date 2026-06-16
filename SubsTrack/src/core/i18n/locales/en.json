@@ -30,7 +30,9 @@
     "ok": "OK",
     "none": "None",
     "no_results": "No results",
-    "reactivate": "Reactivate"
+    "reactivate": "Reactivate",
+    "clear": "Clear",
+    "clear_filters": "Clear filters"
   },
   "auth": {
     "title": "SubsTrack",
@@ -542,6 +544,10 @@
     "show_all": "Show all",
     "filter_by_customer": "Filter by customer",
     "all_customers": "All customers",
+    "filter_by_product": "Filter by product",
+    "all_products": "All products",
+    "date_from": "From",
+    "date_to": "To",
     "walk_in": "Walk-in / no customer",
     "quantity_label": "Quantity",
     "unit_amount_label": "Unit price",

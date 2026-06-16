@@ -61,7 +61,8 @@ export default function RootLayout() {
       resetDashboard();
       router.replace("/(auth)/login");
     } else if (user && inAuth) {
-      router.replace("/(app)/(tabs)/customers");
+      const isAdmin = user.role === "admin" || user.role === "superadmin";
+      router.replace(isAdmin ? "/(app)/(tabs)/home" : "/(app)/(tabs)/customers");
     }
   }, [
     user,

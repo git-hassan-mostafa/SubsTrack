@@ -1,9 +1,15 @@
 import { useMemo, useRef } from "react";
 import { FlatList, Modal, Pressable, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { PressableOpacity } from "./PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
+import { COLORS } from "@/src/shared/constants";
 import { useTranslation } from "react-i18next";
 import { useState } from "react";
+
+// "default" — full-width form field with label, used inside form sheets.
+// "chip"    — compact fit-content pill, used in filter bars alongside other chips.
+export type DatePickerTriggerStyle = "default" | "chip";
 
 interface Props {
   label?: string;
@@ -13,6 +19,9 @@ interface Props {
   minDate?: string; // YYYY-MM-DD
   maxDate?: string; // YYYY-MM-DD
   showTime?: boolean;
+  triggerStyle?: DatePickerTriggerStyle;
+  // When true (chip style), shows a clear affordance to reset the value to "".
+  clearable?: boolean;
 }
 
 const ITEM_HEIGHT = 44;
@@ -155,6 +164,8 @@ export function DatePickerInput({
   minDate,
   maxDate,
   showTime = false,
+  triggerStyle = "default",
+  clearable = false,
 }: Props) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -233,31 +244,21 @@ export function DatePickerInput({
     setOpen(false);
   }
 
+  function handleClear() {
+    onChange("");
+    setOpen(false);
+  }
+
   const yearItems = useMemo(() => range(minYear, maxYear), [minYear, maxYear]);
   const dayItems = useMemo(() => range(1, maxDay), [maxDay]);
   const hourItems = useMemo(() => (showTime ? range(0, 23) : []), []);
   const minuteItems = useMemo(() => (showTime ? range(0, 59) : []), []);
 
   const displayValue = value || null;
+  const isActive = !!displayValue;
 
-  return (
-    <View className="mb-4">
-      {label ? (
-        <Text className="text-sm font-medium text-gray-700 mb-1">{label}</Text>
-      ) : null}
-      <PressableOpacity
-        onPress={handleOpen}
-        className="border border-gray-300 rounded-lg px-4 py-3 bg-white flex-row items-center justify-between"
-      >
-        <Text
-          className={`text-base ${displayValue ? "text-gray-900" : "text-gray-400"}`}
-        >
-          {displayValue ?? placeholder ?? t("customers.start_date_placeholder")}
-        </Text>
-        <Text className="text-gray-400 text-base">📅</Text>
-      </PressableOpacity>
-
-      <Modal
+  const picker = (
+    <Modal
         visible={open}
         transparent
         animationType="fade"
@@ -325,9 +326,71 @@ export function DatePickerInput({
                 </>
               ) : null}
             </View>
+
+            {clearable && isActive ? (
+              <PressableOpacity
+                onPress={handleClear}
+                className="py-3.5 items-center border-t border-gray-100"
+              >
+                <Text className="text-base font-medium text-red-500">
+                  {t("common.clear")}
+                </Text>
+              </PressableOpacity>
+            ) : null}
           </Pressable>
         </Pressable>
       </Modal>
+  );
+
+  if (triggerStyle === "chip") {
+    return (
+      <>
+        <PressableOpacity
+          onPress={handleOpen}
+          className={`flex-row items-center gap-x-1.5 rounded-full px-3 py-1.5 border ${
+            isActive
+              ? "bg-indigo-50 border-indigo-200"
+              : "bg-white border-gray-200"
+          }`}
+        >
+          <Ionicons
+            name="calendar-outline"
+            size={12}
+            color={isActive ? COLORS.primary : COLORS.gray400}
+          />
+          <Text
+            className={`text-sm font-medium ${
+              isActive ? "text-primary" : "text-gray-500"
+            }`}
+            numberOfLines={1}
+          >
+            {isActive
+              ? `${placeholder ?? ""} ${displayValue}`.trim()
+              : (placeholder ?? t("customers.start_date_placeholder"))}
+          </Text>
+        </PressableOpacity>
+        {picker}
+      </>
+    );
+  }
+
+  return (
+    <View className="mb-4">
+      {label ? (
+        <Text className="text-sm font-medium text-gray-700 mb-1">{label}</Text>
+      ) : null}
+      <PressableOpacity
+        onPress={handleOpen}
+        className="border border-gray-300 rounded-lg px-4 py-3 bg-white flex-row items-center justify-between"
+      >
+        <Text
+          className={`text-base ${displayValue ? "text-gray-900" : "text-gray-400"}`}
+        >
+          {displayValue ?? placeholder ?? t("customers.start_date_placeholder")}
+        </Text>
+        <Text className="text-gray-400 text-base">📅</Text>
+      </PressableOpacity>
+      {picker}
     </View>
   );
 }

@@ -11,6 +11,7 @@ export interface ProductSlice {
   loading: boolean;
   error: string | null;
   tierLimitError: TierLimitErrorPayload | null;
+  getProducts: () => Promise<void>;
   fetchProducts: () => Promise<void>;
   createProduct: (data: ProductInput, tenantId: string, tier: TierPlan, usage: TenantUsage) => Promise<void>;
   updateProduct: (id: string, data: ProductInput) => Promise<void>;
@@ -31,7 +32,10 @@ export const createProductSlice: StateCreator<
   loading: false,
   error: null,
   tierLimitError: null,
-
+  getProducts: async () => {
+    if (get().products.items.length > 0) return;
+    await get().products.fetchProducts();
+  },
   fetchProducts: async () => {
     set((state) => {
       state.products.loading = true;

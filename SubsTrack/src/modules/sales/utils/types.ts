@@ -6,6 +6,10 @@ export interface FindSalesOptions {
     searchQuery?: string;
     customerId?: string | null;
     productId?: string | null;
+    // Calendar-day bounds (YYYY-MM-DD), both inclusive. The repository converts
+    // them to sold_at timestamp bounds (end-of-day handled via next-day exclusive).
+    fromDate?: string | null;
+    toDate?: string | null;
     branchFilter?: BranchFilter;
     includeVoided?: boolean;
 }

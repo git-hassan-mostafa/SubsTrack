@@ -1,5 +1,5 @@
 import type { StateCreator } from 'zustand';
-import type { Customer, Sale } from '@/src/core/types';
+import type { Customer, Product, Sale } from '@/src/core/types';
 import { PAGE_SIZE } from '@/src/core/constants';
 import { saleService, type CreateSaleInput } from '@/src/modules/sales';
 import { resolveBranchFilter } from '@/src/shared/lib/branchFilter';
@@ -15,10 +15,16 @@ export interface SaleSlice {
   searchQuery: string;
   searchToken: number;
   customerFilter: Customer | null;
+  productFilter: Product | null;
+  fromDate: string | null;
+  toDate: string | null;
   fetchSales: () => Promise<void>;
   fetchMoreSales: () => Promise<void>;
   setSearchQuery: (q: string) => Promise<void>;
   setCustomerFilter: (customer: Customer | null) => Promise<void>;
+  setProductFilter: (product: Product | null) => Promise<void>;
+  setDateRange: (fromDate: string | null, toDate: string | null) => Promise<void>;
+  clearFilters: () => Promise<void>;
   createSale: (input: CreateSaleInput) => Promise<Sale | null>;
   voidSale: (id: string, voidedBy: string, reason: string) => Promise<void>;
   clearError: () => void;
@@ -40,12 +46,14 @@ export const createSaleSlice: StateCreator<
   searchQuery: '',
   searchToken: 0,
   customerFilter: null,
+  productFilter: null,
+  fromDate: null,
+  toDate: null,
 
   fetchSales: async () => {
     const token = get().sales.searchToken;
     const branchFilter = resolveBranchFilter(get().auth.user);
-    const searchQuery = get().sales.searchQuery;
-    const customerFilter = get().sales.customerFilter;
+    const { searchQuery, customerFilter, productFilter, fromDate, toDate } = get().sales;
     set((state) => {
       state.sales.loading = true;
       state.sales.error = null;
@@ -57,6 +65,9 @@ export const createSaleSlice: StateCreator<
         searchQuery: searchQuery || undefined,
         branchFilter,
         customerId: customerFilter?.id ?? null,
+        productId: productFilter?.id ?? null,
+        fromDate,
+        toDate,
       });
       if (get().sales.searchToken !== token) return;
       set((state) => {
@@ -75,7 +86,17 @@ export const createSaleSlice: StateCreator<
   },
 
   fetchMoreSales: async () => {
-    const { loadingMore, hasMore, page, searchToken, searchQuery, customerFilter } = get().sales;
+    const {
+      loadingMore,
+      hasMore,
+      page,
+      searchToken,
+      searchQuery,
+      customerFilter,
+      productFilter,
+      fromDate,
+      toDate,
+    } = get().sales;
     if (loadingMore || !hasMore) return;
     const token = searchToken;
     const branchFilter = resolveBranchFilter(get().auth.user);
@@ -89,6 +110,9 @@ export const createSaleSlice: StateCreator<
         searchQuery: searchQuery || undefined,
         branchFilter,
         customerId: customerFilter?.id ?? null,
+        productId: productFilter?.id ?? null,
+        fromDate,
+        toDate,
       });
       if (get().sales.searchToken !== token) {
         set((state) => {
@@ -134,6 +158,49 @@ export const createSaleSlice: StateCreator<
     if (current?.id === customer?.id) return;
     set((state) => {
       state.sales.customerFilter = customer;
+      state.sales.searchToken += 1;
+      state.sales.page = 0;
+      state.sales.items = [];
+      state.sales.hasMore = true;
+    });
+    await get().sales.fetchSales();
+  },
+
+  setProductFilter: async (product) => {
+    const current = get().sales.productFilter;
+    if (current?.id === product?.id) return;
+    set((state) => {
+      state.sales.productFilter = product;
+      state.sales.searchToken += 1;
+      state.sales.page = 0;
+      state.sales.items = [];
+      state.sales.hasMore = true;
+    });
+    await get().sales.fetchSales();
+  },
+
+  setDateRange: async (fromDate, toDate) => {
+    const current = get().sales;
+    if (current.fromDate === fromDate && current.toDate === toDate) return;
+    set((state) => {
+      state.sales.fromDate = fromDate;
+      state.sales.toDate = toDate;
+      state.sales.searchToken += 1;
+      state.sales.page = 0;
+      state.sales.items = [];
+      state.sales.hasMore = true;
+    });
+    await get().sales.fetchSales();
+  },
+
+  clearFilters: async () => {
+    const { customerFilter, productFilter, fromDate, toDate } = get().sales;
+    if (!customerFilter && !productFilter && !fromDate && !toDate) return;
+    set((state) => {
+      state.sales.customerFilter = null;
+      state.sales.productFilter = null;
+      state.sales.fromDate = null;
+      state.sales.toDate = null;
       state.sales.searchToken += 1;
       state.sales.page = 0;
       state.sales.items = [];
@@ -200,5 +267,8 @@ export const createSaleSlice: StateCreator<
       state.sales.searchQuery = '';
       state.sales.searchToken += 1;
       state.sales.customerFilter = null;
+      state.sales.productFilter = null;
+      state.sales.fromDate = null;
+      state.sales.toDate = null;
     }),
 });

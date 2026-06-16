@@ -5,6 +5,20 @@ import { FindSalesOptions } from '../utils/types';
 
 const SALE_SELECT = '*, products(*), customers(*)';
 
+// Convert a calendar day (YYYY-MM-DD) to the start of that local day as ISO.
+function dayStartIso(day: string): string {
+  const [y, m, d] = day.split('-').map(Number);
+  return new Date(y, m - 1, d).toISOString();
+}
+
+// Start of the day AFTER the given calendar day — used as an exclusive upper
+// bound so a `toDate` filter covers the whole selected day. `d + 1` rolls over
+// month/year boundaries correctly via the Date constructor.
+function nextDayStartIso(day: string): string {
+  const [y, m, d] = day.split('-').map(Number);
+  return new Date(y, m - 1, d + 1).toISOString();
+}
+
 class SaleRepository extends BaseRepository {
   async findAll(opts: FindSalesOptions = {}): Promise<DbSale[]> {
     const page = opts.page ?? 0;
@@ -22,6 +36,11 @@ class SaleRepository extends BaseRepository {
       query = query.eq('customer_id', opts.customerId);
     }
     if (opts.productId) query = query.eq('product_id', opts.productId);
+
+    // Date range on sold_at. Bounds are calendar days; the end is made
+    // inclusive by using the start of the following day as an exclusive bound.
+    if (opts.fromDate) query = query.gte('sold_at', dayStartIso(opts.fromDate));
+    if (opts.toDate) query = query.lt('sold_at', nextDayStartIso(opts.toDate));
 
     // Search across the snapshotted product name + customer name (via join).
     if (opts.searchQuery?.trim()) {
