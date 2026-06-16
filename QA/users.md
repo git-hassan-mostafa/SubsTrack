@@ -105,7 +105,7 @@ Reachable from the action menu (Edit item).
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
 | 5.1 | Open edit | Tap a user / Edit menu | Sheet "Edit Staff" with fields prefilled (full name, username, phone, role, branch) |
-| 5.2 | Password fields hidden | Edit form | Password / Confirm fields are NOT shown — passwords cannot be changed here |
+| 5.2 | Change-password toggle | Edit form | A "Change password" checkbox is shown. Off by default; New Password + Confirm fields are hidden until it is enabled |
 | 5.3 | Change full name / username | Update and save | Stored (username lowercased + trimmed) |
 | 5.4 | Username uniqueness on edit | Rename to existing username in same tenant | "A user with this username already exists" |
 | 5.5 | Change phone | Update and save | Saved (null if cleared) |
@@ -116,6 +116,13 @@ Reachable from the action menu (Edit item).
 | 5.10 | Same role on own account | Save without changing role | Allowed; other fields update |
 | 5.11 | Cancel | Tap Cancel | No persistence |
 | 5.12 | Network error | Disable net, save | ErrorBanner; values preserved |
+| 5.13 | Change password — happy path | Enable toggle, New Password ≥ 8 + matching Confirm, save | Password updated; login with the new password works |
+| 5.14 | New password too short / mismatch | 7 chars, or Confirm differs | Submit disabled (and service re-validates ≥ 8) |
+| 5.15 | Admin changes own password | Log in as an `admin`, edit own account, enable toggle, save a new password | Succeeds — self-service is always allowed. **(Regression: previously returned a generic "Edge Function returned a non-2xx status code" because the edge function blocked admins from changing any non-staff password, including their own.)** |
+| 5.16 | Admin changes a staff user's password | Admin edits a `user`-role account, change password | Succeeds |
+| 5.17 | Admin changes ANOTHER admin's password | Admin A edits Admin B (not self), change password | Forbidden — ErrorBanner shows the server message "admins can only change passwords of staff users" (no longer the generic non-2xx text) |
+| 5.18 | Superadmin changes any password | Superadmin edits any same-tenant user, change password | Succeeds |
+| 5.19 | Cross-tenant password change | Caller targets a user in another tenant (via API) | Forbidden — "cannot modify users from another tenant" surfaces in the ErrorBanner |
 
 ## 6. Action menu (per user card)
 

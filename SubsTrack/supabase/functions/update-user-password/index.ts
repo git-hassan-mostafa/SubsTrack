@@ -107,8 +107,11 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Admins can only change passwords of staff users, not other admins/superadmins
-    if (callerProfile.role === "admin" && targetProfile.role !== "user") {
+    // Changing your OWN password is always allowed (self-service), regardless of role.
+    // Otherwise, admins can only change passwords of staff users — not other
+    // admins/superadmins. (superadmin callers are unrestricted.)
+    const isSelf = userId === caller.id;
+    if (!isSelf && callerProfile.role === "admin" && targetProfile.role !== "user") {
       return new Response(
         JSON.stringify({ error: "Forbidden: admins can only change passwords of staff users" }),
         {

@@ -2,6 +2,7 @@ import { supabase } from "@/src/shared/lib/supabase";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import i18n from "@/src/core/i18n";
 import { BRANCH_FILTER_UNASSIGNED, BranchFilter } from "../constants";
+import { readFunctionsErrorBody } from "./functionsError";
 
 // ──────────────────────────────────────────────────────────────────────
 // Applying the filter — branch-scope semantics per table
@@ -41,6 +42,21 @@ export abstract class BaseRepository {
     }
     console.error("[Repository Error]", error);
     throw new Error(i18n.t("errors.unexpected"));
+  }
+
+  /**
+   * Edge-function counterpart to handleError. supabase-js hides the real error
+   * behind a generic "non-2xx status code" message; the function's own message
+   * lives in the JSON body on error.context.response. Surface that when present,
+   * otherwise fall back to the generic handling.
+   */
+  protected async handleFunctionsError(error: unknown): Promise<never> {
+    const body = await readFunctionsErrorBody(error);
+    if (body?.error) {
+      console.error("[Edge Function Error]", body.error);
+      throw new Error(body.error);
+    }
+    this.handleError(error);
   }
 
   /**

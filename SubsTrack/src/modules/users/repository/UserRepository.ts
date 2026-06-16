@@ -28,7 +28,7 @@ class UserRepository extends BaseRepository {
     const { data, error } = await this.db.functions.invoke("create-user", {
       body: payload,
     });
-    if (error) this.handleError(error);
+    if (error) await this.handleFunctionsError(error);
     return data as DbUser;
   }
 
@@ -70,14 +70,14 @@ class UserRepository extends BaseRepository {
     const { error } = await this.db.functions.invoke('delete-user', {
       body: { userId: id },
     });
-    if (error) this.handleError(error);
+    if (error) await this.handleFunctionsError(error);
   }
 
   async updatePassword(userId: string, newPassword: string): Promise<void> {
     const { error } = await this.db.functions.invoke('update-user-password', {
       body: { userId, newPassword },
     });
-    if (error) this.handleError(error);
+    if (error) await this.handleFunctionsError(error);
   }
 
   async countAll(branchFilter: BranchFilter = null): Promise<number> {

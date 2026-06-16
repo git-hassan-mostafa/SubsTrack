@@ -1,4 +1,5 @@
 import { supabase } from "@/src/shared/lib/supabase";
+import { readFunctionsErrorBody } from "@/src/core/utils/functionsError";
 import { CreateTenantInput, CreateTenantResult } from "../utils/types";
 
 class SignupRepository {
@@ -18,7 +19,7 @@ class SignupRepository {
     if (error) {
       // supabase-js wraps non-2xx into a FunctionsHttpError whose context.response
       // holds the parsed JSON body; surface the server-provided code when present.
-      const parsed = await tryReadFunctionsErrorBody(error);
+      const parsed = await readFunctionsErrorBody(error);
       const serverMessage = parsed?.error ?? error.message;
       const wrapped: Error & { code?: string } = new Error(serverMessage);
       if (parsed?.code) wrapped.code = parsed.code;
@@ -32,18 +33,3 @@ class SignupRepository {
 }
 
 export default new SignupRepository()
-
-// The shape of FunctionsHttpError is not in the public types; the response body
-// is on `error.context.response` as a Response object. Parse it defensively.
-async function tryReadFunctionsErrorBody(
-  err: unknown,
-): Promise<{ error?: string; code?: string } | null> {
-  const response = (err as { context?: { response?: Response } })?.context
-    ?.response;
-  if (!response) return null;
-  try {
-    return await response.clone().json();
-  } catch {
-    return null;
-  }
-}
