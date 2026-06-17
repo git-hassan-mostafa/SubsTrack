@@ -47,6 +47,15 @@ export interface PaymentSlice {
     customer: Customer,
     graceDays: number,
   ) => Promise<void>;
+  // Bulk single-month create (month-grid bulk pay) — all inputs share one
+  // currency and belong to `year`. One DB round-trip, one grid rebuild.
+  createPayments: (
+    data: CreatePaymentInput[],
+    currency: Currency | null,
+    customer: Customer,
+    year: number,
+    graceDays: number,
+  ) => Promise<void>;
   createMultiMonthPayment: (
     startMonth: string,
     customer: Customer,
@@ -57,6 +66,21 @@ export interface PaymentSlice {
     notes: string | null,
     tenantId: string,
     skipConflicts: boolean,
+    year: number,
+    graceDays: number,
+    tier: TierPlan,
+  ) => Promise<MultiMonthConflict[]>;
+  // Bulk multi-month create (month-grid bulk pay): one full-price block payment
+  // per start month, in one DB round-trip. Always skips already-covered months.
+  createMultiMonthPayments: (
+    starts: string[],
+    customer: Customer,
+    plan: Plan,
+    planCurrency: Currency | null,
+    amountPaid: number,
+    receivedByUserId: string,
+    notes: string | null,
+    tenantId: string,
     year: number,
     graceDays: number,
     tier: TierPlan,
@@ -72,6 +96,15 @@ export interface PaymentSlice {
   ) => Promise<void>;
   voidPayment: (
     id: string,
+    voidedBy: string,
+    notes: string,
+    customer: Customer,
+    year: number,
+    graceDays: number,
+  ) => Promise<void>;
+  // Bulk void (month-grid bulk void) — one DB round-trip, one grid rebuild.
+  voidPayments: (
+    ids: string[],
     voidedBy: string,
     notes: string,
     customer: Customer,
@@ -163,6 +196,39 @@ export const createPaymentSlice: StateCreator<
     }
   },
 
+  createPayments: async (data, currency, customer, year, graceDays) => {
+    if (data.length === 0 || get().payments.loadingCreate) return;
+    set((state) => {
+      state.payments.loadingCreate = true;
+      state.payments.error = null;
+    });
+    try {
+      const rate = snapshotRate(currency);
+      const created = await paymentService.createPayments(
+        data.map((d) => ({ ...d, ratePerUsdSnapshot: rate })),
+      );
+      const items = [...get().payments.items, ...created];
+      const monthGrid = paymentService.buildMonthGrid(customer, items, year, graceDays);
+      const { year: cy, month: cm } = getCurrentYearMonth();
+      const currentBillingMonth = toBillingMonth(cy, cm);
+      set((state) => {
+        state.payments.items = items;
+        state.payments.monthGrid = monthGrid;
+        state.payments.loadingCreate = false;
+        for (const payment of created) {
+          if (payment.billingMonth === currentBillingMonth && payment.amountPaid > 0) {
+            applyPaymentStatus(state.payments, customer.id, payment.balance > 0);
+          }
+        }
+      });
+    } catch (e) {
+      set((state) => {
+        state.payments.error = (e as Error).message;
+        state.payments.loadingCreate = false;
+      });
+    }
+  },
+
   createMultiMonthPayment: async (
     startMonth,
     customer,
@@ -216,6 +282,83 @@ export const createPaymentSlice: StateCreator<
         state.payments.loadingCreate = false;
         if (coversCurrentMonth && payment.amountPaid > 0) {
           applyPaymentStatus(state.payments, customer.id, payment.balance > 0);
+        }
+      });
+      return skippedMonths;
+    } catch (e) {
+      if (e instanceof TierLimitError) {
+        set((state) => {
+          state.payments.tierLimitError = {
+            resource: e.resource,
+            limit: e.limit,
+            tierCode: e.tierCode,
+          };
+          state.payments.loadingCreate = false;
+        });
+      } else {
+        set((state) => {
+          state.payments.error = (e as Error).message;
+          state.payments.loadingCreate = false;
+        });
+      }
+      return [];
+    }
+  },
+
+  createMultiMonthPayments: async (
+    starts,
+    customer,
+    plan,
+    planCurrency,
+    amountPaid,
+    receivedByUserId,
+    notes,
+    tenantId,
+    year,
+    graceDays,
+    tier,
+  ) => {
+    if (starts.length === 0 || get().payments.loadingCreate) return [];
+    set((state) => {
+      state.payments.loadingCreate = true;
+      state.payments.error = null;
+      state.payments.tierLimitError = null;
+    });
+    try {
+      const { payments, skippedMonths } = await paymentService.createMultiMonthPayments(
+        starts,
+        customer,
+        plan,
+        amountPaid,
+        receivedByUserId,
+        notes,
+        tenantId,
+        get().payments.items,
+        snapshotRate(planCurrency),
+        tier,
+      );
+      const items = [...get().payments.items, ...payments];
+      const monthGrid = paymentService.buildMonthGrid(customer, items, year, graceDays);
+      const { year: cy, month: cm } = getCurrentYearMonth();
+      const currentBillingMonth = toBillingMonth(cy, cm);
+      set((state) => {
+        state.payments.items = items;
+        state.payments.monthGrid = monthGrid;
+        state.payments.loadingCreate = false;
+        for (const payment of payments) {
+          if (payment.amountPaid <= 0) continue;
+          const [pYear, pMonthNum] = payment.billingMonth.split('-').map(Number);
+          let coversCurrentMonth = false;
+          for (let d = 0; d < payment.durationMonths; d++) {
+            const date = new Date(pYear, pMonthNum - 1 + d, 1);
+            if (toBillingMonth(date.getFullYear(), date.getMonth() + 1) === currentBillingMonth) {
+              coversCurrentMonth = true;
+              break;
+            }
+          }
+          if (coversCurrentMonth) {
+            applyPaymentStatus(state.payments, customer.id, payment.balance > 0);
+          }
         }
       });
       return skippedMonths;
@@ -305,6 +448,48 @@ export const createPaymentSlice: StateCreator<
             break;
           }
         }
+      }
+      set((state) => {
+        state.payments.items = items;
+        state.payments.monthGrid = monthGrid;
+        state.payments.loadingVoid = false;
+        if (voidedCurrentMonth) {
+          clearPaymentStatus(state.payments, customer.id);
+        }
+      });
+    } catch (e) {
+      set((state) => {
+        state.payments.error = (e as Error).message;
+        state.payments.loadingVoid = false;
+      });
+    }
+  },
+
+  voidPayments: async (ids, voidedBy, notes, customer, year, graceDays) => {
+    if (ids.length === 0 || get().payments.loadingVoid) return;
+    const idSet = new Set(ids);
+    const paymentsToVoid = get().payments.items.filter((p) => idSet.has(p.id));
+    set((state) => {
+      state.payments.loadingVoid = true;
+      state.payments.error = null;
+    });
+    try {
+      await paymentService.voidPayments(ids, voidedBy, notes);
+      const items = get().payments.items.filter((p) => !idSet.has(p.id));
+      const monthGrid = paymentService.buildMonthGrid(customer, items, year, graceDays);
+      const { year: cy, month: cm } = getCurrentYearMonth();
+      const currentBillingMonth = toBillingMonth(cy, cm);
+      let voidedCurrentMonth = false;
+      for (const p of paymentsToVoid) {
+        const [pYear, pMonthNum] = p.billingMonth.split('-').map(Number);
+        for (let d = 0; d < p.durationMonths; d++) {
+          const date = new Date(pYear, pMonthNum - 1 + d, 1);
+          if (toBillingMonth(date.getFullYear(), date.getMonth() + 1) === currentBillingMonth) {
+            voidedCurrentMonth = true;
+            break;
+          }
+        }
+        if (voidedCurrentMonth) break;
       }
       set((state) => {
         state.payments.items = items;

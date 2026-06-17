@@ -9,6 +9,11 @@ interface Props {
   // Billing month currently being quick-paid — its cell shows a spinner.
   loadingBillingMonth?: string | null;
   isRegular: boolean;
+  // Multi-select mode wiring.
+  selectionMode?: boolean;
+  isSelected?: (billingMonth: string) => boolean;
+  onCellToggle?: (entry: MonthEntry) => void;
+  onCellLongPress?: (entry: MonthEntry) => void;
 }
 
 // The grid always has 4 cells per row (Jan–Apr, May–Aug, Sep–Dec).
@@ -36,6 +41,10 @@ export function MonthGrid({
   onCellMenu,
   loadingBillingMonth,
   isRegular,
+  selectionMode = false,
+  isSelected,
+  onCellToggle,
+  onCellLongPress,
 }: Props) {
   return (
     <View className="flex-row flex-wrap px-1 pb-2">
@@ -92,6 +101,10 @@ export function MonthGrid({
             // Merge same-row wraps with cross-year wraps so MonthCell only needs one prop each.
             wrapFromPrev={wrapFromPrev || crossYearFromPrev}
             wrapToNext={wrapToNext || crossYearToNext}
+            selectionMode={selectionMode}
+            selected={isSelected?.(entry.billingMonth) ?? false}
+            onToggle={onCellToggle}
+            onLongPress={onCellLongPress}
           />
         );
       })}

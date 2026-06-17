@@ -31,6 +31,19 @@ import { MonthGrid } from "./MonthGrid";
 import { PaymentDetailSheet } from "./PaymentDetailSheet";
 import { PaymentFormSheet } from "./PaymentFormSheet";
 import { VoidSheet } from "./VoidSheet";
+import { GridSelectionToolbar } from "./GridSelectionToolbar";
+import {
+  BulkPaymentFormSheet,
+  type BulkPaymentValues,
+} from "./BulkPaymentFormSheet";
+import { BulkVoidSheet } from "./BulkVoidSheet";
+import { expandSelectionUnit, groupPayableBlocks } from "../utils/monthSelection";
+import {
+  useSelection,
+  useSelectionBackHandler,
+} from "@/src/shared/hooks/useSelection";
+import type { SelectionAction } from "@/src/shared/components/PageHeader";
+import { UpgradePromptModal } from "@/src/modules/subscription";
 import { usePaymentSlice } from "@/src/state/hooks/usePaymentSlice";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { getStore } from "@/src/state/globalStore";
@@ -61,9 +74,22 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
   const [voidVisible, setVoidVisible] = useState(false);
   const quickPayHandledRef = useRef(false);
 
+  // Month-grid multi-select (ephemeral UI state).
+  const selection = useSelection();
+  useSelectionBackHandler(selection.active, selection.clear);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkPayVisible, setBulkPayVisible] = useState(false);
+  const [bulkVoidIds, setBulkVoidIds] = useState<string[] | null>(null);
+
   useEffect(() => {
     paymentStore.fetchPayments(customer.id, year, customer, graceDays);
   }, [customer.id, year, customer.startDate]);
+
+  // Selected billing months belong to the viewed year only — drop the
+  // selection when the year changes.
+  useEffect(() => {
+    selection.clear();
+  }, [year]);
 
   useEffect(() => {
     return () => paymentStore.reset();
@@ -268,6 +294,181 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
     if (!getStore().getState().payments.error) setDetailVisible(false);
   }
 
+  // --- Multi-select (bulk) ---------------------------------------------------
+
+  const selectedEntries = paymentStore.monthGrid.filter((m) =>
+    selection.selectedIds.has(m.billingMonth),
+  );
+  // Payable: unpaid (any time) or future on an active customer (prepay). An
+  // inactive customer's future months stay blocked, matching the per-cell flow.
+  const payableEntries = selectedEntries.filter(
+    (e) => e.status === "unpaid" || (e.status === "future" && customer.active),
+  );
+  // Voidable: backed by a live payment (includes grouped secondary cells).
+  const voidableEntries = selectedEntries.filter(
+    (e) =>
+      (e.status === "paid" || e.status === "partial") &&
+      e.payment != null &&
+      e.payment.voidedAt === null,
+  );
+
+  function handleCellToggle(entry: MonthEntry) {
+    const unit = expandSelectionUnit(entry, paymentStore.monthGrid, customer);
+    if (unit.length > 0) selection.toggleMany(unit);
+  }
+
+  function handleCellLongPress(entry: MonthEntry) {
+    const unit = expandSelectionUnit(entry, paymentStore.monthGrid, customer);
+    if (unit.length > 0) selection.enterWith(unit);
+  }
+
+  // True after a bulk action if the slice recorded an error/tier-limit. The
+  // panel's ErrorBanner (and UpgradePromptModal) surface those automatically, so
+  // we only need to know whether to keep the selection for a retry.
+  function bulkSucceeded(): boolean {
+    const ps = getStore().getState().payments;
+    return !ps.error && !ps.tierLimitError;
+  }
+
+  function runBulkPay() {
+    if (bulkBusy || payableEntries.length === 0) return;
+    const plan = customer.plan;
+    if (!plan || plan.isCustomPrice) {
+      setBulkPayVisible(true);
+    } else if (plan.durationMonths > 1) {
+      void runBulkMultiMonthPay();
+    } else {
+      void runBulkFixedPay();
+    }
+  }
+
+  // Fixed single-month plan: full plan price for each selected payable month,
+  // recorded in one batch write.
+  async function runBulkFixedPay() {
+    const plan = customer.plan;
+    if (!user || !plan || plan.price === null) return;
+    const ok = await confirm({
+      title: t("payments.quick_pay.pay_now"),
+      message: t("payments.bulk_pay_message", { count: payableEntries.length }),
+      confirmLabel: t("payments.quick_pay.pay_now"),
+    });
+    if (!ok) return;
+    const planCurrency = findCurrency(currencies, plan.currencyId);
+    const inputs = payableEntries.map((e) => ({
+      billingMonth: e.billingMonth,
+      amountDue: plan.price!,
+      amountPaid: plan.price!,
+      durationMonths: 1,
+      currencyId: plan.currencyId,
+      customerId: customer.id,
+      planId: plan.id,
+      receivedByUserId: user.id,
+      tenantId: user.tenantId,
+      notes: null,
+    }));
+    paymentStore.clearError();
+    setBulkBusy(true);
+    try {
+      await paymentStore.createPayments(inputs, planCurrency, customer, year, graceDays);
+    } finally {
+      setBulkBusy(false);
+    }
+    if (bulkSucceeded()) selection.clear();
+  }
+
+  // Multi-month plan: one full-price block payment per distinct selected block,
+  // all in one batch write.
+  async function runBulkMultiMonthPay() {
+    const plan = customer.plan;
+    if (!user || !plan || plan.price === null || !currentTier) return;
+    const blocks = groupPayableBlocks(payableEntries, customer);
+    const ok = await confirm({
+      title: t("payments.quick_pay.pay_now"),
+      message: t("payments.bulk_pay_blocks_message", { count: blocks.length }),
+      confirmLabel: t("payments.quick_pay.pay_now"),
+    });
+    if (!ok) return;
+    const planCurrency = findCurrency(currencies, plan.currencyId);
+    paymentStore.clearError();
+    paymentStore.clearTierLimitError();
+    setBulkBusy(true);
+    try {
+      await paymentStore.createMultiMonthPayments(
+        blocks.map((b) => b.startBillingMonth),
+        customer,
+        plan,
+        planCurrency,
+        plan.price,
+        user.id,
+        null,
+        user.tenantId,
+        year,
+        graceDays,
+        currentTier,
+      );
+    } finally {
+      setBulkBusy(false);
+    }
+    if (bulkSucceeded()) selection.clear();
+  }
+
+  // Custom / no-plan: the one amount from the popup is applied to every selected
+  // month in one batch write.
+  async function runBulkCustomPay(values: BulkPaymentValues) {
+    if (!user) return;
+    const currency = findCurrency(currencies, values.currencyId);
+    const inputs = payableEntries.map((e) => ({
+      billingMonth: e.billingMonth,
+      amountDue: values.amountDue,
+      amountPaid: values.amountPaid,
+      durationMonths: 1,
+      currencyId: values.currencyId,
+      customerId: customer.id,
+      planId: customer.planId,
+      receivedByUserId: user.id,
+      tenantId: user.tenantId,
+      notes: null,
+    }));
+    paymentStore.clearError();
+    setBulkBusy(true);
+    try {
+      await paymentStore.createPayments(inputs, currency, customer, year, graceDays);
+    } finally {
+      setBulkBusy(false);
+    }
+    if (bulkSucceeded()) {
+      setBulkPayVisible(false);
+      selection.clear();
+    }
+  }
+
+  function runBulkVoid() {
+    if (bulkBusy || voidableEntries.length === 0) return;
+    const ids = Array.from(new Set(voidableEntries.map((e) => e.payment!.id)));
+    setBulkVoidIds(ids);
+  }
+
+  const selectionActions: SelectionAction[] = [];
+  if (payableEntries.length > 0) {
+    selectionActions.push({
+      key: "pay",
+      icon: "flash-outline",
+      label: t("payments.quick_pay.pay_now"),
+      disabled: bulkBusy,
+      onPress: runBulkPay,
+    });
+  }
+  if (voidableEntries.length > 0) {
+    selectionActions.push({
+      key: "void",
+      icon: "trash-outline",
+      label: t("payments.void_payment"),
+      destructive: true,
+      disabled: bulkBusy,
+      onPress: runBulkVoid,
+    });
+  }
+
   const { year: cy, month: cm } = getCurrentYearMonth();
   const currentMonthEntry = paymentStore.monthGrid.find(
     (m) => m.year === cy && m.month === cm,
@@ -320,7 +521,10 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
 
       {/* Year card */}
       <View className="bg-white mx-4 mt-4 rounded-2xl border border-gray-100 overflow-hidden">
-        <View className="flex-row items-center justify-between px-4 pt-4 pb-2">
+        {/* Header row — the selection toolbar overlays it (absolute) so entering
+            selection never shifts the grid down under the user's finger. */}
+        <View className="relative">
+          <View className="flex-row items-center justify-between px-4 pt-4 pb-2">
           <View className="flex-1 pe-3">
             <Text fontWeight="Bold" className="text-2xl text-gray-900">
               {year}
@@ -381,6 +585,16 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
               />
             </PressableOpacity>
           </View>
+          </View>
+          {selection.active ? (
+            <View className="absolute inset-0 bg-white px-2 justify-center border-b border-gray-100">
+              <GridSelectionToolbar
+                count={selection.count}
+                actions={selectionActions}
+                onClose={selection.clear}
+              />
+            </View>
+          ) : null}
         </View>
 
         {paymentStore.loading ? (
@@ -394,6 +608,10 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
             onCellMenu={setMenuEntry}
             loadingBillingMonth={quickPayMonth}
             isRegular={customer.isRegular}
+            selectionMode={selection.active}
+            isSelected={(bm) => selection.selectedIds.has(bm)}
+            onCellToggle={handleCellToggle}
+            onCellLongPress={handleCellLongPress}
           />
         )}
       </View>
@@ -455,6 +673,33 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
           }}
         />
       )}
+
+      {bulkPayVisible && (
+        <BulkPaymentFormSheet
+          count={payableEntries.length}
+          submitting={bulkBusy}
+          onConfirm={runBulkCustomPay}
+          onDismiss={() => setBulkPayVisible(false)}
+        />
+      )}
+      {bulkVoidIds && (
+        <BulkVoidSheet
+          paymentIds={bulkVoidIds}
+          customer={customer}
+          year={year}
+          graceDays={graceDays}
+          onVoided={() => {
+            setBulkVoidIds(null);
+            selection.clear();
+          }}
+          onDismiss={() => setBulkVoidIds(null)}
+        />
+      )}
+
+      <UpgradePromptModal
+        payload={paymentStore.tierLimitError}
+        onClose={paymentStore.clearTierLimitError}
+      />
 
       <ActionMenu
         visible={menuEntry !== null}

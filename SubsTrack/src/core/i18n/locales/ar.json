@@ -287,6 +287,11 @@
     "edit_payment": "تعديل الدفعة",
     "amount_paid_exceeds_due": "المبلغ المدفوع لا يمكن أن يتجاوز المبلغ المستحق ({{due}})",
     "paid_partial": "{{monthYear}} · دفعة جزئية",
+    "bulk_pay_apply_hint": "سيتم تطبيق هذا المبلغ على كل من الأشهر المحددة ({{count}}).",
+    "bulk_pay_message": "دفع {{count}} أشهر محددة الآن؟",
+    "bulk_pay_blocks_message": "دفع {{count}} باقة الآن؟ سيتم تجاوز الأشهر المدفوعة مسبقًا داخل الباقة.",
+    "bulk_void_title": "إلغاء {{count}} دفعات",
+    "bulk_void_message": "إلغاء {{count}} دفعة محددة؟ تبقى السجلات في سجل التدقيق — لا يمكن التراجع عن الإلغاء.",
     "quick_pay": {
       "pay_now": "ادفع",
       "confirm_multi_month_title": "تسجيل دفعة الباقة؟",

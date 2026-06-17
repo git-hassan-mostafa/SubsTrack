@@ -33,6 +33,26 @@ class PaymentRepository extends BaseRepository {
     return data as DbPayment;
   }
 
+  // Inserts several payments in a single round-trip. Callers must ensure the
+  // batch has no duplicate (customer_id, billing_month) keys — Postgres rejects
+  // a batch upsert that touches the same conflict target twice.
+  async createMany(payloads: CreatePaymentPayload[]): Promise<DbPayment[]> {
+    if (payloads.length === 0) return [];
+    const now = new Date().toISOString();
+    const rows = payloads.map((p) => ({
+      ...p,
+      paid_at: now,
+      voided_at: null,
+      voided_by: null,
+    }));
+    const { data, error } = await this.db
+      .from('payments')
+      .upsert(rows, { onConflict: 'customer_id,billing_month' })
+      .select();
+    if (error) this.handleError(error);
+    return (data ?? []) as DbPayment[];
+  }
+
   async updatePayment(
     id: string,
     payload: {
@@ -71,6 +91,22 @@ class PaymentRepository extends BaseRepository {
       .single();
     if (error) this.handleError(error);
     return data as DbPayment;
+  }
+
+  // Voids several payments in a single round-trip.
+  async voidMany(ids: string[], voidedBy: string, notes: string | null): Promise<DbPayment[]> {
+    if (ids.length === 0) return [];
+    const { data, error } = await this.db
+      .from('payments')
+      .update({
+        voided_at: new Date().toISOString(),
+        voided_by: voidedBy,
+        notes,
+      })
+      .in('id', ids)
+      .select();
+    if (error) this.handleError(error);
+    return (data ?? []) as DbPayment[];
   }
 
   // Returns the customer IDs that have an active (non-voided), non-zero-paid

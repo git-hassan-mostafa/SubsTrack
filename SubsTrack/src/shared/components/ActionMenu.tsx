@@ -1,4 +1,5 @@
 import { Modal, Pressable, View } from "react-native";
+import { useEffect, useRef } from "react";
 import { PressableOpacity } from "./PressableOpacity";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
@@ -30,6 +31,15 @@ export function ActionMenu({
   emptyLabel,
 }: ActionMenuProps) {
   const { t } = useTranslation();
+
+  // While the modal fades out, `visible` is already false but `actions` is
+  // typically cleared to [] by the parent in the same render. Keep showing the
+  // last actions during the fade so the empty state doesn't flash.
+  const lastActionsRef = useRef(actions);
+  useEffect(() => {
+    if (visible) lastActionsRef.current = actions;
+  }, [visible, actions]);
+  const displayedActions = visible ? actions : lastActionsRef.current;
 
   function handlePress(item: ActionMenuItem) {
     if (item.disabled) return;
@@ -64,14 +74,14 @@ export function ActionMenu({
             </View>
           ) : null}
 
-          {actions.length === 0 ? (
+          {displayedActions.length === 0 ? (
             <View className="px-5 py-6 items-center">
               <Text className="text-sm text-gray-500">
                 {emptyLabel ?? t("common.no_actions_available")}
               </Text>
             </View>
           ) : (
-            actions.map((item, index) => (
+            displayedActions.map((item, index) => (
               <PressableOpacity
                 key={item.key}
                 onPress={() => handlePress(item)}

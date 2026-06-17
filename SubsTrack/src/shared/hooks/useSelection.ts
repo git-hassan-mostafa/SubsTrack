@@ -10,8 +10,14 @@ export interface UseSelectionResult {
   isSelected: (id: string) => boolean;
   /** Add/remove an id. Removing the last id exits selection mode. */
   toggle: (id: string) => void;
-  /** Enter selection mode with a single id selected (long-press entry). */
-  enterWith: (id: string) => void;
+  /**
+   * Toggle a group of ids atomically: if every id is already selected they are
+   * all removed, otherwise they are all added. Lets a multi-month block flip as
+   * a single unit.
+   */
+  toggleMany: (ids: string[]) => void;
+  /** Enter selection mode with one or more ids selected (long-press entry). */
+  enterWith: (ids: string | string[]) => void;
   /** Exit selection mode and clear all selected ids. */
   clear: () => void;
 }
@@ -43,8 +49,19 @@ export function useSelection(): UseSelectionResult {
     });
   }, []);
 
-  const enterWith = useCallback((id: string) => {
-    setSelectedIds(new Set<string>([id]));
+  const toggleMany = useCallback((ids: string[]) => {
+    if (ids.length === 0) return;
+    setSelectedIds((prev) => {
+      const allSelected = ids.every((id) => prev.has(id));
+      const next = new Set(prev);
+      if (allSelected) ids.forEach((id) => next.delete(id));
+      else ids.forEach((id) => next.add(id));
+      return next;
+    });
+  }, []);
+
+  const enterWith = useCallback((ids: string | string[]) => {
+    setSelectedIds(new Set<string>(Array.isArray(ids) ? ids : [ids]));
   }, []);
 
   const clear = useCallback(() => {
@@ -57,6 +74,7 @@ export function useSelection(): UseSelectionResult {
     count: selectedIds.size,
     isSelected,
     toggle,
+    toggleMany,
     enterWith,
     clear,
   };

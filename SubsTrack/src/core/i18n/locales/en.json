@@ -286,6 +286,11 @@
     "edit_payment": "Edit Payment",
     "amount_paid_exceeds_due": "Amount paid cannot exceed amount due ({{due}})",
     "paid_partial": "{{monthYear}} · partial payment",
+    "bulk_pay_apply_hint": "This amount will be applied to each of the {{count}} selected months.",
+    "bulk_pay_message": "Pay {{count}} selected months now?",
+    "bulk_pay_blocks_message": "Pay {{count}} block(s) now? Already-paid months inside a block are skipped.",
+    "bulk_void_title": "Void {{count}} payments",
+    "bulk_void_message": "Void {{count}} selected payment(s)? The records stay in the audit log — voids cannot be undone.",
     "quick_pay": {
       "pay_now": "Pay",
       "confirm_multi_month_title": "Record bundle payment?",

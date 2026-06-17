@@ -19,6 +19,12 @@ interface Props {
   connectRight?: boolean;
   wrapFromPrev?: boolean;
   wrapToNext?: boolean;
+  // Selection mode: tap toggles instead of opening, the 3-dot is replaced by a
+  // checkbox badge, and selected cells gain a primary ring.
+  selectionMode?: boolean;
+  selected?: boolean;
+  onToggle?: (entry: MonthEntry) => void;
+  onLongPress?: (entry: MonthEntry) => void;
 }
 
 const regularBgColor: Record<MonthStatus, string> = {
@@ -63,10 +69,17 @@ export const MonthCell = memo(function MonthCell({
   connectRight = false,
   wrapFromPrev = false,
   wrapToNext = false,
+  selectionMode = false,
+  selected = false,
+  onToggle,
+  onLongPress,
 }: Props) {
   const { t } = useTranslation();
   const { year: cy, month: cm } = getCurrentYearMonth();
   const isCurrentMonth = entry.year === cy && entry.month === cm;
+
+  // before_start cells are never selectable; everything else can be picked.
+  const selectable = entry.status !== "before_start";
 
   const bgColor = isRegular ? regularBgColor : nonRegularBgColor;
   const textColor = isRegular ? regularTextColor : nonRegularTextColor;
@@ -83,8 +96,9 @@ export const MonthCell = memo(function MonthCell({
 
   // The 3-dot menu only makes sense on months that can be acted on: record a
   // payment (unpaid / future) or open / void an existing one (paid / partial).
-  // Only before-start cells stay tap-only.
-  const showMenu = !!onMenu && entry.status !== "before_start";
+  // Only before-start cells stay tap-only. Hidden in selection mode — the
+  // checkbox badge takes its place.
+  const showMenu = !selectionMode && !!onMenu && entry.status !== "before_start";
 
   // Match the dots to the label colour so they stay visible on every cell type.
   const usesWhiteText =
@@ -123,13 +137,29 @@ export const MonthCell = memo(function MonthCell({
   else if (rightSquare) roundClass = "rounded-tl-xl rounded-bl-xl";
   else roundClass = "rounded-xl";
 
+  // In selection mode a selected cell gets a primary ring; the status colour
+  // underneath stays visible.
+  const ringClass = selectionMode && selected ? "border-2 border-primary" : "";
+
+  function handlePress() {
+    if (selectionMode) {
+      if (selectable) onToggle?.(entry);
+      return;
+    }
+    onPress(entry);
+  }
+
   return (
     <PressableOpacity
-      onPress={() => onPress(entry)}
+      onPress={handlePress}
+      onLongPress={
+        !selectionMode && selectable ? () => onLongPress?.(entry) : undefined
+      }
+      delayLongPress={250}
       className={`w-1/4 aspect-square ${padClass}`}
     >
       <View
-        className={`${roundClass} items-center justify-center flex-1 w-full ${containerBg}`}
+        className={`${roundClass} ${ringClass} items-center justify-center flex-1 w-full ${containerBg}`}
       >
         <Text fontWeight="SemiBold" className={`text-sm ${labelColor}`}>
           {t(`months.${entry.label}`)}
@@ -164,6 +194,17 @@ export const MonthCell = memo(function MonthCell({
               />
             )}
           </PressableOpacity>
+        ) : null}
+        {selectionMode && selectable ? (
+          <View className="absolute top-1 end-1">
+            {selected ? (
+              <View className="w-5 h-5 rounded-full items-center justify-center bg-primary">
+                <Ionicons name="checkmark" size={13} color={COLORS.white} />
+              </View>
+            ) : (
+              <View className="w-5 h-5 rounded-full border-2 border-gray-400 bg-white/70" />
+            )}
+          </View>
         ) : null}
       </View>
     </PressableOpacity>
