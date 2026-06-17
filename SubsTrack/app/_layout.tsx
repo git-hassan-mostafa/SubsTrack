@@ -13,7 +13,20 @@ import * as Font from "expo-font";
 import { useEffect, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
+import { Platform } from "react-native";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import "../global.css";
+
+/**
+ * On web there are no device safe-area insets, but the library falls back to
+ * non-zero default insets which render as a phantom gap at the top and bottom
+ * of every screen. Forcing zero metrics on web removes that gap; native passes
+ * `undefined` so insets are measured for real.
+ */
+const webZeroMetrics = {
+  frame: { x: 0, y: 0, width: 0, height: 0 },
+  insets: { top: 0, left: 0, right: 0, bottom: 0 },
+};
 import { enableMapSet } from "immer";
 
 export default function RootLayout() {
@@ -81,12 +94,16 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
-      <KeyboardProvider>
-        <StatusBar style="dark" backgroundColor="white" />
-        <ErrorBoundary>
-          <Slot />
-        </ErrorBoundary>
-      </KeyboardProvider>
+      <SafeAreaProvider
+        initialMetrics={Platform.OS === "web" ? webZeroMetrics : undefined}
+      >
+        <KeyboardProvider>
+          <StatusBar style="dark" backgroundColor="white" />
+          <ErrorBoundary>
+            <Slot />
+          </ErrorBoundary>
+        </KeyboardProvider>
+      </SafeAreaProvider>
     </GestureHandlerRootView>
   );
 }

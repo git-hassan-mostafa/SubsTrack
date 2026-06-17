@@ -7,8 +7,6 @@ interface Props extends TextProps {
 }
 
 export function Text({ style, ...props }: Props) {
-  const language = useLanguageStore((s) => s.language);
-
   const allStyles = [
     { fontFamily: "Cairo" + (props.fontWeight ? "-" + props.fontWeight : "") },
     // On web, RN Web infers each Text's direction from its own content, so an
@@ -17,11 +15,7 @@ export function Text({ style, ...props }: Props) {
     // mode. Pin the writing direction to the UI language so web matches native.
     Platform.OS === "web"
       ? {
-          writingDirection: (RTL_LANGUAGES as readonly string[]).includes(
-            language,
-          )
-            ? ("rtl" as const)
-            : ("ltr" as const),
+          writingDirection: "ltr" as const,
         }
       : null,
     StyleSheet.flatten(style) ?? {},
