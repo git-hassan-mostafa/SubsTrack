@@ -44,20 +44,19 @@ import {
   type SelectionAction,
 } from "@/src/shared/components/PageHeader";
 import { FAB } from "@/src/shared/components/FAB";
+import { SelectAllBar } from "@/src/shared/components/SelectAllBar";
 import { MONTHS } from "@/src/core/constants";
 import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
 import {
   useSelection,
   useSelectionBackHandler,
 } from "@/src/shared/hooks/useSelection";
-import { getStore } from "@/src/state/globalStore";
 import type { MultiMonthConflict } from "@/src/modules/customer-payments";
 
 type FilterTab = "all" | "unpaid" | "active" | "inactive";
 
 export function CustomerListScreen() {
-  const { t, i18n } = useTranslation();
-  const locale = getDateLocale(i18n.language);
+  const { t } = useTranslation();
   const router = useRouter();
   const { user, isAdmin } = useAuth();
   const graceDays = useGraceDays();
@@ -74,6 +73,7 @@ export function CustomerListScreen() {
   const deactivateCustomer = useCustomerSlice((s) => s.deactivateCustomer);
   const reactivateCustomer = useCustomerSlice((s) => s.reactivateCustomer);
   const deleteCustomer = useCustomerSlice((s) => s.deleteCustomer);
+  const bulkDeleteCustomers = useCustomerSlice((s) => s.bulkDeleteCustomers);
   const currentMonthFullyPaidIds = usePaymentSlice(
     (s) => s.currentMonthFullyPaidIds,
   );
@@ -87,6 +87,7 @@ export function CustomerListScreen() {
   const createMultiMonthPayment = usePaymentSlice(
     (s) => s.createMultiMonthPayment,
   );
+  const bulkPayCustomers = usePaymentSlice((s) => s.bulkPayCustomers);
   const paymentError = usePaymentSlice((s) => s.error);
   const clearPaymentError = usePaymentSlice((s) => s.clearError);
   const clearPaymentTierLimitError = usePaymentSlice(
@@ -106,6 +107,7 @@ export function CustomerListScreen() {
     active: selectionActive,
     selectedIds,
     toggle: toggleSelect,
+    toggleMany: toggleManySelect,
     enterWith: enterSelection,
     clear: clearSelection,
   } = selection;
@@ -184,12 +186,10 @@ export function CustomerListScreen() {
 
   // Records a quick payment (single OR multi-month) for one eligible, fixed-price
   // customer. No dialogs, no per-card spinner — callers own the confirm + loading
-  // UI. `bulk` controls multi-month conflict behavior: false (single-tap) keeps
-  // the legacy throw-on-conflict; true (bulk) skips already-paid months instead
-  // of aborting the batch. Custom-price / no-plan customers never reach here.
+  // UI. Multi-month throws on an already-paid-month conflict. Custom-price /
+  // no-plan customers never reach here. (Bulk pay uses `runBulkQuickPay`.)
   async function payCustomerQuick(
     customer: Customer,
-    opts: { bulk: boolean },
   ): Promise<MultiMonthConflict[]> {
     if (!customer.plan || customer.plan.price === null || !user) return [];
     const { year, month } = getCurrentYearMonth();
@@ -205,7 +205,7 @@ export function CustomerListScreen() {
         user.id,
         null,
         user.tenantId,
-        opts.bulk,
+        false,
         year,
         graceDays,
         currentTier,
@@ -234,7 +234,7 @@ export function CustomerListScreen() {
   async function recordSingleMonth(customer: Customer) {
     setQuickPayCustomerId(customer.id);
     try {
-      await payCustomerQuick(customer, { bulk: false });
+      await payCustomerQuick(customer);
     } finally {
       setQuickPayCustomerId(null);
     }
@@ -257,7 +257,7 @@ export function CustomerListScreen() {
     if (!ok) return;
     setQuickPayCustomerId(customer.id);
     try {
-      await payCustomerQuick(customer, { bulk: false });
+      await payCustomerQuick(customer);
     } finally {
       setQuickPayCustomerId(null);
     }
@@ -357,11 +357,11 @@ export function CustomerListScreen() {
   }
 
   // Bulk quick pay: pay every eligible fixed-price customer (single AND
-  // multi-month). Custom-price/no-plan are skipped; multi-month are paid but
-  // flagged in the confirm. The loop is SEQUENTIAL — paymentSlice early-returns
-  // while `loadingCreate` is true, so a parallel run would silently drop pays.
+  // multi-month) in ONE DB round-trip. Custom-price/no-plan are skipped;
+  // multi-month are paid but flagged in the confirm. The batch is all-or-nothing
+  // (single upsert) — on failure the slice records the reason and 0 are paid.
   async function runBulkQuickPay(selected: Customer[]) {
-    if (bulkBusy || selected.length === 0) return;
+    if (bulkBusy || selected.length === 0 || !user) return;
     const payable: Customer[] = [];
     let multiCount = 0;
     let customCount = 0;
@@ -389,7 +389,9 @@ export function CustomerListScreen() {
     if (multiCount > 0)
       warnings.push(t("customers.bulk_pay_warn_multi", { count: multiCount }));
     if (customCount > 0)
-      warnings.push(t("customers.bulk_pay_skip_custom", { count: customCount }));
+      warnings.push(
+        t("customers.bulk_pay_skip_custom", { count: customCount }),
+      );
     const ok = await confirm({
       title: t("payments.quick_pay.pay_now"),
       message:
@@ -397,42 +399,35 @@ export function CustomerListScreen() {
         (warnings.length > 0 ? "\n\n" + warnings.join("\n") : ""),
       confirmLabel: t("payments.quick_pay.pay_now"),
     });
-    if (!ok) return;
+    if (!ok || !currentTier) return;
 
     setBulkBusy(true);
-    let okCount = 0;
-    let failedCount = 0;
+    let paidCount = 0;
     try {
-      for (const c of payable) {
-        if (hasCurrentMonthPayment(c.id)) continue; // re-check: flipped under us
-        // Multi-month needs the tier for its limit check; without it payCustomerQuick
-        // no-ops silently, so count it as a failure rather than a phantom success.
-        if (c.plan && c.plan.durationMonths > 1 && !currentTier) {
-          failedCount++;
-          continue;
-        }
-        clearPaymentError();
-        clearPaymentTierLimitError();
-        await payCustomerQuick(c, { bulk: true });
-        // The slice swallows failures into error/tierLimitError (last-writer-wins),
-        // so read fresh store state per iteration rather than the stale hook value.
-        const ps = getStore().getState().payments;
-        if (ps.error || ps.tierLimitError) {
-          failedCount++;
-          clearPaymentError();
-          clearPaymentTierLimitError();
-        } else {
-          okCount++;
-        }
-      }
+      // Each customer pays its plan's full price for the current month, in its
+      // own currency. The slice freezes the rate per request and syncs badges.
+      paidCount = await bulkPayCustomers(
+        payable.map((c) => ({
+          customer: c,
+          plan: c.plan!,
+          currency: findCurrency(currencies, c.plan!.currencyId),
+          amountPaid: c.plan!.price!,
+        })),
+        user.id,
+        user.tenantId,
+        currentTier,
+      );
     } finally {
       setBulkBusy(false);
     }
     clearSelection();
     fetchCurrentMonthPaymentStatus();
+    const failedCount = payable.length - paidCount;
     if (failedCount > 0) {
+      clearPaymentError();
+      clearPaymentTierLimitError();
       setBulkNotice(
-        t("customers.bulk_pay_summary", { ok: okCount, failed: failedCount }),
+        t("customers.bulk_pay_summary", { ok: paidCount, failed: failedCount }),
       );
     }
   }
@@ -452,27 +447,12 @@ export function CustomerListScreen() {
     });
     if (!ok) return;
     setBulkBusy(true);
-    let okCount = 0;
-    let failedCount = 0;
     try {
-      for (const c of selected) {
-        const result = await deleteCustomer(c.id);
-        if (result === null) failedCount++;
-        else okCount++;
-      }
+      await bulkDeleteCustomers(selected.map((c) => c.id));
     } finally {
       setBulkBusy(false);
     }
     clearSelection();
-    if (failedCount > 0) {
-      clearError();
-      setBulkNotice(
-        t("customers.bulk_delete_summary", {
-          ok: okCount,
-          failed: failedCount,
-        }),
-      );
-    }
   }
 
   // Toolbar actions for the selection header. 1 selected → edit / toggle / delete
@@ -629,6 +609,15 @@ export function CustomerListScreen() {
           />
         </View>
       ) : null}
+
+      {selectionActive && (
+        <SelectAllBar
+          allSelected={
+            filtered.length > 0 && selectedCustomers.length === filtered.length
+          }
+          onToggle={() => toggleManySelect(filtered.map((c) => c.id))}
+        />
+      )}
 
       {loading && customers.length === 0 ? (
         <View className="flex-1 items-center justify-center">

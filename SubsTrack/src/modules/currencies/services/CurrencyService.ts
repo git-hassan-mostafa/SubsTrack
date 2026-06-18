@@ -70,6 +70,22 @@ class CurrencyService {
     return mapDbCurrencyToCurrency(row);
   }
 
+  // Batch counterpart to deleteCurrency: currencies used by a plan or payment
+  // are soft-deleted, the rest hard-deleted — each group in a single statement.
+  async deleteManyCurrencies(
+    ids: string[],
+  ): Promise<{ hard: string[]; soft: string[] }> {
+    if (ids.length === 0) return { hard: [], soft: [] };
+    const referenced = await repository.referencedIds(ids);
+    const soft = ids.filter((id) => referenced.has(id));
+    const hard = ids.filter((id) => !referenced.has(id));
+    await Promise.all([
+      repository.deactivateMany(soft),
+      repository.deleteMany(hard),
+    ]);
+    return { hard, soft };
+  }
+
   private validate(data: CurrencyInput): CurrencyInput {
     const code = (data.code ?? '').trim().toUpperCase();
     if (!/^[A-Z]{2,8}$/.test(code)) {

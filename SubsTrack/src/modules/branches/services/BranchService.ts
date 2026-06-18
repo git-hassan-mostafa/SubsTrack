@@ -63,6 +63,30 @@ class BranchService {
     return mapDbBranchToBranch(row);
   }
 
+  // Batch counterpart to deleteBranch: referenced branches are soft-deleted,
+  // the rest hard-deleted — each group in a single statement. Guards the same
+  // "at least one active branch must survive" invariant as the single delete.
+  async deleteManyBranches(
+    ids: string[],
+  ): Promise<{ hard: string[]; soft: string[] }> {
+    if (ids.length === 0) return { hard: [], soft: [] };
+    const [activeCount, activeSelected] = await Promise.all([
+      repository.countActive(),
+      repository.countActiveAmong(ids),
+    ]);
+    if (activeCount - activeSelected < 1) {
+      throw new Error(i18n.t('errors.branch_last_active'));
+    }
+    const referenced = await repository.referencedIds(ids);
+    const soft = ids.filter((id) => referenced.has(id));
+    const hard = ids.filter((id) => !referenced.has(id));
+    await Promise.all([
+      repository.deactivateMany(soft),
+      repository.deleteMany(hard),
+    ]);
+    return { hard, soft };
+  }
+
   private validate(data: BranchInput): BranchInput {
     const name = (data.name ?? '').trim();
     if (!name) throw new Error(i18n.t('errors.branch_name_required'));

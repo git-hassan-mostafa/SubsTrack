@@ -16,6 +16,7 @@ export interface ProductSlice {
   createProduct: (data: ProductInput, tenantId: string, tier: TierPlan, usage: TenantUsage) => Promise<void>;
   updateProduct: (id: string, data: ProductInput) => Promise<void>;
   deleteProduct: (id: string) => Promise<'hard' | 'soft' | null>;
+  bulkDeleteProducts: (ids: string[]) => Promise<boolean>;
   reactivateProduct: (id: string) => Promise<void>;
   clearError: () => void;
   clearTierLimitError: () => void;
@@ -132,6 +133,34 @@ export const createProductSlice: StateCreator<
         state.products.loading = false;
       });
       return null;
+    }
+  },
+
+  bulkDeleteProducts: async (ids) => {
+    if (ids.length === 0) return true;
+    set((state) => {
+      state.products.loading = true;
+      state.products.error = null;
+    });
+    try {
+      const { hard, soft } = await productService.deleteManyProducts(ids);
+      set((state) => {
+        const removed = new Set(hard);
+        const softened = new Set(soft);
+        state.products.items = state.products.items.filter((p) => !removed.has(p.id));
+        for (const p of state.products.items) {
+          if (softened.has(p.id)) p.active = false;
+        }
+        state.products.loading = false;
+      });
+      void get().subscription.refreshUsage();
+      return true;
+    } catch (e) {
+      set((state) => {
+        state.products.error = (e as Error).message;
+        state.products.loading = false;
+      });
+      return false;
     }
   },
 

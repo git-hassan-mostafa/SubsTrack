@@ -45,6 +45,33 @@ class CurrencyRepository extends BaseRepository {
     if (error) this.handleError(error);
   }
 
+  // Hard-delete many currencies in one statement.
+  async deleteMany(ids: string[]): Promise<void> {
+    if (ids.length === 0) return;
+    const { error } = await this.db.from('currencies').delete().in('id', ids);
+    if (error) this.handleError(error);
+  }
+
+  // Soft-delete many currencies in one statement.
+  async deactivateMany(ids: string[]): Promise<void> {
+    if (ids.length === 0) return;
+    const { error } = await this.db
+      .from('currencies')
+      .update({ active: false })
+      .in('id', ids);
+    if (error) this.handleError(error);
+  }
+
+  // The subset of the given currencies referenced by any plan or payment.
+  async referencedIds(ids: string[]): Promise<Set<string>> {
+    if (ids.length === 0) return new Set();
+    const [plans, payments] = await Promise.all([
+      this.referencedIdsIn('plans', 'currency_id', ids),
+      this.referencedIdsIn('payments', 'currency_id', ids),
+    ]);
+    return new Set([...plans, ...payments]);
+  }
+
   // Returns the total number of plans + payments referencing this currency.
   // Used by CurrencyService to decide hard-delete vs soft-delete.
   async countReferences(id: string): Promise<number> {

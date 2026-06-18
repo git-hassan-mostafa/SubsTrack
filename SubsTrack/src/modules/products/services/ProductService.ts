@@ -70,6 +70,24 @@ class ProductService {
     return mapDbProductToProduct(row);
   }
 
+  // Batch counterpart to deleteProduct: products with sales are soft-deleted,
+  // the rest hard-deleted — each group in a single statement (≤3 round-trips
+  // total, independent of count). Returns the id split so the store can update
+  // its list without a refetch.
+  async deleteManyProducts(
+    ids: string[],
+  ): Promise<{ hard: string[]; soft: string[] }> {
+    if (ids.length === 0) return { hard: [], soft: [] };
+    const referenced = await repository.referencedIds(ids);
+    const soft = ids.filter((id) => referenced.has(id));
+    const hard = ids.filter((id) => !referenced.has(id));
+    await Promise.all([
+      repository.deactivateMany(soft),
+      repository.deleteMany(hard),
+    ]);
+    return { hard, soft };
+  }
+
   private validate(data: ProductInput): void {
     if (!data.name?.trim()) throw new Error(i18n.t('errors.product_name_required'));
     if (typeof data.price !== 'number' || Number.isNaN(data.price)) {

@@ -60,6 +60,25 @@ export abstract class BaseRepository {
   }
 
   /**
+   * Returns the subset of `ids` that appear in `table.<column>` — i.e. the rows
+   * still referenced by a child table. One query regardless of how many ids are
+   * passed; powers the hard-delete vs soft-delete split in bulk deletes.
+   */
+  protected async referencedIdsIn(
+    table: string,
+    column: string,
+    ids: string[],
+  ): Promise<Set<string>> {
+    if (ids.length === 0) return new Set();
+    const { data, error } = await this.db.from(table).select(column).in(column, ids);
+    if (error) this.handleError(error);
+    return new Set(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (data ?? []).map((row: any) => row[column] as string),
+    );
+  }
+
+  /**
  * The single source of truth for "how does each table relate to a branch?"
  * Adding a new branch-aware table means adding one line here.
  */

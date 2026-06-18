@@ -5,11 +5,16 @@ import { Text } from "@/src/shared/components/Text";
 import type { AppUser } from "@/src/core/types";
 import { AVATAR_COLORS, COLORS } from "../../../shared/constants";
 import { useTranslation } from "react-i18next";
+import { Checkbox } from "@/src/shared/components/Checkbox";
 
 interface Props {
   user: AppUser;
   onEdit: (user: AppUser) => void;
   onMenu: (user: AppUser) => void;
+  selectionMode?: boolean;
+  selected?: boolean;
+  onToggleSelect?: (user: AppUser) => void;
+  onEnterSelection?: (user: AppUser) => void;
 }
 
 function getAvatarColor(name: string): string {
@@ -31,33 +36,49 @@ const roleBadgeStyle: Record<
   superadmin: { bg: "bg-purple-100", text: "text-purple-700", label: "Super" },
 };
 
-export function UserCard({ user, onEdit, onMenu }: Props) {
+export function UserCard({
+  user,
+  onEdit,
+  onMenu,
+  selectionMode = false,
+  selected = false,
+  onToggleSelect,
+  onEnterSelection,
+}: Props) {
   const avatarColor = getAvatarColor(user.fullName);
   const badge = roleBadgeStyle[user.role] ?? roleBadgeStyle.user;
   const { t } = useTranslation();
 
   return (
     <PressableOpacity
-      onPress={() => onEdit(user)}
-      onLongPress={() => onMenu(user)}
+      onPress={() => (selectionMode ? onToggleSelect?.(user) : onEdit(user))}
+      onLongPress={
+        selectionMode ? undefined : () => (onEnterSelection ?? onMenu)(user)
+      }
       className="bg-white border border-gray-100 rounded-2xl px-4 py-3.5 mb-2.5"
     >
       <View className="flex-row items-center">
-        {/* Avatar */}
-        <View className="relative me-3">
-          <View
-            className="w-11 h-11 rounded-xl items-center justify-center"
-            style={{ backgroundColor: avatarColor + "22" }}
-          >
-            <Text
-              className="text-sm"
-              fontWeight="Bold"
-              style={{ color: avatarColor }}
-            >
-              {getInitials(user.fullName)}
-            </Text>
+        {/* Avatar — replaced by a checkbox in selection mode */}
+        {selectionMode ? (
+          <View className="w-11 h-11 items-center justify-center me-3 flex-shrink-0">
+            <Checkbox checked={selected} />
           </View>
-        </View>
+        ) : (
+          <View className="relative me-3">
+            <View
+              className="w-11 h-11 rounded-xl items-center justify-center"
+              style={{ backgroundColor: avatarColor + "22" }}
+            >
+              <Text
+                className="text-sm"
+                fontWeight="Bold"
+                style={{ color: avatarColor }}
+              >
+                {getInitials(user.fullName)}
+              </Text>
+            </View>
+          </View>
+        )}
 
         {/* Name + handle + phone */}
         <View className="flex-1">
@@ -86,13 +107,19 @@ export function UserCard({ user, onEdit, onMenu }: Props) {
           </Text>
         </View>
 
-        <PressableOpacity
-          onPress={() => onMenu(user)}
-          hitSlop={8}
-          className="ms-2 w-9 h-9 items-center justify-center rounded-full"
-        >
-          <Ionicons name="ellipsis-vertical" size={20} color={COLORS.gray600} />
-        </PressableOpacity>
+        {!selectionMode && (
+          <PressableOpacity
+            onPress={() => onMenu(user)}
+            hitSlop={8}
+            className="ms-2 w-9 h-9 items-center justify-center rounded-full"
+          >
+            <Ionicons
+              name="ellipsis-vertical"
+              size={20}
+              color={COLORS.gray600}
+            />
+          </PressableOpacity>
+        )}
       </View>
     </PressableOpacity>
   );

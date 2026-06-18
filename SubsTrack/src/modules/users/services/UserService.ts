@@ -136,6 +136,37 @@ class UserService {
     }
   }
 
+  // Batch counterpart to deleteUser. Users with recorded payments are
+  // soft-deleted in ONE statement; the rest are hard-deleted. Hard deletes must
+  // go through the per-user `delete-user` edge function (it removes the auth
+  // user too), so that group is unavoidably sequential — but the payment lookup
+  // and every soft-delete collapse to single round-trips. Permission is checked
+  // per user (callers should pre-filter; this is the safety net). Returns the
+  // id split so the store can update its list without a refetch.
+  async deleteUsers(
+    targets: { id: string; role: UserRole }[],
+    callerId: string,
+    callerRole: UserRole,
+  ): Promise<{ hard: string[]; soft: string[] }> {
+    if (targets.length === 0) return { hard: [], soft: [] };
+    for (const t of targets) {
+      this.checkToggleActivePermission(t.id, callerId, callerRole, t.role);
+    }
+    const ids = targets.map((t) => t.id);
+    const withPayments = await repository.usersWithPayments(ids);
+    const soft = ids.filter((id) => withPayments.has(id));
+    const hard = ids.filter((id) => !withPayments.has(id));
+    try {
+      await Promise.all([
+        repository.setActiveMany(soft, false),
+        ...hard.map((id) => repository.delete(id)),
+      ]);
+    } catch (err) {
+      this.rethrow(err);
+    }
+    return { hard, soft };
+  }
+
   async deactivateUser(
     id: string,
     callerId: string,

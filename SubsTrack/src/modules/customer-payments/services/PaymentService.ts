@@ -21,6 +21,17 @@ import { CreateMultiMonthPaymentResult, MultiMonthConflict } from "../utils/type
 
 type CreatePaymentInput = Pick<Payment, 'billingMonth' | 'amountDue' | 'amountPaid' | 'durationMonths' | 'currencyId' | 'ratePerUsdSnapshot' | 'customerId' | 'planId' | 'receivedByUserId' | 'tenantId' | 'notes'>
 
+// One entry in a customer-list bulk quick pay: a single fixed-price customer
+// paid for `billingMonth` with its own plan + frozen rate. Multi-month plans
+// become a block payment covering plan.durationMonths from billingMonth.
+interface BulkPayCustomerInput {
+  customer: Customer;
+  plan: Plan;
+  billingMonth: string;
+  amountPaid: number;
+  ratePerUsdSnapshot: number;
+}
+
 class PaymentService {
   async getPaymentsForYear(
     customerId: string,
@@ -43,6 +54,44 @@ class PaymentService {
     if (inputs.length === 0) return [];
     inputs.forEach(validateCreatePayment);
     const rows = await repository.createMany(inputs.map(toPaymentPayload));
+    return rows.map(mapDbPaymentToPayment);
+  }
+
+  // Pays one billing month for many DIFFERENT customers in a single round-trip
+  // — each at its own plan price/currency. Multi-month plans create one block
+  // payment covering plan.durationMonths from billingMonth. Used by the
+  // customer-list bulk quick pay. All-or-nothing: an invalid row, or a tier that
+  // forbids multi-month, fails the whole batch (callers gate eligibility first).
+  async bulkPayCustomers(
+    inputs: BulkPayCustomerInput[],
+    receivedByUserId: string,
+    tenantId: string,
+    tier: TierPlan,
+  ): Promise<Payment[]> {
+    if (inputs.length === 0) return [];
+    if (inputs.some((i) => i.plan.durationMonths > 1)) {
+      tierService.assertMultiMonth(tier);
+    }
+    const paymentInputs: CreatePaymentInput[] = inputs.map((i) => {
+      if (i.plan.price === null) {
+        throw new Error(i18n.t('errors.plan_fixed_for_multimonth'));
+      }
+      return {
+        billingMonth: i.billingMonth,
+        amountDue: i.plan.price,
+        amountPaid: i.amountPaid,
+        durationMonths: i.plan.durationMonths,
+        currencyId: i.plan.currencyId,
+        ratePerUsdSnapshot: i.ratePerUsdSnapshot,
+        customerId: i.customer.id,
+        planId: i.plan.id,
+        receivedByUserId,
+        tenantId,
+        notes: null,
+      };
+    });
+    paymentInputs.forEach(validateCreatePayment);
+    const rows = await repository.createMany(paymentInputs.map(toPaymentPayload));
     return rows.map(mapDbPaymentToPayment);
   }
 

@@ -60,6 +60,12 @@ class PlanService {
     await repository.delete(id);
   }
 
+  // Batch hard-delete. Plans have no soft-delete; assigned customers fall back
+  // to no plan via the ON DELETE SET NULL constraint. One statement.
+  async deleteManyPlans(ids: string[]): Promise<void> {
+    await repository.deleteMany(ids);
+  }
+
   private validate(data: PlanInput): void {
     if (!data.name.trim()) throw new Error(i18n.t('errors.plan_name_required'));
     if (data.durationMonths < 1 || !Number.isInteger(data.durationMonths)) {

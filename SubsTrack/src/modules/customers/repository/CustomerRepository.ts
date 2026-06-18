@@ -116,6 +116,30 @@ class CustomerRepository extends BaseRepository {
     if (error) this.handleError(error);
   }
 
+  // Hard-delete many customers in one statement (payments cascade via
+  // ON DELETE CASCADE). Callers must have already partitioned out the ones
+  // with payment history — those get soft-deleted instead.
+  async deleteMany(ids: string[]): Promise<void> {
+    if (ids.length === 0) return;
+    const { error } = await this.db.from('customers').delete().in('id', ids);
+    if (error) this.handleError(error);
+  }
+
+  // Soft-delete many customers in one statement — mirrors `deactivate`.
+  async deactivateMany(ids: string[]): Promise<void> {
+    if (ids.length === 0) return;
+    const { error } = await this.db
+      .from('customers')
+      .update({ active: false, cancelled_at: new Date().toISOString() })
+      .in('id', ids);
+    if (error) this.handleError(error);
+  }
+
+  // The subset of the given customers that have any payment — one query.
+  async customersWithPayments(ids: string[]): Promise<Set<string>> {
+    return this.referencedIdsIn('payments', 'customer_id', ids);
+  }
+
   async countAll(branchFilter: BranchFilter = null): Promise<number> {
     let query = this.db
       .from('customers')

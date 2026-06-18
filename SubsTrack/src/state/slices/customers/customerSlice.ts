@@ -45,6 +45,7 @@ export interface CustomerSlice {
   deactivateCustomer: (id: string) => Promise<void>;
   reactivateCustomer: (id: string) => Promise<void>;
   deleteCustomer: (id: string) => Promise<'hard' | 'soft' | null>;
+  bulkDeleteCustomers: (ids: string[]) => Promise<boolean>;
   clearError: () => void;
   clearTierLimitError: () => void;
   reset: () => void;
@@ -322,6 +323,47 @@ export const createCustomerSlice: StateCreator<
         state.customers.loading = false;
       });
       return null;
+    }
+  },
+
+  bulkDeleteCustomers: async (ids) => {
+    if (ids.length === 0) return true;
+    // Active count drops by however many of the deleted customers were active
+    // (both hard and soft removals leave the active set).
+    const activeRemoved = get().customers.items.filter(
+      (c) => ids.includes(c.id) && c.active,
+    ).length;
+    set((state) => {
+      state.customers.loading = true;
+      state.customers.error = null;
+    });
+    try {
+      const { hard, soft } = await customerService.deleteManyCustomers(ids);
+      set((state) => {
+        const removed = new Set(hard);
+        const softened = new Set(soft);
+        state.customers.items = state.customers.items.filter(
+          (c) => !removed.has(c.id),
+        );
+        for (const c of state.customers.items) {
+          if (softened.has(c.id)) {
+            c.active = false;
+            c.cancelledAt = new Date().toISOString();
+          }
+        }
+        state.customers.activeCount = Math.max(
+          0,
+          state.customers.activeCount - activeRemoved,
+        );
+        state.customers.loading = false;
+      });
+      return true;
+    } catch (e) {
+      set((state) => {
+        state.customers.error = (e as Error).message;
+        state.customers.loading = false;
+      });
+      return false;
     }
   },
 

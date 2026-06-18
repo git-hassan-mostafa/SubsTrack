@@ -23,9 +23,17 @@ import { UserCard } from "../components/UserCard";
 import { UserFormSheet } from "../components/UserFormSheet";
 import { useUserSlice } from "@/src/state/hooks/useUserSlice";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
-import { PageHeader } from "@/src/shared/components/PageHeader";
+import {
+  PageHeader,
+  type SelectionAction,
+} from "@/src/shared/components/PageHeader";
 import { FAB } from "@/src/shared/components/FAB";
+import { SelectAllBar } from "@/src/shared/components/SelectAllBar";
 import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
+import {
+  useSelection,
+  useSelectionBackHandler,
+} from "@/src/shared/hooks/useSelection";
 
 export function UserListScreen() {
   const { t } = useTranslation();
@@ -39,18 +47,41 @@ export function UserListScreen() {
   const deactivateUser = useUserSlice((s) => s.deactivateUser);
   const activateUser = useUserSlice((s) => s.activateUser);
   const deleteUser = useUserSlice((s) => s.deleteUser);
+  const bulkDeleteUsers = useUserSlice((s) => s.bulkDeleteUsers);
   const [formVisible, setFormVisible] = useState(false);
   const [editingUser, setEditingUser] = useState<AppUser | null>(null);
   const [menuUser, setMenuUser] = useState<AppUser | null>(null);
   const [searchText, setSearchText] = useState("");
   const debouncedSearch = useDebounce(searchText);
   const branchFilter = useEffectiveBranchFilter();
+  const selection = useSelection();
+  const {
+    active: selectionActive,
+    selectedIds,
+    toggle: toggleSelect,
+    toggleMany: toggleManySelect,
+    enterWith: enterSelection,
+    clear: clearSelection,
+  } = selection;
+  useSelectionBackHandler(selectionActive, clearSelection);
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   // Loads on mount AND re-fetches when the user switches the branch chip.
   useEffect(() => {
+    clearSelection();
     fetchUsers();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [branchFilter]);
+
+  // A user can be managed (toggled/deleted) by the current user when it's not
+  // their own account and the role hierarchy allows it.
+  function canManage(target: AppUser): boolean {
+    if (!currentUser || target.id === currentUser.id) return false;
+    return (
+      currentUser.role === "superadmin" ||
+      (currentUser.role === "admin" && target.role === "user")
+    );
+  }
 
   function openCreate() {
     setEditingUser(null);
@@ -98,11 +129,6 @@ export function UserListScreen() {
 
   function buildMenuActions(user: AppUser | null): ActionMenuItem[] {
     if (!user || !currentUser) return [];
-    const isOwnAccount = user.id === currentUser.id;
-    const canManage =
-      !isOwnAccount &&
-      (currentUser.role === "superadmin" ||
-        (currentUser.role === "admin" && user.role === "user"));
     const items: ActionMenuItem[] = [
       {
         key: "edit",
@@ -111,7 +137,7 @@ export function UserListScreen() {
         onPress: () => openEdit(user),
       },
     ];
-    if (canManage) {
+    if (canManage(user)) {
       items.push({
         key: "toggle-active",
         label: user.active ? t("users.deactivate") : t("users.activate"),
@@ -143,6 +169,94 @@ export function UserListScreen() {
       )
     : users;
 
+  // Resolve selected ids against the VISIBLE list.
+  const selectedUsers = filtered.filter((u) => selectedIds.has(u.id));
+
+  // Deletes every manageable user in the selection; non-manageable ones (own
+  // account / outranked) are skipped and reported.
+  async function runBulkDelete(selected: AppUser[]) {
+    if (bulkBusy || selected.length === 0 || !currentUser) return;
+    const manageable = selected.filter(canManage);
+    const skipped = selected.length - manageable.length;
+
+    if (manageable.length === 0) {
+      await confirm({
+        title: t("users.delete_title"),
+        message: t("users.bulk_delete_none"),
+        confirmLabel: t("common.ok"),
+        hideCancel: true,
+      });
+      return;
+    }
+
+    if (manageable.length === 1 && skipped === 0) {
+      await handleDeleteUser(manageable[0]);
+      clearSelection();
+      return;
+    }
+
+    const ok = await confirm({
+      title: t("users.bulk_delete_title", { count: manageable.length }),
+      message:
+        t("users.bulk_delete_message", { count: manageable.length }) +
+        (skipped > 0 ? "\n\n" + t("users.bulk_delete_skipped", { count: skipped }) : ""),
+      confirmLabel: t("common.delete"),
+      destructive: true,
+    });
+    if (!ok) return;
+    setBulkBusy(true);
+    try {
+      await bulkDeleteUsers(
+        manageable.map((u) => ({ id: u.id, role: u.role })),
+        currentUser.id,
+        currentUser.role,
+      );
+    } finally {
+      setBulkBusy(false);
+    }
+    clearSelection();
+  }
+
+  // Toolbar actions for the selection header. 1 selected → edit + (toggle +
+  // delete when manageable); >1 → delete only.
+  function buildSelectionActions(selected: AppUser[]): SelectionAction[] {
+    if (selected.length === 0) return [];
+    const actions: SelectionAction[] = [];
+    if (selected.length === 1) {
+      const one = selected[0];
+      actions.push({
+        key: "edit",
+        icon: "create-outline",
+        label: t("common.edit"),
+        onPress: () => {
+          openEdit(one);
+          clearSelection();
+        },
+      });
+      if (canManage(one)) {
+        actions.push({
+          key: "toggle-active",
+          icon: one.active ? "pause-circle-outline" : "play-circle-outline",
+          label: one.active ? t("users.deactivate") : t("users.activate"),
+          destructive: one.active,
+          onPress: () =>
+            void handleToggleActiveUser(one).then(clearSelection),
+        });
+      }
+    }
+    if (selected.some(canManage)) {
+      actions.push({
+        key: "delete",
+        icon: "trash-outline",
+        label: t("common.delete"),
+        destructive: true,
+        disabled: bulkBusy,
+        onPress: () => void runBulkDelete(selected),
+      });
+    }
+    return actions;
+  }
+
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
       <PageHeader
@@ -153,16 +267,36 @@ export function UserListScreen() {
         })}
         showBack
         onBack={() => router.back()}
+        selection={{
+          active: selectionActive,
+          count: selection.count,
+          actions: buildSelectionActions(selectedUsers),
+          onClose: clearSelection,
+        }}
       />
-      {/* Inline search */}
-      <View className="px-4 pt-4">
-        <SearchTextBox searchText={searchText} setSearchText={setSearchText} />
-      </View>
+      {/* Inline search — hidden while selecting */}
+      {!selectionActive && (
+        <View className="px-4 pt-4">
+          <SearchTextBox
+            searchText={searchText}
+            setSearchText={setSearchText}
+          />
+        </View>
+      )}
       {error ? (
         <View className="px-4 pt-4">
           <ErrorBanner message={error} onDismiss={clearError} />
         </View>
       ) : null}
+
+      {selectionActive && (
+        <SelectAllBar
+          allSelected={
+            filtered.length > 0 && selectedUsers.length === filtered.length
+          }
+          onToggle={() => toggleManySelect(filtered.map((u) => u.id))}
+        />
+      )}
 
       {loading && users.length === 0 ? (
         <View className="flex-1 items-center justify-center">
@@ -180,13 +314,24 @@ export function UserListScreen() {
           refreshControl={
             <RefreshControl
               refreshing={loading}
-              onRefresh={fetchUsers}
+              onRefresh={() => {
+                clearSelection();
+                fetchUsers();
+              }}
               tintColor={COLORS.primary}
             />
           }
           renderItem={({ item }) =>
             currentUser ? (
-              <UserCard user={item} onEdit={openEdit} onMenu={setMenuUser} />
+              <UserCard
+                user={item}
+                onEdit={openEdit}
+                onMenu={setMenuUser}
+                selectionMode={selectionActive}
+                selected={selectedIds.has(item.id)}
+                onToggleSelect={(u) => toggleSelect(u.id)}
+                onEnterSelection={(u) => enterSelection(u.id)}
+              />
             ) : null
           }
           ListEmptyComponent={
@@ -202,7 +347,9 @@ export function UserListScreen() {
         />
       )}
 
-      <FAB onPress={openCreate} accessibilityLabel={t("common.add")} />
+      {!selectionActive && (
+        <FAB onPress={openCreate} accessibilityLabel={t("common.add")} />
+      )}
 
       {formVisible && (
         <UserFormSheet

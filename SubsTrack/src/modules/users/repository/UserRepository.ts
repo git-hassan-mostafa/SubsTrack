@@ -66,6 +66,22 @@ class UserRepository extends BaseRepository {
     return count ?? 0;
   }
 
+  // The subset of the given users who have recorded payments — one query.
+  // Drives the soft-delete vs hard-delete split in bulk delete.
+  async usersWithPayments(ids: string[]): Promise<Set<string>> {
+    return this.referencedIdsIn('payments', 'received_by_user_id', ids);
+  }
+
+  // Soft-delete many users in one statement.
+  async setActiveMany(ids: string[], active: boolean): Promise<void> {
+    if (ids.length === 0) return;
+    const { error } = await this.db
+      .from('users')
+      .update({ active })
+      .in('id', ids);
+    if (error) this.handleError(error);
+  }
+
   async delete(id: string): Promise<void> {
     const { error } = await this.db.functions.invoke('delete-user', {
       body: { userId: id },

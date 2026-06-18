@@ -16,8 +16,16 @@ import { Text } from "@/src/shared/components/Text";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { useDebounce } from "@/src/shared/hooks/useDebounce";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
-import { PageHeader } from "@/src/shared/components/PageHeader";
+import {
+  PageHeader,
+  type SelectionAction,
+} from "@/src/shared/components/PageHeader";
 import { FAB } from "@/src/shared/components/FAB";
+import { SelectAllBar } from "@/src/shared/components/SelectAllBar";
+import {
+  useSelection,
+  useSelectionBackHandler,
+} from "@/src/shared/hooks/useSelection";
 import {
   Dropdown,
   type DropdownOption,
@@ -29,6 +37,7 @@ import type { Sale } from "@/src/core/types";
 import { SaleCard } from "../components/SaleCard";
 import { SaleFormSheet } from "../components/SaleFormSheet";
 import { SaleDetailSheet } from "../components/SaleDetailSheet";
+import { SaleBulkVoidSheet } from "../components/SaleBulkVoidSheet";
 import { useSaleSlice } from "@/src/state/hooks/useSaleSlice";
 import { useProductSlice } from "@/src/state/hooks/useProductSlice";
 import { useAuth } from "@/src/modules/auth";
@@ -64,8 +73,21 @@ export function SalesListScreen() {
   const [formOpen, setFormOpen] = useState(false);
   const [activeSale, setActiveSale] = useState<Sale | null>(null);
   const [voidLoading, setVoidLoading] = useState(false);
+  const selection = useSelection();
+  const {
+    active: selectionActive,
+    selectedIds,
+    toggle: toggleSelect,
+    toggleMany: toggleManySelect,
+    enterWith: enterSelection,
+    clear: clearSelection,
+  } = selection;
+  useSelectionBackHandler(selectionActive, clearSelection);
+  const [bulkVoidOpen, setBulkVoidOpen] = useState(false);
+  const [bulkNotice, setBulkNotice] = useState<string | null>(null);
 
   useEffect(() => {
+    clearSelection();
     fetchSales();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [branchFilter]);
@@ -103,13 +125,50 @@ export function SalesListScreen() {
     }
   }
 
+  const selectedSales = sales.filter((s) => selectedIds.has(s.id));
+
+  // Selection toolbar: one "void" action that opens the shared-reason sheet for
+  // every selected sale.
+  function buildSelectionActions(selected: Sale[]): SelectionAction[] {
+    if (selected.length === 0) return [];
+    return [
+      {
+        key: "void",
+        icon: "close-circle-outline",
+        label: t("sales.void_sale"),
+        destructive: true,
+        onPress: () => setBulkVoidOpen(true),
+      },
+    ];
+  }
+
+  function handleBulkVoided(result: { ok: number; failed: number }) {
+    setBulkVoidOpen(false);
+    clearSelection();
+    if (result.failed > 0) {
+      setBulkNotice(
+        t("common.bulk_void_summary", {
+          ok: result.ok,
+          failed: result.failed,
+        }),
+      );
+    }
+  }
+
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
       <PageHeader
         title={t("sales.title")}
         subtitle={t("sales.recent_count", { count: sales.length })}
+        selection={{
+          active: selectionActive,
+          count: selection.count,
+          actions: buildSelectionActions(selectedSales),
+          onClose: clearSelection,
+        }}
       />
 
+      {!selectionActive && (
       <View className="px-4 pt-4 gap-y-2">
         <SearchTextBox
           searchText={searchText}
@@ -175,11 +234,29 @@ export function SalesListScreen() {
           ) : null}
         </ScrollView>
       </View>
+      )}
       {error ? (
         <View className="px-4 pt-4">
           <ErrorBanner message={error} onDismiss={clearError} />
         </View>
       ) : null}
+      {bulkNotice ? (
+        <View className="px-4 pt-4">
+          <ErrorBanner
+            message={bulkNotice}
+            onDismiss={() => setBulkNotice(null)}
+          />
+        </View>
+      ) : null}
+
+      {selectionActive && (
+        <SelectAllBar
+          allSelected={
+            sales.length > 0 && selectedSales.length === sales.length
+          }
+          onToggle={() => toggleManySelect(sales.map((s) => s.id))}
+        />
+      )}
 
       {loading && sales.length === 0 ? (
         <View className="flex-1 items-center justify-center">
@@ -213,7 +290,14 @@ export function SalesListScreen() {
             ) : null
           }
           renderItem={({ item }) => (
-            <SaleCard sale={item} onPress={setActiveSale} />
+            <SaleCard
+              sale={item}
+              onPress={setActiveSale}
+              selectionMode={selectionActive}
+              selected={selectedIds.has(item.id)}
+              onToggleSelect={(s) => toggleSelect(s.id)}
+              onEnterSelection={(s) => enterSelection(s.id)}
+            />
           )}
           ListEmptyComponent={
             <EmptyState
@@ -234,10 +318,12 @@ export function SalesListScreen() {
         />
       )}
 
-      <FAB
-        onPress={() => setFormOpen(true)}
-        accessibilityLabel={t("sales.record_button")}
-      />
+      {!selectionActive && (
+        <FAB
+          onPress={() => setFormOpen(true)}
+          accessibilityLabel={t("sales.record_button")}
+        />
+      )}
 
       {formOpen && (
         <SaleFormSheet
@@ -252,6 +338,14 @@ export function SalesListScreen() {
         onVoid={handleVoid}
         voidLoading={voidLoading}
       />
+
+      {bulkVoidOpen && (
+        <SaleBulkVoidSheet
+          saleIds={selectedSales.map((s) => s.id)}
+          onVoided={handleBulkVoided}
+          onDismiss={() => setBulkVoidOpen(false)}
+        />
+      )}
     </SafeAreaView>
   );
 }

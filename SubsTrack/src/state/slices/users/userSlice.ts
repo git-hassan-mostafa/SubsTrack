@@ -46,6 +46,11 @@ export interface UserSlice {
   deactivateUser: (id: string, callerId: string, callerRole: UserRole, targetRole: UserRole) => Promise<void>;
   activateUser: (id: string, callerId: string, callerRole: UserRole, targetRole: UserRole) => Promise<void>;
   deleteUser: (id: string, callerId: string, callerRole: UserRole, targetRole: UserRole) => Promise<'hard' | 'soft' | null>;
+  bulkDeleteUsers: (
+    targets: { id: string; role: UserRole }[],
+    callerId: string,
+    callerRole: UserRole,
+  ) => Promise<boolean>;
   clearError: () => void;
   clearTierLimitError: () => void;
   reset: () => void;
@@ -214,6 +219,37 @@ export const createUserSlice: StateCreator<
           state.users.loading = false;
         });
         return null;
+      }
+    },
+
+    bulkDeleteUsers: async (targets, callerId, callerRole) => {
+      if (targets.length === 0) return true;
+      set((state) => {
+        state.users.loading = true;
+        state.users.error = null;
+      });
+      try {
+        const { hard, soft } = await userService.deleteUsers(
+          targets,
+          callerId,
+          callerRole,
+        );
+        set((state) => {
+          const removed = new Set(hard);
+          const softened = new Set(soft);
+          state.users.items = state.users.items.filter((u) => !removed.has(u.id));
+          for (const u of state.users.items) {
+            if (softened.has(u.id)) u.active = false;
+          }
+          state.users.loading = false;
+        });
+        return true;
+      } catch (e) {
+        set((state) => {
+          state.users.error = (e as Error).message;
+          state.users.loading = false;
+        });
+        return false;
       }
     },
 

@@ -30,16 +30,25 @@ export function ActionMenu({
   onDismiss,
   emptyLabel,
 }: ActionMenuProps) {
-  const { t } = useTranslation();
+  return (
+    visible && (
+      <ActionMenuComponent
+        title={title}
+        actions={actions}
+        onDismiss={onDismiss}
+        emptyLabel={emptyLabel}
+      />
+    )
+  );
+}
 
-  // While the modal fades out, `visible` is already false but `actions` is
-  // typically cleared to [] by the parent in the same render. Keep showing the
-  // last actions during the fade so the empty state doesn't flash.
-  const lastActionsRef = useRef(actions);
-  useEffect(() => {
-    if (visible) lastActionsRef.current = actions;
-  }, [visible, actions]);
-  const displayedActions = visible ? actions : lastActionsRef.current;
+function ActionMenuComponent({
+  title,
+  actions,
+  onDismiss,
+  emptyLabel,
+}: Omit<ActionMenuProps, "visible">) {
+  const { t } = useTranslation();
 
   function handlePress(item: ActionMenuItem) {
     if (item.disabled) return;
@@ -48,12 +57,7 @@ export function ActionMenu({
   }
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onDismiss}
-    >
+    <Modal transparent animationType="fade" onRequestClose={onDismiss}>
       <Pressable
         onPress={onDismiss}
         className="flex-1 bg-black/50 items-center justify-center px-8"
@@ -74,14 +78,14 @@ export function ActionMenu({
             </View>
           ) : null}
 
-          {displayedActions.length === 0 ? (
+          {actions.length === 0 ? (
             <View className="px-5 py-6 items-center">
               <Text className="text-sm text-gray-500">
                 {emptyLabel ?? t("common.no_actions_available")}
               </Text>
             </View>
           ) : (
-            displayedActions.map((item, index) => (
+            actions.map((item, index) => (
               <PressableOpacity
                 key={item.key}
                 onPress={() => handlePress(item)}

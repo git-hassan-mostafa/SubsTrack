@@ -18,9 +18,17 @@ import {
 } from "@/src/shared/components/ActionMenu";
 import { useDebounce } from "@/src/shared/hooks/useDebounce";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
-import { PageHeader } from "@/src/shared/components/PageHeader";
+import {
+  PageHeader,
+  type SelectionAction,
+} from "@/src/shared/components/PageHeader";
 import { FAB } from "@/src/shared/components/FAB";
+import { SelectAllBar } from "@/src/shared/components/SelectAllBar";
 import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
+import {
+  useSelection,
+  useSelectionBackHandler,
+} from "@/src/shared/hooks/useSelection";
 import type { Product } from "@/src/core/types";
 import { ProductCard } from "../components/ProductCard";
 import { ProductFormSheet } from "../components/ProductFormSheet";
@@ -34,6 +42,7 @@ export function ProductListScreen() {
   const error = useProductSlice((s) => s.error);
   const fetchProducts = useProductSlice((s) => s.fetchProducts);
   const deleteProduct = useProductSlice((s) => s.deleteProduct);
+  const bulkDeleteProducts = useProductSlice((s) => s.bulkDeleteProducts);
   const reactivateProduct = useProductSlice((s) => s.reactivateProduct);
   const clearError = useProductSlice((s) => s.clearError);
 
@@ -43,8 +52,20 @@ export function ProductListScreen() {
   const [searchText, setSearchText] = useState("");
   const debouncedSearch = useDebounce(searchText);
   const branchFilter = useEffectiveBranchFilter();
+  const selection = useSelection();
+  const {
+    active: selectionActive,
+    selectedIds,
+    toggle: toggleSelect,
+    toggleMany: toggleManySelect,
+    enterWith: enterSelection,
+    clear: clearSelection,
+  } = selection;
+  useSelectionBackHandler(selectionActive, clearSelection);
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   useEffect(() => {
+    clearSelection();
     fetchProducts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [branchFilter]);
@@ -112,6 +133,69 @@ export function ProductListScreen() {
 
   const activeCount = products.filter((p) => p.active).length;
 
+  // Resolve selected ids against the VISIBLE list, so a selected-then-filtered-out
+  // product can never be acted on invisibly.
+  const selectedProducts = filtered.filter((p) => selectedIds.has(p.id));
+
+  async function runBulkDelete(selected: Product[]) {
+    if (bulkBusy || selected.length === 0) return;
+    if (selected.length === 1) {
+      await handleDelete(selected[0]);
+      clearSelection();
+      return;
+    }
+    const ok = await confirm({
+      title: t("products.bulk_delete_title", { count: selected.length }),
+      message: t("products.bulk_delete_message", { count: selected.length }),
+      confirmLabel: t("common.delete"),
+      destructive: true,
+    });
+    if (!ok) return;
+    setBulkBusy(true);
+    try {
+      await bulkDeleteProducts(selected.map((p) => p.id));
+    } finally {
+      setBulkBusy(false);
+    }
+    clearSelection();
+  }
+
+  // Toolbar actions for the selection header. 1 selected → edit + delete (active)
+  // / reactivate (inactive); >1 → delete only.
+  function buildSelectionActions(selected: Product[]): SelectionAction[] {
+    if (selected.length === 0) return [];
+    const actions: SelectionAction[] = [];
+    if (selected.length === 1) {
+      const one = selected[0];
+      actions.push({
+        key: "edit",
+        icon: "create-outline",
+        label: t("common.edit"),
+        onPress: () => {
+          openEdit(one);
+          clearSelection();
+        },
+      });
+      if (!one.active) {
+        actions.push({
+          key: "reactivate",
+          icon: "refresh-outline",
+          label: t("common.reactivate"),
+          onPress: () => void handleReactivate(one).then(clearSelection),
+        });
+      }
+    }
+    actions.push({
+      key: "delete",
+      icon: "trash-outline",
+      label: t("common.delete"),
+      destructive: true,
+      disabled: bulkBusy,
+      onPress: () => void runBulkDelete(selected),
+    });
+    return actions;
+  }
+
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
       <PageHeader
@@ -119,16 +203,36 @@ export function ProductListScreen() {
         subtitle={t("products.active_count", { count: activeCount })}
         showBack
         onBack={() => router.back()}
+        selection={{
+          active: selectionActive,
+          count: selection.count,
+          actions: buildSelectionActions(selectedProducts),
+          onClose: clearSelection,
+        }}
       />
 
-      <View className="px-4 pt-4">
-        <SearchTextBox searchText={searchText} setSearchText={setSearchText} />
-      </View>
+      {!selectionActive && (
+        <View className="px-4 pt-4">
+          <SearchTextBox
+            searchText={searchText}
+            setSearchText={setSearchText}
+          />
+        </View>
+      )}
       {error ? (
         <View className="px-4 pt-4">
           <ErrorBanner message={error} onDismiss={clearError} />
         </View>
       ) : null}
+
+      {selectionActive && (
+        <SelectAllBar
+          allSelected={
+            filtered.length > 0 && selectedProducts.length === filtered.length
+          }
+          onToggle={() => toggleManySelect(filtered.map((p) => p.id))}
+        />
+      )}
 
       {loading && products.length === 0 ? (
         <View className="flex-1 items-center justify-center">
@@ -146,7 +250,10 @@ export function ProductListScreen() {
           refreshControl={
             <RefreshControl
               refreshing={loading}
-              onRefresh={fetchProducts}
+              onRefresh={() => {
+                clearSelection();
+                fetchProducts();
+              }}
               tintColor={COLORS.primary}
             />
           }
@@ -155,6 +262,10 @@ export function ProductListScreen() {
               product={item}
               onEdit={openEdit}
               onMenu={setMenuItem}
+              selectionMode={selectionActive}
+              selected={selectedIds.has(item.id)}
+              onToggleSelect={(p) => toggleSelect(p.id)}
+              onEnterSelection={(p) => enterSelection(p.id)}
             />
           )}
           ListEmptyComponent={
@@ -172,7 +283,9 @@ export function ProductListScreen() {
         />
       )}
 
-      <FAB onPress={openCreate} accessibilityLabel={t("common.add")} />
+      {!selectionActive && (
+        <FAB onPress={openCreate} accessibilityLabel={t("common.add")} />
+      )}
 
       {formVisible && (
         <ProductFormSheet

@@ -13,12 +13,21 @@ import { EmptyState } from "@/src/shared/components/EmptyState";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { useDebounce } from "@/src/shared/hooks/useDebounce";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
-import { PageHeader } from "@/src/shared/components/PageHeader";
+import {
+  PageHeader,
+  type SelectionAction,
+} from "@/src/shared/components/PageHeader";
 import { FAB } from "@/src/shared/components/FAB";
+import { SelectAllBar } from "@/src/shared/components/SelectAllBar";
+import {
+  useSelection,
+  useSelectionBackHandler,
+} from "@/src/shared/hooks/useSelection";
 import type { Sale } from "@/src/core/types";
 import { SaleCard } from "../components/SaleCard";
 import { SaleFormSheet } from "../components/SaleFormSheet";
 import { SaleDetailSheet } from "../components/SaleDetailSheet";
+import { SaleBulkVoidSheet } from "../components/SaleBulkVoidSheet";
 import { useCustomerSalesList } from "../hooks/useCustomerSalesList";
 import { useCustomerSlice } from "@/src/state/hooks/useCustomerSlice";
 import { useSaleSlice } from "@/src/state/hooks/useSaleSlice";
@@ -50,6 +59,18 @@ export function CustomerSalesListScreen() {
   const [formOpen, setFormOpen] = useState(false);
   const [activeSale, setActiveSale] = useState<Sale | null>(null);
   const [voidLoading, setVoidLoading] = useState(false);
+  const selection = useSelection();
+  const {
+    active: selectionActive,
+    selectedIds,
+    toggle: toggleSelect,
+    toggleMany: toggleManySelect,
+    enterWith: enterSelection,
+    clear: clearSelection,
+  } = selection;
+  useSelectionBackHandler(selectionActive, clearSelection);
+  const [bulkVoidOpen, setBulkVoidOpen] = useState(false);
+  const [bulkNotice, setBulkNotice] = useState<string | null>(null);
 
   // Ensure the customer is loaded for the header + record-sale prefill when the
   // page is reached without the detail screen having cached it first.
@@ -70,6 +91,35 @@ export function CustomerSalesListScreen() {
     }
   }
 
+  const selectedSales = items.filter((s) => selectedIds.has(s.id));
+
+  function buildSelectionActions(selected: Sale[]): SelectionAction[] {
+    if (selected.length === 0) return [];
+    return [
+      {
+        key: "void",
+        icon: "close-circle-outline",
+        label: t("sales.void_sale"),
+        destructive: true,
+        onPress: () => setBulkVoidOpen(true),
+      },
+    ];
+  }
+
+  async function handleBulkVoided(result: { ok: number; failed: number }) {
+    setBulkVoidOpen(false);
+    clearSelection();
+    await refresh();
+    if (result.failed > 0) {
+      setBulkNotice(
+        t("common.bulk_void_summary", {
+          ok: result.ok,
+          failed: result.failed,
+        }),
+      );
+    }
+  }
+
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
       <PageHeader
@@ -78,21 +128,46 @@ export function CustomerSalesListScreen() {
         showBack
         onBack={() => router.back()}
         hideBranchSelector
+        selection={{
+          active: selectionActive,
+          count: selection.count,
+          actions: buildSelectionActions(selectedSales),
+          onClose: clearSelection,
+        }}
       />
 
-      <View className="px-4 pt-4">
-        <SearchTextBox
-          searchText={searchText}
-          setSearchText={setSearchText}
-          placeholder={t("sales.search_placeholder")}
-        />
-      </View>
+      {!selectionActive && (
+        <View className="px-4 pt-4">
+          <SearchTextBox
+            searchText={searchText}
+            setSearchText={setSearchText}
+            placeholder={t("sales.search_placeholder")}
+          />
+        </View>
+      )}
 
       {error ? (
         <View className="px-4 pt-4">
           <ErrorBanner message={error} onDismiss={clearError} />
         </View>
       ) : null}
+      {bulkNotice ? (
+        <View className="px-4 pt-4">
+          <ErrorBanner
+            message={bulkNotice}
+            onDismiss={() => setBulkNotice(null)}
+          />
+        </View>
+      ) : null}
+
+      {selectionActive && (
+        <SelectAllBar
+          allSelected={
+            items.length > 0 && selectedSales.length === items.length
+          }
+          onToggle={() => toggleManySelect(items.map((s) => s.id))}
+        />
+      )}
 
       {loading && items.length === 0 ? (
         <View className="flex-1 items-center justify-center">
@@ -126,7 +201,14 @@ export function CustomerSalesListScreen() {
             ) : null
           }
           renderItem={({ item }) => (
-            <SaleCard sale={item} onPress={setActiveSale} />
+            <SaleCard
+              sale={item}
+              onPress={setActiveSale}
+              selectionMode={selectionActive}
+              selected={selectedIds.has(item.id)}
+              onToggleSelect={(s) => toggleSelect(s.id)}
+              onEnterSelection={(s) => enterSelection(s.id)}
+            />
           )}
           ListEmptyComponent={
             <EmptyState
@@ -140,7 +222,7 @@ export function CustomerSalesListScreen() {
         />
       )}
 
-      {customer && (
+      {customer && !selectionActive && (
         <FAB
           onPress={() => setFormOpen(true)}
           accessibilityLabel={t("sales.record_button")}
@@ -161,6 +243,14 @@ export function CustomerSalesListScreen() {
         onVoid={handleVoid}
         voidLoading={voidLoading}
       />
+
+      {bulkVoidOpen && (
+        <SaleBulkVoidSheet
+          saleIds={selectedSales.map((s) => s.id)}
+          onVoided={handleBulkVoided}
+          onDismiss={() => setBulkVoidOpen(false)}
+        />
+      )}
     </SafeAreaView>
   );
 }

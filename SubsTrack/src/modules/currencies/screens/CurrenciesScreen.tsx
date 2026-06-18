@@ -9,8 +9,12 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
 import { COLORS } from "@/src/shared/constants";
-import { PageHeader } from "@/src/shared/components/PageHeader";
+import {
+  PageHeader,
+  type SelectionAction,
+} from "@/src/shared/components/PageHeader";
 import { FAB } from "@/src/shared/components/FAB";
+import { SelectAllBar } from "@/src/shared/components/SelectAllBar";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { EmptyState } from "@/src/shared/components/EmptyState";
 import { confirm } from "@/src/shared/lib/confirm";
@@ -18,6 +22,10 @@ import {
   ActionMenu,
   type ActionMenuItem,
 } from "@/src/shared/components/ActionMenu";
+import {
+  useSelection,
+  useSelectionBackHandler,
+} from "@/src/shared/hooks/useSelection";
 import type { Currency } from "@/src/core/types";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { CurrencyCard, UsdBaseCard } from "../components/CurrencyCard";
@@ -32,12 +40,24 @@ export function CurrenciesScreen() {
   const fetchCurrencies = useCurrencySlice((s) => s.fetchCurrencies);
   const getCurrencies = useCurrencySlice((s) => s.getCurrencies);
   const deleteCurrency = useCurrencySlice((s) => s.deleteCurrency);
+  const bulkDeleteCurrencies = useCurrencySlice((s) => s.bulkDeleteCurrencies);
   const reactivateCurrency = useCurrencySlice((s) => s.reactivateCurrency);
   const clearError = useCurrencySlice((s) => s.clearError);
 
   const [formVisible, setFormVisible] = useState(false);
   const [editing, setEditing] = useState<Currency | null>(null);
   const [menuCurrency, setMenuCurrency] = useState<Currency | null>(null);
+  const selection = useSelection();
+  const {
+    active: selectionActive,
+    selectedIds,
+    toggle: toggleSelect,
+    toggleMany: toggleManySelect,
+    enterWith: enterSelection,
+    clear: clearSelection,
+  } = selection;
+  useSelectionBackHandler(selectionActive, clearSelection);
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   useEffect(() => {
     getCurrencies();
@@ -113,6 +133,79 @@ export function CurrenciesScreen() {
 
   const activeCount = currencies.filter((c) => c.active).length;
 
+  // Resolve selected ids against the VISIBLE list.
+  const selectedCurrencies = currencies.filter((c) => selectedIds.has(c.id));
+
+  async function runBulkDelete(selected: Currency[]) {
+    if (bulkBusy || selected.length === 0) return;
+    if (selected.length === 1) {
+      await handleDeleteCurrency(selected[0]);
+      clearSelection();
+      return;
+    }
+    const ok = await confirm({
+      title: t("tenant_settings.bulk_delete_title", { count: selected.length }),
+      message: t("tenant_settings.bulk_delete_message", {
+        count: selected.length,
+      }),
+      confirmLabel: t("common.delete"),
+      destructive: true,
+    });
+    if (!ok) return;
+    setBulkBusy(true);
+    try {
+      await bulkDeleteCurrencies(selected.map((c) => c.id));
+    } finally {
+      setBulkBusy(false);
+    }
+    clearSelection();
+  }
+
+  // Toolbar actions for the selection header. 1 selected → edit + deactivate
+  // (active) / reactivate (inactive) + delete; >1 → delete only.
+  function buildSelectionActions(selected: Currency[]): SelectionAction[] {
+    if (selected.length === 0) return [];
+    const actions: SelectionAction[] = [];
+    if (selected.length === 1) {
+      const one = selected[0];
+      actions.push({
+        key: "edit",
+        icon: "create-outline",
+        label: t("common.edit"),
+        onPress: () => {
+          openEdit(one);
+          clearSelection();
+        },
+      });
+      if (one.active) {
+        actions.push({
+          key: "deactivate",
+          icon: "pause-circle-outline",
+          label: t("tenant_settings.deactivate"),
+          destructive: true,
+          onPress: () =>
+            void handleDeactivateCurrency(one).then(clearSelection),
+        });
+      } else {
+        actions.push({
+          key: "reactivate",
+          icon: "play-circle-outline",
+          label: t("tenant_settings.reactivate"),
+          onPress: () => void reactivateCurrency(one.id).then(clearSelection),
+        });
+      }
+    }
+    actions.push({
+      key: "delete",
+      icon: "trash-outline",
+      label: t("common.delete"),
+      destructive: true,
+      disabled: bulkBusy,
+      onPress: () => void runBulkDelete(selected),
+    });
+    return actions;
+  }
+
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
       <PageHeader
@@ -120,6 +213,12 @@ export function CurrenciesScreen() {
         subtitle={t("tenant_settings.currencies_count", { count: activeCount })}
         showBack
         onBack={() => router.back()}
+        selection={{
+          active: selectionActive,
+          count: selection.count,
+          actions: buildSelectionActions(selectedCurrencies),
+          onClose: clearSelection,
+        }}
       />
 
       {error ? (
@@ -127,6 +226,16 @@ export function CurrenciesScreen() {
           <ErrorBanner message={error} onDismiss={clearError} />
         </View>
       ) : null}
+
+      {selectionActive && (
+        <SelectAllBar
+          allSelected={
+            currencies.length > 0 &&
+            selectedCurrencies.length === currencies.length
+          }
+          onToggle={() => toggleManySelect(currencies.map((c) => c.id))}
+        />
+      )}
 
       {loading && currencies.length === 0 ? (
         <View className="flex-1 items-center justify-center">
@@ -144,16 +253,23 @@ export function CurrenciesScreen() {
           refreshControl={
             <RefreshControl
               refreshing={loading}
-              onRefresh={fetchCurrencies}
+              onRefresh={() => {
+                clearSelection();
+                fetchCurrencies();
+              }}
               tintColor={COLORS.primary}
             />
           }
-          ListHeaderComponent={<UsdBaseCard />}
+          ListHeaderComponent={selectionActive ? null : <UsdBaseCard />}
           renderItem={({ item }) => (
             <CurrencyCard
               currency={item}
               onEdit={openEdit}
               onMenu={setMenuCurrency}
+              selectionMode={selectionActive}
+              selected={selectedIds.has(item.id)}
+              onToggleSelect={(c) => toggleSelect(c.id)}
+              onEnterSelection={(c) => enterSelection(c.id)}
             />
           )}
           ListEmptyComponent={
@@ -167,10 +283,12 @@ export function CurrenciesScreen() {
         />
       )}
 
-      <FAB
-        onPress={openCreate}
-        accessibilityLabel={t("tenant_settings.add_currency")}
-      />
+      {!selectionActive && (
+        <FAB
+          onPress={openCreate}
+          accessibilityLabel={t("tenant_settings.add_currency")}
+        />
+      )}
 
       {formVisible && (
         <CurrencyFormSheet

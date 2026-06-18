@@ -15,6 +15,7 @@ export interface CurrencySlice {
   createCurrency: (data: CurrencyInput, tenantId: string, tier: TierPlan) => Promise<void>;
   updateCurrency: (id: string, data: CurrencyInput) => Promise<void>;
   deleteCurrency: (id: string) => Promise<'hard' | 'soft' | null>;
+  bulkDeleteCurrencies: (ids: string[]) => Promise<boolean>;
   reactivateCurrency: (id: string) => Promise<void>;
   clearError: () => void;
   clearTierLimitError: () => void;
@@ -138,6 +139,37 @@ export const createCurrencySlice: StateCreator<
         state.currencies.loading = false;
       });
       return null;
+    }
+  },
+
+  bulkDeleteCurrencies: async (ids) => {
+    if (ids.length === 0) return true;
+    if (get().currencies.loading) return false;
+    set((state) => {
+      state.currencies.loading = true;
+      state.currencies.error = null;
+    });
+    try {
+      const { hard, soft } = await currencyService.deleteManyCurrencies(ids);
+      set((state) => {
+        const removed = new Set(hard);
+        const softened = new Set(soft);
+        state.currencies.items = state.currencies.items.filter(
+          (c) => !removed.has(c.id),
+        );
+        for (const c of state.currencies.items) {
+          if (softened.has(c.id)) c.active = false;
+        }
+        state.currencies.loading = false;
+      });
+      void get().subscription.refreshUsage();
+      return true;
+    } catch (e) {
+      set((state) => {
+        state.currencies.error = (e as Error).message;
+        state.currencies.loading = false;
+      });
+      return false;
     }
   },
 

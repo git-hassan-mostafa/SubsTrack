@@ -22,9 +22,17 @@ import { PlanCard } from "../components/PlanCard";
 import { PlanFormSheet } from "../components/PlanFormSheet";
 import { usePlanSlice } from "@/src/state/hooks/usePlanSlice";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
-import { PageHeader } from "@/src/shared/components/PageHeader";
+import {
+  PageHeader,
+  type SelectionAction,
+} from "@/src/shared/components/PageHeader";
 import { FAB } from "@/src/shared/components/FAB";
+import { SelectAllBar } from "@/src/shared/components/SelectAllBar";
 import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
+import {
+  useSelection,
+  useSelectionBackHandler,
+} from "@/src/shared/hooks/useSelection";
 
 export function PlanListScreen() {
   const { t } = useTranslation();
@@ -34,6 +42,7 @@ export function PlanListScreen() {
   const error = usePlanSlice((s) => s.error);
   const fetchPlans = usePlanSlice((s) => s.fetchPlans);
   const deletePlan = usePlanSlice((s) => s.deletePlan);
+  const bulkDeletePlans = usePlanSlice((s) => s.bulkDeletePlans);
   const clearError = usePlanSlice((s) => s.clearError);
   const [formVisible, setFormVisible] = useState(false);
   const [editingPlan, setEditingPlan] = useState<Plan | null>(null);
@@ -41,9 +50,21 @@ export function PlanListScreen() {
   const [searchText, setSearchText] = useState("");
   const debouncedSearch = useDebounce(searchText);
   const branchFilter = useEffectiveBranchFilter();
+  const selection = useSelection();
+  const {
+    active: selectionActive,
+    selectedIds,
+    toggle: toggleSelect,
+    toggleMany: toggleManySelect,
+    enterWith: enterSelection,
+    clear: clearSelection,
+  } = selection;
+  useSelectionBackHandler(selectionActive, clearSelection);
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   // Loads on mount AND re-fetches when the user switches the branch chip.
   useEffect(() => {
+    clearSelection();
     fetchPlans();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [branchFilter]);
@@ -95,6 +116,60 @@ export function PlanListScreen() {
       )
     : plans;
 
+  // Resolve selected ids against the VISIBLE list.
+  const selectedPlans = filtered.filter((p) => selectedIds.has(p.id));
+
+  async function runBulkDelete(selected: Plan[]) {
+    if (bulkBusy || selected.length === 0) return;
+    if (selected.length === 1) {
+      await handleDeletePlan(selected[0]);
+      clearSelection();
+      return;
+    }
+    const ok = await confirm({
+      title: t("plans.bulk_delete_title", { count: selected.length }),
+      message: t("plans.bulk_delete_message", { count: selected.length }),
+      confirmLabel: t("common.delete"),
+      destructive: true,
+    });
+    if (!ok) return;
+    setBulkBusy(true);
+    try {
+      await bulkDeletePlans(selected.map((p) => p.id));
+    } finally {
+      setBulkBusy(false);
+    }
+    clearSelection();
+  }
+
+  // Toolbar actions for the selection header. 1 selected → edit + delete;
+  // >1 → delete only.
+  function buildSelectionActions(selected: Plan[]): SelectionAction[] {
+    if (selected.length === 0) return [];
+    const actions: SelectionAction[] = [];
+    if (selected.length === 1) {
+      const one = selected[0];
+      actions.push({
+        key: "edit",
+        icon: "create-outline",
+        label: t("common.edit"),
+        onPress: () => {
+          openEdit(one);
+          clearSelection();
+        },
+      });
+    }
+    actions.push({
+      key: "delete",
+      icon: "trash-outline",
+      label: t("common.delete"),
+      destructive: true,
+      disabled: bulkBusy,
+      onPress: () => void runBulkDelete(selected),
+    });
+    return actions;
+  }
+
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
       <PageHeader
@@ -102,17 +177,37 @@ export function PlanListScreen() {
         subtitle={t("plans.active_count", { count: plans.length })}
         showBack
         onBack={() => router.back()}
+        selection={{
+          active: selectionActive,
+          count: selection.count,
+          actions: buildSelectionActions(selectedPlans),
+          onClose: clearSelection,
+        }}
       />
 
-      {/* Inline search */}
-      <View className="px-4 pt-4">
-        <SearchTextBox searchText={searchText} setSearchText={setSearchText} />
-      </View>
+      {/* Inline search — hidden while selecting */}
+      {!selectionActive && (
+        <View className="px-4 pt-4">
+          <SearchTextBox
+            searchText={searchText}
+            setSearchText={setSearchText}
+          />
+        </View>
+      )}
       {error ? (
         <View className="px-4 pt-4">
           <ErrorBanner message={error} onDismiss={clearError} />
         </View>
       ) : null}
+
+      {selectionActive && (
+        <SelectAllBar
+          allSelected={
+            filtered.length > 0 && selectedPlans.length === filtered.length
+          }
+          onToggle={() => toggleManySelect(filtered.map((p) => p.id))}
+        />
+      )}
 
       {loading && plans.length === 0 ? (
         <View className="flex-1 items-center justify-center">
@@ -130,12 +225,23 @@ export function PlanListScreen() {
           refreshControl={
             <RefreshControl
               refreshing={loading}
-              onRefresh={fetchPlans}
+              onRefresh={() => {
+                clearSelection();
+                fetchPlans();
+              }}
               tintColor={COLORS.primary}
             />
           }
           renderItem={({ item }) => (
-            <PlanCard plan={item} onEdit={openEdit} onMenu={setMenuPlan} />
+            <PlanCard
+              plan={item}
+              onEdit={openEdit}
+              onMenu={setMenuPlan}
+              selectionMode={selectionActive}
+              selected={selectedIds.has(item.id)}
+              onToggleSelect={(p) => toggleSelect(p.id)}
+              onEnterSelection={(p) => enterSelection(p.id)}
+            />
           )}
           ListEmptyComponent={
             <EmptyState
@@ -150,7 +256,9 @@ export function PlanListScreen() {
         />
       )}
 
-      <FAB onPress={openCreate} accessibilityLabel={t("common.add")} />
+      {!selectionActive && (
+        <FAB onPress={openCreate} accessibilityLabel={t("common.add")} />
+      )}
 
       {formVisible && (
         <PlanFormSheet

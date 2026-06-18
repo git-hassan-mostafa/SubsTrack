@@ -20,6 +20,7 @@ export interface BranchSlice {
   ) => Promise<void>;
   updateBranch: (id: string, data: BranchInput) => Promise<void>;
   deleteBranch: (id: string) => Promise<"hard" | "soft" | null>;
+  bulkDeleteBranches: (ids: string[]) => Promise<boolean>;
   reactivateBranch: (id: string) => Promise<void>;
   clearError: () => void;
   clearTierLimitError: () => void;
@@ -150,6 +151,37 @@ export const createBranchSlice: StateCreator<
         state.branches.loading = false;
       });
       return null;
+    }
+  },
+
+  bulkDeleteBranches: async (ids) => {
+    if (ids.length === 0) return true;
+    if (get().branches.loading) return false;
+    set((state) => {
+      state.branches.loading = true;
+      state.branches.error = null;
+    });
+    try {
+      const { hard, soft } = await branchService.deleteManyBranches(ids);
+      set((state) => {
+        const removed = new Set(hard);
+        const softened = new Set(soft);
+        state.branches.items = state.branches.items.filter(
+          (b) => !removed.has(b.id),
+        );
+        for (const b of state.branches.items) {
+          if (softened.has(b.id)) b.active = false;
+        }
+        state.branches.loading = false;
+      });
+      void get().subscription.refreshUsage();
+      return true;
+    } catch (e) {
+      set((state) => {
+        state.branches.error = (e as Error).message;
+        state.branches.loading = false;
+      });
+      return false;
     }
   },
 

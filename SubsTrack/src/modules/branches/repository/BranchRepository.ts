@@ -43,11 +43,53 @@ class BranchRepository extends BaseRepository {
     if (error) this.handleError(error);
   }
 
+  // Hard-delete many branches in one statement. Referencing users/customers/plans
+  // fall back to "unassigned"/"shared" via their ON DELETE SET NULL constraints.
+  async deleteMany(ids: string[]): Promise<void> {
+    if (ids.length === 0) return;
+    const { error } = await this.db.from('branches').delete().in('id', ids);
+    if (error) this.handleError(error);
+  }
+
+  // Soft-delete many branches in one statement.
+  async deactivateMany(ids: string[]): Promise<void> {
+    if (ids.length === 0) return;
+    const { error } = await this.db
+      .from('branches')
+      .update({ active: false })
+      .in('id', ids);
+    if (error) this.handleError(error);
+  }
+
+  // The subset of the given branches referenced by any user, customer, or plan.
+  async referencedIds(ids: string[]): Promise<Set<string>> {
+    if (ids.length === 0) return new Set();
+    const [users, customers, plans] = await Promise.all([
+      this.referencedIdsIn('users', 'branch_id', ids),
+      this.referencedIdsIn('customers', 'branch_id', ids),
+      this.referencedIdsIn('plans', 'branch_id', ids),
+    ]);
+    return new Set([...users, ...customers, ...plans]);
+  }
+
   async countActive(): Promise<number> {
     const { count, error } = await this.db
       .from('branches')
       .select('id', { count: 'exact', head: true })
       .eq('active', true);
+    if (error) this.handleError(error);
+    return count ?? 0;
+  }
+
+  // How many of the given branches are currently active — used by the bulk
+  // delete guard to ensure at least one active branch survives.
+  async countActiveAmong(ids: string[]): Promise<number> {
+    if (ids.length === 0) return 0;
+    const { count, error } = await this.db
+      .from('branches')
+      .select('id', { count: 'exact', head: true })
+      .eq('active', true)
+      .in('id', ids);
     if (error) this.handleError(error);
     return count ?? 0;
   }

@@ -5,14 +5,27 @@ import type { Currency } from "@/src/core/types";
 import { Text } from "@/src/shared/components/Text";
 import { COLORS } from "@/src/shared/constants";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
+import { Checkbox } from "@/src/shared/components/Checkbox";
 
 interface Props {
   currency: Currency;
   onEdit: (currency: Currency) => void;
   onMenu: (currency: Currency) => void;
+  selectionMode?: boolean;
+  selected?: boolean;
+  onToggleSelect?: (currency: Currency) => void;
+  onEnterSelection?: (currency: Currency) => void;
 }
 
-export function CurrencyCard({ currency, onEdit, onMenu }: Props) {
+export function CurrencyCard({
+  currency,
+  onEdit,
+  onMenu,
+  selectionMode = false,
+  selected = false,
+  onToggleSelect,
+  onEnterSelection,
+}: Props) {
   const { t } = useTranslation();
   const rateLabel = new Intl.NumberFormat("en-US", {
     minimumFractionDigits: 0,
@@ -21,15 +34,25 @@ export function CurrencyCard({ currency, onEdit, onMenu }: Props) {
 
   return (
     <PressableOpacity
-      onPress={() => onEdit(currency)}
-      onLongPress={() => onMenu(currency)}
+      onPress={() =>
+        selectionMode ? onToggleSelect?.(currency) : onEdit(currency)
+      }
+      onLongPress={
+        selectionMode ? undefined : () => (onEnterSelection ?? onMenu)(currency)
+      }
       className={`bg-white border rounded-2xl px-4 py-4 mb-2.5 flex-row items-center ${
         currency.active ? "border-gray-100" : "border-gray-200 opacity-60"
       }`}
     >
-      <View className="w-10 h-10 rounded-xl bg-indigo-50 items-center justify-center me-3">
-        <Ionicons name="cash-outline" size={18} color={COLORS.primary} />
-      </View>
+      {selectionMode ? (
+        <View className="w-10 h-10 items-center justify-center me-3 flex-shrink-0">
+          <Checkbox checked={selected} />
+        </View>
+      ) : (
+        <View className="w-10 h-10 rounded-xl bg-indigo-50 items-center justify-center me-3">
+          <Ionicons name="cash-outline" size={18} color={COLORS.primary} />
+        </View>
+      )}
 
       <View className="flex-1">
         <View className="flex-row items-center">
@@ -58,13 +81,15 @@ export function CurrencyCard({ currency, onEdit, onMenu }: Props) {
         </Text>
       </View>
 
-      <PressableOpacity
-        onPress={() => onMenu(currency)}
-        hitSlop={8}
-        className="ms-1 w-9 h-9 items-center justify-center rounded-full"
-      >
-        <Ionicons name="ellipsis-vertical" size={20} color={COLORS.gray600} />
-      </PressableOpacity>
+      {!selectionMode && (
+        <PressableOpacity
+          onPress={() => onMenu(currency)}
+          hitSlop={8}
+          className="ms-1 w-9 h-9 items-center justify-center rounded-full"
+        >
+          <Ionicons name="ellipsis-vertical" size={20} color={COLORS.gray600} />
+        </PressableOpacity>
+      )}
     </PressableOpacity>
   );
 }

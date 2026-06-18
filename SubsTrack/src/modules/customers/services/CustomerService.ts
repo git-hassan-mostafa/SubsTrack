@@ -94,6 +94,24 @@ class CustomerService {
     return mapDbCustomerToCustomer(row);
   }
 
+  // Batch counterpart to deleteCustomer: customers with payment history are
+  // soft-deleted, the rest hard-deleted — each group in a single statement
+  // (≤3 round-trips total, independent of count). Returns the id split so the
+  // store can update its list + active count without a refetch.
+  async deleteManyCustomers(
+    ids: string[],
+  ): Promise<{ hard: string[]; soft: string[] }> {
+    if (ids.length === 0) return { hard: [], soft: [] };
+    const withPayments = await repository.customersWithPayments(ids);
+    const soft = ids.filter((id) => withPayments.has(id));
+    const hard = ids.filter((id) => !withPayments.has(id));
+    await Promise.all([
+      repository.deactivateMany(soft),
+      repository.deleteMany(hard),
+    ]);
+    return { hard, soft };
+  }
+
   private validateInput(data: CustomerInput): void {
     if (!data.name.trim()) throw new Error(i18n.t("errors.customer_name_required"));
     if (!data.startDate) throw new Error(i18n.t("errors.start_date_required"));

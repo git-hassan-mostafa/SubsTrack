@@ -45,6 +45,14 @@ class PlanRepository extends BaseRepository {
     if (error) this.handleError(error);
   }
 
+  // Hard-delete many plans in one statement. Assigned customers fall back to no
+  // plan via the customers.plan_id ON DELETE SET NULL constraint.
+  async deleteMany(ids: string[]): Promise<void> {
+    if (ids.length === 0) return;
+    const { error } = await this.db.from('plans').delete().in('id', ids);
+    if (error) this.handleError(error);
+  }
+
   // Plans use the 'shared' scope: NULL means "available to every branch".
   // Filtering by a specific branch therefore includes shared plans alongside
   // that branch's plans. See BRANCH_SCOPES.plans.

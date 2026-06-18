@@ -21,6 +21,15 @@ interface CreatePaymentInput {
   notes: string | null;
 }
 
+// One eligible fixed-price customer in a customer-list bulk quick pay. The slice
+// derives the frozen rate from `currency` and pays the current month.
+export interface BulkPayCustomerRequest {
+  customer: Customer;
+  plan: Plan;
+  currency: Currency | null;
+  amountPaid: number;
+}
+
 export interface PaymentSlice {
   items: Payment[];
   monthGrid: MonthEntry[];
@@ -56,6 +65,16 @@ export interface PaymentSlice {
     year: number,
     graceDays: number,
   ) => Promise<void>;
+  // Customer-list bulk quick pay: pays the current month for many DIFFERENT
+  // fixed-price customers (single AND multi-month) in one DB round-trip, then
+  // syncs the current-month status badges. All-or-nothing — returns the number
+  // paid (0 on failure; check `error`/`tierLimitError`).
+  bulkPayCustomers: (
+    requests: BulkPayCustomerRequest[],
+    receivedByUserId: string,
+    tenantId: string,
+    tier: TierPlan,
+  ) => Promise<number>;
   createMultiMonthPayment: (
     startMonth: string,
     customer: Customer,
@@ -226,6 +245,59 @@ export const createPaymentSlice: StateCreator<
         state.payments.error = (e as Error).message;
         state.payments.loadingCreate = false;
       });
+    }
+  },
+
+  bulkPayCustomers: async (requests, receivedByUserId, tenantId, tier) => {
+    if (requests.length === 0 || get().payments.loadingCreate) return 0;
+    set((state) => {
+      state.payments.loading = true;
+      state.payments.error = null;
+      state.payments.tierLimitError = null;
+    });
+    try {
+      const { year, month } = getCurrentYearMonth();
+      const billingMonth = toBillingMonth(year, month);
+      const created = await paymentService.bulkPayCustomers(
+        requests.map((r) => ({
+          customer: r.customer,
+          plan: r.plan,
+          billingMonth,
+          amountPaid: r.amountPaid,
+          ratePerUsdSnapshot: snapshotRate(r.currency),
+        })),
+        receivedByUserId,
+        tenantId,
+        tier,
+      );
+      set((state) => {
+        state.payments.loading = false;
+        // Every block starts at the current month, so all paid customers settle
+        // the badge for this month. Keep the list in sync without a re-fetch.
+        for (const payment of created) {
+          if (payment.amountPaid > 0) {
+            applyPaymentStatus(state.payments, payment.customerId, payment.balance > 0);
+          }
+        }
+      });
+      return created.length;
+    } catch (e) {
+      if (e instanceof TierLimitError) {
+        set((state) => {
+          state.payments.tierLimitError = {
+            resource: e.resource,
+            limit: e.limit,
+            tierCode: e.tierCode,
+          };
+          state.payments.loadingCreate = false;
+        });
+      } else {
+        set((state) => {
+          state.payments.error = (e as Error).message;
+          state.payments.loadingCreate = false;
+        });
+      }
+      return 0;
     }
   },
 

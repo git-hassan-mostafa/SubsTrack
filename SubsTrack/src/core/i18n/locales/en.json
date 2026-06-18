@@ -27,6 +27,7 @@
     "input_search":"Search...",
     "no_actions_available": "No actions available",
     "selected_count": "{{count}} selected",
+    "select_all": "Select all",
     "yes": "Yes",
     "no": "No",
     "ok": "OK",
@@ -34,7 +35,9 @@
     "no_results": "No results",
     "reactivate": "Reactivate",
     "clear": "Clear",
-    "clear_filters": "Clear filters"
+    "clear_filters": "Clear filters",
+    "bulk_delete_summary": "Deleted {{ok}} · {{failed}} failed.",
+    "bulk_void_summary": "Voided {{ok}} · {{failed}} failed."
   },
   "auth": {
     "title": "SubsTrack",
@@ -188,7 +191,9 @@
     "monthly": "Monthly",
     "n_months": "{{count}}mo",
     "bundle_price_label": "Bundle Price",
-    "bundle_price_hint": "Total price for all months in this block"
+    "bundle_price_hint": "Total price for all months in this block",
+    "bulk_delete_title": "Delete {{count}} plans",
+    "bulk_delete_message": "Delete {{count}} selected plan(s)? Customers assigned to them will have their plan removed."
   },
   "users": {
     "title": "Staff",
@@ -224,7 +229,11 @@
     "role_label": "Role",
     "delete_label": "Delete Staff Member",
     "delete_title": "Delete Staff Member",
-    "delete_message": "Delete {{name}}? If they have no recorded payments they will be permanently removed, otherwise they will be deactivated."
+    "delete_message": "Delete {{name}}? If they have no recorded payments they will be permanently removed, otherwise they will be deactivated.",
+    "bulk_delete_title": "Delete {{count}} staff members",
+    "bulk_delete_message": "Delete {{count}} selected staff member(s)? Those with no recorded payments are removed permanently; the rest are deactivated.",
+    "bulk_delete_skipped": "{{count}} cannot be deleted by you and will be skipped.",
+    "bulk_delete_none": "None of the selected staff members can be deleted by you."
   },
   "payments": {
     "this_month":"This Month",
@@ -345,6 +354,8 @@
     "edit_currency": "Edit Currency",
     "delete_title": "Delete Currency",
     "delete_message": "Delete \"{{code}}\"? If it's used by any plan or payment, it will be hidden but kept for history.",
+    "bulk_delete_title": "Delete {{count}} currencies",
+    "bulk_delete_message": "Delete {{count}} selected currenc(ies)? Those used by a plan or payment are hidden but kept for history.",
     "code_label": "Code",
     "code_placeholder": "e.g. LBP",
     "name_label": "Name",
@@ -373,6 +384,8 @@
     "name_placeholder": "e.g. Beirut",
     "delete_title": "Delete Branch",
     "delete_message": "Delete \"{{name}}\"? If it's still in use, it will be hidden but kept for history.",
+    "bulk_delete_title": "Delete {{count}} branches",
+    "bulk_delete_message": "Delete {{count}} selected branch(es)? Those still in use are hidden but kept for history.",
     "deactivate": "Deactivate",
     "deactivate_title": "Deactivate Branch",
     "deactivate_message": "Hide \"{{name}}\"? It will be kept for history but no longer selectable.",
@@ -540,7 +553,9 @@
     "create_first_product": "Create First Product",
     "delete_title": "Delete Product",
     "delete_message": "Delete \"{{name}}\"? If it has been sold before, it will be hidden but kept for history.",
-    "delete_warning": "Deletion can't be undone."
+    "delete_warning": "Deletion can't be undone.",
+    "bulk_delete_title": "Delete {{count}} products",
+    "bulk_delete_message": "Delete {{count}} selected product(s)? Those that have been sold are hidden but kept for history."
   },
   "sales": {
     "title": "Sales",
@@ -577,6 +592,8 @@
     "void_sale": "Void sale",
     "confirm_void": "Confirm void",
     "void_reason_label": "Reason",
-    "void_reason_placeholder": "Why are you voiding this sale?"
+    "void_reason_placeholder": "Why are you voiding this sale?",
+    "bulk_void_title": "Void {{count}} sales",
+    "bulk_void_message": "Void {{count}} selected sale(s)? The records stay in the audit log — voids cannot be undone."
   }
 }

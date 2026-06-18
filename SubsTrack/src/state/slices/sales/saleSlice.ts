@@ -27,6 +27,11 @@ export interface SaleSlice {
   clearFilters: () => Promise<void>;
   createSale: (input: CreateSaleInput) => Promise<Sale | null>;
   voidSale: (id: string, voidedBy: string, reason: string) => Promise<void>;
+  voidSales: (
+    ids: string[],
+    voidedBy: string,
+    reason: string,
+  ) => Promise<{ ok: number; failed: number }>;
   clearError: () => void;
   reset: () => void;
 }
@@ -251,6 +256,38 @@ export const createSaleSlice: StateCreator<
         state.sales.loading = false;
       });
     }
+  },
+
+  // Voids several sales with one shared reason. Each void is its own DB write
+  // (mirrors the per-row voidSale); voided rows drop out of the list and the
+  // last failure's message is surfaced. Returns counts so the screen can show a
+  // "voided X · Y failed" notice.
+  voidSales: async (ids, voidedBy, reason) => {
+    if (ids.length === 0) return { ok: 0, failed: 0 };
+    set((state) => {
+      state.sales.loading = true;
+      state.sales.error = null;
+    });
+    const trimmed = reason.trim();
+    const voidedIds: string[] = [];
+    let failed = 0;
+    let lastError: string | null = null;
+    for (const id of ids) {
+      try {
+        await saleService.voidSale(id, voidedBy, trimmed);
+        voidedIds.push(id);
+      } catch (e) {
+        failed++;
+        lastError = (e as Error).message;
+      }
+    }
+    set((state) => {
+      const removed = new Set(voidedIds);
+      state.sales.items = state.sales.items.filter((s) => !removed.has(s.id));
+      state.sales.loading = false;
+      state.sales.error = lastError;
+    });
+    return { ok: voidedIds.length, failed };
   },
 
   clearError: () =>

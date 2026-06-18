@@ -27,6 +27,7 @@
     "input_search":"بحث...",
     "no_actions_available": "لا توجد إجراءات متاحة",
     "selected_count": "تم تحديد {{count}}",
+    "select_all": "تحديد الكل",
     "yes": "نعم",
     "no": "لا",
     "ok": "حسناً",
@@ -34,7 +35,9 @@
     "no_results": "لا توجد نتائج",
     "reactivate": "إعادة تفعيل",
     "clear": "مسح",
-    "clear_filters": "مسح عوامل التصفية"
+    "clear_filters": "مسح عوامل التصفية",
+    "bulk_delete_summary": "تم حذف {{ok}} · فشل {{failed}}.",
+    "bulk_void_summary": "تم الإلغاء {{ok}} · فشل {{failed}}."
 
   },
   "auth": {
@@ -189,6 +192,8 @@
     "n_months": "{{count}} أشهر",
     "bundle_price_label": "سعر الباقة",
     "bundle_price_hint": "السعر الإجمالي لجميع أشهر هذه الباقة",
+    "bulk_delete_title": "حذف {{count}} خطط",
+    "bulk_delete_message": "حذف {{count}} من الخطط المحددة؟ سيتم إزالة الخطة من العملاء المرتبطين بها.",
     "create_first_plan": "+ أضف أول خطة"
   },
   "users": {
@@ -225,7 +230,11 @@
     "delete_label": "حذف الموظف",
     "delete_title": "حذف الموظف",
     "delete_message": "هل تريد حذف {{name}}؟ إذا لم يسجّل أي دفعات سيتم حذفه نهائياً، وإلا سيتم تعطيله.",
-    "create_first_staff": "+ أضف أول موظف"
+    "create_first_staff": "+ أضف أول موظف",
+    "bulk_delete_title": "حذف {{count}} موظفين",
+    "bulk_delete_message": "حذف {{count}} من الموظفين المحددين؟ من لم يسجّل أي دفعات سيُحذف نهائياً، والباقي سيتم تعطيله.",
+    "bulk_delete_skipped": "{{count}} لا يمكنك حذفهم وسيتم تجاهلهم.",
+    "bulk_delete_none": "لا يمكنك حذف أي من الموظفين المحددين."
   },
   "payments": {
     "this_month":"الشهر الحالي",
@@ -346,6 +355,8 @@
     "edit_currency": "تعديل العملة",
     "delete_title": "حذف العملة",
     "delete_message": "حذف \"{{code}}\"؟ إذا كانت مستخدمة في أي خطة أو دفعة، سيتم إخفاؤها مع الاحتفاظ بالسجلات.",
+    "bulk_delete_title": "حذف {{count}} عملات",
+    "bulk_delete_message": "حذف {{count}} من العملات المحددة؟ المستخدمة في خطة أو دفعة سيتم إخفاؤها مع الاحتفاظ بالسجلات.",
     "code_label": "الرمز",
     "code_placeholder": "مثل: LBP",
     "name_label": "الاسم",
@@ -374,6 +385,8 @@
     "name_placeholder": "مثلاً: بيروت",
     "delete_title": "حذف الفرع",
     "delete_message": "حذف ‫\"{{name}}\"‬؟ إذا كان لا يزال مستخدماً، سيتم إخفاؤه مع الاحتفاظ به للسجل.",
+    "bulk_delete_title": "حذف {{count}} فروع",
+    "bulk_delete_message": "حذف {{count}} من الفروع المحددة؟ ما زال مستخدماً منها سيتم إخفاؤه مع الاحتفاظ به للسجل.",
     "deactivate": "تعطيل",
     "deactivate_title": "تعطيل الفرع",
     "deactivate_message": "إخفاء ‫\"{{name}}\"‬؟ سيتم الاحتفاظ به في السجلات ولكن لن يكون متاحاً للاختيار.",
@@ -541,7 +554,9 @@
     "create_first_product": "إنشاء أول منتج",
     "delete_title": "حذف المنتج",
     "delete_message": "هل تريد حذف \"{{name}}\"؟ إذا تم بيعه من قبل سيتم إخفاؤه مع الإبقاء على السجل.",
-    "delete_warning": "لا يمكن التراجع عن الحذف."
+    "delete_warning": "لا يمكن التراجع عن الحذف.",
+    "bulk_delete_title": "حذف {{count}} منتجات",
+    "bulk_delete_message": "حذف {{count}} من المنتجات المحددة؟ ما تم بيعه منها سيتم إخفاؤه مع الإبقاء على السجل."
   },
   "sales": {
     "title": "المبيعات",
@@ -578,6 +593,8 @@
     "void_sale": "إلغاء البيع",
     "confirm_void": "تأكيد الإلغاء",
     "void_reason_label": "السبب",
-    "void_reason_placeholder": "لماذا تلغي عملية البيع هذه؟"
+    "void_reason_placeholder": "لماذا تلغي عملية البيع هذه؟",
+    "bulk_void_title": "إلغاء {{count}} مبيعات",
+    "bulk_void_message": "إلغاء {{count}} من المبيعات المحددة؟ تبقى السجلات في سجل التدقيق — لا يمكن التراجع عن الإلغاء."
   }
 }

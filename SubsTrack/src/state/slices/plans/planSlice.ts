@@ -24,7 +24,8 @@ export interface PlanSlice {
   fetchPlans: () => Promise<void>;
   createPlan: (data: PlanInput, tenantId: string, tier: TierPlan, usage: TenantUsage) => Promise<void>;
   updatePlan: (id: string, data: PlanInput, tier: TierPlan) => Promise<void>;
-  deletePlan: (id: string) => Promise<void>;
+  deletePlan: (id: string) => Promise<boolean>;
+  bulkDeletePlans: (ids: string[]) => Promise<boolean>;
   clearError: () => void;
   clearTierLimitError: () => void;
   reset: () => void;
@@ -142,11 +143,37 @@ export const createPlanSlice: StateCreator<
         state.plans.loading = false;
       });
       void get().subscription.refreshUsage();
+      return true;
     } catch (e) {
       set((state) => {
         state.plans.error = (e as Error).message;
         state.plans.loading = false;
       });
+      return false;
+    }
+  },
+
+  bulkDeletePlans: async (ids) => {
+    if (ids.length === 0) return true;
+    set((state) => {
+      state.plans.loading = true;
+      state.plans.error = null;
+    });
+    try {
+      await planService.deleteManyPlans(ids);
+      set((state) => {
+        const removed = new Set(ids);
+        state.plans.items = state.plans.items.filter((p) => !removed.has(p.id));
+        state.plans.loading = false;
+      });
+      void get().subscription.refreshUsage();
+      return true;
+    } catch (e) {
+      set((state) => {
+        state.plans.error = (e as Error).message;
+        state.plans.loading = false;
+      });
+      return false;
     }
   },
 

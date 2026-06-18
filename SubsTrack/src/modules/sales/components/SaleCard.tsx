@@ -14,13 +14,25 @@ import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
 import { useLanguageStore } from "@/src/core/i18n/languageStore";
 import { formatDate } from "@/src/core/utils/date";
+import { Checkbox } from "@/src/shared/components/Checkbox";
 
 interface Props {
   sale: Sale;
   onPress: (sale: Sale) => void;
+  selectionMode?: boolean;
+  selected?: boolean;
+  onToggleSelect?: (sale: Sale) => void;
+  onEnterSelection?: (sale: Sale) => void;
 }
 
-export function SaleCard({ sale, onPress }: Props) {
+export function SaleCard({
+  sale,
+  onPress,
+  selectionMode = false,
+  selected = false,
+  onToggleSelect,
+  onEnterSelection,
+}: Props) {
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
   const { displayCurrencyId } = useUiPrefStore();
@@ -36,12 +48,21 @@ export function SaleCard({ sale, onPress }: Props) {
 
   return (
     <PressableOpacity
-      onPress={() => onPress(sale)}
+      onPress={() => (selectionMode ? onToggleSelect?.(sale) : onPress(sale))}
+      onLongPress={
+        selectionMode ? undefined : () => onEnterSelection?.(sale)
+      }
       className="bg-white border border-gray-100 rounded-2xl px-4 py-4 mb-2.5 flex-row items-center"
     >
-      <View className="w-10 h-10 rounded-xl bg-emerald-50 items-center justify-center me-3">
-        <Ionicons name="receipt-outline" size={18} color={COLORS.success} />
-      </View>
+      {selectionMode ? (
+        <View className="w-10 h-10 items-center justify-center me-3 flex-shrink-0">
+          <Checkbox checked={selected} />
+        </View>
+      ) : (
+        <View className="w-10 h-10 rounded-xl bg-emerald-50 items-center justify-center me-3">
+          <Ionicons name="receipt-outline" size={18} color={COLORS.success} />
+        </View>
+      )}
 
       <View className="flex-1">
         <Text

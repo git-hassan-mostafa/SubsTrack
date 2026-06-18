@@ -48,6 +48,28 @@ class ProductRepository extends BaseRepository {
     if (error) this.handleError(error);
   }
 
+  // Hard-delete many products in one statement.
+  async deleteMany(ids: string[]): Promise<void> {
+    if (ids.length === 0) return;
+    const { error } = await this.db.from('products').delete().in('id', ids);
+    if (error) this.handleError(error);
+  }
+
+  // Soft-delete many products in one statement.
+  async deactivateMany(ids: string[]): Promise<void> {
+    if (ids.length === 0) return;
+    const { error } = await this.db
+      .from('products')
+      .update({ active: false })
+      .in('id', ids);
+    if (error) this.handleError(error);
+  }
+
+  // The subset of the given products that any sale references — one query.
+  async referencedIds(ids: string[]): Promise<Set<string>> {
+    return this.referencedIdsIn('sales', 'product_id', ids);
+  }
+
   // Count active products only — soft-deleted ones don't consume tier slots.
   async countAll(branchFilter: BranchFilter = null): Promise<number> {
     let query = this.db
