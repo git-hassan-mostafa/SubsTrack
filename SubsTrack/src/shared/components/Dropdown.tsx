@@ -208,7 +208,7 @@ export function DropdownModal<T extends string | number | null = string>({
           onPress={handleClose}
         >
           <Pressable
-            className="bg-white rounded-2xl w-full overflow-hidden"
+            className="bg-white rounded-2xl w-full max-w-sm overflow-hidden"
             onPress={(e) => e.stopPropagation()}
           >
             <View className="flex-row items-center justify-between px-5 py-4 border-b border-gray-100">

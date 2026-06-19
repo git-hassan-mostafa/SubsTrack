@@ -1,3 +1,16 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Web only: force grayscale anti-aliasing so text doesn't pick up Windows
+   ClearType sub-pixel colour fringes. Without this, identical colours (e.g. the
+   green "Paid" badge) look different between cards depending on whether the
+   browser composites the row on its own GPU layer (opacity/transform from press
+   state or list virtualization) or not. Ignored on native. */
+@layer base {
+  * {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+}
