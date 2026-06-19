@@ -138,6 +138,14 @@ export interface PaymentSlice {
     year: number,
     graceDays: number,
   ) => Promise<void>;
+  // Customer-list quick void: voids the payment block covering the CURRENT
+  // month for one customer (fetched on demand — the list doesn't keep
+  // per-customer payments, so this never touches `items`/`monthGrid`). Clears
+  // the current-month badge on success. Returns true if a payment was voided.
+  voidCurrentMonthForCustomer: (
+    customerId: string,
+    voidedBy: string,
+  ) => Promise<boolean>;
   // Bulk void (month-grid bulk void) — one DB round-trip, one grid rebuild.
   voidPayments: (
     ids: string[],
@@ -583,6 +591,28 @@ export const createPaymentSlice: StateCreator<
         state.payments.error = (e as Error).message;
         state.payments.loadingVoid = false;
       });
+    }
+  },
+
+  voidCurrentMonthForCustomer: async (customerId, voidedBy) => {
+    if (get().payments.loadingVoid) return false;
+    set((state) => {
+      state.payments.loadingVoid = true;
+      state.payments.error = null;
+    });
+    try {
+      const voided = await paymentService.voidCurrentMonth(customerId, voidedBy, '');
+      set((state) => {
+        state.payments.loadingVoid = false;
+        if (voided) clearPaymentStatus(state.payments, customerId);
+      });
+      return voided !== null;
+    } catch (e) {
+      set((state) => {
+        state.payments.error = (e as Error).message;
+        state.payments.loadingVoid = false;
+      });
+      return false;
     }
   },
 

@@ -253,6 +253,37 @@ class PaymentService {
     return mapDbPaymentToPayment(row);
   }
 
+  // Customer-list quick void: finds the active payment whose block covers the
+  // CURRENT month for a customer and voids it (fetches on demand — the list
+  // doesn't keep per-customer payments). A multi-month block is voided whole,
+  // matching the detail-sheet void. Returns the voided payment, or null when no
+  // active payment covers the current month.
+  async voidCurrentMonth(
+    customerId: string,
+    voidedBy: string,
+    notes: string,
+  ): Promise<Payment | null> {
+    const { year, month } = getCurrentYearMonth();
+    const currentBillingMonth = toBillingMonth(year, month);
+    const payments = await this.getPaymentsForCustomer(customerId);
+    const covering = payments.find((p) => {
+      if (p.amountPaid <= 0) return false;
+      const [pYear, pMonthNum] = p.billingMonth.split("-").map(Number);
+      for (let d = 0; d < p.durationMonths; d++) {
+        const date = new Date(pYear, pMonthNum - 1 + d, 1);
+        if (
+          toBillingMonth(date.getFullYear(), date.getMonth() + 1) ===
+          currentBillingMonth
+        ) {
+          return true;
+        }
+      }
+      return false;
+    });
+    if (!covering) return null;
+    return this.voidPayment(covering.id, voidedBy, notes);
+  }
+
   // Voids several payments in one round-trip (month-grid bulk void).
   async voidPayments(
     ids: string[],

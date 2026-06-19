@@ -8,6 +8,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Ionicons } from "@expo/vector-icons";
@@ -69,6 +70,7 @@ export function DashboardScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
+      <ResponsiveContainer className="flex-1">
       <ScrollView
         className="flex-1"
         refreshControl={
@@ -252,6 +254,7 @@ export function DashboardScreen() {
           </>
         )}
       </ScrollView>
+      </ResponsiveContainer>
 
       {customerFormOpen && (
         <CustomerFormSheet onDismiss={() => setCustomerFormOpen(false)} />

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Modal, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { useTranslation } from "react-i18next";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
@@ -121,128 +122,130 @@ export function SaleFormSheet({
       onRequestClose={onDismiss}
     >
       <SafeAreaView className="flex-1 bg-white">
-        <View className="items-center pt-3 pb-1">
-          <View className="w-10 h-1 rounded-full bg-gray-300" />
-        </View>
-        <View className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
-          <Text fontWeight="Bold" className="text-lg text-gray-900">
-            {t("sales.record_title")}
-          </Text>
-          <PressableOpacity onPress={onDismiss}>
-            <Text className="text-base text-primary font-medium">
-              {t("common.cancel")}
+        <ResponsiveContainer className="flex-1">
+          <View className="items-center pt-3 pb-1">
+            <View className="w-10 h-1 rounded-full bg-gray-300" />
+          </View>
+          <View className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
+            <Text fontWeight="Bold" className="text-lg text-gray-900">
+              {t("sales.record_title")}
             </Text>
-          </PressableOpacity>
-        </View>
-
-        <KeyboardAwareScrollView
-          className="flex-1 px-6 pt-6"
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ paddingBottom: 48 }}
-          bottomOffset={24}
-        >
-          {error ? (
-            <ErrorBanner message={error} onDismiss={clearError} />
-          ) : null}
-
-          <Dropdown<string>
-            label={t("sales.product_label") + " *"}
-            placeholder={t("sales.product_placeholder")}
-            options={productOptions}
-            value={productId}
-            onChange={(v) => setProductId(v)}
-          />
-
-          {!initialCustomer ? (
-            <CustomerPicker
-              label={t("sales.customer_label")}
-              placeholder={t("sales.walk_in")}
-              value={customer}
-              onChange={setCustomer}
-              nullable
-              nullLabel={t("sales.walk_in")}
-            />
-          ) : (
-            <View className="mb-4 px-4 py-3 rounded-xl border border-gray-200 bg-gray-50">
-              <Text className="text-xs text-gray-500 uppercase tracking-wide mb-1">
-                {t("sales.customer_label")}
+            <PressableOpacity onPress={onDismiss}>
+              <Text className="text-base text-primary font-medium">
+                {t("common.cancel")}
               </Text>
-              <Text className="text-base text-gray-900 font-medium">
-                {customer?.name}
-              </Text>
-            </View>
-          )}
-
-          {/* Quantity stepper */}
-          <View className="mb-4">
-            <Text className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
-              {t("sales.quantity_label")}
-            </Text>
-            <View className="flex-row items-center justify-between px-4 py-2.5 border border-gray-200 rounded-xl">
-              <Text className="text-base text-gray-900">{quantity}</Text>
-              <View className="flex-row items-center">
-                <PressableOpacity
-                  onPress={() => setQuantity((q) => Math.max(1, q - 1))}
-                  className="w-9 h-9 rounded-lg bg-gray-100 items-center justify-center"
-                >
-                  <Ionicons name="remove" size={18} color={COLORS.gray700} />
-                </PressableOpacity>
-                <Text className="text-base font-semibold text-gray-900 w-10 text-center">
-                  {quantity}
-                </Text>
-                <PressableOpacity
-                  onPress={() => setQuantity((q) => q + 1)}
-                  className="w-9 h-9 rounded-lg bg-gray-100 items-center justify-center"
-                >
-                  <Ionicons name="add" size={18} color={COLORS.gray700} />
-                </PressableOpacity>
-              </View>
-            </View>
+            </PressableOpacity>
           </View>
 
-          <CurrencyInput
-            label={t("sales.unit_amount_label") + " *"}
-            amount={unitAmount}
-            currencyId={currencyId}
-            onChange={({ amount, currencyId: c }) => {
-              setUnitAmount(amount);
-              setCurrencyId(c);
-            }}
-            currencies={currencies}
-            placeholder="0.00"
-            onFocus={clearError}
-          />
+          <KeyboardAwareScrollView
+            className="flex-1 px-6 pt-6"
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={{ paddingBottom: 48 }}
+            bottomOffset={24}
+          >
+            {error ? (
+              <ErrorBanner message={error} onDismiss={clearError} />
+            ) : null}
 
-          {/* Total preview when quantity > 1 */}
-          {quantity > 1 && unitAmount != null && unitAmount > 0 ? (
-            <View className="mb-4 px-4 py-2.5 rounded-xl bg-emerald-50 flex-row items-center justify-between">
-              <Text className="text-sm text-emerald-700 font-medium">
-                {t("sales.total_label")}
+            <Dropdown<string>
+              label={t("sales.product_label") + " *"}
+              placeholder={t("sales.product_placeholder")}
+              options={productOptions}
+              value={productId}
+              onChange={(v) => setProductId(v)}
+            />
+
+            {!initialCustomer ? (
+              <CustomerPicker
+                label={t("sales.customer_label")}
+                placeholder={t("sales.walk_in")}
+                value={customer}
+                onChange={setCustomer}
+                nullable
+                nullLabel={t("sales.walk_in")}
+              />
+            ) : (
+              <View className="mb-4 px-4 py-3 rounded-xl border border-gray-200 bg-gray-50">
+                <Text className="text-xs text-gray-500 uppercase tracking-wide mb-1">
+                  {t("sales.customer_label")}
+                </Text>
+                <Text className="text-base text-gray-900 font-medium">
+                  {customer?.name}
+                </Text>
+              </View>
+            )}
+
+            {/* Quantity stepper */}
+            <View className="mb-4">
+              <Text className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                {t("sales.quantity_label")}
               </Text>
-              <Text className="text-base text-emerald-700 font-bold">
-                {(unitAmount * quantity).toFixed(2)}
-              </Text>
+              <View className="flex-row items-center justify-between px-4 py-2.5 border border-gray-200 rounded-xl">
+                <Text className="text-base text-gray-900">{quantity}</Text>
+                <View className="flex-row items-center">
+                  <PressableOpacity
+                    onPress={() => setQuantity((q) => Math.max(1, q - 1))}
+                    className="w-9 h-9 rounded-lg bg-gray-100 items-center justify-center"
+                  >
+                    <Ionicons name="remove" size={18} color={COLORS.gray700} />
+                  </PressableOpacity>
+                  <Text className="text-base font-semibold text-gray-900 w-10 text-center">
+                    {quantity}
+                  </Text>
+                  <PressableOpacity
+                    onPress={() => setQuantity((q) => q + 1)}
+                    className="w-9 h-9 rounded-lg bg-gray-100 items-center justify-center"
+                  >
+                    <Ionicons name="add" size={18} color={COLORS.gray700} />
+                  </PressableOpacity>
+                </View>
+              </View>
             </View>
-          ) : null}
 
-          <Input
-            label={t("sales.notes_label")}
-            value={notes}
-            onChangeText={setNotes}
-            placeholder={t("sales.notes_placeholder")}
-            multiline
-          />
+            <CurrencyInput
+              label={t("sales.unit_amount_label") + " *"}
+              amount={unitAmount}
+              currencyId={currencyId}
+              onChange={({ amount, currencyId: c }) => {
+                setUnitAmount(amount);
+                setCurrencyId(c);
+              }}
+              currencies={currencies}
+              placeholder="0.00"
+              onFocus={clearError}
+            />
 
-          <Button
-            label={t("sales.record_button")}
-            onPress={handleSubmit}
-            loading={loading}
-            disabled={submitDisabled}
-            fullWidth
-          />
+            {/* Total preview when quantity > 1 */}
+            {quantity > 1 && unitAmount != null && unitAmount > 0 ? (
+              <View className="mb-4 px-4 py-2.5 rounded-xl bg-emerald-50 flex-row items-center justify-between">
+                <Text className="text-sm text-emerald-700 font-medium">
+                  {t("sales.total_label")}
+                </Text>
+                <Text className="text-base text-emerald-700 font-bold">
+                  {(unitAmount * quantity).toFixed(2)}
+                </Text>
+              </View>
+            ) : null}
 
-          <View className="h-24" />
-        </KeyboardAwareScrollView>
+            <Input
+              label={t("sales.notes_label")}
+              value={notes}
+              onChangeText={setNotes}
+              placeholder={t("sales.notes_placeholder")}
+              multiline
+            />
+
+            <Button
+              label={t("sales.record_button")}
+              onPress={handleSubmit}
+              loading={loading}
+              disabled={submitDisabled}
+              fullWidth
+            />
+
+            <View className="h-24" />
+          </KeyboardAwareScrollView>
+        </ResponsiveContainer>
       </SafeAreaView>
     </Modal>
   );

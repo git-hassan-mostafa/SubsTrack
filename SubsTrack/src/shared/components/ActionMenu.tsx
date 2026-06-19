@@ -64,7 +64,7 @@ function ActionMenuComponent({
       >
         <Pressable
           onPress={(e) => e.stopPropagation()}
-          className="bg-white rounded-2xl w-full overflow-hidden"
+          className="bg-white rounded-2xl w-full max-w-sm overflow-hidden"
         >
           {title ? (
             <View className="px-5 pt-4 pb-3 border-b border-gray-100">

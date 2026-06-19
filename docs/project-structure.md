@@ -189,6 +189,7 @@ SubsTrack/
 │       │   ├── AsyncEntityPicker.tsx # Searchable + paginated picker for large entity lists (used for customer picker in SaleFormSheet)
 │       │   ├── SearchTextBox.tsx, EmptyState.tsx
 │       │   ├── PageHeader.tsx, LoadingScreen.tsx
+│       │   ├── ResponsiveContainer.tsx  # Caps + centers body width on wide web/desktop; no-op on phones
 │       │   ├── ConfirmDialog.tsx, ErrorBoundary.tsx
 │       │   └── DirectionalIcon.tsx  # RTL-aware icon wrapper
 │       ├── hooks/useDebounce.ts

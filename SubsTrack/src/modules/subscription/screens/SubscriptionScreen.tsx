@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
@@ -98,6 +99,7 @@ export function SubscriptionScreen() {
         showBack
         onBack={() => router.back()}
       />
+      <ResponsiveContainer className="flex-1">
       <ScrollView
         className="flex-1"
         contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
@@ -174,6 +176,7 @@ export function SubscriptionScreen() {
             ))
           : null}
       </ScrollView>
+      </ResponsiveContainer>
 
       <ConfirmDialog
         visible={!!pendingTier && downgradeBlockers.length > 0}

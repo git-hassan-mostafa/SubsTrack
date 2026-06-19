@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Modal, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
@@ -100,137 +101,139 @@ export function CurrencyFormSheet({
       onRequestClose={onDismiss}
     >
       <SafeAreaView className="flex-1 bg-white">
-        <View className="items-center pt-3 pb-1">
-          <View className="w-10 h-1 rounded-full bg-gray-300" />
-        </View>
-        <View className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
-          <Text fontWeight="Bold" className="text-lg text-gray-900">
-            {currency
-              ? t("tenant_settings.edit_currency")
-              : t("tenant_settings.add_currency")}
-          </Text>
-          <PressableOpacity onPress={onDismiss}>
-            <Text className="text-base text-primary font-medium">
-              {t("common.cancel")}
+        <ResponsiveContainer className="flex-1">
+          <View className="items-center pt-3 pb-1">
+            <View className="w-10 h-1 rounded-full bg-gray-300" />
+          </View>
+          <View className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
+            <Text fontWeight="Bold" className="text-lg text-gray-900">
+              {currency
+                ? t("tenant_settings.edit_currency")
+                : t("tenant_settings.add_currency")}
             </Text>
-          </PressableOpacity>
-        </View>
-
-        <KeyboardAwareScrollView
-          className="flex-1 px-6 pt-6"
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ paddingBottom: 48 }}
-          bottomOffset={24}
-        >
-          {error ? (
-            <ErrorBanner message={error} onDismiss={clearError} />
-          ) : null}
-
-          {currency && !currency.active ? (
-            <View className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-4">
-              <Text className="text-sm text-amber-800">
-                {t("tenant_settings.inactive_currency_note")}
-              </Text>
-            </View>
-          ) : null}
-
-          <Input
-            label={t("tenant_settings.code_label") + " *"}
-            value={form.code}
-            onChangeText={(v) =>
-              setForm((p) => ({ ...p, code: v.toUpperCase() }))
-            }
-            placeholder={t("tenant_settings.code_placeholder")}
-            autoCapitalize="characters"
-            maxLength={8}
-            onFocus={clearError}
-          />
-
-          <Input
-            label={t("tenant_settings.name_label") + " *"}
-            value={form.name}
-            onChangeText={(v) => setForm((p) => ({ ...p, name: v }))}
-            placeholder={t("tenant_settings.name_placeholder")}
-            onFocus={clearError}
-          />
-
-          <Input
-            label={t("tenant_settings.symbol_label")}
-            value={form.symbol}
-            onChangeText={(v) => setForm((p) => ({ ...p, symbol: v }))}
-            placeholder={t("tenant_settings.symbol_placeholder")}
-            maxLength={6}
-            onFocus={clearError}
-          />
-
-          <Input
-            label={
-              t("tenant_settings.rate_label", {
-                code: form.code || t("tenant_settings.rate_label_fallback"),
-              }) + " *"
-            }
-            value={form.rateText}
-            onChangeText={(v) =>
-              setForm((p) => ({ ...p, rateText: v.replace(/[^0-9.]/g, "") }))
-            }
-            placeholder="0"
-            keyboardType="decimal-pad"
-            onFocus={clearError}
-          />
-          <Text className="text-xs text-gray-400 -mt-3 mb-4">
-            {t("tenant_settings.rate_hint", { code: form.code || "XXX" })}
-          </Text>
-
-          <Input
-            label={t("tenant_settings.decimals_label") + " *"}
-            value={form.decimalsText}
-            onChangeText={(v) =>
-              setForm((p) => ({
-                ...p,
-                decimalsText: v.replace(/[^0-9]/g, "").slice(0, 1),
-              }))
-            }
-            placeholder="2"
-            keyboardType="number-pad"
-            onFocus={clearError}
-          />
-
-          <Button
-            label={
-              currency
-                ? t("common.save_changes")
-                : t("tenant_settings.add_currency")
-            }
-            onPress={handleSubmit}
-            loading={loading}
-            disabled={submitDisabled}
-            fullWidth
-          />
-
-          {currency && currency.active && onRequestDelete ? (
-            <PressableOpacity
-              onPress={() => onRequestDelete(currency)}
-              className="border border-red-200 rounded-xl py-3.5 items-center mt-3"
-            >
-              <Text className="text-red-500 font-semibold">
-                {t("common.delete")}
+            <PressableOpacity onPress={onDismiss}>
+              <Text className="text-base text-primary font-medium">
+                {t("common.cancel")}
               </Text>
             </PressableOpacity>
-          ) : null}
+          </View>
 
-          {currency && !currency.active ? (
-            <PressableOpacity
-              onPress={handleReactivate}
-              className="border border-indigo-200 rounded-xl py-3.5 items-center mt-3"
-            >
-              <Text className="text-primary font-semibold">
-                {t("tenant_settings.reactivate")}
-              </Text>
-            </PressableOpacity>
-          ) : null}
+          <KeyboardAwareScrollView
+            className="flex-1 px-6 pt-6"
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={{ paddingBottom: 48 }}
+            bottomOffset={24}
+          >
+            {error ? (
+              <ErrorBanner message={error} onDismiss={clearError} />
+            ) : null}
 
-          <View className="h-6" />
-        </KeyboardAwareScrollView>
+            {currency && !currency.active ? (
+              <View className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-4">
+                <Text className="text-sm text-amber-800">
+                  {t("tenant_settings.inactive_currency_note")}
+                </Text>
+              </View>
+            ) : null}
+
+            <Input
+              label={t("tenant_settings.code_label") + " *"}
+              value={form.code}
+              onChangeText={(v) =>
+                setForm((p) => ({ ...p, code: v.toUpperCase() }))
+              }
+              placeholder={t("tenant_settings.code_placeholder")}
+              autoCapitalize="characters"
+              maxLength={8}
+              onFocus={clearError}
+            />
+
+            <Input
+              label={t("tenant_settings.name_label") + " *"}
+              value={form.name}
+              onChangeText={(v) => setForm((p) => ({ ...p, name: v }))}
+              placeholder={t("tenant_settings.name_placeholder")}
+              onFocus={clearError}
+            />
+
+            <Input
+              label={t("tenant_settings.symbol_label")}
+              value={form.symbol}
+              onChangeText={(v) => setForm((p) => ({ ...p, symbol: v }))}
+              placeholder={t("tenant_settings.symbol_placeholder")}
+              maxLength={6}
+              onFocus={clearError}
+            />
+
+            <Input
+              label={
+                t("tenant_settings.rate_label", {
+                  code: form.code || t("tenant_settings.rate_label_fallback"),
+                }) + " *"
+              }
+              value={form.rateText}
+              onChangeText={(v) =>
+                setForm((p) => ({ ...p, rateText: v.replace(/[^0-9.]/g, "") }))
+              }
+              placeholder="0"
+              keyboardType="decimal-pad"
+              onFocus={clearError}
+            />
+            <Text className="text-xs text-gray-400 -mt-3 mb-4">
+              {t("tenant_settings.rate_hint", { code: form.code || "XXX" })}
+            </Text>
+
+            <Input
+              label={t("tenant_settings.decimals_label") + " *"}
+              value={form.decimalsText}
+              onChangeText={(v) =>
+                setForm((p) => ({
+                  ...p,
+                  decimalsText: v.replace(/[^0-9]/g, "").slice(0, 1),
+                }))
+              }
+              placeholder="2"
+              keyboardType="number-pad"
+              onFocus={clearError}
+            />
+
+            <Button
+              label={
+                currency
+                  ? t("common.save_changes")
+                  : t("tenant_settings.add_currency")
+              }
+              onPress={handleSubmit}
+              loading={loading}
+              disabled={submitDisabled}
+              fullWidth
+            />
+
+            {currency && currency.active && onRequestDelete ? (
+              <PressableOpacity
+                onPress={() => onRequestDelete(currency)}
+                className="border border-red-200 rounded-xl py-3.5 items-center mt-3"
+              >
+                <Text className="text-red-500 font-semibold">
+                  {t("common.delete")}
+                </Text>
+              </PressableOpacity>
+            ) : null}
+
+            {currency && !currency.active ? (
+              <PressableOpacity
+                onPress={handleReactivate}
+                className="border border-indigo-200 rounded-xl py-3.5 items-center mt-3"
+              >
+                <Text className="text-primary font-semibold">
+                  {t("tenant_settings.reactivate")}
+                </Text>
+              </PressableOpacity>
+            ) : null}
+
+            <View className="h-6" />
+          </KeyboardAwareScrollView>
+        </ResponsiveContainer>
       </SafeAreaView>
       <UpgradePromptModal
         payload={tierLimitError}

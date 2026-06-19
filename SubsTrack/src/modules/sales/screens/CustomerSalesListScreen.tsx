@@ -20,6 +20,7 @@ import {
 import { FAB } from "@/src/shared/components/FAB";
 import { SelectAllBar } from "@/src/shared/components/SelectAllBar";
 import { SelectionOverlaySlot } from "@/src/shared/components/SelectionOverlaySlot";
+import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import {
   useSelection,
   useSelectionBackHandler,
@@ -137,6 +138,7 @@ export function CustomerSalesListScreen() {
         }}
       />
 
+      <ResponsiveContainer className="flex-1">
       {/* Search stays mounted while selecting so its space remains and the list
           never jumps; the select-all bar overlays it. */}
       <SelectionOverlaySlot
@@ -230,6 +232,8 @@ export function CustomerSalesListScreen() {
           accessibilityLabel={t("sales.record_button")}
         />
       )}
+
+      </ResponsiveContainer>
 
       {formOpen && customer && (
         <SaleFormSheet

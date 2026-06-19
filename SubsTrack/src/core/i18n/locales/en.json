@@ -239,6 +239,7 @@
     "this_month":"This Month",
     "record_payment": "Record Payment",
     "void_payment": "Void Payment",
+    "void_current_month": "Void current month",
     "collect": "Collect",
     "receipt_title": "Payment receipt",
     "paid_in_full": "{{monthYear}} · paid in full",

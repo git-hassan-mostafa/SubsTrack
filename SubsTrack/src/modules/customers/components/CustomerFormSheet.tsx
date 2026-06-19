@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Modal, Switch, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { useTranslation } from "react-i18next";
@@ -127,20 +128,21 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
       onRequestClose={onDismiss}
     >
       <SafeAreaView className="flex-1 bg-white">
-        {/* Handle + header */}
-        <View className="items-center pt-3 pb-1">
-          <View className="w-10 h-1 rounded-full bg-gray-300" />
-        </View>
-        <View className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
-          <Text fontWeight="Bold" className="text-lg text-gray-900">
-            {customer ? t("customers.edit_title") : t("customers.add_title")}
-          </Text>
-          <PressableOpacity onPress={onDismiss}>
-            <Text className="text-base text-primary font-medium">
-              {t("common.cancel")}
+        <ResponsiveContainer className="flex-1">
+          {/* Handle + header */}
+          <View className="items-center pt-3 pb-1">
+            <View className="w-10 h-1 rounded-full bg-gray-300" />
+          </View>
+          <View className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
+            <Text fontWeight="Bold" className="text-lg text-gray-900">
+              {customer ? t("customers.edit_title") : t("customers.add_title")}
             </Text>
-          </PressableOpacity>
-        </View>
+            <PressableOpacity onPress={onDismiss}>
+              <Text className="text-base text-primary font-medium">
+                {t("common.cancel")}
+              </Text>
+            </PressableOpacity>
+          </View>
 
           <KeyboardAwareScrollView
             className="flex-1 px-6 pt-6"
@@ -267,6 +269,7 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
             />
             <View className="h-24" />
           </KeyboardAwareScrollView>
+        </ResponsiveContainer>
       </SafeAreaView>
       <UpgradePromptModal
         payload={tierLimitError}

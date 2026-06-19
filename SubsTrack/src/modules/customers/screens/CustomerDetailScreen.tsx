@@ -11,6 +11,7 @@ import { useTranslation } from "react-i18next";
 import { COLORS } from "@/src/shared/constants";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { PageHeader } from "@/src/shared/components/PageHeader";
+import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { formatDate } from "@/src/core/utils/date";
 import { CustomerPaymentPanel } from "@/src/modules/customer-payments";
 import { CustomerSalesPanel } from "@/src/modules/sales";
@@ -68,6 +69,7 @@ export function CustomerDetailScreen() {
         hideBranchSelector
       />
 
+      <ResponsiveContainer className="flex-1">
       {customerStore.error ? (
         <View className="px-4 pt-4">
           <ErrorBanner
@@ -101,6 +103,8 @@ export function CustomerDetailScreen() {
           <View className="h-8" />
         </ScrollView>
       ) : null}
+
+      </ResponsiveContainer>
 
       {editVisible && customer && (
         <CustomerFormSheet

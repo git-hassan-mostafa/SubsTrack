@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { Modal, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { useTranslation } from "react-i18next";
@@ -262,285 +263,295 @@ export function PaymentFormSheet({
       onRequestClose={handleDismiss}
     >
       <SafeAreaView className="flex-1 bg-white">
-        {/* Handle + header */}
-        <View className="items-center pt-3 pb-1">
-          <View className="w-10 h-1 rounded-full bg-gray-300" />
-        </View>
-        <View className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
-          <Text fontWeight="Bold" className="text-lg text-gray-900">
-            {t("payments.record_payment")}
-          </Text>
-          <PressableOpacity onPress={handleDismiss}>
-            <Text className="text-base text-primary font-medium">
-              {t("common.cancel")}
+        <ResponsiveContainer className="flex-1">
+          {/* Handle + header */}
+          <View className="items-center pt-3 pb-1">
+            <View className="w-10 h-1 rounded-full bg-gray-300" />
+          </View>
+          <View className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
+            <Text fontWeight="Bold" className="text-lg text-gray-900">
+              {t("payments.record_payment")}
             </Text>
-          </PressableOpacity>
-        </View>
-
-        <KeyboardAwareScrollView
-          className="flex-1 px-6 pt-5"
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ paddingBottom: 48 }}
-          bottomOffset={24}
-        >
-          {error ? (
-            <ErrorBanner message={error} onDismiss={clearError} />
-          ) : null}
-
-          {blockedForInactive ? (
-            <View className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-4">
-              <Text className="text-sm text-amber-700">
-                {t("payments.inactive_customer_future")}
+            <PressableOpacity onPress={handleDismiss}>
+              <Text className="text-base text-primary font-medium">
+                {t("common.cancel")}
               </Text>
-            </View>
-          ) : null}
-
-          {/* Conflict warning for multi-month plans */}
-          {showConflictWarning ? (
-            <View className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-4">
-              <Text className="text-sm font-semibold text-amber-800 mb-1">
-                {t("payments.block_conflict_title")}
-              </Text>
-              <Text className="text-sm text-amber-700">
-                {t("payments.block_conflict_message", {
-                  months: conflictingLabels.join(", "),
-                })}
-              </Text>
-              <PressableOpacity
-                onPress={() =>
-                  setForm((prev) => ({ ...prev, conflictConfirmed: true }))
-                }
-                className="mt-2 bg-amber-100 border border-amber-300 rounded-lg px-3 py-2 self-start"
-              >
-                <Text className="text-sm font-semibold text-amber-800">
-                  {t("payments.block_conflict_proceed")}
-                </Text>
-              </PressableOpacity>
-            </View>
-          ) : null}
-
-          {/* Customer mini-header */}
-          <View className="flex-row items-center mb-5">
-            <View
-              className="w-10 h-10 rounded-xl items-center justify-center me-3"
-              style={{ backgroundColor: avatarColor + "22" }}
-            >
-              <Text
-                fontWeight="Bold"
-                className="text-sm"
-                style={{ color: avatarColor }}
-              >
-                {getInitials(customer.name)}
-              </Text>
-            </View>
-            <View>
-              <Text className="text-base font-semibold text-gray-900">
-                {customer.name}
-              </Text>
-              <Text className="text-xs text-gray-400">
-                {blockRangeLabel} · {customer.plan?.name ?? t("common.no_plan")}
-              </Text>
-            </View>
+            </PressableOpacity>
           </View>
 
-          {/* Amount section — establishes amount_due + currency. Full/Partial
-              choice lives in the section below, just above the submit button. */}
-          <View className="bg-gray-50 rounded-2xl px-6 py-5 items-center mb-5">
-            <Text className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">
-              {t("payments.amount_section")}
-            </Text>
-
-            {/* Multi-month: fixed bundle price + month chips */}
-            {isMultiMonth ? (
-              <>
-                <Text fontWeight="Bold" className="text-4xl text-gray-900">
-                  {formatMoney(plan!.price!, planCurrency, planCurrency)}
-                </Text>
-                <Text className="text-sm text-gray-400 mt-1">
-                  {t("payments.per_n_months", { count: plan!.durationMonths })}
-                </Text>
-                <View className="flex-row flex-wrap justify-center gap-1.5 mt-3">
-                  {coveredMonths.map(({ label, billingMonth, isConflict }) => (
-                    <View
-                      key={billingMonth}
-                      className={`px-3 py-1 rounded-full border ${
-                        isConflict
-                          ? "bg-gray-50 border-gray-200"
-                          : "bg-indigo-50 border-indigo-200"
-                      }`}
-                    >
-                      <Text
-                        fontWeight="SemiBold"
-                        className={`text-xs ${isConflict ? "text-gray-400 line-through" : "text-primary"}`}
-                      >
-                        {label}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-              </>
+          <KeyboardAwareScrollView
+            className="flex-1 px-6 pt-5"
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={{ paddingBottom: 48 }}
+            bottomOffset={24}
+          >
+            {error ? (
+              <ErrorBanner message={error} onDismiss={clearError} />
             ) : null}
 
-            {/* Single-month fixed plan — show price, allow override */}
-            {!isMultiMonth && isFixedPlan && !form.isOverrideEnabled ? (
-              <>
-                <Text fontWeight="Bold" className="text-4xl text-gray-900">
-                  {formatMoney(plan!.price!, planCurrency, planCurrency)}
+            {blockedForInactive ? (
+              <View className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-4">
+                <Text className="text-sm text-amber-700">
+                  {t("payments.inactive_customer_future")}
                 </Text>
-                <PressableOpacity onPress={enableOverride} className="mt-3">
-                  <Text className="text-primary text-sm font-semibold">
-                    {t("payments.override_amount")}
-                  </Text>
-                </PressableOpacity>
-              </>
-            ) : null}
-
-            {/* Single-month fixed plan with override: pick plan price or custom */}
-            {!isMultiMonth && isFixedPlan && form.isOverrideEnabled ? (
-              <>
-                <View className="flex-row gap-6 mb-3">
-                  {(["plan", "custom"] as const).map((mode) => (
-                    <PressableOpacity
-                      key={mode}
-                      onPress={() => setAmountMode(mode)}
-                      className="flex-row items-center gap-2"
-                    >
-                      <View
-                        className={`w-4 h-4 rounded-full border-2 items-center justify-center ${form.amountMode === mode ? "border-primary" : "border-gray-400"}`}
-                      >
-                        {form.amountMode === mode ? (
-                          <View className="w-2 h-2 rounded-full bg-primary" />
-                        ) : null}
-                      </View>
-                      <Text className="text-sm text-gray-700">
-                        {mode === "plan"
-                          ? t("payments.plan_price", {
-                              price: formatMoney(
-                                plan!.price!,
-                                planCurrency,
-                                planCurrency,
-                              ),
-                            })
-                          : t("payments.custom_amount")}
-                      </Text>
-                    </PressableOpacity>
-                  ))}
-                </View>
-                {form.amountMode === "custom" ? (
-                  <View className="w-full">
-                    <CurrencyInput
-                      amount={form.customAmount}
-                      currencyId={form.customCurrencyId}
-                      onChange={({ amount, currencyId }) =>
-                        setForm((prev) => {
-                          const currencyChanged =
-                            currencyId !== prev.customCurrencyId;
-                          const amountCleared = amount === null || amount <= 0;
-                          return {
-                            ...prev,
-                            customAmount: amount,
-                            customCurrencyId: currencyId,
-                            // Without an Amount Due, Partial can't be evaluated —
-                            // revert to Full and drop any stale amount paid.
-                            paymentMode: amountCleared
-                              ? "full"
-                              : prev.paymentMode,
-                            amountPaid:
-                              amountCleared || currencyChanged
-                                ? null
-                                : prev.amountPaid,
-                          };
-                        })
-                      }
-                      currencies={currencies}
-                      placeholder={t("payments.enter_amount")}
-                      onFocus={clearError}
-                    />
-                  </View>
-                ) : null}
-              </>
-            ) : null}
-
-            {/* Custom-price plan or no plan — straight CurrencyInput */}
-            {!isMultiMonth && isCustomOrNoPlan ? (
-              <View className="w-full">
-                <CurrencyInput
-                  amount={form.customAmount}
-                  currencyId={form.customCurrencyId}
-                  onChange={({ amount, currencyId }) =>
-                    setForm((prev) => {
-                      const currencyChanged =
-                        currencyId !== prev.customCurrencyId;
-                      const amountCleared = amount === null || amount <= 0;
-                      return {
-                        ...prev,
-                        customAmount: amount,
-                        customCurrencyId: currencyId,
-                        paymentMode: amountCleared ? "full" : prev.paymentMode,
-                        amountPaid:
-                          amountCleared || currencyChanged
-                            ? null
-                            : prev.amountPaid,
-                      };
-                    })
-                  }
-                  currencies={currencies}
-                  placeholder={t("payments.enter_amount")}
-                  onFocus={clearError}
-                />
               </View>
             ) : null}
-          </View>
 
-          <Input
-            label={t("payments.notes_optional")}
-            value={form.notes}
-            onChangeText={(v) => setForm((prev) => ({ ...prev, notes: v }))}
-            placeholder={t("payments.notes_placeholder")}
-            onFocus={clearError}
-          />
+            {/* Conflict warning for multi-month plans */}
+            {showConflictWarning ? (
+              <View className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-4">
+                <Text className="text-sm font-semibold text-amber-800 mb-1">
+                  {t("payments.block_conflict_title")}
+                </Text>
+                <Text className="text-sm text-amber-700">
+                  {t("payments.block_conflict_message", {
+                    months: conflictingLabels.join(", "),
+                  })}
+                </Text>
+                <PressableOpacity
+                  onPress={() =>
+                    setForm((prev) => ({ ...prev, conflictConfirmed: true }))
+                  }
+                  className="mt-2 bg-amber-100 border border-amber-300 rounded-lg px-3 py-2 self-start"
+                >
+                  <Text className="text-sm font-semibold text-amber-800">
+                    {t("payments.block_conflict_proceed")}
+                  </Text>
+                </PressableOpacity>
+              </View>
+            ) : null}
 
-          <View className="h-4" />
+            {/* Customer mini-header */}
+            <View className="flex-row items-center mb-5">
+              <View
+                className="w-10 h-10 rounded-xl items-center justify-center me-3"
+                style={{ backgroundColor: avatarColor + "22" }}
+              >
+                <Text
+                  fontWeight="Bold"
+                  className="text-sm"
+                  style={{ color: avatarColor }}
+                >
+                  {getInitials(customer.name)}
+                </Text>
+              </View>
+              <View>
+                <Text className="text-base font-semibold text-gray-900">
+                  {customer.name}
+                </Text>
+                <Text className="text-xs text-gray-400">
+                  {blockRangeLabel} ·{" "}
+                  {customer.plan?.name ?? t("common.no_plan")}
+                </Text>
+              </View>
+            </View>
 
-          {/* Full / Partial selector — last decision before submit. */}
-          <PaymentAmountPaidSection
-            paymentMode={form.paymentMode}
-            onPaymentModeChange={(mode) =>
-              setForm((prev) => ({
-                ...prev,
-                paymentMode: mode,
-                amountPaid: mode === "full" ? null : prev.amountPaid,
-              }))
-            }
-            amountPaid={form.amountPaid}
-            onAmountPaidChange={(amount) =>
-              setForm((prev) => ({ ...prev, amountPaid: amount }))
-            }
-            currencyId={resolvedCurrencyId}
-            amountDue={resolvedDue}
-            formatAmount={formatResolved}
-            onFocusClearError={clearError}
-            partialDisabled={resolvedDue == null || resolvedDue <= 0}
-          />
+            {/* Amount section — establishes amount_due + currency. Full/Partial
+              choice lives in the section below, just above the submit button. */}
+            <View className="bg-gray-50 rounded-2xl px-6 py-5 items-center mb-5">
+              <Text className="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-2">
+                {t("payments.amount_section")}
+              </Text>
 
-          <Button
-            label={
-              resolvedDue !== null &&
-              resolvedPaid !== null &&
-              resolvedPaid < resolvedDue
-                ? t("payments.record_payment_action")
-                : t("payments.mark_as_paid")
-            }
-            onPress={handleSubmit}
-            loading={loadingCreate}
-            disabled={!canSubmit}
-            fullWidth
-          />
-          <Text className="text-xs text-gray-400 text-center mt-2">
-            {t("payments.receipt_id_hint")}
-          </Text>
-          <View className="h-4" />
-        </KeyboardAwareScrollView>
+              {/* Multi-month: fixed bundle price + month chips */}
+              {isMultiMonth ? (
+                <>
+                  <Text fontWeight="Bold" className="text-4xl text-gray-900">
+                    {formatMoney(plan!.price!, planCurrency, planCurrency)}
+                  </Text>
+                  <Text className="text-sm text-gray-400 mt-1">
+                    {t("payments.per_n_months", {
+                      count: plan!.durationMonths,
+                    })}
+                  </Text>
+                  <View className="flex-row flex-wrap justify-center gap-1.5 mt-3">
+                    {coveredMonths.map(
+                      ({ label, billingMonth, isConflict }) => (
+                        <View
+                          key={billingMonth}
+                          className={`px-3 py-1 rounded-full border ${
+                            isConflict
+                              ? "bg-gray-50 border-gray-200"
+                              : "bg-indigo-50 border-indigo-200"
+                          }`}
+                        >
+                          <Text
+                            fontWeight="SemiBold"
+                            className={`text-xs ${isConflict ? "text-gray-400 line-through" : "text-primary"}`}
+                          >
+                            {label}
+                          </Text>
+                        </View>
+                      ),
+                    )}
+                  </View>
+                </>
+              ) : null}
+
+              {/* Single-month fixed plan — show price, allow override */}
+              {!isMultiMonth && isFixedPlan && !form.isOverrideEnabled ? (
+                <>
+                  <Text fontWeight="Bold" className="text-4xl text-gray-900">
+                    {formatMoney(plan!.price!, planCurrency, planCurrency)}
+                  </Text>
+                  <PressableOpacity onPress={enableOverride} className="mt-3">
+                    <Text className="text-primary text-sm font-semibold">
+                      {t("payments.override_amount")}
+                    </Text>
+                  </PressableOpacity>
+                </>
+              ) : null}
+
+              {/* Single-month fixed plan with override: pick plan price or custom */}
+              {!isMultiMonth && isFixedPlan && form.isOverrideEnabled ? (
+                <>
+                  <View className="flex-row gap-6 mb-3">
+                    {(["plan", "custom"] as const).map((mode) => (
+                      <PressableOpacity
+                        key={mode}
+                        onPress={() => setAmountMode(mode)}
+                        className="flex-row items-center gap-2"
+                      >
+                        <View
+                          className={`w-4 h-4 rounded-full border-2 items-center justify-center ${form.amountMode === mode ? "border-primary" : "border-gray-400"}`}
+                        >
+                          {form.amountMode === mode ? (
+                            <View className="w-2 h-2 rounded-full bg-primary" />
+                          ) : null}
+                        </View>
+                        <Text className="text-sm text-gray-700">
+                          {mode === "plan"
+                            ? t("payments.plan_price", {
+                                price: formatMoney(
+                                  plan!.price!,
+                                  planCurrency,
+                                  planCurrency,
+                                ),
+                              })
+                            : t("payments.custom_amount")}
+                        </Text>
+                      </PressableOpacity>
+                    ))}
+                  </View>
+                  {form.amountMode === "custom" ? (
+                    <View className="w-full">
+                      <CurrencyInput
+                        amount={form.customAmount}
+                        currencyId={form.customCurrencyId}
+                        onChange={({ amount, currencyId }) =>
+                          setForm((prev) => {
+                            const currencyChanged =
+                              currencyId !== prev.customCurrencyId;
+                            const amountCleared =
+                              amount === null || amount <= 0;
+                            return {
+                              ...prev,
+                              customAmount: amount,
+                              customCurrencyId: currencyId,
+                              // Without an Amount Due, Partial can't be evaluated —
+                              // revert to Full and drop any stale amount paid.
+                              paymentMode: amountCleared
+                                ? "full"
+                                : prev.paymentMode,
+                              amountPaid:
+                                amountCleared || currencyChanged
+                                  ? null
+                                  : prev.amountPaid,
+                            };
+                          })
+                        }
+                        currencies={currencies}
+                        placeholder={t("payments.enter_amount")}
+                        onFocus={clearError}
+                      />
+                    </View>
+                  ) : null}
+                </>
+              ) : null}
+
+              {/* Custom-price plan or no plan — straight CurrencyInput */}
+              {!isMultiMonth && isCustomOrNoPlan ? (
+                <View className="w-full">
+                  <CurrencyInput
+                    amount={form.customAmount}
+                    currencyId={form.customCurrencyId}
+                    onChange={({ amount, currencyId }) =>
+                      setForm((prev) => {
+                        const currencyChanged =
+                          currencyId !== prev.customCurrencyId;
+                        const amountCleared = amount === null || amount <= 0;
+                        return {
+                          ...prev,
+                          customAmount: amount,
+                          customCurrencyId: currencyId,
+                          paymentMode: amountCleared
+                            ? "full"
+                            : prev.paymentMode,
+                          amountPaid:
+                            amountCleared || currencyChanged
+                              ? null
+                              : prev.amountPaid,
+                        };
+                      })
+                    }
+                    currencies={currencies}
+                    placeholder={t("payments.enter_amount")}
+                    onFocus={clearError}
+                  />
+                </View>
+              ) : null}
+            </View>
+
+            <Input
+              label={t("payments.notes_optional")}
+              value={form.notes}
+              onChangeText={(v) => setForm((prev) => ({ ...prev, notes: v }))}
+              placeholder={t("payments.notes_placeholder")}
+              onFocus={clearError}
+            />
+
+            <View className="h-4" />
+
+            {/* Full / Partial selector — last decision before submit. */}
+            <PaymentAmountPaidSection
+              paymentMode={form.paymentMode}
+              onPaymentModeChange={(mode) =>
+                setForm((prev) => ({
+                  ...prev,
+                  paymentMode: mode,
+                  amountPaid: mode === "full" ? null : prev.amountPaid,
+                }))
+              }
+              amountPaid={form.amountPaid}
+              onAmountPaidChange={(amount) =>
+                setForm((prev) => ({ ...prev, amountPaid: amount }))
+              }
+              currencyId={resolvedCurrencyId}
+              amountDue={resolvedDue}
+              formatAmount={formatResolved}
+              onFocusClearError={clearError}
+              partialDisabled={resolvedDue == null || resolvedDue <= 0}
+            />
+
+            <Button
+              label={
+                resolvedDue !== null &&
+                resolvedPaid !== null &&
+                resolvedPaid < resolvedDue
+                  ? t("payments.record_payment_action")
+                  : t("payments.mark_as_paid")
+              }
+              onPress={handleSubmit}
+              loading={loadingCreate}
+              disabled={!canSubmit}
+              fullWidth
+            />
+            <Text className="text-xs text-gray-400 text-center mt-2">
+              {t("payments.receipt_id_hint")}
+            </Text>
+            <View className="h-4" />
+          </KeyboardAwareScrollView>
+        </ResponsiveContainer>
       </SafeAreaView>
       <UpgradePromptModal
         payload={tierLimitError}

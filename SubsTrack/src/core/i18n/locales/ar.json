@@ -240,6 +240,7 @@
     "this_month":"الشهر الحالي",
     "record_payment": "تسجيل دفعة",
     "void_payment": "إلغاء الدفعة",
+    "void_current_month": "إلغاء دفعة الشهر الحالي",
     "collect": "تحصيل",
     "receipt_title": "إيصال الدفع",
     "paid_in_full": "{{monthYear}} · مدفوع بالكامل",

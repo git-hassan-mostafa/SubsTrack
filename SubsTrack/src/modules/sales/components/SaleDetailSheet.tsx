@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Modal, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { useTranslation } from "react-i18next";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
@@ -75,159 +76,165 @@ export function SaleDetailSheet({
       onRequestClose={handleDismiss}
     >
       <SafeAreaView className="flex-1 bg-white">
-        {/* Handle */}
-        <View className="items-center pt-3 pb-1">
-          <View className="w-10 h-1 rounded-full bg-gray-300" />
-        </View>
-
-        {/* Header */}
-        <View className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
-          <Text fontWeight="Bold" className="text-lg text-gray-900">
-            {t("sales.receipt_title")}
-          </Text>
-          <PressableOpacity onPress={handleDismiss}>
-            <Text className="text-base text-primary font-medium">
-              {t("common.close")}
-            </Text>
-          </PressableOpacity>
-        </View>
-
-        <KeyboardAwareScrollView
-          className="flex-1 px-6 pt-5"
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ paddingBottom: 48 }}
-          bottomOffset={24}
-        >
-          {/* Hero card */}
-          {voided ? (
-            <View className="bg-red-50 border border-red-100 rounded-2xl px-4 py-5 items-center mb-4">
-              <View className="w-10 h-10 rounded-full bg-red-400 items-center justify-center mb-3">
-                <Text fontWeight="Bold" className="text-white text-lg">
-                  ✕
-                </Text>
-              </View>
-              <Text fontWeight="Bold" className="text-3xl text-red-500">
-                {fmtSource(sale.totalAmount)}
-              </Text>
-              {showEquivalent ? (
-                <Text className="text-xs text-gray-400 mt-0.5">
-                  ≈ {fmtTarget(sale.totalAmount)}
-                </Text>
-              ) : null}
-              <Text className="text-sm text-gray-400 mt-1">{productLabel}</Text>
-              <View className="mt-2 bg-red-100 rounded-full px-3 py-1">
-                <Text className="text-xs text-red-600 font-semibold">
-                  {t("sales.voided")}
-                </Text>
-              </View>
-            </View>
-          ) : (
-            <View className="bg-green-50 border border-green-100 rounded-2xl px-4 py-5 items-center mb-4">
-              <View className="w-10 h-10 rounded-full bg-green-500 items-center justify-center mb-3">
-                <Text fontWeight="Bold" className="text-white text-lg">
-                  ✓
-                </Text>
-              </View>
-              <Text fontWeight="Bold" className="text-3xl text-green-600">
-                {fmtSource(sale.totalAmount)}
-              </Text>
-              {showEquivalent ? (
-                <Text className="text-xs text-gray-400 mt-0.5">
-                  ≈ {fmtTarget(sale.totalAmount)}
-                </Text>
-              ) : null}
-              <Text className="text-sm text-gray-400 mt-1">{productLabel}</Text>
-            </View>
-          )}
-
-          {/* Detail rows card */}
-          <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden mb-4">
-            {sale.quantity > 1 ? (
-              <Row
-                label={t("sales.unit_amount_label")}
-                value={fmtSource(sale.unitAmount)}
-              />
-            ) : null}
-            <Row
-              label={t("sales.customer_label")}
-              value={sale.customer?.name ?? t("sales.walk_in")}
-            />
-            <Row
-              label={t("sales.sold_at_label")}
-              value={formatDate(sale.soldAt, locale)}
-            />
-            <Row
-              label={t("sales.receipt_id_label")}
-              value={receiptId}
-              last={!sale.notes && !(voided && sale.voidReason)}
-            />
-            {sale.notes ? (
-              <Row
-                label={t("sales.notes_label")}
-                value={sale.notes}
-                last={!(voided && sale.voidReason)}
-              />
-            ) : null}
-            {voided && sale.voidReason ? (
-              <Row
-                label={t("sales.void_reason_label")}
-                value={sale.voidReason}
-                valueColor="text-red-600"
-                last
-              />
-            ) : null}
+        <ResponsiveContainer className="flex-1">
+          {/* Handle */}
+          <View className="items-center pt-3 pb-1">
+            <View className="w-10 h-1 rounded-full bg-gray-300" />
           </View>
 
-          {/* Void controls (active sales only) */}
-          {!voided && onVoid ? (
-            voidMode ? (
-              <View className="mb-4">
-                <Input
-                  label={t("sales.void_reason_label")}
-                  value={voidReason}
-                  onChangeText={setVoidReason}
-                  placeholder={t("sales.void_reason_placeholder")}
-                  multiline
-                />
-                <View className="flex-row gap-3 mt-2">
-                  <PressableOpacity
-                    onPress={() => {
-                      setVoidMode(false);
-                      setVoidReason("");
-                    }}
-                    className="flex-1 border border-gray-200 rounded-xl py-3 items-center"
-                  >
-                    <Text className="text-gray-600 font-medium">
-                      {t("common.cancel")}
-                    </Text>
-                  </PressableOpacity>
-                  <PressableOpacity
-                    onPress={handleConfirmVoid}
-                    disabled={voidLoading}
-                    className={`flex-1 rounded-xl py-3 items-center ${
-                      voidLoading ? "bg-red-200" : "bg-red-500"
-                    }`}
-                  >
-                    <Text className="text-white font-semibold">
-                      {t("sales.confirm_void")}
-                    </Text>
-                  </PressableOpacity>
+          {/* Header */}
+          <View className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
+            <Text fontWeight="Bold" className="text-lg text-gray-900">
+              {t("sales.receipt_title")}
+            </Text>
+            <PressableOpacity onPress={handleDismiss}>
+              <Text className="text-base text-primary font-medium">
+                {t("common.close")}
+              </Text>
+            </PressableOpacity>
+          </View>
+
+          <KeyboardAwareScrollView
+            className="flex-1 px-6 pt-5"
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={{ paddingBottom: 48 }}
+            bottomOffset={24}
+          >
+            {/* Hero card */}
+            {voided ? (
+              <View className="bg-red-50 border border-red-100 rounded-2xl px-4 py-5 items-center mb-4">
+                <View className="w-10 h-10 rounded-full bg-red-400 items-center justify-center mb-3">
+                  <Text fontWeight="Bold" className="text-white text-lg">
+                    ✕
+                  </Text>
+                </View>
+                <Text fontWeight="Bold" className="text-3xl text-red-500">
+                  {fmtSource(sale.totalAmount)}
+                </Text>
+                {showEquivalent ? (
+                  <Text className="text-xs text-gray-400 mt-0.5">
+                    ≈ {fmtTarget(sale.totalAmount)}
+                  </Text>
+                ) : null}
+                <Text className="text-sm text-gray-400 mt-1">
+                  {productLabel}
+                </Text>
+                <View className="mt-2 bg-red-100 rounded-full px-3 py-1">
+                  <Text className="text-xs text-red-600 font-semibold">
+                    {t("sales.voided")}
+                  </Text>
                 </View>
               </View>
             ) : (
-              <PressableOpacity
-                onPress={() => setVoidMode(true)}
-                className="border border-red-300 rounded-xl py-3.5 items-center mb-4"
-              >
-                <Text className="text-red-500 font-semibold">
-                  {t("sales.void_sale")}
+              <View className="bg-green-50 border border-green-100 rounded-2xl px-4 py-5 items-center mb-4">
+                <View className="w-10 h-10 rounded-full bg-green-500 items-center justify-center mb-3">
+                  <Text fontWeight="Bold" className="text-white text-lg">
+                    ✓
+                  </Text>
+                </View>
+                <Text fontWeight="Bold" className="text-3xl text-green-600">
+                  {fmtSource(sale.totalAmount)}
                 </Text>
-              </PressableOpacity>
-            )
-          ) : null}
+                {showEquivalent ? (
+                  <Text className="text-xs text-gray-400 mt-0.5">
+                    ≈ {fmtTarget(sale.totalAmount)}
+                  </Text>
+                ) : null}
+                <Text className="text-sm text-gray-400 mt-1">
+                  {productLabel}
+                </Text>
+              </View>
+            )}
 
-          <View className="h-8" />
-        </KeyboardAwareScrollView>
+            {/* Detail rows card */}
+            <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden mb-4">
+              {sale.quantity > 1 ? (
+                <Row
+                  label={t("sales.unit_amount_label")}
+                  value={fmtSource(sale.unitAmount)}
+                />
+              ) : null}
+              <Row
+                label={t("sales.customer_label")}
+                value={sale.customer?.name ?? t("sales.walk_in")}
+              />
+              <Row
+                label={t("sales.sold_at_label")}
+                value={formatDate(sale.soldAt, locale)}
+              />
+              <Row
+                label={t("sales.receipt_id_label")}
+                value={receiptId}
+                last={!sale.notes && !(voided && sale.voidReason)}
+              />
+              {sale.notes ? (
+                <Row
+                  label={t("sales.notes_label")}
+                  value={sale.notes}
+                  last={!(voided && sale.voidReason)}
+                />
+              ) : null}
+              {voided && sale.voidReason ? (
+                <Row
+                  label={t("sales.void_reason_label")}
+                  value={sale.voidReason}
+                  valueColor="text-red-600"
+                  last
+                />
+              ) : null}
+            </View>
+
+            {/* Void controls (active sales only) */}
+            {!voided && onVoid ? (
+              voidMode ? (
+                <View className="mb-4">
+                  <Input
+                    label={t("sales.void_reason_label")}
+                    value={voidReason}
+                    onChangeText={setVoidReason}
+                    placeholder={t("sales.void_reason_placeholder")}
+                    multiline
+                  />
+                  <View className="flex-row gap-3 mt-2">
+                    <PressableOpacity
+                      onPress={() => {
+                        setVoidMode(false);
+                        setVoidReason("");
+                      }}
+                      className="flex-1 border border-gray-200 rounded-xl py-3 items-center"
+                    >
+                      <Text className="text-gray-600 font-medium">
+                        {t("common.cancel")}
+                      </Text>
+                    </PressableOpacity>
+                    <PressableOpacity
+                      onPress={handleConfirmVoid}
+                      disabled={voidLoading}
+                      className={`flex-1 rounded-xl py-3 items-center ${
+                        voidLoading ? "bg-red-200" : "bg-red-500"
+                      }`}
+                    >
+                      <Text className="text-white font-semibold">
+                        {t("sales.confirm_void")}
+                      </Text>
+                    </PressableOpacity>
+                  </View>
+                </View>
+              ) : (
+                <PressableOpacity
+                  onPress={() => setVoidMode(true)}
+                  className="border border-red-300 rounded-xl py-3.5 items-center mb-4"
+                >
+                  <Text className="text-red-500 font-semibold">
+                    {t("sales.void_sale")}
+                  </Text>
+                </PressableOpacity>
+              )
+            ) : null}
+
+            <View className="h-8" />
+          </KeyboardAwareScrollView>
+        </ResponsiveContainer>
       </SafeAreaView>
     </Modal>
   );

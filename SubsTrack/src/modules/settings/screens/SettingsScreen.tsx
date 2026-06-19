@@ -3,6 +3,7 @@ import { ScrollView, View } from "react-native";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
@@ -116,6 +117,7 @@ export function SettingsScreen() {
   }
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
+      <ResponsiveContainer className="flex-1">
       <ScrollView>
         <View className="px-5 pt-5 pb-4">
           <Text fontWeight="Bold" className="text-2xl text-gray-900">
@@ -225,6 +227,7 @@ export function SettingsScreen() {
           </View>
         </View>
       </ScrollView>
+      </ResponsiveContainer>
 
       <DropdownModal<SupportedLanguage>
         visible={languagePickerOpen}

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Modal, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { useTranslation } from "react-i18next";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
@@ -109,94 +110,98 @@ export function ProductFormSheet({
       onRequestClose={onDismiss}
     >
       <SafeAreaView className="flex-1 bg-white">
-        <View className="items-center pt-3 pb-1">
-          <View className="w-10 h-1 rounded-full bg-gray-300" />
-        </View>
-        <View className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
-          <Text fontWeight="Bold" className="text-lg text-gray-900">
-            {product ? t("products.edit_title") : t("products.add_title")}
-          </Text>
-          <PressableOpacity onPress={onDismiss}>
-            <Text className="text-base text-primary font-medium">
-              {t("common.cancel")}
+        <ResponsiveContainer className="flex-1">
+          <View className="items-center pt-3 pb-1">
+            <View className="w-10 h-1 rounded-full bg-gray-300" />
+          </View>
+          <View className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
+            <Text fontWeight="Bold" className="text-lg text-gray-900">
+              {product ? t("products.edit_title") : t("products.add_title")}
             </Text>
-          </PressableOpacity>
-        </View>
-
-        <KeyboardAwareScrollView
-          className="flex-1 px-6 pt-6"
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ paddingBottom: 48 }}
-          bottomOffset={24}
-        >
-          {error ? (
-            <ErrorBanner message={error} onDismiss={clearError} />
-          ) : null}
-
-          <Input
-            label={t("products.name_label") + " *"}
-            value={form.name}
-            onChangeText={(v) => setForm((p) => ({ ...p, name: v }))}
-            placeholder={t("products.name_placeholder")}
-            onFocus={clearError}
-          />
-
-          <Input
-            label={t("products.description_label")}
-            value={form.description}
-            onChangeText={(v) => setForm((p) => ({ ...p, description: v }))}
-            placeholder={t("products.description_placeholder")}
-            multiline
-          />
-
-          <BranchPicker
-            label={
-              t("branches.branch_label") + (branchPickerNullable ? "" : " *")
-            }
-            value={form.branchId}
-            onChange={(v) => setForm((p) => ({ ...p, branchId: v }))}
-            nullable={branchPickerNullable}
-            nullLabel={t("branches.shared_all_branches")}
-          />
-
-          <CurrencyInput
-            label={t("products.price_label") + " *"}
-            amount={form.price}
-            currencyId={form.currencyId}
-            onChange={({ amount, currencyId }) =>
-              setForm((p) => ({ ...p, price: amount, currencyId }))
-            }
-            currencies={currencies}
-            placeholder="0.00"
-            onFocus={clearError}
-          />
-
-          <Button
-            label={product ? t("common.save_changes") : t("products.add_title")}
-            onPress={handleSubmit}
-            loading={loading}
-            disabled={submitDisabled}
-            fullWidth
-          />
-
-          {product && onRequestDelete ? (
-            <>
-              <PressableOpacity
-                onPress={() => onRequestDelete(product)}
-                className="border border-red-200 rounded-xl py-3.5 items-center mt-3"
-              >
-                <Text className="text-red-500 font-semibold">
-                  {t("common.delete")}
-                </Text>
-              </PressableOpacity>
-              <Text className="text-xs text-gray-400 text-center mt-3">
-                {t("products.delete_warning")}
+            <PressableOpacity onPress={onDismiss}>
+              <Text className="text-base text-primary font-medium">
+                {t("common.cancel")}
               </Text>
-            </>
-          ) : null}
+            </PressableOpacity>
+          </View>
 
-          <View className="h-24" />
-        </KeyboardAwareScrollView>
+          <KeyboardAwareScrollView
+            className="flex-1 px-6 pt-6"
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={{ paddingBottom: 48 }}
+            bottomOffset={24}
+          >
+            {error ? (
+              <ErrorBanner message={error} onDismiss={clearError} />
+            ) : null}
+
+            <Input
+              label={t("products.name_label") + " *"}
+              value={form.name}
+              onChangeText={(v) => setForm((p) => ({ ...p, name: v }))}
+              placeholder={t("products.name_placeholder")}
+              onFocus={clearError}
+            />
+
+            <Input
+              label={t("products.description_label")}
+              value={form.description}
+              onChangeText={(v) => setForm((p) => ({ ...p, description: v }))}
+              placeholder={t("products.description_placeholder")}
+              multiline
+            />
+
+            <BranchPicker
+              label={
+                t("branches.branch_label") + (branchPickerNullable ? "" : " *")
+              }
+              value={form.branchId}
+              onChange={(v) => setForm((p) => ({ ...p, branchId: v }))}
+              nullable={branchPickerNullable}
+              nullLabel={t("branches.shared_all_branches")}
+            />
+
+            <CurrencyInput
+              label={t("products.price_label") + " *"}
+              amount={form.price}
+              currencyId={form.currencyId}
+              onChange={({ amount, currencyId }) =>
+                setForm((p) => ({ ...p, price: amount, currencyId }))
+              }
+              currencies={currencies}
+              placeholder="0.00"
+              onFocus={clearError}
+            />
+
+            <Button
+              label={
+                product ? t("common.save_changes") : t("products.add_title")
+              }
+              onPress={handleSubmit}
+              loading={loading}
+              disabled={submitDisabled}
+              fullWidth
+            />
+
+            {product && onRequestDelete ? (
+              <>
+                <PressableOpacity
+                  onPress={() => onRequestDelete(product)}
+                  className="border border-red-200 rounded-xl py-3.5 items-center mt-3"
+                >
+                  <Text className="text-red-500 font-semibold">
+                    {t("common.delete")}
+                  </Text>
+                </PressableOpacity>
+                <Text className="text-xs text-gray-400 text-center mt-3">
+                  {t("products.delete_warning")}
+                </Text>
+              </>
+            ) : null}
+
+            <View className="h-24" />
+          </KeyboardAwareScrollView>
+        </ResponsiveContainer>
       </SafeAreaView>
       <UpgradePromptModal
         payload={tierLimitError}

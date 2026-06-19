@@ -46,6 +46,7 @@ import {
 import { FAB } from "@/src/shared/components/FAB";
 import { SelectAllBar } from "@/src/shared/components/SelectAllBar";
 import { SelectionOverlaySlot } from "@/src/shared/components/SelectionOverlaySlot";
+import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { MONTHS } from "@/src/core/constants";
 import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
 import {
@@ -91,6 +92,9 @@ export function CustomerListScreen() {
     (s) => s.createMultiMonthPayment,
   );
   const bulkPayCustomers = usePaymentSlice((s) => s.bulkPayCustomers);
+  const voidCurrentMonthForCustomer = usePaymentSlice(
+    (s) => s.voidCurrentMonthForCustomer,
+  );
   const paymentError = usePaymentSlice((s) => s.error);
   const clearPaymentError = usePaymentSlice((s) => s.clearError);
   const clearPaymentTierLimitError = usePaymentSlice(
@@ -365,6 +369,24 @@ export function CustomerListScreen() {
     }
   }
 
+  async function handleVoidCurrentMonth(customer: Customer) {
+    if (!user) return;
+    const ok = await confirm({
+      title: t("payments.void_confirm_title"),
+      message: t("payments.void_confirm_message", {
+        month: t(`months.${MONTHS[new Date().getMonth()]}`),
+        year: new Date().getFullYear(),
+      }),
+      confirmLabel: t("payments.void_payment"),
+      destructive: true,
+    });
+    if (!ok) return;
+    const voided = await voidCurrentMonthForCustomer(customer.id, user.id);
+    // The slice clears the current-month badge optimistically; recompute the
+    // overdue badge since the freed month may now read as unpaid.
+    if (voided) void fetchOverdueStatus(customers, graceDays);
+  }
+
   async function handleDeleteCustomer(customer: Customer) {
     const ok = await confirm({
       title: t("customers.delete_title"),
@@ -542,6 +564,15 @@ export function CustomerListScreen() {
         onPress: () => handleQuickPay(customer),
       });
     }
+    if (hasCurrentMonthPayment(customer.id)) {
+      items.push({
+        key: "void-current-month",
+        label: t("payments.void_current_month"),
+        icon: "trash-outline",
+        destructive: true,
+        onPress: () => void handleVoidCurrentMonth(customer),
+      });
+    }
     items.push({
       key: "edit",
       label: t("common.edit"),
@@ -582,6 +613,7 @@ export function CustomerListScreen() {
         }}
       />
 
+      <ResponsiveContainer className="flex-1">
       {/* Search + filter tabs stay mounted while selecting so their space
           remains and the list never jumps; the select-all bar overlays them. */}
       <SelectionOverlaySlot
@@ -704,6 +736,8 @@ export function CustomerListScreen() {
           accessibilityLabel={t("common.add")}
         />
       )}
+
+      </ResponsiveContainer>
 
       {formVisible && (
         <CustomerFormSheet onDismiss={() => setFormVisible(false)} />

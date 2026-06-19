@@ -29,6 +29,7 @@ import {
 import { FAB } from "@/src/shared/components/FAB";
 import { SelectAllBar } from "@/src/shared/components/SelectAllBar";
 import { SelectionOverlaySlot } from "@/src/shared/components/SelectionOverlaySlot";
+import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
 import {
   useSelection,
@@ -186,6 +187,7 @@ export function PlanListScreen() {
         }}
       />
 
+      <ResponsiveContainer className="flex-1">
       {/* Search stays mounted while selecting so its space remains and the list
           never jumps; the select-all bar overlays it. */}
       <SelectionOverlaySlot
@@ -262,6 +264,8 @@ export function PlanListScreen() {
       {!selectionActive && (
         <FAB onPress={openCreate} accessibilityLabel={t("common.add")} />
       )}
+
+      </ResponsiveContainer>
 
       {formVisible && (
         <PlanFormSheet

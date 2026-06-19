@@ -227,6 +227,7 @@ Status algorithm per month:
 - Custom `Text` component handles Cairo font for Arabic, system font for English.
 - RTL support via `I18nManager`; language change triggers a full app reload (see gotcha #5).
 - Keyboard avoidance uses `react-native-keyboard-controller`, **never** RN's built-in `KeyboardAvoidingView` (see gotcha #39).
+- Web/desktop width is capped via `<ResponsiveContainer>` (`src/shared/components/ResponsiveContainer.tsx`) — wraps each screen's body (and each page-sheet form) in a centered, max-width column. It's a no-op on phones (always narrower than the cap), so phone layout is unaffected; it only kicks in on wide viewports. Centered dialogs (`ActionMenu`, `ConfirmDialog`, `UpgradePromptModal`) cap themselves inline with a `max-w-*` class instead.
 
 ---
 

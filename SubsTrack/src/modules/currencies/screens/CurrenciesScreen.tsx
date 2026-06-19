@@ -16,6 +16,7 @@ import {
 import { FAB } from "@/src/shared/components/FAB";
 import { SelectAllBar } from "@/src/shared/components/SelectAllBar";
 import { SelectionOverlaySlot } from "@/src/shared/components/SelectionOverlaySlot";
+import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { EmptyState } from "@/src/shared/components/EmptyState";
 import { confirm } from "@/src/shared/lib/confirm";
@@ -222,6 +223,7 @@ export function CurrenciesScreen() {
         }}
       />
 
+      <ResponsiveContainer className="flex-1">
       {error ? (
         <View className="px-4 pt-4">
           <ErrorBanner message={error} onDismiss={clearError} />
@@ -299,6 +301,8 @@ export function CurrenciesScreen() {
           accessibilityLabel={t("tenant_settings.add_currency")}
         />
       )}
+
+      </ResponsiveContainer>
 
       {formVisible && (
         <CurrencyFormSheet

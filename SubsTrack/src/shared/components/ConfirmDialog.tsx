@@ -68,7 +68,7 @@ export function ConfirmDialog({
       }}
     >
       <View className="flex-1 bg-black/50 items-center justify-center px-8">
-        <View className="bg-white rounded-2xl p-6 w-full">
+        <View className="bg-white rounded-2xl p-6 w-full max-w-sm">
           <Text className="text-lg font-semibold text-gray-900 mb-2">
             {title}
           </Text>

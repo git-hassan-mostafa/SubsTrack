@@ -43,7 +43,7 @@ export function UpgradePromptModal({ payload, onClose }: Props) {
     return (
       <Modal visible transparent animationType="fade" onRequestClose={onClose}>
         <View className="flex-1 bg-black/50 items-center justify-center px-8">
-          <View className="bg-white rounded-3xl w-full overflow-hidden">
+          <View className="bg-white rounded-3xl w-full max-w-md overflow-hidden">
             <View className="bg-amber-50 px-6 pt-6 pb-5 items-center">
               <View className="bg-white rounded-full w-14 h-14 items-center justify-center mb-3 border border-amber-200">
                 <Ionicons name="lock-closed" size={24} color={COLORS.warning} />
