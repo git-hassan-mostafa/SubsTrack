@@ -37,6 +37,9 @@ export interface PaymentSlice {
   currentMonthFullyPaidIds: Set<string>;
   // Customers with a payment for the current month that still has outstanding balance.
   currentMonthPartialIds: Set<string>;
+  // Active regular customers with any unpaid month up to now (even if the current
+  // month is paid). Drives the "unpaid" status on the customer list.
+  overdueCustomerIds: Set<string>;
   loading: boolean;
   loadingCreate: boolean;
   loadingVoid: boolean;
@@ -44,12 +47,26 @@ export interface PaymentSlice {
   error: string | null;
   tierLimitError: TierLimitErrorPayload | null;
   fetchCurrentMonthPaymentStatus: () => Promise<void>;
+  // Recomputes the overdue set for the given (loaded) customers.
+  fetchOverdueStatus: (customers: Customer[], graceDays: number) => Promise<void>;
+  // Loads all of a customer's payments only when they aren't already in the
+  // store, then builds the requested year's grid. Mirrors customers.getCustomers.
+  getPayments: (
+    customerId: string,
+    year: number,
+    customer: Customer,
+    graceDays: number,
+  ) => Promise<void>;
+  // Fetches all of a customer's payments (every year) and builds the year's grid.
   fetchPayments: (
     customerId: string,
     year: number,
     customer: Customer,
     graceDays: number,
   ) => Promise<void>;
+  // Rebuilds the viewed year's grid from payments already in the store — used
+  // when navigating years, so no re-fetch is needed.
+  buildGrid: (customer: Customer, year: number, graceDays: number) => void;
   createPayment: (
     data: CreatePaymentInput,
     currency: Currency | null,
@@ -145,6 +162,7 @@ export const createPaymentSlice: StateCreator<
   monthGrid: [],
   currentMonthFullyPaidIds: new Set(),
   currentMonthPartialIds: new Set(),
+  overdueCustomerIds: new Set(),
   loading: false,
   loadingCreate: false,
   loadingVoid: false,
@@ -162,13 +180,32 @@ export const createPaymentSlice: StateCreator<
     });
   },
 
+  fetchOverdueStatus: async (customers, graceDays) => {
+    const overdueCustomerIds = await paymentService.findOverdueCustomerIds(
+      customers,
+      graceDays,
+    );
+    set((state) => {
+      state.payments.overdueCustomerIds = overdueCustomerIds;
+    });
+  },
+
+  getPayments: async (customerId, year, customer, graceDays) => {
+    const items = get().payments.items;
+    if (items.length > 0 && items[0].customerId === customerId) {
+      get().payments.buildGrid(customer, year, graceDays);
+      return;
+    }
+    await get().payments.fetchPayments(customerId, year, customer, graceDays);
+  },
+
   fetchPayments: async (customerId, year, customer, graceDays) => {
     set((state) => {
       state.payments.loading = true;
       state.payments.error = null;
     });
     try {
-      const items = await paymentService.getPaymentsForYear(customerId, year);
+      const items = await paymentService.getPaymentsForCustomer(customerId);
       const monthGrid = paymentService.buildMonthGrid(customer, items, year, graceDays);
       set((state) => {
         state.payments.items = items;
@@ -181,6 +218,18 @@ export const createPaymentSlice: StateCreator<
         state.payments.loading = false;
       });
     }
+  },
+
+  buildGrid: (customer, year, graceDays) => {
+    const monthGrid = paymentService.buildMonthGrid(
+      customer,
+      get().payments.items,
+      year,
+      graceDays,
+    );
+    set((state) => {
+      state.payments.monthGrid = monthGrid;
+    });
   },
 
   createPayment: async (data, currency, customer, graceDays) => {

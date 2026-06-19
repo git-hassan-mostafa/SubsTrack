@@ -8,7 +8,7 @@ import {
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { EmptyState } from "@/src/shared/components/EmptyState";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
@@ -45,6 +45,7 @@ import {
 } from "@/src/shared/components/PageHeader";
 import { FAB } from "@/src/shared/components/FAB";
 import { SelectAllBar } from "@/src/shared/components/SelectAllBar";
+import { SelectionOverlaySlot } from "@/src/shared/components/SelectionOverlaySlot";
 import { MONTHS } from "@/src/core/constants";
 import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
 import {
@@ -80,9 +81,11 @@ export function CustomerListScreen() {
   const currentMonthPartialIds = usePaymentSlice(
     (s) => s.currentMonthPartialIds,
   );
+  const overdueCustomerIds = usePaymentSlice((s) => s.overdueCustomerIds);
   const fetchCurrentMonthPaymentStatus = usePaymentSlice(
     (s) => s.fetchCurrentMonthPaymentStatus,
   );
+  const fetchOverdueStatus = usePaymentSlice((s) => s.fetchOverdueStatus);
   const createPayment = usePaymentSlice((s) => s.createPayment);
   const createMultiMonthPayment = usePaymentSlice(
     (s) => s.createMultiMonthPayment,
@@ -129,6 +132,15 @@ export function CustomerListScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [branchFilter]);
 
+  // Recomputes overdue status on focus and whenever the loaded customer set
+  // changes (reload, pagination). Refreshing on focus keeps the badge correct
+  // after a past month is paid from the detail panel.
+  useFocusEffect(
+    useCallback(() => {
+      if (customers.length > 0) void fetchOverdueStatus(customers, graceDays);
+    }, [customers, graceDays, fetchOverdueStatus]),
+  );
+
   const monthLabel = useMemo(() => {
     const now = new Date();
     return `${t(`months.${MONTHS[now.getMonth()]}`)} ${now.getFullYear()}`;
@@ -156,10 +168,13 @@ export function CustomerListScreen() {
     if (activeTab === "inactive") return customers.filter((c) => !c.active);
     if (activeTab === "unpaid")
       return customers.filter(
-        (c) => c.active && c.isRegular && !hasCurrentMonthPayment(c.id),
+        (c) =>
+          c.active &&
+          c.isRegular &&
+          (overdueCustomerIds.has(c.id) || !hasCurrentMonthPayment(c.id)),
       );
     return customers;
-  }, [activeTab, customers, hasCurrentMonthPayment]);
+  }, [activeTab, customers, hasCurrentMonthPayment, overdueCustomerIds]);
 
   // Resolve selected ids against the VISIBLE list, so a selected-then-filtered-out
   // customer can never be acted on invisibly.
@@ -292,12 +307,16 @@ export function CustomerListScreen() {
 
   const renderItem = useCallback(
     ({ item }: { item: Customer }) => {
+      // Any unpaid past month forces "unpaid" even when the current month is
+      // settled; otherwise fall back to the current month's status.
       const paymentStatus: "paid" | "partial" | "unpaid" =
-        currentMonthFullyPaidIds.has(item.id)
-          ? "paid"
-          : currentMonthPartialIds.has(item.id)
-            ? "partial"
-            : "unpaid";
+        overdueCustomerIds.has(item.id)
+          ? "unpaid"
+          : currentMonthFullyPaidIds.has(item.id)
+            ? "paid"
+            : currentMonthPartialIds.has(item.id)
+              ? "partial"
+              : "unpaid";
       return (
         <CustomerCard
           customer={item}
@@ -316,6 +335,7 @@ export function CustomerListScreen() {
     [
       currentMonthFullyPaidIds,
       currentMonthPartialIds,
+      overdueCustomerIds,
       monthLabel,
       openDetail,
       openMenu,
@@ -562,35 +582,48 @@ export function CustomerListScreen() {
         }}
       />
 
-      <View className="px-4 pt-4">
-        {/* Search — hidden while selecting */}
-        {!selectionActive && (
+      {/* Search + filter tabs stay mounted while selecting so their space
+          remains and the list never jumps; the select-all bar overlays them. */}
+      <SelectionOverlaySlot
+        selecting={selectionActive}
+        overlay={
+          <SelectAllBar
+            allSelected={
+              filtered.length > 0 &&
+              selectedCustomers.length === filtered.length
+            }
+            onToggle={() => toggleManySelect(filtered.map((c) => c.id))}
+          />
+        }
+      >
+        <View className="px-4 pt-4">
+          {/* Search */}
           <SearchTextBox
             searchText={searchText}
             setSearchText={setSearchText}
             placeholder={t("customers.search_hint")}
           />
-        )}
-        {/* Filter tabs */}
-        <View className={`flex-row gap-2 ${selectionActive ? "" : "mt-4"}`}>
-          {tabs.map((tab) => (
-            <PressableOpacity
-              key={tab.key}
-              onPress={() => {
-                setActiveTab(tab.key);
-                clearSelection();
-              }}
-              className={`rounded-full px-3 py-1.5 ${activeTab === tab.key ? "bg-gray-900" : "bg-gray-100"}`}
-            >
-              <Text
-                className={`text-xs font-semibold ${activeTab === tab.key ? "text-white" : "text-gray-600"}`}
+          {/* Filter tabs */}
+          <View className="flex-row gap-2 mt-4">
+            {tabs.map((tab) => (
+              <PressableOpacity
+                key={tab.key}
+                onPress={() => {
+                  setActiveTab(tab.key);
+                  clearSelection();
+                }}
+                className={`rounded-full px-3 py-1.5 ${activeTab === tab.key ? "bg-gray-900" : "bg-gray-100"}`}
               >
-                {tab.label}
-              </Text>
-            </PressableOpacity>
-          ))}
+                <Text
+                  className={`text-xs font-semibold ${activeTab === tab.key ? "text-white" : "text-gray-600"}`}
+                >
+                  {tab.label}
+                </Text>
+              </PressableOpacity>
+            ))}
+          </View>
         </View>
-      </View>
+      </SelectionOverlaySlot>
       {error ? (
         <View className="px-4 pt-4">
           <ErrorBanner message={error} onDismiss={clearError} />
@@ -609,15 +642,6 @@ export function CustomerListScreen() {
           />
         </View>
       ) : null}
-
-      {selectionActive && (
-        <SelectAllBar
-          allSelected={
-            filtered.length > 0 && selectedCustomers.length === filtered.length
-          }
-          onToggle={() => toggleManySelect(filtered.map((c) => c.id))}
-        />
-      )}
 
       {loading && customers.length === 0 ? (
         <View className="flex-1 items-center justify-center">

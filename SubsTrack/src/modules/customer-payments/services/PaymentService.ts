@@ -33,11 +33,10 @@ interface BulkPayCustomerInput {
 }
 
 class PaymentService {
-  async getPaymentsForYear(
-    customerId: string,
-    year: number,
-  ): Promise<Payment[]> {
-    const rows = await repository.findByCustomerAndYear(customerId, year);
+  // Returns every non-voided payment for a customer (all years). The panel
+  // loads this once and rebuilds each year's grid client-side.
+  async getPaymentsForCustomer(customerId: string): Promise<Payment[]> {
+    const rows = await repository.findByCustomer(customerId);
     return rows.map(mapDbPaymentToPayment);
   }
 
@@ -270,6 +269,40 @@ class PaymentService {
     billingMonth: string,
   ): Promise<{ fullyPaidIds: Set<string>; partialIds: Set<string> }> {
     return repository.findPaymentStatusForMonth(billingMonth);
+  }
+
+  // Returns the IDs of active, regular customers that have at least one unpaid
+  // month from their start date through the current year — even if the current
+  // month itself is paid. Status is decided exclusively by buildMonthGrid (rule
+  // #1): a customer is overdue if any month resolves to "unpaid".
+  async findOverdueCustomerIds(
+    customers: Customer[],
+    graceDays: number,
+  ): Promise<Set<string>> {
+    const rows = await repository.findActivePayments();
+    const paymentsByCustomer = new Map<string, Payment[]>();
+    for (const row of rows) {
+      const payment = mapDbPaymentToPayment(row);
+      const list = paymentsByCustomer.get(payment.customerId);
+      if (list) list.push(payment);
+      else paymentsByCustomer.set(payment.customerId, [payment]);
+    }
+
+    const { year: currentYear } = getCurrentYearMonth();
+    const overdue = new Set<string>();
+    for (const customer of customers) {
+      if (!customer.active || !customer.isRegular) continue;
+      const payments = paymentsByCustomer.get(customer.id) ?? [];
+      const startYear = new Date(customer.startDate).getFullYear();
+      for (let year = startYear; year <= currentYear; year++) {
+        const grid = this.buildMonthGrid(customer, payments, year, graceDays);
+        if (grid.some((entry) => entry.status === "unpaid")) {
+          overdue.add(customer.id);
+          break;
+        }
+      }
+    }
+    return overdue;
   }
 
   // THE single source of truth for month status logic. No other file may reimplement this.

@@ -46,40 +46,52 @@ export function PageHeader({
   hideBranchSelector,
   selection,
 }: PageHeaderProps) {
-  if (selection?.active) {
-    return <SelectionToolbar {...selection} />;
-  }
+  const selecting = selection?.active ?? false;
 
+  // The normal header stays mounted while selecting so its (taller) height is
+  // preserved and the list never shifts up; the selection toolbar overlays it.
   return (
-    <View className="flex-row items-start px-4 pt-4 pb-4 bg-white border-b border-gray-100 gap-2">
-      {showBack ? (
-        <PressableOpacity onPress={onBack} className="p-1 me-1">
-          <DirectionalIcon
-            name="chevron-back"
-            size={22}
-            color={COLORS.primary}
-          />
-        </PressableOpacity>
-      ) : null}
-      <View className="flex-1 min-w-0">
-        <Text fontWeight="Bold" className="text-2xl text-gray-900">
-          {title}
-        </Text>
-        {subtitle ? (
-          <Text className="text-sm text-gray-400 mt-0.5">{subtitle}</Text>
+    <View className="relative">
+      <View
+        className={`flex-row items-start px-4 pt-4 pb-4 bg-white border-b border-gray-100 gap-2 ${
+          selecting ? "opacity-0" : ""
+        }`}
+        pointerEvents={selecting ? "none" : "auto"}
+      >
+        {showBack ? (
+          <PressableOpacity onPress={onBack} className="p-1 me-1">
+            <DirectionalIcon
+              name="chevron-back"
+              size={22}
+              color={COLORS.primary}
+            />
+          </PressableOpacity>
         ) : null}
-      </View>
-      {actionLabel && onAction ? (
-        <PressableOpacity
-          onPress={onAction}
-          className="bg-primary rounded-full px-4 py-2"
-        >
-          <Text className="text-white font-semibold text-sm">
-            {actionLabel}
+        <View className="flex-1 min-w-0">
+          <Text fontWeight="Bold" className="text-2xl text-gray-900">
+            {title}
           </Text>
-        </PressableOpacity>
+          {subtitle ? (
+            <Text className="text-sm text-gray-400 mt-0.5">{subtitle}</Text>
+          ) : null}
+        </View>
+        {actionLabel && onAction ? (
+          <PressableOpacity
+            onPress={onAction}
+            className="bg-primary rounded-full px-4 py-2"
+          >
+            <Text className="text-white font-semibold text-sm">
+              {actionLabel}
+            </Text>
+          </PressableOpacity>
+        ) : null}
+        {!hideBranchSelector && <BranchSelector className="self-start" />}
+      </View>
+      {selection?.active ? (
+        <View className="absolute inset-0">
+          <SelectionToolbar {...selection} />
+        </View>
       ) : null}
-      {!hideBranchSelector && <BranchSelector className="self-start" />}
     </View>
   );
 }

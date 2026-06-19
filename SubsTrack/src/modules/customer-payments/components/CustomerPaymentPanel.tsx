@@ -81,8 +81,10 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
   const [bulkPayVisible, setBulkPayVisible] = useState(false);
   const [bulkVoidIds, setBulkVoidIds] = useState<string[] | null>(null);
 
+  // Loads every year's payments once per customer; switching years rebuilds the
+  // grid from the store instead of re-fetching.
   useEffect(() => {
-    paymentStore.fetchPayments(customer.id, year, customer, graceDays);
+    paymentStore.getPayments(customer.id, year, customer, graceDays);
   }, [customer.id, year, customer.startDate]);
 
   // Selected billing months belong to the viewed year only — drop the

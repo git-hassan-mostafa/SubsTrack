@@ -24,6 +24,7 @@ import {
 } from "@/src/shared/components/PageHeader";
 import { FAB } from "@/src/shared/components/FAB";
 import { SelectAllBar } from "@/src/shared/components/SelectAllBar";
+import { SelectionOverlaySlot } from "@/src/shared/components/SelectionOverlaySlot";
 import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
 import {
   useSelection,
@@ -211,28 +212,31 @@ export function ProductListScreen() {
         }}
       />
 
-      {!selectionActive && (
+      {/* Search stays mounted while selecting so its space remains and the list
+          never jumps; the select-all bar overlays it. */}
+      <SelectionOverlaySlot
+        selecting={selectionActive}
+        overlay={
+          <SelectAllBar
+            allSelected={
+              filtered.length > 0 && selectedProducts.length === filtered.length
+            }
+            onToggle={() => toggleManySelect(filtered.map((p) => p.id))}
+          />
+        }
+      >
         <View className="px-4 pt-4">
           <SearchTextBox
             searchText={searchText}
             setSearchText={setSearchText}
           />
         </View>
-      )}
+      </SelectionOverlaySlot>
       {error ? (
         <View className="px-4 pt-4">
           <ErrorBanner message={error} onDismiss={clearError} />
         </View>
       ) : null}
-
-      {selectionActive && (
-        <SelectAllBar
-          allSelected={
-            filtered.length > 0 && selectedProducts.length === filtered.length
-          }
-          onToggle={() => toggleManySelect(filtered.map((p) => p.id))}
-        />
-      )}
 
       {loading && products.length === 0 ? (
         <View className="flex-1 items-center justify-center">

@@ -15,6 +15,7 @@ import {
 } from "@/src/shared/components/PageHeader";
 import { FAB } from "@/src/shared/components/FAB";
 import { SelectAllBar } from "@/src/shared/components/SelectAllBar";
+import { SelectionOverlaySlot } from "@/src/shared/components/SelectionOverlaySlot";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { EmptyState } from "@/src/shared/components/EmptyState";
 import { confirm } from "@/src/shared/lib/confirm";
@@ -227,16 +228,6 @@ export function CurrenciesScreen() {
         </View>
       ) : null}
 
-      {selectionActive && (
-        <SelectAllBar
-          allSelected={
-            currencies.length > 0 &&
-            selectedCurrencies.length === currencies.length
-          }
-          onToggle={() => toggleManySelect(currencies.map((c) => c.id))}
-        />
-      )}
-
       {loading && currencies.length === 0 ? (
         <View className="flex-1 items-center justify-center">
           <ActivityIndicator color={COLORS.primary} />
@@ -260,7 +251,26 @@ export function CurrenciesScreen() {
               tintColor={COLORS.primary}
             />
           }
-          ListHeaderComponent={selectionActive ? null : <UsdBaseCard />}
+          ListHeaderComponent={
+            // Keep the USD base card's space while selecting so the list never
+            // jumps; the select-all bar overlays it.
+            <SelectionOverlaySlot
+              selecting={selectionActive}
+              overlay={
+                <SelectAllBar
+                  allSelected={
+                    currencies.length > 0 &&
+                    selectedCurrencies.length === currencies.length
+                  }
+                  onToggle={() =>
+                    toggleManySelect(currencies.map((c) => c.id))
+                  }
+                />
+              }
+            >
+              <UsdBaseCard />
+            </SelectionOverlaySlot>
+          }
           renderItem={({ item }) => (
             <CurrencyCard
               currency={item}

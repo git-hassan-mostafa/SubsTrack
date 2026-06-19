@@ -22,6 +22,7 @@ import {
 } from "@/src/shared/components/PageHeader";
 import { FAB } from "@/src/shared/components/FAB";
 import { SelectAllBar } from "@/src/shared/components/SelectAllBar";
+import { SelectionOverlaySlot } from "@/src/shared/components/SelectionOverlaySlot";
 import {
   useSelection,
   useSelectionBackHandler,
@@ -168,7 +169,17 @@ export function SalesListScreen() {
         }}
       />
 
-      {!selectionActive && (
+      {/* Search + filters stay mounted while selecting so their space remains
+          and the list never jumps; the select-all bar overlays them. */}
+      <SelectionOverlaySlot
+        selecting={selectionActive}
+        overlay={
+          <SelectAllBar
+            allSelected={sales.length > 0 && selectedSales.length === sales.length}
+            onToggle={() => toggleManySelect(sales.map((s) => s.id))}
+          />
+        }
+      >
       <View className="px-4 pt-4 gap-y-2">
         <SearchTextBox
           searchText={searchText}
@@ -234,7 +245,7 @@ export function SalesListScreen() {
           ) : null}
         </ScrollView>
       </View>
-      )}
+      </SelectionOverlaySlot>
       {error ? (
         <View className="px-4 pt-4">
           <ErrorBanner message={error} onDismiss={clearError} />
@@ -248,15 +259,6 @@ export function SalesListScreen() {
           />
         </View>
       ) : null}
-
-      {selectionActive && (
-        <SelectAllBar
-          allSelected={
-            sales.length > 0 && selectedSales.length === sales.length
-          }
-          onToggle={() => toggleManySelect(sales.map((s) => s.id))}
-        />
-      )}
 
       {loading && sales.length === 0 ? (
         <View className="flex-1 items-center justify-center">

@@ -5,15 +5,13 @@ import type { DbPayment } from '@/src/core/types/db';
 type CreatePaymentPayload = Pick<DbPayment, 'billing_month' | 'amount_due' | 'amount_paid' | 'duration_months' | 'currency_id' | 'rate_per_usd_snapshot' | 'customer_id' | 'plan_id' | 'received_by_user_id' | 'tenant_id' | 'notes'>
 
 class PaymentRepository extends BaseRepository {
-  // Fetches payments that START within the given year, plus payments that
-  // started in the previous year and may extend into this year (multi-month blocks).
-  async findByCustomerAndYear(customerId: string, year: number): Promise<DbPayment[]> {
+  // Fetches every non-voided payment for a customer (all years), so the panel
+  // can build any year's grid and switch years without re-querying.
+  async findByCustomer(customerId: string): Promise<DbPayment[]> {
     const { data, error } = await this.db
       .from('payments')
       .select('*')
       .eq('customer_id', customerId)
-      .gte('billing_month', `${year - 1}-01-01`)
-      .lte('billing_month', `${year}-12-01`)
       .is('voided_at', null)
       .order('billing_month');
     if (error) this.handleError(error);
@@ -149,6 +147,20 @@ class PaymentRepository extends BaseRepository {
       else fullyPaidIds.add(r.customer_id);
     }
     return { fullyPaidIds, partialIds };
+  }
+
+  // Returns every active (non-voided, non-zero-paid) payment across all
+  // customers/years, so the service can run buildMonthGrid per customer and
+  // detect overdue (unpaid past) months for the customer-list status badge.
+  // amount_paid = 0 is excluded — it is treated as unpaid (same as the grid).
+  async findActivePayments(): Promise<DbPayment[]> {
+    const { data, error } = await this.db
+      .from('payments')
+      .select('*')
+      .is('voided_at', null)
+      .gt('amount_paid', 0);
+    if (error) this.handleError(error);
+    return (data ?? []) as DbPayment[];
   }
 
   // Returns raw paid amounts + their snapshot rate so the service layer can
