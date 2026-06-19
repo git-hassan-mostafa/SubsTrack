@@ -18,22 +18,11 @@ import {
 import { useAuth } from "@/src/modules/auth";
 import { useAuthSlice } from "@/src/state/hooks/useAuthSlice";
 import { resetAllDomainStores } from "@/src/shared/lib/storeReset";
-import { AVATAR_COLORS } from "../../../shared/constants";
 
 const LANGUAGE_LABELS: Record<SupportedLanguage, string> = {
   en: "English",
   ar: "العربية",
 };
-
-function getAvatarColor(name: string): string {
-  return AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length];
-}
-
-function getInitials(name: string): string {
-  const parts = name.trim().split(" ");
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return name.slice(0, 2).toUpperCase();
-}
 
 function SettingsRow({
   icon,
@@ -85,8 +74,6 @@ export function SettingsScreen() {
   const { language, setLanguage } = useLanguageStore();
   const logout = useAuthSlice((s) => s.logout);
   const [languagePickerOpen, setLanguagePickerOpen] = useState(false);
-  const avatarColor = user ? getAvatarColor(user.fullName) : COLORS.primary;
-  const initials = user ? getInitials(user.fullName) : "?";
 
   const languageOptions = SUPPORTED_LANGUAGES.map((lang) => ({
     label: LANGUAGE_LABELS[lang],
@@ -118,115 +105,106 @@ export function SettingsScreen() {
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
       <ResponsiveContainer className="flex-1">
-      <ScrollView>
-        <View className="px-5 pt-5 pb-4">
-          <Text fontWeight="Bold" className="text-2xl text-gray-900">
-            {t("settings.title")}
-          </Text>
-        </View>
+        <ScrollView>
+          <View className="px-5 pt-5 pb-4">
+            <Text fontWeight="Bold" className="text-2xl text-gray-900">
+              {t("settings.title")}
+            </Text>
+          </View>
 
-        {/* Profile card */}
-        {user ? (
-          <View className="mx-4 mb-5 bg-white rounded-2xl border border-gray-100 px-4 py-4 flex-row items-center">
-            <View
-              className="w-12 h-12 rounded-xl items-center justify-center me-3"
-              style={{ backgroundColor: avatarColor + "22" }}
-            >
-              <Text
-                fontWeight="Bold"
-                className="text-base"
-                style={{ color: avatarColor }}
+          {/* Profile card */}
+          {user ? (
+            <View className="mx-4 mb-5 bg-white rounded-2xl border border-gray-100 px-4 py-4 flex-row items-center">
+              <View className="w-10 h-10 rounded-xl bg-success-light items-center justify-center me-3">
+                <Ionicons name="person" size={18} color={COLORS.success} />
+              </View>
+              <View className="flex-1">
+                <Text className="text-base font-semibold text-gray-900">
+                  {user.fullName}
+                </Text>
+                <Text className="text-xs text-gray-400 mt-0.5">
+                  @{user.username} · {user.role} · {user.tenant.name}
+                </Text>
+              </View>
+              <DirectionalIcon
+                name="chevron-forward"
+                size={16}
+                color={COLORS.gray300}
+              />
+            </View>
+          ) : null}
+
+          {/* Preferences */}
+          <View className="mx-4 mb-5">
+            <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2 px-1">
+              {t("settings.preferences_section")}
+            </Text>
+            <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+              <PressableOpacity
+                onPress={() => setLanguagePickerOpen(true)}
+                className="flex-row items-center justify-between px-4 py-3.5"
               >
-                {initials}
-              </Text>
+                <View className="flex-row items-center gap-3">
+                  <Ionicons
+                    name="globe-outline"
+                    size={18}
+                    color={COLORS.gray500}
+                  />
+                  <Text className="text-sm font-medium text-gray-900">
+                    {t("settings.language_section")}
+                  </Text>
+                </View>
+                <View className="flex-row items-center gap-1">
+                  <Text className="text-sm text-gray-400">
+                    {LANGUAGE_LABELS[language]}
+                  </Text>
+                  <Ionicons
+                    name="chevron-down"
+                    size={14}
+                    color={COLORS.gray400}
+                  />
+                </View>
+              </PressableOpacity>
             </View>
-            <View className="flex-1">
-              <Text className="text-base font-semibold text-gray-900">
-                {user.fullName}
-              </Text>
-              <Text className="text-xs text-gray-400 mt-0.5">
-                @{user.username} · {user.role} · {user.tenant.name}
-              </Text>
+          </View>
+
+          {/* Workspace */}
+          <View className="mx-4 mb-5">
+            <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2 px-1">
+              {t("settings.workspace")}
+            </Text>
+            <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+              <SettingsRow
+                icon="grid-outline"
+                label={t("settings.workspace")}
+                value={user?.tenant.name}
+              />
+              <SettingsRow
+                icon="git-branch-outline"
+                label={t("settings.branch")}
+                value={
+                  user?.branchId
+                    ? (user.branch?.name ?? "")
+                    : t("branches.tenant_wide_admin")
+                }
+                last
+              />
             </View>
-            <DirectionalIcon
-              name="chevron-forward"
-              size={16}
-              color={COLORS.gray300}
-            />
           </View>
-        ) : null}
 
-        {/* Preferences */}
-        <View className="mx-4 mb-5">
-          <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2 px-1">
-            {t("settings.preferences_section")}
-          </Text>
-          <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-            <PressableOpacity
-              onPress={() => setLanguagePickerOpen(true)}
-              className="flex-row items-center justify-between px-4 py-3.5"
-            >
-              <View className="flex-row items-center gap-3">
-                <Ionicons
-                  name="globe-outline"
-                  size={18}
-                  color={COLORS.gray500}
-                />
-                <Text className="text-sm font-medium text-gray-900">
-                  {t("settings.language_section")}
-                </Text>
-              </View>
-              <View className="flex-row items-center gap-1">
-                <Text className="text-sm text-gray-400">
-                  {LANGUAGE_LABELS[language]}
-                </Text>
-                <Ionicons
-                  name="chevron-down"
-                  size={14}
-                  color={COLORS.gray400}
-                />
-              </View>
-            </PressableOpacity>
+          {/* Logout */}
+          <View className="mx-4 mb-8">
+            <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+              <SettingsRow
+                icon="log-out-outline"
+                label={t("settings.logout")}
+                last
+                onPress={() => void handleLogoutPress()}
+                destructive
+              />
+            </View>
           </View>
-        </View>
-
-        {/* Workspace */}
-        <View className="mx-4 mb-5">
-          <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2 px-1">
-            {t("settings.workspace")}
-          </Text>
-          <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-            <SettingsRow
-              icon="grid-outline"
-              label={t("settings.workspace")}
-              value={user?.tenant.name}
-            />
-            <SettingsRow
-              icon="git-branch-outline"
-              label={t("settings.branch")}
-              value={
-                user?.branchId
-                  ? (user.branch?.name ?? "")
-                  : t("branches.tenant_wide_admin")
-              }
-              last
-            />
-          </View>
-        </View>
-
-        {/* Logout */}
-        <View className="mx-4 mb-8">
-          <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-            <SettingsRow
-              icon="log-out-outline"
-              label={t("settings.logout")}
-              last
-              onPress={() => void handleLogoutPress()}
-              destructive
-            />
-          </View>
-        </View>
-      </ScrollView>
+        </ScrollView>
       </ResponsiveContainer>
 
       <DropdownModal<SupportedLanguage>

@@ -21,19 +21,10 @@ import { getStore } from "@/src/state/globalStore";
 import { UpgradePromptModal } from "@/src/modules/subscription";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { useLanguageStore } from "@/src/core/i18n/languageStore";
-import { AVATAR_COLORS } from "../../../shared/constants";
 import { MONTHS } from "@/src/core/constants";
 import { PaymentAmountPaidSection } from "./PaymentAmountPaidSection";
-
-function getAvatarColor(name: string): string {
-  return AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length];
-}
-
-function getInitials(name: string): string {
-  const parts = name.trim().split(" ");
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return name.slice(0, 2).toUpperCase();
-}
+import { Ionicons } from "@expo/vector-icons";
+import { COLORS } from "@/src/shared/constants";
 
 interface Props {
   entry: MonthEntry;
@@ -244,8 +235,6 @@ export function PaymentFormSheet({
     onDismiss();
   }
 
-  const avatarColor = getAvatarColor(customer.name);
-
   const blockRangeLabel =
     isMultiMonth && plan
       ? getBlockRangeLabel(
@@ -323,17 +312,12 @@ export function PaymentFormSheet({
 
             {/* Customer mini-header */}
             <View className="flex-row items-center mb-5">
-              <View
-                className="w-10 h-10 rounded-xl items-center justify-center me-3"
-                style={{ backgroundColor: avatarColor + "22" }}
-              >
-                <Text
-                  fontWeight="Bold"
-                  className="text-sm"
-                  style={{ color: avatarColor }}
-                >
-                  {getInitials(customer.name)}
-                </Text>
+              <View className="w-10 h-10 rounded-xl bg-success-50 items-center justify-center me-3">
+                <Ionicons
+                  name="person-outline"
+                  size={18}
+                  color={COLORS.primary}
+                />
               </View>
               <View>
                 <Text className="text-base font-semibold text-gray-900">

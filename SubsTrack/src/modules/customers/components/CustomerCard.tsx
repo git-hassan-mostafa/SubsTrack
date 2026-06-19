@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
 import { Checkbox } from "@/src/shared/components/Checkbox";
 import type { Customer } from "@/src/core/types";
-import { AVATAR_COLORS, COLORS } from "../../../shared/constants";
+import { COLORS } from "../../../shared/constants";
 
 interface Props {
   customer: Customer;
@@ -19,16 +19,6 @@ interface Props {
   selected?: boolean;
   onToggleSelect?: (customer: Customer) => void;
   onEnterSelection?: (customer: Customer) => void;
-}
-
-function getAvatarColor(name: string): string {
-  return AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length];
-}
-
-function getInitials(name: string): string {
-  const parts = name.trim().split(" ");
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return name.slice(0, 2).toUpperCase();
 }
 
 export const CustomerCard = memo(function CustomerCard({
@@ -44,8 +34,6 @@ export const CustomerCard = memo(function CustomerCard({
   onEnterSelection,
 }: Props) {
   const { t } = useTranslation();
-  const initials = getInitials(customer.name);
-  const avatarColor = getAvatarColor(customer.name);
 
   return (
     <PressableOpacity
@@ -53,9 +41,7 @@ export const CustomerCard = memo(function CustomerCard({
         selectionMode ? onToggleSelect?.(customer) : onPress(customer)
       }
       onLongPress={
-        selectionMode
-          ? undefined
-          : () => (onEnterSelection ?? onMenu)(customer)
+        selectionMode ? undefined : () => (onEnterSelection ?? onMenu)(customer)
       }
       className="bg-white border border-gray-100 rounded-2xl px-4 py-3.5 mb-2.5 flex-row items-center"
     >
@@ -65,17 +51,8 @@ export const CustomerCard = memo(function CustomerCard({
           <Checkbox checked={selected} />
         </View>
       ) : (
-        <View
-          className="w-10 h-10 rounded-xl items-center justify-center me-3 flex-shrink-0"
-          style={{ backgroundColor: avatarColor + "22" }}
-        >
-          <Text
-            fontWeight="Bold"
-            className="text-sm"
-            style={{ color: avatarColor }}
-          >
-            {initials}
-          </Text>
+        <View className="w-10 h-10 rounded-xl bg-indigo-50 items-center justify-center me-3">
+          <Ionicons name="person-outline" size={18} color={COLORS.primary} />
         </View>
       )}
 

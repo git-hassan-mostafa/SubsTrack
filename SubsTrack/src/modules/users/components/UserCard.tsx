@@ -3,7 +3,7 @@ import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/src/shared/components/Text";
 import type { AppUser } from "@/src/core/types";
-import { AVATAR_COLORS, COLORS } from "../../../shared/constants";
+import { COLORS } from "../../../shared/constants";
 import { useTranslation } from "react-i18next";
 import { Checkbox } from "@/src/shared/components/Checkbox";
 
@@ -15,16 +15,6 @@ interface Props {
   selected?: boolean;
   onToggleSelect?: (user: AppUser) => void;
   onEnterSelection?: (user: AppUser) => void;
-}
-
-function getAvatarColor(name: string): string {
-  return AVATAR_COLORS[name.charCodeAt(0) % AVATAR_COLORS.length];
-}
-
-function getInitials(name: string): string {
-  const parts = name.trim().split(" ");
-  if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-  return name.slice(0, 2).toUpperCase();
 }
 
 const roleBadgeStyle: Record<
@@ -45,7 +35,6 @@ export function UserCard({
   onToggleSelect,
   onEnterSelection,
 }: Props) {
-  const avatarColor = getAvatarColor(user.fullName);
   const badge = roleBadgeStyle[user.role] ?? roleBadgeStyle.user;
   const { t } = useTranslation();
 
@@ -65,17 +54,8 @@ export function UserCard({
           </View>
         ) : (
           <View className="relative me-3">
-            <View
-              className="w-11 h-11 rounded-xl items-center justify-center"
-              style={{ backgroundColor: avatarColor + "22" }}
-            >
-              <Text
-                className="text-sm"
-                fontWeight="Bold"
-                style={{ color: avatarColor }}
-              >
-                {getInitials(user.fullName)}
-              </Text>
+            <View className="w-10 h-10 rounded-xl bg-success-light items-center justify-center me-3">
+              <Ionicons name="person" size={18} color={COLORS.success} />
             </View>
           </View>
         )}
