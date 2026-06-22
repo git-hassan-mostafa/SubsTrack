@@ -612,6 +612,28 @@ RLS: `app_options_select` → `SELECT` to `authenticated` only. No write policy 
 
 ---
 
+### 12.2 Plan-Upgrade & Self-Service-Signup Flags ✅
+
+**Priority:** 🔴 High
+
+**Purpose:** Let the SaaS owner toggle, app-wide, whether tenants can (a) upgrade their plan in-app and (b) self-create a new workspace — without a deploy. When upgrades are off, tenants are routed to the owner's WhatsApp to request an upgrade (the owner handles billing manually). When self-service signup is off, the "Create workspace" entry point disappears and the server refuses new signups.
+
+**Schema changes:** None — three new `app_options` rows (seeded idempotently):
+
+- `AllowPlanUpgrade` (`'true'`/`'false'`, default `true`)
+- `AllowSelfServiceSignup` (`'true'`/`'false'`, default `true`)
+- `SupportWhatsAppNumber` (digits, international format)
+
+**Implementation:**
+
+- RLS on `app_options` widened to `anon` + `authenticated` (the signup flag must be readable pre-auth). Options now fetched at app bootstrap (`app/_layout.tsx`) and no longer reset on logout.
+- Reusable readers: typed hooks in `useOptionSlice.ts` (`useOptionValue` / `useBooleanOption` + semantic `useCanUpgradePlan` / `useSelfServiceSignupEnabled` / `useSupportWhatsAppNumber`); declarative UI gates `<CanUpgrade>` / `<CanCreateWorkspace>` in `shared/components/FeatureGate.tsx`; `openWhatsApp()` deep-link helper in `shared/lib/whatsapp.ts`; shared `ContactToUpgradeButton` component.
+- **Plan upgrade:** `TierCard` + `UpgradePromptModal` render `ContactToUpgradeButton` (WhatsApp, pre-filled message) instead of the upgrade CTA when `AllowPlanUpgrade = false`.
+- **Self-service signup:** `LoginScreen` hides "Create workspace"; the public `create-tenant` edge function rejects signups with `403 { code: 'signup_disabled' }` (authoritative server-side gate).
+- Configurable from SuperAdmin's existing **Options** tab (generic key/value CRUD) — no SuperAdmin code change.
+
+---
+
 ## Summary Table
 
 | Feature                      | Priority  | Schema Change                                                         |
@@ -642,3 +664,4 @@ RLS: `app_options_select` → `SELECT` to `authenticated` only. No write policy 
 | API access                   | 🟢 Low    | No                                                                    |
 | White-label                  | 🟢 Low    | Minor — theming columns on tenants                                    |
 | App options + default LBP ✅ | 🔴 High   | Yes — new `app_options` table; auto-seeded `LBP` currency per tenant   |
+| Plan-upgrade & signup flags ✅ | 🔴 High | No — three new `app_options` rows                                     |

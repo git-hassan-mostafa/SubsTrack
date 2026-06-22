@@ -9,7 +9,9 @@ import { useAuthSlice } from "@/src/state/hooks/useAuthSlice";
 import { useSubscriptionSlice } from "@/src/state/hooks/useSubscriptionSlice";
 import type { TierPlan } from "@/src/core/types";
 import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
+import { CanUpgrade } from "@/src/shared/components/FeatureGate";
 import { TierLimitErrorPayload } from "../utils/types";
+import { ContactToUpgradeButton } from "./ContactToUpgradeButton";
 
 interface Props {
   payload: TierLimitErrorPayload | null;
@@ -128,21 +130,30 @@ export function UpgradePromptModal({ payload, onClose }: Props) {
                 {t("subscription.not_now")}
               </Text>
             </PressableOpacity>
-            <PressableOpacity
-              onPress={handleViewPlans}
-              className="flex-[1.4] bg-primary rounded-xl py-3 flex-row items-center justify-center"
-            >
-              <Text className="text-white font-medium text-sm">
-                {t("subscription.view_plans")}
-              </Text>
-              <View className="ms-1.5">
-                <DirectionalIcon
-                  name="arrow-forward"
-                  size={14}
-                  color={COLORS.white}
+            <CanUpgrade
+              fallback={
+                <ContactToUpgradeButton
+                  tierName={upgradeTiers[0]?.name}
+                  className="flex-[1.4] rounded-xl"
                 />
-              </View>
-            </PressableOpacity>
+              }
+            >
+              <PressableOpacity
+                onPress={handleViewPlans}
+                className="flex-[1.4] bg-primary rounded-xl py-3 flex-row items-center justify-center"
+              >
+                <Text className="text-white font-medium text-sm">
+                  {t("subscription.view_plans")}
+                </Text>
+                <View className="ms-1.5">
+                  <DirectionalIcon
+                    name="arrow-forward"
+                    size={14}
+                    color={COLORS.white}
+                  />
+                </View>
+              </PressableOpacity>
+            </CanUpgrade>
           </View>
         </View>
       </View>

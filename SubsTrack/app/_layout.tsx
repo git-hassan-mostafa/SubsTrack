@@ -5,6 +5,7 @@ import { initI18n } from "@/src/core/i18n";
 import { usePaymentSlice } from "@/src/state/hooks/usePaymentSlice";
 import { usePlanSlice } from "@/src/state/hooks/usePlanSlice";
 import { useUserSlice } from "@/src/state/hooks/useUserSlice";
+import { useOptionSlice } from "@/src/state/hooks/useOptionSlice";
 import { ErrorBoundary } from "@/src/shared/components/ErrorBoundary";
 import { LoadingScreen } from "@/src/shared/components/LoadingScreen";
 import { Slot, useRouter, useSegments } from "expo-router";
@@ -29,6 +30,7 @@ export default function RootLayout() {
   const user = useAuthSlice((s) => s.user);
   const loading = useAuthSlice((s) => s.loading);
   const restoreSession = useAuthSlice((s) => s.restoreSession);
+  const fetchOptions = useOptionSlice((s) => s.fetchOptions);
   const resetPlans = usePlanSlice((s) => s.reset);
   const resetUsers = useUserSlice((s) => s.reset);
   const resetCustomers = useCustomerSlice((s) => s.reset);
@@ -39,6 +41,9 @@ export default function RootLayout() {
 
   useEffect(() => {
     enableMapSet(); /* enable map set for immer */
+    // Global app options gate pre-auth UI (e.g. self-service signup on the
+    // login screen), so fetch them up front — independent of any session.
+    fetchOptions();
     initI18n()
       .then(() => {
         setI18nReady(true);

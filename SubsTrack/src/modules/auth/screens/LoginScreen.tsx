@@ -9,6 +9,7 @@ import { Button } from "@/src/shared/components/Button";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { Input } from "@/src/shared/components/Input";
 import { useAuthSlice } from "@/src/state/hooks/useAuthSlice";
+import { CanCreateWorkspace } from "@/src/shared/components/FeatureGate";
 import { getStore } from "@/src/state/globalStore";
 
 type FormState = {
@@ -140,20 +141,22 @@ export function LoginScreen() {
               </Text>
             </View>
 
-            <View className="flex-row items-center my-6">
-              <View className="flex-1 h-px bg-gray-200" />
-              <Text className="mx-3 text-xs text-gray-400 uppercase tracking-wide">
-                {t("auth.or")}
-              </Text>
-              <View className="flex-1 h-px bg-gray-200" />
-            </View>
+            <CanCreateWorkspace>
+              <View className="flex-row items-center my-6">
+                <View className="flex-1 h-px bg-gray-200" />
+                <Text className="mx-3 text-xs text-gray-400 uppercase tracking-wide">
+                  {t("auth.or")}
+                </Text>
+                <View className="flex-1 h-px bg-gray-200" />
+              </View>
 
-            <Button
-              label={t("auth.create_workspace")}
-              onPress={handleCreateWorkspace}
-              variant="ghost"
-              fullWidth
-            />
+              <Button
+                label={t("auth.create_workspace")}
+                onPress={handleCreateWorkspace}
+                variant="ghost"
+                fullWidth
+              />
+            </CanCreateWorkspace>
           </View>
         </KeyboardAwareScrollView>
     </SafeAreaView>

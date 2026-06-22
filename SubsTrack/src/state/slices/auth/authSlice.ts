@@ -86,7 +86,6 @@ export const createAuthSlice: StateCreator<
       // ignore logout errors — clear state regardless
     }
     get().subscription.reset();
-    get().options.reset();
     set((state) => {
       state.auth.user = null;
       state.auth.tenantActive = true;

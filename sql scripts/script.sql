@@ -81,7 +81,10 @@ CREATE TABLE IF NOT EXISTS app_options (
 -- default USD→LBP exchange rate (units of LBP per 1 USD) applied to each new
 -- tenant's auto-created LBP currency.
 INSERT INTO app_options (key, value, description) VALUES
-    ('LiraRate', '89000', 'Default USD→LBP exchange rate (LBP per 1 USD) seeded onto each new tenant''s Lebanese Pound currency.')
+    ('LiraRate', '89000', 'Default USD→LBP exchange rate (LBP per 1 USD) seeded onto each new tenant''s Lebanese Pound currency.'),
+    ('AllowPlanUpgrade', 'true', 'When ''false'', tenants cannot self-upgrade in-app; the upgrade button is replaced by a WhatsApp "contact to upgrade" button (uses SupportWhatsAppNumber).'),
+    ('AllowSelfServiceSignup', 'true', 'When ''false'', the login screen hides the "Create workspace" button and the create-tenant Edge Function rejects new signups.'),
+    ('SupportWhatsAppNumber', '', 'Support WhatsApp number in international format (digits only, e.g. 9613123456). Used by the "contact to upgrade" button when AllowPlanUpgrade is false.')
 ON CONFLICT (key) DO NOTHING;
 
 -- ============================================================
@@ -786,19 +789,18 @@ DO $$ BEGIN
     END IF;
 
     -- ── APP OPTIONS ──────────────────────────────────────────
-    -- Global config (e.g. LiraRate). Any AUTHENTICATED user may read; no
-    -- write policy exists, so only service_role (which bypasses RLS — used
-    -- by SuperAdmin and the create-tenant Edge Function) can mutate.
-    -- Unlike tier_plans, anon is NOT granted read access here.
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_policies
-        WHERE tablename = 'app_options' AND policyname = 'app_options_select'
-    ) THEN
-        CREATE POLICY app_options_select ON app_options
-            FOR SELECT
-            TO authenticated
-            USING (TRUE);
-    END IF;
+    -- Global, non-tenant config (e.g. LiraRate, feature flags, support
+    -- contact). Readable by everyone (anon + authenticated) because some
+    -- flags gate pre-auth UI — e.g. the login screen hides the self-service
+    -- "Create workspace" button when AllowSelfServiceSignup = false. No write
+    -- policy exists, so only service_role (which bypasses RLS — used by
+    -- SuperAdmin and the create-tenant Edge Function) can mutate.
+    -- (Drop+create so the role set updates on existing deployments.)
+    DROP POLICY IF EXISTS app_options_select ON app_options;
+    CREATE POLICY app_options_select ON app_options
+        FOR SELECT
+        TO anon, authenticated
+        USING (TRUE);
 
     -- ── CURRENCIES ───────────────────────────────────────────
     -- Tenant-wide; not branch-scoped.

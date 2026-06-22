@@ -16,7 +16,7 @@ A single **global** key/value table `app_options` (NOT tenant-scoped) holds app-
 **DB constraints:**
 
 - `app_options.key` — `NOT NULL UNIQUE`.
-- RLS `app_options_select` — `SELECT` granted to `authenticated` only (NOT `anon`). No write policy exists → only the service role (SuperAdmin + `create-tenant` edge function) mutates.
+- RLS `app_options_select` — `SELECT` granted to `anon` + `authenticated` (anon needed so pre-auth UI can read flags). No write policy exists → only the service role (SuperAdmin + `create-tenant` edge function) mutates.
 - Seeded LBP currency must satisfy `currencies` constraints: `code = 'LBP'` (matches `^[A-Z]{2,8}$`, ≠ `USD`), `rate_per_usd > 0`, `decimals = 0`.
 
 ---
@@ -96,8 +96,8 @@ A single **global** key/value table `app_options` (NOT tenant-scoped) holds app-
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 7.1 | Primed at login | Login as any user | `optionSlice.items` is populated (options fetched in `primePostAuth` alongside currencies/branches) |
-| 7.2 | Cleared at logout | Logout | `optionSlice.reset()` clears `items` |
+| 7.1 | Fetched at bootstrap | Cold-start the app (before logging in) | `optionSlice.items` is populated from `app/_layout.tsx` (so the login screen can read flags); re-primed on login via `primePostAuth` |
+| 7.2 | Persist across logout | Logout | `optionSlice.items` is NOT cleared (options are global, gate pre-auth UI); the login screen still reads the flags |
 | 7.3 | Fetch failure is non-fatal | Simulate the options query failing (e.g. table absent pre-migration) | Login still completes; `optionSlice.error` set but app usable (Promise.all does not reject) |
 | 7.4 | No write path | (Code review) Confirm SubsTrack `OptionRepository` exposes only `findAll`/`findByKey` — no create/update/delete | SubsTrack cannot mutate options |
 
@@ -106,6 +106,31 @@ A single **global** key/value table `app_options` (NOT tenant-scoped) holds app-
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
 | 8.1 | Authenticated read | As a logged-in SubsTrack user, query `app_options` | Rows returned |
-| 8.2 | Anon read blocked | With only the anon key and no session, query `app_options` | No rows (RLS denies anon — unlike `tier_plans`) |
+| 8.2 | Anon read allowed | With only the anon key and no session, query `app_options` | Rows returned (RLS now grants anon `SELECT`, like `tier_plans`) so pre-auth UI can read flags |
 | 8.3 | Authenticated write blocked | Attempt an insert/update/delete on `app_options` with a normal user JWT | Denied (no write policy; only service role bypasses RLS) |
 | 8.4 | Service role write | SuperAdmin (service key) and the `create-tenant` edge function | Can read + write freely |
+
+## 9. Plan-upgrade flag (`AllowPlanUpgrade`)
+
+Default `true`. WhatsApp button uses `SupportWhatsAppNumber` (digits, international format). Reference: [TierCard.tsx](SubsTrack/src/modules/subscription/components/TierCard.tsx), [UpgradePromptModal.tsx](SubsTrack/src/modules/subscription/components/UpgradePromptModal.tsx), [ContactToUpgradeButton.tsx](SubsTrack/src/modules/subscription/components/ContactToUpgradeButton.tsx), [useOptionSlice.ts](SubsTrack/src/state/hooks/useOptionSlice.ts), [whatsapp.ts](SubsTrack/src/shared/lib/whatsapp.ts).
+
+| # | Scenario | Steps | Expected result |
+|---|----------|-------|-----------------|
+| 9.1 | Enabled (default) | `AllowPlanUpgrade` = `true` (or row absent), open Subscription screen as tenant-wide admin | Upgrade tier cards show the normal "Upgrade to X" primary button; upgrade flow works as before |
+| 9.2 | Disabled → WhatsApp on cards | Set `AllowPlanUpgrade` = `false`, set `SupportWhatsAppNumber`, reopen Subscription screen | Each upgrade-direction card shows a green "Contact to upgrade" WhatsApp button instead of the upgrade button |
+| 9.3 | WhatsApp deep-link | Tap "Contact to upgrade" for tier "Pro" | Opens WhatsApp chat to `SupportWhatsAppNumber` with the pre-filled message naming "Pro" |
+| 9.4 | Disabled in upgrade prompt modal | With flag `false`, trigger a tier-limit (e.g. add customer past Free limit) | `UpgradePromptModal` shows "Contact to upgrade" WhatsApp button in place of "View plans" |
+| 9.5 | Missing WhatsApp number | Flag `false`, `SupportWhatsAppNumber` blank | `ContactToUpgradeButton` renders nothing (no broken link); cards simply omit the action |
+| 9.6 | Downgrade unaffected | Flag `false`, open Subscription as admin on a paid tier | Downgrade-direction cards still show the normal downgrade button (flag gates upgrades only) |
+
+## 10. Self-service signup flag (`AllowSelfServiceSignup`)
+
+Default `true`. Enforced both client (login screen) and server (`create-tenant` edge function). Reference: [LoginScreen.tsx](SubsTrack/src/modules/auth/screens/LoginScreen.tsx), [create-tenant/index.ts](SubsTrack/supabase/functions/create-tenant/index.ts).
+
+| # | Scenario | Steps | Expected result |
+|---|----------|-------|-----------------|
+| 10.1 | Enabled (default) | `AllowSelfServiceSignup` = `true` (or row absent), open login screen | "or / Create a new workspace" divider + button visible; signup flow works |
+| 10.2 | Disabled hides button | Set `AllowSelfServiceSignup` = `false`, cold-start app, open login screen | The divider and "Create a new workspace" button are hidden |
+| 10.3 | Server rejects bypass | With flag `false`, call the `create-tenant` edge function directly | Returns `403 { code: 'signup_disabled' }`; no tenant/branch/user/currency rows created |
+| 10.4 | Flag readable pre-auth | Flag `false`, never logged in | Login screen correctly hides signup (options fetched at bootstrap with anon key) |
+| 10.5 | Missing row defaults allowed | Delete `AllowSelfServiceSignup`, open login + call edge function | Signup allowed (button shown, edge function proceeds) — absent option never locks out |

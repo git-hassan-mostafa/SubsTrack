@@ -84,6 +84,26 @@ Deno.serve(async (req) => {
       return jsonResponse({ error: "Password must be at least 8 characters" }, 400);
     }
 
+    // ---- gate: self-service signup must be enabled by the SaaS owner ----
+    // Authoritative server-side enforcement (the login screen also hides the
+    // entry point, but this guarantees signup is blocked even if bypassed).
+    // Default to allowed when the row is missing; only an explicit 'false'
+    // blocks — a misconfigured/absent option must not lock out the flow.
+    const { data: signupOption } = await serviceClient
+      .from("app_options")
+      .select("value")
+      .eq("key", "AllowSelfServiceSignup")
+      .maybeSingle();
+    if (
+      signupOption &&
+      String(signupOption.value).trim().toLowerCase() === "false"
+    ) {
+      return jsonResponse(
+        { error: "Self-service signup is currently disabled", code: "signup_disabled" },
+        403,
+      );
+    }
+
     // ---- 1. tenants ----
     // Look up the Free tier id. The tenants.tier_id column has a default that
     // resolves to Free, but we set it explicitly so the future paid-plan flow
