@@ -33,7 +33,6 @@ import { useAuth } from "../../auth/hooks/useAuth";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import {
   getCurrentYearMonth,
-  getDateLocale,
   isBeforeStartDate,
   toBillingMonth,
 } from "@/src/core/utils/date";
@@ -568,7 +567,7 @@ export function CustomerListScreen() {
       items.push({
         key: "void-current-month",
         label: t("payments.void_current_month"),
-        icon: "trash-outline",
+        icon: "close-circle-outline",
         destructive: true,
         onPress: () => void handleVoidCurrentMonth(customer),
       });
@@ -614,129 +613,128 @@ export function CustomerListScreen() {
       />
 
       <ResponsiveContainer className="flex-1">
-      {/* Search + filter tabs stay mounted while selecting so their space
+        {/* Search + filter tabs stay mounted while selecting so their space
           remains and the list never jumps; the select-all bar overlays them. */}
-      <SelectionOverlaySlot
-        selecting={selectionActive}
-        overlay={
-          <SelectAllBar
-            allSelected={
-              filtered.length > 0 &&
-              selectedCustomers.length === filtered.length
-            }
-            onToggle={() => toggleManySelect(filtered.map((c) => c.id))}
-          />
-        }
-      >
-        <View className="px-4 pt-4">
-          {/* Search */}
-          <SearchTextBox
-            searchText={searchText}
-            setSearchText={setSearchText}
-            placeholder={t("customers.search_hint")}
-          />
-          {/* Filter tabs */}
-          <View className="flex-row gap-2 mt-4">
-            {tabs.map((tab) => (
-              <PressableOpacity
-                key={tab.key}
-                onPress={() => {
-                  setActiveTab(tab.key);
-                  clearSelection();
-                }}
-                className={`rounded-full px-3 py-1.5 ${activeTab === tab.key ? "bg-gray-900" : "bg-gray-100"}`}
-              >
-                <Text
-                  className={`text-xs font-semibold ${activeTab === tab.key ? "text-white" : "text-gray-600"}`}
+        <SelectionOverlaySlot
+          selecting={selectionActive}
+          overlay={
+            <SelectAllBar
+              allSelected={
+                filtered.length > 0 &&
+                selectedCustomers.length === filtered.length
+              }
+              onToggle={() => toggleManySelect(filtered.map((c) => c.id))}
+            />
+          }
+        >
+          <View className="px-4 pt-4">
+            {/* Search */}
+            <SearchTextBox
+              searchText={searchText}
+              setSearchText={setSearchText}
+              placeholder={t("customers.search_hint")}
+            />
+            {/* Filter tabs */}
+            <View className="flex-row gap-2 mt-4">
+              {tabs.map((tab) => (
+                <PressableOpacity
+                  key={tab.key}
+                  onPress={() => {
+                    setActiveTab(tab.key);
+                    clearSelection();
+                  }}
+                  className={`rounded-full px-3 py-1.5 ${activeTab === tab.key ? "bg-gray-900" : "bg-gray-100"}`}
                 >
-                  {tab.label}
-                </Text>
-              </PressableOpacity>
-            ))}
+                  <Text
+                    className={`text-xs font-semibold ${activeTab === tab.key ? "text-white" : "text-gray-600"}`}
+                  >
+                    {tab.label}
+                  </Text>
+                </PressableOpacity>
+              ))}
+            </View>
           </View>
-        </View>
-      </SelectionOverlaySlot>
-      {error ? (
-        <View className="px-4 pt-4">
-          <ErrorBanner message={error} onDismiss={clearError} />
-        </View>
-      ) : null}
-      {paymentError ? (
-        <View className="px-4 pt-4">
-          <ErrorBanner message={paymentError} onDismiss={clearPaymentError} />
-        </View>
-      ) : null}
-      {bulkNotice ? (
-        <View className="px-4 pt-4">
-          <ErrorBanner
-            message={bulkNotice}
-            onDismiss={() => setBulkNotice(null)}
+        </SelectionOverlaySlot>
+        {error ? (
+          <View className="px-4 pt-4">
+            <ErrorBanner message={error} onDismiss={clearError} />
+          </View>
+        ) : null}
+        {paymentError ? (
+          <View className="px-4 pt-4">
+            <ErrorBanner message={paymentError} onDismiss={clearPaymentError} />
+          </View>
+        ) : null}
+        {bulkNotice ? (
+          <View className="px-4 pt-4">
+            <ErrorBanner
+              message={bulkNotice}
+              onDismiss={() => setBulkNotice(null)}
+            />
+          </View>
+        ) : null}
+
+        {loading && customers.length === 0 ? (
+          <View className="flex-1 items-center justify-center">
+            <ActivityIndicator color={COLORS.primary} />
+          </View>
+        ) : (
+          <FlatList
+            data={filtered}
+            keyExtractor={(c) => c.id}
+            contentContainerStyle={{
+              padding: 16,
+              paddingBottom: 96,
+              flexGrow: 1,
+            }}
+            refreshControl={
+              <RefreshControl
+                refreshing={loading}
+                onRefresh={() => {
+                  clearSelection();
+                  fetchCustomers();
+                  fetchCurrentMonthPaymentStatus();
+                }}
+                tintColor={COLORS.primary}
+              />
+            }
+            onEndReached={() => fetchMoreCustomers()}
+            onEndReachedThreshold={0.3}
+            renderItem={renderItem}
+            ListFooterComponent={
+              loadingMore ? (
+                <ActivityIndicator color={COLORS.primary} className="py-4" />
+              ) : null
+            }
+            ListEmptyComponent={
+              <EmptyState
+                message={t("customers.no_customers")}
+                subMessage={
+                  debouncedSearch
+                    ? t("customers.no_search_results")
+                    : t("customers.no_customers_hint")
+                }
+                actionLabel={
+                  !debouncedSearch && customers.length === 0
+                    ? t("customers.create_first_customer")
+                    : undefined
+                }
+                onAction={
+                  !debouncedSearch && customers.length === 0
+                    ? () => setFormVisible(true)
+                    : undefined
+                }
+              />
+            }
           />
-        </View>
-      ) : null}
+        )}
 
-      {loading && customers.length === 0 ? (
-        <View className="flex-1 items-center justify-center">
-          <ActivityIndicator color={COLORS.primary} />
-        </View>
-      ) : (
-        <FlatList
-          data={filtered}
-          keyExtractor={(c) => c.id}
-          contentContainerStyle={{
-            padding: 16,
-            paddingBottom: 96,
-            flexGrow: 1,
-          }}
-          refreshControl={
-            <RefreshControl
-              refreshing={loading}
-              onRefresh={() => {
-                clearSelection();
-                fetchCustomers();
-                fetchCurrentMonthPaymentStatus();
-              }}
-              tintColor={COLORS.primary}
-            />
-          }
-          onEndReached={() => fetchMoreCustomers()}
-          onEndReachedThreshold={0.3}
-          renderItem={renderItem}
-          ListFooterComponent={
-            loadingMore ? (
-              <ActivityIndicator color={COLORS.primary} className="py-4" />
-            ) : null
-          }
-          ListEmptyComponent={
-            <EmptyState
-              message={t("customers.no_customers")}
-              subMessage={
-                debouncedSearch
-                  ? t("customers.no_search_results")
-                  : t("customers.no_customers_hint")
-              }
-              actionLabel={
-                !debouncedSearch && customers.length === 0
-                  ? t("customers.create_first_customer")
-                  : undefined
-              }
-              onAction={
-                !debouncedSearch && customers.length === 0
-                  ? () => setFormVisible(true)
-                  : undefined
-              }
-            />
-          }
-        />
-      )}
-
-      {!selectionActive && (
-        <FAB
-          onPress={() => setFormVisible(true)}
-          accessibilityLabel={t("common.add")}
-        />
-      )}
-
+        {!selectionActive && (
+          <FAB
+            onPress={() => setFormVisible(true)}
+            accessibilityLabel={t("common.add")}
+          />
+        )}
       </ResponsiveContainer>
 
       {formVisible && (

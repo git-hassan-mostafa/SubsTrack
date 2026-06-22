@@ -267,7 +267,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
       items.push({
         key: "void",
         label: t("payments.void_payment"),
-        icon: "trash-outline",
+        icon: "close-circle-outline",
         destructive: true,
         onPress: () => {
           setSelectedEntry(entry);
@@ -463,7 +463,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
   if (voidableEntries.length > 0) {
     selectionActions.push({
       key: "void",
-      icon: "trash-outline",
+      icon: "close-circle-outline",
       label: t("payments.void_payment"),
       destructive: true,
       disabled: bulkBusy,
