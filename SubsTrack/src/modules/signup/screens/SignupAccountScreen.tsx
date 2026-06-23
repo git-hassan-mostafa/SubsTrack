@@ -10,6 +10,7 @@ import { Input } from "@/src/shared/components/Input";
 import { useSignupSlice } from "@/src/state/hooks/useSignupSlice";
 import { getStore } from "@/src/state/globalStore";
 import { StepIndicator } from "../components/StepIndicator";
+import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 
 export function SignupAccountScreen() {
   const { t } = useTranslation();
@@ -59,77 +60,79 @@ export function SignupAccountScreen() {
   return (
     <SafeAreaView className="flex-1 bg-white">
       <KeyboardAvoidingView behavior="padding" className="flex-1">
-        <ScrollView
-          className="flex-1"
-          contentContainerStyle={{ flexGrow: 1 }}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          <View className="flex-1 px-6 py-8">
-            <Text fontWeight="Bold" className="text-3xl text-gray-900 mb-2">
-              {t("signup.account_title")}
-            </Text>
-            <Text className="text-base text-gray-500 mb-6">
-              {t("signup.account_subtitle", { tenantCode })}
-            </Text>
+        <ResponsiveContainer className="flex-1">
+          <ScrollView
+            className="flex-1"
+            contentContainerStyle={{ flexGrow: 1 }}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <View className="flex-1 px-6 py-8">
+              <Text fontWeight="Bold" className="text-3xl text-gray-900 mb-2">
+                {t("signup.account_title")}
+              </Text>
+              <Text className="text-base text-gray-500 mb-6">
+                {t("signup.account_subtitle", { tenantCode })}
+              </Text>
 
-            {error ? (
-              <ErrorBanner message={error} onDismiss={clearError} />
-            ) : null}
+              {error ? (
+                <ErrorBanner message={error} onDismiss={clearError} />
+              ) : null}
 
-            <Input
-              label={t("signup.fullname_label")}
-              value={adminFullName}
-              onChangeText={(v) => setAccount({ adminFullName: v })}
-              placeholder={t("signup.fullname_placeholder")}
-              autoCorrect={false}
+              <Input
+                label={t("signup.fullname_label")}
+                value={adminFullName}
+                onChangeText={(v) => setAccount({ adminFullName: v })}
+                placeholder={t("signup.fullname_placeholder")}
+                autoCorrect={false}
+              />
+
+              <Input
+                label={t("signup.username_label")}
+                value={adminUserName}
+                onChangeText={(v) =>
+                  setAccount({
+                    adminUserName: v.toLowerCase().replace(/\s+/g, ""),
+                  })
+                }
+                placeholder={t("signup.username_placeholder")}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+
+              <Input
+                label={t("signup.password_label")}
+                value={adminPassword}
+                onChangeText={(v) => setAccount({ adminPassword: v })}
+                placeholder={t("signup.password_placeholder")}
+                secureTextEntry
+              />
+
+              <Input
+                label={t("signup.confirm_password_label")}
+                value={confirmPassword}
+                onChangeText={(v) => setAccount({ confirmPassword: v })}
+                placeholder={t("signup.confirm_password_placeholder")}
+                secureTextEntry
+              />
+            </View>
+            <StepIndicator current={2} total={2} />
+          </ScrollView>
+
+          <View className="flex-row items-center justify-between px-6 py-8 border-t border-gray-100 bg-white">
+            <Button
+              label={t("common.back")}
+              onPress={() => router.back()}
+              variant="ghost"
             />
-
-            <Input
-              label={t("signup.username_label")}
-              value={adminUserName}
-              onChangeText={(v) =>
-                setAccount({
-                  adminUserName: v.toLowerCase().replace(/\s+/g, ""),
-                })
-              }
-              placeholder={t("signup.username_placeholder")}
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-
-            <Input
-              label={t("signup.password_label")}
-              value={adminPassword}
-              onChangeText={(v) => setAccount({ adminPassword: v })}
-              placeholder={t("signup.password_placeholder")}
-              secureTextEntry
-            />
-
-            <Input
-              label={t("signup.confirm_password_label")}
-              value={confirmPassword}
-              onChangeText={(v) => setAccount({ confirmPassword: v })}
-              placeholder={t("signup.confirm_password_placeholder")}
-              secureTextEntry
+            <Button
+              label={t("signup.create_workspace")}
+              onPress={handleCreate}
+              loading={loading}
+              disabled={!canSubmit}
             />
           </View>
-          <StepIndicator current={2} total={2} />
-        </ScrollView>
-
-        <View className="flex-row items-center justify-between px-6 py-8 border-t border-gray-100 bg-white">
-          <Button
-            label={t("common.back")}
-            onPress={() => router.back()}
-            variant="ghost"
-          />
-          <Button
-            label={t("signup.create_workspace")}
-            onPress={handleCreate}
-            loading={loading}
-            disabled={!canSubmit}
-          />
-        </View>
+        </ResponsiveContainer>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );

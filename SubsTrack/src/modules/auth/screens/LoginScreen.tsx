@@ -11,6 +11,7 @@ import { Input } from "@/src/shared/components/Input";
 import { useAuthSlice } from "@/src/state/hooks/useAuthSlice";
 import { CanCreateWorkspace } from "@/src/shared/components/FeatureGate";
 import { getStore } from "@/src/state/globalStore";
+import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 
 type FormState = {
   tenantName: string;
@@ -53,12 +54,13 @@ export function LoginScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-white">
-        <KeyboardAwareScrollView
-          contentContainerStyle={{ flexGrow: 1, justifyContent: "center" }}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-          bottomOffset={24}
-        >
+      <KeyboardAwareScrollView
+        contentContainerStyle={{ flexGrow: 1, justifyContent: "center" }}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        bottomOffset={24}
+      >
+        <ResponsiveContainer className="flex-1">
           <View className="px-6 py-8">
             {/* Brand logo */}
             <View className="flex-row items-center mb-10">
@@ -158,7 +160,8 @@ export function LoginScreen() {
               />
             </CanCreateWorkspace>
           </View>
-        </KeyboardAwareScrollView>
+        </ResponsiveContainer>
+      </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 }

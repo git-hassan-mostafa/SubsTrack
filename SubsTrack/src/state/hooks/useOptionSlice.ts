@@ -25,7 +25,7 @@ function parseBool(value: string | null, fallback: boolean): boolean {
 
 /** Raw string value of a global option, or `null` if the row is absent. */
 export const useOptionValue = (key: string): string | null =>
-  useGlobalStore((s) => s.options.items.find((o) => o.key === key)?.value ?? null);
+  useOptionSlice((s) => s.items.find((o) => o.key.toLowerCase() === key.toLowerCase())?.value ?? null);
 
 /** A boolean global option. Missing/blank rows fall back to `fallback`. */
 export const useBooleanOption = (key: string, fallback = false): boolean =>
