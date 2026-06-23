@@ -1,5 +1,5 @@
-import { SalesListScreen } from "@/src/modules/sales";
+import { InvoicesScreen } from "@/src/modules/invoices";
 
 export default function Index() {
-  return <SalesListScreen />;
+  return <InvoicesScreen />;
 }

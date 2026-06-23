@@ -22,6 +22,9 @@ interface Props {
   triggerStyle?: DatePickerTriggerStyle;
   // When true (chip style), shows a clear affordance to reset the value to "".
   clearable?: boolean;
+  // When true, picks a month only: the day column is hidden, the value is
+  // normalized to YYYY-MM-01, and the trigger renders "MMM YYYY".
+  monthOnly?: boolean;
 }
 
 const ITEM_HEIGHT = 44;
@@ -166,9 +169,11 @@ export function DatePickerInput({
   showTime = false,
   triggerStyle = "default",
   clearable = false,
+  monthOnly = false,
 }: Props) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
+  const withTime = showTime && !monthOnly;
 
   const now = new Date();
   const parsed = parseValue(value);
@@ -236,10 +241,15 @@ export function DatePickerInput({
   }
 
   function handleConfirm() {
+    if (monthOnly) {
+      onChange(`${selYear}-${pad(selMonth)}-01`);
+      setOpen(false);
+      return;
+    }
     const safeDay = Math.min(selDay, daysInMonth(selYear, selMonth));
     const dateStr = `${selYear}-${pad(selMonth)}-${pad(safeDay)}`;
     onChange(
-      showTime ? `${dateStr} ${pad(selHour)}:${pad(selMinute)}` : dateStr,
+      withTime ? `${dateStr} ${pad(selHour)}:${pad(selMinute)}` : dateStr,
     );
     setOpen(false);
   }
@@ -251,11 +261,16 @@ export function DatePickerInput({
 
   const yearItems = useMemo(() => range(minYear, maxYear), [minYear, maxYear]);
   const dayItems = useMemo(() => range(1, maxDay), [maxDay]);
-  const hourItems = useMemo(() => (showTime ? range(0, 23) : []), []);
-  const minuteItems = useMemo(() => (showTime ? range(0, 59) : []), []);
+  const hourItems = useMemo(() => (withTime ? range(0, 23) : []), []);
+  const minuteItems = useMemo(() => (withTime ? range(0, 59) : []), []);
 
   const displayValue = value || null;
   const isActive = !!displayValue;
+  // Month-only chips/fields show "MMM YYYY" instead of the raw YYYY-MM-01.
+  const formattedValue =
+    monthOnly && parsed
+      ? `${MONTH_NAMES[parsed.month - 1]} ${parsed.year}`
+      : displayValue;
 
   const picker = (
     <Modal
@@ -291,12 +306,14 @@ export function DatePickerInput({
 
           {/* Columns */}
           <View className="flex-row px-3 py-3 gap-1">
-            <ScrollColumn
-              items={dayItems}
-              selected={Math.min(selDay, maxDay)}
-              onSelect={setSelDay}
-              label={t("date_picker.day")}
-            />
+            {!monthOnly ? (
+              <ScrollColumn
+                items={dayItems}
+                selected={Math.min(selDay, maxDay)}
+                onSelect={setSelDay}
+                label={t("date_picker.day")}
+              />
+            ) : null}
             <MonthScrollColumn
               monthNames={MONTH_NAMES}
               selected={selMonth}
@@ -309,7 +326,7 @@ export function DatePickerInput({
               label={t("date_picker.year")}
               renderItem={(y) => String(y)}
             />
-            {showTime ? (
+            {withTime ? (
               <>
                 <ScrollColumn
                   items={hourItems}
@@ -365,7 +382,7 @@ export function DatePickerInput({
             numberOfLines={1}
           >
             {isActive
-              ? `${placeholder ?? ""} ${displayValue}`.trim()
+              ? `${placeholder ?? ""} ${formattedValue}`.trim()
               : (placeholder ?? t("customers.start_date_placeholder"))}
           </Text>
         </PressableOpacity>
@@ -386,7 +403,7 @@ export function DatePickerInput({
         <Text
           className={`text-base ${displayValue ? "text-gray-900" : "text-gray-400"}`}
         >
-          {displayValue ?? placeholder ?? t("customers.start_date_placeholder")}
+          {formattedValue ?? placeholder ?? t("customers.start_date_placeholder")}
         </Text>
         <Text className="text-gray-400 text-base">📅</Text>
       </PressableOpacity>

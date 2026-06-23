@@ -53,8 +53,8 @@ SubsTrack/
 │           │   └── [id]/
 │           │       ├── index.tsx  # Customer detail + payment grid + sales panel
 │           │       └── sales.tsx  # All sales for one customer (full paginated list)
-│           ├── sales/
-│           │   └── index.tsx      # Sales tab — recent sales list + record-sale FAB
+│           ├── invoices/
+│           │   └── index.tsx      # Invoices hub tab — renders InvoicesScreen (Sales / Payments / Services segments)
 │           └── settings/
 │               └── index.tsx      # Language & user info
 │
@@ -82,7 +82,8 @@ SubsTrack/
 │   │       ├── auth/authSlice.ts
 │   │       ├── subscription/subscriptionSlice.ts
 │   │       ├── customers/customerSlice.ts
-│   │       ├── payments/paymentSlice.ts
+│   │       ├── payments/paymentSlice.ts            # per-customer month-grid payments
+│   │       ├── payments-list/paymentsListSlice.ts  # tenant-wide filterable payments list (Invoices → Payments)
 │   │       ├── plans/planSlice.ts
 │   │       ├── users/userSlice.ts
 │   │       ├── dashboard/dashboardSlice.ts
@@ -135,10 +136,12 @@ SubsTrack/
 │   │   │   └── components/{CustomerCard, CustomerDetailsCard, CustomerFormSheet}.tsx
 │   │   │
 │   │   ├── customer-payments/                    # (note: directory name is customer-payments)
-│   │   │   ├── repository/PaymentRepository.ts
-│   │   │   ├── services/PaymentService.ts        # ← buildMonthGrid() lives here ONLY
+│   │   │   ├── repository/PaymentRepository.ts   # per-customer findByCustomer + tenant-wide findAll (Payments list)
+│   │   │   ├── services/PaymentService.ts        # ← buildMonthGrid() lives here ONLY; getPayments() for the flat list
+│   │   │   ├── screens/PaymentsPanel.tsx         # Payments segment of the Invoices hub (tenant-wide filterable list)
 │   │   │   └── components/{MonthGrid, MonthCell, YearNavigator, PaymentFormSheet,
-│   │   │                    PaymentDetailSheet, VoidSheet, CustomerPaymentPanel}.tsx
+│   │   │                    PaymentDetailSheet, VoidSheet, CustomerPaymentPanel,
+│   │   │                    PaymentListCard, PaymentListVoidSheet}.tsx
 │   │   │
 │   │   ├── plans/
 │   │   │   ├── repository/PlanRepository.ts
@@ -163,11 +166,14 @@ SubsTrack/
 │   │   │   ├── screens/ProductListScreen.tsx   # admin-only at app/(app)/(tabs)/admin/products.tsx
 │   │   │   └── components/{ProductCard, ProductFormSheet}.tsx
 │   │   │
+│   │   ├── invoices/                            # Invoices hub — parent of the Sales/Payments/Services segments
+│   │   │   └── screens/{InvoicesScreen, ServicesPanel}.tsx  # InvoicesScreen owns chrome + SegmentedTabs; Services is a placeholder
+│   │   │
 │   │   ├── sales/                               # One-off sale ledger (separate from subscription payments)
 │   │   │   ├── repository/SaleRepository.ts    # paginated findAll w/ search, findByCustomer, voidSale, totalsForMonth (drift-free USD)
 │   │   │   ├── services/SaleService.ts         # createSale snapshots productName + unitAmount + ratePerUsd; voidSale; sumForMonthUsd
 │   │   │   ├── hooks/useCustomerSalesList.ts    # paginated customer-scoped sales-list state, independent of saleSlice (avoids Sales-tab collision)
-│   │   │   ├── screens/SalesListScreen.tsx          # bottom-tab at app/(app)/(tabs)/sales/index.tsx
+│   │   │   ├── screens/SalesPanel.tsx               # Sales segment of the Invoices hub (body only — no page chrome)
 │   │   │   ├── screens/CustomerSalesListScreen.tsx  # full per-customer sales list at customers/[id]/sales
 │   │   │   └── components/{SaleCard, SaleFormSheet, SaleDetailSheet, CustomerSalesPanel}.tsx
 │   │   │

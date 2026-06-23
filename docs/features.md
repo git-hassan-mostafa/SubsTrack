@@ -13,6 +13,7 @@
 - [App Options (Global Config)](#app-options-global-config)
 - [Subscription Tiers](#subscription-tiers)
 - [Products & One-Off Sales](#products--one-off-sales)
+- [Invoices Hub](#invoices-hub)
 - [Regular Customer](#regular-customer)
 - [Payment Scenarios](#payment-scenarios)
 - [Multi-Select & Bulk Actions](#multi-select--bulk-actions)
@@ -286,7 +287,7 @@ Components read `currentTier` and `usage` from `useSubscriptionSlice` and forwar
 
 **`AsyncEntityPicker`** ([src/shared/components/AsyncEntityPicker.tsx](../SubsTrack/src/shared/components/AsyncEntityPicker.tsx)) is the reusable customer picker built for `SaleFormSheet`. Generic over `<T>`; the caller passes a `loadPage(search, page)` callback. Reuses `SearchTextBox`, `useDebounce` (300 ms), and a `requestToken` ref to discard stale responses when the user types fast (same pattern as `customerSlice.searchToken`). Use it any time the option list is too large to fit in memory — small static lists keep using `Dropdown`.
 
-**Sales tab filters:** `SalesListScreen` exposes a chip filter bar above the list — search (product name snapshot + customer name), customer (`CustomerPicker`), product (`Dropdown` over active products, lazy-loaded via `fetchProducts` on mount), and a **From/To date range** (`DatePickerInput` with `triggerStyle="chip"`, the two pickers constrain each other via `minDate`/`maxDate`). All non-search filters live on the `sales` slice (`customerFilter`, `productFilter`, `fromDate`, `toDate`) and flow into `saleService.getSales` → `SaleRepository.findAll`; date bounds are calendar days converted to `sold_at` timestamp bounds (end inclusive via next-day-exclusive). A "Clear filters" chip (visible only when ≥1 filter is active) resets them in one tap via `clearFilters`.
+**Sales tab filters:** `SalesPanel` exposes a chip filter bar above the list — search (product name snapshot + customer name), customer (`CustomerPicker`), product (`Dropdown` over active products, lazy-loaded via `fetchProducts` on mount), and a **From/To date range** (`DatePickerInput` with `triggerStyle="chip"`, the two pickers constrain each other via `minDate`/`maxDate`). All non-search filters live on the `sales` slice (`customerFilter`, `productFilter`, `fromDate`, `toDate`) and flow into `saleService.getSales` → `SaleRepository.findAll`; date bounds are calendar days converted to `sold_at` timestamp bounds (end inclusive via next-day-exclusive). A "Clear filters" chip (visible only when ≥1 filter is active) resets them in one tap via `clearFilters`.
 
 **Customer sales surfaces:** the customer detail screen renders `CustomerSalesPanel` at the **bottom** (below the payment grid + details card). The panel shows only a **5-sale preview**; when the customer has more it renders a "Show all" link to a dedicated full-page list (`CustomerSalesListScreen` at `customers/[id]/sales`) that mirrors the Sales tab (search + infinite scroll + record FAB + void) but is locked to one customer. Both surfaces keep their **list reads** independent of the global `sales` slice — the panel via `saleService.getSalesForCustomer` (with a stale-response token guard), the full page via the `useCustomerSalesList` hook — so neither clobbers the Sales tab's filter/search/list state. **Mutations, however, route through the global slice** so the Sales tab cache stays coherent: creates go through `SaleFormSheet` → `saleSlice.createSale` (unshift), and voids go through `saleSlice.voidSale` (drops the row from `sales.items`); each surface then refreshes its own local list. The panel additionally refreshes on focus (`useFocusEffect`) so changes made on the full page reflect on return. Neither surface applies a branch filter: they show **all** of the customer's sales regardless of the admin's current branch view.
 
@@ -295,6 +296,18 @@ Components read `currentTier` and `usage` from `useSubscriptionSlice` and forwar
 **Tier-gating** is sale-blind: products consume a slot (gated by `max_products`), but recording sales is unlimited on every tier.
 
 See gotchas #35, #36, #37.
+
+---
+
+## Invoices Hub
+
+The bottom **Invoices** tab (`app/(app)/(tabs)/invoices`) is a hub hosting three in-page segments via the shared `SegmentedTabs` control: **Sales**, **Payments**, and **Services** (placeholder). `InvoicesScreen` owns the page chrome (SafeAreaView + title + `BranchSelector` + segments); each segment is a self-contained **panel** that owns its own body (filters, list, sheets, multi-select) but not the chrome. The selection toolbar that used to live inside `PageHeader` was extracted into a shared `SelectionBar` so panels (which have no `PageHeader`) can render it; `PageHeader` re-uses `SelectionBar` and re-exports `SelectionAction` for back-compat.
+
+- **Sales** → `SalesPanel` (the former `SalesListScreen` body, behavior unchanged — `sales` slice).
+- **Payments** → `PaymentsPanel` (see below).
+- **Services** → `ServicesPanel` ("coming soon" `EmptyState`).
+
+**Payments list (tenant-wide):** previously payments were viewable only per-customer via the month grid. `PaymentsPanel` lists **settled** payments (`amount_paid > 0`, non-voided) across all customers, defaulting to those **recorded this month** (`paid_at` in the current month). Backed by its own `paymentsList` slice + `PaymentRepository.findAll` + `PaymentService.getPayments` (returns `PaymentListItem` = `Payment` + joined `customerName`); the recording staff name is resolved client-side from the `users` slice. Filter chips: **Customer** (`CustomerPicker`), **Collected by** (`Dropdown` over users), **Paid in** + **For month** (`DatePickerInput` with the new `monthOnly` mode → `YYYY-MM-01`), and **Status** (all / paid / partial). `paidMonth` filters `paid_at` within the month; `billingMonth` is an exact `billing_month` match; status maps to `balance` (0 = paid, >0 = partial). Branch scoping reuses the inherited `customers.branch_id` filter. "Clear filters" resets to the current-month default. Tapping a row opens the existing `PaymentDetailSheet` (wrapped in a synthetic `MonthEntry`, with the customer name shown) wired to **void** (`PaymentListVoidSheet` → `paymentsList.voidPayments`) and **edit** (`paymentsList.updatePayment`, re-snapshots FX on currency change). Multi-select enables bulk void. The per-customer `paymentSlice` and month-grid logic are untouched.
 
 ---
 

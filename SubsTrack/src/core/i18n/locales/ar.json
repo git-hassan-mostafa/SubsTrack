@@ -238,6 +238,16 @@
   },
   "payments": {
     "this_month":"الشهر الحالي",
+    "paid_by": "حصّلها {{name}}",
+    "for_month": "عن {{month}}",
+    "filter_by_user": "حصّلها",
+    "all_users": "كل الموظفين",
+    "paid_month": "دُفعت في",
+    "billing_month": "عن شهر",
+    "filter_by_status": "الحالة",
+    "all_statuses": "كل الحالات",
+    "no_payments": "لا توجد دفعات",
+    "no_payments_hint": "لا توجد دفعات مطابقة لهذه عوامل التصفية.",
     "record_payment": "تسجيل دفعة",
     "void_payment": "إلغاء الدفعة",
     "void_current_month": "إلغاء دفعة الشهر الحالي",
@@ -600,5 +610,13 @@
     "void_reason_placeholder": "لماذا تلغي عملية البيع هذه؟",
     "bulk_void_title": "إلغاء {{count}} مبيعات",
     "bulk_void_message": "إلغاء {{count}} من المبيعات المحددة؟ تبقى السجلات في سجل التدقيق — لا يمكن التراجع عن الإلغاء."
+  },
+  "invoices": {
+    "title": "الفواتير",
+    "tab_sales": "المبيعات",
+    "tab_payments": "الدفعات",
+    "tab_services": "الخدمات",
+    "services_coming_soon": "الخدمات قريباً",
+    "services_coming_soon_hint": "هذه الميزة غير متوفرة بعد."
   }
 }

@@ -20,6 +20,9 @@ import { useLanguageStore } from "@/src/core/i18n/languageStore";
 
 interface Props {
   entry: MonthEntry | null;
+  // Shown as a detail row when the sheet is opened outside a customer's own
+  // screen (e.g. the tenant-wide Payments list) so the customer is identifiable.
+  customerName?: string;
   onVoid?: () => void;
   onEdit?: (next: {
     amountDue: number;
@@ -32,6 +35,7 @@ interface Props {
 
 export function PaymentDetailSheet({
   entry,
+  customerName,
   onVoid,
   onEdit,
   editLoading,
@@ -216,6 +220,9 @@ export function PaymentDetailSheet({
             {/* Detail rows */}
             {payment ? (
               <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden mb-4">
+                {customerName ? (
+                  <Row label={t("sales.customer_label")} value={customerName} />
+                ) : null}
                 <Row
                   label={t("payments.paid_on")}
                   value={formatDate(payment.paidAt, i18n.language)}

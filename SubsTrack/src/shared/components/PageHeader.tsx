@@ -1,21 +1,13 @@
 import { View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
 import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
 import { COLORS } from "@/src/shared/constants";
 import { PressableOpacity } from "./PressableOpacity";
 import { BranchSelector } from "./BranchSelector";
+import { SelectionBar, type SelectionAction } from "./SelectionBar";
 
-export interface SelectionAction {
-  key: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  /** Used as the accessibility label — the toolbar renders icons only. */
-  label: string;
-  onPress: () => void;
-  destructive?: boolean;
-  disabled?: boolean;
-}
+// Re-exported so existing importers keep working after the toolbar moved out.
+export type { SelectionAction } from "./SelectionBar";
 
 export interface PageHeaderSelection {
   active: boolean;
@@ -89,49 +81,13 @@ export function PageHeader({
       </View>
       {selection?.active ? (
         <View className="absolute inset-0">
-          <SelectionToolbar {...selection} />
+          <SelectionBar
+            count={selection.count}
+            actions={selection.actions}
+            onClose={selection.onClose}
+          />
         </View>
       ) : null}
-    </View>
-  );
-}
-
-function SelectionToolbar({
-  count,
-  actions,
-  onClose,
-}: PageHeaderSelection) {
-  const { t } = useTranslation();
-  return (
-    <View className="flex-row items-center px-4 pt-4 pb-4 bg-white border-b border-gray-100 gap-2">
-      <PressableOpacity onPress={onClose} className="p-1 me-1" hitSlop={8}>
-        <Ionicons name="close" size={24} color={COLORS.gray700} />
-      </PressableOpacity>
-      <View className="flex-1 min-w-0">
-        <Text fontWeight="Bold" className="text-lg text-gray-900">
-          {t("common.selected_count", { count })}
-        </Text>
-      </View>
-      <View className="flex-row items-center gap-1">
-        {actions.map((action) => (
-          <PressableOpacity
-            key={action.key}
-            onPress={action.onPress}
-            disabled={action.disabled}
-            hitSlop={8}
-            accessibilityLabel={action.label}
-            className={`w-10 h-10 items-center justify-center rounded-full ${
-              action.disabled ? "opacity-40" : ""
-            }`}
-          >
-            <Ionicons
-              name={action.icon}
-              size={22}
-              color={action.destructive ? COLORS.danger : COLORS.gray700}
-            />
-          </PressableOpacity>
-        ))}
-      </View>
     </View>
   );
 }

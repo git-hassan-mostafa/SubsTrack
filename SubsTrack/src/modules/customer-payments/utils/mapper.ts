@@ -1,5 +1,19 @@
 import type { DbPayment } from "@/src/core/types/db";
 import type { Payment } from "@/src/core/types";
+import type { PaymentListItem } from "./types";
+
+// A payment row joined with its customer name, as returned by
+// PaymentRepository.findAll (select '*, customers!inner(name, branch_id)').
+type DbPaymentListRow = DbPayment & {
+    customers?: { name: string } | null;
+};
+
+export function mapDbPaymentRowToListItem(db: DbPaymentListRow): PaymentListItem {
+    return {
+        ...mapDbPaymentToPayment(db),
+        customerName: db.customers?.name ?? "",
+    };
+}
 
 export function mapDbPaymentToPayment(db: DbPayment): Payment {
     return {

@@ -7,5 +7,5 @@ export { SaleCard } from './components/SaleCard';
 export { SaleDetailSheet } from './components/SaleDetailSheet';
 export { SaleFormSheet } from './components/SaleFormSheet';
 export { CustomerSalesListScreen } from './screens/CustomerSalesListScreen';
-export { SalesListScreen } from './screens/SalesListScreen';
+export { SalesPanel } from './screens/SalesPanel';
 export { useCustomerSalesList } from './hooks/useCustomerSalesList';

@@ -16,8 +16,8 @@ import {
 import i18n from "@/src/core/i18n";
 import repository from "../repository/PaymentRepository";
 import { tierService } from "@/src/modules/subscription";
-import { mapDbPaymentToPayment } from "../utils/mapper";
-import { CreateMultiMonthPaymentResult, MultiMonthConflict } from "../utils/types";
+import { mapDbPaymentToPayment, mapDbPaymentRowToListItem } from "../utils/mapper";
+import { CreateMultiMonthPaymentResult, FindPaymentsOptions, MultiMonthConflict, PaymentListItem } from "../utils/types";
 
 type CreatePaymentInput = Pick<Payment, 'billingMonth' | 'amountDue' | 'amountPaid' | 'durationMonths' | 'currencyId' | 'ratePerUsdSnapshot' | 'customerId' | 'planId' | 'receivedByUserId' | 'tenantId' | 'notes'>
 
@@ -38,6 +38,13 @@ class PaymentService {
   async getPaymentsForCustomer(customerId: string): Promise<Payment[]> {
     const rows = await repository.findByCustomer(customerId);
     return rows.map(mapDbPaymentToPayment);
+  }
+
+  // Tenant-wide, paginated, filterable payment list for the Invoices → Payments
+  // tab. Each item carries its customer name for display.
+  async getPayments(opts: FindPaymentsOptions = {}): Promise<PaymentListItem[]> {
+    const rows = await repository.findAll(opts);
+    return rows.map(mapDbPaymentRowToListItem);
   }
 
   async createPayment(data: CreatePaymentInput): Promise<Payment> {

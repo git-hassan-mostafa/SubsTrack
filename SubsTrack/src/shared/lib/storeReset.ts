@@ -8,6 +8,7 @@ export function resetAllDomainStores() {
   state.users.reset();
   state.customers.reset();
   state.payments.reset();
+  state.paymentsList.reset();
   state.dashboard.reset();
   state.products.reset();
   state.sales.reset();

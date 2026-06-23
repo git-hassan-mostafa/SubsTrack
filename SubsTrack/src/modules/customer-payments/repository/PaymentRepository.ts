@@ -1,10 +1,62 @@
 import { BaseRepository } from '@/src/core/utils/BaseRepository';
-import type { BranchFilter } from '@/src/core/constants';
+import { PAGE_SIZE, type BranchFilter } from '@/src/core/constants';
 import type { DbPayment } from '@/src/core/types/db';
+import type { FindPaymentsOptions } from '../utils/types';
 
 type CreatePaymentPayload = Pick<DbPayment, 'billing_month' | 'amount_due' | 'amount_paid' | 'duration_months' | 'currency_id' | 'rate_per_usd_snapshot' | 'customer_id' | 'plan_id' | 'received_by_user_id' | 'tenant_id' | 'notes'>
 
+// Joins the customer name (and branch_id, needed by the inherited branch filter)
+// for the flat Payments list.
+const PAYMENT_LIST_SELECT = '*, customers!inner(name, branch_id)';
+
+// Start of a YYYY-MM-01 month as a local-time ISO timestamp (matches the
+// day-bound helpers in SaleRepository — same local→UTC conversion).
+function monthStartIso(month: string): string {
+  const [y, m] = month.split('-').map(Number);
+  return new Date(y, m - 1, 1).toISOString();
+}
+
+// Start of the month AFTER the given YYYY-MM-01 — exclusive upper bound so a
+// paid-month filter covers the whole month.
+function nextMonthStartIso(month: string): string {
+  const [y, m] = month.split('-').map(Number);
+  return new Date(y, m, 1).toISOString();
+}
+
 class PaymentRepository extends BaseRepository {
+  // Tenant-wide, paginated payment list for the Invoices → Payments tab. Only
+  // settled (amount_paid > 0), non-voided rows — an empty slot isn't a payment.
+  async findAll(opts: FindPaymentsOptions = {}): Promise<DbPayment[]> {
+    const page = opts.page ?? 0;
+    const from = page * PAGE_SIZE;
+    const to = from + PAGE_SIZE - 1;
+
+    let query = this.db
+      .from('payments')
+      .select(PAYMENT_LIST_SELECT)
+      .gt('amount_paid', 0)
+      .order('paid_at', { ascending: false })
+      .range(from, to);
+
+    if (!opts.includeVoided) query = query.is('voided_at', null);
+    if (opts.customerId) query = query.eq('customer_id', opts.customerId);
+    if (opts.receivedByUserId) query = query.eq('received_by_user_id', opts.receivedByUserId);
+    if (opts.billingMonth) query = query.eq('billing_month', opts.billingMonth);
+    if (opts.paidMonth) {
+      query = query
+        .gte('paid_at', monthStartIso(opts.paidMonth))
+        .lt('paid_at', nextMonthStartIso(opts.paidMonth));
+    }
+    if (opts.status === 'paid') query = query.eq('balance', 0);
+    else if (opts.status === 'partial') query = query.gt('balance', 0);
+
+    query = this.applyBranchFilter(query, opts.branchFilter ?? null, this.BRANCH_SCOPES.payments);
+
+    const { data, error } = await query;
+    if (error) this.handleError(error);
+    return (data ?? []) as DbPayment[];
+  }
+
   // Fetches every non-voided payment for a customer (all years), so the panel
   // can build any year's grid and switch years without re-querying.
   async findByCustomer(customerId: string): Promise<DbPayment[]> {

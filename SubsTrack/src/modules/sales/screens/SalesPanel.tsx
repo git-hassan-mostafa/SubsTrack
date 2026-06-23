@@ -6,7 +6,6 @@ import {
   ScrollView,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { COLORS } from "@/src/shared/constants";
@@ -17,9 +16,9 @@ import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { useDebounce } from "@/src/shared/hooks/useDebounce";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
 import {
-  PageHeader,
+  SelectionBar,
   type SelectionAction,
-} from "@/src/shared/components/PageHeader";
+} from "@/src/shared/components/SelectionBar";
 import { FAB } from "@/src/shared/components/FAB";
 import { SelectAllBar } from "@/src/shared/components/SelectAllBar";
 import { SelectionOverlaySlot } from "@/src/shared/components/SelectionOverlaySlot";
@@ -44,7 +43,10 @@ import { useSaleSlice } from "@/src/state/hooks/useSaleSlice";
 import { useProductSlice } from "@/src/state/hooks/useProductSlice";
 import { useAuth } from "@/src/modules/auth";
 
-export function SalesListScreen() {
+// The Sales segment of the Invoices hub. Owns its body (search, filters, list,
+// FAB, sheets, selection) but not the page chrome — the parent InvoicesScreen
+// provides the SafeAreaView, title, and the segmented tab switcher.
+export function SalesPanel() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const sales = useSaleSlice((s) => s.items);
@@ -158,177 +160,176 @@ export function SalesListScreen() {
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
-      <PageHeader
-        title={t("sales.title")}
-        subtitle={t("sales.recent_count", { count: sales.length })}
-        selection={{
-          active: selectionActive,
-          count: selection.count,
-          actions: buildSelectionActions(selectedSales),
-          onClose: clearSelection,
-        }}
-      />
-
+    <View className="flex-1">
       <ResponsiveContainer className="flex-1">
-      {/* Search + filters stay mounted while selecting so their space remains
-          and the list never jumps; the select-all bar overlays them. */}
-      <SelectionOverlaySlot
-        selecting={selectionActive}
-        overlay={
-          <SelectAllBar
-            allSelected={sales.length > 0 && selectedSales.length === sales.length}
-            onToggle={() => toggleManySelect(sales.map((s) => s.id))}
-          />
-        }
-      >
-      <View className="px-4 pt-4 gap-y-2">
-        <SearchTextBox
-          searchText={searchText}
-          setSearchText={setSearchText}
-          placeholder={t("sales.search_placeholder")}
-        />
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          className="-mx-4"
-          contentContainerStyle={{
-            paddingHorizontal: 16,
-            gap: 8,
-            alignItems: "center",
-          }}
+        {/* Search + filters stay mounted while selecting so their space remains
+            and the list never jumps; the select-all bar overlays them. */}
+        <SelectionOverlaySlot
+          selecting={selectionActive}
+          overlay={
+            <SelectAllBar
+              allSelected={
+                sales.length > 0 && selectedSales.length === sales.length
+              }
+              onToggle={() => toggleManySelect(sales.map((s) => s.id))}
+            />
+          }
         >
-          <CustomerPicker
-            placeholder={t("sales.filter_by_customer")}
-            value={customerFilter}
-            onChange={setCustomerFilter}
-            nullable
-            nullLabel={t("sales.all_customers")}
-            triggerStyle="chip"
-          />
-          <Dropdown<string>
-            placeholder={t("sales.filter_by_product")}
-            options={productOptions}
-            value={productFilter?.id ?? null}
-            onChange={(id) =>
-              setProductFilter(products.find((p) => p.id === id) ?? null)
-            }
-            nullable
-            nullLabel={t("sales.all_products")}
-            triggerStyle="chip"
-          />
-          <DatePickerInput
-            placeholder={t("sales.date_from")}
-            value={fromDate ?? ""}
-            onChange={(v) => setDateRange(v || null, toDate)}
-            maxDate={toDate ?? undefined}
-            triggerStyle="chip"
-            clearable
-          />
-          <DatePickerInput
-            placeholder={t("sales.date_to")}
-            value={toDate ?? ""}
-            onChange={(v) => setDateRange(fromDate, v || null)}
-            minDate={fromDate ?? undefined}
-            triggerStyle="chip"
-            clearable
-          />
-          {hasActiveFilters ? (
-            <PressableOpacity
-              onPress={clearFilters}
-              className="flex-row items-center gap-x-1 rounded-full px-3 py-1.5"
+          <View className="px-4 pt-4 gap-y-2">
+            <SearchTextBox
+              searchText={searchText}
+              setSearchText={setSearchText}
+              placeholder={t("sales.search_placeholder")}
+            />
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              className="-mx-4"
+              contentContainerStyle={{
+                paddingHorizontal: 16,
+                gap: 8,
+                alignItems: "center",
+              }}
             >
-              <Ionicons name="close" size={14} color={COLORS.gray500} />
-              <Text className="text-sm font-medium text-gray-500">
-                {t("common.clear_filters")}
-              </Text>
-            </PressableOpacity>
-          ) : null}
-        </ScrollView>
-      </View>
-      </SelectionOverlaySlot>
-      {error ? (
-        <View className="px-4 pt-4">
-          <ErrorBanner message={error} onDismiss={clearError} />
-        </View>
-      ) : null}
-      {bulkNotice ? (
-        <View className="px-4 pt-4">
-          <ErrorBanner
-            message={bulkNotice}
-            onDismiss={() => setBulkNotice(null)}
+              <CustomerPicker
+                placeholder={t("sales.filter_by_customer")}
+                value={customerFilter}
+                onChange={setCustomerFilter}
+                nullable
+                nullLabel={t("sales.all_customers")}
+                triggerStyle="chip"
+              />
+              <Dropdown<string>
+                placeholder={t("sales.filter_by_product")}
+                options={productOptions}
+                value={productFilter?.id ?? null}
+                onChange={(id) =>
+                  setProductFilter(products.find((p) => p.id === id) ?? null)
+                }
+                nullable
+                nullLabel={t("sales.all_products")}
+                triggerStyle="chip"
+              />
+              <DatePickerInput
+                placeholder={t("sales.date_from")}
+                value={fromDate ?? ""}
+                onChange={(v) => setDateRange(v || null, toDate)}
+                maxDate={toDate ?? undefined}
+                triggerStyle="chip"
+                clearable
+              />
+              <DatePickerInput
+                placeholder={t("sales.date_to")}
+                value={toDate ?? ""}
+                onChange={(v) => setDateRange(fromDate, v || null)}
+                minDate={fromDate ?? undefined}
+                triggerStyle="chip"
+                clearable
+              />
+              {hasActiveFilters ? (
+                <PressableOpacity
+                  onPress={clearFilters}
+                  className="flex-row items-center gap-x-1 rounded-full px-3 py-1.5"
+                >
+                  <Ionicons name="close" size={14} color={COLORS.gray500} />
+                  <Text className="text-sm font-medium text-gray-500">
+                    {t("common.clear_filters")}
+                  </Text>
+                </PressableOpacity>
+              ) : null}
+            </ScrollView>
+          </View>
+        </SelectionOverlaySlot>
+
+        {selectionActive ? (
+          <SelectionBar
+            count={selection.count}
+            actions={buildSelectionActions(selectedSales)}
+            onClose={clearSelection}
           />
-        </View>
-      ) : null}
+        ) : null}
 
-      {loading && sales.length === 0 ? (
-        <View className="flex-1 items-center justify-center">
-          <ActivityIndicator color={COLORS.primary} />
-        </View>
-      ) : (
-        <FlatList
-          data={sales}
-          keyExtractor={(s) => s.id}
-          contentContainerStyle={{
-            padding: 16,
-            paddingBottom: 96,
-            flexGrow: 1,
-          }}
-          refreshControl={
-            <RefreshControl
-              refreshing={loading}
-              onRefresh={fetchSales}
-              tintColor={COLORS.primary}
+        {error ? (
+          <View className="px-4 pt-4">
+            <ErrorBanner message={error} onDismiss={clearError} />
+          </View>
+        ) : null}
+        {bulkNotice ? (
+          <View className="px-4 pt-4">
+            <ErrorBanner
+              message={bulkNotice}
+              onDismiss={() => setBulkNotice(null)}
             />
-          }
-          onEndReached={() => {
-            if (hasMore && !loadingMore) void fetchMoreSales();
-          }}
-          onEndReachedThreshold={0.3}
-          ListFooterComponent={
-            loadingMore ? (
-              <View className="py-4 items-center">
-                <ActivityIndicator color={COLORS.primary} />
-              </View>
-            ) : null
-          }
-          renderItem={({ item }) => (
-            <SaleCard
-              sale={item}
-              onPress={setActiveSale}
-              selectionMode={selectionActive}
-              selected={selectedIds.has(item.id)}
-              onToggleSelect={(s) => toggleSelect(s.id)}
-              onEnterSelection={(s) => enterSelection(s.id)}
-            />
-          )}
-          ListEmptyComponent={
-            <EmptyState
-              message={t("sales.no_sales")}
-              subMessage={t("sales.no_sales_hint")}
-              actionLabel={
-                !debouncedSearch && !hasActiveFilters
-                  ? t("sales.record_first_sale")
-                  : undefined
-              }
-              onAction={
-                !debouncedSearch && !hasActiveFilters
-                  ? () => setFormOpen(true)
-                  : undefined
-              }
-            />
-          }
-        />
-      )}
+          </View>
+        ) : null}
 
-      {!selectionActive && (
-        <FAB
-          onPress={() => setFormOpen(true)}
-          accessibilityLabel={t("sales.record_button")}
-        />
-      )}
+        {loading && sales.length === 0 ? (
+          <View className="flex-1 items-center justify-center">
+            <ActivityIndicator color={COLORS.primary} />
+          </View>
+        ) : (
+          <FlatList
+            data={sales}
+            keyExtractor={(s) => s.id}
+            contentContainerStyle={{
+              padding: 16,
+              paddingBottom: 96,
+              flexGrow: 1,
+            }}
+            refreshControl={
+              <RefreshControl
+                refreshing={loading}
+                onRefresh={fetchSales}
+                tintColor={COLORS.primary}
+              />
+            }
+            onEndReached={() => {
+              if (hasMore && !loadingMore) void fetchMoreSales();
+            }}
+            onEndReachedThreshold={0.3}
+            ListFooterComponent={
+              loadingMore ? (
+                <View className="py-4 items-center">
+                  <ActivityIndicator color={COLORS.primary} />
+                </View>
+              ) : null
+            }
+            renderItem={({ item }) => (
+              <SaleCard
+                sale={item}
+                onPress={setActiveSale}
+                selectionMode={selectionActive}
+                selected={selectedIds.has(item.id)}
+                onToggleSelect={(s) => toggleSelect(s.id)}
+                onEnterSelection={(s) => enterSelection(s.id)}
+              />
+            )}
+            ListEmptyComponent={
+              <EmptyState
+                message={t("sales.no_sales")}
+                subMessage={t("sales.no_sales_hint")}
+                actionLabel={
+                  !debouncedSearch && !hasActiveFilters
+                    ? t("sales.record_first_sale")
+                    : undefined
+                }
+                onAction={
+                  !debouncedSearch && !hasActiveFilters
+                    ? () => setFormOpen(true)
+                    : undefined
+                }
+              />
+            }
+          />
+        )}
 
+        {!selectionActive && (
+          <FAB
+            onPress={() => setFormOpen(true)}
+            accessibilityLabel={t("sales.record_button")}
+          />
+        )}
       </ResponsiveContainer>
 
       {formOpen && (
@@ -352,6 +353,6 @@ export function SalesListScreen() {
           onDismiss={() => setBulkVoidOpen(false)}
         />
       )}
-    </SafeAreaView>
+    </View>
   );
 }

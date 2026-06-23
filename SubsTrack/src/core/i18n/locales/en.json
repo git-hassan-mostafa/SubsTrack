@@ -237,6 +237,16 @@
   },
   "payments": {
     "this_month":"This Month",
+    "paid_by": "Paid by {{name}}",
+    "for_month": "for {{month}}",
+    "filter_by_user": "Collected by",
+    "all_users": "All staff",
+    "paid_month": "Paid in",
+    "billing_month": "For month",
+    "filter_by_status": "Status",
+    "all_statuses": "All statuses",
+    "no_payments": "No payments",
+    "no_payments_hint": "No payments match these filters.",
     "record_payment": "Record Payment",
     "void_payment": "Void Payment",
     "void_current_month": "Void current month",
@@ -599,5 +609,13 @@
     "void_reason_placeholder": "Why are you voiding this sale?",
     "bulk_void_title": "Void {{count}} sales",
     "bulk_void_message": "Void {{count}} selected sale(s)? The records stay in the audit log — voids cannot be undone."
+  },
+  "invoices": {
+    "title": "Invoices",
+    "tab_sales": "Sales",
+    "tab_payments": "Payments",
+    "tab_services": "Services",
+    "services_coming_soon": "Services coming soon",
+    "services_coming_soon_hint": "This feature isn't available yet."
   }
 }
