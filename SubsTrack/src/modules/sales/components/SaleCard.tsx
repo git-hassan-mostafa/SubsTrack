@@ -1,7 +1,5 @@
 import { View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { COLORS } from "@/src/shared/constants";
 import type { Sale } from "@/src/core/types";
@@ -14,7 +12,7 @@ import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
 import { useLanguageStore } from "@/src/core/i18n/languageStore";
 import { formatDate } from "@/src/core/utils/date";
-import { Checkbox } from "@/src/shared/components/Checkbox";
+import { EntityCard } from "@/src/shared/components/EntityCard";
 
 interface Props {
   sale: Sale;
@@ -47,23 +45,18 @@ export function SaleCard({
   const totalLabel = formatMoney(sale.totalAmount, source, target);
 
   return (
-    <PressableOpacity
-      onPress={() => (selectionMode ? onToggleSelect?.(sale) : onPress(sale))}
-      onLongPress={
-        selectionMode ? undefined : () => onEnterSelection?.(sale)
+    <EntityCard
+      icon="receipt-outline"
+      iconColor={COLORS.success}
+      iconBgClassName="bg-emerald-50"
+      onPress={() => onPress(sale)}
+      selectionMode={selectionMode}
+      selected={selected}
+      onToggleSelect={() => onToggleSelect?.(sale)}
+      onEnterSelection={
+        onEnterSelection ? () => onEnterSelection(sale) : undefined
       }
-      className="bg-white border border-gray-100 rounded-2xl px-4 py-4 mb-2.5 flex-row items-center"
     >
-      {selectionMode ? (
-        <View className="w-10 h-10 items-center justify-center me-3 flex-shrink-0">
-          <Checkbox checked={selected} />
-        </View>
-      ) : (
-        <View className="w-10 h-10 rounded-xl bg-emerald-50 items-center justify-center me-3">
-          <Ionicons name="receipt-outline" size={18} color={COLORS.success} />
-        </View>
-      )}
-
       <View className="flex-1">
         <Text
           className="text-base font-semibold text-gray-900"
@@ -84,6 +77,6 @@ export function SaleCard({
           {totalLabel}
         </Text>
       </View>
-    </PressableOpacity>
+    </EntityCard>
   );
 }

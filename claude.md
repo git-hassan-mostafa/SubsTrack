@@ -227,6 +227,7 @@ Status algorithm per month:
 - Custom `Text` component handles Cairo font for Arabic, system font for English.
 - RTL support via `I18nManager`; language change triggers a full app reload (see gotcha #5).
 - Keyboard avoidance uses `react-native-keyboard-controller`, **never** RN's built-in `KeyboardAvoidingView` (see gotcha #39).
+- Entity list rows (customers, users, plans, branches, currencies, products, sales) share one shell: `<EntityCard>` (`src/shared/components/EntityCard.tsx`). It owns the common chrome — wrapper styling, the tap/long-press selection handshake, the icon-tile↔checkbox swap, and the trailing 3-dot menu — so each card only passes its icon (`icon`/`iconColor`/`iconBgClassName`), the `on*` callbacks, optional `dimmed`/`menuLoading`, and its body as children. Build new list cards on top of it; don't re-hand-roll the card skeleton.
 - Web/desktop width is capped via `<ResponsiveContainer>` (`src/shared/components/ResponsiveContainer.tsx`) — wraps each screen's body (and each page-sheet form) in a centered, max-width column. It's a no-op on phones (always narrower than the cap), so phone layout is unaffected; it only kicks in on wide viewports. Centered dialogs (`ActionMenu`, `ConfirmDialog`, `UpgradePromptModal`) cap themselves inline with a `max-w-*` class instead.
 
 ---

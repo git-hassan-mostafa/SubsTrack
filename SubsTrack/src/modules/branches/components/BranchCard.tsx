@@ -1,11 +1,8 @@
 import { View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import type { Branch } from "@/src/core/types";
 import { Text } from "@/src/shared/components/Text";
-import { COLORS } from "@/src/shared/constants";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
-import { Checkbox } from "@/src/shared/components/Checkbox";
+import { EntityCard } from "@/src/shared/components/EntityCard";
 
 interface Props {
   branch: Branch;
@@ -28,27 +25,18 @@ export function BranchCard({
 }: Props) {
   const { t } = useTranslation();
   return (
-    <PressableOpacity
-      onPress={() =>
-        selectionMode ? onToggleSelect?.(branch) : onEdit(branch)
+    <EntityCard
+      icon="business-outline"
+      dimmed={!branch.active}
+      onPress={() => onEdit(branch)}
+      onMenu={() => onMenu(branch)}
+      selectionMode={selectionMode}
+      selected={selected}
+      onToggleSelect={() => onToggleSelect?.(branch)}
+      onEnterSelection={
+        onEnterSelection ? () => onEnterSelection(branch) : undefined
       }
-      onLongPress={
-        selectionMode ? undefined : () => (onEnterSelection ?? onMenu)(branch)
-      }
-      className={`bg-white border rounded-2xl px-4 py-4 mb-2.5 flex-row items-center ${
-        branch.active ? "border-gray-100" : "border-gray-200 opacity-60"
-      }`}
     >
-      {selectionMode ? (
-        <View className="w-10 h-10 items-center justify-center me-3 flex-shrink-0">
-          <Checkbox checked={selected} />
-        </View>
-      ) : (
-        <View className="w-10 h-10 rounded-xl bg-indigo-50 items-center justify-center me-3">
-          <Ionicons name="business-outline" size={18} color={COLORS.primary} />
-        </View>
-      )}
-
       <View className="flex-1">
         <View className="flex-row items-center">
           <Text className="text-base font-semibold text-gray-900">
@@ -63,16 +51,6 @@ export function BranchCard({
           ) : null}
         </View>
       </View>
-
-      {!selectionMode && (
-        <PressableOpacity
-          onPress={() => onMenu(branch)}
-          hitSlop={8}
-          className="ms-1 w-9 h-9 items-center justify-center rounded-full"
-        >
-          <Ionicons name="ellipsis-vertical" size={20} color={COLORS.gray600} />
-        </PressableOpacity>
-      )}
-    </PressableOpacity>
+    </EntityCard>
   );
 }

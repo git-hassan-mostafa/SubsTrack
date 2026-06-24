@@ -526,11 +526,45 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
         {/* Header row — the selection toolbar overlays it (absolute) so entering
             selection never shifts the grid down under the user's finger. */}
         <View className="relative">
-          <View className="flex-row items-center justify-between px-4 pt-4 pb-2">
-          <View className="flex-1 pe-3">
-            <Text fontWeight="Bold" className="text-2xl text-gray-900">
-              {year}
-            </Text>
+          <View className="px-4 pt-4 pb-2">
+            {/* Row 1 — year + year navigation */}
+            <View className="flex-row items-center justify-between">
+              <Text fontWeight="Bold" className="text-2xl text-gray-900">
+                {year}
+              </Text>
+              <View className="flex-row gap-2">
+                <PressableOpacity
+                  onPress={() => setYear((y) => y - 1)}
+                  disabled={year <= new Date(customer.startDate).getFullYear()}
+                  className="w-10 h-10 rounded-full items-center justify-center"
+                  style={{
+                    backgroundColor: COLORS.primaryLight,
+                    opacity:
+                      year <= new Date(customer.startDate).getFullYear()
+                        ? 0.35
+                        : 1,
+                  }}
+                >
+                  <DirectionalIcon
+                    name="chevron-back"
+                    size={20}
+                    color={COLORS.primary}
+                  />
+                </PressableOpacity>
+                <PressableOpacity
+                  onPress={() => setYear((y) => y + 1)}
+                  className="w-10 h-10 rounded-full items-center justify-center"
+                  style={{ backgroundColor: COLORS.primaryLight }}
+                >
+                  <DirectionalIcon
+                    name="chevron-forward"
+                    size={20}
+                    color={COLORS.primary}
+                  />
+                </PressableOpacity>
+              </View>
+            </View>
+            {/* Row 2 — year summary chips */}
             <View className="flex-row items-center flex-wrap mt-1.5 gap-1.5">
               <View className="flex-row items-center bg-gray-100 rounded-full px-2 py-0.5">
                 <Text fontWeight="SemiBold" className="text-xs text-gray-900">
@@ -557,36 +591,6 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
                 </Text>
               </View>
             </View>
-          </View>
-          <View className="flex-row gap-2">
-            <PressableOpacity
-              onPress={() => setYear((y) => y - 1)}
-              disabled={year <= new Date(customer.startDate).getFullYear()}
-              className="w-10 h-10 rounded-full items-center justify-center"
-              style={{
-                backgroundColor: COLORS.primaryLight,
-                opacity:
-                  year <= new Date(customer.startDate).getFullYear() ? 0.35 : 1,
-              }}
-            >
-              <DirectionalIcon
-                name="chevron-back"
-                size={20}
-                color={COLORS.primary}
-              />
-            </PressableOpacity>
-            <PressableOpacity
-              onPress={() => setYear((y) => y + 1)}
-              className="w-10 h-10 rounded-full items-center justify-center"
-              style={{ backgroundColor: COLORS.primaryLight }}
-            >
-              <DirectionalIcon
-                name="chevron-forward"
-                size={20}
-                color={COLORS.primary}
-              />
-            </PressableOpacity>
-          </View>
           </View>
           {selection.active ? (
             <View className="absolute inset-0 bg-white px-2 justify-center border-b border-gray-100">

@@ -1,12 +1,11 @@
 import { memo } from "react";
-import { ActivityIndicator, View } from "react-native";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
+import { View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
-import { Checkbox } from "@/src/shared/components/Checkbox";
 import type { Customer } from "@/src/core/types";
 import { COLORS } from "../../../shared/constants";
+import { EntityCard } from "@/src/shared/components/EntityCard";
 
 interface Props {
   customer: Customer;
@@ -36,26 +35,18 @@ export const CustomerCard = memo(function CustomerCard({
   const { t } = useTranslation();
 
   return (
-    <PressableOpacity
-      onPress={() =>
-        selectionMode ? onToggleSelect?.(customer) : onPress(customer)
+    <EntityCard
+      icon="person-outline"
+      onPress={() => onPress(customer)}
+      onMenu={() => onMenu(customer)}
+      menuLoading={menuLoading}
+      selectionMode={selectionMode}
+      selected={selected}
+      onToggleSelect={() => onToggleSelect?.(customer)}
+      onEnterSelection={
+        onEnterSelection ? () => onEnterSelection(customer) : undefined
       }
-      onLongPress={
-        selectionMode ? undefined : () => (onEnterSelection ?? onMenu)(customer)
-      }
-      className="bg-white border border-gray-100 rounded-2xl px-4 py-3.5 mb-2.5 flex-row items-center"
     >
-      {/* Avatar — replaced by a checkbox in selection mode (same footprint) */}
-      {selectionMode ? (
-        <View className="w-10 h-10 items-center justify-center me-3 flex-shrink-0">
-          <Checkbox checked={selected} />
-        </View>
-      ) : (
-        <View className="w-10 h-10 rounded-xl bg-indigo-50 items-center justify-center me-3">
-          <Ionicons name="person-outline" size={18} color={COLORS.primary} />
-        </View>
-      )}
-
       {/* Name + Plan */}
       <View className="flex-1 me-2">
         <Text
@@ -112,25 +103,6 @@ export const CustomerCard = memo(function CustomerCard({
         )}
         <Text className="text-xs text-gray-400">{monthLabel}</Text>
       </View>
-
-      {!selectionMode && (
-        <PressableOpacity
-          onPress={() => onMenu(customer)}
-          disabled={menuLoading}
-          hitSlop={8}
-          className="ms-2 w-9 h-9 items-center justify-center rounded-full"
-        >
-          {menuLoading ? (
-            <ActivityIndicator size="small" color={COLORS.gray600} />
-          ) : (
-            <Ionicons
-              name="ellipsis-vertical"
-              size={20}
-              color={COLORS.gray600}
-            />
-          )}
-        </PressableOpacity>
-      )}
-    </PressableOpacity>
+    </EntityCard>
   );
 });
