@@ -17,7 +17,7 @@ import { SelectionBar, type SelectionAction } from "@/src/shared/components/Sele
 import { useSelection, useSelectionBackHandler } from "@/src/shared/hooks/useSelection";
 import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
 import { CustomerPicker } from "@/src/modules/customers";
-import { getCurrentYearMonth, toBillingMonth } from "@/src/core/utils/date";
+import { getTodayDateString } from "@/src/core/utils/date";
 import { findCurrency } from "@/src/core/utils/currency";
 import type { MonthEntry } from "@/src/core/types";
 import { usePaymentsListSlice } from "@/src/state/hooks/usePaymentsListSlice";
@@ -28,11 +28,6 @@ import type { PaymentListItem, PaymentStatusFilter } from "../utils/types";
 import { PaymentListCard } from "../components/PaymentListCard";
 import { PaymentDetailSheet } from "../components/PaymentDetailSheet";
 import { PaymentListVoidSheet } from "../components/PaymentListVoidSheet";
-
-function defaultMonth(): string {
-  const { year, month } = getCurrentYearMonth();
-  return toBillingMonth(year, month);
-}
 
 function toEntry(p: PaymentListItem): MonthEntry {
   const [year, month] = p.billingMonth.split("-").map(Number);
@@ -62,8 +57,8 @@ export function PaymentsPanel() {
   const setCustomerFilter = usePaymentsListSlice((s) => s.setCustomerFilter);
   const paidByUserId = usePaymentsListSlice((s) => s.paidByUserId);
   const setPaidByUserId = usePaymentsListSlice((s) => s.setPaidByUserId);
-  const paidMonth = usePaymentsListSlice((s) => s.paidMonth);
-  const setPaidMonth = usePaymentsListSlice((s) => s.setPaidMonth);
+  const paidDate = usePaymentsListSlice((s) => s.paidDate);
+  const setPaidDate = usePaymentsListSlice((s) => s.setPaidDate);
   const billingMonth = usePaymentsListSlice((s) => s.billingMonth);
   const setBillingMonth = usePaymentsListSlice((s) => s.setBillingMonth);
   const statusFilter = usePaymentsListSlice((s) => s.statusFilter);
@@ -120,7 +115,7 @@ export function PaymentsPanel() {
     !!paidByUserId ||
     !!billingMonth ||
     statusFilter !== "all" ||
-    paidMonth !== defaultMonth();
+    paidDate !== getTodayDateString();
 
   const selectedPayments = items.filter((p) => selectedIds.has(p.id));
 
@@ -190,10 +185,9 @@ export function PaymentsPanel() {
                 triggerStyle="chip"
               />
               <DatePickerInput
-                placeholder={t("payments.paid_month")}
-                value={paidMonth ?? ""}
-                onChange={(v) => setPaidMonth(v || null)}
-                monthOnly
+                placeholder={t("payments.paid_date")}
+                value={paidDate ?? ""}
+                onChange={(v) => setPaidDate(v || null)}
                 triggerStyle="chip"
                 clearable
               />

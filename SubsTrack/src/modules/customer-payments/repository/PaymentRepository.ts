@@ -9,18 +9,18 @@ type CreatePaymentPayload = Pick<DbPayment, 'billing_month' | 'amount_due' | 'am
 // for the flat Payments list.
 const PAYMENT_LIST_SELECT = '*, customers!inner(name, branch_id)';
 
-// Start of a YYYY-MM-01 month as a local-time ISO timestamp (matches the
+// Start of a YYYY-MM-DD day as a local-time ISO timestamp (matches the
 // day-bound helpers in SaleRepository — same local→UTC conversion).
-function monthStartIso(month: string): string {
-  const [y, m] = month.split('-').map(Number);
-  return new Date(y, m - 1, 1).toISOString();
+function dayStartIso(date: string): string {
+  const [y, m, d] = date.split('-').map(Number);
+  return new Date(y, m - 1, d).toISOString();
 }
 
-// Start of the month AFTER the given YYYY-MM-01 — exclusive upper bound so a
-// paid-month filter covers the whole month.
-function nextMonthStartIso(month: string): string {
-  const [y, m] = month.split('-').map(Number);
-  return new Date(y, m, 1).toISOString();
+// Start of the day AFTER the given YYYY-MM-DD — exclusive upper bound so a
+// paid-date filter covers the whole calendar day (day+1 rolls over correctly).
+function nextDayStartIso(date: string): string {
+  const [y, m, d] = date.split('-').map(Number);
+  return new Date(y, m - 1, d + 1).toISOString();
 }
 
 class PaymentRepository extends BaseRepository {
@@ -42,10 +42,10 @@ class PaymentRepository extends BaseRepository {
     if (opts.customerId) query = query.eq('customer_id', opts.customerId);
     if (opts.receivedByUserId) query = query.eq('received_by_user_id', opts.receivedByUserId);
     if (opts.billingMonth) query = query.eq('billing_month', opts.billingMonth);
-    if (opts.paidMonth) {
+    if (opts.paidDate) {
       query = query
-        .gte('paid_at', monthStartIso(opts.paidMonth))
-        .lt('paid_at', nextMonthStartIso(opts.paidMonth));
+        .gte('paid_at', dayStartIso(opts.paidDate))
+        .lt('paid_at', nextDayStartIso(opts.paidDate));
     }
     if (opts.status === 'paid') query = query.eq('balance', 0);
     else if (opts.status === 'partial') query = query.gt('balance', 0);

@@ -1,7 +1,7 @@
 import type { StateCreator } from 'zustand';
 import type { Currency, Customer } from '@/src/core/types';
 import { PAGE_SIZE } from '@/src/core/constants';
-import { getCurrentYearMonth, toBillingMonth } from '@/src/core/utils/date';
+import { getTodayDateString } from '@/src/core/utils/date';
 import {
   paymentService,
   type PaymentListItem,
@@ -9,11 +9,6 @@ import {
 } from '@/src/modules/customer-payments';
 import { resolveBranchFilter } from '@/src/shared/lib/branchFilter';
 import type { GlobalState } from '@/src/state/globalStore';
-
-function currentMonth(): string {
-  const { year, month } = getCurrentYearMonth();
-  return toBillingMonth(year, month);
-}
 
 export interface PaymentsListSlice {
   items: PaymentListItem[];
@@ -26,15 +21,15 @@ export interface PaymentsListSlice {
   searchToken: number;
   customerFilter: Customer | null;
   paidByUserId: string | null;
-  // YYYY-MM-01 — defaults to the current month (payments recorded this month).
-  paidMonth: string | null;
+  // YYYY-MM-DD — defaults to today (payments recorded today).
+  paidDate: string | null;
   billingMonth: string | null;
   statusFilter: PaymentStatusFilter;
   fetchPayments: () => Promise<void>;
   fetchMorePayments: () => Promise<void>;
   setCustomerFilter: (customer: Customer | null) => Promise<void>;
   setPaidByUserId: (userId: string | null) => Promise<void>;
-  setPaidMonth: (month: string | null) => Promise<void>;
+  setPaidDate: (date: string | null) => Promise<void>;
   setBillingMonth: (month: string | null) => Promise<void>;
   setStatusFilter: (status: PaymentStatusFilter) => Promise<void>;
   clearFilters: () => Promise<void>;
@@ -55,7 +50,7 @@ function buildOptions(state: PaymentsListSlice, page: number, branchFilter: Retu
     branchFilter,
     customerId: state.customerFilter?.id ?? null,
     receivedByUserId: state.paidByUserId,
-    paidMonth: state.paidMonth,
+    paidDate: state.paidDate,
     billingMonth: state.billingMonth,
     status: state.statusFilter,
   };
@@ -77,7 +72,7 @@ export const createPaymentsListSlice: StateCreator<
   searchToken: 0,
   customerFilter: null,
   paidByUserId: null,
-  paidMonth: currentMonth(),
+  paidDate: getTodayDateString(),
   billingMonth: null,
   statusFilter: 'all',
 
@@ -172,10 +167,10 @@ export const createPaymentsListSlice: StateCreator<
     await get().paymentsList.fetchPayments();
   },
 
-  setPaidMonth: async (month) => {
-    if (get().paymentsList.paidMonth === month) return;
+  setPaidDate: async (date) => {
+    if (get().paymentsList.paidDate === date) return;
     set((state) => {
-      state.paymentsList.paidMonth = month;
+      state.paymentsList.paidDate = date;
       state.paymentsList.searchToken += 1;
       state.paymentsList.page = 0;
       state.paymentsList.items = [];
@@ -208,12 +203,12 @@ export const createPaymentsListSlice: StateCreator<
     await get().paymentsList.fetchPayments();
   },
 
-  // Resets to the default view: payments recorded in the current month.
+  // Resets to the default view: payments recorded today.
   clearFilters: async () => {
     set((state) => {
       state.paymentsList.customerFilter = null;
       state.paymentsList.paidByUserId = null;
-      state.paymentsList.paidMonth = currentMonth();
+      state.paymentsList.paidDate = getTodayDateString();
       state.paymentsList.billingMonth = null;
       state.paymentsList.statusFilter = 'all';
       state.paymentsList.searchToken += 1;
@@ -287,7 +282,7 @@ export const createPaymentsListSlice: StateCreator<
       state.paymentsList.searchToken += 1;
       state.paymentsList.customerFilter = null;
       state.paymentsList.paidByUserId = null;
-      state.paymentsList.paidMonth = currentMonth();
+      state.paymentsList.paidDate = getTodayDateString();
       state.paymentsList.billingMonth = null;
       state.paymentsList.statusFilter = 'all';
     }),

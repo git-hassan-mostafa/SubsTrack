@@ -241,7 +241,7 @@
     "for_month": "for {{month}}",
     "filter_by_user": "Collected by",
     "all_users": "All staff",
-    "paid_month": "Paid in",
+    "paid_date": "Paid on",
     "billing_month": "For month",
     "filter_by_status": "Status",
     "all_statuses": "All statuses",

@@ -242,7 +242,7 @@
     "for_month": "عن {{month}}",
     "filter_by_user": "حصّلها",
     "all_users": "كل الموظفين",
-    "paid_month": "دُفعت في",
+    "paid_date": "دُفعت في",
     "billing_month": "عن شهر",
     "filter_by_status": "الحالة",
     "all_statuses": "كل الحالات",
