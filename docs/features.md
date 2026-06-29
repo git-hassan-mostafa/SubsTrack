@@ -15,6 +15,7 @@
 - [Products & One-Off Sales](#products--one-off-sales)
 - [Invoices Hub](#invoices-hub)
 - [Regular Customer](#regular-customer)
+- [Multiple Plans per Customer (service lines)](#multiple-plans-per-customer-service-lines)
 - [Payment Scenarios](#payment-scenarios)
 - [Multi-Select & Bulk Actions](#multi-select--bulk-actions)
 
@@ -327,11 +328,35 @@ See gotcha #16.
 
 ---
 
+## Multiple Plans per Customer (service lines)
+
+A customer can subscribe to **several plans at once** (e.g. an ISP customer with internet + IPTV), each paid independently. The model splits the account from the service:
+
+- **`customers`** — the account/person (name, phone, branch, `is_regular`, `active`). No `plan_id`.
+- **`customer_plans`** (a **service line**) — one plan the customer is on, with its **own** `start_date`, `cancelled_at`, and `active`. `plan_id` may be NULL for a custom/occasional line.
+- **`payments`** — link to a line via `customer_plan_id`; uniqueness is `UNIQUE(customer_plan_id, billing_month)`, so each line is paid separately for the same month. `plan_id` stays as the price snapshot.
+
+**Layers.** New `customer-plans` module (repository / service / mapper) mirrors `plans`. The thin `customerPlans` slice exposes one action, `syncLines(customerId, lines, removedIds, tenantId)`, which applies the customer form's inline Plans editor (delete removed, then create/update the rest) and refreshes the owning customer (`get().customers.fetchCustomer`) so its `customerPlans` — and the grids built from them — re-render.
+
+**Managing plans — in the customer form.** Add / change / remove plans happens **inline in `CustomerFormSheet`** (create AND edit): a "Plans" section lists one row per line — each row is the **plan dropdown + an inline start-date picker + a delete button on one line** — plus an "Add plan" button (minimum one row — a plan-less row records custom amounts). The start date is editable per line; new rows default to the customer's start date. On save, the form creates/updates the customer then calls `syncLines`. **Remove** = hard-delete a line with no payments, else soft-cancel (`active = false`) so payment history is never lost. Every customer ends up with ≥1 line.
+
+**Month grid.** `PaymentService.buildMonthGrid(customerPlan, payments, year, graceDays)` builds **one grid per line** (payments pre-scoped to the line, boundary = `line.startDate`). The payment slice keeps `monthGridsByLine` keyed by line id; the algorithm is otherwise unchanged (rule #1).
+
+**Customer detail (tabbed, view-only selector).** `CustomerPaymentPanel` shows a **line selector** (tabs) above the year card; one line's grid at a time. A single-line customer auto-selects it and hides the selector, so it looks exactly like before. Cancelled lines stay visible (dimmed) for history. The selector does **not** add/edit/remove lines — that's the customer form's job. Pay / void actions are scoped to the selected line and pass `line.id` as `customerPlanId`.
+
+**Aggregation across lines.** Customer-list status is aggregated over a customer's **active** lines: fully-paid (green) only when every line is settled, partial (amber) when some coverage exists, overdue (red) if any active line has an unpaid month (`findOverdueCustomerIds` / `findPaymentStatusForMonth` / `computeCurrentMonthStatus`).
+
+**Collect all due.** Customer-list Quick Pay (single or bulk) pays **every eligible fixed-price line** for the current month in one batch via `bulkPayCustomers` (one `BulkPayCustomerRequest` per line). Custom-price / plan-less customers fall back to the detail form. The Invoices → Payments rows show the plan name so a customer's lines are distinguishable.
+
+See gotchas #1, #16, #25, #41.
+
+---
+
 ## Payment Scenarios
 
 | Scenario        | Condition                                                  | Amount field                                                                        |
 | --------------- | ---------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| A — Fixed       | Plan exists, `isCustomPrice = false`, `durationMonths = 1` | Pre-filled with `plan.price`, read-only                                             |
+| A — Fixed       | Line's plan exists, `isCustomPrice = false`, `durationMonths = 1` | Pre-filled with `plan.price`, read-only                                      |
 | B — Override    | Same as A, user toggles override                           | Radio: "Plan price" or "Custom amount"                                              |
 | C — Custom      | `isCustomPrice = true`, or no plan                         | Amount input required, no default                                                   |
 | D — Multi-month | Plan exists, `isCustomPrice = false`, `durationMonths > 1` | Pre-filled with `plan.price` (bundle), read-only; calls `createMultiMonthPayment()` |

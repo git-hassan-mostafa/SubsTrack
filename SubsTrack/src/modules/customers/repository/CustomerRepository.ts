@@ -2,7 +2,11 @@ import { BaseRepository } from '@/src/core/utils/BaseRepository';
 import { PAGE_SIZE, type BranchFilter } from '@/src/core/constants';
 import type { DbCustomer } from '@/src/core/types/db';
 
-type CustomerWithPlan = DbCustomer & { plans: DbCustomer['plans'] };
+// A customer row with its service lines (each carrying its joined plan).
+type CustomerWithLines = DbCustomer;
+
+// Selects the customer plus its service lines and each line's plan.
+const SELECT = '*, customer_plans(*, plans(*))';
 
 type CreateCustomerPayload = Pick<
   DbCustomer,
@@ -11,7 +15,6 @@ type CreateCustomerPayload = Pick<
   | 'address'
   | 'area'
   | 'notes'
-  | 'plan_id'
   | 'branch_id'
   | 'tenant_id'
   | 'start_date'
@@ -25,14 +28,14 @@ class CustomerRepository extends BaseRepository {
     page: number,
     searchQuery?: string,
     branchFilter: BranchFilter = null,
-  ): Promise<CustomerWithPlan[]> {
+  ): Promise<CustomerWithLines[]> {
     const from = page * PAGE_SIZE;
     const to = from + PAGE_SIZE - 1;
     // Strip PostgREST-reserved chars that break .or() parsing.
     const q = (searchQuery ?? '').trim().replace(/[,()]/g, '');
     let query = this.db
       .from('customers')
-      .select('*, plans(*)')
+      .select(SELECT)
       .order('name');
     query = this.applyBranchFilter(query, branchFilter, this.BRANCH_SCOPES.customers);
     if (q) {
@@ -42,64 +45,64 @@ class CustomerRepository extends BaseRepository {
     }
     const { data, error } = await query.range(from, to);
     if (error) this.handleError(error);
-    return (data ?? []) as CustomerWithPlan[];
+    return (data ?? []) as CustomerWithLines[];
   }
 
-  async findById(id: string): Promise<CustomerWithPlan> {
+  async findById(id: string): Promise<CustomerWithLines> {
     const { data, error } = await this.db
       .from('customers')
-      .select('*, plans(*)')
+      .select(SELECT)
       .eq('id', id)
       .single();
     if (error) this.handleError(error);
     if (!data) throw new Error('Customer not found');
-    return data as CustomerWithPlan;
+    return data as CustomerWithLines;
   }
 
-  async create(payload: CreateCustomerPayload): Promise<CustomerWithPlan> {
+  async create(payload: CreateCustomerPayload): Promise<CustomerWithLines> {
     const { data, error } = await this.db
       .from('customers')
       .insert(payload)
-      .select('*, plans(*)')
+      .select(SELECT)
       .single();
     if (error) this.handleError(error);
-    return data as CustomerWithPlan;
+    return data as CustomerWithLines;
   }
 
   async update(
     id: string,
-    payload: Partial<Pick<DbCustomer, 'name' | 'phone_number' | 'address' | 'area' | 'notes' | 'plan_id' | 'branch_id' | 'start_date' | 'is_regular'>>,
-  ): Promise<CustomerWithPlan> {
+    payload: Partial<Pick<DbCustomer, 'name' | 'phone_number' | 'address' | 'area' | 'notes' | 'branch_id' | 'start_date' | 'is_regular'>>,
+  ): Promise<CustomerWithLines> {
     const { data, error } = await this.db
       .from('customers')
       .update(payload)
       .eq('id', id)
-      .select('*, plans(*)')
+      .select(SELECT)
       .single();
     if (error) this.handleError(error);
-    return data as CustomerWithPlan;
+    return data as CustomerWithLines;
   }
 
-  async deactivate(id: string): Promise<CustomerWithPlan> {
+  async deactivate(id: string): Promise<CustomerWithLines> {
     const { data, error } = await this.db
       .from('customers')
       .update({ active: false, cancelled_at: new Date().toISOString() })
       .eq('id', id)
-      .select('*, plans(*)')
+      .select(SELECT)
       .single();
     if (error) this.handleError(error);
-    return data as CustomerWithPlan;
+    return data as CustomerWithLines;
   }
 
-  async reactivate(id: string): Promise<CustomerWithPlan> {
+  async reactivate(id: string): Promise<CustomerWithLines> {
     const { data, error } = await this.db
       .from('customers')
       .update({ active: true, cancelled_at: null })
       .eq('id', id)
-      .select('*, plans(*)')
+      .select(SELECT)
       .single();
     if (error) this.handleError(error);
-    return data as CustomerWithPlan;
+    return data as CustomerWithLines;
   }
 
   async countPayments(id: string): Promise<number> {
@@ -165,20 +168,19 @@ class CustomerRepository extends BaseRepository {
     billingMonth: string,
     branchFilter: BranchFilter = null,
   ): Promise<number> {
-    // Count active regular customers who do NOT have a payment covering the given month.
-    // Includes multi-month payments that started earlier but still cover this month.
+    // Count active regular customers with at least one active service line that
+    // has NO payment covering the given month. Lines (and the payments below)
+    // inherit the customer's branch via the inner join, so the branch filter
+    // scopes both. Includes multi-month payments that still cover this month.
     const [year, monthStr] = billingMonth.split('-').map(Number);
     const cutoffDate = new Date(year, monthStr - 1 - 12, 1);
     const cutoff = `${cutoffDate.getFullYear()}-${String(cutoffDate.getMonth() + 1).padStart(2, '0')}-01`;
     const target = new Date(billingMonth);
 
     // amount_paid = 0 is excluded — a zero-paid partial is treated as unpaid.
-    // Payments inherit the customer's branch via the inner join, so the same
-    // branch filter that scopes the customer count below also scopes which
-    // payments we read here.
     let paymentsQuery = this.db
       .from('payments')
-      .select('customer_id, billing_month, duration_months, amount_paid, customers!inner(branch_id)')
+      .select('customer_plan_id, billing_month, duration_months, amount_paid, customers!inner(branch_id)')
       .lte('billing_month', billingMonth)
       .gte('billing_month', cutoff)
       .is('voided_at', null)
@@ -187,32 +189,35 @@ class CustomerRepository extends BaseRepository {
     const { data: payments, error: pErr } = await paymentsQuery;
     if (pErr) this.handleError(pErr);
 
-    type PaymentRow = {
-      customer_id: string;
-      billing_month: string;
-      duration_months: number;
-    };
-    const paidIds = new Set(
-      (payments as PaymentRow[] | null ?? [])
+    const coveredLineIds = new Set(
+      ((payments as { customer_plan_id: string; billing_month: string; duration_months: number }[] | null) ?? [])
         .filter((r) => {
           const start = new Date(r.billing_month);
           const end = new Date(start);
           end.setMonth(end.getMonth() + r.duration_months - 1);
           return end >= target;
         })
-        .map((r) => r.customer_id),
+        .map((r) => r.customer_plan_id),
     );
 
-    let activeQuery = this.db
-      .from('customers')
-      .select('id')
+    // Active lines on active, regular customers (started by this month).
+    let linesQuery = this.db
+      .from('customer_plans')
+      .select('id, customer_id, start_date, customers!inner(active, is_regular, branch_id)')
       .eq('active', true)
-      .eq('is_regular', true);
-    activeQuery = this.applyBranchFilter(activeQuery, branchFilter, this.BRANCH_SCOPES.customers);
-    const { data: active, error: cErr } = await activeQuery;
-    if (cErr) this.handleError(cErr);
+      .eq('customers.active', true)
+      .eq('customers.is_regular', true);
+    linesQuery = this.applyBranchFilter(linesQuery, branchFilter, this.BRANCH_SCOPES.customer_plans);
+    const { data: lines, error: lErr } = await linesQuery;
+    if (lErr) this.handleError(lErr);
 
-    return (active ?? []).filter((c: { id: string }) => !paidIds.has(c.id)).length;
+    const unpaidCustomers = new Set<string>();
+    for (const l of ((lines as { id: string; customer_id: string; start_date: string }[] | null) ?? [])) {
+      const [sy, sm] = l.start_date.split('-').map(Number);
+      if (new Date(`${sy}-${String(sm).padStart(2, '0')}-01`) > target) continue; // not started yet
+      if (!coveredLineIds.has(l.id)) unpaidCustomers.add(l.customer_id);
+    }
+    return unpaidCustomers.size;
   }
 }
 

@@ -3,7 +3,7 @@ import { TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { ConfirmDialog } from "@/src/shared/components/ConfirmDialog";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
-import type { Customer } from "@/src/core/types";
+import type { CustomerPlan } from "@/src/core/types";
 import { useAuth } from "@/src/modules/auth";
 import { usePaymentSlice } from "@/src/state/hooks/usePaymentSlice";
 import { getStore } from "@/src/state/globalStore";
@@ -11,7 +11,7 @@ import { COLORS } from "@/src/shared/constants";
 
 interface Props {
   paymentIds: string[];
-  customer: Customer;
+  lines: CustomerPlan[];
   year: number;
   graceDays: number;
   onVoided: () => void;
@@ -22,7 +22,7 @@ interface Props {
 // voidPayments action.
 export function BulkVoidSheet({
   paymentIds,
-  customer,
+  lines,
   year,
   graceDays,
   onVoided,
@@ -38,7 +38,7 @@ export function BulkVoidSheet({
   async function handleConfirm() {
     if (!user) return;
     clearError();
-    await voidPayments(paymentIds, user.id, reason, customer, year, graceDays);
+    await voidPayments(paymentIds, user.id, reason, lines, year, graceDays);
     if (!getStore().getState().payments.error) {
       setReason("");
       onVoided();

@@ -27,8 +27,8 @@ This file is the lean core — always-needed context. Deeper detail lives in `do
 | File                                                   | Read it before…                                              | Covers                                                                                                                                   |
 | ------------------------------------------------------ | ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------- |
 | [docs/project-structure.md](docs/project-structure.md) | navigating to a specific file                                | full directory trees for SubsTrack + SuperAdmin                                                                                          |
-| [docs/features.md](docs/features.md)                   | editing a feature's behavior                                 | multi-tenancy, branches, auth flow, multi-month, multi-currency, app options, tiers, products/sales, invoices hub (Sales/Payments tabs), regular customer, payment scenarios |
-| [docs/gotchas.md](docs/gotchas.md)                     | editing payments / currency / branches / sales / signup code | the 40 non-obvious patterns & gotchas (with an area index at the top)                                                                    |
+| [docs/features.md](docs/features.md)                   | editing a feature's behavior                                 | multi-tenancy, branches, auth flow, multi-month, multi-currency, app options, tiers, products/sales, invoices hub (Sales/Payments tabs), regular customer, payment scenarios, multiple plans per customer (service lines) |
+| [docs/gotchas.md](docs/gotchas.md)                     | editing payments / currency / branches / sales / signup code | the 41 non-obvious patterns & gotchas (with an area index at the top)                                                                    |
 | [docs/edge-functions.md](docs/edge-functions.md)       | touching auth/user/tenant creation                           | `create-user`, `update-user-password`, `create-tenant`                                                                                   |
 
 When you need the exact current file layout, prefer a quick file search over trusting the tree in `docs/project-structure.md` — it can go stale.
@@ -158,8 +158,9 @@ TierPlan     { id, code /*free|pro|business*/, name, sortOrder, maxCustomers, ma
 TenantUsage  { customers, users, plans, branches, currencies }
 TierResource = "customers" | "users" | "plans" | "branches" | "currencies"
 Plan         { id, name, price, isCustomPrice, durationMonths /*1–12*/, currencyId /*null=USD*/, branchId /*null=SHARED*/, tenantId, createdAt }
-Customer     { id, name, phoneNumber, address, area?, notes?, active, isRegular /*subscription vs occasional*/, planId, branchId /*null=UNASSIGNED*/, tenantId, startDate, cancelledAt, createdAt, updatedAt, plan? }
-Payment      { id, billingMonth /*YYYY-MM-01*/, amountDue /*snapshot*/, amountPaid /*≤due; 0=unpaid slot*/, balance /*generated*/, durationMonths /*≥1*/, currencyId /*null=USD*/, ratePerUsdSnapshot /*frozen rate; USD=1*/, customerId, planId, receivedByUserId, tenantId, paidAt, voidedAt, voidedBy, notes, createdAt }
+Customer     { id, name, phoneNumber, address, area?, notes?, active, isRegular /*subscription vs occasional*/, branchId /*null=UNASSIGNED*/, tenantId, startDate, cancelledAt, createdAt, updatedAt, customerPlans? /*service lines*/ }
+CustomerPlan { id, customerId, planId /*null=custom/occasional line*/, startDate, cancelledAt, active, tenantId, createdAt, updatedAt, plan? } /*one service line; a customer can hold several, each paid independently*/
+Payment      { id, billingMonth /*YYYY-MM-01*/, amountDue /*snapshot*/, amountPaid /*≤due; 0=unpaid slot*/, balance /*generated*/, durationMonths /*≥1*/, currencyId /*null=USD*/, ratePerUsdSnapshot /*frozen rate; USD=1*/, customerId, customerPlanId /*the service line*/, planId /*price snapshot*/, receivedByUserId, tenantId, paidAt, voidedAt, voidedBy, notes, createdAt }
 MonthEntry   { year, month, label, billingMonth, status: MonthStatus, payment: Payment|null, isGroupSecondary /*true for months 2+ of a multi-month payment*/ }
 DashboardMetrics { totalCustomers, activeCustomers, monthlyRevenue, unpaidThisMonth, totalUsers, totalPlans }
 ```
@@ -177,8 +178,9 @@ DashboardMetrics { totalCustomers, activeCustomers, monthlyRevenue, unpaidThisMo
 | `branches`    | `id`, `tenant_id`, `name`, `active`                                                                                                                                                                                                                     |
 | `users`       | `id` (= auth.users.id), `username`, `full_name`, `phone_number`, `role`, `active`, `tenant_id`, `branch_id`                                                                                                                                             |
 | `plans`       | `id`, `name`, `price`, `is_custom_price`, `duration_months`, `currency_id`, `branch_id`, `tenant_id`                                                                                                                                                    |
-| `customers`   | `id`, `name`, `phone_number`, `address`, `area`, `notes`, `active`, `is_regular`, `plan_id`, `branch_id`, `tenant_id`, `start_date`, `cancelled_at`                                                                                                     |
-| `payments`    | `id`, `billing_month` (YYYY-MM-01), `amount_due`, `amount_paid`, `balance` (gen), `duration_months`, `currency_id`, `rate_per_usd_snapshot`, `customer_id`, `plan_id`, `received_by_user_id`, `tenant_id`, `paid_at`, `voided_at`, `voided_by`, `notes` |
+| `customers`   | `id`, `name`, `phone_number`, `address`, `area`, `notes`, `active`, `is_regular`, `branch_id`, `tenant_id`, `start_date`, `cancelled_at` (NO `plan_id` — a customer's plans live in `customer_plans`)                                                    |
+| `customer_plans` | `id`, `customer_id`, `plan_id` (null=custom/occasional line), `start_date`, `cancelled_at`, `active`, `tenant_id` — **one service line per row**; a customer can hold several plans, each paid independently. No own `branch_id` (RLS inherits the customer's). |
+| `payments`    | `id`, `billing_month` (YYYY-MM-01), `amount_due`, `amount_paid`, `balance` (gen), `duration_months`, `currency_id`, `rate_per_usd_snapshot`, `customer_id`, `customer_plan_id` (the service line), `plan_id` (price snapshot), `received_by_user_id`, `tenant_id`, `paid_at`, `voided_at`, `voided_by`, `notes` |
 
 (`products` + `sales` tables also exist — see [docs/features.md](docs/features.md) → Products & One-Off Sales.)
 
@@ -188,9 +190,9 @@ DashboardMetrics { totalCustomers, activeCustomers, monthlyRevenue, unpaidThisMo
 - `UNIQUE(tenant_id, branch_id, name)` on plans — same name can coexist as "Shared" + branch-specific (NULLs are unequal in PG)
 - `UNIQUE(tenant_id, name)` on branches
 - `UNIQUE(tenant_id, code)` on currencies; `code` is enforced uppercase and not 'USD'
-- `UNIQUE(customer_id, billing_month)` on payments (enforced at DB level and in PaymentService)
-- `plan_id` on customers: `ON DELETE SET NULL`
-- `customer_id` on payments: `ON DELETE CASCADE`
+- `UNIQUE(customer_plan_id, billing_month)` on payments — one payment per **service line** per month (was `(customer_id, billing_month)`); a customer with several lines can pay each line for the same month
+- `plan_id` on customer_plans: `ON DELETE SET NULL` (deleting a plan leaves the line plan-less; payment history kept via `payments.plan_id` snapshot)
+- `customer_id` on customer_plans / payments: `ON DELETE CASCADE`; `customer_plan_id` on payments: `ON DELETE CASCADE`
 - `branch_id` on users / customers / plans: `ON DELETE SET NULL` (deleting a branch reverts records to "unassigned" / "shared")
 - `currency_id` on plans and payments: `ON DELETE RESTRICT` (use `active = false` soft-delete on currencies instead)
 
@@ -198,11 +200,11 @@ DashboardMetrics { totalCustomers, activeCustomers, monthlyRevenue, unpaidThisMo
 
 ## Critical Business Logic: Month Grid
 
-**`PaymentService.buildMonthGrid(customer, payments, year, graceDays)`** is the **single source of truth** for month status. No other file may reimplement this.
+**`PaymentService.buildMonthGrid(customerPlan, payments, year, graceDays)`** is the **single source of truth** for month status. No other file may reimplement this. It builds the grid for **one service line** (`CustomerPlan`): `payments` are pre-scoped to that line and `customerPlan.startDate` sets the before_start boundary. A customer with several lines renders one grid per line (the payment slice keeps `monthGridsByLine`, keyed by line id).
 
 ```
 Status algorithm per month:
-1. month < customer.startDate                              → "before_start" (gray, non-tappable)
+1. month < line.startDate                                  → "before_start" (gray, non-tappable)
 2. payment exists, voidedAt === null, balance === 0        → "paid" (green for regular, yellow for non-regular)
 3. payment exists, voidedAt === null, balance > 0          → "partial" (amber for both regular + non-regular)
 4. month is in the future                                  → "future" (gray)
@@ -215,6 +217,7 @@ Status algorithm per month:
 - `graceDays` comes from the tenant's current `TierPlan` (fetched by the `subscription` module during auth). The `useGraceDays()` selector hook is the single read site for components.
 - Multi-month payments build a **coverage map**: each payment with `durationMonths > 1` covers consecutive months. Months 2+ in a block have `isGroupSecondary = true` and display "Included" instead of "Paid". A partial bundle shows every covered month as `"partial"`.
 - `customer.isRegular` controls cell colors and unpaid-banner visibility. `"partial"` uses amber for everyone — a balance is owed either way.
+- **Multiple plans per customer:** a customer holds 1..N service lines (`customer_plans`), each its own grid + independent payments. Lines are added / changed / removed from the **customer form's inline Plans editor** (`customerPlans.syncLines`); the payment panel's line selector is **view-only**. Overdue / current-month status sets are **aggregated across a customer's active lines** (`findOverdueCustomerIds`, `findPaymentStatusForMonth`, `computeCurrentMonthStatus`): fully-paid only when every active line is settled, partial when some coverage exists, overdue if any active line has an unpaid month. Customer-list "Collect all due" pays every eligible fixed-price line for the current month at once. Full detail in [docs/features.md](docs/features.md) → Multiple Plans per Customer.
 - A `"partial"` month behaves like `"paid"` everywhere a payment record matters (tap opens `PaymentDetailSheet`, multi-month grouping merges them, year summary counts them as paid, `PaymentFormSheet` treats them as multi-month conflicts). The unpaid banner / unpaid tab only fire for `"unpaid"`.
 
 > Recording multi-month payments (`createMultiMonthPayment`, conflict resolution), the full payment scenarios (A/B/C/D, full vs partial, edit-payment re-snapshot), and the snapshot/currency rules are in [docs/features.md](docs/features.md) and [docs/gotchas.md](docs/gotchas.md).

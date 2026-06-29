@@ -129,11 +129,16 @@ SubsTrack/
 │   │   │   └── screens/TenantSettingsScreen.tsx  # admin-only: display currency + branches CRUD + currencies CRUD
 │   │   │
 │   │   ├── customers/
-│   │   │   ├── repository/CustomerRepository.ts
-│   │   │   ├── services/CustomerService.ts
+│   │   │   ├── repository/CustomerRepository.ts   # joins customer_plans(*, plans(*)); no plan_id
+│   │   │   ├── services/CustomerService.ts        # createCustomer also creates the initial service line
 │   │   │   ├── screens/CustomerListScreen.tsx
 │   │   │   ├── screens/CustomerDetailScreen.tsx
 │   │   │   └── components/{CustomerCard, CustomerDetailsCard, CustomerFormSheet}.tsx
+│   │   │
+│   │   ├── customer-plans/                        # service lines (multiple plans per customer)
+│   │   │   ├── repository/CustomerPlanRepository.ts
+│   │   │   ├── services/CustomerPlanService.ts    # createLine/updateLine/deleteLine + syncLines
+│   │   │   └── utils/mapper.ts                     # managed inline from CustomerFormSheet's Plans section
 │   │   │
 │   │   ├── customer-payments/                    # (note: directory name is customer-payments)
 │   │   │   ├── repository/PaymentRepository.ts   # per-customer findByCustomer + tenant-wide findAll (Payments list)

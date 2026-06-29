@@ -89,6 +89,7 @@ export function PaymentListCard({
         </Text>
         <Text className="text-xs text-gray-400 mt-0.5" numberOfLines={1}>
           {t("payments.for_month", { month: monthLabel })}
+          {payment.planName ? ` · ${payment.planName}` : ""}
         </Text>
       </View>
 

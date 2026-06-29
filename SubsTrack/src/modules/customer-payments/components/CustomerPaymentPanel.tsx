@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
-import { ActivityIndicator, View } from "react-native";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ActivityIndicator, ScrollView, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
@@ -11,7 +12,7 @@ import {
   ActionMenu,
   type ActionMenuItem,
 } from "@/src/shared/components/ActionMenu";
-import type { Customer, MonthEntry } from "@/src/core/types";
+import type { Customer, CustomerPlan, MonthEntry } from "@/src/core/types";
 import { getCurrentYearMonth, getDateLocale } from "@/src/core/utils/date";
 import {
   findCurrency,
@@ -52,6 +53,13 @@ interface CustomerPaymentPanelProps {
   customer: Customer;
 }
 
+const EMPTY_GRID: MonthEntry[] = [];
+
+// Label for a service line tab/header: its plan name, else a "no plan" tag.
+function lineLabel(line: CustomerPlan, noPlan: string): string {
+  return line.plan?.name || noPlan;
+}
+
 export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
   const { t, i18n } = useTranslation();
   const locale = getDateLocale(i18n.language);
@@ -65,7 +73,13 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
   const displayCurrency = findCurrency(currencies, displayCurrencyId);
   const graceDays = useGraceDays();
 
+  // All of the customer's service lines (active + cancelled). Grids are built
+  // for every line so a cancelled line's history stays viewable.
+  const lines = useMemo(() => customer.customerPlans ?? [], [customer.customerPlans]);
+  const linesKey = lines.map((l) => `${l.id}:${l.active}:${l.startDate}:${l.planId}`).join(",");
+
   const [year, setYear] = useState(getCurrentYearMonth().year);
+  const [selectedLineId, setSelectedLineId] = useState<string | null>(null);
   const [selectedEntry, setSelectedEntry] = useState<MonthEntry | null>(null);
   const [menuEntry, setMenuEntry] = useState<MonthEntry | null>(null);
   const [quickPayMonth, setQuickPayMonth] = useState<string | null>(null);
@@ -74,44 +88,65 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
   const [voidVisible, setVoidVisible] = useState(false);
   const quickPayHandledRef = useRef(false);
 
-  // Month-grid multi-select (ephemeral UI state).
   const selection = useSelection();
   useSelectionBackHandler(selection.active, selection.clear);
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkPayVisible, setBulkPayVisible] = useState(false);
   const [bulkVoidIds, setBulkVoidIds] = useState<string[] | null>(null);
 
-  // Loads every year's payments once per customer; switching years rebuilds the
-  // grid from the store instead of re-fetching.
+  // Keep a valid line selected as lines load / change (prefer active lines).
   useEffect(() => {
-    paymentStore.getPayments(customer.id, year, customer, graceDays);
-  }, [customer.id, year, customer.startDate]);
+    if (lines.length === 0) {
+      setSelectedLineId(null);
+      return;
+    }
+    if (!selectedLineId || !lines.some((l) => l.id === selectedLineId)) {
+      const firstActive = lines.find((l) => l.active) ?? lines[0];
+      setSelectedLineId(firstActive.id);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [linesKey]);
 
-  // Selected billing months belong to the viewed year only — drop the
-  // selection when the year changes.
+  const selectedLine = lines.find((l) => l.id === selectedLineId) ?? null;
+  const plan = selectedLine?.plan ?? null;
+  const grid = selectedLine
+    ? paymentStore.monthGridsByLine[selectedLine.id] ?? EMPTY_GRID
+    : EMPTY_GRID;
+
+  // Loads every line's payments once per customer; switching years/lines
+  // rebuilds the grids from the store instead of re-fetching.
+  useEffect(() => {
+    if (lines.length > 0) {
+      paymentStore.getPayments(customer.id, lines, year, graceDays);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [customer.id, year, linesKey]);
+
   useEffect(() => {
     selection.clear();
-  }, [year]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [year, selectedLineId]);
 
   useEffect(() => {
     return () => paymentStore.reset();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Handle ?quickPay=1 handshake from the customer list: auto-open the payment
-  // form for the current month once the grid is ready. Fires at most once.
+  // ?quickPay=1 handshake from the customer list: open the form for the current
+  // month of the (first) selected line once its grid is ready. Fires at most once.
   useEffect(() => {
     if (quickPay !== "1" || quickPayHandledRef.current) return;
-    if (paymentStore.loading || paymentStore.monthGrid.length === 0) return;
+    if (paymentStore.loading || grid.length === 0) return;
     const { year: cy, month: cm } = getCurrentYearMonth();
-    const currentEntry = paymentStore.monthGrid.find(
-      (m) => m.year === cy && m.month === cm,
-    );
+    const currentEntry = grid.find((m) => m.year === cy && m.month === cm);
     if (!currentEntry) return;
     quickPayHandledRef.current = true;
     setSelectedEntry(currentEntry);
     setFormVisible(true);
     router.setParams({ quickPay: undefined });
-  }, [quickPay, paymentStore.loading, paymentStore.monthGrid, router]);
+  }, [quickPay, paymentStore.loading, grid, router]);
+
+  const lineActive = selectedLine?.active ?? false;
 
   function handleCellPress(entry: MonthEntry) {
     if (entry.status === "before_start") {
@@ -127,7 +162,8 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
     const { year: cy, month: cm } = getCurrentYearMonth();
     const isFutureMonth =
       entry.year > cy || (entry.year === cy && entry.month > cm);
-    if (!customer.active && isFutureMonth) {
+    // Future months are blocked when either the customer OR the line is inactive.
+    if ((!customer.active || !lineActive) && isFutureMonth) {
       void confirm({
         title: t("common.not_available"),
         message: t("payments.inactive_future_blocked"),
@@ -143,7 +179,6 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
       (entry.status === "paid" || entry.status === "partial") &&
       entry.payment
     ) {
-      // Both primary and secondary grouped months open the same detail sheet.
       setDetailVisible(true);
     } else {
       setFormVisible(true);
@@ -154,20 +189,19 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
     setVoidVisible(true);
   }
 
-  // Quick Pay is available on unpaid + future (prepay) months with a fixed-price
-  // plan — custom-price or planless months fall back to the form (handled in
-  // handleQuickPay).
+  // Quick Pay is available on unpaid + future (prepay) months of an active line
+  // with a fixed-price plan — custom-price / planless fall back to the form.
   function canQuickPay(entry: MonthEntry): boolean {
     return (
       customer.active &&
+      lineActive &&
       (entry.status === "unpaid" || entry.status === "future") &&
-      customer.plan != null &&
-      !customer.plan.isCustomPrice &&
-      customer.plan.price !== null
+      plan != null &&
+      !plan.isCustomPrice &&
+      plan.price !== null
     );
   }
 
-  // A non-voided payment exists on this month (primary or grouped secondary cell).
   function hasActivePayment(entry: MonthEntry): boolean {
     return (
       (entry.status === "paid" || entry.status === "partial") &&
@@ -176,12 +210,8 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
     );
   }
 
-  // Records a full payment for the tapped month without opening the form, mirroring
-  // the customer-list Quick Pay: single-month plans pay instantly, multi-month plans
-  // confirm first, and custom-price / planless plans defer to the manual form.
   async function handleQuickPay(entry: MonthEntry) {
-    const plan = customer.plan;
-    if (!plan || plan.isCustomPrice || plan.price === null || !user) {
+    if (!selectedLine || !plan || plan.isCustomPrice || plan.price === null || !user) {
       setSelectedEntry(entry);
       setFormVisible(true);
       return;
@@ -204,6 +234,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
         await paymentStore.createMultiMonthPayment(
           entry.billingMonth,
           customer,
+          selectedLine.id,
           plan,
           planCurrency,
           plan.price,
@@ -211,6 +242,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
           null,
           user.tenantId,
           false,
+          lines,
           year,
           graceDays,
           currentTier,
@@ -231,13 +263,14 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
           durationMonths: 1,
           currencyId: plan.currencyId,
           customerId: customer.id,
+          customerPlanId: selectedLine.id,
           planId: plan.id,
           receivedByUserId: user.id,
           tenantId: user.tenantId,
           notes: null,
         },
         planCurrency,
-        customer,
+        lines,
         graceDays,
       );
     } finally {
@@ -289,7 +322,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
       next.amountDue,
       next.amountPaid,
       findCurrency(currencies, next.currencyId),
-      customer,
+      lines,
       year,
       graceDays,
     );
@@ -298,15 +331,12 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
 
   // --- Multi-select (bulk) ---------------------------------------------------
 
-  const selectedEntries = paymentStore.monthGrid.filter((m) =>
+  const selectedEntries = grid.filter((m) =>
     selection.selectedIds.has(m.billingMonth),
   );
-  // Payable: unpaid (any time) or future on an active customer (prepay). An
-  // inactive customer's future months stay blocked, matching the per-cell flow.
   const payableEntries = selectedEntries.filter(
-    (e) => e.status === "unpaid" || (e.status === "future" && customer.active),
+    (e) => e.status === "unpaid" || (e.status === "future" && customer.active && lineActive),
   );
-  // Voidable: backed by a live payment (includes grouped secondary cells).
   const voidableEntries = selectedEntries.filter(
     (e) =>
       (e.status === "paid" || e.status === "partial") &&
@@ -315,18 +345,17 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
   );
 
   function handleCellToggle(entry: MonthEntry) {
-    const unit = expandSelectionUnit(entry, paymentStore.monthGrid, customer);
+    if (!selectedLine) return;
+    const unit = expandSelectionUnit(entry, grid, selectedLine);
     if (unit.length > 0) selection.toggleMany(unit);
   }
 
   function handleCellLongPress(entry: MonthEntry) {
-    const unit = expandSelectionUnit(entry, paymentStore.monthGrid, customer);
+    if (!selectedLine) return;
+    const unit = expandSelectionUnit(entry, grid, selectedLine);
     if (unit.length > 0) selection.enterWith(unit);
   }
 
-  // True after a bulk action if the slice recorded an error/tier-limit. The
-  // panel's ErrorBanner (and UpgradePromptModal) surface those automatically, so
-  // we only need to know whether to keep the selection for a retry.
   function bulkSucceeded(): boolean {
     const ps = getStore().getState().payments;
     return !ps.error && !ps.tierLimitError;
@@ -334,7 +363,6 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
 
   function runBulkPay() {
     if (bulkBusy || payableEntries.length === 0) return;
-    const plan = customer.plan;
     if (!plan || plan.isCustomPrice) {
       setBulkPayVisible(true);
     } else if (plan.durationMonths > 1) {
@@ -344,11 +372,8 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
     }
   }
 
-  // Fixed single-month plan: full plan price for each selected payable month,
-  // recorded in one batch write.
   async function runBulkFixedPay() {
-    const plan = customer.plan;
-    if (!user || !plan || plan.price === null) return;
+    if (!user || !selectedLine || !plan || plan.price === null) return;
     const ok = await confirm({
       title: t("payments.quick_pay.pay_now"),
       message: t("payments.bulk_pay_message", { count: payableEntries.length }),
@@ -363,6 +388,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
       durationMonths: 1,
       currencyId: plan.currencyId,
       customerId: customer.id,
+      customerPlanId: selectedLine.id,
       planId: plan.id,
       receivedByUserId: user.id,
       tenantId: user.tenantId,
@@ -371,19 +397,16 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
     paymentStore.clearError();
     setBulkBusy(true);
     try {
-      await paymentStore.createPayments(inputs, planCurrency, customer, year, graceDays);
+      await paymentStore.createPayments(inputs, planCurrency, lines, year, graceDays);
     } finally {
       setBulkBusy(false);
     }
     if (bulkSucceeded()) selection.clear();
   }
 
-  // Multi-month plan: one full-price block payment per distinct selected block,
-  // all in one batch write.
   async function runBulkMultiMonthPay() {
-    const plan = customer.plan;
-    if (!user || !plan || plan.price === null || !currentTier) return;
-    const blocks = groupPayableBlocks(payableEntries, customer);
+    if (!user || !selectedLine || !plan || plan.price === null || !currentTier) return;
+    const blocks = groupPayableBlocks(payableEntries, selectedLine);
     const ok = await confirm({
       title: t("payments.quick_pay.pay_now"),
       message: t("payments.bulk_pay_blocks_message", { count: blocks.length }),
@@ -398,12 +421,14 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
       await paymentStore.createMultiMonthPayments(
         blocks.map((b) => b.startBillingMonth),
         customer,
+        selectedLine.id,
         plan,
         planCurrency,
         plan.price,
         user.id,
         null,
         user.tenantId,
+        lines,
         year,
         graceDays,
         currentTier,
@@ -414,10 +439,8 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
     if (bulkSucceeded()) selection.clear();
   }
 
-  // Custom / no-plan: the one amount from the popup is applied to every selected
-  // month in one batch write.
   async function runBulkCustomPay(values: BulkPaymentValues) {
-    if (!user) return;
+    if (!user || !selectedLine) return;
     const currency = findCurrency(currencies, values.currencyId);
     const inputs = payableEntries.map((e) => ({
       billingMonth: e.billingMonth,
@@ -426,7 +449,8 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
       durationMonths: 1,
       currencyId: values.currencyId,
       customerId: customer.id,
-      planId: customer.planId,
+      customerPlanId: selectedLine.id,
+      planId: selectedLine.planId,
       receivedByUserId: user.id,
       tenantId: user.tenantId,
       notes: null,
@@ -434,7 +458,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
     paymentStore.clearError();
     setBulkBusy(true);
     try {
-      await paymentStore.createPayments(inputs, currency, customer, year, graceDays);
+      await paymentStore.createPayments(inputs, currency, lines, year, graceDays);
     } finally {
       setBulkBusy(false);
     }
@@ -472,43 +496,53 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
   }
 
   const { year: cy, month: cm } = getCurrentYearMonth();
-  const currentMonthEntry = paymentStore.monthGrid.find(
-    (m) => m.year === cy && m.month === cm,
-  );
+  const currentMonthEntry = grid.find((m) => m.year === cy && m.month === cm);
   const showUnpaidBanner =
-    customer.isRegular && currentMonthEntry?.status === "unpaid" && year === cy;
+    customer.isRegular &&
+    lineActive &&
+    currentMonthEntry?.status === "unpaid" &&
+    year === cy;
   const daysIntoMonth = new Date().getDate();
 
-  // Partial months count toward "paid" in the year summary — a payment exists,
-  // even if the balance isn't fully settled. The partial signal is conveyed by
-  // the amber cell in the grid itself.
-  const paidCount = paymentStore.monthGrid.filter(
+  const paidCount = grid.filter(
     (m) => m.status === "paid" || m.status === "partial",
   ).length;
-  const unpaidCount = paymentStore.monthGrid.filter(
-    (m) => m.status === "unpaid",
-  ).length;
-  // Sum payments across mixed currencies in USD using each payment's frozen
-  // snapshot rate (drift-free historical total), then format in the user's
-  // display currency.
+  const unpaidCount = grid.filter((m) => m.status === "unpaid").length;
   const collectedTotalUsd = paymentStore.items
-    .filter((p) => !p.voidedAt && p.billingMonth.startsWith(String(year)))
+    .filter(
+      (p) =>
+        !p.voidedAt &&
+        p.customerPlanId === selectedLine?.id &&
+        p.billingMonth.startsWith(String(year)),
+    )
     .reduce(
       (sum, p) =>
         sum + toUsd(p.amountPaid, paymentSnapshotCurrency(p, currencies)),
       0,
     );
-  const collectedTotalLabel = formatMoney(
-    collectedTotalUsd,
-    null,
-    displayCurrency,
-  );
+  const collectedTotalLabel = formatMoney(collectedTotalUsd, null, displayCurrency);
 
-  // Edit (update amountPaid) is available for any active, non-secondary payment.
   const canEditAmount =
     selectedEntry?.payment != null &&
     !selectedEntry.isGroupSecondary &&
     selectedEntry.payment.voidedAt === null;
+
+  const minYear = selectedLine
+    ? new Date(selectedLine.startDate).getFullYear()
+    : new Date(customer.startDate).getFullYear();
+
+  // Empty state — a customer with no service lines (rare: every customer keeps
+  // ≥1 line, managed from the customer form's Plans editor).
+  if (lines.length === 0) {
+    return (
+      <View className="bg-white mx-4 mt-4 rounded-2xl border border-gray-100 px-4 py-8 items-center">
+        <Ionicons name="albums-outline" size={28} color={COLORS.gray400} />
+        <Text className="text-sm text-gray-500 mt-2 text-center">
+          {t("subscriptions.empty")}
+        </Text>
+      </View>
+    );
+  }
 
   return (
     <>
@@ -521,12 +555,58 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
         </View>
       ) : null}
 
+      {/* Service-line selector — view only (add/edit/remove plans from the
+          customer form). Hidden when there's a single line so a one-plan
+          customer looks exactly like before. */}
+      {lines.length > 1 && (
+        <View className="mx-4 mt-4">
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={{ gap: 8, paddingVertical: 2 }}
+          >
+            {lines.map((line) => {
+              const isSel = line.id === selectedLineId;
+              return (
+                <PressableOpacity
+                  key={line.id}
+                  onPress={() => setSelectedLineId(line.id)}
+                  className={`flex-row items-center rounded-full px-3 py-1.5 border ${
+                    isSel
+                      ? "bg-gray-900 border-gray-900"
+                      : "bg-white border-gray-200"
+                  } ${line.active ? "" : "opacity-50"}`}
+                >
+                  <Text
+                    fontWeight="SemiBold"
+                    className={`text-xs ${isSel ? "text-white" : "text-gray-700"}`}
+                    numberOfLines={1}
+                  >
+                    {lineLabel(line, t("common.no_plan"))}
+                    {line.active ? "" : ` · ${t("subscriptions.cancelled")}`}
+                  </Text>
+                </PressableOpacity>
+              );
+            })}
+          </ScrollView>
+        </View>
+      )}
+
       {/* Year card */}
-      <View className="bg-white mx-4 mt-4 rounded-2xl border border-gray-100 overflow-hidden">
-        {/* Header row — the selection toolbar overlays it (absolute) so entering
-            selection never shifts the grid down under the user's finger. */}
+      <View className="bg-white mx-4 mt-3 rounded-2xl border border-gray-100 overflow-hidden">
         <View className="relative">
           <View className="px-4 pt-4 pb-2">
+            {/* Selected line header (the plan this grid is for) — shown only
+                when the customer has more than one line. */}
+            {lines.length > 1 && selectedLine ? (
+              <View className="mb-1">
+                <Text fontWeight="SemiBold" className="text-sm text-gray-700" numberOfLines={1}>
+                  {lineLabel(selectedLine, t("common.no_plan"))}
+                  {selectedLine.active ? "" : ` · ${t("subscriptions.cancelled")}`}
+                </Text>
+              </View>
+            ) : null}
+
             {/* Row 1 — year + year navigation */}
             <View className="flex-row items-center justify-between">
               <Text fontWeight="Bold" className="text-2xl text-gray-900">
@@ -535,32 +615,21 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
               <View className="flex-row gap-2">
                 <PressableOpacity
                   onPress={() => setYear((y) => y - 1)}
-                  disabled={year <= new Date(customer.startDate).getFullYear()}
+                  disabled={year <= minYear}
                   className="w-10 h-10 rounded-full items-center justify-center"
                   style={{
                     backgroundColor: COLORS.primaryLight,
-                    opacity:
-                      year <= new Date(customer.startDate).getFullYear()
-                        ? 0.35
-                        : 1,
+                    opacity: year <= minYear ? 0.35 : 1,
                   }}
                 >
-                  <DirectionalIcon
-                    name="chevron-back"
-                    size={20}
-                    color={COLORS.primary}
-                  />
+                  <DirectionalIcon name="chevron-back" size={20} color={COLORS.primary} />
                 </PressableOpacity>
                 <PressableOpacity
                   onPress={() => setYear((y) => y + 1)}
                   className="w-10 h-10 rounded-full items-center justify-center"
                   style={{ backgroundColor: COLORS.primaryLight }}
                 >
-                  <DirectionalIcon
-                    name="chevron-forward"
-                    size={20}
-                    color={COLORS.primary}
-                  />
+                  <DirectionalIcon name="chevron-forward" size={20} color={COLORS.primary} />
                 </PressableOpacity>
               </View>
             </View>
@@ -609,7 +678,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
           </View>
         ) : (
           <MonthGrid
-            months={paymentStore.monthGrid}
+            months={grid}
             onCellPress={handleCellPress}
             onCellMenu={setMenuEntry}
             loadingBillingMonth={quickPayMonth}
@@ -649,12 +718,14 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
         </View>
       ) : null}
 
-      {formVisible && selectedEntry && (
+      {formVisible && selectedEntry && selectedLine && (
         <PaymentFormSheet
           entry={selectedEntry}
           customer={customer}
+          line={selectedLine}
+          lines={lines}
           graceDays={graceDays}
-          monthGrid={paymentStore.monthGrid}
+          monthGrid={grid}
           onDismiss={() => setFormVisible(false)}
         />
       )}
@@ -670,7 +741,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
       {voidVisible && selectedEntry && (
         <VoidSheet
           entry={selectedEntry}
-          customer={customer}
+          lines={lines}
           year={year}
           graceDays={graceDays}
           onDismiss={() => {
@@ -691,7 +762,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
       {bulkVoidIds && (
         <BulkVoidSheet
           paymentIds={bulkVoidIds}
-          customer={customer}
+          lines={lines}
           year={year}
           graceDays={graceDays}
           onVoided={() => {

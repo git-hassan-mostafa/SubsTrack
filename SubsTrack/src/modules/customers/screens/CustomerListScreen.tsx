@@ -30,13 +30,8 @@ import { useCustomerSlice } from "@/src/state/hooks/useCustomerSlice";
 import { usePaymentSlice } from "@/src/state/hooks/usePaymentSlice";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useAuth } from "../../auth/hooks/useAuth";
-import { findCurrency, formatMoney } from "@/src/core/utils/currency";
-import {
-  getCurrentYearMonth,
-  isBeforeStartDate,
-  toBillingMonth,
-} from "@/src/core/utils/date";
-import { getBlockRangeLabel } from "../../customer-payments/utils/blockRangeLabel";
+import { findCurrency } from "@/src/core/utils/currency";
+import { getCurrentYearMonth, isBeforeStartDate } from "@/src/core/utils/date";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
 import {
   PageHeader,
@@ -52,7 +47,7 @@ import {
   useSelection,
   useSelectionBackHandler,
 } from "@/src/shared/hooks/useSelection";
-import type { MultiMonthConflict } from "@/src/modules/customer-payments";
+import type { BulkPayCustomerRequest } from "@/src/state/slices/payments/paymentSlice";
 
 type FilterTab = "all" | "unpaid" | "active" | "inactive";
 
@@ -86,10 +81,6 @@ export function CustomerListScreen() {
     (s) => s.fetchCurrentMonthPaymentStatus,
   );
   const fetchOverdueStatus = usePaymentSlice((s) => s.fetchOverdueStatus);
-  const createPayment = usePaymentSlice((s) => s.createPayment);
-  const createMultiMonthPayment = usePaymentSlice(
-    (s) => s.createMultiMonthPayment,
-  );
   const bulkPayCustomers = usePaymentSlice((s) => s.bulkPayCustomers);
   const voidCurrentMonthForCustomer = usePaymentSlice(
     (s) => s.voidCurrentMonthForCustomer,
@@ -202,106 +193,98 @@ export function CustomerListScreen() {
     [router],
   );
 
-  // Records a quick payment (single OR multi-month) for one eligible, fixed-price
-  // customer. No dialogs, no per-card spinner — callers own the confirm + loading
-  // UI. Multi-month throws on an already-paid-month conflict. Custom-price /
-  // no-plan customers never reach here. (Bulk pay uses `runBulkQuickPay`.)
-  async function payCustomerQuick(
-    customer: Customer,
-  ): Promise<MultiMonthConflict[]> {
-    if (!customer.plan || customer.plan.price === null || !user) return [];
+  // Active, started, fixed-price service lines eligible for one-tap current-month
+  // pay. Custom-price / plan-less lines need the manual form and are excluded.
+  function eligibleFixedLines(customer: Customer): BulkPayCustomerRequest[] {
     const { year, month } = getCurrentYearMonth();
-    const planCurrency = findCurrency(currencies, customer.plan.currencyId);
-    if (customer.plan.durationMonths > 1) {
-      if (!currentTier) return [];
-      return await createMultiMonthPayment(
-        toBillingMonth(year, month),
-        customer,
-        customer.plan,
-        planCurrency,
-        customer.plan.price,
-        user.id,
-        null,
-        user.tenantId,
-        false,
-        year,
-        graceDays,
-        currentTier,
+    return (customer.customerPlans ?? [])
+      .filter(
+        (l) =>
+          l.active &&
+          l.plan != null &&
+          !l.plan.isCustomPrice &&
+          l.plan.price !== null &&
+          !isBeforeStartDate(year, month, l.startDate),
+      )
+      .map((l) => ({
+        customerId: customer.id,
+        customerPlanId: l.id,
+        plan: l.plan!,
+        currency: findCurrency(currencies, l.plan!.currencyId),
+        amountPaid: l.plan!.price!,
+      }));
+  }
+
+  // True when the customer has any active line that has started this month — so
+  // there is something a quick pay could collect.
+  function hasStartedActiveLine(customer: Customer): boolean {
+    const { year, month } = getCurrentYearMonth();
+    return (customer.customerPlans ?? []).some(
+      (l) => l.active && !isBeforeStartDate(year, month, l.startDate),
+    );
+  }
+
+  // Pays the current month for every eligible fixed-price line of the given
+  // requests in one batch ("collect all due"), then refreshes the badges.
+  async function executePay(requests: BulkPayCustomerRequest[]) {
+    if (!user || !currentTier || requests.length === 0) return;
+    const paid = await bulkPayCustomers(
+      requests,
+      user.id,
+      user.tenantId,
+      currentTier,
+    );
+    clearSelection();
+    fetchCurrentMonthPaymentStatus();
+    void fetchOverdueStatus(customers, graceDays);
+    const failed = requests.length - paid;
+    if (failed > 0) {
+      clearPaymentError();
+      clearPaymentTierLimitError();
+      setBulkNotice(
+        t("customers.bulk_pay_summary", { ok: paid, failed }),
       );
     }
-    await createPayment(
-      {
-        billingMonth: toBillingMonth(year, month),
-        amountDue: customer.plan.price,
-        amountPaid: customer.plan.price,
-        durationMonths: 1,
-        currencyId: customer.plan.currencyId,
-        customerId: customer.id,
-        planId: customer.plan.id,
-        receivedByUserId: user.id,
-        tenantId: user.tenantId,
-        notes: null,
-      },
-      planCurrency,
-      customer,
-      graceDays,
-    );
-    return [];
   }
 
-  async function recordSingleMonth(customer: Customer) {
-    setQuickPayCustomerId(customer.id);
-    try {
-      await payCustomerQuick(customer);
-    } finally {
-      setQuickPayCustomerId(null);
-    }
-  }
-
-  async function handleMultiMonthQuickPay(customer: Customer) {
-    if (!customer.plan || customer.plan.price === null || !user || !currentTier)
-      return;
-    const { year, month } = getCurrentYearMonth();
-    const startMonth = toBillingMonth(year, month);
-    const planCurrency = findCurrency(currencies, customer.plan.currencyId);
-    const ok = await confirm({
-      title: t("payments.quick_pay.confirm_multi_month_title"),
-      message: t("payments.quick_pay.confirm_multi_month_message", {
-        amount: formatMoney(customer.plan.price, planCurrency, planCurrency),
-        months: getBlockRangeLabel(startMonth, customer.plan.durationMonths, t),
-      }),
-      confirmLabel: t("payments.quick_pay.confirm"),
-    });
-    if (!ok) return;
-    setQuickPayCustomerId(customer.id);
-    try {
-      await payCustomerQuick(customer);
-    } finally {
-      setQuickPayCustomerId(null);
-    }
-  }
-
-  function handleQuickPay(customer: Customer) {
-    if (!customer.plan || customer.plan.isCustomPrice) {
+  // Single-customer quick pay from the card / menu. Pays all eligible fixed-price
+  // lines; custom-price / plan-less customers open the detail form instead.
+  async function handleQuickPay(customer: Customer) {
+    const requests = eligibleFixedLines(customer);
+    if (requests.length === 0) {
       router.push({
         pathname: "/(app)/(tabs)/customers/[id]",
         params: { id: customer.id, quickPay: "1" },
       });
       return;
     }
-    if (customer.plan.durationMonths > 1) {
-      void handleMultiMonthQuickPay(customer);
-      return;
+    const multiCount = requests.filter((r) => r.plan.durationMonths > 1).length;
+    // Confirm when paying several lines or a multi-month block; a single
+    // single-month line pays instantly (matches the old snappy quick pay).
+    if (requests.length > 1 || multiCount > 0) {
+      const ok = await confirm({
+        title: t("payments.quick_pay.pay_now"),
+        message:
+          t("customers.bulk_pay_lines_message", { count: requests.length }) +
+          (multiCount > 0
+            ? "\n\n" + t("customers.bulk_pay_warn_multi", { count: multiCount })
+            : ""),
+        confirmLabel: t("payments.quick_pay.pay_now"),
+      });
+      if (!ok) return;
     }
-    void recordSingleMonth(customer);
+    setQuickPayCustomerId(customer.id);
+    try {
+      await executePay(requests);
+    } finally {
+      setQuickPayCustomerId(null);
+    }
   }
 
   function shouldShowQuickPay(customer: Customer): boolean {
     if (!customer.active || !customer.isRegular) return false;
     if (hasCurrentMonthPayment(customer.id)) return false;
-    const { year, month } = getCurrentYearMonth();
-    if (isBeforeStartDate(year, month, customer.startDate)) return false;
-    return true;
+    return hasStartedActiveLine(customer);
   }
 
   const openMenu = useCallback((customer: Customer) => {
@@ -397,26 +380,20 @@ export function CustomerListScreen() {
     await deleteCustomer(customer.id);
   }
 
-  // Bulk quick pay: pay every eligible fixed-price customer (single AND
-  // multi-month) in ONE DB round-trip. Custom-price/no-plan are skipped;
-  // multi-month are paid but flagged in the confirm. The batch is all-or-nothing
-  // (single upsert) — on failure the slice records the reason and 0 are paid.
+  // Bulk quick pay ("collect all due"): pay every eligible fixed-price line of
+  // every selected customer (single AND multi-month) in ONE DB round-trip.
+  // Custom-price / plan-less and already-covered customers are skipped; multi-
+  // month lines are flagged in the confirm. All-or-nothing (single upsert) — on
+  // failure the slice records the reason and 0 are paid.
   async function runBulkQuickPay(selected: Customer[]) {
     if (bulkBusy || selected.length === 0 || !user) return;
-    const payable: Customer[] = [];
-    let multiCount = 0;
-    let customCount = 0;
-    for (const c of selected) {
-      if (!shouldShowQuickPay(c)) continue; // inactive / non-regular / already paid / before start
-      if (!c.plan || c.plan.isCustomPrice) {
-        customCount++;
-        continue;
-      }
-      payable.push(c);
-      if (c.plan.durationMonths > 1) multiCount++;
-    }
+    const eligible = selected.filter(shouldShowQuickPay);
+    const requests = eligible.flatMap(eligibleFixedLines);
+    const customerCount = new Set(requests.map((r) => r.customerId)).size;
+    const customCount = eligible.length - customerCount;
+    const multiCount = requests.filter((r) => r.plan.durationMonths > 1).length;
 
-    if (payable.length === 0) {
+    if (requests.length === 0) {
       await confirm({
         title: t("payments.quick_pay.pay_now"),
         message: t("customers.bulk_pay_none"),
@@ -430,46 +407,21 @@ export function CustomerListScreen() {
     if (multiCount > 0)
       warnings.push(t("customers.bulk_pay_warn_multi", { count: multiCount }));
     if (customCount > 0)
-      warnings.push(
-        t("customers.bulk_pay_skip_custom", { count: customCount }),
-      );
+      warnings.push(t("customers.bulk_pay_skip_custom", { count: customCount }));
     const ok = await confirm({
       title: t("payments.quick_pay.pay_now"),
       message:
-        t("customers.bulk_pay_message", { count: payable.length }) +
+        t("customers.bulk_pay_lines_message", { count: requests.length }) +
         (warnings.length > 0 ? "\n\n" + warnings.join("\n") : ""),
       confirmLabel: t("payments.quick_pay.pay_now"),
     });
     if (!ok || !currentTier) return;
 
     setBulkBusy(true);
-    let paidCount = 0;
     try {
-      // Each customer pays its plan's full price for the current month, in its
-      // own currency. The slice freezes the rate per request and syncs badges.
-      paidCount = await bulkPayCustomers(
-        payable.map((c) => ({
-          customer: c,
-          plan: c.plan!,
-          currency: findCurrency(currencies, c.plan!.currencyId),
-          amountPaid: c.plan!.price!,
-        })),
-        user.id,
-        user.tenantId,
-        currentTier,
-      );
+      await executePay(requests);
     } finally {
       setBulkBusy(false);
-    }
-    clearSelection();
-    fetchCurrentMonthPaymentStatus();
-    const failedCount = payable.length - paidCount;
-    if (failedCount > 0) {
-      clearPaymentError();
-      clearPaymentTierLimitError();
-      setBulkNotice(
-        t("customers.bulk_pay_summary", { ok: paidCount, failed: failedCount }),
-      );
     }
   }
 

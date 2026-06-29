@@ -28,8 +28,10 @@ export interface FindPaymentsOptions {
     includeVoided?: boolean;
 }
 
-// A payment row enriched with its customer name for the flat list. The
-// recording user's name is resolved client-side from the loaded user list.
+// A payment row enriched with its customer name (and the plan it was for, when
+// snapshotted) for the flat list. The recording user's name is resolved
+// client-side from the loaded user list.
 export interface PaymentListItem extends Payment {
     customerName: string;
+    planName: string | null;
 }

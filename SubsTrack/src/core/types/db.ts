@@ -91,11 +91,26 @@ export interface DbCustomer {
   notes: string | null;
   active: boolean;
   is_regular: boolean;
-  plan_id: string | null;
   branch_id: string | null;
   tenant_id: string;
   start_date: string;
   cancelled_at: string | null;
+  created_at: string;
+  updated_at: string;
+  // joined relation — present when .select('*, customer_plans(*, plans(*))')
+  customer_plans?: DbCustomerPlan[] | null;
+}
+
+// One service line: a single plan a customer is subscribed to, with its own
+// lifecycle. plan_id NULL = custom/occasional line (ad-hoc amounts).
+export interface DbCustomerPlan {
+  id: string;
+  customer_id: string;
+  plan_id: string | null;
+  start_date: string;
+  cancelled_at: string | null;
+  active: boolean;
+  tenant_id: string;
   created_at: string;
   updated_at: string;
   // joined relation — present when .select('*, plans(*)')
@@ -112,6 +127,7 @@ export interface DbPayment {
   currency_id: string | null;
   rate_per_usd_snapshot: number;
   customer_id: string;
+  customer_plan_id: string;
   plan_id: string | null;
   received_by_user_id: string | null;
   tenant_id: string;

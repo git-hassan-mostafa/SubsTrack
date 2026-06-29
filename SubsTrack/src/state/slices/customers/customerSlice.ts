@@ -12,7 +12,6 @@ interface CustomerInput {
   address: string | null;
   area: string | null;
   notes: string | null;
-  planId: string | null;
   branchId: string | null;
   startDate: string;
   isRegular: boolean;
@@ -40,7 +39,7 @@ export interface CustomerSlice {
     tenantId: string,
     tier: TierPlan,
     usage: TenantUsage,
-  ) => Promise<void>;
+  ) => Promise<Customer | null>;
   updateCustomer: (id: string, data: CustomerInput) => Promise<void>;
   deactivateCustomer: (id: string) => Promise<void>;
   reactivateCustomer: (id: string) => Promise<void>;
@@ -206,6 +205,7 @@ export const createCustomerSlice: StateCreator<
         state.customers.loading = false;
       });
       void get().subscription.refreshUsage();
+      return customer;
     } catch (e) {
       if (e instanceof TierLimitError) {
         set((state) => {
@@ -222,6 +222,7 @@ export const createCustomerSlice: StateCreator<
           state.customers.loading = false;
         });
       }
+      return null;
     }
   },
 

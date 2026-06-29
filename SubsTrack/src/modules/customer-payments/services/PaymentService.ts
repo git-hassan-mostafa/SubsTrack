@@ -1,6 +1,7 @@
 import type {
   Currency,
   Customer,
+  CustomerPlan,
   MonthEntry,
   MonthStatus,
   Payment,
@@ -19,13 +20,15 @@ import { tierService } from "@/src/modules/subscription";
 import { mapDbPaymentToPayment, mapDbPaymentRowToListItem } from "../utils/mapper";
 import { CreateMultiMonthPaymentResult, FindPaymentsOptions, MultiMonthConflict, PaymentListItem } from "../utils/types";
 
-type CreatePaymentInput = Pick<Payment, 'billingMonth' | 'amountDue' | 'amountPaid' | 'durationMonths' | 'currencyId' | 'ratePerUsdSnapshot' | 'customerId' | 'planId' | 'receivedByUserId' | 'tenantId' | 'notes'>
+type CreatePaymentInput = Pick<Payment, 'billingMonth' | 'amountDue' | 'amountPaid' | 'durationMonths' | 'currencyId' | 'ratePerUsdSnapshot' | 'customerId' | 'customerPlanId' | 'planId' | 'receivedByUserId' | 'tenantId' | 'notes'>
 
-// One entry in a customer-list bulk quick pay: a single fixed-price customer
-// paid for `billingMonth` with its own plan + frozen rate. Multi-month plans
-// become a block payment covering plan.durationMonths from billingMonth.
+// One entry in a customer-list bulk quick pay: a single fixed-price service line
+// paid for `billingMonth` with its plan + frozen rate. Multi-month plans become
+// a block payment covering plan.durationMonths from billingMonth. A customer with
+// several lines contributes one entry per eligible line ("collect all due").
 interface BulkPayCustomerInput {
-  customer: Customer;
+  customerId: string;
+  customerPlanId: string;
   plan: Plan;
   billingMonth: string;
   amountPaid: number;
@@ -89,7 +92,8 @@ class PaymentService {
         durationMonths: i.plan.durationMonths,
         currencyId: i.plan.currencyId,
         ratePerUsdSnapshot: i.ratePerUsdSnapshot,
-        customerId: i.customer.id,
+        customerId: i.customerId,
+        customerPlanId: i.customerPlanId,
         planId: i.plan.id,
         receivedByUserId,
         tenantId,
@@ -108,6 +112,7 @@ class PaymentService {
   async createMultiMonthPayment(
     startMonth: string,
     customer: Customer,
+    customerPlanId: string,
     plan: Plan,
     amountPaid: number,
     receivedByUserId: string,
@@ -154,6 +159,7 @@ class PaymentService {
       currency_id: plan.currencyId,
       rate_per_usd_snapshot: ratePerUsdSnapshot,
       customer_id: customer.id,
+      customer_plan_id: customerPlanId,
       plan_id: plan.id,
       received_by_user_id: receivedByUserId,
       tenant_id: tenantId,
@@ -170,6 +176,7 @@ class PaymentService {
   async createMultiMonthPayments(
     starts: string[],
     customer: Customer,
+    customerPlanId: string,
     plan: Plan,
     amountPaid: number,
     receivedByUserId: string,
@@ -208,6 +215,7 @@ class PaymentService {
         currency_id: plan.currencyId,
         rate_per_usd_snapshot: ratePerUsdSnapshot,
         customer_id: customer.id,
+        customer_plan_id: customerPlanId,
         plan_id: plan.id,
         received_by_user_id: receivedByUserId,
         tenant_id: tenantId,
@@ -260,20 +268,20 @@ class PaymentService {
     return mapDbPaymentToPayment(row);
   }
 
-  // Customer-list quick void: finds the active payment whose block covers the
-  // CURRENT month for a customer and voids it (fetches on demand — the list
-  // doesn't keep per-customer payments). A multi-month block is voided whole,
-  // matching the detail-sheet void. Returns the voided payment, or null when no
-  // active payment covers the current month.
+  // Customer-list quick void: voids EVERY active payment whose block covers the
+  // CURRENT month across all of a customer's lines (fetches on demand — the list
+  // doesn't keep per-customer payments). Multi-month blocks are voided whole,
+  // matching the detail-sheet void. Returns the voided payments (empty when none
+  // cover the current month).
   async voidCurrentMonth(
     customerId: string,
     voidedBy: string,
     notes: string,
-  ): Promise<Payment | null> {
+  ): Promise<Payment[]> {
     const { year, month } = getCurrentYearMonth();
     const currentBillingMonth = toBillingMonth(year, month);
     const payments = await this.getPaymentsForCustomer(customerId);
-    const covering = payments.find((p) => {
+    const covering = payments.filter((p) => {
       if (p.amountPaid <= 0) return false;
       const [pYear, pMonthNum] = p.billingMonth.split("-").map(Number);
       for (let d = 0; d < p.durationMonths; d++) {
@@ -287,8 +295,8 @@ class PaymentService {
       }
       return false;
     });
-    if (!covering) return null;
-    return this.voidPayment(covering.id, voidedBy, notes);
+    if (covering.length === 0) return [];
+    return this.voidPayments(covering.map((p) => p.id), voidedBy, notes);
   }
 
   // Voids several payments in one round-trip (month-grid bulk void).
@@ -310,42 +318,81 @@ class PaymentService {
   }
 
   // Returns the IDs of active, regular customers that have at least one unpaid
-  // month from their start date through the current year — even if the current
-  // month itself is paid. Status is decided exclusively by buildMonthGrid (rule
-  // #1): a customer is overdue if any month resolves to "unpaid".
+  // month on ANY of their active service lines, from the line's start date
+  // through the current year — even if the current month itself is paid. Status
+  // is decided exclusively by buildMonthGrid (rule #1): a customer is overdue if
+  // any month of any active line resolves to "unpaid".
   async findOverdueCustomerIds(
     customers: Customer[],
     graceDays: number,
   ): Promise<Set<string>> {
     const rows = await repository.findActivePayments();
-    const paymentsByCustomer = new Map<string, Payment[]>();
+    const paymentsByLine = new Map<string, Payment[]>();
     for (const row of rows) {
       const payment = mapDbPaymentToPayment(row);
-      const list = paymentsByCustomer.get(payment.customerId);
+      const list = paymentsByLine.get(payment.customerPlanId);
       if (list) list.push(payment);
-      else paymentsByCustomer.set(payment.customerId, [payment]);
+      else paymentsByLine.set(payment.customerPlanId, [payment]);
     }
 
     const { year: currentYear } = getCurrentYearMonth();
     const overdue = new Set<string>();
     for (const customer of customers) {
       if (!customer.active || !customer.isRegular) continue;
-      const payments = paymentsByCustomer.get(customer.id) ?? [];
-      const startYear = new Date(customer.startDate).getFullYear();
-      for (let year = startYear; year <= currentYear; year++) {
-        const grid = this.buildMonthGrid(customer, payments, year, graceDays);
-        if (grid.some((entry) => entry.status === "unpaid")) {
-          overdue.add(customer.id);
-          break;
+      const lines = (customer.customerPlans ?? []).filter((l) => l.active);
+      const isOverdue = lines.some((line) => {
+        const payments = paymentsByLine.get(line.id) ?? [];
+        const startYear = new Date(line.startDate).getFullYear();
+        for (let year = startYear; year <= currentYear; year++) {
+          const grid = this.buildMonthGrid(line, payments, year, graceDays);
+          if (grid.some((entry) => entry.status === "unpaid")) return true;
         }
-      }
+        return false;
+      });
+      if (isOverdue) overdue.add(customer.id);
     }
     return overdue;
   }
 
+  // Aggregates a customer's CURRENT-month status across its active lines, for the
+  // customer-list badge / status sets. Used by the slice after a create/void to
+  // keep the badge in sync without re-fetching. Rules:
+  //   none    — no line has a covering payment this month
+  //   full    — every started line that's due is paid (balance 0)
+  //   partial — some payment exists but a line is unpaid or has a balance
+  // Lines whose current month is "future" (within grace) or before start are not
+  // "owed" and don't block "full".
+  computeCurrentMonthStatus(
+    lines: CustomerPlan[],
+    payments: Payment[],
+    graceDays: number,
+  ): "full" | "partial" | "none" {
+    const { year, month } = getCurrentYearMonth();
+    let anyCovered = false;
+    let allOwedPaid = true;
+    for (const line of lines) {
+      if (!line.active) continue;
+      const linePayments = payments.filter((p) => p.customerPlanId === line.id);
+      const entry = this.buildMonthGrid(line, linePayments, year, graceDays).find(
+        (e) => e.month === month,
+      );
+      if (!entry) continue;
+      if (entry.status === "paid") anyCovered = true;
+      else if (entry.status === "partial") {
+        anyCovered = true;
+        allOwedPaid = false;
+      } else if (entry.status === "unpaid") allOwedPaid = false;
+    }
+    if (!anyCovered) return "none";
+    return allOwedPaid ? "full" : "partial";
+  }
+
   // THE single source of truth for month status logic. No other file may reimplement this.
+  // Builds the grid for ONE service line: `payments` must already be scoped to
+  // that line, and `line.startDate` sets the before_start boundary. (A customer
+  // with several lines builds one grid per line — see paymentSlice.buildGrids.)
   buildMonthGrid(
-    customer: Customer,
+    line: CustomerPlan,
     payments: Payment[],
     year: number,
     graceDays: number,
@@ -375,7 +422,7 @@ class PaymentService {
       const payment = coverage?.payment ?? null;
       const isGroupSecondary = coverage?.isGroupSecondary ?? false;
 
-      if (isBeforeStartDate(year, month, customer.startDate)) {
+      if (isBeforeStartDate(year, month, line.startDate)) {
         return {
           year,
           month,
@@ -437,6 +484,7 @@ function toPaymentPayload(data: CreatePaymentInput) {
     currency_id: data.currencyId,
     rate_per_usd_snapshot: data.ratePerUsdSnapshot,
     customer_id: data.customerId,
+    customer_plan_id: data.customerPlanId,
     plan_id: data.planId,
     received_by_user_id: data.receivedByUserId,
     tenant_id: data.tenantId,

@@ -188,10 +188,26 @@ address      text nullable
 area         text nullable          — neighborhood / service zone (searchable)
 notes        text nullable          — free-text staff context
 active       boolean default true
-plan_id      uuid nullable fk → plans (ON DELETE SET NULL)
+is_regular   boolean default true   — subscription vs occasional
 tenant_id    uuid fk → tenants
 start_date   date
 cancelled_at timestamptz nullable   — populated when active set to false
+created_at   timestamptz
+updated_at   timestamptz
+```
+
+> A customer's plans now live in `customer_plans` (one service line per plan) — `customers.plan_id` was removed. A customer can subscribe to multiple plans, each paid independently. See [docs/features.md](docs/features.md) → Multiple Plans per Customer.
+
+### customer_plans (service lines — one plan a customer is subscribed to)
+
+```
+id           uuid pk
+customer_id  uuid fk → customers (ON DELETE CASCADE)
+plan_id      uuid nullable fk → plans (ON DELETE SET NULL)   — null = custom/occasional line
+start_date   date
+cancelled_at timestamptz nullable
+active       boolean default true   — soft-delete the line
+tenant_id    uuid fk → tenants
 created_at   timestamptz
 updated_at   timestamptz
 ```
@@ -203,7 +219,8 @@ id                  uuid pk
 billing_month       date   — MUST be first day of month (YYYY-MM-01)
 amount              numeric(12,2)  — SNAPSHOT, never recomputed
 customer_id         uuid fk → customers (ON DELETE CASCADE)
-plan_id             uuid nullable fk → plans (ON DELETE SET NULL)
+customer_plan_id    uuid fk → customer_plans (ON DELETE CASCADE)   — the service line this payment settles
+plan_id             uuid nullable fk → plans (ON DELETE SET NULL)   — price/plan snapshot
 received_by_user_id uuid nullable fk → users (ON DELETE SET NULL)
 tenant_id           uuid fk → tenants
 paid_at             timestamptz
@@ -213,7 +230,7 @@ notes               text nullable
 created_at          timestamptz
 ```
 
-Constraint: UNIQUE(customer_id, billing_month) — enforced at DB level, also validated in PaymentService before insert.
+Constraint: UNIQUE(customer_plan_id, billing_month) — one payment per **service line** per month (a customer with several lines pays each one independently). Enforced at DB level, also via the upsert conflict target in PaymentRepository.
 
 ---
 

@@ -111,6 +111,17 @@
     "of_total": "من أصل {{total}}",
     "partial_payments_note": "من دفعات جزئية"
   },
+  "subscriptions": {
+    "section_title": "الخطط",
+    "section_subtitle": "تُحتسب كل خطة وتُدفع بشكل منفصل.",
+    "line_label": "الخطة {{number}}",
+    "add_plan": "إضافة خطة",
+    "start_label": "البدء",
+    "remove_plan": "إزالة",
+    "count_plans": "{{count}} خطط",
+    "cancelled": "ملغاة",
+    "empty": "لا توجد خطط بعد — أضف واحدة من شاشة تعديل العميل."
+  },
   "customers": {
     "title": "العملاء",
     "add": "إضافة عميل",
@@ -119,6 +130,8 @@
     "all": "الكل",
     "active_count": "{{count}} نشط",
     "plan_since": "{{plan}} · منذ {{date}}",
+    "customer_since": "منذ {{date}}",
+    "bulk_pay_lines_message": "دفع {{count}} اشتراك الآن؟",
     "year_paid": "مدفوع",
     "year_unpaid": "غير مدفوع",
     "year_collected": "محصل",

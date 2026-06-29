@@ -34,6 +34,16 @@ export const CustomerCard = memo(function CustomerCard({
 }: Props) {
   const { t } = useTranslation();
 
+  // Summarize the customer's active service lines: the single line's label/plan,
+  // or "N plans" when they hold several.
+  const activeLines = (customer.customerPlans ?? []).filter((l) => l.active);
+  const planSummary =
+    activeLines.length === 0
+      ? t("common.no_plan")
+      : activeLines.length === 1
+        ? activeLines[0].plan?.name || t("common.no_plan")
+        : t("subscriptions.count_plans", { count: activeLines.length });
+
   return (
     <EntityCard
       icon="person-outline"
@@ -56,7 +66,7 @@ export const CustomerCard = memo(function CustomerCard({
           {customer.name}
         </Text>
         <Text className="text-sm text-gray-400 mt-0.5" numberOfLines={1}>
-          {customer.plan?.name ?? t("common.no_plan")}
+          {planSummary}
         </Text>
         {!!customer.phoneNumber && (
           <View className="flex-row items-center mt-1">

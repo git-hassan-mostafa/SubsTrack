@@ -104,6 +104,7 @@ export function Dropdown<T extends string | number | null = string>({
         className="border border-gray-200 rounded-xl px-4 py-3 bg-white flex-row items-center justify-between"
       >
         <Text
+          numberOfLines={1}
           className={`text-base flex-1 ${displayLabel ? "text-gray-900" : "text-gray-400"}`}
         >
           {displayLabel ?? placeholder ?? t("customers.select_plan")}

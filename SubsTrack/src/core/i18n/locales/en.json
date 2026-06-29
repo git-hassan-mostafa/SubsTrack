@@ -110,6 +110,17 @@
     "of_total": "of {{total}} total",
     "partial_payments_note": "from partial payments"
   },
+  "subscriptions": {
+    "section_title": "Plans",
+    "section_subtitle": "Each plan is billed and paid separately.",
+    "line_label": "Plan {{number}}",
+    "add_plan": "Add plan",
+    "start_label": "Start",
+    "remove_plan": "Remove",
+    "count_plans": "{{count}} plans",
+    "cancelled": "cancelled",
+    "empty": "No plans yet — add one from the customer's edit screen."
+  },
   "customers": {
     "title": "Customers",
     "add": "Add Customer",
@@ -118,6 +129,8 @@
     "all": "All",
     "active_count": "{{count}} active",
     "plan_since": "{{plan}} · since {{date}}",
+    "customer_since": "Since {{date}}",
+    "bulk_pay_lines_message": "Pay {{count}} subscription(s) now?",
     "year_paid": "Paid",
     "year_unpaid": "Unpaid",
     "year_collected": "Collected",

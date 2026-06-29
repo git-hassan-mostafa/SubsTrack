@@ -1,6 +1,6 @@
 export { default as customerService } from './services/CustomerService';
 export { mapDbCustomerToCustomer } from './utils/mapper'
-export type { DbCustomerWithPlan } from './utils/types';
+export type { DbCustomerWithLines } from './utils/types';
 export { default as customerRepository } from './repository/CustomerRepository';
 export { CustomerCard } from './components/CustomerCard';
 export { CustomerDetailsCard } from './components/CustomerDetailsCard';

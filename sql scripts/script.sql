@@ -310,7 +310,8 @@ CREATE TABLE IF NOT EXISTS customers (
     notes        TEXT,
     active       BOOLEAN     NOT NULL DEFAULT TRUE,
     is_regular   BOOLEAN     NOT NULL DEFAULT TRUE,
-    plan_id      UUID,
+    -- NOTE: a customer's plan(s) now live in the customer_plans table (one row
+    -- per service line). customers.plan_id was removed — see customer_plans below.
     tenant_id    UUID        NOT NULL,
     -- Branch this customer belongs to. NULL = UNASSIGNED — visible ONLY to
     -- tenant-wide admins (users with users.branch_id IS NULL). Branch-scoped
@@ -334,11 +335,6 @@ CREATE TABLE IF NOT EXISTS customers (
         REFERENCES tenants(id)
         ON DELETE CASCADE,
 
-    CONSTRAINT fk_customers_plan
-        FOREIGN KEY (plan_id)
-        REFERENCES plans(id)
-        ON DELETE SET NULL,
-
     CONSTRAINT fk_customers_branch
         FOREIGN KEY (branch_id)
         REFERENCES branches(id)
@@ -348,14 +344,67 @@ CREATE TABLE IF NOT EXISTS customers (
 CREATE INDEX IF NOT EXISTS idx_customers_tenant_id
     ON customers (tenant_id);
 
-CREATE INDEX IF NOT EXISTS idx_customers_plan_id
-    ON customers (plan_id);
-
 CREATE INDEX IF NOT EXISTS idx_customers_active
     ON customers (tenant_id, active);
 
 CREATE INDEX IF NOT EXISTS idx_customers_branch_id
     ON customers (branch_id);
+
+-- ============================================================
+-- CUSTOMER PLANS (service lines)
+-- One row per plan a customer is subscribed to. A customer can hold
+-- several lines (e.g. an ISP customer with internet + IPTV), each paid
+-- independently. Each line owns its own start_date / cancelled_at so
+-- services can begin and end on different dates. plan_id may be NULL for
+-- a custom / occasional line (ad-hoc amounts, no fixed plan).
+-- Soft-delete only via active = false + cancelled_at.
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS customer_plans (
+    id           UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
+    customer_id  UUID        NOT NULL,
+    -- The plan this line is on. NULL = custom/occasional (ad-hoc amounts).
+    -- ON DELETE SET NULL: dropping a plan leaves the line plan-less, history intact.
+    plan_id      UUID,
+    start_date   DATE        NOT NULL,
+    cancelled_at TIMESTAMPTZ,
+    active       BOOLEAN     NOT NULL DEFAULT TRUE,
+    tenant_id    UUID        NOT NULL,
+    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    -- cancelled_at must be set when and only when active = false
+    CONSTRAINT chk_customer_plan_cancelled_consistency
+        CHECK (
+            (active = TRUE  AND cancelled_at IS NULL)
+            OR
+            (active = FALSE AND cancelled_at IS NOT NULL)
+        ),
+
+    CONSTRAINT fk_customer_plans_customer
+        FOREIGN KEY (customer_id)
+        REFERENCES customers(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_customer_plans_plan
+        FOREIGN KEY (plan_id)
+        REFERENCES plans(id)
+        ON DELETE SET NULL,
+
+    CONSTRAINT fk_customer_plans_tenant
+        FOREIGN KEY (tenant_id)
+        REFERENCES tenants(id)
+        ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_customer_plans_customer_id
+    ON customer_plans (customer_id);
+
+CREATE INDEX IF NOT EXISTS idx_customer_plans_tenant_id
+    ON customer_plans (tenant_id);
+
+CREATE INDEX IF NOT EXISTS idx_customer_plans_plan_id
+    ON customer_plans (plan_id);
 
 -- Auto-update updated_at on any row change
 CREATE OR REPLACE FUNCTION set_updated_at()
@@ -368,6 +417,11 @@ $$ LANGUAGE plpgsql;
 
 CREATE OR REPLACE TRIGGER trg_customers_updated_at
     BEFORE UPDATE ON customers
+    FOR EACH ROW
+    EXECUTE FUNCTION set_updated_at();
+
+CREATE OR REPLACE TRIGGER trg_customer_plans_updated_at
+    BEFORE UPDATE ON customer_plans
     FOR EACH ROW
     EXECUTE FUNCTION set_updated_at();
 
@@ -425,6 +479,10 @@ CREATE TABLE IF NOT EXISTS payments (
     rate_per_usd_snapshot NUMERIC(20,8) NOT NULL CHECK (rate_per_usd_snapshot > 0),
 
     customer_id         UUID          NOT NULL,
+    -- The service line (customer_plans row) this payment settles. A customer can
+    -- hold several lines, each paid independently — uniqueness is per line+month.
+    customer_plan_id    UUID          NOT NULL,
+    -- Snapshot of which plan/price applied at recording time. NULL = custom/no plan.
     plan_id             UUID,
     received_by_user_id UUID,
     tenant_id           UUID          NOT NULL,
@@ -454,6 +512,11 @@ CREATE TABLE IF NOT EXISTS payments (
         REFERENCES customers(id)
         ON DELETE CASCADE,
 
+    CONSTRAINT fk_payments_customer_plan
+        FOREIGN KEY (customer_plan_id)
+        REFERENCES customer_plans(id)
+        ON DELETE CASCADE,
+
     CONSTRAINT fk_payments_plan
         FOREIGN KEY (plan_id)
         REFERENCES plans(id)
@@ -479,9 +542,10 @@ CREATE TABLE IF NOT EXISTS payments (
         REFERENCES currencies(id)
         ON DELETE RESTRICT,
 
-    -- One payment record per customer per month (void + re-pay updates the same row)
-    CONSTRAINT uq_payments_customer_month
-        UNIQUE (customer_id, billing_month)
+    -- One payment record per service line per month (void + re-pay updates the
+    -- same row). A customer with several lines can pay each one for the same month.
+    CONSTRAINT uq_payments_line_month
+        UNIQUE (customer_plan_id, billing_month)
 );
 
 CREATE INDEX IF NOT EXISTS idx_payments_tenant_id
@@ -495,6 +559,9 @@ CREATE INDEX IF NOT EXISTS idx_payments_billing_month
 
 CREATE INDEX IF NOT EXISTS idx_payments_customer_month
     ON payments (customer_id, billing_month);
+
+CREATE INDEX IF NOT EXISTS idx_payments_customer_plan_id
+    ON payments (customer_plan_id);
 
 -- ============================================================
 -- PRODUCTS
@@ -656,6 +723,7 @@ ALTER TABLE branches   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE users      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE plans      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE customers  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE customer_plans ENABLE ROW LEVEL SECURITY;
 ALTER TABLE payments   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE products   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sales      ENABLE ROW LEVEL SECURITY;
@@ -736,6 +804,7 @@ REVOKE EXECUTE ON FUNCTION public.custom_access_token_hook FROM authenticated, a
 -- Drop the old non-branch-aware policies before recreating them.
 -- These were tenant-only — branch awareness is layered in below.
 DROP POLICY IF EXISTS customers_all ON customers;
+DROP POLICY IF EXISTS customer_plans_all ON customer_plans;
 DROP POLICY IF EXISTS plans_all     ON plans;
 DROP POLICY IF EXISTS payments_all  ON payments;
 DROP POLICY IF EXISTS users_select  ON users;
@@ -951,6 +1020,40 @@ DO $$ BEGIN
             );
     END IF;
 
+    -- ── CUSTOMER PLANS (service lines) ───────────────────────
+    -- No own branch_id; inherit from the owning customer, exactly like
+    -- payments. Tenant-wide users see all; branch-scoped users only see
+    -- lines whose customer.branch_id matches theirs.
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE tablename = 'customer_plans' AND policyname = 'customer_plans_all'
+    ) THEN
+        CREATE POLICY customer_plans_all ON customer_plans
+            FOR ALL
+            USING (
+                tenant_id = current_tenant_id()
+                AND (
+                    current_branch_id() IS NULL
+                    OR EXISTS (
+                        SELECT 1 FROM customers c
+                        WHERE c.id = customer_plans.customer_id
+                          AND c.branch_id = current_branch_id()
+                    )
+                )
+            )
+            WITH CHECK (
+                tenant_id = current_tenant_id()
+                AND (
+                    current_branch_id() IS NULL
+                    OR EXISTS (
+                        SELECT 1 FROM customers c
+                        WHERE c.id = customer_plans.customer_id
+                          AND c.branch_id = current_branch_id()
+                    )
+                )
+            );
+    END IF;
+
     -- ── PAYMENTS ─────────────────────────────────────────────
     -- Payments don't have their own branch_id; they inherit from the
     -- customer. Tenant-wide users see all; branch-scoped see only
@@ -1106,9 +1209,9 @@ GRANT EXECUTE ON FUNCTION public.is_tenant_code_available(TEXT) TO anon, authent
 --    amount_due and amount_paid are SNAPSHOTS. Never recompute from plan.price.
 --    amount_paid < amount_due = partial payment; balance holds the outstanding debt.
 --    amount_paid = 0 is treated as unpaid in the app (reserves the row slot).
---    voided payments are retained forever. uq_payments_customer_month_active
---    only blocks duplicate ACTIVE (non-voided) payments, allowing a re-payment
---    after a void.
+--    voided payments are retained forever. uq_payments_line_month is per SERVICE
+--    LINE (customer_plan_id, billing_month) — a customer with several lines pays
+--    each independently; re-paying a voided month upserts the same row.
 
 -- 4. CUSTOMER DEACTIVATION
 --    Never DELETE a customer. Set active = false and cancelled_at = NOW().

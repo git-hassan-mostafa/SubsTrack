@@ -1,4 +1,4 @@
-import type { Customer, MonthEntry } from "@/src/core/types";
+import type { CustomerPlan, MonthEntry } from "@/src/core/types";
 import { toBillingMonth } from "@/src/core/utils/date";
 
 // Absolute month index (year * 12 + zero-based month) — lets us reason about
@@ -11,20 +11,20 @@ function billingMonthFromAbs(abs: number): string {
   return toBillingMonth(Math.floor(abs / 12), (abs % 12) + 1);
 }
 
-function planDuration(customer: Customer): number {
-  return customer.plan?.durationMonths ?? 1;
+function planDuration(line: CustomerPlan): number {
+  return line.plan?.durationMonths ?? 1;
 }
 
-function startAbs(customer: Customer): number {
-  const d = new Date(customer.startDate);
+function startAbs(line: CustomerPlan): number {
+  const d = new Date(line.startDate);
   return absOf(d.getFullYear(), d.getMonth() + 1);
 }
 
 // First month of the start-aligned N-month window that contains `abs`. Windows
-// are anchored at the customer's subscription start month so they never overlap
-// and never begin before the start date.
-function blockStartAbs(abs: number, customer: Customer, n: number): number {
-  const base = startAbs(customer);
+// are anchored at the line's start month so they never overlap and never begin
+// before the start date.
+function blockStartAbs(abs: number, line: CustomerPlan, n: number): number {
+  const base = startAbs(line);
   return base + Math.floor((abs - base) / n) * n;
 }
 
@@ -53,7 +53,7 @@ function isPayable(entry: MonthEntry): boolean {
 export function expandSelectionUnit(
   entry: MonthEntry,
   monthGrid: MonthEntry[],
-  customer: Customer,
+  line: CustomerPlan,
 ): string[] {
   if (hasActivePayment(entry)) {
     const paymentId = entry.payment!.id;
@@ -64,9 +64,9 @@ export function expandSelectionUnit(
 
   if (!isPayable(entry)) return [];
 
-  const n = planDuration(customer);
+  const n = planDuration(line);
   if (n > 1) {
-    const blockStart = blockStartAbs(absOf(entry.year, entry.month), customer, n);
+    const blockStart = blockStartAbs(absOf(entry.year, entry.month), line, n);
     const blockEnd = blockStart + n - 1;
     return monthGrid
       .filter((m) => {
@@ -86,12 +86,12 @@ export function expandSelectionUnit(
  */
 export function groupPayableBlocks(
   payableEntries: MonthEntry[],
-  customer: Customer,
+  line: CustomerPlan,
 ): { startBillingMonth: string }[] {
-  const n = planDuration(customer);
+  const n = planDuration(line);
   const starts = new Set<number>();
   for (const entry of payableEntries) {
-    starts.add(blockStartAbs(absOf(entry.year, entry.month), customer, n));
+    starts.add(blockStartAbs(absOf(entry.year, entry.month), line, n));
   }
   return Array.from(starts)
     .sort((a, b) => a - b)

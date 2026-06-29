@@ -3,7 +3,7 @@ import { TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { ConfirmDialog } from "@/src/shared/components/ConfirmDialog";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
-import type { Customer, MonthEntry } from "@/src/core/types";
+import type { CustomerPlan, MonthEntry } from "@/src/core/types";
 import { useAuth } from "@/src/modules/auth";
 import { usePaymentSlice } from "@/src/state/hooks/usePaymentSlice";
 import { getStore } from "@/src/state/globalStore";
@@ -12,7 +12,7 @@ import { getBlockRangeLabel } from "../utils/blockRangeLabel";
 
 interface Props {
   entry: MonthEntry | null;
-  customer: Customer;
+  lines: CustomerPlan[];
   year: number;
   graceDays: number;
   onDismiss: () => void;
@@ -20,7 +20,7 @@ interface Props {
 
 export function VoidSheet({
   entry,
-  customer,
+  lines,
   year,
   graceDays,
   onDismiss,
@@ -38,7 +38,7 @@ export function VoidSheet({
       entry.payment.id,
       user.id,
       reason,
-      customer,
+      lines,
       year,
       graceDays,
     );

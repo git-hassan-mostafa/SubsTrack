@@ -141,6 +141,16 @@ expenses:  + branch_id  UUID REFERENCES branches(id)  -- nullable
 
 ---
 
+### 2.5 Multiple Plans per Customer (service lines) ✅
+
+**Purpose:** A customer can subscribe to several plans at once (e.g. an ISP customer with internet + IPTV), each with its own start/cancel lifecycle and paid independently.
+
+**Schema:** new `customer_plans` table (one service line per row: `customer_id`, `plan_id` nullable, `start_date`, `cancelled_at`, `active`); `payments.customer_plan_id` + `UNIQUE(customer_plan_id, billing_month)`; `customers.plan_id` removed. Migration: `sql scripts/migration-customer-plans.sql`.
+
+**Implementation:** new `customer-plans` module + slice; plans are added/changed/removed **inline in the customer form** (`syncLines`); `buildMonthGrid` builds one grid per line; customer detail uses a **view-only tabbed line selector**; customer-list status aggregates across active lines; Quick Pay "collect all due" pays every eligible fixed-price line at once. Full detail in [docs/features.md](docs/features.md) → Multiple Plans per Customer and gotcha #41.
+
+---
+
 ## 3. Payment Enhancements
 
 ### 3.1 Advance Payments

@@ -401,11 +401,12 @@ export function DatePickerInput({
         className="border border-gray-300 rounded-lg px-4 py-3 bg-white flex-row items-center justify-between"
       >
         <Text
-          className={`text-base ${displayValue ? "text-gray-900" : "text-gray-400"}`}
+          numberOfLines={1}
+          className={`text-base flex-1 ${displayValue ? "text-gray-900" : "text-gray-400"}`}
         >
           {formattedValue ?? placeholder ?? t("customers.start_date_placeholder")}
         </Text>
-        <Text className="text-gray-400 text-base">📅</Text>
+        <Text className="text-gray-400 text-base ms-1">📅</Text>
       </PressableOpacity>
       {picker}
     </View>

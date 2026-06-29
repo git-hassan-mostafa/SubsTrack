@@ -48,8 +48,7 @@ export function CustomerDetailScreen() {
   }, [id]);
 
   const subtitle = customer
-    ? t("customers.plan_since", {
-        plan: customer.plan?.name ?? t("common.no_plan"),
+    ? t("customers.customer_since", {
         date: formatDate(customer.startDate, "en-US", {
           month: "short",
           year: "numeric",

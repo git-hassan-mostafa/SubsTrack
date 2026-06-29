@@ -128,13 +128,31 @@ export interface Customer {
   notes: string | null;
   active: boolean;
   isRegular: boolean;
-  planId: string | null;
   // Branch this customer belongs to. null = UNASSIGNED — visible only to
   // tenant-wide admins. Branch-scoped users never see unassigned customers.
   branchId: string | null;
   tenantId: string;
   startDate: string;
   cancelledAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  // The customer's service lines (one plan each). Present when loaded with
+  // .select('*, customer_plans(*, plans(*))'). A customer can hold several.
+  customerPlans?: CustomerPlan[];
+}
+
+// A single service line: one plan a customer is subscribed to, with its own
+// start/cancel lifecycle. planId null = custom/occasional line (ad-hoc amounts,
+// no fixed plan). Payments attach to a line, and each line builds its own month
+// grid via PaymentService.buildMonthGrid().
+export interface CustomerPlan {
+  id: string;
+  customerId: string;
+  planId: string | null;
+  startDate: string;
+  cancelledAt: string | null;
+  active: boolean;
+  tenantId: string;
   createdAt: string;
   updatedAt: string;
   plan?: Plan | null;
@@ -154,6 +172,9 @@ export interface Payment {
   // USD values use this instead of the live currencies.rate_per_usd.
   ratePerUsdSnapshot: number;
   customerId: string;
+  // The service line (customer_plans row) this payment settles.
+  customerPlanId: string;
+  // Snapshot of which plan applied at recording time. null = custom/no plan.
   planId: string | null;
   receivedByUserId: string | null;
   tenantId: string;

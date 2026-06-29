@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Modal, Switch, View } from "react-native";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -9,16 +9,20 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/src/shared/components/Button";
 import { DatePickerInput } from "@/src/shared/components/DatePickerInput";
 import { BranchPicker } from "@/src/shared/components/BranchPicker";
-import { PlanPicker } from "@/src/shared/components/PlanPicker";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { Input } from "@/src/shared/components/Input";
 import type { Customer } from "@/src/core/types";
+import {
+  CustomerPlansEditor,
+  type CustomerPlansEditorHandle,
+} from "@/src/modules/customer-plans";
 import { getTodayDateString } from "@/src/core/utils/date";
 import { useAuth } from "@/src/modules/auth";
 import { usePlanSlice } from "@/src/state/hooks/usePlanSlice";
 import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
 import { BRANCH_FILTER_UNASSIGNED } from "@/src/core/constants";
 import { useCustomerSlice } from "@/src/state/hooks/useCustomerSlice";
+import { useCustomerPlanSlice } from "@/src/state/hooks/useCustomerPlanSlice";
 import { getStore } from "@/src/state/globalStore";
 import { useActiveBranches } from "@/src/modules/branches";
 import { useSubscriptionSlice } from "@/src/state/hooks/useSubscriptionSlice";
@@ -35,7 +39,6 @@ type FormState = {
   address: string;
   area: string;
   notes: string;
-  planId: string | null;
   branchId: string | null;
   startDate: string;
   isRegular: boolean;
@@ -46,14 +49,15 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
   const { user } = useAuth();
   const createCustomer = useCustomerSlice((s) => s.createCustomer);
   const updateCustomer = useCustomerSlice((s) => s.updateCustomer);
-  const loading = useCustomerSlice((s) => s.loading);
   const error = useCustomerSlice((s) => s.error);
   const clearError = useCustomerSlice((s) => s.clearError);
   const tierLimitError = useCustomerSlice((s) => s.tierLimitError);
   const clearTierLimitError = useCustomerSlice((s) => s.clearTierLimitError);
+  const syncLines = useCustomerPlanSlice((s) => s.syncLines);
+  const planError = useCustomerPlanSlice((s) => s.error);
+  const clearPlanError = useCustomerPlanSlice((s) => s.clearError);
   const currentTier = useSubscriptionSlice((s) => s.currentTier);
   const usage = useSubscriptionSlice((s) => s.usage);
-  const plans = usePlanSlice((s) => s.items);
   const getPlans = usePlanSlice((s) => s.getPlans);
   const { currentBranchId } = useUiPrefStore();
   const activeBranches = useActiveBranches();
@@ -62,10 +66,6 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
   // otherwise the currently-selected branch in the header (unless that's "All"
   // or "Unassigned", in which case start unassigned). For an existing customer
   // we always preserve their stored branch.
-  //
-  // Special case: when the tenant has exactly 1 active branch the BranchPicker
-  // self-conceals, so silently bind new customers to that branch — keeps the
-  // data consistent once a 2nd branch is later added.
   const defaultBranchId = (() => {
     if (customer) return customer.branchId;
     if (user?.branchId) return user.branchId;
@@ -84,41 +84,60 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
     address: customer?.address ?? "",
     area: customer?.area ?? "",
     notes: customer?.notes ?? "",
-    planId: customer?.planId ?? null,
     branchId: defaultBranchId,
     startDate: customer?.startDate ?? getTodayDateString(),
     isRegular: customer?.isRegular ?? true,
   });
 
+  const plansEditor = useRef<CustomerPlansEditorHandle>(null);
+  const [submitting, setSubmitting] = useState(false);
+
   useEffect(() => {
     clearError();
+    clearPlanError();
     getPlans();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function handleSubmit() {
-    if (!user) return;
-    const payload = {
-      name: form.name,
-      phoneNumber: form.phoneNumber || null,
-      address: form.address || null,
-      area: form.area || null,
-      notes: form.notes || null,
-      planId: form.planId,
-      branchId: form.branchId,
-      startDate: form.startDate,
-      isRegular: form.isRegular,
-    };
-    if (customer) {
-      await updateCustomer(customer.id, payload);
-    } else {
-      if (!currentTier) return;
-      await createCustomer(payload, user.tenantId, currentTier, usage);
+    if (!user || submitting) return;
+    setSubmitting(true);
+    try {
+      const payload = {
+        name: form.name,
+        phoneNumber: form.phoneNumber || null,
+        address: form.address || null,
+        area: form.area || null,
+        notes: form.notes || null,
+        branchId: form.branchId,
+        startDate: form.startDate,
+        isRegular: form.isRegular,
+      };
+      const finalLines = plansEditor.current?.getLines() ?? [];
+      const removedIds = plansEditor.current?.getRemovedIds() ?? [];
+
+      if (customer) {
+        await updateCustomer(customer.id, payload);
+        if (getStore().getState().customers.error) return;
+        const ok = await syncLines(customer.id, finalLines, removedIds, user.tenantId);
+        if (ok) onDismiss();
+      } else {
+        if (!currentTier) return;
+        const created = await createCustomer(payload, user.tenantId, currentTier, usage);
+        if (!created) return; // error / tier-limit surfaced via the banners/modal
+        const ok = await syncLines(created.id, finalLines, [], user.tenantId);
+        if (ok) onDismiss();
+      }
+    } finally {
+      setSubmitting(false);
     }
-    const { error: nextError, tierLimitError: nextTierLimit } =
-      getStore().getState().customers;
-    if (!nextError && !nextTierLimit) onDismiss();
   }
+
+  const bannerError = error || planError;
+  const clearBanner = () => {
+    clearError();
+    clearPlanError();
+  };
 
   return (
     <Modal
@@ -150,8 +169,8 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
             contentContainerStyle={{ paddingBottom: 48 }}
             bottomOffset={24}
           >
-            {error ? (
-              <ErrorBanner message={error} onDismiss={clearError} />
+            {bannerError ? (
+              <ErrorBanner message={bannerError} onDismiss={clearBanner} />
             ) : null}
 
             <Input
@@ -204,29 +223,17 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
             <BranchPicker
               label={t("branches.branch_label") + " *"}
               value={form.branchId}
-              onChange={(v) =>
-                setForm((prev) => ({
-                  ...prev,
-                  branchId: v,
-                  // Clear the selected plan if it's branch-specific to a different branch.
-                  // Legacy shared plans (branchId === null) remain valid for any branch.
-                  planId:
-                    prev.planId &&
-                    plans.find((p) => p.id === prev.planId)?.branchId !==
-                      null &&
-                    plans.find((p) => p.id === prev.planId)?.branchId !== v
-                      ? null
-                      : prev.planId,
-                }))
-              }
+              onChange={(branchId) => setForm((prev) => ({ ...prev, branchId }))}
               nullLabel={t("branches.unassigned")}
               nullable={false}
             />
 
-            <PlanPicker
+            {/* Plans (service lines) — add / change / remove inline. */}
+            <CustomerPlansEditor
+              ref={plansEditor}
+              customer={customer}
               branchId={form.branchId}
-              value={form.planId}
-              onChange={(v) => setForm((prev) => ({ ...prev, planId: v }))}
+              startDate={form.startDate}
             />
 
             <Input
@@ -263,7 +270,7 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
                 customer ? t("common.save_changes") : t("customers.add_title")
               }
               onPress={handleSubmit}
-              loading={loading}
+              loading={submitting}
               disabled={!form.name.trim() || !form.startDate || !form.branchId}
               fullWidth
             />

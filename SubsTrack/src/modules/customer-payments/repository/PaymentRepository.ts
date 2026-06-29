@@ -3,11 +3,11 @@ import { PAGE_SIZE, type BranchFilter } from '@/src/core/constants';
 import type { DbPayment } from '@/src/core/types/db';
 import type { FindPaymentsOptions } from '../utils/types';
 
-type CreatePaymentPayload = Pick<DbPayment, 'billing_month' | 'amount_due' | 'amount_paid' | 'duration_months' | 'currency_id' | 'rate_per_usd_snapshot' | 'customer_id' | 'plan_id' | 'received_by_user_id' | 'tenant_id' | 'notes'>
+type CreatePaymentPayload = Pick<DbPayment, 'billing_month' | 'amount_due' | 'amount_paid' | 'duration_months' | 'currency_id' | 'rate_per_usd_snapshot' | 'customer_id' | 'customer_plan_id' | 'plan_id' | 'received_by_user_id' | 'tenant_id' | 'notes'>
 
 // Joins the customer name (and branch_id, needed by the inherited branch filter)
 // for the flat Payments list.
-const PAYMENT_LIST_SELECT = '*, customers!inner(name, branch_id)';
+const PAYMENT_LIST_SELECT = '*, customers!inner(name, branch_id), plans(name)';
 
 // Start of a YYYY-MM-DD day as a local-time ISO timestamp (matches the
 // day-bound helpers in SaleRepository — same local→UTC conversion).
@@ -75,7 +75,7 @@ class PaymentRepository extends BaseRepository {
       .from('payments')
       .upsert(
         { ...payload, paid_at: new Date().toISOString(), voided_at: null, voided_by: null },
-        { onConflict: 'customer_id,billing_month' },
+        { onConflict: 'customer_plan_id,billing_month' },
       )
       .select()
       .single();
@@ -84,8 +84,8 @@ class PaymentRepository extends BaseRepository {
   }
 
   // Inserts several payments in a single round-trip. Callers must ensure the
-  // batch has no duplicate (customer_id, billing_month) keys — Postgres rejects
-  // a batch upsert that touches the same conflict target twice.
+  // batch has no duplicate (customer_plan_id, billing_month) keys — Postgres
+  // rejects a batch upsert that touches the same conflict target twice.
   async createMany(payloads: CreatePaymentPayload[]): Promise<DbPayment[]> {
     if (payloads.length === 0) return [];
     const now = new Date().toISOString();
@@ -97,7 +97,7 @@ class PaymentRepository extends BaseRepository {
     }));
     const { data, error } = await this.db
       .from('payments')
-      .upsert(rows, { onConflict: 'customer_id,billing_month' })
+      .upsert(rows, { onConflict: 'customer_plan_id,billing_month' })
       .select();
     if (error) this.handleError(error);
     return (data ?? []) as DbPayment[];
@@ -159,12 +159,14 @@ class PaymentRepository extends BaseRepository {
     return (data ?? []) as DbPayment[];
   }
 
-  // Returns the customer IDs that have an active (non-voided), non-zero-paid
-  // payment covering the given billing month, split into:
-  //   - fullyPaidIds — payment fully settled (balance == 0)
-  //   - partialIds   — payment recorded but balance > 0
-  // Handles multi-month payments. amount_paid = 0 is intentionally excluded —
-  // it is treated as unpaid. This must stay in sync with PaymentService.buildMonthGrid().
+  // Returns customer IDs whose CURRENT-month status, aggregated across all their
+  // active (started) service lines, is:
+  //   - fullyPaidIds — every started line is covered and settled (balance == 0)
+  //   - partialIds   — some coverage exists, but a line is uncovered or unsettled
+  // A customer with several lines only turns "fully paid" once every line is
+  // settled. Handles multi-month coverage. amount_paid = 0 is treated as unpaid.
+  // Branch scoping is left to RLS (customer_plans + payments inherit the
+  // customer's branch). Must stay in sync with PaymentService.buildMonthGrid().
   async findPaymentStatusForMonth(
     billingMonth: string,
   ): Promise<{ fullyPaidIds: Set<string>; partialIds: Set<string> }> {
@@ -174,19 +176,34 @@ class PaymentRepository extends BaseRepository {
     const cutoff = `${cutoffDate.getFullYear()}-${String(cutoffDate.getMonth() + 1).padStart(2, '0')}-01`;
     const target = new Date(billingMonth);
 
+    // Active lines that have started by this month, grouped per customer.
+    const { data: lineRows, error: lErr } = await this.db
+      .from('customer_plans')
+      .select('id, customer_id, start_date')
+      .eq('active', true);
+    if (lErr) this.handleError(lErr);
+    const linesByCustomer = new Map<string, string[]>();
+    for (const l of (lineRows ?? []) as { id: string; customer_id: string; start_date: string }[]) {
+      const [sy, sm] = l.start_date.split('-').map(Number);
+      if (new Date(`${sy}-${String(sm).padStart(2, '0')}-01`) > target) continue; // not started yet
+      const list = linesByCustomer.get(l.customer_id);
+      if (list) list.push(l.id);
+      else linesByCustomer.set(l.customer_id, [l.id]);
+    }
+
+    // Covering payments for the month, keyed by line (last write wins per line).
     const { data, error } = await this.db
       .from('payments')
-      .select('customer_id, billing_month, duration_months, amount_paid, balance')
+      .select('customer_plan_id, billing_month, duration_months, amount_paid, balance')
       .lte('billing_month', billingMonth)
       .gte('billing_month', cutoff)
       .is('voided_at', null)
       .gt('amount_paid', 0);
     if (error) this.handleError(error);
 
-    const fullyPaidIds = new Set<string>();
-    const partialIds = new Set<string>();
+    const settledByLine = new Map<string, boolean>();
     for (const r of (data ?? []) as {
-      customer_id: string;
+      customer_plan_id: string;
       billing_month: string;
       duration_months: number;
       balance: string | number;
@@ -195,8 +212,25 @@ class PaymentRepository extends BaseRepository {
       const end = new Date(start);
       end.setMonth(end.getMonth() + r.duration_months - 1);
       if (end < target) continue;
-      if (Number(r.balance) > 0) partialIds.add(r.customer_id);
-      else fullyPaidIds.add(r.customer_id);
+      settledByLine.set(r.customer_plan_id, Number(r.balance) === 0);
+    }
+
+    const fullyPaidIds = new Set<string>();
+    const partialIds = new Set<string>();
+    for (const [customerId, lineIds] of linesByCustomer) {
+      let anyCovered = false;
+      let allCoveredAndSettled = true;
+      for (const lineId of lineIds) {
+        if (settledByLine.has(lineId)) {
+          anyCovered = true;
+          if (!settledByLine.get(lineId)) allCoveredAndSettled = false;
+        } else {
+          allCoveredAndSettled = false; // an active line has no payment this month
+        }
+      }
+      if (!anyCovered) continue;
+      if (allCoveredAndSettled) fullyPaidIds.add(customerId);
+      else partialIds.add(customerId);
     }
     return { fullyPaidIds, partialIds };
   }

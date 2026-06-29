@@ -87,6 +87,7 @@ export abstract class BaseRepository {
     users: { kind: "owned" },
     plans: { kind: "shared" },
     payments: { kind: "inherited", joinedTable: "customers" },
+    customer_plans: { kind: "inherited", joinedTable: "customers" },
     products: { kind: "shared" },
     sales: { kind: "owned" },
   } satisfies Record<string, BranchScope>;

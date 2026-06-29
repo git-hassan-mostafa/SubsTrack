@@ -7,6 +7,7 @@
 -- ── TRIGGERS ─────────────────────────────────────────────────
 DROP TRIGGER IF EXISTS trg_tier_plans_updated_at ON tier_plans;
 DROP TRIGGER IF EXISTS trg_customers_updated_at  ON customers;
+DROP TRIGGER IF EXISTS trg_customer_plans_updated_at ON customer_plans;
 DROP TRIGGER IF EXISTS trg_currencies_updated_at ON currencies;
 DROP TRIGGER IF EXISTS trg_branches_updated_at   ON branches;
 DROP TRIGGER IF EXISTS trg_products_updated_at   ON products;
@@ -17,6 +18,7 @@ DROP POLICY IF EXISTS sales_all         ON sales;
 DROP POLICY IF EXISTS products_modify   ON products;
 DROP POLICY IF EXISTS products_select   ON products;
 DROP POLICY IF EXISTS payments_all      ON payments;
+DROP POLICY IF EXISTS customer_plans_all ON customer_plans;
 DROP POLICY IF EXISTS customers_all     ON customers;
 DROP POLICY IF EXISTS plans_modify      ON plans;
 DROP POLICY IF EXISTS plans_select      ON plans;
@@ -34,6 +36,7 @@ DROP POLICY IF EXISTS tenants_update    ON tenants;
 -- ── TABLES (reverse FK order) ─────────────────────────────────
 DROP TABLE IF EXISTS sales      CASCADE;
 DROP TABLE IF EXISTS payments   CASCADE;
+DROP TABLE IF EXISTS customer_plans CASCADE;
 DROP TABLE IF EXISTS customers  CASCADE;
 DROP TABLE IF EXISTS products   CASCADE;
 DROP TABLE IF EXISTS plans      CASCADE;

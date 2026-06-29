@@ -45,8 +45,9 @@ class PlanRepository extends BaseRepository {
     if (error) this.handleError(error);
   }
 
-  // Hard-delete many plans in one statement. Assigned customers fall back to no
-  // plan via the customers.plan_id ON DELETE SET NULL constraint.
+  // Hard-delete many plans in one statement. Service lines on a deleted plan
+  // fall back to plan-less via the customer_plans.plan_id ON DELETE SET NULL
+  // constraint (payment history is preserved by the plan_id snapshot on payments).
   async deleteMany(ids: string[]): Promise<void> {
     if (ids.length === 0) return;
     const { error } = await this.db.from('plans').delete().in('id', ids);

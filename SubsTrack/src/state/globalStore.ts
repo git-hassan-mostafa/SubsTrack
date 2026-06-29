@@ -4,6 +4,7 @@ import { immer } from 'zustand/middleware/immer';
 import { createAuthSlice, type AuthSlice } from './slices/auth/authSlice';
 import { createSubscriptionSlice, type SubscriptionSlice } from './slices/subscription/subscriptionSlice';
 import { createCustomerSlice, type CustomerSlice } from './slices/customers/customerSlice';
+import { createCustomerPlanSlice, type CustomerPlanSlice } from './slices/customer-plans/customerPlanSlice';
 import { createPaymentSlice, type PaymentSlice } from './slices/payments/paymentSlice';
 import { createPaymentsListSlice, type PaymentsListSlice } from './slices/payments-list/paymentsListSlice';
 import { createPlanSlice, type PlanSlice } from './slices/plans/planSlice';
@@ -21,6 +22,7 @@ export interface GlobalState {
   auth: AuthSlice;
   subscription: SubscriptionSlice;
   customers: CustomerSlice;
+  customerPlans: CustomerPlanSlice;
   payments: PaymentSlice;
   paymentsList: PaymentsListSlice;
   plans: PlanSlice;
@@ -43,6 +45,7 @@ const initStore = (): StoreApi<GlobalState> =>
       auth: createAuthSlice(set, get, store),
       subscription: createSubscriptionSlice(set, get, store),
       customers: createCustomerSlice(set, get, store),
+      customerPlans: createCustomerPlanSlice(set, get, store),
       payments: createPaymentSlice(set, get, store),
       paymentsList: createPaymentsListSlice(set, get, store),
       plans: createPlanSlice(set, get, store),

@@ -8,7 +8,7 @@ import { mapDbCustomerToCustomer } from "../utils/mapper";
 
 type CustomerInput = Pick<
   Customer,
-  "name" | "phoneNumber" | "address" | "area" | "notes" | "planId" | "branchId" | "startDate" | "isRegular"
+  "name" | "phoneNumber" | "address" | "area" | "notes" | "branchId" | "startDate" | "isRegular"
 >;
 
 class CustomerService {
@@ -47,7 +47,6 @@ class CustomerService {
       address: data.address?.trim() || null,
       area: data.area?.trim() || null,
       notes: data.notes?.trim() || null,
-      plan_id: data.planId,
       branch_id: data.branchId,
       tenant_id: tenantId,
       start_date: data.startDate,
@@ -55,18 +54,20 @@ class CustomerService {
       is_regular: data.isRegular,
       cancelled_at: null,
     });
+    // Service lines are created right after by the form's inline Plans editor
+    // (customerPlans.syncLines) — every customer ends up with ≥1 line.
     return mapDbCustomerToCustomer(row);
   }
 
   async updateCustomer(id: string, data: CustomerInput): Promise<Customer> {
     this.validateInput(data);
+    // Plan assignment is NOT edited here — service lines are managed separately.
     const row = await repository.update(id, {
       name: data.name.trim(),
       phone_number: data.phoneNumber?.trim() || null,
       address: data.address?.trim() || null,
       area: data.area?.trim() || null,
       notes: data.notes?.trim() || null,
-      plan_id: data.planId,
       branch_id: data.branchId,
       start_date: data.startDate,
       is_regular: data.isRegular,

@@ -10,7 +10,7 @@ import { Button } from "@/src/shared/components/Button";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { Input } from "@/src/shared/components/Input";
 import { CurrencyInput } from "@/src/shared/components/CurrencyInput";
-import type { Customer, MonthEntry } from "@/src/core/types";
+import type { Customer, CustomerPlan, MonthEntry } from "@/src/core/types";
 import { getCurrentYearMonth, toBillingMonth } from "@/src/core/utils/date";
 import { getBlockRangeLabel } from "../utils/blockRangeLabel";
 import { useAuth } from "@/src/modules/auth";
@@ -29,6 +29,11 @@ import { COLORS } from "@/src/shared/constants";
 interface Props {
   entry: MonthEntry;
   customer: Customer;
+  // The service line being paid — supplies the plan/price/currency and the
+  // payment's customer_plan_id. `lines` (all the customer's lines) lets the
+  // slice rebuild every line's grid after the write.
+  line: CustomerPlan;
+  lines: CustomerPlan[];
   graceDays: number;
   monthGrid: MonthEntry[];
   onDismiss: () => void;
@@ -59,6 +64,8 @@ const EMPTY_FORM: FormState = {
 export function PaymentFormSheet({
   entry,
   customer,
+  line,
+  lines,
   graceDays,
   monthGrid,
   onDismiss,
@@ -81,21 +88,18 @@ export function PaymentFormSheet({
 
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
 
-  const plan = customer.plan;
+  const plan = line.plan ?? null;
   const isMultiMonth = (plan?.durationMonths ?? 1) > 1;
   const isFixedPlan = !!plan && !plan.isCustomPrice;
   const isCustomOrNoPlan = !plan || plan.isCustomPrice;
 
-  const planCurrency = findCurrency(
-    currencies,
-    customer.plan?.currencyId ?? null,
-  );
+  const planCurrency = findCurrency(currencies, plan?.currencyId ?? null);
   const customCurrency = findCurrency(currencies, form.customCurrencyId);
 
   const { year: cy, month: cm } = getCurrentYearMonth();
   const isFutureMonth =
     entry.year > cy || (entry.year === cy && entry.month > cm);
-  const blockedForInactive = !customer.active && isFutureMonth;
+  const blockedForInactive = (!customer.active || !line.active) && isFutureMonth;
 
   const conflictingLabels = useMemo(() => {
     if (!isMultiMonth || !plan) return [];
@@ -195,6 +199,7 @@ export function PaymentFormSheet({
       await createMultiMonthPayment(
         entry.billingMonth,
         customer,
+        line.id,
         plan,
         planCurrency,
         resolvedPaid,
@@ -202,6 +207,7 @@ export function PaymentFormSheet({
         form.notes.trim() || null,
         user.tenantId,
         true, // skipConflicts — conflicts already confirmed or absent
+        lines,
         entry.year,
         graceDays,
         currentTier,
@@ -215,13 +221,14 @@ export function PaymentFormSheet({
           durationMonths: 1,
           currencyId: resolvedCurrencyId,
           customerId: customer.id,
-          planId: customer.planId,
+          customerPlanId: line.id,
+          planId: line.planId,
           receivedByUserId: user.id,
           tenantId: user.tenantId,
           notes: form.notes.trim() || null,
         },
         findCurrency(currencies, resolvedCurrencyId),
-        customer,
+        lines,
         graceDays,
       );
     }
@@ -324,8 +331,7 @@ export function PaymentFormSheet({
                   {customer.name}
                 </Text>
                 <Text className="text-xs text-gray-400">
-                  {blockRangeLabel} ·{" "}
-                  {customer.plan?.name ?? t("common.no_plan")}
+                  {blockRangeLabel} · {plan?.name || t("common.no_plan")}
                 </Text>
               </View>
             </View>
