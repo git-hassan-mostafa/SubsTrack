@@ -1,5 +1,5 @@
 import type { StateCreator } from 'zustand';
-import type { Customer, TierPlan, TenantUsage } from '@/src/core/types';
+import type { Customer, CustomerPlan, TierPlan, TenantUsage } from '@/src/core/types';
 import { customerService } from '@/src/modules/customers';
 import { resolveBranchFilter, ownedRowMatchesFilter } from '@/src/shared/lib/branchFilter';
 import { TierLimitError } from '@/src/modules/subscription';
@@ -41,6 +41,7 @@ export interface CustomerSlice {
     usage: TenantUsage,
   ) => Promise<Customer | null>;
   updateCustomer: (id: string, data: CustomerInput) => Promise<void>;
+  setCustomerLines: (id: string, lines: CustomerPlan[]) => void;
   deactivateCustomer: (id: string) => Promise<void>;
   reactivateCustomer: (id: string) => Promise<void>;
   deleteCustomer: (id: string) => Promise<'hard' | 'soft' | null>;
@@ -245,6 +246,15 @@ export const createCustomerSlice: StateCreator<
       });
     }
   },
+
+  // Patches a customer's service lines in place after a plan sync — avoids
+  // re-fetching the whole customer. The customerPlans slice supplies the
+  // already-rebuilt line set (active + cancelled-for-history).
+  setCustomerLines: (id, lines) =>
+    set((state) => {
+      const i = state.customers.items.findIndex((c) => c.id === id);
+      if (i !== -1) state.customers.items[i].customerPlans = lines;
+    }),
 
   deactivateCustomer: async (id) => {
     const wasActive = get().customers.items.find((c) => c.id === id)?.active ?? false;

@@ -4,7 +4,7 @@ import type { GlobalState } from '@/src/state/globalStore';
 
 // Thin slice for the customer form's inline Plans editor. Service lines are the
 // source of truth on the Customer object (joined via customer_plans), so a sync
-// refreshes that customer through the customers slice — the detail screen +
+// patches that customer's lines through the customers slice — the detail screen +
 // payment panel read from there and re-render automatically.
 export interface CustomerPlanSlice {
   loading: boolean;
@@ -35,10 +35,29 @@ export const createCustomerPlanSlice: StateCreator<
       state.customerPlans.error = null;
     });
     try {
-      await customerPlanService.syncLines(customerId, lines, removedIds, tenantId);
-      // Refresh the owning customer so its `customerPlans` (and the grids built
-      // from them) reflect the change. Single source of truth = the DB.
-      await get().customers.fetchCustomer(customerId);
+      const existing =
+        get().customers.items.find((c) => c.id === customerId)?.customerPlans ??
+        [];
+      const { active, cancelled } = await customerPlanService.syncLines(
+        customerId,
+        lines,
+        removedIds,
+        tenantId,
+        existing.filter((l) => l.active),
+      );
+      // Rebuild the owning customer's lines locally instead of re-fetching: the
+      // active result, plus soft-cancelled removals and previously-cancelled
+      // lines kept so their payment history stays viewable. The grids read from
+      // here and re-render.
+      const removed = new Set(removedIds);
+      const keptCancelled = existing.filter(
+        (l) => !l.active && !removed.has(l.id),
+      );
+      get().customers.setCustomerLines(customerId, [
+        ...active,
+        ...cancelled,
+        ...keptCancelled,
+      ]);
       set((state) => {
         state.customerPlans.loading = false;
       });

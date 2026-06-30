@@ -44,35 +44,61 @@ class CustomerPlanService {
     return mapDbCustomerPlanToCustomerPlan(row);
   }
 
-  // Removes a line: hard-delete when it has no payments, else soft-cancel so the
-  // payment history is never lost (rule #7 — no hard deletes of paid records).
-  async deleteLine(id: string): Promise<void> {
+  // Removes a line: hard-delete when it has no payments (returns null), else
+  // soft-cancel so payment history is never lost (rule #7 — no hard deletes of
+  // paid records) and return the cancelled line so callers can keep it visible
+  // for history.
+  async deleteLine(id: string): Promise<CustomerPlan | null> {
     const paymentCount = await repository.countPayments(id);
-    if (paymentCount === 0) await repository.delete(id);
-    else await repository.cancel(id);
+    if (paymentCount === 0) {
+      await repository.delete(id);
+      return null;
+    }
+    const row = await repository.cancel(id);
+    return mapDbCustomerPlanToCustomerPlan(row);
   }
 
-  // Applies the customer form's inline Plans editor in one pass: remove deleted
-  // lines, then create/update the rest. Used by both create and edit flows.
+  // Applies the customer form's inline Plans editor in one pass. Removals and
+  // create/updates touch independent rows, so they all run concurrently; a kept
+  // line whose plan + start date are unchanged is carried over without a DB
+  // round-trip. Returns the resulting lines — active rows plus any soft-cancelled
+  // removals — so the caller can patch state instead of re-fetching the customer.
   async syncLines(
     customerId: string,
     lines: LineDraft[],
     removedIds: string[],
     tenantId: string,
-  ): Promise<void> {
-    for (const id of removedIds) {
-      await this.deleteLine(id);
-    }
-    for (const line of lines) {
-      if (line.id) {
-        await this.updateLine(line.id, { planId: line.planId, startDate: line.startDate });
-      } else {
-        await this.createLine(
-          { customerId, planId: line.planId, startDate: line.startDate },
-          tenantId,
-        );
-      }
-    }
+    existingLines: CustomerPlan[] = [],
+  ): Promise<{ active: CustomerPlan[]; cancelled: CustomerPlan[] }> {
+    const existingById = new Map(existingLines.map((l) => [l.id, l]));
+
+    const removals = Promise.all(removedIds.map((id) => this.deleteLine(id)));
+
+    const upserts = Promise.all(
+      lines.map((line) => {
+        if (!line.id) {
+          return this.createLine(
+            { customerId, planId: line.planId, startDate: line.startDate },
+            tenantId,
+          );
+        }
+        const prev = existingById.get(line.id);
+        // Unchanged kept line — reuse the loaded row, skip the round-trip.
+        if (prev && prev.planId === line.planId && prev.startDate === line.startDate) {
+          return Promise.resolve(prev);
+        }
+        return this.updateLine(line.id, {
+          planId: line.planId,
+          startDate: line.startDate,
+        });
+      }),
+    );
+
+    const [active, removalResults] = await Promise.all([upserts, removals]);
+    const cancelled = removalResults.filter(
+      (r): r is CustomerPlan => r !== null,
+    );
+    return { active, cancelled };
   }
 
   private validateDate(startDate: string): void {
