@@ -42,11 +42,9 @@ class PaymentRepository extends BaseRepository {
     if (opts.customerId) query = query.eq('customer_id', opts.customerId);
     if (opts.receivedByUserId) query = query.eq('received_by_user_id', opts.receivedByUserId);
     if (opts.billingMonth) query = query.eq('billing_month', opts.billingMonth);
-    if (opts.paidDate) {
-      query = query
-        .gte('paid_at', dayStartIso(opts.paidDate))
-        .lt('paid_at', nextDayStartIso(opts.paidDate));
-    }
+    // paid_at within the [from, to] day range — `to` is inclusive of its whole day.
+    if (opts.paidFrom) query = query.gte('paid_at', dayStartIso(opts.paidFrom));
+    if (opts.paidTo) query = query.lt('paid_at', nextDayStartIso(opts.paidTo));
     if (opts.status === 'paid') query = query.eq('balance', 0);
     else if (opts.status === 'partial') query = query.gt('balance', 0);
 

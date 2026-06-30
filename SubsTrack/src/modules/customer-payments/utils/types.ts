@@ -21,8 +21,10 @@ export interface FindPaymentsOptions {
     receivedByUserId?: string | null;
     // YYYY-MM-01 — the month-grid month the payment is for (exact match).
     billingMonth?: string | null;
-    // YYYY-MM-DD — the calendar day the payment was actually recorded (paid_at within it).
-    paidDate?: string | null;
+    // YYYY-MM-DD — inclusive lower bound on the day the payment was recorded (paid_at >= from).
+    paidFrom?: string | null;
+    // YYYY-MM-DD — inclusive upper bound on the day the payment was recorded (paid_at within that day).
+    paidTo?: string | null;
     status?: PaymentStatusFilter;
     branchFilter?: BranchFilter;
     includeVoided?: boolean;

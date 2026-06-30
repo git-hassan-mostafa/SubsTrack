@@ -17,7 +17,7 @@ import { SelectionBar, type SelectionAction } from "@/src/shared/components/Sele
 import { useSelection, useSelectionBackHandler } from "@/src/shared/hooks/useSelection";
 import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
 import { CustomerPicker } from "@/src/modules/customers";
-import { getTodayDateString } from "@/src/core/utils/date";
+import { getDateMonthsAgoString, getTodayDateString } from "@/src/core/utils/date";
 import { findCurrency } from "@/src/core/utils/currency";
 import type { MonthEntry } from "@/src/core/types";
 import { usePaymentsListSlice } from "@/src/state/hooks/usePaymentsListSlice";
@@ -57,8 +57,10 @@ export function PaymentsPanel() {
   const setCustomerFilter = usePaymentsListSlice((s) => s.setCustomerFilter);
   const paidByUserId = usePaymentsListSlice((s) => s.paidByUserId);
   const setPaidByUserId = usePaymentsListSlice((s) => s.setPaidByUserId);
-  const paidDate = usePaymentsListSlice((s) => s.paidDate);
-  const setPaidDate = usePaymentsListSlice((s) => s.setPaidDate);
+  const paidFrom = usePaymentsListSlice((s) => s.paidFrom);
+  const setPaidFrom = usePaymentsListSlice((s) => s.setPaidFrom);
+  const paidTo = usePaymentsListSlice((s) => s.paidTo);
+  const setPaidTo = usePaymentsListSlice((s) => s.setPaidTo);
   const billingMonth = usePaymentsListSlice((s) => s.billingMonth);
   const setBillingMonth = usePaymentsListSlice((s) => s.setBillingMonth);
   const statusFilter = usePaymentsListSlice((s) => s.statusFilter);
@@ -115,7 +117,8 @@ export function PaymentsPanel() {
     !!paidByUserId ||
     !!billingMonth ||
     statusFilter !== "all" ||
-    paidDate !== getTodayDateString();
+    paidFrom !== getDateMonthsAgoString(1) ||
+    paidTo !== getTodayDateString();
 
   const selectedPayments = items.filter((p) => selectedIds.has(p.id));
 
@@ -185,9 +188,18 @@ export function PaymentsPanel() {
                 triggerStyle="chip"
               />
               <DatePickerInput
-                placeholder={t("payments.paid_date")}
-                value={paidDate ?? ""}
-                onChange={(v) => setPaidDate(v || null)}
+                placeholder={t("payments.paid_from")}
+                value={paidFrom ?? ""}
+                onChange={(v) => setPaidFrom(v || null)}
+                maxDate={paidTo ?? undefined}
+                triggerStyle="chip"
+                clearable
+              />
+              <DatePickerInput
+                placeholder={t("payments.paid_to")}
+                value={paidTo ?? ""}
+                onChange={(v) => setPaidTo(v || null)}
+                minDate={paidFrom ?? undefined}
                 triggerStyle="chip"
                 clearable
               />

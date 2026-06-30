@@ -42,3 +42,14 @@ export function getTodayDateString(): string {
   const d = String(now.getDate()).padStart(2, "0");
   return `${y}-${m}-${d}`;
 }
+
+// YYYY-MM-DD for `months` calendar months before today (clamps to the last
+// valid day, e.g. Mar 31 → Feb 28). Used for the payments list default range.
+export function getDateMonthsAgoString(months: number): string {
+  const now = new Date();
+  const target = new Date(now.getFullYear(), now.getMonth() - months, now.getDate());
+  const y = target.getFullYear();
+  const m = String(target.getMonth() + 1).padStart(2, "0");
+  const d = String(target.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}

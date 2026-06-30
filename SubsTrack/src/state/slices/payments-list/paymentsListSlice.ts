@@ -1,7 +1,7 @@
 import type { StateCreator } from 'zustand';
 import type { Currency, Customer } from '@/src/core/types';
 import { PAGE_SIZE } from '@/src/core/constants';
-import { getTodayDateString } from '@/src/core/utils/date';
+import { getDateMonthsAgoString, getTodayDateString } from '@/src/core/utils/date';
 import {
   paymentService,
   type PaymentListItem,
@@ -21,15 +21,17 @@ export interface PaymentsListSlice {
   searchToken: number;
   customerFilter: Customer | null;
   paidByUserId: string | null;
-  // YYYY-MM-DD — defaults to today (payments recorded today).
-  paidDate: string | null;
+  // YYYY-MM-DD — recorded-date range; defaults to [one month ago, today].
+  paidFrom: string | null;
+  paidTo: string | null;
   billingMonth: string | null;
   statusFilter: PaymentStatusFilter;
   fetchPayments: () => Promise<void>;
   fetchMorePayments: () => Promise<void>;
   setCustomerFilter: (customer: Customer | null) => Promise<void>;
   setPaidByUserId: (userId: string | null) => Promise<void>;
-  setPaidDate: (date: string | null) => Promise<void>;
+  setPaidFrom: (date: string | null) => Promise<void>;
+  setPaidTo: (date: string | null) => Promise<void>;
   setBillingMonth: (month: string | null) => Promise<void>;
   setStatusFilter: (status: PaymentStatusFilter) => Promise<void>;
   clearFilters: () => Promise<void>;
@@ -50,7 +52,8 @@ function buildOptions(state: PaymentsListSlice, page: number, branchFilter: Retu
     branchFilter,
     customerId: state.customerFilter?.id ?? null,
     receivedByUserId: state.paidByUserId,
-    paidDate: state.paidDate,
+    paidFrom: state.paidFrom,
+    paidTo: state.paidTo,
     billingMonth: state.billingMonth,
     status: state.statusFilter,
   };
@@ -72,7 +75,8 @@ export const createPaymentsListSlice: StateCreator<
   searchToken: 0,
   customerFilter: null,
   paidByUserId: null,
-  paidDate: getTodayDateString(),
+  paidFrom: getDateMonthsAgoString(1),
+  paidTo: getTodayDateString(),
   billingMonth: null,
   statusFilter: 'all',
 
@@ -167,10 +171,22 @@ export const createPaymentsListSlice: StateCreator<
     await get().paymentsList.fetchPayments();
   },
 
-  setPaidDate: async (date) => {
-    if (get().paymentsList.paidDate === date) return;
+  setPaidFrom: async (date) => {
+    if (get().paymentsList.paidFrom === date) return;
     set((state) => {
-      state.paymentsList.paidDate = date;
+      state.paymentsList.paidFrom = date;
+      state.paymentsList.searchToken += 1;
+      state.paymentsList.page = 0;
+      state.paymentsList.items = [];
+      state.paymentsList.hasMore = true;
+    });
+    await get().paymentsList.fetchPayments();
+  },
+
+  setPaidTo: async (date) => {
+    if (get().paymentsList.paidTo === date) return;
+    set((state) => {
+      state.paymentsList.paidTo = date;
       state.paymentsList.searchToken += 1;
       state.paymentsList.page = 0;
       state.paymentsList.items = [];
@@ -203,12 +219,13 @@ export const createPaymentsListSlice: StateCreator<
     await get().paymentsList.fetchPayments();
   },
 
-  // Resets to the default view: payments recorded today.
+  // Resets to the default view: payments recorded in the last month.
   clearFilters: async () => {
     set((state) => {
       state.paymentsList.customerFilter = null;
       state.paymentsList.paidByUserId = null;
-      state.paymentsList.paidDate = getTodayDateString();
+      state.paymentsList.paidFrom = getDateMonthsAgoString(1);
+      state.paymentsList.paidTo = getTodayDateString();
       state.paymentsList.billingMonth = null;
       state.paymentsList.statusFilter = 'all';
       state.paymentsList.searchToken += 1;
@@ -282,7 +299,8 @@ export const createPaymentsListSlice: StateCreator<
       state.paymentsList.searchToken += 1;
       state.paymentsList.customerFilter = null;
       state.paymentsList.paidByUserId = null;
-      state.paymentsList.paidDate = getTodayDateString();
+      state.paymentsList.paidFrom = getDateMonthsAgoString(1);
+      state.paymentsList.paidTo = getTodayDateString();
       state.paymentsList.billingMonth = null;
       state.paymentsList.statusFilter = 'all';
     }),
