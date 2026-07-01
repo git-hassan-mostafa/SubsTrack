@@ -54,6 +54,13 @@ FIFO by `op_seq`. `executors.replay` calls Supabase directly under the user's JW
 
 Per table: `updated_at > cursor` (server-authoritative via BEFORE UPDATE trigger), LWW-merge into the mirror, **skip rows that still have a pending outbox op** (don't clobber un-pushed edits), advance the cursor. Tombstones (`tombstones` table, populated by AFTER DELETE triggers incl. cascade children) drive local deletion of hard-deleted rows. The engine runs **push → then pull**, serialized, on reconnect / foreground / after each write / periodically, and once at bootstrap.
 
+## Manual sync + observable status
+
+`sync/engine.ts` also exposes an observable status (`SyncStatus = { syncing, lastSyncAt, lastError }`) via `getSyncStatus()` / `subscribeSyncStatus()` — `runSync()` broadcasts the transitions, so **every** sync cycle (manual or automatic: reconnect / foreground / periodic / after a write) flips `syncing`. `syncNow()` is the manual UI entry point (probes connectivity first, returns `{ ok, offline }` so a button can tell "reached the server" from "no connection"). All re-exported from `src/core/offline/index.ts`; components read the status through the `useSyncStatus()` hook (`src/shared/hooks/`, `useSyncExternalStore`).
+
+- **Global marker** — `SyncIndicator` (`src/shared/components/`) is mounted once in the authenticated layout (`app/(app)/_layout.tsx`, beside `GlobalConfirmDialog`), so a top-center "Syncing data…" pill appears on **all pages** while `syncing` is true. Renders nothing when idle or on web.
+- **Settings** — a "Sync now" row (native only) triggers `syncNow()`; a brief bottom flash reports the one-off outcome (done / offline / failed). The syncing state itself is left to the global marker.
+
 ## Conflict policy (money)
 
 Inserts are keyed/idempotent; voids are monotonic; the common money ops are conflict-free. For concurrent same-row **edits**, `payments.updatePayment` and `customers.update` carry `base_version` and replay as a guarded update → if the row moved, the op is **parked** (surfaced) rather than blindly overwriting. Everything else is LWW by server `updated_at`. Full per-field merge is out of scope.

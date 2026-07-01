@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { ScrollView, View } from "react-native";
+import { useEffect, useRef, useState } from "react";
+import { ActivityIndicator, ScrollView, View } from "react-native";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -18,6 +18,8 @@ import {
 import { useAuth } from "@/src/modules/auth";
 import { useAuthSlice } from "@/src/state/hooks/useAuthSlice";
 import { resetAllDomainStores } from "@/src/shared/lib/storeReset";
+import { IS_OFFLINE_CAPABLE, syncNow } from "@/src/core/offline";
+import { useSyncStatus } from "@/src/shared/hooks/useSyncStatus";
 
 const LANGUAGE_LABELS: Record<SupportedLanguage, string> = {
   en: "English",
@@ -74,6 +76,31 @@ export function SettingsScreen() {
   const { language, setLanguage } = useLanguageStore();
   const logout = useAuthSlice((s) => s.logout);
   const [languagePickerOpen, setLanguagePickerOpen] = useState(false);
+  const { syncing } = useSyncStatus();
+  // Transient one-off result shown briefly after a manual sync attempt.
+  const [syncResult, setSyncResult] = useState<
+    "done" | "offline" | "failed" | null
+  >(null);
+  const resultTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (resultTimer.current) clearTimeout(resultTimer.current);
+    };
+  }, []);
+
+  function flashResult(result: "done" | "offline" | "failed") {
+    if (resultTimer.current) clearTimeout(resultTimer.current);
+    setSyncResult(result);
+    resultTimer.current = setTimeout(() => setSyncResult(null), 3000);
+  }
+
+  async function handleSyncPress() {
+    if (syncing) return;
+    setSyncResult(null);
+    const { ok, offline } = await syncNow();
+    flashResult(offline ? "offline" : ok ? "done" : "failed");
+  }
 
   const languageOptions = SUPPORTED_LANGUAGES.map((lang) => ({
     label: LANGUAGE_LABELS[lang],
@@ -192,6 +219,42 @@ export function SettingsScreen() {
             </View>
           </View>
 
+          {/* Data / sync — native only (web talks to Supabase directly) */}
+          {IS_OFFLINE_CAPABLE ? (
+            <View className="mx-4 mb-5">
+              <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2 px-1">
+                {t("settings.data_section")}
+              </Text>
+              <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+                <PressableOpacity
+                  onPress={() => void handleSyncPress()}
+                  disabled={syncing}
+                  className="flex-row items-center justify-between px-4 py-3.5"
+                >
+                  <View className="flex-row items-center gap-3">
+                    <Ionicons
+                      name="sync-outline"
+                      size={18}
+                      color={COLORS.gray500}
+                    />
+                    <Text className="text-sm font-medium text-gray-900">
+                      {t("settings.sync_now")}
+                    </Text>
+                  </View>
+                  {syncing ? (
+                    <ActivityIndicator size="small" color={COLORS.gray400} />
+                  ) : (
+                    <DirectionalIcon
+                      name="chevron-forward"
+                      size={14}
+                      color={COLORS.gray300}
+                    />
+                  )}
+                </PressableOpacity>
+              </View>
+            </View>
+          ) : null}
+
           {/* Logout */}
           <View className="mx-4 mb-8">
             <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
@@ -205,6 +268,33 @@ export function SettingsScreen() {
             </View>
           </View>
         </ScrollView>
+
+        {/* Manual-sync result flash (the "syncing" state itself is shown by the
+            global SyncIndicator, so this only covers the one-off outcome). */}
+        {IS_OFFLINE_CAPABLE && syncResult ? (
+          <View className="absolute inset-x-0 bottom-0 px-4 pb-4">
+            <View
+              className={`flex-row items-center gap-2 rounded-xl px-4 py-3 ${
+                syncResult === "done" ? "bg-success" : "bg-red-500"
+              }`}
+            >
+              <Ionicons
+                name={
+                  syncResult === "done" ? "checkmark-circle" : "alert-circle"
+                }
+                size={18}
+                color="#fff"
+              />
+              <Text className="flex-1 text-sm font-medium text-white">
+                {syncResult === "done"
+                  ? t("settings.sync_done")
+                  : syncResult === "offline"
+                    ? t("settings.sync_offline")
+                    : t("settings.sync_failed")}
+              </Text>
+            </View>
+          </View>
+        ) : null}
       </ResponsiveContainer>
 
       <DropdownModal<SupportedLanguage>

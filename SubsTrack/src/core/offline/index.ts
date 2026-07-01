@@ -4,7 +4,8 @@
 export { IS_OFFLINE_CAPABLE } from './platform';
 export { initOffline } from './bootstrap/offlineBootstrap';
 export { ensureTenantScope } from './bootstrap/tenant';
-export { runSync, requestSync } from './sync/engine';
+export { runSync, requestSync, syncNow, getSyncStatus, subscribeSyncStatus } from './sync/engine';
+export type { SyncStatus } from './sync/engine';
 export { pullAll, hasEverSynced } from './sync/pull';
 export { RequiresConnectionError } from './errors';
 export { newId, nowIso, deterministicId } from './ids';

@@ -440,6 +440,12 @@
     "arabic": "Arabic",
     "restart_notice": "The app will restart to apply the new language.",
     "branch": "Branch",
+    "data_section": "Data",
+    "sync_now": "Sync now",
+    "syncing": "Syncing data…",
+    "sync_done": "Data synced",
+    "sync_offline": "No internet connection. Connect and try again.",
+    "sync_failed": "Sync failed. Please try again.",
     "logout": "Log Out",
     "logout_confirm": "Are you sure you want to log out?"
   },
