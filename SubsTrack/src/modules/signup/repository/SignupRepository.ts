@@ -1,8 +1,11 @@
+import { Platform } from "react-native";
 import { supabase } from "@/src/shared/lib/supabase";
 import { readFunctionsErrorBody } from "@/src/core/utils/functionsError";
 import { CreateTenantInput, CreateTenantResult } from "../utils/types";
+import type { ISignupRepository } from "./ISignupRepository";
+import { OfflineSignupRepository } from "./SignupRepository.offline";
 
-class SignupRepository {
+export class SignupRepository implements ISignupRepository {
   async isTenantCodeAvailable(code: string): Promise<boolean> {
     const { data, error } = await supabase.rpc("is_tenant_code_available", {
       code: code.trim().toLowerCase(),
@@ -32,4 +35,10 @@ class SignupRepository {
   }
 }
 
-export default new SignupRepository()
+// Platform seam: web talks to Supabase directly (unchanged); native uses the
+// offline wrapper (online-only — requires connectivity). Services import this
+// default, so neither services nor slices change.
+const impl: ISignupRepository =
+  Platform.OS === "web" ? new SignupRepository() : new OfflineSignupRepository();
+
+export default impl;

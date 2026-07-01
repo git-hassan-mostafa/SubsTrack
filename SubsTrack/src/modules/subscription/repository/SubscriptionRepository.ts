@@ -1,8 +1,11 @@
+import { Platform } from "react-native";
 import { BaseRepository } from "@/src/core/utils/BaseRepository";
 import type { DbTierPlan, DbTenant } from "@/src/core/types/db";
 import type { TenantUsage } from "@/src/core/types";
+import type { ISubscriptionRepository } from "./ISubscriptionRepository";
+import { OfflineSubscriptionRepository } from "./SubscriptionRepository.offline";
 
-class SubscriptionRepository extends BaseRepository {
+export class SubscriptionRepository extends BaseRepository implements ISubscriptionRepository {
   async findAllTiers(): Promise<DbTierPlan[]> {
     const { data, error } = await this.db
       .from("tier_plans")
@@ -86,4 +89,8 @@ class SubscriptionRepository extends BaseRepository {
   }
 }
 
-export default new SubscriptionRepository()
+// Platform seam: web → Supabase directly (unchanged); native → offline SQLite.
+const impl: ISubscriptionRepository =
+  Platform.OS === 'web' ? new SubscriptionRepository() : new OfflineSubscriptionRepository();
+
+export default impl;

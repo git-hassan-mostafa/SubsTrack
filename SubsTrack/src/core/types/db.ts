@@ -136,6 +136,7 @@ export interface DbPayment {
   voided_by: string | null;
   notes: string | null;
   created_at: string;
+  updated_at: string;
 }
 
 export interface DbProduct {
@@ -170,6 +171,7 @@ export interface DbSale {
   void_reason: string | null;
   notes: string | null;
   created_at: string;
+  updated_at: string;
   // joined relations — present when .select('*, products(*), customers(*)')
   products?: DbProduct | null;
   customers?: DbCustomer | null;

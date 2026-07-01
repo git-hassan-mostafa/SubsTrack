@@ -1,9 +1,10 @@
+import { Platform } from 'react-native';
 import { BaseRepository } from '@/src/core/utils/BaseRepository';
 import { PAGE_SIZE, type BranchFilter } from '@/src/core/constants';
 import type { DbPayment } from '@/src/core/types/db';
 import type { FindPaymentsOptions } from '../utils/types';
-
-type CreatePaymentPayload = Pick<DbPayment, 'billing_month' | 'amount_due' | 'amount_paid' | 'duration_months' | 'currency_id' | 'rate_per_usd_snapshot' | 'customer_id' | 'customer_plan_id' | 'plan_id' | 'received_by_user_id' | 'tenant_id' | 'notes'>
+import type { CreatePaymentPayload, IPaymentRepository } from './IPaymentRepository';
+import { OfflinePaymentRepository } from './PaymentRepository.offline';
 
 // Joins the customer name (and branch_id, needed by the inherited branch filter)
 // for the flat Payments list.
@@ -23,7 +24,7 @@ function nextDayStartIso(date: string): string {
   return new Date(y, m - 1, d + 1).toISOString();
 }
 
-class PaymentRepository extends BaseRepository {
+export class PaymentRepository extends BaseRepository implements IPaymentRepository {
   // Tenant-wide, paginated payment list for the Invoices → Payments tab. Only
   // settled (amount_paid > 0), non-voided rows — an empty slot isn't a payment.
   async findAll(opts: FindPaymentsOptions = {}): Promise<DbPayment[]> {
@@ -287,4 +288,8 @@ class PaymentRepository extends BaseRepository {
   }
 }
 
-export default new PaymentRepository()
+// Platform seam: web → Supabase directly (unchanged); native → offline SQLite.
+const impl: IPaymentRepository =
+  Platform.OS === 'web' ? new PaymentRepository() : new OfflinePaymentRepository();
+
+export default impl;

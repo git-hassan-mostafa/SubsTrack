@@ -459,6 +459,7 @@
   "errors": {
     "unexpected": "حدث خطأ غير متوقع",
     "connection_error": "خطأ في الاتصال. حاول مجدداً.",
+    "requires_connection": "هذا الإجراء يتطلب اتصالاً بالإنترنت. يرجى إعادة الاتصال والمحاولة مرة أخرى.",
     "username_required": "اسم المستخدم مطلوب",
     "tenant_code_required": "كود المساحة مطلوب",
     "password_required": "كلمة المرور مطلوبة",

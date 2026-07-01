@@ -1,0 +1,47 @@
+import type { BranchFilter } from '@/src/core/constants';
+import type { DbPayment } from '@/src/core/types/db';
+import type { FindPaymentsOptions } from '../utils/types';
+
+export type CreatePaymentPayload = Pick<
+  DbPayment,
+  | 'billing_month'
+  | 'amount_due'
+  | 'amount_paid'
+  | 'duration_months'
+  | 'currency_id'
+  | 'rate_per_usd_snapshot'
+  | 'customer_id'
+  | 'customer_plan_id'
+  | 'plan_id'
+  | 'received_by_user_id'
+  | 'tenant_id'
+  | 'notes'
+>;
+
+export interface UpdatePaymentPayload {
+  amountDue: number;
+  amountPaid: number;
+  currencyId: string | null;
+  ratePerUsdSnapshot: number;
+}
+
+export interface AmountRow {
+  amount: number;
+  ratePerUsdSnapshot: number;
+}
+
+export interface IPaymentRepository {
+  findAll(opts?: FindPaymentsOptions): Promise<DbPayment[]>;
+  findByCustomer(customerId: string): Promise<DbPayment[]>;
+  create(payload: CreatePaymentPayload): Promise<DbPayment>;
+  createMany(payloads: CreatePaymentPayload[]): Promise<DbPayment[]>;
+  updatePayment(id: string, payload: UpdatePaymentPayload): Promise<DbPayment>;
+  voidPayment(id: string, voidedBy: string, notes: string | null): Promise<DbPayment>;
+  voidMany(ids: string[], voidedBy: string, notes: string | null): Promise<DbPayment[]>;
+  findPaymentStatusForMonth(
+    billingMonth: string,
+  ): Promise<{ fullyPaidIds: Set<string>; partialIds: Set<string> }>;
+  findActivePayments(): Promise<DbPayment[]>;
+  paidAmountsForMonth(billingMonth: string, branchFilter?: BranchFilter): Promise<AmountRow[]>;
+  balancesForMonth(billingMonth: string, branchFilter?: BranchFilter): Promise<AmountRow[]>;
+}

@@ -1,7 +1,10 @@
+import { Platform } from 'react-native';
 import { BaseRepository } from '@/src/core/utils/BaseRepository';
 import { PAGE_SIZE, type BranchFilter } from '@/src/core/constants';
 import type { DbSale } from '@/src/core/types/db';
 import { FindSalesOptions } from '../utils/types';
+import type { ISaleRepository } from './ISaleRepository';
+import { OfflineSaleRepository } from './SaleRepository.offline';
 
 const SALE_SELECT = '*, products(*), customers(*)';
 
@@ -19,7 +22,7 @@ function nextDayStartIso(day: string): string {
   return new Date(y, m - 1, d + 1).toISOString();
 }
 
-class SaleRepository extends BaseRepository {
+export class SaleRepository extends BaseRepository implements ISaleRepository {
   async findAll(opts: FindSalesOptions = {}): Promise<DbSale[]> {
     const page = opts.page ?? 0;
     const from = page * PAGE_SIZE;
@@ -80,7 +83,7 @@ class SaleRepository extends BaseRepository {
   async create(
     payload: Omit<
       DbSale,
-      'id' | 'total_amount' | 'created_at' | 'voided_at' | 'voided_by' | 'void_reason' | 'products' | 'customers'
+      'id' | 'total_amount' | 'created_at' | 'updated_at' | 'voided_at' | 'voided_by' | 'void_reason' | 'products' | 'customers'
     >,
   ): Promise<DbSale> {
     const { data, error } = await this.db
@@ -131,4 +134,8 @@ class SaleRepository extends BaseRepository {
   }
 }
 
-export default new SaleRepository()
+// Platform seam: web → Supabase directly (unchanged); native → offline SQLite.
+const impl: ISaleRepository =
+  Platform.OS === 'web' ? new SaleRepository() : new OfflineSaleRepository();
+
+export default impl;

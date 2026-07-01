@@ -1,17 +1,18 @@
+import { Platform } from 'react-native';
 import { BaseRepository } from '@/src/core/utils/BaseRepository';
 import type { DbCustomerPlan } from '@/src/core/types/db';
-
-type CreateCustomerPlanPayload = Pick<
-  DbCustomerPlan,
-  'customer_id' | 'plan_id' | 'start_date' | 'tenant_id'
->;
+import type {
+  CreateCustomerPlanPayload,
+  ICustomerPlanRepository,
+} from './ICustomerPlanRepository';
+import { OfflineCustomerPlanRepository } from './CustomerPlanRepository.offline';
 
 // One row per service line. No branch_id of its own — RLS scopes lines via the
 // owning customer's branch (see the customer_plans_all policy), exactly like
 // payments. The joined plan is loaded for display + price snapshotting.
 const SELECT = '*, plans(*)';
 
-class CustomerPlanRepository extends BaseRepository {
+export class CustomerPlanRepository extends BaseRepository implements ICustomerPlanRepository {
   async create(payload: CreateCustomerPlanPayload): Promise<DbCustomerPlan> {
     const { data, error } = await this.db
       .from('customer_plans')
@@ -64,4 +65,8 @@ class CustomerPlanRepository extends BaseRepository {
   }
 }
 
-export default new CustomerPlanRepository()
+// Platform seam: web → Supabase directly (unchanged); native → offline SQLite.
+const impl: ICustomerPlanRepository =
+  Platform.OS === 'web' ? new CustomerPlanRepository() : new OfflineCustomerPlanRepository();
+
+export default impl;

@@ -1,8 +1,11 @@
 import type { Session } from "@supabase/supabase-js";
+import { Platform } from "react-native";
 import { supabase } from "@/src/shared/lib/supabase";
 import type { DbTenant, DbUser } from "@/src/core/types/db";
+import type { IAuthRepository } from "./IAuthRepository";
+import { OfflineAuthRepository } from "./AuthRepository.offline";
 
-class AuthRepository {
+export class AuthRepository implements IAuthRepository {
   async signIn(email: string, password: string): Promise<Session> {
     const { data, error } = await supabase.auth.signInWithPassword({
       email,
@@ -77,4 +80,8 @@ class AuthRepository {
   }
 }
 
-export default new AuthRepository()
+// Platform seam: web → Supabase directly (unchanged); native → offline cache.
+const impl: IAuthRepository =
+  Platform.OS === 'web' ? new AuthRepository() : new OfflineAuthRepository();
+
+export default impl;

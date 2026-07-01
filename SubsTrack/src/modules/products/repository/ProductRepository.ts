@@ -1,8 +1,11 @@
+import { Platform } from 'react-native';
 import { BaseRepository } from '@/src/core/utils/BaseRepository';
 import type { BranchFilter } from '@/src/core/constants';
 import type { DbProduct } from '@/src/core/types/db';
+import type { IProductRepository } from './IProductRepository';
+import { OfflineProductRepository } from './ProductRepository.offline';
 
-class ProductRepository extends BaseRepository {
+export class ProductRepository extends BaseRepository implements IProductRepository {
   async findAll(branchFilter: BranchFilter = null): Promise<DbProduct[]> {
     let query = this.db
       .from('products')
@@ -93,4 +96,11 @@ class ProductRepository extends BaseRepository {
   }
 }
 
-export default new ProductRepository()
+// Platform seam: web talks to Supabase directly (unchanged); native uses the
+// offline SQLite repository. Services import this default, so neither services
+// nor slices change. The offline class is only constructed on native, so web
+// never opens a local DB.
+const impl: IProductRepository =
+  Platform.OS === 'web' ? new ProductRepository() : new OfflineProductRepository();
+
+export default impl;

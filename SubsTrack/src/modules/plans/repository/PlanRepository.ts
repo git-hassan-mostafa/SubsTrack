@@ -1,8 +1,11 @@
+import { Platform } from 'react-native';
 import { BaseRepository } from '@/src/core/utils/BaseRepository';
 import type { BranchFilter } from '@/src/core/constants';
 import type { DbPlan } from '@/src/core/types/db';
+import type { IPlanRepository } from './IPlanRepository';
+import { OfflinePlanRepository } from './PlanRepository.offline';
 
-class PlanRepository extends BaseRepository {
+export class PlanRepository extends BaseRepository implements IPlanRepository {
   async findAll(branchFilter: BranchFilter = null): Promise<DbPlan[]> {
     let query = this.db
       .from('plans')
@@ -68,4 +71,11 @@ class PlanRepository extends BaseRepository {
   }
 }
 
-export default new PlanRepository()
+// Platform seam: web talks to Supabase directly (unchanged); native uses the
+// offline SQLite repository. Services import this default, so neither services
+// nor slices change. The offline class is only constructed on native, so web
+// never opens a local DB.
+const impl: IPlanRepository =
+  Platform.OS === 'web' ? new PlanRepository() : new OfflinePlanRepository();
+
+export default impl;

@@ -1,7 +1,10 @@
+import { Platform } from 'react-native';
 import { BaseRepository } from '@/src/core/utils/BaseRepository';
 import type { DbCurrency } from '@/src/core/types/db';
+import type { ICurrencyRepository } from './ICurrencyRepository';
+import { OfflineCurrencyRepository } from './CurrencyRepository.offline';
 
-class CurrencyRepository extends BaseRepository {
+export class CurrencyRepository extends BaseRepository implements ICurrencyRepository {
   async findAll(): Promise<DbCurrency[]> {
     const { data, error } = await this.db
       .from('currencies')
@@ -88,4 +91,11 @@ class CurrencyRepository extends BaseRepository {
   }
 }
 
-export default new CurrencyRepository()
+// Platform seam: web talks to Supabase directly (unchanged); native uses the
+// offline SQLite repository. Services import this default, so neither services
+// nor slices change. The offline class is only constructed on native, so web
+// never opens a local DB.
+const impl: ICurrencyRepository =
+  Platform.OS === 'web' ? new CurrencyRepository() : new OfflineCurrencyRepository();
+
+export default impl;

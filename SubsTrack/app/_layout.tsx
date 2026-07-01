@@ -16,6 +16,7 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
 import "../global.css";
 import { enableMapSet } from "immer";
+import { initOffline } from "@/src/core/offline";
 
 export default function RootLayout() {
   const [i18nReady, setI18nReady] = useState(false);
@@ -41,17 +42,21 @@ export default function RootLayout() {
 
   useEffect(() => {
     enableMapSet(); /* enable map set for immer */
-    // Global app options gate pre-auth UI (e.g. self-service signup on the
-    // login screen), so fetch them up front — independent of any session.
-    fetchOptions();
-    initI18n()
-      .then(() => {
+    (async () => {
+      // Open the local DB + start the sync engine before any repository read
+      // (no-op on web). On native every repository now reads/writes SQLite.
+      await initOffline();
+      // Global app options gate pre-auth UI (e.g. self-service signup on the
+      // login screen), so fetch them up front — independent of any session.
+      fetchOptions();
+      try {
+        await initI18n();
         setI18nReady(true);
         restoreSession();
-      })
-      .catch((error) => {
+      } catch (error) {
         console.error("[RootLayout] Failed to initialize i18n:", error);
-      });
+      }
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

@@ -1,29 +1,18 @@
+import { Platform } from 'react-native';
 import { BaseRepository } from '@/src/core/utils/BaseRepository';
 import { PAGE_SIZE, type BranchFilter } from '@/src/core/constants';
 import type { DbCustomer } from '@/src/core/types/db';
-
-// A customer row with its service lines (each carrying its joined plan).
-type CustomerWithLines = DbCustomer;
+import type {
+  CreateCustomerPayload,
+  CustomerWithLines,
+  ICustomerRepository,
+} from './ICustomerRepository';
+import { OfflineCustomerRepository } from './CustomerRepository.offline';
 
 // Selects the customer plus its service lines and each line's plan.
 const SELECT = '*, customer_plans(*, plans(*))';
 
-type CreateCustomerPayload = Pick<
-  DbCustomer,
-  | 'name'
-  | 'phone_number'
-  | 'address'
-  | 'area'
-  | 'notes'
-  | 'branch_id'
-  | 'tenant_id'
-  | 'start_date'
-  | 'active'
-  | 'is_regular'
-  | 'cancelled_at'
->;
-
-class CustomerRepository extends BaseRepository {
+export class CustomerRepository extends BaseRepository implements ICustomerRepository {
   async findAll(
     page: number,
     searchQuery?: string,
@@ -221,4 +210,8 @@ class CustomerRepository extends BaseRepository {
   }
 }
 
-export default new CustomerRepository()
+// Platform seam: web → Supabase directly (unchanged); native → offline SQLite.
+const impl: ICustomerRepository =
+  Platform.OS === 'web' ? new CustomerRepository() : new OfflineCustomerRepository();
+
+export default impl;

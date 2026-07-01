@@ -116,6 +116,7 @@ CREATE TABLE IF NOT EXISTS tenants (
                                  DEFAULT get_free_tier_id(),
     tier_upgraded_at TIMESTAMPTZ,
     created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
     CONSTRAINT fk_tenants_tier
         FOREIGN KEY (tier_id)
@@ -210,6 +211,7 @@ CREATE TABLE IF NOT EXISTS users (
     -- depends on a count from another table.
     branch_id    UUID,
     created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
     CONSTRAINT fk_users_tenant
         FOREIGN KEY (tenant_id)
@@ -255,6 +257,7 @@ CREATE TABLE IF NOT EXISTS plans (
     -- This is the OPPOSITE semantic of customers.branch_id (where NULL = unassigned/hidden).
     branch_id       UUID,
     created_at      TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
 
     -- A fixed plan must have a price; a custom-price plan must not.
     CONSTRAINT chk_plan_price_consistency
@@ -440,6 +443,32 @@ CREATE OR REPLACE TRIGGER trg_app_options_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION set_updated_at();
 
+-- Server-authoritative updated_at on the remaining synced tables. Drives the
+-- offline client's incremental pull (WHERE updated_at > cursor) and is immune to
+-- client clock skew — see docs/offline.md.
+CREATE OR REPLACE TRIGGER trg_tier_plans_updated_at
+    BEFORE UPDATE ON tier_plans
+    FOR EACH ROW
+    EXECUTE FUNCTION set_updated_at();
+
+CREATE OR REPLACE TRIGGER trg_tenants_updated_at
+    BEFORE UPDATE ON tenants
+    FOR EACH ROW
+    EXECUTE FUNCTION set_updated_at();
+
+CREATE OR REPLACE TRIGGER trg_users_updated_at
+    BEFORE UPDATE ON users
+    FOR EACH ROW
+    EXECUTE FUNCTION set_updated_at();
+
+CREATE OR REPLACE TRIGGER trg_plans_updated_at
+    BEFORE UPDATE ON plans
+    FOR EACH ROW
+    EXECUTE FUNCTION set_updated_at();
+
+-- payments + sales updated_at triggers are defined at the end of this file,
+-- after those tables exist.
+
 -- ============================================================
 -- PAYMENTS
 -- Append-only audit log. Hard deletes are NEVER performed.
@@ -489,6 +518,7 @@ CREATE TABLE IF NOT EXISTS payments (
 
     paid_at             TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
     created_at          TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    updated_at          TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
 
     -- Soft void fields. Set together or not at all.
     voided_at           TIMESTAMPTZ,
@@ -654,6 +684,7 @@ CREATE TABLE IF NOT EXISTS sales (
     rate_per_usd_snapshot NUMERIC(20,8) NOT NULL CHECK (rate_per_usd_snapshot > 0),
     sold_at               TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
     created_at            TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    updated_at            TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
     -- Soft-void fields. Set together or not at all. Reason required when set.
     voided_at             TIMESTAMPTZ,
     voided_by             UUID,
@@ -1237,3 +1268,76 @@ GRANT EXECUTE ON FUNCTION public.is_tenant_code_available(TEXT) TO anon, authent
 --
 --    Single-branch tenants leave branch_id NULL on every row — the feature is invisible.
 --    Branch-scoped admins cannot create shared plans (WITH CHECK enforces branch match).
+
+-- ============================================================
+-- OFFLINE-FIRST SYNC SUPPORT
+-- Enables the native app's incremental pull + tombstones (see docs/offline.md).
+-- Placed at the end so every referenced table already exists.
+-- ============================================================
+
+-- Server-authoritative updated_at for payments + sales (tables defined above).
+CREATE OR REPLACE TRIGGER trg_payments_updated_at
+    BEFORE UPDATE ON payments
+    FOR EACH ROW
+    EXECUTE FUNCTION set_updated_at();
+
+CREATE OR REPLACE TRIGGER trg_sales_updated_at
+    BEFORE UPDATE ON sales
+    FOR EACH ROW
+    EXECUTE FUNCTION set_updated_at();
+
+-- Tombstone log: one row per HARD delete, so other devices can remove the row
+-- during pull (a physically-deleted row is invisible to an updated_at cursor).
+CREATE TABLE IF NOT EXISTS tombstones (
+    id          UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id   UUID        NOT NULL,
+    table_name  TEXT        NOT NULL,
+    row_id      UUID        NOT NULL,
+    deleted_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+CREATE INDEX IF NOT EXISTS idx_tombstones_tenant_deleted
+    ON tombstones (tenant_id, deleted_at);
+
+ALTER TABLE tombstones ENABLE ROW LEVEL SECURITY;
+
+-- Tenants read only their own tombstones.
+DROP POLICY IF EXISTS tombstones_select ON tombstones;
+CREATE POLICY tombstones_select ON tombstones
+    FOR SELECT TO authenticated
+    USING (tenant_id = current_tenant_id());
+
+-- SECURITY DEFINER so the AFTER DELETE trigger can insert past the select-only
+-- RLS policy. Reads tenant_id off the deleted row (every hard-deletable table has it).
+CREATE OR REPLACE FUNCTION record_tombstone()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+    INSERT INTO tombstones (tenant_id, table_name, row_id)
+    VALUES (OLD.tenant_id, TG_TABLE_NAME, OLD.id);
+    RETURN OLD;
+END;
+$$;
+
+-- AFTER DELETE on every table that can be hard-deleted directly OR via cascade.
+-- Triggers on child tables (customer_plans, payments) fire on a customer's cascade
+-- delete too, so the log is complete without the client knowing cascade rules.
+-- payments/sales are normally soft-voided; these only fire on real DELETEs.
+CREATE OR REPLACE TRIGGER trg_customers_tombstone
+    AFTER DELETE ON customers FOR EACH ROW EXECUTE FUNCTION record_tombstone();
+CREATE OR REPLACE TRIGGER trg_customer_plans_tombstone
+    AFTER DELETE ON customer_plans FOR EACH ROW EXECUTE FUNCTION record_tombstone();
+CREATE OR REPLACE TRIGGER trg_payments_tombstone
+    AFTER DELETE ON payments FOR EACH ROW EXECUTE FUNCTION record_tombstone();
+CREATE OR REPLACE TRIGGER trg_plans_tombstone
+    AFTER DELETE ON plans FOR EACH ROW EXECUTE FUNCTION record_tombstone();
+CREATE OR REPLACE TRIGGER trg_branches_tombstone
+    AFTER DELETE ON branches FOR EACH ROW EXECUTE FUNCTION record_tombstone();
+CREATE OR REPLACE TRIGGER trg_currencies_tombstone
+    AFTER DELETE ON currencies FOR EACH ROW EXECUTE FUNCTION record_tombstone();
+CREATE OR REPLACE TRIGGER trg_products_tombstone
+    AFTER DELETE ON products FOR EACH ROW EXECUTE FUNCTION record_tombstone();
+CREATE OR REPLACE TRIGGER trg_sales_tombstone
+    AFTER DELETE ON sales FOR EACH ROW EXECUTE FUNCTION record_tombstone();

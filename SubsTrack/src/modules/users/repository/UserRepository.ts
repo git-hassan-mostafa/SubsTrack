@@ -1,18 +1,11 @@
+import { Platform } from "react-native";
 import { BaseRepository } from "@/src/core/utils/BaseRepository";
 import type { BranchFilter } from "@/src/core/constants";
 import type { DbUser } from "@/src/core/types/db";
+import type { CreateUserPayload, IUserRepository } from "./IUserRepository";
+import { OfflineUserRepository } from "./UserRepository.offline";
 
-interface CreateUserPayload {
-  username: string;
-  fullName: string;
-  password: string;
-  phone: string | null;
-  role: "admin" | "user";
-  tenantId: string;
-  branchId: string | null;
-}
-
-class UserRepository extends BaseRepository {
+export class UserRepository extends BaseRepository implements IUserRepository {
   async findAll(branchFilter: BranchFilter = null): Promise<DbUser[]> {
     let query = this.db
       .from("users")
@@ -107,4 +100,11 @@ class UserRepository extends BaseRepository {
   }
 }
 
-export default new UserRepository()
+// Platform seam: web talks to Supabase directly (unchanged); native uses the
+// offline SQLite repository. Services import this default, so neither services
+// nor slices change. The offline class is only constructed on native, so web
+// never opens a local DB.
+const impl: IUserRepository =
+  Platform.OS === "web" ? new UserRepository() : new OfflineUserRepository();
+
+export default impl;

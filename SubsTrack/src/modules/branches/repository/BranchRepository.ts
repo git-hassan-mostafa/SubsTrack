@@ -1,7 +1,10 @@
+import { Platform } from 'react-native';
 import { BaseRepository } from '@/src/core/utils/BaseRepository';
 import type { DbBranch } from '@/src/core/types/db';
+import type { IBranchRepository } from './IBranchRepository';
+import { OfflineBranchRepository } from './BranchRepository.offline';
 
-class BranchRepository extends BaseRepository {
+export class BranchRepository extends BaseRepository implements IBranchRepository {
   async findAll(): Promise<DbBranch[]> {
     const { data, error } = await this.db
       .from('branches')
@@ -109,4 +112,11 @@ class BranchRepository extends BaseRepository {
   }
 }
 
-export default new BranchRepository()
+// Platform seam: web talks to Supabase directly (unchanged); native uses the
+// offline SQLite repository. Services import this default, so neither services
+// nor slices change. The offline class is only constructed on native, so web
+// never opens a local DB.
+const impl: IBranchRepository =
+  Platform.OS === 'web' ? new BranchRepository() : new OfflineBranchRepository();
+
+export default impl;

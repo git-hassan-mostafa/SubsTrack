@@ -458,6 +458,7 @@
   "errors": {
     "unexpected": "An unexpected error occurred",
     "connection_error": "Connection error. Please try again.",
+    "requires_connection": "This action requires an internet connection. Please reconnect and try again.",
     "username_required": "Username is required",
     "tenant_code_required": "Tenant code is required",
     "password_required": "Password is required",
