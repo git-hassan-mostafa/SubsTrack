@@ -18,4 +18,8 @@ export interface ISaleRepository {
     monthEndExclusive: string,
     branchFilter?: BranchFilter,
   ): Promise<{ amount: number; ratePerUsdSnapshot: number }[]>;
+  // Non-voided sales tied to a customer that still owe money
+  // (total_amount > amount_paid), across all time — the "Sales" debt category.
+  // Joined with the customer for display.
+  partialSales(branchFilter?: BranchFilter): Promise<DbSale[]>;
 }

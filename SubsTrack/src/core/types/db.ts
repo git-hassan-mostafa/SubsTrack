@@ -163,6 +163,8 @@ export interface DbSale {
   quantity: number;
   unit_amount: number;
   total_amount: number;
+  // How much of the sale was collected. Partial (< total) leaves a "Sales" debt.
+  amount_paid: number;
   currency_id: string | null;
   rate_per_usd_snapshot: number;
   sold_at: string;
@@ -174,6 +176,49 @@ export interface DbSale {
   updated_at: string;
   // joined relations — present when .select('*, products(*), customers(*)')
   products?: DbProduct | null;
+  customers?: DbCustomer | null;
+}
+
+// A hand-typed debt with no source transaction (months/sales debts are derived
+// at runtime and never stored here). Soft-void only.
+export interface DbCustomDebt {
+  id: string;
+  tenant_id: string;
+  customer_id: string;
+  description: string | null;
+  amount: number;
+  currency_id: string | null;
+  rate_per_usd_snapshot: number;
+  recorded_by_user_id: string | null;
+  incurred_at: string;
+  created_at: string;
+  updated_at: string;
+  voided_at: string | null;
+  voided_by: string | null;
+  void_reason: string | null;
+  notes: string | null;
+  // joined relation — present when .select('*, customers(*)')
+  customers?: DbCustomer | null;
+}
+
+// Money a customer paid against their total debt. Tied only to the customer;
+// never modifies an underlying payment/sale row. Soft-void only.
+export interface DbDebtPayment {
+  id: string;
+  tenant_id: string;
+  customer_id: string;
+  amount: number;
+  currency_id: string | null;
+  rate_per_usd_snapshot: number;
+  received_by_user_id: string | null;
+  paid_at: string;
+  created_at: string;
+  updated_at: string;
+  voided_at: string | null;
+  voided_by: string | null;
+  void_reason: string | null;
+  notes: string | null;
+  // joined relation — present when .select('*, customers(*)')
   customers?: DbCustomer | null;
 }
 

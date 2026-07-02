@@ -68,5 +68,24 @@ export const SCHEMA_V1: string[] = [
   `CREATE INDEX IF NOT EXISTS idx_sales_product ON sales(product_id);`,
 ];
 
+// ── V2: Debts feature ────────────────────────────────────────────────────────
+// Delta applied to EXISTING installs only (fresh installs get everything from
+// SCHEMA_V1, which is regenerated from the current TABLES — see runMigrations).
+// Adds the two debt tables + the sales.amount_paid column (legacy sales backfill
+// to full = paid, so they don't show a phantom debt).
+const debtTables = TABLES.filter(
+  (t) => t.name === 'custom_debts' || t.name === 'debt_payments',
+);
+export const SCHEMA_V2: string[] = [
+  ...debtTables.map(createTableSql),
+  `CREATE INDEX IF NOT EXISTS idx_custom_debts_customer ON custom_debts(customer_id);`,
+  `CREATE INDEX IF NOT EXISTS idx_debt_payments_customer ON debt_payments(customer_id);`,
+  // SQLite has no `ADD COLUMN IF NOT EXISTS`; this runs on existing installs only.
+  `ALTER TABLE sales ADD COLUMN amount_paid TEXT;`,
+  `UPDATE sales SET amount_paid = total_amount WHERE amount_paid IS NULL;`,
+];
+
 // Each entry is one schema version. Append a new array to migrate forward.
-export const MIGRATIONS: string[][] = [SCHEMA_V1];
+// IMPORTANT: deltas must be purely additive DDL already reflected in the
+// TABLES-generated SCHEMA_V1 (fresh installs skip deltas — see runMigrations).
+export const MIGRATIONS: string[][] = [SCHEMA_V1, SCHEMA_V2];

@@ -23,6 +23,9 @@ export interface CreateSaleInput {
     branchId: string | null;
     quantity: number;
     unitAmount: number;
+    // How much was collected at sale time (same currency as unitAmount). Must be
+    // 0..unitAmount*quantity. A value below the total leaves a "Sales" debt.
+    amountPaid: number;
     currency: Currency | null;
     recordedByUserId: string | null;
     tenantId: string;

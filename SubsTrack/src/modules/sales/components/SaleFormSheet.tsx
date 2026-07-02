@@ -15,6 +15,7 @@ import {
   type DropdownOption,
 } from "@/src/shared/components/Dropdown";
 import { CustomerPicker } from "@/src/modules/customers";
+import { PaymentAmountPaidSection } from "@/src/modules/customer-payments";
 import { Ionicons } from "@expo/vector-icons";
 import { COLORS } from "@/src/shared/constants";
 import type { Customer, Product } from "@/src/core/types";
@@ -22,7 +23,7 @@ import { useAuth } from "@/src/modules/auth";
 import { useProductSlice } from "@/src/state/hooks/useProductSlice";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useSaleSlice } from "@/src/state/hooks/useSaleSlice";
-import { findCurrency } from "@/src/core/utils/currency";
+import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 
 interface Props {
   // Optional pre-selected customer (used when launched from CustomerDetailScreen).
@@ -54,6 +55,8 @@ export function SaleFormSheet({
   const [quantity, setQuantity] = useState(1);
   const [unitAmount, setUnitAmount] = useState<number | null>(null);
   const [currencyId, setCurrencyId] = useState<string | null>(null);
+  const [paymentMode, setPaymentMode] = useState<"full" | "partial">("full");
+  const [amountPaid, setAmountPaid] = useState<number | null>(null);
   const [notes, setNotes] = useState("");
 
   // Load active products on first open so the dropdown is populated immediately.
@@ -87,6 +90,17 @@ export function SaleFormSheet({
     value: p.id,
   }));
 
+  // Sale total (before considering how much was collected). A walk-in with no
+  // customer can only be paid in full — a debt needs a customer to attach to.
+  const total = (unitAmount ?? 0) * quantity;
+  const saleCurrency = findCurrency(currencies, currencyId);
+  const hasCustomer = customer != null;
+
+  // Resolve the collected amount: full = the whole total; partial = what was
+  // typed. Only a sale with a customer can be partial (a debt needs a debtor).
+  const resolvedAmountPaid =
+    paymentMode === "partial" && hasCustomer ? amountPaid ?? 0 : total;
+
   async function handleSubmit() {
     if (!user || !selectedProduct) return;
     const branchId = customer?.branchId ?? user.branchId ?? null;
@@ -96,6 +110,7 @@ export function SaleFormSheet({
       branchId,
       quantity,
       unitAmount: unitAmount ?? 0,
+      amountPaid: resolvedAmountPaid,
       currency: findCurrency(currencies, currencyId),
       recordedByUserId: user.id,
       tenantId: user.tenantId,
@@ -112,6 +127,9 @@ export function SaleFormSheet({
     quantity <= 0 ||
     unitAmount == null ||
     unitAmount <= 0 ||
+    (paymentMode === "partial" &&
+      hasCustomer &&
+      (amountPaid == null || amountPaid < 0 || amountPaid > total)) ||
     loading;
 
   return (
@@ -225,6 +243,22 @@ export function SaleFormSheet({
                   {(unitAmount * quantity).toFixed(2)}
                 </Text>
               </View>
+            ) : null}
+
+            {/* Full vs partial collection. Partial leaves a "Sales" debt on the
+                customer, so it's only offered when a customer is selected. */}
+            {hasCustomer ? (
+              <PaymentAmountPaidSection
+                paymentMode={paymentMode}
+                onPaymentModeChange={setPaymentMode}
+                amountPaid={amountPaid}
+                onAmountPaidChange={setAmountPaid}
+                currencyId={currencyId}
+                amountDue={total > 0 ? total : null}
+                formatAmount={(a) => formatMoney(a, saleCurrency, saleCurrency)}
+                onFocusClearError={clearError}
+                partialDisabled={total <= 0}
+              />
             ) : null}
 
             <Input

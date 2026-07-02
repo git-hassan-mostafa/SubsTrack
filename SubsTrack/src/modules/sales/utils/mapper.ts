@@ -15,6 +15,7 @@ export function mapDbSaleToSale(db: DbSale): Sale {
         quantity: db.quantity,
         unitAmount: Number(db.unit_amount),
         totalAmount: Number(db.total_amount),
+        amountPaid: Number(db.amount_paid),
         currencyId: db.currency_id,
         ratePerUsdSnapshot: Number(db.rate_per_usd_snapshot),
         soldAt: db.sold_at,

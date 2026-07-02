@@ -32,12 +32,19 @@ class SaleService {
       recorded_by_user_id: input.recordedByUserId,
       quantity: input.quantity,
       unit_amount: input.unitAmount,
+      amount_paid: input.amountPaid,
       currency_id: input.currency?.id ?? null,
       rate_per_usd_snapshot: ratePerUsdSnapshot,
       sold_at: new Date().toISOString(),
       notes: input.notes?.trim() || null,
     });
     return mapDbSaleToSale(row);
+  }
+
+  // Non-voided sales that still owe money (partial sales), for the Debts feature.
+  async getPartialSales(branchFilter: BranchFilter = null): Promise<Sale[]> {
+    const rows = await repository.partialSales(branchFilter);
+    return rows.map(mapDbSaleToSale);
   }
 
   async voidSale(id: string, voidedBy: string, reason: string): Promise<Sale> {
@@ -62,6 +69,15 @@ class SaleService {
     }
     if (typeof input.unitAmount !== 'number' || Number.isNaN(input.unitAmount) || input.unitAmount <= 0) {
       throw new Error(i18n.t('errors.sale_amount_positive'));
+    }
+    const total = input.unitAmount * input.quantity;
+    if (
+      typeof input.amountPaid !== 'number' ||
+      Number.isNaN(input.amountPaid) ||
+      input.amountPaid < 0 ||
+      input.amountPaid > total + 1e-9
+    ) {
+      throw new Error(i18n.t('errors.sale_amount_paid_invalid'));
     }
   }
 }

@@ -8,7 +8,7 @@ import type {
   Plan,
   TierPlan,
 } from "@/src/core/types";
-import { MONTHS } from "@/src/core/constants";
+import { MONTHS, type BranchFilter } from "@/src/core/constants";
 import {
   getCurrentYearMonth,
   isBeforeStartDate,
@@ -47,6 +47,13 @@ class PaymentService {
   // tab. Each item carries its customer name for display.
   async getPayments(opts: FindPaymentsOptions = {}): Promise<PaymentListItem[]> {
     const rows = await repository.findAll(opts);
+    return rows.map(mapDbPaymentRowToListItem);
+  }
+
+  // Non-voided payments that still owe money (partial payments) — the "Months"
+  // debt category. Each item carries its customer + plan name for display.
+  async getPartialPayments(branchFilter: BranchFilter = null): Promise<PaymentListItem[]> {
+    const rows = await repository.partialPayments(branchFilter);
     return rows.map(mapDbPaymentRowToListItem);
   }
 

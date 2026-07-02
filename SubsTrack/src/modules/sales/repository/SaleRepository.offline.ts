@@ -130,4 +130,17 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
       ratePerUsdSnapshot: Number(r.rate_per_usd_snapshot),
     }));
   }
+
+  async partialSales(branchFilter: BranchFilter = null): Promise<DbSale[]> {
+    const branch = this.branchWhere(branchFilter, this.BRANCH_SCOPES.sales, 's');
+    const rows = await this.all(
+      `SELECT s.* FROM sales s LEFT JOIN customers c ON s.customer_id = c.id
+       WHERE s.voided_at IS NULL AND s.customer_id IS NOT NULL
+         AND (CAST(s.total_amount AS REAL) - COALESCE(CAST(s.amount_paid AS REAL), 0)) > 0
+         ${branch.clause ? `AND ${branch.clause}` : ''}
+       ORDER BY s.sold_at DESC`,
+      [...branch.params],
+    );
+    return this.hydrate(this.decodeAll<DbSale>('sales', rows));
+  }
 }

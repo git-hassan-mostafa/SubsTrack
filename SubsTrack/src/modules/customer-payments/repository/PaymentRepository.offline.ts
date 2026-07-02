@@ -295,4 +295,16 @@ export class OfflinePaymentRepository extends OfflineBaseRepository implements I
       ratePerUsdSnapshot: Number(r.rate_per_usd_snapshot),
     }));
   }
+
+  async partialPayments(branchFilter: BranchFilter = null): Promise<DbPayment[]> {
+    const branch = this.branchWhere(branchFilter, this.BRANCH_SCOPES.payments, 'c');
+    const rows = await this.all(
+      `SELECT p.* FROM payments p JOIN customers c ON p.customer_id = c.id
+       WHERE p.voided_at IS NULL AND CAST(p.amount_paid AS REAL) > 0 AND CAST(p.balance AS REAL) > 0
+         ${branch.clause ? `AND ${branch.clause}` : ''}
+       ORDER BY p.billing_month DESC`,
+      [...branch.params],
+    );
+    return this.hydrateListJoins(this.decodeAll<DbPayment>('payments', rows));
+  }
 }

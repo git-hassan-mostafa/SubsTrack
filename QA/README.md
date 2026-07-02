@@ -28,6 +28,7 @@ This folder contains the production QA test plan for the SubsTrack mobile app. E
 | Subscription Tiers | [subscription.md](subscription.md) | Free / Pro / Business limits, gates, upgrade/downgrade flow, SuperAdmin tier editor + manual upgrade |
 | Products | [products.md](products.md) | Product catalog CRUD, branch scoping, tier gating (Free: 5), soft/hard delete, snapshot immunity in sales |
 | Sales | [sales.md](sales.md) | One-off sale recording, walk-in (no customer), product snapshots, async customer picker, void, customer panel, dashboard revenue integration |
+| Debts | [debts.md](debts.md) | Runtime-computed per-customer net debt, categories (months/sales/services/custom), partial sales (`amount_paid`), custom debts + debt payments, void, credit, branch + offline |
 | Dashboard | [dashboard.md](dashboard.md) | Hero card (subscription + sales revenue, USD-aggregated via snapshots, display-currency formatted), stat cards, admin compact stats, refresh, branch scoping |
 | Settings | [settings.md](settings.md) | User-level prefs: profile, language switcher with restart, logout |
 | Admin & Navigation | [admin-and-navigation.md](admin-and-navigation.md) | Tab visibility, role gating, routing, deep links, ActionMenu pattern, PressableOpacity feedback, asterisk required fields |
@@ -49,6 +50,7 @@ This folder contains the production QA test plan for the SubsTrack mobile app. E
 - [ ] Partial payment invariants: `balance > 0` renders the cell amber with "PARTIAL" sublabel (NOT a green cell with an orange dot); `amount_paid = 0` rendered as unpaid; tapping a partial cell opens amber receipt.
 - [ ] [Products](products.md) passes: tier gating, soft/hard delete, branch scoping, snapshot immunity in sales.
 - [ ] [Sales](sales.md) passes: snapshots frozen at sale time, walk-in customer, void, customer panel, dashboard revenue included.
+- [ ] [Debts](debts.md) passes: runtime net = Σ debts − Σ payments; debt payment doesn't touch the underlying month/sale; partial sales create a Sales debt; void + credit + branch/offline behave.
 - [ ] All identified findings ("verify…", "file a finding…" notes) reviewed and either fixed or signed off as known limitations.
 
 ## Test data needed

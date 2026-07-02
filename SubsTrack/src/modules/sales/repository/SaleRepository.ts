@@ -132,6 +132,23 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
       ratePerUsdSnapshot: Number(r.rate_per_usd_snapshot),
     }));
   }
+
+  async partialSales(branchFilter: BranchFilter = null): Promise<DbSale[]> {
+    let query = this.db
+      .from('sales')
+      .select(SALE_SELECT)
+      .is('voided_at', null)
+      .not('customer_id', 'is', null)
+      .order('sold_at', { ascending: false });
+    query = this.applyBranchFilter(query, branchFilter, this.BRANCH_SCOPES.sales);
+    const { data, error } = await query;
+    if (error) this.handleError(error);
+    // total_amount is a GENERATED column, so PostgREST can't compare it to
+    // amount_paid server-side — filter the still-owed rows here (bounded set).
+    return (data ?? []).filter(
+      (s: DbSale) => Number(s.total_amount) - Number(s.amount_paid) > 1e-9,
+    ) as DbSale[];
+  }
 }
 
 // Platform seam: web → Supabase directly (unchanged); native → offline SQLite.

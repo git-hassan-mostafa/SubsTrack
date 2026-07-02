@@ -11,9 +11,10 @@ import {
 } from "@/src/shared/components/SegmentedTabs";
 import { SalesPanel } from "@/src/modules/sales";
 import { PaymentsPanel } from "@/src/modules/customer-payments";
+import { DebtsPanel } from "@/src/modules/debts";
 import { ServicesPanel } from "./ServicesPanel";
 
-type TransactionsTab = "sales" | "payments" | "services";
+type TransactionsTab = "sales" | "payments" | "debts" | "services";
 
 // The Transactions hub: a single bottom tab hosting Sales, Payments, and (future)
 // Services as in-page segments. Owns the page chrome; each panel owns its body.
@@ -25,6 +26,7 @@ export function TransactionsScreen() {
     () => [
       { key: "sales", label: t("transactions.tab_sales") },
       { key: "payments", label: t("transactions.tab_payments") },
+      { key: "debts", label: t("transactions.tab_debts") },
       { key: "services", label: t("transactions.tab_services") },
     ],
     [t],
@@ -52,6 +54,7 @@ export function TransactionsScreen() {
       <View className="flex-1">
         {tab === "sales" ? <SalesPanel /> : null}
         {tab === "payments" ? <PaymentsPanel /> : null}
+        {tab === "debts" ? <DebtsPanel /> : null}
         {tab === "services" ? <ServicesPanel /> : null}
       </View>
     </SafeAreaView>

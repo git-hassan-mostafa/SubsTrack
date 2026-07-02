@@ -12,4 +12,5 @@ export function resetAllDomainStores() {
   state.dashboard.reset();
   state.products.reset();
   state.sales.reset();
+  state.debts.reset();
 }

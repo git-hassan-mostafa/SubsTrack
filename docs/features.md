@@ -14,6 +14,7 @@
 - [Subscription Tiers](#subscription-tiers)
 - [Products & One-Off Sales](#products--one-off-sales)
 - [Transactions Hub](#transactions-hub)
+- [Debts](#debts)
 - [Regular Customer](#regular-customer)
 - [Multiple Plans per Customer (service lines)](#multiple-plans-per-customer-service-lines)
 - [Payment Scenarios](#payment-scenarios)
@@ -302,13 +303,42 @@ See gotchas #35, #36, #37.
 
 ## Transactions Hub
 
-The bottom **Transactions** tab (`app/(app)/(tabs)/transactions`) is a hub hosting three in-page segments via the shared `SegmentedTabs` control: **Sales**, **Payments**, and **Services** (placeholder). `TransactionsScreen` owns the page chrome (SafeAreaView + title + `BranchSelector` + segments); each segment is a self-contained **panel** that owns its own body (filters, list, sheets, multi-select) but not the chrome. The selection toolbar that used to live inside `PageHeader` was extracted into a shared `SelectionBar` so panels (which have no `PageHeader`) can render it; `PageHeader` re-uses `SelectionBar` and re-exports `SelectionAction` for back-compat.
+The bottom **Transactions** tab (`app/(app)/(tabs)/transactions`) is a hub hosting four in-page segments via the shared `SegmentedTabs` control: **Sales**, **Payments**, **Debts**, and **Services** (placeholder). `TransactionsScreen` owns the page chrome (SafeAreaView + title + `BranchSelector` + segments); each segment is a self-contained **panel** that owns its own body (filters, list, sheets, multi-select) but not the chrome. The selection toolbar that used to live inside `PageHeader` was extracted into a shared `SelectionBar` so panels (which have no `PageHeader`) can render it; `PageHeader` re-uses `SelectionBar` and re-exports `SelectionAction` for back-compat.
 
 - **Sales** → `SalesPanel` (the former `SalesListScreen` body, behavior unchanged — `sales` slice).
 - **Payments** → `PaymentsPanel` (see below).
+- **Debts** → `DebtsPanel` (see the [Debts](#debts) section — `debts` slice).
 - **Services** → `ServicesPanel` ("coming soon" `EmptyState`).
 
 **Payments list (tenant-wide):** previously payments were viewable only per-customer via the month grid. `PaymentsPanel` lists **settled** payments (`amount_paid > 0`, non-voided) across all customers, defaulting to those **recorded in the last month** (`paid_at` within `[one month ago, today]`). Backed by its own `paymentsList` slice + `PaymentRepository.findAll` + `PaymentService.getPayments` (returns `PaymentListItem` = `Payment` + joined `customerName`); the recording staff name is resolved client-side from the `users` slice. Filter chips: **Customer** (`CustomerPicker`), **Collected by** (`Dropdown` over users), **From** + **To** (day-granular `DatePickerInput` → `YYYY-MM-DD`, defaulting to one month ago and today) + **For month** (`DatePickerInput` `monthOnly` mode → `YYYY-MM-01`), and **Status** (all / paid / partial). `paidFrom`/`paidTo` filter `paid_at` to the inclusive day range (`>= dayStart(from)`, `< nextDayStart(to)`); `billingMonth` is an exact `billing_month` match; status maps to `balance` (0 = paid, >0 = partial). Branch scoping reuses the inherited `customers.branch_id` filter. "Clear filters" resets to the last-month default. Tapping a row opens the existing `PaymentDetailSheet` (wrapped in a synthetic `MonthEntry`, with the customer name shown) wired to **void** (`PaymentListVoidSheet` → `paymentsList.voidPayments`) and **edit** (`paymentsList.updatePayment`, re-snapshots FX on currency change). Multi-select enables bulk void. The per-customer `paymentSlice` and month-grid logic are untouched.
+
+---
+
+## Debts
+
+The **Debts** segment of the Transactions hub is a per-customer accounts-receivable view. It answers *"how much does this customer still owe me, across everything?"*
+
+**Core model — debts are computed at runtime, not stored.** A customer's net debt is
+`net = Σ(all category debts) − Σ(debt payments)`. Categories:
+
+| Category   | Source (derived / stored)                                        |
+| ---------- | ---------------------------------------------------------------- |
+| `months`   | Partial subscription `payments` — `balance > 0` (derived).       |
+| `sales`    | Partial `sales` — `total_amount − amount_paid > 0` (derived).    |
+| `services` | Reserved for the future Services feature — contributes 0 today.  |
+| `custom`   | Hand-typed rows in the `custom_debts` table (stored).            |
+
+Only the two sources **without** a source transaction are stored: `custom_debts` (hand-typed debts) and `debt_payments`. A **debt payment** is tied **only to the customer** — it does NOT modify the underlying payment/sale row; it only offsets the runtime total. So a partial month still shows "partial" in the month grid after its debt is paid off; only the Debts total drops. This is intentional (the user's chosen model).
+
+**Layers.** New `debts` module (`src/modules/debts/`): `DebtRepository` (+ `.offline`, platform switch) owns only `custom_debts` + `debt_payments` CRUD/reads; `DebtService` **composes** existing services for the derived categories — `paymentService.getPartialPayments(branchFilter)` (added: partial payments across all months) and `saleService.getPartialSales(branchFilter)` (added: partial sales) — plus the debt repo, and folds everything into a uniform `DebtItem[]` view-model + a USD `DebtSummary` (this is the `DashboardService` fan-out precedent). Aggregation is done **once in the service** (each repo returns filtered raw rows) so the web + offline SQLite repos stay behaviorally identical; USD conversion uses each row's frozen `rate_per_usd_snapshot` (`sumUsd`, same as `DashboardService.sumInUsd`), then the screen formats into the display currency.
+
+**Sales gained `amount_paid`.** A sale can now be recorded partially paid (`SaleFormSheet` reuses `PaymentAmountPaidSection`, default **Full**). Partial is only offered when a customer is selected — a walk-in sale has no debtor. Legacy sales backfill to `amount_paid = total` (fully paid, no phantom debt).
+
+**UI (`DebtsPanel`).** A flat `FlatList` of debt items (partial month / partial sale / custom debt), each row = customer · label · category badge · remaining. Filter chips: **Category** (`Dropdown`: All / Months / Sales / Custom / Payments — client-side, no re-fetch) and **Customer** (`CustomerPicker`, re-fetches the scope). Branch comes from the hub `BranchSelector`. A **net-total summary header** shows `Σ debts − Σ payments` for the current scope (per-customer when a customer filter is active — this is how the requirement "customer debt = debts − payments" surfaces in the flat list); a negative net renders as **Credit**. The **Payments** chip switches the list to the debt-payment rows (voidable). The **FAB** opens an `ActionMenu`: *Add custom debt* / *Record debt payment* (both `AsyncEntityPicker` customer + `CurrencyInput`). Tapping a custom-debt row or a debt-payment row asks a `confirm()` then soft-voids it (months/sales rows are informational — void the underlying payment/sale in their own tab). No tier gating (recording debts/payments is unlimited).
+
+**State.** `debts` slice (`src/state/slices/debts/`) holds `items` / `payments` / `summary` / filters; `fetchDebts` calls `debtService.getDebtsView({ branchFilter, customerId })`; add/void actions re-fetch (one cheap call) so the summary stays coherent. Read via `useDebtSlice`.
+
+**Offline.** `custom_debts` + `debt_payments` are synced tenant tables (registered in `db/tables.ts` + `SYNC_PULL_ORDER`); both inherit their branch from the customer (RLS `EXISTS`, offline joins `customers`). See [docs/offline.md](offline.md) for the sync-registration + the `sales.amount_paid` migration detail.
 
 ---
 

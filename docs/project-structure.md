@@ -92,6 +92,7 @@ SubsTrack/
 │   │       ├── signup/signupSlice.ts
 │   │       ├── products/productSlice.ts
 │   │       ├── sales/saleSlice.ts
+│   │       ├── debts/debtSlice.ts
 │   │       └── options/optionSlice.ts
 │   │
 │   ├── modules/                   # Feature modules (state moved out — see src/state/)
@@ -181,6 +182,12 @@ SubsTrack/
 │   │   │   ├── screens/SalesPanel.tsx               # Sales segment of the Transactions hub (body only — no page chrome)
 │   │   │   ├── screens/CustomerSalesListScreen.tsx  # full per-customer sales list at customers/[id]/sales
 │   │   │   └── components/{SaleCard, SaleFormSheet, SaleDetailSheet, CustomerSalesPanel}.tsx
+│   │   │
+│   │   ├── debts/                               # Per-customer debt ledger (runtime-computed; Transactions → Debts)
+│   │   │   ├── repository/DebtRepository.ts    # custom_debts + debt_payments CRUD/reads (+ .offline sibling)
+│   │   │   ├── services/DebtService.ts         # composes partial payments + partial sales + custom_debts → DebtItem[] + USD DebtSummary
+│   │   │   ├── screens/DebtsPanel.tsx           # Debts segment of the Transactions hub (flat list + net summary header)
+│   │   │   └── components/{DebtItemCard, DebtPaymentCard, CustomDebtFormSheet, DebtPaymentFormSheet}.tsx
 │   │   │
 │   │   ├── options/                             # Read-only global app config (key/value)
 │   │   │   ├── repository/OptionRepository.ts  # findAll + findByKey (authenticated SELECT only)

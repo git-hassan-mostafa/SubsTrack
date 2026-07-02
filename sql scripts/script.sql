@@ -677,6 +677,10 @@ CREATE TABLE IF NOT EXISTS sales (
     unit_amount           NUMERIC(20,8) NOT NULL CHECK (unit_amount > 0),
     -- Read-only computed total. App never writes this.
     total_amount          NUMERIC(20,8) GENERATED ALWAYS AS (unit_amount * quantity) STORED,
+    -- How much of the sale was actually collected at sale time. Same currency as
+    -- unit_amount. A partial sale (amount_paid < total) leaves a "Sales" debt.
+    -- Legacy sales predating this column backfill to full (see migration).
+    amount_paid           NUMERIC(20,8) NOT NULL DEFAULT 0,
     -- Currency the amounts above are stored in. NULL = USD.
     currency_id           UUID,
     -- Exchange rate (units of currency_id per 1 USD) frozen at recording time.
@@ -690,6 +694,12 @@ CREATE TABLE IF NOT EXISTS sales (
     voided_by             UUID,
     void_reason           TEXT,
     notes                 TEXT,
+
+    -- amount_paid can't be negative and can't exceed the sale total. Uses the
+    -- BASE columns (unit_amount * quantity) — Postgres forbids referencing the
+    -- GENERATED total_amount column inside a CHECK.
+    CONSTRAINT chk_sales_amount_paid
+        CHECK (amount_paid >= 0 AND amount_paid <= unit_amount * quantity),
 
     CONSTRAINT fk_sales_tenant
         FOREIGN KEY (tenant_id)
@@ -743,6 +753,144 @@ CREATE INDEX IF NOT EXISTS idx_sales_product
     ON sales (product_id);
 
 -- ============================================================
+-- CUSTOM DEBTS
+-- Hand-typed debts a customer owes that have no source transaction
+-- (months come from partial payments, sales from partial sales — those are
+-- DERIVED at runtime and never stored here). One row = one custom debt.
+-- No branch_id: branch is inherited via the customer, exactly like payments.
+-- Soft-void only (voided_at/voided_by/void_reason) — history is kept.
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS custom_debts (
+    id                    UUID          PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id             UUID          NOT NULL,
+    customer_id           UUID          NOT NULL,
+    -- What the debt is for. Free text shown as the row label.
+    description           TEXT,
+    amount                NUMERIC(20,8) NOT NULL CHECK (amount > 0),
+    -- Currency the amount is stored in. NULL = USD.
+    currency_id           UUID,
+    -- Exchange rate (units of currency_id per 1 USD) frozen at recording time.
+    -- USD debts (currency_id IS NULL) always store 1. Same drift-free principle
+    -- as payments/sales.rate_per_usd_snapshot.
+    rate_per_usd_snapshot NUMERIC(20,8) NOT NULL CHECK (rate_per_usd_snapshot > 0),
+    recorded_by_user_id   UUID,
+    incurred_at           TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    created_at            TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    updated_at            TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    -- Soft-void fields. Set together or not at all.
+    voided_at             TIMESTAMPTZ,
+    voided_by             UUID,
+    void_reason           TEXT,
+    notes                 TEXT,
+
+    CONSTRAINT chk_custom_debts_void_consistency
+        CHECK (
+            (voided_at IS NULL AND voided_by IS NULL)
+            OR
+            (voided_at IS NOT NULL AND voided_by IS NOT NULL)
+        ),
+
+    CONSTRAINT fk_custom_debts_tenant
+        FOREIGN KEY (tenant_id)
+        REFERENCES tenants(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_custom_debts_customer
+        FOREIGN KEY (customer_id)
+        REFERENCES customers(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_custom_debts_currency
+        FOREIGN KEY (currency_id)
+        REFERENCES currencies(id)
+        ON DELETE RESTRICT,
+
+    CONSTRAINT fk_custom_debts_recorded_by
+        FOREIGN KEY (recorded_by_user_id)
+        REFERENCES users(id)
+        ON DELETE SET NULL,
+
+    CONSTRAINT fk_custom_debts_voided_by
+        FOREIGN KEY (voided_by)
+        REFERENCES users(id)
+        ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_custom_debts_tenant_id
+    ON custom_debts (tenant_id);
+
+CREATE INDEX IF NOT EXISTS idx_custom_debts_customer_id
+    ON custom_debts (customer_id);
+
+-- ============================================================
+-- DEBT PAYMENTS
+-- Money a customer paid AGAINST their total debt. Tied ONLY to the customer —
+-- NOT to any specific payment/sale/custom_debt. It never changes an underlying
+-- row; a customer's net debt is computed at runtime:
+--   net = SUM(category debts) - SUM(debt payments)
+-- No branch_id: inherited via the customer. Soft-void only.
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS debt_payments (
+    id                    UUID          PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id             UUID          NOT NULL,
+    customer_id           UUID          NOT NULL,
+    amount                NUMERIC(20,8) NOT NULL CHECK (amount > 0),
+    -- Currency the amount is stored in. NULL = USD.
+    currency_id           UUID,
+    -- Frozen exchange rate at recording time (units per 1 USD; 1 for USD).
+    rate_per_usd_snapshot NUMERIC(20,8) NOT NULL CHECK (rate_per_usd_snapshot > 0),
+    received_by_user_id   UUID,
+    paid_at               TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    created_at            TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    updated_at            TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    -- Soft-void fields. Set together or not at all.
+    voided_at             TIMESTAMPTZ,
+    voided_by             UUID,
+    void_reason           TEXT,
+    notes                 TEXT,
+
+    CONSTRAINT chk_debt_payments_void_consistency
+        CHECK (
+            (voided_at IS NULL AND voided_by IS NULL)
+            OR
+            (voided_at IS NOT NULL AND voided_by IS NOT NULL)
+        ),
+
+    CONSTRAINT fk_debt_payments_tenant
+        FOREIGN KEY (tenant_id)
+        REFERENCES tenants(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_debt_payments_customer
+        FOREIGN KEY (customer_id)
+        REFERENCES customers(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_debt_payments_currency
+        FOREIGN KEY (currency_id)
+        REFERENCES currencies(id)
+        ON DELETE RESTRICT,
+
+    CONSTRAINT fk_debt_payments_received_by
+        FOREIGN KEY (received_by_user_id)
+        REFERENCES users(id)
+        ON DELETE SET NULL,
+
+    CONSTRAINT fk_debt_payments_voided_by
+        FOREIGN KEY (voided_by)
+        REFERENCES users(id)
+        ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_debt_payments_tenant_id
+    ON debt_payments (tenant_id);
+
+CREATE INDEX IF NOT EXISTS idx_debt_payments_customer_id
+    ON debt_payments (customer_id);
+
+-- ============================================================
 -- ROW LEVEL SECURITY
 -- ============================================================
 
@@ -758,6 +906,8 @@ ALTER TABLE customer_plans ENABLE ROW LEVEL SECURITY;
 ALTER TABLE payments   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE products   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sales      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE custom_debts  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE debt_payments ENABLE ROW LEVEL SECURITY;
 
 -- ==============================================================
 CREATE OR REPLACE FUNCTION get_free_tier_id()
@@ -1187,6 +1337,72 @@ DO $$ BEGIN
             );
     END IF;
 
+    -- ── CUSTOM DEBTS ─────────────────────────────────────────
+    -- No own branch_id; inherit from the owning customer, exactly like
+    -- payments. Tenant-wide users see all; branch-scoped users only see
+    -- debts whose customer.branch_id matches theirs.
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE tablename = 'custom_debts' AND policyname = 'custom_debts_all'
+    ) THEN
+        CREATE POLICY custom_debts_all ON custom_debts
+            FOR ALL
+            USING (
+                tenant_id = current_tenant_id()
+                AND (
+                    current_branch_id() IS NULL
+                    OR EXISTS (
+                        SELECT 1 FROM customers c
+                        WHERE c.id = custom_debts.customer_id
+                          AND c.branch_id = current_branch_id()
+                    )
+                )
+            )
+            WITH CHECK (
+                tenant_id = current_tenant_id()
+                AND (
+                    current_branch_id() IS NULL
+                    OR EXISTS (
+                        SELECT 1 FROM customers c
+                        WHERE c.id = custom_debts.customer_id
+                          AND c.branch_id = current_branch_id()
+                    )
+                )
+            );
+    END IF;
+
+    -- ── DEBT PAYMENTS ────────────────────────────────────────
+    -- Same branch-via-customer inheritance as custom_debts / payments.
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE tablename = 'debt_payments' AND policyname = 'debt_payments_all'
+    ) THEN
+        CREATE POLICY debt_payments_all ON debt_payments
+            FOR ALL
+            USING (
+                tenant_id = current_tenant_id()
+                AND (
+                    current_branch_id() IS NULL
+                    OR EXISTS (
+                        SELECT 1 FROM customers c
+                        WHERE c.id = debt_payments.customer_id
+                          AND c.branch_id = current_branch_id()
+                    )
+                )
+            )
+            WITH CHECK (
+                tenant_id = current_tenant_id()
+                AND (
+                    current_branch_id() IS NULL
+                    OR EXISTS (
+                        SELECT 1 FROM customers c
+                        WHERE c.id = debt_payments.customer_id
+                          AND c.branch_id = current_branch_id()
+                    )
+                )
+            );
+    END IF;
+
 END $$;
 
 -- ============================================================
@@ -1286,6 +1502,16 @@ CREATE OR REPLACE TRIGGER trg_sales_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION set_updated_at();
 
+CREATE OR REPLACE TRIGGER trg_custom_debts_updated_at
+    BEFORE UPDATE ON custom_debts
+    FOR EACH ROW
+    EXECUTE FUNCTION set_updated_at();
+
+CREATE OR REPLACE TRIGGER trg_debt_payments_updated_at
+    BEFORE UPDATE ON debt_payments
+    FOR EACH ROW
+    EXECUTE FUNCTION set_updated_at();
+
 -- Tombstone log: one row per HARD delete, so other devices can remove the row
 -- during pull (a physically-deleted row is invisible to an updated_at cursor).
 CREATE TABLE IF NOT EXISTS tombstones (
@@ -1341,3 +1567,7 @@ CREATE OR REPLACE TRIGGER trg_products_tombstone
     AFTER DELETE ON products FOR EACH ROW EXECUTE FUNCTION record_tombstone();
 CREATE OR REPLACE TRIGGER trg_sales_tombstone
     AFTER DELETE ON sales FOR EACH ROW EXECUTE FUNCTION record_tombstone();
+CREATE OR REPLACE TRIGGER trg_custom_debts_tombstone
+    AFTER DELETE ON custom_debts FOR EACH ROW EXECUTE FUNCTION record_tombstone();
+CREATE OR REPLACE TRIGGER trg_debt_payments_tombstone
+    AFTER DELETE ON debt_payments FOR EACH ROW EXECUTE FUNCTION record_tombstone();

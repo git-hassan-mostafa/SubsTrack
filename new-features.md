@@ -177,6 +177,37 @@ expenses:  + branch_id  UUID REFERENCES branches(id)  -- nullable
 
 ---
 
+### 3.3 Debts Ledger (per-customer receivables) ✅
+
+**Priority:** 🔴 High
+
+**Purpose:** A single place (Transactions → **Debts** tab) that answers "how much does this customer still owe me, across everything?" — unifying partial subscription months, partial sales, and hand-typed debts, offset by debt payments.
+
+**Model:** Debts are **computed at runtime**, not stored: `net = Σ(category debts) − Σ(debt payments)`. Categories = **months** (partial `payments`, `balance > 0`), **sales** (partial `sales`), **services** (reserved), **custom** (`custom_debts`). A **debt payment** is tied only to the customer and never edits the underlying payment/sale row.
+
+**Schema changes:**
+
+```sql
+ALTER TABLE sales ADD COLUMN amount_paid NUMERIC(20,8) NOT NULL DEFAULT 0
+  CHECK (amount_paid >= 0 AND amount_paid <= unit_amount * quantity);  -- partial sales
+
+CREATE TABLE custom_debts (  -- hand-typed debts (only stored debt category)
+  id, tenant_id, customer_id, description, amount, currency_id,
+  rate_per_usd_snapshot, recorded_by_user_id, incurred_at,
+  voided_at/voided_by/void_reason, created_at, updated_at
+);
+CREATE TABLE debt_payments (  -- money paid against a customer's total debt
+  id, tenant_id, customer_id, amount, currency_id, rate_per_usd_snapshot,
+  received_by_user_id, paid_at, voided_at/voided_by/void_reason, created_at, updated_at
+);
+```
+
+Both new tables: branch-via-customer RLS (like `payments`), `set_updated_at` + `record_tombstone` triggers, and are registered as synced offline tables (`db/tables.ts` + `SYNC_PULL_ORDER`, `SCHEMA_V2` delta + a fresh-install migration fast-path).
+
+**Implementation:** new `src/modules/debts/` (`DebtRepository` +offline for the two tables; `DebtService` composes `paymentService.getPartialPayments` + `saleService.getPartialSales` + the debt repo into `DebtItem[]` + a USD `DebtSummary`); `debts` slice; `DebtsPanel` = flat list with category + customer filters and a net-total summary header. No tier gating. Full detail in [docs/features.md](docs/features.md) → Debts.
+
+---
+
 ## 4. Operational Features
 
 ### 4.1 Quick Pay (One-Tap Current Month) ✅

@@ -239,6 +239,9 @@ export interface Sale {
   quantity: number;
   unitAmount: number;
   totalAmount: number;
+  // How much was collected at sale time. A partial sale (amountPaid < totalAmount)
+  // leaves a "Sales" debt (remaining = totalAmount - amountPaid).
+  amountPaid: number;
   // Currency the amounts are stored in. null = USD.
   currencyId: string | null;
   // USD sales store 1. Mirrors Payment.ratePerUsdSnapshot.
@@ -252,6 +255,91 @@ export interface Sale {
   // Joined for display in lists/receipts.
   product?: Product | null;
   customer?: Customer | null;
+}
+
+// ── Debts ───────────────────────────────────────────────────────────────────
+// A customer's total debt is DERIVED at runtime, never stored:
+//   net = sum(all category debts) - sum(debt payments)
+// Only the two sources without a source transaction are stored: CustomDebt
+// (hand-typed) and DebtPayment. "months"/"sales" debts come from partial
+// payments / partial sales.
+
+export type DebtCategory = 'months' | 'sales' | 'services' | 'custom';
+
+// A hand-typed debt with no source transaction.
+export interface CustomDebt {
+  id: string;
+  tenantId: string;
+  customerId: string;
+  description: string | null;
+  amount: number;
+  // Currency the amount is stored in. null = USD.
+  currencyId: string | null;
+  ratePerUsdSnapshot: number;
+  recordedByUserId: string | null;
+  incurredAt: string;
+  createdAt: string;
+  updatedAt: string;
+  voidedAt: string | null;
+  voidedBy: string | null;
+  voidReason: string | null;
+  notes: string | null;
+}
+
+// Money paid against a customer's total debt. Tied only to the customer.
+export interface DebtPayment {
+  id: string;
+  tenantId: string;
+  customerId: string;
+  amount: number;
+  // Currency the amount is stored in. null = USD.
+  currencyId: string | null;
+  ratePerUsdSnapshot: number;
+  receivedByUserId: string | null;
+  paidAt: string;
+  createdAt: string;
+  updatedAt: string;
+  voidedAt: string | null;
+  voidedBy: string | null;
+  voidReason: string | null;
+  notes: string | null;
+}
+
+// One row in the Debts flat list (a partial month, a partial sale, or a custom
+// debt), unified for display. `remaining` is in the row's own currency.
+export interface DebtItem {
+  id: string;
+  category: DebtCategory;
+  customerId: string;
+  customerName: string;
+  // e.g. "Jan 2026 · Internet", the product name snapshot, or a custom description.
+  label: string;
+  remaining: number;
+  currencyId: string | null;
+  ratePerUsdSnapshot: number;
+  // billing_month / sold_at / incurred_at — used for sorting.
+  date: string;
+  sourceType: 'payment' | 'sale' | 'custom_debt';
+}
+
+// A debt-payment row for the "Payments" view of the Debts list.
+export interface DebtPaymentItem {
+  id: string;
+  customerId: string;
+  customerName: string;
+  amount: number;
+  currencyId: string | null;
+  ratePerUsdSnapshot: number;
+  paidAt: string;
+  notes: string | null;
+}
+
+// Net summary for the current Debts filter scope. All values in USD (the screen
+// formats into the user's display currency).
+export interface DebtSummary {
+  grossUsd: number;
+  paymentsUsd: number;
+  netUsd: number;
 }
 
 // Global app-wide key/value config (NOT tenant-scoped). Managed by the SaaS

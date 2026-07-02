@@ -132,11 +132,35 @@ export const TABLES: TableSpec[] = [
     columns: {
       id: 'text', tenant_id: 'text', branch_id: 'text', product_id: 'text',
       product_name_snapshot: 'text', customer_id: 'text', recorded_by_user_id: 'text',
-      quantity: 'int', unit_amount: 'num', total_amount: 'num', currency_id: 'text',
-      rate_per_usd_snapshot: 'num', sold_at: 'text', voided_at: 'text', voided_by: 'text',
+      quantity: 'int', unit_amount: 'num', total_amount: 'num', amount_paid: 'num',
+      currency_id: 'text', rate_per_usd_snapshot: 'num', sold_at: 'text',
+      voided_at: 'text', voided_by: 'text',
       void_reason: 'text', notes: 'text', created_at: 'text', updated_at: 'text',
     },
     generated: ['total_amount'], // server: GENERATED ALWAYS AS (unit_amount * quantity)
+    // NOTE: amount_paid is NOT generated — the client writes it.
+  },
+  {
+    name: 'custom_debts',
+    scope: 'tenant',
+    columns: {
+      id: 'text', tenant_id: 'text', customer_id: 'text', description: 'text',
+      amount: 'num', currency_id: 'text', rate_per_usd_snapshot: 'num',
+      recorded_by_user_id: 'text', incurred_at: 'text',
+      voided_at: 'text', voided_by: 'text', void_reason: 'text', notes: 'text',
+      created_at: 'text', updated_at: 'text',
+    },
+  },
+  {
+    name: 'debt_payments',
+    scope: 'tenant',
+    columns: {
+      id: 'text', tenant_id: 'text', customer_id: 'text',
+      amount: 'num', currency_id: 'text', rate_per_usd_snapshot: 'num',
+      received_by_user_id: 'text', paid_at: 'text',
+      voided_at: 'text', voided_by: 'text', void_reason: 'text', notes: 'text',
+      created_at: 'text', updated_at: 'text',
+    },
   },
   {
     name: 'app_options',
@@ -156,4 +180,5 @@ export const TABLE_BY_NAME: Record<string, TableSpec> = Object.fromEntries(
 export const SYNC_PULL_ORDER = [
   'tenants', 'tier_plans', 'app_options', 'currencies', 'branches', 'users',
   'plans', 'customers', 'customer_plans', 'payments', 'products', 'sales',
+  'custom_debts', 'debt_payments',
 ] as const;

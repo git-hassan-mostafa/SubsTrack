@@ -90,6 +90,8 @@ export abstract class BaseRepository {
     customer_plans: { kind: "inherited", joinedTable: "customers" },
     products: { kind: "shared" },
     sales: { kind: "owned" },
+    custom_debts: { kind: "inherited", joinedTable: "customers" },
+    debt_payments: { kind: "inherited", joinedTable: "customers" },
   } satisfies Record<string, BranchScope>;
 
   /**

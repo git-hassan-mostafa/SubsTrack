@@ -286,6 +286,20 @@ export class PaymentRepository extends BaseRepository implements IPaymentReposit
       ratePerUsdSnapshot: Number(r.rate_per_usd_snapshot),
     }));
   }
+
+  async partialPayments(branchFilter: BranchFilter = null): Promise<DbPayment[]> {
+    let query = this.db
+      .from('payments')
+      .select(PAYMENT_LIST_SELECT)
+      .gt('amount_paid', 0)
+      .gt('balance', 0)
+      .is('voided_at', null)
+      .order('billing_month', { ascending: false });
+    query = this.applyBranchFilter(query, branchFilter, this.BRANCH_SCOPES.payments);
+    const { data, error } = await query;
+    if (error) this.handleError(error);
+    return (data ?? []) as DbPayment[];
+  }
 }
 
 // Platform seam: web → Supabase directly (unchanged); native → offline SQLite.
