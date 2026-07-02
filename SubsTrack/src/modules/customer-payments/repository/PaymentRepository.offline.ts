@@ -3,7 +3,6 @@ import type { DbCustomer, DbPayment, DbPlan } from '@/src/core/types/db';
 import { OfflineBaseRepository } from '@/src/core/offline/OfflineBaseRepository';
 import { upsertPaymentDirty } from '@/src/core/offline/db/dml';
 import { deterministicId, nowIso } from '@/src/core/offline/ids';
-import { requestSync } from '@/src/core/offline/sync/engine';
 import type { FindPaymentsOptions } from '../utils/types';
 import type {
   AmountRow,
@@ -101,9 +100,7 @@ export class OfflinePaymentRepository extends OfflineBaseRepository implements I
         rowId: id,
         payload: { row, onConflict: 'customer_plan_id,billing_month' },
       });
-    });
-    requestSync();
-    return row;
+    });    return row;
   }
 
   async createMany(payloads: CreatePaymentPayload[]): Promise<DbPayment[]> {
@@ -123,9 +120,7 @@ export class OfflinePaymentRepository extends OfflineBaseRepository implements I
           payload: { row, onConflict: 'customer_plan_id,billing_month' },
         });
       }
-    });
-    requestSync();
-    return rows;
+    });    return rows;
   }
 
   async updatePayment(id: string, payload: UpdatePaymentPayload): Promise<DbPayment> {
@@ -165,9 +160,7 @@ export class OfflinePaymentRepository extends OfflineBaseRepository implements I
           },
         },
       });
-    });
-    requestSync();
-    const row = await this.first('SELECT * FROM payments WHERE id = ?', [id]);
+    });    const row = await this.first('SELECT * FROM payments WHERE id = ?', [id]);
     if (!row) this.handleError(new Error('Payment not found'));
     return this.decodeOne<DbPayment>('payments', row)!;
   }
@@ -193,9 +186,7 @@ export class OfflinePaymentRepository extends OfflineBaseRepository implements I
           payload: { fields: { voided_at: now, voided_by: voidedBy, notes } },
         });
       }
-    });
-    requestSync();
-    const ph = ids.map(() => '?').join(', ');
+    });    const ph = ids.map(() => '?').join(', ');
     const rows = await this.all(`SELECT * FROM payments WHERE id IN (${ph})`, ids);
     return this.decodeAll<DbPayment>('payments', rows);
   }

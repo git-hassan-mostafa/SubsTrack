@@ -70,26 +70,17 @@ export async function syncNow(): Promise<{ ok: boolean; offline: boolean }> {
   return { ok: status.lastError === null, offline: false };
 }
 
-let debounce: ReturnType<typeof setTimeout> | null = null;
-
-/** Debounced kick after a local write. No-op offline — the next reconnect retries. */
-export function requestSync(delayMs = 800): void {
-  if (!IS_OFFLINE_CAPABLE) return;
-  if (debounce) clearTimeout(debounce);
-  debounce = setTimeout(() => {
-    void runSync();
-  }, delayMs);
-}
-
-/** Register connectivity / foreground / periodic sync triggers. Idempotent. */
+/**
+ * Register the sync triggers. Idempotent. Deliberately calm: sync runs once at
+ * cold start, once when connectivity returns, and every 90s while the app is in
+ * the foreground — NOT after every write nor on resume-from-RAM. Local writes
+ * land durably in SQLite + the outbox; the next tick/reconnect pushes them.
+ */
 export function startSyncEngine(): void {
   if (!IS_OFFLINE_CAPABLE || started) return;
   started = true;
   subscribeConnectivity((online) => {
     if (online) void runSync();
-  });
-  AppState.addEventListener('change', (s) => {
-    if (s === 'active') void runSync();
   });
   setInterval(() => {
     if (AppState.currentState === 'active') void runSync();

@@ -3,7 +3,6 @@ import type { DbUser } from '@/src/core/types/db';
 import { OfflineBaseRepository } from '@/src/core/offline/OfflineBaseRepository';
 import { updateDirty, upsertFromServer } from '@/src/core/offline/db/dml';
 import { nowIso } from '@/src/core/offline/ids';
-import { requestSync } from '@/src/core/offline/sync/engine';
 import { isOnline } from '@/src/core/offline/net/connectivity';
 import { RequiresConnectionError } from '@/src/core/offline/errors';
 import type { CreateUserPayload, IUserRepository } from './IUserRepository';
@@ -11,8 +10,9 @@ import { UserRepository } from './UserRepository';
 
 /**
  * SQLite-backed User repository. Reads from the local mirror; field updates and
- * active toggles mutate the mirror AND enqueue an outbox op in one transaction,
- * then kick a sync. create / delete / updatePassword run edge functions and are
+ * active toggles mutate the mirror AND enqueue an outbox op in one transaction
+ * (a background sync pushes them on the next tick). create / delete /
+ * updatePassword run edge functions and are
  * online-only — they delegate to the Supabase sibling (throwing offline).
  * Returns the same `DbUser` shapes as the Supabase repository.
  */
@@ -42,9 +42,7 @@ export class OfflineUserRepository extends OfflineBaseRepository implements IUse
     await this.write(async (db, queue) => {
       await updateDirty(db, 'users', id, { ...payload, updated_at: nowIso() });
       await queue({ tableName: 'users', opType: 'update', rowId: id, payload: { fields: payload } });
-    });
-    requestSync();
-    const row = await this.first('SELECT * FROM users WHERE id = ?', [id]);
+    });    const row = await this.first('SELECT * FROM users WHERE id = ?', [id]);
     if (!row) this.handleError(new Error('User not found'));
     return this.decodeOne<DbUser>('users', row)!;
   }
@@ -53,9 +51,7 @@ export class OfflineUserRepository extends OfflineBaseRepository implements IUse
     await this.write(async (db, queue) => {
       await updateDirty(db, 'users', id, { active, updated_at: nowIso() });
       await queue({ tableName: 'users', opType: 'update', rowId: id, payload: { fields: { active } } });
-    });
-    requestSync();
-    const row = await this.first('SELECT * FROM users WHERE id = ?', [id]);
+    });    const row = await this.first('SELECT * FROM users WHERE id = ?', [id]);
     if (!row) this.handleError(new Error('User not found'));
     return this.decodeOne<DbUser>('users', row)!;
   }
@@ -77,9 +73,7 @@ export class OfflineUserRepository extends OfflineBaseRepository implements IUse
         await updateDirty(db, 'users', id, { active, updated_at: nowIso() });
         await queue({ tableName: 'users', opType: 'update', rowId: id, payload: { fields: { active } } });
       }
-    });
-    requestSync();
-  }
+    });  }
 
   // Edge function — online only.
   async delete(id: string): Promise<void> {

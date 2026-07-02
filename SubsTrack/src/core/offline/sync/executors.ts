@@ -1,4 +1,5 @@
 import { supabase } from '@/src/shared/lib/supabase';
+import { TABLE_BY_NAME } from '../db/tables';
 import type { OutboxEntry } from '../outbox/outbox';
 
 /** A rejection that should PARK the op (never retried) — RLS, constraint, tier-limit, conflict. */
@@ -38,7 +39,11 @@ export async function replay(entry: OutboxEntry): Promise<void> {
   switch (entry.op_type) {
     case 'insert': {
       const onConflict = payload.onConflict ?? 'id';
-      ({ error } = await supabase.from(table).upsert(payload.row!, { onConflict }));
+      // Drop server-computed columns (e.g. payments.balance, sales.total_amount);
+      // Postgres rejects a value for a GENERATED column, which would park the op.
+      const row = { ...payload.row! };
+      for (const c of TABLE_BY_NAME[table]?.generated ?? []) delete row[c];
+      ({ error } = await supabase.from(table).upsert(row, { onConflict }));
       break;
     }
     case 'update': {

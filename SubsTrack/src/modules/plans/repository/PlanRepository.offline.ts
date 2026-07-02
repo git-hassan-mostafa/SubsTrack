@@ -3,7 +3,6 @@ import type { DbPlan } from '@/src/core/types/db';
 import { OfflineBaseRepository } from '@/src/core/offline/OfflineBaseRepository';
 import { insertDirty, updateDirty } from '@/src/core/offline/db/dml';
 import { newId, nowIso } from '@/src/core/offline/ids';
-import { requestSync } from '@/src/core/offline/sync/engine';
 import type { IPlanRepository } from './IPlanRepository';
 
 /**
@@ -31,9 +30,7 @@ export class OfflinePlanRepository extends OfflineBaseRepository implements IPla
     await this.write(async (db, queue) => {
       await insertDirty(db, 'plans', row);
       await queue({ tableName: 'plans', opType: 'insert', rowId: row.id, payload: { row } });
-    });
-    requestSync();
-    return row;
+    });    return row;
   }
 
   async update(
@@ -45,9 +42,7 @@ export class OfflinePlanRepository extends OfflineBaseRepository implements IPla
     await this.write(async (db, queue) => {
       await updateDirty(db, 'plans', id, payload);
       await queue({ tableName: 'plans', opType: 'update', rowId: id, payload: { fields: payload } });
-    });
-    requestSync();
-    const row = await this.first('SELECT * FROM plans WHERE id = ?', [id]);
+    });    const row = await this.first('SELECT * FROM plans WHERE id = ?', [id]);
     if (!row) this.handleError(new Error('Plan not found'));
     return this.decodeOne<DbPlan>('plans', row)!;
   }
@@ -56,9 +51,7 @@ export class OfflinePlanRepository extends OfflineBaseRepository implements IPla
     await this.write(async (db, queue) => {
       await db.runAsync('DELETE FROM plans WHERE id = ?', [id] as never[]);
       await queue({ tableName: 'plans', opType: 'hard_delete', rowId: id, payload: {} });
-    });
-    requestSync();
-  }
+    });  }
 
   async deleteMany(ids: string[]): Promise<void> {
     if (ids.length === 0) return;
@@ -67,9 +60,7 @@ export class OfflinePlanRepository extends OfflineBaseRepository implements IPla
         await db.runAsync('DELETE FROM plans WHERE id = ?', [id] as never[]);
         await queue({ tableName: 'plans', opType: 'hard_delete', rowId: id, payload: {} });
       }
-    });
-    requestSync();
-  }
+    });  }
 
   async countAll(branchFilter: BranchFilter = null): Promise<number> {
     const where = this.combineWhere([

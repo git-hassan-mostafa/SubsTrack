@@ -18,6 +18,13 @@ export interface TableSpec {
   /** extra table-level constraints appended to CREATE TABLE. */
   constraints?: string[];
   /**
+   * Columns the SERVER computes (Postgres `GENERATED ALWAYS`). Stored/computed
+   * locally like any `num` column, but MUST be stripped from insert payloads on
+   * push — Postgres rejects a value for a generated column (SQLSTATE 428C9),
+   * which would park the op forever. See sync/executors.ts insert case.
+   */
+  generated?: string[];
+  /**
    * 'tenant'  — tenant-scoped data: gets `_dirty` + `_server_updated_at`, an
    *             outbox + a pull cursor, and offline writes.
    * 'global'  — app-wide read-only cache (tier_plans, app_options): pulled,
@@ -109,6 +116,7 @@ export const TABLES: TableSpec[] = [
     // Mirrors the server upsert conflict target — enforces one payment per
     // service line per month locally, so replay is idempotent (gotcha #1).
     constraints: ['UNIQUE (customer_plan_id, billing_month)'],
+    generated: ['balance'], // server: GENERATED ALWAYS AS (amount_due - amount_paid)
   },
   {
     name: 'products',
@@ -128,6 +136,7 @@ export const TABLES: TableSpec[] = [
       rate_per_usd_snapshot: 'num', sold_at: 'text', voided_at: 'text', voided_by: 'text',
       void_reason: 'text', notes: 'text', created_at: 'text', updated_at: 'text',
     },
+    generated: ['total_amount'], // server: GENERATED ALWAYS AS (unit_amount * quantity)
   },
   {
     name: 'app_options',

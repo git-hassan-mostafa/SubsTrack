@@ -3,12 +3,12 @@ import type { DbProduct } from '@/src/core/types/db';
 import { OfflineBaseRepository } from '@/src/core/offline/OfflineBaseRepository';
 import { insertDirty, updateDirty } from '@/src/core/offline/db/dml';
 import { newId, nowIso } from '@/src/core/offline/ids';
-import { requestSync } from '@/src/core/offline/sync/engine';
 import type { IProductRepository } from './IProductRepository';
 
 /**
  * SQLite-backed Product repository. Reads from the local mirror; writes mutate
- * the mirror AND enqueue an outbox op in one transaction, then kick a sync.
+ * the mirror AND enqueue an outbox op in one transaction (a background sync
+ * pushes them on the next tick).
  * Returns the same `DbProduct` shapes as the Supabase repository.
  */
 export class OfflineProductRepository extends OfflineBaseRepository implements IProductRepository {
@@ -29,9 +29,7 @@ export class OfflineProductRepository extends OfflineBaseRepository implements I
     await this.write(async (db, queue) => {
       await insertDirty(db, 'products', row);
       await queue({ tableName: 'products', opType: 'insert', rowId: row.id, payload: { row } });
-    });
-    requestSync();
-    return row;
+    });    return row;
   }
 
   async update(
@@ -43,9 +41,7 @@ export class OfflineProductRepository extends OfflineBaseRepository implements I
     await this.write(async (db, queue) => {
       await updateDirty(db, 'products', id, { ...payload, updated_at: nowIso() });
       await queue({ tableName: 'products', opType: 'update', rowId: id, payload: { fields: payload } });
-    });
-    requestSync();
-    const row = await this.first('SELECT * FROM products WHERE id = ?', [id]);
+    });    const row = await this.first('SELECT * FROM products WHERE id = ?', [id]);
     if (!row) this.handleError(new Error('Product not found'));
     return this.decodeOne<DbProduct>('products', row)!;
   }
@@ -54,9 +50,7 @@ export class OfflineProductRepository extends OfflineBaseRepository implements I
     await this.write(async (db, queue) => {
       await db.runAsync('DELETE FROM products WHERE id = ?', [id] as never[]);
       await queue({ tableName: 'products', opType: 'hard_delete', rowId: id, payload: {} });
-    });
-    requestSync();
-  }
+    });  }
 
   async deleteMany(ids: string[]): Promise<void> {
     if (ids.length === 0) return;
@@ -65,9 +59,7 @@ export class OfflineProductRepository extends OfflineBaseRepository implements I
         await db.runAsync('DELETE FROM products WHERE id = ?', [id] as never[]);
         await queue({ tableName: 'products', opType: 'hard_delete', rowId: id, payload: {} });
       }
-    });
-    requestSync();
-  }
+    });  }
 
   async deactivateMany(ids: string[]): Promise<void> {
     if (ids.length === 0) return;
@@ -81,9 +73,7 @@ export class OfflineProductRepository extends OfflineBaseRepository implements I
           payload: { fields: { active: false } },
         });
       }
-    });
-    requestSync();
-  }
+    });  }
 
   async referencedIds(ids: string[]): Promise<Set<string>> {
     return this.referencedIdsIn('sales', 'product_id', ids);

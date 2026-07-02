@@ -2,7 +2,6 @@ import type { DbCustomerPlan, DbPlan } from '@/src/core/types/db';
 import { OfflineBaseRepository } from '@/src/core/offline/OfflineBaseRepository';
 import { insertDirty, updateDirty } from '@/src/core/offline/db/dml';
 import { newId, nowIso } from '@/src/core/offline/ids';
-import { requestSync } from '@/src/core/offline/sync/engine';
 import type { CreateCustomerPlanPayload, ICustomerPlanRepository } from './ICustomerPlanRepository';
 
 /** SQLite-backed customer_plans repository (service lines). Mirrors `'*, plans(*)'`. */
@@ -39,9 +38,7 @@ export class OfflineCustomerPlanRepository
     await this.write(async (db, queue) => {
       await insertDirty(db, 'customer_plans', row);
       await queue({ tableName: 'customer_plans', opType: 'insert', rowId: row.id, payload: { row } });
-    });
-    requestSync();
-    return this.hydrate(row);
+    });    return this.hydrate(row);
   }
 
   async update(
@@ -51,9 +48,7 @@ export class OfflineCustomerPlanRepository
     await this.write(async (db, queue) => {
       await updateDirty(db, 'customer_plans', id, { ...payload, updated_at: nowIso() });
       await queue({ tableName: 'customer_plans', opType: 'update', rowId: id, payload: { fields: payload } });
-    });
-    requestSync();
-    return this.readById(id);
+    });    return this.readById(id);
   }
 
   async cancel(id: string): Promise<DbCustomerPlan> {
@@ -70,9 +65,7 @@ export class OfflineCustomerPlanRepository
         rowId: id,
         payload: { fields: { active: false, cancelled_at: cancelledAt } },
       });
-    });
-    requestSync();
-    return this.readById(id);
+    });    return this.readById(id);
   }
 
   async delete(id: string): Promise<void> {
@@ -81,9 +74,7 @@ export class OfflineCustomerPlanRepository
       await db.runAsync('DELETE FROM payments WHERE customer_plan_id = ?', [id] as never[]);
       await db.runAsync('DELETE FROM customer_plans WHERE id = ?', [id] as never[]);
       await queue({ tableName: 'customer_plans', opType: 'hard_delete', rowId: id, payload: {} });
-    });
-    requestSync();
-  }
+    });  }
 
   async countPayments(id: string): Promise<number> {
     return this.count('SELECT COUNT(*) AS n FROM payments WHERE customer_plan_id = ?', [id]);

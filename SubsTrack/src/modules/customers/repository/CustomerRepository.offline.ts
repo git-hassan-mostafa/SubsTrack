@@ -4,7 +4,6 @@ import type { DbCustomer, DbCustomerPlan, DbPlan } from '@/src/core/types/db';
 import { OfflineBaseRepository } from '@/src/core/offline/OfflineBaseRepository';
 import { insertDirty, updateDirty } from '@/src/core/offline/db/dml';
 import { newId, nowIso } from '@/src/core/offline/ids';
-import { requestSync } from '@/src/core/offline/sync/engine';
 import type {
   CreateCustomerPayload,
   CustomerWithLines,
@@ -68,9 +67,7 @@ export class OfflineCustomerRepository
     await this.write(async (db, queue) => {
       await insertDirty(db, 'customers', row);
       await queue({ tableName: 'customers', opType: 'insert', rowId: row.id, payload: { row } });
-    });
-    requestSync();
-    return { ...row, customer_plans: [] };
+    });    return { ...row, customer_plans: [] };
   }
 
   async update(
@@ -85,9 +82,7 @@ export class OfflineCustomerRepository
     await this.write(async (db, queue) => {
       await updateDirty(db, 'customers', id, { ...payload, updated_at: nowIso() });
       await queue({ tableName: 'customers', opType: 'update', rowId: id, payload: { fields: payload } });
-    });
-    requestSync();
-    return this.findById(id);
+    });    return this.findById(id);
   }
 
   async deactivate(id: string): Promise<CustomerWithLines> {
@@ -104,9 +99,7 @@ export class OfflineCustomerRepository
         rowId: id,
         payload: { fields: { active: false, cancelled_at: cancelledAt } },
       });
-    });
-    requestSync();
-    return this.findById(id);
+    });    return this.findById(id);
   }
 
   async reactivate(id: string): Promise<CustomerWithLines> {
@@ -118,9 +111,7 @@ export class OfflineCustomerRepository
         rowId: id,
         payload: { fields: { active: true, cancelled_at: null } },
       });
-    });
-    requestSync();
-    return this.findById(id);
+    });    return this.findById(id);
   }
 
   async countPayments(id: string): Promise<number> {
@@ -141,9 +132,7 @@ export class OfflineCustomerRepository
         await db.runAsync('DELETE FROM customers WHERE id = ?', [id] as never[]);
         await queue({ tableName: 'customers', opType: 'hard_delete', rowId: id, payload: {} });
       }
-    });
-    requestSync();
-  }
+    });  }
 
   async deactivateMany(ids: string[]): Promise<void> {
     if (ids.length === 0) return;
@@ -162,9 +151,7 @@ export class OfflineCustomerRepository
           payload: { fields: { active: false, cancelled_at: cancelledAt } },
         });
       }
-    });
-    requestSync();
-  }
+    });  }
 
   async customersWithPayments(ids: string[]): Promise<Set<string>> {
     return this.referencedIdsIn('payments', 'customer_id', ids);
