@@ -1,5 +1,5 @@
 import { Stack } from "expo-router";
 
-export default function InvoicesLayout() {
+export default function TransactionsLayout() {
   return <Stack screenOptions={{ headerShown: false }} />;
 }

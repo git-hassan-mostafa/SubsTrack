@@ -43,8 +43,8 @@ import { useSaleSlice } from "@/src/state/hooks/useSaleSlice";
 import { useProductSlice } from "@/src/state/hooks/useProductSlice";
 import { useAuth } from "@/src/modules/auth";
 
-// The Sales segment of the Invoices hub. Owns its body (search, filters, list,
-// FAB, sheets, selection) but not the page chrome — the parent InvoicesScreen
+// The Sales segment of the Transactions hub. Owns its body (search, filters, list,
+// FAB, sheets, selection) but not the page chrome — the parent TransactionsScreen
 // provides the SafeAreaView, title, and the segmented tab switcher.
 export function SalesPanel() {
   const { t } = useTranslation();

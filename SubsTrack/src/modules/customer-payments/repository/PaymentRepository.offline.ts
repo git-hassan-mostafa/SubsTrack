@@ -1,4 +1,4 @@
-import { PAGE_SIZE, type BranchFilter } from '@/src/core/constants';
+import { OFFLINE_PAGE_SIZE, type BranchFilter } from '@/src/core/constants';
 import type { DbCustomer, DbPayment, DbPlan } from '@/src/core/types/db';
 import { OfflineBaseRepository } from '@/src/core/offline/OfflineBaseRepository';
 import { upsertPaymentDirty } from '@/src/core/offline/db/dml';
@@ -60,7 +60,7 @@ export class OfflinePaymentRepository extends OfflineBaseRepository implements I
     const { sql, params } = this.combineWhere(parts);
     const rows = await this.all(
       `SELECT p.* FROM payments p JOIN customers c ON p.customer_id = c.id
-       ${sql} ORDER BY p.paid_at DESC LIMIT ${PAGE_SIZE} OFFSET ${page * PAGE_SIZE}`,
+       ${sql} ORDER BY p.paid_at DESC LIMIT ${OFFLINE_PAGE_SIZE} OFFSET ${page * OFFLINE_PAGE_SIZE}`,
       params,
     );
     return this.hydrateListJoins(this.decodeAll<DbPayment>('payments', rows));
@@ -100,7 +100,7 @@ export class OfflinePaymentRepository extends OfflineBaseRepository implements I
         rowId: id,
         payload: { row, onConflict: 'customer_plan_id,billing_month' },
       });
-    });    return row;
+    }); return row;
   }
 
   async createMany(payloads: CreatePaymentPayload[]): Promise<DbPayment[]> {
@@ -120,7 +120,7 @@ export class OfflinePaymentRepository extends OfflineBaseRepository implements I
           payload: { row, onConflict: 'customer_plan_id,billing_month' },
         });
       }
-    });    return rows;
+    }); return rows;
   }
 
   async updatePayment(id: string, payload: UpdatePaymentPayload): Promise<DbPayment> {
@@ -160,7 +160,7 @@ export class OfflinePaymentRepository extends OfflineBaseRepository implements I
           },
         },
       });
-    });    const row = await this.first('SELECT * FROM payments WHERE id = ?', [id]);
+    }); const row = await this.first('SELECT * FROM payments WHERE id = ?', [id]);
     if (!row) this.handleError(new Error('Payment not found'));
     return this.decodeOne<DbPayment>('payments', row)!;
   }
@@ -186,7 +186,7 @@ export class OfflinePaymentRepository extends OfflineBaseRepository implements I
           payload: { fields: { voided_at: now, voided_by: voidedBy, notes } },
         });
       }
-    });    const ph = ids.map(() => '?').join(', ');
+    }); const ph = ids.map(() => '?').join(', ');
     const rows = await this.all(`SELECT * FROM payments WHERE id IN (${ph})`, ids);
     return this.decodeAll<DbPayment>('payments', rows);
   }

@@ -1,5 +1,7 @@
 export const PAGE_SIZE = 30;
 
+export const OFFLINE_PAGE_SIZE = 100;
+
 // Keys into the months.* translation namespace — must match locales/en.json and ar.json
 export const MONTHS = [
   'jan', 'feb', 'mar', 'apr', 'may', 'jun',

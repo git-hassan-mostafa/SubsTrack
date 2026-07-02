@@ -1,5 +1,5 @@
 import type { BranchFilter } from '@/src/core/constants';
-import { PAGE_SIZE } from '@/src/core/constants';
+import { OFFLINE_PAGE_SIZE } from '@/src/core/constants';
 import type { DbCustomer, DbCustomerPlan, DbPlan } from '@/src/core/types/db';
 import { OfflineBaseRepository } from '@/src/core/offline/OfflineBaseRepository';
 import { insertDirty, updateDirty } from '@/src/core/offline/db/dml';
@@ -13,8 +13,7 @@ import type {
 /** SQLite-backed customers repository. Reproduces `'*, customer_plans(*, plans(*))'`. */
 export class OfflineCustomerRepository
   extends OfflineBaseRepository
-  implements ICustomerRepository
-{
+  implements ICustomerRepository {
   /** Attach `customer_plans` (each with its joined `plans`) to a set of customers. */
   private async hydrateLines(customers: DbCustomer[]): Promise<CustomerWithLines[]> {
     if (customers.length === 0) return customers;
@@ -46,9 +45,9 @@ export class OfflineCustomerRepository
       this.branchWhere(branchFilter, this.BRANCH_SCOPES.customers, 'customers'),
       this.searchWhere(['name', 'phone_number', 'address', 'area'], searchQuery),
     ]);
-    const from = page * PAGE_SIZE;
+    const from = page * OFFLINE_PAGE_SIZE;
     const rows = await this.all(
-      `SELECT * FROM customers ${where} ORDER BY name LIMIT ${PAGE_SIZE} OFFSET ${from}`,
+      `SELECT * FROM customers ${where} ORDER BY name LIMIT ${OFFLINE_PAGE_SIZE} OFFSET ${from}`,
       params,
     );
     return this.hydrateLines(this.decodeAll<DbCustomer>('customers', rows));
@@ -67,7 +66,7 @@ export class OfflineCustomerRepository
     await this.write(async (db, queue) => {
       await insertDirty(db, 'customers', row);
       await queue({ tableName: 'customers', opType: 'insert', rowId: row.id, payload: { row } });
-    });    return { ...row, customer_plans: [] };
+    }); return { ...row, customer_plans: [] };
   }
 
   async update(
@@ -82,7 +81,7 @@ export class OfflineCustomerRepository
     await this.write(async (db, queue) => {
       await updateDirty(db, 'customers', id, { ...payload, updated_at: nowIso() });
       await queue({ tableName: 'customers', opType: 'update', rowId: id, payload: { fields: payload } });
-    });    return this.findById(id);
+    }); return this.findById(id);
   }
 
   async deactivate(id: string): Promise<CustomerWithLines> {
@@ -99,7 +98,7 @@ export class OfflineCustomerRepository
         rowId: id,
         payload: { fields: { active: false, cancelled_at: cancelledAt } },
       });
-    });    return this.findById(id);
+    }); return this.findById(id);
   }
 
   async reactivate(id: string): Promise<CustomerWithLines> {
@@ -111,7 +110,7 @@ export class OfflineCustomerRepository
         rowId: id,
         payload: { fields: { active: true, cancelled_at: null } },
       });
-    });    return this.findById(id);
+    }); return this.findById(id);
   }
 
   async countPayments(id: string): Promise<number> {
@@ -132,7 +131,8 @@ export class OfflineCustomerRepository
         await db.runAsync('DELETE FROM customers WHERE id = ?', [id] as never[]);
         await queue({ tableName: 'customers', opType: 'hard_delete', rowId: id, payload: {} });
       }
-    });  }
+    });
+  }
 
   async deactivateMany(ids: string[]): Promise<void> {
     if (ids.length === 0) return;
@@ -151,7 +151,8 @@ export class OfflineCustomerRepository
           payload: { fields: { active: false, cancelled_at: cancelledAt } },
         });
       }
-    });  }
+    });
+  }
 
   async customersWithPayments(ids: string[]): Promise<Set<string>> {
     return this.referencedIdsIn('payments', 'customer_id', ids);

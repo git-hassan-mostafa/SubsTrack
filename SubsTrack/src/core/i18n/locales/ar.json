@@ -632,8 +632,8 @@
     "bulk_void_title": "إلغاء {{count}} مبيعات",
     "bulk_void_message": "إلغاء {{count}} من المبيعات المحددة؟ تبقى السجلات في سجل التدقيق — لا يمكن التراجع عن الإلغاء."
   },
-  "invoices": {
-    "title": "الفواتير",
+  "transactions": {
+    "title": "المعاملات",
     "tab_sales": "المبيعات",
     "tab_payments": "الدفعات",
     "tab_services": "الخدمات",

@@ -13,7 +13,7 @@
 - [App Options (Global Config)](#app-options-global-config)
 - [Subscription Tiers](#subscription-tiers)
 - [Products & One-Off Sales](#products--one-off-sales)
-- [Invoices Hub](#invoices-hub)
+- [Transactions Hub](#transactions-hub)
 - [Regular Customer](#regular-customer)
 - [Multiple Plans per Customer (service lines)](#multiple-plans-per-customer-service-lines)
 - [Payment Scenarios](#payment-scenarios)
@@ -300,9 +300,9 @@ See gotchas #35, #36, #37.
 
 ---
 
-## Invoices Hub
+## Transactions Hub
 
-The bottom **Invoices** tab (`app/(app)/(tabs)/invoices`) is a hub hosting three in-page segments via the shared `SegmentedTabs` control: **Sales**, **Payments**, and **Services** (placeholder). `InvoicesScreen` owns the page chrome (SafeAreaView + title + `BranchSelector` + segments); each segment is a self-contained **panel** that owns its own body (filters, list, sheets, multi-select) but not the chrome. The selection toolbar that used to live inside `PageHeader` was extracted into a shared `SelectionBar` so panels (which have no `PageHeader`) can render it; `PageHeader` re-uses `SelectionBar` and re-exports `SelectionAction` for back-compat.
+The bottom **Transactions** tab (`app/(app)/(tabs)/transactions`) is a hub hosting three in-page segments via the shared `SegmentedTabs` control: **Sales**, **Payments**, and **Services** (placeholder). `TransactionsScreen` owns the page chrome (SafeAreaView + title + `BranchSelector` + segments); each segment is a self-contained **panel** that owns its own body (filters, list, sheets, multi-select) but not the chrome. The selection toolbar that used to live inside `PageHeader` was extracted into a shared `SelectionBar` so panels (which have no `PageHeader`) can render it; `PageHeader` re-uses `SelectionBar` and re-exports `SelectionAction` for back-compat.
 
 - **Sales** → `SalesPanel` (the former `SalesListScreen` body, behavior unchanged — `sales` slice).
 - **Payments** → `PaymentsPanel` (see below).
@@ -346,7 +346,7 @@ A customer can subscribe to **several plans at once** (e.g. an ISP customer with
 
 **Aggregation across lines.** Customer-list status is aggregated over a customer's **active** lines: fully-paid (green) only when every line is settled, partial (amber) when some coverage exists, overdue (red) if any active line has an unpaid month (`findOverdueCustomerIds` / `findPaymentStatusForMonth` / `computeCurrentMonthStatus`).
 
-**Collect all due.** Customer-list Quick Pay (single or bulk) pays **every eligible fixed-price line** for the current month in one batch via `bulkPayCustomers` (one `BulkPayCustomerRequest` per line). Custom-price / plan-less customers fall back to the detail form. The Invoices → Payments rows show the plan name so a customer's lines are distinguishable.
+**Collect all due.** Customer-list Quick Pay (single or bulk) pays **every eligible fixed-price line** for the current month in one batch via `bulkPayCustomers` (one `BulkPayCustomerRequest` per line). Custom-price / plan-less customers fall back to the detail form. The Transactions → Payments rows show the plan name so a customer's lines are distinguishable.
 
 See gotchas #1, #16, #25, #41.
 

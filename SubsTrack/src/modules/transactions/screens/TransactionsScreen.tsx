@@ -13,19 +13,19 @@ import { SalesPanel } from "@/src/modules/sales";
 import { PaymentsPanel } from "@/src/modules/customer-payments";
 import { ServicesPanel } from "./ServicesPanel";
 
-type InvoicesTab = "sales" | "payments" | "services";
+type TransactionsTab = "sales" | "payments" | "services";
 
-// The Invoices hub: a single bottom tab hosting Sales, Payments, and (future)
+// The Transactions hub: a single bottom tab hosting Sales, Payments, and (future)
 // Services as in-page segments. Owns the page chrome; each panel owns its body.
-export function InvoicesScreen() {
+export function TransactionsScreen() {
   const { t } = useTranslation();
-  const [tab, setTab] = useState<InvoicesTab>("sales");
+  const [tab, setTab] = useState<TransactionsTab>("sales");
 
-  const segments: Segment<InvoicesTab>[] = useMemo(
+  const segments: Segment<TransactionsTab>[] = useMemo(
     () => [
-      { key: "sales", label: t("invoices.tab_sales") },
-      { key: "payments", label: t("invoices.tab_payments") },
-      { key: "services", label: t("invoices.tab_services") },
+      { key: "sales", label: t("transactions.tab_sales") },
+      { key: "payments", label: t("transactions.tab_payments") },
+      { key: "services", label: t("transactions.tab_services") },
     ],
     [t],
   );
@@ -34,14 +34,14 @@ export function InvoicesScreen() {
     <SafeAreaView className="flex-1 bg-gray-50" edges={["top"]}>
       <View className="flex-row items-center justify-between px-4 pt-4 pb-3 bg-white border-b border-gray-100 gap-2">
         <Text fontWeight="Bold" className="text-2xl text-gray-900 flex-1">
-          {t("invoices.title")}
+          {t("transactions.title")}
         </Text>
         <BranchSelector className="self-start" />
       </View>
 
       <ResponsiveContainer>
         <View className="px-4 py-3">
-          <SegmentedTabs<InvoicesTab>
+          <SegmentedTabs<TransactionsTab>
             value={tab}
             onChange={setTab}
             segments={segments}

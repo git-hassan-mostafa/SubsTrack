@@ -25,7 +25,7 @@ function nextDayStartIso(date: string): string {
 }
 
 export class PaymentRepository extends BaseRepository implements IPaymentRepository {
-  // Tenant-wide, paginated payment list for the Invoices → Payments tab. Only
+  // Tenant-wide, paginated payment list for the Transactions → Payments tab. Only
   // settled (amount_paid > 0), non-voided rows — an empty slot isn't a payment.
   async findAll(opts: FindPaymentsOptions = {}): Promise<DbPayment[]> {
     const page = opts.page ?? 0;

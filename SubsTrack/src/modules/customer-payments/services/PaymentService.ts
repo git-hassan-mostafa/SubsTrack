@@ -43,7 +43,7 @@ class PaymentService {
     return rows.map(mapDbPaymentToPayment);
   }
 
-  // Tenant-wide, paginated, filterable payment list for the Invoices → Payments
+  // Tenant-wide, paginated, filterable payment list for the Transactions → Payments
   // tab. Each item carries its customer name for display.
   async getPayments(opts: FindPaymentsOptions = {}): Promise<PaymentListItem[]> {
     const rows = await repository.findAll(opts);

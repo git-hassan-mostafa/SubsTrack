@@ -22,7 +22,7 @@ interface SelectionBarProps {
 }
 
 // Selection toolbar: a close button, the selected count, and a row of icon
-// actions. Shared by PageHeader (overlay) and the Invoices panels.
+// actions. Shared by PageHeader (overlay) and the Transactions panels.
 export function SelectionBar({ count, actions, onClose }: SelectionBarProps) {
   const { t } = useTranslation();
   return (

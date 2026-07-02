@@ -1,4 +1,4 @@
-import { PAGE_SIZE, type BranchFilter } from '@/src/core/constants';
+import { OFFLINE_PAGE_SIZE, type BranchFilter } from '@/src/core/constants';
 import type { DbCustomer, DbProduct, DbSale } from '@/src/core/types/db';
 import { OfflineBaseRepository } from '@/src/core/offline/OfflineBaseRepository';
 import { insertDirty } from '@/src/core/offline/db/dml';
@@ -53,7 +53,7 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
     const { sql, params } = this.combineWhere(parts);
     const rows = await this.all(
       `SELECT s.* FROM sales s LEFT JOIN customers c ON s.customer_id = c.id
-       ${sql} ORDER BY s.sold_at DESC LIMIT ${PAGE_SIZE} OFFSET ${page * PAGE_SIZE}`,
+       ${sql} ORDER BY s.sold_at DESC LIMIT ${OFFLINE_PAGE_SIZE} OFFSET ${page * OFFLINE_PAGE_SIZE}`,
       params,
     );
     return this.hydrate(this.decodeAll<DbSale>('sales', rows));
@@ -89,7 +89,7 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
     await this.write(async (db, queue) => {
       await insertDirty(db, 'sales', row);
       await queue({ tableName: 'sales', opType: 'insert', rowId: row.id, payload: { row } });
-    });    const [hydrated] = await this.hydrate([row]);
+    }); const [hydrated] = await this.hydrate([row]);
     return hydrated;
   }
 
@@ -107,7 +107,7 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
         rowId: id,
         payload: { fields: { voided_at: now, voided_by: voidedBy, void_reason: reason } },
       });
-    });    const row = await this.first('SELECT * FROM sales WHERE id = ?', [id]);
+    }); const row = await this.first('SELECT * FROM sales WHERE id = ?', [id]);
     if (!row) this.handleError(new Error('Sale not found'));
     const [hydrated] = await this.hydrate([this.decodeOne<DbSale>('sales', row)!]);
     return hydrated;

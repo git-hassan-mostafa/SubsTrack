@@ -631,8 +631,8 @@
     "bulk_void_title": "Void {{count}} sales",
     "bulk_void_message": "Void {{count}} selected sale(s)? The records stay in the audit log — voids cannot be undone."
   },
-  "invoices": {
-    "title": "Invoices",
+  "transactions": {
+    "title": "Transactions",
     "tab_sales": "Sales",
     "tab_payments": "Payments",
     "tab_services": "Services",

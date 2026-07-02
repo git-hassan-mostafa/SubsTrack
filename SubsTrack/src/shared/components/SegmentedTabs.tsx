@@ -14,7 +14,7 @@ interface SegmentedTabsProps<T extends string> {
 }
 
 // iOS-style segmented control: a pill track with one highlighted segment.
-// Used as the in-page tab switcher (e.g. the Invoices hub: Sales / Payments / Services).
+// Used as the in-page tab switcher (e.g. the Transactions hub: Sales / Payments / Services).
 export function SegmentedTabs<T extends string>({
   value,
   onChange,

@@ -50,4 +50,4 @@ A customer can subscribe to several plans at once, each a **service line** (`cus
 ## 6. Custom / occasional
 
 1. A plan-less line (or custom-price plan) records ad-hoc amounts via the manual form (Scenario C), exactly as before.
-2. Invoices → Payments rows show the plan name so a customer's multiple lines are distinguishable; voiding + re-paying reuses the per-line row.
+2. Transactions → Payments rows show the plan name so a customer's multiple lines are distinguishable; voiding + re-paying reuses the per-line row.

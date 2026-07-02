@@ -14,7 +14,7 @@ export type CreateMultiMonthPaymentResult = {
 // "all" → any settled payment; "paid" → balance cleared; "partial" → balance owed.
 export type PaymentStatusFilter = "all" | "paid" | "partial";
 
-// Filters for the tenant-wide Payments list (Invoices → Payments tab).
+// Filters for the tenant-wide Payments list (Transactions → Payments tab).
 export interface FindPaymentsOptions {
     page?: number;
     customerId?: string | null;
