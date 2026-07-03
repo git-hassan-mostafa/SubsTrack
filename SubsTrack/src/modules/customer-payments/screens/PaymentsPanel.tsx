@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, FlatList, RefreshControl, ScrollView, View } from "react-native";
+import { ActivityIndicator, RefreshControl, ScrollView, SectionList, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { MONTHS } from "@/src/core/constants";
@@ -11,6 +11,8 @@ import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Dropdown, type DropdownOption } from "@/src/shared/components/Dropdown";
 import { DatePickerInput } from "@/src/shared/components/DatePickerInput";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
+import { MonthSectionHeader } from "@/src/shared/components/MonthSectionHeader";
+import { groupByMonth } from "@/src/shared/lib/monthSections";
 import { SelectAllBar } from "@/src/shared/components/SelectAllBar";
 import { SelectionOverlaySlot } from "@/src/shared/components/SelectionOverlaySlot";
 import { SelectionBar, type SelectionAction } from "@/src/shared/components/SelectionBar";
@@ -118,6 +120,12 @@ export function PaymentsPanel() {
     paidTo !== getTodayDateString();
 
   const selectedPayments = items.filter((p) => selectedIds.has(p.id));
+
+  // Bucket the already-paid_at-desc payments into month sections (This Month / June 2026).
+  const sections = useMemo(
+    () => groupByMonth(items, (p) => p.paidAt, t),
+    [items, t],
+  );
 
   function buildSelectionActions(selected: PaymentListItem[]): SelectionAction[] {
     if (selected.length === 0) return [];
@@ -242,9 +250,10 @@ export function PaymentsPanel() {
             <ActivityIndicator color={COLORS.primary} />
           </View>
         ) : (
-          <FlatList
-            data={items}
+          <SectionList
+            sections={sections}
             keyExtractor={(p) => p.id}
+            stickySectionHeadersEnabled={false}
             contentContainerStyle={{ padding: 16, paddingBottom: 96, flexGrow: 1 }}
             refreshControl={
               <RefreshControl
@@ -257,6 +266,9 @@ export function PaymentsPanel() {
               if (hasMore && !loadingMore) void fetchMorePayments();
             }}
             onEndReachedThreshold={0.3}
+            renderSectionHeader={({ section }) => (
+              <MonthSectionHeader title={section.title} />
+            )}
             ListFooterComponent={
               loadingMore ? (
                 <View className="py-4 items-center">

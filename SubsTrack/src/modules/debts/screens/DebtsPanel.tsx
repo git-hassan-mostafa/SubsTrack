@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, FlatList, RefreshControl, ScrollView, View } from "react-native";
+import { ActivityIndicator, RefreshControl, ScrollView, SectionList, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { COLORS } from "@/src/shared/constants";
@@ -9,6 +9,8 @@ import { Text } from "@/src/shared/components/Text";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { FAB } from "@/src/shared/components/FAB";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
+import { MonthSectionHeader } from "@/src/shared/components/MonthSectionHeader";
+import { groupByMonth } from "@/src/shared/lib/monthSections";
 import { ActionMenu } from "@/src/shared/components/ActionMenu";
 import { Dropdown, type DropdownOption } from "@/src/shared/components/Dropdown";
 import { CustomerPicker } from "@/src/modules/customers";
@@ -75,6 +77,18 @@ export function DebtsPanel() {
       categoryFilter === "all" ? items : items.filter((i) => i.category === categoryFilter);
     return filtered.map((i) => ({ kind: "item", item: i }));
   }, [showingPayments, payments, items, categoryFilter]);
+
+  // Bucket the already-date-desc rows into month sections (This Month / June 2026).
+  // A debt item's date is its source date; a debt payment's is when it was paid.
+  const sections = useMemo(
+    () =>
+      groupByMonth(
+        rows,
+        (r) => (r.kind === "item" ? r.item.date : r.payment.paidAt),
+        t,
+      ),
+    [rows, t],
+  );
 
   const categoryOptions: DropdownOption<DebtViewFilter>[] = [
     { label: t("debts.category_all"), value: "all" },
@@ -214,13 +228,17 @@ export function DebtsPanel() {
             <ActivityIndicator color={COLORS.primary} />
           </View>
         ) : (
-          <FlatList
-            data={rows}
+          <SectionList
+            sections={sections}
             keyExtractor={(r) => (r.kind === "item" ? `i-${r.item.id}` : `p-${r.payment.id}`)}
+            stickySectionHeadersEnabled={false}
             contentContainerStyle={{ padding: 16, paddingBottom: 96, flexGrow: 1 }}
             refreshControl={
               <RefreshControl refreshing={loading} onRefresh={fetchDebts} tintColor={COLORS.primary} />
             }
+            renderSectionHeader={({ section }) => (
+              <MonthSectionHeader title={section.title} />
+            )}
             renderItem={({ item: row }) =>
               row.kind === "payment" ? (
                 <DebtPaymentCard payment={row.payment} onVoid={handleVoidPayment} />

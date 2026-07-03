@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  FlatList,
   RefreshControl,
   ScrollView,
+  SectionList,
   View,
 } from "react-native";
 import { useTranslation } from "react-i18next";
@@ -23,6 +23,8 @@ import { FAB } from "@/src/shared/components/FAB";
 import { SelectAllBar } from "@/src/shared/components/SelectAllBar";
 import { SelectionOverlaySlot } from "@/src/shared/components/SelectionOverlaySlot";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
+import { MonthSectionHeader } from "@/src/shared/components/MonthSectionHeader";
+import { groupByMonth } from "@/src/shared/lib/monthSections";
 import {
   useSelection,
   useSelectionBackHandler,
@@ -112,6 +114,12 @@ export function SalesPanel() {
 
   const hasActiveFilters =
     !!customerFilter || !!productFilter || !!fromDate || !!toDate;
+
+  // Bucket the already-date-desc sales into month sections (This Month / June 2026).
+  const sections = useMemo(
+    () => groupByMonth(sales, (s) => s.soldAt, t),
+    [sales, t],
+  );
 
   useEffect(() => {
     setSearchQuery(debouncedSearch);
@@ -269,9 +277,10 @@ export function SalesPanel() {
             <ActivityIndicator color={COLORS.primary} />
           </View>
         ) : (
-          <FlatList
-            data={sales}
+          <SectionList
+            sections={sections}
             keyExtractor={(s) => s.id}
+            stickySectionHeadersEnabled={false}
             contentContainerStyle={{
               padding: 16,
               paddingBottom: 96,
@@ -288,6 +297,9 @@ export function SalesPanel() {
               if (hasMore && !loadingMore) void fetchMoreSales();
             }}
             onEndReachedThreshold={0.3}
+            renderSectionHeader={({ section }) => (
+              <MonthSectionHeader title={section.title} />
+            )}
             ListFooterComponent={
               loadingMore ? (
                 <View className="py-4 items-center">

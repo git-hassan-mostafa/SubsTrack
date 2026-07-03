@@ -37,8 +37,8 @@
     "clear": "مسح",
     "clear_filters": "مسح عوامل التصفية",
     "bulk_delete_summary": "تم حذف {{ok}} · فشل {{failed}}.",
-    "bulk_void_summary": "تم الإلغاء {{ok}} · فشل {{failed}}."
-
+    "bulk_void_summary": "تم الإلغاء {{ok}} · فشل {{failed}}.",
+    "current_month": "هذا الشهر"
   },
   "auth": {
     "title": "SubsTrack",
@@ -335,6 +335,20 @@
     }
   },
   "months": {
+    "jan": "يناير",
+    "feb": "فبراير",
+    "mar": "مارس",
+    "apr": "أبريل",
+    "may": "مايو",
+    "jun": "يونيو",
+    "jul": "يوليو",
+    "aug": "أغسطس",
+    "sep": "سبتمبر",
+    "oct": "أكتوبر",
+    "nov": "نوفمبر",
+    "dec": "ديسمبر"
+  },
+  "months_long": {
     "jan": "يناير",
     "feb": "فبراير",
     "mar": "مارس",

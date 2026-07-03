@@ -37,7 +37,8 @@
     "clear": "Clear",
     "clear_filters": "Clear filters",
     "bulk_delete_summary": "Deleted {{ok}} · {{failed}} failed.",
-    "bulk_void_summary": "Voided {{ok}} · {{failed}} failed."
+    "bulk_void_summary": "Voided {{ok}} · {{failed}} failed.",
+    "current_month": "This Month"
   },
   "auth": {
     "title": "SubsTrack",
@@ -346,6 +347,20 @@
     "oct": "Oct",
     "nov": "Nov",
     "dec": "Dec"
+  },
+  "months_long": {
+    "jan": "January",
+    "feb": "February",
+    "mar": "March",
+    "apr": "April",
+    "may": "May",
+    "jun": "June",
+    "jul": "July",
+    "aug": "August",
+    "sep": "September",
+    "oct": "October",
+    "nov": "November",
+    "dec": "December"
   },
   "admin": {
     "title": "Admin",
