@@ -1,10 +1,12 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { View } from "react-native";
+import { GestureDetector } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
 import { BranchSelector } from "@/src/shared/components/BranchSelector";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
+import { useHorizontalSwipe } from "@/src/shared/hooks/useHorizontalSwipe";
 import {
   SegmentedTabs,
   type Segment,
@@ -32,6 +34,22 @@ export function TransactionsScreen() {
     [t],
   );
 
+  // Swipe left/right moves to the neighbouring tab (clamped at the ends).
+  const step = useCallback(
+    (delta: number) =>
+      setTab((current) => {
+        const i = segments.findIndex((s) => s.key === current);
+        const next = i + delta;
+        if (next < 0 || next >= segments.length) return current;
+        return segments[next].key;
+      }),
+    [segments],
+  );
+  const swipe = useHorizontalSwipe({
+    onNext: () => step(1),
+    onPrev: () => step(-1),
+  });
+
   return (
     <SafeAreaView className="flex-1 bg-gray-50" edges={["top"]}>
       <View className="flex-row items-center justify-between px-4 pt-4 pb-3 bg-white border-b border-gray-100 gap-2">
@@ -51,12 +69,14 @@ export function TransactionsScreen() {
         </View>
       </ResponsiveContainer>
 
-      <View className="flex-1">
-        {tab === "sales" ? <SalesPanel /> : null}
-        {tab === "payments" ? <PaymentsPanel /> : null}
-        {tab === "debts" ? <DebtsPanel /> : null}
-        {tab === "services" ? <ServicesPanel /> : null}
-      </View>
+      <GestureDetector gesture={swipe}>
+        <View className="flex-1">
+          {tab === "sales" ? <SalesPanel /> : null}
+          {tab === "payments" ? <PaymentsPanel /> : null}
+          {tab === "debts" ? <DebtsPanel /> : null}
+          {tab === "services" ? <ServicesPanel /> : null}
+        </View>
+      </GestureDetector>
     </SafeAreaView>
   );
 }

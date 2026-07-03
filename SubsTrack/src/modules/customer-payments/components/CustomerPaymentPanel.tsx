@@ -1,7 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, ScrollView, View } from "react-native";
+import { GestureDetector } from "react-native-gesture-handler";
 import { Ionicons } from "@expo/vector-icons";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
+import { useHorizontalSwipe } from "@/src/shared/hooks/useHorizontalSwipe";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
@@ -525,6 +527,18 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
     ? new Date(selectedLine.startDate).getFullYear()
     : new Date(customer.startDate).getFullYear();
 
+  // Swipe left/right on the grid steps the year (forward = next year, back =
+  // previous, clamped at the line's start year like the chevron buttons).
+  const stepYear = useCallback(
+    (delta: number) =>
+      setYear((y) => (delta < 0 && y <= minYear ? y : y + delta)),
+    [minYear],
+  );
+  const yearSwipe = useHorizontalSwipe({
+    onNext: () => stepYear(1),
+    onPrev: () => stepYear(-1),
+  });
+
   // Empty state — a customer with no service lines (rare: every customer keeps
   // ≥1 line, managed from the customer form's Plans editor).
   if (lines.length === 0) {
@@ -587,6 +601,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
       )}
 
       {/* Year card */}
+      <GestureDetector gesture={yearSwipe}>
       <View className="bg-white mx-4 mt-3 rounded-2xl border border-gray-100 overflow-hidden">
         <View className="relative">
           <View className="px-4 pt-4 pb-2">
@@ -684,6 +699,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
           />
         )}
       </View>
+      </GestureDetector>
 
       {/* Unpaid banner */}
       {showUnpaidBanner && currentMonthEntry ? (
