@@ -10,5 +10,6 @@ export type {
 export { DebtsPanel } from './screens/DebtsPanel';
 export { DebtItemCard } from './components/DebtItemCard';
 export { DebtPaymentCard } from './components/DebtPaymentCard';
+export { CustomerDebtsPanel } from './components/CustomerDebtsPanel';
 export { CustomDebtFormSheet } from './components/CustomDebtFormSheet';
 export { DebtPaymentFormSheet } from './components/DebtPaymentFormSheet';

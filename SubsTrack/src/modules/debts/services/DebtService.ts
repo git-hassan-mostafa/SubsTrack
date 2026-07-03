@@ -165,6 +165,25 @@ class DebtService {
     return summary.netUsd;
   }
 
+  // Net debt (Σ debts − Σ payments, in USD) per customer for the branch scope.
+  // Used by the customer list to flag which customers still owe money. Only
+  // customers with a positive net are included; a zero/credit net is omitted.
+  async getNetUsdByCustomer(branchFilter: BranchFilter = null): Promise<Map<string, number>> {
+    const { items, payments } = await this.getDebtsView({ branchFilter });
+    const net = new Map<string, number>();
+    for (const i of items) {
+      net.set(i.customerId, (net.get(i.customerId) ?? 0) + i.remaining / i.ratePerUsdSnapshot);
+    }
+    for (const p of payments) {
+      net.set(p.customerId, (net.get(p.customerId) ?? 0) - p.amount / p.ratePerUsdSnapshot);
+    }
+    // Keep only real debtors (net > a cent to avoid float noise).
+    for (const [id, usd] of net) {
+      if (usd <= 0.005) net.delete(id);
+    }
+    return net;
+  }
+
   private validateCustomer(customerId: string): void {
     if (!customerId) throw new Error(i18n.t('errors.debt_customer_required'));
   }

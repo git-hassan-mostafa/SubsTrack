@@ -1,9 +1,11 @@
+import { useState } from "react";
 import { View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/src/shared/components/Text";
 import { COLORS } from "@/src/shared/constants";
 import { EntityCard } from "@/src/shared/components/EntityCard";
+import { ActionMenu, type ActionMenuItem } from "@/src/shared/components/ActionMenu";
 import type { DebtCategory, DebtItem } from "@/src/core/types";
 import {
   findCurrency,
@@ -17,9 +19,15 @@ import { formatDate } from "@/src/core/utils/date";
 
 interface Props {
   item: DebtItem;
+  // Records a debt payment equal to this row's remaining amount, paying it off.
+  // Available for every category (a debt payment is tied only to the customer).
+  onPay?: (item: DebtItem) => void;
   // Only custom debts can be voided from here (months/sales are derived — void
   // the underlying payment/sale in their own tab). Omit for non-custom rows.
   onVoid?: (item: DebtItem) => void;
+  // On a single-customer surface the name is redundant on every row; when true
+  // the label becomes the primary line instead of the customer name.
+  hideCustomerName?: boolean;
 }
 
 const CATEGORY_STYLE: Record<
@@ -32,12 +40,13 @@ const CATEGORY_STYLE: Record<
   custom: { icon: "document-text-outline", color: COLORS.warning, bg: "bg-amber-50", badge: "bg-amber-50 text-amber-700" },
 };
 
-export function DebtItemCard({ item, onVoid }: Props) {
+export function DebtItemCard({ item, onPay, onVoid, hideCustomerName }: Props) {
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
   const { displayCurrencyId } = useUiPrefStore();
   const { language } = useLanguageStore();
   const locale = language === "ar" ? "ar" : "en-US";
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const source = paymentSnapshotCurrency(item, currencies);
   const target = findCurrency(currencies, displayCurrencyId);
@@ -45,20 +54,39 @@ export function DebtItemCard({ item, onVoid }: Props) {
   const style = CATEGORY_STYLE[item.category];
   const canVoid = item.category === "custom" && !!onVoid;
 
+  const actions: ActionMenuItem[] = [];
+  if (onPay) {
+    actions.push({
+      key: "pay",
+      label: t("debts.pay"),
+      icon: "cash-outline",
+      onPress: () => onPay(item),
+    });
+  }
+  if (canVoid) {
+    actions.push({
+      key: "remove",
+      label: t("debts.remove"),
+      icon: "trash-outline",
+      destructive: true,
+      onPress: () => onVoid?.(item),
+    });
+  }
+
   return (
+    <>
     <EntityCard
       icon={style.icon}
       iconColor={style.color}
       iconBgClassName={style.bg}
-      onPress={canVoid ? () => onVoid?.(item) : undefined}
+      onMenu={actions.length > 0 ? () => setMenuOpen(true) : undefined}
     >
       <View className="flex-1">
         <Text className="text-base font-semibold text-gray-900" numberOfLines={1}>
-          {item.customerName}
+          {hideCustomerName ? item.label : item.customerName}
         </Text>
         <Text className="text-xs text-gray-500 mt-0.5" numberOfLines={1}>
-          {item.label}
-          {" · "}
+          {hideCustomerName ? "" : `${item.label} · `}
           {formatDate(item.date, locale)}
         </Text>
       </View>
@@ -74,5 +102,13 @@ export function DebtItemCard({ item, onVoid }: Props) {
         </Text>
       </View>
     </EntityCard>
+
+    <ActionMenu
+      visible={menuOpen}
+      title={item.customerName}
+      actions={actions}
+      onDismiss={() => setMenuOpen(false)}
+    />
+    </>
   );
 }

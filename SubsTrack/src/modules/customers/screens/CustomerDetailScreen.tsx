@@ -15,6 +15,7 @@ import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer
 import { formatDate } from "@/src/core/utils/date";
 import { CustomerPaymentPanel } from "@/src/modules/customer-payments";
 import { CustomerSalesPanel } from "@/src/modules/sales";
+import { CustomerDebtsPanel } from "@/src/modules/debts";
 import { CustomerDetailsCard } from "../components/CustomerDetailsCard";
 import { CustomerFormSheet } from "../components/CustomerFormSheet";
 import { useCustomerSlice } from "@/src/state/hooks/useCustomerSlice";
@@ -99,6 +100,7 @@ export function CustomerDetailScreen() {
             onDeleted={() => router.back()}
           />
           <CustomerSalesPanel customer={customer} />
+          <CustomerDebtsPanel customer={customer} />
           <View className="h-8" />
         </ScrollView>
       ) : null}

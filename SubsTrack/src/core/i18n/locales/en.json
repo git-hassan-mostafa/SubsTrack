@@ -168,6 +168,7 @@
     "reactivate_title": "Reactivate Customer",
     "reactivate_message": "Are you sure you want to reactivate {{name}}?",
     "non_regular": "Non-Regular",
+    "debt": "Debt",
     "regular_label": "Regular Customer",
     "regular_hint": "Regular customers are expected to pay every month",
     "delete_label": "Delete Customer",
@@ -675,6 +676,13 @@
     "void_custom_title": "Remove custom debt",
     "void_custom_message": "Remove this custom debt? It stays in the audit log and can't be undone.",
     "void_payment_title": "Remove debt payment",
-    "void_payment_message": "Remove this debt payment? The customer's debt total will go back up. This can't be undone."
+    "void_payment_message": "Remove this debt payment? The customer's debt total will go back up. This can't be undone.",
+    "pay": "Pay",
+    "remove": "Remove",
+    "pay_title": "Pay this debt",
+    "pay_message": "Record a debt payment of {{amount}} for {{customer}}? This lowers the customer's debt total.",
+    "customer_panel_title": "Transactions",
+    "section_debts": "Debts",
+    "no_transactions_for_customer": "No transactions for this customer yet."
   }
 }

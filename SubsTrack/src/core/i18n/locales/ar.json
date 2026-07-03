@@ -169,6 +169,7 @@
     "reactivate_title": "إعادة تفعيل العميل",
     "reactivate_message": "هل أنت متأكد من إعادة تفعيل {{name}}؟",
     "non_regular": "غير منتظم",
+    "debt": "دين",
     "regular_label": "عميل منتظم",
     "regular_hint": "العملاء المنتظمون مطلوب منهم الدفع كل شهر",
     "delete_label": "حذف العميل",
@@ -676,6 +677,13 @@
     "void_custom_title": "حذف الدين اليدوي",
     "void_custom_message": "حذف هذا الدين اليدوي؟ سيبقى في سجل التدقيق ولا يمكن التراجع.",
     "void_payment_title": "حذف دفعة الدين",
-    "void_payment_message": "حذف دفعة الدين هذه؟ سيرتفع إجمالي دين العميل مجدداً. لا يمكن التراجع."
+    "void_payment_message": "حذف دفعة الدين هذه؟ سيرتفع إجمالي دين العميل مجدداً. لا يمكن التراجع.",
+    "pay": "دفع",
+    "remove": "حذف",
+    "pay_title": "دفع هذا الدين",
+    "pay_message": "تسجيل دفعة دين بقيمة {{amount}} لـ {{customer}}؟ سيقلل هذا من إجمالي دين العميل.",
+    "customer_panel_title": "المعاملات",
+    "section_debts": "الديون",
+    "no_transactions_for_customer": "لا توجد معاملات لهذا العميل بعد."
   }
 }

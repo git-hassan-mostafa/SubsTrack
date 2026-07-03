@@ -51,6 +51,7 @@ export function DebtsPanel() {
   const setCustomerFilter = useDebtSlice((s) => s.setCustomerFilter);
   const setCategoryFilter = useDebtSlice((s) => s.setCategoryFilter);
   const clearFilters = useDebtSlice((s) => s.clearFilters);
+  const addDebtPayment = useDebtSlice((s) => s.addDebtPayment);
   const voidCustomDebt = useDebtSlice((s) => s.voidCustomDebt);
   const voidDebtPayment = useDebtSlice((s) => s.voidDebtPayment);
   const clearError = useDebtSlice((s) => s.clearError);
@@ -87,6 +88,31 @@ export function DebtsPanel() {
   const net = summary.netUsd;
   const isCredit = net < -1e-9;
   const netLabel = formatMoney(Math.abs(net), null, target);
+
+  // Pay off a debt row by recording a debt payment equal to its remaining
+  // amount, in the row's own currency. This never touches the underlying
+  // payment/sale — it only offsets the customer's runtime debt total.
+  async function handlePayItem(item: DebtItem) {
+    if (!user) return;
+    const source = findCurrency(currencies, item.currencyId);
+    const ok = await confirm({
+      title: t("debts.pay_title"),
+      message: t("debts.pay_message", {
+        amount: formatMoney(item.remaining, source, target),
+        customer: item.customerName,
+      }),
+      confirmLabel: t("debts.pay"),
+    });
+    if (!ok) return;
+    await addDebtPayment({
+      customerId: item.customerId,
+      amount: item.remaining,
+      notes: null,
+      currency: source,
+      receivedByUserId: user.id,
+      tenantId: user.tenantId,
+    });
+  }
 
   async function handleVoidItem(item: DebtItem) {
     if (!user || item.category !== "custom") return;
@@ -201,6 +227,7 @@ export function DebtsPanel() {
               ) : (
                 <DebtItemCard
                   item={row.item}
+                  onPay={handlePayItem}
                   onVoid={row.item.category === "custom" ? handleVoidItem : undefined}
                 />
               )

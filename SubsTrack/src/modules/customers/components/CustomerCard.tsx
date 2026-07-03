@@ -11,6 +11,8 @@ interface Props {
   customer: Customer;
   paymentStatus: "paid" | "partial" | "unpaid";
   monthLabel: string;
+  /** Formatted net debt (e.g. "150,000 ل.ل"), or null when the customer owes nothing. */
+  debtLabel?: string | null;
   onPress: (customer: Customer) => void;
   onMenu: (customer: Customer) => void;
   menuLoading?: boolean;
@@ -20,10 +22,28 @@ interface Props {
   onEnterSelection?: (customer: Customer) => void;
 }
 
+// A single pill badge. Rendered on the card's top flags row.
+function Flag({
+  text,
+  textClassName,
+  bgClassName,
+}: {
+  text: string;
+  textClassName: string;
+  bgClassName: string;
+}) {
+  return (
+    <View className={`rounded-lg px-2 py-0.5 ${bgClassName}`}>
+      <Text className={`text-xs font-semibold ${textClassName}`}>{text}</Text>
+    </View>
+  );
+}
+
 export const CustomerCard = memo(function CustomerCard({
   customer,
   paymentStatus,
   monthLabel,
+  debtLabel = null,
   onPress,
   onMenu,
   menuLoading = false,
@@ -57,14 +77,63 @@ export const CustomerCard = memo(function CustomerCard({
         onEnterSelection ? () => onEnterSelection(customer) : undefined
       }
     >
-      {/* Name + Plan */}
       <View className="flex-1 me-2">
-        <Text
-          className="text-base font-semibold text-gray-900"
-          numberOfLines={1}
-        >
-          {customer.name}
-        </Text>
+        {/* Flags — their own line at the top right of the card. */}
+        <View className="flex-row items-center justify-end gap-1.5 mb-1">
+          {!customer.active ? (
+            <Flag
+              text={t("common.inactive")}
+              textClassName="text-gray-500"
+              bgClassName="bg-gray-100"
+            />
+          ) : !customer.isRegular ? (
+            <Flag
+              text={t("customers.non_regular")}
+              textClassName="text-amber-600"
+              bgClassName="bg-amber-100"
+            />
+          ) : paymentStatus === "paid" ? (
+            <Flag
+              text={`✓ ${t("common.paid")}`}
+              textClassName="text-green-600"
+              bgClassName="bg-green-50"
+            />
+          ) : paymentStatus === "partial" ? (
+            <Flag
+              text={t("common.partial")}
+              textClassName="text-amber-600"
+              bgClassName="bg-amber-50"
+            />
+          ) : (
+            <Flag
+              text={t("dashboard.unpaid")}
+              textClassName="text-red-500"
+              bgClassName="bg-red-100"
+            />
+          )}
+
+          {/* Debt flag — shown whenever the customer has a net outstanding debt. */}
+          {debtLabel ? (
+            <Flag
+              text={`${t("customers.debt")} ${debtLabel}`}
+              textClassName="text-red-600"
+              bgClassName="bg-red-50"
+            />
+          ) : null}
+        </View>
+
+        {/* Name + Date on one line */}
+        <View className="flex-row items-center">
+          <Text
+            className="flex-1 text-base font-semibold text-gray-900 me-2"
+            numberOfLines={1}
+          >
+            {customer.name}
+          </Text>
+          <Text className="text-xs text-gray-400">{monthLabel}</Text>
+        </View>
+
+        {/* Plan + phone */}
         <Text className="text-sm text-gray-400 mt-0.5" numberOfLines={1}>
           {planSummary}
         </Text>
@@ -76,42 +145,6 @@ export const CustomerCard = memo(function CustomerCard({
             </Text>
           </View>
         )}
-      </View>
-
-      {/* Status + Date */}
-      <View className="items-end">
-        {!customer.active ? (
-          <View className="bg-gray-100 rounded-lg px-2 py-0.5 mb-1">
-            <Text className="text-xs font-medium text-gray-500">
-              {t("common.inactive")}
-            </Text>
-          </View>
-        ) : !customer.isRegular ? (
-          <View className="bg-amber-100 rounded-lg px-2 py-0.5 mb-1">
-            <Text className="text-xs font-semibold text-amber-600">
-              {t("customers.non_regular")}
-            </Text>
-          </View>
-        ) : paymentStatus === "paid" ? (
-          <View className="bg-green-50 rounded-lg px-2 py-0.5 mb-1">
-            <Text className="text-xs font-semibold text-green-600">
-              ✓ {t("common.paid")}
-            </Text>
-          </View>
-        ) : paymentStatus === "partial" ? (
-          <View className="bg-amber-50 rounded-lg px-2 py-0.5 mb-1">
-            <Text className="text-xs font-semibold text-amber-600">
-              {t("common.partial")}
-            </Text>
-          </View>
-        ) : (
-          <View className="bg-red-100 rounded-lg px-2 py-0.5 mb-1">
-            <Text className="text-xs font-semibold text-red-500">
-              {t("dashboard.unpaid")}
-            </Text>
-          </View>
-        )}
-        <Text className="text-xs text-gray-400">{monthLabel}</Text>
       </View>
     </EntityCard>
   );

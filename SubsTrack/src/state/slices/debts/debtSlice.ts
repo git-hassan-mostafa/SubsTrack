@@ -23,6 +23,9 @@ export interface DebtSlice {
   items: DebtItem[];
   payments: DebtPaymentItem[];
   summary: DebtSummary;
+  // Net debt in USD per customer (only positive nets), for the current branch
+  // scope. Feeds the customer-list debt flag; independent of the panel filters.
+  netByCustomer: Record<string, number>;
   loading: boolean;
   error: string | null;
   searchToken: number;
@@ -31,6 +34,8 @@ export interface DebtSlice {
   // Client-side view chip (no re-fetch).
   categoryFilter: DebtViewFilter;
   fetchDebts: () => Promise<void>;
+  // Refreshes the customer-list net-debt map for the current branch scope.
+  fetchNetByCustomer: () => Promise<void>;
   setCustomerFilter: (customer: Customer | null) => Promise<void>;
   setCategoryFilter: (category: DebtViewFilter) => void;
   clearFilters: () => Promise<void>;
@@ -51,6 +56,7 @@ export const createDebtSlice: StateCreator<
   items: [],
   payments: [],
   summary: EMPTY_SUMMARY,
+  netByCustomer: {},
   loading: false,
   error: null,
   searchToken: 0,
@@ -83,6 +89,19 @@ export const createDebtSlice: StateCreator<
         state.debts.error = (e as Error).message;
         state.debts.loading = false;
       });
+    }
+  },
+
+  fetchNetByCustomer: async () => {
+    const branchFilter = resolveBranchFilter(get().auth.user);
+    try {
+      const net = await debtService.getNetUsdByCustomer(branchFilter);
+      set((state) => {
+        state.debts.netByCustomer = Object.fromEntries(net);
+      });
+    } catch {
+      // A failed debt-flag refresh must never break the customer list — leave
+      // the previous map in place (the panel surfaces real debt errors itself).
     }
   },
 
@@ -119,6 +138,7 @@ export const createDebtSlice: StateCreator<
     try {
       await debtService.addCustomDebt(input);
       await get().debts.fetchDebts();
+      void get().debts.fetchNetByCustomer();
       return true;
     } catch (e) {
       set((state) => {
@@ -137,6 +157,7 @@ export const createDebtSlice: StateCreator<
     try {
       await debtService.addDebtPayment(input);
       await get().debts.fetchDebts();
+      void get().debts.fetchNetByCustomer();
       return true;
     } catch (e) {
       set((state) => {
@@ -155,6 +176,7 @@ export const createDebtSlice: StateCreator<
     try {
       await debtService.voidCustomDebt(id, voidedBy, reason);
       await get().debts.fetchDebts();
+      void get().debts.fetchNetByCustomer();
     } catch (e) {
       set((state) => {
         state.debts.error = (e as Error).message;
@@ -171,6 +193,7 @@ export const createDebtSlice: StateCreator<
     try {
       await debtService.voidDebtPayment(id, voidedBy, reason);
       await get().debts.fetchDebts();
+      void get().debts.fetchNetByCustomer();
     } catch (e) {
       set((state) => {
         state.debts.error = (e as Error).message;
@@ -189,6 +212,7 @@ export const createDebtSlice: StateCreator<
       state.debts.items = [];
       state.debts.payments = [];
       state.debts.summary = EMPTY_SUMMARY;
+      state.debts.netByCustomer = {};
       state.debts.loading = false;
       state.debts.error = null;
       state.debts.searchToken += 1;

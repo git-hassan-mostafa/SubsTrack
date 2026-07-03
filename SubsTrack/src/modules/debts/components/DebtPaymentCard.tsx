@@ -17,9 +17,12 @@ import { formatDate } from "@/src/core/utils/date";
 interface Props {
   payment: DebtPaymentItem;
   onVoid?: (payment: DebtPaymentItem) => void;
+  // On a single-customer surface the name is redundant on every row; when true
+  // the notes/label becomes the primary line instead of the customer name.
+  hideCustomerName?: boolean;
 }
 
-export function DebtPaymentCard({ payment, onVoid }: Props) {
+export function DebtPaymentCard({ payment, onVoid, hideCustomerName }: Props) {
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
   const { displayCurrencyId } = useUiPrefStore();
@@ -39,13 +42,16 @@ export function DebtPaymentCard({ payment, onVoid }: Props) {
     >
       <View className="flex-1">
         <Text className="text-base font-semibold text-gray-900" numberOfLines={1}>
-          {payment.customerName}
+          {hideCustomerName
+            ? payment.notes?.trim()
+              ? payment.notes
+              : t("debts.debt_payment")
+            : payment.customerName}
         </Text>
         <Text className="text-xs text-gray-500 mt-0.5" numberOfLines={1}>
-          {payment.notes?.trim()
-            ? payment.notes
-            : t("debts.debt_payment")}
-          {" · "}
+          {hideCustomerName
+            ? ""
+            : `${payment.notes?.trim() ? payment.notes : t("debts.debt_payment")} · `}
           {formatDate(payment.paidAt, locale)}
         </Text>
       </View>

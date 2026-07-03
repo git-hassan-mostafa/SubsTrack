@@ -29,8 +29,10 @@ import { CustomerFormSheet } from "../components/CustomerFormSheet";
 import { useCustomerSlice } from "@/src/state/hooks/useCustomerSlice";
 import { usePaymentSlice } from "@/src/state/hooks/usePaymentSlice";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
+import { useDebtSlice } from "@/src/state/hooks/useDebtSlice";
+import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
 import { useAuth } from "../../auth/hooks/useAuth";
-import { findCurrency } from "@/src/core/utils/currency";
+import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { getCurrentYearMonth, isBeforeStartDate } from "@/src/core/utils/date";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
 import {
@@ -91,6 +93,10 @@ export function CustomerListScreen() {
     (s) => s.clearTierLimitError,
   );
   const currencies = useCurrencySlice((s) => s.items);
+  const netDebtByCustomer = useDebtSlice((s) => s.netByCustomer);
+  const fetchNetDebtByCustomer = useDebtSlice((s) => s.fetchNetByCustomer);
+  const { displayCurrencyId } = useUiPrefStore();
+  const displayCurrency = findCurrency(currencies, displayCurrencyId);
   const [formVisible, setFormVisible] = useState(false);
   const [searchText, setSearchText] = useState("");
   const [activeTab, setActiveTab] = useState<FilterTab>("active");
@@ -123,6 +129,7 @@ export function CustomerListScreen() {
     clearSelection();
     fetchCustomers();
     fetchCurrentMonthPaymentStatus();
+    void fetchNetDebtByCustomer();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [branchFilter]);
 
@@ -132,7 +139,10 @@ export function CustomerListScreen() {
   useFocusEffect(
     useCallback(() => {
       if (customers.length > 0) void fetchOverdueStatus(customers, graceDays);
-    }, [customers, graceDays, fetchOverdueStatus]),
+      // Refresh debt flags on return — debts change from the Debts tab, quick
+      // pay, and partial payments made in the detail panel.
+      void fetchNetDebtByCustomer();
+    }, [customers, graceDays, fetchOverdueStatus, fetchNetDebtByCustomer]),
   );
 
   const monthLabel = useMemo(() => {
@@ -303,11 +313,17 @@ export function CustomerListScreen() {
             : currentMonthPartialIds.has(item.id)
               ? "partial"
               : "unpaid";
+      const debtUsd = netDebtByCustomer[item.id];
+      const debtLabel =
+        debtUsd && debtUsd > 0
+          ? formatMoney(debtUsd, null, displayCurrency)
+          : null;
       return (
         <CustomerCard
           customer={item}
           paymentStatus={paymentStatus}
           monthLabel={monthLabel}
+          debtLabel={debtLabel}
           onPress={openDetail}
           onMenu={openMenu}
           menuLoading={quickPayCustomerId === item.id}
@@ -322,6 +338,8 @@ export function CustomerListScreen() {
       currentMonthFullyPaidIds,
       currentMonthPartialIds,
       overdueCustomerIds,
+      netDebtByCustomer,
+      displayCurrency,
       monthLabel,
       openDetail,
       openMenu,
@@ -646,6 +664,7 @@ export function CustomerListScreen() {
                   clearSelection();
                   fetchCustomers();
                   fetchCurrentMonthPaymentStatus();
+                  void fetchNetDebtByCustomer();
                 }}
                 tintColor={COLORS.primary}
               />
