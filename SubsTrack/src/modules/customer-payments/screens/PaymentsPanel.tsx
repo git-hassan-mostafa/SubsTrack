@@ -18,11 +18,9 @@ import { useSelection, useSelectionBackHandler } from "@/src/shared/hooks/useSel
 import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
 import { CustomerPicker } from "@/src/modules/customers";
 import { getDateMonthsAgoString, getTodayDateString } from "@/src/core/utils/date";
-import { findCurrency } from "@/src/core/utils/currency";
 import type { MonthEntry } from "@/src/core/types";
 import { usePaymentsListSlice } from "@/src/state/hooks/usePaymentsListSlice";
 import { useUserSlice } from "@/src/state/hooks/useUserSlice";
-import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { getStore } from "@/src/state/globalStore";
 import type { PaymentListItem, PaymentStatusFilter } from "../utils/types";
 import { PaymentListCard } from "../components/PaymentListCard";
@@ -69,7 +67,6 @@ export function PaymentsPanel() {
   const updatePayment = usePaymentsListSlice((s) => s.updatePayment);
   const clearError = usePaymentsListSlice((s) => s.clearError);
 
-  const currencies = useCurrencySlice((s) => s.items);
   const users = useUserSlice((s) => s.items);
   const getUsers = useUserSlice((s) => s.getUsers);
   const branchFilter = useEffectiveBranchFilter();
@@ -135,18 +132,9 @@ export function PaymentsPanel() {
     ];
   }
 
-  async function handleEdit(next: {
-    amountDue: number;
-    amountPaid: number;
-    currencyId: string | null;
-  }) {
+  async function handleEdit(next: { amountPaid: number }) {
     if (!activePayment) return;
-    await updatePayment(
-      activePayment.id,
-      next.amountDue,
-      next.amountPaid,
-      findCurrency(currencies, next.currencyId),
-    );
+    await updatePayment(activePayment.id, next.amountPaid);
     if (!getStore().getState().paymentsList.error) setActivePayment(null);
   }
 

@@ -124,9 +124,7 @@ export interface PaymentSlice {
   ) => Promise<MultiMonthConflict[]>;
   updatePayment: (
     id: string,
-    amountDue: number,
     amountPaid: number,
-    currency: Currency | null,
     lines: CustomerPlan[],
     year: number,
     graceDays: number,
@@ -469,7 +467,7 @@ export const createPaymentSlice: StateCreator<
     }
   },
 
-  updatePayment: async (id, amountDue, amountPaid, currency, lines, year, graceDays) => {
+  updatePayment: async (id, amountPaid, lines, year, graceDays) => {
     if (get().payments.loadingUpdate) return;
     const existing = get().payments.items.find((p) => p.id === id);
     if (!existing) return;
@@ -478,7 +476,7 @@ export const createPaymentSlice: StateCreator<
       state.payments.error = null;
     });
     try {
-      const updated = await paymentService.updatePayment(id, amountDue, amountPaid, currency);
+      const updated = await paymentService.updatePayment(existing, amountPaid);
       const items = get().payments.items.map((p) => (p.id === id ? updated : p));
       const monthGridsByLine = buildGridsFor(lines, items, year, graceDays);
       set((state) => {

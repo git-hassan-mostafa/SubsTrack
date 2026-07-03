@@ -1,5 +1,5 @@
 import type { StateCreator } from 'zustand';
-import type { Currency, Customer } from '@/src/core/types';
+import type { Customer } from '@/src/core/types';
 import { PAGE_SIZE } from '@/src/core/constants';
 import { getDateMonthsAgoString, getTodayDateString } from '@/src/core/utils/date';
 import {
@@ -35,12 +35,7 @@ export interface PaymentsListSlice {
   setBillingMonth: (month: string | null) => Promise<void>;
   setStatusFilter: (status: PaymentStatusFilter) => Promise<void>;
   clearFilters: () => Promise<void>;
-  updatePayment: (
-    id: string,
-    amountDue: number,
-    amountPaid: number,
-    currency: Currency | null,
-  ) => Promise<void>;
+  updatePayment: (id: string, amountPaid: number) => Promise<void>;
   voidPayments: (ids: string[], voidedBy: string, reason: string) => Promise<void>;
   clearError: () => void;
   reset: () => void;
@@ -236,13 +231,15 @@ export const createPaymentsListSlice: StateCreator<
     await get().paymentsList.fetchPayments();
   },
 
-  updatePayment: async (id, amountDue, amountPaid, currency) => {
+  updatePayment: async (id, amountPaid) => {
+    const existing = get().paymentsList.items.find((p) => p.id === id);
+    if (!existing) return;
     set((state) => {
       state.paymentsList.loadingUpdate = true;
       state.paymentsList.error = null;
     });
     try {
-      const updated = await paymentService.updatePayment(id, amountDue, amountPaid, currency);
+      const updated = await paymentService.updatePayment(existing, amountPaid);
       set((state) => {
         // Merge the updated fields over the existing row, preserving its
         // joined customerName. If the edit clears the balance to 0 it stays

@@ -24,11 +24,7 @@ interface Props {
   // screen (e.g. the tenant-wide Payments list) so the customer is identifiable.
   customerName?: string;
   onVoid?: () => void;
-  onEdit?: (next: {
-    amountDue: number;
-    amountPaid: number;
-    currencyId: string | null;
-  }) => void;
+  onEdit?: (next: { amountPaid: number }) => void;
   editLoading?: boolean;
   onDismiss: () => void;
 }
@@ -60,59 +56,43 @@ export function PaymentDetailSheet({
     payment != null && (source?.id ?? null) !== (target?.id ?? null);
 
   const [editMode, setEditMode] = useState(false);
-  const [editDue, setEditDue] = useState<number | null>(null);
   const [editPaid, setEditPaid] = useState<number | null>(null);
-  const [editCurrencyId, setEditCurrencyId] = useState<string | null>(null);
 
   function handleOpenEdit() {
-    setEditDue(payment ? payment.amountDue : null);
     setEditPaid(payment ? payment.amountPaid : null);
-    setEditCurrencyId(payment ? payment.currencyId : null);
     setEditMode(true);
   }
 
   function handleCancelEdit() {
     setEditMode(false);
-    setEditDue(null);
     setEditPaid(null);
-    setEditCurrencyId(null);
   }
 
   function handleSaveEdit() {
     if (
-      editDue != null &&
-      editDue > 0 &&
+      payment &&
       editPaid != null &&
       editPaid >= 0 &&
-      editPaid <= editDue &&
+      editPaid <= payment.amountDue &&
       onEdit
     ) {
-      onEdit({
-        amountDue: editDue,
-        amountPaid: editPaid,
-        currencyId: editCurrencyId,
-      });
+      onEdit({ amountPaid: editPaid });
       setEditMode(false);
-      setEditDue(null);
       setEditPaid(null);
-      setEditCurrencyId(null);
     }
   }
 
   function handleDismiss() {
     setEditMode(false);
-    setEditDue(null);
     setEditPaid(null);
-    setEditCurrencyId(null);
     onDismiss();
   }
 
   const saveDisabled =
-    editDue == null ||
-    editDue <= 0 ||
+    !payment ||
     editPaid == null ||
     editPaid < 0 ||
-    editPaid > editDue ||
+    editPaid > payment.amountDue ||
     !!editLoading;
 
   const receiptId = payment ? payment.id.slice(-6).toUpperCase() : "—";
@@ -261,32 +241,14 @@ export function PaymentDetailSheet({
               </PressableOpacity>
             ) : null}
 
-            {onEdit && editMode ? (
+            {onEdit && editMode && payment ? (
               <View className="mb-3">
-                {/* Amount Due — currency picker unlocked. Switching currency
-                  re-snapshots the FX rate at save time (handled by the service). */}
-                <CurrencyInput
-                  label={t("payments.amount_due_label")}
-                  amount={editDue}
-                  currencyId={editCurrencyId}
-                  onChange={({ amount, currencyId }) => {
-                    setEditDue(amount);
-                    if (currencyId !== editCurrencyId) {
-                      setEditCurrencyId(currencyId);
-                      // Switching currency invalidates the previously-typed paid
-                      // value in the old unit.
-                      setEditPaid(null);
-                    }
-                  }}
-                  currencies={currencies}
-                  placeholder={t("payments.enter_amount")}
-                />
-                {/* Amount Paid — locked to whatever currency Amount Due is in. */}
-                <View className="h-2" />
+                {/* Amount Due is fixed once a payment is recorded — only the
+                  paid amount can be adjusted here. */}
                 <CurrencyInput
                   label={t("payments.amount_paid_label")}
                   amount={editPaid}
-                  currencyId={editCurrencyId}
+                  currencyId={payment.currencyId}
                   onChange={({ amount }) => setEditPaid(amount)}
                   currencies={currencies}
                   placeholder={t("payments.enter_amount")}

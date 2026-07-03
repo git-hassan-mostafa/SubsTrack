@@ -1,5 +1,4 @@
 import type {
-  Currency,
   Customer,
   CustomerPlan,
   MonthEntry,
@@ -236,30 +235,21 @@ class PaymentService {
     return { payments: rows.map(mapDbPaymentToPayment), skippedMonths };
   }
 
-  // Updates an existing (non-voided) payment's amounts and currency in place.
-  // Re-snapshots ratePerUsdSnapshot from the (possibly newly chosen) currency at
-  // edit time — the "user fixing the record" semantic. Voided payments stay
+  // Updates an existing (non-voided) payment's amount_paid in place. Amount
+  // due (and its currency/rate snapshot) is frozen once a payment is recorded —
+  // callers pass the existing Payment so due/currency/rate are always echoed
+  // back unchanged, never re-derived from caller input. Voided payments stay
   // locked via the repository's voided_at IS NULL filter.
-  async updatePayment(
-    id: string,
-    amountDue: number,
-    amountPaid: number,
-    currency: Currency | null,
-  ): Promise<Payment> {
-    if (amountDue <= 0) throw new Error(i18n.t("errors.amount_due_positive"));
+  async updatePayment(payment: Payment, amountPaid: number): Promise<Payment> {
     if (amountPaid < 0) throw new Error(i18n.t("errors.amount_paid_negative"));
-    if (amountPaid > amountDue) {
+    if (amountPaid > payment.amountDue) {
       throw new Error(i18n.t("errors.amount_paid_exceeds_due"));
     }
-    const ratePerUsdSnapshot = currency?.ratePerUsd ?? 1;
-    if (!(ratePerUsdSnapshot > 0)) {
-      throw new Error(i18n.t("errors.rate_snapshot_positive"));
-    }
-    const row = await repository.updatePayment(id, {
-      amountDue,
+    const row = await repository.updatePayment(payment.id, {
+      amountDue: payment.amountDue,
       amountPaid,
-      currencyId: currency?.id ?? null,
-      ratePerUsdSnapshot,
+      currencyId: payment.currencyId,
+      ratePerUsdSnapshot: payment.ratePerUsdSnapshot,
     });
     return mapDbPaymentToPayment(row);
   }

@@ -1,3 +1,4 @@
+import { Platform } from "react-native";
 import { Tabs } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useAuth } from "@/src/modules/auth";
@@ -8,7 +9,11 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 export default function TabsLayout() {
   const { isAdmin } = useAuth();
   const { t } = useTranslation();
-  const { bottom } = useSafeAreaInsets();
+  const insets = useSafeAreaInsets();
+  // Mobile browsers (e.g. Android Chrome) report a phantom safe-area-inset-bottom
+  // for their own gesture bar, which the browser chrome already accounts for.
+  // Adding it again here left a dead empty gap below the tab bar on web.
+  const bottom = Platform.OS === "web" ? 0 : insets.bottom;
 
   return (
     <Tabs

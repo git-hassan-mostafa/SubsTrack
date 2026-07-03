@@ -311,17 +311,11 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
     return items;
   }
 
-  async function handleEditAmount(next: {
-    amountDue: number;
-    amountPaid: number;
-    currencyId: string | null;
-  }) {
+  async function handleEditAmount(next: { amountPaid: number }) {
     if (!selectedEntry?.payment) return;
     await paymentStore.updatePayment(
       selectedEntry.payment.id,
-      next.amountDue,
       next.amountPaid,
-      findCurrency(currencies, next.currencyId),
       lines,
       year,
       graceDays,
