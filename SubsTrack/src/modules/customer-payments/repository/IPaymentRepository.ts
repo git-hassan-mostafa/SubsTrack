@@ -30,6 +30,11 @@ export interface AmountRow {
   ratePerUsdSnapshot: number;
 }
 
+// AmountRow tagged with the payment's billing month — for the revenue trend.
+export interface MonthlyAmountRow extends AmountRow {
+  billingMonth: string; // 'YYYY-MM-01'
+}
+
 export interface IPaymentRepository {
   findAll(opts?: FindPaymentsOptions): Promise<DbPayment[]>;
   findByCustomer(customerId: string): Promise<DbPayment[]>;
@@ -43,6 +48,13 @@ export interface IPaymentRepository {
   ): Promise<{ fullyPaidIds: Set<string>; partialIds: Set<string> }>;
   findActivePayments(): Promise<DbPayment[]>;
   paidAmountsForMonth(billingMonth: string, branchFilter?: BranchFilter): Promise<AmountRow[]>;
+  // Paid amounts per payment across a billing-month range (inclusive), each tagged
+  // with its billing month — the dashboard buckets these into the revenue trend.
+  paidAmountsInRange(
+    startMonth: string,
+    endMonthInclusive: string,
+    branchFilter?: BranchFilter,
+  ): Promise<MonthlyAmountRow[]>;
   balancesForMonth(billingMonth: string, branchFilter?: BranchFilter): Promise<AmountRow[]>;
   // Non-voided payments with an outstanding balance (partial payments), across
   // all months — the "Months" debt category. Joined with customer + plan name.

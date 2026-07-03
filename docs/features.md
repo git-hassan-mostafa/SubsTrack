@@ -295,6 +295,15 @@ Components read `currentTier` and `usage` from `useSubscriptionSlice` and forwar
 
 **Dashboard:** `DashboardService.getMetrics()` parallel-fetches `sales.totalsForMonth(monthStart, monthEndExclusive, branchFilter)` alongside the existing payment queries. The Revenue card on the home dashboard shows `monthlyRevenue = subscriptionRevenue + salesRevenue`, with a sub-line "Subscriptions: $X · Sales: $Y" rendered when `salesRevenue > 0`. All values are summed in USD via each row's frozen `rate_per_usd_snapshot`, then formatted into the user's display currency at render.
 
+**Home analytics (expanded).** `getMetrics()` also computes a richer analytics set, all branch-scoped and USD-canonical:
+
+- **Month-over-month** — `prevMonthRevenue`; the hero card renders a ▲/▼ % pill ("vs last month") when the prior month had revenue.
+- **Revenue trend** — `revenueTrend: RevenuePoint[]`, every calendar month of the **current year** (Jan → Dec). Built by fetching `payment.paidAmountsInRange(janBillingMonth, decBillingMonth)` + `sale.totalsInRange(yearStartIso, nextYearStartIso)` once each, then bucketing rows by month into USD (per-row `rate_per_usd_snapshot`). Rendered by `RevenueTrendChart` — a minimal in-app **stacked** vertical bar chart (no chart library): each bar splits subscription (indigo, bottom) vs sales (emerald, top), one bar per month, current month emphasized. `prevMonthRevenue` is looked up by month key (in January the prior month is last year, absent → 0).
+- **Growth this month** — `newCustomersThisMonth` / `cancelledThisMonth` via `customer.countCreatedInRange` / `countCancelledInRange` (by `created_at` / `cancelled_at`, `[monthStart, monthEndExclusive)`).
+- **Activity this month** — `paymentsCollectedCount` (positive-amount rows in `paidAmountsForMonth`) and `salesCount` (`totalsForMonth` row count). The screen derives **avg payment** = `subscriptionRevenue / paymentsCollectedCount`, shown as the "Payments" tile sub-line.
+
+Presentation: the screen uses a shared `StatTile` (label / big value / sub-line / tone / optional icon) for the stat grid (Active, Unpaid, New, Cancelled, Payments, Sales) and the Outstanding-balance money tile. The three new repo range queries each have a Supabase + Offline SQLite implementation behind the `IPaymentRepository` / `ISaleRepository` / `ICustomerRepository` seam.
+
 **Tier-gating** is sale-blind: products consume a slot (gated by `max_products`), but recording sales is unlimited on every tier.
 
 See gotchas #35, #36, #37.

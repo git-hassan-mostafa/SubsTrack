@@ -8,6 +8,7 @@ import type {
   AmountRow,
   CreatePaymentPayload,
   IPaymentRepository,
+  MonthlyAmountRow,
   UpdatePaymentPayload,
 } from './IPaymentRepository';
 
@@ -273,6 +274,26 @@ export class OfflinePaymentRepository extends OfflineBaseRepository implements I
       [billingMonth, ...branch.params],
     );
     return rows.map((r) => ({
+      amount: Number(r.amount_paid),
+      ratePerUsdSnapshot: Number(r.rate_per_usd_snapshot),
+    }));
+  }
+
+  async paidAmountsInRange(
+    startMonth: string,
+    endMonthInclusive: string,
+    branchFilter: BranchFilter = null,
+  ): Promise<MonthlyAmountRow[]> {
+    const branch = this.branchWhere(branchFilter, this.BRANCH_SCOPES.payments, 'c');
+    const rows = await this.all<{ billing_month: string; amount_paid: string; rate_per_usd_snapshot: string }>(
+      `SELECT p.billing_month, p.amount_paid, p.rate_per_usd_snapshot
+       FROM payments p JOIN customers c ON p.customer_id = c.id
+       WHERE p.billing_month >= ? AND p.billing_month <= ? AND p.voided_at IS NULL
+         ${branch.clause ? `AND ${branch.clause}` : ''}`,
+      [startMonth, endMonthInclusive, ...branch.params],
+    );
+    return rows.map((r) => ({
+      billingMonth: r.billing_month,
       amount: Number(r.amount_paid),
       ratePerUsdSnapshot: Number(r.rate_per_usd_snapshot),
     }));

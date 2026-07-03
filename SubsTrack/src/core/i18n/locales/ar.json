@@ -109,7 +109,18 @@
     "paid_of_active": "{{paid}} من {{total}} عميل دفعوا",
     "customers_this_month": "عملاء هذا الشهر",
     "of_total": "من أصل {{total}}",
-    "partial_payments_note": "من دفعات جزئية"
+    "partial_payments_note": "من دفعات جزئية",
+    "vs_last_month": "مقارنة بالشهر الماضي",
+    "revenue_trend": "اتجاه الإيرادات",
+    "trend_months": "آخر {{months}} أشهر",
+    "this_month": "هذا الشهر",
+    "new_customers": "عملاء جدد",
+    "joined": "انضموا هذا الشهر",
+    "cancelled": "ملغى",
+    "left": "غادروا هذا الشهر",
+    "payments_recorded": "الدفعات",
+    "sales_recorded": "المبيعات",
+    "avg_each": "بمتوسط {{amount}} لكل دفعة"
   },
   "subscriptions": {
     "section_title": "الخطط",

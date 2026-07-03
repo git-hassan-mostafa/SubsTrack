@@ -1,13 +1,15 @@
 # Dashboard — QA Scenarios
 
-Covers the admin dashboard metrics: monthly revenue (USD-converted via payment snapshots, formatted in the user's display currency), active customer count, paid/unpaid this month, total customers/users/plans. Admin-only, reached from Admin tab → Dashboard.
+Covers the admin dashboard metrics: monthly revenue (USD-converted via payment snapshots, formatted in the user's display currency), active customer count, paid/unpaid this month, total customers/users/plans. It also covers the expanded home analytics: month-over-month revenue pill, 6-month revenue trend chart, this-month growth (new / cancelled customers), this-month activity (payments recorded + avg, sales recorded), and the outstanding-balance tile. Admin-only, reached from Admin tab → Dashboard.
 
 The compact stats card on the Admin landing screen also surfaces a subset of these metrics.
 
 **Reference code:**
 - Screen: [DashboardScreen.tsx](SubsTrack/src/modules/dashboard/screens/DashboardScreen.tsx)
 - Service: [DashboardService.ts](SubsTrack/src/modules/dashboard/services/DashboardService.ts)
-- Store: [dashboardStore.ts](SubsTrack/src/modules/dashboard/store/dashboardStore.ts)
+- Components: [StatTile.tsx](SubsTrack/src/modules/dashboard/components/StatTile.tsx), [RevenueTrendChart.tsx](SubsTrack/src/modules/dashboard/components/RevenueTrendChart.tsx)
+- Slice: [dashboardSlice.ts](SubsTrack/src/state/slices/dashboard/dashboardSlice.ts)
+- Range queries: `paidAmountsInRange` (payment repo), `totalsInRange` (sale repo), `countCreatedInRange` / `countCancelledInRange` (customer repo) — each with a Supabase + Offline SQLite impl
 - Admin home (compact stats card): [admin/index.tsx](SubsTrack/app/(app)/(tabs)/admin/index.tsx)
 - Currency conversion: [currency.ts](SubsTrack/src/core/utils/currency.ts)
 - Display currency preference: [uiPrefStore.ts](SubsTrack/src/shared/lib/uiPrefStore.ts)
@@ -56,14 +58,16 @@ The compact stats card on the Admin landing screen also surfaces a subset of the
 | 2.12 | Inactive customer with current-month payment | Inactive customer paid this month (arrears) | Their amount is INCLUDED in monthly_revenue (revenue is collection-based). But they are NOT counted in active/paid customers (which uses `active = true`) |
 | 2.13 | Branch-scoped hero | Tenant-wide admin picks Beirut | Only Beirut customer payments included |
 
-## 3. Stat cards (Unpaid / New This Month)
+## 3. Stat grid (Active / Unpaid / New / Cancelled / Payments / Sales)
+
+The old two-card row was replaced by a 3×2 grid of shared `StatTile`s. Each tile: uppercase label, leading icon, big value, sub-line.
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 3.1 | Unpaid card | Left card | Red dot, "UNPAID" label, count of active REGULAR customers without a non-voided payment in current month |
-| 3.2 | "New This Month" label | Right card | Verify whether the displayed metric matches the label or is `totalCustomers`. (Pre-existing finding — confirm intent) |
+| 3.1 | Unpaid tile | Row 1 right | "UNPAID" label (danger color), count of active REGULAR customers without a non-voided payment in current month, sub "customers this month" |
+| 3.1a | Active tile | Row 1 left | "ACTIVE CUSTOMERS" value = activeCustomers, sub "of <totalCustomers> total" |
 | 3.3 | Non-regular excluded | Tenant has active non-regular customers with no current-month payment | Unpaid count does NOT include them |
-| 3.4 | Empty tenant | Zero customers | Both cards show 0 |
+| 3.4 | Empty tenant | Zero customers | Every tile shows 0 |
 | 3.5 | Zero unpaid | All active regulars paid | Unpaid = 0 |
 
 ## 4. Loading and refresh
@@ -130,3 +134,84 @@ The Admin tab landing screen has its own compact summary that shares the dashboa
 | 8.11 | Non-regular excluded from unpaid | Tenant has 100 non-regular customers with no current-month payment | unpaidThisMonth ignores them. Hero `paidCustomers` calc still subtracts only regular unpaids — confirm formula matches spec |
 | 8.12 | Currency soft-deleted | Tenant soft-deletes LBP. Payments in LBP exist | Snapshot conversion still works (snapshot is on the payment, not the currency). Display formatting may show the (now-inactive) currency label — verify gracefully |
 | 8.13 | RTL display | Switch to Arabic | Layout mirrors; numbers use locale formatting |
+
+## 9. Hero — month-over-month pill
+
+`momPct = round((monthlyRevenue − prevMonthRevenue) / prevMonthRevenue × 100)`, shown only when the previous month had revenue.
+
+| # | Scenario | Steps | Expected result |
+|---|----------|-------|-----------------|
+| 9.1 | Growth | This month > last month revenue | Green pill with ▲ and the % (e.g. "▲ 12% vs last month") |
+| 9.2 | Decline | This month < last month | Red pill with ▼ and the absolute % |
+| 9.3 | No prior revenue | Previous month had $0 (or brand-new tenant) | Pill NOT rendered (avoids divide-by-zero / infinite %) |
+| 9.4 | Flat | This month = last month | ▲ 0% (treated as non-negative) |
+| 9.5 | Branch-scoped | Pick a branch | prevMonthRevenue is scoped to that branch too; pill reflects branch history |
+
+## 10. Revenue trend chart
+
+`RevenueTrendChart` renders every month of the **current year** (Jan → Dec) as a row of 12 stacked vertical bars; each bar splits subscription (indigo, bottom) vs sales (emerald, top). The current month is emphasized (primary color + value label above it).
+
+| # | Scenario | Steps | Expected result |
+|---|----------|-------|-----------------|
+| 10.1 | Twelve bars | Open dashboard | Exactly 12 bars (Jan–Dec), month labels below (localized short names, shrunk to fit one row); bars fill their columns with a small gap between |
+| 10.2 | Current highlighted | Current month's bar | Its subscription segment is primary color + its total shown above it; other months' subscription segments muted (indigo-200) |
+| 10.3 | Stacked mix | Month has both payments and sales | Bar splits: indigo subscription segment (bottom) + emerald sales segment (top); total height = combined USD |
+| 10.4 | Legend | Any month has sales | Legend (Subscriptions / Sales swatches) shows above the plot; hidden entirely when no month has sales |
+| 10.5 | Bar heights | Months with different revenue | Tallest bar = the max month; others scaled proportionally |
+| 10.6 | Empty / future month | A month with zero revenue (incl. months later than the current one) | Bar renders a minimal sliver (not invisible), not a divide-by-zero |
+| 10.7 | All-zero tenant | No revenue in any month | All bars at min height; no crash; current month = last month with activity, else December |
+| 10.8 | Every revenue month labeled | Several months have revenue | Each month with `total > 0` shows its amount above the bar (current month in primary, others in gray); zero months show no label |
+| 10.9 | Snapshot immunity | Old month paid in LBP; admin later edits LBP rate | That month's bar keeps its original USD height (per-row `rate_per_usd_snapshot`) |
+| 10.10 | Display currency | Switch USD → LBP | Value labels reformat to display currency |
+| 10.11 | Voided excluded | Void a payment/sale from a prior month | That month's bar shrinks accordingly on refresh |
+| 10.12 | Branch-scoped | Pick a branch | All 12 bars scope to that branch |
+| 10.13 | January month-over-month | Open in January | Chart shows Jan–Dec of the current year; the vs-last-month pill treats December (last year, outside the window) as 0 revenue |
+
+## 11. Growth tiles — New / Cancelled this month
+
+`countCreatedInRange` (by `created_at`) and `countCancelledInRange` (by `cancelled_at`), both `[monthStart, monthEndExclusive)`.
+
+| # | Scenario | Steps | Expected result |
+|---|----------|-------|-----------------|
+| 11.1 | New customers | Add 2 customers this month | "NEW CUSTOMERS" tile = 2 (success color), sub "joined this month" |
+| 11.2 | Cancelled | Deactivate 1 customer this month | "CANCELLED" tile = 1, sub "left this month" |
+| 11.3 | Prior-month create excluded | Customer created last month | Not counted in this month's New tile |
+| 11.4 | Reactivate then no double count | Deactivate then reactivate this month | Cancelled reflects the last `cancelled_at` state; active customer (cancelled_at null) not counted as cancelled |
+| 11.5 | Branch-scoped | Pick a branch | New/Cancelled counts scope to that branch (customers are branch-owned) |
+| 11.6 | Includes non-regular | Add an occasional (non-regular) customer | Still counted in New (growth counts all customers, unlike unpaid) |
+
+## 12. Activity tiles — Payments / Sales recorded + avg
+
+`paymentsCollectedCount` = positive-amount non-voided payments this month; `salesCount` = non-voided sales this month; avg payment = `subscriptionRevenue / paymentsCollectedCount`.
+
+| # | Scenario | Steps | Expected result |
+|---|----------|-------|-----------------|
+| 12.1 | Payments count | Record 3 subscription payments this month | "PAYMENTS" tile = 3, sub "avg <amount> each" |
+| 12.2 | Zero-amount slot not counted | An unpaid month slot (amount_paid = 0) | Not counted in paymentsCollectedCount; avg sub falls back to "This Month" |
+| 12.3 | Avg calculation | Collect $30 + $50 + $100 over 3 payments | Avg = $60.00 each (display-currency formatted) |
+| 12.4 | Voided payment | Void one of the payments | Count drops by 1; avg recomputes on refresh |
+| 12.5 | Sales count | Record 2 sales this month | "SALES" tile = 2, sub "This Month" |
+| 12.6 | Sales count excludes voided | Void one sale | Count drops by 1 |
+| 12.7 | Branch-scoped | Pick a branch | Both counts + avg scope to that branch |
+
+## 13. Outstanding balance tile
+
+Only rendered when `totalOutstandingBalance > 0` (sum of current-month partial-payment `balance`, USD-converted).
+
+| # | Scenario | Steps | Expected result |
+|---|----------|-------|-----------------|
+| 13.1 | Hidden when zero | No partial payments this month | Tile NOT rendered |
+| 13.2 | Shown with balance | Customer paid 50/100 this month | Tile shows the owed balance (warning color), sub "from partial payments" |
+| 13.3 | Snapshot immunity | Partial payment in LBP; admin edits LBP rate | Balance keeps original USD equivalent |
+| 13.4 | Display currency | Switch display currency | Tile reformats |
+| 13.5 | Full-width | Any state where shown | Tile spans the row (single StatTile in a flex-row) |
+
+## 14. Offline parity (native)
+
+The three new range queries run against the local SQLite mirror when offline.
+
+| # | Scenario | Steps | Expected result |
+|---|----------|-------|-----------------|
+| 14.1 | Offline trend | Go offline (native), open dashboard | Current-year (Jan–Dec) trend, growth, and activity tiles render from the local mirror (same numbers as online for synced data) |
+| 14.2 | Offline then sync | Record payments offline, reconnect | After sync, dashboard on another device shows the same trend/counts |
+| 14.3 | Parity | Compare the same tenant/branch on web vs native | Trend buckets, new/cancelled counts, payments/sales counts match |

@@ -109,7 +109,18 @@
     "paid_of_active": "{{paid}} of {{total}} customers paid",
     "customers_this_month": "customers this month",
     "of_total": "of {{total}} total",
-    "partial_payments_note": "from partial payments"
+    "partial_payments_note": "from partial payments",
+    "vs_last_month": "vs last month",
+    "revenue_trend": "Revenue Trend",
+    "trend_months": "Last {{months}} months",
+    "this_month": "This Month",
+    "new_customers": "New Customers",
+    "joined": "joined this month",
+    "cancelled": "Cancelled",
+    "left": "left this month",
+    "payments_recorded": "Payments",
+    "sales_recorded": "Sales",
+    "avg_each": "avg {{amount}} each"
   },
   "subscriptions": {
     "section_title": "Plans",

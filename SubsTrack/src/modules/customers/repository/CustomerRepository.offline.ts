@@ -173,6 +173,30 @@ export class OfflineCustomerRepository
     return this.count(`SELECT COUNT(*) AS n FROM customers ${sql}`, params);
   }
 
+  async countCreatedInRange(
+    start: string,
+    endExclusive: string,
+    branchFilter: BranchFilter = null,
+  ): Promise<number> {
+    const { sql, params } = this.combineWhere([
+      { clause: 'created_at >= ? AND created_at < ?', params: [start, endExclusive] },
+      this.branchWhere(branchFilter, this.BRANCH_SCOPES.customers, 'customers'),
+    ]);
+    return this.count(`SELECT COUNT(*) AS n FROM customers ${sql}`, params);
+  }
+
+  async countCancelledInRange(
+    start: string,
+    endExclusive: string,
+    branchFilter: BranchFilter = null,
+  ): Promise<number> {
+    const { sql, params } = this.combineWhere([
+      { clause: 'cancelled_at >= ? AND cancelled_at < ?', params: [start, endExclusive] },
+      this.branchWhere(branchFilter, this.BRANCH_SCOPES.customers, 'customers'),
+    ]);
+    return this.count(`SELECT COUNT(*) AS n FROM customers ${sql}`, params);
+  }
+
   // Reuses the ONLINE JS aggregation verbatim; only the two fetches become local
   // SQL (see CustomerRepository.countUnpaidForMonth). Must stay in sync with it.
   async countUnpaidForMonth(

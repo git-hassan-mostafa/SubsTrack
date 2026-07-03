@@ -18,6 +18,13 @@ export interface ISaleRepository {
     monthEndExclusive: string,
     branchFilter?: BranchFilter,
   ): Promise<{ amount: number; ratePerUsdSnapshot: number }[]>;
+  // Sale totals across a date range, each tagged with sold_at — the dashboard
+  // buckets these by month into the revenue trend.
+  totalsInRange(
+    rangeStart: string,
+    rangeEndExclusive: string,
+    branchFilter?: BranchFilter,
+  ): Promise<{ soldAt: string; amount: number; ratePerUsdSnapshot: number }[]>;
   // Non-voided sales tied to a customer that still owe money
   // (total_amount > amount_paid), across all time — the "Sales" debt category.
   // Joined with the customer for display.

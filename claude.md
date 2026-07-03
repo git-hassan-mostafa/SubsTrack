@@ -184,7 +184,8 @@ Customer     { id, name, phoneNumber, address, area?, notes?, active, isRegular 
 CustomerPlan { id, customerId, planId /*null=custom/occasional line*/, startDate, cancelledAt, active, tenantId, createdAt, updatedAt, plan? } /*one service line; a customer can hold several, each paid independently*/
 Payment      { id, billingMonth /*YYYY-MM-01*/, amountDue /*snapshot*/, amountPaid /*≤due; 0=unpaid slot*/, balance /*generated*/, durationMonths /*≥1*/, currencyId /*null=USD*/, ratePerUsdSnapshot /*frozen rate; USD=1*/, customerId, customerPlanId /*the service line*/, planId /*price snapshot*/, receivedByUserId, tenantId, paidAt, voidedAt, voidedBy, notes, createdAt }
 MonthEntry   { year, month, label, billingMonth, status: MonthStatus, payment: Payment|null, isGroupSecondary /*true for months 2+ of a multi-month payment*/ }
-DashboardMetrics { totalCustomers, activeCustomers, monthlyRevenue, unpaidThisMonth, totalUsers, totalPlans }
+DashboardMetrics { totalCustomers, activeCustomers, monthlyRevenue, subscriptionRevenue, salesRevenue, unpaidThisMonth, totalUsers, totalPlans, totalOutstandingBalance, newCustomersThisMonth, cancelledThisMonth, paymentsCollectedCount, salesCount, prevMonthRevenue, revenueTrend /*RevenuePoint[] — every month of the current year, Jan→Dec*/ }
+RevenuePoint { month /*YYYY-MM*/, monthIndex, year, subscription /*USD*/, sales /*USD*/, total /*USD*/ }
 ```
 
 > `products` + `sales` add a one-off ledger (separate from subscription `payments`). Their domain shapes + behavior are in [docs/features.md](docs/features.md) → Products & One-Off Sales.

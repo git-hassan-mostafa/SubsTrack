@@ -46,4 +46,8 @@ export interface ICustomerRepository {
   countAll(branchFilter?: BranchFilter): Promise<number>;
   countActive(branchFilter?: BranchFilter): Promise<number>;
   countUnpaidForMonth(billingMonth: string, branchFilter?: BranchFilter): Promise<number>;
+  // Customers whose created_at / cancelled_at falls in [start, endExclusive) —
+  // the dashboard's "new" and "cancelled" this-month growth counters.
+  countCreatedInRange(start: string, endExclusive: string, branchFilter?: BranchFilter): Promise<number>;
+  countCancelledInRange(start: string, endExclusive: string, branchFilter?: BranchFilter): Promise<number>;
 }

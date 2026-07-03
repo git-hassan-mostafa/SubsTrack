@@ -196,6 +196,16 @@ export interface MonthEntry {
   balance: number;
 }
 
+// One point on the dashboard revenue trend — one calendar month, canonical USD.
+export interface RevenuePoint {
+  month: string;       // 'YYYY-MM'
+  monthIndex: number;  // 0–11, for the months.* label lookup
+  year: number;
+  subscription: number; // USD collected from subscription payments
+  sales: number;        // USD from one-off sales
+  total: number;        // subscription + sales
+}
+
 export interface DashboardMetrics {
   totalCustomers: number;
   activeCustomers: number;
@@ -206,6 +216,15 @@ export interface DashboardMetrics {
   totalUsers: number;
   totalPlans: number;
   totalOutstandingBalance: number;
+  // Growth this month
+  newCustomersThisMonth: number;
+  cancelledThisMonth: number;
+  // Activity this month
+  paymentsCollectedCount: number; // # of subscription payments received this month
+  salesCount: number;             // # of one-off sales this month
+  // Trend / comparison (canonical USD)
+  prevMonthRevenue: number;       // total revenue of the previous month
+  revenueTrend: RevenuePoint[];   // every month of the current year, Jan → Dec
 }
 
 // One-off sellable item. Distinct from Plan (recurring subscription).

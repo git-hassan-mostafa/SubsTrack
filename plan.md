@@ -532,10 +532,17 @@ Load on screen focus. All metrics scoped to current tenant.
 | Subscription revenue | SUM of non-voided payment `amount_paid` for current billing month (USD-converted) |
 | Sales revenue | SUM of non-voided sale `total_amount` for current calendar month (USD-converted) |
 | Unpaid this month | COUNT active regular customers with no non-voided payment for current billing month |
+| Outstanding balance | SUM of non-voided partial-payment `balance` for current billing month (USD-converted) |
+| New customers this month | COUNT customers with `created_at` in current calendar month |
+| Cancelled this month | COUNT customers with `cancelled_at` in current calendar month |
+| Payments recorded | COUNT positive-amount non-voided payments for current billing month (avg = subscription revenue ÷ this count) |
+| Sales recorded | COUNT non-voided sales for current calendar month |
+| Prev-month revenue | Total revenue of the previous calendar month (drives the ▲/▼ % vs-last-month pill) |
+| Revenue trend | Every month of the current year, Jan→Dec (subscription + sales, USD) bucketed by month for the bar chart |
 
-The dashboard's Revenue card shows the combined figure with a sub-line "Subscriptions: $X · Sales: $Y" when sales are non-zero.
+The dashboard's Revenue card shows the combined figure with a ▲/▼ month-over-month pill and a sub-line "Subscriptions: $X · Sales: $Y" when sales are non-zero. Below it: a current-year revenue bar chart (`RevenueTrendChart`) — one stacked bar per month (subscription indigo + sales emerald), a stat grid (Active, Unpaid, New, Cancelled, Payments, Sales) built from a shared `StatTile`, and the outstanding-balance money tile.
 
-Use `Promise.all` for parallel queries. Do not use N+1 queries.
+Use `Promise.all` for parallel queries. Do not use N+1 queries. The current-year trend is served by two range queries (`payment.paidAmountsInRange`, `sale.totalsInRange`) plus two growth counters (`customer.countCreatedInRange`, `countCancelledInRange`) — each with a Supabase + Offline SQLite implementation.
 
 ---
 

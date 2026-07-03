@@ -24,6 +24,8 @@ import { MONTHS } from "@/src/core/constants";
 import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
 import { CustomerFormSheet } from "@/src/modules/customers/components/CustomerFormSheet";
 import { SaleFormSheet } from "@/src/modules/sales/components/SaleFormSheet";
+import { StatTile } from "@/src/modules/dashboard/components/StatTile";
+import { RevenueTrendChart } from "@/src/modules/dashboard/components/RevenueTrendChart";
 
 export function DashboardScreen() {
   const { t, i18n } = useTranslation();
@@ -67,6 +69,19 @@ export function DashboardScreen() {
       : 0;
   const hasSalesRevenue = (metrics?.salesRevenue ?? 0) > 0;
   const hasOutstandingBalance = (metrics?.totalOutstandingBalance ?? 0) > 0;
+
+  // Month-over-month revenue change (null when there's no prior month to compare).
+  const monthlyRevenue = metrics?.monthlyRevenue ?? 0;
+  const prevMonthRevenue = metrics?.prevMonthRevenue ?? 0;
+  const momPct =
+    prevMonthRevenue > 0
+      ? Math.round(((monthlyRevenue - prevMonthRevenue) / prevMonthRevenue) * 100)
+      : null;
+
+  // Average subscription payment collected this month.
+  const paymentsCount = metrics?.paymentsCollectedCount ?? 0;
+  const avgPayment =
+    paymentsCount > 0 ? (metrics?.subscriptionRevenue ?? 0) / paymentsCount : 0;
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
@@ -146,6 +161,32 @@ export function DashboardScreen() {
                 {fmt(metrics?.monthlyRevenue ?? 0)}
               </Text>
 
+              {/* Month-over-month change — only when a prior month exists */}
+              {momPct !== null ? (
+                <View className="flex-row items-center mt-2">
+                  <View
+                    className={`flex-row items-center gap-1 rounded-full px-2 py-0.5 ${
+                      momPct >= 0 ? "bg-emerald-400/20" : "bg-red-400/20"
+                    }`}
+                  >
+                    <Ionicons
+                      name={momPct >= 0 ? "arrow-up" : "arrow-down"}
+                      size={12}
+                      color={momPct >= 0 ? "#6ee7b7" : "#fca5a5"}
+                    />
+                    <Text
+                      fontWeight="SemiBold"
+                      className={`text-xs ${momPct >= 0 ? "text-emerald-200" : "text-red-200"}`}
+                    >
+                      {Math.abs(momPct)}%
+                    </Text>
+                  </View>
+                  <Text className="text-xs text-indigo-300 ml-2">
+                    {t("dashboard.vs_last_month")}
+                  </Text>
+                </View>
+              ) : null}
+
               {/* Revenue breakdown — only shown when sales revenue exists */}
               {hasSalesRevenue ? (
                 <View className="flex-row mt-3 gap-6">
@@ -195,58 +236,82 @@ export function DashboardScreen() {
               </Text>
             </View>
 
-            {/* Stat cards */}
-            <View className="flex-row mx-4 gap-3 mb-3">
-              {/* Unpaid this month */}
-              <View className="flex-1 bg-white border border-gray-100 rounded-2xl p-4">
-                <Text className="text-xs text-gray-400 uppercase tracking-wide mb-3">
-                  {t("dashboard.unpaid")}
-                </Text>
-                <Text
-                  fontWeight="Bold"
-                  className="text-3xl text-danger leading-none mb-1"
-                >
-                  {metrics?.unpaidThisMonth ?? 0}
-                </Text>
-                <Text className="text-xs text-gray-400">
-                  {t("dashboard.customers_this_month")}
-                </Text>
+            {/* Revenue trend — trailing months */}
+            {metrics ? (
+              <RevenueTrendChart data={metrics.revenueTrend} format={fmt} />
+            ) : null}
+
+            {/* This-month section heading */}
+            <Text className="text-xs text-gray-400 uppercase tracking-wide mx-5 mt-2 mb-2">
+              {t("dashboard.this_month")}
+            </Text>
+
+            {/* Stat grid */}
+            <View className="mx-4 gap-3 mb-3">
+              <View className="flex-row gap-3">
+                <StatTile
+                  label={t("dashboard.active")}
+                  value={activeCustomers}
+                  sub={t("dashboard.of_total", { total: metrics?.totalCustomers ?? 0 })}
+                  icon="people-outline"
+                />
+                <StatTile
+                  label={t("dashboard.unpaid")}
+                  value={metrics?.unpaidThisMonth ?? 0}
+                  sub={t("dashboard.customers_this_month")}
+                  tone="danger"
+                  icon="alert-circle-outline"
+                />
               </View>
 
-              {/* Active customers */}
-              <View className="flex-1 bg-white border border-gray-100 rounded-2xl p-4">
-                <Text className="text-xs text-gray-400 uppercase tracking-wide mb-3">
-                  {t("dashboard.active")}
-                </Text>
-                <Text
-                  fontWeight="Bold"
-                  className="text-3xl text-gray-900 leading-none mb-1"
-                >
-                  {activeCustomers}
-                </Text>
-                <Text className="text-xs text-gray-400">
-                  {t("dashboard.of_total", {
-                    total: metrics?.totalCustomers ?? 0,
-                  })}
-                </Text>
+              <View className="flex-row gap-3">
+                <StatTile
+                  label={t("dashboard.new_customers")}
+                  value={metrics?.newCustomersThisMonth ?? 0}
+                  sub={t("dashboard.joined")}
+                  tone="success"
+                  icon="person-add-outline"
+                />
+                <StatTile
+                  label={t("dashboard.cancelled")}
+                  value={metrics?.cancelledThisMonth ?? 0}
+                  sub={t("dashboard.left")}
+                  icon="person-remove-outline"
+                />
+              </View>
+
+              <View className="flex-row gap-3">
+                <StatTile
+                  label={t("dashboard.payments_recorded")}
+                  value={paymentsCount}
+                  sub={
+                    paymentsCount > 0
+                      ? t("dashboard.avg_each", { amount: fmt(avgPayment) })
+                      : t("dashboard.this_month")
+                  }
+                  tone="primary"
+                  icon="card-outline"
+                />
+                <StatTile
+                  label={t("dashboard.sales_recorded")}
+                  value={metrics?.salesCount ?? 0}
+                  sub={t("dashboard.this_month")}
+                  tone="primary"
+                  icon="receipt-outline"
+                />
               </View>
             </View>
 
-            {/* Outstanding balance — only shown when > 0 */}
+            {/* Outstanding balance (money owed) — only shown when > 0 */}
             {hasOutstandingBalance ? (
-              <View className="mx-4 mb-3 bg-white border border-amber-100 rounded-2xl p-4">
-                <Text className="text-xs text-gray-400 uppercase tracking-wide mb-3">
-                  {t("payments.outstanding_balance")}
-                </Text>
-                <Text
-                  fontWeight="Bold"
-                  className="text-3xl text-warning leading-none mb-1"
-                >
-                  {fmt(metrics?.totalOutstandingBalance ?? 0)}
-                </Text>
-                <Text className="text-xs text-gray-400">
-                  {t("dashboard.partial_payments_note")}
-                </Text>
+              <View className="flex-row mx-4 mb-3">
+                <StatTile
+                  label={t("payments.outstanding_balance")}
+                  value={fmt(metrics?.totalOutstandingBalance ?? 0)}
+                  sub={t("dashboard.partial_payments_note")}
+                  tone="warning"
+                  icon="hourglass-outline"
+                />
               </View>
             ) : null}
 

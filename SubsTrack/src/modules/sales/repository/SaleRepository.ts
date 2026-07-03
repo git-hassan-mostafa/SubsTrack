@@ -133,6 +133,29 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
     }));
   }
 
+  async totalsInRange(
+    rangeStart: string,
+    rangeEndExclusive: string,
+    branchFilter: BranchFilter = null,
+  ): Promise<{ soldAt: string; amount: number; ratePerUsdSnapshot: number }[]> {
+    let query = this.db
+      .from('sales')
+      .select('sold_at, total_amount, rate_per_usd_snapshot')
+      .gte('sold_at', rangeStart)
+      .lt('sold_at', rangeEndExclusive)
+      .is('voided_at', null);
+    query = this.applyBranchFilter(query, branchFilter, this.BRANCH_SCOPES.sales);
+    const { data, error } = await query;
+    if (error) this.handleError(error);
+    return (data ?? []).map(
+      (r: { sold_at: string; total_amount: number; rate_per_usd_snapshot: number }) => ({
+        soldAt: r.sold_at,
+        amount: Number(r.total_amount),
+        ratePerUsdSnapshot: Number(r.rate_per_usd_snapshot),
+      }),
+    );
+  }
+
   async partialSales(branchFilter: BranchFilter = null): Promise<DbSale[]> {
     let query = this.db
       .from('sales')

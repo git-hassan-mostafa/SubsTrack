@@ -153,6 +153,38 @@ export class CustomerRepository extends BaseRepository implements ICustomerRepos
     return count ?? 0;
   }
 
+  async countCreatedInRange(
+    start: string,
+    endExclusive: string,
+    branchFilter: BranchFilter = null,
+  ): Promise<number> {
+    let query = this.db
+      .from('customers')
+      .select('id', { count: 'exact', head: true })
+      .gte('created_at', start)
+      .lt('created_at', endExclusive);
+    query = this.applyBranchFilter(query, branchFilter, this.BRANCH_SCOPES.customers);
+    const { count, error } = await query;
+    if (error) this.handleError(error);
+    return count ?? 0;
+  }
+
+  async countCancelledInRange(
+    start: string,
+    endExclusive: string,
+    branchFilter: BranchFilter = null,
+  ): Promise<number> {
+    let query = this.db
+      .from('customers')
+      .select('id', { count: 'exact', head: true })
+      .gte('cancelled_at', start)
+      .lt('cancelled_at', endExclusive);
+    query = this.applyBranchFilter(query, branchFilter, this.BRANCH_SCOPES.customers);
+    const { count, error } = await query;
+    if (error) this.handleError(error);
+    return count ?? 0;
+  }
+
   async countUnpaidForMonth(
     billingMonth: string,
     branchFilter: BranchFilter = null,
