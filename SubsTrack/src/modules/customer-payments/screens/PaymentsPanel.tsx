@@ -1,5 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, RefreshControl, ScrollView, SectionList, View } from "react-native";
+import {
+  ActivityIndicator,
+  RefreshControl,
+  ScrollView,
+  SectionList,
+  View,
+} from "react-native";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { MONTHS } from "@/src/core/constants";
@@ -8,18 +14,30 @@ import { EmptyState } from "@/src/shared/components/EmptyState";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { Text } from "@/src/shared/components/Text";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
-import { Dropdown, type DropdownOption } from "@/src/shared/components/Dropdown";
+import {
+  Dropdown,
+  type DropdownOption,
+} from "@/src/shared/components/Dropdown";
 import { DatePickerInput } from "@/src/shared/components/DatePickerInput";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { MonthSectionHeader } from "@/src/shared/components/MonthSectionHeader";
 import { groupByMonth } from "@/src/shared/lib/monthSections";
 import { SelectAllBar } from "@/src/shared/components/SelectAllBar";
 import { SelectionOverlaySlot } from "@/src/shared/components/SelectionOverlaySlot";
-import { SelectionBar, type SelectionAction } from "@/src/shared/components/SelectionBar";
-import { useSelection, useSelectionBackHandler } from "@/src/shared/hooks/useSelection";
+import {
+  SelectionBar,
+  type SelectionAction,
+} from "@/src/shared/components/SelectionBar";
+import {
+  useSelection,
+  useSelectionBackHandler,
+} from "@/src/shared/hooks/useSelection";
 import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
 import { CustomerPicker } from "@/src/modules/customers";
-import { getDateMonthsAgoString, getTodayDateString } from "@/src/core/utils/date";
+import {
+  getDateMonthsAgoString,
+  getTodayDateString,
+} from "@/src/core/utils/date";
 import type { MonthEntry } from "@/src/core/types";
 import { usePaymentsListSlice } from "@/src/state/hooks/usePaymentsListSlice";
 import { useUserSlice } from "@/src/state/hooks/useUserSlice";
@@ -73,7 +91,9 @@ export function PaymentsPanel() {
   const getUsers = useUserSlice((s) => s.getUsers);
   const branchFilter = useEffectiveBranchFilter();
 
-  const [activePayment, setActivePayment] = useState<PaymentListItem | null>(null);
+  const [activePayment, setActivePayment] = useState<PaymentListItem | null>(
+    null,
+  );
   const [voidIds, setVoidIds] = useState<string[] | null>(null);
 
   const selection = useSelection();
@@ -127,7 +147,9 @@ export function PaymentsPanel() {
     [items, t],
   );
 
-  function buildSelectionActions(selected: PaymentListItem[]): SelectionAction[] {
+  function buildSelectionActions(
+    selected: PaymentListItem[],
+  ): SelectionAction[] {
     if (selected.length === 0) return [];
     return [
       {
@@ -153,18 +175,24 @@ export function PaymentsPanel() {
           selecting={selectionActive}
           overlay={
             <SelectAllBar
-              allSelected={items.length > 0 && selectedPayments.length === items.length}
+              allSelected={
+                items.length > 0 && selectedPayments.length === items.length
+              }
               onToggle={() => toggleManySelect(items.map((p) => p.id))}
             />
           }
         >
-          <View className="px-4 pt-4">
+          <View className="px-4">
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
               className="-mx-4"
-              contentContainerStyle={{ paddingHorizontal: 16, gap: 8, alignItems: "center" }}
+              contentContainerStyle={{
+                paddingHorizontal: 16,
+                gap: 8,
+                alignItems: "center",
+              }}
             >
               <CustomerPicker
                 placeholder={t("sales.filter_by_customer")}
@@ -211,7 +239,9 @@ export function PaymentsPanel() {
                 placeholder={t("payments.filter_by_status")}
                 options={statusOptions}
                 value={statusFilter === "all" ? null : statusFilter}
-                onChange={(v) => setStatusFilter((v ?? "all") as PaymentStatusFilter)}
+                onChange={(v) =>
+                  setStatusFilter((v ?? "all") as PaymentStatusFilter)
+                }
                 nullable
                 nullLabel={t("payments.all_statuses")}
                 triggerStyle="chip"
@@ -254,7 +284,11 @@ export function PaymentsPanel() {
             sections={sections}
             keyExtractor={(p) => p.id}
             stickySectionHeadersEnabled={false}
-            contentContainerStyle={{ padding: 16, paddingBottom: 96, flexGrow: 1 }}
+            contentContainerStyle={{
+              padding: 16,
+              paddingBottom: 96,
+              flexGrow: 1,
+            }}
             refreshControl={
               <RefreshControl
                 refreshing={loading}

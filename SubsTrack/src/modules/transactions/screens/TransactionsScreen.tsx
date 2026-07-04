@@ -3,8 +3,6 @@ import { View } from "react-native";
 import { GestureDetector } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
-import { Text } from "@/src/shared/components/Text";
-import { BranchSelector } from "@/src/shared/components/BranchSelector";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { useHorizontalSwipe } from "@/src/shared/hooks/useHorizontalSwipe";
 import {
@@ -15,6 +13,7 @@ import { SalesPanel } from "@/src/modules/sales";
 import { PaymentsPanel } from "@/src/modules/customer-payments";
 import { DebtsPanel } from "@/src/modules/debts";
 import { ServicesPanel } from "./ServicesPanel";
+import { PageHeader } from "@/src/shared/components/PageHeader";
 
 type TransactionsTab = "sales" | "payments" | "debts" | "services";
 
@@ -52,12 +51,7 @@ export function TransactionsScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50" edges={["top"]}>
-      <View className="flex-row items-center justify-between px-4 pt-4 pb-3 bg-white border-b border-gray-100 gap-2">
-        <Text fontWeight="Bold" className="text-2xl text-gray-900 flex-1">
-          {t("transactions.title")}
-        </Text>
-        <BranchSelector className="self-start" />
-      </View>
+      <PageHeader title={t("transactions.title")} />
 
       <ResponsiveContainer>
         <View className="px-4 py-3">

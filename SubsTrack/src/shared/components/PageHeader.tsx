@@ -45,7 +45,7 @@ export function PageHeader({
   return (
     <View className="relative">
       <View
-        className={`flex-row items-start px-4 pt-4 pb-4 bg-white border-b border-gray-100 gap-2 ${
+        className={`flex-row items-center px-4 pt-2 pb-2 bg-white border-b border-gray-100 gap-2 ${
           selecting ? "opacity-0" : ""
         }`}
         pointerEvents={selecting ? "none" : "auto"}
@@ -59,12 +59,12 @@ export function PageHeader({
             />
           </PressableOpacity>
         ) : null}
-        <View className="flex-1 min-w-0">
+        <View className="flex-1 min-w-0 flex items-center flex-row gap-4">
           <Text fontWeight="Bold" className="text-2xl text-gray-900">
             {title}
           </Text>
           {subtitle ? (
-            <Text className="text-sm text-gray-400 mt-0.5">{subtitle}</Text>
+            <Text className="text-xs text-gray-400 mt-0.5">{subtitle}</Text>
           ) : null}
         </View>
         {actionLabel && onAction ? (

@@ -8,7 +8,13 @@ interface Props extends TextProps {
 
 export function Text({ style, ...props }: Props) {
   const allStyles = [
-    { fontFamily: "Cairo" + (props.fontWeight ? "-" + props.fontWeight : "") },
+    {
+      fontFamily:
+        "Cairo" +
+        (!!props.fontWeight?.replace("Regular", "")
+          ? "-" + props.fontWeight?.replace("Regular", "")
+          : ""),
+    },
     // On web, RN Web infers each Text's direction from its own content, so an
     // Arabic string aligns/positions RTL even when the UI language is LTR (and
     // vice versa) — e.g. an Arabic customer name floats to the right in English

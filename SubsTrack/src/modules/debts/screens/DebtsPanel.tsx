@@ -1,5 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, RefreshControl, ScrollView, SectionList, View } from "react-native";
+import {
+  ActivityIndicator,
+  RefreshControl,
+  ScrollView,
+  SectionList,
+  View,
+} from "react-native";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { COLORS } from "@/src/shared/constants";
@@ -12,7 +18,10 @@ import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer
 import { MonthSectionHeader } from "@/src/shared/components/MonthSectionHeader";
 import { groupByMonth } from "@/src/shared/lib/monthSections";
 import { ActionMenu } from "@/src/shared/components/ActionMenu";
-import { Dropdown, type DropdownOption } from "@/src/shared/components/Dropdown";
+import {
+  Dropdown,
+  type DropdownOption,
+} from "@/src/shared/components/Dropdown";
 import { CustomerPicker } from "@/src/modules/customers";
 import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
 import { useAuth } from "@/src/modules/auth";
@@ -72,9 +81,12 @@ export function DebtsPanel() {
   const showingPayments = categoryFilter === "payments";
 
   const rows: Row[] = useMemo(() => {
-    if (showingPayments) return payments.map((p) => ({ kind: "payment", payment: p }));
+    if (showingPayments)
+      return payments.map((p) => ({ kind: "payment", payment: p }));
     const filtered =
-      categoryFilter === "all" ? items : items.filter((i) => i.category === categoryFilter);
+      categoryFilter === "all"
+        ? items
+        : items.filter((i) => i.category === categoryFilter);
     return filtered.map((i) => ({ kind: "item", item: i }));
   }, [showingPayments, payments, items, categoryFilter]);
 
@@ -154,13 +166,21 @@ export function DebtsPanel() {
     <View className="flex-1">
       <ResponsiveContainer className="flex-1">
         {/* Net summary header */}
-        <View className="px-4 pt-4">
+        <View className="px-4">
           <View className="bg-white border border-gray-100 rounded-2xl px-4 py-3 flex-row items-center justify-between">
             <View className="flex-1 pe-2">
-              <Text className="text-xs text-gray-500 uppercase tracking-wide" numberOfLines={1}>
-                {customerFilter ? customerFilter.name : t("debts.total_outstanding")}
+              <Text
+                className="text-xs text-gray-500 uppercase tracking-wide"
+                numberOfLines={1}
+              >
+                {customerFilter
+                  ? customerFilter.name
+                  : t("debts.total_outstanding")}
               </Text>
-              <Text className="text-[11px] text-gray-400 mt-0.5" numberOfLines={1}>
+              <Text
+                className="text-[11px] text-gray-400 mt-0.5"
+                numberOfLines={1}
+              >
                 {t("debts.summary_breakdown", {
                   debts: formatMoney(summary.grossUsd, null, target),
                   paid: formatMoney(summary.paymentsUsd, null, target),
@@ -168,7 +188,10 @@ export function DebtsPanel() {
               </Text>
             </View>
             <View className="items-end">
-              <Text fontWeight="Bold" className={`text-xl ${isCredit ? "text-green-600" : "text-gray-900"}`}>
+              <Text
+                fontWeight="Bold"
+                className={`text-xl ${isCredit ? "text-green-600" : "text-gray-900"}`}
+              >
                 {isCredit ? `- ${netLabel}` : netLabel}
               </Text>
               {isCredit ? (
@@ -187,7 +210,11 @@ export function DebtsPanel() {
             showsHorizontalScrollIndicator={false}
             keyboardShouldPersistTaps="handled"
             className="-mx-4"
-            contentContainerStyle={{ paddingHorizontal: 16, gap: 8, alignItems: "center" }}
+            contentContainerStyle={{
+              paddingHorizontal: 16,
+              gap: 8,
+              alignItems: "center",
+            }}
           >
             <Dropdown<DebtViewFilter>
               options={categoryOptions}
@@ -230,36 +257,60 @@ export function DebtsPanel() {
         ) : (
           <SectionList
             sections={sections}
-            keyExtractor={(r) => (r.kind === "item" ? `i-${r.item.id}` : `p-${r.payment.id}`)}
+            keyExtractor={(r) =>
+              r.kind === "item" ? `i-${r.item.id}` : `p-${r.payment.id}`
+            }
             stickySectionHeadersEnabled={false}
-            contentContainerStyle={{ padding: 16, paddingBottom: 96, flexGrow: 1 }}
+            contentContainerStyle={{
+              padding: 16,
+              paddingBottom: 96,
+              flexGrow: 1,
+            }}
             refreshControl={
-              <RefreshControl refreshing={loading} onRefresh={fetchDebts} tintColor={COLORS.primary} />
+              <RefreshControl
+                refreshing={loading}
+                onRefresh={fetchDebts}
+                tintColor={COLORS.primary}
+              />
             }
             renderSectionHeader={({ section }) => (
               <MonthSectionHeader title={section.title} />
             )}
             renderItem={({ item: row }) =>
               row.kind === "payment" ? (
-                <DebtPaymentCard payment={row.payment} onVoid={handleVoidPayment} />
+                <DebtPaymentCard
+                  payment={row.payment}
+                  onVoid={handleVoidPayment}
+                />
               ) : (
                 <DebtItemCard
                   item={row.item}
                   onPay={handlePayItem}
-                  onVoid={row.item.category === "custom" ? handleVoidItem : undefined}
+                  onVoid={
+                    row.item.category === "custom" ? handleVoidItem : undefined
+                  }
                 />
               )
             }
             ListEmptyComponent={
               <EmptyState
-                message={showingPayments ? t("debts.no_payments") : t("debts.no_debts")}
-                subMessage={showingPayments ? t("debts.no_payments_hint") : t("debts.no_debts_hint")}
+                message={
+                  showingPayments ? t("debts.no_payments") : t("debts.no_debts")
+                }
+                subMessage={
+                  showingPayments
+                    ? t("debts.no_payments_hint")
+                    : t("debts.no_debts_hint")
+                }
               />
             }
           />
         )}
 
-        <FAB onPress={() => setMenuOpen(true)} accessibilityLabel={t("debts.add")} />
+        <FAB
+          onPress={() => setMenuOpen(true)}
+          accessibilityLabel={t("debts.add")}
+        />
       </ResponsiveContainer>
 
       <ActionMenu

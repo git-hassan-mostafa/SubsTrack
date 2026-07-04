@@ -14,6 +14,7 @@
     "deploy-update-user-password-edge-function": "supabase functions deploy update-user-password",
     "deploy-create-tenant-edge-function": "supabase functions deploy create-tenant --no-verify-jwt",
     "eas-configure": "eas build:configure",
+    "build-dev": "eas build --platform android --profile development",
     "build-preview": "eas build --platform android --profile preview",
     "build-prod": "eas build --platform android --profile production",
     "build-web": "npx expo export -p web",

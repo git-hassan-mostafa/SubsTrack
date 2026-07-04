@@ -183,7 +183,7 @@ export function SalesPanel() {
             />
           }
         >
-          <View className="px-4 pt-4 gap-y-2">
+          <View className="px-4 gap-y-2">
             <SearchTextBox
               searchText={searchText}
               setSearchText={setSearchText}

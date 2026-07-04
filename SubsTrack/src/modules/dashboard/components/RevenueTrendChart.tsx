@@ -40,7 +40,7 @@ export function RevenueTrendChart({ data, format }: Props) {
 
       {/* Legend — only when both revenue streams are present */}
       {hasSales ? (
-        <View className="flex-row items-center gap-4 mb-3">
+        <View className="flex-row items-center gap-4 mb-6">
           <View className="flex-row items-center gap-1.5">
             <View className="w-3 h-3 rounded-sm bg-primary" />
             <Text className="text-xs text-gray-500">
@@ -91,8 +91,8 @@ export function RevenueTrendChart({ data, format }: Props) {
                     fontWeight={isCurrent ? "SemiBold" : "Regular"}
                     numberOfLines={1}
                     style={{ width: 80, textAlign: "center" }}
-                    className={`text-[11px] mb-1 ${
-                      isCurrent ? "text-primary" : "text-gray-400"
+                    className={`text-[8px] mb-1 ${
+                      isCurrent ? "text-primary" : "text-gray-600"
                     }`}
                   >
                     {format(point.total)}
@@ -106,7 +106,10 @@ export function RevenueTrendChart({ data, format }: Props) {
                   className="w-full overflow-hidden rounded-md justify-end"
                 >
                   {salesH > 0 ? (
-                    <View style={{ height: salesH }} className="bg-emerald-400" />
+                    <View
+                      style={{ height: salesH }}
+                      className="bg-emerald-400"
+                    />
                   ) : null}
                   <View
                     style={{ height: subH }}
@@ -125,7 +128,7 @@ export function RevenueTrendChart({ data, format }: Props) {
       {/* Month labels — short names; they shrink to fit so all 12 stay on one row */}
       <View className="flex-row">
         {data.map((point, i) => (
-          <View key={point.month} className="flex-1 items-center px-[1px]">
+          <View key={point.month} className="flex-1 items-center px-[2px]">
             <Text
               fontWeight={i === currentIndex ? "SemiBold" : "Regular"}
               numberOfLines={1}

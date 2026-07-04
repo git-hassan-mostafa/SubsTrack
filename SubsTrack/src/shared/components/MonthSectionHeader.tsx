@@ -6,7 +6,7 @@ import { Text } from "./Text";
 // pinned. Sits flush with the list's horizontal padding.
 export function MonthSectionHeader({ title }: { title: string }) {
   return (
-    <View className="bg-white pt-3 pb-1.5">
+    <View className="pt-3 pb-1.5">
       <Text
         fontWeight="SemiBold"
         className="text-xs uppercase tracking-wide text-gray-500"
