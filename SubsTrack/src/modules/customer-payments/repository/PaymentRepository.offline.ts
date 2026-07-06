@@ -225,16 +225,17 @@ export class OfflinePaymentRepository extends OfflineBaseRepository implements I
   }
 
   async paidAmountsForMonth(
-    billingMonth: string,
+    monthStartIso: string,
+    monthEndExclusiveIso: string,
     branchFilter: BranchFilter = null,
   ): Promise<AmountRow[]> {
     const branch = this.branchWhere(branchFilter, this.BRANCH_SCOPES.payments, 'c');
     const rows = await this.all<{ amount_paid: string; rate_per_usd_snapshot: string }>(
       `SELECT p.amount_paid, p.rate_per_usd_snapshot
        FROM payments p JOIN customers c ON p.customer_id = c.id
-       WHERE p.billing_month = ? AND p.voided_at IS NULL
+       WHERE p.paid_at >= ? AND p.paid_at < ? AND p.voided_at IS NULL
          ${branch.clause ? `AND ${branch.clause}` : ''}`,
-      [billingMonth, ...branch.params],
+      [monthStartIso, monthEndExclusiveIso, ...branch.params],
     );
     return rows.map((r) => ({
       amount: Number(r.amount_paid),

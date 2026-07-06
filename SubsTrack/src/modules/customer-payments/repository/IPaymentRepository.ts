@@ -47,7 +47,12 @@ export interface IPaymentRepository {
     billingMonth: string,
   ): Promise<{ fullyPaidIds: Set<string>; partialIds: Set<string> }>;
   findActivePayments(): Promise<DbPayment[]>;
-  paidAmountsForMonth(billingMonth: string, branchFilter?: BranchFilter): Promise<AmountRow[]>;
+  // Scoped by paid_at (recorded date), matching the Payments tab's "This Month".
+  paidAmountsForMonth(
+    monthStartIso: string,
+    monthEndExclusiveIso: string,
+    branchFilter?: BranchFilter,
+  ): Promise<AmountRow[]>;
   // Paid amounts per payment across a billing-month range (inclusive), each tagged
   // with its billing month — the dashboard buckets these into the revenue trend.
   paidAmountsInRange(

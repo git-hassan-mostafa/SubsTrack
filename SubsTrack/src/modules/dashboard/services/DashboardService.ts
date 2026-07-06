@@ -65,7 +65,7 @@ class DashboardService {
     ] = await Promise.all([
       customerRepo.countAll(branchFilter),
       customerRepo.countActive(branchFilter),
-      paymentRepo.paidAmountsForMonth(billingMonth, branchFilter),
+      paymentRepo.paidAmountsForMonth(monthStart, monthEndExclusive, branchFilter),
       customerRepo.countUnpaidForMonth(billingMonth, branchFilter),
       userRepo.countAll(branchFilter),
       planRepo.countAll(branchFilter),

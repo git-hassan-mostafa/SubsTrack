@@ -249,15 +249,19 @@ export class PaymentRepository extends BaseRepository implements IPaymentReposit
   }
 
   // Returns raw paid amounts + their snapshot rate so the service layer can
-  // convert to USD using the frozen rate (drift-free aggregation).
+  // convert to USD using the frozen rate (drift-free aggregation). Scoped by
+  // paid_at (when it was recorded), matching the Payments tab's "This Month"
+  // section — not by billing_month (which month it's for).
   async paidAmountsForMonth(
-    billingMonth: string,
+    monthStartIso: string,
+    monthEndExclusiveIso: string,
     branchFilter: BranchFilter = null,
   ): Promise<{ amount: number; ratePerUsdSnapshot: number }[]> {
     let query = this.db
       .from('payments')
       .select('amount_paid, rate_per_usd_snapshot, customers!inner(branch_id)')
-      .eq('billing_month', billingMonth)
+      .gte('paid_at', monthStartIso)
+      .lt('paid_at', monthEndExclusiveIso)
       .is('voided_at', null);
     query = this.applyBranchFilter(query, branchFilter, this.BRANCH_SCOPES.payments);
     const { data, error } = await query;
