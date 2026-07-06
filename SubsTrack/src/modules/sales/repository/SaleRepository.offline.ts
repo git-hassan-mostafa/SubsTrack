@@ -86,28 +86,21 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
       voided_by: null,
       void_reason: null,
     };
-    await this.write(async (db, queue) => {
-      await insertDirty(db, 'sales', row);
-      await queue({ tableName: 'sales', opType: 'insert', rowId: row.id, payload: { row } });
-    }); const [hydrated] = await this.hydrate([row]);
+    await this.write((db) => insertDirty(db, 'sales', row));
+    const [hydrated] = await this.hydrate([row]);
     return hydrated;
   }
 
   async voidSale(id: string, voidedBy: string, reason: string): Promise<DbSale> {
     const now = nowIso();
-    await this.write(async (db, queue) => {
-      await db.runAsync(
+    await this.write((db) =>
+      db.runAsync(
         `UPDATE sales SET voided_at = ?, voided_by = ?, void_reason = ?, updated_at = ?, _dirty = 1
          WHERE id = ? AND voided_at IS NULL`,
         [now, voidedBy, reason, now, id] as never[],
-      );
-      await queue({
-        tableName: 'sales',
-        opType: 'void',
-        rowId: id,
-        payload: { fields: { voided_at: now, voided_by: voidedBy, void_reason: reason } },
-      });
-    }); const row = await this.first('SELECT * FROM sales WHERE id = ?', [id]);
+      ),
+    );
+    const row = await this.first('SELECT * FROM sales WHERE id = ?', [id]);
     if (!row) this.handleError(new Error('Sale not found'));
     const [hydrated] = await this.hydrate([this.decodeOne<DbSale>('sales', row)!]);
     return hydrated;

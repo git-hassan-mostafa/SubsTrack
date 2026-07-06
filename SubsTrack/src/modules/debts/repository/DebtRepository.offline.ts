@@ -12,9 +12,9 @@ import type {
 /**
  * SQLite-backed debts repository (custom_debts + debt_payments). Both tables
  * inherit their branch from the customer, so reads JOIN customers and scope on
- * `c.branch_id`. Writes use a client-generated id (no natural key) and go through
- * the durable outbox. Reads reproduce the Supabase `customers!inner(name, branch_id)`
- * join by hydrating the customer row.
+ * `c.branch_id`. Writes use a client-generated id (no natural key) and flag the
+ * row `_dirty` for the next sync. Reads reproduce the Supabase
+ * `customers!inner(name, branch_id)` join by hydrating the customer row.
  */
 export class OfflineDebtRepository extends OfflineBaseRepository implements IDebtRepository {
   private async attachCustomers<T extends { customer_id: string; customers?: DbCustomer | null }>(
@@ -58,29 +58,20 @@ export class OfflineDebtRepository extends OfflineBaseRepository implements IDeb
       voided_by: null,
       void_reason: null,
     };
-    await this.write(async (db, queue) => {
-      await insertDirty(db, 'custom_debts', row);
-      await queue({ tableName: 'custom_debts', opType: 'insert', rowId: row.id, payload: { row } });
-    });
+    await this.write((db) => insertDirty(db, 'custom_debts', row));
     const [hydrated] = await this.attachCustomers([row]);
     return hydrated;
   }
 
   async voidCustomDebt(id: string, voidedBy: string, reason: string | null): Promise<DbCustomDebt> {
     const now = nowIso();
-    await this.write(async (db, queue) => {
-      await db.runAsync(
+    await this.write((db) =>
+      db.runAsync(
         `UPDATE custom_debts SET voided_at = ?, voided_by = ?, void_reason = ?, updated_at = ?, _dirty = 1
          WHERE id = ? AND voided_at IS NULL`,
         [now, voidedBy, reason, now, id] as never[],
-      );
-      await queue({
-        tableName: 'custom_debts',
-        opType: 'void',
-        rowId: id,
-        payload: { fields: { voided_at: now, voided_by: voidedBy, void_reason: reason } },
-      });
-    });
+      ),
+    );
     const row = await this.first('SELECT * FROM custom_debts WHERE id = ?', [id]);
     if (!row) this.handleError(new Error('Custom debt not found'));
     const [hydrated] = await this.attachCustomers([this.decodeOne<DbCustomDebt>('custom_debts', row)!]);
@@ -98,29 +89,20 @@ export class OfflineDebtRepository extends OfflineBaseRepository implements IDeb
       voided_by: null,
       void_reason: null,
     };
-    await this.write(async (db, queue) => {
-      await insertDirty(db, 'debt_payments', row);
-      await queue({ tableName: 'debt_payments', opType: 'insert', rowId: row.id, payload: { row } });
-    });
+    await this.write((db) => insertDirty(db, 'debt_payments', row));
     const [hydrated] = await this.attachCustomers([row]);
     return hydrated;
   }
 
   async voidDebtPayment(id: string, voidedBy: string, reason: string | null): Promise<DbDebtPayment> {
     const now = nowIso();
-    await this.write(async (db, queue) => {
-      await db.runAsync(
+    await this.write((db) =>
+      db.runAsync(
         `UPDATE debt_payments SET voided_at = ?, voided_by = ?, void_reason = ?, updated_at = ?, _dirty = 1
          WHERE id = ? AND voided_at IS NULL`,
         [now, voidedBy, reason, now, id] as never[],
-      );
-      await queue({
-        tableName: 'debt_payments',
-        opType: 'void',
-        rowId: id,
-        payload: { fields: { voided_at: now, voided_by: voidedBy, void_reason: reason } },
-      });
-    });
+      ),
+    );
     const row = await this.first('SELECT * FROM debt_payments WHERE id = ?', [id]);
     if (!row) this.handleError(new Error('Debt payment not found'));
     const [hydrated] = await this.attachCustomers([this.decodeOne<DbDebtPayment>('debt_payments', row)!]);

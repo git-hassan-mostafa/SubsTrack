@@ -3,7 +3,6 @@
 - Do not re-explore the codebase at the start of new sessions. Treat CLAUDE.md as the source of truth for project context and start from it directly.
 - Whenever any architecture or context changed in this project, update CLAUDE.md to reflect it — and the matching detail file under `docs/` (see **Detailed Reference Docs** below) when the change touches an area documented there. Keep this lean core authoritative for the big picture; push exhaustive detail into `docs/`.
 - I am still in Development phase, so i am open to change architectures and DB schema if needed.
-- The user is not a native English speaker. When answering or explaining, use **simple, plain English** — easy words. Avoid difficult or fancy vocabulary and unexplained jargon; if a technical term is needed, explain it in plain words. (This applies to chat answers/explanations, not to code or identifiers.)
 
 ---
 
@@ -40,7 +39,7 @@ This file is the lean core — always-needed context. Deeper detail lives in `do
 | [docs/features.md](docs/features.md)                   | editing a feature's behavior                                 | multi-tenancy, branches, auth flow, multi-month, multi-currency, app options, tiers, products/sales, transactions hub (Sales/Payments/Debts tabs), debts (runtime-computed customer ledger), regular customer, payment scenarios, multiple plans per customer (service lines) |
 | [docs/gotchas.md](docs/gotchas.md)                     | editing payments / currency / branches / sales / signup code | the 41 non-obvious patterns & gotchas (with an area index at the top)                                                                                                                                                                                                         |
 | [docs/edge-functions.md](docs/edge-functions.md)       | touching auth/user/tenant creation                           | `create-user`, `update-user-password`, `create-tenant`                                                                                                                                                                                                                        |
-| [docs/offline.md](docs/offline.md)                     | touching ANY repository, or the sync engine                  | offline-first (native): the platform-switch seam, SQLite mirror, durable outbox, push/pull sync, tombstones, conflict policy                                                                                                                                                  |
+| [docs/offline.md](docs/offline.md)                     | touching ANY repository, or the sync engine                  | offline-first (native): the platform-switch seam, SQLite mirror, `_dirty`-flag push / incremental pull sync (`sync.ts`), `pending_deletes`, latest-updated_at-wins conflict policy                                                                                            |
 
 When you need the exact current file layout, prefer a quick file search over trusting the tree in `docs/project-structure.md` — it can go stale.
 
@@ -147,9 +146,9 @@ Presentation  →  State  →  Business Logic  →  Repository  →  Database
 The **native** app is offline-first; **web is unchanged** (talks to Supabase directly). This is contained entirely in the repository layer + `src/core/offline/`. Services, slices, and UI are untouched.
 
 - Each repository file is a **platform switch**: `export default Platform.OS === 'web' ? new XxxRepository() : new OfflineXxxRepository()`. Both the Supabase class (unchanged) and `OfflineXxxRepository` `implements IXxxRepository` — the compiler keeps them in lockstep. Services import the default, so nothing above the repo layer changes.
-- **Offline reads/writes hit a local SQLite mirror** (`expo-sqlite`) that returns the **same `Db*` row shapes** (incl. nested joins) the mappers already consume. Writes mutate the mirror AND append a **durable outbox** op in one transaction. A background **SyncEngine** replays the outbox to Supabase (push) then pulls changes back (pull, LWW by server `updated_at`, tombstones for hard deletes). Multi-device, bidirectional.
+- **Offline reads/writes hit a local SQLite mirror** (`expo-sqlite`) that returns the **same `Db*` row shapes** (incl. nested joins) the mappers already consume. Writes mutate the mirror and flag the row `_dirty = 1` (hard deletes are logged in `pending_deletes`). A small **sync** (`src/core/offline/sync.ts`) pushes every `_dirty` row (+ logged deletes) to Supabase, then pulls rows changed since one `last_pulled_at` timestamp — **latest `updated_at` wins**. Multi-device, bidirectional. No outbox, no cursors, no tombstones.
 - **Online-only** (throw `RequiresConnectionError` offline, delegate to the Supabase sibling online): auth `signIn`/`getTenantByCode`, `User.create`/`delete`/`updatePassword` (edge fns), `Signup.*`, `Subscription.upgradeTenant`. Auth `getSession`/`getUserProfile`/`getTenant` are a read-through cache so the app boots offline after the first online login.
-- Requires the Postgres changes now in `sql scripts/script.sql` (added `updated_at` + triggers, `tombstones` table + delete triggers) and a **dev-client rebuild** (native module).
+- Requires the Postgres changes now in `sql scripts/script.sql` (`updated_at` + BEFORE UPDATE triggers on every synced table) and a **dev-client rebuild** (native module).
 
 **Full detail — read [docs/offline.md](docs/offline.md) before touching any repository or the sync engine.**
 

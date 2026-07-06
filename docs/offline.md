@@ -5,11 +5,11 @@
 
 ## Why / what
 
-Staff collect payments in the field with unreliable connectivity. The native app therefore works **fully offline** (reads + all tenant-table CRUD) and syncs to Supabase in the background. Real money data must never be lost. The change is confined to the **repository layer** + a new infra folder `src/core/offline/`; services, slices, and UI are untouched.
+Staff collect payments in the field with unreliable connectivity. The native app therefore works **fully offline** (reads + all tenant-table CRUD) and syncs to Supabase in the background. The change is confined to the **repository layer** + a small infra folder `src/core/offline/`; services, slices, and UI are untouched.
 
 ## The seam
 
-Each repository file (`XxxRepository.ts`) is a **platform switch**. Today's Supabase class stays in that file (now `export class … implements IXxxRepository`); a sibling `OfflineXxxRepository` (in `XxxRepository.offline.ts`) implements the same interface against SQLite; the interface lives in `IXxxRepository.ts`:
+Each repository file (`XxxRepository.ts`) is a **platform switch**. The Supabase class stays in that file (`export class … implements IXxxRepository`); a sibling `OfflineXxxRepository` (in `XxxRepository.offline.ts`) implements the same interface against SQLite; the interface lives in `IXxxRepository.ts`:
 
 ```ts
 const impl: IXxxRepository =
@@ -19,18 +19,21 @@ export default impl;   // services & module index.ts import this — unchanged
 
 Both classes `implements IXxxRepository` → the compiler guarantees they stay in lockstep. Offline classes return the **same `Db*` row shapes** (snake_case, incl. nested joins like `customer_plans(*, plans(*))`) the services' mappers already consume, so nothing above the repo layer can tell the difference. `PaymentService.buildMonthGrid` is pure, so the month grid works offline for free.
 
+## The sync in one paragraph
+
+Every local write flags its row `_dirty = 1` (created / edited / soft-deleted); a hard delete is logged in `pending_deletes`. A sync cycle is just: **push** — send every `_dirty` row up (upsert) and replay `pending_deletes` as real deletes; then **pull** — fetch rows the server changed since our single `last_pulled_at` timestamp and merge them in, newest `updated_at` winning. That is the whole engine — no outbox, no per-table cursors, no tombstones. It lives in one file, `src/core/offline/sync.ts`.
+
 ## `src/core/offline/` layout
 
 | Path | Role |
 | --- | --- |
 | `platform.ts` | `IS_OFFLINE_CAPABLE = Platform.OS !== 'web'` — every offline path is gated on it. |
 | `db/tables.ts` | **Single descriptor** of the local mirror (columns + types + scope). Drives DDL, encode/decode, and generic sync upserts — one source of truth. |
-| `db/schema.ts` / `db/migrations.ts` / `db/sqlite.ts` | Versioned DDL (`user_version`), migration runner, the opened handle (`initOfflineDb`, `getDb`, `wipeOfflineData`). `sqlite.ts` is the **only** file with a *value* import of `expo-sqlite`; a sibling `sqlite.web.ts` stub (same export surface, no `expo-sqlite`) is what the web bundle resolves to, so Metro never pulls `expo-sqlite`'s wasm into web. (Runtime `IS_OFFLINE_CAPABLE` guards don't help here — the bundler follows static imports regardless.) All other `expo-sqlite` imports in the folder are `import type` (erased). |
+| `db/schema.ts` / `db/migrations.ts` / `db/sqlite.ts` | Versioned DDL (`user_version`), migration runner, the opened handle (`initOfflineDb`, `getDb`, `wipeOfflineData`). `sqlite.ts` is the **only** file with a *value* import of `expo-sqlite`; a sibling `sqlite.web.ts` stub (same export surface, no `expo-sqlite`) is what the web bundle resolves to, so Metro never pulls `expo-sqlite`'s wasm into web. All other `expo-sqlite` imports in the folder are `import type` (erased). |
 | `db/codec.ts` | Row encode/decode (0/1↔boolean, TEXT-decimal↔number). |
-| `db/dml.ts` | `insertDirty` / `updateDirty` / `upsertPaymentDirty` (local write + `_dirty=1`) and `upsertFromServer` (pull merge, `_dirty=0` + `_server_updated_at`). |
-| `outbox/outbox.ts` | Durable op log: `enqueue`, `dueOps`, `markDone/Retry/Parked`, `hasPendingForRow`, `countParked`. |
-| `OfflineBaseRepository.ts` | Mirror of `BaseRepository`: handle, `handleError`, `branchWhere`/`combineWhere`/`searchWhere`, `all`/`first`/`count`/`decodeAll`/`rowsById`/`childrenByParent`/`referencedIdsIn`, and `write((db, queue) => …)` (data + outbox in one txn). |
-| `sync/{engine,push,pull,tombstones,executors,cursors}.ts` | The sync engine. |
+| `db/dml.ts` | `insertDirty` / `updateDirty` / `upsertPaymentDirty` (local write + `_dirty=1`), `markDeleted` (log a hard delete), and `upsertFromServer` (pull merge, `_dirty=0`). |
+| `OfflineBaseRepository.ts` | Mirror of `BaseRepository`: handle, `handleError`, `branchWhere`/`combineWhere`/`searchWhere`, `all`/`first`/`count`/`decodeAll`/`rowsById`/`childrenByParent`/`referencedIdsIn`, and `write((db) => …)` (one local transaction — no outbox). |
+| `sync.ts` | **The whole engine**: status (`SyncStatus`, `getSyncStatus`, `subscribeSyncStatus`), tiny `sync_meta` KV (`getMeta`/`setMeta`), `pushDirty`, `pullChanges` + `reconcileDeletes`, `runSync`/`syncNow`/`startSync`. |
 | `bootstrap/{offlineBootstrap,tenant}.ts` | `initOffline()` (kicked once from `app/_layout.tsx`) and `ensureTenantScope()`. |
 | `ids.ts` | `newId()`, `nowIso()`, `deterministicId()`. |
 | `net/connectivity.ts` | NetInfo wrapper. |
@@ -38,32 +41,44 @@ Both classes `implements IXxxRepository` → the compiler guarantees they stay i
 ## Local store
 
 - Mirror tables match `src/core/types/db.ts` **exactly** (snake_case). Money/rate columns are **TEXT (exact decimal)** — never SQLite `REAL` (float drift). Read via `Number()` (as the mappers do). **Numeric comparisons in SQL use `CAST(col AS REAL)`** (a TEXT column compared to `0` would otherwise compare by storage class, not value).
-- `payments.balance` and `sales.total_amount` (server-generated columns) are **computed locally** on write.
-- Two local-only columns per table: `_dirty` (1 while a write awaits push) and `_server_updated_at` (last server `updated_at` seen — the LWW + pull-cursor key).
-- No SQL foreign keys (rows arrive out of order on pull; cascade deletes come via tombstones). The DB is **scoped to one tenant**; `ensureTenantScope()` wipes + re-pulls on a different-tenant login, and **refuses the wipe while the outbox has un-pushed writes** (money is never discarded silently).
+- `payments.balance` and `sales.total_amount` (server-generated columns) are **computed locally** on write, and **stripped before push** (`generated` in `db/tables.ts`) — Postgres rejects a value for a `GENERATED ALWAYS` column (SQLSTATE `428C9`).
+- One local-only column per table: `_dirty` (1 while a write awaits push). Two tiny bookkeeping tables: `sync_meta` (`active_tenant_id`, `last_pulled_at`) and `pending_deletes` (`table_name`, `row_id`).
+- No SQL foreign keys (rows arrive out of order on pull). The DB is **scoped to one tenant**; `ensureTenantScope()` wipes + re-pulls on a different-tenant login, and **refuses the wipe while any un-pushed write remains** (a `_dirty` row or a `pending_deletes` entry) so data is never discarded silently.
 
-## Writes → durable outbox
+## Writes
 
-Every mutating offline method does, in **one SQLite transaction**: (1) mutate the mirror, (2) `enqueue` an operation-based outbox op. So a crash right after recording a payment loses neither the row nor the intent. Op types: `insert` (payload `{ row, onConflict? }`), `update`/`void`/`soft_delete` (payload `{ fields }`), `hard_delete`. Inserts carry **client-generated ids** (`newId()`), so replay is idempotent (upsert-by-id). **Payment ids are deterministic** (`deterministicId(customer_plan_id, billing_month)`) so two devices recording the same month converge instead of colliding on the natural-key UNIQUE.
+Every mutating offline method runs in **one SQLite transaction** via `write((db) => …)`:
 
-## Push (replay) — `sync/push.ts` + `executors.ts`
+- create / edit / soft-delete → `insertDirty` / `updateDirty` / `upsertPaymentDirty`, which set `_dirty = 1`. That flag is the entire "needs push" intent.
+- hard delete → physically `DELETE` the local row(s) **and** `markDeleted(db, table, id)` (an `INSERT OR IGNORE` into `pending_deletes`). Only the parent id is logged; the server's FK cascade removes children.
 
-FIFO by `op_seq`. `executors.replay` calls Supabase directly under the user's JWT (RLS applies): insert→upsert (payments on the natural key), update→`update.eq('id')` (+ `.eq('updated_at', base_version)` conflict guard on high-value edits), void→`update…is('voided_at', null)` (monotonic), soft_delete→update, hard_delete→delete. Success → drop the op + clear `_dirty`. Transient failure → exponential backoff, stop to preserve FIFO. **Permanent rejection (RLS / tier-limit / constraint / conflict) → `parked`, never dropped** (surfaced for review). **Server-computed columns (`payments.balance`, `sales.total_amount`, flagged `generated` in `db/tables.ts`) are stripped from the insert payload before upsert** — Postgres rejects a value for a `GENERATED ALWAYS` column (SQLSTATE `428C9`), which would otherwise park every insert forever.
+Inserts carry **client-generated ids** (`newId()`), so a push upsert-by-id is idempotent. **Payment ids are deterministic** (`deterministicId(customer_plan_id, billing_month)`) so two devices recording the same month converge instead of colliding on the natural-key UNIQUE.
 
-## Pull — `sync/pull.ts` + `tombstones.ts`
+## Push — `pushDirty()` in `sync.ts`
 
-Per table: `updated_at > cursor` (server-authoritative via BEFORE UPDATE trigger), LWW-merge into the mirror, **skip rows that still have a pending outbox op** (don't clobber un-pushed edits), advance the cursor. Tombstones (`tombstones` table, populated by AFTER DELETE triggers incl. cascade children) drive local deletion of hard-deleted rows. The engine runs **push → then pull**, serialized. Triggers are deliberately calm: **once at bootstrap (cold start), once when connectivity returns, and every 90s while the app is foregrounded** — NOT after each write and NOT on resume-from-RAM. Local writes land durably in SQLite + the outbox and go up on the next tick.
+1. **Upserts.** For each tenant table in parents-before-children order (`SYNC_PULL_ORDER`): `SELECT * WHERE _dirty = 1`, decode to the `Db*` shape, strip `updated_at` (server trigger owns it; it is null for locally-created plans) and any `generated` column, then `supabase.from(table).upsert(rows, { onConflict })` — `onConflict` is `customer_plan_id,billing_month` for payments (their natural key), `id` for everything else. On success clear `_dirty` for exactly those ids.
+2. **Hard deletes.** For each `pending_deletes` row, `supabase.from(table).delete().eq('id', row_id)` (server FKs cascade to children); drop the log entry on success.
+
+A row/table whose network call fails is simply left as-is (`_dirty` stays 1, or the delete stays logged) and retried on the next cycle. No backoff, no parking — the whole thing just runs again.
+
+## Pull — `pullChanges()` + `reconcileDeletes()` in `sync.ts`
+
+Read the single `last_pulled_at`. For each table in `SYNC_PULL_ORDER`: page through `updated_at > last_pulled_at` (server-authoritative via BEFORE UPDATE trigger), and for each row **skip it if the local copy is still `_dirty = 1`** (an un-pushed local edit wins until pushed), else `upsertFromServer`. Track the newest `updated_at` seen and store it back as the new `last_pulled_at`. This is **latest-`updated_at`-wins**: we only fetch rows the server changed after our last pull, and never clobber a pending local edit (push runs first, so at pull time almost nothing is dirty).
+
+**Hard deletes done elsewhere** (web app / another device) leave no `updated_at` to pull, so `reconcileDeletes()` handles them: for the low-volume tables (`customers`, `plans`, `branches`, `currencies`, `products`) it fetches the server's id list and drops any local `_dirty = 0` row missing from it. Ledger tables (payments, sales, debts) are only ever soft-voided, so they're skipped.
+
+The cycle is **push → then pull**, serialized (one in-flight run). Triggers are deliberately calm: **once at cold start, once when connectivity returns, and every 90s while the app is foregrounded** — not after each write, not on resume-from-RAM. Local writes land durably in SQLite and go up on the next tick.
 
 ## Manual sync + observable status
 
-`sync/engine.ts` also exposes an observable status (`SyncStatus = { syncing, lastSyncAt, lastError }`) via `getSyncStatus()` / `subscribeSyncStatus()` — `runSync()` broadcasts the transitions, so **every** sync cycle (manual or automatic: bootstrap / reconnect / 90s periodic) flips `syncing`. `syncNow()` is the manual UI entry point (probes connectivity first, returns `{ ok, offline }` so a button can tell "reached the server" from "no connection"). All re-exported from `src/core/offline/index.ts`; components read the status through the `useSyncStatus()` hook (`src/shared/hooks/`, `useSyncExternalStore`).
+`sync.ts` exposes an observable status (`SyncStatus = { syncing, lastSyncAt, lastError }`) via `getSyncStatus()` / `subscribeSyncStatus()` — `runSync()` broadcasts the transitions, so **every** cycle (manual or automatic) flips `syncing`. `syncNow()` is the manual UI entry point (probes connectivity first, returns `{ ok, offline }` so a button can tell "reached the server" from "no connection"). All re-exported from `src/core/offline/index.ts`; components read the status through the `useSyncStatus()` hook (`src/shared/hooks/`, `useSyncExternalStore`).
 
-- **Global marker** — `SyncIndicator` (`src/shared/components/`) is mounted once in the authenticated layout (`app/(app)/_layout.tsx`, beside `GlobalConfirmDialog`), so a top-center "Syncing data…" pill appears on **all pages** while `syncing` is true. Renders nothing when idle or on web.
-- **Settings** — a "Sync now" row (native only) triggers `syncNow()`; a brief bottom flash reports the one-off outcome (done / offline / failed). The syncing state itself is left to the global marker.
+- **Global marker** — `SyncIndicator` (`src/shared/components/`) is mounted once in the authenticated layout (`app/(app)/_layout.tsx`), so a top-center "Syncing data…" pill appears on **all pages** while `syncing` is true. Renders nothing when idle or on web.
+- **Settings** — a "Sync now" row (native only) triggers `syncNow()`; a brief bottom flash reports the one-off outcome (done / offline / failed).
 
-## Conflict policy (money)
+## Conflict policy
 
-Inserts are keyed/idempotent; voids are monotonic; the common money ops are conflict-free. For concurrent same-row **edits**, `payments.updatePayment` and `customers.update` carry `base_version` and replay as a guarded update → if the row moved, the op is **parked** (surfaced) rather than blindly overwriting. Everything else is LWW by server `updated_at`. Full per-field merge is out of scope.
+**Latest `updated_at` wins.** Because push runs before pull and payment ids are deterministic, the common money ops are effectively conflict-free: a re-recorded month upserts onto the same row, voids are idempotent, and independent creates carry distinct ids. On pull, a row with an un-pushed local edit (`_dirty = 1`) is skipped so it is never overwritten before it syncs. Full per-field merge is out of scope.
 
 ## Online-only (native)
 
@@ -71,14 +86,13 @@ Inserts are keyed/idempotent; voids are monotonic; the common money ops are conf
 
 ## Required Postgres changes — in `sql scripts/script.sql`
 
-`updated_at` + BEFORE UPDATE triggers on the tables that lacked them (tenants, users, plans, payments, sales, tier_plans); a `tombstones` table (RLS SELECT by tenant) + a SECURITY-DEFINER `record_tombstone()` and AFTER DELETE triggers on every hard-deletable table (and cascade children). These live in `script.sql` (a fresh run creates them). To migrate an existing DB, run the migration snippet provided in chat when the change was made.
+`updated_at` + BEFORE UPDATE triggers on every synced table (drives the incremental pull; immune to client clock skew). **No tombstone table/triggers** — the client propagates hard deletes itself (push replays `pending_deletes`; pull's `reconcileDeletes` drops rows gone from the server). A fresh `script.sql` run creates the triggers; to migrate an existing DB, run the migration snippet provided in chat when the change was made.
 
-**Debts feature (added later):** two new synced tenant tables `custom_debts` + `debt_payments` (both branch-via-customer RLS like `payments`, `set_updated_at` + `record_tombstone` triggers), and a new `sales.amount_paid` column (partial sales leave a debt). Locally these are registered in `db/tables.ts` (+ `SYNC_PULL_ORDER`); a `SCHEMA_V2` delta in `db/schema.ts` creates them + `ALTER TABLE sales ADD COLUMN amount_paid` for existing installs, backfilling legacy sales to `amount_paid = total`. The generic push/pull/tombstone engine picks them up with no executor change (neither has a generated column). Debts themselves are **computed at runtime** (see features.md → Debts), so nothing else is stored.
+**Debts feature:** two synced tenant tables `custom_debts` + `debt_payments` (branch-via-customer RLS like `payments`, `set_updated_at` triggers), and a `sales.amount_paid` column (partial sales leave a debt). Locally these are just more entries in `db/tables.ts` (+ `SYNC_PULL_ORDER`), included in `SCHEMA_V1` like every other table. The generic push/pull picks them up with no engine change. Debts themselves are **computed at runtime** (see features.md → Debts).
 
 ## Gotchas specific to this layer
 
-- Adding a synced column ⇒ update `db/tables.ts`, append a migration in `db/schema.ts`, **and** the Postgres side — they must ship together or pull breaks.
-- **Fresh-install migration fast-path** (`db/migrations.ts`): `SCHEMA_V1` is regenerated from the live `TABLES`, so a brand-new DB (`user_version = 0`) already has every table + column and jumps straight to `MIGRATIONS.length` — it does **not** replay later delta versions (an `ADD COLUMN` would fail on the already-present column, since SQLite has no `ADD COLUMN IF NOT EXISTS`). Existing installs (`user_version ≥ 1`) apply the deltas in order. **Every delta must therefore be purely additive DDL already reflected in the `TABLES`-generated V1** — a future data-transform migration must not rely on the fast-path.
+- **Dev-mode migrations:** `db/schema.ts` currently has a single `SCHEMA_V1` (regenerated from the live `TABLES` on every read of this file) and `MIGRATIONS = [SCHEMA_V1]`. Adding/changing a synced column ⇒ edit `TABLES` directly and **clear local app data** to pick it up (no delta migration needed while pre-launch) — plus the matching Postgres change, or pull breaks. Once real users have local data that can't be wiped, switch back to appending delta arrays to `MIGRATIONS` instead of editing `SCHEMA_V1` in place.
 - Two implementations per read method must stay behaviorally identical (`ilike`→`LIKE COLLATE NOCASE`, ordering, NULL handling). The `implements` interface catches shape drift; a read-parity test catches behavior drift.
 - On-device SQLite is unencrypted by default — evaluate SQLCipher for production; the DB is wiped on a different-tenant login.
 - Circular import (offline class composes its online sibling for online-only methods): safe because the offline instance is only constructed at the bottom of the switch file, after the online class is declared. Smoke-test on a real build.

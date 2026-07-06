@@ -43,7 +43,8 @@ export async function wipeOfflineData(): Promise<void> {
   const { TABLES } = await import('./tables');
   await _db.withTransactionAsync(async () => {
     for (const t of TABLES) await _db!.execAsync(`DELETE FROM ${t.name};`);
-    await _db!.execAsync('DELETE FROM outbox;');
-    await _db!.execAsync('DELETE FROM sync_cursors;');
+    await _db!.execAsync('DELETE FROM pending_deletes;');
+    // Forget the pull position so the next sync re-pulls the new tenant in full.
+    await _db!.execAsync("DELETE FROM sync_meta WHERE key = 'last_pulled_at';");
   });
 }

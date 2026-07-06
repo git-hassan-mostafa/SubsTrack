@@ -57,18 +57,17 @@ export async function upsertPaymentDirty(
 }
 
 /**
- * Merge a server row during pull: clean (`_dirty = 0`) and record
- * `_server_updated_at` (the LWW + cursor key). Used by the sync engine only.
+ * Merge a server row into the local mirror during pull. Marks it clean
+ * (`_dirty = 0`) so the next push won't re-send it. Used by the sync engine.
  */
 export async function upsertFromServer(
   db: SQLiteDatabase,
   table: string,
   row: object,
-  serverUpdatedAt: string | null,
 ): Promise<void> {
   const { columns, values } = encodeRow(table, row);
-  const cols = [...columns, '_dirty', '_server_updated_at'];
-  const vals = [...values, 0, serverUpdatedAt];
+  const cols = [...columns, '_dirty'];
+  const vals = [...values, 0];
   const updates = cols
     .filter((c) => c !== 'id')
     .map((c) => `${c} = excluded.${c}`)
@@ -77,5 +76,21 @@ export async function upsertFromServer(
     `INSERT INTO ${table} (${cols.join(', ')}) VALUES (${placeholders(cols.length)})
      ON CONFLICT (id) DO UPDATE SET ${updates}`,
     vals as never[],
+  );
+}
+
+/**
+ * Record a HARD delete so the next push removes the row from Supabase too.
+ * A physically-deleted local row leaves no `_dirty` flag to push, so we log its
+ * (table, id) here; `pushDirty()` sends the delete then clears this entry.
+ */
+export async function markDeleted(
+  db: SQLiteDatabase,
+  table: string,
+  id: string,
+): Promise<void> {
+  await db.runAsync(
+    `INSERT OR IGNORE INTO pending_deletes (table_name, row_id) VALUES (?, ?)`,
+    [table, id] as never[],
   );
 }

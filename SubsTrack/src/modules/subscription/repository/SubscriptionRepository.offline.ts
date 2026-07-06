@@ -51,7 +51,7 @@ export class OfflineSubscriptionRepository
   async upgradeTenant(tenantId: string, tierId: string): Promise<DbTenant> {
     if (!(await isOnline())) throw new RequiresConnectionError();
     const tenant = await this.online.upgradeTenant(tenantId, tierId);
-    await upsertFromServer(this.db, 'tenants', tenant, (tenant as { updated_at?: string }).updated_at ?? null);
+    await upsertFromServer(this.db, 'tenants', tenant);
     return tenant;
   }
 }

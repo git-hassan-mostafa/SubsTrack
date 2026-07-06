@@ -6,7 +6,7 @@ import { upsertFromServer } from '@/src/core/offline/db/dml';
 import { isOnline } from '@/src/core/offline/net/connectivity';
 import { RequiresConnectionError } from '@/src/core/offline/errors';
 import { ensureTenantScope } from '@/src/core/offline/bootstrap/tenant';
-import { runSync } from '@/src/core/offline/sync/engine';
+import { runSync } from '@/src/core/offline/sync';
 import type { IAuthRepository } from './IAuthRepository';
 import { AuthRepository } from './AuthRepository';
 
@@ -42,14 +42,9 @@ export class OfflineAuthRepository extends OfflineBaseRepository implements IAut
       // BEFORE caching the fresh profile.
       const wasEmpty = (await this.count('SELECT COUNT(*) AS n FROM customers')) === 0;
       await ensureTenantScope(profile.tenant_id);
-      await upsertFromServer(
-        this.db,
-        'users',
-        profile,
-        (profile as { updated_at?: string }).updated_at ?? null,
-      );
+      await upsertFromServer(this.db, 'users', profile);
       const branch = (profile as { branches?: DbBranch | null }).branches;
-      if (branch) await upsertFromServer(this.db, 'branches', branch, branch.updated_at ?? null);
+      if (branch) await upsertFromServer(this.db, 'branches', branch);
       // First login on this device → block on the initial pull; otherwise refresh in background.
       if (wasEmpty) await runSync();
       else void runSync();
@@ -85,14 +80,9 @@ export class OfflineAuthRepository extends OfflineBaseRepository implements IAut
   }
 
   private async cacheTenant(tenant: DbTenant): Promise<void> {
-    await upsertFromServer(
-      this.db,
-      'tenants',
-      tenant,
-      (tenant as { updated_at?: string }).updated_at ?? null,
-    );
+    await upsertFromServer(this.db, 'tenants', tenant);
     const tier = (tenant as { tier_plans?: DbTierPlan | null }).tier_plans;
-    if (tier) await upsertFromServer(this.db, 'tier_plans', tier, tier.updated_at ?? null);
+    if (tier) await upsertFromServer(this.db, 'tier_plans', tier);
   }
 
   private async readCachedTenant(tenantId: string): Promise<DbTenant | null> {

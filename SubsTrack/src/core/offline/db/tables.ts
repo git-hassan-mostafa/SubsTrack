@@ -19,16 +19,16 @@ export interface TableSpec {
   constraints?: string[];
   /**
    * Columns the SERVER computes (Postgres `GENERATED ALWAYS`). Stored/computed
-   * locally like any `num` column, but MUST be stripped from insert payloads on
-   * push — Postgres rejects a value for a generated column (SQLSTATE 428C9),
-   * which would park the op forever. See sync/executors.ts insert case.
+   * locally like any `num` column, but MUST be stripped from push payloads —
+   * Postgres rejects a value for a generated column (SQLSTATE 428C9). See
+   * `stripForPush` in sync.ts.
    */
   generated?: string[];
   /**
-   * 'tenant'  — tenant-scoped data: gets `_dirty` + `_server_updated_at`, an
-   *             outbox + a pull cursor, and offline writes.
+   * 'tenant'  — tenant-scoped data: gets a `_dirty` flag and offline writes; the
+   *             sync pushes its dirty rows and pulls server changes.
    * 'global'  — app-wide read-only cache (tier_plans, app_options): pulled,
-   *             never written locally.
+   *             never pushed or written locally.
    */
   scope: 'tenant' | 'global';
 }

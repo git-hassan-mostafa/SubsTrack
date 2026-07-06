@@ -1487,7 +1487,8 @@ GRANT EXECUTE ON FUNCTION public.is_tenant_code_available(TEXT) TO anon, authent
 
 -- ============================================================
 -- OFFLINE-FIRST SYNC SUPPORT
--- Enables the native app's incremental pull + tombstones (see docs/offline.md).
+-- Server-authoritative updated_at drives the native app's incremental pull
+-- (WHERE updated_at > last_pulled_at, latest-updated_at-wins). See docs/offline.md.
 -- Placed at the end so every referenced table already exists.
 -- ============================================================
 
@@ -1512,62 +1513,6 @@ CREATE OR REPLACE TRIGGER trg_debt_payments_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION set_updated_at();
 
--- Tombstone log: one row per HARD delete, so other devices can remove the row
--- during pull (a physically-deleted row is invisible to an updated_at cursor).
-CREATE TABLE IF NOT EXISTS tombstones (
-    id          UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
-    tenant_id   UUID        NOT NULL,
-    table_name  TEXT        NOT NULL,
-    row_id      UUID        NOT NULL,
-    deleted_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-CREATE INDEX IF NOT EXISTS idx_tombstones_tenant_deleted
-    ON tombstones (tenant_id, deleted_at);
-
-ALTER TABLE tombstones ENABLE ROW LEVEL SECURITY;
-
--- Tenants read only their own tombstones.
-DROP POLICY IF EXISTS tombstones_select ON tombstones;
-CREATE POLICY tombstones_select ON tombstones
-    FOR SELECT TO authenticated
-    USING (tenant_id = current_tenant_id());
-
--- SECURITY DEFINER so the AFTER DELETE trigger can insert past the select-only
--- RLS policy. Reads tenant_id off the deleted row (every hard-deletable table has it).
-CREATE OR REPLACE FUNCTION record_tombstone()
-RETURNS TRIGGER
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public
-AS $$
-BEGIN
-    INSERT INTO tombstones (tenant_id, table_name, row_id)
-    VALUES (OLD.tenant_id, TG_TABLE_NAME, OLD.id);
-    RETURN OLD;
-END;
-$$;
-
--- AFTER DELETE on every table that can be hard-deleted directly OR via cascade.
--- Triggers on child tables (customer_plans, payments) fire on a customer's cascade
--- delete too, so the log is complete without the client knowing cascade rules.
--- payments/sales are normally soft-voided; these only fire on real DELETEs.
-CREATE OR REPLACE TRIGGER trg_customers_tombstone
-    AFTER DELETE ON customers FOR EACH ROW EXECUTE FUNCTION record_tombstone();
-CREATE OR REPLACE TRIGGER trg_customer_plans_tombstone
-    AFTER DELETE ON customer_plans FOR EACH ROW EXECUTE FUNCTION record_tombstone();
-CREATE OR REPLACE TRIGGER trg_payments_tombstone
-    AFTER DELETE ON payments FOR EACH ROW EXECUTE FUNCTION record_tombstone();
-CREATE OR REPLACE TRIGGER trg_plans_tombstone
-    AFTER DELETE ON plans FOR EACH ROW EXECUTE FUNCTION record_tombstone();
-CREATE OR REPLACE TRIGGER trg_branches_tombstone
-    AFTER DELETE ON branches FOR EACH ROW EXECUTE FUNCTION record_tombstone();
-CREATE OR REPLACE TRIGGER trg_currencies_tombstone
-    AFTER DELETE ON currencies FOR EACH ROW EXECUTE FUNCTION record_tombstone();
-CREATE OR REPLACE TRIGGER trg_products_tombstone
-    AFTER DELETE ON products FOR EACH ROW EXECUTE FUNCTION record_tombstone();
-CREATE OR REPLACE TRIGGER trg_sales_tombstone
-    AFTER DELETE ON sales FOR EACH ROW EXECUTE FUNCTION record_tombstone();
-CREATE OR REPLACE TRIGGER trg_custom_debts_tombstone
-    AFTER DELETE ON custom_debts FOR EACH ROW EXECUTE FUNCTION record_tombstone();
-CREATE OR REPLACE TRIGGER trg_debt_payments_tombstone
-    AFTER DELETE ON debt_payments FOR EACH ROW EXECUTE FUNCTION record_tombstone();
+-- NOTE: no tombstone table/triggers. The native client propagates hard deletes
+-- itself: it pushes a real DELETE for locally-removed rows and, on pull, drops
+-- any local row that no longer exists on the server (see sync.ts reconcileDeletes).

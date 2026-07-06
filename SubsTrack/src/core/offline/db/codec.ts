@@ -32,7 +32,7 @@ function encodeValue(v: unknown, type: ColType): unknown {
 /**
  * Decode a raw SQLite row into the snake_case `Db*` shape the services' mappers
  * expect (0/1 → boolean, TEXT-decimal → number). Returns only the spec columns
- * (drops local-only `_dirty` / `_server_updated_at`).
+ * (drops the local-only `_dirty` flag).
  */
 export function decodeRow<T = Record<string, unknown>>(table: string, raw: RawRow): T {
   const spec = TABLE_BY_NAME[table];

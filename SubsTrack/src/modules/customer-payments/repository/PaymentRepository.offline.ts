@@ -93,15 +93,8 @@ export class OfflinePaymentRepository extends OfflineBaseRepository implements I
   async create(payload: CreatePaymentPayload): Promise<DbPayment> {
     const id = await deterministicId(payload.customer_plan_id, payload.billing_month);
     const row = this.buildRow(payload, id, nowIso());
-    await this.write(async (db, queue) => {
-      await upsertPaymentDirty(db, row);
-      await queue({
-        tableName: 'payments',
-        opType: 'insert',
-        rowId: id,
-        payload: { row, onConflict: 'customer_plan_id,billing_month' },
-      });
-    }); return row;
+    await this.write((db) => upsertPaymentDirty(db, row));
+    return row;
   }
 
   async createMany(payloads: CreatePaymentPayload[]): Promise<DbPayment[]> {
@@ -111,29 +104,17 @@ export class OfflinePaymentRepository extends OfflineBaseRepository implements I
     for (const p of payloads) {
       rows.push(this.buildRow(p, await deterministicId(p.customer_plan_id, p.billing_month), now));
     }
-    await this.write(async (db, queue) => {
-      for (const row of rows) {
-        await upsertPaymentDirty(db, row);
-        await queue({
-          tableName: 'payments',
-          opType: 'insert',
-          rowId: row.id,
-          payload: { row, onConflict: 'customer_plan_id,billing_month' },
-        });
-      }
-    }); return rows;
+    await this.write(async (db) => {
+      for (const row of rows) await upsertPaymentDirty(db, row);
+    });
+    return rows;
   }
 
   async updatePayment(id: string, payload: UpdatePaymentPayload): Promise<DbPayment> {
     const now = nowIso();
     const balance = payload.amountDue - payload.amountPaid;
-    // Capture the last-seen server version for the replay conflict guard.
-    const meta = await this.first<{ v: string | null }>(
-      'SELECT _server_updated_at AS v FROM payments WHERE id = ?',
-      [id],
-    );
-    await this.write(async (db, queue) => {
-      await db.runAsync(
+    await this.write((db) =>
+      db.runAsync(
         `UPDATE payments SET amount_due = ?, amount_paid = ?, currency_id = ?,
            rate_per_usd_snapshot = ?, balance = ?, updated_at = ?, _dirty = 1
          WHERE id = ? AND voided_at IS NULL`,
@@ -146,22 +127,9 @@ export class OfflinePaymentRepository extends OfflineBaseRepository implements I
           now,
           id,
         ] as never[],
-      );
-      await queue({
-        tableName: 'payments',
-        opType: 'update',
-        rowId: id,
-        baseVersion: meta?.v ?? null,
-        payload: {
-          fields: {
-            amount_due: payload.amountDue,
-            amount_paid: payload.amountPaid,
-            currency_id: payload.currencyId,
-            rate_per_usd_snapshot: payload.ratePerUsdSnapshot,
-          },
-        },
-      });
-    }); const row = await this.first('SELECT * FROM payments WHERE id = ?', [id]);
+      ),
+    );
+    const row = await this.first('SELECT * FROM payments WHERE id = ?', [id]);
     if (!row) this.handleError(new Error('Payment not found'));
     return this.decodeOne<DbPayment>('payments', row)!;
   }
@@ -174,20 +142,15 @@ export class OfflinePaymentRepository extends OfflineBaseRepository implements I
   async voidMany(ids: string[], voidedBy: string, notes: string | null): Promise<DbPayment[]> {
     if (ids.length === 0) return [];
     const now = nowIso();
-    await this.write(async (db, queue) => {
+    await this.write(async (db) => {
       for (const id of ids) {
         await db.runAsync(
           `UPDATE payments SET voided_at = ?, voided_by = ?, notes = ?, updated_at = ?, _dirty = 1 WHERE id = ?`,
           [now, voidedBy, notes, now, id] as never[],
         );
-        await queue({
-          tableName: 'payments',
-          opType: 'void',
-          rowId: id,
-          payload: { fields: { voided_at: now, voided_by: voidedBy, notes } },
-        });
       }
-    }); const ph = ids.map(() => '?').join(', ');
+    });
+    const ph = ids.map(() => '?').join(', ');
     const rows = await this.all(`SELECT * FROM payments WHERE id IN (${ph})`, ids);
     return this.decodeAll<DbPayment>('payments', rows);
   }

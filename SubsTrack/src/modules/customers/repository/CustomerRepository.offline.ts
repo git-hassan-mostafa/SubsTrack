@@ -2,7 +2,7 @@ import type { BranchFilter } from '@/src/core/constants';
 import { OFFLINE_PAGE_SIZE } from '@/src/core/constants';
 import type { DbCustomer, DbCustomerPlan, DbPlan } from '@/src/core/types/db';
 import { OfflineBaseRepository } from '@/src/core/offline/OfflineBaseRepository';
-import { insertDirty, updateDirty } from '@/src/core/offline/db/dml';
+import { insertDirty, updateDirty, markDeleted } from '@/src/core/offline/db/dml';
 import { newId, nowIso } from '@/src/core/offline/ids';
 import type {
   CreateCustomerPayload,
@@ -63,10 +63,8 @@ export class OfflineCustomerRepository
   async create(payload: CreateCustomerPayload): Promise<CustomerWithLines> {
     const now = nowIso();
     const row: DbCustomer = { id: newId(), created_at: now, updated_at: now, ...payload };
-    await this.write(async (db, queue) => {
-      await insertDirty(db, 'customers', row);
-      await queue({ tableName: 'customers', opType: 'insert', rowId: row.id, payload: { row } });
-    }); return { ...row, customer_plans: [] };
+    await this.write((db) => insertDirty(db, 'customers', row));
+    return { ...row, customer_plans: [] };
   }
 
   async update(
@@ -78,39 +76,27 @@ export class OfflineCustomerRepository
       >
     >,
   ): Promise<CustomerWithLines> {
-    await this.write(async (db, queue) => {
-      await updateDirty(db, 'customers', id, { ...payload, updated_at: nowIso() });
-      await queue({ tableName: 'customers', opType: 'update', rowId: id, payload: { fields: payload } });
-    }); return this.findById(id);
+    await this.write((db) => updateDirty(db, 'customers', id, { ...payload, updated_at: nowIso() }));
+    return this.findById(id);
   }
 
   async deactivate(id: string): Promise<CustomerWithLines> {
     const cancelledAt = nowIso();
-    await this.write(async (db, queue) => {
-      await updateDirty(db, 'customers', id, {
+    await this.write((db) =>
+      updateDirty(db, 'customers', id, {
         active: false,
         cancelled_at: cancelledAt,
         updated_at: cancelledAt,
-      });
-      await queue({
-        tableName: 'customers',
-        opType: 'soft_delete',
-        rowId: id,
-        payload: { fields: { active: false, cancelled_at: cancelledAt } },
-      });
-    }); return this.findById(id);
+      }),
+    );
+    return this.findById(id);
   }
 
   async reactivate(id: string): Promise<CustomerWithLines> {
-    await this.write(async (db, queue) => {
-      await updateDirty(db, 'customers', id, { active: true, cancelled_at: null, updated_at: nowIso() });
-      await queue({
-        tableName: 'customers',
-        opType: 'update',
-        rowId: id,
-        payload: { fields: { active: true, cancelled_at: null } },
-      });
-    }); return this.findById(id);
+    await this.write((db) =>
+      updateDirty(db, 'customers', id, { active: true, cancelled_at: null, updated_at: nowIso() }),
+    );
+    return this.findById(id);
   }
 
   async countPayments(id: string): Promise<number> {
@@ -123,13 +109,14 @@ export class OfflineCustomerRepository
 
   async deleteMany(ids: string[]): Promise<void> {
     if (ids.length === 0) return;
-    await this.write(async (db, queue) => {
+    await this.write(async (db) => {
       for (const id of ids) {
         // Children cascade server-side; delete locally for immediate consistency.
+        // Only the customer id is logged — the server FK cascade removes children.
         await db.runAsync('DELETE FROM payments WHERE customer_id = ?', [id] as never[]);
         await db.runAsync('DELETE FROM customer_plans WHERE customer_id = ?', [id] as never[]);
         await db.runAsync('DELETE FROM customers WHERE id = ?', [id] as never[]);
-        await queue({ tableName: 'customers', opType: 'hard_delete', rowId: id, payload: {} });
+        await markDeleted(db, 'customers', id);
       }
     });
   }
@@ -137,18 +124,12 @@ export class OfflineCustomerRepository
   async deactivateMany(ids: string[]): Promise<void> {
     if (ids.length === 0) return;
     const cancelledAt = nowIso();
-    await this.write(async (db, queue) => {
+    await this.write(async (db) => {
       for (const id of ids) {
         await updateDirty(db, 'customers', id, {
           active: false,
           cancelled_at: cancelledAt,
           updated_at: cancelledAt,
-        });
-        await queue({
-          tableName: 'customers',
-          opType: 'soft_delete',
-          rowId: id,
-          payload: { fields: { active: false, cancelled_at: cancelledAt } },
         });
       }
     });

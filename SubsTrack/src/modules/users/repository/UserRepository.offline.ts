@@ -10,10 +10,9 @@ import { UserRepository } from './UserRepository';
 
 /**
  * SQLite-backed User repository. Reads from the local mirror; field updates and
- * active toggles mutate the mirror AND enqueue an outbox op in one transaction
- * (a background sync pushes them on the next tick). create / delete /
- * updatePassword run edge functions and are
- * online-only — they delegate to the Supabase sibling (throwing offline).
+ * active toggles mutate the mirror and flag the row `_dirty` for the next sync.
+ * create / delete / updatePassword run edge functions and are online-only — they
+ * delegate to the Supabase sibling (throwing offline).
  * Returns the same `DbUser` shapes as the Supabase repository.
  */
 export class OfflineUserRepository extends OfflineBaseRepository implements IUserRepository {
@@ -31,7 +30,7 @@ export class OfflineUserRepository extends OfflineBaseRepository implements IUse
   async create(payload: CreateUserPayload): Promise<DbUser> {
     if (!(await isOnline())) throw new RequiresConnectionError();
     const user = await this.online.create(payload);
-    await upsertFromServer(this.db, 'users', user, (user as { updated_at?: string }).updated_at ?? null);
+    await upsertFromServer(this.db, 'users', user);
     return user;
   }
 
@@ -39,19 +38,15 @@ export class OfflineUserRepository extends OfflineBaseRepository implements IUse
     id: string,
     payload: Partial<Pick<DbUser, 'username' | 'full_name' | 'phone_number' | 'role' | 'branch_id'>>,
   ): Promise<DbUser> {
-    await this.write(async (db, queue) => {
-      await updateDirty(db, 'users', id, { ...payload, updated_at: nowIso() });
-      await queue({ tableName: 'users', opType: 'update', rowId: id, payload: { fields: payload } });
-    });    const row = await this.first('SELECT * FROM users WHERE id = ?', [id]);
+    await this.write((db) => updateDirty(db, 'users', id, { ...payload, updated_at: nowIso() }));
+    const row = await this.first('SELECT * FROM users WHERE id = ?', [id]);
     if (!row) this.handleError(new Error('User not found'));
     return this.decodeOne<DbUser>('users', row)!;
   }
 
   async setActive(id: string, active: boolean): Promise<DbUser> {
-    await this.write(async (db, queue) => {
-      await updateDirty(db, 'users', id, { active, updated_at: nowIso() });
-      await queue({ tableName: 'users', opType: 'update', rowId: id, payload: { fields: { active } } });
-    });    const row = await this.first('SELECT * FROM users WHERE id = ?', [id]);
+    await this.write((db) => updateDirty(db, 'users', id, { active, updated_at: nowIso() }));
+    const row = await this.first('SELECT * FROM users WHERE id = ?', [id]);
     if (!row) this.handleError(new Error('User not found'));
     return this.decodeOne<DbUser>('users', row)!;
   }
@@ -68,12 +63,12 @@ export class OfflineUserRepository extends OfflineBaseRepository implements IUse
   // Soft-delete many users — one offline write each.
   async setActiveMany(ids: string[], active: boolean): Promise<void> {
     if (ids.length === 0) return;
-    await this.write(async (db, queue) => {
+    await this.write(async (db) => {
       for (const id of ids) {
         await updateDirty(db, 'users', id, { active, updated_at: nowIso() });
-        await queue({ tableName: 'users', opType: 'update', rowId: id, payload: { fields: { active } } });
       }
-    });  }
+    });
+  }
 
   // Edge function — online only.
   async delete(id: string): Promise<void> {

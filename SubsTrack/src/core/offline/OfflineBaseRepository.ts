@@ -3,7 +3,6 @@ import i18n from '@/src/core/i18n';
 import { BRANCH_FILTER_UNASSIGNED, type BranchFilter } from '@/src/core/constants';
 import { getDb } from './db/sqlite';
 import { decodeRow, decodeRows } from './db/codec';
-import { enqueue, type EnqueueOp } from './outbox/outbox';
 
 /** Mirror of BaseRepository.BranchScope — same three semantics, SQL-side. */
 export type OfflineBranchScope =
@@ -170,15 +169,17 @@ export abstract class OfflineBaseRepository {
     return r?.n ?? 0;
   }
 
-  // ── write (data + outbox, atomic) ────────────────────────────────────────
+  // ── write (local mutation, atomic) ───────────────────────────────────────
   /**
-   * Run a local mutation and its outbox entry in ONE transaction. The callback
-   * does the SQLite write(s) and the `enqueue(...)`. Returns the callback's value.
+   * Run one or more local mutations in a single transaction. The dml helpers
+   * (`insertDirty` / `updateDirty` / `upsertPaymentDirty`) mark rows `_dirty = 1`
+   * so the next push sends them; hard deletes call `markDeleted(db, table, id)`.
+   * No outbox — the `_dirty` flag + `pending_deletes` are the whole write intent.
    */
-  protected async write<T>(fn: (db: SQLiteDatabase, queue: (op: EnqueueOp) => Promise<void>) => Promise<T>): Promise<T> {
+  protected async write<T>(fn: (db: SQLiteDatabase) => Promise<T>): Promise<T> {
     let result!: T;
     await this.db.withTransactionAsync(async () => {
-      result = await fn(this.db, (op) => enqueue(this.db, op));
+      result = await fn(this.db);
     });
     return result;
   }

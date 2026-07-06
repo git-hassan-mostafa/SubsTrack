@@ -11,47 +11,31 @@ function createTableSql(t: TableSpec): string {
   const cols = Object.entries(t.columns).map(([name, type]) =>
     name === 'id' ? 'id TEXT PRIMARY KEY NOT NULL' : `${name} ${SQL_TYPE[type]}`,
   );
-  // Local-only sync metadata (stripped before push). `_dirty` = 1 while a local
-  // change awaits push; `_server_updated_at` = last server updated_at seen (LWW +
-  // pull-cursor key, kept distinct from the user-visible updated_at).
-  cols.push('_dirty INTEGER NOT NULL DEFAULT 0', '_server_updated_at TEXT');
+  // Local-only sync flag (stripped before push). `_dirty` = 1 while a local
+  // change awaits push; the new push scans WHERE _dirty = 1.
+  cols.push('_dirty INTEGER NOT NULL DEFAULT 0');
   const body = [...cols, ...(t.constraints ?? [])].join(',\n  ');
   return `CREATE TABLE IF NOT EXISTS ${t.name} (\n  ${body}\n);`;
 }
 
 // Note: the local mirror does NOT declare SQL foreign keys. Rows arrive out of
-// order during pull, and cross-device cascade deletes are handled by tombstones
-// — FK enforcement would wrongly reject those. So `PRAGMA foreign_keys` stays off.
+// order during pull, so FK enforcement would wrongly reject them. `PRAGMA
+// foreign_keys` stays off.
 export const SCHEMA_V1: string[] = [
   ...TABLES.map(createTableSql),
 
-  // ── Durable outbox (one row per local mutation) ────────────────────────────
-  `CREATE TABLE IF NOT EXISTS outbox (
-    op_seq INTEGER PRIMARY KEY AUTOINCREMENT,
-    id TEXT NOT NULL,
-    table_name TEXT NOT NULL,
-    op_type TEXT NOT NULL,
-    row_id TEXT NOT NULL,
-    payload TEXT NOT NULL,
-    base_version TEXT,
-    created_at TEXT NOT NULL,
-    status TEXT NOT NULL DEFAULT 'pending',
-    attempts INTEGER NOT NULL DEFAULT 0,
-    next_attempt_at TEXT,
-    last_error TEXT
-  );`,
-  `CREATE INDEX IF NOT EXISTS idx_outbox_status_seq ON outbox(status, op_seq);`,
-  `CREATE INDEX IF NOT EXISTS idx_outbox_row ON outbox(table_name, row_id);`,
-
-  // ── Pull bookkeeping ───────────────────────────────────────────────────────
-  `CREATE TABLE IF NOT EXISTS sync_cursors (
-    table_name TEXT PRIMARY KEY NOT NULL,
-    last_pulled_at TEXT,
-    last_full_sync_at TEXT
-  );`,
+  // ── Sync bookkeeping ───────────────────────────────────────────────────────
+  // `sync_meta` is a tiny key/value store (active tenant id, last_pulled_at).
   `CREATE TABLE IF NOT EXISTS sync_meta (
     key TEXT PRIMARY KEY NOT NULL,
     value TEXT
+  );`,
+  // `pending_deletes` logs hard-deleted rows so the next push removes them from
+  // Supabase (a deleted row has no _dirty flag left to push).
+  `CREATE TABLE IF NOT EXISTS pending_deletes (
+    table_name TEXT NOT NULL,
+    row_id TEXT NOT NULL,
+    PRIMARY KEY (table_name, row_id)
   );`,
 
   // ── Read-path indices ──────────────────────────────────────────────────────
@@ -66,26 +50,11 @@ export const SCHEMA_V1: string[] = [
   `CREATE INDEX IF NOT EXISTS idx_sales_soldat ON sales(sold_at);`,
   `CREATE INDEX IF NOT EXISTS idx_sales_customer ON sales(customer_id);`,
   `CREATE INDEX IF NOT EXISTS idx_sales_product ON sales(product_id);`,
-];
-
-// ── V2: Debts feature ────────────────────────────────────────────────────────
-// Delta applied to EXISTING installs only (fresh installs get everything from
-// SCHEMA_V1, which is regenerated from the current TABLES — see runMigrations).
-// Adds the two debt tables + the sales.amount_paid column (legacy sales backfill
-// to full = paid, so they don't show a phantom debt).
-const debtTables = TABLES.filter(
-  (t) => t.name === 'custom_debts' || t.name === 'debt_payments',
-);
-export const SCHEMA_V2: string[] = [
-  ...debtTables.map(createTableSql),
   `CREATE INDEX IF NOT EXISTS idx_custom_debts_customer ON custom_debts(customer_id);`,
   `CREATE INDEX IF NOT EXISTS idx_debt_payments_customer ON debt_payments(customer_id);`,
-  // SQLite has no `ADD COLUMN IF NOT EXISTS`; this runs on existing installs only.
-  `ALTER TABLE sales ADD COLUMN amount_paid TEXT;`,
-  `UPDATE sales SET amount_paid = total_amount WHERE amount_paid IS NULL;`,
 ];
 
-// Each entry is one schema version. Append a new array to migrate forward.
-// IMPORTANT: deltas must be purely additive DDL already reflected in the
-// TABLES-generated SCHEMA_V1 (fresh installs skip deltas — see runMigrations).
-export const MIGRATIONS: string[][] = [SCHEMA_V1, SCHEMA_V2];
+// Dev-mode only: one version, always run from scratch (clear app data to pick
+// up a schema change instead of writing a migration). Append delta arrays here
+// once this ships to real users who can't just wipe local data.
+export const MIGRATIONS: string[][] = [SCHEMA_V1];
