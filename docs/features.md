@@ -19,6 +19,7 @@
 - [Multiple Plans per Customer (service lines)](#multiple-plans-per-customer-service-lines)
 - [Payment Scenarios](#payment-scenarios)
 - [Multi-Select & Bulk Actions](#multi-select--bulk-actions)
+- [Developer Tools](#developer-tools)
 
 ---
 
@@ -447,3 +448,14 @@ The month grid on the customer detail screen has its own selection mode (same `u
 - **Auto-expand unit** ([`utils/monthSelection.ts`](../SubsTrack/src/modules/customer-payments/utils/monthSelection.ts) `expandSelectionUnit`): a cell backed by a live payment selects **every visible month sharing that `payment.id`** (whole block, for voiding); a multi-month-plan payable cell selects its **start-aligned N-month window**; otherwise just the cell. Windows are anchored at the customer's `startDate` month via absolute month index, so they never overlap and never start before the start date.
 - **Pay** branches on `customer.plan` (one plan per customer): *fixed single-month* → confirm then `createPayment` full price per month; *custom / no plan* → `BulkPaymentFormSheet` collects one amount (due + full/partial + currency) applied to every selected month; *multi-month* → `groupPayableBlocks` collapses the selection to distinct block starts, one `createMultiMonthPayment(..., skipConflicts = true)` each (already-paid months inside a window are skipped). **Void** dedupes the voidable subset by `payment.id` → `BulkVoidSheet` (ConfirmDialog + optional reason) voids each once.
 - **Loops are sequential** (same `loadingCreate`/`loadingVoid` early-return constraint as the customer list); per-iteration `getStore().getState().payments` checks aggregate ok/failed into an amber `bulkNotice` banner on partial failure. Multi-month with a missing/disallowing tier counts as failed (the service `assertMultiMonth` gate).
+
+---
+
+## Developer Tools
+
+**Native only** — gated by `IS_OFFLINE_CAPABLE`, since it's a viewer for the local SQLite mirror that only exists on native. Entry point: Settings → Data section → "Developer" row (hidden entirely on web).
+
+- **Table browser** ([`DeveloperScreen.tsx`](../SubsTrack/src/modules/developer/screens/DeveloperScreen.tsx)): lists every table in `TABLES` (`src/core/offline/db/tables.ts`) plus the two bookkeeping tables not in that descriptor (`sync_meta`, `pending_deletes`), each with a live row count. Tapping a row opens [`DbTableViewer`](../SubsTrack/src/shared/components/DbTableViewer.tsx) — a reusable, fully self-contained component that takes only a `tableName` prop, runs `SELECT * FROM <table>` itself, derives columns from the fetched rows, and renders a horizontally-scrollable read-only grid. No editing anywhere.
+- **Export Data**: dumps every table's raw rows (undecoded, `_dirty` included) as one JSON object (`{ [tableName]: rows[] }`) to the clipboard via `expo-clipboard`.
+- **Import Data**: pastes a JSON blob of the same shape into a text box; after a destructive confirm (`confirm()` with `destructive: true`), it **wipes every local table** and inserts the JSON's rows exactly as given — no `encodeRow`/decode, no validation beyond "are the top-level keys known table names." This is intentionally raw and unsafe; it's a developer recovery/seeding tool, not a user-facing import.
+- **Exception logging**: every caught error — React render errors (`ErrorBoundary`), uncaught JS errors (RN's global `ErrorUtils` handler), and every repository catch block (`BaseRepository`/`OfflineBaseRepository`'s shared `handleError`) — is written to a local `exception_logs` table via `logException()` (`src/core/errorLog/errorLogger.ts`), tagged with the current user/tenant and a `source` (`boundary` | `global_handler` | `repository` | `service`). The table is a synced tenant table but **push-only** (see [docs/offline.md](offline.md)) — logs go up to Supabase for centralized visibility but are never pulled back down into any device's mirror. Viewable locally like any other table in the Developer browser above.

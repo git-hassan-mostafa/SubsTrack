@@ -474,7 +474,21 @@
     "sync_offline": "لا يوجد اتصال بالإنترنت. اتصل وحاول مرة أخرى.",
     "sync_failed": "فشلت المزامنة. يرجى المحاولة مرة أخرى.",
     "logout": "تسجيل الخروج",
-    "logout_confirm": "هل أنت متأكد من تسجيل الخروج؟"
+    "logout_confirm": "هل أنت متأكد من تسجيل الخروج؟",
+    "developer": "أدوات المطور",
+    "developer_web_unavailable": "أدوات المطور متوفرة فقط في تطبيق الهاتف.",
+    "developer_tables_section": "جداول قاعدة البيانات المحلية",
+    "developer_export": "تصدير البيانات",
+    "developer_import": "استيراد البيانات",
+    "developer_export_done": "تم نسخ جميع الجداول إلى الحافظة",
+    "developer_import_done": "تم الاستيراد بنجاح",
+    "developer_import_hint": "الصق نص JSON المُصدَّر أدناه. سيتم حذف كل البيانات المحلية الحالية واستبدالها بما هو موجود في هذا النص تمامًا.",
+    "developer_import_placeholder": "الصق نص JSON المُصدَّر هنا",
+    "developer_import_invalid_json": "هذا ليس نص JSON صالحًا.",
+    "developer_import_unknown_table": "جدول غير معروف \"{{table}}\" في النص.",
+    "developer_import_confirm_title": "استبدال قاعدة البيانات المحلية؟",
+    "developer_import_confirm_message": "سيتم حذف كل البيانات المحلية الحالية بشكل نهائي واستبدالها بالنص الملصق. لا يمكن التراجع عن هذا الإجراء.",
+    "developer_import_confirm_action": "استبدال"
   },
   "tenant_inactive": {
     "title": "المنظمة موقوفة",

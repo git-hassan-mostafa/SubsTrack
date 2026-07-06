@@ -3,6 +3,7 @@ import { View } from "react-native";
 import { PressableOpacity } from "./PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import i18n from "i18next";
+import { logException } from "@/src/core/errorLog/errorLogger";
 
 interface Props {
   children: ReactNode;
@@ -29,6 +30,11 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: unknown, info: { componentStack: string }) {
     console.error("[ErrorBoundary]", error, info.componentStack);
+    void logException({
+      source: "boundary",
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : info.componentStack,
+    });
   }
 
   handleReset = () => {

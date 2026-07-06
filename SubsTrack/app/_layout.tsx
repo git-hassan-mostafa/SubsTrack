@@ -17,6 +17,7 @@ import { KeyboardProvider } from "react-native-keyboard-controller";
 import "../global.css";
 import { enableMapSet } from "immer";
 import { initOffline } from "@/src/core/offline";
+import { installGlobalErrorHandler } from "@/src/core/errorLog/globalHandler";
 
 export default function RootLayout() {
   const [i18nReady, setI18nReady] = useState(false);
@@ -42,6 +43,7 @@ export default function RootLayout() {
 
   useEffect(() => {
     enableMapSet(); /* enable map set for immer */
+    installGlobalErrorHandler();
     (async () => {
       // Open the local DB + start the sync engine before any repository read
       // (no-op on web). On native every repository now reads/writes SQLite.

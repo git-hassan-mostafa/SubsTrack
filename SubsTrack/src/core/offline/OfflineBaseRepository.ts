@@ -3,6 +3,7 @@ import i18n from '@/src/core/i18n';
 import { BRANCH_FILTER_UNASSIGNED, type BranchFilter } from '@/src/core/constants';
 import { getDb } from './db/sqlite';
 import { decodeRow, decodeRows } from './db/codec';
+import { logException } from '../errorLog/errorLogger';
 
 /** Mirror of BaseRepository.BranchScope — same three semantics, SQL-side. */
 export type OfflineBranchScope =
@@ -24,10 +25,13 @@ export abstract class OfflineBaseRepository {
 
   protected handleError(error: unknown): never {
     if (error && typeof error === 'object' && 'message' in error) {
-      console.error('[Offline Repository Error]', (error as { message: string }).message);
-      throw new Error((error as { message: string }).message);
+      const message = (error as { message: string }).message;
+      console.error('[Offline Repository Error]', message);
+      void logException({ source: 'repository', message, context: this.constructor.name });
+      throw new Error(message);
     }
     console.error('[Offline Repository Error]', error);
+    void logException({ source: 'repository', message: String(error), context: this.constructor.name });
     throw new Error(i18n.t('errors.unexpected'));
   }
 

@@ -67,6 +67,8 @@ Read the single `last_pulled_at`. For each table in `SYNC_PULL_ORDER`: page thro
 
 **Hard deletes done elsewhere** (web app / another device) leave no `updated_at` to pull, so `reconcileDeletes()` handles them: for the low-volume tables (`customers`, `plans`, `branches`, `currencies`, `products`) it fetches the server's id list and drops any local `_dirty = 0` row missing from it. Ledger tables (payments, sales, debts) are only ever soft-voided, so they're skipped.
 
+**Push-only tables.** `TableSpec.pushOnly` (currently only `exception_logs`) makes `pullChanges()` skip that table entirely — its rows are pushed up like any other tenant table but never pulled back down. This is for write-mostly logs where pulling would just fill every device's mirror with every other device's rows for no benefit. Adding a new push-only table is a one-line `pushOnly: true` in `db/tables.ts`; no other engine change is needed.
+
 The cycle is **push → then pull**, serialized (one in-flight run). Triggers are deliberately calm: **once at cold start, once when connectivity returns, and every 90s while the app is foregrounded** — not after each write, not on resume-from-RAM. Local writes land durably in SQLite and go up on the next tick.
 
 ## Manual sync + observable status
@@ -89,6 +91,16 @@ The cycle is **push → then pull**, serialized (one in-flight run). Triggers ar
 `updated_at` + BEFORE UPDATE triggers on every synced table (drives the incremental pull; immune to client clock skew). **No tombstone table/triggers** — the client propagates hard deletes itself (push replays `pending_deletes`; pull's `reconcileDeletes` drops rows gone from the server). A fresh `script.sql` run creates the triggers; to migrate an existing DB, run the migration snippet provided in chat when the change was made.
 
 **Debts feature:** two synced tenant tables `custom_debts` + `debt_payments` (branch-via-customer RLS like `payments`, `set_updated_at` triggers), and a `sales.amount_paid` column (partial sales leave a debt). Locally these are just more entries in `db/tables.ts` (+ `SYNC_PULL_ORDER`), included in `SCHEMA_V1` like every other table. The generic push/pull picks them up with no engine change. Debts themselves are **computed at runtime** (see features.md → Debts).
+
+## Exception logger (`src/core/errorLog/`) + Developer page
+
+A small, deliberately unlayered debug feature, native-only:
+
+- `errorLog/errorLogger.ts` exports `logException({ source, message, stack?, context? })` — writes one row to the local `exception_logs` table (`pushOnly: true`, see above) via `insertDirty`. Reads the current user/tenant with `getStore().getState().auth.user` (no hook — this runs outside React in repository code). Never throws; a logging failure only `console.error`s, so it can never mask the original error or loop back on itself.
+- `errorLog/globalHandler.ts` exports `installGlobalErrorHandler()`, called once from `app/_layout.tsx`'s bootstrap effect. Wraps RN's `ErrorUtils.setGlobalHandler`, chaining to whatever handler was already installed (Expo's dev/prod error overlay) so this only adds logging.
+- Wired into: `ErrorBoundary.componentDidCatch` (`source: 'boundary'`), the global handler above (`source: 'global_handler'`), and both `BaseRepository.handleError` / `OfflineBaseRepository.handleError` (`source: 'repository'`) — the two methods every repository's catch blocks funnel through, online and offline.
+- **Settings → Developer** (`src/modules/developer/`, native-only row gated by `IS_OFFLINE_CAPABLE`) is a read-only browser for the local SQLite mirror: lists every table in `TABLES` plus the two bookkeeping tables (`sync_meta`, `pending_deletes`) with row counts, and opens any of them in `DbTableViewer` (`src/shared/components/DbTableViewer.tsx`) — a self-contained component that takes only a `tableName` prop and does its own `SELECT * FROM <table>` + column discovery. This is intentionally not layered through services/repositories; it's a debug tool, not a feature.
+- **Export/Import** on the same screen: Export dumps every table (raw rows, undecoded, `_dirty` included) as one JSON blob to the clipboard (`expo-clipboard`). Import parses pasted JSON, wipes every known local table, and inserts the JSON's rows exactly as given (no `encodeRow`/decode round-trip) inside one transaction — a deliberately raw, unsafe, developer-only operation.
 
 ## Gotchas specific to this layer
 

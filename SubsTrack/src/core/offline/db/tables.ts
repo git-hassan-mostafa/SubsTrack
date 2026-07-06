@@ -31,6 +31,13 @@ export interface TableSpec {
    *             never pushed or written locally.
    */
   scope: 'tenant' | 'global';
+  /**
+   * True for a write-mostly debug/audit log (currently only exception_logs):
+   * pushed like any other tenant table, but never pulled back down — pulling
+   * it would just fill every device's mirror with every other device's log
+   * rows for no benefit. See sync.ts's pullChanges().
+   */
+  pushOnly?: boolean;
 }
 
 export const TABLES: TableSpec[] = [
@@ -170,6 +177,16 @@ export const TABLES: TableSpec[] = [
       created_at: 'text', updated_at: 'text',
     },
   },
+  {
+    name: 'exception_logs',
+    scope: 'tenant',
+    pushOnly: true,
+    columns: {
+      id: 'text', tenant_id: 'text', user_id: 'text', username: 'text',
+      source: 'text', message: 'text', stack: 'text', context: 'text',
+      occurred_at: 'text', created_at: 'text', updated_at: 'text',
+    },
+  },
 ];
 
 export const TABLE_BY_NAME: Record<string, TableSpec> = Object.fromEntries(
@@ -180,5 +197,5 @@ export const TABLE_BY_NAME: Record<string, TableSpec> = Object.fromEntries(
 export const SYNC_PULL_ORDER = [
   'tenants', 'tier_plans', 'app_options', 'currencies', 'branches', 'users',
   'plans', 'customers', 'customer_plans', 'payments', 'products', 'sales',
-  'custom_debts', 'debt_payments',
+  'custom_debts', 'debt_payments', 'exception_logs',
 ] as const;

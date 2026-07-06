@@ -474,7 +474,21 @@
     "sync_offline": "No internet connection. Connect and try again.",
     "sync_failed": "Sync failed. Please try again.",
     "logout": "Log Out",
-    "logout_confirm": "Are you sure you want to log out?"
+    "logout_confirm": "Are you sure you want to log out?",
+    "developer": "Developer",
+    "developer_web_unavailable": "The developer tools are only available on the mobile app.",
+    "developer_tables_section": "Local database tables",
+    "developer_export": "Export Data",
+    "developer_import": "Import Data",
+    "developer_export_done": "Copied all tables to clipboard",
+    "developer_import_done": "Import complete",
+    "developer_import_hint": "Paste a JSON export below. This will delete all local data and replace it with exactly what is in the JSON.",
+    "developer_import_placeholder": "Paste exported JSON here",
+    "developer_import_invalid_json": "That is not valid JSON.",
+    "developer_import_unknown_table": "Unknown table \"{{table}}\" in the JSON.",
+    "developer_import_confirm_title": "Overwrite local database?",
+    "developer_import_confirm_message": "All current local data will be permanently deleted and replaced with the pasted JSON. This cannot be undone.",
+    "developer_import_confirm_action": "Overwrite"
   },
   "tenant_inactive": {
     "title": "Organization Deactivated",

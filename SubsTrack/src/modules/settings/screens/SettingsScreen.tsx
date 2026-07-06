@@ -5,6 +5,7 @@ import { Text } from "@/src/shared/components/Text";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { useTranslation } from "react-i18next";
+import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
 import { DropdownModal } from "@/src/shared/components/Dropdown";
@@ -72,6 +73,7 @@ function SettingsRow({
 
 export function SettingsScreen() {
   const { t } = useTranslation();
+  const router = useRouter();
   const { user } = useAuth();
   const { language, setLanguage } = useLanguageStore();
   const logout = useAuthSlice((s) => s.logout);
@@ -229,7 +231,7 @@ export function SettingsScreen() {
                 <PressableOpacity
                   onPress={() => void handleSyncPress()}
                   disabled={syncing}
-                  className="flex-row items-center justify-between px-4 py-3.5"
+                  className="flex-row items-center justify-between px-4 py-3.5 border-b border-gray-100"
                 >
                   <View className="flex-row items-center gap-3">
                     <Ionicons
@@ -251,6 +253,12 @@ export function SettingsScreen() {
                     />
                   )}
                 </PressableOpacity>
+                <SettingsRow
+                  icon="code-slash-outline"
+                  label={t("settings.developer")}
+                  last
+                  onPress={() => router.push("/(app)/(tabs)/settings/developer")}
+                />
               </View>
             </View>
           ) : null}

@@ -891,6 +891,49 @@ CREATE INDEX IF NOT EXISTS idx_debt_payments_customer_id
     ON debt_payments (customer_id);
 
 -- ============================================================
+-- EXCEPTION LOGS
+-- Local-first crash/error log written by the native app's global error
+-- logger (React ErrorBoundary, RN ErrorUtils global handler, repository
+-- catch blocks). Synced PUSH-ONLY from client to server — the server copy
+-- is a centralized read sink for developers and is never pulled back down
+-- into any device's local SQLite mirror (see docs/offline.md).
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS exception_logs (
+    id            UUID          PRIMARY KEY DEFAULT uuid_generate_v4(),
+    -- Nullable: an error can occur before a tenant/user is established (e.g. login screen).
+    tenant_id     UUID,
+    user_id       UUID,
+    -- Snapshot so the log stays readable if the user row is later deleted.
+    username      TEXT,
+    -- Where the error was caught: 'boundary' | 'global_handler' | 'repository' | 'service'.
+    source        TEXT          NOT NULL,
+    message       TEXT          NOT NULL,
+    stack         TEXT,
+    -- Free-form extra info (e.g. which repository/table was involved).
+    context       TEXT,
+    occurred_at   TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    created_at    TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    updated_at    TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT fk_exception_logs_tenant
+        FOREIGN KEY (tenant_id)
+        REFERENCES tenants(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_exception_logs_user
+        FOREIGN KEY (user_id)
+        REFERENCES users(id)
+        ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_exception_logs_tenant_id
+    ON exception_logs (tenant_id);
+
+CREATE INDEX IF NOT EXISTS idx_exception_logs_occurred_at
+    ON exception_logs (occurred_at);
+
+-- ============================================================
 -- ROW LEVEL SECURITY
 -- ============================================================
 
@@ -908,6 +951,7 @@ ALTER TABLE products   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sales      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE custom_debts  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE debt_payments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE exception_logs ENABLE ROW LEVEL SECURITY;
 
 -- ==============================================================
 CREATE OR REPLACE FUNCTION get_free_tier_id()
@@ -1403,6 +1447,20 @@ DO $$ BEGIN
             );
     END IF;
 
+    -- ── EXCEPTION LOGS ───────────────────────────────────────
+    -- Flat debug/audit log, not branch-owned. Tenant-scoped read/write;
+    -- rows with a NULL tenant_id (pre-auth errors) are also visible/insertable
+    -- since there is no tenant to scope them to.
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE tablename = 'exception_logs' AND policyname = 'exception_logs_all'
+    ) THEN
+        CREATE POLICY exception_logs_all ON exception_logs
+            FOR ALL
+            USING (tenant_id = current_tenant_id() OR tenant_id IS NULL)
+            WITH CHECK (tenant_id = current_tenant_id() OR tenant_id IS NULL);
+    END IF;
+
 END $$;
 
 -- ============================================================
@@ -1510,6 +1568,11 @@ CREATE OR REPLACE TRIGGER trg_custom_debts_updated_at
 
 CREATE OR REPLACE TRIGGER trg_debt_payments_updated_at
     BEFORE UPDATE ON debt_payments
+    FOR EACH ROW
+    EXECUTE FUNCTION set_updated_at();
+
+CREATE OR REPLACE TRIGGER trg_exception_logs_updated_at
+    BEFORE UPDATE ON exception_logs
     FOR EACH ROW
     EXECUTE FUNCTION set_updated_at();
 

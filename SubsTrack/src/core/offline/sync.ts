@@ -162,6 +162,8 @@ async function pullChanges(): Promise<void> {
   let newMax = startedAt;
 
   for (const table of SYNC_PULL_ORDER) {
+    if (TABLE_BY_NAME[table]?.pushOnly) continue; // e.g. exception_logs — push up, never pull down
+
     let cursor = startedAt; // every table starts from the same last-pull point
     for (; ;) {
       let q = supabase.from(table).select('*').order('updated_at', { ascending: true }).limit(PAGE);

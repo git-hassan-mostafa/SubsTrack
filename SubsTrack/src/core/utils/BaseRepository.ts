@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import i18n from "@/src/core/i18n";
 import { BRANCH_FILTER_UNASSIGNED, BranchFilter } from "../constants";
 import { readFunctionsErrorBody } from "./functionsError";
+import { logException } from "../errorLog/errorLogger";
 
 // ──────────────────────────────────────────────────────────────────────
 // Applying the filter — branch-scope semantics per table
@@ -37,10 +38,13 @@ export abstract class BaseRepository {
 
   protected handleError(error: unknown): never {
     if (error && typeof error === "object" && "message" in error) {
-      console.error("[Repository Error]", error.message);
-      throw new Error((error as { message: string }).message);
+      const message = (error as { message: string }).message;
+      console.error("[Repository Error]", message);
+      void logException({ source: "repository", message, context: this.constructor.name });
+      throw new Error(message);
     }
     console.error("[Repository Error]", error);
+    void logException({ source: "repository", message: String(error), context: this.constructor.name });
     throw new Error(i18n.t("errors.unexpected"));
   }
 

@@ -11,3 +11,6 @@ export { newId, nowIso, deterministicId } from './ids';
 export { getIsOnline, isOnline } from './net/connectivity';
 export { OfflineBaseRepository } from './OfflineBaseRepository';
 export { insertDirty, updateDirty, upsertPaymentDirty, markDeleted } from './db/dml';
+export { getDb, isOfflineDbReady } from './db/sqlite';
+export { TABLES, TABLE_BY_NAME } from './db/tables';
+export type { TableSpec } from './db/tables';
