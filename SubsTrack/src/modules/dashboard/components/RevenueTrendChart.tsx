@@ -39,9 +39,11 @@ export function RevenueTrendChart({
     (d) => d.year === now.getFullYear() && d.monthIndex === now.getMonth(),
   );
   const hasSales = data.some((d) => d.sales > 0);
-  // Only disambiguate with the year when the window spans more than one —
-  // keeps the common case (all-current-year) uncluttered.
-  const spansMultipleYears = new Set(data.map((d) => d.year)).size > 1;
+  // Disambiguate with the year whenever a bar isn't in the current calendar
+  // year — a window entirely within one past year (e.g. Feb'25-Jul'25) is
+  // just as ambiguous as one spanning two years, so this can't be limited to
+  // "the window spans more than one year".
+  const currentYear = now.getFullYear();
 
   return (
     <View
@@ -177,7 +179,7 @@ export function RevenueTrendChart({
               }`}
             >
               {t(`months.${MONTHS[point.monthIndex]}`)}
-              {spansMultipleYears ? ` '${String(point.year).slice(2)}` : ""}
+              {point.year !== currentYear ? ` '${String(point.year).slice(2)}` : ""}
             </Text>
           </View>
         ))}

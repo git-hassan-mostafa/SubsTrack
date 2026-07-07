@@ -32,10 +32,17 @@ class DashboardService {
     anchorMonth: number,
     branchFilter: BranchFilter = null,
   ): Promise<RevenuePoint[]> {
-    const trendPoints = Array.from({ length: MONTHS_IN_YEAR }, (_, i) => ({
-      year: anchorYear,
-      month: anchorMonth - MONTHS_IN_YEAR + i + 1,
-    }));
+    // Build each point from an absolute month index so year rollovers (e.g.
+    // anchoring on Jan/Feb/.../Jun, where month - MONTHS_IN_YEAR + i + 1 goes
+    // <= 0) normalize into the correct prior year instead of leaving an
+    // invalid month number paired with the anchor's year.
+    const trendPoints = Array.from({ length: MONTHS_IN_YEAR }, (_, i) => {
+      const absoluteMonth = anchorYear * 12 + (anchorMonth - 1) - MONTHS_IN_YEAR + i + 1;
+      return {
+        year: Math.floor(absoluteMonth / 12),
+        month: (((absoluteMonth % 12) + 12) % 12) + 1,
+      };
+    });
     // Payments key off billing_month, sales off sold_at, so bound each in its own units.
     const trendStartBilling = toBillingMonth(
       trendPoints[0].year,
