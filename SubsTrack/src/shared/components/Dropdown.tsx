@@ -28,6 +28,9 @@ interface DropdownProps<T = string> {
   nullLabel?: string;
   nullSublabel?: string;
   triggerStyle?: DropdownTriggerStyle;
+  // Renders a "+" button beside the label (default trigger style only) that
+  // opens a form to create a new entity without leaving the current form.
+  onAddNew?: () => void;
 }
 
 export function Dropdown<T extends string | number | null = string>({
@@ -40,6 +43,7 @@ export function Dropdown<T extends string | number | null = string>({
   nullLabel,
   nullSublabel,
   triggerStyle = "default",
+  onAddNew,
 }: DropdownProps<T>) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -93,10 +97,25 @@ export function Dropdown<T extends string | number | null = string>({
 
   return (
     <View className="mb-4">
-      {label ? (
-        <Text className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
-          {label}
-        </Text>
+      {label || onAddNew ? (
+        <View className="flex-row items-center justify-between mb-1.5">
+          {label ? (
+            <Text className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+              {label}
+            </Text>
+          ) : (
+            <View />
+          )}
+          {onAddNew ? (
+            <PressableOpacity
+              onPress={onAddNew}
+              hitSlop={8}
+              accessibilityLabel={t("common.add_new")}
+            >
+              <Ionicons name="add-circle" size={18} color={COLORS.primary} />
+            </PressableOpacity>
+          ) : null}
+        </View>
       ) : null}
 
       <PressableOpacity

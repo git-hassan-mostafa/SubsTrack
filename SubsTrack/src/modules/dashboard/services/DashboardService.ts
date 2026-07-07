@@ -24,20 +24,19 @@ function monthKey(year: number, month: number): string {
 }
 
 class DashboardService {
-  async getMetrics(
+  // 6 months ending at (anchorYear, anchorMonth) inclusive. Used both for the
+  // initial dashboard load (anchored on the current month) and for navigating
+  // the revenue chart to earlier/later windows.
+  async getRevenueTrend(
+    anchorYear: number,
+    anchorMonth: number,
     branchFilter: BranchFilter = null,
-  ): Promise<DashboardMetrics> {
-    const { year, month } = getCurrentYearMonth();
-    const billingMonth = toBillingMonth(year, month);
-    const monthStart = new Date(year, month - 1, 1).toISOString();
-    const monthEndExclusive = new Date(year, month, 1).toISOString();
-
-    // Current-year window: Jan → Dec of the current year. Payments key off
-    // billing_month, sales off sold_at, so we bound each in its own units.
+  ): Promise<RevenuePoint[]> {
     const trendPoints = Array.from({ length: MONTHS_IN_YEAR }, (_, i) => ({
-      year,
-      month: month - MONTHS_IN_YEAR + i + 1,
+      year: anchorYear,
+      month: anchorMonth - MONTHS_IN_YEAR + i + 1,
     }));
+    // Payments key off billing_month, sales off sold_at, so bound each in its own units.
     const trendStartBilling = toBillingMonth(
       trendPoints[0].year,
       trendPoints[0].month,
@@ -46,8 +45,59 @@ class DashboardService {
       trendPoints[MONTHS_IN_YEAR - 1].year,
       trendPoints[MONTHS_IN_YEAR - 1].month,
     );
-    const trendStartIso = new Date(year, 0, 1).toISOString();
-    const trendEndIso = new Date(year + 1, 0, 1).toISOString();
+    const trendStartIso = new Date(
+      trendPoints[0].year,
+      trendPoints[0].month - 1,
+      1,
+    ).toISOString();
+    const trendEndIso = new Date(
+      trendPoints[MONTHS_IN_YEAR - 1].year,
+      trendPoints[MONTHS_IN_YEAR - 1].month,
+      1,
+    ).toISOString();
+
+    const [trendPaidRows, trendSaleRows] = await Promise.all([
+      paymentRepo.paidAmountsInRange(
+        trendStartBilling,
+        trendEndBilling,
+        branchFilter,
+      ),
+      saleRepo.totalsInRange(trendStartIso, trendEndIso, branchFilter),
+    ]);
+
+    // Bucket the trend rows by month into canonical USD.
+    const buckets = new Map<string, { subscription: number; sales: number }>();
+    for (const p of trendPoints)
+      buckets.set(monthKey(p.year, p.month), { subscription: 0, sales: 0 });
+    for (const r of trendPaidRows) {
+      const b = buckets.get(r.billingMonth.slice(0, 7));
+      if (b) b.subscription += r.amount / r.ratePerUsdSnapshot;
+    }
+    for (const r of trendSaleRows) {
+      const d = new Date(r.soldAt);
+      const b = buckets.get(monthKey(d.getFullYear(), d.getMonth() + 1));
+      if (b) b.sales += r.amount / r.ratePerUsdSnapshot;
+    }
+    return trendPoints.map((p) => {
+      const b = buckets.get(monthKey(p.year, p.month))!;
+      return {
+        month: monthKey(p.year, p.month),
+        monthIndex: p.month - 1,
+        year: p.year,
+        subscription: b.subscription,
+        sales: b.sales,
+        total: b.subscription + b.sales,
+      };
+    });
+  }
+
+  async getMetrics(
+    branchFilter: BranchFilter = null,
+  ): Promise<DashboardMetrics> {
+    const { year, month } = getCurrentYearMonth();
+    const billingMonth = toBillingMonth(year, month);
+    const monthStart = new Date(year, month - 1, 1).toISOString();
+    const monthEndExclusive = new Date(year, month, 1).toISOString();
 
     const [
       totalCustomers,
@@ -60,8 +110,7 @@ class DashboardService {
       saleRows,
       newCustomersThisMonth,
       cancelledThisMonth,
-      trendPaidRows,
-      trendSaleRows,
+      revenueTrend,
     ] = await Promise.all([
       customerRepo.countAll(branchFilter),
       customerRepo.countActive(branchFilter),
@@ -81,51 +130,17 @@ class DashboardService {
         monthEndExclusive,
         branchFilter,
       ),
-      paymentRepo.paidAmountsInRange(
-        trendStartBilling,
-        trendEndBilling,
-        branchFilter,
-      ),
-      saleRepo.totalsInRange(trendStartIso, trendEndIso, branchFilter),
+      this.getRevenueTrend(year, month, branchFilter),
     ]);
 
     const subscriptionRevenue = sumInUsd(paidRows);
     const salesRevenue = sumInUsd(saleRows);
 
-    // Bucket the trend rows by month into canonical USD.
-    const buckets = new Map<string, { subscription: number; sales: number }>();
-    for (const p of trendPoints)
-      buckets.set(monthKey(p.year, p.month), { subscription: 0, sales: 0 });
-    for (const r of trendPaidRows) {
-      const b = buckets.get(r.billingMonth.slice(0, 7));
-      if (b) b.subscription += r.amount / r.ratePerUsdSnapshot;
-    }
-    for (const r of trendSaleRows) {
-      const d = new Date(r.soldAt);
-      const b = buckets.get(monthKey(d.getFullYear(), d.getMonth() + 1));
-      if (b) b.sales += r.amount / r.ratePerUsdSnapshot;
-    }
-    const revenueTrend: RevenuePoint[] = trendPoints.map((p) => {
-      const b = buckets.get(monthKey(p.year, p.month))!;
-      return {
-        month: monthKey(p.year, p.month),
-        monthIndex: p.month - 1,
-        year: p.year,
-        subscription: b.subscription,
-        sales: b.sales,
-        total: b.subscription + b.sales,
-      };
-    });
     // Previous calendar month's total, for the hero card's month-over-month delta.
-    // The trend now spans Jan→Dec, so look it up by key rather than by position;
-    // in January the prior month falls in last year (absent) and is treated as 0.
-    const prev = new Date(year, month - 2, 1);
-    const prevBucket = buckets.get(
-      monthKey(prev.getFullYear(), prev.getMonth() + 1),
-    );
-    const prevMonthRevenue = prevBucket
-      ? prevBucket.subscription + prevBucket.sales
-      : 0;
+    // The trend spans the 6 months ending on the current month, so the previous
+    // month is always its second-to-last point.
+    const prevPoint = revenueTrend[revenueTrend.length - 2];
+    const prevMonthRevenue = prevPoint ? prevPoint.total : 0;
 
     return {
       totalCustomers,

@@ -33,7 +33,11 @@ export function DashboardScreen() {
   const metrics = useDashboardSlice((s) => s.metrics);
   const loading = useDashboardSlice((s) => s.loading);
   const error = useDashboardSlice((s) => s.error);
+  const trend = useDashboardSlice((s) => s.trend);
+  const trendAnchor = useDashboardSlice((s) => s.trendAnchor);
+  const trendLoading = useDashboardSlice((s) => s.trendLoading);
   const fetchMetrics = useDashboardSlice((s) => s.fetchMetrics);
+  const navigateTrend = useDashboardSlice((s) => s.navigateTrend);
   const clearError = useDashboardSlice((s) => s.clearError);
   const currencies = useCurrencySlice((s) => s.items);
   const { displayCurrencyId } = useUiPrefStore();
@@ -236,9 +240,20 @@ export function DashboardScreen() {
               </Text>
             </View>
 
-            {/* Revenue trend — trailing months */}
-            {metrics ? (
-              <RevenueTrendChart data={metrics.revenueTrend} format={fmt} />
+            {/* Revenue trend — navigable 6-month window */}
+            {trend ? (
+              <RevenueTrendChart
+                data={trend}
+                format={fmt}
+                loading={trendLoading}
+                onPrev={() => navigateTrend("prev")}
+                onNext={() => navigateTrend("next")}
+                nextDisabled={
+                  !!trendAnchor &&
+                  trendAnchor.year * 12 + trendAnchor.month >=
+                    now.getFullYear() * 12 + (now.getMonth() + 1)
+                }
+              />
             ) : null}
 
             {/* This-month section heading */}

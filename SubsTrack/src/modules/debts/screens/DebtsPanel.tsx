@@ -92,12 +92,17 @@ export function DebtsPanel() {
 
   // Bucket the already-date-desc rows into month sections (This Month / June 2026).
   // A debt item's date is its source date; a debt payment's is when it was paid.
+  // Each section carries the total of its visible rows (USD, via each row's snapshot rate).
   const sections = useMemo(
     () =>
       groupByMonth(
         rows,
         (r) => (r.kind === "item" ? r.item.date : r.payment.paidAt),
         t,
+        (r) =>
+          r.kind === "item"
+            ? r.item.remaining / r.item.ratePerUsdSnapshot
+            : r.payment.amount / r.payment.ratePerUsdSnapshot,
       ),
     [rows, t],
   );
@@ -274,7 +279,11 @@ export function DebtsPanel() {
               />
             }
             renderSectionHeader={({ section }) => (
-              <MonthSectionHeader title={section.title} />
+              <MonthSectionHeader
+                title={section.title}
+                count={section.data.length}
+                total={formatMoney(section.totalUsd ?? 0, null, target)}
+              />
             )}
             renderItem={({ item: row }) =>
               row.kind === "payment" ? (

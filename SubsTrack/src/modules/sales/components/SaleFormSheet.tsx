@@ -14,7 +14,8 @@ import {
   Dropdown,
   type DropdownOption,
 } from "@/src/shared/components/Dropdown";
-import { CustomerPicker } from "@/src/modules/customers";
+import { CustomerPicker, CustomerFormSheet } from "@/src/modules/customers";
+import { ProductFormSheet } from "@/src/modules/products";
 import { PaymentAmountPaidSection } from "@/src/modules/customer-payments";
 import { Ionicons } from "@expo/vector-icons";
 import { COLORS } from "@/src/shared/constants";
@@ -58,6 +59,8 @@ export function SaleFormSheet({
   const [paymentMode, setPaymentMode] = useState<"full" | "partial">("full");
   const [amountPaid, setAmountPaid] = useState<number | null>(null);
   const [notes, setNotes] = useState("");
+  const [addCustomerOpen, setAddCustomerOpen] = useState(false);
+  const [addProductOpen, setAddProductOpen] = useState(false);
 
   // Load active products on first open so the dropdown is populated immediately.
   useEffect(() => {
@@ -171,6 +174,7 @@ export function SaleFormSheet({
               options={productOptions}
               value={productId}
               onChange={(v) => setProductId(v)}
+              onAddNew={() => setAddProductOpen(true)}
             />
 
             {!initialCustomer ? (
@@ -181,6 +185,7 @@ export function SaleFormSheet({
                 onChange={setCustomer}
                 nullable
                 nullLabel={t("sales.walk_in")}
+                onAddNew={() => setAddCustomerOpen(true)}
               />
             ) : (
               <View className="mb-4 px-4 py-3 rounded-xl border border-gray-200 bg-gray-50">
@@ -281,6 +286,13 @@ export function SaleFormSheet({
           </KeyboardAwareScrollView>
         </ResponsiveContainer>
       </SafeAreaView>
+
+      {addCustomerOpen && (
+        <CustomerFormSheet onDismiss={() => setAddCustomerOpen(false)} />
+      )}
+      {addProductOpen && (
+        <ProductFormSheet onDismiss={() => setAddProductOpen(false)} />
+      )}
     </Modal>
   );
 }

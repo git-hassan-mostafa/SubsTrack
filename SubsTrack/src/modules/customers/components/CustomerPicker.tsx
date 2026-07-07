@@ -17,6 +17,7 @@ interface CustomerPickerProps {
   nullLabel?: string;
   disabled?: boolean;
   triggerStyle?: AsyncEntityPickerTriggerStyle;
+  onAddNew?: () => void;
 }
 
 export function CustomerPicker({
@@ -28,6 +29,7 @@ export function CustomerPicker({
   nullLabel,
   disabled,
   triggerStyle,
+  onAddNew,
 }: CustomerPickerProps) {
   const { user } = useAuth();
 
@@ -59,6 +61,7 @@ export function CustomerPicker({
       nullLabel={nullLabel}
       disabled={disabled}
       triggerStyle={triggerStyle}
+      onAddNew={onAddNew}
     />
   );
 }

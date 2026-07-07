@@ -43,6 +43,7 @@ import { FAB } from "@/src/shared/components/FAB";
 import { SelectAllBar } from "@/src/shared/components/SelectAllBar";
 import { SelectionOverlaySlot } from "@/src/shared/components/SelectionOverlaySlot";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
+import { FilterToggleButton } from "@/src/shared/components/FilterToggleButton";
 import { MONTHS } from "@/src/core/constants";
 import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
 import {
@@ -100,6 +101,7 @@ export function CustomerListScreen() {
   const [formVisible, setFormVisible] = useState(false);
   const [searchText, setSearchText] = useState("");
   const [activeTab, setActiveTab] = useState<FilterTab>("active");
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [quickPayCustomerId, setQuickPayCustomerId] = useState<string | null>(
     null,
   );
@@ -599,30 +601,41 @@ export function CustomerListScreen() {
         >
           <View className="px-4 pt-4">
             {/* Search */}
-            <SearchTextBox
-              searchText={searchText}
-              setSearchText={setSearchText}
-              placeholder={t("customers.search_hint")}
-            />
-            {/* Filter tabs */}
-            <View className="flex-row gap-2 mt-4">
-              {tabs.map((tab) => (
-                <PressableOpacity
-                  key={tab.key}
-                  onPress={() => {
-                    setActiveTab(tab.key);
-                    clearSelection();
-                  }}
-                  className={`rounded-full px-3 py-1.5 ${activeTab === tab.key ? "bg-gray-900" : "bg-gray-100"}`}
-                >
-                  <Text
-                    className={`text-xs font-semibold ${activeTab === tab.key ? "text-white" : "text-gray-600"}`}
-                  >
-                    {tab.label}
-                  </Text>
-                </PressableOpacity>
-              ))}
+            <View className="flex-row items-center gap-x-2">
+              <View className="flex-1">
+                <SearchTextBox
+                  searchText={searchText}
+                  setSearchText={setSearchText}
+                  placeholder={t("customers.search_hint")}
+                />
+              </View>
+              <FilterToggleButton
+                active={filtersOpen}
+                hasActiveFilters={activeTab !== "all"}
+                onPress={() => setFiltersOpen((v) => !v)}
+              />
             </View>
+            {/* Filter tabs */}
+            {filtersOpen ? (
+              <View className="flex-row gap-2 mt-4">
+                {tabs.map((tab) => (
+                  <PressableOpacity
+                    key={tab.key}
+                    onPress={() => {
+                      setActiveTab(tab.key);
+                      clearSelection();
+                    }}
+                    className={`rounded-full px-3 py-1.5 ${activeTab === tab.key ? "bg-gray-900" : "bg-gray-100"}`}
+                  >
+                    <Text
+                      className={`text-xs font-semibold ${activeTab === tab.key ? "text-white" : "text-gray-600"}`}
+                    >
+                      {tab.label}
+                    </Text>
+                  </PressableOpacity>
+                ))}
+              </View>
+            ) : null}
           </View>
         </SelectionOverlaySlot>
         {error ? (

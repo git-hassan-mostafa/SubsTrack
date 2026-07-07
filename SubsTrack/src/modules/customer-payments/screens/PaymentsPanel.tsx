@@ -39,8 +39,11 @@ import {
   getTodayDateString,
 } from "@/src/core/utils/date";
 import type { MonthEntry } from "@/src/core/types";
+import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { usePaymentsListSlice } from "@/src/state/hooks/usePaymentsListSlice";
 import { useUserSlice } from "@/src/state/hooks/useUserSlice";
+import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
+import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
 import { getStore } from "@/src/state/globalStore";
 import type { PaymentListItem, PaymentStatusFilter } from "../utils/types";
 import { PaymentListCard } from "../components/PaymentListCard";
@@ -89,6 +92,9 @@ export function PaymentsPanel() {
 
   const users = useUserSlice((s) => s.items);
   const getUsers = useUserSlice((s) => s.getUsers);
+  const currencies = useCurrencySlice((s) => s.items);
+  const { displayCurrencyId } = useUiPrefStore();
+  const displayCurrency = findCurrency(currencies, displayCurrencyId);
   const branchFilter = useEffectiveBranchFilter();
 
   const [activePayment, setActivePayment] = useState<PaymentListItem | null>(
@@ -141,9 +147,16 @@ export function PaymentsPanel() {
 
   const selectedPayments = items.filter((p) => selectedIds.has(p.id));
 
-  // Bucket the already-paid_at-desc payments into month sections (This Month / June 2026).
+  // Bucket the already-paid_at-desc payments into month sections (This Month / June 2026),
+  // each carrying the section's total amount paid (USD, via each row's snapshot rate).
   const sections = useMemo(
-    () => groupByMonth(items, (p) => p.paidAt, t),
+    () =>
+      groupByMonth(
+        items,
+        (p) => p.paidAt,
+        t,
+        (p) => p.amountPaid / p.ratePerUsdSnapshot,
+      ),
     [items, t],
   );
 
@@ -301,7 +314,11 @@ export function PaymentsPanel() {
             }}
             onEndReachedThreshold={0.3}
             renderSectionHeader={({ section }) => (
-              <MonthSectionHeader title={section.title} />
+              <MonthSectionHeader
+                title={section.title}
+                count={section.data.length}
+                total={formatMoney(section.totalUsd ?? 0, null, displayCurrency)}
+              />
             )}
             ListFooterComponent={
               loadingMore ? (

@@ -4,10 +4,13 @@ import { getCurrentYearMonth } from "@/src/core/utils/date";
 
 // A section of a transaction list: one calendar month of rows, newest month first.
 // `key` is `YYYY-MM`; `title` is the localized header ("This Month" / "June 2026").
+// `totalUsd` is the sum of the section's rows (via `getAmountUsd`), or undefined
+// when the caller didn't ask for a total.
 export interface MonthSection<T> {
   key: string;
   title: string;
   data: T[];
+  totalUsd?: number;
 }
 
 // Parse the year+month out of any ISO-ish date string (YYYY-MM-DD, YYYY-MM-01,
@@ -36,11 +39,13 @@ function sectionTitle(
 // Group an already date-desc-sorted list into month sections (newest month
 // first). Rows keep their incoming order within a section, so the caller stays
 // the single source of sort order — this only buckets. `getDate` returns the
-// row's ISO date string used for grouping.
+// row's ISO date string used for grouping. `getAmountUsd`, when passed, sums
+// each row's USD-equivalent amount into `totalUsd` for the section header.
 export function groupByMonth<T>(
   items: T[],
   getDate: (item: T) => string,
   t: TFunction,
+  getAmountUsd?: (item: T) => number,
 ): MonthSection<T>[] {
   const current = getCurrentYearMonth();
   const sections: MonthSection<T>[] = [];
@@ -50,10 +55,17 @@ export function groupByMonth<T>(
     const { year, month } = yearMonthOf(getDate(item));
     const key = `${year}-${String(month).padStart(2, "0")}`;
     if (key !== currentKey) {
-      sections.push({ key, title: sectionTitle(year, month, t, current), data: [] });
+      sections.push({
+        key,
+        title: sectionTitle(year, month, t, current),
+        data: [],
+        totalUsd: getAmountUsd ? 0 : undefined,
+      });
       currentKey = key;
     }
-    sections[sections.length - 1].data.push(item);
+    const section = sections[sections.length - 1];
+    section.data.push(item);
+    if (getAmountUsd) section.totalUsd = (section.totalUsd ?? 0) + getAmountUsd(item);
   }
 
   return sections;

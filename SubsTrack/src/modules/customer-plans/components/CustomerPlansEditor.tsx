@@ -11,6 +11,7 @@ import type { Customer } from "@/src/core/types";
 import type { LineDraft } from "@/src/modules/customer-plans";
 import { getTodayDateString } from "@/src/core/utils/date";
 import { usePlanSlice } from "@/src/state/hooks/usePlanSlice";
+import { PlanFormSheet } from "@/src/modules/plans";
 
 // One row in the inline Plans editor. `id` present = an existing line being
 // kept/edited; absent = a new line to create. `startDate` is preserved for
@@ -73,6 +74,7 @@ export function CustomerPlansEditor({
     return [newRow(customer?.startDate ?? getTodayDateString())];
   });
   const [removedIds, setRemovedIds] = useState<string[]>([]);
+  const [addPlanOpen, setAddPlanOpen] = useState(false);
 
   useImperativeHandle(ref, () => ({
     getLines: () =>
@@ -191,6 +193,7 @@ export function CustomerPlansEditor({
                 value={row.planId}
                 onChange={(v) => setRowPlan(row.key, v)}
                 label={t("customers.plan_label")}
+                onAddNew={() => setAddPlanOpen(true)}
               />
             </View>
             <View className="w-44">
@@ -215,6 +218,10 @@ export function CustomerPlansEditor({
           {t("subscriptions.add_plan")}
         </Text>
       </PressableOpacity>
+
+      {addPlanOpen && (
+        <PlanFormSheet onDismiss={() => setAddPlanOpen(false)} />
+      )}
     </View>
   );
 }

@@ -25,6 +25,8 @@ interface PlanPickerProps {
   nullLabel?: string;
   /** Defaults to t('customers.custom_plan_sublabel'). Only used when nullable. */
   nullSublabel?: string;
+  /** Renders a "+" beside the label that opens a form to add a new plan. */
+  onAddNew?: () => void;
 }
 
 /**
@@ -42,6 +44,7 @@ export function PlanPicker({
   nullable = true,
   nullLabel,
   nullSublabel,
+  onAddNew,
 }: PlanPickerProps) {
   const { t } = useTranslation();
   const plans = usePlanSlice((s) => s.items);
@@ -81,6 +84,7 @@ export function PlanPicker({
           ? (nullSublabel ?? t("customers.custom_plan_sublabel"))
           : undefined
       }
+      onAddNew={onAddNew}
     />
   );
 }

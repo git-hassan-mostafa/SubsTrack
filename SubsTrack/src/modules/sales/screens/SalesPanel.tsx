@@ -24,6 +24,7 @@ import { SelectAllBar } from "@/src/shared/components/SelectAllBar";
 import { SelectionOverlaySlot } from "@/src/shared/components/SelectionOverlaySlot";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { MonthSectionHeader } from "@/src/shared/components/MonthSectionHeader";
+import { FilterToggleButton } from "@/src/shared/components/FilterToggleButton";
 import { groupByMonth } from "@/src/shared/lib/monthSections";
 import {
   useSelection,
@@ -37,6 +38,9 @@ import { DatePickerInput } from "@/src/shared/components/DatePickerInput";
 import { CustomerPicker } from "@/src/modules/customers";
 import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
 import type { Sale } from "@/src/core/types";
+import { findCurrency, formatMoney } from "@/src/core/utils/currency";
+import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
+import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
 import { SaleCard } from "../components/SaleCard";
 import { SaleFormSheet } from "../components/SaleFormSheet";
 import { SaleDetailSheet } from "../components/SaleDetailSheet";
@@ -72,9 +76,13 @@ export function SalesPanel() {
 
   const products = useProductSlice((s) => s.items);
   const getProducts = useProductSlice((s) => s.getProducts);
+  const currencies = useCurrencySlice((s) => s.items);
+  const { displayCurrencyId } = useUiPrefStore();
+  const displayCurrency = findCurrency(currencies, displayCurrencyId);
 
   const [searchText, setSearchText] = useState("");
   const debouncedSearch = useDebounce(searchText);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const branchFilter = useEffectiveBranchFilter();
   const [formOpen, setFormOpen] = useState(false);
   const [activeSale, setActiveSale] = useState<Sale | null>(null);
@@ -115,9 +123,16 @@ export function SalesPanel() {
   const hasActiveFilters =
     !!customerFilter || !!productFilter || !!fromDate || !!toDate;
 
-  // Bucket the already-date-desc sales into month sections (This Month / June 2026).
+  // Bucket the already-date-desc sales into month sections (This Month / June 2026),
+  // each carrying the section's total amount collected (USD, via each row's snapshot rate).
   const sections = useMemo(
-    () => groupByMonth(sales, (s) => s.soldAt, t),
+    () =>
+      groupByMonth(
+        sales,
+        (s) => s.soldAt,
+        t,
+        (s) => s.amountPaid / s.ratePerUsdSnapshot,
+      ),
     [sales, t],
   );
 
@@ -184,69 +199,80 @@ export function SalesPanel() {
           }
         >
           <View className="px-4 gap-y-2">
-            <SearchTextBox
-              searchText={searchText}
-              setSearchText={setSearchText}
-              placeholder={t("sales.search_placeholder")}
-            />
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-              className="-mx-4"
-              contentContainerStyle={{
-                paddingHorizontal: 16,
-                gap: 8,
-                alignItems: "center",
-              }}
-            >
-              <CustomerPicker
-                placeholder={t("sales.filter_by_customer")}
-                value={customerFilter}
-                onChange={setCustomerFilter}
-                nullable
-                nullLabel={t("sales.all_customers")}
-                triggerStyle="chip"
+            <View className="flex-row items-center gap-x-2">
+              <View className="flex-1">
+                <SearchTextBox
+                  searchText={searchText}
+                  setSearchText={setSearchText}
+                  placeholder={t("sales.search_placeholder")}
+                />
+              </View>
+              <FilterToggleButton
+                active={filtersOpen}
+                hasActiveFilters={hasActiveFilters}
+                onPress={() => setFiltersOpen((v) => !v)}
               />
-              <Dropdown<string>
-                placeholder={t("sales.filter_by_product")}
-                options={productOptions}
-                value={productFilter?.id ?? null}
-                onChange={(id) =>
-                  setProductFilter(products.find((p) => p.id === id) ?? null)
-                }
-                nullable
-                nullLabel={t("sales.all_products")}
-                triggerStyle="chip"
-              />
-              <DatePickerInput
-                placeholder={t("sales.date_from")}
-                value={fromDate ?? ""}
-                onChange={(v) => setDateRange(v || null, toDate)}
-                maxDate={toDate ?? undefined}
-                triggerStyle="chip"
-                clearable
-              />
-              <DatePickerInput
-                placeholder={t("sales.date_to")}
-                value={toDate ?? ""}
-                onChange={(v) => setDateRange(fromDate, v || null)}
-                minDate={fromDate ?? undefined}
-                triggerStyle="chip"
-                clearable
-              />
-              {hasActiveFilters ? (
-                <PressableOpacity
-                  onPress={clearFilters}
-                  className="flex-row items-center gap-x-1 rounded-full px-3 py-1.5"
-                >
-                  <Ionicons name="close" size={14} color={COLORS.gray500} />
-                  <Text className="text-sm font-medium text-gray-500">
-                    {t("common.clear_filters")}
-                  </Text>
-                </PressableOpacity>
-              ) : null}
-            </ScrollView>
+            </View>
+            {filtersOpen ? (
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
+                className="-mx-4"
+                contentContainerStyle={{
+                  paddingHorizontal: 16,
+                  gap: 8,
+                  alignItems: "center",
+                }}
+              >
+                <CustomerPicker
+                  placeholder={t("sales.filter_by_customer")}
+                  value={customerFilter}
+                  onChange={setCustomerFilter}
+                  nullable
+                  nullLabel={t("sales.all_customers")}
+                  triggerStyle="chip"
+                />
+                <Dropdown<string>
+                  placeholder={t("sales.filter_by_product")}
+                  options={productOptions}
+                  value={productFilter?.id ?? null}
+                  onChange={(id) =>
+                    setProductFilter(products.find((p) => p.id === id) ?? null)
+                  }
+                  nullable
+                  nullLabel={t("sales.all_products")}
+                  triggerStyle="chip"
+                />
+                <DatePickerInput
+                  placeholder={t("sales.date_from")}
+                  value={fromDate ?? ""}
+                  onChange={(v) => setDateRange(v || null, toDate)}
+                  maxDate={toDate ?? undefined}
+                  triggerStyle="chip"
+                  clearable
+                />
+                <DatePickerInput
+                  placeholder={t("sales.date_to")}
+                  value={toDate ?? ""}
+                  onChange={(v) => setDateRange(fromDate, v || null)}
+                  minDate={fromDate ?? undefined}
+                  triggerStyle="chip"
+                  clearable
+                />
+                {hasActiveFilters ? (
+                  <PressableOpacity
+                    onPress={clearFilters}
+                    className="flex-row items-center gap-x-1 rounded-full px-3 py-1.5"
+                  >
+                    <Ionicons name="close" size={14} color={COLORS.gray500} />
+                    <Text className="text-sm font-medium text-gray-500">
+                      {t("common.clear_filters")}
+                    </Text>
+                  </PressableOpacity>
+                ) : null}
+              </ScrollView>
+            ) : null}
           </View>
         </SelectionOverlaySlot>
 
@@ -298,7 +324,11 @@ export function SalesPanel() {
             }}
             onEndReachedThreshold={0.3}
             renderSectionHeader={({ section }) => (
-              <MonthSectionHeader title={section.title} />
+              <MonthSectionHeader
+                title={section.title}
+                count={section.data.length}
+                total={formatMoney(section.totalUsd ?? 0, null, displayCurrency)}
+              />
             )}
             ListFooterComponent={
               loadingMore ? (

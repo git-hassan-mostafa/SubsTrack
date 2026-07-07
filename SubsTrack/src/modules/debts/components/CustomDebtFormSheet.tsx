@@ -10,7 +10,7 @@ import { Button } from "@/src/shared/components/Button";
 import { Input } from "@/src/shared/components/Input";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { CurrencyInput } from "@/src/shared/components/CurrencyInput";
-import { CustomerPicker } from "@/src/modules/customers";
+import { CustomerPicker, CustomerFormSheet } from "@/src/modules/customers";
 import type { Customer } from "@/src/core/types";
 import { useAuth } from "@/src/modules/auth";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
@@ -36,6 +36,7 @@ export function CustomDebtFormSheet({ initialCustomer, onDismiss, onCreated }: P
   const [amount, setAmount] = useState<number | null>(null);
   const [currencyId, setCurrencyId] = useState<string | null>(null);
   const [description, setDescription] = useState("");
+  const [addCustomerOpen, setAddCustomerOpen] = useState(false);
 
   useEffect(() => {
     clearError();
@@ -101,6 +102,7 @@ export function CustomDebtFormSheet({ initialCustomer, onDismiss, onCreated }: P
                 placeholder={t("debts.pick_customer")}
                 value={customer}
                 onChange={setCustomer}
+                onAddNew={() => setAddCustomerOpen(true)}
               />
             )}
 
@@ -136,6 +138,10 @@ export function CustomDebtFormSheet({ initialCustomer, onDismiss, onCreated }: P
           </KeyboardAwareScrollView>
         </ResponsiveContainer>
       </SafeAreaView>
+
+      {addCustomerOpen && (
+        <CustomerFormSheet onDismiss={() => setAddCustomerOpen(false)} />
+      )}
     </Modal>
   );
 }
