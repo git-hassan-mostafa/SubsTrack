@@ -673,7 +673,8 @@
     "void_reason_label": "Reason",
     "void_reason_placeholder": "Why are you voiding this sale?",
     "bulk_void_title": "Void {{count}} sales",
-    "bulk_void_message": "Void {{count}} selected sale(s)? The records stay in the audit log — voids cannot be undone."
+    "bulk_void_message": "Void {{count}} selected sale(s)? The records stay in the audit log — voids cannot be undone.",
+    "partial_debt_notice": "This sale is not fully paid. The remaining balance appears in the Debts tab."
   },
   "transactions": {
     "title": "Transactions",

@@ -7,7 +7,7 @@ import { useTranslation } from "react-i18next";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { Input } from "@/src/shared/components/Input";
-import type { Sale } from "@/src/core/types";
+import type { Currency, Sale } from "@/src/core/types";
 import {
   findCurrency,
   formatMoney,
@@ -17,6 +17,19 @@ import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
 import { useLanguageStore } from "@/src/core/i18n/languageStore";
 import { formatDate } from "@/src/core/utils/date";
+
+// Strips the trailing currency symbol/code that formatMoney appends, so a
+// paid/total fraction shows the currency label once instead of twice.
+function stripCurrencyLabel(
+  formatted: string,
+  target: Currency | null,
+): string {
+  if (!target) return formatted.replace(/^\$/, "");
+  const suffix = ` ${target.symbol || target.code}`;
+  return formatted.endsWith(suffix)
+    ? formatted.slice(0, -suffix.length)
+    : formatted;
+}
 
 interface Props {
   sale: Sale | null;
@@ -62,6 +75,11 @@ export function SaleDetailSheet({
   const showEquivalent = (source?.id ?? null) !== (target?.id ?? null);
 
   const voided = sale.voidedAt !== null;
+  const partiallyPaid = !voided && sale.amountPaid < sale.totalAmount;
+  const totalSourceLabel = fmtSource(sale.totalAmount);
+  const heroSourceLabel = partiallyPaid
+    ? `${stripCurrencyLabel(fmtSource(sale.amountPaid), source)}/${totalSourceLabel}`
+    : totalSourceLabel;
   const receiptId = sale.id.slice(-6).toUpperCase();
   const productLabel =
     sale.quantity > 1
@@ -101,7 +119,7 @@ export function SaleDetailSheet({
             bottomOffset={24}
           >
             {/* Hero card */}
-            {voided ? (
+            {voided || partiallyPaid ? (
               <View className="bg-red-50 border border-red-100 rounded-2xl px-4 py-5 items-center mb-4">
                 <View className="w-10 h-10 rounded-full bg-red-400 items-center justify-center mb-3">
                   <Text fontWeight="Bold" className="text-white text-lg">
@@ -109,7 +127,7 @@ export function SaleDetailSheet({
                   </Text>
                 </View>
                 <Text fontWeight="Bold" className="text-3xl text-red-500">
-                  {fmtSource(sale.totalAmount)}
+                  {heroSourceLabel}
                 </Text>
                 {showEquivalent ? (
                   <Text className="text-xs text-gray-400 mt-0.5">
@@ -119,11 +137,13 @@ export function SaleDetailSheet({
                 <Text className="text-sm text-gray-400 mt-1">
                   {productLabel}
                 </Text>
-                <View className="mt-2 bg-red-100 rounded-full px-3 py-1">
-                  <Text className="text-xs text-red-600 font-semibold">
-                    {t("sales.voided")}
-                  </Text>
-                </View>
+                {voided ? (
+                  <View className="mt-2 bg-red-100 rounded-full px-3 py-1">
+                    <Text className="text-xs text-red-600 font-semibold">
+                      {t("sales.voided")}
+                    </Text>
+                  </View>
+                ) : null}
               </View>
             ) : (
               <View className="bg-green-50 border border-green-100 rounded-2xl px-4 py-5 items-center mb-4">
@@ -145,6 +165,15 @@ export function SaleDetailSheet({
                 </Text>
               </View>
             )}
+
+            {/* Partial payment notice */}
+            {partiallyPaid ? (
+              <View className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 mb-4">
+                <Text className="text-sm text-amber-700">
+                  {t("sales.partial_debt_notice")}
+                </Text>
+              </View>
+            ) : null}
 
             {/* Detail rows card */}
             <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden mb-4">

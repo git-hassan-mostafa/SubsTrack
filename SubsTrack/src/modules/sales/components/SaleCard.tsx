@@ -2,7 +2,7 @@ import { View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
 import { COLORS } from "@/src/shared/constants";
-import type { Sale } from "@/src/core/types";
+import type { Currency, Sale } from "@/src/core/types";
 import {
   findCurrency,
   formatMoney,
@@ -13,6 +13,19 @@ import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
 import { useLanguageStore } from "@/src/core/i18n/languageStore";
 import { formatDate } from "@/src/core/utils/date";
 import { EntityCard } from "@/src/shared/components/EntityCard";
+
+// Strips the trailing currency symbol/code that formatMoney appends, so a
+// paid/total fraction shows the currency label once instead of twice.
+function stripCurrencyLabel(
+  formatted: string,
+  target: Currency | null,
+): string {
+  if (!target) return formatted.replace(/^\$/, "");
+  const suffix = ` ${target.symbol || target.code}`;
+  return formatted.endsWith(suffix)
+    ? formatted.slice(0, -suffix.length)
+    : formatted;
+}
 
 interface Props {
   sale: Sale;
@@ -42,7 +55,11 @@ export function SaleCard({
   // The Sale shape matches that contract.
   const source = paymentSnapshotCurrency(sale, currencies);
   const target = findCurrency(currencies, displayCurrencyId);
-  const totalLabel = formatMoney(sale.totalAmount, source, target);
+  const fullyPaid = sale.amountPaid >= sale.totalAmount;
+  const totalFormatted = formatMoney(sale.totalAmount, source, target);
+  const totalLabel = fullyPaid
+    ? totalFormatted
+    : `${stripCurrencyLabel(formatMoney(sale.amountPaid, source, target), target)}/${totalFormatted}`;
 
   return (
     <EntityCard
@@ -73,7 +90,10 @@ export function SaleCard({
       </View>
 
       <View className="items-end ms-2">
-        <Text fontWeight="Bold" className="text-base text-gray-900">
+        <Text
+          fontWeight="Bold"
+          className={`text-sm ${fullyPaid ? "text-gray-900" : "text-red-600"}`}
+        >
           {totalLabel}
         </Text>
       </View>
