@@ -10,7 +10,7 @@ export interface TenantScopeResult {
 }
 
 /** Any local change not yet pushed: a `_dirty` row in any tenant table, or a logged hard delete. */
-async function hasUnsyncedWrites(db: SQLiteDatabase): Promise<boolean> {
+export async function hasUnsyncedWrites(db: SQLiteDatabase): Promise<boolean> {
   const del = await db.getFirstAsync<{ n: number }>('SELECT COUNT(*) AS n FROM pending_deletes');
   if ((del?.n ?? 0) > 0) return true;
   for (const t of TABLES) {

@@ -15,3 +15,18 @@ export class RequiresConnectionError extends Error {
     this.name = 'RequiresConnectionError';
   }
 }
+
+/**
+ * Thrown at login when a DIFFERENT tenant signs in while the current tenant still
+ * has un-pushed local writes. We can't safely wipe (money data would be lost) and
+ * can't push the old tenant's rows under the new session (RLS), so we refuse the
+ * switch and tell the user to sign back into the previous workspace and sync first.
+ */
+export class WorkspaceSwitchBlockedError extends Error {
+  readonly code = 'WORKSPACE_SWITCH_BLOCKED';
+
+  constructor(message?: string) {
+    super(message ?? i18n.t('errors.workspace_switch_blocked'));
+    this.name = 'WorkspaceSwitchBlockedError';
+  }
+}

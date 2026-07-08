@@ -488,7 +488,12 @@
     "developer_import_unknown_table": "جدول غير معروف \"{{table}}\" في النص.",
     "developer_import_confirm_title": "استبدال قاعدة البيانات المحلية؟",
     "developer_import_confirm_message": "سيتم حذف كل البيانات المحلية الحالية بشكل نهائي واستبدالها بالنص الملصق. لا يمكن التراجع عن هذا الإجراء.",
-    "developer_import_confirm_action": "استبدال"
+    "developer_import_confirm_action": "استبدال",
+    "developer_resync": "إعادة سحب كامل",
+    "developer_resync_running": "جارٍ إعادة سحب كل البيانات…",
+    "developer_resync_done": "اكتملت إعادة السحب",
+    "developer_resync_offline": "لا يوجد اتصال",
+    "developer_resync_failed": "فشلت إعادة السحب"
   },
   "tenant_inactive": {
     "title": "المنظمة موقوفة",
@@ -506,6 +511,7 @@
     "unexpected": "حدث خطأ غير متوقع",
     "connection_error": "خطأ في الاتصال. حاول مجدداً.",
     "requires_connection": "هذا الإجراء يتطلب اتصالاً بالإنترنت. يرجى إعادة الاتصال والمحاولة مرة أخرى.",
+    "workspace_switch_blocked": "لديك تغييرات غير متزامنة من مساحة العمل السابقة. يرجى تسجيل الدخول إليها ومزامنتها قبل التبديل إلى مساحة عمل أخرى.",
     "username_required": "اسم المستخدم مطلوب",
     "tenant_code_required": "كود المساحة مطلوب",
     "password_required": "كلمة المرور مطلوبة",

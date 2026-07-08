@@ -4,9 +4,9 @@ import type { DbBranch, DbTenant, DbTierPlan, DbUser } from '@/src/core/types/db
 import { OfflineBaseRepository } from '@/src/core/offline/OfflineBaseRepository';
 import { upsertFromServer } from '@/src/core/offline/db/dml';
 import { isOnline } from '@/src/core/offline/net/connectivity';
-import { RequiresConnectionError } from '@/src/core/offline/errors';
-import { ensureTenantScope } from '@/src/core/offline/bootstrap/tenant';
-import { runSync } from '@/src/core/offline/sync';
+import { RequiresConnectionError, WorkspaceSwitchBlockedError } from '@/src/core/offline/errors';
+import { ensureTenantScope, hasUnsyncedWrites } from '@/src/core/offline/bootstrap/tenant';
+import { runSync, flushPendingWrites } from '@/src/core/offline/sync';
 import type { IAuthRepository } from './IAuthRepository';
 import { AuthRepository } from './AuthRepository';
 
@@ -26,6 +26,16 @@ export class OfflineAuthRepository extends OfflineBaseRepository implements IAut
   }
 
   async signOut(): Promise<void> {
+    // Best-effort: flush any un-pushed local writes while THIS session is still
+    // valid. After sign-out the session is gone, and a later different-tenant
+    // login can't push these rows (RLS) — so this is the one chance to force the
+    // "sync then switch". Only when something is actually pending (keeps a normal
+    // logout instant), and never let a sync failure block logout.
+    try {
+      if (await hasUnsyncedWrites(this.db)) await flushPendingWrites();
+    } catch {
+      /* ignore — logout must still proceed even if the flush fails */
+    }
     return this.online.signOut();
   }
 
@@ -40,12 +50,21 @@ export class OfflineAuthRepository extends OfflineBaseRepository implements IAut
       if (!profile) return profile;
       // Scope the local DB to this tenant (wipe on a different-tenant login),
       // BEFORE caching the fresh profile.
+      const scope = await ensureTenantScope(profile.tenant_id);
+      // A different tenant is logging in while the previous one still has un-pushed
+      // writes. We refuse rather than wipe (would lose money) or mix two tenants in
+      // one mirror. Thrown before caching anything so nothing is half-applied; the
+      // caller signs the new session back out.
+      if (scope.blockedByPending) throw new WorkspaceSwitchBlockedError();
+      // Empty AFTER scoping — so a tenant switch (which just wiped) counts as empty
+      // and blocks on the full pull below, instead of dropping the user into blank
+      // screens while a background pull runs.
       const wasEmpty = (await this.count('SELECT COUNT(*) AS n FROM customers')) === 0;
-      await ensureTenantScope(profile.tenant_id);
       await upsertFromServer(this.db, 'users', profile);
       const branch = (profile as { branches?: DbBranch | null }).branches;
       if (branch) await upsertFromServer(this.db, 'branches', branch);
-      // First login on this device → block on the initial pull; otherwise refresh in background.
+      // Empty mirror (first login or just-wiped switch) → block on the initial pull;
+      // otherwise refresh in the background.
       if (wasEmpty) await runSync();
       else void runSync();
       return profile;

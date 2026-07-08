@@ -15,7 +15,7 @@ import { DbTableViewer } from "@/src/shared/components/DbTableViewer";
 import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
 import { COLORS } from "@/src/shared/constants";
 import { confirm } from "@/src/shared/lib/confirm";
-import { IS_OFFLINE_CAPABLE, TABLES } from "@/src/core/offline";
+import { IS_OFFLINE_CAPABLE, TABLES, resyncFromScratch } from "@/src/core/offline";
 import { getDb } from "@/src/core/offline/db/sqlite";
 
 // Local-only bookkeeping tables that live outside the TABLES descriptor
@@ -33,19 +33,13 @@ export function DeveloperScreen() {
   const [importText, setImportText] = useState("");
   const [importError, setImportError] = useState<string | null>(null);
   const [importBusy, setImportBusy] = useState(false);
+  const [resyncBusy, setResyncBusy] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
 
   useEffect(() => {
     if (!IS_OFFLINE_CAPABLE) return;
-    (async () => {
-      const db = getDb();
-      const next: Record<string, number> = {};
-      for (const name of ALL_TABLE_NAMES) {
-        const row = await db.getFirstAsync<{ n: number }>(`SELECT COUNT(*) AS n FROM ${name}`);
-        next[name] = row?.n ?? 0;
-      }
-      setCounts(next);
-    })();
+    void refreshCounts();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Deep-linking could theoretically reach this route on web; there is
@@ -74,6 +68,37 @@ export function DeveloperScreen() {
     }
     await Clipboard.setStringAsync(JSON.stringify(dump));
     flashMessage(t("settings.developer_export_done"));
+  }
+
+  async function refreshCounts() {
+    const db = getDb();
+    const next: Record<string, number> = {};
+    for (const name of ALL_TABLE_NAMES) {
+      const row = await db.getFirstAsync<{ n: number }>(`SELECT COUNT(*) AS n FROM ${name}`);
+      next[name] = row?.n ?? 0;
+    }
+    setCounts(next);
+  }
+
+  // Forget the pull cursor and re-pull the whole tenant. Repairs a mirror whose
+  // incremental pull skipped rows; non-destructive (un-pushed local writes go up
+  // first and still win the merge).
+  async function handleResync() {
+    setResyncBusy(true);
+    flashMessage(t("settings.developer_resync_running"));
+    try {
+      const { ok, offline } = await resyncFromScratch();
+      await refreshCounts();
+      flashMessage(
+        offline
+          ? t("settings.developer_resync_offline")
+          : ok
+          ? t("settings.developer_resync_done")
+          : t("settings.developer_resync_failed"),
+      );
+    } finally {
+      setResyncBusy(false);
+    }
   }
 
   async function handleImportConfirm() {
@@ -132,12 +157,7 @@ export function DeveloperScreen() {
       setImportOpen(false);
       setImportText("");
       setSelectedTable(null);
-      const next: Record<string, number> = {};
-      for (const name of ALL_TABLE_NAMES) {
-        const row = await db.getFirstAsync<{ n: number }>(`SELECT COUNT(*) AS n FROM ${name}`);
-        next[name] = row?.n ?? 0;
-      }
-      setCounts(next);
+      await refreshCounts();
       flashMessage(t("settings.developer_import_done"));
     } catch (e) {
       setImportError(e instanceof Error ? e.message : String(e));
@@ -180,6 +200,17 @@ export function DeveloperScreen() {
                 variant="ghost"
               />
             </View>
+          </View>
+
+          <View className="mx-4 mb-3">
+            <Button
+              label={t("settings.developer_resync")}
+              onPress={() => void handleResync()}
+              loading={resyncBusy}
+              disabled={resyncBusy}
+              variant="ghost"
+              fullWidth
+            />
           </View>
 
           <View className="mx-4 mb-8">

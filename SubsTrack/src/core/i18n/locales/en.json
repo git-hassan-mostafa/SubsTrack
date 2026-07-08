@@ -488,7 +488,12 @@
     "developer_import_unknown_table": "Unknown table \"{{table}}\" in the JSON.",
     "developer_import_confirm_title": "Overwrite local database?",
     "developer_import_confirm_message": "All current local data will be permanently deleted and replaced with the pasted JSON. This cannot be undone.",
-    "developer_import_confirm_action": "Overwrite"
+    "developer_import_confirm_action": "Overwrite",
+    "developer_resync": "Full re-pull",
+    "developer_resync_running": "Re-pulling all data…",
+    "developer_resync_done": "Re-pull complete",
+    "developer_resync_offline": "No connection",
+    "developer_resync_failed": "Re-pull failed"
   },
   "tenant_inactive": {
     "title": "Organization Deactivated",
@@ -506,6 +511,7 @@
     "unexpected": "An unexpected error occurred",
     "connection_error": "Connection error. Please try again.",
     "requires_connection": "This action requires an internet connection. Please reconnect and try again.",
+    "workspace_switch_blocked": "You have unsynced changes from your previous workspace. Please sign back into it and sync before switching workspaces.",
     "username_required": "Username is required",
     "tenant_code_required": "Tenant code is required",
     "password_required": "Password is required",

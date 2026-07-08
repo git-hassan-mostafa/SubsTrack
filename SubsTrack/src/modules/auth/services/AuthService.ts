@@ -2,6 +2,8 @@ import i18n from "@/src/core/i18n";
 import repository from "../repository/AuthRepository";
 import { mapDbUserToAuthUser } from "../utils/mapper";
 import { AuthUser } from "@/src/core/types";
+import type { DbUser } from "@/src/core/types/db";
+import { WorkspaceSwitchBlockedError } from "@/src/core/offline/errors";
 
 interface AuthResult {
   user: AuthUser;
@@ -36,7 +38,18 @@ class AuthService {
       throw new Error(i18n.t("errors.connection_error"));
     }
 
-    const profile = await repository.getUserProfile(session.user.id);
+    let profile: DbUser | null;
+    try {
+      profile = await repository.getUserProfile(session.user.id);
+    } catch (e) {
+      // Blocked tenant switch (unsynced writes on the previous tenant): undo the
+      // half-completed sign-in so we don't leave a dangling session, then surface
+      // the localized message.
+      if (e instanceof WorkspaceSwitchBlockedError) {
+        await repository.signOut().catch(() => { });
+      }
+      throw e;
+    }
     if (!profile) {
       await repository.signOut().catch(() => { });
       throw new Error("account_not_configured");
@@ -60,7 +73,18 @@ class AuthService {
     const session = await repository.getSession();
     if (!session) return null;
 
-    const profile = await repository.getUserProfile(session.user.id);
+    let profile: DbUser | null;
+    try {
+      profile = await repository.getUserProfile(session.user.id);
+    } catch (e) {
+      // Defensive: a blocked switch shouldn't happen on the same persisted
+      // session, but if it does, drop the session and fall back to the login screen.
+      if (e instanceof WorkspaceSwitchBlockedError) {
+        await repository.signOut().catch(() => { });
+        return null;
+      }
+      throw e;
+    }
     if (!profile) {
       await repository.signOut().catch(() => { });
       return null;
