@@ -321,6 +321,7 @@
     "per_n_months": "/ {{count}} أشهر",
     "full_payment": "دفع كامل",
     "partial_payment": "دفع جزئي",
+    "debt_payment": "دين (غير مدفوع)",
     "enter_amount_to_enable_partial": "أدخل المبلغ أعلاه لتفعيل الدفع الجزئي.",
     "amount_due_label": "المبلغ المستحق",
     "amount_paid_label": "المبلغ المدفوع",

@@ -30,9 +30,9 @@ export interface AmountRow {
   ratePerUsdSnapshot: number;
 }
 
-// AmountRow tagged with the payment's billing month — for the revenue trend.
+// AmountRow tagged with the payment's recorded date — for the revenue trend.
 export interface MonthlyAmountRow extends AmountRow {
-  billingMonth: string; // 'YYYY-MM-01'
+  paidAt: string; // ISO timestamp
 }
 
 export interface IPaymentRepository {
@@ -53,11 +53,12 @@ export interface IPaymentRepository {
     monthEndExclusiveIso: string,
     branchFilter?: BranchFilter,
   ): Promise<AmountRow[]>;
-  // Paid amounts per payment across a billing-month range (inclusive), each tagged
-  // with its billing month — the dashboard buckets these into the revenue trend.
+  // Paid amounts per payment across a paid_at range (end exclusive), each tagged
+  // with its recorded date — the dashboard buckets these into the revenue trend.
+  // Scoped by paid_at so the trend's current-month bar matches paidAmountsForMonth.
   paidAmountsInRange(
-    startMonth: string,
-    endMonthInclusive: string,
+    rangeStartIso: string,
+    rangeEndExclusiveIso: string,
     branchFilter?: BranchFilter,
   ): Promise<MonthlyAmountRow[]>;
   balancesForMonth(billingMonth: string, branchFilter?: BranchFilter): Promise<AmountRow[]>;

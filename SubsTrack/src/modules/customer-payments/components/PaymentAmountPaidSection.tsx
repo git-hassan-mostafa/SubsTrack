@@ -6,8 +6,8 @@ import { CurrencyInput } from "@/src/shared/components/CurrencyInput";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 
 interface Props {
-  paymentMode: "full" | "partial";
-  onPaymentModeChange: (mode: "full" | "partial") => void;
+  paymentMode: "full" | "partial" | "debt";
+  onPaymentModeChange: (mode: "full" | "partial" | "debt") => void;
   amountPaid: number | null;
   onAmountPaidChange: (amount: number | null) => void;
   // Currency the Amount Paid input is locked to (same unit as Amount Due).
@@ -39,7 +39,7 @@ export function PaymentAmountPaidSection({
   return (
     <View className="mb-4">
       <View className="flex-row gap-6">
-        {(["full", "partial"] as const).map((mode) => {
+        {(["full", "partial", "debt"] as const).map((mode) => {
           const isSelected = paymentMode === mode;
           const isDisabled = mode === "partial" && partialDisabled;
           return (
@@ -62,7 +62,9 @@ export function PaymentAmountPaidSection({
               <Text className="text-sm text-gray-700">
                 {mode === "full"
                   ? t("payments.full_payment")
-                  : t("payments.partial_payment")}
+                  : mode === "partial"
+                    ? t("payments.partial_payment")
+                    : t("payments.debt_payment")}
               </Text>
             </PressableOpacity>
           );

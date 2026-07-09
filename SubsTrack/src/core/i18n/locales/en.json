@@ -321,6 +321,7 @@
     "per_n_months": "/ {{count}} months",
     "full_payment": "Full payment",
     "partial_payment": "Partial payment",
+    "debt_payment": "Debt (unpaid)",
     "enter_amount_to_enable_partial": "Enter an amount above to enable partial payment.",
     "amount_due_label": "Amount Due",
     "amount_paid_label": "Amount Paid",

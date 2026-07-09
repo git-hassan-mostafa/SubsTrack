@@ -43,7 +43,7 @@ type FormState = {
   customAmount: number | null;
   isOverrideEnabled: boolean;
   amountMode: "plan" | "custom";
-  paymentMode: "full" | "partial";
+  paymentMode: "full" | "partial" | "debt";
   amountPaid: number | null;
   customCurrencyId: string | null;
   notes: string;
@@ -138,7 +138,8 @@ export function PaymentFormSheet({
   // Resolved amount_due + currency_id come from the "amount" section above:
   // plan price (multi-month / fixed not overridden / override→plan), or the
   // custom CurrencyInput value otherwise. The bottom section then controls
-  // amount_paid: full = amountDue, partial = whatever the user typed.
+  // amount_paid: full = amountDue, partial = whatever the user typed,
+  // debt = 0 (nothing collected, the whole amount becomes a debt).
   const isOnCustomPath =
     !isMultiMonth &&
     (isCustomOrNoPlan ||
@@ -152,7 +153,11 @@ export function PaymentFormSheet({
     : plan!.currencyId;
 
   const resolvedPaid: number | null =
-    form.paymentMode === "full" ? resolvedDue : form.amountPaid;
+    form.paymentMode === "full"
+      ? resolvedDue
+      : form.paymentMode === "debt"
+        ? 0
+        : form.amountPaid;
 
   const resolvedCurrency = isOnCustomPath ? customCurrency : planCurrency;
   const formatResolved = (amount: number) =>
@@ -502,14 +507,14 @@ export function PaymentFormSheet({
 
             <View className="h-4" />
 
-            {/* Full / Partial selector — last decision before submit. */}
+            {/* Full / Partial / Debt selector — last decision before submit. */}
             <PaymentAmountPaidSection
               paymentMode={form.paymentMode}
               onPaymentModeChange={(mode) =>
                 setForm((prev) => ({
                   ...prev,
                   paymentMode: mode,
-                  amountPaid: mode === "full" ? null : prev.amountPaid,
+                  amountPaid: mode === "partial" ? prev.amountPaid : null,
                 }))
               }
               amountPaid={form.amountPaid}

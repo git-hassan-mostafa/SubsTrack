@@ -43,10 +43,17 @@ export function BulkPaymentFormSheet({
 
   const [amountDue, setAmountDue] = useState<number | null>(null);
   const [currencyId, setCurrencyId] = useState<string | null>(null);
-  const [paymentMode, setPaymentMode] = useState<"full" | "partial">("full");
+  const [paymentMode, setPaymentMode] = useState<"full" | "partial" | "debt">(
+    "full",
+  );
   const [amountPaid, setAmountPaid] = useState<number | null>(null);
 
-  const resolvedPaid = paymentMode === "full" ? amountDue : amountPaid;
+  const resolvedPaid =
+    paymentMode === "full"
+      ? amountDue
+      : paymentMode === "debt"
+        ? 0
+        : amountPaid;
   const currency = findCurrency(currencies, currencyId);
   const formatResolved = (amount: number) =>
     formatMoney(amount, currency, currency);
@@ -136,12 +143,12 @@ export function BulkPaymentFormSheet({
               </View>
             </View>
 
-            {/* Full / Partial selector. */}
+            {/* Full / Partial / Debt selector. */}
             <PaymentAmountPaidSection
               paymentMode={paymentMode}
               onPaymentModeChange={(mode) => {
                 setPaymentMode(mode);
-                if (mode === "full") setAmountPaid(null);
+                if (mode !== "partial") setAmountPaid(null);
               }}
               amountPaid={amountPaid}
               onAmountPaidChange={setAmountPaid}

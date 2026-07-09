@@ -273,22 +273,22 @@ export class PaymentRepository extends BaseRepository implements IPaymentReposit
   }
 
   async paidAmountsInRange(
-    startMonth: string,
-    endMonthInclusive: string,
+    rangeStartIso: string,
+    rangeEndExclusiveIso: string,
     branchFilter: BranchFilter = null,
-  ): Promise<{ billingMonth: string; amount: number; ratePerUsdSnapshot: number }[]> {
+  ): Promise<{ paidAt: string; amount: number; ratePerUsdSnapshot: number }[]> {
     let query = this.db
       .from('payments')
-      .select('billing_month, amount_paid, rate_per_usd_snapshot, customers!inner(branch_id)')
-      .gte('billing_month', startMonth)
-      .lte('billing_month', endMonthInclusive)
+      .select('paid_at, amount_paid, rate_per_usd_snapshot, customers!inner(branch_id)')
+      .gte('paid_at', rangeStartIso)
+      .lt('paid_at', rangeEndExclusiveIso)
       .is('voided_at', null);
     query = this.applyBranchFilter(query, branchFilter, this.BRANCH_SCOPES.payments);
     const { data, error } = await query;
     if (error) this.handleError(error);
     return (data ?? []).map(
-      (r: { billing_month: string; amount_paid: number; rate_per_usd_snapshot: number }) => ({
-        billingMonth: r.billing_month,
+      (r: { paid_at: string; amount_paid: number; rate_per_usd_snapshot: number }) => ({
+        paidAt: r.paid_at,
         amount: Number(r.amount_paid),
         ratePerUsdSnapshot: Number(r.rate_per_usd_snapshot),
       }),

@@ -43,15 +43,7 @@ class DashboardService {
         month: (((absoluteMonth % 12) + 12) % 12) + 1,
       };
     });
-    // Payments key off billing_month, sales off sold_at, so bound each in its own units.
-    const trendStartBilling = toBillingMonth(
-      trendPoints[0].year,
-      trendPoints[0].month,
-    );
-    const trendEndBilling = toBillingMonth(
-      trendPoints[MONTHS_IN_YEAR - 1].year,
-      trendPoints[MONTHS_IN_YEAR - 1].month,
-    );
+    // Payments key off paid_at, sales off sold_at — both are ISO timestamps.
     const trendStartIso = new Date(
       trendPoints[0].year,
       trendPoints[0].month - 1,
@@ -64,11 +56,7 @@ class DashboardService {
     ).toISOString();
 
     const [trendPaidRows, trendSaleRows] = await Promise.all([
-      paymentRepo.paidAmountsInRange(
-        trendStartBilling,
-        trendEndBilling,
-        branchFilter,
-      ),
+      paymentRepo.paidAmountsInRange(trendStartIso, trendEndIso, branchFilter),
       saleRepo.totalsInRange(trendStartIso, trendEndIso, branchFilter),
     ]);
 
@@ -77,7 +65,8 @@ class DashboardService {
     for (const p of trendPoints)
       buckets.set(monthKey(p.year, p.month), { subscription: 0, sales: 0 });
     for (const r of trendPaidRows) {
-      const b = buckets.get(r.billingMonth.slice(0, 7));
+      const d = new Date(r.paidAt);
+      const b = buckets.get(monthKey(d.getFullYear(), d.getMonth() + 1));
       if (b) b.subscription += r.amount / r.ratePerUsdSnapshot;
     }
     for (const r of trendSaleRows) {

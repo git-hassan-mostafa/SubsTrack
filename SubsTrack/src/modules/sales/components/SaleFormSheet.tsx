@@ -56,7 +56,9 @@ export function SaleFormSheet({
   const [quantity, setQuantity] = useState(1);
   const [unitAmount, setUnitAmount] = useState<number | null>(null);
   const [currencyId, setCurrencyId] = useState<string | null>(null);
-  const [paymentMode, setPaymentMode] = useState<"full" | "partial">("full");
+  const [paymentMode, setPaymentMode] = useState<"full" | "partial" | "debt">(
+    "full",
+  );
   const [amountPaid, setAmountPaid] = useState<number | null>(null);
   const [notes, setNotes] = useState("");
   const [addCustomerOpen, setAddCustomerOpen] = useState(false);
@@ -102,7 +104,11 @@ export function SaleFormSheet({
   // Resolve the collected amount: full = the whole total; partial = what was
   // typed. Only a sale with a customer can be partial (a debt needs a debtor).
   const resolvedAmountPaid =
-    paymentMode === "partial" && hasCustomer ? amountPaid ?? 0 : total;
+    hasCustomer && paymentMode === "debt"
+      ? 0
+      : paymentMode === "partial" && hasCustomer
+        ? amountPaid ?? 0
+        : total;
 
   async function handleSubmit() {
     if (!user || !selectedProduct) return;
@@ -250,8 +256,9 @@ export function SaleFormSheet({
               </View>
             ) : null}
 
-            {/* Full vs partial collection. Partial leaves a "Sales" debt on the
-                customer, so it's only offered when a customer is selected. */}
+            {/* Full / partial / debt collection. Partial and debt both leave a
+                "Sales" debt on the customer, so they're only offered when a
+                customer is selected. */}
             {hasCustomer ? (
               <PaymentAmountPaidSection
                 paymentMode={paymentMode}

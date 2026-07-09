@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Modal, View } from "react-native";
+import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
@@ -132,7 +133,12 @@ export function PaymentDetailSheet({
             </PressableOpacity>
           </View>
 
-          <View className="px-6 pt-5">
+          <KeyboardAwareScrollView
+            className="flex-1 px-6 pt-5"
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={{ paddingBottom: 48 }}
+            bottomOffset={24}
+          >
             {/* Success card — green for full payment, amber for partial */}
             {payment?.balance != null && payment.balance > 0 ? (
               <View className="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-5 items-center mb-6">
@@ -287,7 +293,7 @@ export function PaymentDetailSheet({
                 <Text className="text-red-500 font-semibold">{voidLabel}</Text>
               </PressableOpacity>
             ) : null}
-          </View>
+          </KeyboardAwareScrollView>
         </ResponsiveContainer>
       </SafeAreaView>
     </Modal>
