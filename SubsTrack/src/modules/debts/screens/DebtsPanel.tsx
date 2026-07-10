@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  FlatList,
   RefreshControl,
   ScrollView,
   SectionList,
@@ -16,6 +17,7 @@ import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { FAB } from "@/src/shared/components/FAB";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { MonthSectionHeader } from "@/src/shared/components/MonthSectionHeader";
+import { PillTabs, type PillTab } from "@/src/shared/components/PillTabs";
 import { groupByMonth } from "@/src/shared/lib/monthSections";
 import { ActionMenu } from "@/src/shared/components/ActionMenu";
 import {
@@ -32,8 +34,11 @@ import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
 import { useDebtSlice } from "@/src/state/hooks/useDebtSlice";
 import type { DebtViewFilter } from "@/src/state/slices/debts/debtSlice";
 import type { DebtItem, DebtPaymentItem } from "@/src/core/types";
+import { groupDebtors, sumDebtNetUsd } from "../utils/debtAggregations";
 import { DebtItemCard } from "../components/DebtItemCard";
 import { DebtPaymentCard } from "../components/DebtPaymentCard";
+import { DebtorCard } from "../components/DebtorCard";
+import { DebtorDetailSheet } from "../components/DebtorDetailSheet";
 import { CustomDebtFormSheet } from "../components/CustomDebtFormSheet";
 import { DebtPaymentFormSheet } from "../components/DebtPaymentFormSheet";
 
@@ -41,10 +46,14 @@ type Row =
   | { kind: "item"; item: DebtItem }
   | { kind: "payment"; payment: DebtPaymentItem };
 
-// The Debts segment of the Transactions hub: a flat list of every debt item
-// (partial months, partial sales, custom debts) across customers, filterable by
-// category + customer, with a net summary header. The "Payments" chip switches
-// the list to the debt-payment rows. Add via the FAB menu.
+type DebtsSubTab = "debtors" | "debts" | "payments";
+
+// The Debts segment of the Transactions hub, split into three sub-tabs:
+//  • Debtors  — one row per customer who still owes money; tap → detail modal.
+//  • Debts    — the month-grouped debt items (category + customer filters).
+//  • Payments — the month-grouped debt-payment rows.
+// The slice holds the full branch dataset; customer/category filtering and the
+// net summary are all derived here client-side (no re-fetch on filter change).
 export function DebtsPanel() {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -53,7 +62,6 @@ export function DebtsPanel() {
 
   const items = useDebtSlice((s) => s.items);
   const payments = useDebtSlice((s) => s.payments);
-  const summary = useDebtSlice((s) => s.summary);
   const loading = useDebtSlice((s) => s.loading);
   const error = useDebtSlice((s) => s.error);
   const customerFilter = useDebtSlice((s) => s.customerFilter);
@@ -68,6 +76,8 @@ export function DebtsPanel() {
   const clearError = useDebtSlice((s) => s.clearError);
 
   const branchFilter = useEffectiveBranchFilter();
+  const [subTab, setSubTab] = useState<DebtsSubTab>("debtors");
+  const [openDebtorId, setOpenDebtorId] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [customDebtOpen, setCustomDebtOpen] = useState(false);
   const [paymentOpen, setPaymentOpen] = useState(false);
@@ -78,21 +88,48 @@ export function DebtsPanel() {
   }, [branchFilter]);
 
   const target = findCurrency(currencies, displayCurrencyId);
-  const showingPayments = categoryFilter === "payments";
 
+  // Customer scope is client-side now (the slice holds the full branch set).
+  const scopedItems = useMemo(
+    () =>
+      customerFilter
+        ? items.filter((i) => i.customerId === customerFilter.id)
+        : items,
+    [items, customerFilter],
+  );
+  const scopedPayments = useMemo(
+    () =>
+      customerFilter
+        ? payments.filter((p) => p.customerId === customerFilter.id)
+        : payments,
+    [payments, customerFilter],
+  );
+
+  const debtors = useMemo(() => groupDebtors(items, payments), [items, payments]);
+
+  // Net summary: branch-wide on the Debtors tab, customer-scoped elsewhere. The
+  // category chip never affects the header (it only filters the visible rows).
+  const summary = useMemo(
+    () =>
+      subTab === "debtors"
+        ? sumDebtNetUsd(items, payments)
+        : sumDebtNetUsd(scopedItems, scopedPayments),
+    [subTab, items, payments, scopedItems, scopedPayments],
+  );
+
+  // The month-grouped rows for the Debts / Payments tabs.
   const rows: Row[] = useMemo(() => {
-    if (showingPayments)
-      return payments.map((p) => ({ kind: "payment", payment: p }));
+    if (subTab === "payments")
+      return scopedPayments.map((p) => ({ kind: "payment", payment: p }));
     const filtered =
       categoryFilter === "all"
-        ? items
-        : items.filter((i) => i.category === categoryFilter);
+        ? scopedItems
+        : scopedItems.filter((i) => i.category === categoryFilter);
     return filtered.map((i) => ({ kind: "item", item: i }));
-  }, [showingPayments, payments, items, categoryFilter]);
+  }, [subTab, scopedPayments, scopedItems, categoryFilter]);
 
   // Bucket the already-date-desc rows into month sections (This Month / June 2026).
-  // A debt item's date is its source date; a debt payment's is when it was paid.
-  // Each section carries the total of its visible rows (USD, via each row's snapshot rate).
+  // Each section carries the total of its visible rows (USD, via each row's rate).
   const sections = useMemo(
     () =>
       groupByMonth(
@@ -107,15 +144,25 @@ export function DebtsPanel() {
     [rows, t],
   );
 
+  const subTabs: PillTab<DebtsSubTab>[] = [
+    { key: "debtors", label: t("debts.tab_debtors") },
+    { key: "debts", label: t("debts.tab_debts") },
+    { key: "payments", label: t("debts.tab_payments") },
+  ];
+
   const categoryOptions: DropdownOption<DebtViewFilter>[] = [
     { label: t("debts.category_all"), value: "all" },
     { label: t("debts.category_months"), value: "months" },
     { label: t("debts.category_sales"), value: "sales" },
     { label: t("debts.category_custom"), value: "custom" },
-    { label: t("debts.category_payments"), value: "payments" },
   ];
 
-  const hasActiveFilters = !!customerFilter || categoryFilter !== "all";
+  const hasActiveFilters =
+    !!customerFilter || (subTab === "debts" && categoryFilter !== "all");
+  const summaryLabel =
+    subTab !== "debtors" && customerFilter
+      ? customerFilter.name
+      : t("debts.total_outstanding");
   const net = summary.netUsd;
   const isCredit = net < -1e-9;
   const netLabel = formatMoney(Math.abs(net), null, target);
@@ -167,20 +214,42 @@ export function DebtsPanel() {
     if (ok) await voidDebtPayment(p.id, user.id, null);
   }
 
+  // Re-derived from the slice each render so a pay/void in the modal reflects
+  // live. Name falls back to the row data so the title survives after the
+  // customer is fully paid off and drops out of the debtors list.
+  const openDebtor = useMemo(() => {
+    if (!openDebtorId) return null;
+    const di = items.filter((i) => i.customerId === openDebtorId);
+    const dp = payments.filter((p) => p.customerId === openDebtorId);
+    const name =
+      debtors.find((d) => d.customerId === openDebtorId)?.customerName ??
+      di[0]?.customerName ??
+      dp[0]?.customerName ??
+      "";
+    return { items: di, payments: dp, name };
+  }, [openDebtorId, items, payments, debtors]);
+
   return (
     <View className="flex-1">
       <ResponsiveContainer className="flex-1">
+        {/* Sub-tabs */}
+        <View className="px-4 pt-3">
+          <PillTabs<DebtsSubTab>
+            value={subTab}
+            onChange={setSubTab}
+            tabs={subTabs}
+          />
+        </View>
+
         {/* Net summary header */}
-        <View className="px-4">
+        <View className="px-4 pt-3">
           <View className="bg-white border border-gray-100 rounded-2xl px-4 py-3 flex-row items-center justify-between">
             <View className="flex-1 pe-2">
               <Text
                 className="text-xs text-gray-500 uppercase tracking-wide"
                 numberOfLines={1}
               >
-                {customerFilter
-                  ? customerFilter.name
-                  : t("debts.total_outstanding")}
+                {summaryLabel}
               </Text>
               <Text
                 className="text-[11px] text-gray-400 mt-0.5"
@@ -208,46 +277,50 @@ export function DebtsPanel() {
           </View>
         </View>
 
-        {/* Filters */}
-        <View className="px-4 pt-3">
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            className="-mx-4"
-            contentContainerStyle={{
-              paddingHorizontal: 16,
-              gap: 8,
-              alignItems: "center",
-            }}
-          >
-            <Dropdown<DebtViewFilter>
-              options={categoryOptions}
-              value={categoryFilter}
-              onChange={(v) => setCategoryFilter(v ?? "all")}
-              triggerStyle="chip"
-            />
-            <CustomerPicker
-              placeholder={t("debts.filter_by_customer")}
-              value={customerFilter}
-              onChange={setCustomerFilter}
-              nullable
-              nullLabel={t("debts.all_customers")}
-              triggerStyle="chip"
-            />
-            {hasActiveFilters ? (
-              <PressableOpacity
-                onPress={clearFilters}
-                className="flex-row items-center gap-x-1 rounded-full px-3 py-1.5"
-              >
-                <Ionicons name="close" size={14} color={COLORS.gray500} />
-                <Text className="text-sm font-medium text-gray-500">
-                  {t("common.clear_filters")}
-                </Text>
-              </PressableOpacity>
-            ) : null}
-          </ScrollView>
-        </View>
+        {/* Filters — hidden on the Debtors tab; no category chip on Payments. */}
+        {subTab !== "debtors" ? (
+          <View className="px-4 pt-3">
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              className="-mx-4"
+              contentContainerStyle={{
+                paddingHorizontal: 16,
+                gap: 8,
+                alignItems: "center",
+              }}
+            >
+              {subTab === "debts" ? (
+                <Dropdown<DebtViewFilter>
+                  options={categoryOptions}
+                  value={categoryFilter}
+                  onChange={(v) => setCategoryFilter(v ?? "all")}
+                  triggerStyle="chip"
+                />
+              ) : null}
+              <CustomerPicker
+                placeholder={t("debts.filter_by_customer")}
+                value={customerFilter}
+                onChange={setCustomerFilter}
+                nullable
+                nullLabel={t("debts.all_customers")}
+                triggerStyle="chip"
+              />
+              {hasActiveFilters ? (
+                <PressableOpacity
+                  onPress={clearFilters}
+                  className="flex-row items-center gap-x-1 rounded-full px-3 py-1.5"
+                >
+                  <Ionicons name="close" size={14} color={COLORS.gray500} />
+                  <Text className="text-sm font-medium text-gray-500">
+                    {t("common.clear_filters")}
+                  </Text>
+                </PressableOpacity>
+              ) : null}
+            </ScrollView>
+          </View>
+        ) : null}
 
         {error ? (
           <View className="px-4 pt-4">
@@ -255,10 +328,37 @@ export function DebtsPanel() {
           </View>
         ) : null}
 
-        {loading && rows.length === 0 ? (
+        {/* Body */}
+        {loading &&
+        (subTab === "debtors" ? debtors.length === 0 : rows.length === 0) ? (
           <View className="flex-1 items-center justify-center">
             <ActivityIndicator color={COLORS.primary} />
           </View>
+        ) : subTab === "debtors" ? (
+          <FlatList
+            data={debtors}
+            keyExtractor={(d) => d.customerId}
+            contentContainerStyle={{ padding: 16, paddingBottom: 96, flexGrow: 1 }}
+            refreshControl={
+              <RefreshControl
+                refreshing={loading}
+                onRefresh={fetchDebts}
+                tintColor={COLORS.primary}
+              />
+            }
+            renderItem={({ item: d }) => (
+              <DebtorCard
+                debtor={d}
+                onPress={() => setOpenDebtorId(d.customerId)}
+              />
+            )}
+            ListEmptyComponent={
+              <EmptyState
+                message={t("debts.no_debtors")}
+                subMessage={t("debts.no_debtors_hint")}
+              />
+            }
+          />
         ) : (
           <SectionList
             sections={sections}
@@ -304,10 +404,12 @@ export function DebtsPanel() {
             ListEmptyComponent={
               <EmptyState
                 message={
-                  showingPayments ? t("debts.no_payments") : t("debts.no_debts")
+                  subTab === "payments"
+                    ? t("debts.no_payments")
+                    : t("debts.no_debts")
                 }
                 subMessage={
-                  showingPayments
+                  subTab === "payments"
                     ? t("debts.no_payments_hint")
                     : t("debts.no_debts_hint")
                 }
@@ -342,15 +444,27 @@ export function DebtsPanel() {
         ]}
       />
 
+      {openDebtor && (
+        <DebtorDetailSheet
+          customerName={openDebtor.name}
+          items={openDebtor.items}
+          payments={openDebtor.payments}
+          onDismiss={() => setOpenDebtorId(null)}
+          onPay={handlePayItem}
+          onVoidItem={handleVoidItem}
+          onVoidPayment={handleVoidPayment}
+        />
+      )}
+
       {customDebtOpen && (
         <CustomDebtFormSheet
-          initialCustomer={customerFilter}
+          initialCustomer={subTab === "debtors" ? null : customerFilter}
           onDismiss={() => setCustomDebtOpen(false)}
         />
       )}
       {paymentOpen && (
         <DebtPaymentFormSheet
-          initialCustomer={customerFilter}
+          initialCustomer={subTab === "debtors" ? null : customerFilter}
           onDismiss={() => setPaymentOpen(false)}
         />
       )}

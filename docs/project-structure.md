@@ -186,8 +186,9 @@ SubsTrack/
 │   │   ├── debts/                               # Per-customer debt ledger (runtime-computed; Transactions → Debts)
 │   │   │   ├── repository/DebtRepository.ts    # custom_debts + debt_payments CRUD/reads (+ .offline sibling)
 │   │   │   ├── services/DebtService.ts         # composes partial payments + partial sales + custom_debts → DebtItem[] + USD DebtSummary
-│   │   │   ├── screens/DebtsPanel.tsx           # Debts segment of the Transactions hub (flat list + net summary header)
-│   │   │   └── components/{DebtItemCard, DebtPaymentCard, CustomDebtFormSheet, DebtPaymentFormSheet}.tsx
+│   │   │   ├── utils/debtAggregations.ts        # client-side sumDebtNetUsd + groupDebtors (Debtor[]) over already-loaded rows
+│   │   │   ├── screens/DebtsPanel.tsx           # Debts segment of the hub: Debtors / Debts / Payments sub-tabs (PillTabs)
+│   │   │   └── components/{DebtItemCard, DebtPaymentCard, DebtList, DebtorCard, DebtorDetailSheet, CustomerDebtsPanel, CustomDebtFormSheet, DebtPaymentFormSheet}.tsx  # DebtList = shared list body (Debtor modal + customer detail)
 │   │   │
 │   │   ├── options/                             # Read-only global app config (key/value)
 │   │   │   ├── repository/OptionRepository.ts  # findAll + findByKey (authenticated SELECT only)
@@ -208,6 +209,8 @@ SubsTrack/
 │       │   ├── SearchTextBox.tsx, EmptyState.tsx
 │       │   ├── PageHeader.tsx, LoadingScreen.tsx
 │       │   ├── ResponsiveContainer.tsx  # Caps + centers body width on wide web/desktop; no-op on phones
+│       │   ├── SegmentedTabs.tsx    # iOS-style pill segmented control (primary in-page tabs, e.g. the Transactions hub)
+│       │   ├── PillTabs.tsx         # Dark-pill toggle row (secondary tabs/filters: customer-list filters, Debts sub-tabs)
 │       │   ├── ConfirmDialog.tsx, ErrorBoundary.tsx
 │       │   └── DirectionalIcon.tsx  # RTL-aware icon wrapper
 │       ├── hooks/useDebounce.ts

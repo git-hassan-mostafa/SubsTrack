@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, View } from "react-native";
+import { useCallback, useRef, useState } from "react";
+import { View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useFocusEffect } from "expo-router";
 import { Text } from "@/src/shared/components/Text";
-import { COLORS } from "@/src/shared/constants";
 import type {
   Customer,
   DebtItem,
@@ -14,8 +13,7 @@ import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
 import debtService from "../services/DebtService";
-import { DebtItemCard } from "./DebtItemCard";
-import { DebtPaymentCard } from "./DebtPaymentCard";
+import { DebtList } from "./DebtList";
 
 interface Props {
   customer: Customer;
@@ -91,45 +89,7 @@ export function CustomerDebtsPanel({ customer }: Props) {
         ) : null}
       </View>
 
-      {loading && isEmpty ? (
-        <View className="py-6 items-center">
-          <ActivityIndicator color={COLORS.primary} />
-        </View>
-      ) : isEmpty ? (
-        <View className="py-6 items-center">
-          <Text className="text-sm text-gray-400">
-            {t("debts.no_transactions_for_customer")}
-          </Text>
-        </View>
-      ) : (
-        <>
-          {items.length > 0 ? (
-            <>
-              <Text className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1">
-                {t("debts.section_debts")}
-              </Text>
-              {items.map((item) => (
-                <DebtItemCard
-                  key={`${item.category}-${item.id}`}
-                  item={item}
-                  hideCustomerName
-                />
-              ))}
-            </>
-          ) : null}
-
-          {payments.length > 0 ? (
-            <>
-              <Text className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1 mt-2">
-                {t("debts.category_payments")}
-              </Text>
-              {payments.map((p) => (
-                <DebtPaymentCard key={p.id} payment={p} hideCustomerName />
-              ))}
-            </>
-          ) : null}
-        </>
-      )}
+      <DebtList items={items} payments={payments} loading={loading} />
     </View>
   );
 }

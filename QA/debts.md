@@ -1,14 +1,15 @@
 # Debts — QA Scenarios
 
-Covers the per-customer debt ledger (Transactions → **Debts** tab): the runtime-computed net debt, the four debt categories (months / sales / services / custom), adding a custom debt, recording a debt payment, and voiding either. A customer's net debt is **computed at runtime** (`net = Σ category debts − Σ debt payments`) — nothing is stored except `custom_debts` and `debt_payments`.
+Covers the per-customer debt ledger (Transactions → **Debts** tab, split into **Debtors / Debts / Payments** sub-tabs): the runtime-computed net debt, the four debt categories (months / sales / services / custom), the debtors overview + detail modal, adding a custom debt, recording a debt payment, and voiding either. A customer's net debt is **computed at runtime** (`net = Σ category debts − Σ debt payments`) — nothing is stored except `custom_debts` and `debt_payments`.
 
 **Reference code:**
-- Panel: [DebtsPanel.tsx](SubsTrack/src/modules/debts/screens/DebtsPanel.tsx)
-- Cards: [DebtItemCard.tsx](SubsTrack/src/modules/debts/components/DebtItemCard.tsx), [DebtPaymentCard.tsx](SubsTrack/src/modules/debts/components/DebtPaymentCard.tsx)
+- Panel: [DebtsPanel.tsx](SubsTrack/src/modules/debts/screens/DebtsPanel.tsx) (3 sub-tabs via `PillTabs`)
+- Cards: [DebtItemCard.tsx](SubsTrack/src/modules/debts/components/DebtItemCard.tsx), [DebtPaymentCard.tsx](SubsTrack/src/modules/debts/components/DebtPaymentCard.tsx), [DebtorCard.tsx](SubsTrack/src/modules/debts/components/DebtorCard.tsx)
+- Shared list: [DebtList.tsx](SubsTrack/src/modules/debts/components/DebtList.tsx) (Debtor modal + customer-detail panel), Debtor modal: [DebtorDetailSheet.tsx](SubsTrack/src/modules/debts/components/DebtorDetailSheet.tsx)
 - Form sheets: [CustomDebtFormSheet.tsx](SubsTrack/src/modules/debts/components/CustomDebtFormSheet.tsx), [DebtPaymentFormSheet.tsx](SubsTrack/src/modules/debts/components/DebtPaymentFormSheet.tsx)
-- Service: [DebtService.ts](SubsTrack/src/modules/debts/services/DebtService.ts)
+- Service: [DebtService.ts](SubsTrack/src/modules/debts/services/DebtService.ts); client-side aggregation: [debtAggregations.ts](SubsTrack/src/modules/debts/utils/debtAggregations.ts) (`sumDebtNetUsd`, `groupDebtors`)
 - Repository: [DebtRepository.ts](SubsTrack/src/modules/debts/repository/DebtRepository.ts) (+ `.offline`)
-- Slice: [debtSlice.ts](SubsTrack/src/state/slices/debts/debtSlice.ts)
+- Slice: [debtSlice.ts](SubsTrack/src/state/slices/debts/debtSlice.ts) (holds the full branch set; filters + summary are client-side)
 - Partial reads: `PaymentService.getPartialPayments`, `SaleService.getPartialSales`
 - Hub: [TransactionsScreen.tsx](SubsTrack/src/modules/transactions/screens/TransactionsScreen.tsx)
 
@@ -26,21 +27,36 @@ Covers the per-customer debt ledger (Transactions → **Debts** tab): the runtim
 
 ---
 
-## 1. Debts list + summary
+## 1. Sub-tabs, Debts list + summary
+
+The panel opens on the **Debtors** sub-tab. The dark-pill row (`PillTabs`) switches between Debtors / Debts / Payments; it looks different from the hub's pill segmented control above it. The summary header shows on all three tabs; the FAB shows on all three.
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 1.1 | Open Debts tab | Transactions → Debts | List loads; summary header shows total outstanding for the current branch scope |
-| 1.2 | Empty state | Tenant with no debts | "No debts" empty state; FAB visible |
-| 1.3 | Months debt appears | Record a partial subscription payment (paid < due) | A row appears under category **Months** with the remaining balance |
-| 1.4 | Sales debt appears | Record a sale, choose **Partial**, pay less than total | A row appears under **Sales** with `total − paid` remaining |
+| 1.1 | Open Debts tab | Transactions → Debts | Opens on **Debtors**; summary header shows total outstanding for the current branch scope |
+| 1.2 | Empty state | Tenant with no debts | Debtors: "No debtors"; Debts tab: "No debts"; Payments tab: "No debt payments". FAB visible on all |
+| 1.3 | Months debt appears | Record a partial subscription payment (paid < due) → Debts tab | A row appears under category **Months** with the remaining balance |
+| 1.4 | Sales debt appears | Record a sale, choose **Partial**, pay less than total → Debts tab | A row appears under **Sales** with `total − paid` remaining |
 | 1.5 | Full sale = no debt | Record a sale as **Full** | No debt row for that sale |
-| 1.6 | Custom debt appears | Add a custom debt | Row appears under **Custom** with its description + amount |
+| 1.6 | Custom debt appears | Add a custom debt → Debts tab | Row appears under **Custom** with its description + amount |
 | 1.7 | Summary math | Note total; add a custom debt of X | Total outstanding increases by X (converted to display currency) |
-| 1.8 | Category filter | Tap the category chip → Months / Sales / Custom | List shows only that category; summary total is unchanged (scope-wide) |
-| 1.9 | Payments view | Category chip → **Payments** | List switches to debt-payment rows |
-| 1.10 | Customer filter | Pick a customer | List + summary scope to that customer; header shows the customer name + their net |
-| 1.11 | Clear filters | Tap "Clear filters" | Category resets to All, customer cleared, list re-fetches |
+| 1.8 | Category filter | Debts tab → category chip → Months / Sales / Custom (no "Payments" option) | List shows only that category; summary total is unchanged (scope-wide, category-blind) |
+| 1.9 | Payments sub-tab | Tap the **Payments** pill | List shows the debt-payment rows (month-grouped); no category chip, only a Customer filter |
+| 1.10 | Customer filter | Debts or Payments tab → pick a customer | List + summary scope to that customer instantly (no re-fetch/spinner); header shows the customer name + their net |
+| 1.11 | Clear filters | Tap "Clear filters" | Category resets to All, customer cleared; list updates instantly |
+
+---
+
+## 1b. Debtors overview + detail modal
+
+| # | Scenario | Steps | Expected result |
+|---|----------|-------|-----------------|
+| 1b.1 | Debtor list | Open Debtors tab with several partial/custom debts | One row per customer with a positive net, sorted **highest owed first**; each row shows the net in the display currency |
+| 1b.2 | Credit customers excluded | A customer whose debt payments ≥ their debts | That customer does NOT appear in the Debtors list (consistent with the customer-list debt badge) |
+| 1b.3 | Open detail modal | Tap a debtor row | A `pageSheet` modal opens: customer name + net (or **Credit**), their debts above their debt payments |
+| 1b.4 | Modal = customer-detail list | Compare the modal to the same customer's detail-page **Transactions** panel | Same rows (both use the shared `DebtList`) |
+| 1b.5 | Pay from modal | In the modal, a debt row's menu → **Pay** → confirm | A debt payment is recorded; net drops; on returning to the list the debtor reflects the new net (or drops off if settled) |
+| 1b.6 | Void payment from modal | In the modal, tap a debt-payment row → confirm | Payment voided; net rises back |
 
 ---
 
@@ -51,7 +67,7 @@ Covers the per-customer debt ledger (Transactions → **Debts** tab): the runtim
 | 2.1 | Add custom debt | FAB → Add custom debt → pick customer, amount, description → save | Debt appears under Custom; total rises |
 | 2.2 | Custom debt requires customer + amount | Leave customer or amount empty | Submit disabled |
 | 2.3 | Record debt payment | FAB → Record debt payment → pick customer, amount → save | Payment appears under Payments; net debt drops by the amount |
-| 2.4 | Pre-filled customer | With a customer filter active, open either form | Customer is pre-filled (read-only) |
+| 2.4 | Pre-filled customer | On the Debts/Payments tab with a customer filter active, open either form | Customer is pre-filled (read-only). On the Debtors tab (no filter) the picker is empty |
 | 2.5 | Currency snapshot | Record a debt payment in LBP, then edit the tenant LBP rate | The payment's contribution to the net (in USD/display) does NOT change |
 | 2.6 | Underlying row untouched | Partial month (balance 50) → record a 50 debt payment | Net for that customer drops to 0; the month grid still shows the month as "partial" |
 
@@ -62,7 +78,7 @@ Covers the per-customer debt ledger (Transactions → **Debts** tab): the runtim
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
 | 3.1 | Void custom debt | Tap a Custom row → confirm | Row disappears; total drops; row still in DB (voided) |
-| 3.2 | Void debt payment | Payments view → tap a row → confirm | Row disappears; net debt rises back up |
+| 3.2 | Void debt payment | Payments sub-tab → tap a row → confirm | Row disappears; net debt rises back up |
 | 3.3 | Months/sales not voidable here | Tap a Months or Sales row | No void prompt (void the underlying payment/sale in its own tab) |
 | 3.4 | Credit (overpayment) | Record debt payments exceeding total debt | Header shows a green **Credit** amount (net negative), not a debtor total |
 

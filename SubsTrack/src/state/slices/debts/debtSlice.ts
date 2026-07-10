@@ -3,7 +3,6 @@ import type {
   Customer,
   DebtItem,
   DebtPaymentItem,
-  DebtSummary,
 } from '@/src/core/types';
 import {
   debtService,
@@ -13,32 +12,31 @@ import {
 import { resolveBranchFilter } from '@/src/shared/lib/branchFilter';
 import type { GlobalState } from '@/src/state/globalStore';
 
-// The flat-list category chip. 'payments' shows the debt-payment rows instead of
-// the debt items. Purely client-side — it never changes what is fetched.
-export type DebtViewFilter = 'all' | 'months' | 'sales' | 'custom' | 'payments';
-
-const EMPTY_SUMMARY: DebtSummary = { grossUsd: 0, paymentsUsd: 0, netUsd: 0 };
+// The Debts-tab category chip (client-side only — never changes what is fetched).
+// Debt payments live on their own sub-tab now, so 'payments' is no longer a chip.
+export type DebtViewFilter = 'all' | 'months' | 'sales' | 'custom';
 
 export interface DebtSlice {
+  // Full branch dataset — customer + category filtering is done client-side in
+  // the panel, so these hold every debt/payment for the current branch scope.
   items: DebtItem[];
   payments: DebtPaymentItem[];
-  summary: DebtSummary;
   // Net debt in USD per customer (only positive nets), for the current branch
   // scope. Feeds the customer-list debt flag; independent of the panel filters.
   netByCustomer: Record<string, number>;
   loading: boolean;
   error: string | null;
   searchToken: number;
-  // Scope: null = all customers in the current branch view.
+  // Client-side scope: null = all customers in the current branch view.
   customerFilter: Customer | null;
   // Client-side view chip (no re-fetch).
   categoryFilter: DebtViewFilter;
   fetchDebts: () => Promise<void>;
   // Refreshes the customer-list net-debt map for the current branch scope.
   fetchNetByCustomer: () => Promise<void>;
-  setCustomerFilter: (customer: Customer | null) => Promise<void>;
+  setCustomerFilter: (customer: Customer | null) => void;
   setCategoryFilter: (category: DebtViewFilter) => void;
-  clearFilters: () => Promise<void>;
+  clearFilters: () => void;
   addCustomDebt: (input: CreateCustomDebtInput) => Promise<boolean>;
   addDebtPayment: (input: CreateDebtPaymentInput) => Promise<boolean>;
   voidCustomDebt: (id: string, voidedBy: string, reason: string | null) => Promise<void>;
@@ -55,7 +53,6 @@ export const createDebtSlice: StateCreator<
 > = (set, get) => ({
   items: [],
   payments: [],
-  summary: EMPTY_SUMMARY,
   netByCustomer: {},
   loading: false,
   error: null,
@@ -64,23 +61,22 @@ export const createDebtSlice: StateCreator<
   categoryFilter: 'all',
 
   fetchDebts: async () => {
-    const token = get().debts.searchToken;
     const branchFilter = resolveBranchFilter(get().auth.user);
-    const { customerFilter } = get().debts;
+    // Self-bump the token so concurrent fetches (branch change + a mutation
+    // refresh) resolve last-write-wins. Loads the full branch set — the panel
+    // scopes by customer/category client-side.
+    const token = get().debts.searchToken + 1;
     set((state) => {
+      state.debts.searchToken = token;
       state.debts.loading = true;
       state.debts.error = null;
     });
     try {
-      const view = await debtService.getDebtsView({
-        branchFilter,
-        customerId: customerFilter?.id ?? null,
-      });
+      const view = await debtService.getDebtsView({ branchFilter });
       if (get().debts.searchToken !== token) return;
       set((state) => {
         state.debts.items = view.items;
         state.debts.payments = view.payments;
-        state.debts.summary = view.summary;
         state.debts.loading = false;
       });
     } catch (e) {
@@ -105,30 +101,22 @@ export const createDebtSlice: StateCreator<
     }
   },
 
-  setCustomerFilter: async (customer) => {
-    if (get().debts.customerFilter?.id === customer?.id) return;
+  // Client-side scope — no re-fetch (items/payments already hold the full set).
+  setCustomerFilter: (customer) =>
     set((state) => {
       state.debts.customerFilter = customer;
-      state.debts.searchToken += 1;
-    });
-    await get().debts.fetchDebts();
-  },
+    }),
 
   setCategoryFilter: (category) =>
     set((state) => {
       state.debts.categoryFilter = category;
     }),
 
-  clearFilters: async () => {
-    const changed = get().debts.customerFilter !== null || get().debts.categoryFilter !== 'all';
-    if (!changed) return;
+  clearFilters: () =>
     set((state) => {
       state.debts.customerFilter = null;
       state.debts.categoryFilter = 'all';
-      state.debts.searchToken += 1;
-    });
-    await get().debts.fetchDebts();
-  },
+    }),
 
   addCustomDebt: async (input) => {
     set((state) => {
@@ -211,7 +199,6 @@ export const createDebtSlice: StateCreator<
     set((state) => {
       state.debts.items = [];
       state.debts.payments = [];
-      state.debts.summary = EMPTY_SUMMARY;
       state.debts.netByCustomer = {};
       state.debts.loading = false;
       state.debts.error = null;

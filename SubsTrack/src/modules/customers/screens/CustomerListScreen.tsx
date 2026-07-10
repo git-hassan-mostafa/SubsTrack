@@ -5,8 +5,7 @@ import {
   RefreshControl,
   View,
 } from "react-native";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
-import { Text } from "@/src/shared/components/Text";
+import { PillTabs } from "@/src/shared/components/PillTabs";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
@@ -617,24 +616,15 @@ export function CustomerListScreen() {
             </View>
             {/* Filter tabs */}
             {filtersOpen ? (
-              <View className="flex-row gap-2 mt-4">
-                {tabs.map((tab) => (
-                  <PressableOpacity
-                    key={tab.key}
-                    onPress={() => {
-                      setActiveTab(tab.key);
-                      clearSelection();
-                    }}
-                    className={`rounded-full px-3 py-1.5 ${activeTab === tab.key ? "bg-gray-900" : "bg-gray-100"}`}
-                  >
-                    <Text
-                      className={`text-xs font-semibold ${activeTab === tab.key ? "text-white" : "text-gray-600"}`}
-                    >
-                      {tab.label}
-                    </Text>
-                  </PressableOpacity>
-                ))}
-              </View>
+              <PillTabs<FilterTab>
+                value={activeTab}
+                tabs={tabs}
+                className="mt-4"
+                onChange={(key) => {
+                  setActiveTab(key);
+                  clearSelection();
+                }}
+              />
             ) : null}
           </View>
         </SelectionOverlaySlot>
