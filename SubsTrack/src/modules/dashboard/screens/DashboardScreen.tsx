@@ -72,7 +72,7 @@ export function DashboardScreen() {
       ? Math.round((paidCustomers / activeCustomers) * 100)
       : 0;
   const hasSalesRevenue = (metrics?.salesRevenue ?? 0) > 0;
-  const hasOutstandingBalance = (metrics?.totalOutstandingBalance ?? 0) > 0;
+  const hasDebt = (metrics?.totalDebt ?? 0) > 0;
 
   // Month-over-month revenue change (null when there's no prior month to compare).
   const monthlyRevenue = metrics?.monthlyRevenue ?? 0;
@@ -317,13 +317,16 @@ export function DashboardScreen() {
               </View>
             </View>
 
-            {/* Outstanding balance (money owed) — only shown when > 0 */}
-            {hasOutstandingBalance ? (
+            {/* Total debt owed by customers (all-time, not month-scoped) — only shown when > 0 */}
+            {hasDebt ? (
               <View className="flex-row mx-4 mb-3">
                 <StatTile
-                  label={t("payments.outstanding_balance")}
-                  value={fmt(metrics?.totalOutstandingBalance ?? 0)}
-                  sub={t("dashboard.partial_payments_note")}
+                  label={t("dashboard.total_debt")}
+                  value={fmt(metrics?.totalDebt ?? 0)}
+                  sub={t("dashboard.debt_breakdown", {
+                    months: fmt(metrics?.monthsDebt ?? 0),
+                    sales: fmt(metrics?.salesDebt ?? 0),
+                  })}
                   tone="warning"
                   icon="hourglass-outline"
                 />

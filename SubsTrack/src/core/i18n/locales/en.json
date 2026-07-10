@@ -120,7 +120,9 @@
     "left": "left this month",
     "payments_recorded": "Payments",
     "sales_recorded": "Sales",
-    "avg_each": "avg {{amount}} each"
+    "avg_each": "avg {{amount}} each",
+    "total_debt": "Total Debt",
+    "debt_breakdown": "Months {{months}} · Sales {{sales}}"
   },
   "subscriptions": {
     "section_title": "Plans",
@@ -330,7 +332,6 @@
     "balance_cleared": "Fully paid",
     "partial_badge": "PARTIAL",
     "record_payment_action": "Record Payment",
-    "outstanding_balance": "Outstanding",
     "edit_payment": "Edit Payment",
     "amount_paid_exceeds_due": "Amount paid cannot exceed amount due ({{due}})",
     "paid_partial": "{{monthYear}} · partial payment",

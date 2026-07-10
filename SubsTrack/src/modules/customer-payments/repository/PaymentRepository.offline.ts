@@ -263,24 +263,6 @@ export class OfflinePaymentRepository extends OfflineBaseRepository implements I
     }));
   }
 
-  async balancesForMonth(
-    billingMonth: string,
-    branchFilter: BranchFilter = null,
-  ): Promise<AmountRow[]> {
-    const branch = this.branchWhere(branchFilter, this.BRANCH_SCOPES.payments, 'c');
-    const rows = await this.all<{ balance: string; rate_per_usd_snapshot: string }>(
-      `SELECT p.balance, p.rate_per_usd_snapshot
-       FROM payments p JOIN customers c ON p.customer_id = c.id
-       WHERE p.billing_month = ? AND p.voided_at IS NULL AND CAST(p.amount_paid AS REAL) > 0
-         ${branch.clause ? `AND ${branch.clause}` : ''}`,
-      [billingMonth, ...branch.params],
-    );
-    return rows.map((r) => ({
-      amount: Number(r.balance),
-      ratePerUsdSnapshot: Number(r.rate_per_usd_snapshot),
-    }));
-  }
-
   async partialPayments(branchFilter: BranchFilter = null): Promise<DbPayment[]> {
     const branch = this.branchWhere(branchFilter, this.BRANCH_SCOPES.payments, 'c');
     const rows = await this.all(

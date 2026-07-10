@@ -215,7 +215,9 @@ export interface DashboardMetrics {
   unpaidThisMonth: number;
   totalUsers: number;
   totalPlans: number;
-  totalOutstandingBalance: number;
+  totalDebt: number;         // net debt across all customers/categories (all-time, not month-scoped)
+  monthsDebt: number;        // portion of totalDebt from partial subscription payments
+  salesDebt: number;         // portion of totalDebt from partial sales
   // Growth this month
   newCustomersThisMonth: number;
   cancelledThisMonth: number;

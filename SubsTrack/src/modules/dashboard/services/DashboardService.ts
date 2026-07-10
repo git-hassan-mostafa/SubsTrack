@@ -6,13 +6,14 @@ import { paymentRepository as paymentRepo } from "@/src/modules/customer-payment
 import { planRepository as planRepo } from "@/src/modules/plans";
 import { userRepository as userRepo } from "@/src/modules/users";
 import { saleRepository as saleRepo } from "@/src/modules/sales";
+import { debtService } from "@/src/modules/debts";
 
 // The revenue trend spans last 6 months.
 const MONTHS_IN_YEAR = 6;
 
 // Sums payment rows in USD using each row's frozen snapshot rate.
-// monthlyRevenue and totalOutstandingBalance are canonical USD so the screen
-// can re-format into the user's display currency at render.
+// monthlyRevenue and totalDebt are canonical USD so the screen can
+// re-format into the user's display currency at render.
 function sumInUsd(
   rows: { amount: number; ratePerUsdSnapshot: number }[],
 ): number {
@@ -102,7 +103,7 @@ class DashboardService {
       unpaidThisMonth,
       totalUsers,
       totalPlans,
-      balanceRows,
+      debtsView,
       saleRows,
       newCustomersThisMonth,
       cancelledThisMonth,
@@ -114,7 +115,7 @@ class DashboardService {
       customerRepo.countUnpaidForMonth(billingMonth, branchFilter),
       userRepo.countAll(branchFilter),
       planRepo.countAll(branchFilter),
-      paymentRepo.balancesForMonth(billingMonth, branchFilter),
+      debtService.getDebtsView({ branchFilter }),
       saleRepo.totalsForMonth(monthStart, monthEndExclusive, branchFilter),
       customerRepo.countCreatedInRange(
         monthStart,
@@ -132,6 +133,20 @@ class DashboardService {
     const subscriptionRevenue = sumInUsd(paidRows);
     const salesRevenue = sumInUsd(saleRows);
 
+    // Debt breakdown by category, in USD. Debt payments aren't tied to a
+    // category (see DebtService), so the categories are gross remaining
+    // balances while totalDebt below is the net (gross − debt payments).
+    const monthsDebt = sumInUsd(
+      debtsView.items
+        .filter((i) => i.category === "months")
+        .map((i) => ({ amount: i.remaining, ratePerUsdSnapshot: i.ratePerUsdSnapshot })),
+    );
+    const salesDebt = sumInUsd(
+      debtsView.items
+        .filter((i) => i.category === "sales")
+        .map((i) => ({ amount: i.remaining, ratePerUsdSnapshot: i.ratePerUsdSnapshot })),
+    );
+
     // Previous calendar month's total, for the hero card's month-over-month delta.
     // The trend spans the 6 months ending on the current month, so the previous
     // month is always its second-to-last point.
@@ -147,7 +162,9 @@ class DashboardService {
       unpaidThisMonth,
       totalUsers,
       totalPlans,
-      totalOutstandingBalance: sumInUsd(balanceRows),
+      totalDebt: debtsView.summary.netUsd,
+      monthsDebt,
+      salesDebt,
       newCustomersThisMonth,
       cancelledThisMonth,
       // paidRows carries one row per non-voided payment for the month; a 0 amount

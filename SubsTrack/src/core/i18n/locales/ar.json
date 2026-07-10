@@ -120,7 +120,9 @@
     "left": "غادروا هذا الشهر",
     "payments_recorded": "الدفعات",
     "sales_recorded": "المبيعات",
-    "avg_each": "بمتوسط {{amount}} لكل دفعة"
+    "avg_each": "بمتوسط {{amount}} لكل دفعة",
+    "total_debt": "إجمالي الديون",
+    "debt_breakdown": "الشهور {{months}} · المبيعات {{sales}}"
   },
   "subscriptions": {
     "section_title": "الخطط",
@@ -330,7 +332,6 @@
     "balance_cleared": "مدفوع بالكامل",
     "partial_badge": "جزئي",
     "record_payment_action": "تسجيل الدفعة",
-    "outstanding_balance": "متبقٍ",
     "edit_payment": "تعديل الدفعة",
     "amount_paid_exceeds_due": "المبلغ المدفوع لا يمكن أن يتجاوز المبلغ المستحق ({{due}})",
     "paid_partial": "{{monthYear}} · دفعة جزئية",

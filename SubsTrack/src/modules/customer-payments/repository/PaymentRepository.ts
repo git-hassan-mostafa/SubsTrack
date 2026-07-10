@@ -295,25 +295,6 @@ export class PaymentRepository extends BaseRepository implements IPaymentReposit
     );
   }
 
-  async balancesForMonth(
-    billingMonth: string,
-    branchFilter: BranchFilter = null,
-  ): Promise<{ amount: number; ratePerUsdSnapshot: number }[]> {
-    let query = this.db
-      .from('payments')
-      .select('balance, rate_per_usd_snapshot, customers!inner(branch_id)')
-      .eq('billing_month', billingMonth)
-      .is('voided_at', null)
-      .gt('amount_paid', 0);
-    query = this.applyBranchFilter(query, branchFilter, this.BRANCH_SCOPES.payments);
-    const { data, error } = await query;
-    if (error) this.handleError(error);
-    return (data ?? []).map((r: { balance: number; rate_per_usd_snapshot: number }) => ({
-      amount: Number(r.balance),
-      ratePerUsdSnapshot: Number(r.rate_per_usd_snapshot),
-    }));
-  }
-
   async partialPayments(branchFilter: BranchFilter = null): Promise<DbPayment[]> {
     let query = this.db
       .from('payments')

@@ -61,7 +61,6 @@ export interface IPaymentRepository {
     rangeEndExclusiveIso: string,
     branchFilter?: BranchFilter,
   ): Promise<MonthlyAmountRow[]>;
-  balancesForMonth(billingMonth: string, branchFilter?: BranchFilter): Promise<AmountRow[]>;
   // Non-voided payments with an outstanding balance (partial payments), across
   // all months — the "Months" debt category. Joined with customer + plan name.
   partialPayments(branchFilter?: BranchFilter): Promise<DbPayment[]>;

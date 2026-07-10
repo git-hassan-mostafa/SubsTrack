@@ -194,17 +194,21 @@ The Admin tab landing screen has its own compact summary that shares the dashboa
 | 12.6 | Sales count excludes voided | Void one sale | Count drops by 1 |
 | 12.7 | Branch-scoped | Pick a branch | Both counts + avg scope to that branch |
 
-## 13. Outstanding balance tile
+## 13. Total debt tile
 
-Only rendered when `totalOutstandingBalance > 0` (sum of current-month partial-payment `balance`, USD-converted).
+Only rendered when `totalDebt > 0` — the net debt across **all** customers and categories (months + sales + custom, minus debt payments), all-time, not scoped to the current month. Same underlying figure as the Debts tab total (`DebtService.getDebtsView`). Sub-line breaks out the gross (pre-debt-payment) amount from partial months and partial sales.
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 13.1 | Hidden when zero | No partial payments this month | Tile NOT rendered |
-| 13.2 | Shown with balance | Customer paid 50/100 this month | Tile shows the owed balance (warning color), sub "from partial payments" |
+| 13.1 | Hidden when zero | No debt in any category, any month | Tile NOT rendered |
+| 13.2 | Shown with balance | Customer paid 50/100 this month | Tile shows the total owed (warning color), sub "Months $X · Sales $Y" |
 | 13.3 | Snapshot immunity | Partial payment in LBP; admin edits LBP rate | Balance keeps original USD equivalent |
 | 13.4 | Display currency | Switch display currency | Tile reformats |
 | 13.5 | Full-width | Any state where shown | Tile spans the row (single StatTile in a flex-row) |
+| 13.6 | Not month-scoped | Partial payment from a prior month, none this month | Tile still shows that older debt |
+| 13.7 | Sales debt included | Record a partially-paid sale | Sub's "Sales" figure increases; tile total increases |
+| 13.8 | Debt payment reduces total | Record a debt payment for a debtor | Tile total (net) drops; the months/sales sub breakdown (gross) is unchanged |
+| 13.9 | Custom debt included in total | Add a custom debt | Tile total increases even though it isn't shown in the months/sales breakdown |
 
 ## 14. Offline parity (native)
 

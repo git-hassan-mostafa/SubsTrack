@@ -532,7 +532,7 @@ Load on screen focus. All metrics scoped to current tenant.
 | Subscription revenue | SUM of non-voided payment `amount_paid` for current billing month (USD-converted) |
 | Sales revenue | SUM of non-voided sale `total_amount` for current calendar month (USD-converted) |
 | Unpaid this month | COUNT active regular customers with no non-voided payment for current billing month |
-| Outstanding balance | SUM of non-voided partial-payment `balance` for current billing month (USD-converted) |
+| Total debt | Net debt across all customers/categories, all-time (Σ partial-payment balances + Σ partial-sale balances + Σ custom debts − Σ debt payments, USD-converted); same figure as the Debts tab total. Sub-line breaks out gross months debt and gross sales debt. |
 | New customers this month | COUNT customers with `created_at` in current calendar month |
 | Cancelled this month | COUNT customers with `cancelled_at` in current calendar month |
 | Payments recorded | COUNT positive-amount non-voided payments for current billing month (avg = subscription revenue ÷ this count) |
