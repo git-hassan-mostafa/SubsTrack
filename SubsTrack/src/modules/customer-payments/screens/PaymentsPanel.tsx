@@ -67,6 +67,7 @@ function toEntry(p: PaymentListItem): MonthEntry {
 export function PaymentsPanel() {
   const { t } = useTranslation();
   const items = usePaymentsListSlice((s) => s.items);
+  const monthlyTotals = usePaymentsListSlice((s) => s.monthlyTotals);
   const loading = usePaymentsListSlice((s) => s.loading);
   const loadingMore = usePaymentsListSlice((s) => s.loadingMore);
   const loadingUpdate = usePaymentsListSlice((s) => s.loadingUpdate);
@@ -156,8 +157,9 @@ export function PaymentsPanel() {
         (p) => p.paidAt,
         t,
         (p) => p.amountPaid / p.ratePerUsdSnapshot,
+        monthlyTotals,
       ),
-    [items, t],
+    [items, t, monthlyTotals],
   );
 
   function buildSelectionActions(

@@ -41,11 +41,18 @@ function sectionTitle(
 // the single source of sort order — this only buckets. `getDate` returns the
 // row's ISO date string used for grouping. `getAmountUsd`, when passed, sums
 // each row's USD-equivalent amount into `totalUsd` for the section header.
+//
+// `totalsByMonth`, when passed, is an authoritative "YYYY-MM" → USD total map
+// (e.g. from an unpaginated aggregate query) — for any month present there,
+// it overrides the local per-row sum. This is what keeps a section's header
+// total correct once a month holds more rows than the caller has paginated
+// into `items` (a per-row sum would otherwise only cover the loaded page).
 export function groupByMonth<T>(
   items: T[],
   getDate: (item: T) => string,
   t: TFunction,
   getAmountUsd?: (item: T) => number,
+  totalsByMonth?: Record<string, number>,
 ): MonthSection<T>[] {
   const current = getCurrentYearMonth();
   const sections: MonthSection<T>[] = [];
@@ -59,13 +66,15 @@ export function groupByMonth<T>(
         key,
         title: sectionTitle(year, month, t, current),
         data: [],
-        totalUsd: getAmountUsd ? 0 : undefined,
+        totalUsd: totalsByMonth?.[key] ?? (getAmountUsd ? 0 : undefined),
       });
       currentKey = key;
     }
     const section = sections[sections.length - 1];
     section.data.push(item);
-    if (getAmountUsd) section.totalUsd = (section.totalUsd ?? 0) + getAmountUsd(item);
+    if (totalsByMonth?.[key] === undefined && getAmountUsd) {
+      section.totalUsd = (section.totalUsd ?? 0) + getAmountUsd(item);
+    }
   }
 
   return sections;

@@ -143,6 +143,43 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
     }));
   }
 
+  // Same filters as findAll but unpaginated + a lean projection — used to
+  // compute the true per-month total when a month holds more rows than one
+  // findAll page.
+  async monthlyTotals(
+    opts: FindSalesOptions = {},
+  ): Promise<{ soldAt: string; amount: number; ratePerUsdSnapshot: number }[]> {
+    const parts: { clause: string; params: unknown[] }[] = [];
+    if (!opts.includeVoided) parts.push({ clause: 's.voided_at IS NULL', params: [] });
+    if (opts.customerId !== undefined && opts.customerId !== null)
+      parts.push({ clause: 's.customer_id = ?', params: [opts.customerId] });
+    if (opts.productId) parts.push({ clause: 's.product_id = ?', params: [opts.productId] });
+    if (opts.fromDate) parts.push({ clause: 's.sold_at >= ?', params: [dayStartIso(opts.fromDate)] });
+    if (opts.toDate) parts.push({ clause: 's.sold_at < ?', params: [nextDayStartIso(opts.toDate)] });
+    const term = opts.searchQuery?.trim().replace(/[,()]/g, '');
+    if (term) {
+      const like = `%${term}%`;
+      parts.push({
+        clause: '(s.product_name_snapshot LIKE ? COLLATE NOCASE OR c.name LIKE ? COLLATE NOCASE)',
+        params: [like, like],
+      });
+    }
+    parts.push(this.branchWhere(opts.branchFilter ?? null, this.BRANCH_SCOPES.sales, 's'));
+
+    const { sql, params } = this.combineWhere(parts);
+    const rows = await this.all<{ sold_at: string; total_amount: string; rate_per_usd_snapshot: string }>(
+      `SELECT s.sold_at, s.total_amount, s.rate_per_usd_snapshot FROM sales s
+       LEFT JOIN customers c ON s.customer_id = c.id
+       ${sql}`,
+      params,
+    );
+    return rows.map((r) => ({
+      soldAt: r.sold_at,
+      amount: Number(r.total_amount),
+      ratePerUsdSnapshot: Number(r.rate_per_usd_snapshot),
+    }));
+  }
+
   async partialSales(branchFilter: BranchFilter = null): Promise<DbSale[]> {
     const branch = this.branchWhere(branchFilter, this.BRANCH_SCOPES.sales, 's');
     const rows = await this.all(

@@ -12,6 +12,10 @@ import type { GlobalState } from '@/src/state/globalStore';
 
 export interface PaymentsListSlice {
   items: PaymentListItem[];
+  // "YYYY-MM" → USD total for that month, across ALL rows matching the
+  // current filters (not just the loaded page) — the section headers' source
+  // of truth. Refetched whenever the filters change (see fetchPayments).
+  monthlyTotals: Record<string, number>;
   page: number;
   hasMore: boolean;
   loading: boolean;
@@ -61,6 +65,7 @@ export const createPaymentsListSlice: StateCreator<
   PaymentsListSlice
 > = (set, get) => ({
   items: [],
+  monthlyTotals: {},
   page: 0,
   hasMore: true,
   loading: false,
@@ -84,12 +89,19 @@ export const createPaymentsListSlice: StateCreator<
       state.paymentsList.page = 0;
     });
     try {
-      const items = await paymentService.getPayments(
-        buildOptions(get().paymentsList, 0, branchFilter),
-      );
+      const opts = buildOptions(get().paymentsList, 0, branchFilter);
+      // The totals query is unpaginated but reuses the same filters — cheap
+      // (no joins beyond the branch-scope one, 3 numeric columns) and gives
+      // the section headers the true per-month sum instead of only what's
+      // been paginated into `items`.
+      const [items, monthlyTotals] = await Promise.all([
+        paymentService.getPayments(opts),
+        paymentService.getMonthlyTotals(opts),
+      ]);
       if (get().paymentsList.searchToken !== token) return;
       set((state) => {
         state.paymentsList.items = items;
+        state.paymentsList.monthlyTotals = monthlyTotals;
         state.paymentsList.hasMore = items.length === PAGE_SIZE;
         state.paymentsList.page = 0;
         state.paymentsList.loading = false;
@@ -287,6 +299,7 @@ export const createPaymentsListSlice: StateCreator<
   reset: () =>
     set((state) => {
       state.paymentsList.items = [];
+      state.paymentsList.monthlyTotals = {};
       state.paymentsList.page = 0;
       state.paymentsList.hasMore = true;
       state.paymentsList.loading = false;

@@ -41,6 +41,20 @@ class SaleService {
     return mapDbSaleToSale(row);
   }
 
+  // Buckets monthlyTotals() rows into per-calendar-month USD sums ("YYYY-MM"
+  // keys, by sold_at) — the authoritative total for a Sales tab section
+  // header, independent of how many of that month's rows are paginated in.
+  async getMonthlyTotals(opts: FindSalesOptions = {}): Promise<Record<string, number>> {
+    const rows = await repository.monthlyTotals(opts);
+    const totals: Record<string, number> = {};
+    for (const r of rows) {
+      const d = new Date(r.soldAt);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      totals[key] = (totals[key] ?? 0) + r.amount / r.ratePerUsdSnapshot;
+    }
+    return totals;
+  }
+
   // Non-voided sales that still owe money (partial sales), for the Debts feature.
   async getPartialSales(branchFilter: BranchFilter = null): Promise<Sale[]> {
     const rows = await repository.partialSales(branchFilter);

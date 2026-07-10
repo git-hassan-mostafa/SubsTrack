@@ -263,6 +263,38 @@ export class OfflinePaymentRepository extends OfflineBaseRepository implements I
     }));
   }
 
+  // Same filters as findAll but unpaginated + a lean projection — used to
+  // compute the true per-month total when a month holds more rows than one
+  // findAll page.
+  async monthlyTotals(opts: FindPaymentsOptions = {}): Promise<MonthlyAmountRow[]> {
+    const parts: { clause: string; params: unknown[] }[] = [
+      { clause: 'CAST(p.amount_paid AS REAL) > 0', params: [] },
+    ];
+    if (!opts.includeVoided) parts.push({ clause: 'p.voided_at IS NULL', params: [] });
+    if (opts.customerId) parts.push({ clause: 'p.customer_id = ?', params: [opts.customerId] });
+    if (opts.receivedByUserId)
+      parts.push({ clause: 'p.received_by_user_id = ?', params: [opts.receivedByUserId] });
+    if (opts.billingMonth) parts.push({ clause: 'p.billing_month = ?', params: [opts.billingMonth] });
+    if (opts.paidFrom) parts.push({ clause: 'p.paid_at >= ?', params: [dayStartIso(opts.paidFrom)] });
+    if (opts.paidTo) parts.push({ clause: 'p.paid_at < ?', params: [nextDayStartIso(opts.paidTo)] });
+    if (opts.status === 'paid') parts.push({ clause: 'CAST(p.balance AS REAL) = 0', params: [] });
+    else if (opts.status === 'partial') parts.push({ clause: 'CAST(p.balance AS REAL) > 0', params: [] });
+    parts.push(this.branchWhere(opts.branchFilter ?? null, this.BRANCH_SCOPES.payments, 'c'));
+
+    const { sql, params } = this.combineWhere(parts);
+    const rows = await this.all<{ paid_at: string; amount_paid: string; rate_per_usd_snapshot: string }>(
+      `SELECT p.paid_at, p.amount_paid, p.rate_per_usd_snapshot
+       FROM payments p JOIN customers c ON p.customer_id = c.id
+       ${sql}`,
+      params,
+    );
+    return rows.map((r) => ({
+      paidAt: r.paid_at,
+      amount: Number(r.amount_paid),
+      ratePerUsdSnapshot: Number(r.rate_per_usd_snapshot),
+    }));
+  }
+
   async partialPayments(branchFilter: BranchFilter = null): Promise<DbPayment[]> {
     const branch = this.branchWhere(branchFilter, this.BRANCH_SCOPES.payments, 'c');
     const rows = await this.all(

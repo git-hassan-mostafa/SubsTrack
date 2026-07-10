@@ -25,6 +25,12 @@ export interface ISaleRepository {
     rangeEndExclusive: string,
     branchFilter?: BranchFilter,
   ): Promise<{ soldAt: string; amount: number; ratePerUsdSnapshot: number }[]>;
+  // Same filters as findAll but unpaginated + a lean projection (no product/
+  // customer joins) — computes the true per-month total for the Sales tab's
+  // section headers even when a month holds more rows than one findAll page.
+  monthlyTotals(
+    opts?: FindSalesOptions,
+  ): Promise<{ soldAt: string; amount: number; ratePerUsdSnapshot: number }[]>;
   // Non-voided sales tied to a customer that still owe money
   // (total_amount > amount_paid), across all time — the "Sales" debt category.
   // Joined with the customer for display.

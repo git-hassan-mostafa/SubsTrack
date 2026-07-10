@@ -156,6 +156,39 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
     );
   }
 
+  // Same filters as findAll but unpaginated + a lean projection — used to
+  // compute the true per-month total when a month holds more rows than one
+  // findAll page (PAGE_SIZE). `customers(name)` stays in the select only
+  // because the search filter below references it via dot notation.
+  async monthlyTotals(
+    opts: FindSalesOptions = {},
+  ): Promise<{ soldAt: string; amount: number; ratePerUsdSnapshot: number }[]> {
+    let query = this.db
+      .from('sales')
+      .select('sold_at, total_amount, rate_per_usd_snapshot, customers(name)');
+
+    if (!opts.includeVoided) query = query.is('voided_at', null);
+    if (opts.customerId !== undefined && opts.customerId !== null) {
+      query = query.eq('customer_id', opts.customerId);
+    }
+    if (opts.productId) query = query.eq('product_id', opts.productId);
+    if (opts.fromDate) query = query.gte('sold_at', dayStartIso(opts.fromDate));
+    if (opts.toDate) query = query.lt('sold_at', nextDayStartIso(opts.toDate));
+    if (opts.searchQuery?.trim()) {
+      const term = opts.searchQuery.trim();
+      query = query.or(`product_name_snapshot.ilike.%${term}%,customers.name.ilike.%${term}%`);
+    }
+    query = this.applyBranchFilter(query, opts.branchFilter ?? null, this.BRANCH_SCOPES.sales);
+
+    const { data, error } = await query;
+    if (error) this.handleError(error);
+    return (data ?? []).map((r: { sold_at: string; total_amount: number; rate_per_usd_snapshot: number }) => ({
+      soldAt: r.sold_at,
+      amount: Number(r.total_amount),
+      ratePerUsdSnapshot: Number(r.rate_per_usd_snapshot),
+    }));
+  }
+
   async partialSales(branchFilter: BranchFilter = null): Promise<DbSale[]> {
     let query = this.db
       .from('sales')

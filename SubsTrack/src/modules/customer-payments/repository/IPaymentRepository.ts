@@ -61,6 +61,10 @@ export interface IPaymentRepository {
     rangeEndExclusiveIso: string,
     branchFilter?: BranchFilter,
   ): Promise<MonthlyAmountRow[]>;
+  // Same filters as findAll but unpaginated + a lean projection — computes the
+  // true per-month total for the Payments tab's section headers even when a
+  // month holds more rows than one findAll page.
+  monthlyTotals(opts?: FindPaymentsOptions): Promise<MonthlyAmountRow[]>;
   // Non-voided payments with an outstanding balance (partial payments), across
   // all months — the "Months" debt category. Joined with customer + plan name.
   partialPayments(branchFilter?: BranchFilter): Promise<DbPayment[]>;

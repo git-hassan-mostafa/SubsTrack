@@ -49,6 +49,20 @@ class PaymentService {
     return rows.map(mapDbPaymentRowToListItem);
   }
 
+  // Buckets monthlyTotals() rows into per-calendar-month USD sums ("YYYY-MM"
+  // keys, by paid_at) — the authoritative total for a Payments tab section
+  // header, independent of how many of that month's rows are paginated in.
+  async getMonthlyTotals(opts: FindPaymentsOptions = {}): Promise<Record<string, number>> {
+    const rows = await repository.monthlyTotals(opts);
+    const totals: Record<string, number> = {};
+    for (const r of rows) {
+      const d = new Date(r.paidAt);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      totals[key] = (totals[key] ?? 0) + r.amount / r.ratePerUsdSnapshot;
+    }
+    return totals;
+  }
+
   // Non-voided payments that still owe money (partial payments) — the "Months"
   // debt category. Each item carries its customer + plan name for display.
   async getPartialPayments(branchFilter: BranchFilter = null): Promise<PaymentListItem[]> {

@@ -295,6 +295,37 @@ export class PaymentRepository extends BaseRepository implements IPaymentReposit
     );
   }
 
+  // Same filters as findAll but unpaginated + a lean projection — used to
+  // compute the true per-month total when a month holds more rows than one
+  // findAll page (PAGE_SIZE).
+  async monthlyTotals(
+    opts: FindPaymentsOptions = {},
+  ): Promise<{ paidAt: string; amount: number; ratePerUsdSnapshot: number }[]> {
+    let query = this.db
+      .from('payments')
+      .select('paid_at, amount_paid, rate_per_usd_snapshot, customers!inner(branch_id)')
+      .gt('amount_paid', 0);
+
+    if (!opts.includeVoided) query = query.is('voided_at', null);
+    if (opts.customerId) query = query.eq('customer_id', opts.customerId);
+    if (opts.receivedByUserId) query = query.eq('received_by_user_id', opts.receivedByUserId);
+    if (opts.billingMonth) query = query.eq('billing_month', opts.billingMonth);
+    if (opts.paidFrom) query = query.gte('paid_at', dayStartIso(opts.paidFrom));
+    if (opts.paidTo) query = query.lt('paid_at', nextDayStartIso(opts.paidTo));
+    if (opts.status === 'paid') query = query.eq('balance', 0);
+    else if (opts.status === 'partial') query = query.gt('balance', 0);
+
+    query = this.applyBranchFilter(query, opts.branchFilter ?? null, this.BRANCH_SCOPES.payments);
+
+    const { data, error } = await query;
+    if (error) this.handleError(error);
+    return (data ?? []).map((r: { paid_at: string; amount_paid: number; rate_per_usd_snapshot: number }) => ({
+      paidAt: r.paid_at,
+      amount: Number(r.amount_paid),
+      ratePerUsdSnapshot: Number(r.rate_per_usd_snapshot),
+    }));
+  }
+
   async partialPayments(branchFilter: BranchFilter = null): Promise<DbPayment[]> {
     let query = this.db
       .from('payments')

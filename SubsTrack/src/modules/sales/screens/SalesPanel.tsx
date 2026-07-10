@@ -56,6 +56,7 @@ export function SalesPanel() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const sales = useSaleSlice((s) => s.items);
+  const monthlyTotals = useSaleSlice((s) => s.monthlyTotals);
   const loading = useSaleSlice((s) => s.loading);
   const loadingMore = useSaleSlice((s) => s.loadingMore);
   const error = useSaleSlice((s) => s.error);
@@ -132,8 +133,9 @@ export function SalesPanel() {
         (s) => s.soldAt,
         t,
         (s) => s.amountPaid / s.ratePerUsdSnapshot,
+        monthlyTotals,
       ),
-    [sales, t],
+    [sales, t, monthlyTotals],
   );
 
   useEffect(() => {

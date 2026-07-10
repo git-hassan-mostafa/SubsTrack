@@ -7,6 +7,10 @@ import type { GlobalState } from '@/src/state/globalStore';
 
 export interface SaleSlice {
   items: Sale[];
+  // "YYYY-MM" → USD total for that month, across ALL rows matching the
+  // current filters (not just the loaded page) — the section headers' source
+  // of truth. Refetched whenever the filters change (see fetchSales).
+  monthlyTotals: Record<string, number>;
   page: number;
   hasMore: boolean;
   loading: boolean;
@@ -43,6 +47,7 @@ export const createSaleSlice: StateCreator<
   SaleSlice
 > = (set, get) => ({
   items: [],
+  monthlyTotals: {},
   page: 0,
   hasMore: true,
   loading: false,
@@ -65,18 +70,25 @@ export const createSaleSlice: StateCreator<
       state.sales.page = 0;
     });
     try {
-      const items = await saleService.getSales({
-        page: 0,
+      const filterOpts = {
         searchQuery: searchQuery || undefined,
         branchFilter,
         customerId: customerFilter?.id ?? null,
         productId: productFilter?.id ?? null,
         fromDate,
         toDate,
-      });
+      };
+      // The totals query is unpaginated but reuses the same filters — cheap
+      // (no joins, 3 numeric columns) and gives the section headers the true
+      // per-month sum instead of only what's been paginated into `items`.
+      const [items, monthlyTotals] = await Promise.all([
+        saleService.getSales({ page: 0, ...filterOpts }),
+        saleService.getMonthlyTotals(filterOpts),
+      ]);
       if (get().sales.searchToken !== token) return;
       set((state) => {
         state.sales.items = items;
+        state.sales.monthlyTotals = monthlyTotals;
         state.sales.hasMore = items.length === PAGE_SIZE;
         state.sales.page = 0;
         state.sales.loading = false;
@@ -297,6 +309,7 @@ export const createSaleSlice: StateCreator<
   reset: () =>
     set((state) => {
       state.sales.items = [];
+      state.sales.monthlyTotals = {};
       state.sales.page = 0;
       state.sales.hasMore = true;
       state.sales.loading = false;
