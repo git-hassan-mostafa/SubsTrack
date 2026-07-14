@@ -743,6 +743,8 @@
     "no_payments_hint": "No debt payments recorded yet.",
     "no_debtors": "No debtors",
     "no_debtors_hint": "No customer currently owes money.",
+    "search_debtors_hint": "Search debtors by name...",
+    "no_debtors_search": "Try a different search",
     "void_custom_title": "Remove custom debt",
     "void_custom_message": "Remove this custom debt? It stays in the audit log and can't be undone.",
     "void_payment_title": "Remove debt payment",

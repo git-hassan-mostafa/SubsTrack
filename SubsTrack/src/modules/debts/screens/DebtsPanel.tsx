@@ -18,6 +18,8 @@ import { FAB } from "@/src/shared/components/FAB";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { MonthSectionHeader } from "@/src/shared/components/MonthSectionHeader";
 import { PillTabs, type PillTab } from "@/src/shared/components/PillTabs";
+import SearchTextBox from "@/src/shared/components/SearchTextBox";
+import { useDebounce } from "@/src/shared/hooks/useDebounce";
 import { groupByMonth } from "@/src/shared/lib/monthSections";
 import { ActionMenu } from "@/src/shared/components/ActionMenu";
 import {
@@ -77,6 +79,8 @@ export function DebtsPanel() {
 
   const branchFilter = useEffectiveBranchFilter();
   const [subTab, setSubTab] = useState<DebtsSubTab>("debtors");
+  const [debtorSearch, setDebtorSearch] = useState("");
+  const debouncedDebtorSearch = useDebounce(debtorSearch);
   const [openDebtorId, setOpenDebtorId] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [customDebtOpen, setCustomDebtOpen] = useState(false);
@@ -106,6 +110,13 @@ export function DebtsPanel() {
   );
 
   const debtors = useMemo(() => groupDebtors(items, payments), [items, payments]);
+
+  // Debtors tab search is client-side, by customer name only.
+  const visibleDebtors = useMemo(() => {
+    const q = debouncedDebtorSearch.trim().toLowerCase();
+    if (!q) return debtors;
+    return debtors.filter((d) => d.customerName.toLowerCase().includes(q));
+  }, [debtors, debouncedDebtorSearch]);
 
   // Net summary: branch-wide on the Debtors tab, customer-scoped elsewhere. The
   // category chip never affects the header (it only filters the visible rows).
@@ -277,6 +288,17 @@ export function DebtsPanel() {
           </View>
         </View>
 
+        {/* Search — Debtors tab only (by customer name). */}
+        {subTab === "debtors" ? (
+          <View className="px-4 pt-3">
+            <SearchTextBox
+              searchText={debtorSearch}
+              setSearchText={setDebtorSearch}
+              placeholder={t("debts.search_debtors_hint")}
+            />
+          </View>
+        ) : null}
+
         {/* Filters — hidden on the Debtors tab; no category chip on Payments. */}
         {subTab !== "debtors" ? (
           <View className="px-4 pt-3">
@@ -336,7 +358,7 @@ export function DebtsPanel() {
           </View>
         ) : subTab === "debtors" ? (
           <FlatList
-            data={debtors}
+            data={visibleDebtors}
             keyExtractor={(d) => d.customerId}
             contentContainerStyle={{ padding: 16, paddingBottom: 96, flexGrow: 1 }}
             refreshControl={
@@ -355,7 +377,11 @@ export function DebtsPanel() {
             ListEmptyComponent={
               <EmptyState
                 message={t("debts.no_debtors")}
-                subMessage={t("debts.no_debtors_hint")}
+                subMessage={
+                  debouncedDebtorSearch.trim()
+                    ? t("debts.no_debtors_search")
+                    : t("debts.no_debtors_hint")
+                }
               />
             }
           />

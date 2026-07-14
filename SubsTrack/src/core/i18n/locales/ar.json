@@ -743,6 +743,8 @@
     "no_payments_hint": "لم يتم تسجيل أي دفعات ديون بعد.",
     "no_debtors": "لا يوجد مدينون",
     "no_debtors_hint": "لا يوجد عميل مدين حالياً.",
+    "search_debtors_hint": "ابحث عن مدين بالاسم...",
+    "no_debtors_search": "جرّب بحثاً مختلفاً",
     "void_custom_title": "حذف الدين اليدوي",
     "void_custom_message": "حذف هذا الدين اليدوي؟ سيبقى في سجل التدقيق ولا يمكن التراجع.",
     "void_payment_title": "حذف دفعة الدين",
