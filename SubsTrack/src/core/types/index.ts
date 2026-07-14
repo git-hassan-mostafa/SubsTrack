@@ -126,6 +126,8 @@ export interface Customer {
   address: string | null;
   area: string | null;
   notes: string | null;
+  // Optional Google Maps share link (stored raw). Empty = no location set.
+  locationUrl: string | null;
   active: boolean;
   isRegular: boolean;
   // Branch this customer belongs to. null = UNASSIGNED — visible only to

@@ -12,6 +12,7 @@ interface CustomerInput {
   address: string | null;
   area: string | null;
   notes: string | null;
+  locationUrl: string | null;
   branchId: string | null;
   startDate: string;
   isRegular: boolean;

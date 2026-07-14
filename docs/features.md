@@ -382,6 +382,24 @@ See gotcha #16.
 
 ---
 
+## Customer Map Location
+
+Each customer can carry an optional `Customer.locationUrl` (`customers.location_url`, nullable) so a
+collector can navigate to the customer's home.
+
+- **Capture (customer form).** A "Location on map" section in `CustomerFormSheet.tsx` has an **Open
+  Google Maps** button (`openMapsApp()` in `src/shared/lib/maps.ts`) plus short numbered steps, then a
+  text field to paste the Google Maps share link. The link is stored **raw** — we deliberately do
+  **not** parse coordinates, because the "Share" button in Google Maps usually returns a short
+  `maps.app.goo.gl` link with no coordinates inside it (it needs the network to expand).
+- **Use (customer details).** When `locationUrl` is set, `CustomerDetailsCard.tsx` shows an **Open in
+  Maps** row that calls `openLocation(url)` — it just re-opens the saved link via `Linking.openURL`
+  (prepending `https://` when the pasted text has no scheme); the Maps app resolves short links itself
+  and offers directions. No map library, no Google Maps API key, no native rebuild — same
+  `Linking.openURL` pattern as `openWhatsApp` in `src/shared/lib/whatsapp.ts`.
+
+---
+
 ## Multiple Plans per Customer (service lines)
 
 A customer can subscribe to **several plans at once** (e.g. an ISP customer with internet + IPTV), each paid independently. The model splits the account from the service:

@@ -98,7 +98,7 @@ export const TABLES: TableSpec[] = [
     scope: 'tenant',
     columns: {
       id: 'text', name: 'text', phone_number: 'text', address: 'text', area: 'text', notes: 'text',
-      active: 'bool', is_regular: 'bool', branch_id: 'text', tenant_id: 'text',
+      location_url: 'text', active: 'bool', is_regular: 'bool', branch_id: 'text', tenant_id: 'text',
       start_date: 'text', cancelled_at: 'text', created_at: 'text', updated_at: 'text',
     },
   },

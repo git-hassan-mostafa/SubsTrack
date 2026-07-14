@@ -60,7 +60,7 @@ export class CustomerRepository extends BaseRepository implements ICustomerRepos
 
   async update(
     id: string,
-    payload: Partial<Pick<DbCustomer, 'name' | 'phone_number' | 'address' | 'area' | 'notes' | 'branch_id' | 'start_date' | 'is_regular'>>,
+    payload: Partial<Pick<DbCustomer, 'name' | 'phone_number' | 'address' | 'area' | 'notes' | 'location_url' | 'branch_id' | 'start_date' | 'is_regular'>>,
   ): Promise<CustomerWithLines> {
     const { data, error } = await this.db
       .from('customers')

@@ -10,6 +10,7 @@ export function mapDbCustomerToCustomer(db: DbCustomerWithLines): Customer {
         address: db.address,
         area: db.area,
         notes: db.notes,
+        locationUrl: db.location_url,
         active: db.active,
         isRegular: db.is_regular,
         branchId: db.branch_id,

@@ -311,6 +311,9 @@ CREATE TABLE IF NOT EXISTS customers (
     address      TEXT,
     area         TEXT,
     notes        TEXT,
+    -- Optional Google Maps share link pasted by staff. Stored raw (not parsed
+    -- into coordinates) — the collector re-opens it to get directions.
+    location_url TEXT,
     active       BOOLEAN     NOT NULL DEFAULT TRUE,
     is_regular   BOOLEAN     NOT NULL DEFAULT TRUE,
     -- NOTE: a customer's plan(s) now live in the customer_plans table (one row

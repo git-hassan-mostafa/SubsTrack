@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/src/shared/components/Text";
 import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
 import { confirm } from "@/src/shared/lib/confirm";
+import { openLocation } from "@/src/shared/lib/maps";
 import type { Customer } from "@/src/core/types";
 import { formatDate, getDateLocale } from "@/src/core/utils/date";
 import { COLORS } from "@/src/shared/constants";
@@ -137,6 +138,29 @@ export function CustomerDetailsCard({
                 {customer.area}
               </Text>
             </View>
+          ) : null}
+
+          {customer.locationUrl ? (
+            <PressableOpacity
+              onPress={() => void openLocation(customer.locationUrl)}
+              className="flex-row items-center justify-between px-4 py-3.5 border-b border-gray-100"
+            >
+              <View className="flex-row items-center gap-3">
+                <Ionicons
+                  name="navigate-outline"
+                  size={16}
+                  color={COLORS.primary}
+                />
+                <Text className="text-sm font-semibold text-primary">
+                  {t("customers.location_open")}
+                </Text>
+              </View>
+              <DirectionalIcon
+                name="chevron-forward"
+                size={14}
+                color={COLORS.primary}
+              />
+            </PressableOpacity>
           ) : null}
 
           <View className="flex-row items-center justify-between px-4 py-3.5 border-b border-gray-100">

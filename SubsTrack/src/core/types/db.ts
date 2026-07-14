@@ -89,6 +89,7 @@ export interface DbCustomer {
   address: string | null;
   area: string | null;
   notes: string | null;
+  location_url: string | null;
   active: boolean;
   is_regular: boolean;
   branch_id: string | null;

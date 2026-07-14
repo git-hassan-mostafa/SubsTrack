@@ -8,7 +8,7 @@ import { mapDbCustomerToCustomer } from "../utils/mapper";
 
 type CustomerInput = Pick<
   Customer,
-  "name" | "phoneNumber" | "address" | "area" | "notes" | "branchId" | "startDate" | "isRegular"
+  "name" | "phoneNumber" | "address" | "area" | "notes" | "locationUrl" | "branchId" | "startDate" | "isRegular"
 >;
 
 class CustomerService {
@@ -47,6 +47,7 @@ class CustomerService {
       address: data.address?.trim() || null,
       area: data.area?.trim() || null,
       notes: data.notes?.trim() || null,
+      location_url: data.locationUrl?.trim() || null,
       branch_id: data.branchId,
       tenant_id: tenantId,
       start_date: data.startDate,
@@ -68,6 +69,7 @@ class CustomerService {
       address: data.address?.trim() || null,
       area: data.area?.trim() || null,
       notes: data.notes?.trim() || null,
+      location_url: data.locationUrl?.trim() || null,
       branch_id: data.branchId,
       start_date: data.startDate,
       is_regular: data.isRegular,

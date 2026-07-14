@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Modal, Switch, View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
@@ -27,6 +28,8 @@ import { getStore } from "@/src/state/globalStore";
 import { useActiveBranches } from "@/src/modules/branches";
 import { useSubscriptionSlice } from "@/src/state/hooks/useSubscriptionSlice";
 import { UpgradePromptModal } from "@/src/modules/subscription";
+import { openMapsApp } from "@/src/shared/lib/maps";
+import { COLORS } from "@/src/shared/constants";
 
 interface Props {
   customer?: Customer | null;
@@ -39,6 +42,7 @@ type FormState = {
   address: string;
   area: string;
   notes: string;
+  locationUrl: string;
   branchId: string | null;
   startDate: string;
   isRegular: boolean;
@@ -84,6 +88,7 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
     address: customer?.address ?? "",
     area: customer?.area ?? "",
     notes: customer?.notes ?? "",
+    locationUrl: customer?.locationUrl ?? "",
     branchId: defaultBranchId,
     startDate: customer?.startDate ?? getTodayDateString(),
     isRegular: customer?.isRegular ?? true,
@@ -109,6 +114,7 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
         address: form.address || null,
         area: form.area || null,
         notes: form.notes || null,
+        locationUrl: form.locationUrl || null,
         branchId: form.branchId,
         startDate: form.startDate,
         isRegular: form.isRegular,
@@ -219,6 +225,64 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
               onChangeText={(v) => setForm((prev) => ({ ...prev, area: v }))}
               placeholder={t("customers.area_placeholder")}
             />
+
+            {/* Location — paste a Google Maps share link. */}
+            <View className="mb-4">
+              <Text className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                {t("customers.location_label")}
+              </Text>
+              <PressableOpacity
+                onPress={() => void openMapsApp()}
+                className="flex-row items-center justify-center gap-2 rounded-xl py-3 px-4 border border-gray-300 mb-2"
+              >
+                <Ionicons name="map-outline" size={18} color={COLORS.primary} />
+                <Text className="text-sm font-semibold text-primary">
+                  {t("customers.location_open_maps")}
+                </Text>
+              </PressableOpacity>
+              <View className="mb-2 px-1">
+                {[1, 2, 3, 4].map((n) => (
+                  <Text key={n} className="text-xs text-gray-400 leading-5">
+                    {t(`customers.location_step_${n}`)}
+                  </Text>
+                ))}
+              </View>
+              <Input
+                value={form.locationUrl}
+                onChangeText={(v) =>
+                  setForm((prev) => ({ ...prev, locationUrl: v }))
+                }
+                placeholder={t("customers.location_placeholder")}
+                autoCapitalize="none"
+                keyboardType="url"
+              />
+              {form.locationUrl.trim() ? (
+                <View className="flex-row items-center justify-between -mt-2 px-1">
+                  <View className="flex-row items-center gap-1.5">
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={14}
+                      color={COLORS.success}
+                    />
+                    <Text
+                      className="text-xs"
+                      style={{ color: COLORS.success }}
+                    >
+                      {t("customers.location_saved")}
+                    </Text>
+                  </View>
+                  <PressableOpacity
+                    onPress={() =>
+                      setForm((prev) => ({ ...prev, locationUrl: "" }))
+                    }
+                  >
+                    <Text className="text-xs text-gray-400">
+                      {t("common.clear")}
+                    </Text>
+                  </PressableOpacity>
+                </View>
+              ) : null}
+            </View>
 
             <BranchPicker
               label={t("branches.branch_label") + " *"}

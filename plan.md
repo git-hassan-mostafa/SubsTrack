@@ -187,6 +187,7 @@ phone_number text nullable
 address      text nullable
 area         text nullable          — neighborhood / service zone (searchable)
 notes        text nullable          — free-text staff context
+location_url text nullable          — raw Google Maps share link; open-in-Maps navigation
 active       boolean default true
 is_regular   boolean default true   — subscription vs occasional
 tenant_id    uuid fk → tenants
@@ -260,7 +261,7 @@ type MonthStatus = 'paid' | 'unpaid' | 'future';
 
 interface AuthUser { id, username, role, tenantId }
 interface Plan { id, name, price, isCustomPrice, tenantId, createdAt }
-interface Customer { id, name, phoneNumber, address, area, notes, active, planId, tenantId, startDate, cancelledAt, createdAt, updatedAt, plan? }
+interface Customer { id, name, phoneNumber, address, area, notes, locationUrl, active, planId, tenantId, startDate, cancelledAt, createdAt, updatedAt, plan? }
 interface Payment { id, billingMonth, amount, customerId, planId, receivedByUserId, tenantId, paidAt, voidedAt, voidedBy, notes, createdAt }
 interface MonthEntry { year, month, label, billingMonth, status: MonthStatus, payment: Payment | null }
 ```
@@ -399,7 +400,7 @@ Both admin and user roles can perform all customer operations.
 | Read (list) | Screen load | Paginated, ordered by name. Show unpaid month count next to each customer. |
 | Read (detail) | Tap customer | Load customer + their payments for current year |
 | Create | Tap "Add customer" | Name required. start_date required. plan_id optional. |
-| Update | Tap edit | Name, phone, address, area, notes, plan_id editable. |
+| Update | Tap edit | Name, phone, address, area, notes, location link, plan_id editable. |
 | Deactivate | Tap "Deactivate" | Sets active = false, cancelled_at = now(). NEVER hard deletes. |
 | Reactivate | Tap "Reactivate" | Sets active = true, cancelled_at = null. |
 
