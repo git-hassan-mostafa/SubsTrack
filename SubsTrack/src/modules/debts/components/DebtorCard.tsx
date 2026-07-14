@@ -23,8 +23,8 @@ export function DebtorCard({ debtor, onPress }: Props) {
   return (
     <EntityCard
       icon="person-outline"
-      iconColor={COLORS.warning}
-      iconBgClassName="bg-amber-50"
+      iconColor={COLORS.danger}
+      iconBgClassName="bg-red-50"
       onPress={onPress}
     >
       <View className="flex-1">
@@ -37,7 +37,7 @@ export function DebtorCard({ debtor, onPress }: Props) {
       </View>
 
       <View className="items-end ms-2">
-        <Text fontWeight="Bold" className="text-base text-gray-900">
+        <Text fontWeight="Bold" className="text-base text-red-700">
           {formatMoney(debtor.netUsd, null, target)}
         </Text>
       </View>

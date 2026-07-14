@@ -34,10 +34,10 @@ const CATEGORY_STYLE: Record<
   DebtCategory,
   { icon: keyof typeof Ionicons.glyphMap; color: string; bg: string; badge: string }
 > = {
-  months: { icon: "calendar-outline", color: COLORS.primary, bg: "bg-indigo-50", badge: "bg-indigo-50 text-indigo-700" },
-  sales: { icon: "receipt-outline", color: COLORS.success, bg: "bg-emerald-50", badge: "bg-emerald-50 text-emerald-700" },
-  services: { icon: "construct-outline", color: COLORS.gray500, bg: "bg-gray-100", badge: "bg-gray-100 text-gray-600" },
-  custom: { icon: "document-text-outline", color: COLORS.warning, bg: "bg-amber-50", badge: "bg-amber-50 text-amber-700" },
+  months: { icon: "calendar-outline", color: COLORS.danger, bg: "bg-red-50", badge: "bg-red-50 text-red-700" },
+  sales: { icon: "receipt-outline", color: COLORS.danger, bg: "bg-red-50", badge: "bg-red-50 text-red-700" },
+  services: { icon: "construct-outline", color: COLORS.danger, bg: "bg-red-50", badge: "bg-red-50 text-red-700" },
+  custom: { icon: "document-text-outline", color: COLORS.danger, bg: "bg-red-50", badge: "bg-red-50 text-red-700" },
 };
 
 export function DebtItemCard({ item, onPay, onVoid, hideCustomerName }: Props) {
