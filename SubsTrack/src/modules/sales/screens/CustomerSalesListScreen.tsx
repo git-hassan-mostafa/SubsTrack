@@ -18,7 +18,6 @@ import {
   type SelectionAction,
 } from "@/src/shared/components/PageHeader";
 import { FAB } from "@/src/shared/components/FAB";
-import { SelectAllBar } from "@/src/shared/components/SelectAllBar";
 import { SelectionOverlaySlot } from "@/src/shared/components/SelectionOverlaySlot";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import {
@@ -135,22 +134,16 @@ export function CustomerSalesListScreen() {
           count: selection.count,
           actions: buildSelectionActions(selectedSales),
           onClose: clearSelection,
+          allSelected: items.length > 0 && selectedSales.length === items.length,
+          onToggleAll: () => toggleManySelect(items.map((s) => s.id)),
         }}
       />
 
       <ResponsiveContainer className="flex-1">
       {/* Search stays mounted while selecting so its space remains and the list
-          never jumps; the select-all bar overlays it. */}
-      <SelectionOverlaySlot
-        selecting={selectionActive}
-        overlay={
-          <SelectAllBar
-            allSelected={items.length > 0 && selectedSales.length === items.length}
-            onToggle={() => toggleManySelect(items.map((s) => s.id))}
-            count={selectedSales.length}
-          />
-        }
-      >
+          never jumps; the selection toolbar (with the select-all checkbox) is
+          overlaid on the header instead. */}
+      <SelectionOverlaySlot selecting={selectionActive}>
         <View className="px-4 pt-4">
           <SearchTextBox
             searchText={searchText}

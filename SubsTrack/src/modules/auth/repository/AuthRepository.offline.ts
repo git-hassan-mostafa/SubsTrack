@@ -48,9 +48,12 @@ export class OfflineAuthRepository extends OfflineBaseRepository implements IAut
     if (await isOnline()) {
       const profile = await this.online.getUserProfile(userId);
       if (!profile) return profile;
-      // Scope the local DB to this tenant (wipe on a different-tenant login),
-      // BEFORE caching the fresh profile.
-      const scope = await ensureTenantScope(profile.tenant_id);
+      // Scope the local DB to this tenant AND this user's branch view (wipe on a
+      // different-tenant OR different-branch-scope login), BEFORE caching the
+      // fresh profile. A tenant-wide admin (branch_id null) pulls every branch;
+      // a branch user pulls only their branch, so mixing them in one mirror
+      // would drop rows — re-scope instead.
+      const scope = await ensureTenantScope(profile.tenant_id, profile.branch_id);
       // A different tenant is logging in while the previous one still has un-pushed
       // writes. We refuse rather than wipe (would lose money) or mix two tenants in
       // one mirror. Thrown before caching anything so nothing is half-applied; the

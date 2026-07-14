@@ -1,12 +1,25 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 import { getDb, wipeOfflineData } from '../db/sqlite';
 import { TABLES } from '../db/tables';
-import { getMeta, setMeta, META_ACTIVE_TENANT } from '../sync';
+import { getMeta, setMeta, META_ACTIVE_TENANT, META_ACTIVE_BRANCH_SCOPE } from '../sync';
 
 export interface TenantScopeResult {
   wiped: boolean;
-  /** True when a different tenant logged in but the prior tenant still has un-synced writes. */
+  /** True when a different tenant/branch-scope logged in but the prior one still has un-synced writes. */
   blockedByPending: boolean;
+}
+
+/**
+ * The mirror sentinel for a tenant-wide admin (users.branch_id IS NULL — sees
+ * every branch). Any other value is a branch-scoped user's own branch id. RLS
+ * returns a DIFFERENT row set for each, so the mirror must be re-scoped (wiped +
+ * re-pulled) when this changes, exactly like a tenant switch.
+ */
+export const BRANCH_SCOPE_TENANT_WIDE = '__all__';
+
+/** Normalize a user's branch_id into the branch-scope key stored in sync_meta. */
+export function branchScopeKey(branchId: string | null): string {
+  return branchId ?? BRANCH_SCOPE_TENANT_WIDE;
 }
 
 /** Any local change not yet pushed: a `_dirty` row in any tenant table, or a logged hard delete. */
@@ -22,18 +35,33 @@ export async function hasUnsyncedWrites(db: SQLiteDatabase): Promise<boolean> {
 }
 
 /**
- * Ensure the local DB belongs to `tenantId`. On a different-tenant login, wipe
- * all local data (a full re-pull repopulates). Safety guard: refuse the wipe
- * while un-pushed writes remain so money is never lost — the caller surfaces
- * `blockedByPending` and keeps the prior tenant's data until it syncs.
+ * Ensure the local DB belongs to `tenantId` AND to the logging-in user's branch
+ * scope. RLS returns a different row set for a tenant-wide admin (all branches)
+ * than for a branch-scoped user (their branch only), so switching between them —
+ * even within the same tenant — must re-scope the mirror, or a branch user's
+ * partial pull / reconcile would silently drop the other branches' rows (and a
+ * later tenant-wide login would never re-pull them, the cursor having moved on).
+ *
+ * On a different tenant OR a different branch scope, wipe all local data (a full
+ * re-pull repopulates). Safety guard: refuse the wipe while un-pushed writes
+ * remain so money is never lost — the caller surfaces `blockedByPending` and
+ * keeps the prior data until it syncs.
  */
-export async function ensureTenantScope(tenantId: string): Promise<TenantScopeResult> {
+export async function ensureTenantScope(
+  tenantId: string,
+  branchId: string | null,
+): Promise<TenantScopeResult> {
   const db = getDb();
   const current = await getMeta(db, META_ACTIVE_TENANT);
+  const currentScope = await getMeta(db, META_ACTIVE_BRANCH_SCOPE);
+  const scope = branchScopeKey(branchId);
 
-  if (current === tenantId) return { wiped: false, blockedByPending: false };
+  if (current === tenantId && currentScope === scope) {
+    return { wiped: false, blockedByPending: false };
+  }
   if (!current) {
     await setMeta(db, META_ACTIVE_TENANT, tenantId);
+    await setMeta(db, META_ACTIVE_BRANCH_SCOPE, scope);
     return { wiped: false, blockedByPending: false };
   }
   if (await hasUnsyncedWrites(db)) {
@@ -41,5 +69,6 @@ export async function ensureTenantScope(tenantId: string): Promise<TenantScopeRe
   }
   await wipeOfflineData();
   await setMeta(db, META_ACTIVE_TENANT, tenantId);
+  await setMeta(db, META_ACTIVE_BRANCH_SCOPE, scope);
   return { wiped: true, blockedByPending: false };
 }

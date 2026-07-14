@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
 import { COLORS } from "@/src/shared/constants";
 import { PressableOpacity } from "./PressableOpacity";
+import { Checkbox } from "./Checkbox";
 
 export interface SelectionAction {
   key: string;
@@ -19,14 +20,36 @@ interface SelectionBarProps {
   count: number;
   actions: SelectionAction[];
   onClose: () => void;
+  /** True when every visible row is selected — drives the leading checkbox. */
+  allSelected?: boolean;
+  /** Selects every visible row when not all selected; clears them when all are. */
+  onToggleAll?: () => void;
 }
 
-// Selection toolbar: a close button, the selected count, and a row of icon
-// actions. Shared by PageHeader (overlay) and the Transactions panels.
-export function SelectionBar({ count, actions, onClose }: SelectionBarProps) {
+// The single selection row shown on every list/panel while selecting. It carries
+// everything on one line: a leading "select all" checkbox, the close (X) button,
+// the selected count, then a row of icon actions. Shared by PageHeader (overlaid
+// on the header) and the Transactions panels (rendered inline).
+export function SelectionBar({
+  count,
+  actions,
+  onClose,
+  allSelected,
+  onToggleAll,
+}: SelectionBarProps) {
   const { t } = useTranslation();
   return (
     <View className="flex-row items-center px-4 pt-4 pb-4 bg-white border-b border-gray-100 gap-2">
+      {onToggleAll ? (
+        <PressableOpacity
+          onPress={onToggleAll}
+          hitSlop={8}
+          className="p-1 me-1"
+          accessibilityLabel={t("common.select_all")}
+        >
+          <Checkbox checked={!!allSelected} size={22} />
+        </PressableOpacity>
+      ) : null}
       <PressableOpacity onPress={onClose} className="p-1 me-1" hitSlop={8}>
         <Ionicons name="close" size={24} color={COLORS.gray700} />
       </PressableOpacity>

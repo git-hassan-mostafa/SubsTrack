@@ -14,6 +14,10 @@ export interface PageHeaderSelection {
   count: number;
   actions: SelectionAction[];
   onClose: () => void;
+  /** True when every visible row is selected — drives the leading checkbox. */
+  allSelected?: boolean;
+  /** Selects every visible row when not all selected; clears them when all are. */
+  onToggleAll?: () => void;
 }
 
 interface PageHeaderProps {
@@ -85,6 +89,8 @@ export function PageHeader({
             count={selection.count}
             actions={selection.actions}
             onClose={selection.onClose}
+            allSelected={selection.allSelected}
+            onToggleAll={selection.onToggleAll}
           />
         </View>
       ) : null}

@@ -14,7 +14,6 @@ import {
   type SelectionAction,
 } from "@/src/shared/components/PageHeader";
 import { FAB } from "@/src/shared/components/FAB";
-import { SelectAllBar } from "@/src/shared/components/SelectAllBar";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { EmptyState } from "@/src/shared/components/EmptyState";
 import { confirm } from "@/src/shared/lib/confirm";
@@ -216,6 +215,9 @@ export function BranchesScreen() {
           count: selection.count,
           actions: buildSelectionActions(selectedBranches),
           onClose: clearSelection,
+          allSelected:
+            branches.length > 0 && selectedBranches.length === branches.length,
+          onToggleAll: () => toggleManySelect(branches.map((b) => b.id)),
         }}
       />
 
@@ -224,16 +226,6 @@ export function BranchesScreen() {
           <ErrorBanner message={error} onDismiss={clearError} />
         </View>
       ) : null}
-
-      {selectionActive && (
-        <SelectAllBar
-          allSelected={
-            branches.length > 0 && selectedBranches.length === branches.length
-          }
-          onToggle={() => toggleManySelect(branches.map((b) => b.id))}
-          count={selectedBranches.length}
-        />
-      )}
 
       {loading && branches.length === 0 ? (
         <View className="flex-1 items-center justify-center">

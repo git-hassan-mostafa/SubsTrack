@@ -14,7 +14,6 @@ import {
   type SelectionAction,
 } from "@/src/shared/components/PageHeader";
 import { FAB } from "@/src/shared/components/FAB";
-import { SelectAllBar } from "@/src/shared/components/SelectAllBar";
 import { SelectionOverlaySlot } from "@/src/shared/components/SelectionOverlaySlot";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
@@ -220,6 +219,10 @@ export function CurrenciesScreen() {
           count: selection.count,
           actions: buildSelectionActions(selectedCurrencies),
           onClose: clearSelection,
+          allSelected:
+            currencies.length > 0 &&
+            selectedCurrencies.length === currencies.length,
+          onToggleAll: () => toggleManySelect(currencies.map((c) => c.id)),
         }}
       />
 
@@ -255,22 +258,9 @@ export function CurrenciesScreen() {
           }
           ListHeaderComponent={
             // Keep the USD base card's space while selecting so the list never
-            // jumps; the select-all bar overlays it.
-            <SelectionOverlaySlot
-              selecting={selectionActive}
-              overlay={
-                <SelectAllBar
-                  allSelected={
-                    currencies.length > 0 &&
-                    selectedCurrencies.length === currencies.length
-                  }
-                  onToggle={() =>
-                    toggleManySelect(currencies.map((c) => c.id))
-                  }
-                  count={selectedCurrencies.length}
-                />
-              }
-            >
+            // jumps; the selection toolbar (with the select-all checkbox) is
+            // overlaid on the header instead.
+            <SelectionOverlaySlot selecting={selectionActive}>
               <UsdBaseCard />
             </SelectionOverlaySlot>
           }

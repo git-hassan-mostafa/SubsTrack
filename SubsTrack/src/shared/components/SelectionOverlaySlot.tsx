@@ -4,8 +4,6 @@ import { View } from "react-native";
 interface Props {
   /** True while the screen is in multi-select mode. */
   selecting: boolean;
-  /** Bar overlaid in the reserved space while selecting (e.g. <SelectAllBar />). */
-  overlay: ReactNode;
   /**
    * Normal top controls (search, filters, tabs). Kept mounted while selecting so
    * their layout space — and the scroll position of the list below — never
@@ -16,24 +14,18 @@ interface Props {
 
 /**
  * Preserves the top controls' layout space when entering selection mode so the
- * list never jumps. The controls stay mounted but invisible and untappable,
- * while the select-all bar is overlaid in the exact same space. The overlay is
- * pinned to `top-4` so it lines up with the search box (which sits under `pt-4`).
+ * list never jumps. The controls stay mounted but invisible and untappable while
+ * selecting. The whole selection UI (close, count, select-all checkbox, actions)
+ * lives on the single toolbar row that `PageHeader` overlays over the header, so
+ * this slot only needs to blank the search/filter row — it renders no overlay.
  */
-export function SelectionOverlaySlot({ selecting, overlay, children }: Props) {
+export function SelectionOverlaySlot({ selecting, children }: Props) {
   return (
-    <View className="relative">
-      <View
-        className={selecting ? "opacity-0" : ""}
-        pointerEvents={selecting ? "none" : "auto"}
-      >
-        {children}
-      </View>
-      {selecting ? (
-        <View className="absolute inset-x-0 top-4" pointerEvents="box-none">
-          {overlay}
-        </View>
-      ) : null}
+    <View
+      className={selecting ? "opacity-0" : ""}
+      pointerEvents={selecting ? "none" : "auto"}
+    >
+      {children}
     </View>
   );
 }

@@ -516,7 +516,7 @@
     "unexpected": "An unexpected error occurred",
     "connection_error": "Connection error. Please try again.",
     "requires_connection": "This action requires an internet connection. Please reconnect and try again.",
-    "workspace_switch_blocked": "You have unsynced changes from your previous workspace. Please sign back into it and sync before switching workspaces.",
+    "workspace_switch_blocked": "You have unsynced changes from the previous account. Please sign back into it and sync before switching accounts.",
     "username_required": "Username is required",
     "tenant_code_required": "Tenant code is required",
     "password_required": "Password is required",

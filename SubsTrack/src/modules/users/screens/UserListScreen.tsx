@@ -28,7 +28,6 @@ import {
   type SelectionAction,
 } from "@/src/shared/components/PageHeader";
 import { FAB } from "@/src/shared/components/FAB";
-import { SelectAllBar } from "@/src/shared/components/SelectAllBar";
 import { SelectionOverlaySlot } from "@/src/shared/components/SelectionOverlaySlot";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
@@ -274,23 +273,16 @@ export function UserListScreen() {
           count: selection.count,
           actions: buildSelectionActions(selectedUsers),
           onClose: clearSelection,
+          allSelected:
+            filtered.length > 0 && selectedUsers.length === filtered.length,
+          onToggleAll: () => toggleManySelect(filtered.map((u) => u.id)),
         }}
       />
       <ResponsiveContainer className="flex-1">
       {/* Search stays mounted while selecting so its space remains and the list
-          never jumps; the select-all bar overlays it. */}
-      <SelectionOverlaySlot
-        selecting={selectionActive}
-        overlay={
-          <SelectAllBar
-            allSelected={
-              filtered.length > 0 && selectedUsers.length === filtered.length
-            }
-            onToggle={() => toggleManySelect(filtered.map((u) => u.id))}
-            count={selectedUsers.length}
-          />
-        }
-      >
+          never jumps; the selection toolbar (with the select-all checkbox) is
+          overlaid on the header instead. */}
+      <SelectionOverlaySlot selecting={selectionActive}>
         <View className="px-4 pt-4">
           <SearchTextBox
             searchText={searchText}

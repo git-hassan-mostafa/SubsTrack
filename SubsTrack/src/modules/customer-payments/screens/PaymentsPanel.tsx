@@ -22,7 +22,6 @@ import { DatePickerInput } from "@/src/shared/components/DatePickerInput";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { MonthSectionHeader } from "@/src/shared/components/MonthSectionHeader";
 import { groupByMonth } from "@/src/shared/lib/monthSections";
-import { SelectAllBar } from "@/src/shared/components/SelectAllBar";
 import {
   SelectionBar,
   type SelectionAction,
@@ -185,7 +184,7 @@ export function PaymentsPanel() {
   return (
     <View className="flex-1">
       <ResponsiveContainer className="flex-1">
-        {/* Filters hide while selecting; the toolbar + select-all bar take over. */}
+        {/* Filters hide while selecting; the single selection toolbar takes over. */}
         {!selectionActive ? (
           <View className="px-4">
             <ScrollView
@@ -265,19 +264,15 @@ export function PaymentsPanel() {
             </ScrollView>
           </View>
         ) : (
-          <>
-            <SelectionBar
-              count={selection.count}
-              actions={buildSelectionActions(selectedPayments)}
-              onClose={clearSelection}
-            />
-            <SelectAllBar
-              allSelected={
-                items.length > 0 && selectedPayments.length === items.length
-              }
-              onToggle={() => toggleManySelect(items.map((p) => p.id))}
-            />
-          </>
+          <SelectionBar
+            count={selection.count}
+            actions={buildSelectionActions(selectedPayments)}
+            onClose={clearSelection}
+            allSelected={
+              items.length > 0 && selectedPayments.length === items.length
+            }
+            onToggleAll={() => toggleManySelect(items.map((p) => p.id))}
+          />
         )}
 
         {error ? (

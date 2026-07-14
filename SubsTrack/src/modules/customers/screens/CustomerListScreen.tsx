@@ -42,7 +42,6 @@ import {
   type SelectionAction,
 } from "@/src/shared/components/PageHeader";
 import { FAB } from "@/src/shared/components/FAB";
-import { SelectAllBar } from "@/src/shared/components/SelectAllBar";
 import { SelectionOverlaySlot } from "@/src/shared/components/SelectionOverlaySlot";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { FilterToggleButton } from "@/src/shared/components/FilterToggleButton";
@@ -608,25 +607,18 @@ export function CustomerListScreen() {
           count: selection.count,
           actions: buildSelectionActions(selectedCustomers),
           onClose: clearSelection,
+          allSelected:
+            filtered.length > 0 &&
+            selectedCustomers.length === filtered.length,
+          onToggleAll: () => toggleManySelect(filtered.map((c) => c.id)),
         }}
       />
 
       <ResponsiveContainer className="flex-1">
         {/* Search + filter tabs stay mounted while selecting so their space
-          remains and the list never jumps; the select-all bar overlays them. */}
-        <SelectionOverlaySlot
-          selecting={selectionActive}
-          overlay={
-            <SelectAllBar
-              allSelected={
-                filtered.length > 0 &&
-                selectedCustomers.length === filtered.length
-              }
-              onToggle={() => toggleManySelect(filtered.map((c) => c.id))}
-              count={selectedCustomers.length}
-            />
-          }
-        >
+          remains and the list never jumps; the selection toolbar (with the
+          select-all checkbox) is overlaid on the header instead. */}
+        <SelectionOverlaySlot selecting={selectionActive}>
           <View className="px-4 pt-4">
             {/* Search */}
             <View className="flex-row items-center gap-x-2">

@@ -20,7 +20,6 @@ import {
   type SelectionAction,
 } from "@/src/shared/components/SelectionBar";
 import { FAB } from "@/src/shared/components/FAB";
-import { SelectAllBar } from "@/src/shared/components/SelectAllBar";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { MonthSectionHeader } from "@/src/shared/components/MonthSectionHeader";
 import { FilterToggleButton } from "@/src/shared/components/FilterToggleButton";
@@ -186,8 +185,8 @@ export function SalesPanel() {
   return (
     <View className="flex-1">
       <ResponsiveContainer className="flex-1">
-        {/* Search + filters hide while selecting; the toolbar + select-all bar
-            take over. */}
+        {/* Search + filters hide while selecting; the single selection toolbar
+            takes over. */}
         {!selectionActive ? (
           <View className="px-4 gap-y-2">
             <View className="flex-row items-center gap-x-2">
@@ -266,19 +265,15 @@ export function SalesPanel() {
             ) : null}
           </View>
         ) : (
-          <>
-            <SelectionBar
-              count={selection.count}
-              actions={buildSelectionActions(selectedSales)}
-              onClose={clearSelection}
-            />
-            <SelectAllBar
-              allSelected={
-                sales.length > 0 && selectedSales.length === sales.length
-              }
-              onToggle={() => toggleManySelect(sales.map((s) => s.id))}
-            />
-          </>
+          <SelectionBar
+            count={selection.count}
+            actions={buildSelectionActions(selectedSales)}
+            onClose={clearSelection}
+            allSelected={
+              sales.length > 0 && selectedSales.length === sales.length
+            }
+            onToggleAll={() => toggleManySelect(sales.map((s) => s.id))}
+          />
         )}
 
         {error ? (

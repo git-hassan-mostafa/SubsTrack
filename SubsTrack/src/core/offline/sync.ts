@@ -54,6 +54,7 @@ export function subscribeSyncStatus(cb: (s: SyncStatus) => void): () => void {
 // ── Tiny key/value meta (the `sync_meta` table) ──────────────────────────────
 
 export const META_ACTIVE_TENANT = 'active_tenant_id'; // which tenant the mirror holds
+export const META_ACTIVE_BRANCH_SCOPE = 'active_branch_scope'; // which branch view (tenant-wide vs one branch) the mirror was pulled under
 const META_LAST_PULLED_AT = 'last_pulled_at'; // newest server updated_at we've pulled
 
 /** Read a meta value (null if unset). */
