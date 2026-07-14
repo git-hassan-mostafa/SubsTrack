@@ -194,6 +194,8 @@ export function CustomerPlansEditor({
                 onChange={(v) => setRowPlan(row.key, v)}
                 label={t("customers.plan_label")}
                 onAddNew={() => setAddPlanOpen(true)}
+                disabled={branchId === null}
+                disabledHint={t("subscriptions.select_branch_first")}
               />
             </View>
             <View className="w-44">

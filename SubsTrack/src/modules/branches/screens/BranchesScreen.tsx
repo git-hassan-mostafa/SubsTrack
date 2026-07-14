@@ -231,6 +231,7 @@ export function BranchesScreen() {
             branches.length > 0 && selectedBranches.length === branches.length
           }
           onToggle={() => toggleManySelect(branches.map((b) => b.id))}
+          count={selectedBranches.length}
         />
       )}
 

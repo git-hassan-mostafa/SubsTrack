@@ -287,6 +287,7 @@ export function UserListScreen() {
               filtered.length > 0 && selectedUsers.length === filtered.length
             }
             onToggle={() => toggleManySelect(filtered.map((u) => u.id))}
+            count={selectedUsers.length}
           />
         }
       >

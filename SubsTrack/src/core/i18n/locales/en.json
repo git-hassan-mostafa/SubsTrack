@@ -39,7 +39,9 @@
     "clear_filters": "Clear filters",
     "bulk_delete_summary": "Deleted {{ok}} · {{failed}} failed.",
     "bulk_void_summary": "Voided {{ok}} · {{failed}} failed.",
-    "current_month": "This Month"
+    "current_month": "This Month",
+    "today": "Today",
+    "this_week": "This Week"
   },
   "auth": {
     "title": "SubsTrack",
@@ -133,6 +135,7 @@
     "remove_plan": "Remove",
     "count_plans": "{{count}} plans",
     "cancelled": "cancelled",
+    "select_branch_first": "Select a branch first",
     "empty": "No plans yet — add one from the customer's edit screen."
   },
   "customers": {
@@ -567,6 +570,8 @@
     "sale_amount_paid_invalid": "Amount paid must be between 0 and the sale total",
     "debt_amount_positive": "Amount must be greater than 0",
     "debt_customer_required": "Pick a customer for this debt",
+    "debt_payment_no_debt": "This customer has no outstanding debt to pay",
+    "debt_payment_exceeds_debt": "Amount is more than the customer owes",
     "tier_limit_reached": "You've reached the {{resource}} limit ({{limit}}) for your current plan",
     "tier_multi_currency_locked": "Multiple currencies are not available on your current plan",
     "tier_multi_month_locked": "Multi-month plans are not available on your current plan"
@@ -707,6 +712,8 @@
     "description_placeholder": "Optional — what is this debt for?",
     "notes_label": "Notes",
     "notes_placeholder": "Optional — e.g. paid in cash",
+    "owes_label": "Owes",
+    "no_debt_notice": "This customer has no outstanding debt to pay.",
     "filter_by_customer": "Filter by customer",
     "all_customers": "All customers",
     "total_outstanding": "Total outstanding",

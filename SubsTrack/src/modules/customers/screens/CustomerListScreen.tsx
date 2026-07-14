@@ -25,6 +25,9 @@ import {
 import type { Customer } from "@/src/core/types";
 import { CustomerCard } from "../components/CustomerCard";
 import { CustomerFormSheet } from "../components/CustomerFormSheet";
+import { CustomDebtFormSheet } from "@/src/modules/debts/components/CustomDebtFormSheet";
+import { DebtPaymentFormSheet } from "@/src/modules/debts/components/DebtPaymentFormSheet";
+import { SaleFormSheet } from "@/src/modules/sales/components/SaleFormSheet";
 import { useCustomerSlice } from "@/src/state/hooks/useCustomerSlice";
 import { usePaymentSlice } from "@/src/state/hooks/usePaymentSlice";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
@@ -106,6 +109,13 @@ export function CustomerListScreen() {
   );
   const [menuCustomer, setMenuCustomer] = useState<Customer | null>(null);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
+  // Quick-action sheets launched from the card menu, each scoped to one customer.
+  const [customDebtCustomer, setCustomDebtCustomer] = useState<Customer | null>(
+    null,
+  );
+  const [debtPaymentCustomer, setDebtPaymentCustomer] =
+    useState<Customer | null>(null);
+  const [saleCustomer, setSaleCustomer] = useState<Customer | null>(null);
   const selection = useSelection();
   const {
     active: selectionActive,
@@ -544,6 +554,24 @@ export function CustomerListScreen() {
       });
     }
     items.push({
+      key: "record-sale",
+      label: t("sales.record_button"),
+      icon: "cart-outline",
+      onPress: () => setSaleCustomer(customer),
+    });
+    items.push({
+      key: "add-custom-debt",
+      label: t("debts.add_custom_debt"),
+      icon: "document-text-outline",
+      onPress: () => setCustomDebtCustomer(customer),
+    });
+    items.push({
+      key: "record-debt-payment",
+      label: t("debts.record_debt_payment"),
+      icon: "cash-outline",
+      onPress: () => setDebtPaymentCustomer(customer),
+    });
+    items.push({
       key: "edit",
       label: t("common.edit"),
       icon: "create-outline",
@@ -595,6 +623,7 @@ export function CustomerListScreen() {
                 selectedCustomers.length === filtered.length
               }
               onToggle={() => toggleManySelect(filtered.map((c) => c.id))}
+              count={selectedCustomers.length}
             />
           }
         >
@@ -728,6 +757,26 @@ export function CustomerListScreen() {
         actions={buildMenuActions(menuCustomer)}
         onDismiss={() => setMenuCustomer(null)}
       />
+
+      {saleCustomer && (
+        <SaleFormSheet
+          initialCustomer={saleCustomer}
+          onDismiss={() => setSaleCustomer(null)}
+          onCreated={() => void fetchNetDebtByCustomer()}
+        />
+      )}
+      {customDebtCustomer && (
+        <CustomDebtFormSheet
+          initialCustomer={customDebtCustomer}
+          onDismiss={() => setCustomDebtCustomer(null)}
+        />
+      )}
+      {debtPaymentCustomer && (
+        <DebtPaymentFormSheet
+          initialCustomer={debtPaymentCustomer}
+          onDismiss={() => setDebtPaymentCustomer(null)}
+        />
+      )}
     </SafeAreaView>
   );
 }

@@ -267,6 +267,7 @@ export function CurrenciesScreen() {
                   onToggle={() =>
                     toggleManySelect(currencies.map((c) => c.id))
                   }
+                  count={selectedCurrencies.length}
                 />
               }
             >

@@ -21,13 +21,13 @@ type TransactionsTab = "sales" | "payments" | "debts" | "services";
 // Services as in-page segments. Owns the page chrome; each panel owns its body.
 export function TransactionsScreen() {
   const { t } = useTranslation();
-  const [tab, setTab] = useState<TransactionsTab>("sales");
+  const [tab, setTab] = useState<TransactionsTab>("payments");
 
   const segments: Segment<TransactionsTab>[] = useMemo(
     () => [
-      { key: "sales", label: t("transactions.tab_sales") },
       { key: "payments", label: t("transactions.tab_payments") },
       { key: "debts", label: t("transactions.tab_debts") },
+      { key: "sales", label: t("transactions.tab_sales") },
       { key: "services", label: t("transactions.tab_services") },
     ],
     [t],

@@ -198,6 +198,7 @@ export function PlanListScreen() {
               filtered.length > 0 && selectedPlans.length === filtered.length
             }
             onToggle={() => toggleManySelect(filtered.map((p) => p.id))}
+            count={selectedPlans.length}
           />
         }
       >

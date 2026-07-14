@@ -224,6 +224,7 @@ export function ProductListScreen() {
               filtered.length > 0 && selectedProducts.length === filtered.length
             }
             onToggle={() => toggleManySelect(filtered.map((p) => p.id))}
+            count={selectedProducts.length}
           />
         }
       >

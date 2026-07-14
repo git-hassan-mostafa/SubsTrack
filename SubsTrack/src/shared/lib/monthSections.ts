@@ -1,11 +1,12 @@
 import type { TFunction } from "i18next";
 import { MONTHS } from "@/src/core/constants";
-import { getCurrentYearMonth } from "@/src/core/utils/date";
+import { getCurrentYearMonth, getTodayDateString } from "@/src/core/utils/date";
 
-// A section of a transaction list: one calendar month of rows, newest month first.
-// `key` is `YYYY-MM`; `title` is the localized header ("This Month" / "June 2026").
-// `totalUsd` is the sum of the section's rows (via `getAmountUsd`), or undefined
-// when the caller didn't ask for a total.
+// A section of a transaction list. Most sections are one calendar month
+// (`key` = `YYYY-MM`), but the two newest buckets are day/week-scoped:
+// `key` = "today" / "this-week". `title` is the localized header
+// ("Today" / "This Week" / "This Month" / "June 2026"). `totalUsd` is the sum
+// of the section's rows (via `getAmountUsd`), or undefined when not requested.
 export interface MonthSection<T> {
   key: string;
   title: string;
@@ -19,6 +20,25 @@ export interface MonthSection<T> {
 function yearMonthOf(iso: string): { year: number; month: number } {
   const [year, month] = iso.split(/[-T]/).map(Number);
   return { year, month };
+}
+
+// The leading YYYY-MM-DD of any ISO-ish date string (timezone-safe string cut).
+function dayOf(iso: string): string {
+  return iso.slice(0, 10);
+}
+
+// The Monday-based start of the current week as YYYY-MM-DD. Rows on/after this
+// day (but not today) go into the "This Week" bucket. Monday start keeps the
+// window intuitive for both LTR and RTL locales.
+function weekStartDateString(): string {
+  const now = new Date();
+  const day = now.getDay(); // 0 = Sunday … 6 = Saturday
+  const daysSinceMonday = (day + 6) % 7;
+  const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysSinceMonday);
+  const y = monday.getFullYear();
+  const m = String(monday.getMonth() + 1).padStart(2, "0");
+  const d = String(monday.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
 
 // Localized month header. The current calendar month renders as "This Month";
@@ -42,6 +62,13 @@ function sectionTitle(
 // row's ISO date string used for grouping. `getAmountUsd`, when passed, sums
 // each row's USD-equivalent amount into `totalUsd` for the section header.
 //
+// The two newest rows also break out into "Today" and "This Week" buckets that
+// sit above the month sections (a row lands in exactly one bucket: today → this
+// week → its month). Their day-scoped totals are always summed locally (they're
+// the newest rows, so always loaded). A month section whose newest rows were
+// peeled has that peeled amount subtracted from its authoritative total so the
+// header still reads the correct remainder.
+//
 // `totalsByMonth`, when passed, is an authoritative "YYYY-MM" → USD total map
 // (e.g. from an unpaginated aggregate query) — for any month present there,
 // it overrides the local per-row sum. This is what keeps a section's header
@@ -55,25 +82,63 @@ export function groupByMonth<T>(
   totalsByMonth?: Record<string, number>,
 ): MonthSection<T>[] {
   const current = getCurrentYearMonth();
+  const today = getTodayDateString();
+  const weekStart = weekStartDateString();
+
   const sections: MonthSection<T>[] = [];
   let currentKey: string | null = null;
+  // How much USD each month key lost to the Today / This Week buckets, so its
+  // authoritative total can be corrected down to the remaining rows.
+  const peeledUsdByMonth: Record<string, number> = {};
+
+  // The bucket a row belongs to: "today", "this-week", or its "YYYY-MM" month.
+  function bucketOf(iso: string): { key: string; title: string; monthKey: string } {
+    const { year, month } = yearMonthOf(iso);
+    const monthKey = `${year}-${String(month).padStart(2, "0")}`;
+    const day = dayOf(iso);
+    if (day === today) {
+      return { key: "today", title: t("common.today"), monthKey };
+    }
+    if (day >= weekStart && day < today) {
+      return { key: "this-week", title: t("common.this_week"), monthKey };
+    }
+    return { key: monthKey, title: sectionTitle(year, month, t, current), monthKey };
+  }
 
   for (const item of items) {
-    const { year, month } = yearMonthOf(getDate(item));
-    const key = `${year}-${String(month).padStart(2, "0")}`;
+    const iso = getDate(item);
+    const { key, title, monthKey } = bucketOf(iso);
     if (key !== currentKey) {
       sections.push({
         key,
-        title: sectionTitle(year, month, t, current),
+        title,
         data: [],
-        totalUsd: totalsByMonth?.[key] ?? (getAmountUsd ? 0 : undefined),
+        totalUsd: getAmountUsd ? 0 : undefined,
       });
       currentKey = key;
     }
     const section = sections[sections.length - 1];
     section.data.push(item);
-    if (totalsByMonth?.[key] === undefined && getAmountUsd) {
-      section.totalUsd = (section.totalUsd ?? 0) + getAmountUsd(item);
+    if (getAmountUsd) {
+      const usd = getAmountUsd(item);
+      section.totalUsd = (section.totalUsd ?? 0) + usd;
+      // Track rows peeled out of their month into a day/week bucket.
+      if (key === "today" || key === "this-week") {
+        peeledUsdByMonth[monthKey] = (peeledUsdByMonth[monthKey] ?? 0) + usd;
+      }
+    }
+  }
+
+  // Apply authoritative monthly totals where available, minus anything that was
+  // peeled into the Today / This Week buckets. Day/week buckets always keep
+  // their local sum (their newest rows are guaranteed loaded).
+  if (getAmountUsd && totalsByMonth) {
+    for (const section of sections) {
+      if (section.key === "today" || section.key === "this-week") continue;
+      const authoritative = totalsByMonth[section.key];
+      if (authoritative !== undefined) {
+        section.totalUsd = authoritative - (peeledUsdByMonth[section.key] ?? 0);
+      }
     }
   }
 

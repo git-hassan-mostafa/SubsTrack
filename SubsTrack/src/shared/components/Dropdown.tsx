@@ -31,6 +31,11 @@ interface DropdownProps<T = string> {
   // Renders a "+" button beside the label (default trigger style only) that
   // opens a form to create a new entity without leaving the current form.
   onAddNew?: () => void;
+  // When true the trigger is greyed out and can't be opened (e.g. a plan picker
+  // gated behind an unselected branch). An optional hint shows in place of the
+  // value while disabled.
+  disabled?: boolean;
+  disabledHint?: string;
 }
 
 export function Dropdown<T extends string | number | null = string>({
@@ -44,6 +49,8 @@ export function Dropdown<T extends string | number | null = string>({
   nullSublabel,
   triggerStyle = "default",
   onAddNew,
+  disabled = false,
+  disabledHint,
 }: DropdownProps<T>) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -58,11 +65,14 @@ export function Dropdown<T extends string | number | null = string>({
     return (
       <>
         <PressableOpacity
-          onPress={() => setOpen(true)}
+          onPress={() => !disabled && setOpen(true)}
+          disabled={disabled}
           className={`flex-row items-center gap-x-1.5 rounded-full px-3 py-1.5 border ${
-            isActive
-              ? "bg-indigo-50 border-indigo-200"
-              : "bg-white border-gray-200"
+            disabled
+              ? "bg-gray-50 border-gray-100 opacity-50"
+              : isActive
+                ? "bg-indigo-50 border-indigo-200"
+                : "bg-white border-gray-200"
           }`}
         >
           <Text
@@ -119,14 +129,25 @@ export function Dropdown<T extends string | number | null = string>({
       ) : null}
 
       <PressableOpacity
-        onPress={() => setOpen(true)}
-        className="border border-gray-200 rounded-xl px-4 py-3 bg-white flex-row items-center justify-between"
+        onPress={() => !disabled && setOpen(true)}
+        disabled={disabled}
+        className={`border rounded-xl px-4 py-3 flex-row items-center justify-between ${
+          disabled ? "border-gray-100 bg-gray-50" : "border-gray-200 bg-white"
+        }`}
       >
         <Text
           numberOfLines={1}
-          className={`text-base flex-1 ${displayLabel ? "text-gray-900" : "text-gray-400"}`}
+          className={`text-base flex-1 ${
+            disabled
+              ? "text-gray-400"
+              : displayLabel
+                ? "text-gray-900"
+                : "text-gray-400"
+          }`}
         >
-          {displayLabel ?? placeholder ?? t("customers.select_plan")}
+          {disabled
+            ? (disabledHint ?? placeholder ?? t("customers.select_plan"))
+            : (displayLabel ?? placeholder ?? t("customers.select_plan"))}
         </Text>
         <Ionicons name="chevron-down" size={16} color={COLORS.gray400} />
       </PressableOpacity>

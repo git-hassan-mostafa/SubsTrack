@@ -39,7 +39,9 @@
     "clear_filters": "مسح عوامل التصفية",
     "bulk_delete_summary": "تم حذف {{ok}} · فشل {{failed}}.",
     "bulk_void_summary": "تم الإلغاء {{ok}} · فشل {{failed}}.",
-    "current_month": "هذا الشهر"
+    "current_month": "هذا الشهر",
+    "today": "اليوم",
+    "this_week": "هذا الأسبوع"
   },
   "auth": {
     "title": "SubsTrack",
@@ -133,6 +135,7 @@
     "remove_plan": "إزالة",
     "count_plans": "{{count}} خطط",
     "cancelled": "ملغاة",
+    "select_branch_first": "اختر الفرع أولاً",
     "empty": "لا توجد خطط بعد — أضف واحدة من شاشة تعديل العميل."
   },
   "customers": {
@@ -567,6 +570,8 @@
     "sale_amount_paid_invalid": "المبلغ المدفوع يجب أن يكون بين 0 وإجمالي البيع",
     "debt_amount_positive": "المبلغ يجب أن يكون أكبر من 0",
     "debt_customer_required": "اختر عميلاً لهذا الدين",
+    "debt_payment_no_debt": "هذا العميل ليس عليه دين لسداده",
+    "debt_payment_exceeds_debt": "المبلغ أكبر مما يدين به العميل",
     "tier_limit_reached": "لقد وصلت إلى الحد الأقصى لـ {{resource}} ({{limit}}) في باقتك الحالية",
     "tier_multi_currency_locked": "العملات المتعددة غير متاحة في باقتك الحالية",
     "tier_multi_month_locked": "الخطط متعددة الأشهر غير متاحة في باقتك الحالية"
@@ -707,6 +712,8 @@
     "description_placeholder": "اختياري — ما سبب هذا الدين؟",
     "notes_label": "ملاحظات",
     "notes_placeholder": "اختياري — مثال: دُفع نقداً",
+    "owes_label": "المستحق",
+    "no_debt_notice": "هذا العميل ليس عليه دين لسداده.",
     "filter_by_customer": "تصفية حسب العميل",
     "all_customers": "كل العملاء",
     "total_outstanding": "إجمالي المستحق",

@@ -23,7 +23,6 @@ import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer
 import { MonthSectionHeader } from "@/src/shared/components/MonthSectionHeader";
 import { groupByMonth } from "@/src/shared/lib/monthSections";
 import { SelectAllBar } from "@/src/shared/components/SelectAllBar";
-import { SelectionOverlaySlot } from "@/src/shared/components/SelectionOverlaySlot";
 import {
   SelectionBar,
   type SelectionAction,
@@ -186,17 +185,8 @@ export function PaymentsPanel() {
   return (
     <View className="flex-1">
       <ResponsiveContainer className="flex-1">
-        <SelectionOverlaySlot
-          selecting={selectionActive}
-          overlay={
-            <SelectAllBar
-              allSelected={
-                items.length > 0 && selectedPayments.length === items.length
-              }
-              onToggle={() => toggleManySelect(items.map((p) => p.id))}
-            />
-          }
-        >
+        {/* Filters hide while selecting; the toolbar + select-all bar take over. */}
+        {!selectionActive ? (
           <View className="px-4">
             <ScrollView
               horizontal
@@ -274,15 +264,21 @@ export function PaymentsPanel() {
               ) : null}
             </ScrollView>
           </View>
-        </SelectionOverlaySlot>
-
-        {selectionActive ? (
-          <SelectionBar
-            count={selection.count}
-            actions={buildSelectionActions(selectedPayments)}
-            onClose={clearSelection}
-          />
-        ) : null}
+        ) : (
+          <>
+            <SelectionBar
+              count={selection.count}
+              actions={buildSelectionActions(selectedPayments)}
+              onClose={clearSelection}
+            />
+            <SelectAllBar
+              allSelected={
+                items.length > 0 && selectedPayments.length === items.length
+              }
+              onToggle={() => toggleManySelect(items.map((p) => p.id))}
+            />
+          </>
+        )}
 
         {error ? (
           <View className="px-4 pt-4">

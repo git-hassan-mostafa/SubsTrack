@@ -27,6 +27,10 @@ interface PlanPickerProps {
   nullSublabel?: string;
   /** Renders a "+" beside the label that opens a form to add a new plan. */
   onAddNew?: () => void;
+  /** Greys out and blocks the picker (e.g. until a branch is chosen). */
+  disabled?: boolean;
+  /** Hint shown in place of the value while disabled. */
+  disabledHint?: string;
 }
 
 /**
@@ -45,6 +49,8 @@ export function PlanPicker({
   nullLabel,
   nullSublabel,
   onAddNew,
+  disabled = false,
+  disabledHint,
 }: PlanPickerProps) {
   const { t } = useTranslation();
   const plans = usePlanSlice((s) => s.items);
@@ -85,6 +91,8 @@ export function PlanPicker({
           : undefined
       }
       onAddNew={onAddNew}
+      disabled={disabled}
+      disabledHint={disabledHint}
     />
   );
 }

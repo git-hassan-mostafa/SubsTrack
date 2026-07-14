@@ -2,7 +2,11 @@ import { useCallback, useRef, useState } from "react";
 import { View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useFocusEffect } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/src/shared/components/Text";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
+import { ActionMenu } from "@/src/shared/components/ActionMenu";
+import { COLORS } from "@/src/shared/constants";
 import type {
   Customer,
   DebtItem,
@@ -14,6 +18,8 @@ import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
 import debtService from "../services/DebtService";
 import { DebtList } from "./DebtList";
+import { CustomDebtFormSheet } from "./CustomDebtFormSheet";
+import { DebtPaymentFormSheet } from "./DebtPaymentFormSheet";
 
 interface Props {
   customer: Customer;
@@ -36,6 +42,9 @@ export function CustomerDebtsPanel({ customer }: Props) {
   const [payments, setPayments] = useState<DebtPaymentItem[]>([]);
   const [summary, setSummary] = useState<DebtSummary>(EMPTY_SUMMARY);
   const [loading, setLoading] = useState(true);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [customDebtOpen, setCustomDebtOpen] = useState(false);
+  const [paymentOpen, setPaymentOpen] = useState(false);
   // Discards out-of-order responses if focus fires refresh while one is in flight.
   const tokenRef = useRef(0);
 
@@ -74,22 +83,66 @@ export function CustomerDebtsPanel({ customer }: Props) {
         <Text fontWeight="Bold" className="text-base text-gray-900">
           {t("debts.customer_panel_title")}
         </Text>
-        {!isEmpty ? (
-          <View className="items-end">
-            <Text
-              fontWeight="Bold"
-              className={`text-base ${isCredit ? "text-green-600" : "text-gray-900"}`}
-            >
-              {isCredit ? `- ${netLabel}` : netLabel}
-            </Text>
-            <Text className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
-              {isCredit ? t("debts.credit") : t("debts.total_outstanding")}
-            </Text>
-          </View>
-        ) : null}
+        <View className="flex-row items-center gap-3">
+          {!isEmpty ? (
+            <View className="items-end">
+              <Text
+                fontWeight="Bold"
+                className={`text-base ${isCredit ? "text-green-600" : "text-gray-900"}`}
+              >
+                {isCredit ? `- ${netLabel}` : netLabel}
+              </Text>
+              <Text className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+                {isCredit ? t("debts.credit") : t("debts.total_outstanding")}
+              </Text>
+            </View>
+          ) : null}
+          <PressableOpacity
+            onPress={() => setMenuOpen(true)}
+            accessibilityLabel={t("debts.add")}
+            className="w-8 h-8 rounded-full bg-indigo-50 items-center justify-center"
+          >
+            <Ionicons name="add" size={18} color={COLORS.primary} />
+          </PressableOpacity>
+        </View>
       </View>
 
       <DebtList items={items} payments={payments} loading={loading} />
+
+      <ActionMenu
+        visible={menuOpen}
+        title={t("debts.add")}
+        onDismiss={() => setMenuOpen(false)}
+        actions={[
+          {
+            key: "custom_debt",
+            label: t("debts.add_custom_debt"),
+            icon: "document-text-outline",
+            onPress: () => setCustomDebtOpen(true),
+          },
+          {
+            key: "payment",
+            label: t("debts.record_debt_payment"),
+            icon: "cash-outline",
+            onPress: () => setPaymentOpen(true),
+          },
+        ]}
+      />
+
+      {customDebtOpen && (
+        <CustomDebtFormSheet
+          initialCustomer={customer}
+          onDismiss={() => setCustomDebtOpen(false)}
+          onCreated={refresh}
+        />
+      )}
+      {paymentOpen && (
+        <DebtPaymentFormSheet
+          initialCustomer={customer}
+          onDismiss={() => setPaymentOpen(false)}
+          onCreated={refresh}
+        />
+      )}
     </View>
   );
 }

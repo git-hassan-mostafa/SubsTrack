@@ -14,8 +14,10 @@ import { CustomerPicker, CustomerFormSheet } from "@/src/modules/customers";
 import type { Customer } from "@/src/core/types";
 import { useAuth } from "@/src/modules/auth";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
+import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
 import { useDebtSlice } from "@/src/state/hooks/useDebtSlice";
-import { findCurrency } from "@/src/core/utils/currency";
+import { findCurrency, formatMoney } from "@/src/core/utils/currency";
+import debtService from "../services/DebtService";
 
 interface Props {
   initialCustomer?: Customer | null;
@@ -27,6 +29,7 @@ export function DebtPaymentFormSheet({ initialCustomer, onDismiss, onCreated }: 
   const { t } = useTranslation();
   const { user } = useAuth();
   const currencies = useCurrencySlice((s) => s.items);
+  const { displayCurrencyId } = useUiPrefStore();
   const addDebtPayment = useDebtSlice((s) => s.addDebtPayment);
   const loading = useDebtSlice((s) => s.loading);
   const error = useDebtSlice((s) => s.error);
@@ -37,11 +40,49 @@ export function DebtPaymentFormSheet({ initialCustomer, onDismiss, onCreated }: 
   const [currencyId, setCurrencyId] = useState<string | null>(null);
   const [notes, setNotes] = useState("");
   const [addCustomerOpen, setAddCustomerOpen] = useState(false);
+  // The selected customer's outstanding debt in USD (null = not loaded yet). A
+  // debt payment can never exceed this; the service enforces it too.
+  const [owedUsd, setOwedUsd] = useState<number | null>(null);
+  const [owedLoading, setOwedLoading] = useState(false);
 
   useEffect(() => {
     clearError();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Load the picked customer's current net debt so we can guide the amount and
+  // block payments when nothing is owed. Not branch-scoped — matches the panel.
+  useEffect(() => {
+    if (!customer) {
+      setOwedUsd(null);
+      return;
+    }
+    let cancelled = false;
+    setOwedLoading(true);
+    debtService
+      .getNetUsd(null, customer.id)
+      .then((usd) => {
+        if (!cancelled) setOwedUsd(usd);
+      })
+      .catch(() => {
+        if (!cancelled) setOwedUsd(null);
+      })
+      .finally(() => {
+        if (!cancelled) setOwedLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [customer]);
+
+  const target = findCurrency(currencies, displayCurrencyId);
+  const noDebt = owedUsd !== null && owedUsd <= 0.005;
+  // The typed amount converted to USD, to compare against what's owed.
+  const enteredCurrency = findCurrency(currencies, currencyId);
+  const amountUsd =
+    amount != null ? amount / (enteredCurrency?.ratePerUsd ?? 1) : 0;
+  const exceedsDebt =
+    owedUsd !== null && owedUsd > 0.005 && amountUsd > owedUsd + 0.005;
 
   async function handleSubmit() {
     if (!user || !customer || amount == null || amount <= 0) return;
@@ -59,7 +100,14 @@ export function DebtPaymentFormSheet({ initialCustomer, onDismiss, onCreated }: 
     }
   }
 
-  const submitDisabled = !customer || amount == null || amount <= 0 || loading;
+  const submitDisabled =
+    !customer ||
+    amount == null ||
+    amount <= 0 ||
+    loading ||
+    owedLoading ||
+    noDebt ||
+    exceedsDebt;
 
   return (
     <Modal visible animationType="slide" presentationStyle="pageSheet" onRequestClose={onDismiss}>
@@ -106,6 +154,26 @@ export function DebtPaymentFormSheet({ initialCustomer, onDismiss, onCreated }: 
               />
             )}
 
+            {/* Outstanding-debt hint / no-debt notice for the picked customer. */}
+            {customer && !owedLoading ? (
+              noDebt ? (
+                <View className="mb-4 px-4 py-3 rounded-xl border border-amber-200 bg-amber-50">
+                  <Text className="text-sm text-amber-700">
+                    {t("debts.no_debt_notice")}
+                  </Text>
+                </View>
+              ) : owedUsd !== null ? (
+                <View className="mb-4 px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 flex-row items-center justify-between">
+                  <Text className="text-xs text-gray-500 uppercase tracking-wide">
+                    {t("debts.owes_label")}
+                  </Text>
+                  <Text className="text-sm font-semibold text-gray-900">
+                    {formatMoney(owedUsd, null, target)}
+                  </Text>
+                </View>
+              ) : null
+            ) : null}
+
             <CurrencyInput
               label={t("debts.amount_label") + " *"}
               amount={amount}
@@ -118,6 +186,14 @@ export function DebtPaymentFormSheet({ initialCustomer, onDismiss, onCreated }: 
               placeholder="0.00"
               onFocus={clearError}
             />
+
+            {exceedsDebt ? (
+              <View className="-mt-2 mb-4">
+                <Text className="text-xs text-red-500">
+                  {t("errors.debt_payment_exceeds_debt")}
+                </Text>
+              </View>
+            ) : null}
 
             <Input
               label={t("debts.notes_label")}

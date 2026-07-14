@@ -1,3 +1,4 @@
 run sql script from ./script.sql
 add auth hook custom_access_token_hook
 deploy create-user function.
+Authentication > Sessions > Refresh token reuse interval = 30

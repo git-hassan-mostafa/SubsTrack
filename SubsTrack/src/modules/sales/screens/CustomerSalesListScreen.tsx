@@ -147,6 +147,7 @@ export function CustomerSalesListScreen() {
           <SelectAllBar
             allSelected={items.length > 0 && selectedSales.length === items.length}
             onToggle={() => toggleManySelect(items.map((s) => s.id))}
+            count={selectedSales.length}
           />
         }
       >

@@ -1,4 +1,3 @@
-import { View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Text } from "./Text";
 import { Checkbox } from "./Checkbox";
@@ -8,12 +7,15 @@ interface Props {
   allSelected: boolean;
   /** Selects every visible row when not all selected; clears them when all are. */
   onToggle: () => void;
+  /** Number of currently-selected rows, shown at the trailing edge. */
+  count?: number;
 }
 
 // A thin "select all" row shown directly above a list while in selection mode.
 // `allSelected` is derived from the visible rows by the screen; `onToggle`
-// wires to `useSelection().toggleMany(visibleIds)`.
-export function SelectAllBar({ allSelected, onToggle }: Props) {
+// wires to `useSelection().toggleMany(visibleIds)`. `count` shows how many rows
+// are selected at the trailing edge.
+export function SelectAllBar({ allSelected, onToggle, count }: Props) {
   const { t } = useTranslation();
   return (
     <PressableOpacity
@@ -25,6 +27,11 @@ export function SelectAllBar({ allSelected, onToggle }: Props) {
       <Text className="text-sm font-medium text-gray-700">
         {t("common.select_all")}
       </Text>
+      {count && count > 0 ? (
+        <Text className="ms-auto text-sm font-semibold text-primary">
+          {t("common.selected_count", { count })}
+        </Text>
+      ) : null}
     </PressableOpacity>
   );
 }

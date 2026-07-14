@@ -140,6 +140,19 @@ class DebtService {
     this.validateAmount(input.amount);
     const ratePerUsdSnapshot = input.currency?.ratePerUsd ?? 1;
     if (!(ratePerUsdSnapshot > 0)) throw new Error(i18n.t('errors.rate_snapshot_positive'));
+
+    // A debt payment can never exceed what the customer still owes. Compare in
+    // USD (net debt is USD-canonical; convert the incoming amount via its rate).
+    // A tiny epsilon absorbs float noise so paying the exact remaining works.
+    const owedUsd = await this.getNetUsd(null, input.customerId);
+    if (owedUsd <= 0.005) {
+      throw new Error(i18n.t('errors.debt_payment_no_debt'));
+    }
+    const amountUsd = input.amount / ratePerUsdSnapshot;
+    if (amountUsd > owedUsd + 0.005) {
+      throw new Error(i18n.t('errors.debt_payment_exceeds_debt'));
+    }
+
     const row = await repository.createDebtPayment({
       tenant_id: input.tenantId,
       customer_id: input.customerId,

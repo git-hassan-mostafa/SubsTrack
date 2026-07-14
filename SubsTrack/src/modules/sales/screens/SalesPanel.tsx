@@ -21,7 +21,6 @@ import {
 } from "@/src/shared/components/SelectionBar";
 import { FAB } from "@/src/shared/components/FAB";
 import { SelectAllBar } from "@/src/shared/components/SelectAllBar";
-import { SelectionOverlaySlot } from "@/src/shared/components/SelectionOverlaySlot";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { MonthSectionHeader } from "@/src/shared/components/MonthSectionHeader";
 import { FilterToggleButton } from "@/src/shared/components/FilterToggleButton";
@@ -187,19 +186,9 @@ export function SalesPanel() {
   return (
     <View className="flex-1">
       <ResponsiveContainer className="flex-1">
-        {/* Search + filters stay mounted while selecting so their space remains
-            and the list never jumps; the select-all bar overlays them. */}
-        <SelectionOverlaySlot
-          selecting={selectionActive}
-          overlay={
-            <SelectAllBar
-              allSelected={
-                sales.length > 0 && selectedSales.length === sales.length
-              }
-              onToggle={() => toggleManySelect(sales.map((s) => s.id))}
-            />
-          }
-        >
+        {/* Search + filters hide while selecting; the toolbar + select-all bar
+            take over. */}
+        {!selectionActive ? (
           <View className="px-4 gap-y-2">
             <View className="flex-row items-center gap-x-2">
               <View className="flex-1">
@@ -276,15 +265,21 @@ export function SalesPanel() {
               </ScrollView>
             ) : null}
           </View>
-        </SelectionOverlaySlot>
-
-        {selectionActive ? (
-          <SelectionBar
-            count={selection.count}
-            actions={buildSelectionActions(selectedSales)}
-            onClose={clearSelection}
-          />
-        ) : null}
+        ) : (
+          <>
+            <SelectionBar
+              count={selection.count}
+              actions={buildSelectionActions(selectedSales)}
+              onClose={clearSelection}
+            />
+            <SelectAllBar
+              allSelected={
+                sales.length > 0 && selectedSales.length === sales.length
+              }
+              onToggle={() => toggleManySelect(sales.map((s) => s.id))}
+            />
+          </>
+        )}
 
         {error ? (
           <View className="px-4 pt-4">
