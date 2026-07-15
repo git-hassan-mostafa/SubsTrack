@@ -11,6 +11,7 @@ export default function AdminLayout() {
         options={{ title: t("admin.title"), headerShown: false }}
       />
       <Stack.Screen name="users" options={{ headerShown: false }} />
+      <Stack.Screen name="wallets" options={{ headerShown: false }} />
       <Stack.Screen name="plans" options={{ headerShown: false }} />
       <Stack.Screen name="products" options={{ headerShown: false }} />
       <Stack.Screen name="tenant-settings" options={{ headerShown: false }} />

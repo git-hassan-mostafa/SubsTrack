@@ -73,7 +73,15 @@ export class PaymentRepository extends BaseRepository implements IPaymentReposit
     const { data, error } = await this.db
       .from('payments')
       .upsert(
-        { ...payload, paid_at: new Date().toISOString(), voided_at: null, voided_by: null },
+        {
+          ...payload,
+          paid_at: new Date().toISOString(),
+          voided_at: null,
+          voided_by: null,
+          // Re-recording a voided month is fresh, unremitted cash.
+          remitted_at: null,
+          remitted_by: null,
+        },
         { onConflict: 'customer_plan_id,billing_month' },
       )
       .select()
@@ -93,6 +101,8 @@ export class PaymentRepository extends BaseRepository implements IPaymentReposit
       paid_at: now,
       voided_at: null,
       voided_by: null,
+      remitted_at: null,
+      remitted_by: null,
     }));
     const { data, error } = await this.db
       .from('payments')
@@ -338,6 +348,35 @@ export class PaymentRepository extends BaseRepository implements IPaymentReposit
     const { data, error } = await query;
     if (error) this.handleError(error);
     return (data ?? []) as DbPayment[];
+  }
+
+  async unremittedForWallet(
+    branchFilter: BranchFilter = null,
+    collectorUserId: string | null = null,
+  ): Promise<DbPayment[]> {
+    let query = this.db
+      .from('payments')
+      .select(PAYMENT_LIST_SELECT)
+      .gt('amount_paid', 0)
+      .is('voided_at', null)
+      .is('remitted_at', null)
+      .order('paid_at', { ascending: false });
+    if (collectorUserId) query = query.eq('received_by_user_id', collectorUserId);
+    query = this.applyBranchFilter(query, branchFilter, this.BRANCH_SCOPES.payments);
+    const { data, error } = await query;
+    if (error) this.handleError(error);
+    return (data ?? []) as DbPayment[];
+  }
+
+  async markRemitted(ids: string[], remittedBy: string): Promise<void> {
+    if (ids.length === 0) return;
+    const { error } = await this.db
+      .from('payments')
+      .update({ remitted_at: new Date().toISOString(), remitted_by: remittedBy })
+      .in('id', ids)
+      .is('remitted_at', null)
+      .is('voided_at', null);
+    if (error) this.handleError(error);
   }
 }
 

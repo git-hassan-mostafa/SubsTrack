@@ -68,4 +68,14 @@ export interface IPaymentRepository {
   // Non-voided payments with an outstanding balance (partial payments), across
   // all months — the "Months" debt category. Joined with customer + plan name.
   partialPayments(branchFilter?: BranchFilter): Promise<DbPayment[]>;
+  // Collector wallet: non-voided payments still in a wallet (remitted_at IS NULL)
+  // with cash collected (amount_paid > 0). Joined with customer + plan name.
+  // Optionally scoped to one collector (received_by_user_id).
+  unremittedForWallet(
+    branchFilter?: BranchFilter,
+    collectorUserId?: string | null,
+  ): Promise<DbPayment[]>;
+  // Stamp the given payments as handed over (remitted) by an admin. Ignores rows
+  // already remitted or voided.
+  markRemitted(ids: string[], remittedBy: string): Promise<void>;
 }

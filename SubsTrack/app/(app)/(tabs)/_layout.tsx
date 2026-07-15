@@ -13,7 +13,7 @@ export default function TabsLayout() {
   // Mobile browsers (e.g. Android Chrome) report a phantom safe-area-inset-bottom
   // for their own gesture bar, which the browser chrome already accounts for.
   // Adding it again here left a dead empty gap below the tab bar on web.
-  const bottom = Platform.OS === "web" ? 0 : insets.bottom;
+  const bottom = Platform.OS === "web" ? 0 : 8 + insets.bottom;
 
   return (
     <Tabs
@@ -22,7 +22,7 @@ export default function TabsLayout() {
         tabBarStyle: {
           backgroundColor: COLORS.white,
           borderTopColor: COLORS.gray200,
-          paddingBottom: bottom + 8,
+          paddingBottom: bottom,
           paddingTop: 4,
           height: 64 + bottom,
         },

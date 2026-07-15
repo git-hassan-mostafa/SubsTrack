@@ -17,6 +17,7 @@ import { createConfirmSlice, type ConfirmSlice } from './slices/confirm/confirmS
 import { createProductSlice, type ProductSlice } from './slices/products/productSlice';
 import { createSaleSlice, type SaleSlice } from './slices/sales/saleSlice';
 import { createDebtSlice, type DebtSlice } from './slices/debts/debtSlice';
+import { createWalletSlice, type WalletSlice } from './slices/wallet/walletSlice';
 import { createOptionSlice, type OptionSlice } from './slices/options/optionSlice';
 
 export interface GlobalState {
@@ -36,6 +37,7 @@ export interface GlobalState {
   products: ProductSlice;
   sales: SaleSlice;
   debts: DebtSlice;
+  wallet: WalletSlice;
   options: OptionSlice;
 }
 
@@ -60,6 +62,7 @@ const initStore = (): StoreApi<GlobalState> =>
       products: createProductSlice(set, get, store),
       sales: createSaleSlice(set, get, store),
       debts: createDebtSlice(set, get, store),
+      wallet: createWalletSlice(set, get, store),
       options: createOptionSlice(set, get, store),
     })),
   );

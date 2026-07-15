@@ -36,4 +36,13 @@ export interface IDebtRepository {
   voidCustomDebt(id: string, voidedBy: string, reason: string | null): Promise<DbCustomDebt>;
   createDebtPayment(payload: CreateDebtPaymentPayload): Promise<DbDebtPayment>;
   voidDebtPayment(id: string, voidedBy: string, reason: string | null): Promise<DbDebtPayment>;
+  // Collector wallet: non-voided debt payments still in a wallet (remitted_at IS
+  // NULL), joined with the customer. Optionally scoped to one collector.
+  unremittedDebtPayments(
+    branchFilter?: BranchFilter,
+    collectorUserId?: string | null,
+  ): Promise<DbDebtPayment[]>;
+  // Stamp the given debt payments as handed over (remitted) by an admin. Ignores
+  // rows already remitted or voided.
+  markDebtPaymentsRemitted(ids: string[], remittedBy: string): Promise<void>;
 }

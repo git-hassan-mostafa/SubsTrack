@@ -136,6 +136,9 @@ export interface DbPayment {
   voided_at: string | null;
   voided_by: string | null;
   notes: string | null;
+  // Collector wallet: when this cash was handed over to an admin. null = still held.
+  remitted_at: string | null;
+  remitted_by: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -173,6 +176,9 @@ export interface DbSale {
   voided_by: string | null;
   void_reason: string | null;
   notes: string | null;
+  // Collector wallet: when the collected cash (amount_paid) was handed over. null = still held.
+  remitted_at: string | null;
+  remitted_by: string | null;
   created_at: string;
   updated_at: string;
   // joined relations — present when .select('*, products(*), customers(*)')
@@ -219,6 +225,9 @@ export interface DbDebtPayment {
   voided_by: string | null;
   void_reason: string | null;
   notes: string | null;
+  // Collector wallet: when this cash was handed over to an admin. null = still held.
+  remitted_at: string | null;
+  remitted_by: string | null;
   // joined relation — present when .select('*, customers(*)')
   customers?: DbCustomer | null;
 }

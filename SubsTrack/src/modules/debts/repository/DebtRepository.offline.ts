@@ -88,6 +88,8 @@ export class OfflineDebtRepository extends OfflineBaseRepository implements IDeb
       voided_at: null,
       voided_by: null,
       void_reason: null,
+      remitted_at: null,
+      remitted_by: null,
     };
     await this.write((db) => insertDirty(db, 'debt_payments', row));
     const [hydrated] = await this.attachCustomers([row]);
@@ -107,5 +109,39 @@ export class OfflineDebtRepository extends OfflineBaseRepository implements IDeb
     if (!row) this.handleError(new Error('Debt payment not found'));
     const [hydrated] = await this.attachCustomers([this.decodeOne<DbDebtPayment>('debt_payments', row)!]);
     return hydrated;
+  }
+
+  async unremittedDebtPayments(
+    branchFilter: BranchFilter = null,
+    collectorUserId: string | null = null,
+  ): Promise<DbDebtPayment[]> {
+    const parts: { clause: string; params: unknown[] }[] = [
+      { clause: 'd.voided_at IS NULL', params: [] },
+      { clause: 'd.remitted_at IS NULL', params: [] },
+    ];
+    if (collectorUserId)
+      parts.push({ clause: 'd.received_by_user_id = ?', params: [collectorUserId] });
+    parts.push(this.branchWhere(branchFilter, this.BRANCH_SCOPES.debt_payments, 'c'));
+    const { sql, params } = this.combineWhere(parts);
+    const rows = await this.all(
+      `SELECT d.* FROM debt_payments d JOIN customers c ON d.customer_id = c.id
+       ${sql} ORDER BY d.paid_at DESC`,
+      params,
+    );
+    return this.attachCustomers(this.decodeAll<DbDebtPayment>('debt_payments', rows));
+  }
+
+  async markDebtPaymentsRemitted(ids: string[], remittedBy: string): Promise<void> {
+    if (ids.length === 0) return;
+    const now = nowIso();
+    await this.write(async (db) => {
+      for (const id of ids) {
+        await db.runAsync(
+          `UPDATE debt_payments SET remitted_at = ?, remitted_by = ?, updated_at = ?, _dirty = 1
+           WHERE id = ? AND remitted_at IS NULL AND voided_at IS NULL`,
+          [now, remittedBy, now, id] as never[],
+        );
+      }
+    });
   }
 }

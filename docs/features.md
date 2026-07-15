@@ -485,3 +485,40 @@ The month grid on the customer detail screen has its own selection mode (same `u
 - **Export Data**: dumps every table's raw rows (undecoded, `_dirty` included) as one JSON object (`{ [tableName]: rows[] }`) to the clipboard via `expo-clipboard`.
 - **Import Data**: pastes a JSON blob of the same shape into a text box; after a destructive confirm (`confirm()` with `destructive: true`), it **wipes every local table** and inserts the JSON's rows exactly as given — no `encodeRow`/decode, no validation beyond "are the top-level keys known table names." This is intentionally raw and unsafe; it's a developer recovery/seeding tool, not a user-facing import.
 - **Exception logging**: every caught error — React render errors (`ErrorBoundary`), uncaught JS errors (RN's global `ErrorUtils` handler), and every repository catch block (`BaseRepository`/`OfflineBaseRepository`'s shared `handleError`) — is written to a local `exception_logs` table via `logException()` (`src/core/errorLog/errorLogger.ts`), tagged with the current user/tenant and a `source` (`boundary` | `global_handler` | `repository` | `service`). The table is a synced tenant table but **push-only** (see [docs/offline.md](offline.md)) — logs go up to Supabase for centralized visibility but are never pulled back down into any device's mirror. Viewable locally like any other table in the Developer browser above.
+
+---
+
+## Collector Wallet
+
+A **collector wallet** is the cash a user (any role) has collected but **not yet handed over** to an admin. Like Debts, it is **computed at runtime — never stored as a balance**. The only new persistence is two columns on the three cash tables (`payments`, `sales`, `debt_payments`): `remitted_at` / `remitted_by` (set together; NULL = still in the collector's wallet). No new table.
+
+**What counts as a collector's cash** — every non-voided, **unremitted** (`remitted_at IS NULL`) row they recorded, across the three cash sources:
+
+- `payments.amount_paid` (subscription), collector = `received_by_user_id`
+- `sales.amount_paid` (one-off sale — the **cash collected**, not `total_amount`), collector = `recorded_by_user_id`
+- `debt_payments.amount` (money against a customer's debt), collector = `received_by_user_id`
+
+`custom_debts` are **excluded** — a custom debt is money *owed to the business*, not cash a collector holds.
+
+**Per-currency + USD.** A collector may hold several currencies at once. `WalletService` groups a collector's items by currency (`WalletCurrencyTotal` = the raw physical cash in that currency **plus** its USD value) and sums everything in USD via each row's frozen `rate_per_usd_snapshot` (drift-free, the same principle as `DebtService`/`DashboardService`). The admin list shows one USD headline per collector (formatted into the display currency); the detail shows the per-currency breakdown when more than one currency is involved.
+
+**Per-transaction settle, multi-select, + "receive all".** An admin opens a collector and either:
+
+- taps **Receive** on a single transaction (`WalletService.receiveItems([one])`), or
+- **long-presses to multi-select** several transactions, then taps **Receive** in the selection bar to hand them over together (`WalletService.receiveItems([…])`), or
+- taps **Receive all** to empty the whole wallet at once (`WalletService.receiveAllFromCollector`, which re-reads the collector's current unremitted set first so it never acts on a stale list).
+
+Both stamp `remitted_at`/`remitted_by` on the source rows — the cash leaves the wallet. Marking is **admin-only**, enforced in `WalletService.assertAdmin` (app-layer, matching the codebase convention that RLS only does tenant/branch isolation).
+
+**Detail-view transaction list.** `WalletDetailView` (shared by the admin detail sheet and the read-only self-view) shows each transaction as a card with the **customer** as the primary line (walk-in sales show "Walk-in"), a secondary `type · descriptor · date` line (date via the app's standard `formatDate`), and the cash amount. It carries client-side **filters** — customer (the distinct customers present in this wallet), payment type (subscription / sale / debt payment), and a from/to **date range** — that narrow only the list, never the headline total. Multi-select + the receive actions are hidden in the read-only self-view; filters remain available there. `WalletItem` now carries `customerId` / `customerName`, and its `label` is the secondary descriptor (plan for a subscription, product for a sale, `null` for a debt payment). The sale's customer name comes free from the existing `customers(*)` join (`sale.customer`, hydrated on web + offline).
+
+**Self-correcting.** Because the wallet is derived, voiding or editing a source payment/sale/debt-payment flows straight through on the next fetch. A void + re-pay of a month **resets** `remitted_at` to NULL (the re-recorded cash is fresh, unremitted) — handled in the payment upsert's reset block. If money was already handed over and the source row is later voided, the collector's total can go **negative** (the business now owes them) — this is correct and simply shows as a negative USD figure.
+
+**Where it lives.**
+
+- Admin: **Admin → Wallets** (`app/(app)/(tabs)/admin/wallets.tsx` → `WalletsScreen`) — list of collectors holding cash, tap → detail sheet with the transactions + receive actions.
+- Every user: **Settings → My Wallet** (`app/(app)/(tabs)/settings/my-wallet.tsx` → `MyWalletScreen`) — a read-only view of their own cash-on-hand (no receive actions).
+
+**Code map.** `src/modules/wallet/` (`services/WalletService.ts`, `screens/`, `components/WalletDetailView.tsx` + `CollectorWalletCard.tsx`), slice `src/state/slices/wallet/walletSlice.ts` (hook `useWalletSlice`). The three cash services each gained `getUnremittedForWallet(...)` + a mark method (`PaymentService.markRemitted`, `SaleService.markRemitted`, `DebtService.markDebtPaymentsRemitted`), backed by `unremittedForWallet` / `markRemitted` on their repositories (web + offline). Types (`WalletItem` / `WalletCurrencyTotal` / `CollectorWallet` / `CollectorWalletDetail` / `WalletSource`) live in `src/core/types`.
+
+**Historical data.** On launch, existing collected rows all have `remitted_at = NULL`, so **every past transaction counts** toward wallets immediately (the chosen behavior — no start-date cutoff, no opening handover). Admins clear the historical backlog with a one-time "receive all" per collector.

@@ -23,6 +23,8 @@ export function mapDbSaleToSale(db: DbSale): Sale {
         voidedBy: db.voided_by,
         voidReason: db.void_reason,
         notes: db.notes,
+        remittedAt: db.remitted_at,
+        remittedBy: db.remitted_by,
         createdAt: db.created_at,
         product: db.products ? mapDbProductToProduct(db.products) : null,
         customer: db.customers ? mapDbCustomerToCustomer(db.customers) : null,

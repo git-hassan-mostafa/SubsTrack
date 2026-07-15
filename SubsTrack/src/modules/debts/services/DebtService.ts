@@ -104,6 +104,7 @@ class DebtService {
         ratePerUsdSnapshot: Number(p.rate_per_usd_snapshot),
         paidAt: p.paid_at,
         notes: p.notes,
+        receivedByUserId: p.received_by_user_id,
       }));
 
     const grossUsd = sumUsd(items.map((i) => ({ amount: i.remaining, ratePerUsdSnapshot: i.ratePerUsdSnapshot })));
@@ -169,6 +170,31 @@ class DebtService {
   async voidDebtPayment(id: string, voidedBy: string, reason: string | null): Promise<DebtPayment> {
     const row = await repository.voidDebtPayment(id, voidedBy, reason?.trim() || null);
     return mapDbDebtPaymentToDebtPayment(row);
+  }
+
+  // Collector wallet: non-voided, still-in-wallet (unremitted) debt payments.
+  // Each item carries its customer name + the collector. Optionally scoped.
+  async getUnremittedDebtPayments(
+    branchFilter: BranchFilter = null,
+    collectorUserId: string | null = null,
+  ): Promise<DebtPaymentItem[]> {
+    const rows = await repository.unremittedDebtPayments(branchFilter, collectorUserId);
+    return rows.map((p) => ({
+      id: p.id,
+      customerId: p.customer_id,
+      customerName: p.customers?.name ?? '',
+      amount: Number(p.amount),
+      currencyId: p.currency_id,
+      ratePerUsdSnapshot: Number(p.rate_per_usd_snapshot),
+      paidAt: p.paid_at,
+      notes: p.notes,
+      receivedByUserId: p.received_by_user_id,
+    }));
+  }
+
+  // Mark debt payments as handed over (remitted) by an admin.
+  async markDebtPaymentsRemitted(ids: string[], remittedBy: string): Promise<void> {
+    await repository.markDebtPaymentsRemitted(ids, remittedBy);
   }
 
   // Sums all debt (across categories) minus all debt payments, in USD, for the

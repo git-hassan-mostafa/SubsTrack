@@ -3,7 +3,7 @@ import { BaseRepository } from '@/src/core/utils/BaseRepository';
 import { PAGE_SIZE, type BranchFilter } from '@/src/core/constants';
 import type { DbSale } from '@/src/core/types/db';
 import { FindSalesOptions } from '../utils/types';
-import type { ISaleRepository } from './ISaleRepository';
+import type { CreateSalePayload, ISaleRepository } from './ISaleRepository';
 import { OfflineSaleRepository } from './SaleRepository.offline';
 
 const SALE_SELECT = '*, products(*), customers(*)';
@@ -80,12 +80,7 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
     return (data ?? null) as DbSale | null;
   }
 
-  async create(
-    payload: Omit<
-      DbSale,
-      'id' | 'total_amount' | 'created_at' | 'updated_at' | 'voided_at' | 'voided_by' | 'void_reason' | 'products' | 'customers'
-    >,
-  ): Promise<DbSale> {
+  async create(payload: CreateSalePayload): Promise<DbSale> {
     const { data, error } = await this.db
       .from('sales')
       .insert(payload)
@@ -204,6 +199,35 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
     return (data ?? []).filter(
       (s: DbSale) => Number(s.total_amount) - Number(s.amount_paid) > 1e-9,
     ) as DbSale[];
+  }
+
+  async unremittedForWallet(
+    branchFilter: BranchFilter = null,
+    collectorUserId: string | null = null,
+  ): Promise<DbSale[]> {
+    let query = this.db
+      .from('sales')
+      .select(SALE_SELECT)
+      .gt('amount_paid', 0)
+      .is('voided_at', null)
+      .is('remitted_at', null)
+      .order('sold_at', { ascending: false });
+    if (collectorUserId) query = query.eq('recorded_by_user_id', collectorUserId);
+    query = this.applyBranchFilter(query, branchFilter, this.BRANCH_SCOPES.sales);
+    const { data, error } = await query;
+    if (error) this.handleError(error);
+    return (data ?? []) as DbSale[];
+  }
+
+  async markRemitted(ids: string[], remittedBy: string): Promise<void> {
+    if (ids.length === 0) return;
+    const { error } = await this.db
+      .from('sales')
+      .update({ remitted_at: new Date().toISOString(), remitted_by: remittedBy })
+      .in('id', ids)
+      .is('remitted_at', null)
+      .is('voided_at', null);
+    if (error) this.handleError(error);
   }
 }
 

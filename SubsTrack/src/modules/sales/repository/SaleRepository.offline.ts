@@ -85,6 +85,8 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
       voided_at: null,
       voided_by: null,
       void_reason: null,
+      remitted_at: null,
+      remitted_by: null,
     };
     await this.write((db) => insertDirty(db, 'sales', row));
     const [hydrated] = await this.hydrate([row]);
@@ -191,5 +193,36 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
       [...branch.params],
     );
     return this.hydrate(this.decodeAll<DbSale>('sales', rows));
+  }
+
+  async unremittedForWallet(
+    branchFilter: BranchFilter = null,
+    collectorUserId: string | null = null,
+  ): Promise<DbSale[]> {
+    const parts: { clause: string; params: unknown[] }[] = [
+      { clause: 'CAST(s.amount_paid AS REAL) > 0', params: [] },
+      { clause: 's.voided_at IS NULL', params: [] },
+      { clause: 's.remitted_at IS NULL', params: [] },
+    ];
+    if (collectorUserId)
+      parts.push({ clause: 's.recorded_by_user_id = ?', params: [collectorUserId] });
+    parts.push(this.branchWhere(branchFilter, this.BRANCH_SCOPES.sales, 's'));
+    const { sql, params } = this.combineWhere(parts);
+    const rows = await this.all(`SELECT s.* FROM sales s ${sql} ORDER BY s.sold_at DESC`, params);
+    return this.hydrate(this.decodeAll<DbSale>('sales', rows));
+  }
+
+  async markRemitted(ids: string[], remittedBy: string): Promise<void> {
+    if (ids.length === 0) return;
+    const now = nowIso();
+    await this.write(async (db) => {
+      for (const id of ids) {
+        await db.runAsync(
+          `UPDATE sales SET remitted_at = ?, remitted_by = ?, updated_at = ?, _dirty = 1
+           WHERE id = ? AND remitted_at IS NULL AND voided_at IS NULL`,
+          [now, remittedBy, now, id] as never[],
+        );
+      }
+    });
   }
 }

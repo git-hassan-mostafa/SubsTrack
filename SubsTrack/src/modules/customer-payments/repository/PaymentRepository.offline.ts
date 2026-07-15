@@ -37,6 +37,10 @@ export class OfflinePaymentRepository extends OfflineBaseRepository implements I
       paid_at: now,
       voided_at: null,
       voided_by: null,
+      // Re-recording a voided month is fresh, unremitted cash. Explicit nulls so
+      // the ON CONFLICT upsert resets any prior remittance on the reused row.
+      remitted_at: null,
+      remitted_by: null,
       created_at: now,
       updated_at: now,
     };
@@ -305,5 +309,40 @@ export class OfflinePaymentRepository extends OfflineBaseRepository implements I
       [...branch.params],
     );
     return this.hydrateListJoins(this.decodeAll<DbPayment>('payments', rows));
+  }
+
+  async unremittedForWallet(
+    branchFilter: BranchFilter = null,
+    collectorUserId: string | null = null,
+  ): Promise<DbPayment[]> {
+    const parts: { clause: string; params: unknown[] }[] = [
+      { clause: 'CAST(p.amount_paid AS REAL) > 0', params: [] },
+      { clause: 'p.voided_at IS NULL', params: [] },
+      { clause: 'p.remitted_at IS NULL', params: [] },
+    ];
+    if (collectorUserId)
+      parts.push({ clause: 'p.received_by_user_id = ?', params: [collectorUserId] });
+    parts.push(this.branchWhere(branchFilter, this.BRANCH_SCOPES.payments, 'c'));
+    const { sql, params } = this.combineWhere(parts);
+    const rows = await this.all(
+      `SELECT p.* FROM payments p JOIN customers c ON p.customer_id = c.id
+       ${sql} ORDER BY p.paid_at DESC`,
+      params,
+    );
+    return this.hydrateListJoins(this.decodeAll<DbPayment>('payments', rows));
+  }
+
+  async markRemitted(ids: string[], remittedBy: string): Promise<void> {
+    if (ids.length === 0) return;
+    const now = nowIso();
+    await this.write(async (db) => {
+      for (const id of ids) {
+        await db.runAsync(
+          `UPDATE payments SET remitted_at = ?, remitted_by = ?, updated_at = ?, _dirty = 1
+           WHERE id = ? AND remitted_at IS NULL AND voided_at IS NULL`,
+          [now, remittedBy, now, id] as never[],
+        );
+      }
+    });
   }
 }

@@ -33,6 +33,14 @@ const MENU_ITEMS: MenuItem[] = [
     countKey: "users",
   },
   {
+    labelKey: "wallet.title",
+    subtitleKey: "admin.wallets_sub",
+    icon: "wallet-outline",
+    iconBg: COLORS.primaryLight,
+    iconColor: COLORS.primary,
+    route: "/(app)/(tabs)/admin/wallets",
+  },
+  {
     labelKey: "plans.title",
     subtitleKey: "admin.plans_sub",
     icon: "pricetag-outline",

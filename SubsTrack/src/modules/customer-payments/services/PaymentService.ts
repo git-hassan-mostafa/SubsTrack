@@ -70,6 +70,23 @@ class PaymentService {
     return rows.map(mapDbPaymentRowToListItem);
   }
 
+  // Collector wallet: non-voided, still-in-wallet (unremitted) payments with cash
+  // collected. Each item carries its customer + plan name. Optionally scoped to
+  // one collector (received_by_user_id).
+  async getUnremittedForWallet(
+    branchFilter: BranchFilter = null,
+    collectorUserId: string | null = null,
+  ): Promise<PaymentListItem[]> {
+    const rows = await repository.unremittedForWallet(branchFilter, collectorUserId);
+    return rows.map(mapDbPaymentRowToListItem);
+  }
+
+  // Mark payments as handed over (remitted) by an admin — removes them from the
+  // collector's wallet.
+  async markRemitted(ids: string[], remittedBy: string): Promise<void> {
+    await repository.markRemitted(ids, remittedBy);
+  }
+
   async createPayment(data: CreatePaymentInput): Promise<Payment> {
     validateCreatePayment(data);
     const row = await repository.create(toPaymentPayload(data));

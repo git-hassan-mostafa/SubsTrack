@@ -729,3 +729,39 @@ Payments use an `EXISTS` against `customers.branch_id`.
 
 - `branch_id` is declared inline in the `CREATE TABLE` definitions for `users`, `customers`, and `plans`. Plans uniqueness is `uq_plans_name_tenant_branch` (`tenant_id`, `branch_id`, `name`). Run `reset.sql` then `script.sql` on a fresh project — there is no forward-migration path for older databases.
 - After migration, all existing rows have `branch_id = NULL`. Existing single-branch tenants see no behavior change. To go multi-branch, an admin creates branches in Settings → Branches and reassigns existing records.
+
+---
+
+## Collector Wallet (Cash Handover)
+
+Every user who collects money accumulates it in a **wallet** — cash collected but not yet handed over to an admin. Computed at runtime; never stored as a balance (same principle as Debts).
+
+### What counts
+
+A collector's wallet = their non-voided, **unremitted** rows across the three cash sources:
+- `payments.amount_paid` (collector = `received_by_user_id`)
+- `sales.amount_paid` (collector = `recorded_by_user_id`; cash collected, NOT `total_amount`)
+- `debt_payments.amount` (collector = `received_by_user_id`)
+
+`custom_debts` are excluded (money owed to the business, not collected cash).
+
+### Persistence
+
+The only new storage is two columns on `payments`, `sales`, `debt_payments`: `remitted_at TIMESTAMPTZ`, `remitted_by UUID` (FK users, SET NULL; set together via a consistency CHECK). NULL = still in the collector's wallet. No new table.
+
+### Behavior
+
+- **Per-currency**: cash grouped by currency (physical count) + summed in USD via each row's frozen `rate_per_usd_snapshot`.
+- **Per-transaction settle**: an admin marks individual transactions received, or "Receive all" to empty a collector's wallet at once. Marking stamps `remitted_at`/`remitted_by`.
+- **Admin-only** marking (enforced in `WalletService.assertAdmin`).
+- **Self-correcting**: void/edit of a source row flows through; a void + re-pay resets `remitted_at` to NULL; void-after-handover can make a wallet negative (business owes collector).
+- **Historical data**: all pre-existing rows count immediately (no cutoff); admins clear the backlog with a one-time "receive all".
+
+### UI
+
+- **Admin → Wallets**: list of collectors holding cash → detail sheet (transactions + receive actions).
+- **Settings → My Wallet**: every user's read-only view of their own cash-on-hand.
+
+### Code
+
+Module `src/modules/wallet/` (`WalletService`, screens, `WalletDetailView`, `CollectorWalletCard`); slice `walletSlice` (`useWalletSlice`). Cash services gained `getUnremittedForWallet` + a mark method; repositories gained `unremittedForWallet`/`markRemitted` (web + offline). Types in `src/core/types` (`WalletItem`, `WalletCurrencyTotal`, `CollectorWallet`, `CollectorWalletDetail`, `WalletSource`).

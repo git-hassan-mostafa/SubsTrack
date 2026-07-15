@@ -184,6 +184,9 @@ export interface Payment {
   voidedAt: string | null;
   voidedBy: string | null;
   notes: string | null;
+  // Collector wallet: when this cash was handed over to an admin. null = still held.
+  remittedAt: string | null;
+  remittedBy: string | null;
   createdAt: string;
 }
 
@@ -274,6 +277,9 @@ export interface Sale {
   voidedBy: string | null;
   voidReason: string | null;
   notes: string | null;
+  // Collector wallet: when the collected cash (amountPaid) was handed over. null = still held.
+  remittedAt: string | null;
+  remittedBy: string | null;
   createdAt: string;
   // Joined for display in lists/receipts.
   product?: Product | null;
@@ -326,6 +332,9 @@ export interface DebtPayment {
   voidedBy: string | null;
   voidReason: string | null;
   notes: string | null;
+  // Collector wallet: when this cash was handed over to an admin. null = still held.
+  remittedAt: string | null;
+  remittedBy: string | null;
 }
 
 // One row in the Debts flat list (a partial month, a partial sale, or a custom
@@ -355,6 +364,8 @@ export interface DebtPaymentItem {
   ratePerUsdSnapshot: number;
   paidAt: string;
   notes: string | null;
+  // Who collected it — used by the collector wallet.
+  receivedByUserId: string | null;
 }
 
 // Net summary for the current Debts filter scope. All values in USD (the screen
@@ -363,6 +374,57 @@ export interface DebtSummary {
   grossUsd: number;
   paymentsUsd: number;
   netUsd: number;
+}
+
+// ── Collector Wallet ─────────────────────────────────────────────────────────
+// Cash a user (any role) collected but has not yet handed over to an admin.
+// DERIVED at runtime — never stored as a balance. A collector's wallet =
+// every non-voided, non-remitted cash row they recorded:
+//   payments.amount_paid + sales.amount_paid + debt_payments.amount
+// Marking a row "received" stamps remitted_at/remitted_by, removing it from the
+// wallet. Nothing else is stored. Void / edit of a source row self-corrects.
+
+export type WalletSource = 'payment' | 'sale' | 'debt_payment';
+
+// One unremitted collected transaction sitting in a collector's wallet.
+// `amount` is the cash collected, in the row's own currency.
+export interface WalletItem {
+  id: string;
+  source: WalletSource;
+  collectorUserId: string;
+  // The customer this cash came from. null = a walk-in sale (no customer).
+  customerId: string | null;
+  customerName: string | null;
+  // Secondary descriptor shown under the customer: the plan (subscription) or
+  // product (sale). null for debt payments (no sub-line beyond the type).
+  label: string | null;
+  amount: number;
+  currencyId: string | null;
+  ratePerUsdSnapshot: number;
+  date: string; // paid_at / sold_at — for sorting + display
+}
+
+// Physical cash a collector holds in ONE currency: the raw sum (what you'd count
+// in notes/bills) plus its canonical USD value (Σ amount/rate — drift-free).
+export interface WalletCurrencyTotal {
+  currencyId: string | null;
+  amount: number; // raw cash in this currency
+  usd: number;    // canonical USD value
+}
+
+// One collector's wallet: cash collected but not yet handed over.
+export interface CollectorWallet {
+  collectorUserId: string;
+  collectorName: string;
+  active: boolean; // false = deactivated user who still holds cash
+  byCurrency: WalletCurrencyTotal[];
+  itemCount: number;
+  totalUsd: number;
+}
+
+// One collector's wallet plus the individual transactions that make it up.
+export interface CollectorWalletDetail extends CollectorWallet {
+  items: WalletItem[];
 }
 
 // Global app-wide key/value config (NOT tenant-scoped). Managed by the SaaS

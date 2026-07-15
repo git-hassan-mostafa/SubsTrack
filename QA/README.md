@@ -29,6 +29,7 @@ This folder contains the production QA test plan for the SubsTrack mobile app. E
 | Products | [products.md](products.md) | Product catalog CRUD, branch scoping, tier gating (Free: 5), soft/hard delete, snapshot immunity in sales |
 | Sales | [sales.md](sales.md) | One-off sale recording, walk-in (no customer), product snapshots, async customer picker, void, customer panel, dashboard revenue integration |
 | Debts | [debts.md](debts.md) | Runtime-computed per-customer net debt, categories (months/sales/services/custom), partial sales (`amount_paid`), custom debts + debt payments, void, credit, branch + offline |
+| Collector Wallet | [wallet.md](wallet.md) | Runtime-computed per-collector cash-on-hand (payments/sales/debt payments), per-currency + USD, per-transaction settle + "receive all", void/re-pay self-correction, admin-only, branch + offline |
 | Dashboard | [dashboard.md](dashboard.md) | Hero card (subscription + sales revenue, USD-aggregated via snapshots, display-currency formatted), stat cards, admin compact stats, refresh, branch scoping |
 | Settings | [settings.md](settings.md) | User-level prefs: profile, language switcher with restart, logout |
 | Admin & Navigation | [admin-and-navigation.md](admin-and-navigation.md) | Tab visibility, role gating, routing, deep links, ActionMenu pattern, PressableOpacity feedback, asterisk required fields |

@@ -61,6 +61,21 @@ class SaleService {
     return rows.map(mapDbSaleToSale);
   }
 
+  // Collector wallet: non-voided, still-in-wallet (unremitted) sales with cash
+  // collected (amountPaid > 0). Optionally scoped to one recorder.
+  async getUnremittedForWallet(
+    branchFilter: BranchFilter = null,
+    collectorUserId: string | null = null,
+  ): Promise<Sale[]> {
+    const rows = await repository.unremittedForWallet(branchFilter, collectorUserId);
+    return rows.map(mapDbSaleToSale);
+  }
+
+  // Mark sales as handed over (remitted) by an admin.
+  async markRemitted(ids: string[], remittedBy: string): Promise<void> {
+    await repository.markRemitted(ids, remittedBy);
+  }
+
   async voidSale(id: string, voidedBy: string, reason: string): Promise<Sale> {
     const row = await repository.voidSale(id, voidedBy, reason.trim());
     return mapDbSaleToSale(row);

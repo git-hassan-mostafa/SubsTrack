@@ -81,6 +81,34 @@ export class DebtRepository extends BaseRepository implements IDebtRepository {
     if (error) this.handleError(error);
     return data as DbDebtPayment;
   }
+
+  async unremittedDebtPayments(
+    branchFilter: BranchFilter = null,
+    collectorUserId: string | null = null,
+  ): Promise<DbDebtPayment[]> {
+    let query = this.db
+      .from('debt_payments')
+      .select(DEBT_PAYMENT_SELECT)
+      .is('voided_at', null)
+      .is('remitted_at', null)
+      .order('paid_at', { ascending: false });
+    if (collectorUserId) query = query.eq('received_by_user_id', collectorUserId);
+    query = this.applyBranchFilter(query, branchFilter, this.BRANCH_SCOPES.debt_payments);
+    const { data, error } = await query;
+    if (error) this.handleError(error);
+    return (data ?? []) as DbDebtPayment[];
+  }
+
+  async markDebtPaymentsRemitted(ids: string[], remittedBy: string): Promise<void> {
+    if (ids.length === 0) return;
+    const { error } = await this.db
+      .from('debt_payments')
+      .update({ remitted_at: new Date().toISOString(), remitted_by: remittedBy })
+      .in('id', ids)
+      .is('remitted_at', null)
+      .is('voided_at', null);
+    if (error) this.handleError(error);
+  }
 }
 
 // Platform seam: web → Supabase directly; native → offline SQLite.

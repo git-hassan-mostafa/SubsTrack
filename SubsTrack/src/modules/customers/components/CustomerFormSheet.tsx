@@ -125,11 +125,21 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
       if (customer) {
         await updateCustomer(customer.id, payload);
         if (getStore().getState().customers.error) return;
-        const ok = await syncLines(customer.id, finalLines, removedIds, user.tenantId);
+        const ok = await syncLines(
+          customer.id,
+          finalLines,
+          removedIds,
+          user.tenantId,
+        );
         if (ok) onDismiss();
       } else {
         if (!currentTier) return;
-        const created = await createCustomer(payload, user.tenantId, currentTier, usage);
+        const created = await createCustomer(
+          payload,
+          user.tenantId,
+          currentTier,
+          usage,
+        );
         if (!created) return; // error / tier-limit surfaced via the banners/modal
         const ok = await syncLines(created.id, finalLines, [], user.tenantId);
         if (ok) onDismiss();
@@ -243,7 +253,7 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
               <View className="mb-2 px-1">
                 {[1, 2, 3, 4].map((n) => (
                   <Text key={n} className="text-xs text-gray-400 leading-5">
-                    {t(`customers.location_step_${n}`)}
+                    {n}.{t(`customers.location_step_${n}`)}
                   </Text>
                 ))}
               </View>
@@ -264,10 +274,7 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
                       size={14}
                       color={COLORS.success}
                     />
-                    <Text
-                      className="text-xs"
-                      style={{ color: COLORS.success }}
-                    >
+                    <Text className="text-xs" style={{ color: COLORS.success }}>
                       {t("customers.location_saved")}
                     </Text>
                   </View>
@@ -287,7 +294,9 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
             <BranchPicker
               label={t("branches.branch_label") + " *"}
               value={form.branchId}
-              onChange={(branchId) => setForm((prev) => ({ ...prev, branchId }))}
+              onChange={(branchId) =>
+                setForm((prev) => ({ ...prev, branchId }))
+              }
               nullLabel={t("branches.unassigned")}
               nullable={false}
             />

@@ -1,4 +1,4 @@
-import { View } from "react-native";
+import { useWindowDimensions, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
@@ -26,10 +26,16 @@ interface SelectionBarProps {
   onToggleAll?: () => void;
 }
 
-// The single selection row shown on every list/panel while selecting. It carries
-// everything on one line: a leading "select all" checkbox, the close (X) button,
-// the selected count, then a row of icon actions. Shared by PageHeader (overlaid
-// on the header) and the Transactions panels (rendered inline).
+// Width (px) at/above which the bar stays on a single line. Matches the
+// "wide viewport" cap used by ResponsiveContainer (max-w-3xl = 768px).
+const WIDE_BREAKPOINT = 768;
+
+// The selection row shown on every list/panel while selecting: a leading
+// "select all" checkbox, the close (X) button, the selected count, then a row
+// of icon actions. On wide viewports it all sits on one line; on small
+// devices the leading cluster (checkbox / X / count) takes the first line and
+// the actions wrap to a second line. Shared by PageHeader (overlaid on the
+// header) and the Transactions panels (rendered inline).
 export function SelectionBar({
   count,
   actions,
@@ -38,8 +44,11 @@ export function SelectionBar({
   onToggleAll,
 }: SelectionBarProps) {
   const { t } = useTranslation();
-  return (
-    <View className="flex-row items-center px-4 pt-4 pb-4 bg-white border-b border-gray-100 gap-2">
+  const { width } = useWindowDimensions();
+  const isWide = width >= WIDE_BREAKPOINT;
+
+  const leading = (
+    <>
       {onToggleAll ? (
         <PressableOpacity
           onPress={onToggleAll}
@@ -58,26 +67,45 @@ export function SelectionBar({
           {t("common.selected_count", { count })}
         </Text>
       </View>
-      <View className="flex-row items-center gap-1">
-        {actions.map((action) => (
-          <PressableOpacity
-            key={action.key}
-            onPress={action.onPress}
-            disabled={action.disabled}
-            hitSlop={8}
-            accessibilityLabel={action.label}
-            className={`w-10 h-10 items-center justify-center rounded-full ${
-              action.disabled ? "opacity-40" : ""
-            }`}
-          >
-            <Ionicons
-              name={action.icon}
-              size={22}
-              color={action.destructive ? COLORS.danger : COLORS.gray700}
-            />
-          </PressableOpacity>
-        ))}
+    </>
+  );
+
+  const actionRow = (
+    <View className="flex-row items-center justify-end gap-1">
+      {actions.map((action) => (
+        <PressableOpacity
+          key={action.key}
+          onPress={action.onPress}
+          disabled={action.disabled}
+          hitSlop={8}
+          accessibilityLabel={action.label}
+          className={`w-10 h-10 items-center justify-center rounded-full ${
+            action.disabled ? "opacity-40" : ""
+          }`}
+        >
+          <Ionicons
+            name={action.icon}
+            size={22}
+            color={action.destructive ? COLORS.danger : COLORS.gray700}
+          />
+        </PressableOpacity>
+      ))}
+    </View>
+  );
+
+  if (isWide) {
+    return (
+      <View className="flex-row items-center px-4 pt-4 pb-4 bg-white border-b border-gray-100 gap-2">
+        {leading}
+        {actionRow}
       </View>
+    );
+  }
+
+  return (
+    <View className="px-4 pt-4 pb-4 bg-white border-b border-gray-100">
+      <View className="flex-row items-center gap-2">{leading}</View>
+      <View className="mt-3">{actionRow}</View>
     </View>
   );
 }

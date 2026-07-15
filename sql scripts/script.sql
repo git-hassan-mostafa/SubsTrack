@@ -528,6 +528,13 @@ CREATE TABLE IF NOT EXISTS payments (
     voided_by           UUID,
     notes               TEXT,
 
+    -- Collector wallet: when the cash collected here was handed over to an admin.
+    -- NULL = still in the collector's (received_by_user_id) wallet, not yet
+    -- handed over. Set together (see chk_payments_remitted_consistency). A void +
+    -- re-pay resets these to NULL — the re-recorded cash is unremitted again.
+    remitted_at         TIMESTAMPTZ,
+    remitted_by         UUID,
+
     -- Ensure billing_month is always the 1st of the month
     CONSTRAINT chk_billing_month_first_day
         CHECK (EXTRACT(DAY FROM billing_month) = 1),
@@ -538,6 +545,14 @@ CREATE TABLE IF NOT EXISTS payments (
             (voided_at IS NULL AND voided_by IS NULL)
             OR
             (voided_at IS NOT NULL AND voided_by IS NOT NULL)
+        ),
+
+    -- remitted_at and remitted_by must be set together
+    CONSTRAINT chk_payments_remitted_consistency
+        CHECK (
+            (remitted_at IS NULL AND remitted_by IS NULL)
+            OR
+            (remitted_at IS NOT NULL AND remitted_by IS NOT NULL)
         ),
 
     CONSTRAINT fk_payments_customer
@@ -562,6 +577,11 @@ CREATE TABLE IF NOT EXISTS payments (
 
     CONSTRAINT fk_payments_voided_by
         FOREIGN KEY (voided_by)
+        REFERENCES users(id)
+        ON DELETE SET NULL,
+
+    CONSTRAINT fk_payments_remitted_by
+        FOREIGN KEY (remitted_by)
         REFERENCES users(id)
         ON DELETE SET NULL,
 
@@ -595,6 +615,12 @@ CREATE INDEX IF NOT EXISTS idx_payments_customer_month
 
 CREATE INDEX IF NOT EXISTS idx_payments_customer_plan_id
     ON payments (customer_plan_id);
+
+-- Collector wallet: fast lookup of cash still held by a collector (not remitted,
+-- not voided). Partial index keeps it tiny once most cash is handed over.
+CREATE INDEX IF NOT EXISTS idx_payments_wallet
+    ON payments (received_by_user_id)
+    WHERE remitted_at IS NULL AND voided_at IS NULL;
 
 -- ============================================================
 -- PRODUCTS
@@ -698,11 +724,24 @@ CREATE TABLE IF NOT EXISTS sales (
     void_reason           TEXT,
     notes                 TEXT,
 
+    -- Collector wallet: when the cash collected here (amount_paid) was handed
+    -- over to an admin. NULL = still in the recording user's wallet. Set together.
+    remitted_at           TIMESTAMPTZ,
+    remitted_by           UUID,
+
     -- amount_paid can't be negative and can't exceed the sale total. Uses the
     -- BASE columns (unit_amount * quantity) — Postgres forbids referencing the
     -- GENERATED total_amount column inside a CHECK.
     CONSTRAINT chk_sales_amount_paid
         CHECK (amount_paid >= 0 AND amount_paid <= unit_amount * quantity),
+
+    -- remitted_at and remitted_by must be set together
+    CONSTRAINT chk_sales_remitted_consistency
+        CHECK (
+            (remitted_at IS NULL AND remitted_by IS NULL)
+            OR
+            (remitted_at IS NOT NULL AND remitted_by IS NOT NULL)
+        ),
 
     CONSTRAINT fk_sales_tenant
         FOREIGN KEY (tenant_id)
@@ -736,6 +775,11 @@ CREATE TABLE IF NOT EXISTS sales (
         REFERENCES users(id)
         ON DELETE SET NULL,
 
+    CONSTRAINT fk_sales_remitted_by
+        FOREIGN KEY (remitted_by)
+        REFERENCES users(id)
+        ON DELETE SET NULL,
+
     CONSTRAINT fk_sales_currency
         FOREIGN KEY (currency_id)
         REFERENCES currencies(id)
@@ -754,6 +798,11 @@ CREATE INDEX IF NOT EXISTS idx_sales_branch
 
 CREATE INDEX IF NOT EXISTS idx_sales_product
     ON sales (product_id);
+
+-- Collector wallet: cash still held by a recording user (not remitted, not voided).
+CREATE INDEX IF NOT EXISTS idx_sales_wallet
+    ON sales (recorded_by_user_id)
+    WHERE remitted_at IS NULL AND voided_at IS NULL;
 
 -- ============================================================
 -- CUSTOM DEBTS
@@ -854,11 +903,23 @@ CREATE TABLE IF NOT EXISTS debt_payments (
     void_reason           TEXT,
     notes                 TEXT,
 
+    -- Collector wallet: when this collected cash was handed over to an admin.
+    -- NULL = still in the receiving user's wallet. Set together.
+    remitted_at           TIMESTAMPTZ,
+    remitted_by           UUID,
+
     CONSTRAINT chk_debt_payments_void_consistency
         CHECK (
             (voided_at IS NULL AND voided_by IS NULL)
             OR
             (voided_at IS NOT NULL AND voided_by IS NOT NULL)
+        ),
+
+    CONSTRAINT chk_debt_payments_remitted_consistency
+        CHECK (
+            (remitted_at IS NULL AND remitted_by IS NULL)
+            OR
+            (remitted_at IS NOT NULL AND remitted_by IS NOT NULL)
         ),
 
     CONSTRAINT fk_debt_payments_tenant
@@ -884,6 +945,11 @@ CREATE TABLE IF NOT EXISTS debt_payments (
     CONSTRAINT fk_debt_payments_voided_by
         FOREIGN KEY (voided_by)
         REFERENCES users(id)
+        ON DELETE SET NULL,
+
+    CONSTRAINT fk_debt_payments_remitted_by
+        FOREIGN KEY (remitted_by)
+        REFERENCES users(id)
         ON DELETE SET NULL
 );
 
@@ -892,6 +958,11 @@ CREATE INDEX IF NOT EXISTS idx_debt_payments_tenant_id
 
 CREATE INDEX IF NOT EXISTS idx_debt_payments_customer_id
     ON debt_payments (customer_id);
+
+-- Collector wallet: cash still held by a receiving user (not remitted, not voided).
+CREATE INDEX IF NOT EXISTS idx_debt_payments_wallet
+    ON debt_payments (received_by_user_id)
+    WHERE remitted_at IS NULL AND voided_at IS NULL;
 
 -- ============================================================
 -- EXCEPTION LOGS

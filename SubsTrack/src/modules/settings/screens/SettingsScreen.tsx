@@ -5,7 +5,7 @@ import { Text } from "@/src/shared/components/Text";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { useTranslation } from "react-i18next";
-import { useRouter } from "expo-router";
+import { useRouter, type Href } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
 import { DropdownModal } from "@/src/shared/components/Dropdown";
@@ -162,6 +162,20 @@ export function SettingsScreen() {
               />
             </View>
           ) : null}
+
+          {/* My wallet — cash this user has collected but not handed over yet. */}
+          <View className="mx-4 mb-5">
+            <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+              <SettingsRow
+                icon="wallet-outline"
+                label={t("wallet.my_title")}
+                last
+                onPress={() =>
+                  router.push("/(app)/(tabs)/settings/my-wallet" as Href)
+                }
+              />
+            </View>
+          </View>
 
           {/* Preferences */}
           <View className="mx-4 mb-5">

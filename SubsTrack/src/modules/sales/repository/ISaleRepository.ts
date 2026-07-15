@@ -4,7 +4,17 @@ import type { FindSalesOptions } from '../utils/types';
 
 export type CreateSalePayload = Omit<
   DbSale,
-  'id' | 'total_amount' | 'created_at' | 'updated_at' | 'voided_at' | 'voided_by' | 'void_reason' | 'products' | 'customers'
+  | 'id'
+  | 'total_amount'
+  | 'created_at'
+  | 'updated_at'
+  | 'voided_at'
+  | 'voided_by'
+  | 'void_reason'
+  | 'remitted_at'
+  | 'remitted_by'
+  | 'products'
+  | 'customers'
 >;
 
 export interface ISaleRepository {
@@ -35,4 +45,13 @@ export interface ISaleRepository {
   // (total_amount > amount_paid), across all time — the "Sales" debt category.
   // Joined with the customer for display.
   partialSales(branchFilter?: BranchFilter): Promise<DbSale[]>;
+  // Collector wallet: non-voided sales still in a wallet (remitted_at IS NULL)
+  // with cash collected (amount_paid > 0). Optionally scoped to one recorder.
+  unremittedForWallet(
+    branchFilter?: BranchFilter,
+    collectorUserId?: string | null,
+  ): Promise<DbSale[]>;
+  // Stamp the given sales as handed over (remitted) by an admin. Ignores rows
+  // already remitted or voided.
+  markRemitted(ids: string[], remittedBy: string): Promise<void>;
 }
