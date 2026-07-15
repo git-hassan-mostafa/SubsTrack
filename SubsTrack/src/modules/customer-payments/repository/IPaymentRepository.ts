@@ -1,4 +1,5 @@
 import type { BranchFilter } from '@/src/core/constants';
+import type { CurrentMonthPlanCount } from '@/src/core/types';
 import type { DbPayment } from '@/src/core/types/db';
 import type { FindPaymentsOptions } from '../utils/types';
 
@@ -45,7 +46,16 @@ export interface IPaymentRepository {
   voidMany(ids: string[], voidedBy: string, notes: string | null): Promise<DbPayment[]>;
   findPaymentStatusForMonth(
     billingMonth: string,
-  ): Promise<{ fullyPaidIds: Set<string>; partialIds: Set<string> }>;
+  ): Promise<{
+    fullyPaidIds: Set<string>;
+    partialIds: Set<string>;
+    planCounts: Map<string, CurrentMonthPlanCount>;
+    // Service-line IDs that already have a covering (non-voided) payment this
+    // month — full or partial. Quick pay must skip these (the upsert would
+    // overwrite the existing row), so a mixed multi-plan customer pays only its
+    // still-unpaid lines.
+    coveredLineIds: Set<string>;
+  }>;
   findActivePayments(): Promise<DbPayment[]>;
   // Scoped by paid_at (recorded date), matching the Payments tab's "This Month".
   paidAmountsForMonth(

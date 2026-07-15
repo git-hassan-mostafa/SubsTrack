@@ -197,6 +197,7 @@
     "reactivate_message": "Are you sure you want to reactivate {{name}}?",
     "non_regular": "Non-Regular",
     "debt": "Debt",
+    "plans_paid_count": "{{paid}}/{{total}} plans paid",
     "regular_label": "Regular Customer",
     "regular_hint": "Regular customers are expected to pay every month",
     "delete_label": "Delete Customer",
@@ -293,6 +294,7 @@
     "record_payment": "Record Payment",
     "void_payment": "Void Payment",
     "void_current_month": "Void current month",
+    "void_paid_plans": "Void paid plans",
     "collect": "Collect",
     "receipt_title": "Payment receipt",
     "paid_in_full": "{{monthYear}} · paid in full",
@@ -317,6 +319,8 @@
     "void_description": "Voiding this payment will mark {{month}} {{year}} as unpaid. This action cannot be undone.",
     "void_confirm_title": "Void Payment?",
     "void_confirm_message": "This will mark {{month}} {{year}} as unpaid. The original payment will be retained in records.",
+    "void_paid_plans_confirm_title": "Void paid plans?",
+    "void_paid_plans_confirm_message": "This marks {{month}} {{year}} as unpaid for every plan this customer paid this month. If a payment covers several months, that whole payment is voided. The records stay in history.",
     "paid_on": "Paid on",
     "notes": "Notes",
     "inactive_customer_future": "Cannot record future payments for inactive customers",
@@ -356,6 +360,8 @@
     "bulk_void_message": "Void {{count}} selected payment(s)? The records stay in the audit log — voids cannot be undone.",
     "quick_pay": {
       "pay_now": "Pay",
+      "menu_label": "Quick pay",
+      "pay_unpaid_plans": "Quick pay unpaid plans",
       "confirm_multi_month_title": "Record bundle payment?",
       "confirm_multi_month_message": "This will record a payment of {{amount}} covering {{months}}.",
       "confirm": "Record"

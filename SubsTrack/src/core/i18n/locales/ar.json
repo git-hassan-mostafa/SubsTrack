@@ -197,6 +197,7 @@
     "reactivate_message": "هل أنت متأكد من إعادة تفعيل {{name}}؟",
     "non_regular": "غير منتظم",
     "debt": "دين",
+    "plans_paid_count": "مدفوع {{paid}} من {{total}} خطط",
     "regular_label": "عميل منتظم",
     "regular_hint": "العملاء المنتظمون مطلوب منهم الدفع كل شهر",
     "delete_label": "حذف العميل",
@@ -293,6 +294,7 @@
     "record_payment": "تسجيل دفعة",
     "void_payment": "إلغاء الدفعة",
     "void_current_month": "إلغاء دفعة الشهر الحالي",
+    "void_paid_plans": "إلغاء الخطط المدفوعة",
     "collect": "تحصيل",
     "receipt_title": "إيصال الدفع",
     "paid_in_full": "{{monthYear}} · مدفوع بالكامل",
@@ -317,6 +319,8 @@
     "void_description": "إلغاء هذه الدفعة سيحوّل {{month}} {{year}} إلى غير مدفوع. لا يمكن التراجع عن هذا الإجراء.",
     "void_confirm_title": "إلغاء الدفعة؟",
     "void_confirm_message": "سيُحوَّل {{month}} {{year}} إلى غير مدفوع. ستظل الدفعة الأصلية في السجلات.",
+    "void_paid_plans_confirm_title": "إلغاء الخطط المدفوعة؟",
+    "void_paid_plans_confirm_message": "سيُحوَّل {{month}} {{year}} إلى غير مدفوع لكل خطة دفعها العميل هذا الشهر. وإذا كانت الدفعة تغطي عدة أشهر، فسيتم إلغاء الدفعة بالكامل. تبقى السجلات في التاريخ.",
     "paid_on": "تاريخ الدفع",
     "notes": "ملاحظات",
     "inactive_customer_future": "لا يمكن تسجيل دفعات مستقبلية لعملاء غير نشطين",
@@ -356,6 +360,8 @@
     "bulk_void_message": "إلغاء {{count}} دفعة محددة؟ تبقى السجلات في سجل التدقيق — لا يمكن التراجع عن الإلغاء.",
     "quick_pay": {
       "pay_now": "ادفع",
+      "menu_label": "دفع سريع",
+      "pay_unpaid_plans": "دفع الخطط غير المدفوعة",
       "confirm_multi_month_title": "تسجيل دفعة الباقة؟",
       "confirm_multi_month_message": "سيتم تسجيل دفعة بقيمة {{amount}} تشمل {{months}}.",
       "confirm": "تسجيل"

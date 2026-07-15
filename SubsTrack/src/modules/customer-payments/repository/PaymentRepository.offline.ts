@@ -1,4 +1,5 @@
 import { OFFLINE_PAGE_SIZE, type BranchFilter } from '@/src/core/constants';
+import type { CurrentMonthPlanCount } from '@/src/core/types';
 import type { DbCustomer, DbPayment, DbPlan } from '@/src/core/types/db';
 import { OfflineBaseRepository } from '@/src/core/offline/OfflineBaseRepository';
 import { upsertPaymentDirty } from '@/src/core/offline/db/dml';
@@ -162,7 +163,12 @@ export class OfflinePaymentRepository extends OfflineBaseRepository implements I
   // Reuses the ONLINE JS aggregation verbatim; only the two fetches are local SQL.
   async findPaymentStatusForMonth(
     billingMonth: string,
-  ): Promise<{ fullyPaidIds: Set<string>; partialIds: Set<string> }> {
+  ): Promise<{
+    fullyPaidIds: Set<string>;
+    partialIds: Set<string>;
+    planCounts: Map<string, CurrentMonthPlanCount>;
+    coveredLineIds: Set<string>;
+  }> {
     const [year, monthStr] = billingMonth.split('-').map(Number);
     const cutoffDate = new Date(year, monthStr - 1 - 12, 1);
     const cutoff = `${cutoffDate.getFullYear()}-${String(cutoffDate.getMonth() + 1).padStart(2, '0')}-01`;
@@ -203,22 +209,30 @@ export class OfflinePaymentRepository extends OfflineBaseRepository implements I
 
     const fullyPaidIds = new Set<string>();
     const partialIds = new Set<string>();
+    // Per customer: how many started lines are fully settled this month, out of
+    // the total started lines — drives the customer-list "N/M plans paid" badge.
+    const planCounts = new Map<string, CurrentMonthPlanCount>();
     for (const [customerId, lineIds] of linesByCustomer) {
       let anyCovered = false;
       let allCoveredAndSettled = true;
+      let paid = 0;
       for (const lineId of lineIds) {
         if (settledByLine.has(lineId)) {
           anyCovered = true;
-          if (!settledByLine.get(lineId)) allCoveredAndSettled = false;
+          if (settledByLine.get(lineId)) paid++;
+          else allCoveredAndSettled = false;
         } else {
           allCoveredAndSettled = false;
         }
       }
+      planCounts.set(customerId, { paid, total: lineIds.length });
       if (!anyCovered) continue;
       if (allCoveredAndSettled) fullyPaidIds.add(customerId);
       else partialIds.add(customerId);
     }
-    return { fullyPaidIds, partialIds };
+    // Every line with a covering payment this month (settled or partial).
+    const coveredLineIds = new Set(settledByLine.keys());
+    return { fullyPaidIds, partialIds, planCounts, coveredLineIds };
   }
 
   async findActivePayments(): Promise<DbPayment[]> {

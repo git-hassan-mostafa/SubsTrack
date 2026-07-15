@@ -36,10 +36,31 @@ A customer can subscribe to several plans at once, each a **service line** (`cus
 ## 4. Aggregated customer-list status
 
 1. Customer with two active lines, both current month paid → list badge **paid** (green).
-2. One line paid, the other unpaid (past grace) → badge **partial/unpaid**; customer appears in the Unpaid tab.
-3. Any active line with an unpaid past month → customer is **overdue** (red) even if the current month is paid.
+2. One line paid, the other unpaid (past grace) → badge **"1/2 plans paid"** (amber); customer still appears in the Unpaid tab.
+3. Any active line with an unpaid past month → customer is **overdue** (red) even if the current month is paid — **unless** the current month is a mixed pay (some plans paid), in which case the "N/M plans paid" badge wins over the red.
 4. Dashboard `unpaidThisMonth` counts the customer once if any active regular line is uncovered this month.
-5. Non-regular customer: lines never counted in unpaid/overdue (gotcha #16).
+5. Non-regular customer: lines never counted in unpaid/overdue (gotcha #16); the "N/M plans paid" badge never shows (the "Non-Regular" flag wins).
+
+### 4a. "N/M plans paid" badge (multi-plan)
+
+1. Two active plans, plan A paid + plan B unpaid this month → **"1/2 plans paid"** (amber), NOT red "Unpaid".
+2. Three plans, 2 paid + 1 unpaid → **"2/3 plans paid"**.
+3. All plans paid this month → green "Paid" (badge does not show). None paid → red "Unpaid" (badge does not show — needs `0 < paid < total`).
+4. Single plan with a partial-amount payment → plain **"Partial"** badge (badge only fires for `total >= 2`).
+5. Pay the last unpaid plan (or "Collect all due") → badge flips to green "Paid" immediately (optimistic, no refetch). Void one plan's month → badge updates to the new count on next focus refresh.
+6. A plan whose current month is still within the grace window counts toward the denominator but not the numerator (e.g. one paid + one in-grace-unpaid → "1/2 plans paid").
+
+## 4b. Card 3-dot menu labels (customer list)
+
+Labels depend on how many plans the customer has **in play this month** (active lines already started): 1 = single-plan wording, 2+ = plan-aware wording.
+
+1. **Single-plan** customer: quick-pay row reads **"Quick pay"** and the void row reads **"Void current month"**; the void confirm is the plain **"Void Payment?"** / "…will mark {{month}} {{year}} as unpaid…".
+2. **Multi-plan** customer: quick-pay row reads **"Quick pay unpaid plans"** and the void row reads **"Void paid plans"**; the void confirm title is **"Void paid plans?"** and the message states it marks the month unpaid **for every plan paid this month** and that a **multi-month bundle is voided in full**.
+3. Quick-pay row shows whenever the customer has **≥1 started plan still unpaid** this month — including the **mixed** case (some plans paid, some not). It pays **only the still-unpaid fixed-price plans**; already-paid/partial plans are never re-paid (no upsert-overwrite).
+4. Void row shows whenever the customer has **≥1 paid/partial plan** this month. On a multi-plan customer with several plans paid → voids **all** their current-month payments at once.
+5. Customer who paid a multi-month bundle covering this month → voiding removes the **whole** bundle (all its months), not just the current month; the multi-plan confirm warns about this.
+6. A **mixed** multi-plan customer shows **both** rows at once — "Quick pay unpaid plans" (for the remaining unpaid plans) **and** "Void paid plans" (for the already-paid ones).
+7. After voiding, the covered-line set + overdue/paid badges refresh so quick pay re-appears for the freed plans.
 
 ## 5. Collect all due (Quick Pay)
 

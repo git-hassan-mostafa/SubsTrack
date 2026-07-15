@@ -1,4 +1,5 @@
 import type {
+  CurrentMonthPlanCount,
   Customer,
   CustomerPlan,
   MonthEntry,
@@ -341,7 +342,12 @@ class PaymentService {
 
   async findPaymentStatusForMonth(
     billingMonth: string,
-  ): Promise<{ fullyPaidIds: Set<string>; partialIds: Set<string> }> {
+  ): Promise<{
+    fullyPaidIds: Set<string>;
+    partialIds: Set<string>;
+    planCounts: Map<string, CurrentMonthPlanCount>;
+    coveredLineIds: Set<string>;
+  }> {
     return repository.findPaymentStatusForMonth(billingMonth);
   }
 
@@ -388,31 +394,49 @@ class PaymentService {
   //   none    — no line has a covering payment this month
   //   full    — every started line that's due is paid (balance 0)
   //   partial — some payment exists but a line is unpaid or has a balance
+  // Also returns the plan tally for the "N/M plans paid" badge:
+  //   total   — started lines (grid status != before_start; future/grace counts)
+  //   paid    — started lines fully settled this month (grid status "paid")
   // Lines whose current month is "future" (within grace) or before start are not
-  // "owed" and don't block "full".
+  // "owed" and don't block "full". This mirrors the SQL path in
+  // PaymentRepository.findPaymentStatusForMonth, so both stay in lockstep.
+  // Also returns coveredLineIds — lines whose current month already has a
+  // covering payment (paid or partial); quick pay skips these.
   computeCurrentMonthStatus(
     lines: CustomerPlan[],
     payments: Payment[],
     graceDays: number,
-  ): "full" | "partial" | "none" {
+  ): {
+    status: "full" | "partial" | "none";
+    count: CurrentMonthPlanCount;
+    coveredLineIds: string[];
+  } {
     const { year, month } = getCurrentYearMonth();
     let anyCovered = false;
     let allOwedPaid = true;
+    let paid = 0;
+    let total = 0;
+    const coveredLineIds: string[] = [];
     for (const line of lines) {
       if (!line.active) continue;
       const linePayments = payments.filter((p) => p.customerPlanId === line.id);
       const entry = this.buildMonthGrid(line, linePayments, year, graceDays).find(
         (e) => e.month === month,
       );
-      if (!entry) continue;
-      if (entry.status === "paid") anyCovered = true;
-      else if (entry.status === "partial") {
+      if (!entry || entry.status === "before_start") continue; // not started
+      total++;
+      if (entry.status === "paid") {
+        anyCovered = true;
+        paid++;
+        coveredLineIds.push(line.id);
+      } else if (entry.status === "partial") {
         anyCovered = true;
         allOwedPaid = false;
+        coveredLineIds.push(line.id);
       } else if (entry.status === "unpaid") allOwedPaid = false;
     }
-    if (!anyCovered) return "none";
-    return allOwedPaid ? "full" : "partial";
+    const status = !anyCovered ? "none" : allOwedPaid ? "full" : "partial";
+    return { status, count: { paid, total }, coveredLineIds };
   }
 
   // THE single source of truth for month status logic. No other file may reimplement this.

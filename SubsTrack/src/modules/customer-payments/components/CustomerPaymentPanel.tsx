@@ -62,6 +62,31 @@ function lineLabel(line: CustomerPlan, noPlan: string): string {
   return line.plan?.name || noPlan;
 }
 
+// A single at-a-glance payment status for a line's tab, derived from the viewed
+// year's grid (reuses buildMonthGrid's statuses — no status logic here). Worst
+// state wins so an overdue plan is flagged first: unpaid > partial > paid. Null
+// means nothing is due yet this year (all future / before start) → no dot.
+type LineIndicator = "paid" | "partial" | "unpaid";
+
+const INDICATOR_DOT: Record<LineIndicator, string> = {
+  paid: "bg-green-500",
+  partial: "bg-amber-500",
+  unpaid: "bg-red-500",
+};
+
+function lineIndicatorStatus(grid: MonthEntry[]): LineIndicator | null {
+  let hasPartial = false;
+  let hasPaid = false;
+  for (const m of grid) {
+    if (m.status === "unpaid") return "unpaid";
+    if (m.status === "partial") hasPartial = true;
+    else if (m.status === "paid") hasPaid = true;
+  }
+  if (hasPartial) return "partial";
+  if (hasPaid) return "paid";
+  return null;
+}
+
 export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
   const { t, i18n } = useTranslation();
   const locale = getDateLocale(i18n.language);
@@ -575,6 +600,9 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
           >
             {lines.map((line) => {
               const isSel = line.id === selectedLineId;
+              const dot = lineIndicatorStatus(
+                paymentStore.monthGridsByLine[line.id] ?? EMPTY_GRID,
+              );
               return (
                 <PressableOpacity
                   key={line.id}
@@ -585,6 +613,11 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
                       : "bg-white border-gray-200"
                   } ${line.active ? "" : "opacity-50"}`}
                 >
+                  {dot ? (
+                    <View
+                      className={`w-2 h-2 rounded-full me-1.5 ${INDICATOR_DOT[dot]}`}
+                    />
+                  ) : null}
                   <Text
                     fontWeight="SemiBold"
                     className={`text-xs ${isSel ? "text-white" : "text-gray-700"}`}

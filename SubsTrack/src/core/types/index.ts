@@ -201,6 +201,15 @@ export interface MonthEntry {
   balance: number;
 }
 
+// Current-month tally for a customer's service lines, used by the customer-list
+// badge: how many started lines are fully paid this month (`paid`) out of the
+// total started lines (`total`). A customer with `total >= 2` and `0 < paid <
+// total` is "partly paid" — some plans paid, some not.
+export interface CurrentMonthPlanCount {
+  paid: number;
+  total: number;
+}
+
 // One point on the dashboard revenue trend — one calendar month, canonical USD.
 export interface RevenuePoint {
   month: string;       // 'YYYY-MM'

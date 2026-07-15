@@ -3,13 +3,15 @@ import { View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
-import type { Customer } from "@/src/core/types";
+import type { CurrentMonthPlanCount, Customer } from "@/src/core/types";
 import { COLORS } from "../../../shared/constants";
 import { EntityCard } from "@/src/shared/components/EntityCard";
 
 interface Props {
   customer: Customer;
-  paymentStatus: "paid" | "partial" | "unpaid";
+  paymentStatus: "paid" | "partial" | "unpaid" | "mixed";
+  /** For "mixed": how many of the customer's plans are paid this month, out of total. */
+  planCount?: CurrentMonthPlanCount | null;
   monthLabel: string;
   /** Formatted net debt (e.g. "150,000 ل.ل"), or null when the customer owes nothing. */
   debtLabel?: string | null;
@@ -42,6 +44,7 @@ function Flag({
 export const CustomerCard = memo(function CustomerCard({
   customer,
   paymentStatus,
+  planCount = null,
   monthLabel,
   debtLabel = null,
   onPress,
@@ -95,14 +98,23 @@ export const CustomerCard = memo(function CustomerCard({
           ) : paymentStatus === "paid" ? (
             <Flag
               text={`✓ ${t("common.paid")}`}
-              textClassName="text-green-600"
-              bgClassName="bg-green-50"
+              textClassName="text-green-700"
+              bgClassName="bg-green-100"
+            />
+          ) : paymentStatus === "mixed" ? (
+            <Flag
+              text={t("customers.plans_paid_count", {
+                paid: planCount?.paid ?? 0,
+                total: planCount?.total ?? 0,
+              })}
+              textClassName="text-amber-600"
+              bgClassName="bg-amber-100"
             />
           ) : paymentStatus === "partial" ? (
             <Flag
               text={t("common.partial")}
               textClassName="text-amber-600"
-              bgClassName="bg-amber-50"
+              bgClassName="bg-amber-100"
             />
           ) : (
             <Flag
@@ -117,7 +129,7 @@ export const CustomerCard = memo(function CustomerCard({
             <Flag
               text={`${t("customers.debt")} ${debtLabel}`}
               textClassName="text-red-600"
-              bgClassName="bg-red-50"
+              bgClassName="bg-red-100"
             />
           ) : null}
         </View>

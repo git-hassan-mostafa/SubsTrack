@@ -80,6 +80,12 @@ export function CustomerListScreen() {
   const currentMonthPartialIds = usePaymentSlice(
     (s) => s.currentMonthPartialIds,
   );
+  const currentMonthPlanCounts = usePaymentSlice(
+    (s) => s.currentMonthPlanCounts,
+  );
+  const currentMonthCoveredLineIds = usePaymentSlice(
+    (s) => s.currentMonthCoveredLineIds,
+  );
   const overdueCustomerIds = usePaymentSlice((s) => s.overdueCustomerIds);
   const fetchCurrentMonthPaymentStatus = usePaymentSlice(
     (s) => s.fetchCurrentMonthPaymentStatus,
@@ -213,18 +219,28 @@ export function CustomerListScreen() {
     [router],
   );
 
+  // Active service lines that have started by this month — the lines that are
+  // "in play" for the current month (paid or not). Drives single- vs multi-plan
+  // menu wording and quick-pay gating.
+  function startedActiveLines(customer: Customer) {
+    const { year, month } = getCurrentYearMonth();
+    return (customer.customerPlans ?? []).filter(
+      (l) => l.active && !isBeforeStartDate(year, month, l.startDate),
+    );
+  }
+
   // Active, started, fixed-price service lines eligible for one-tap current-month
   // pay. Custom-price / plan-less lines need the manual form and are excluded.
+  // Lines already covered by a payment this month are skipped so a mixed
+  // multi-plan customer pays only the plans still unpaid (never re-pays a line).
   function eligibleFixedLines(customer: Customer): BulkPayCustomerRequest[] {
-    const { year, month } = getCurrentYearMonth();
-    return (customer.customerPlans ?? [])
+    return startedActiveLines(customer)
       .filter(
         (l) =>
-          l.active &&
           l.plan != null &&
           !l.plan.isCustomPrice &&
           l.plan.price !== null &&
-          !isBeforeStartDate(year, month, l.startDate),
+          !currentMonthCoveredLineIds.has(l.id),
       )
       .map((l) => ({
         customerId: customer.id,
@@ -235,12 +251,12 @@ export function CustomerListScreen() {
       }));
   }
 
-  // True when the customer has any active line that has started this month — so
-  // there is something a quick pay could collect.
-  function hasStartedActiveLine(customer: Customer): boolean {
-    const { year, month } = getCurrentYearMonth();
-    return (customer.customerPlans ?? []).some(
-      (l) => l.active && !isBeforeStartDate(year, month, l.startDate),
+  // True when the customer has any started active line still unpaid this month —
+  // so there is something a quick pay could collect (a fixed line to one-tap pay
+  // or a custom/plan-less line that opens the manual form).
+  function hasUnpaidStartedLine(customer: Customer): boolean {
+    return startedActiveLines(customer).some(
+      (l) => !currentMonthCoveredLineIds.has(l.id),
     );
   }
 
@@ -301,10 +317,13 @@ export function CustomerListScreen() {
     }
   }
 
+  // Show quick pay whenever a started line is still unpaid this month — for a
+  // single-plan customer this means "no payment yet"; for a multi-plan customer
+  // it also covers the mixed case (some plans paid, some not) so the remaining
+  // unpaid plans can be collected.
   function shouldShowQuickPay(customer: Customer): boolean {
     if (!customer.active || !customer.isRegular) return false;
-    if (hasCurrentMonthPayment(customer.id)) return false;
-    return hasStartedActiveLine(customer);
+    return hasUnpaidStartedLine(customer);
   }
 
   const openMenu = useCallback((customer: Customer) => {
@@ -313,10 +332,20 @@ export function CustomerListScreen() {
 
   const renderItem = useCallback(
     ({ item }: { item: Customer }) => {
-      // Any unpaid past month forces "unpaid" even when the current month is
-      // settled; otherwise fall back to the current month's status.
-      const paymentStatus: "paid" | "partial" | "unpaid" =
-        overdueCustomerIds.has(item.id)
+      // A multi-plan customer with some plans paid and some not shows a distinct
+      // "N/M plans paid" badge instead of a plain red "Unpaid" — it takes
+      // priority so a partly-paid account never looks like a fully-unpaid one.
+      // Otherwise: any unpaid past month forces "unpaid" even when the current
+      // month is settled, else fall back to the current month's status.
+      const planCount = currentMonthPlanCounts.get(item.id) ?? null;
+      const isMixed =
+        !!planCount &&
+        planCount.total >= 2 &&
+        planCount.paid > 0 &&
+        planCount.paid < planCount.total;
+      const paymentStatus: "paid" | "partial" | "unpaid" | "mixed" = isMixed
+        ? "mixed"
+        : overdueCustomerIds.has(item.id)
           ? "unpaid"
           : currentMonthFullyPaidIds.has(item.id)
             ? "paid"
@@ -332,6 +361,7 @@ export function CustomerListScreen() {
         <CustomerCard
           customer={item}
           paymentStatus={paymentStatus}
+          planCount={planCount}
           monthLabel={monthLabel}
           debtLabel={debtLabel}
           onPress={openDetail}
@@ -347,6 +377,7 @@ export function CustomerListScreen() {
     [
       currentMonthFullyPaidIds,
       currentMonthPartialIds,
+      currentMonthPlanCounts,
       overdueCustomerIds,
       netDebtByCustomer,
       displayCurrency,
@@ -381,20 +412,34 @@ export function CustomerListScreen() {
 
   async function handleVoidCurrentMonth(customer: Customer) {
     if (!user) return;
+    // Multi-plan customers void every plan paid this month at once, so the
+    // confirm spells that out; single-plan keeps the plain wording.
+    const isMulti = startedActiveLines(customer).length >= 2;
     const ok = await confirm({
-      title: t("payments.void_confirm_title"),
-      message: t("payments.void_confirm_message", {
-        month: t(`months.${MONTHS[new Date().getMonth()]}`),
-        year: new Date().getFullYear(),
-      }),
+      title: isMulti
+        ? t("payments.void_paid_plans_confirm_title")
+        : t("payments.void_confirm_title"),
+      message: t(
+        isMulti
+          ? "payments.void_paid_plans_confirm_message"
+          : "payments.void_confirm_message",
+        {
+          month: t(`months.${MONTHS[new Date().getMonth()]}`),
+          year: new Date().getFullYear(),
+        },
+      ),
       confirmLabel: t("payments.void_payment"),
       destructive: true,
     });
     if (!ok) return;
     const voided = await voidCurrentMonthForCustomer(customer.id, user.id);
-    // The slice clears the current-month badge optimistically; recompute the
-    // overdue badge since the freed month may now read as unpaid.
-    if (voided) void fetchOverdueStatus(customers, graceDays);
+    // Refresh both status views: the freed month may now read as unpaid
+    // (overdue), and the voided lines must drop out of the covered set so quick
+    // pay can collect them again.
+    if (voided) {
+      void fetchOverdueStatus(customers, graceDays);
+      void fetchCurrentMonthPaymentStatus();
+    }
   }
 
   async function handleDeleteCustomer(customer: Customer) {
@@ -535,10 +580,16 @@ export function CustomerListScreen() {
   function buildMenuActions(customer: Customer | null): ActionMenuItem[] {
     if (!customer) return [];
     const items: ActionMenuItem[] = [];
+    // A customer with 2+ plans in play this month gets the plan-aware wording
+    // ("Quick pay unpaid plans" / "Void paid plans"); a single-plan customer
+    // keeps the plain "Quick pay" / "Void current month" labels.
+    const isMulti = startedActiveLines(customer).length >= 2;
     if (shouldShowQuickPay(customer)) {
       items.push({
         key: "quick-pay",
-        label: t("payments.quick_pay.pay_now"),
+        label: isMulti
+          ? t("payments.quick_pay.pay_unpaid_plans")
+          : t("payments.quick_pay.menu_label"),
         icon: "flash-outline",
         onPress: () => handleQuickPay(customer),
       });
@@ -546,7 +597,9 @@ export function CustomerListScreen() {
     if (hasCurrentMonthPayment(customer.id)) {
       items.push({
         key: "void-current-month",
-        label: t("payments.void_current_month"),
+        label: isMulti
+          ? t("payments.void_paid_plans")
+          : t("payments.void_current_month"),
         icon: "close-circle-outline",
         destructive: true,
         onPress: () => void handleVoidCurrentMonth(customer),

@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 import { BaseRepository } from '@/src/core/utils/BaseRepository';
 import { PAGE_SIZE, type BranchFilter } from '@/src/core/constants';
+import type { CurrentMonthPlanCount } from '@/src/core/types';
 import type { DbPayment } from '@/src/core/types/db';
 import type { FindPaymentsOptions } from '../utils/types';
 import type { CreatePaymentPayload, IPaymentRepository } from './IPaymentRepository';
@@ -178,7 +179,12 @@ export class PaymentRepository extends BaseRepository implements IPaymentReposit
   // customer's branch). Must stay in sync with PaymentService.buildMonthGrid().
   async findPaymentStatusForMonth(
     billingMonth: string,
-  ): Promise<{ fullyPaidIds: Set<string>; partialIds: Set<string> }> {
+  ): Promise<{
+    fullyPaidIds: Set<string>;
+    partialIds: Set<string>;
+    planCounts: Map<string, CurrentMonthPlanCount>;
+    coveredLineIds: Set<string>;
+  }> {
     const [year, monthStr] = billingMonth.split('-').map(Number);
     // A payment from up to 12 months prior could still cover this month (max duration = 12).
     const cutoffDate = new Date(year, monthStr - 1 - 12, 1);
@@ -226,22 +232,30 @@ export class PaymentRepository extends BaseRepository implements IPaymentReposit
 
     const fullyPaidIds = new Set<string>();
     const partialIds = new Set<string>();
+    // Per customer: how many started lines are fully settled this month, out of
+    // the total started lines — drives the customer-list "N/M plans paid" badge.
+    const planCounts = new Map<string, CurrentMonthPlanCount>();
     for (const [customerId, lineIds] of linesByCustomer) {
       let anyCovered = false;
       let allCoveredAndSettled = true;
+      let paid = 0;
       for (const lineId of lineIds) {
         if (settledByLine.has(lineId)) {
           anyCovered = true;
-          if (!settledByLine.get(lineId)) allCoveredAndSettled = false;
+          if (settledByLine.get(lineId)) paid++;
+          else allCoveredAndSettled = false;
         } else {
           allCoveredAndSettled = false; // an active line has no payment this month
         }
       }
+      planCounts.set(customerId, { paid, total: lineIds.length });
       if (!anyCovered) continue;
       if (allCoveredAndSettled) fullyPaidIds.add(customerId);
       else partialIds.add(customerId);
     }
-    return { fullyPaidIds, partialIds };
+    // Every line with a covering payment this month (settled or partial).
+    const coveredLineIds = new Set(settledByLine.keys());
+    return { fullyPaidIds, partialIds, planCounts, coveredLineIds };
   }
 
   // Returns every active (non-voided, non-zero-paid) payment across all

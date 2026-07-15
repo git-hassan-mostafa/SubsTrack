@@ -1,5 +1,5 @@
 import type { StateCreator } from 'zustand';
-import type { Currency, Customer, CustomerPlan, MonthEntry, Payment, Plan, TierPlan } from '@/src/core/types';
+import type { Currency, CurrentMonthPlanCount, Customer, CustomerPlan, MonthEntry, Payment, Plan, TierPlan } from '@/src/core/types';
 import { getCurrentYearMonth, toBillingMonth } from '@/src/core/utils/date';
 import { paymentService, type MultiMonthConflict } from '@/src/modules/customer-payments';
 import { TierLimitError } from '@/src/modules/subscription';
@@ -40,6 +40,13 @@ export interface PaymentSlice {
   currentMonthFullyPaidIds: Set<string>;
   // Customers with some current-month coverage but not fully settled across lines.
   currentMonthPartialIds: Set<string>;
+  // Per customer: how many started service lines are fully paid this month, out
+  // of the total. Drives the "N/M plans paid" badge for multi-plan customers.
+  currentMonthPlanCounts: Map<string, CurrentMonthPlanCount>;
+  // Service-line IDs that already have a covering payment this month (full or
+  // partial). Quick pay pays only lines NOT in this set, so a mixed multi-plan
+  // customer never re-pays (upserts over) an already-paid line.
+  currentMonthCoveredLineIds: Set<string>;
   // Active regular customers with any unpaid month on any active line up to now
   // (even if the current month is paid). Drives the "unpaid" status on the list.
   overdueCustomerIds: Set<string>;
@@ -167,6 +174,8 @@ export const createPaymentSlice: StateCreator<
   monthGridsByLine: {},
   currentMonthFullyPaidIds: new Set(),
   currentMonthPartialIds: new Set(),
+  currentMonthPlanCounts: new Map(),
+  currentMonthCoveredLineIds: new Set(),
   overdueCustomerIds: new Set(),
   loading: false,
   loadingCreate: false,
@@ -178,10 +187,12 @@ export const createPaymentSlice: StateCreator<
   fetchCurrentMonthPaymentStatus: async () => {
     const { year, month } = getCurrentYearMonth();
     const billingMonth = toBillingMonth(year, month);
-    const { fullyPaidIds, partialIds } = await paymentService.findPaymentStatusForMonth(billingMonth);
+    const { fullyPaidIds, partialIds, planCounts, coveredLineIds } = await paymentService.findPaymentStatusForMonth(billingMonth);
     set((state) => {
       state.payments.currentMonthFullyPaidIds = fullyPaidIds;
       state.payments.currentMonthPartialIds = partialIds;
+      state.payments.currentMonthPlanCounts = planCounts;
+      state.payments.currentMonthCoveredLineIds = coveredLineIds;
     });
   },
 
@@ -606,23 +617,51 @@ function buildGridsFor(
   return grids;
 }
 
+// The badge-status shape carried by the three status stores kept in lockstep:
+// two membership sets + the per-customer plan tally map.
+type StatusStore = {
+  currentMonthFullyPaidIds: Set<string>;
+  currentMonthPartialIds: Set<string>;
+  currentMonthPlanCounts: Map<string, CurrentMonthPlanCount>;
+  currentMonthCoveredLineIds: Set<string>;
+};
+
 // Recomputes a customer's aggregate current-month status from its lines +
-// payments and places it in exactly one (or neither) of the badge sets.
+// payments and places it in exactly one (or neither) of the badge sets,
+// refreshes its "N/M plans paid" tally, and re-syncs which of its lines are
+// covered this month (drives quick-pay eligibility).
 function syncCustomerMonthStatus(
-  slice: { currentMonthFullyPaidIds: Set<string>; currentMonthPartialIds: Set<string> },
+  slice: StatusStore,
   customerId: string,
   lines: CustomerPlan[],
   items: Payment[],
   graceDays: number,
 ): void {
-  const status = paymentService.computeCurrentMonthStatus(lines, items, graceDays);
+  const { status, count, coveredLineIds } = paymentService.computeCurrentMonthStatus(lines, items, graceDays);
+  updateCoveredLines(slice, lines, coveredLineIds);
   if (status === 'none') clearPaymentStatus(slice, customerId);
-  else applyPaymentStatus(slice, customerId, status === 'partial');
+  else {
+    applyPaymentStatus(slice, customerId, status === 'partial');
+    setPlanCount(slice, customerId, count);
+  }
+}
+
+// Replaces the covered-line membership for one customer: drops every one of its
+// lines from the global set, then re-adds only the currently covered ones.
+function updateCoveredLines(
+  slice: StatusStore,
+  lines: CustomerPlan[],
+  coveredLineIds: string[],
+): void {
+  const next = new Set(slice.currentMonthCoveredLineIds);
+  for (const line of lines) next.delete(line.id);
+  for (const id of coveredLineIds) next.add(id);
+  slice.currentMonthCoveredLineIds = next;
 }
 
 // Mutates the partial / fully-paid sets so the customer sits in exactly one.
 function applyPaymentStatus(
-  slice: { currentMonthFullyPaidIds: Set<string>; currentMonthPartialIds: Set<string> },
+  slice: StatusStore,
   customerId: string,
   isPartial: boolean,
 ): void {
@@ -640,10 +679,17 @@ function applyPaymentStatus(
   }
 }
 
-function clearPaymentStatus(
-  slice: { currentMonthFullyPaidIds: Set<string>; currentMonthPartialIds: Set<string> },
+function setPlanCount(
+  slice: StatusStore,
   customerId: string,
+  count: CurrentMonthPlanCount,
 ): void {
+  const next = new Map(slice.currentMonthPlanCounts);
+  next.set(customerId, count);
+  slice.currentMonthPlanCounts = next;
+}
+
+function clearPaymentStatus(slice: StatusStore, customerId: string): void {
   if (slice.currentMonthFullyPaidIds.has(customerId)) {
     const next = new Set(slice.currentMonthFullyPaidIds);
     next.delete(customerId);
@@ -653,5 +699,11 @@ function clearPaymentStatus(
     const next = new Set(slice.currentMonthPartialIds);
     next.delete(customerId);
     slice.currentMonthPartialIds = next;
+  }
+  // No current-month coverage left → no "N/M plans paid" tally to show.
+  if (slice.currentMonthPlanCounts.has(customerId)) {
+    const next = new Map(slice.currentMonthPlanCounts);
+    next.delete(customerId);
+    slice.currentMonthPlanCounts = next;
   }
 }
