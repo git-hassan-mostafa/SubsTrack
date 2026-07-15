@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
-import { FlatList, Modal, RefreshControl, View } from 'react-native';
+import { FlatList, RefreshControl, View } from 'react-native';
+import { SheetModal } from '@/src/shared/components/SheetModal';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -180,12 +181,7 @@ export function WalletsScreen() {
         />
       </ResponsiveContainer>
 
-      <Modal
-        visible={!!openWallet}
-        animationType="slide"
-        presentationStyle="pageSheet"
-        onRequestClose={closeCollector}
-      >
+      <SheetModal visible={!!openWallet} onDismiss={closeCollector}>
         <SafeAreaView className="flex-1 bg-white">
           <ResponsiveContainer className="flex-1">
             <View className="items-center pt-3 pb-1">
@@ -212,7 +208,7 @@ export function WalletsScreen() {
             />
           </ResponsiveContainer>
         </SafeAreaView>
-      </Modal>
+      </SheetModal>
 
       <ActionMenu
         visible={menuWallet !== null}

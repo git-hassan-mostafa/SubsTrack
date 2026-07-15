@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { Modal, Switch, View } from "react-native";
+import { Switch, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
+import { SheetModal } from "@/src/shared/components/SheetModal";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { useTranslation } from "react-i18next";
@@ -156,12 +157,7 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
   };
 
   return (
-    <Modal
-      visible
-      animationType="slide"
-      presentationStyle="pageSheet"
-      onRequestClose={onDismiss}
-    >
+    <SheetModal onDismiss={onDismiss}>
       <SafeAreaView className="flex-1 bg-white">
         <ResponsiveContainer className="flex-1">
           {/* Handle + header */}
@@ -358,6 +354,6 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
           onDismiss();
         }}
       />
-    </Modal>
+    </SheetModal>
   );
 }

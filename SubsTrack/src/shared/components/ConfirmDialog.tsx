@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Text } from "@/src/shared/components/Text";
 import { COLORS } from "@/src/shared/constants";
 import { useTranslation } from "react-i18next";
+import { useWebBackDismiss } from "@/src/shared/hooks/useWebBackDismiss";
 
 interface ConfirmDialogProps {
   visible: boolean;
@@ -42,6 +43,12 @@ export function ConfirmDialog({
   useEffect(() => {
     if (!visible) setLoading(false);
   }, [visible]);
+
+  // Web: browser Back closes the dialog (mirrors native hardware-back). Guard
+  // loading so Back can't dismiss mid-confirm, matching onRequestClose below.
+  useWebBackDismiss(visible, () => {
+    if (!loading) onCancel();
+  });
 
   async function handleConfirm() {
     if (loading || confirmDisabled) return;

@@ -1,4 +1,5 @@
-import { Modal, ScrollView, View } from "react-native";
+import { ScrollView, View } from "react-native";
+import { SheetModal } from "@/src/shared/components/SheetModal";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
@@ -46,12 +47,7 @@ export function DebtorDetailSheet({
   const netLabel = formatMoney(Math.abs(net), null, target);
 
   return (
-    <Modal
-      visible
-      animationType="slide"
-      presentationStyle="pageSheet"
-      onRequestClose={onDismiss}
-    >
+    <SheetModal onDismiss={onDismiss}>
       <SafeAreaView className="flex-1 bg-white">
         <ResponsiveContainer className="flex-1">
           <View className="items-center pt-3 pb-1">
@@ -95,6 +91,6 @@ export function DebtorDetailSheet({
           </ScrollView>
         </ResponsiveContainer>
       </SafeAreaView>
-    </Modal>
+    </SheetModal>
   );
 }

@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Modal, View } from "react-native";
+import { View } from "react-native";
+import { SheetModal } from "@/src/shared/components/SheetModal";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
@@ -87,12 +88,7 @@ export function SaleDetailSheet({
       : sale.productNameSnapshot;
 
   return (
-    <Modal
-      visible={sale !== null}
-      animationType="slide"
-      presentationStyle="pageSheet"
-      onRequestClose={handleDismiss}
-    >
+    <SheetModal visible={sale !== null} onDismiss={handleDismiss}>
       <SafeAreaView className="flex-1 bg-white">
         <ResponsiveContainer className="flex-1">
           {/* Handle */}
@@ -265,7 +261,7 @@ export function SaleDetailSheet({
           </KeyboardAwareScrollView>
         </ResponsiveContainer>
       </SafeAreaView>
-    </Modal>
+    </SheetModal>
   );
 }
 

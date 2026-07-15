@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Modal, View } from "react-native";
+import { View } from "react-native";
+import { SheetModal } from "@/src/shared/components/SheetModal";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
@@ -110,7 +111,7 @@ export function DebtPaymentFormSheet({ initialCustomer, onDismiss, onCreated }: 
     exceedsDebt;
 
   return (
-    <Modal visible animationType="slide" presentationStyle="pageSheet" onRequestClose={onDismiss}>
+    <SheetModal onDismiss={onDismiss}>
       <SafeAreaView className="flex-1 bg-white">
         <ResponsiveContainer className="flex-1">
           <View className="items-center pt-3 pb-1">
@@ -218,6 +219,6 @@ export function DebtPaymentFormSheet({ initialCustomer, onDismiss, onCreated }: 
       {addCustomerOpen && (
         <CustomerFormSheet onDismiss={() => setAddCustomerOpen(false)} />
       )}
-    </Modal>
+    </SheetModal>
   );
 }

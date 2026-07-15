@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Modal, Switch, View } from "react-native";
+import { Switch, View } from "react-native";
+import { SheetModal } from "@/src/shared/components/SheetModal";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
@@ -125,12 +126,7 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
     loading;
 
   return (
-    <Modal
-      visible
-      animationType="slide"
-      presentationStyle="pageSheet"
-      onRequestClose={onDismiss}
-    >
+    <SheetModal onDismiss={onDismiss}>
       <SafeAreaView className="flex-1 bg-white">
         <ResponsiveContainer className="flex-1">
           {/* Handle + header */}
@@ -337,6 +333,6 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
           onDismiss();
         }}
       />
-    </Modal>
+    </SheetModal>
   );
 }

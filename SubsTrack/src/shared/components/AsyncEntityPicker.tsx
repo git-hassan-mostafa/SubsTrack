@@ -14,6 +14,7 @@ import { Text } from "@/src/shared/components/Text";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { useDebounce } from "@/src/shared/hooks/useDebounce";
 import { PAGE_SIZE } from "@/src/core/constants";
+import { useWebBackDismiss } from "@/src/shared/hooks/useWebBackDismiss";
 import { COLORS } from "@/src/shared/constants";
 
 // "default" — full-width form field with label, used inside form sheets.
@@ -271,6 +272,9 @@ function AsyncPickerModal<T>({
     setError(null);
     onClose();
   }
+
+  // Web: browser Back closes the picker instead of navigating the route.
+  useWebBackDismiss(true, handleClose);
 
   function handleSelect(item: T | null) {
     onChange(item);

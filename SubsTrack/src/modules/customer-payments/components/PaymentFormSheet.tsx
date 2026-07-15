@@ -1,5 +1,6 @@
 import { useState, useMemo } from "react";
-import { Modal, View } from "react-native";
+import { View } from "react-native";
+import { SheetModal } from "@/src/shared/components/SheetModal";
 import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
@@ -257,12 +258,7 @@ export function PaymentFormSheet({
       : t(`months.${entry.label}`) + " " + entry.year;
 
   return (
-    <Modal
-      visible
-      animationType="slide"
-      presentationStyle="pageSheet"
-      onRequestClose={handleDismiss}
-    >
+    <SheetModal onDismiss={handleDismiss}>
       <SafeAreaView className="flex-1 bg-white">
         <ResponsiveContainer className="flex-1">
           {/* Handle + header */}
@@ -555,6 +551,6 @@ export function PaymentFormSheet({
           onDismiss();
         }}
       />
-    </Modal>
+    </SheetModal>
   );
 }

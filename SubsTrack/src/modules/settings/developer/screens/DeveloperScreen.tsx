@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Modal, ScrollView, View } from "react-native";
+import { ScrollView, View } from "react-native";
+import { SheetModal } from "@/src/shared/components/SheetModal";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -246,7 +247,7 @@ export function DeveloperScreen() {
         ) : null}
       </ResponsiveContainer>
 
-      <Modal visible={importOpen} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setImportOpen(false)}>
+      <SheetModal visible={importOpen} onDismiss={() => setImportOpen(false)}>
         <SafeAreaView className="flex-1 bg-white">
           <ResponsiveContainer className="flex-1">
             <View className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
@@ -283,7 +284,7 @@ export function DeveloperScreen() {
             </ScrollView>
           </ResponsiveContainer>
         </SafeAreaView>
-      </Modal>
+      </SheetModal>
     </SafeAreaView>
   );
 }

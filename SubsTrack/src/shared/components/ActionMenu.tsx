@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
 import { COLORS } from "@/src/shared/constants";
+import { useWebBackDismiss } from "@/src/shared/hooks/useWebBackDismiss";
 
 export interface ActionMenuItem {
   key: string;
@@ -49,6 +50,9 @@ function ActionMenuComponent({
   emptyLabel,
 }: Omit<ActionMenuProps, "visible">) {
   const { t } = useTranslation();
+
+  // Web: browser Back closes the menu instead of navigating the route.
+  useWebBackDismiss(true, onDismiss);
 
   function handlePress(item: ActionMenuItem) {
     if (item.disabled) return;
