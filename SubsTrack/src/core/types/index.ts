@@ -223,6 +223,11 @@ export interface DashboardMetrics {
   totalDebt: number;         // net debt across all customers/categories (all-time, not month-scoped)
   monthsDebt: number;        // portion of totalDebt from partial subscription payments
   salesDebt: number;         // portion of totalDebt from partial sales
+  // Collector wallets — cash collected but not yet handed over to an admin.
+  // Admin-only: 0 when the caller isn't an admin (not computed then). USD.
+  walletCash: number;        // total unremitted cash across all collectors (net, USD)
+  walletCollectors: number;  // # of collectors currently holding cash
+  walletTransactions: number;// # of unremitted transactions behind that cash
   // Growth this month
   newCustomersThisMonth: number;
   cancelledThisMonth: number;

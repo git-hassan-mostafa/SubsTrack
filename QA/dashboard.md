@@ -219,3 +219,20 @@ The three new range queries run against the local SQLite mirror when offline.
 | 14.1 | Offline trend | Go offline (native), open dashboard | Current-year (Jan–Dec) trend, growth, and activity tiles render from the local mirror (same numbers as online for synced data) |
 | 14.2 | Offline then sync | Record payments offline, reconnect | After sync, dashboard on another device shows the same trend/counts |
 | 14.3 | Parity | Compare the same tenant/branch on web vs native | Trend buckets, new/cancelled counts, payments/sales counts match |
+| 14.4 | Offline wallet tile | Go offline (native), open dashboard as admin | Cash in Wallets tile computes from the local mirror (matches online for synced data) |
+
+## 15. Cash in Wallets tile (collector wallets)
+
+Only rendered for **admins** and only when `walletCash > 0` — the net USD total of cash collectors have collected but not yet handed over (`walletService.getWalletsView`, summed). Sub-line reads "{collectors} collectors · {transactions} transactions". Placed just above the Total debt tile.
+
+| # | Scenario | Steps | Expected result |
+|---|----------|-------|-----------------|
+| 15.1 | Hidden when empty | Every collector has handed over their cash (or none collected) | Tile NOT rendered |
+| 15.2 | Shown with cash | A collector holds unremitted cash | Tile shows the net USD total (primary color, wallet icon), sub "N collectors · M transactions" |
+| 15.3 | Non-admin never sees it | Login as a `user` role | Tile absent; the aggregate is not even computed (`includeWallet = false`) |
+| 15.4 | Matches Wallets screen | Compare tile total with Admin → Wallets grand total | Same figure (both from `getWalletsView`, same branch scope) |
+| 15.5 | Drops after receive | Admin receives all cash from a collector, then refresh dashboard | Tile total and counts drop by that collector's amount; tile disappears when total hits 0 |
+| 15.6 | Snapshot immunity | Cash collected in LBP; admin later edits LBP rate | Tile keeps the original USD equivalent (per-row `rate_per_usd_snapshot`) |
+| 15.7 | Display currency | Switch display USD → LBP | Tile reformats to display currency |
+| 15.8 | Branch-scoped | Tenant-wide admin picks a branch | Tile scopes to that branch's collectors/cash |
+| 15.9 | Void after handover (negative) | A received payment is voided so a collector's wallet goes negative | Net total can drop; if the branch net is ≤ 0 the tile hides (only shows when `walletCash > 0`) |

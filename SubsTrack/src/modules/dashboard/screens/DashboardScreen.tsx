@@ -74,6 +74,11 @@ export function DashboardScreen() {
   const hasSalesRevenue = (metrics?.salesRevenue ?? 0) > 0;
   const hasDebt = (metrics?.totalDebt ?? 0) > 0;
 
+  // Collector wallets — admin overview of cash collected but not yet handed over.
+  const isAdmin = user?.role === "admin" || user?.role === "superadmin";
+  const walletCash = metrics?.walletCash ?? 0;
+  const hasWalletCash = isAdmin && walletCash > 0;
+
   // Month-over-month revenue change (null when there's no prior month to compare).
   const monthlyRevenue = metrics?.monthlyRevenue ?? 0;
   const prevMonthRevenue = metrics?.prevMonthRevenue ?? 0;
@@ -316,6 +321,22 @@ export function DashboardScreen() {
                 />
               </View>
             </View>
+
+            {/* Cash collectors hold but haven't handed over yet — admin-only, when > 0 */}
+            {hasWalletCash ? (
+              <View className="flex-row mx-4 mb-3">
+                <StatTile
+                  label={t("dashboard.cash_in_wallets")}
+                  value={fmt(walletCash)}
+                  sub={t("dashboard.wallet_breakdown", {
+                    collectors: metrics?.walletCollectors ?? 0,
+                    transactions: metrics?.walletTransactions ?? 0,
+                  })}
+                  tone="primary"
+                  icon="wallet-outline"
+                />
+              </View>
+            ) : null}
 
             {/* Total debt owed by customers (all-time, not month-scoped) — only shown when > 0 */}
             {hasDebt ? (

@@ -124,7 +124,9 @@
     "sales_recorded": "المبيعات",
     "avg_each": "بمتوسط {{amount}} لكل دفعة",
     "total_debt": "إجمالي الديون",
-    "debt_breakdown": "الشهور {{months}} · المبيعات {{sales}}"
+    "debt_breakdown": "الشهور {{months}} · المبيعات {{sales}}",
+    "cash_in_wallets": "المبلغ لدى المحصّلين",
+    "wallet_breakdown": "{{collectors}} محصّلين · {{transactions}} معاملة"
   },
   "subscriptions": {
     "section_title": "الخطط",

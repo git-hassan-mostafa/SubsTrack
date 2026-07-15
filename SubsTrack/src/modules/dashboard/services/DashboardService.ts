@@ -7,6 +7,7 @@ import { planRepository as planRepo } from "@/src/modules/plans";
 import { userRepository as userRepo } from "@/src/modules/users";
 import { saleRepository as saleRepo } from "@/src/modules/sales";
 import { debtService } from "@/src/modules/debts";
+import walletService from "@/src/modules/wallet/services/WalletService";
 
 // The revenue trend spans last 6 months.
 const MONTHS_IN_YEAR = 6;
@@ -90,6 +91,10 @@ class DashboardService {
 
   async getMetrics(
     branchFilter: BranchFilter = null,
+    // The collector-wallet aggregate is an admin overview. Skipped for
+    // non-admins so their dashboard load stays lean and never surfaces the
+    // cross-collector cash totals.
+    includeWallet = false,
   ): Promise<DashboardMetrics> {
     const { year, month } = getCurrentYearMonth();
     const billingMonth = toBillingMonth(year, month);
@@ -108,6 +113,7 @@ class DashboardService {
       newCustomersThisMonth,
       cancelledThisMonth,
       revenueTrend,
+      wallets,
     ] = await Promise.all([
       customerRepo.countAll(branchFilter),
       customerRepo.countActive(branchFilter),
@@ -128,10 +134,16 @@ class DashboardService {
         branchFilter,
       ),
       this.getRevenueTrend(year, month, branchFilter),
+      includeWallet ? walletService.getWalletsView(branchFilter) : Promise.resolve([]),
     ]);
 
     const subscriptionRevenue = sumInUsd(paidRows);
     const salesRevenue = sumInUsd(saleRows);
+
+    // Collector wallets: net cash in the field, and who/how-many rows hold it.
+    const walletCash = wallets.reduce((sum, w) => sum + w.totalUsd, 0);
+    const walletCollectors = wallets.length;
+    const walletTransactions = wallets.reduce((sum, w) => sum + w.itemCount, 0);
 
     // Debt breakdown by category, in USD. Debt payments aren't tied to a
     // category (see DebtService), so the categories are gross remaining
@@ -165,6 +177,9 @@ class DashboardService {
       totalDebt: debtsView.summary.netUsd,
       monthsDebt,
       salesDebt,
+      walletCash,
+      walletCollectors,
+      walletTransactions,
       newCustomersThisMonth,
       cancelledThisMonth,
       // paidRows carries one row per non-voided payment for the month; a 0 amount

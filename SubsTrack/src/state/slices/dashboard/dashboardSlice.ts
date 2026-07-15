@@ -40,8 +40,11 @@ export const createDashboardSlice: StateCreator<
       state.dashboard.error = null;
     });
     try {
-      const branchFilter = resolveBranchFilter(get().auth.user);
-      const metrics = await dashboardService.getMetrics(branchFilter);
+      const user = get().auth.user;
+      const branchFilter = resolveBranchFilter(user);
+      // Only admins get the collector-wallet aggregate (admin overview).
+      const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
+      const metrics = await dashboardService.getMetrics(branchFilter, isAdmin);
       const { year, month } = getCurrentYearMonth();
       set((state) => {
         state.dashboard.metrics = metrics;

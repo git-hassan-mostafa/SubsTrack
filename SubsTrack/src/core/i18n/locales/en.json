@@ -124,7 +124,9 @@
     "sales_recorded": "Sales",
     "avg_each": "avg {{amount}} each",
     "total_debt": "Total Debt",
-    "debt_breakdown": "Months {{months}} · Sales {{sales}}"
+    "debt_breakdown": "Months {{months}} · Sales {{sales}}",
+    "cash_in_wallets": "Cash in Wallets",
+    "wallet_breakdown": "{{collectors}} collectors · {{transactions}} transactions"
   },
   "subscriptions": {
     "section_title": "Plans",
