@@ -1,12 +1,12 @@
 import type { DashboardMetrics, RevenuePoint } from "@/src/core/types";
 import type { BranchFilter } from "@/src/core/constants";
 import { getCurrentYearMonth, toBillingMonth } from "@/src/core/utils/date";
-import { customerRepository as customerRepo } from "@/src/modules/customers";
-import { paymentRepository as paymentRepo } from "@/src/modules/customer-payments";
-import { planRepository as planRepo } from "@/src/modules/plans";
-import { userRepository as userRepo } from "@/src/modules/users";
-import { saleRepository as saleRepo } from "@/src/modules/sales";
-import { debtService } from "@/src/modules/debts";
+import { customerRepository as customerRepo } from "@/src/modules/customer/customers";
+import { paymentRepository as paymentRepo } from "@/src/modules/customer/customer-payments";
+import { planRepository as planRepo } from "@/src/modules/admin/plans";
+import { userRepository as userRepo } from "@/src/modules/admin/users";
+import { saleRepository as saleRepo } from "@/src/modules/transaction/sales";
+import { debtService } from "@/src/modules/transaction/debts";
 import walletService from "@/src/modules/wallet/services/WalletService";
 
 // The revenue trend spans last 6 months.

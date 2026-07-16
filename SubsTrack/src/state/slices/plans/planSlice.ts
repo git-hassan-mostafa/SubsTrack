@@ -1,9 +1,9 @@
 import type { StateCreator } from 'zustand';
 import type { Plan, TierPlan, TenantUsage } from '@/src/core/types';
-import { planService } from '@/src/modules/plans';
+import { planService } from '@/src/modules/admin/plans';
 import { resolveBranchFilter } from '@/src/shared/lib/branchFilter';
-import { TierLimitError } from '@/src/modules/subscription';
-import type { TierLimitErrorPayload } from '@/src/modules/subscription';
+import { TierLimitError } from '@/src/modules/admin/subscription';
+import type { TierLimitErrorPayload } from '@/src/modules/admin/subscription';
 import type { GlobalState } from '@/src/state/globalStore';
 
 interface PlanInput {

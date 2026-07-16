@@ -1,6 +1,6 @@
 import type { StateCreator } from 'zustand';
 import type { AuthUser, TierPlan } from '@/src/core/types';
-import { authService } from '@/src/modules/auth';
+import { authService } from '@/src/modules/authentication/auth';
 import type { GlobalState } from '@/src/state/globalStore';
 
 export interface AuthSlice {

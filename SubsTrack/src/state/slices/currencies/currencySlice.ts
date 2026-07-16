@@ -1,8 +1,8 @@
 import type { StateCreator } from 'zustand';
 import type { Currency, TierPlan } from '@/src/core/types';
-import { currencyService, type CurrencyInput } from '@/src/modules/currencies';
-import { TierLimitError } from '@/src/modules/subscription';
-import type { TierLimitErrorPayload } from '@/src/modules/subscription';
+import { currencyService, type CurrencyInput } from '@/src/modules/admin/currencies';
+import { TierLimitError } from '@/src/modules/admin/subscription';
+import type { TierLimitErrorPayload } from '@/src/modules/admin/subscription';
 import type { GlobalState } from '@/src/state/globalStore';
 
 export interface CurrencySlice {

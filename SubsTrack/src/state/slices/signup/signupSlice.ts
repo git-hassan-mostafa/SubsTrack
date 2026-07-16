@@ -1,6 +1,6 @@
 import type { StateCreator } from 'zustand';
 import i18n from '@/src/core/i18n';
-import { signupService } from '@/src/modules/signup';
+import { signupService } from '@/src/modules/authentication/signup';
 import type { GlobalState } from '@/src/state/globalStore';
 
 export interface SignupCredentials {

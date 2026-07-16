@@ -8,10 +8,10 @@ import type {
   WalletSource,
 } from '@/src/core/types';
 import i18n from '@/src/core/i18n';
-import { paymentService } from '@/src/modules/customer-payments';
-import { saleService } from '@/src/modules/sales';
-import { debtService } from '@/src/modules/debts';
-import { userService } from '@/src/modules/users';
+import { paymentService } from '@/src/modules/customer/customer-payments';
+import { saleService } from '@/src/modules/transaction/sales';
+import { debtService } from '@/src/modules/transaction/debts';
+import { userService } from '@/src/modules/admin/users';
 
 // A collector wallet is DERIVED, never stored. It composes the three cash
 // sources — subscription payments, sales, and debt payments — filtered to the

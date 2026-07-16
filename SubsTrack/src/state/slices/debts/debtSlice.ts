@@ -8,7 +8,7 @@ import {
   debtService,
   type CreateCustomDebtInput,
   type CreateDebtPaymentInput,
-} from '@/src/modules/debts';
+} from '@/src/modules/transaction/debts';
 import { resolveBranchFilter } from '@/src/shared/lib/branchFilter';
 import type { GlobalState } from '@/src/state/globalStore';
 

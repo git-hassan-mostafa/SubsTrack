@@ -1,8 +1,8 @@
 import type { StateCreator } from "zustand";
 import type { Branch, TierPlan, TenantUsage } from "@/src/core/types";
-import { branchService, type BranchInput } from "@/src/modules/branches";
-import { TierLimitError } from "@/src/modules/subscription";
-import type { TierLimitErrorPayload } from "@/src/modules/subscription";
+import { branchService, type BranchInput } from "@/src/modules/admin/branches";
+import { TierLimitError } from "@/src/modules/admin/subscription";
+import type { TierLimitErrorPayload } from "@/src/modules/admin/subscription";
 import type { GlobalState } from "@/src/state/globalStore";
 
 export interface BranchSlice {

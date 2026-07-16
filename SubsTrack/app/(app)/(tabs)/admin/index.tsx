@@ -6,7 +6,7 @@ import { Pressable, View } from "react-native";
 import { Text } from "@/src/shared/components/Text";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useSubscriptionSlice } from "@/src/state/hooks/useSubscriptionSlice";
-import { useAuth } from "@/src/modules/auth";
+import { useAuth } from "@/src/modules/authentication/auth";
 import { COLORS } from "@/src/shared/constants";
 import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
 

@@ -1,5 +1,5 @@
 import type { StateCreator } from 'zustand';
-import { customerPlanService, type LineDraft } from '@/src/modules/customer-plans';
+import { customerPlanService, type LineDraft } from '@/src/modules/customer/customer-plans';
 import type { GlobalState } from '@/src/state/globalStore';
 
 // Thin slice for the customer form's inline Plans editor. Service lines are the

@@ -1,7 +1,7 @@
 import type { StateCreator } from 'zustand';
 import type { Customer, Product, Sale } from '@/src/core/types';
 import { PAGE_SIZE } from '@/src/core/constants';
-import { saleService, type CreateSaleInput } from '@/src/modules/sales';
+import { saleService, type CreateSaleInput } from '@/src/modules/transaction/sales';
 import { resolveBranchFilter } from '@/src/shared/lib/branchFilter';
 import type { GlobalState } from '@/src/state/globalStore';
 

@@ -12,8 +12,8 @@ import {
 import { COLORS } from "@/src/shared/constants";
 import { useAuthSlice } from "@/src/state/hooks/useAuthSlice";
 import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
-import { useActiveBranches } from "@/src/modules/branches/hooks/useActiveBranches";
-import { useIsMultiBranchActive } from "@/src/modules/branches/hooks/useIsMultiBranchActive";
+import { useActiveBranches } from "@/src/modules/admin/branches/hooks/useActiveBranches";
+import { useIsMultiBranchActive } from "@/src/modules/admin/branches/hooks/useIsMultiBranchActive";
 
 /**
  * Header branch filter chip for tenant-wide admins. Renders on the top-right of

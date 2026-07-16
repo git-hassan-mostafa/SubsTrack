@@ -6,7 +6,7 @@ import {
   paymentService,
   type PaymentListItem,
   type PaymentStatusFilter,
-} from '@/src/modules/customer-payments';
+} from '@/src/modules/customer/customer-payments';
 import { resolveBranchFilter } from '@/src/shared/lib/branchFilter';
 import type { GlobalState } from '@/src/state/globalStore';
 

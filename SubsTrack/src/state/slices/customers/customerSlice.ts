@@ -1,9 +1,9 @@
 import type { StateCreator } from 'zustand';
 import type { Customer, CustomerPlan, TierPlan, TenantUsage } from '@/src/core/types';
-import { customerService } from '@/src/modules/customers';
+import { customerService } from '@/src/modules/customer/customers';
 import { resolveBranchFilter, ownedRowMatchesFilter } from '@/src/shared/lib/branchFilter';
-import { TierLimitError } from '@/src/modules/subscription';
-import type { TierLimitErrorPayload } from '@/src/modules/subscription';
+import { TierLimitError } from '@/src/modules/admin/subscription';
+import type { TierLimitErrorPayload } from '@/src/modules/admin/subscription';
 import type { GlobalState } from '@/src/state/globalStore';
 
 interface CustomerInput {

@@ -16,7 +16,7 @@ import {
   SUPPORTED_LANGUAGES,
   type SupportedLanguage,
 } from "@/src/core/i18n/languageStore";
-import { useAuth } from "@/src/modules/auth";
+import { useAuth } from "@/src/modules/authentication/auth";
 import { useAuthSlice } from "@/src/state/hooks/useAuthSlice";
 import { resetAllDomainStores } from "@/src/shared/lib/storeReset";
 import { IS_OFFLINE_CAPABLE, syncNow } from "@/src/core/offline";
@@ -271,7 +271,9 @@ export function SettingsScreen() {
                   icon="code-slash-outline"
                   label={t("settings.developer")}
                   last
-                  onPress={() => router.push("/(app)/(tabs)/settings/developer")}
+                  onPress={() =>
+                    router.push("/(app)/(tabs)/settings/developer")
+                  }
                 />
               </View>
             </View>
