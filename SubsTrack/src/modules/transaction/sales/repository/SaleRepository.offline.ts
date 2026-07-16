@@ -215,14 +215,13 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
   async markRemitted(ids: string[], remittedBy: string): Promise<void> {
     if (ids.length === 0) return;
     const now = nowIso();
-    await this.write(async (db) => {
-      for (const id of ids) {
-        await db.runAsync(
-          `UPDATE sales SET remitted_at = ?, remitted_by = ?, updated_at = ?, _dirty = 1
-           WHERE id = ? AND remitted_at IS NULL AND voided_at IS NULL`,
-          [now, remittedBy, now, id] as never[],
-        );
-      }
-    });
+    const ph = ids.map(() => '?').join(', ');
+    await this.write((db) =>
+      db.runAsync(
+        `UPDATE sales SET remitted_at = ?, remitted_by = ?, updated_at = ?, _dirty = 1
+         WHERE id IN (${ph}) AND remitted_at IS NULL AND voided_at IS NULL`,
+        [now, remittedBy, now, ...ids] as never[],
+      ),
+    );
   }
 }

@@ -11,6 +11,14 @@ export type OfflineBranchScope =
   | { kind: 'shared'; column?: string }
   | { kind: 'inherited'; joinedTable: string; column?: string };
 
+// The whole native app shares ONE SQLite connection (getDb()), and SQLite allows
+// only one open transaction on it at a time. Concurrent write() calls — e.g.
+// WalletService remitting payments + sales + debt_payments via Promise.all — would
+// otherwise each BEGIN on the same handle and throw "cannot start a transaction
+// within a transaction". This module-level chain serialises every write so
+// overlapping calls queue and run one after another.
+let writeQueue: Promise<unknown> = Promise.resolve();
+
 /**
  * The offline counterpart to BaseRepository. Holds the SQLite handle, an
  * error path that throws the SAME `Error(message)` shape services already
@@ -180,11 +188,22 @@ export abstract class OfflineBaseRepository {
    * so the next push sends them; hard deletes call `markDeleted(db, table, id)`.
    * No outbox — the `_dirty` flag + `pending_deletes` are the whole write intent.
    */
-  protected async write<T>(fn: (db: SQLiteDatabase) => Promise<T>): Promise<T> {
-    let result!: T;
-    await this.db.withTransactionAsync(async () => {
-      result = await fn(this.db);
-    });
-    return result;
+  protected write<T>(fn: (db: SQLiteDatabase) => Promise<T>): Promise<T> {
+    const run = async (): Promise<T> => {
+      let result!: T;
+      await this.db.withTransactionAsync(async () => {
+        result = await fn(this.db);
+      });
+      return result;
+    };
+    // Chain onto the queue regardless of whether the previous write succeeded,
+    // then keep the queue alive by swallowing this write's result/rejection —
+    // the real result/rejection is still returned to the caller via `next`.
+    const next = writeQueue.then(run, run);
+    writeQueue = next.then(
+      () => undefined,
+      () => undefined,
+    );
+    return next;
   }
 }
