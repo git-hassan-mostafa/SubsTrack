@@ -371,7 +371,7 @@ export async function resyncFromScratch(): Promise<{ ok: boolean; offline: boole
  * once when connectivity returns, and every 5 minutes while the app is
  * foregrounded. Local writes land durably in SQLite; the next trigger pushes them.
  */
-export function startSync(): void {
+export async function startSync(cb: () => void): Promise<void> {
   if (!IS_OFFLINE_CAPABLE || started) return;
   started = true;
   subscribeConnectivity((online) => {
@@ -380,5 +380,6 @@ export function startSync(): void {
   setInterval(() => {
     if (AppState.currentState === 'active') void runSync();
   }, 300_000);
-  void runSync();
+  await runSync();
+  cb();
 }

@@ -103,6 +103,7 @@ export function CustomerListScreen() {
   const currencies = useCurrencySlice((s) => s.items);
   const netDebtByCustomer = useDebtSlice((s) => s.netByCustomer);
   const fetchNetDebtByCustomer = useDebtSlice((s) => s.fetchNetByCustomer);
+  const addDebtPayment = useDebtSlice((s) => s.addDebtPayment);
   const { displayCurrencyId } = useUiPrefStore();
   const displayCurrency = findCurrency(currencies, displayCurrencyId);
   const [formVisible, setFormVisible] = useState(false);
@@ -577,9 +578,36 @@ export function CustomerListScreen() {
     return actions;
   }
 
+  // Pay off a customer's WHOLE net debt in one shot: a single debt payment
+  // equal to their net (recorded in USD, the canonical net — clears it exactly;
+  // the service caps at the net owed either way). Shown only when they owe.
+  async function handlePayFullDebt(customer: Customer) {
+    if (!user) return;
+    const netUsd = netDebtByCustomer[customer.id] ?? 0;
+    if (netUsd <= 0) return;
+    const ok = await confirm({
+      title: t("debts.pay_full_title"),
+      message: t("debts.pay_full_message", {
+        amount: formatMoney(netUsd, null, displayCurrency),
+        customer: customer.name,
+      }),
+      confirmLabel: t("debts.pay"),
+    });
+    if (!ok) return;
+    await addDebtPayment({
+      customerId: customer.id,
+      amount: netUsd,
+      notes: null,
+      currency: null,
+      receivedByUserId: user.id,
+      tenantId: user.tenantId,
+    });
+  }
+
   function buildMenuActions(customer: Customer | null): ActionMenuItem[] {
     if (!customer) return [];
     const items: ActionMenuItem[] = [];
+    const hasDebt = (netDebtByCustomer[customer.id] ?? 0) > 0;
     // A customer with 2+ plans in play this month gets the plan-aware wording
     // ("Quick pay unpaid plans" / "Void paid plans"); a single-plan customer
     // keeps the plain "Quick pay" / "Void current month" labels.
@@ -623,6 +651,14 @@ export function CustomerListScreen() {
       icon: "cash-outline",
       onPress: () => setDebtPaymentCustomer(customer),
     });
+    if (hasDebt) {
+      items.push({
+        key: "pay-full-debt",
+        label: t("debts.pay_full"),
+        icon: "checkmark-done-outline",
+        onPress: () => void handlePayFullDebt(customer),
+      });
+    }
     items.push({
       key: "edit",
       label: t("common.edit"),

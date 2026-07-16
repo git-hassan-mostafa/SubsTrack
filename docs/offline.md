@@ -86,6 +86,18 @@ Read the single `last_pulled_at`. For each table in `SYNC_PULL_ORDER`: page thro
 
 The cycle is **push → then pull**, serialized (one in-flight run), and **gated on a signed-in session**. Triggers are deliberately calm: **once at cold start, once when connectivity returns, and every 5 minutes while the app is foregrounded** — not after each write, not on resume-from-RAM. Local writes land durably in SQLite and go up on the next tick.
 
+## Refreshing the stores after a sync (UI refresh)
+
+Sync pulls fresh rows into SQLite, but the **Zustand stores** were already filled from the old local data when each screen first loaded — nothing tells them to reload. `runSync({ refreshUi: true })` closes that gap: after a **fully-successful** pull it fires a registered callback that re-fetches the loaded stores. It fires only on the cases the user expects a visible refresh, **never on the calm background ticks** (which would reload the screen under the user's fingers):
+
+- **Cold start** — `startSync()`'s first `runSync` passes `refreshUi: true`.
+- **First data after login** — `OfflineAuthRepository.getUserProfile` passes it on the same-tenant background re-login pull (the `wasEmpty` first-login/switch case blocks on the pull first, so screens mount fresh and need no refresh).
+- **Manual sync** — `syncNow()` and `resyncFromScratch()` (Settings → "Sync now" / "Full re-pull").
+
+The interval and connectivity-returned triggers call plain `runSync()` (no refresh).
+
+**Dependency inversion (core must not import state):** `sync.ts` exposes `setSyncRefreshHandler(fn)`; `app/_layout.tsx` registers `refreshActiveData` (from `src/state/refreshActiveData.ts`) **before** `initOffline()` (which kicks the first sync). `refreshActiveData()` always refreshes the dashboard (the landing screen) and re-fetches every list slice that already holds data (`items.length > 0` — a slice is only populated if its screen was opened, so this is "only what's on screen"), plus current-month payment flags / net-debt when customers are loaded, and tier usage. List fetches reset to page 1.
+
 ## Manual sync + observable status
 
 `sync.ts` exposes an observable status (`SyncStatus = { syncing, lastSyncAt, lastError }`) via `getSyncStatus()` / `subscribeSyncStatus()` — `runSync()` broadcasts the transitions, so **every** cycle (manual or automatic) flips `syncing`. `syncNow()` is the manual UI entry point (probes connectivity first, returns `{ ok, offline }` so a button can tell "reached the server" from "no connection"). All re-exported from `src/core/offline/index.ts`; components read the status through the `useSyncStatus()` hook (`src/shared/hooks/`, `useSyncExternalStore`).

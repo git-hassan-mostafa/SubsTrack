@@ -762,6 +762,9 @@
     "remove": "Remove",
     "pay_title": "Pay this debt",
     "pay_message": "Record a debt payment of {{amount}} for {{customer}}? This lowers the customer's debt total.",
+    "pay_full": "Pay full debt",
+    "pay_full_title": "Pay full debt",
+    "pay_full_message": "Record a debt payment of {{amount}} for {{customer}}? This clears their whole debt.",
     "customer_panel_title": "Transactions",
     "section_debts": "Debts",
     "no_transactions_for_customer": "No transactions for this customer yet."

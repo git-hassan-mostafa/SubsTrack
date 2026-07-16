@@ -21,6 +21,7 @@ import { useAuthSlice } from "@/src/state/hooks/useAuthSlice";
 import { resetAllDomainStores } from "@/src/shared/lib/storeReset";
 import { IS_OFFLINE_CAPABLE, syncNow } from "@/src/core/offline";
 import { useSyncStatus } from "@/src/shared/hooks/useSyncStatus";
+import { refreshActiveData } from "@/src/state/refreshActiveData";
 
 const LANGUAGE_LABELS: Record<SupportedLanguage, string> = {
   en: "English",
@@ -102,6 +103,7 @@ export function SettingsScreen() {
     setSyncResult(null);
     const { ok, offline } = await syncNow();
     flashResult(offline ? "offline" : ok ? "done" : "failed");
+    refreshActiveData();
   }
 
   const languageOptions = SUPPORTED_LANGUAGES.map((lang) => ({

@@ -36,7 +36,11 @@ import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
 import { useDebtSlice } from "@/src/state/hooks/useDebtSlice";
 import type { DebtViewFilter } from "@/src/state/slices/debts/debtSlice";
 import type { DebtItem, DebtPaymentItem } from "@/src/core/types";
-import { groupDebtors, sumDebtNetUsd } from "../utils/debtAggregations";
+import {
+  groupDebtors,
+  sumDebtNetUsd,
+  type Debtor,
+} from "../utils/debtAggregations";
 import { DebtItemCard } from "../components/DebtItemCard";
 import { DebtPaymentCard } from "../components/DebtPaymentCard";
 import { DebtorCard } from "../components/DebtorCard";
@@ -85,6 +89,7 @@ export function DebtsPanel() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [customDebtOpen, setCustomDebtOpen] = useState(false);
   const [paymentOpen, setPaymentOpen] = useState(false);
+  const [menuDebtor, setMenuDebtor] = useState<Debtor | null>(null);
 
   useEffect(() => {
     fetchDebts();
@@ -201,6 +206,30 @@ export function DebtsPanel() {
       amount: item.remaining,
       notes: null,
       currency: source,
+      receivedByUserId: user.id,
+      tenantId: user.tenantId,
+    });
+  }
+
+  // Pay off a debtor's WHOLE net in one shot: a single debt payment equal to
+  // their net debt, recorded in USD (the net is USD-canonical, so this clears
+  // the total exactly — the service caps at the net owed either way).
+  async function handlePayDebtor(debtor: Debtor) {
+    if (!user) return;
+    const ok = await confirm({
+      title: t("debts.pay_full_title"),
+      message: t("debts.pay_full_message", {
+        amount: formatMoney(debtor.netUsd, null, target),
+        customer: debtor.customerName,
+      }),
+      confirmLabel: t("debts.pay"),
+    });
+    if (!ok) return;
+    await addDebtPayment({
+      customerId: debtor.customerId,
+      amount: debtor.netUsd,
+      notes: null,
+      currency: null,
       receivedByUserId: user.id,
       tenantId: user.tenantId,
     });
@@ -379,6 +408,7 @@ export function DebtsPanel() {
               <DebtorCard
                 debtor={d}
                 onPress={() => setOpenDebtorId(d.customerId)}
+                onMenu={() => setMenuDebtor(d)}
               />
             )}
             ListEmptyComponent={
@@ -473,6 +503,23 @@ export function DebtsPanel() {
             label: t("debts.record_debt_payment"),
             icon: "cash-outline",
             onPress: () => setPaymentOpen(true),
+          },
+        ]}
+      />
+
+      <ActionMenu
+        visible={!!menuDebtor}
+        title={menuDebtor?.customerName}
+        onDismiss={() => setMenuDebtor(null)}
+        actions={[
+          {
+            key: "pay_full",
+            label: t("debts.pay_full"),
+            icon: "cash-outline",
+            onPress: () => {
+              const d = menuDebtor;
+              if (d) void handlePayDebtor(d);
+            },
           },
         ]}
       />

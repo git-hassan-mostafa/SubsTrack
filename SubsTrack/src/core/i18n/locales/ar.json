@@ -762,6 +762,9 @@
     "remove": "حذف",
     "pay_title": "دفع هذا الدين",
     "pay_message": "تسجيل دفعة دين بقيمة {{amount}} لـ {{customer}}؟ سيقلل هذا من إجمالي دين العميل.",
+    "pay_full": "سداد كامل الدين",
+    "pay_full_title": "سداد كامل الدين",
+    "pay_full_message": "تسجيل دفعة دين بقيمة {{amount}} لـ {{customer}}؟ سيسدد هذا كامل دينه.",
     "customer_panel_title": "المعاملات",
     "section_debts": "الديون",
     "no_transactions_for_customer": "لا توجد معاملات لهذا العميل بعد."

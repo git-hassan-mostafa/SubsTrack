@@ -4,7 +4,13 @@
 export { IS_OFFLINE_CAPABLE } from './platform';
 export { initOffline } from './bootstrap/offlineBootstrap';
 export { ensureTenantScope } from './bootstrap/tenant';
-export { runSync, syncNow, resyncFromScratch, getSyncStatus, subscribeSyncStatus } from './sync';
+export {
+  runSync,
+  syncNow,
+  resyncFromScratch,
+  getSyncStatus,
+  subscribeSyncStatus,
+} from './sync';
 export type { SyncStatus } from './sync';
 export { RequiresConnectionError, WorkspaceSwitchBlockedError } from './errors';
 export { newId, nowIso, deterministicId } from './ids';

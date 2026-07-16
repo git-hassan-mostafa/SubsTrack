@@ -17,7 +17,9 @@ import { KeyboardProvider } from "react-native-keyboard-controller";
 import "../global.css";
 import { enableMapSet } from "immer";
 import { initOffline } from "@/src/core/offline";
+import { refreshActiveData } from "@/src/state/refreshActiveData";
 import { installGlobalErrorHandler } from "@/src/core/errorLog/globalHandler";
+import { startSync } from "@/src/core/offline/sync";
 
 export default function RootLayout() {
   const [i18nReady, setI18nReady] = useState(false);
@@ -48,6 +50,7 @@ export default function RootLayout() {
       // Open the local DB + start the sync engine before any repository read
       // (no-op on web). On native every repository now reads/writes SQLite.
       await initOffline();
+      startSync(refreshActiveData);
       // Global app options gate pre-auth UI (e.g. self-service signup on the
       // login screen), so fetch them up front — independent of any session.
       fetchOptions();

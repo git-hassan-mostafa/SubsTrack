@@ -10,12 +10,14 @@ import type { Debtor } from "../utils/debtAggregations";
 interface Props {
   debtor: Debtor;
   onPress: () => void;
+  /** Opens the row's action menu (Pay full debt). Omit to hide the 3-dot menu. */
+  onMenu?: () => void;
 }
 
 // One row on the Debtors sub-tab: a customer who still owes money, with their
 // total net debt (USD, formatted into the display currency). Tapping opens the
-// debtor detail modal.
-export function DebtorCard({ debtor, onPress }: Props) {
+// debtor detail modal; the 3-dot menu offers "Pay full debt".
+export function DebtorCard({ debtor, onPress, onMenu }: Props) {
   const currencies = useCurrencySlice((s) => s.items);
   const { displayCurrencyId } = useUiPrefStore();
   const target = findCurrency(currencies, displayCurrencyId);
@@ -26,6 +28,7 @@ export function DebtorCard({ debtor, onPress }: Props) {
       iconColor={COLORS.danger}
       iconBgClassName="bg-red-50"
       onPress={onPress}
+      onMenu={onMenu}
     >
       <View className="flex-1">
         <Text
