@@ -19,6 +19,7 @@ import { createSaleSlice, type SaleSlice } from './slices/sales/saleSlice';
 import { createDebtSlice, type DebtSlice } from './slices/debts/debtSlice';
 import { createWalletSlice, type WalletSlice } from './slices/wallet/walletSlice';
 import { createOptionSlice, type OptionSlice } from './slices/options/optionSlice';
+import { createUiSlice, type UiSlice } from './slices/ui/uiSlice';
 
 export interface GlobalState {
   auth: AuthSlice;
@@ -39,6 +40,7 @@ export interface GlobalState {
   debts: DebtSlice;
   wallet: WalletSlice;
   options: OptionSlice;
+  ui: UiSlice;
 }
 
 const STORE_KEY = '__SUBSTRACK_GLOBAL_STORE__';
@@ -64,6 +66,7 @@ const initStore = (): StoreApi<GlobalState> =>
       debts: createDebtSlice(set, get, store),
       wallet: createWalletSlice(set, get, store),
       options: createOptionSlice(set, get, store),
+      ui: createUiSlice(set, get, store),
     })),
   );
 

@@ -23,8 +23,13 @@ import { useDebtSlice } from "@/src/state/hooks/useDebtSlice";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import debtService from "../services/DebtService";
 
+// When locked to a specific customer, the form only needs their id + name (no
+// picker is rendered), so callers may pass a lightweight customer ref — e.g. the
+// debtor detail sheet, which has only the debtor's id/name, not a full Customer.
+type CustomerRef = Pick<Customer, "id" | "name">;
+
 interface Props {
-  initialCustomer?: Customer | null;
+  initialCustomer?: CustomerRef | null;
   onDismiss: () => void;
   onCreated?: () => void;
 }
@@ -43,9 +48,10 @@ export function DebtPaymentFormSheet({
   const error = useDebtSlice((s) => s.error);
   const clearError = useDebtSlice((s) => s.clearError);
 
-  const [customer, setCustomer] = useState<Customer | null>(
-    initialCustomer ?? null,
-  );
+  // When `initialCustomer` is passed the customer is locked (no picker). The
+  // picker path builds up a full Customer here; the effective target is either.
+  const [picked, setPicked] = useState<Customer | null>(null);
+  const customer: CustomerRef | null = initialCustomer ?? picked;
   const [amount, setAmount] = useState<number | null>(null);
   const [currencyId, setCurrencyId] = useState<string | null>(null);
   const [notes, setNotes] = useState("");
@@ -160,8 +166,8 @@ export function DebtPaymentFormSheet({
               <CustomerPicker
                 label={t("debts.customer_label") + " *"}
                 placeholder={t("debts.pick_customer")}
-                value={customer}
-                onChange={setCustomer}
+                value={picked}
+                onChange={setPicked}
                 onAddNew={() => setAddCustomerOpen(true)}
               />
             )}

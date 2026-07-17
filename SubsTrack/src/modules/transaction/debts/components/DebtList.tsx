@@ -59,7 +59,7 @@ export function DebtList({
       {items.length > 0 ? (
         <>
           <Text className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1">
-            {t("debts.section_debts")}
+            {t("debts.section_debts_history")}
           </Text>
           {items.map((item) => (
             <DebtItemCard
@@ -76,7 +76,7 @@ export function DebtList({
       {payments.length > 0 ? (
         <>
           <Text className="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1 mt-2">
-            {t("debts.category_payments")}
+            {t("debts.section_payments_history")}
           </Text>
           {payments.map((p) => (
             <DebtPaymentCard

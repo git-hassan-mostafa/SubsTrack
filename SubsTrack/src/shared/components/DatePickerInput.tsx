@@ -6,7 +6,6 @@ import { Text } from "@/src/shared/components/Text";
 import { COLORS } from "@/src/shared/constants";
 import { useTranslation } from "react-i18next";
 import { useState } from "react";
-import { useWebBackDismiss } from "@/src/shared/hooks/useWebBackDismiss";
 
 // "default" — full-width form field with label, used inside form sheets.
 // "chip"    — compact fit-content pill, used in filter bars alongside other chips.
@@ -174,8 +173,6 @@ export function DatePickerInput({
 }: Props) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
-  // Web: browser Back closes the picker instead of navigating the route.
-  useWebBackDismiss(open, () => setOpen(false));
   const withTime = showTime && !monthOnly;
 
   const now = new Date();

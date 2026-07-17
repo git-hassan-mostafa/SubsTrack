@@ -7,7 +7,6 @@ import { Text } from "./Text";
 import { COLORS } from "@/src/shared/constants";
 import type { Currency } from "@/src/core/types";
 import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
-import { useWebBackDismiss } from "@/src/shared/hooks/useWebBackDismiss";
 
 interface CurrencyInputProps {
   label?: string;
@@ -103,8 +102,6 @@ export function CurrencyInput({
   }
 
   const [pickerOpen, setPickerOpen] = useState(false);
-  // Web: browser Back closes the currency picker instead of changing the route.
-  useWebBackDismiss(pickerOpen, () => setPickerOpen(false));
 
   return (
     <View className="mb-4">

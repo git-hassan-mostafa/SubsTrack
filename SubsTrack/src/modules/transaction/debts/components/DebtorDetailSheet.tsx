@@ -1,18 +1,25 @@
+import { useState } from "react";
 import { ScrollView, View } from "react-native";
 import { SheetModal } from "@/src/shared/components/SheetModal";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
+import { Ionicons } from "@expo/vector-icons";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
+import { ActionMenu } from "@/src/shared/components/ActionMenu";
+import { COLORS } from "@/src/shared/constants";
 import type { DebtItem, DebtPaymentItem } from "@/src/core/types";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
 import { sumDebtNetUsd } from "../utils/debtAggregations";
 import { DebtList } from "./DebtList";
+import { CustomDebtFormSheet } from "./CustomDebtFormSheet";
+import { DebtPaymentFormSheet } from "./DebtPaymentFormSheet";
 
 interface Props {
+  customerId: string;
   customerName: string;
   // Already filtered to this customer by the parent (derived from the slice each
   // render, so a pay/void re-fetch flows straight back into the open modal).
@@ -26,9 +33,11 @@ interface Props {
 }
 
 // The debtor detail modal (opened from a Debtors-tab row): the customer's net
-// still-owed figure plus the shared DebtList (their debts + debt payments).
-// Interactive — pay a debt / void a payment right here.
+// still-owed figure plus the shared DebtList (their debts history + debt
+// payments history). Interactive — add a debt / debt payment, pay a debt, or
+// void a payment right here (same add pattern as the customer-detail panel).
 export function DebtorDetailSheet({
+  customerId,
   customerName,
   items,
   payments,
@@ -42,9 +51,15 @@ export function DebtorDetailSheet({
   const { displayCurrencyId } = useUiPrefStore();
   const target = findCurrency(currencies, displayCurrencyId);
 
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [customDebtOpen, setCustomDebtOpen] = useState(false);
+  const [paymentOpen, setPaymentOpen] = useState(false);
+
   const net = sumDebtNetUsd(items, payments).netUsd;
   const isCredit = net < -1e-9;
   const netLabel = formatMoney(Math.abs(net), null, target);
+
+  const lockedCustomer = { id: customerId, name: customerName };
 
   return (
     <SheetModal onDismiss={onDismiss}>
@@ -70,11 +85,20 @@ export function DebtorDetailSheet({
                 {isCredit ? t("debts.credit") : t("debts.total_outstanding")}
               </Text>
             </View>
-            <PressableOpacity onPress={onDismiss}>
-              <Text className="text-base text-primary font-medium">
-                {t("common.close")}
-              </Text>
-            </PressableOpacity>
+            <View className="flex-row items-center gap-3">
+              <PressableOpacity
+                onPress={() => setMenuOpen(true)}
+                accessibilityLabel={t("debts.add")}
+                className="w-8 h-8 rounded-full bg-indigo-50 items-center justify-center"
+              >
+                <Ionicons name="add" size={18} color={COLORS.primary} />
+              </PressableOpacity>
+              <PressableOpacity onPress={onDismiss}>
+                <Text className="text-base text-primary font-medium">
+                  {t("common.close")}
+                </Text>
+              </PressableOpacity>
+            </View>
           </View>
 
           <ScrollView
@@ -91,6 +115,39 @@ export function DebtorDetailSheet({
           </ScrollView>
         </ResponsiveContainer>
       </SafeAreaView>
+
+      <ActionMenu
+        visible={menuOpen}
+        title={t("debts.add")}
+        onDismiss={() => setMenuOpen(false)}
+        actions={[
+          {
+            key: "custom_debt",
+            label: t("debts.add_custom_debt"),
+            icon: "document-text-outline",
+            onPress: () => setCustomDebtOpen(true),
+          },
+          {
+            key: "payment",
+            label: t("debts.record_debt_payment"),
+            icon: "cash-outline",
+            onPress: () => setPaymentOpen(true),
+          },
+        ]}
+      />
+
+      {customDebtOpen && (
+        <CustomDebtFormSheet
+          initialCustomer={lockedCustomer}
+          onDismiss={() => setCustomDebtOpen(false)}
+        />
+      )}
+      {paymentOpen && (
+        <DebtPaymentFormSheet
+          initialCustomer={lockedCustomer}
+          onDismiss={() => setPaymentOpen(false)}
+        />
+      )}
     </SheetModal>
   );
 }

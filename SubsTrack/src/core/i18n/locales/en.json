@@ -412,7 +412,6 @@
   },
   "tenant_settings": {
     "title": "Workspace Settings",
-    "subtitle": "Configure your workspace",
     "menu_sub": "Display preferences",
     "currencies_count": "{{count}} active",
     "display_section_title": "Display",
@@ -596,7 +595,6 @@
   },
   "subscription": {
     "title": "Subscription",
-    "subtitle": "Manage your plan",
     "menu_sub": "View limits, usage, and upgrade",
     "your_usage": "Your usage",
     "current_plan": "Current",
@@ -716,6 +714,9 @@
     "services_coming_soon": "Services coming soon",
     "services_coming_soon_hint": "This feature isn't available yet."
   },
+  "quick_actions": {
+    "title": "Quick actions"
+  },
   "debts": {
     "add": "Add",
     "add_custom_debt": "Add custom debt",
@@ -767,6 +768,8 @@
     "pay_full_message": "Record a debt payment of {{amount}} for {{customer}}? This clears their whole debt.",
     "customer_panel_title": "Transactions",
     "section_debts": "Debts",
+    "section_debts_history": "Debts history",
+    "section_payments_history": "Debt payments history",
     "no_transactions_for_customer": "No transactions for this customer yet."
   },
   "wallet": {

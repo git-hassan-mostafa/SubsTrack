@@ -118,6 +118,21 @@ Cross-cutting concerns that don't fit a single feature: performance, error handl
 | 9.5 | iPad | iPad portrait + landscape | App is mobile-first; verify it does not crash and is usable |
 | 9.6 | Old OS | iOS 14 / Android API 26 (if supported) | App still functions |
 
+## 9b. Web browser Back button (web build only)
+
+On web, the browser Back button closes the topmost **form sheet / dialog** instead of navigating the route. Transient tap-outside popups (dropdowns, date/currency/entity pickers, action menu) are intentionally NOT tied to Back — they close by clicking their backdrop. Run these in a desktop browser.
+
+| # | Scenario | Steps | Expected result |
+|---|----------|-------|-----------------|
+| 9b.1 | Back closes a form sheet | Open any form sheet (e.g. Customer form), press browser Back | Sheet closes; URL/route unchanged; still on the same screen |
+| 9b.2 | Back closes stacked sheets in order | Debts → open Debtor detail sheet → open Debt payment form on top; press Back twice | 1st Back closes the payment form, 2nd Back closes the debtor detail; still on Debts screen |
+| 9b.3 | Back closes a dialog over a sheet | Admin → Wallets → open a collector wallet (sheet) → "Receive all" (confirm dialog); press Back | Only the confirm dialog closes; the wallet sheet stays open |
+| 9b.4 | **Reported bug — double Back never leaves the site** | From 9b.3, press Back a 2nd time | Wallet sheet closes; still on Wallets screen. Site must NOT close or jump to another page. Repeat pressing Back fast several times |
+| 9b.5 | Back after all modals closed | Close every modal, then press Back | Normal route navigation (goes to previous screen) |
+| 9b.6 | Picker closes by clicking outside (not Back) | Open a dropdown / currency / date picker inside a form; click the dark backdrop | Picker closes; the form sheet stays open |
+| 9b.7 | Action menu closes by clicking outside | Open a row's 3-dot action menu; click outside | Menu closes without navigating |
+| 9b.8 | Confirm can't be dismissed mid-action | Start a confirm action that shows a spinner; press Back while it runs | Back is ignored until the action finishes |
+
 ## 10. Update / migration
 
 | # | Scenario | Steps | Expected result |

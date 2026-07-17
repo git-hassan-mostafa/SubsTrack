@@ -7,7 +7,6 @@ import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { COLORS } from "@/src/shared/constants";
 import { Input } from "@/src/shared/components/Input";
-import { useWebBackDismiss } from "@/src/shared/hooks/useWebBackDismiss";
 
 export interface DropdownOption<T = string> {
   label: string;
@@ -200,9 +199,6 @@ export function DropdownModal<T extends string | number | null = string>({
     setSearch("");
     onClose();
   }
-
-  // Web: browser Back closes the dropdown instead of navigating the route.
-  useWebBackDismiss(visible, handleClose);
 
   function handleSelect(val: T | null) {
     onChange(val);

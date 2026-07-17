@@ -4,6 +4,7 @@ import { TenantInactiveScreen } from "@/src/modules/authentication/auth";
 import { LoadingScreen } from "@/src/shared/components/LoadingScreen";
 import GlobalConfirmDialog from "@/src/shared/components/GlobalConfirmDialog";
 import { SyncIndicator } from "@/src/shared/components/SyncIndicator";
+import { QuickActionSheets } from "@/src/modules/quick-actions";
 export default function AppLayout() {
   const user = useAuthSlice((s) => s.user);
   const tenantActive = useAuthSlice((s) => s.tenantActive);
@@ -16,6 +17,7 @@ export default function AppLayout() {
       <Slot />
       <SyncIndicator />
       <GlobalConfirmDialog />
+      <QuickActionSheets />
     </>
   );
 }
