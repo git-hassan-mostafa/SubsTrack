@@ -13,7 +13,7 @@ import { AppState } from 'react-native';
 import type { SQLiteDatabase } from 'expo-sqlite';
 import { supabase } from '@/src/shared/lib/supabase';
 import { IS_OFFLINE_CAPABLE } from './platform';
-import { isOnline, subscribeConnectivity } from './net/connectivity';
+import { isOnline } from './net/connectivity';
 import { getDb } from './db/sqlite';
 import { decodeRow } from './db/codec';
 import { upsertFromServer } from './db/dml';
@@ -374,12 +374,9 @@ export async function resyncFromScratch(): Promise<{ ok: boolean; offline: boole
 export async function startSync(cb: () => void): Promise<void> {
   if (!IS_OFFLINE_CAPABLE || started) return;
   started = true;
-  subscribeConnectivity((online) => {
-    if (online) void runSync();
-  });
   setInterval(() => {
     if (AppState.currentState === 'active') void runSync();
-  }, 300_000);
+  }, 600_000);
   await runSync();
   cb();
 }

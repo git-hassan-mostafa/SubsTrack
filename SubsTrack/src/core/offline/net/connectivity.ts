@@ -25,8 +25,3 @@ export async function isOnline(): Promise<boolean> {
 export function getIsOnline(): boolean {
   return current;
 }
-
-/** Subscribe to connectivity transitions; returns an unsubscribe fn. */
-export function subscribeConnectivity(cb: (online: boolean) => void): () => void {
-  return NetInfo.addEventListener((s) => cb(computeOnline(s)));
-}
