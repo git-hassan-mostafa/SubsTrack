@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { FlatList, Modal, Pressable, View } from "react-native";
+import { FlatList, View } from "react-native";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { PressableOpacity } from "./PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
@@ -7,6 +7,7 @@ import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { COLORS } from "@/src/shared/constants";
 import { Input } from "@/src/shared/components/Input";
+import { BottomSheetScaffold } from "./BottomSheetScaffold";
 
 export interface DropdownOption<T = string> {
   label: string;
@@ -237,84 +238,70 @@ export function DropdownModal<T extends string | number | null = string>({
     : allItems;
 
   return (
-    <Modal
+    <BottomSheetScaffold
       visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={handleClose}
+      onDismiss={handleClose}
+      wrap={(children) => (
+        <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
+          {children}
+        </KeyboardAvoidingView>
+      )}
     >
-      <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
-        <Pressable
-          className="flex-1 bg-black/40 items-center justify-center px-6"
-          onPress={handleClose}
-        >
-          <Pressable
-            className="bg-white rounded-2xl w-full max-w-sm overflow-hidden"
-            onPress={(e) => e.stopPropagation()}
-          >
-            <View className="flex-row items-center justify-between px-5 py-4 border-b border-gray-100">
-              <Text className="text-base font-semibold text-gray-900">
-                {title}
-              </Text>
-              <PressableOpacity onPress={handleClose}>
-                <Text className="text-base text-primary font-medium">
-                  {t("common.cancel")}
+      <View className="flex-row items-center justify-between px-5 py-3 border-b border-gray-100">
+        <Text className="text-base font-semibold text-gray-900">{title}</Text>
+        <PressableOpacity onPress={handleClose}>
+          <Text className="text-base text-primary font-medium">
+            {t("common.cancel")}
+          </Text>
+        </PressableOpacity>
+      </View>
+
+      {hideSearch == false && (
+        <View className="px-4 py-2 border-b border-gray-100">
+          <Input
+            value={search}
+            onChangeText={setSearch}
+            placeholder={t("common.input_search")}
+            placeholderTextColor={COLORS.gray400}
+            className="bg-gray-50 rounded-xl px-4 py-2.5 text-base text-gray-900"
+            autoCorrect={false}
+          />
+        </View>
+      )}
+
+      <FlatList
+        data={listItems}
+        keyExtractor={(item) => String(item.value ?? "__null__")}
+        style={{ maxHeight: 360 }}
+        keyboardShouldPersistTaps="handled"
+        renderItem={({ item }) => {
+          const isSelected = item.isNull
+            ? value === null
+            : item.value === value;
+          return (
+            <PressableOpacity
+              onPress={() => handleSelect(item.value)}
+              className={`flex-row items-center px-5 py-3.5 border-b border-gray-50 ${isSelected ? "bg-indigo-50" : "bg-white"}`}
+            >
+              <View className="flex-1">
+                <Text
+                  className={`text-base font-semibold ${isSelected ? "text-primary" : "text-gray-900"}`}
+                >
+                  {item.label}
                 </Text>
-              </PressableOpacity>
-            </View>
-
-            {hideSearch == false && (
-              <View className="px-4 py-2 border-b border-gray-100">
-                <Input
-                  value={search}
-                  onChangeText={setSearch}
-                  placeholder={t("common.input_search")}
-                  placeholderTextColor={COLORS.gray400}
-                  className="bg-gray-50 rounded-xl px-4 py-2.5 text-base text-gray-900"
-                  autoCorrect={false}
-                />
+                {item.sublabel ? (
+                  <Text className="text-xs text-gray-400 mt-0.5">
+                    {item.sublabel}
+                  </Text>
+                ) : null}
               </View>
-            )}
-
-            <FlatList
-              data={listItems}
-              keyExtractor={(item) => String(item.value ?? "__null__")}
-              style={{ maxHeight: 320 }}
-              renderItem={({ item }) => {
-                const isSelected = item.isNull
-                  ? value === null
-                  : item.value === value;
-                return (
-                  <PressableOpacity
-                    onPress={() => handleSelect(item.value)}
-                    className={`flex-row items-center px-5 py-3.5 border-b border-gray-50 ${isSelected ? "bg-indigo-50" : "bg-white"}`}
-                  >
-                    <View className="flex-1">
-                      <Text
-                        className={`text-base font-semibold ${isSelected ? "text-primary" : "text-gray-900"}`}
-                      >
-                        {item.label}
-                      </Text>
-                      {item.sublabel ? (
-                        <Text className="text-xs text-gray-400 mt-0.5">
-                          {item.sublabel}
-                        </Text>
-                      ) : null}
-                    </View>
-                    {isSelected ? (
-                      <Ionicons
-                        name="checkmark"
-                        size={18}
-                        color={COLORS.primary}
-                      />
-                    ) : null}
-                  </PressableOpacity>
-                );
-              }}
-            />
-          </Pressable>
-        </Pressable>
-      </KeyboardAvoidingView>
-    </Modal>
+              {isSelected ? (
+                <Ionicons name="checkmark" size={18} color={COLORS.primary} />
+              ) : null}
+            </PressableOpacity>
+          );
+        }}
+      />
+    </BottomSheetScaffold>
   );
 }

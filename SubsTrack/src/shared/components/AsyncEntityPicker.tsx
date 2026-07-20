@@ -1,12 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import {
-  ActivityIndicator,
-  FlatList,
-  Modal,
-  Pressable,
-  TextInput,
-  View,
-} from "react-native";
+import { ActivityIndicator, FlatList, View } from "react-native";
 import { KeyboardAvoidingView } from "react-native-keyboard-controller";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
@@ -15,6 +8,8 @@ import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { useDebounce } from "@/src/shared/hooks/useDebounce";
 import { PAGE_SIZE } from "@/src/core/constants";
 import { COLORS } from "@/src/shared/constants";
+import { BottomSheetScaffold } from "@/src/shared/components/BottomSheetScaffold";
+import { Input } from "./Input";
 
 // "default" — full-width form field with label, used inside form sheets.
 // "chip"    — compact fit-content pill, used in filter bars alongside other chips.
@@ -278,138 +273,122 @@ function AsyncPickerModal<T>({
   }
 
   return (
-    <Modal
+    <BottomSheetScaffold
       visible
-      transparent
-      animationType="fade"
-      onRequestClose={handleClose}
+      onDismiss={handleClose}
+      wrap={(children) => (
+        <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
+          {children}
+        </KeyboardAvoidingView>
+      )}
     >
-      <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
-        <Pressable
-          className="flex-1 bg-black/40 items-center justify-center px-6"
-          onPress={handleClose}
+      <View className="flex-row items-center justify-between px-5 py-3 border-b border-gray-100">
+        <Text className="text-base font-semibold text-gray-900">{title}</Text>
+        <PressableOpacity onPress={handleClose}>
+          <Text className="text-base text-primary font-medium">
+            {t("common.cancel")}
+          </Text>
+        </PressableOpacity>
+      </View>
+
+      <View className="px-4 py-2 border-b border-gray-100">
+        <Input
+          value={search}
+          onChangeText={setSearch}
+          placeholder={t("common.input_search")}
+          placeholderTextColor={COLORS.gray400}
+          className="bg-gray-50 rounded-xl px-4 py-2.5 text-base text-gray-900"
+          autoCorrect={false}
+          autoCapitalize="none"
+        />
+      </View>
+
+      {nullable ? (
+        <PressableOpacity
+          onPress={() => handleSelect(null)}
+          className={`flex-row items-center px-5 py-3.5 border-b border-gray-50 ${
+            value === null ? "bg-indigo-50" : "bg-white"
+          }`}
         >
-          <Pressable
-            className="bg-white rounded-2xl w-full overflow-hidden"
-            onPress={(e) => e.stopPropagation()}
-          >
-            <View className="flex-row items-center justify-between px-5 py-4 border-b border-gray-100">
-              <Text className="text-base font-semibold text-gray-900">
-                {title}
+          <View className="flex-1">
+            <Text
+              className={`text-base font-semibold ${
+                value === null ? "text-primary" : "text-gray-900"
+              }`}
+            >
+              {nullLabel ?? t("common.none")}
+            </Text>
+          </View>
+          {value === null ? (
+            <Ionicons name="checkmark" size={18} color={COLORS.primary} />
+          ) : null}
+        </PressableOpacity>
+      ) : null}
+
+      {error ? (
+        <View className="px-5 py-4 bg-red-50">
+          <Text className="text-sm text-red-600">{error}</Text>
+        </View>
+      ) : null}
+
+      <FlatList
+        data={items}
+        keyExtractor={getKey}
+        style={{ maxHeight: 400 }}
+        onEndReached={loadNextPage}
+        onEndReachedThreshold={0.3}
+        keyboardShouldPersistTaps="handled"
+        ListEmptyComponent={
+          loading ? (
+            <View className="py-8 items-center">
+              <ActivityIndicator color={COLORS.primary} />
+            </View>
+          ) : (
+            <View className="py-8 items-center">
+              <Text className="text-sm text-gray-400">
+                {t("common.no_results")}
               </Text>
-              <PressableOpacity onPress={handleClose}>
-                <Text className="text-base text-primary font-medium">
-                  {t("common.cancel")}
+            </View>
+          )
+        }
+        ListFooterComponent={
+          loadingMore ? (
+            <View className="py-4 items-center">
+              <ActivityIndicator color={COLORS.primary} />
+            </View>
+          ) : null
+        }
+        renderItem={({ item }) => {
+          const { label: itemLabel, sublabel } = renderItem(item);
+          const isSelected = value != null && getKey(item) === getKey(value);
+          return (
+            <PressableOpacity
+              onPress={() => handleSelect(item)}
+              className={`flex-row items-center px-5 py-3.5 border-b border-gray-50 ${
+                isSelected ? "bg-indigo-50" : "bg-white"
+              }`}
+            >
+              <View className="flex-1">
+                <Text
+                  className={`text-base font-semibold ${
+                    isSelected ? "text-primary" : "text-gray-900"
+                  }`}
+                >
+                  {itemLabel}
                 </Text>
-              </PressableOpacity>
-            </View>
-
-            <View className="px-4 py-2 border-b border-gray-100">
-              <TextInput
-                value={search}
-                onChangeText={setSearch}
-                placeholder={t("common.input_search")}
-                placeholderTextColor={COLORS.gray400}
-                className="bg-gray-50 rounded-xl px-4 py-2.5 text-base text-gray-900"
-                autoCorrect={false}
-                autoCapitalize="none"
-              />
-            </View>
-
-            {nullable ? (
-              <PressableOpacity
-                onPress={() => handleSelect(null)}
-                className={`flex-row items-center px-5 py-3.5 border-b border-gray-50 ${
-                  value === null ? "bg-indigo-50" : "bg-white"
-                }`}
-              >
-                <View className="flex-1">
-                  <Text
-                    className={`text-base font-semibold ${
-                      value === null ? "text-primary" : "text-gray-900"
-                    }`}
-                  >
-                    {nullLabel ?? t("common.none")}
+                {sublabel ? (
+                  <Text className="text-xs text-gray-400 mt-0.5">
+                    {sublabel}
                   </Text>
-                </View>
-                {value === null ? (
-                  <Ionicons name="checkmark" size={18} color={COLORS.primary} />
                 ) : null}
-              </PressableOpacity>
-            ) : null}
-
-            {error ? (
-              <View className="px-5 py-4 bg-red-50">
-                <Text className="text-sm text-red-600">{error}</Text>
               </View>
-            ) : null}
-
-            <FlatList
-              data={items}
-              keyExtractor={getKey}
-              style={{ maxHeight: 400 }}
-              onEndReached={loadNextPage}
-              onEndReachedThreshold={0.3}
-              keyboardShouldPersistTaps="handled"
-              ListEmptyComponent={
-                loading ? (
-                  <View className="py-8 items-center">
-                    <ActivityIndicator color={COLORS.primary} />
-                  </View>
-                ) : (
-                  <View className="py-8 items-center">
-                    <Text className="text-sm text-gray-400">
-                      {t("common.no_results")}
-                    </Text>
-                  </View>
-                )
-              }
-              ListFooterComponent={
-                loadingMore ? (
-                  <View className="py-4 items-center">
-                    <ActivityIndicator color={COLORS.primary} />
-                  </View>
-                ) : null
-              }
-              renderItem={({ item }) => {
-                const { label: itemLabel, sublabel } = renderItem(item);
-                const isSelected =
-                  value != null && getKey(item) === getKey(value);
-                return (
-                  <PressableOpacity
-                    onPress={() => handleSelect(item)}
-                    className={`flex-row items-center px-5 py-3.5 border-b border-gray-50 ${
-                      isSelected ? "bg-indigo-50" : "bg-white"
-                    }`}
-                  >
-                    <View className="flex-1">
-                      <Text
-                        className={`text-base font-semibold ${
-                          isSelected ? "text-primary" : "text-gray-900"
-                        }`}
-                      >
-                        {itemLabel}
-                      </Text>
-                      {sublabel ? (
-                        <Text className="text-xs text-gray-400 mt-0.5">
-                          {sublabel}
-                        </Text>
-                      ) : null}
-                    </View>
-                    {isSelected ? (
-                      <Ionicons
-                        name="checkmark"
-                        size={18}
-                        color={COLORS.primary}
-                      />
-                    ) : null}
-                  </PressableOpacity>
-                );
-              }}
-            />
-          </Pressable>
-        </Pressable>
-      </KeyboardAvoidingView>
-    </Modal>
+              {isSelected ? (
+                <Ionicons name="checkmark" size={18} color={COLORS.primary} />
+              ) : null}
+            </PressableOpacity>
+          );
+        }}
+      />
+    </BottomSheetScaffold>
   );
 }

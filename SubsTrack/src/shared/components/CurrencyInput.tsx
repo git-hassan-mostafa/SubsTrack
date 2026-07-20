@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { FlatList, Modal, Pressable, TextInput, View } from "react-native";
+import { FlatList, TextInput, View } from "react-native";
 import { PressableOpacity } from "./PressableOpacity";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
@@ -7,6 +7,7 @@ import { Text } from "./Text";
 import { COLORS } from "@/src/shared/constants";
 import type { Currency } from "@/src/core/types";
 import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
+import { BottomSheetScaffold } from "./BottomSheetScaffold";
 
 interface CurrencyInputProps {
   label?: string;
@@ -151,88 +152,72 @@ export function CurrencyInput({
 
       {error ? <Text className="text-sm text-danger mt-1">{error}</Text> : null}
 
-      <Modal
+      <BottomSheetScaffold
         visible={pickerOpen}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setPickerOpen(false)}
+        onDismiss={() => setPickerOpen(false)}
       >
-        <Pressable
-          className="flex-1 bg-black/40 items-center justify-center px-6"
-          onPress={() => setPickerOpen(false)}
-        >
-          <Pressable
-            className="bg-white rounded-2xl w-full overflow-hidden"
-            onPress={(e) => e.stopPropagation()}
-          >
-            <View className="flex-row items-center justify-between px-5 py-4 border-b border-gray-100">
-              <Text className="text-base font-semibold text-gray-900">
-                {t("tenant_settings.currencies_section_title")}
-              </Text>
-              <PressableOpacity onPress={() => setPickerOpen(false)}>
-                <Text className="text-base text-primary font-medium">
-                  {t("common.cancel")}
-                </Text>
-              </PressableOpacity>
-            </View>
+        <View className="flex-row items-center justify-between px-5 py-3 border-b border-gray-100">
+          <Text className="text-base font-semibold text-gray-900">
+            {t("tenant_settings.currencies_section_title")}
+          </Text>
+          <PressableOpacity onPress={() => setPickerOpen(false)}>
+            <Text className="text-base text-primary font-medium">
+              {t("common.cancel")}
+            </Text>
+          </PressableOpacity>
+        </View>
 
-            <FlatList
-              data={[
-                {
-                  id: null as string | null,
-                  code: "USD",
-                  label: "USD",
-                  sublabel: null as string | null,
-                },
-                ...activeCurrencies.map((c) => ({
-                  id: c.id as string | null,
-                  code: c.code,
-                  label: c.code,
-                  sublabel: c.name,
-                })),
-              ]}
-              keyExtractor={(item) => item.id ?? "__usd__"}
-              style={{ maxHeight: 320 }}
-              renderItem={({ item }) => {
-                const isSelected = item.id === currencyId;
-                return (
-                  <PressableOpacity
-                    onPress={() => {
-                      handleCurrencyChange(item.id);
-                      setPickerOpen(false);
-                    }}
-                    className={`flex-row items-center px-5 py-3.5 border-b border-gray-50 ${
-                      isSelected ? "bg-indigo-50" : "bg-white"
+        <FlatList
+          data={[
+            {
+              id: null as string | null,
+              code: "USD",
+              label: "USD",
+              sublabel: null as string | null,
+            },
+            ...activeCurrencies.map((c) => ({
+              id: c.id as string | null,
+              code: c.code,
+              label: c.code,
+              sublabel: c.name,
+            })),
+          ]}
+          keyExtractor={(item) => item.id ?? "__usd__"}
+          style={{ maxHeight: 360 }}
+          renderItem={({ item }) => {
+            const isSelected = item.id === currencyId;
+            return (
+              <PressableOpacity
+                onPress={() => {
+                  handleCurrencyChange(item.id);
+                  setPickerOpen(false);
+                }}
+                className={`flex-row items-center px-5 py-3.5 border-b border-gray-50 ${
+                  isSelected ? "bg-indigo-50" : "bg-white"
+                }`}
+              >
+                <View className="flex-1">
+                  <Text
+                    className={`text-base font-semibold ${
+                      isSelected ? "text-primary" : "text-gray-900"
                     }`}
                   >
-                    <View className="flex-1">
-                      <Text
-                        className={`text-base font-semibold ${
-                          isSelected ? "text-primary" : "text-gray-900"
-                        }`}
-                      >
-                        {item.label}
-                      </Text>
-                      {item.sublabel ? (
-                        <Text className="text-xs text-gray-400 mt-0.5">
-                          {item.sublabel}
-                        </Text>
-                      ) : null}
-                    </View>
-                    {isSelected ? (
-                      <Ionicons
-                        name="checkmark"
-                        size={18}
-                        color={COLORS.primary}
-                      />
-                    ) : null}
-                  </PressableOpacity>
-                );
-              }}
-            />
-          </Pressable>
-        </Pressable>
-      </Modal>
+                    {item.label}
+                  </Text>
+                  {item.sublabel ? (
+                    <Text className="text-xs text-gray-400 mt-0.5">
+                      {item.sublabel}
+                    </Text>
+                  ) : null}
+                </View>
+                {isSelected ? (
+                  <Ionicons name="checkmark" size={18} color={COLORS.primary} />
+                ) : null}
+              </PressableOpacity>
+            );
+          }}
+        />
+      </BottomSheetScaffold>
     </View>
   );
 }

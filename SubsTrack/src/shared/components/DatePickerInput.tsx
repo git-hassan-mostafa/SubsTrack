@@ -1,11 +1,12 @@
 import { useMemo, useRef } from "react";
-import { FlatList, Modal, Pressable, View } from "react-native";
+import { FlatList, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { PressableOpacity } from "./PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { COLORS } from "@/src/shared/constants";
 import { useTranslation } from "react-i18next";
 import { useState } from "react";
+import { BottomSheetScaffold } from "./BottomSheetScaffold";
 
 // "default" — full-width form field with label, used inside form sheets.
 // "chip"    — compact fit-content pill, used in filter bars alongside other chips.
@@ -273,90 +274,75 @@ export function DatePickerInput({
       : displayValue;
 
   const picker = (
-    <Modal
-      visible={open}
-      transparent
-      animationType="fade"
-      onRequestClose={() => setOpen(false)}
-    >
-      <Pressable
-        className="flex-1 bg-black/40 items-center justify-center px-6"
-        onPress={() => setOpen(false)}
-      >
-        <Pressable
-          className="bg-white rounded-2xl max-w-sm w-full overflow-hidden"
-          onPress={(e) => e.stopPropagation()}
-        >
-          {/* Header */}
-          <View className="flex-row justify-between items-center px-5 py-4 border-b border-gray-100">
-            <PressableOpacity onPress={() => setOpen(false)}>
-              <Text className="text-base text-primary font-medium">
-                {t("common.cancel")}
-              </Text>
-            </PressableOpacity>
-            <Text className="text-base font-semibold text-gray-900">
-              {label ?? t("customers.start_date_label")}
-            </Text>
-            <PressableOpacity onPress={handleConfirm}>
-              <Text className="text-base font-semibold text-primary">
-                {t("common.confirm")}
-              </Text>
-            </PressableOpacity>
-          </View>
+    <BottomSheetScaffold visible={open} onDismiss={() => setOpen(false)}>
+      {/* Header */}
+      <View className="flex-row justify-between items-center px-5 py-3 border-b border-gray-100">
+        <PressableOpacity onPress={() => setOpen(false)}>
+          <Text className="text-base text-primary font-medium">
+            {t("common.cancel")}
+          </Text>
+        </PressableOpacity>
+        <Text className="text-base font-semibold text-gray-900">
+          {label ?? t("customers.start_date_label")}
+        </Text>
+        <PressableOpacity onPress={handleConfirm}>
+          <Text className="text-base font-semibold text-primary">
+            {t("common.confirm")}
+          </Text>
+        </PressableOpacity>
+      </View>
 
-          {/* Columns */}
-          <View className="flex-row px-3 py-3 gap-1">
-            {!monthOnly ? (
-              <ScrollColumn
-                items={dayItems}
-                selected={Math.min(selDay, maxDay)}
-                onSelect={setSelDay}
-                label={t("date_picker.day")}
-              />
-            ) : null}
-            <MonthScrollColumn
-              monthNames={MONTH_NAMES}
-              selected={selMonth}
-              onSelect={handleMonthChange}
+      {/* Columns */}
+      <View className="flex-row px-3 py-3 gap-1">
+        {!monthOnly ? (
+          <ScrollColumn
+            items={dayItems}
+            selected={Math.min(selDay, maxDay)}
+            onSelect={setSelDay}
+            label={t("date_picker.day")}
+          />
+        ) : null}
+        <MonthScrollColumn
+          monthNames={MONTH_NAMES}
+          selected={selMonth}
+          onSelect={handleMonthChange}
+        />
+        <ScrollColumn
+          items={yearItems}
+          selected={selYear}
+          onSelect={handleYearChange}
+          label={t("date_picker.year")}
+          renderItem={(y) => String(y)}
+        />
+        {withTime ? (
+          <>
+            <ScrollColumn
+              items={hourItems}
+              selected={selHour}
+              onSelect={setSelHour}
+              label={t("date_picker.hour")}
             />
             <ScrollColumn
-              items={yearItems}
-              selected={selYear}
-              onSelect={handleYearChange}
-              label={t("date_picker.year")}
-              renderItem={(y) => String(y)}
+              items={minuteItems}
+              selected={selMinute}
+              onSelect={setSelMinute}
+              label={t("date_picker.minute")}
             />
-            {withTime ? (
-              <>
-                <ScrollColumn
-                  items={hourItems}
-                  selected={selHour}
-                  onSelect={setSelHour}
-                  label={t("date_picker.hour")}
-                />
-                <ScrollColumn
-                  items={minuteItems}
-                  selected={selMinute}
-                  onSelect={setSelMinute}
-                  label={t("date_picker.minute")}
-                />
-              </>
-            ) : null}
-          </View>
+          </>
+        ) : null}
+      </View>
 
-          {clearable && isActive ? (
-            <PressableOpacity
-              onPress={handleClear}
-              className="py-3.5 items-center border-t border-gray-100"
-            >
-              <Text className="text-base font-medium text-red-500">
-                {t("common.clear")}
-              </Text>
-            </PressableOpacity>
-          ) : null}
-        </Pressable>
-      </Pressable>
-    </Modal>
+      {clearable && isActive ? (
+        <PressableOpacity
+          onPress={handleClear}
+          className="py-3.5 items-center border-t border-gray-100"
+        >
+          <Text className="text-base font-medium text-red-500">
+            {t("common.clear")}
+          </Text>
+        </PressableOpacity>
+      ) : null}
+    </BottomSheetScaffold>
   );
 
   if (triggerStyle === "chip") {
