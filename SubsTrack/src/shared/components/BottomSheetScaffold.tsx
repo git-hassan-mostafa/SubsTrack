@@ -29,6 +29,10 @@ const MAX_WIDTH = 512;
 // dismisses instead of springing back.
 const CLOSE_DISTANCE_RATIO = 0.25;
 const CLOSE_VELOCITY = 800;
+// Bounds for the drag-release close animation so it stays smooth: never snap
+// (too fast) nor drag on (too slow), whatever the release velocity/distance.
+const MIN_CLOSE_DURATION = 120;
+const MAX_CLOSE_DURATION = 320;
 
 /**
  * Shared bottom-sheet shell for transient tap-outside popups (dropdowns,
@@ -110,7 +114,32 @@ export function BottomSheetScaffold({
         e.translationY > panelHeight.value * CLOSE_DISTANCE_RATIO ||
         e.velocityY > CLOSE_VELOCITY;
       if (shouldClose) {
-        runOnJS(onDismiss)();
+        // Continue the downward motion smoothly from where the finger left off,
+        // FIRST sliding the panel the rest of the way off-screen, then firing
+        // onDismiss from the completion callback. If we called onDismiss here
+        // (mid-drag position), the parent would flip visible=false and the exit
+        // useEffect would start a fresh slide — during which the full-screen
+        // modal (backdrop + gesture root) stays mounted over the page and
+        // swallows the first tap. Dismissing only once the sheet is already
+        // off-screen lets the modal unmount immediately.
+        //
+        // Carry the release velocity into the animation: pick a duration from
+        // the remaining distance ÷ fling speed so the panel keeps travelling at
+        // roughly the same visual speed instead of a fixed-length jump. Clamp it
+        // so a slow release still glides shut and a hard flick never snaps.
+        const remaining = Math.max(1, height - translateY.value);
+        const speed = Math.max(CLOSE_VELOCITY, e.velocityY);
+        const duration = Math.min(
+          MAX_CLOSE_DURATION,
+          Math.max(MIN_CLOSE_DURATION, (remaining / speed) * 1000),
+        );
+        translateY.value = withTiming(
+          height,
+          { duration, easing: Easing.out(Easing.cubic) },
+          (finished) => {
+            if (finished) runOnJS(onDismiss)();
+          },
+        );
       } else {
         translateY.value = withTiming(0, {
           duration: DURATION,
