@@ -1,9 +1,11 @@
 import { View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
 import { CurrencyInput } from "@/src/shared/components/CurrencyInput";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
+import { COLORS } from "@/src/shared/constants";
 
 interface Props {
   paymentMode: "full" | "partial" | "debt";
@@ -91,16 +93,29 @@ export function PaymentAmountPaidSection({
           {amountDue != null && amountPaid != null
             ? (() => {
                 const balance = amountDue - amountPaid;
+                if (balance <= 0) {
+                  return (
+                    <Text className="text-sm font-semibold mt-1 text-green-600">
+                      {t("payments.balance_cleared")}
+                    </Text>
+                  );
+                }
+                // Partial: the month still counts as paid; the remaining amount
+                // becomes a debt shown on the Debts page.
                 return (
-                  <Text
-                    className={`text-sm font-semibold mt-1 ${balance > 0 ? "text-amber-600" : "text-green-600"}`}
-                  >
-                    {balance > 0
-                      ? t("payments.balance_remaining", {
-                          amount: formatAmount(balance),
-                        })
-                      : t("payments.balance_cleared")}
-                  </Text>
+                  <View className="mt-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5 flex-row items-start gap-2">
+                    <Ionicons
+                      name="information-circle-outline"
+                      size={16}
+                      color={COLORS.warning}
+                      style={{ marginTop: 1 }}
+                    />
+                    <Text className="flex-1 text-xs text-amber-700 leading-5">
+                      {t("payments.partial_debt_notice", {
+                        amount: formatAmount(balance),
+                      })}
+                    </Text>
+                  </View>
                 );
               })()
             : null}

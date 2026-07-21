@@ -480,8 +480,10 @@ When a customer pays only part of their due amount, staff selects "Partial payme
 
 `balance = amount_due - amount_paid` — computed by the database as a generated column.
 
+The partial input shows an **inline notice** telling the user the remaining amount will be added to the customer's debts (visible on the Debts page).
+
 A month with `amount_paid = 0` is treated as unpaid in the grid (slot reserved, no green cell).
-A month with `0 < amount_paid < amount_due` shows as "paid" (green/yellow cell) with an orange dot indicator and "PARTIAL" sublabel.
+A month with `0 < amount_paid < amount_due` shows as a normal **"paid"** cell (green/yellow) — identical to a fully-paid month. There is no distinct "partial" cell state; the remaining `balance` is tracked only as a **debt** (Debts tab → "months" category). The customer's list badge also reads as paid. The remaining amount is still visible in drill-in views (the receipt sheet and the Payments-tab ledger, which read `balance` directly).
 
 **Step 3 — Validation (PaymentService)**
 
@@ -499,7 +501,7 @@ Store: billing_month, amount_due (snapshot), amount_paid (snapshot), balance (ge
 
 **Step 5 — UI update**
 
-Month cell turns green (or green with orange dot for partial). Payment store updates in-memory list. No full refetch needed.
+Month cell turns green (partial payments look identical to full — the remainder becomes a debt). Payment store updates in-memory list. No full refetch needed.
 
 #### Void flow (admin only)
 

@@ -29,7 +29,6 @@ interface Props {
 
 const regularBgColor: Record<MonthStatus, string> = {
   paid: "bg-green-500",
-  partial: "bg-amber-500",
   unpaid: "bg-red-500",
   future: "bg-gray-100",
   before_start: "bg-gray-100",
@@ -37,7 +36,6 @@ const regularBgColor: Record<MonthStatus, string> = {
 
 const nonRegularBgColor: Record<MonthStatus, string> = {
   paid: "bg-yellow-400",
-  partial: "bg-amber-500",
   unpaid: "bg-gray-200",
   future: "bg-gray-100",
   before_start: "bg-gray-100",
@@ -45,7 +43,6 @@ const nonRegularBgColor: Record<MonthStatus, string> = {
 
 const regularTextColor: Record<MonthStatus, string> = {
   paid: "text-white",
-  partial: "text-white",
   unpaid: "text-white",
   future: "text-gray-400",
   before_start: "text-gray-300",
@@ -53,7 +50,6 @@ const regularTextColor: Record<MonthStatus, string> = {
 
 const nonRegularTextColor: Record<MonthStatus, string> = {
   paid: "text-white",
-  partial: "text-white",
   unpaid: "text-gray-400",
   future: "text-gray-400",
   before_start: "text-gray-300",
@@ -95,16 +91,14 @@ export const MonthCell = memo(function MonthCell({
       : textColor[entry.status];
 
   // The 3-dot menu only makes sense on months that can be acted on: record a
-  // payment (unpaid / future) or open / void an existing one (paid / partial).
-  // Only before-start cells stay tap-only. Hidden in selection mode — the
-  // checkbox badge takes its place.
+  // payment (unpaid / future) or open / void an existing one (paid, incl. a
+  // partial payment). Only before-start cells stay tap-only. Hidden in
+  // selection mode — the checkbox badge takes its place.
   const showMenu = !selectionMode && !!onMenu && entry.status !== "before_start";
 
   // Match the dots to the label colour so they stay visible on every cell type.
   const usesWhiteText =
-    entry.status === "paid" ||
-    entry.status === "partial" ||
-    (isRegular && entry.status === "unpaid");
+    entry.status === "paid" || (isRegular && entry.status === "unpaid");
   const menuIconColor =
     isRegular && isCurrentMonth && entry.status === "unpaid"
       ? COLORS.danger
@@ -113,9 +107,8 @@ export const MonthCell = memo(function MonthCell({
         : COLORS.gray500;
 
   const sublabel = (() => {
-    if ((entry.status === "paid" || entry.status === "partial") && entry.isGroupSecondary)
+    if (entry.status === "paid" && entry.isGroupSecondary)
       return t("payments.included_label");
-    if (entry.status === "partial") return t("payments.partial_badge");
     if (entry.status === "paid") return t("common.paid");
     if (isCurrentMonth) return t("payments.this_month").toUpperCase();
     return null;

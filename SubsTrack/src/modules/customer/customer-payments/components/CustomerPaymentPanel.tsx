@@ -67,25 +67,22 @@ function lineLabel(line: CustomerPlan, noPlan: string): string {
 
 // A single at-a-glance payment status for a line's tab, derived from the viewed
 // year's grid (reuses buildMonthGrid's statuses — no status logic here). Worst
-// state wins so an overdue plan is flagged first: unpaid > partial > paid. Null
-// means nothing is due yet this year (all future / before start) → no dot.
-type LineIndicator = "paid" | "partial" | "unpaid";
+// state wins so an overdue plan is flagged first: unpaid > paid (a partial
+// payment reports as paid). Null means nothing is due yet this year (all future
+// / before start) → no dot.
+type LineIndicator = "paid" | "unpaid";
 
 const INDICATOR_DOT: Record<LineIndicator, string> = {
   paid: "bg-green-500",
-  partial: "bg-amber-500",
   unpaid: "bg-red-500",
 };
 
 function lineIndicatorStatus(grid: MonthEntry[]): LineIndicator | null {
-  let hasPartial = false;
   let hasPaid = false;
   for (const m of grid) {
     if (m.status === "unpaid") return "unpaid";
-    if (m.status === "partial") hasPartial = true;
-    else if (m.status === "paid") hasPaid = true;
+    if (m.status === "paid") hasPaid = true;
   }
-  if (hasPartial) return "partial";
   if (hasPaid) return "paid";
   return null;
 }
@@ -210,10 +207,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
 
     setSelectedEntry(entry);
 
-    if (
-      (entry.status === "paid" || entry.status === "partial") &&
-      entry.payment
-    ) {
+    if (entry.status === "paid" && entry.payment) {
       setDetailVisible(true);
     } else {
       setFormVisible(true);
@@ -239,7 +233,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
 
   function hasActivePayment(entry: MonthEntry): boolean {
     return (
-      (entry.status === "paid" || entry.status === "partial") &&
+      entry.status === "paid" &&
       entry.payment != null &&
       entry.payment.voidedAt === null
     );
@@ -380,9 +374,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
   );
   const voidableEntries = selectedEntries.filter(
     (e) =>
-      (e.status === "paid" || e.status === "partial") &&
-      e.payment != null &&
-      e.payment.voidedAt === null,
+      e.status === "paid" && e.payment != null && e.payment.voidedAt === null,
   );
 
   function handleCellToggle(entry: MonthEntry) {
@@ -558,9 +550,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
     year === cy;
   const daysIntoMonth = new Date().getDate();
 
-  const paidCount = grid.filter(
-    (m) => m.status === "paid" || m.status === "partial",
-  ).length;
+  const paidCount = grid.filter((m) => m.status === "paid").length;
   const unpaidCount = grid.filter((m) => m.status === "unpaid").length;
   const collectedTotalUsd = paymentStore.items
     .filter(

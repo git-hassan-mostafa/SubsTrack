@@ -46,7 +46,7 @@ A customer can subscribe to several plans at once, each a **service line** (`cus
 1. Two active plans, plan A paid + plan B unpaid this month → **"1/2 plans paid"** (amber), NOT red "Unpaid".
 2. Three plans, 2 paid + 1 unpaid → **"2/3 plans paid"**.
 3. All plans paid this month → green "Paid" (badge does not show). None paid → red "Unpaid" (badge does not show — needs `0 < paid < total`).
-4. Single plan with a partial-amount payment → plain **"Partial"** badge (badge only fires for `total >= 2`).
+4. Single plan with a partial-amount payment → green **"Paid"** badge (a partial payment counts as paid; the remaining amount shows only on the Debts tab). The "N/M plans paid" badge never fires for a single plan (`total >= 2` required).
 5. Pay the last unpaid plan (or "Collect all due") → badge flips to green "Paid" immediately (optimistic, no refetch). Void one plan's month → badge updates to the new count on next focus refresh.
 6. A plan whose current month is still within the grace window counts toward the denominator but not the numerator (e.g. one paid + one in-grace-unpaid → "1/2 plans paid").
 

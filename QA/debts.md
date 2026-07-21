@@ -18,7 +18,7 @@ Covers the per-customer debt ledger (Transactions → **Debts** tab — a **sing
 ## 0. Critical invariants
 
 1. **Net debt is computed at runtime**, never stored: `net = Σ(category debts) − Σ(debt payments)`.
-2. **Debt payments are tied only to the customer** — recording one does NOT change any payment/sale row. A partial month still shows "partial" in the month grid after its debt is paid off; only the Debts total drops.
+2. **Debt payments are tied only to the customer** — recording one does NOT change any payment/sale row. A partially-paid month shows as **paid (green)** in the month grid (never "partial" — there is no partial cell state); paying off its debt only lowers the Debts total, and the month/grid stay unchanged.
 3. **Categories:** months = partial `payments` (`balance > 0`, non-voided); sales = partial `sales` (`total_amount − amount_paid > 0`, non-voided, has a customer); services = reserved (always 0 today); custom = `custom_debts` rows.
 4. **Currency:** every custom debt + debt payment freezes `rate_per_usd_snapshot`. Totals are summed in USD via each row's snapshot, then formatted into the display currency — never drift when the live rate changes.
 5. **No hard delete.** Custom debts + debt payments void via `voided_at`/`voided_by`/`void_reason`; voided rows drop from the totals but stay in DB.
@@ -70,7 +70,7 @@ The FAB add menu (Add custom debt / Record debt payment) is **picker-driven** �
 | 2.2 | Custom debt requires customer + amount | Leave customer or amount empty | Submit disabled |
 | 2.3 | Record debt payment | FAB → Record debt payment → pick customer, amount → save | Net debt drops by the amount |
 | 2.5 | Currency snapshot | Record a debt payment in LBP, then edit the tenant LBP rate | The payment's contribution to the net (in USD/display) does NOT change |
-| 2.6 | Underlying row untouched | Partial month (balance 50) → record a 50 debt payment | Net for that customer drops to 0; the month grid still shows the month as "partial" |
+| 2.6 | Underlying row untouched | Partial month (balance 50) → record a 50 debt payment | Net for that customer drops to 0; the month grid still shows the month as **paid (green)** — the underlying payment row (and its `balance`) is untouched |
 
 ---
 
@@ -95,3 +95,20 @@ The FAB add menu (Add custom debt / Record debt payment) is **picker-driven** �
 | 4.4 | Sync on reconnect | Reconnect | Sync pill runs; the rows land in Supabase |
 | 4.5 | Fresh install pull | Wipe local data → log in | Custom debts + debt payments pull down and totals match |
 | 4.6 | Legacy sales | Sales recorded before this feature | Show as fully paid (no phantom debt) |
+
+---
+
+## 5. Debt history (clock icon)
+
+The clock icon on the net-total summary card opens a **read-only, branch-wide** log of debts + payments together, grouped by month.
+
+| # | Scenario | Steps | Expected result |
+|---|----------|-------|-----------------|
+| 5.1 | Open history | Tap the clock icon on the total card | A sheet opens titled "Debt history" |
+| 5.2 | Merged + ordered | With both debts and debt payments present | Debts and payments appear in one list, newest first, mixed by date (not two separate sections) |
+| 5.3 | Month grouping | Rows across several months | Rows sit under month headers (Today / This Week / This Month / `<Month> <Year>`), like the Payments/Sales tabs |
+| 5.4 | Month net total | A month with more payments than new debt | That month's header total shows a **negative** net (payments subtract, debts add) |
+| 5.5 | Read-only | Tap a debt or payment row in the history | Nothing happens — no menu, no pay/void (use the debtor detail modal for actions) |
+| 5.6 | Customer names shown | Multiple debtors | Each row shows the customer name (this is a cross-customer view) |
+| 5.7 | Empty state | A branch with no debts or payments | "No history yet" empty message |
+| 5.8 | Branch scope | Branch-scoped user / switched branch | History shows only the current branch's debts + payments |

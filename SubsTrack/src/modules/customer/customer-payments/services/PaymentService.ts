@@ -392,8 +392,9 @@ class PaymentService {
   // customer-list badge / status sets. Used by the slice after a create/void to
   // keep the badge in sync without re-fetching. Rules:
   //   none    — no line has a covering payment this month
-  //   full    — every started line that's due is paid (balance 0)
-  //   partial — some payment exists but a line is unpaid or has a balance
+  //   full    — every started, due line has a covering payment (a partial
+  //             payment counts as covered; its balance becomes a debt)
+  //   partial — some lines are covered but at least one started line is unpaid
   // Also returns the plan tally for the "N/M plans paid" badge:
   //   total   — started lines (grid status != before_start; future/grace counts)
   //   paid    — started lines fully settled this month (grid status "paid")
@@ -425,13 +426,11 @@ class PaymentService {
       );
       if (!entry || entry.status === "before_start") continue; // not started
       total++;
+      // A partial month resolves to "paid" (its balance becomes a debt), so a
+      // covered line always counts toward "paid" here — never as unsettled.
       if (entry.status === "paid") {
         anyCovered = true;
         paid++;
-        coveredLineIds.push(line.id);
-      } else if (entry.status === "partial") {
-        anyCovered = true;
-        allOwedPaid = false;
         coveredLineIds.push(line.id);
       } else if (entry.status === "unpaid") allOwedPaid = false;
     }
@@ -492,7 +491,10 @@ class PaymentService {
 
       let status: MonthStatus;
       if (isEffectivelyPaid) {
-        status = payment!.balance > 0 ? "partial" : "paid";
+        // A partial payment (balance > 0) counts as "paid" — the month looks
+        // settled and the remaining amount is surfaced as a debt (never here).
+        // The owed amount still rides along on `balance` for drill-in views.
+        status = "paid";
       } else if (year > cy || (year === cy && month > cm)) {
         status = "future";
       } else {

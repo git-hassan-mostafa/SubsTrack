@@ -55,7 +55,9 @@ function toEntry(p: PaymentListItem): MonthEntry {
     month,
     label: MONTHS[month - 1],
     billingMonth: p.billingMonth,
-    status: p.balance > 0 ? "partial" : "paid",
+    // Any recorded payment is "paid" — the detail sheet reads `balance` directly
+    // to show a partial payment's remaining amount (now a debt).
+    status: "paid",
     payment: p,
     isGroupSecondary: false,
     balance: p.balance,

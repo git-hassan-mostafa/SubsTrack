@@ -346,8 +346,9 @@
     "amount_due_label": "المبلغ المستحق",
     "amount_paid_label": "المبلغ المدفوع",
     "balance_label": "الرصيد",
-    "balance_remaining": "{{amount}} متبقٍ",
     "balance_cleared": "مدفوع بالكامل",
+    "partial_debt_notice": "سيُضاف المبلغ المتبقي {{amount}} إلى ديون هذا العميل. يمكنك رؤيته في صفحة الديون.",
+    "balance_to_debts": "{{amount}} أُضيف إلى الديون",
     "partial_badge": "جزئي",
     "record_payment_action": "تسجيل الدفعة",
     "edit_payment": "تعديل الدفعة",
@@ -770,7 +771,11 @@
     "section_debts": "الديون",
     "section_debts_history": "سجل الديون",
     "section_payments_history": "سجل دفعات الديون",
-    "no_transactions_for_customer": "لا توجد معاملات لهذا العميل بعد."
+    "no_transactions_for_customer": "لا توجد معاملات لهذا العميل بعد.",
+    "history_title": "سجل الديون والدفعات",
+    "history_hint": "عرض سجل الديون والدفعات",
+    "history_empty": "لا يوجد سجل بعد",
+    "history_empty_hint": "ستظهر الديون والدفعات هنا."
   },
   "wallet": {
     "title": "المحافظ",

@@ -30,7 +30,7 @@ function blockStartAbs(abs: number, line: CustomerPlan, n: number): number {
 
 function hasActivePayment(entry: MonthEntry): boolean {
   return (
-    (entry.status === "paid" || entry.status === "partial") &&
+    entry.status === "paid" &&
     entry.payment != null &&
     entry.payment.voidedAt === null
   );

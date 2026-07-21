@@ -346,8 +346,9 @@
     "amount_due_label": "Amount Due",
     "amount_paid_label": "Amount Paid",
     "balance_label": "Balance",
-    "balance_remaining": "{{amount}} remaining",
     "balance_cleared": "Fully paid",
+    "partial_debt_notice": "The remaining {{amount}} will be added to this customer's debts. You can see it on the Debts page.",
+    "balance_to_debts": "{{amount}} added to debts",
     "partial_badge": "PARTIAL",
     "record_payment_action": "Record Payment",
     "edit_payment": "Edit Payment",
@@ -770,7 +771,11 @@
     "section_debts": "Debts",
     "section_debts_history": "Debts history",
     "section_payments_history": "Debt payments history",
-    "no_transactions_for_customer": "No transactions for this customer yet."
+    "no_transactions_for_customer": "No transactions for this customer yet.",
+    "history_title": "Debt history",
+    "history_hint": "View debt history",
+    "history_empty": "No history yet",
+    "history_empty_hint": "Debts and payments will show here."
   },
   "wallet": {
     "title": "Wallets",

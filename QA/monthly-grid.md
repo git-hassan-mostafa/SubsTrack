@@ -22,8 +22,7 @@ For year Y, month M, given today = (CY, CM), customer.startDate = SY-SM-SD, grac
 | Condition                                                                                                  | Status                                                                                                             |
 | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
 | Y < SY OR (Y == SY AND M < SM)                                                                             | `before_start`                                                                                                     |
-| A covering payment exists for Y-M AND `voided_at IS NULL` AND `amount_paid > 0` AND `balance = 0`          | `paid` (green for regular, yellow for non-regular; `isGroupSecondary = true` for months 2+ in a multi-month block) |
-| A covering payment exists for Y-M AND `voided_at IS NULL` AND `0 < amount_paid < amount_due` (balance > 0) | `partial` (amber for both regular and non-regular)                                                                 |
+| A covering payment exists for Y-M AND `voided_at IS NULL` AND `amount_paid > 0` (ANY balance, incl. `balance > 0`) | `paid` (green for regular, yellow for non-regular; `isGroupSecondary = true` for months 2+ in a multi-month block) |
 | Y > CY OR (Y == CY AND M > CM)                                                                             | `future`                                                                                                           |
 | First-of-month ≤ today ≤ first-of-month + G days                                                           | `future` (within grace)                                                                                            |
 | Otherwise                                                                                                  | `unpaid`                                                                                                           |
@@ -31,14 +30,14 @@ For year Y, month M, given today = (CY, CM), customer.startDate = SY-SM-SD, grac
 Notes:
 
 - A payment with `amount_paid = 0` is treated as "no payment" — cell shows unpaid (slot reserved but not paid). This lets staff reserve a row without recording a collection.
-- A payment with `0 < amount_paid < amount_due` (partial) renders as `partial` — amber cell for both regular and non-regular customers. Tapping opens the receipt sheet (amber theme), just like a `paid` cell.
+- A **partial** payment (`0 < amount_paid < amount_due`, `balance > 0`) renders exactly like a full `paid` cell (green/yellow) — there is **no** separate `partial` status. The remaining `balance` is tracked only as a **debt** (Debts tab → "months" category); it is not shown as a distinct cell state. Tapping opens the receipt sheet, where the remaining amount is shown (amber accent, "added to debts").
 
 ## 2. Cell rendering — regular customer (default)
 
 | #    | Scenario                           | Steps                               | Expected result                                                                                                                 |
 | ---- | ---------------------------------- | ----------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | 2.1  | PAID cell                          | Regular customer paid March         | Green background, white "Mar" text, "PAID" sublabel                                                                             |
-| 2.2  | PARTIAL cell                       | Regular customer with `balance > 0` | Amber background (NOT green), white text, "PARTIAL" sublabel. Tapping opens receipt in amber theme with "Balance remaining" row |
+| 2.2  | PARTIAL cell (looks paid)          | Regular customer with `balance > 0` (paid part of the due) | Green background + "PAID" sublabel — **identical to a full paid cell** (NOT amber, no "PARTIAL" sublabel). Tapping opens the receipt sheet showing the remaining amount ("added to debts"); the remainder appears on the Debts tab |
 | 2.3  | UNPAID cell (past)                 | Past month with no payment          | Red background, white "Mar" text, blank sublabel                                                                                |
 | 2.4  | UNPAID cell (current month)        | Current month with no payment       | Red-100 background with red-500 border (highlight), red text, "THIS MONTH" sublabel                                             |
 | 2.5  | FUTURE cell                        | A month after today                 | Gray-100 background, gray-400 text, blank sublabel                                                                              |
@@ -55,7 +54,7 @@ Notes:
 | #    | Scenario                       | Steps                                              | Expected result                                                                                       |
 | ---- | ------------------------------ | -------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
 | 3.1  | PAID cell                      | Non-regular paid March                             | Yellow/Gold background, white "Mar" text, "PAID" sublabel                                             |
-| 3.2  | PARTIAL                        | Non-regular with balance > 0                       | Amber background (same amber as regular — PARTIAL is amber for all customers regardless of isRegular) |
+| 3.2  | PARTIAL (looks paid)           | Non-regular with balance > 0                       | Yellow/Gold background + "PAID" sublabel — identical to a full paid cell (no separate partial state); remainder is a debt |
 | 3.3  | UNPAID cell (past)             | Non-regular past month with no payment             | Light gray background (NOT red), gray text, blank sublabel                                            |
 | 3.4  | UNPAID cell (current month)    | Non-regular current month, no payment              | Light gray. NO red highlight. NO "THIS MONTH" sublabel — because non-regular is never "overdue"       |
 | 3.5  | FUTURE cell                    | Same as regular                                    | Gray-100, gray-400 text                                                                               |
@@ -88,7 +87,7 @@ Notes:
 | 4.2.4 | Multiple payments same year      | Pay several months                        | All paid cells render correctly; year card "paid" count matches             |
 | 4.2.5 | Tap a single-month paid cell     | Tap                                       | Receipt sheet opens (read-only)                                             |
 | 4.2.6 | Tap a multi-month secondary cell | Tap a Feb cell that is `isGroupSecondary` | Opens the source payment's receipt (the Jan record)                         |
-| 4.2.7 | Partial paid cell                | Tap a cell with balance > 0               | Receipt opens with amber theme + "Balance remaining" row                    |
+| 4.2.7 | Partial paid cell                | Tap a green cell whose payment has balance > 0 | Cell itself is green ("PAID") like any paid month; receipt opens with amber accent + "{amount} added to debts" row |
 | 4.2.8 | amount_paid = 0 payment exists   | Inspect the cell                          | Cell is UNPAID (slot exists in DB but treated as unpaid)                    |
 
 ### 4.3 FUTURE
@@ -183,16 +182,16 @@ Each actionable cell shows a small 3-dot button in its top-end corner. Tapping i
 
 | #     | Scenario                          | Steps                                          | Expected result                                                                                          |
 | ----- | --------------------------------- | ---------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| 11.1  | Button visibility                 | Inspect cells of each status                   | 3-dot shown on unpaid/paid/partial/future; NOT on before_start. Icon color contrasts with the cell       |
+| 11.1  | Button visibility                 | Inspect cells of each status                   | 3-dot shown on unpaid/paid/future (a partial payment is a paid cell); NOT on before_start. Icon color contrasts with the cell |
 | 11.2  | Open action — unpaid              | 3-dot → Open on an unpaid month                | PaymentFormSheet opens (same as tapping the cell)                                                        |
-| 11.3  | Open action — paid/partial        | 3-dot → Open on a paid/partial month           | PaymentDetailSheet (receipt) opens                                                                       |
+| 11.3  | Open action — paid                | 3-dot → Open on a paid month (incl. a partial payment) | PaymentDetailSheet (receipt) opens                                                              |
 | 11.4  | Quick Pay — fixed single-month    | 3-dot → Pay on unpaid month, 1-month plan      | Full plan price recorded immediately for that month; cell spinner then turns paid. No form shown          |
 | 11.5  | Quick Pay — multi-month plan      | 3-dot → Pay on unpaid month, plan duration > 1 | Confirm dialog with bundle amount + month range; on confirm records the block starting at that month      |
 | 11.5b | Quick Pay — future month (prepay) | 3-dot → Pay on a future month, fixed plan      | Records a prepayment for that future month; cell turns paid. Multi-month confirms first as in 11.5         |
 | 11.6  | Quick Pay — custom-price/no plan  | 3-dot → Pay where plan is custom or absent     | Quick Pay NOT offered; Open falls back to the form for manual amount entry                                |
-| 11.7  | Quick Pay hidden on paid/partial  | 3-dot on a paid or partial month               | Quick Pay action NOT listed (a payment already exists)                                                   |
+| 11.7  | Quick Pay hidden on paid           | 3-dot on a paid month (incl. a partial payment) | Quick Pay action NOT listed (a payment already exists)                                                  |
 | 11.8  | Quick Pay hidden — inactive       | Inactive customer, unpaid month                | Quick Pay NOT offered                                                                                     |
-| 11.9  | Void action — active payment      | 3-dot → Void on paid/partial month             | VoidSheet opens; confirming voids the payment and reverts the cell                                       |
+| 11.9  | Void action — active payment      | 3-dot → Void on a paid month (incl. a partial payment) | VoidSheet opens; confirming voids the payment and reverts the cell                               |
 | 11.10 | Void on multi-month secondary     | 3-dot → Void on an "Included" cell             | VoidSheet voids the whole block (uses block warning copy)                                                |
 | 11.11 | Void hidden on unpaid             | 3-dot on an unpaid month                       | Void action NOT listed (no payment to void)                                                              |
 | 11.12 | Dots tap vs cell tap             | Tap the 3-dot only                             | Opens the menu; does NOT trigger the cell-body open action                                               |
@@ -213,10 +212,10 @@ Long-press a non-`before_start` cell to enter selection mode: selected cells gai
 | 12.6  | Custom / no-plan bulk pay                 | Select several months (custom plan) → Pay                       | BulkPaymentFormSheet opens; one amount (full/partial + currency) entered → applied to every selected month        |
 | 12.7  | Multi-month bulk pay (blocks)             | Multi-month plan: tap an unpaid month                           | Its whole start-aligned N-month window auto-selects; selecting a 2nd window adds another block                    |
 | 12.8  | Multi-month bulk pay creates per block    | Select 2 windows → Pay                                          | Confirm with block count → one payment per block (full price); already-paid months inside a window are skipped     |
-| 12.9  | Bulk void                                 | Select several paid/partial months → Void                       | ConfirmDialog (+ optional reason) → each unique payment voided once; cells revert                                 |
+| 12.9  | Bulk void                                 | Select several paid months (incl. partial payments) → Void      | ConfirmDialog (+ optional reason) → each unique payment voided once; cells revert                                 |
 | 12.10 | Void whole block from any covered cell    | Select one "Included" cell of a multi-month block → Void        | The whole block's single payment is voided (deduped by payment id)                                                |
 | 12.11 | Mixed selection                           | Select some unpaid + some paid months                           | Toolbar shows **both** Pay and Void; Pay affects only the unpaid, Void only the paid; ineligible skipped          |
-| 12.12 | Partial months are void-only              | Select a partial month                                          | Counts toward Void, not Pay (topping up is via the per-cell edit, not bulk pay)                                   |
+| 12.12 | Partial months are void-only              | Select a partially-paid month (a green cell with balance > 0)   | Treated like any paid cell: counts toward Void, not Pay (topping up is via the per-cell edit, not bulk pay)        |
 | 12.13 | Inactive customer + future                | Inactive customer, select a future month                        | Future stays non-payable (excluded from the Pay subset), matching the per-cell rule                               |
 | 12.14 | Partial failure summary                   | Force one create/void to fail in a bulk run                     | Remaining succeed; an amber notice banner shows "ok · failed" counts; selection clears                            |
 | 12.15 | Single round-trip                         | Bulk-pay N months / void N payments                             | One batched DB write per action (not N) — verify via network/db; grid rebuilds once                               |

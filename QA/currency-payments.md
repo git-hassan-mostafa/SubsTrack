@@ -265,8 +265,8 @@ The panel shows per-year totals below the payment grid, aggregated from all non-
 |---|----------|-------|-----------------|
 | 14.1 | Partial in non-USD, receipt amber | LBP partial: due = 90000, paid = 45000 | Receipt hero amber, `balance = 45000`, balance displayed in LBP. Secondary ≈ USD via snapshot |
 | 14.2 | Balance row currency | Receipt shows balance | Balance formatted in same currency as `amount_due` and `amount_paid` |
-| 14.3 | Orange dot on grid cell | Partial LBP payment | Month cell shows orange dot (partial marker). Color is driven by `balance > 0`, not by currency |
-| 14.4 | Edit partial to full | Edit partial LBP payment: raise `amount_paid` to = `amount_due` | Balance → 0; receipt turns green; orange dot removed |
+| 14.3 | Grid cell for a partial payment | Partial LBP payment | Month cell is a plain **green/paid** cell (no partial marker) regardless of currency; the remaining `balance` shows only on the Debts tab |
+| 14.4 | Edit partial to full | Edit partial LBP payment: raise `amount_paid` to = `amount_due` | Balance → 0; receipt drops the "added to debts" line (shows fully paid); the grid cell was already green and stays green |
 | 14.5 | Edit partial — change currency | Partial USD, edit to LBP | Old USD partial voided? No — edit in-place: new `currency_id = LBP, rate_per_usd_snapshot = live LBP rate`. Both `amount_due` and `amount_paid` re-entered in LBP |
 | 14.6 | Partial amount = 0 | Submit with `amount_paid = 0` | Service/UI blocks: amount paid must be > 0 (0 = unpaid slot, not partial) |
 

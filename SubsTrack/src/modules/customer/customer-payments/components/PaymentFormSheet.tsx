@@ -112,7 +112,7 @@ export function PaymentFormSheet({
       const gridEntry = monthGrid.find(
         (m) => m.billingMonth === bm && date.getFullYear() === m.year,
       );
-      if (gridEntry?.status === "paid" || gridEntry?.status === "partial") {
+      if (gridEntry?.status === "paid") {
         conflicts.push(t(`months.${MONTHS[date.getMonth()]}`));
       }
     }
@@ -128,8 +128,7 @@ export function PaymentFormSheet({
       return {
         label: t(`months.${MONTHS[date.getMonth()]}`),
         billingMonth: bm,
-        isConflict:
-          gridEntry?.status === "paid" || gridEntry?.status === "partial",
+        isConflict: gridEntry?.status === "paid",
       };
     });
   }, [entry]);

@@ -18,7 +18,7 @@ This folder contains the production QA test plan for the SubsTrack mobile app. E
 | Signup | [signup.md](signup.md) | Self-service 2-step tenant creation: workspace name + code, owner account, Edge Function atomicity, auto-login, security |
 | Customers | [customers.md](customers.md) | List, search, filter, action menu, Quick Pay, create/edit, delete, deactivate/reactivate, detail (with branch + notes + area + isRegular) |
 | Payments | [payments.md](payments.md) | Record (Scenarios A/B/C/D), partial payments, multi-month bundles, multi-currency, edit payment, void, receipt sheet, grace period |
-| Monthly Grid | [monthly-grid.md](monthly-grid.md) | Cell statuses (including PARTIAL/amber), regular vs non-regular colors, multi-month merging, year navigation, date/timezone correctness |
+| Monthly Grid | [monthly-grid.md](monthly-grid.md) | Cell statuses (a partial payment looks paid — remainder is a debt), regular vs non-regular colors, multi-month merging, year navigation, date/timezone correctness |
 | Plans | [plans.md](plans.md) | List, create/edit/delete, fixed vs custom pricing, multi-month bundles (1–12), per-currency price, branch scoping (shared vs branch-specific) |
 | Users (Staff) | [users.md](users.md) | List, create/edit, role assignment, password rules, branch enforcement, delete user |
 | Currencies | [currencies.md](currencies.md) | Tenant currencies CRUD, USD base, rate per USD + snapshots, CurrencyInput, display currency preference, soft/hard delete |
@@ -48,7 +48,7 @@ This folder contains the production QA test plan for the SubsTrack mobile app. E
 - [ ] Multi-currency invariants: snapshot rate freeze on payments, live rate edit doesn't shift history, display currency preference persists, USD is implicit (`currency_id = NULL`). Full cross-cutting coverage in [currency-payments.md](currency-payments.md).
 - [ ] Branch invariants: tenants with ≥1 branch require branch on customers/plans/staff users; tenant-wide admins remain the only `branch_id IS NULL` users; new tenants auto-get "Default Branch".
 - [ ] Multi-month invariants: bundle creates a single payment row with `duration_months > 1`; `isGroupSecondary` cells render "Included"; conflict detection on overlap.
-- [ ] Partial payment invariants: `balance > 0` renders the cell amber with "PARTIAL" sublabel (NOT a green cell with an orange dot); `amount_paid = 0` rendered as unpaid; tapping a partial cell opens amber receipt.
+- [ ] Partial payment invariants: `balance > 0` renders a normal **green/paid** cell (no separate "partial" status), the customer badge reads paid, and the remaining `balance` shows only as a debt (Debts tab → "months"); the payment form shows an inline "added to debts" notice; `amount_paid = 0` rendered as unpaid; tapping a partial cell opens a receipt with the "added to debts" line.
 - [ ] [Products](products.md) passes: tier gating, soft/hard delete, branch scoping, snapshot immunity in sales.
 - [ ] [Sales](sales.md) passes: snapshots frozen at sale time, walk-in customer, void, customer panel, dashboard revenue included.
 - [ ] [Debts](debts.md) passes: runtime net = Σ debts − Σ payments; debt payment doesn't touch the underlying month/sale; partial sales create a Sales debt; void + credit + branch/offline behave.

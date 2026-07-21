@@ -209,7 +209,7 @@ export class PaymentRepository extends BaseRepository implements IPaymentReposit
     // Covering payments for the month, keyed by line (last write wins per line).
     const { data, error } = await this.db
       .from('payments')
-      .select('customer_plan_id, billing_month, duration_months, amount_paid, balance')
+      .select('customer_plan_id, billing_month, duration_months, amount_paid')
       .lte('billing_month', billingMonth)
       .gte('billing_month', cutoff)
       .is('voided_at', null)
@@ -221,13 +221,15 @@ export class PaymentRepository extends BaseRepository implements IPaymentReposit
       customer_plan_id: string;
       billing_month: string;
       duration_months: number;
-      balance: string | number;
     }[]) {
       const start = new Date(r.billing_month);
       const end = new Date(start);
       end.setMonth(end.getMonth() + r.duration_months - 1);
       if (end < target) continue;
-      settledByLine.set(r.customer_plan_id, Number(r.balance) === 0);
+      // Any covering payment settles the line for the month — a partial payment
+      // (balance > 0) counts as paid; its remainder is tracked as a debt.
+      // Mirrors PaymentService.buildMonthGrid, so both stay in lockstep.
+      settledByLine.set(r.customer_plan_id, true);
     }
 
     const fullyPaidIds = new Set<string>();

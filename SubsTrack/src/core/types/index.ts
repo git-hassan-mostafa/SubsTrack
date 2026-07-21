@@ -1,7 +1,10 @@
 // Domain models — camelCase. Used by all layers except repositories (which use db.ts).
 
 export type UserRole = 'superadmin' | 'admin' | 'user';
-export type MonthStatus = 'paid' | 'partial' | 'unpaid' | 'future' | 'before_start';
+// A partially-paid month (a payment exists but `balance > 0`) is reported as
+// `paid` — the remaining amount is tracked as a debt, not as a month status.
+// The owed amount still rides along on `MonthEntry.balance` for drill-in views.
+export type MonthStatus = 'paid' | 'unpaid' | 'future' | 'before_start';
 
 export interface Tenant {
   id: string;

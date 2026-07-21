@@ -190,9 +190,8 @@ export class OfflinePaymentRepository extends OfflineBaseRepository implements I
       customer_plan_id: string;
       billing_month: string;
       duration_months: number;
-      balance: string | number;
     }>(
-      `SELECT customer_plan_id, billing_month, duration_months, balance FROM payments
+      `SELECT customer_plan_id, billing_month, duration_months FROM payments
        WHERE billing_month <= ? AND billing_month >= ? AND voided_at IS NULL
          AND CAST(amount_paid AS REAL) > 0`,
       [billingMonth, cutoff],
@@ -204,7 +203,10 @@ export class OfflinePaymentRepository extends OfflineBaseRepository implements I
       const end = new Date(start);
       end.setMonth(end.getMonth() + r.duration_months - 1);
       if (end < target) continue;
-      settledByLine.set(r.customer_plan_id, Number(r.balance) === 0);
+      // Any covering payment settles the line for the month — a partial payment
+      // (balance > 0) counts as paid; its remainder is tracked as a debt.
+      // Mirrors PaymentService.buildMonthGrid, so both stay in lockstep.
+      settledByLine.set(r.customer_plan_id, true);
     }
 
     const fullyPaidIds = new Set<string>();

@@ -1,5 +1,5 @@
-import { useEffect, useState, type ReactNode } from "react";
-import { Modal, Pressable, useWindowDimensions, View } from "react-native";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Modal, Platform, Pressable, useWindowDimensions, View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import Animated, {
   Easing,
@@ -34,6 +34,13 @@ const CLOSE_VELOCITY = 800;
 const MIN_CLOSE_DURATION = 120;
 const MAX_CLOSE_DURATION = 320;
 
+// On web the sheet CLOSES INSTANTLY (no slide-out) — see the doc block below:
+// react-native-web's Modal keeps a full-screen `position:fixed; zIndex:9999`
+// wrapper over the whole page for as long as it is mounted, so any slide-out
+// window would swallow the user's first tap after a fast drag-dismiss. Native
+// has no such DOM layer, so it keeps the smooth slide-out.
+const isWeb = Platform.OS === "web";
+
 /**
  * Shared bottom-sheet shell for transient tap-outside popups (dropdowns,
  * pickers, action menus). The panel slides up from the bottom edge, pinned to
@@ -57,6 +64,17 @@ const MAX_CLOSE_DURATION = 320;
  * dragged down) while the panel slides — never RN's `animationType="slide"`,
  * which would slide the whole modal, dark overlay included.
  *
+ * CLOSE IS INSTANT ON WEB (native keeps the smooth slide-out). react-native-web
+ * renders every Modal inside a full-screen `position:fixed; zIndex:9999`
+ * wrapper that sits above the page and catches every tap for as long as the
+ * Modal is mounted — and it is internal to RN-Web, so we cannot make it
+ * pointer-transparent. Any slide-out animation therefore keeps that wrapper
+ * mounted for its whole duration, and after a FAST drag-dismiss the user's
+ * first tap lands inside that window and is swallowed (the page only becomes
+ * clickable on the second tap). Slow drags escaped it only because the user
+ * happened to tap after the window. So on web we unmount the Modal immediately
+ * on close; native (no such DOM layer) keeps the velocity-scaled slide-out.
+ *
  * Deliberately NOT using `useWebBackDismiss` — like the centered popups it
  * replaces, it closes by tapping the backdrop (and native hardware-back via
  * `onRequestClose`), keeping it out of the browser history stack (see gotcha
@@ -75,6 +93,12 @@ export function BottomSheetScaffold({
   // animation; `mounted` unmounts the modal only once the slide-out finishes.
   const [mounted, setMounted] = useState(visible);
 
+  // Native only: set when the sheet was closed by a drag-down. The gesture
+  // already slid the panel off-screen, so the exit effect unmounts at once
+  // instead of running a redundant second slide-out. (On web, close is always
+  // instant, so this flag is unused there.)
+  const closedByDrag = useRef(false);
+
   // translateY: 0 = fully open (resting), `height` = fully off-screen (closed).
   const translateY = useSharedValue(height);
   // The panel's own measured height — drives the drag-to-close threshold and is
@@ -83,22 +107,44 @@ export function BottomSheetScaffold({
 
   useEffect(() => {
     if (visible) {
+      // Start from the bottom, then slide up. The reset matters on web, where a
+      // previous instant-close can leave translateY at a mid-drag value.
+      translateY.value = height;
       setMounted(true);
       translateY.value = withTiming(0, {
         duration: DURATION,
         easing: Easing.out(Easing.cubic),
       });
     } else if (mounted) {
-      translateY.value = withTiming(
-        height,
-        { duration: DURATION, easing: Easing.in(Easing.cubic) },
-        (finished) => {
-          if (finished) runOnJS(setMounted)(false);
-        },
-      );
+      if (isWeb) {
+        // Web: unmount at once so the full-screen Modal wrapper stops catching
+        // taps immediately (see doc block) — no slide-out.
+        setMounted(false);
+      } else if (closedByDrag.current) {
+        // Drag already slid the panel off-screen — unmount now, no second
+        // animation.
+        closedByDrag.current = false;
+        setMounted(false);
+      } else {
+        translateY.value = withTiming(
+          height,
+          { duration: DURATION, easing: Easing.in(Easing.cubic) },
+          (finished) => {
+            if (finished) runOnJS(setMounted)(false);
+          },
+        );
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, height]);
+
+  // Native only: called (via runOnJS) once the drag slide-out finishes. Flag
+  // that the panel is already off-screen so the exit effect unmounts at once,
+  // then dismiss.
+  const dismissFromDrag = () => {
+    closedByDrag.current = true;
+    onDismiss();
+  };
 
   const panGesture = Gesture.Pan()
     // Only claim the gesture once it is clearly a downward drag, so any
@@ -114,14 +160,18 @@ export function BottomSheetScaffold({
         e.translationY > panelHeight.value * CLOSE_DISTANCE_RATIO ||
         e.velocityY > CLOSE_VELOCITY;
       if (shouldClose) {
-        // Continue the downward motion smoothly from where the finger left off,
-        // FIRST sliding the panel the rest of the way off-screen, then firing
-        // onDismiss from the completion callback. If we called onDismiss here
-        // (mid-drag position), the parent would flip visible=false and the exit
-        // useEffect would start a fresh slide — during which the full-screen
-        // modal (backdrop + gesture root) stays mounted over the page and
-        // swallows the first tap. Dismissing only once the sheet is already
-        // off-screen lets the modal unmount immediately.
+        if (isWeb) {
+          // Web: close at once (the exit effect unmounts immediately) so the
+          // full-screen Modal wrapper stops catching taps and the first page
+          // tap works. A slide-out would keep it mounted and eat that tap.
+          runOnJS(onDismiss)();
+          return;
+        }
+        // Native: continue the downward motion smoothly from where the finger
+        // left off, sliding the panel the rest of the way off-screen, then
+        // dismiss from the completion callback via dismissFromDrag (which flags
+        // closedByDrag so the exit effect unmounts at once rather than running a
+        // second slide-out over the still-mounted modal).
         //
         // Carry the release velocity into the animation: pick a duration from
         // the remaining distance ÷ fling speed so the panel keeps travelling at
@@ -137,7 +187,7 @@ export function BottomSheetScaffold({
           height,
           { duration, easing: Easing.out(Easing.cubic) },
           (finished) => {
-            if (finished) runOnJS(onDismiss)();
+            if (finished) runOnJS(dismissFromDrag)();
           },
         );
       } else {

@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, FlatList, RefreshControl, View } from "react-native";
 import { useTranslation } from "react-i18next";
+import { Ionicons } from "@expo/vector-icons";
 import { COLORS } from "@/src/shared/constants";
 import { EmptyState } from "@/src/shared/components/EmptyState";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { Text } from "@/src/shared/components/Text";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { FAB } from "@/src/shared/components/FAB";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
@@ -23,6 +25,7 @@ import { DebtorCard } from "../components/DebtorCard";
 import { DebtorDetailSheet } from "../components/DebtorDetailSheet";
 import { CustomDebtFormSheet } from "../components/CustomDebtFormSheet";
 import { DebtPaymentFormSheet } from "../components/DebtPaymentFormSheet";
+import { DebtHistorySheet } from "../components/DebtHistorySheet";
 
 // The Debts segment of the Transactions hub: a single debtors list — one row per
 // customer who still owes money; tap → detail modal (debts history + debt
@@ -51,6 +54,7 @@ export function DebtsPanel() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [customDebtOpen, setCustomDebtOpen] = useState(false);
   const [paymentOpen, setPaymentOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [menuDebtor, setMenuDebtor] = useState<Debtor | null>(null);
 
   useEffect(() => {
@@ -171,18 +175,27 @@ export function DebtsPanel() {
   return (
     <View className="flex-1">
       <ResponsiveContainer className="flex-1">
-        {/* Net summary header */}
+        {/* Net summary header — the clock opens the branch-wide debt history. */}
         <View className="px-4 pt-3">
-          <View className="bg-white border border-gray-100 rounded-2xl px-4 py-3 flex-row items-center justify-between">
-            <View className="flex-1 pe-2">
+          <View className="bg-white border border-gray-100 rounded-2xl px-4 py-3">
+            <View className="flex-row items-start justify-between">
               <Text
-                className="text-xs text-gray-500 uppercase tracking-wide"
+                className="text-xs text-gray-500 uppercase tracking-wide flex-1 pe-2"
                 numberOfLines={1}
               >
                 {t("debts.total_outstanding")}
               </Text>
+              <PressableOpacity
+                onPress={() => setHistoryOpen(true)}
+                accessibilityLabel={t("debts.history_hint")}
+                className="w-8 h-8 -mt-1 -me-1 rounded-full bg-indigo-50 items-center justify-center"
+              >
+                <Ionicons name="time-outline" size={18} color={COLORS.primary} />
+              </PressableOpacity>
+            </View>
+            <View className="flex-row items-end justify-between mt-1">
               <Text
-                className="text-[11px] text-gray-400 mt-0.5"
+                className="text-[11px] text-gray-400 flex-1 pe-2"
                 numberOfLines={1}
               >
                 {t("debts.summary_breakdown", {
@@ -190,19 +203,19 @@ export function DebtsPanel() {
                   paid: formatMoney(summary.paymentsUsd, null, target),
                 })}
               </Text>
-            </View>
-            <View className="items-end">
-              <Text
-                fontWeight="Bold"
-                className={`text-xl ${isCredit ? "text-green-600" : "text-gray-900"}`}
-              >
-                {isCredit ? `- ${netLabel}` : netLabel}
-              </Text>
-              {isCredit ? (
-                <Text className="text-[10px] font-semibold text-green-600 uppercase tracking-wide">
-                  {t("debts.credit")}
+              <View className="items-end">
+                <Text
+                  fontWeight="Bold"
+                  className={`text-xl ${isCredit ? "text-green-600" : "text-gray-900"}`}
+                >
+                  {isCredit ? `- ${netLabel}` : netLabel}
                 </Text>
-              ) : null}
+                {isCredit ? (
+                  <Text className="text-[10px] font-semibold text-green-600 uppercase tracking-wide">
+                    {t("debts.credit")}
+                  </Text>
+                ) : null}
+              </View>
             </View>
           </View>
         </View>
@@ -324,6 +337,14 @@ export function DebtsPanel() {
       )}
       {paymentOpen && (
         <DebtPaymentFormSheet onDismiss={() => setPaymentOpen(false)} />
+      )}
+
+      {historyOpen && (
+        <DebtHistorySheet
+          items={items}
+          payments={payments}
+          onDismiss={() => setHistoryOpen(false)}
+        />
       )}
     </View>
   );

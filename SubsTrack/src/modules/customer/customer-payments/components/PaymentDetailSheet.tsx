@@ -155,7 +155,7 @@ export function PaymentDetailSheet({
                   {t("payments.paid_partial", { monthYear: blockRangeLabel })}
                 </Text>
                 <Text className="text-xs text-amber-600 font-semibold mt-1">
-                  {t("payments.balance_remaining", {
+                  {t("payments.balance_to_debts", {
                     amount: fmtSource(payment.balance),
                   })}
                 </Text>
