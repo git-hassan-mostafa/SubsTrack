@@ -168,7 +168,7 @@ Domain types (camelCase) live in `src/core/types/index.ts` — used everywhere e
 
 ```typescript
 type UserRole = "superadmin" | "admin" | "user";
-type MonthStatus = "paid" | "partial" | "unpaid" | "future" | "before_start";
+type MonthStatus = "paid" | "unpaid" | "future" | "before_start"; // partial payments report as "paid" (remainder → debt)
 
 AuthUser     { id, username, fullName, role, active, tenantId, tenant, branchId /*null=tenant-wide admin*/, branch? }
 AppUser      { id, username, fullName, phoneNumber, role, active, tenantId, branchId /*null=tenant-wide*/, createdAt }
@@ -231,20 +231,18 @@ RevenuePoint { month /*YYYY-MM*/, monthIndex, year, subscription /*USD*/, sales 
 ```
 Status algorithm per month:
 1. month < line.startDate                                  → "before_start" (gray, non-tappable)
-2. payment exists, voidedAt === null, balance === 0        → "paid" (green for regular, yellow for non-regular)
-3. payment exists, voidedAt === null, balance > 0          → "partial" (amber for both regular + non-regular)
-4. month is in the future                                  → "future" (gray)
-5. now ≤ first-of-month + graceDays                        → "future" (gray, within grace window)
-6. otherwise                                               → "unpaid" (red for regular, light gray for non-regular)
+2. payment exists, voidedAt === null, amountPaid > 0       → "paid" (green for regular, yellow for non-regular) — INCLUDING partial payments (balance > 0)
+3. month is in the future                                  → "future" (gray)
+4. now ≤ first-of-month + graceDays                        → "future" (gray, within grace window)
+5. otherwise                                               → "unpaid" (red for regular, light gray for non-regular)
 ```
 
 - Months are **never stored in DB** — generated dynamically from the payment list for a given year.
 - Voided payments are invisible to the grid (treated as non-existent).
-- `graceDays` comes from the tenant's current `TierPlan` (fetched by the `subscription` module during auth). The `useGraceDays()` selector hook is the single read site for components.
-- Multi-month payments build a **coverage map**: each payment with `durationMonths > 1` covers consecutive months. Months 2+ in a block have `isGroupSecondary = true` and display "Included" instead of "Paid". A partial bundle shows every covered month as `"partial"`.
-- `customer.isRegular` controls cell colors and unpaid-banner visibility. `"partial"` uses amber for everyone — a balance is owed either way.
-- **Multiple plans per customer:** a customer holds 1..N service lines (`customer_plans`), each its own grid + independent payments. Lines are added / changed / removed from the **customer form's inline Plans editor** (`customerPlans.syncLines`); the payment panel's line selector is **view-only**. Overdue / current-month status sets are **aggregated across a customer's active lines** (`findOverdueCustomerIds`, `findPaymentStatusForMonth`, `computeCurrentMonthStatus`): fully-paid only when every active line is settled, partial when some coverage exists, overdue if any active line has an unpaid month. A customer with **2+ plans where some are paid and some are not** shows a distinct amber **"N/M plans paid"** badge (`currentMonthPlanCounts` / `CurrentMonthPlanCount`) that takes priority over the red "Unpaid", so a partly-paid account never looks fully unpaid. Customer-list "Collect all due" pays every eligible fixed-price line for the current month at once. Full detail in [docs/features.md](docs/features.md) → Multiple Plans per Customer.
-- A `"partial"` month behaves like `"paid"` everywhere a payment record matters (tap opens `PaymentDetailSheet`, multi-month grouping merges them, year summary counts them as paid, `PaymentFormSheet` treats them as multi-month conflicts). The unpaid banner / unpaid tab only fire for `"unpaid"`.
+- **Partial payments look paid.** A payment with `amountPaid < amountDue` (`balance > 0`) still resolves to `"paid"` — the month/customer read as settled and the remaining amount is surfaced only through the **Debts** tab (never as a distinct month status; there is no `"partial"` `MonthStatus`). The owed amount rides along on `MonthEntry.balance` for drill-in views (`PaymentDetailSheet`, Payments-tab ledger, which read `payment.balance` directly). The payment form shows an inline notice that the remainder becomes a debt. `graceDays` comes from the tenant's current `TierPlan` (fetched by the `subscription` module during auth); the `useGraceDays()` selector hook is the single read site for components.
+- Multi-month payments build a **coverage map**: each payment with `durationMonths > 1` covers consecutive months. Months 2+ in a block have `isGroupSecondary = true` and display "Included" instead of "Paid". A partially-paid bundle shows every covered month as `"paid"`.
+- `customer.isRegular` controls cell colors and unpaid-banner visibility.
+- **Multiple plans per customer:** a customer holds 1..N service lines (`customer_plans`), each its own grid + independent payments. Lines are added / changed / removed from the **customer form's inline Plans editor** (`customerPlans.syncLines`); the payment panel's line selector is **view-only**. Overdue / current-month status sets are **aggregated across a customer's active lines** (`findOverdueCustomerIds`, `findPaymentStatusForMonth`, `computeCurrentMonthStatus`): fully-paid only when every active line has a covering payment (a partial payment counts as covered), overdue if any active line has an unpaid month. A customer with **2+ plans where some are paid and some are fully unpaid** shows a distinct amber **"N/M plans paid"** badge (`currentMonthPlanCounts` / `CurrentMonthPlanCount`) that takes priority over the red "Unpaid", so a partly-paid account never looks fully unpaid. Customer-list "Collect all due" pays every eligible fixed-price line for the current month at once. Full detail in [docs/features.md](docs/features.md) → Multiple Plans per Customer.
 
 > Recording multi-month payments (`createMultiMonthPayment`, conflict resolution), the full payment scenarios (A/B/C/D, full vs partial, edit-payment re-snapshot), and the snapshot/currency rules are in [docs/features.md](docs/features.md) and [docs/gotchas.md](docs/gotchas.md).
 
