@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { FlatList, View } from "react-native";
-import { KeyboardAvoidingView } from "react-native-keyboard-controller";
+import { View } from "react-native";
+import { BottomSheetFlatList } from "@gorhom/bottom-sheet";
 import { PressableOpacity } from "./PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { useTranslation } from "react-i18next";
@@ -238,15 +238,7 @@ export function DropdownModal<T extends string | number | null = string>({
     : allItems;
 
   return (
-    <BottomSheetScaffold
-      visible={visible}
-      onDismiss={handleClose}
-      wrap={(children) => (
-        <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
-          {children}
-        </KeyboardAvoidingView>
-      )}
-    >
+    <BottomSheetScaffold visible={visible} onDismiss={handleClose}>
       <View className="flex-row items-center justify-between px-5 py-3 border-b border-gray-100">
         <Text className="text-base font-semibold text-gray-900">{title}</Text>
         <PressableOpacity onPress={handleClose}>
@@ -269,7 +261,7 @@ export function DropdownModal<T extends string | number | null = string>({
         </View>
       )}
 
-      <FlatList
+      <BottomSheetFlatList
         data={listItems}
         keyExtractor={(item) => String(item.value ?? "__null__")}
         style={{ maxHeight: 360 }}

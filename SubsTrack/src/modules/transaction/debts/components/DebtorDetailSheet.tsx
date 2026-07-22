@@ -1,7 +1,7 @@
 import { useState } from "react";
-import { ScrollView, View } from "react-native";
-import { SheetModal } from "@/src/shared/components/SheetModal";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { View } from "react-native";
+import { BottomSheetScrollView } from "@gorhom/bottom-sheet";
+import { AppBottomSheet } from "@/src/shared/components/AppBottomSheet";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
@@ -62,12 +62,9 @@ export function DebtorDetailSheet({
   const lockedCustomer = { id: customerId, name: customerName };
 
   return (
-    <SheetModal onDismiss={onDismiss}>
-      <SafeAreaView className="flex-1 bg-white">
+    <>
+      <AppBottomSheet visible onDismiss={onDismiss} variant="full">
         <ResponsiveContainer className="flex-1">
-          <View className="items-center pt-3 pb-1">
-            <View className="w-10 h-1 rounded-full bg-gray-300" />
-          </View>
           <View className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
             <View className="flex-1 pe-2">
               <Text
@@ -101,9 +98,13 @@ export function DebtorDetailSheet({
             </View>
           </View>
 
-          <ScrollView
-            className="flex-1 px-6 pt-4"
-            contentContainerStyle={{ paddingBottom: 48 }}
+          <BottomSheetScrollView
+            style={{ flex: 1 }}
+            contentContainerStyle={{
+              paddingHorizontal: 24,
+              paddingTop: 16,
+              paddingBottom: 48,
+            }}
           >
             <DebtList
               items={items}
@@ -112,9 +113,9 @@ export function DebtorDetailSheet({
               onVoidItem={onVoidItem}
               onVoidPayment={onVoidPayment}
             />
-          </ScrollView>
+          </BottomSheetScrollView>
         </ResponsiveContainer>
-      </SafeAreaView>
+      </AppBottomSheet>
 
       <ActionMenu
         visible={menuOpen}
@@ -148,6 +149,6 @@ export function DebtorDetailSheet({
           onDismiss={() => setPaymentOpen(false)}
         />
       )}
-    </SheetModal>
+    </>
   );
 }

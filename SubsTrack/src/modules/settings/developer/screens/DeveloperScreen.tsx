@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { ScrollView, View } from "react-native";
-import { SheetModal } from "@/src/shared/components/SheetModal";
+import { FormSheet } from "@/src/shared/components/FormSheet";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -247,18 +247,11 @@ export function DeveloperScreen() {
         ) : null}
       </ResponsiveContainer>
 
-      <SheetModal visible={importOpen} onDismiss={() => setImportOpen(false)}>
-        <SafeAreaView className="flex-1 bg-white">
-          <ResponsiveContainer className="flex-1">
-            <View className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
-              <Text fontWeight="Bold" className="text-lg text-gray-900">
-                {t("settings.developer_import")}
-              </Text>
-              <PressableOpacity onPress={() => setImportOpen(false)}>
-                <Text className="text-base text-primary font-medium">{t("common.cancel")}</Text>
-              </PressableOpacity>
-            </View>
-            <ScrollView className="flex-1 px-6 pt-6" keyboardShouldPersistTaps="handled">
+      <FormSheet
+        visible={importOpen}
+        onDismiss={() => setImportOpen(false)}
+        title={t("settings.developer_import")}
+      >
               {importError ? <ErrorBanner message={importError} onDismiss={() => setImportError(null)} /> : null}
               <Text className="text-sm text-gray-500 mb-3">{t("settings.developer_import_hint")}</Text>
               <Input
@@ -281,10 +274,7 @@ export function DeveloperScreen() {
                 fullWidth
               />
               <View className="h-8" />
-            </ScrollView>
-          </ResponsiveContainer>
-        </SafeAreaView>
-      </SheetModal>
+      </FormSheet>
     </SafeAreaView>
   );
 }

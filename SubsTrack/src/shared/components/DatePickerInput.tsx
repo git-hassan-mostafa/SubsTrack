@@ -1,5 +1,6 @@
-import { useMemo, useRef } from "react";
-import { FlatList, View } from "react-native";
+import { useMemo } from "react";
+import { View } from "react-native";
+import { BottomSheetFlatList } from "@gorhom/bottom-sheet";
 import { Ionicons } from "@expo/vector-icons";
 import { PressableOpacity } from "./PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
@@ -71,7 +72,6 @@ function ScrollColumn({
   label: string;
   renderItem?: (v: number) => string;
 }) {
-  const ref = useRef<FlatList>(null);
   const selectedIndex = Math.max(0, items.indexOf(selected));
 
   return (
@@ -79,8 +79,7 @@ function ScrollColumn({
       <Text className="text-xs text-center text-gray-400 mb-1 font-medium">
         {label}
       </Text>
-      <FlatList
-        ref={ref}
+      <BottomSheetFlatList
         data={items}
         keyExtractor={(v) => String(v)}
         style={{ height: 200 }}
@@ -118,7 +117,6 @@ function MonthScrollColumn({
   selected: number;
   onSelect: (m: number) => void;
 }) {
-  const ref = useRef<FlatList>(null);
   const initialIndex = Math.max(0, selected - 1);
   const { t } = useTranslation();
 
@@ -127,8 +125,7 @@ function MonthScrollColumn({
       <Text className="text-xs text-center text-gray-400 mb-1 font-medium">
         {t("date_picker.month")}
       </Text>
-      <FlatList
-        ref={ref}
+      <BottomSheetFlatList
         data={monthNames}
         keyExtractor={(_, i) => String(i)}
         style={{ height: 200 }}

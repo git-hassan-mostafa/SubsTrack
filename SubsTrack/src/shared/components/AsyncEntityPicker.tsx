@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, View } from "react-native";
-import { KeyboardAvoidingView } from "react-native-keyboard-controller";
+import { ActivityIndicator, View } from "react-native";
+import { BottomSheetFlatList } from "@gorhom/bottom-sheet";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
@@ -273,15 +273,7 @@ function AsyncPickerModal<T>({
   }
 
   return (
-    <BottomSheetScaffold
-      visible
-      onDismiss={handleClose}
-      wrap={(children) => (
-        <KeyboardAvoidingView behavior="padding" style={{ flex: 1 }}>
-          {children}
-        </KeyboardAvoidingView>
-      )}
-    >
+    <BottomSheetScaffold visible onDismiss={handleClose} scrollable>
       <View className="flex-row items-center justify-between px-5 py-3 border-b border-gray-100">
         <Text className="text-base font-semibold text-gray-900">{title}</Text>
         <PressableOpacity onPress={handleClose}>
@@ -331,10 +323,10 @@ function AsyncPickerModal<T>({
         </View>
       ) : null}
 
-      <FlatList
+      <BottomSheetFlatList
         data={items}
         keyExtractor={getKey}
-        style={{ maxHeight: 400 }}
+        style={{ flex: 1 }}
         onEndReached={loadNextPage}
         onEndReachedThreshold={0.3}
         keyboardShouldPersistTaps="handled"

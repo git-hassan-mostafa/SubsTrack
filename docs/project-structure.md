@@ -202,7 +202,10 @@ SubsTrack/
 │       │   ├── Button.tsx, Input.tsx, Text.tsx  # Custom primitives
 │       │   ├── CurrencyInput.tsx  # Numeric input + embedded currency dropdown (USD + tenant currencies)
 │       │   ├── BranchSelector.tsx # Header chip for tenant-wide admins; self-conceals otherwise
-│       │   ├── FormSheet.tsx      # Reusable @gorhom/bottom-sheet wrapper
+│       │   ├── AppBottomSheet.tsx # @gorhom/bottom-sheet core — declarative visible/onDismiss bridge (variant "auto"|"full")
+│       │   ├── BottomSheetScaffold.tsx # Auto-height popup shell (dropdowns/pickers/menus) on AppBottomSheet
+│       │   ├── FormSheet.tsx      # Full-height form/detail sheet shell on AppBottomSheet (replaced the deleted SheetModal)
+│       │   ├── bottomSheetInputContext.ts # useSheetTextInput / useSheetScrollView — swap to Gorhom variants inside a sheet
 │       │   ├── ErrorBanner.tsx    # Inline error display (never toast/alert)
 │       │   ├── Dropdown.tsx, DatePickerInput.tsx
 │       │   ├── AsyncEntityPicker.tsx # Searchable + paginated picker for large entity lists (used for customer picker in SaleFormSheet)

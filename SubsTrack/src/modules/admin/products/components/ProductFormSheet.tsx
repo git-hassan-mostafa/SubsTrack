@@ -1,9 +1,6 @@
 import { useEffect, useState } from "react";
 import { View } from "react-native";
-import { SheetModal } from "@/src/shared/components/SheetModal";
-import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
+import { FormSheet } from "@/src/shared/components/FormSheet";
 import { useTranslation } from "react-i18next";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
@@ -104,29 +101,11 @@ export function ProductFormSheet({
     !form.name.trim() || form.price == null || form.price <= 0 || loading;
 
   return (
-    <SheetModal onDismiss={onDismiss}>
-      <SafeAreaView className="flex-1 bg-white">
-        <ResponsiveContainer className="flex-1">
-          <View className="items-center pt-3 pb-1">
-            <View className="w-10 h-1 rounded-full bg-gray-300" />
-          </View>
-          <View className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
-            <Text fontWeight="Bold" className="text-lg text-gray-900">
-              {product ? t("products.edit_title") : t("products.add_title")}
-            </Text>
-            <PressableOpacity onPress={onDismiss}>
-              <Text className="text-base text-primary font-medium">
-                {t("common.cancel")}
-              </Text>
-            </PressableOpacity>
-          </View>
-
-          <KeyboardAwareScrollView
-            className="flex-1 px-6 pt-6"
-            keyboardShouldPersistTaps="handled"
-            contentContainerStyle={{ paddingBottom: 48 }}
-            bottomOffset={24}
-          >
+    <>
+      <FormSheet
+        onDismiss={onDismiss}
+        title={product ? t("products.edit_title") : t("products.add_title")}
+      >
             {error ? (
               <ErrorBanner message={error} onDismiss={clearError} />
             ) : null}
@@ -195,10 +174,8 @@ export function ProductFormSheet({
               </>
             ) : null}
 
-            <View className="h-24" />
-          </KeyboardAwareScrollView>
-        </ResponsiveContainer>
-      </SafeAreaView>
+        <View className="h-24" />
+      </FormSheet>
       <UpgradePromptModal
         payload={tierLimitError}
         onClose={() => {
@@ -206,6 +183,6 @@ export function ProductFormSheet({
           onDismiss();
         }}
       />
-    </SheetModal>
+    </>
   );
 }

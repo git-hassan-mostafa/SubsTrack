@@ -1,10 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Switch, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
-import { SheetModal } from "@/src/shared/components/SheetModal";
+import { FormSheet } from "@/src/shared/components/FormSheet";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { useTranslation } from "react-i18next";
@@ -157,30 +154,11 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
   };
 
   return (
-    <SheetModal onDismiss={onDismiss}>
-      <SafeAreaView className="flex-1 bg-white">
-        <ResponsiveContainer className="flex-1">
-          {/* Handle + header */}
-          <View className="items-center pt-3 pb-1">
-            <View className="w-10 h-1 rounded-full bg-gray-300" />
-          </View>
-          <View className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
-            <Text fontWeight="Bold" className="text-lg text-gray-900">
-              {customer ? t("customers.edit_title") : t("customers.add_title")}
-            </Text>
-            <PressableOpacity onPress={onDismiss}>
-              <Text className="text-base text-primary font-medium">
-                {t("common.cancel")}
-              </Text>
-            </PressableOpacity>
-          </View>
-
-          <KeyboardAwareScrollView
-            className="flex-1 px-6 pt-6"
-            keyboardShouldPersistTaps="handled"
-            contentContainerStyle={{ paddingBottom: 48 }}
-            bottomOffset={24}
-          >
+    <>
+      <FormSheet
+        onDismiss={onDismiss}
+        title={customer ? t("customers.edit_title") : t("customers.add_title")}
+      >
             {bannerError ? (
               <ErrorBanner message={bannerError} onDismiss={clearBanner} />
             ) : null}
@@ -343,10 +321,8 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
               disabled={!form.name.trim() || !form.startDate || !form.branchId}
               fullWidth
             />
-            <View className="h-24" />
-          </KeyboardAwareScrollView>
-        </ResponsiveContainer>
-      </SafeAreaView>
+        <View className="h-24" />
+      </FormSheet>
       <UpgradePromptModal
         payload={tierLimitError}
         onClose={() => {
@@ -354,6 +330,6 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
           onDismiss();
         }}
       />
-    </SheetModal>
+    </>
   );
 }

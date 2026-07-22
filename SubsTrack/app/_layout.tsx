@@ -14,6 +14,7 @@ import * as Font from "expo-font";
 import { useEffect, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { KeyboardProvider } from "react-native-keyboard-controller";
+import { BottomSheetModalProvider } from "@gorhom/bottom-sheet";
 import "../global.css";
 import { enableMapSet } from "immer";
 import { initOffline } from "@/src/core/offline";
@@ -99,10 +100,12 @@ export default function RootLayout() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <KeyboardProvider>
-        <StatusBar style="dark" backgroundColor="white" />
-        <ErrorBoundary>
-          <Slot />
-        </ErrorBoundary>
+        <BottomSheetModalProvider>
+          <StatusBar style="dark" backgroundColor="white" />
+          <ErrorBoundary>
+            <Slot />
+          </ErrorBoundary>
+        </BottomSheetModalProvider>
       </KeyboardProvider>
     </GestureHandlerRootView>
   );

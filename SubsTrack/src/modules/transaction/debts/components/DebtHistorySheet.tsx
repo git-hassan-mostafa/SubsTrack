@@ -1,7 +1,7 @@
 import { useMemo } from "react";
-import { SectionList, View } from "react-native";
-import { SheetModal } from "@/src/shared/components/SheetModal";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { View } from "react-native";
+import { BottomSheetSectionList } from "@gorhom/bottom-sheet";
+import { AppBottomSheet } from "@/src/shared/components/AppBottomSheet";
 import { useTranslation } from "react-i18next";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
@@ -70,13 +70,9 @@ export function DebtHistorySheet({ items, payments, onDismiss }: Props) {
   );
 
   return (
-    <SheetModal onDismiss={onDismiss}>
-      <SafeAreaView className="flex-1 bg-white">
-        <ResponsiveContainer className="flex-1">
-          <View className="items-center pt-3 pb-1">
-            <View className="w-10 h-1 rounded-full bg-gray-300" />
-          </View>
-          <View className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
+    <AppBottomSheet visible onDismiss={onDismiss} variant="full">
+      <ResponsiveContainer className="flex-1">
+        <View className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
             <Text
               fontWeight="Bold"
               className="text-lg text-gray-900"
@@ -91,7 +87,7 @@ export function DebtHistorySheet({ items, payments, onDismiss }: Props) {
             </PressableOpacity>
           </View>
 
-          <SectionList
+          <BottomSheetSectionList
             sections={sections}
             keyExtractor={(r) =>
               r.kind === "item"
@@ -125,8 +121,7 @@ export function DebtHistorySheet({ items, payments, onDismiss }: Props) {
               />
             }
           />
-        </ResponsiveContainer>
-      </SafeAreaView>
-    </SheetModal>
+      </ResponsiveContainer>
+    </AppBottomSheet>
   );
 }

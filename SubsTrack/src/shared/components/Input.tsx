@@ -1,6 +1,7 @@
-import { TextInput, TextInputProps, View } from "react-native";
+import { TextInputProps, View } from "react-native";
 import { Text } from "@/src/shared/components/Text";
 import { COLORS } from "@/src/shared/constants";
+import { useSheetTextInput } from "@/src/shared/components/bottomSheetInputContext";
 
 interface InputProps extends TextInputProps {
   label?: string;
@@ -8,6 +9,9 @@ interface InputProps extends TextInputProps {
 }
 
 export function Input({ label, error, style, ...props }: InputProps) {
+  // Renders as Gorhom's BottomSheetTextInput when inside a bottom sheet, plain
+  // TextInput otherwise — so the keyboard keeps the focused field in view.
+  const TextInput = useSheetTextInput();
   return (
     <View className="mb-4">
       {label ? (

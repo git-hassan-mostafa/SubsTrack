@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, ScrollView, View } from "react-native";
+import { useSheetScrollView } from "@/src/shared/components/bottomSheetInputContext";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
@@ -107,6 +108,9 @@ export function WalletDetailView({
   const target = findCurrency(currencies, displayCurrencyId);
   const { language } = useLanguageStore();
   const locale = language === "ar" ? "ar" : "en-US";
+  // BottomSheetScrollView inside the admin detail sheet, plain ScrollView on the
+  // standalone My-Wallet screen (see useSheetScrollView).
+  const Scroll = useSheetScrollView();
 
   const selection = useSelection();
   const selecting = !readOnly && selection.active;
@@ -230,9 +234,13 @@ export function WalletDetailView({
         />
       ) : null}
 
-      <ScrollView
-        className="flex-1 px-6 pt-2"
-        contentContainerStyle={{ paddingBottom: 48 }}
+      <Scroll
+        style={{ flex: 1 }}
+        contentContainerStyle={{
+          paddingHorizontal: 24,
+          paddingTop: 8,
+          paddingBottom: 48,
+        }}
       >
         {/* Grand total (USD → display currency) — the full wallet, not the filtered subset. */}
         <View className="items-center py-4">
@@ -443,7 +451,7 @@ export function WalletDetailView({
             )}
           </View>
         )}
-      </ScrollView>
+      </Scroll>
     </View>
   );
 }

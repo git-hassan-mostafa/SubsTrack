@@ -1,9 +1,6 @@
 import { useState } from "react";
 import { View } from "react-native";
-import { SheetModal } from "@/src/shared/components/SheetModal";
-import { KeyboardAwareScrollView } from "react-native-keyboard-controller";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
+import { FormSheet } from "@/src/shared/components/FormSheet";
 import { useTranslation } from "react-i18next";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
@@ -88,32 +85,11 @@ export function SaleDetailSheet({
       : sale.productNameSnapshot;
 
   return (
-    <SheetModal visible={sale !== null} onDismiss={handleDismiss}>
-      <SafeAreaView className="flex-1 bg-white">
-        <ResponsiveContainer className="flex-1">
-          {/* Handle */}
-          <View className="items-center pt-3 pb-1">
-            <View className="w-10 h-1 rounded-full bg-gray-300" />
-          </View>
-
-          {/* Header */}
-          <View className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
-            <Text fontWeight="Bold" className="text-lg text-gray-900">
-              {t("sales.receipt_title")}
-            </Text>
-            <PressableOpacity onPress={handleDismiss}>
-              <Text className="text-base text-primary font-medium">
-                {t("common.close")}
-              </Text>
-            </PressableOpacity>
-          </View>
-
-          <KeyboardAwareScrollView
-            className="flex-1 px-6 pt-5"
-            keyboardShouldPersistTaps="handled"
-            contentContainerStyle={{ paddingBottom: 48 }}
-            bottomOffset={24}
-          >
+    <FormSheet
+      onDismiss={handleDismiss}
+      title={t("sales.receipt_title")}
+      dismissLabel={t("common.close")}
+    >
             {/* Hero card */}
             {voided || partiallyPaid ? (
               <View className="bg-red-50 border border-red-100 rounded-2xl px-4 py-5 items-center mb-4">
@@ -257,11 +233,8 @@ export function SaleDetailSheet({
               )
             ) : null}
 
-            <View className="h-8" />
-          </KeyboardAwareScrollView>
-        </ResponsiveContainer>
-      </SafeAreaView>
-    </SheetModal>
+      <View className="h-8" />
+    </FormSheet>
   );
 }
 

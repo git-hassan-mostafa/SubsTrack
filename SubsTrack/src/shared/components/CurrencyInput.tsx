@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { FlatList, TextInput, View } from "react-native";
+import { View } from "react-native";
+import { BottomSheetFlatList } from "@gorhom/bottom-sheet";
 import { PressableOpacity } from "./PressableOpacity";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
@@ -8,6 +9,7 @@ import { COLORS } from "@/src/shared/constants";
 import type { Currency } from "@/src/core/types";
 import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
 import { BottomSheetScaffold } from "./BottomSheetScaffold";
+import { useSheetTextInput } from "./bottomSheetInputContext";
 
 interface CurrencyInputProps {
   label?: string;
@@ -51,6 +53,8 @@ export function CurrencyInput({
   const { t } = useTranslation();
   const { lastUsedCurrencyId, setLastUsedCurrencyId } = useUiPrefStore();
   const initialDefaultApplied = useRef(false);
+  // Becomes BottomSheetTextInput when this field lives inside a form sheet.
+  const TextInput = useSheetTextInput();
 
   // On first mount, if the caller didn't preselect a currency and didn't pass
   // an amount, apply the user's last-used currency as the default.
@@ -167,7 +171,7 @@ export function CurrencyInput({
           </PressableOpacity>
         </View>
 
-        <FlatList
+        <BottomSheetFlatList
           data={[
             {
               id: null as string | null,

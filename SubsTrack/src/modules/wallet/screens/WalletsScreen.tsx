@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 import { FlatList, RefreshControl, View } from 'react-native';
-import { SheetModal } from '@/src/shared/components/SheetModal';
+import { AppBottomSheet } from '@/src/shared/components/AppBottomSheet';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -181,34 +181,33 @@ export function WalletsScreen() {
         />
       </ResponsiveContainer>
 
-      <SheetModal visible={!!openWallet} onDismiss={closeCollector}>
-        <SafeAreaView className="flex-1 bg-white">
-          <ResponsiveContainer className="flex-1">
-            <View className="items-center pt-3 pb-1">
-              <View className="w-10 h-1 rounded-full bg-gray-300" />
-            </View>
-            <View className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
-              <Text
-                fontWeight="Bold"
-                className="text-lg text-gray-900 flex-1 pe-2"
-                numberOfLines={1}
-              >
-                {openWallet?.collectorName ?? ''}
-              </Text>
-              <PressableOpacity onPress={closeCollector}>
-                <Text className="text-base text-primary font-medium">{t('common.close')}</Text>
-              </PressableOpacity>
-            </View>
-            <WalletDetailView
-              detail={detail}
-              loading={detailLoading}
-              busy={busy}
-              onReceiveItems={handleReceiveItems}
-              onReceiveAll={handleReceiveAll}
-            />
-          </ResponsiveContainer>
-        </SafeAreaView>
-      </SheetModal>
+      <AppBottomSheet
+        visible={!!openWallet}
+        onDismiss={closeCollector}
+        variant="full"
+      >
+        <ResponsiveContainer className="flex-1">
+          <View className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
+            <Text
+              fontWeight="Bold"
+              className="text-lg text-gray-900 flex-1 pe-2"
+              numberOfLines={1}
+            >
+              {openWallet?.collectorName ?? ''}
+            </Text>
+            <PressableOpacity onPress={closeCollector}>
+              <Text className="text-base text-primary font-medium">{t('common.close')}</Text>
+            </PressableOpacity>
+          </View>
+          <WalletDetailView
+            detail={detail}
+            loading={detailLoading}
+            busy={busy}
+            onReceiveItems={handleReceiveItems}
+            onReceiveAll={handleReceiveAll}
+          />
+        </ResponsiveContainer>
+      </AppBottomSheet>
 
       <ActionMenu
         visible={menuWallet !== null}
