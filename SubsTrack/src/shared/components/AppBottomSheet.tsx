@@ -174,6 +174,7 @@ export function AppBottomSheet({
       containerStyle={containerStyle}
       onChange={handleChange}
       onDismiss={handleDismiss}
+      stackBehavior="push"
       enablePanDownToClose
       // Dynamic sizing only for content-hugging `auto` popups (no fixed snap).
       enableDynamicSizing={!useFixedSnap}

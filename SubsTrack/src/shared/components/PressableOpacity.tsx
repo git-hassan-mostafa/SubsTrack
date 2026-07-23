@@ -16,10 +16,7 @@ import { cssInterop } from "nativewind";
 // one node, so `flex-1` / positioning would land on the wrong one and break
 // layouts. Pressable keeps the one-node model of RN's old touchable, so
 // `className` behaves identically everywhere — no per-component special-casing.
-import {
-  Pressable,
-  type PressableProps,
-} from "react-native-gesture-handler";
+import { Pressable, type PressableProps } from "react-native";
 
 // NativeWind auto-registers RN's core components for className→style but NOT
 // gesture-handler's, so without this the class names silently drop at runtime.

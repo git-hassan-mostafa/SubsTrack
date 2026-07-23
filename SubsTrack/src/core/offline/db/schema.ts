@@ -1,20 +1,22 @@
-import { TABLES, type ColType, type TableSpec } from './tables';
+import { TABLES, type ColType, type TableSpec } from "./tables";
 
 const SQL_TYPE: Record<ColType, string> = {
-  text: 'TEXT',
-  int: 'INTEGER',
-  num: 'TEXT', // numeric/money/rate stored as exact decimal text
-  bool: 'INTEGER',
+  text: "TEXT",
+  int: "INTEGER",
+  num: "TEXT", // numeric/money/rate stored as exact decimal text
+  bool: "INTEGER",
 };
 
 function createTableSql(t: TableSpec): string {
   const cols = Object.entries(t.columns).map(([name, type]) =>
-    name === 'id' ? 'id TEXT PRIMARY KEY NOT NULL' : `${name} ${SQL_TYPE[type]}`,
+    name === "id"
+      ? "id TEXT PRIMARY KEY NOT NULL"
+      : `${name} ${SQL_TYPE[type]}`,
   );
   // Local-only sync flag (stripped before push). `_dirty` = 1 while a local
   // change awaits push; the new push scans WHERE _dirty = 1.
-  cols.push('_dirty INTEGER NOT NULL DEFAULT 0');
-  const body = [...cols, ...(t.constraints ?? [])].join(',\n  ');
+  cols.push("_dirty INTEGER NOT NULL DEFAULT 0");
+  const body = [...cols, ...(t.constraints ?? [])].join(",\n  ");
   return `CREATE TABLE IF NOT EXISTS ${t.name} (\n  ${body}\n);`;
 }
 
@@ -49,7 +51,6 @@ export const SCHEMA_V1: string[] = [
   `CREATE INDEX IF NOT EXISTS idx_payments_paidat ON payments(paid_at);`,
   `CREATE INDEX IF NOT EXISTS idx_sales_soldat ON sales(sold_at);`,
   `CREATE INDEX IF NOT EXISTS idx_sales_customer ON sales(customer_id);`,
-  `CREATE INDEX IF NOT EXISTS idx_sales_product ON sales(product_id);`,
   `CREATE INDEX IF NOT EXISTS idx_custom_debts_customer ON custom_debts(customer_id);`,
   `CREATE INDEX IF NOT EXISTS idx_debt_payments_customer ON debt_payments(customer_id);`,
 ];
