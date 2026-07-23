@@ -1,6 +1,8 @@
 # Sales — QA Scenarios
 
-Covers the one-off sales ledger: recording a sale against an optional customer, viewing the sales list, the sale receipt, voiding a sale, and the per-customer sales panel. Sales are a completely separate ledger from subscription payments — they share no schema or service code beyond the snapshot-rate principle.
+Covers the one-off sales ledger: recording a sale (with **one or more products**) against an optional customer, viewing the sales list, the sale receipt, voiding a sale, and the per-customer sales panel. Sales are a completely separate ledger from subscription payments — they share no schema or service code beyond the snapshot-rate principle.
+
+**A sale is a header (`sales`) + one or more product lines (`sale_items`).** One sale can hold several products (a "cart"). The header carries the single sale currency + rate snapshot, the summed `total_amount`, `amount_paid`, and a frozen `items_summary`. Each line is one product (`product_name_snapshot`, `quantity`, `unit_amount`). Partial payment / debt / wallet / dashboard are all header-level (one debt, one wallet entry, one revenue figure per sale).
 
 **Reference code:**
 - Screen: [SalesListScreen.tsx](SubsTrack/src/modules/sales/screens/SalesListScreen.tsx)
@@ -21,14 +23,17 @@ Covers the one-off sales ledger: recording a sale against an optional customer, 
 
 1. **Sales and subscription payments are completely separate.** Different tables, different services, different slices. The only shared concept is the snapshot-rate principle.
 2. **Snapshots are frozen at sale time.**
-   - `product_name_snapshot` — frozen product name, survives renames and soft-deletes.
-   - `unit_amount` — frozen price at sale time (defaults to `product.price` but is editable — discounts).
-   - `total_amount` — `GENERATED ALWAYS AS (unit_amount * quantity) STORED`, read-only.
-   - `rate_per_usd_snapshot` — frozen currency rate at sale time. Use `paymentSnapshotCurrency(sale, currencies)` for display.
-3. **`customer_id` is nullable.** Walk-in (anonymous) sales have `customer_id = NULL`.
-4. **No hard delete.** Void via `voided_at` / `voided_by` / `void_reason`. Voided sales drop from the active list but stay in DB.
-5. **Dashboard revenue includes sales.** `DashboardService.getMetrics()` sums `rate_per_usd_snapshot`-converted sale totals alongside payment totals.
-6. **Tenant isolation via RLS.**
+   - `sale_items.product_name_snapshot` — frozen product name per line, survives renames and soft-deletes.
+   - `sale_items.unit_amount` — frozen per-line price at sale time (defaults to the product's price converted into the sale currency, but is editable — discounts).
+   - `sales.total_amount` — **app-written** sum of every line's `unit_amount * quantity` (no longer a generated column). Snapshot, read-only after create.
+   - `sales.items_summary` — frozen product summary (e.g. `"Water ×2, Bread"`); powers search + list/debt/wallet labels.
+   - `sales.rate_per_usd_snapshot` — frozen currency rate at sale time. Use `paymentSnapshotCurrency(sale, currencies)` for display.
+3. **One currency per sale.** Every line's `unit_amount` is in the sale's `currency_id`. Products priced in another currency are auto-converted into the sale currency (live rate) as the editable prefill.
+4. **`customer_id` (header) is nullable.** Walk-in (anonymous) sales have `customer_id = NULL`.
+5. **No hard delete.** Void via `voided_at` / `voided_by` / `void_reason` on the header. Voided sales drop from the active list but stay in DB; lines cascade only on hard delete.
+6. **Dashboard revenue includes sales.** `DashboardService.getMetrics()` sums `rate_per_usd_snapshot`-converted sale `total_amount`s alongside payment totals. `salesCount` counts sales (headers), not products.
+7. **Product delete-reference counts key off `sale_items.product_id`.** A product used by any sale line soft-deletes (kept), else hard-deletes.
+8. **Tenant isolation via RLS.** `sale_items` inherits its branch from the parent sale.
 
 ---
 
@@ -92,7 +97,7 @@ Covers the one-off sales ledger: recording a sale against an optional customer, 
 | 2.8 | Customer picker — pagination | Scroll to bottom of search results | Next page loads via FlatList.onEndReached |
 | 2.9 | Customer picker — stale response | Type fast (e.g. "Jo" then immediately "John") | Earlier "Jo" response discarded (requestToken guard); only "John" results shown |
 | 2.10 | Customer picker — clear | Select a customer, then remove | `customer_id = null` (walk-in path) |
-| 2.11 | Quantity | Enter quantity = 3 for a $20 product | `total_amount = 60` (generated column); shown in form and receipt |
+| 2.11 | Quantity | Enter quantity = 3 for a $20 product | line total = 60; `total_amount = 60` (app-written sum); shown in form and receipt |
 | 2.12 | Quantity default | Open form | Quantity pre-filled with `1` |
 | 2.13 | Quantity = 0 | Enter `0` | Submit disabled |
 | 2.14 | Quantity = negative | Enter `-1` | Submit disabled |
@@ -115,18 +120,40 @@ Covers the one-off sales ledger: recording a sale against an optional customer, 
 
 ---
 
+## 2A. Multi-product cart & currency auto-convert (SaleItemsEditor)
+
+| # | Scenario | Steps | Expected result |
+|---|----------|-------|-----------------|
+| 2A.1 | Single product (default) | Open form | One product row shown; no line-number header (looks like the old single-product form) |
+| 2A.2 | Add a product | Tap "Add product" | A second product row appears; both rows now show a line number + Remove |
+| 2A.3 | Remove a product | Tap Remove on a row (with ≥2 rows) | That row disappears; total recomputes |
+| 2A.4 | Cannot remove last row | Try to remove the only row | Blocked — a sale always keeps ≥1 line |
+| 2A.5 | Per-line quantity + price | Set line 1 = product A ×2, line 2 = product B ×1 | Total = A.unit×2 + B.unit×1; the emerald "Total" reflects the sum |
+| 2A.6 | Summed total | Two lines totalling 30 | "Total" shows 30 in the sale currency |
+| 2A.7 | items_summary saved | Submit a 2-product sale, inspect the card/receipt | Card title + receipt hero show a summary like "A ×2, B"; DB `items_summary` matches |
+| 2A.8 | First product sets sale currency | Fresh form, pick a product priced in LBP | Sale currency defaults to LBP; the line prefills the LBP price |
+| 2A.9 | Mixed-currency product auto-convert | Sale currency = USD, add a product priced 100,000 LBP (rate 89000) | That line's unit price prefills ≈ 1.12 USD (converted); editable |
+| 2A.10 | Change sale currency re-prices lines | Add products, then switch sale currency USD→LBP | Every line's unit price re-prefills from its product's catalog price converted to LBP |
+| 2A.11 | Manual override persists | Edit a line's unit price, don't change product/currency | The typed value stays (only product-pick / currency-change re-prefills) |
+| 2A.12 | Line with no product | Add a row, leave its product empty | Submit disabled until the row has a product + valid amount (or is removed) |
+| 2A.13 | Add product inline | Tap "+" on the product dropdown | ProductFormSheet opens; created product becomes selectable |
+| 2A.14 | One rate snapshot | Submit a mixed-currency-source sale in USD | Header stores one `currency_id = null` + `rate_per_usd_snapshot = 1`; each line's `unit_amount` is the converted USD value |
+| 2A.15 | Search finds any product | Record a sale with products A + B, search "B" on the Sales tab | The sale appears (matched via `items_summary`) |
+
+---
+
 ## 3. Sale receipt (SaleDetailSheet)
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
 | 3.1 | Open receipt | Tap a sale card | SaleDetailSheet opens |
 | 3.2 | Header | Look at the sheet title | "Sale Receipt" (or locale equivalent) |
-| 3.3 | Product name | On receipt | Shows `product_name_snapshot` (frozen at sale time) |
+| 3.3 | Products list | On receipt | One row per product line (`name × qty` → line total), each a frozen `product_name_snapshot` |
 | 3.4 | Amount (stored currency primary) | Sale in LBP, display currency = USD | Primary line shows LBP amount; secondary "≈ $X.XX" line via snapshot rate |
 | 3.5 | Snapshot immunity | Renamed product / edited currency rate after recording | Displayed values unchanged (snapshot-based) |
 | 3.6 | Walk-in customer | Customer = null | Shows "Walk-in" or equivalent in customer row |
 | 3.7 | Customer name | Sale linked to customer | Customer name shown; tapping (if navigable) opens customer detail |
-| 3.8 | Quantity and unit | quantity = 3, unit = $20 | Shows "3 × $20.00 = $60.00" (or equivalent layout) |
+| 3.8 | Per-line rows | 2-product sale | Each product shown as "name × qty" with its line total; a single-quantity line shows just the name |
 | 3.9 | Notes row visible | Sale has notes | Notes row shown |
 | 3.10 | Notes row hidden | Sale has no notes | Notes row not rendered |
 | 3.11 | Date | Always shown | Formatted sale date |

@@ -15,7 +15,7 @@ Covers the Products catalog: a list of one-off sellable items (not subscriptions
 
 ## 0. Critical invariants
 
-1. **Products are never hard-deleted when referenced by sales.** `ProductService.deleteProduct()` checks `countReferences(id)`. If any sales reference the product, it sets `active = false` (soft-delete). Hard-delete only when no sales exist.
+1. **Products are never hard-deleted when referenced by a sale line.** `ProductService.deleteProduct()` checks `countReferences(id)` — the count of `sale_items` rows (sale lines) using the product. If any sale line references it, it sets `active = false` (soft-delete). Hard-delete only when no sale line exists.
 2. **`branch_id IS NULL` means SHARED** — visible to every branch, same as plans.
 3. **Tier-gated creation.** `ProductService.createProduct()` calls `tierService.assertCanCreate(tier, usage, 'products')` after validation. Free tier: max 5 products. Pro / Business: unlimited.
 4. **`null currency_id` means USD** throughout — same rule as payments and plans.

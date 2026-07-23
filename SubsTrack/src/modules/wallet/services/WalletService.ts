@@ -129,7 +129,7 @@ class WalletService {
         collectorUserId: s.recordedByUserId,
         customerId: s.customerId,
         customerName: s.customer?.name ?? null,
-        label: s.productNameSnapshot,
+        label: s.itemsSummary,
         amount: s.amountPaid,
         currencyId: s.currencyId,
         ratePerUsdSnapshot: s.ratePerUsdSnapshot,

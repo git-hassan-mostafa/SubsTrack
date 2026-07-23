@@ -68,9 +68,9 @@ export class ProductRepository extends BaseRepository implements IProductReposit
     if (error) this.handleError(error);
   }
 
-  // The subset of the given products that any sale references — one query.
+  // The subset of the given products that any sale line references — one query.
   async referencedIds(ids: string[]): Promise<Set<string>> {
-    return this.referencedIdsIn('sales', 'product_id', ids);
+    return this.referencedIdsIn('sale_items', 'product_id', ids);
   }
 
   // Count active products only — soft-deleted ones don't consume tier slots.
@@ -85,10 +85,10 @@ export class ProductRepository extends BaseRepository implements IProductReposit
     return count ?? 0;
   }
 
-  // Sales referencing this product. Drives soft-delete vs hard-delete in ProductService.
+  // Sale lines referencing this product. Drives soft-delete vs hard-delete in ProductService.
   async countReferences(id: string): Promise<number> {
     const { count, error } = await this.db
-      .from('sales')
+      .from('sale_items')
       .select('id', { count: 'exact', head: true })
       .eq('product_id', id);
     if (error) this.handleError(error);

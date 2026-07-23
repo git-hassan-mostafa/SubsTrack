@@ -560,16 +560,15 @@ One-off sellable items distinct from subscription plans. Routers sold outright, 
 - Soft-delete when referenced by sales (preserves history); hard-delete otherwise.
 - Tier-gated via `tier_plans.max_products` — Free: 5, Pro: unlimited, Business: unlimited.
 
-**Sales** (ledger):
+**Sales** (ledger — header + product lines):
 
-- One-off sale record. Independent table from `payments` — no shared schema.
-- `customer_id` is **nullable** — walk-in / anonymous sales supported.
-- Snapshot fields (frozen at write time, never recomputed):
-  - `product_name_snapshot` — survives product rename / soft-delete
-  - `unit_amount` — defaults to `product.price` but is overridable on the form
-  - `rate_per_usd_snapshot` — same drift-free principle as `payments.rate_per_usd_snapshot`
-- `total_amount` = generated column `unit_amount * quantity`.
-- Soft-void only (`voided_at`, `voided_by`, `void_reason`). No hard delete.
+- One sale can hold **several products**. A sale is a **header (`sales`) + one or more lines (`sale_items`)**, mirroring `customers` → `customer_plans`. Independent from `payments` — no shared schema.
+- `customer_id` (on the header) is **nullable** — walk-in / anonymous sales supported.
+- **One currency per sale.** Each product's catalog price is auto-converted into the chosen sale currency (live rate) as the editable per-line prefill; the sale freezes one `currency_id` + `rate_per_usd_snapshot`.
+- **Header snapshot fields** (frozen, never recomputed): `items_summary` (product summary for search + labels), `total_amount` (**app-written** sum of line totals — a generated column can't sum a child table), `rate_per_usd_snapshot`, `amount_paid` (partial → one "Sales" debt for the whole sale).
+- **Line (`sale_items`) snapshot fields:** `product_name_snapshot` (survives rename / soft-delete), `unit_amount` (defaults to the converted `product.price`, overridable), `quantity`. `line_total = unit_amount * quantity` is derived, not stored. Branch inherited from the parent sale; `ON DELETE CASCADE`.
+- Soft-void only, on the header (`voided_at`, `voided_by`, `void_reason`). No hard delete of active sales.
+- The record-sale form (`SaleFormSheet`) uses a `SaleItemsEditor` cart (add/remove product rows). Partial-payment / debt / wallet / dashboard all stay **header-level** (one debt, one wallet entry, one revenue figure per sale).
 
 **Entry points:**
 

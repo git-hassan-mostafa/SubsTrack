@@ -79,8 +79,7 @@ export function SaleCard({
           className="text-base font-semibold text-gray-900"
           numberOfLines={1}
         >
-          {sale.productNameSnapshot}
-          {sale.quantity > 1 ? ` × ${sale.quantity}` : ""}
+          {sale.itemsSummary}
         </Text>
         <Text className="text-xs text-gray-500 mt-0.5" numberOfLines={1}>
           {sale.customer?.name ?? t("sales.walk_in")}

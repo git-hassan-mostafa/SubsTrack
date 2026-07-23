@@ -135,19 +135,30 @@ export const TABLES: TableSpec[] = [
     },
   },
   {
+    // Sale header. Products live in the sale_items child table.
     name: 'sales',
     scope: 'tenant',
     columns: {
-      id: 'text', tenant_id: 'text', branch_id: 'text', product_id: 'text',
-      product_name_snapshot: 'text', customer_id: 'text', recorded_by_user_id: 'text',
-      quantity: 'int', unit_amount: 'num', total_amount: 'num', amount_paid: 'num',
+      id: 'text', tenant_id: 'text', branch_id: 'text', items_summary: 'text',
+      customer_id: 'text', recorded_by_user_id: 'text',
+      total_amount: 'num', amount_paid: 'num',
       currency_id: 'text', rate_per_usd_snapshot: 'num', sold_at: 'text',
       voided_at: 'text', voided_by: 'text',
       void_reason: 'text', notes: 'text', remitted_at: 'text', remitted_by: 'text',
       created_at: 'text', updated_at: 'text',
     },
-    generated: ['total_amount'], // server: GENERATED ALWAYS AS (unit_amount * quantity)
-    // NOTE: amount_paid is NOT generated — the client writes it.
+    // total_amount is app-written (sum of sale_items line totals) — NOT generated.
+    // amount_paid is also client-written.
+  },
+  {
+    // One product line per sale.
+    name: 'sale_items',
+    scope: 'tenant',
+    columns: {
+      id: 'text', sale_id: 'text', tenant_id: 'text', product_id: 'text',
+      product_name_snapshot: 'text', quantity: 'int', unit_amount: 'num',
+      created_at: 'text', updated_at: 'text',
+    },
   },
   {
     name: 'custom_debts',
@@ -200,5 +211,5 @@ export const TABLE_BY_NAME: Record<string, TableSpec> = Object.fromEntries(
 export const SYNC_PULL_ORDER = [
   'tenants', 'tier_plans', 'app_options', 'currencies', 'branches', 'users',
   'plans', 'customers', 'customer_plans', 'payments', 'products', 'sales',
-  'custom_debts', 'debt_payments', 'exception_logs',
+  'sale_items', 'custom_debts', 'debt_payments', 'exception_logs',
 ] as const;

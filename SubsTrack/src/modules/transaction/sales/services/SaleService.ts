@@ -2,9 +2,16 @@ import type { Sale } from '@/src/core/types';
 import type { BranchFilter } from '@/src/core/constants';
 import i18n from '@/src/core/i18n';
 import repository from '../repository/SaleRepository';
-import { CreateSaleInput, type FindSalesOptions } from '../utils/types'
+import { CreateSaleInput, CreateSaleItemInput, type FindSalesOptions } from '../utils/types'
 import { mapDbSaleToSale } from '../utils/mapper';
 
+// Frozen human summary of a sale's products, e.g. "Water ×2, Bread". Contains
+// every product name so the Sales-tab search can match any of them.
+function buildItemsSummary(items: CreateSaleItemInput[]): string {
+  return items
+    .map((it) => (it.quantity > 1 ? `${it.product.name} ×${it.quantity}` : it.product.name))
+    .join(', ');
+}
 
 class SaleService {
   async getSales(opts: FindSalesOptions = {}): Promise<Sale[]> {
@@ -23,20 +30,26 @@ class SaleService {
     if (!(ratePerUsdSnapshot > 0)) {
       throw new Error(i18n.t('errors.rate_snapshot_positive'));
     }
+    const total = input.items.reduce((sum, it) => sum + it.unitAmount * it.quantity, 0);
     const row = await repository.create({
       tenant_id: input.tenantId,
       branch_id: input.branchId,
-      product_id: input.product.id,
-      product_name_snapshot: input.product.name,
+      items_summary: buildItemsSummary(input.items),
       customer_id: input.customerId,
       recorded_by_user_id: input.recordedByUserId,
-      quantity: input.quantity,
-      unit_amount: input.unitAmount,
+      total_amount: total,
       amount_paid: input.amountPaid,
       currency_id: input.currency?.id ?? null,
       rate_per_usd_snapshot: ratePerUsdSnapshot,
       sold_at: new Date().toISOString(),
       notes: input.notes?.trim() || null,
+      items: input.items.map((it) => ({
+        tenant_id: input.tenantId,
+        product_id: it.product.id,
+        product_name_snapshot: it.product.name,
+        quantity: it.quantity,
+        unit_amount: it.unitAmount,
+      })),
     });
     return mapDbSaleToSale(row);
   }
@@ -92,14 +105,19 @@ class SaleService {
   }
 
   private validate(input: CreateSaleInput): void {
-    if (!input.product?.id) throw new Error(i18n.t('errors.sale_product_required'));
-    if (!Number.isInteger(input.quantity) || input.quantity <= 0) {
-      throw new Error(i18n.t('errors.sale_quantity_invalid'));
+    if (!Array.isArray(input.items) || input.items.length === 0) {
+      throw new Error(i18n.t('errors.sale_items_required'));
     }
-    if (typeof input.unitAmount !== 'number' || Number.isNaN(input.unitAmount) || input.unitAmount <= 0) {
-      throw new Error(i18n.t('errors.sale_amount_positive'));
+    for (const it of input.items) {
+      if (!it.product?.id) throw new Error(i18n.t('errors.sale_product_required'));
+      if (!Number.isInteger(it.quantity) || it.quantity <= 0) {
+        throw new Error(i18n.t('errors.sale_quantity_invalid'));
+      }
+      if (typeof it.unitAmount !== 'number' || Number.isNaN(it.unitAmount) || it.unitAmount <= 0) {
+        throw new Error(i18n.t('errors.sale_amount_positive'));
+      }
     }
-    const total = input.unitAmount * input.quantity;
+    const total = input.items.reduce((sum, it) => sum + it.unitAmount * it.quantity, 0);
     if (
       typeof input.amountPaid !== 'number' ||
       Number.isNaN(input.amountPaid) ||

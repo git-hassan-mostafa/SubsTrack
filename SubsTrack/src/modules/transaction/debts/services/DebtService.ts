@@ -64,7 +64,7 @@ class DebtService {
         category: 'sales',
         customerId: s.customerId as string,
         customerName: s.customer?.name ?? '',
-        label: s.productNameSnapshot,
+        label: s.itemsSummary,
         remaining: s.totalAmount - s.amountPaid,
         currencyId: s.currencyId,
         ratePerUsdSnapshot: s.ratePerUsdSnapshot,

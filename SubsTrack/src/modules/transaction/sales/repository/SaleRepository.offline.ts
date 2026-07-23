@@ -1,5 +1,5 @@
 import { OFFLINE_PAGE_SIZE, type BranchFilter } from '@/src/core/constants';
-import type { DbCustomer, DbProduct, DbSale } from '@/src/core/types/db';
+import type { DbCustomer, DbProduct, DbSale, DbSaleItem } from '@/src/core/types/db';
 import { OfflineBaseRepository } from '@/src/core/offline/OfflineBaseRepository';
 import { insertDirty } from '@/src/core/offline/db/dml';
 import { newId, nowIso } from '@/src/core/offline/ids';
@@ -15,18 +15,30 @@ function nextDayStartIso(day: string): string {
   return new Date(y, m - 1, d + 1).toISOString();
 }
 
-/** SQLite-backed sales repository. Reproduces `'*, products(*), customers(*)'`. */
+/** SQLite-backed sales repository. Reproduces
+ *  `'*, sale_items(*, products(*)), customers(*)'`. */
 export class OfflineSaleRepository extends OfflineBaseRepository implements ISaleRepository {
   private async hydrate(sales: DbSale[]): Promise<DbSale[]> {
     if (sales.length === 0) return sales;
-    const products = await this.rowsById<DbProduct>('products', sales.map((s) => s.product_id));
+    const itemsByParent = await this.childrenByParent<DbSaleItem>(
+      'sale_items',
+      'sale_id',
+      sales.map((s) => s.id),
+      'created_at',
+    );
+    const productIds: string[] = [];
+    for (const arr of itemsByParent.values()) for (const it of arr) productIds.push(it.product_id);
+    const products = await this.rowsById<DbProduct>('products', productIds);
     const customers = await this.rowsById<DbCustomer>(
       'customers',
       sales.map((s) => s.customer_id).filter((c): c is string => !!c),
     );
     return sales.map((s) => ({
       ...s,
-      products: products.get(s.product_id) ?? null,
+      sale_items: (itemsByParent.get(s.id) ?? []).map((it) => ({
+        ...it,
+        products: products.get(it.product_id) ?? null,
+      })),
       customers: s.customer_id ? customers.get(s.customer_id) ?? null : null,
     }));
   }
@@ -37,14 +49,18 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
     if (!opts.includeVoided) parts.push({ clause: 's.voided_at IS NULL', params: [] });
     if (opts.customerId !== undefined && opts.customerId !== null)
       parts.push({ clause: 's.customer_id = ?', params: [opts.customerId] });
-    if (opts.productId) parts.push({ clause: 's.product_id = ?', params: [opts.productId] });
+    if (opts.productId)
+      parts.push({
+        clause: 'EXISTS (SELECT 1 FROM sale_items si WHERE si.sale_id = s.id AND si.product_id = ?)',
+        params: [opts.productId],
+      });
     if (opts.fromDate) parts.push({ clause: 's.sold_at >= ?', params: [dayStartIso(opts.fromDate)] });
     if (opts.toDate) parts.push({ clause: 's.sold_at < ?', params: [nextDayStartIso(opts.toDate)] });
     const term = opts.searchQuery?.trim().replace(/[,()]/g, '');
     if (term) {
       const like = `%${term}%`;
       parts.push({
-        clause: '(s.product_name_snapshot LIKE ? COLLATE NOCASE OR c.name LIKE ? COLLATE NOCASE)',
+        clause: '(s.items_summary LIKE ? COLLATE NOCASE OR c.name LIKE ? COLLATE NOCASE)',
         params: [like, like],
       });
     }
@@ -75,11 +91,12 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
   }
 
   async create(payload: CreateSalePayload): Promise<DbSale> {
+    const { items, ...header } = payload;
     const now = nowIso();
-    const row: DbSale = {
-      ...payload,
-      id: newId(),
-      total_amount: payload.quantity * payload.unit_amount,
+    const saleId = newId();
+    const saleRow: DbSale = {
+      ...header,
+      id: saleId,
       created_at: now,
       updated_at: now,
       voided_at: null,
@@ -88,9 +105,21 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
       remitted_at: null,
       remitted_by: null,
     };
-    await this.write((db) => insertDirty(db, 'sales', row));
-    const [hydrated] = await this.hydrate([row]);
-    return hydrated;
+    const itemRows: DbSaleItem[] = items.map((it) => ({
+      ...it,
+      id: newId(),
+      sale_id: saleId,
+      created_at: now,
+      updated_at: now,
+    }));
+    // Header + all lines in one local transaction (atomic offline; the generic
+    // sync pushes them separately, parents-before-children).
+    await this.write(async (db) => {
+      await insertDirty(db, 'sales', saleRow);
+      for (const it of itemRows) await insertDirty(db, 'sale_items', it);
+    });
+    const created = await this.findById(saleId);
+    return created as DbSale;
   }
 
   async voidSale(id: string, voidedBy: string, reason: string): Promise<DbSale> {
@@ -155,14 +184,18 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
     if (!opts.includeVoided) parts.push({ clause: 's.voided_at IS NULL', params: [] });
     if (opts.customerId !== undefined && opts.customerId !== null)
       parts.push({ clause: 's.customer_id = ?', params: [opts.customerId] });
-    if (opts.productId) parts.push({ clause: 's.product_id = ?', params: [opts.productId] });
+    if (opts.productId)
+      parts.push({
+        clause: 'EXISTS (SELECT 1 FROM sale_items si WHERE si.sale_id = s.id AND si.product_id = ?)',
+        params: [opts.productId],
+      });
     if (opts.fromDate) parts.push({ clause: 's.sold_at >= ?', params: [dayStartIso(opts.fromDate)] });
     if (opts.toDate) parts.push({ clause: 's.sold_at < ?', params: [nextDayStartIso(opts.toDate)] });
     const term = opts.searchQuery?.trim().replace(/[,()]/g, '');
     if (term) {
       const like = `%${term}%`;
       parts.push({
-        clause: '(s.product_name_snapshot LIKE ? COLLATE NOCASE OR c.name LIKE ? COLLATE NOCASE)',
+        clause: '(s.items_summary LIKE ? COLLATE NOCASE OR c.name LIKE ? COLLATE NOCASE)',
         params: [like, like],
       });
     }

@@ -79,10 +79,7 @@ export function SaleDetailSheet({
     ? `${stripCurrencyLabel(fmtSource(sale.amountPaid), source)}/${totalSourceLabel}`
     : totalSourceLabel;
   const receiptId = sale.id.slice(-6).toUpperCase();
-  const productLabel =
-    sale.quantity > 1
-      ? `${sale.productNameSnapshot} × ${sale.quantity}`
-      : sale.productNameSnapshot;
+  const itemsLabel = sale.itemsSummary;
 
   return (
     <FormSheet
@@ -107,7 +104,7 @@ export function SaleDetailSheet({
                   </Text>
                 ) : null}
                 <Text className="text-sm text-gray-400 mt-1">
-                  {productLabel}
+                  {itemsLabel}
                 </Text>
                 {voided ? (
                   <View className="mt-2 bg-red-100 rounded-full px-3 py-1">
@@ -133,7 +130,7 @@ export function SaleDetailSheet({
                   </Text>
                 ) : null}
                 <Text className="text-sm text-gray-400 mt-1">
-                  {productLabel}
+                  {itemsLabel}
                 </Text>
               </View>
             )}
@@ -149,12 +146,18 @@ export function SaleDetailSheet({
 
             {/* Detail rows card */}
             <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden mb-4">
-              {sale.quantity > 1 ? (
+              {/* One row per product line */}
+              {sale.items.map((it) => (
                 <Row
-                  label={t("sales.unit_amount_label")}
-                  value={fmtSource(sale.unitAmount)}
+                  key={it.id}
+                  label={
+                    it.quantity > 1
+                      ? `${it.productNameSnapshot} × ${it.quantity}`
+                      : it.productNameSnapshot
+                  }
+                  value={fmtSource(it.lineTotal)}
                 />
-              ) : null}
+              ))}
               <Row
                 label={t("sales.customer_label")}
                 value={sale.customer?.name ?? t("sales.walk_in")}

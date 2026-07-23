@@ -1,11 +1,18 @@
 import type { BranchFilter } from '@/src/core/constants';
-import type { DbSale } from '@/src/core/types/db';
+import type { DbSale, DbSaleItem } from '@/src/core/types/db';
 import type { FindSalesOptions } from '../utils/types';
 
+// One line of the sale to create. `sale_id` is filled in by the repository.
+export type CreateSaleItemPayload = Omit<
+  DbSaleItem,
+  'id' | 'sale_id' | 'created_at' | 'updated_at' | 'products'
+>;
+
+// Sale header to create + its product lines. `total_amount` and `items_summary`
+// are computed by the service (total_amount is app-written, not generated).
 export type CreateSalePayload = Omit<
   DbSale,
   | 'id'
-  | 'total_amount'
   | 'created_at'
   | 'updated_at'
   | 'voided_at'
@@ -13,9 +20,9 @@ export type CreateSalePayload = Omit<
   | 'void_reason'
   | 'remitted_at'
   | 'remitted_by'
-  | 'products'
+  | 'sale_items'
   | 'customers'
->;
+> & { items: CreateSaleItemPayload[] };
 
 export interface ISaleRepository {
   findAll(opts?: FindSalesOptions): Promise<DbSale[]>;

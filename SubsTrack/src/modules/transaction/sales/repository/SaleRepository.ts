@@ -6,7 +6,11 @@ import { FindSalesOptions } from '../utils/types';
 import type { CreateSalePayload, ISaleRepository } from './ISaleRepository';
 import { OfflineSaleRepository } from './SaleRepository.offline';
 
-const SALE_SELECT = '*, products(*), customers(*)';
+// Header + its lines (each line with its product) + the customer.
+const SALE_SELECT = '*, sale_items(*, products(*)), customers(*)';
+// Lean select for aggregates/labels — the header's items_summary is enough; no
+// need to hydrate the lines.
+const SALE_SELECT_LEAN = '*, customers(*)';
 
 // Convert a calendar day (YYYY-MM-DD) to the start of that local day as ISO.
 function dayStartIso(day: string): string {
@@ -23,6 +27,18 @@ function nextDayStartIso(day: string): string {
 }
 
 export class SaleRepository extends BaseRepository implements ISaleRepository {
+  // Sales that contain a given product — resolved from sale_items, so the
+  // product filter still works now that product_id lives on the line, not the
+  // sale header.
+  private async saleIdsForProduct(productId: string): Promise<string[]> {
+    const { data, error } = await this.db
+      .from('sale_items')
+      .select('sale_id')
+      .eq('product_id', productId);
+    if (error) this.handleError(error);
+    return Array.from(new Set((data ?? []).map((r: { sale_id: string }) => r.sale_id)));
+  }
+
   async findAll(opts: FindSalesOptions = {}): Promise<DbSale[]> {
     const page = opts.page ?? 0;
     const from = page * PAGE_SIZE;
@@ -38,17 +54,17 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
     if (opts.customerId !== undefined && opts.customerId !== null) {
       query = query.eq('customer_id', opts.customerId);
     }
-    if (opts.productId) query = query.eq('product_id', opts.productId);
+    if (opts.productId) query = query.in('id', await this.saleIdsForProduct(opts.productId));
 
     // Date range on sold_at. Bounds are calendar days; the end is made
     // inclusive by using the start of the following day as an exclusive bound.
     if (opts.fromDate) query = query.gte('sold_at', dayStartIso(opts.fromDate));
     if (opts.toDate) query = query.lt('sold_at', nextDayStartIso(opts.toDate));
 
-    // Search across the snapshotted product name + customer name (via join).
+    // Search across the frozen items summary + customer name (via join).
     if (opts.searchQuery?.trim()) {
       const term = opts.searchQuery.trim();
-      query = query.or(`product_name_snapshot.ilike.%${term}%,customers.name.ilike.%${term}%`);
+      query = query.or(`items_summary.ilike.%${term}%,customers.name.ilike.%${term}%`);
     }
 
     query = this.applyBranchFilter(query, opts.branchFilter ?? null, this.BRANCH_SCOPES.sales);
@@ -81,13 +97,23 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
   }
 
   async create(payload: CreateSalePayload): Promise<DbSale> {
-    const { data, error } = await this.db
+    const { items, ...header } = payload;
+    // Insert the header first, then its lines (FK requires the sale to exist).
+    // Sequential insert mirrors the customer + customer_plans create path.
+    const { data: sale, error } = await this.db
       .from('sales')
-      .insert(payload)
-      .select(SALE_SELECT)
+      .insert(header)
+      .select('id')
       .single();
     if (error) this.handleError(error);
-    return data as DbSale;
+    const saleId = (sale as { id: string }).id;
+
+    const itemRows = items.map((it) => ({ ...it, sale_id: saleId }));
+    const { error: itemsError } = await this.db.from('sale_items').insert(itemRows);
+    if (itemsError) this.handleError(itemsError);
+
+    const created = await this.findById(saleId);
+    return created as DbSale;
   }
 
   async voidSale(id: string, voidedBy: string, reason: string): Promise<DbSale> {
@@ -166,12 +192,12 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
     if (opts.customerId !== undefined && opts.customerId !== null) {
       query = query.eq('customer_id', opts.customerId);
     }
-    if (opts.productId) query = query.eq('product_id', opts.productId);
+    if (opts.productId) query = query.in('id', await this.saleIdsForProduct(opts.productId));
     if (opts.fromDate) query = query.gte('sold_at', dayStartIso(opts.fromDate));
     if (opts.toDate) query = query.lt('sold_at', nextDayStartIso(opts.toDate));
     if (opts.searchQuery?.trim()) {
       const term = opts.searchQuery.trim();
-      query = query.or(`product_name_snapshot.ilike.%${term}%,customers.name.ilike.%${term}%`);
+      query = query.or(`items_summary.ilike.%${term}%,customers.name.ilike.%${term}%`);
     }
     query = this.applyBranchFilter(query, opts.branchFilter ?? null, this.BRANCH_SCOPES.sales);
 
@@ -185,17 +211,18 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
   }
 
   async partialSales(branchFilter: BranchFilter = null): Promise<DbSale[]> {
+    // Lean select — the debt label reads the header items_summary, no lines needed.
     let query = this.db
       .from('sales')
-      .select(SALE_SELECT)
+      .select(SALE_SELECT_LEAN)
       .is('voided_at', null)
       .not('customer_id', 'is', null)
       .order('sold_at', { ascending: false });
     query = this.applyBranchFilter(query, branchFilter, this.BRANCH_SCOPES.sales);
     const { data, error } = await query;
     if (error) this.handleError(error);
-    // total_amount is a GENERATED column, so PostgREST can't compare it to
-    // amount_paid server-side — filter the still-owed rows here (bounded set).
+    // PostgREST can't compare two columns (total_amount vs amount_paid) in a
+    // filter — keep the still-owed rows here (bounded, branch-scoped set).
     return (data ?? []).filter(
       (s: DbSale) => Number(s.total_amount) - Number(s.amount_paid) > 1e-9,
     ) as DbSale[];
@@ -205,9 +232,10 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
     branchFilter: BranchFilter = null,
     collectorUserId: string | null = null,
   ): Promise<DbSale[]> {
+    // Lean select — the wallet label reads the header items_summary.
     let query = this.db
       .from('sales')
-      .select(SALE_SELECT)
+      .select(SALE_SELECT_LEAN)
       .gt('amount_paid', 0)
       .is('voided_at', null)
       .is('remitted_at', null)

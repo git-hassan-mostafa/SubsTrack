@@ -677,13 +677,15 @@ CREATE OR REPLACE TRIGGER trg_products_updated_at
     EXECUTE FUNCTION set_updated_at();
 
 -- ============================================================
--- SALES
--- Ledger of one-off product sales. Customer is OPTIONAL (walk-in supported).
--- Mirrors the snapshot principle from payments: unit_amount,
--- product_name_snapshot, and rate_per_usd_snapshot are frozen at write
+-- SALES (header)
+-- Ledger of one-off product sales — the HEADER of a sale. Customer is OPTIONAL
+-- (walk-in supported). A sale holds one OR MORE products; the individual
+-- products live in the sale_items child table (one row per product). The header
+-- carries the single sale-wide currency + frozen rate, the summed total, and
+-- how much was collected. Mirrors the snapshot principle from payments:
+-- items_summary, total_amount, and rate_per_usd_snapshot are frozen at write
 -- time and never recomputed. Soft-void only — historical totals stay accurate.
--- No UNIQUE constraint on (customer, product, day) — the same customer can
--- buy the same product twice in a day legitimately.
+-- One currency per sale: every line's unit_amount is in currency_id.
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS sales (
@@ -693,21 +695,18 @@ CREATE TABLE IF NOT EXISTS sales (
     -- (or chosen by tenant-wide admins). NULL = sold by a tenant-wide admin
     -- with no branch context (rare but legal).
     branch_id             UUID,
-    product_id            UUID          NOT NULL,
-    -- Snapshot of product.name at sale time. Survives product renames or
-    -- soft-deletes (active = false) so receipts always show what was sold.
-    product_name_snapshot TEXT          NOT NULL,
+    -- Frozen human summary of the products in this sale (e.g. "Water ×2, Bread").
+    -- Powers list search + the list/debt/wallet labels WITHOUT joining sale_items.
+    items_summary         TEXT          NOT NULL,
     -- NULL = walk-in / anonymous sale.
     customer_id           UUID,
     recorded_by_user_id   UUID,
-    quantity              INTEGER       NOT NULL DEFAULT 1 CHECK (quantity > 0),
-    -- Per-unit price at sale time. May differ from product.price (staff
-    -- gave a discount, rounded, etc.). Snapshot — never recomputed.
-    unit_amount           NUMERIC(20,8) NOT NULL CHECK (unit_amount > 0),
-    -- Read-only computed total. App never writes this.
-    total_amount          NUMERIC(20,8) GENERATED ALWAYS AS (unit_amount * quantity) STORED,
+    -- Sum of every sale_items line's (unit_amount * quantity), in currency_id.
+    -- App-written at sale time (a generated column cannot sum a child table).
+    -- Snapshot — never recomputed.
+    total_amount          NUMERIC(20,8) NOT NULL CHECK (total_amount > 0),
     -- How much of the sale was actually collected at sale time. Same currency as
-    -- unit_amount. A partial sale (amount_paid < total) leaves a "Sales" debt.
+    -- the lines. A partial sale (amount_paid < total) leaves a "Sales" debt.
     -- Legacy sales predating this column backfill to full (see migration).
     amount_paid           NUMERIC(20,8) NOT NULL DEFAULT 0,
     -- Currency the amounts above are stored in. NULL = USD.
@@ -729,11 +728,9 @@ CREATE TABLE IF NOT EXISTS sales (
     remitted_at           TIMESTAMPTZ,
     remitted_by           UUID,
 
-    -- amount_paid can't be negative and can't exceed the sale total. Uses the
-    -- BASE columns (unit_amount * quantity) — Postgres forbids referencing the
-    -- GENERATED total_amount column inside a CHECK.
+    -- amount_paid can't be negative and can't exceed the summed sale total.
     CONSTRAINT chk_sales_amount_paid
-        CHECK (amount_paid >= 0 AND amount_paid <= unit_amount * quantity),
+        CHECK (amount_paid >= 0 AND amount_paid <= total_amount),
 
     -- remitted_at and remitted_by must be set together
     CONSTRAINT chk_sales_remitted_consistency
@@ -752,12 +749,6 @@ CREATE TABLE IF NOT EXISTS sales (
         FOREIGN KEY (branch_id)
         REFERENCES branches(id)
         ON DELETE SET NULL,
-
-    -- Products referenced by sales cannot be hard-deleted. Use active = false.
-    CONSTRAINT fk_sales_product
-        FOREIGN KEY (product_id)
-        REFERENCES products(id)
-        ON DELETE RESTRICT,
 
     -- Customer can be removed without orphaning the sale.
     CONSTRAINT fk_sales_customer
@@ -796,13 +787,67 @@ CREATE INDEX IF NOT EXISTS idx_sales_customer
 CREATE INDEX IF NOT EXISTS idx_sales_branch
     ON sales (branch_id);
 
-CREATE INDEX IF NOT EXISTS idx_sales_product
-    ON sales (product_id);
-
 -- Collector wallet: cash still held by a recording user (not remitted, not voided).
 CREATE INDEX IF NOT EXISTS idx_sales_wallet
     ON sales (recorded_by_user_id)
     WHERE remitted_at IS NULL AND voided_at IS NULL;
+
+-- ============================================================
+-- SALE ITEMS (lines)
+-- One row per product within a sale. A sale (header) has one or more of these.
+-- product_name_snapshot + unit_amount are frozen at sale time (survive product
+-- renames / soft-deletes). unit_amount is in the parent sale's currency — every
+-- line shares one currency. line total = unit_amount * quantity is derived in
+-- the app (no stored column). No branch_id: branch is inherited via the parent
+-- sale (RLS EXISTS), exactly like payments inherit via the customer.
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS sale_items (
+    id                    UUID          PRIMARY KEY DEFAULT uuid_generate_v4(),
+    sale_id               UUID          NOT NULL,
+    tenant_id             UUID          NOT NULL,
+    product_id            UUID          NOT NULL,
+    -- Snapshot of product.name at sale time.
+    product_name_snapshot TEXT          NOT NULL,
+    quantity              INTEGER       NOT NULL DEFAULT 1 CHECK (quantity > 0),
+    -- Per-unit price at sale time, in the parent sale's currency. May differ
+    -- from product.price (discount, rounding, currency conversion). Snapshot.
+    unit_amount           NUMERIC(20,8) NOT NULL CHECK (unit_amount > 0),
+    created_at            TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    updated_at            TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+
+    -- Deleting the parent sale removes its lines.
+    CONSTRAINT fk_sale_items_sale
+        FOREIGN KEY (sale_id)
+        REFERENCES sales(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_sale_items_tenant
+        FOREIGN KEY (tenant_id)
+        REFERENCES tenants(id)
+        ON DELETE CASCADE,
+
+    -- Products referenced by a sale line cannot be hard-deleted. Use active = false.
+    CONSTRAINT fk_sale_items_product
+        FOREIGN KEY (product_id)
+        REFERENCES products(id)
+        ON DELETE RESTRICT
+);
+
+CREATE INDEX IF NOT EXISTS idx_sale_items_sale
+    ON sale_items (sale_id);
+
+CREATE INDEX IF NOT EXISTS idx_sale_items_tenant
+    ON sale_items (tenant_id);
+
+-- Drives the product reference count (soft-vs-hard delete of a product).
+CREATE INDEX IF NOT EXISTS idx_sale_items_product
+    ON sale_items (product_id);
+
+CREATE OR REPLACE TRIGGER trg_sale_items_updated_at
+    BEFORE UPDATE ON sale_items
+    FOR EACH ROW
+    EXECUTE FUNCTION set_updated_at();
 
 -- ============================================================
 -- CUSTOM DEBTS
@@ -1023,6 +1068,7 @@ ALTER TABLE customer_plans ENABLE ROW LEVEL SECURITY;
 ALTER TABLE payments   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE products   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sales      ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sale_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE custom_debts  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE debt_payments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE exception_logs ENABLE ROW LEVEL SECURITY;
@@ -1451,6 +1497,40 @@ DO $$ BEGIN
                 AND (
                     current_branch_id() IS NULL
                     OR branch_id = current_branch_id()
+                )
+            );
+    END IF;
+
+    -- ── SALE ITEMS ───────────────────────────────────────────
+    -- No own branch_id; inherit from the parent sale, exactly like custom_debts
+    -- inherit from the customer. Tenant-wide users see all; branch-scoped users
+    -- only see lines whose parent sale.branch_id matches theirs.
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE tablename = 'sale_items' AND policyname = 'sale_items_all'
+    ) THEN
+        CREATE POLICY sale_items_all ON sale_items
+            FOR ALL
+            USING (
+                tenant_id = current_tenant_id()
+                AND EXISTS (
+                    SELECT 1 FROM sales s
+                    WHERE s.id = sale_items.sale_id
+                    AND (
+                        current_branch_id() IS NULL
+                        OR s.branch_id = current_branch_id()
+                    )
+                )
+            )
+            WITH CHECK (
+                tenant_id = current_tenant_id()
+                AND EXISTS (
+                    SELECT 1 FROM sales s
+                    WHERE s.id = sale_items.sale_id
+                    AND (
+                        current_branch_id() IS NULL
+                        OR s.branch_id = current_branch_id()
+                    )
                 )
             );
     END IF;

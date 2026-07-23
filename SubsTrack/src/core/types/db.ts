@@ -156,16 +156,16 @@ export interface DbProduct {
   updated_at: string;
 }
 
+// Sale header. Products live in DbSaleItem rows (the sale_items child table).
 export interface DbSale {
   id: string;
   tenant_id: string;
   branch_id: string | null;
-  product_id: string;
-  product_name_snapshot: string;
+  // Frozen product summary — search + labels (no sale_items join needed).
+  items_summary: string;
   customer_id: string | null;
   recorded_by_user_id: string | null;
-  quantity: number;
-  unit_amount: number;
+  // Sum of every line's (unit_amount * quantity). App-written (not generated).
   total_amount: number;
   // How much of the sale was collected. Partial (< total) leaves a "Sales" debt.
   amount_paid: number;
@@ -181,9 +181,24 @@ export interface DbSale {
   remitted_by: string | null;
   created_at: string;
   updated_at: string;
-  // joined relations — present when .select('*, products(*), customers(*)')
-  products?: DbProduct | null;
+  // joined relations — present when .select('*, sale_items(*, products(*)), customers(*)')
+  sale_items?: DbSaleItem[];
   customers?: DbCustomer | null;
+}
+
+// One product line of a sale (sale_items table).
+export interface DbSaleItem {
+  id: string;
+  sale_id: string;
+  tenant_id: string;
+  product_id: string;
+  product_name_snapshot: string;
+  quantity: number;
+  unit_amount: number;
+  created_at: string;
+  updated_at: string;
+  // joined relation — present when .select('*, products(*)')
+  products?: DbProduct | null;
 }
 
 // A hand-typed debt with no source transaction (months/sales debts are derived

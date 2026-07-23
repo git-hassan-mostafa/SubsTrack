@@ -268,19 +268,37 @@ export interface Product {
   updatedAt: string;
 }
 
-// A single product sale. customerId is OPTIONAL (walk-in supported).
-// productNameSnapshot, unitAmount, and ratePerUsdSnapshot are FROZEN at create time —
-// receipts and historical totals never drift when the catalog or FX rates change.
+// One product line within a sale. A sale (header) holds one or more of these.
+// productNameSnapshot + unitAmount are FROZEN at create time. unitAmount is in the
+// parent sale's currency (one currency per sale). lineTotal is derived, not stored.
+export interface SaleItem {
+  id: string;
+  saleId: string;
+  tenantId: string;
+  productId: string;
+  productNameSnapshot: string;
+  quantity: number;
+  unitAmount: number;
+  // Derived: unitAmount * quantity (no DB column).
+  lineTotal: number;
+  createdAt: string;
+  // Joined for display in the receipt.
+  product?: Product | null;
+}
+
+// A sale (header). Holds ONE OR MORE products via `items`. customerId is OPTIONAL
+// (walk-in supported). itemsSummary, totalAmount, and ratePerUsdSnapshot are FROZEN
+// at create time — receipts and historical totals never drift when the catalog or
+// FX rates change. One currency per sale (all items share `currencyId`).
 export interface Sale {
   id: string;
   tenantId: string;
   branchId: string | null;
-  productId: string;
-  productNameSnapshot: string;
+  // Frozen human summary of the products (e.g. "Water ×2, Bread") — search + labels.
+  itemsSummary: string;
   customerId: string | null;
   recordedByUserId: string | null;
-  quantity: number;
-  unitAmount: number;
+  // Sum of every line's lineTotal, frozen. In `currencyId`.
   totalAmount: number;
   // How much was collected at sale time. A partial sale (amountPaid < totalAmount)
   // leaves a "Sales" debt (remaining = totalAmount - amountPaid).
@@ -298,8 +316,10 @@ export interface Sale {
   remittedAt: string | null;
   remittedBy: string | null;
   createdAt: string;
+  // The product lines. Present on list/detail reads; empty on lean reads (debt/wallet
+  // use itemsSummary instead).
+  items: SaleItem[];
   // Joined for display in lists/receipts.
-  product?: Product | null;
   customer?: Customer | null;
 }
 

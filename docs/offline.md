@@ -41,7 +41,7 @@ Every local write flags its row `_dirty = 1` (created / edited / soft-deleted); 
 ## Local store
 
 - Mirror tables match `src/core/types/db.ts` **exactly** (snake_case). Money/rate columns are **TEXT (exact decimal)** — never SQLite `REAL` (float drift). Read via `Number()` (as the mappers do). **Numeric comparisons in SQL use `CAST(col AS REAL)`** (a TEXT column compared to `0` would otherwise compare by storage class, not value).
-- `payments.balance` and `sales.total_amount` (server-generated columns) are **computed locally** on write, and **stripped before push** (`generated` in `db/tables.ts`) — Postgres rejects a value for a `GENERATED ALWAYS` column (SQLSTATE `428C9`).
+- `payments.balance` (a server-generated column) is **computed locally** on write, and **stripped before push** (`generated` in `db/tables.ts`) — Postgres rejects a value for a `GENERATED ALWAYS` column (SQLSTATE `428C9`). (`sales.total_amount` used to be generated too, but is now **app-written** — the summed line total — so it is NOT in `generated` and IS pushed like any normal column.)
 - One local-only column per table: `_dirty` (1 while a write awaits push). Two tiny bookkeeping tables: `sync_meta` (`active_tenant_id`, `active_branch_scope`, `last_pulled_at`) and `pending_deletes` (`table_name`, `row_id`).
 - No SQL foreign keys (rows arrive out of order on pull). The DB is **scoped to one tenant _and_ one branch view**; `ensureTenantScope(tenantId, branchId)` wipes + re-pulls on a different-tenant **or different-branch-scope** login, and **refuses the wipe while any un-pushed write remains** (a `_dirty` row or a `pending_deletes` entry) so data is never discarded silently. See **Tenant scope & logout** below for what happens when the wipe is refused.
 
@@ -118,6 +118,8 @@ The interval and connectivity-returned triggers call plain `runSync()` (no refre
 `updated_at` + BEFORE UPDATE triggers on every synced table (drives the incremental pull; immune to client clock skew). **No tombstone table/triggers** — the client propagates hard deletes itself (push replays `pending_deletes`; pull's `reconcileDeletes` drops rows gone from the server). A fresh `script.sql` run creates the triggers; to migrate an existing DB, run the migration snippet provided in chat when the change was made.
 
 **Debts feature:** two synced tenant tables `custom_debts` + `debt_payments` (branch-via-customer RLS like `payments`, `set_updated_at` triggers), and a `sales.amount_paid` column (partial sales leave a debt). Locally these are just more entries in `db/tables.ts` (+ `SYNC_PULL_ORDER`), included in `SCHEMA_V1` like every other table. The generic push/pull picks them up with no engine change. Debts themselves are **computed at runtime** (see features.md → Debts).
+
+**Multi-product sales:** a sale is now a header (`sales`) + one or more product lines (**`sale_items`**, a synced tenant table registered right after `sales` in `SYNC_PULL_ORDER` — parents-before-children). `sale_items` inherits its branch from the parent sale (RLS `EXISTS`; the offline reads join `sales`). The offline `create` writes the header + all lines in one `write()` transaction; the generic push sends the header then the lines (order matters for the FK). `sales.total_amount` is no longer generated (app-written sum). No engine change — just the new descriptor. See features.md → Products & One-Off Sales.
 
 ## Exception logger (`src/core/errorLog/`) + Developer page
 

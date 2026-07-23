@@ -14,17 +14,24 @@ export interface FindSalesOptions {
     includeVoided?: boolean;
 }
 
-// Input shape from the form. `product` is the resolved Product (we use it to
-// snapshot the name + product_id). `currency` is the chosen non-USD Currency
-// or null for USD — we snapshot ratePerUsd from this.
-export interface CreateSaleInput {
+// One product line in the form's cart. `product` is the resolved Product (we
+// snapshot its name + id). `unitAmount` is already expressed in the sale's
+// currency (the form auto-converts the catalog price into it).
+export interface CreateSaleItemInput {
     product: Product;
-    customerId: string | null;
-    branchId: string | null;
     quantity: number;
     unitAmount: number;
-    // How much was collected at sale time (same currency as unitAmount). Must be
-    // 0..unitAmount*quantity. A value below the total leaves a "Sales" debt.
+}
+
+// Input shape from the form. A sale holds one or more product lines, all in a
+// single `currency` (chosen non-USD Currency or null for USD — we snapshot
+// ratePerUsd from it). The total is the sum of every line's unitAmount*quantity.
+export interface CreateSaleInput {
+    items: CreateSaleItemInput[];
+    customerId: string | null;
+    branchId: string | null;
+    // How much was collected at sale time (in `currency`). Must be 0..total.
+    // A value below the total leaves a "Sales" debt.
     amountPaid: number;
     currency: Currency | null;
     recordedByUserId: string | null;

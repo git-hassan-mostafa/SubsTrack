@@ -69,7 +69,7 @@ export class OfflineProductRepository extends OfflineBaseRepository implements I
   }
 
   async referencedIds(ids: string[]): Promise<Set<string>> {
-    return this.referencedIdsIn('sales', 'product_id', ids);
+    return this.referencedIdsIn('sale_items', 'product_id', ids);
   }
 
   async countAll(branchFilter: BranchFilter = null): Promise<number> {
@@ -81,6 +81,6 @@ export class OfflineProductRepository extends OfflineBaseRepository implements I
   }
 
   async countReferences(id: string): Promise<number> {
-    return this.count('SELECT COUNT(*) AS n FROM sales WHERE product_id = ?', [id]);
+    return this.count('SELECT COUNT(*) AS n FROM sale_items WHERE product_id = ?', [id]);
   }
 }
