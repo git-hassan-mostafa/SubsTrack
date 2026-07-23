@@ -769,8 +769,6 @@
     "pay_full_message": "Record a debt payment of {{amount}} for {{customer}}? This clears their whole debt.",
     "customer_panel_title": "Transactions",
     "section_debts": "Debts",
-    "section_debts_history": "Debts history",
-    "section_payments_history": "Debt payments history",
     "no_transactions_for_customer": "No transactions for this customer yet.",
     "history_title": "Debt history",
     "history_hint": "View debt history",

@@ -769,8 +769,6 @@
     "pay_full_message": "تسجيل دفعة دين بقيمة {{amount}} لـ {{customer}}؟ سيسدد هذا كامل دينه.",
     "customer_panel_title": "المعاملات",
     "section_debts": "الديون",
-    "section_debts_history": "سجل الديون",
-    "section_payments_history": "سجل دفعات الديون",
     "no_transactions_for_customer": "لا توجد معاملات لهذا العميل بعد.",
     "history_title": "سجل الديون والدفعات",
     "history_hint": "عرض سجل الديون والدفعات",

@@ -1,32 +1,42 @@
 import { useRef } from "react";
 import { cssInterop } from "nativewind";
-// Use gesture-handler's TouchableOpacity — NOT react-native's. RN's Touchable
-// uses the JS responder system, which fights react-native-gesture-handler (what
-// Gorhom's bottom sheets drag with). After a drag-down-to-close, the gesture
-// system stays "hot" for one touch and terminates the next tap on an RN
-// Touchable (press-in shows, but onPress never fires — the "tap twice" bug).
-// gesture-handler's Touchable shares that gesture system, so the first tap works.
+// Build on gesture-handler's Pressable — NOT react-native's Touchable/Pressable.
+// RN's touchables use the JS "responder" system, a separate world from
+// react-native-gesture-handler (what Gorhom's bottom sheets drag with). After a
+// sheet is closed by DRAGGING it down, the native gesture system stays "hot" for
+// one more touch to settle the just-finished pan; that first tap on an RN
+// touchable is granted then terminated — onPressIn fires (you see the press
+// effect) but onPress never does, so the tap is eaten and you must tap twice.
+// gesture-handler's Pressable lives in the same gesture system, so it isn't
+// terminated and the first tap works.
+//
+// We use `Pressable` (a SINGLE styled view) and NOT gesture-handler's
+// `TouchableOpacity`, which renders TWO nodes (an outer `containerStyle` view +
+// an inner `style` view). With that split, a single `className` can only reach
+// one node, so `flex-1` / positioning would land on the wrong one and break
+// layouts. Pressable keeps the one-node model of RN's old touchable, so
+// `className` behaves identically everywhere — no per-component special-casing.
 import {
-  TouchableOpacity,
-  type TouchableOpacityProps,
+  Pressable,
+  type PressableProps,
 } from "react-native-gesture-handler";
 
-// NativeWind auto-registers RN's core components (incl. RN's TouchableOpacity)
-// for `className`→`style`, but NOT gesture-handler's TouchableOpacity. Without
-// this the class names silently drop at runtime and every card/button loses its
-// chrome (bg / border / radius / padding). Registering it maps `className` onto
-// its `style` prop, matching RN's TouchableOpacity behaviour.
-cssInterop(TouchableOpacity, { className: "style" });
+// NativeWind auto-registers RN's core components for className→style but NOT
+// gesture-handler's, so without this the class names silently drop at runtime.
+// This is the exact registration NativeWind itself uses for RN's Pressable; the
+// `active:opacity-60` press feedback below rides on it (NativeWind injects the
+// press handlers that drive the `active:` state).
+cssInterop(Pressable, { className: "style" });
 
-interface PressableOpacityProps extends TouchableOpacityProps {
-  pressedOpacity?: number;
-}
+type PressEvent = Parameters<NonNullable<PressableProps["onPress"]>>[0];
+
+type PressableOpacityProps = PressableProps;
 
 export function PressableOpacity({
-  pressedOpacity = 0.6,
   onPress,
   onLongPress,
   onPressIn,
+  className,
   ...props
 }: PressableOpacityProps) {
   // Guards against an Android quirk: when `onLongPress` is dropped mid-gesture
@@ -38,32 +48,32 @@ export function PressableOpacity({
   // trailing press, is unaffected).
   const longPressed = useRef(false);
 
-  const handlePressIn = () => {
+  const handlePressIn = (e: PressEvent) => {
     longPressed.current = false;
-    onPressIn?.();
+    onPressIn?.(e);
   };
 
   const handleLongPress = onLongPress
-    ? () => {
+    ? (e: PressEvent) => {
         longPressed.current = true;
-        onLongPress();
+        onLongPress(e);
       }
     : undefined;
 
   const handlePress = onPress
-    ? () => {
+    ? (e: PressEvent) => {
         if (longPressed.current) {
           longPressed.current = false;
           return;
         }
-        onPress();
+        onPress(e);
       }
     : undefined;
 
   return (
-    <TouchableOpacity
-      activeOpacity={pressedOpacity}
+    <Pressable
       {...props}
+      className={`active:opacity-60 ${className ?? ""}`}
       onPressIn={handlePressIn}
       onPress={handlePress}
       onLongPress={handleLongPress}

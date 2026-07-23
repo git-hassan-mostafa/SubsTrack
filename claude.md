@@ -292,6 +292,12 @@ Status algorithm per month:
 
 - Before implementing, scan the surrounding codebase for existing patterns, naming, and structure, and match them. When in doubt, prefer consistency with existing code over personal preference. If an existing pattern looks like an anti-pattern, flag it with a comment rather than silently diverging.
 
+### Comments
+
+- Keep comments **brief, plain, and meaningful** — one short line that explains _why_ (the intent or the non-obvious gotcha), not _what_ the code already says. Avoid long paragraphs, restating the code, and redundant noise.
+- If a comment needs many lines to explain a rule, that detail belongs in the matching `docs/` file — link to it from a short in-code note instead of pasting it inline.
+- When editing a file with existing over-long comments, trim them to this style as you go.
+
 ### plan.md & QA
 
 - When a new feature is introduced, update `plan.md` to reflect the current implementation.
