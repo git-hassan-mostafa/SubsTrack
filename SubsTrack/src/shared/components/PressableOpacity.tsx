@@ -1,9 +1,22 @@
 import { useRef } from "react";
+import { cssInterop } from "nativewind";
+// Use gesture-handler's TouchableOpacity — NOT react-native's. RN's Touchable
+// uses the JS responder system, which fights react-native-gesture-handler (what
+// Gorhom's bottom sheets drag with). After a drag-down-to-close, the gesture
+// system stays "hot" for one touch and terminates the next tap on an RN
+// Touchable (press-in shows, but onPress never fires — the "tap twice" bug).
+// gesture-handler's Touchable shares that gesture system, so the first tap works.
 import {
   TouchableOpacity,
-  type GestureResponderEvent,
   type TouchableOpacityProps,
-} from "react-native";
+} from "react-native-gesture-handler";
+
+// NativeWind auto-registers RN's core components (incl. RN's TouchableOpacity)
+// for `className`→`style`, but NOT gesture-handler's TouchableOpacity. Without
+// this the class names silently drop at runtime and every card/button loses its
+// chrome (bg / border / radius / padding). Registering it maps `className` onto
+// its `style` prop, matching RN's TouchableOpacity behaviour.
+cssInterop(TouchableOpacity, { className: "style" });
 
 interface PressableOpacityProps extends TouchableOpacityProps {
   pressedOpacity?: number;
@@ -25,25 +38,25 @@ export function PressableOpacity({
   // trailing press, is unaffected).
   const longPressed = useRef(false);
 
-  const handlePressIn = (e: GestureResponderEvent) => {
+  const handlePressIn = () => {
     longPressed.current = false;
-    onPressIn?.(e);
+    onPressIn?.();
   };
 
   const handleLongPress = onLongPress
-    ? (e: GestureResponderEvent) => {
+    ? () => {
         longPressed.current = true;
-        onLongPress(e);
+        onLongPress();
       }
     : undefined;
 
   const handlePress = onPress
-    ? (e: GestureResponderEvent) => {
+    ? () => {
         if (longPressed.current) {
           longPressed.current = false;
           return;
         }
-        onPress(e);
+        onPress();
       }
     : undefined;
 
