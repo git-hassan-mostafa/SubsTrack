@@ -10,7 +10,7 @@ import { Text } from "@/src/shared/components/Text";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
 import { Ionicons } from "@expo/vector-icons";
 import { getDateLocale } from "@/src/core/utils/date";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";

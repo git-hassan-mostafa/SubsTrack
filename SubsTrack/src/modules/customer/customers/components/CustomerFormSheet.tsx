@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Switch, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { FormSheet } from "@/src/shared/components/FormSheet";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/src/shared/components/Button";
@@ -159,168 +159,162 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
         onDismiss={onDismiss}
         title={customer ? t("customers.edit_title") : t("customers.add_title")}
       >
-            {bannerError ? (
-              <ErrorBanner message={bannerError} onDismiss={clearBanner} />
-            ) : null}
+        {bannerError ? (
+          <ErrorBanner message={bannerError} onDismiss={clearBanner} />
+        ) : null}
 
+        <Input
+          label={t("customers.name_label") + " *"}
+          value={form.name}
+          onChangeText={(v) => setForm((prev) => ({ ...prev, name: v }))}
+          placeholder={t("customers.name_placeholder")}
+          onFocus={clearError}
+        />
+
+        {/* Phone + Start Date side by side */}
+        <View className="flex-row gap-3">
+          <View className="flex-1">
             <Input
-              label={t("customers.name_label") + " *"}
-              value={form.name}
-              onChangeText={(v) => setForm((prev) => ({ ...prev, name: v }))}
-              placeholder={t("customers.name_placeholder")}
-              onFocus={clearError}
+              label={t("customers.phone_label")}
+              value={form.phoneNumber}
+              onChangeText={(v) =>
+                setForm((prev) => ({ ...prev, phoneNumber: v }))
+              }
+              placeholder={t("customers.phone_placeholder")}
+              keyboardType="phone-pad"
             />
-
-            {/* Phone + Start Date side by side */}
-            <View className="flex-row gap-3">
-              <View className="flex-1">
-                <Input
-                  label={t("customers.phone_label")}
-                  value={form.phoneNumber}
-                  onChangeText={(v) =>
-                    setForm((prev) => ({ ...prev, phoneNumber: v }))
-                  }
-                  placeholder={t("customers.phone_placeholder")}
-                  keyboardType="phone-pad"
-                />
-              </View>
-              <View className="flex-1">
-                <DatePickerInput
-                  label={t("customers.start_date_label") + " *"}
-                  value={form.startDate}
-                  onChange={(v) =>
-                    setForm((prev) => ({ ...prev, startDate: v }))
-                  }
-                  placeholder={t("customers.start_date_placeholder")}
-                />
-              </View>
-            </View>
-
-            <Input
-              label={t("customers.address_label")}
-              value={form.address}
-              onChangeText={(v) => setForm((prev) => ({ ...prev, address: v }))}
-              placeholder={t("common.optional")}
+          </View>
+          <View className="flex-1">
+            <DatePickerInput
+              label={t("customers.start_date_label") + " *"}
+              value={form.startDate}
+              onChange={(v) => setForm((prev) => ({ ...prev, startDate: v }))}
+              placeholder={t("customers.start_date_placeholder")}
             />
+          </View>
+        </View>
 
-            <Input
-              label={t("customers.area_label")}
-              value={form.area}
-              onChangeText={(v) => setForm((prev) => ({ ...prev, area: v }))}
-              placeholder={t("customers.area_placeholder")}
-            />
+        <Input
+          label={t("customers.address_label")}
+          value={form.address}
+          onChangeText={(v) => setForm((prev) => ({ ...prev, address: v }))}
+          placeholder={t("common.optional")}
+        />
 
-            {/* Location — paste a Google Maps share link. */}
-            <View className="mb-4">
-              <Text className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
-                {t("customers.location_label")}
+        <Input
+          label={t("customers.area_label")}
+          value={form.area}
+          onChangeText={(v) => setForm((prev) => ({ ...prev, area: v }))}
+          placeholder={t("customers.area_placeholder")}
+        />
+
+        {/* Location — paste a Google Maps share link. */}
+        <View className="mb-4">
+          <Text className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+            {t("customers.location_label")}
+          </Text>
+          <PressableOpacity
+            onPress={() => void openMapsApp()}
+            className="flex-row items-center justify-center gap-2 rounded-xl py-3 px-4 border border-gray-300 mb-2"
+          >
+            <Ionicons name="map-outline" size={18} color={COLORS.primary} />
+            <Text className="text-sm font-semibold text-primary">
+              {t("customers.location_open_maps")}
+            </Text>
+          </PressableOpacity>
+          <View className="mb-2 px-1">
+            {[1, 2, 3, 4].map((n) => (
+              <Text key={n} className="text-xs text-gray-400 leading-5">
+                {n}.{t(`customers.location_step_${n}`)}
               </Text>
+            ))}
+          </View>
+          <Input
+            value={form.locationUrl}
+            onChangeText={(v) =>
+              setForm((prev) => ({ ...prev, locationUrl: v }))
+            }
+            placeholder={t("customers.location_placeholder")}
+            autoCapitalize="none"
+            keyboardType="url"
+          />
+          {form.locationUrl.trim() ? (
+            <View className="flex-row items-center justify-between -mt-2 px-1">
+              <View className="flex-row items-center gap-1.5">
+                <Ionicons
+                  name="checkmark-circle"
+                  size={14}
+                  color={COLORS.success}
+                />
+                <Text className="text-xs" style={{ color: COLORS.success }}>
+                  {t("customers.location_saved")}
+                </Text>
+              </View>
               <PressableOpacity
-                onPress={() => void openMapsApp()}
-                className="flex-row items-center justify-center gap-2 rounded-xl py-3 px-4 border border-gray-300 mb-2"
+                onPress={() =>
+                  setForm((prev) => ({ ...prev, locationUrl: "" }))
+                }
               >
-                <Ionicons name="map-outline" size={18} color={COLORS.primary} />
-                <Text className="text-sm font-semibold text-primary">
-                  {t("customers.location_open_maps")}
+                <Text className="text-xs text-gray-400">
+                  {t("common.clear")}
                 </Text>
               </PressableOpacity>
-              <View className="mb-2 px-1">
-                {[1, 2, 3, 4].map((n) => (
-                  <Text key={n} className="text-xs text-gray-400 leading-5">
-                    {n}.{t(`customers.location_step_${n}`)}
-                  </Text>
-                ))}
-              </View>
-              <Input
-                value={form.locationUrl}
-                onChangeText={(v) =>
-                  setForm((prev) => ({ ...prev, locationUrl: v }))
-                }
-                placeholder={t("customers.location_placeholder")}
-                autoCapitalize="none"
-                keyboardType="url"
-              />
-              {form.locationUrl.trim() ? (
-                <View className="flex-row items-center justify-between -mt-2 px-1">
-                  <View className="flex-row items-center gap-1.5">
-                    <Ionicons
-                      name="checkmark-circle"
-                      size={14}
-                      color={COLORS.success}
-                    />
-                    <Text className="text-xs" style={{ color: COLORS.success }}>
-                      {t("customers.location_saved")}
-                    </Text>
-                  </View>
-                  <PressableOpacity
-                    onPress={() =>
-                      setForm((prev) => ({ ...prev, locationUrl: "" }))
-                    }
-                  >
-                    <Text className="text-xs text-gray-400">
-                      {t("common.clear")}
-                    </Text>
-                  </PressableOpacity>
-                </View>
-              ) : null}
             </View>
+          ) : null}
+        </View>
 
-            <BranchPicker
-              label={t("branches.branch_label") + " *"}
-              value={form.branchId}
-              onChange={(branchId) =>
-                setForm((prev) => ({ ...prev, branchId }))
-              }
-              nullLabel={t("branches.unassigned")}
-              nullable={false}
-            />
+        <BranchPicker
+          label={t("branches.branch_label") + " *"}
+          value={form.branchId}
+          onChange={(branchId) => setForm((prev) => ({ ...prev, branchId }))}
+          nullLabel={t("branches.unassigned")}
+          nullable={false}
+        />
 
-            {/* Plans (service lines) — add / change / remove inline. */}
-            <CustomerPlansEditor
-              ref={plansEditor}
-              customer={customer}
-              branchId={form.branchId}
-              startDate={form.startDate}
-            />
+        {/* Plans (service lines) — add / change / remove inline. */}
+        <CustomerPlansEditor
+          ref={plansEditor}
+          customer={customer}
+          branchId={form.branchId}
+          startDate={form.startDate}
+        />
 
-            <Input
-              label={t("customers.notes_label")}
-              value={form.notes}
-              onChangeText={(v) => setForm((prev) => ({ ...prev, notes: v }))}
-              placeholder={t("customers.notes_placeholder")}
-              multiline
-              numberOfLines={3}
-              textAlignVertical="top"
-              style={{ minHeight: 80 }}
-            />
+        <Input
+          label={t("customers.notes_label")}
+          value={form.notes}
+          onChangeText={(v) => setForm((prev) => ({ ...prev, notes: v }))}
+          placeholder={t("customers.notes_placeholder")}
+          multiline
+          numberOfLines={3}
+          textAlignVertical="top"
+          style={{ minHeight: 80 }}
+        />
 
-            {/* Regular customer toggle */}
-            <View className="flex-row items-center justify-between py-3 border-t border-gray-100 mb-4">
-              <View className="flex-1 me-4">
-                <Text fontWeight="SemiBold" className="text-sm text-gray-900">
-                  {t("customers.regular_label")}
-                </Text>
-                <Text className="text-xs text-gray-400 mt-0.5">
-                  {t("customers.regular_hint")}
-                </Text>
-              </View>
-              <Switch
-                value={form.isRegular}
-                onValueChange={(v) =>
-                  setForm((prev) => ({ ...prev, isRegular: v }))
-                }
-              />
-            </View>
+        {/* Regular customer toggle */}
+        <View className="flex-row items-center justify-between py-3 border-t border-gray-100 mb-4">
+          <View className="flex-1 me-4">
+            <Text fontWeight="SemiBold" className="text-sm text-gray-900">
+              {t("customers.regular_label")}
+            </Text>
+            <Text className="text-xs text-gray-400 mt-0.5">
+              {t("customers.regular_hint")}
+            </Text>
+          </View>
+          <Switch
+            value={form.isRegular}
+            onValueChange={(v) =>
+              setForm((prev) => ({ ...prev, isRegular: v }))
+            }
+          />
+        </View>
 
-            <Button
-              label={
-                customer ? t("common.save_changes") : t("customers.add_title")
-              }
-              onPress={handleSubmit}
-              loading={submitting}
-              disabled={!form.name.trim() || !form.startDate || !form.branchId}
-              fullWidth
-            />
+        <Button
+          label={customer ? t("common.save_changes") : t("customers.add_title")}
+          onPress={handleSubmit}
+          loading={submitting}
+          disabled={!form.name.trim() || !form.startDate || !form.branchId}
+          fullWidth
+        />
         <View className="h-24" />
       </FormSheet>
       <UpgradePromptModal

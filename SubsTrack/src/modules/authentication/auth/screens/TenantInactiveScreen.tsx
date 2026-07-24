@@ -1,5 +1,5 @@
 import { View } from "react-native";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";

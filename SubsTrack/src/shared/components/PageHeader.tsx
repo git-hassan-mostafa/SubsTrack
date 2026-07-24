@@ -6,7 +6,7 @@ import { Text } from "@/src/shared/components/Text";
 import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
 import { COLORS } from "@/src/shared/constants";
 import { useUiSlice } from "@/src/state/hooks/useUiSlice";
-import { PressableOpacity } from "./PressableOpacity";
+import { PressableOpacity } from "./PressableOpacity/PressableOpacity";
 import { BranchSelector } from "./BranchSelector";
 import { SelectionBar, type SelectionAction } from "./SelectionBar";
 import { ActionMenu, type ActionMenuItem } from "./ActionMenu";

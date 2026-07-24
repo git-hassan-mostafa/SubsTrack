@@ -1,26 +1,29 @@
-import { useCallback, useMemo, useState } from 'react';
-import { FlatList, RefreshControl, View } from 'react-native';
-import { AppBottomSheet } from '@/src/shared/components/AppBottomSheet';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useTranslation } from 'react-i18next';
-import { useFocusEffect, useRouter } from 'expo-router';
-import { COLORS } from '@/src/shared/constants';
-import { PageHeader } from '@/src/shared/components/PageHeader';
-import { ResponsiveContainer } from '@/src/shared/components/ResponsiveContainer';
-import { ErrorBanner } from '@/src/shared/components/ErrorBanner';
-import { EmptyState } from '@/src/shared/components/EmptyState';
-import { Text } from '@/src/shared/components/Text';
-import { PressableOpacity } from '@/src/shared/components/PressableOpacity';
-import { ActionMenu, type ActionMenuItem } from '@/src/shared/components/ActionMenu';
-import { confirm } from '@/src/shared/lib/confirm';
-import { findCurrency, formatMoney } from '@/src/core/utils/currency';
-import { useCurrencySlice } from '@/src/state/hooks/useCurrencySlice';
-import { useUiPrefStore } from '@/src/shared/lib/uiPrefStore';
-import { useEffectiveBranchFilter } from '@/src/shared/hooks/useEffectiveBranchFilter';
-import { useWalletSlice } from '@/src/state/hooks/useWalletSlice';
-import type { CollectorWallet, WalletItem } from '@/src/core/types';
-import { CollectorWalletCard } from '../components/CollectorWalletCard';
-import { WalletDetailView } from '../components/WalletDetailView';
+import { useCallback, useMemo, useState } from "react";
+import { FlatList, RefreshControl, View } from "react-native";
+import { AppBottomSheet } from "@/src/shared/components/AppBottomSheet";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { useTranslation } from "react-i18next";
+import { useFocusEffect, useRouter } from "expo-router";
+import { COLORS } from "@/src/shared/constants";
+import { PageHeader } from "@/src/shared/components/PageHeader";
+import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
+import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
+import { EmptyState } from "@/src/shared/components/EmptyState";
+import { Text } from "@/src/shared/components/Text";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
+import {
+  ActionMenu,
+  type ActionMenuItem,
+} from "@/src/shared/components/ActionMenu";
+import { confirm } from "@/src/shared/lib/confirm";
+import { findCurrency, formatMoney } from "@/src/core/utils/currency";
+import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
+import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
+import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
+import { useWalletSlice } from "@/src/state/hooks/useWalletSlice";
+import type { CollectorWallet, WalletItem } from "@/src/core/types";
+import { CollectorWalletCard } from "../components/CollectorWalletCard";
+import { WalletDetailView } from "../components/WalletDetailView";
 
 // Admin screen: every collector who is holding cash not yet handed over, with
 // the total each owes the business. Tap a collector to see the transactions and
@@ -38,7 +41,9 @@ export function WalletsScreen() {
   const fetchDetail = useWalletSlice((s) => s.fetchDetail);
   const clearDetail = useWalletSlice((s) => s.clearDetail);
   const receiveItems = useWalletSlice((s) => s.receiveItems);
-  const receiveAllFromCollector = useWalletSlice((s) => s.receiveAllFromCollector);
+  const receiveAllFromCollector = useWalletSlice(
+    (s) => s.receiveAllFromCollector,
+  );
   const clearError = useWalletSlice((s) => s.clearError);
 
   const currencies = useCurrencySlice((s) => s.items);
@@ -81,12 +86,14 @@ export function WalletsScreen() {
   async function handleReceiveItems(items: WalletItem[]): Promise<boolean> {
     if (items.length === 0) return false;
     const ok = await confirm({
-      title: t('wallet.receive_confirm_title'),
+      title: t("wallet.receive_confirm_title"),
       message:
         items.length === 1
-          ? t('wallet.receive_confirm_message')
-          : t('wallet.receive_selected_confirm_message', { count: items.length }),
-      confirmLabel: t('wallet.receive'),
+          ? t("wallet.receive_confirm_message")
+          : t("wallet.receive_selected_confirm_message", {
+              count: items.length,
+            }),
+      confirmLabel: t("wallet.receive"),
     });
     if (!ok) return false;
     setBusy(true);
@@ -103,9 +110,11 @@ export function WalletsScreen() {
   // it also closes it (the collector drops off the list afterward).
   async function receiveAllFor(wallet: CollectorWallet, fromSheet: boolean) {
     const ok = await confirm({
-      title: t('wallet.receive_all_confirm_title'),
-      message: t('wallet.receive_all_confirm_message', { name: wallet.collectorName }),
-      confirmLabel: t('wallet.receive_all'),
+      title: t("wallet.receive_all_confirm_title"),
+      message: t("wallet.receive_all_confirm_message", {
+        name: wallet.collectorName,
+      }),
+      confirmLabel: t("wallet.receive_all"),
     });
     if (!ok) return;
     if (fromSheet) setBusy(true);
@@ -128,23 +137,27 @@ export function WalletsScreen() {
     if (!wallet) return [];
     return [
       {
-        key: 'receive-all',
-        label: t('wallet.receive_all'),
-        icon: 'checkmark-done-outline',
+        key: "receive-all",
+        label: t("wallet.receive_all"),
+        icon: "checkmark-done-outline",
         onPress: () => void receiveAllFor(wallet, false),
       },
     ];
   }
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50" edges={['top']}>
+    <SafeAreaView className="flex-1 bg-gray-50" edges={["top"]}>
       <ResponsiveContainer className="flex-1">
-        <PageHeader title={t('wallet.title')} showBack onBack={() => router.back()} />
+        <PageHeader
+          title={t("wallet.title")}
+          showBack
+          onBack={() => router.back()}
+        />
         {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}
 
         <View className="px-5 py-4">
           <Text className="text-xs text-gray-400 uppercase tracking-wide">
-            {t('wallet.unremitted_total')}
+            {t("wallet.unremitted_total")}
           </Text>
           <Text fontWeight="Bold" className="text-2xl text-gray-900 mt-1">
             {formatMoney(grandTotalUsd, null, target)}
@@ -173,8 +186,8 @@ export function WalletsScreen() {
           ListEmptyComponent={
             loading ? null : (
               <EmptyState
-                message={t('wallet.list_empty_title')}
-                subMessage={t('wallet.list_empty_desc')}
+                message={t("wallet.list_empty_title")}
+                subMessage={t("wallet.list_empty_desc")}
               />
             )
           }
@@ -193,10 +206,12 @@ export function WalletsScreen() {
               className="text-lg text-gray-900 flex-1 pe-2"
               numberOfLines={1}
             >
-              {openWallet?.collectorName ?? ''}
+              {openWallet?.collectorName ?? ""}
             </Text>
             <PressableOpacity onPress={closeCollector}>
-              <Text className="text-base text-primary font-medium">{t('common.close')}</Text>
+              <Text className="text-base text-primary font-medium">
+                {t("common.close")}
+              </Text>
             </PressableOpacity>
           </View>
           <WalletDetailView

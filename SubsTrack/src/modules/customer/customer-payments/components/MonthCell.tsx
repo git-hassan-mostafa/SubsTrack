@@ -1,7 +1,7 @@
 import { memo } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { useTranslation } from "react-i18next";
 import { getCurrentYearMonth } from "@/src/core/utils/date";
@@ -94,7 +94,8 @@ export const MonthCell = memo(function MonthCell({
   // payment (unpaid / future) or open / void an existing one (paid, incl. a
   // partial payment). Only before-start cells stay tap-only. Hidden in
   // selection mode — the checkbox badge takes its place.
-  const showMenu = !selectionMode && !!onMenu && entry.status !== "before_start";
+  const showMenu =
+    !selectionMode && !!onMenu && entry.status !== "before_start";
 
   // Match the dots to the label colour so they stay visible on every cell type.
   const usesWhiteText =

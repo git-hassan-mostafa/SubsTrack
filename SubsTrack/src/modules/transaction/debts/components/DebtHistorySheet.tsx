@@ -4,7 +4,7 @@ import { BottomSheetSectionList } from "@gorhom/bottom-sheet";
 import { AppBottomSheet } from "@/src/shared/components/AppBottomSheet";
 import { useTranslation } from "react-i18next";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { EmptyState } from "@/src/shared/components/EmptyState";
 import { MonthSectionHeader } from "@/src/shared/components/MonthSectionHeader";
@@ -44,7 +44,10 @@ export function DebtHistorySheet({ items, payments, onDismiss }: Props) {
   // here stays the single source of order.
   const rows: Row[] = useMemo(() => {
     const merged: { row: Row; date: string }[] = [
-      ...items.map((item) => ({ row: { kind: "item", item } as Row, date: item.date })),
+      ...items.map((item) => ({
+        row: { kind: "item", item } as Row,
+        date: item.date,
+      })),
       ...payments.map((payment) => ({
         row: { kind: "payment", payment } as Row,
         date: payment.paidAt,
@@ -73,54 +76,54 @@ export function DebtHistorySheet({ items, payments, onDismiss }: Props) {
     <AppBottomSheet visible onDismiss={onDismiss} variant="full">
       <ResponsiveContainer className="flex-1">
         <View className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
-            <Text
-              fontWeight="Bold"
-              className="text-lg text-gray-900"
-              numberOfLines={1}
-            >
-              {t("debts.history_title")}
+          <Text
+            fontWeight="Bold"
+            className="text-lg text-gray-900"
+            numberOfLines={1}
+          >
+            {t("debts.history_title")}
+          </Text>
+          <PressableOpacity onPress={onDismiss}>
+            <Text className="text-base text-primary font-medium">
+              {t("common.close")}
             </Text>
-            <PressableOpacity onPress={onDismiss}>
-              <Text className="text-base text-primary font-medium">
-                {t("common.close")}
-              </Text>
-            </PressableOpacity>
-          </View>
+          </PressableOpacity>
+        </View>
 
-          <BottomSheetSectionList
-            sections={sections}
-            keyExtractor={(r) =>
-              r.kind === "item"
-                ? `i-${r.item.category}-${r.item.id}`
-                : `p-${r.payment.id}`
-            }
-            stickySectionHeadersEnabled={false}
-            contentContainerStyle={{
-              padding: 16,
-              paddingBottom: 48,
-              flexGrow: 1,
-            }}
-            renderSectionHeader={({ section }) => (
-              <MonthSectionHeader
-                title={section.title}
-                count={section.data.length}
-                total={formatMoney(section.totalUsd ?? 0, null, target)}
-              />
-            )}
-            renderItem={({ item: row }) =>
-              row.kind === "payment" ? (
-                <DebtPaymentCard payment={row.payment} />
-              ) : (
-                <DebtItemCard item={row.item} />
-              )
-            }
-            ListEmptyComponent={
-              <EmptyState
-                message={t("debts.history_empty")}
-                subMessage={t("debts.history_empty_hint")}
-              />
-            }
-          />
+        <BottomSheetSectionList
+          sections={sections}
+          keyExtractor={(r) =>
+            r.kind === "item"
+              ? `i-${r.item.category}-${r.item.id}`
+              : `p-${r.payment.id}`
+          }
+          stickySectionHeadersEnabled={false}
+          contentContainerStyle={{
+            padding: 16,
+            paddingBottom: 48,
+            flexGrow: 1,
+          }}
+          renderSectionHeader={({ section }) => (
+            <MonthSectionHeader
+              title={section.title}
+              count={section.data.length}
+              total={formatMoney(section.totalUsd ?? 0, null, target)}
+            />
+          )}
+          renderItem={({ item: row }) =>
+            row.kind === "payment" ? (
+              <DebtPaymentCard payment={row.payment} />
+            ) : (
+              <DebtItemCard item={row.item} />
+            )
+          }
+          ListEmptyComponent={
+            <EmptyState
+              message={t("debts.history_empty")}
+              subMessage={t("debts.history_empty_hint")}
+            />
+          }
+        />
       </ResponsiveContainer>
     </AppBottomSheet>
   );

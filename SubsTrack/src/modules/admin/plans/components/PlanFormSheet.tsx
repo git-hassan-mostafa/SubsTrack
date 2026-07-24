@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Switch, View } from "react-native";
 import { FormSheet } from "@/src/shared/components/FormSheet";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/src/shared/components/Button";
@@ -128,177 +128,175 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
         onDismiss={onDismiss}
         title={plan ? t("plans.edit_title") : t("plans.add_title")}
       >
-            {error ? (
-              <ErrorBanner message={error} onDismiss={clearError} />
-            ) : null}
+        {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}
 
-            <Input
-              label={t("plans.plan_name_label") + " *"}
-              value={form.name}
-              onChangeText={(v) => setForm((prev) => ({ ...prev, name: v }))}
-              placeholder={t("plans.plan_name_placeholder")}
-              onFocus={clearError}
-            />
+        <Input
+          label={t("plans.plan_name_label") + " *"}
+          value={form.name}
+          onChangeText={(v) => setForm((prev) => ({ ...prev, name: v }))}
+          placeholder={t("plans.plan_name_placeholder")}
+          onFocus={clearError}
+        />
 
-            <BranchPicker
-              label={
-                t("branches.branch_label") + (branchPickerNullable ? "" : " *")
-              }
-              value={form.branchId}
-              onChange={(v) => setForm((prev) => ({ ...prev, branchId: v }))}
-              nullLabel={t("branches.shared_all_branches")}
-              nullable={branchPickerNullable}
-            />
+        <BranchPicker
+          label={
+            t("branches.branch_label") + (branchPickerNullable ? "" : " *")
+          }
+          value={form.branchId}
+          onChange={(v) => setForm((prev) => ({ ...prev, branchId: v }))}
+          nullLabel={t("branches.shared_all_branches")}
+          nullable={branchPickerNullable}
+        />
 
-            {/* Duration picker — multi-month UI hidden behind tier flag */}
-            {multiMonthAllowed ? (
-              <View className="mb-4">
-                <Text className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
-                  {t("plans.duration_label")}
-                </Text>
+        {/* Duration picker — multi-month UI hidden behind tier flag */}
+        {multiMonthAllowed ? (
+          <View className="mb-4">
+            <Text className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+              {t("plans.duration_label")}
+            </Text>
 
-                <View className="flex-row flex-wrap" style={{ gap: 8 }}>
-                  {DURATION_OPTIONS.map((d) => {
-                    const selected = form.durationMonths === d;
-                    return (
-                      <PressableOpacity
-                        key={d}
-                        onPress={() =>
-                          setForm((prev) => ({
-                            ...prev,
-                            durationMonths: d,
-                            isCustomPrice: d > 1 ? false : prev.isCustomPrice,
-                          }))
-                        }
-                        className={`px-4 py-2.5 rounded-xl border ${
-                          selected
-                            ? "bg-primary border-primary"
-                            : "bg-white border-gray-200"
-                        }`}
-                      >
-                        <Text
-                          fontWeight="SemiBold"
-                          className={`text-sm ${
-                            selected ? "text-white" : "text-gray-700"
-                          }`}
-                        >
-                          {d === 1
-                            ? t("plans.monthly")
-                            : t("plans.n_months", { count: d })}
-                        </Text>
-                      </PressableOpacity>
-                    );
-                  })}
-                </View>
-
-                <View className="flex-row items-center justify-between mt-3 px-4 py-2 border border-gray-200 rounded-xl">
-                  <Text className="text-sm text-gray-700">
-                    {form.durationMonths === 1
-                      ? t("plans.monthly")
-                      : t("plans.n_months", { count: form.durationMonths })}
-                  </Text>
-                  <View className="flex-row items-center">
-                    <PressableOpacity
-                      onPress={() => setDuration(-1)}
-                      className="w-9 h-9 rounded-lg bg-gray-100 items-center justify-center"
+            <View className="flex-row flex-wrap" style={{ gap: 8 }}>
+              {DURATION_OPTIONS.map((d) => {
+                const selected = form.durationMonths === d;
+                return (
+                  <PressableOpacity
+                    key={d}
+                    onPress={() =>
+                      setForm((prev) => ({
+                        ...prev,
+                        durationMonths: d,
+                        isCustomPrice: d > 1 ? false : prev.isCustomPrice,
+                      }))
+                    }
+                    className={`px-4 py-2.5 rounded-xl border ${
+                      selected
+                        ? "bg-primary border-primary"
+                        : "bg-white border-gray-200"
+                    }`}
+                  >
+                    <Text
+                      fontWeight="SemiBold"
+                      className={`text-sm ${
+                        selected ? "text-white" : "text-gray-700"
+                      }`}
                     >
-                      <Text className="text-gray-700 text-lg font-bold">−</Text>
-                    </PressableOpacity>
-                    <Text className="text-base font-semibold text-gray-900 w-10 text-center">
-                      {form.durationMonths}
+                      {d === 1
+                        ? t("plans.monthly")
+                        : t("plans.n_months", { count: d })}
                     </Text>
-                    <PressableOpacity
-                      onPress={() => setDuration(1)}
-                      className="w-9 h-9 rounded-lg bg-gray-100 items-center justify-center"
-                    >
-                      <Text className="text-gray-700 text-lg font-bold">+</Text>
-                    </PressableOpacity>
-                  </View>
-                </View>
+                  </PressableOpacity>
+                );
+              })}
+            </View>
 
-                <Text className="text-xs text-gray-400 mt-1.5">
-                  {isMultiMonth
-                    ? t("plans.bundle_price_hint")
-                    : t("plans.per_month")}
-                </Text>
-              </View>
-            ) : (
-              <View className="mb-4 rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-3">
-                <Text className="text-xs text-gray-500">
-                  {t("subscription.locked.multi_month_body", {
-                    nextTierName: t("subscription.next_tier"),
-                  })}
-                </Text>
-              </View>
-            )}
-
-            {!form.isCustomPrice ? (
-              <CurrencyInput
-                label={
-                  isMultiMonth
-                    ? t("plans.bundle_price_label") + " *"
-                    : t("plans.price_label") + " *"
-                }
-                amount={form.price}
-                currencyId={form.currencyId}
-                onChange={({ amount, currencyId }) =>
-                  setForm((prev) => ({ ...prev, price: amount, currencyId }))
-                }
-                currencies={currencies}
-                placeholder="0.00"
-                onFocus={clearError}
-              />
-            ) : null}
-
-            {/* Custom pricing toggle — hidden for multi-month plans */}
-            {!isMultiMonth ? (
-              <View className="flex-row items-center justify-between py-4 border border-gray-100 rounded-xl px-4 mb-6">
-                <View>
-                  <Text className="text-sm font-semibold text-gray-900">
-                    {t("plans.custom_pricing_label")}
-                  </Text>
-                  <Text className="text-xs text-gray-400 mt-0.5">
-                    {t("plans.custom_pricing_hint")}
-                  </Text>
-                </View>
-                <Switch
-                  value={form.isCustomPrice}
-                  onValueChange={(v) =>
-                    setForm((prev) => ({ ...prev, isCustomPrice: v }))
-                  }
-                  trackColor={{ true: COLORS.primary }}
-                />
-              </View>
-            ) : (
-              <View className="mb-6" />
-            )}
-
-            <Button
-              label={plan ? t("common.save_changes") : t("plans.add_title")}
-              onPress={handleSubmit}
-              loading={loading}
-              disabled={submitDisabled}
-              fullWidth
-            />
-
-            {/* Delete plan (edit mode only) */}
-            {plan && onRequestDelete ? (
-              <>
+            <View className="flex-row items-center justify-between mt-3 px-4 py-2 border border-gray-200 rounded-xl">
+              <Text className="text-sm text-gray-700">
+                {form.durationMonths === 1
+                  ? t("plans.monthly")
+                  : t("plans.n_months", { count: form.durationMonths })}
+              </Text>
+              <View className="flex-row items-center">
                 <PressableOpacity
-                  onPress={() => {
-                    onRequestDelete(plan);
-                  }}
-                  className="border border-red-200 rounded-xl py-3.5 items-center mt-3"
+                  onPress={() => setDuration(-1)}
+                  className="w-9 h-9 rounded-lg bg-gray-100 items-center justify-center"
                 >
-                  <Text className="text-red-500 font-semibold">
-                    {t("common.delete")}
-                  </Text>
+                  <Text className="text-gray-700 text-lg font-bold">−</Text>
                 </PressableOpacity>
-                <Text className="text-xs text-gray-400 text-center mt-3">
-                  {t("plans.delete_warning")}
+                <Text className="text-base font-semibold text-gray-900 w-10 text-center">
+                  {form.durationMonths}
                 </Text>
-              </>
-            ) : null}
+                <PressableOpacity
+                  onPress={() => setDuration(1)}
+                  className="w-9 h-9 rounded-lg bg-gray-100 items-center justify-center"
+                >
+                  <Text className="text-gray-700 text-lg font-bold">+</Text>
+                </PressableOpacity>
+              </View>
+            </View>
+
+            <Text className="text-xs text-gray-400 mt-1.5">
+              {isMultiMonth
+                ? t("plans.bundle_price_hint")
+                : t("plans.per_month")}
+            </Text>
+          </View>
+        ) : (
+          <View className="mb-4 rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-3">
+            <Text className="text-xs text-gray-500">
+              {t("subscription.locked.multi_month_body", {
+                nextTierName: t("subscription.next_tier"),
+              })}
+            </Text>
+          </View>
+        )}
+
+        {!form.isCustomPrice ? (
+          <CurrencyInput
+            label={
+              isMultiMonth
+                ? t("plans.bundle_price_label") + " *"
+                : t("plans.price_label") + " *"
+            }
+            amount={form.price}
+            currencyId={form.currencyId}
+            onChange={({ amount, currencyId }) =>
+              setForm((prev) => ({ ...prev, price: amount, currencyId }))
+            }
+            currencies={currencies}
+            placeholder="0.00"
+            onFocus={clearError}
+          />
+        ) : null}
+
+        {/* Custom pricing toggle — hidden for multi-month plans */}
+        {!isMultiMonth ? (
+          <View className="flex-row items-center justify-between py-4 border border-gray-100 rounded-xl px-4 mb-6">
+            <View>
+              <Text className="text-sm font-semibold text-gray-900">
+                {t("plans.custom_pricing_label")}
+              </Text>
+              <Text className="text-xs text-gray-400 mt-0.5">
+                {t("plans.custom_pricing_hint")}
+              </Text>
+            </View>
+            <Switch
+              value={form.isCustomPrice}
+              onValueChange={(v) =>
+                setForm((prev) => ({ ...prev, isCustomPrice: v }))
+              }
+              trackColor={{ true: COLORS.primary }}
+            />
+          </View>
+        ) : (
+          <View className="mb-6" />
+        )}
+
+        <Button
+          label={plan ? t("common.save_changes") : t("plans.add_title")}
+          onPress={handleSubmit}
+          loading={loading}
+          disabled={submitDisabled}
+          fullWidth
+        />
+
+        {/* Delete plan (edit mode only) */}
+        {plan && onRequestDelete ? (
+          <>
+            <PressableOpacity
+              onPress={() => {
+                onRequestDelete(plan);
+              }}
+              className="border border-red-200 rounded-xl py-3.5 items-center mt-3"
+            >
+              <Text className="text-red-500 font-semibold">
+                {t("common.delete")}
+              </Text>
+            </PressableOpacity>
+            <Text className="text-xs text-gray-400 text-center mt-3">
+              {t("plans.delete_warning")}
+            </Text>
+          </>
+        ) : null}
 
         <View className="h-24" />
       </FormSheet>

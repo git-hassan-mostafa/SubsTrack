@@ -2,7 +2,7 @@ import { useMemo } from "react";
 import { View } from "react-native";
 import { BottomSheetFlatList } from "@gorhom/bottom-sheet";
 import { Ionicons } from "@expo/vector-icons";
-import { PressableOpacity } from "./PressableOpacity";
+import { PressableOpacity } from "./PressableOpacity/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { COLORS } from "@/src/shared/constants";
 import { useTranslation } from "react-i18next";
@@ -387,7 +387,9 @@ export function DatePickerInput({
           numberOfLines={1}
           className={`text-base flex-1 ${displayValue ? "text-gray-900" : "text-gray-400"}`}
         >
-          {formattedValue ?? placeholder ?? t("customers.start_date_placeholder")}
+          {formattedValue ??
+            placeholder ??
+            t("customers.start_date_placeholder")}
         </Text>
         <Text className="text-gray-400 text-base ms-1">📅</Text>
       </PressableOpacity>

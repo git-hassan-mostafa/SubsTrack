@@ -1,5 +1,5 @@
 import { ActivityIndicator, Modal, Pressable, View } from "react-native";
-import { PressableOpacity } from "./PressableOpacity";
+import { PressableOpacity } from "./PressableOpacity/PressableOpacity";
 import { useEffect, useState, type ReactNode } from "react";
 import { Text } from "@/src/shared/components/Text";
 import { COLORS } from "@/src/shared/constants";

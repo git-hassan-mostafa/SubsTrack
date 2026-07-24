@@ -1,12 +1,17 @@
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, FlatList, RefreshControl, View } from "react-native";
+import {
+  ActivityIndicator,
+  FlatList,
+  RefreshControl,
+  View,
+} from "react-native";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { COLORS } from "@/src/shared/constants";
 import { EmptyState } from "@/src/shared/components/EmptyState";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { Text } from "@/src/shared/components/Text";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
 import { FAB } from "@/src/shared/components/FAB";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
@@ -20,7 +25,11 @@ import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
 import { useDebtSlice } from "@/src/state/hooks/useDebtSlice";
 import type { DebtItem, DebtPaymentItem } from "@/src/core/types";
-import { groupDebtors, sumDebtNetUsd, type Debtor } from "../utils/debtAggregations";
+import {
+  groupDebtors,
+  sumDebtNetUsd,
+  type Debtor,
+} from "../utils/debtAggregations";
 import { DebtorCard } from "../components/DebtorCard";
 import { DebtorDetailSheet } from "../components/DebtorDetailSheet";
 import { CustomDebtFormSheet } from "../components/CustomDebtFormSheet";
@@ -190,7 +199,11 @@ export function DebtsPanel() {
                 accessibilityLabel={t("debts.history_hint")}
                 className="w-8 h-8 -mt-1 -me-1 rounded-full bg-indigo-50 items-center justify-center"
               >
-                <Ionicons name="time-outline" size={18} color={COLORS.primary} />
+                <Ionicons
+                  name="time-outline"
+                  size={18}
+                  color={COLORS.primary}
+                />
               </PressableOpacity>
             </View>
             <View className="flex-row items-end justify-between mt-1">

@@ -1,6 +1,6 @@
 import { View } from "react-native";
 import { Text } from "@/src/shared/components/Text";
-import { PressableOpacity } from "./PressableOpacity";
+import { PressableOpacity } from "./PressableOpacity/PressableOpacity";
 
 interface ErrorBannerProps {
   message: string;

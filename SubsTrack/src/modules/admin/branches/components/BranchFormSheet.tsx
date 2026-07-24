@@ -6,7 +6,7 @@ import { Text } from "@/src/shared/components/Text";
 import { Button } from "@/src/shared/components/Button";
 import { Input } from "@/src/shared/components/Input";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
 import { useAuth } from "@/src/modules/authentication/auth";
 import type { Branch } from "@/src/core/types";
 import { useBranchSlice } from "@/src/state/hooks/useBranchSlice";
@@ -68,58 +68,54 @@ export function BranchFormSheet({ branch, onDismiss, onRequestDelete }: Props) {
         onDismiss={onDismiss}
         title={branch ? t("branches.edit_branch") : t("branches.add_branch")}
       >
-            {error ? (
-              <ErrorBanner message={error} onDismiss={clearError} />
-            ) : null}
+        {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}
 
-            {branch && !branch.active ? (
-              <View className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-4">
-                <Text className="text-sm text-amber-800">
-                  {t("branches.inactive_branch_note")}
-                </Text>
-              </View>
-            ) : null}
+        {branch && !branch.active ? (
+          <View className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-4">
+            <Text className="text-sm text-amber-800">
+              {t("branches.inactive_branch_note")}
+            </Text>
+          </View>
+        ) : null}
 
-            <Input
-              label={t("branches.name_label") + " *"}
-              value={name}
-              onChangeText={setName}
-              placeholder={t("branches.name_placeholder")}
-              maxLength={60}
-              onFocus={clearError}
-            />
+        <Input
+          label={t("branches.name_label") + " *"}
+          value={name}
+          onChangeText={setName}
+          placeholder={t("branches.name_placeholder")}
+          maxLength={60}
+          onFocus={clearError}
+        />
 
-            <Button
-              label={
-                branch ? t("common.save_changes") : t("branches.add_branch")
-              }
-              onPress={handleSubmit}
-              loading={loading}
-              disabled={submitDisabled}
-              fullWidth
-            />
+        <Button
+          label={branch ? t("common.save_changes") : t("branches.add_branch")}
+          onPress={handleSubmit}
+          loading={loading}
+          disabled={submitDisabled}
+          fullWidth
+        />
 
-            {branch && branch.active && onRequestDelete ? (
-              <PressableOpacity
-                onPress={() => onRequestDelete(branch)}
-                className="border border-red-200 rounded-xl py-3.5 items-center mt-3"
-              >
-                <Text className="text-red-500 font-semibold">
-                  {t("common.delete")}
-                </Text>
-              </PressableOpacity>
-            ) : null}
+        {branch && branch.active && onRequestDelete ? (
+          <PressableOpacity
+            onPress={() => onRequestDelete(branch)}
+            className="border border-red-200 rounded-xl py-3.5 items-center mt-3"
+          >
+            <Text className="text-red-500 font-semibold">
+              {t("common.delete")}
+            </Text>
+          </PressableOpacity>
+        ) : null}
 
-            {branch && !branch.active ? (
-              <PressableOpacity
-                onPress={handleReactivate}
-                className="border border-indigo-200 rounded-xl py-3.5 items-center mt-3"
-              >
-                <Text className="text-primary font-semibold">
-                  {t("branches.reactivate")}
-                </Text>
-              </PressableOpacity>
-            ) : null}
+        {branch && !branch.active ? (
+          <PressableOpacity
+            onPress={handleReactivate}
+            className="border border-indigo-200 rounded-xl py-3.5 items-center mt-3"
+          >
+            <Text className="text-primary font-semibold">
+              {t("branches.reactivate")}
+            </Text>
+          </PressableOpacity>
+        ) : null}
 
         <View className="h-6" />
       </FormSheet>

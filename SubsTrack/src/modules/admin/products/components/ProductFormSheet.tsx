@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { View } from "react-native";
 import { FormSheet } from "@/src/shared/components/FormSheet";
 import { useTranslation } from "react-i18next";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { Button } from "@/src/shared/components/Button";
 import { Input } from "@/src/shared/components/Input";
@@ -106,73 +106,69 @@ export function ProductFormSheet({
         onDismiss={onDismiss}
         title={product ? t("products.edit_title") : t("products.add_title")}
       >
-            {error ? (
-              <ErrorBanner message={error} onDismiss={clearError} />
-            ) : null}
+        {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}
 
-            <Input
-              label={t("products.name_label") + " *"}
-              value={form.name}
-              onChangeText={(v) => setForm((p) => ({ ...p, name: v }))}
-              placeholder={t("products.name_placeholder")}
-              onFocus={clearError}
-            />
+        <Input
+          label={t("products.name_label") + " *"}
+          value={form.name}
+          onChangeText={(v) => setForm((p) => ({ ...p, name: v }))}
+          placeholder={t("products.name_placeholder")}
+          onFocus={clearError}
+        />
 
-            <Input
-              label={t("products.description_label")}
-              value={form.description}
-              onChangeText={(v) => setForm((p) => ({ ...p, description: v }))}
-              placeholder={t("products.description_placeholder")}
-              multiline
-            />
+        <Input
+          label={t("products.description_label")}
+          value={form.description}
+          onChangeText={(v) => setForm((p) => ({ ...p, description: v }))}
+          placeholder={t("products.description_placeholder")}
+          multiline
+        />
 
-            <BranchPicker
-              label={
-                t("branches.branch_label") + (branchPickerNullable ? "" : " *")
-              }
-              value={form.branchId}
-              onChange={(v) => setForm((p) => ({ ...p, branchId: v }))}
-              nullable={branchPickerNullable}
-              nullLabel={t("branches.shared_all_branches")}
-            />
+        <BranchPicker
+          label={
+            t("branches.branch_label") + (branchPickerNullable ? "" : " *")
+          }
+          value={form.branchId}
+          onChange={(v) => setForm((p) => ({ ...p, branchId: v }))}
+          nullable={branchPickerNullable}
+          nullLabel={t("branches.shared_all_branches")}
+        />
 
-            <CurrencyInput
-              label={t("products.price_label") + " *"}
-              amount={form.price}
-              currencyId={form.currencyId}
-              onChange={({ amount, currencyId }) =>
-                setForm((p) => ({ ...p, price: amount, currencyId }))
-              }
-              currencies={currencies}
-              placeholder="0.00"
-              onFocus={clearError}
-            />
+        <CurrencyInput
+          label={t("products.price_label") + " *"}
+          amount={form.price}
+          currencyId={form.currencyId}
+          onChange={({ amount, currencyId }) =>
+            setForm((p) => ({ ...p, price: amount, currencyId }))
+          }
+          currencies={currencies}
+          placeholder="0.00"
+          onFocus={clearError}
+        />
 
-            <Button
-              label={
-                product ? t("common.save_changes") : t("products.add_title")
-              }
-              onPress={handleSubmit}
-              loading={loading}
-              disabled={submitDisabled}
-              fullWidth
-            />
+        <Button
+          label={product ? t("common.save_changes") : t("products.add_title")}
+          onPress={handleSubmit}
+          loading={loading}
+          disabled={submitDisabled}
+          fullWidth
+        />
 
-            {product && onRequestDelete ? (
-              <>
-                <PressableOpacity
-                  onPress={() => onRequestDelete(product)}
-                  className="border border-red-200 rounded-xl py-3.5 items-center mt-3"
-                >
-                  <Text className="text-red-500 font-semibold">
-                    {t("common.delete")}
-                  </Text>
-                </PressableOpacity>
-                <Text className="text-xs text-gray-400 text-center mt-3">
-                  {t("products.delete_warning")}
-                </Text>
-              </>
-            ) : null}
+        {product && onRequestDelete ? (
+          <>
+            <PressableOpacity
+              onPress={() => onRequestDelete(product)}
+              className="border border-red-200 rounded-xl py-3.5 items-center mt-3"
+            >
+              <Text className="text-red-500 font-semibold">
+                {t("common.delete")}
+              </Text>
+            </PressableOpacity>
+            <Text className="text-xs text-gray-400 text-center mt-3">
+              {t("products.delete_warning")}
+            </Text>
+          </>
+        ) : null}
 
         <View className="h-24" />
       </FormSheet>

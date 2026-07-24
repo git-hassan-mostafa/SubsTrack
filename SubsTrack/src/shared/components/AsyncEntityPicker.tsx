@@ -4,7 +4,7 @@ import { BottomSheetFlatList } from "@gorhom/bottom-sheet";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
 import { useDebounce } from "@/src/shared/hooks/useDebounce";
 import { PAGE_SIZE } from "@/src/core/constants";
 import { COLORS } from "@/src/shared/constants";

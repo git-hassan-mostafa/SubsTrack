@@ -1,6 +1,6 @@
 import { I18nManager, View } from "react-native";
 import { Text } from "@/src/shared/components/Text";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
 
 interface Props {
   year: number;

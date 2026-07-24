@@ -2,7 +2,7 @@ import { View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/src/shared/components/Text";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
 import { COLORS } from "@/src/shared/constants";
 import type { RevenuePoint } from "@/src/core/types";
 import { MONTHS } from "@/src/core/constants";
@@ -70,11 +70,7 @@ export function RevenueTrendChart({
             className="w-6 h-6 items-center justify-center"
             style={nextDisabled ? { opacity: 0.3 } : undefined}
           >
-            <Ionicons
-              name="chevron-forward"
-              size={16}
-              color={COLORS.gray500}
-            />
+            <Ionicons name="chevron-forward" size={16} color={COLORS.gray500} />
           </PressableOpacity>
         </View>
       </View>
@@ -179,7 +175,9 @@ export function RevenueTrendChart({
               }`}
             >
               {t(`months.${MONTHS[point.monthIndex]}`)}
-              {point.year !== currentYear ? ` '${String(point.year).slice(2)}` : ""}
+              {point.year !== currentYear
+                ? ` '${String(point.year).slice(2)}`
+                : ""}
             </Text>
           </View>
         ))}

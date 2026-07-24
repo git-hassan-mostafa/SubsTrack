@@ -3,7 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
 import { COLORS } from "@/src/shared/constants";
-import { PressableOpacity } from "./PressableOpacity";
+import { PressableOpacity } from "./PressableOpacity/PressableOpacity";
 import { Checkbox } from "./Checkbox";
 
 export interface SelectionAction {

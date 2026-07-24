@@ -11,12 +11,16 @@ import { Text } from "@/src/shared/components/Text";
 import { Button } from "@/src/shared/components/Button";
 import { Input } from "@/src/shared/components/Input";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
 import { DbTableViewer } from "@/src/shared/components/DbTableViewer";
 import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
 import { COLORS } from "@/src/shared/constants";
 import { confirm } from "@/src/shared/lib/confirm";
-import { IS_OFFLINE_CAPABLE, TABLES, resyncFromScratch } from "@/src/core/offline";
+import {
+  IS_OFFLINE_CAPABLE,
+  TABLES,
+  resyncFromScratch,
+} from "@/src/core/offline";
 import { getDb } from "@/src/core/offline/db/sqlite";
 
 // Local-only bookkeeping tables that live outside the TABLES descriptor
@@ -48,9 +52,16 @@ export function DeveloperScreen() {
   if (!IS_OFFLINE_CAPABLE) {
     return (
       <SafeAreaView className="flex-1 bg-gray-50">
-        <PageHeader title={t("settings.developer")} showBack onBack={() => router.back()} hideBranchSelector />
+        <PageHeader
+          title={t("settings.developer")}
+          showBack
+          onBack={() => router.back()}
+          hideBranchSelector
+        />
         <View className="flex-1 items-center justify-center px-8">
-          <Text className="text-sm text-gray-400 text-center">{t("settings.developer_web_unavailable")}</Text>
+          <Text className="text-sm text-gray-400 text-center">
+            {t("settings.developer_web_unavailable")}
+          </Text>
         </View>
       </SafeAreaView>
     );
@@ -65,7 +76,9 @@ export function DeveloperScreen() {
     const db = getDb();
     const dump: Record<string, Record<string, unknown>[]> = {};
     for (const name of ALL_TABLE_NAMES) {
-      dump[name] = await db.getAllAsync<Record<string, unknown>>(`SELECT * FROM ${name}`);
+      dump[name] = await db.getAllAsync<Record<string, unknown>>(
+        `SELECT * FROM ${name}`,
+      );
     }
     await Clipboard.setStringAsync(JSON.stringify(dump));
     flashMessage(t("settings.developer_export_done"));
@@ -75,7 +88,9 @@ export function DeveloperScreen() {
     const db = getDb();
     const next: Record<string, number> = {};
     for (const name of ALL_TABLE_NAMES) {
-      const row = await db.getFirstAsync<{ n: number }>(`SELECT COUNT(*) AS n FROM ${name}`);
+      const row = await db.getFirstAsync<{ n: number }>(
+        `SELECT COUNT(*) AS n FROM ${name}`,
+      );
       next[name] = row?.n ?? 0;
     }
     setCounts(next);
@@ -94,8 +109,8 @@ export function DeveloperScreen() {
         offline
           ? t("settings.developer_resync_offline")
           : ok
-          ? t("settings.developer_resync_done")
-          : t("settings.developer_resync_failed"),
+            ? t("settings.developer_resync_done")
+            : t("settings.developer_resync_failed"),
       );
     } finally {
       setResyncBusy(false);
@@ -116,9 +131,13 @@ export function DeveloperScreen() {
       return;
     }
     const data = parsed as Record<string, unknown>;
-    const unknownKeys = Object.keys(data).filter((k) => !ALL_TABLE_NAMES.includes(k));
+    const unknownKeys = Object.keys(data).filter(
+      (k) => !ALL_TABLE_NAMES.includes(k),
+    );
     if (unknownKeys.length > 0) {
-      setImportError(t("settings.developer_import_unknown_table", { table: unknownKeys[0] }));
+      setImportError(
+        t("settings.developer_import_unknown_table", { table: unknownKeys[0] }),
+      );
       return;
     }
 
@@ -183,12 +202,21 @@ export function DeveloperScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
-      <PageHeader title={t("settings.developer")} showBack onBack={() => router.back()} hideBranchSelector />
+      <PageHeader
+        title={t("settings.developer")}
+        showBack
+        onBack={() => router.back()}
+        hideBranchSelector
+      />
       <ResponsiveContainer className="flex-1">
         <ScrollView>
           <View className="mx-4 mt-4 mb-3 flex-row gap-3">
             <View className="flex-1">
-              <Button label={t("settings.developer_export")} onPress={() => void handleExport()} variant="ghost" />
+              <Button
+                label={t("settings.developer_export")}
+                onPress={() => void handleExport()}
+                variant="ghost"
+              />
             </View>
             <View className="flex-1">
               <Button
@@ -224,13 +252,23 @@ export function DeveloperScreen() {
                   key={name}
                   onPress={() => setSelectedTable(name)}
                   className={`flex-row items-center justify-between px-4 py-3.5 ${
-                    index === ALL_TABLE_NAMES.length - 1 ? "" : "border-b border-gray-100"
+                    index === ALL_TABLE_NAMES.length - 1
+                      ? ""
+                      : "border-b border-gray-100"
                   }`}
                 >
-                  <Text className="text-sm font-medium text-gray-900">{name}</Text>
+                  <Text className="text-sm font-medium text-gray-900">
+                    {name}
+                  </Text>
                   <View className="flex-row items-center gap-1">
-                    <Text className="text-sm text-gray-400">{counts[name] ?? "…"}</Text>
-                    <DirectionalIcon name="chevron-forward" size={14} color={COLORS.gray300} />
+                    <Text className="text-sm text-gray-400">
+                      {counts[name] ?? "…"}
+                    </Text>
+                    <DirectionalIcon
+                      name="chevron-forward"
+                      size={14}
+                      color={COLORS.gray300}
+                    />
                   </View>
                 </PressableOpacity>
               ))}
@@ -241,7 +279,9 @@ export function DeveloperScreen() {
         {flash ? (
           <View className="absolute inset-x-0 bottom-0 px-4 pb-4">
             <View className="bg-success rounded-xl px-4 py-3">
-              <Text className="text-sm font-medium text-white text-center">{flash}</Text>
+              <Text className="text-sm font-medium text-white text-center">
+                {flash}
+              </Text>
             </View>
           </View>
         ) : null}
@@ -252,28 +292,35 @@ export function DeveloperScreen() {
         onDismiss={() => setImportOpen(false)}
         title={t("settings.developer_import")}
       >
-              {importError ? <ErrorBanner message={importError} onDismiss={() => setImportError(null)} /> : null}
-              <Text className="text-sm text-gray-500 mb-3">{t("settings.developer_import_hint")}</Text>
-              <Input
-                value={importText}
-                onChangeText={setImportText}
-                placeholder={t("settings.developer_import_placeholder")}
-                multiline
-                numberOfLines={12}
-                textAlignVertical="top"
-                style={{ minHeight: 220 }}
-                autoCapitalize="none"
-                autoCorrect={false}
-              />
-              <Button
-                label={t("settings.developer_import_confirm_action")}
-                onPress={() => void handleImportConfirm()}
-                loading={importBusy}
-                disabled={!importText.trim() || importBusy}
-                variant="danger"
-                fullWidth
-              />
-              <View className="h-8" />
+        {importError ? (
+          <ErrorBanner
+            message={importError}
+            onDismiss={() => setImportError(null)}
+          />
+        ) : null}
+        <Text className="text-sm text-gray-500 mb-3">
+          {t("settings.developer_import_hint")}
+        </Text>
+        <Input
+          value={importText}
+          onChangeText={setImportText}
+          placeholder={t("settings.developer_import_placeholder")}
+          multiline
+          numberOfLines={12}
+          textAlignVertical="top"
+          style={{ minHeight: 220 }}
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+        <Button
+          label={t("settings.developer_import_confirm_action")}
+          onPress={() => void handleImportConfirm()}
+          loading={importBusy}
+          disabled={!importText.trim() || importBusy}
+          variant="danger"
+          fullWidth
+        />
+        <View className="h-8" />
       </FormSheet>
     </SafeAreaView>
   );

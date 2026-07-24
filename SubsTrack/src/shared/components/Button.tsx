@@ -1,7 +1,7 @@
 import { ActivityIndicator } from "react-native";
 import { Text } from "@/src/shared/components/Text";
 import { COLORS } from "../constants";
-import { PressableOpacity } from "./PressableOpacity";
+import { PressableOpacity } from "./PressableOpacity/PressableOpacity";
 
 type Variant = "primary" | "danger" | "ghost";
 

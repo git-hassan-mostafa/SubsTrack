@@ -5,7 +5,7 @@ import { AppBottomSheet } from "@/src/shared/components/AppBottomSheet";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { ActionMenu } from "@/src/shared/components/ActionMenu";
 import { COLORS } from "@/src/shared/constants";

@@ -2,10 +2,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { CurrencyInput } from "@/src/shared/components/CurrencyInput";
-import { Dropdown, type DropdownOption } from "@/src/shared/components/Dropdown";
+import {
+  Dropdown,
+  type DropdownOption,
+} from "@/src/shared/components/Dropdown";
 import { COLORS } from "@/src/shared/constants";
 import type { Currency, Product } from "@/src/core/types";
 import { convert, findCurrency, formatMoney } from "@/src/core/utils/currency";
@@ -102,12 +105,16 @@ export function SaleItemsEditor({ onChange, onFocusClearError }: Props) {
   // Convert a product's catalog price into the given sale currency (rounded).
   function priceInCurrency(product: Product, target: Currency | null): number {
     const source = findCurrency(currencies, product.currencyId);
-    return roundTo(convert(product.price, source, target), target?.decimals ?? 2);
+    return roundTo(
+      convert(product.price, source, target),
+      target?.decimals ?? 2,
+    );
   }
 
   function selectProduct(key: string, productId: string | null) {
     const product = activeProducts.find((p) => p.id === productId) ?? null;
-    const firstProduct = product != null && !rows.some((r) => r.productId && r.key !== key);
+    const firstProduct =
+      product != null && !rows.some((r) => r.productId && r.key !== key);
     // The first product picked adopts its own currency as the sale currency,
     // unless the user has already chosen one manually.
     let targetId = currencyId;
@@ -122,7 +129,9 @@ export function SaleItemsEditor({ onChange, onFocusClearError }: Props) {
           ? {
               ...r,
               productId,
-              unitAmount: product ? priceInCurrency(product, target) : r.unitAmount,
+              unitAmount: product
+                ? priceInCurrency(product, target)
+                : r.unitAmount,
             }
           : r,
       ),
@@ -144,12 +153,16 @@ export function SaleItemsEditor({ onChange, onFocusClearError }: Props) {
 
   function setQuantity(key: string, quantity: number) {
     setRows((prev) =>
-      prev.map((r) => (r.key === key ? { ...r, quantity: Math.max(1, quantity) } : r)),
+      prev.map((r) =>
+        r.key === key ? { ...r, quantity: Math.max(1, quantity) } : r,
+      ),
     );
   }
 
   function setUnitAmount(key: string, unitAmount: number | null) {
-    setRows((prev) => prev.map((r) => (r.key === key ? { ...r, unitAmount } : r)));
+    setRows((prev) =>
+      prev.map((r) => (r.key === key ? { ...r, unitAmount } : r)),
+    );
   }
 
   function addRow() {
@@ -157,7 +170,9 @@ export function SaleItemsEditor({ onChange, onFocusClearError }: Props) {
   }
 
   function removeRow(key: string) {
-    setRows((prev) => (prev.length <= 1 ? prev : prev.filter((r) => r.key !== key)));
+    setRows((prev) =>
+      prev.length <= 1 ? prev : prev.filter((r) => r.key !== key),
+    );
   }
 
   // Resolve the cart draft and report it to the parent whenever it changes.
@@ -168,7 +183,11 @@ export function SaleItemsEditor({ onChange, onFocusClearError }: Props) {
       const product = activeProducts.find((p) => p.id === r.productId) ?? null;
       const validAmount = r.unitAmount != null && r.unitAmount > 0;
       if (product && validAmount && r.quantity > 0) {
-        lines.push({ product, quantity: r.quantity, unitAmount: r.unitAmount as number });
+        lines.push({
+          product,
+          quantity: r.quantity,
+          unitAmount: r.unitAmount as number,
+        });
       } else {
         incomplete = true;
       }
@@ -234,7 +253,10 @@ export function SaleItemsEditor({ onChange, onFocusClearError }: Props) {
                     {i + 1}
                   </Text>
                 </View>
-                <Text fontWeight="SemiBold" className="ms-2 text-sm text-gray-700">
+                <Text
+                  fontWeight="SemiBold"
+                  className="ms-2 text-sm text-gray-700"
+                >
                   {t("sales.item_label", { number: i + 1 })}
                 </Text>
               </View>
@@ -244,7 +266,11 @@ export function SaleItemsEditor({ onChange, onFocusClearError }: Props) {
                 hitSlop={8}
                 className="flex-row items-center px-2 py-1 -me-1"
               >
-                <Ionicons name="trash-outline" size={15} color={COLORS.danger} />
+                <Ionicons
+                  name="trash-outline"
+                  size={15}
+                  color={COLORS.danger}
+                />
                 <Text className="ms-1 text-xs text-danger font-medium">
                   {t("sales.remove_product")}
                 </Text>
@@ -305,7 +331,11 @@ export function SaleItemsEditor({ onChange, onFocusClearError }: Props) {
           {row.unitAmount != null && row.unitAmount > 0 && row.quantity > 1 ? (
             <View className="-mt-2 mb-2 flex-row justify-end">
               <Text className="text-xs text-gray-500">
-                {formatMoney(row.unitAmount * row.quantity, saleCurrency, saleCurrency)}
+                {formatMoney(
+                  row.unitAmount * row.quantity,
+                  saleCurrency,
+                  saleCurrency,
+                )}
               </Text>
             </View>
           ) : null}

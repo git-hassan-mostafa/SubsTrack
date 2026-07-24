@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { View } from "react-native";
 import { BottomSheetFlatList } from "@gorhom/bottom-sheet";
-import { PressableOpacity } from "./PressableOpacity";
+import { PressableOpacity } from "./PressableOpacity/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";

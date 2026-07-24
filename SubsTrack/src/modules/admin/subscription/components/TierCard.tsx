@@ -2,7 +2,7 @@ import { View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
 import { COLORS } from "@/src/shared/constants";
 import type { TierPlan } from "@/src/core/types";
 import { CanUpgrade } from "@/src/shared/components/FeatureGate";

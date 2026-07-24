@@ -4,7 +4,7 @@ import { useSheetScrollView } from "@/src/shared/components/bottomSheetInputCont
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
 import { EmptyState } from "@/src/shared/components/EmptyState";
 import { Checkbox } from "@/src/shared/components/Checkbox";
 import {

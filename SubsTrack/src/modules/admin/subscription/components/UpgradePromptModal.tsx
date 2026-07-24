@@ -3,7 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { useRouter, type Href } from "expo-router";
 import { Text } from "@/src/shared/components/Text";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
 import { COLORS } from "@/src/shared/constants";
 import { useAuthSlice } from "@/src/state/hooks/useAuthSlice";
 import { useSubscriptionSlice } from "@/src/state/hooks/useSubscriptionSlice";

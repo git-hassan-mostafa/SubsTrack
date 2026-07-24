@@ -12,7 +12,7 @@ import { COLORS } from "@/src/shared/constants";
 import { EmptyState } from "@/src/shared/components/EmptyState";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { Text } from "@/src/shared/components/Text";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
 import { useDebounce } from "@/src/shared/hooks/useDebounce";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
 import {

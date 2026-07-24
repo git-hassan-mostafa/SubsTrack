@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { AppBottomSheet } from "./AppBottomSheet";
 import { ResponsiveContainer } from "./ResponsiveContainer";
-import { PressableOpacity } from "./PressableOpacity";
+import { PressableOpacity } from "./PressableOpacity/PressableOpacity";
 import { Text } from "./Text";
 
 interface FormSheetProps {

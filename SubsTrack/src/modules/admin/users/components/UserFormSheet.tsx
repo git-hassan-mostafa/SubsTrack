@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { View } from "react-native";
 import { FormSheet } from "@/src/shared/components/FormSheet";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/src/shared/components/Button";
@@ -182,235 +182,225 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
         onDismiss={onDismiss}
         title={editUser ? t("users.edit_title") : t("users.add_title")}
       >
-            {error ? (
-              <ErrorBanner message={error} onDismiss={clearError} />
-            ) : null}
+        {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}
 
+        <Input
+          label={t("users.username_label") + " *"}
+          value={form.username}
+          onChangeText={(v) => setForm((prev) => ({ ...prev, username: v }))}
+          placeholder={t("users.username_placeholder")}
+          autoCapitalize="none"
+          onFocus={clearError}
+          error={
+            usernameInvalid ? t("users.username_invalid_chars") : undefined
+          }
+        />
+
+        <Input
+          label={t("users.fullname_label") + " *"}
+          value={form.fullName}
+          onChangeText={(v) => setForm((prev) => ({ ...prev, fullName: v }))}
+          placeholder={t("users.fullname_placeholder")}
+          autoCapitalize="words"
+          onFocus={clearError}
+        />
+
+        {!editUser ? (
+          <>
             <Input
-              label={t("users.username_label") + " *"}
-              value={form.username}
+              label={t("users.password_label") + " *"}
+              value={form.password}
               onChangeText={(v) =>
-                setForm((prev) => ({ ...prev, username: v }))
+                setForm((prev) => ({ ...prev, password: v }))
               }
-              placeholder={t("users.username_placeholder")}
-              autoCapitalize="none"
+              placeholder={t("users.password_placeholder")}
+              secureTextEntry
+              onFocus={clearError}
+            />
+            <Input
+              label={t("users.confirm_password_label") + " *"}
+              value={form.confirmPassword}
+              onChangeText={(v) =>
+                setForm((prev) => ({ ...prev, confirmPassword: v }))
+              }
+              placeholder={t("users.confirm_password_placeholder")}
+              secureTextEntry
               onFocus={clearError}
               error={
-                usernameInvalid ? t("users.username_invalid_chars") : undefined
+                passwordMismatch ? t("users.password_mismatch") : undefined
               }
             />
-
-            <Input
-              label={t("users.fullname_label") + " *"}
-              value={form.fullName}
-              onChangeText={(v) =>
-                setForm((prev) => ({ ...prev, fullName: v }))
+          </>
+        ) : (
+          <>
+            <PressableOpacity
+              onPress={() =>
+                setForm((prev) => ({
+                  ...prev,
+                  changePassword: !prev.changePassword,
+                  newPassword: "",
+                  confirmNewPassword: "",
+                }))
               }
-              placeholder={t("users.fullname_placeholder")}
-              autoCapitalize="words"
-              onFocus={clearError}
-            />
+              className={`flex-row items-center justify-between border rounded-xl px-4 py-3.5 mb-4 ${
+                form.changePassword
+                  ? "border-primary bg-indigo-50"
+                  : "border-gray-300 bg-white"
+              }`}
+            >
+              <Text
+                fontWeight="Medium"
+                className={`text-sm ${form.changePassword ? "text-primary" : "text-gray-700"}`}
+              >
+                {t("users.change_password_label")}
+              </Text>
+              <View
+                className={`w-5 h-5 rounded border-2 items-center justify-center ${
+                  form.changePassword
+                    ? "bg-primary border-primary"
+                    : "border-gray-400"
+                }`}
+              >
+                {form.changePassword ? (
+                  <Text className="text-white text-xs font-bold">✓</Text>
+                ) : null}
+              </View>
+            </PressableOpacity>
 
-            {!editUser ? (
+            {form.changePassword ? (
               <>
                 <Input
-                  label={t("users.password_label") + " *"}
-                  value={form.password}
+                  label={t("users.new_password_label") + " *"}
+                  value={form.newPassword}
                   onChangeText={(v) =>
-                    setForm((prev) => ({ ...prev, password: v }))
+                    setForm((prev) => ({ ...prev, newPassword: v }))
                   }
-                  placeholder={t("users.password_placeholder")}
+                  placeholder={t("users.new_password_placeholder")}
                   secureTextEntry
                   onFocus={clearError}
                 />
                 <Input
-                  label={t("users.confirm_password_label") + " *"}
-                  value={form.confirmPassword}
+                  label={t("users.confirm_new_password_label") + " *"}
+                  value={form.confirmNewPassword}
                   onChangeText={(v) =>
-                    setForm((prev) => ({ ...prev, confirmPassword: v }))
+                    setForm((prev) => ({ ...prev, confirmNewPassword: v }))
                   }
-                  placeholder={t("users.confirm_password_placeholder")}
+                  placeholder={t("users.confirm_new_password_placeholder")}
                   secureTextEntry
                   onFocus={clearError}
                   error={
-                    passwordMismatch ? t("users.password_mismatch") : undefined
+                    newPasswordMismatch
+                      ? t("users.password_mismatch")
+                      : undefined
                   }
                 />
               </>
-            ) : (
-              <>
-                <PressableOpacity
-                  onPress={() =>
-                    setForm((prev) => ({
-                      ...prev,
-                      changePassword: !prev.changePassword,
-                      newPassword: "",
-                      confirmNewPassword: "",
-                    }))
-                  }
-                  className={`flex-row items-center justify-between border rounded-xl px-4 py-3.5 mb-4 ${
-                    form.changePassword
-                      ? "border-primary bg-indigo-50"
-                      : "border-gray-300 bg-white"
-                  }`}
-                >
-                  <Text
-                    fontWeight="Medium"
-                    className={`text-sm ${form.changePassword ? "text-primary" : "text-gray-700"}`}
-                  >
-                    {t("users.change_password_label")}
-                  </Text>
-                  <View
-                    className={`w-5 h-5 rounded border-2 items-center justify-center ${
-                      form.changePassword
-                        ? "bg-primary border-primary"
-                        : "border-gray-400"
-                    }`}
-                  >
-                    {form.changePassword ? (
-                      <Text className="text-white text-xs font-bold">✓</Text>
-                    ) : null}
-                  </View>
-                </PressableOpacity>
+            ) : null}
+          </>
+        )}
 
-                {form.changePassword ? (
-                  <>
-                    <Input
-                      label={t("users.new_password_label") + " *"}
-                      value={form.newPassword}
-                      onChangeText={(v) =>
-                        setForm((prev) => ({ ...prev, newPassword: v }))
-                      }
-                      placeholder={t("users.new_password_placeholder")}
-                      secureTextEntry
-                      onFocus={clearError}
-                    />
-                    <Input
-                      label={t("users.confirm_new_password_label") + " *"}
-                      value={form.confirmNewPassword}
-                      onChangeText={(v) =>
-                        setForm((prev) => ({ ...prev, confirmNewPassword: v }))
-                      }
-                      placeholder={t("users.confirm_new_password_placeholder")}
-                      secureTextEntry
-                      onFocus={clearError}
-                      error={
-                        newPasswordMismatch
-                          ? t("users.password_mismatch")
-                          : undefined
-                      }
-                    />
-                  </>
-                ) : null}
-              </>
-            )}
+        <Input
+          label={t("users.phone_optional")}
+          value={form.phoneNumber}
+          onChangeText={(v) => setForm((prev) => ({ ...prev, phoneNumber: v }))}
+          placeholder={t("customers.phone_placeholder")}
+          keyboardType="phone-pad"
+        />
 
-            <Input
-              label={t("users.phone_optional")}
-              value={form.phoneNumber}
-              onChangeText={(v) =>
-                setForm((prev) => ({ ...prev, phoneNumber: v }))
+        <BranchPicker
+          value={form.branchId}
+          onChange={(v) => setForm((prev) => ({ ...prev, branchId: v }))}
+          nullLabel={t("branches.tenant_wide_admin")}
+          nullSublabel={t("branches.tenant_wide_hint")}
+          nullable={form.role === "admin"}
+        />
+
+        <Text className="text-sm font-medium text-gray-700 mb-2">
+          {t("users.role_label")}
+        </Text>
+        <View className="flex-row gap-3 mb-6">
+          {(["user", "admin"] as const).map((r) => (
+            <PressableOpacity
+              key={r}
+              onPress={() =>
+                !isOwnAccount && setForm((prev) => ({ ...prev, role: r }))
               }
-              placeholder={t("customers.phone_placeholder")}
-              keyboardType="phone-pad"
-            />
-
-            <BranchPicker
-              value={form.branchId}
-              onChange={(v) => setForm((prev) => ({ ...prev, branchId: v }))}
-              nullLabel={t("branches.tenant_wide_admin")}
-              nullSublabel={t("branches.tenant_wide_hint")}
-              nullable={form.role === "admin"}
-            />
-
-            <Text className="text-sm font-medium text-gray-700 mb-2">
-              {t("users.role_label")}
-            </Text>
-            <View className="flex-row gap-3 mb-6">
-              {(["user", "admin"] as const).map((r) => (
-                <PressableOpacity
-                  key={r}
-                  onPress={() =>
-                    !isOwnAccount && setForm((prev) => ({ ...prev, role: r }))
-                  }
-                  className={`flex-1 border rounded-lg py-3 items-center ${
-                    form.role === r
-                      ? "border-primary bg-indigo-50"
-                      : "border-gray-300"
-                  } ${isOwnAccount ? "opacity-40" : ""}`}
-                >
-                  <Text
-                    className={`font-medium capitalize ${form.role === r ? "text-primary" : "text-gray-600"}`}
-                  >
-                    {t(`users.${r}`)}
-                  </Text>
-                </PressableOpacity>
-              ))}
-            </View>
-            {isOwnAccount ? (
-              <Text className="text-xs text-gray-400 mb-4 -mt-4">
-                {t("common.cannot_change_own_role")}
+              className={`flex-1 border rounded-lg py-3 items-center ${
+                form.role === r
+                  ? "border-primary bg-indigo-50"
+                  : "border-gray-300"
+              } ${isOwnAccount ? "opacity-40" : ""}`}
+            >
+              <Text
+                className={`font-medium capitalize ${form.role === r ? "text-primary" : "text-gray-600"}`}
+              >
+                {t(`users.${r}`)}
               </Text>
-            ) : null}
+            </PressableOpacity>
+          ))}
+        </View>
+        {isOwnAccount ? (
+          <Text className="text-xs text-gray-400 mb-4 -mt-4">
+            {t("common.cannot_change_own_role")}
+          </Text>
+        ) : null}
 
-            <Button
-              label={editUser ? t("common.save_changes") : t("users.add_title")}
-              onPress={handleSubmit}
-              loading={loading}
-              disabled={!canSubmit}
-              fullWidth
-            />
+        <Button
+          label={editUser ? t("common.save_changes") : t("users.add_title")}
+          onPress={handleSubmit}
+          loading={loading}
+          disabled={!canSubmit}
+          fullWidth
+        />
 
-            {canToggleActive && editUser ? (
-              <PressableOpacity
-                onPress={async () => {
-                  if (!currentUser) return;
-                  if (editUser.active) {
-                    await deactivateUser(
-                      editUser.id,
-                      currentUser.id,
-                      currentUser.role,
-                      editUser.role,
-                    );
-                  } else {
-                    await activateUser(
-                      editUser.id,
-                      currentUser.id,
-                      currentUser.role,
-                      editUser.role,
-                    );
-                  }
-                  if (!getStore().getState().users.error) onDismiss();
-                }}
-                className={`mt-3 rounded-xl py-3.5 items-center mb-3 border ${
-                  editUser.active
-                    ? "bg-red-50 border-red-200"
-                    : "bg-green-50 border-green-200"
-                }`}
-              >
-                <Text
-                  fontWeight="SemiBold"
-                  className={`text-base ${
-                    editUser.active ? "text-red-600" : "text-green-700"
-                  }`}
-                >
-                  {editUser.active
-                    ? t("users.deactivate")
-                    : t("users.activate")}
-                </Text>
-              </PressableOpacity>
-            ) : null}
+        {canToggleActive && editUser ? (
+          <PressableOpacity
+            onPress={async () => {
+              if (!currentUser) return;
+              if (editUser.active) {
+                await deactivateUser(
+                  editUser.id,
+                  currentUser.id,
+                  currentUser.role,
+                  editUser.role,
+                );
+              } else {
+                await activateUser(
+                  editUser.id,
+                  currentUser.id,
+                  currentUser.role,
+                  editUser.role,
+                );
+              }
+              if (!getStore().getState().users.error) onDismiss();
+            }}
+            className={`mt-3 rounded-xl py-3.5 items-center mb-3 border ${
+              editUser.active
+                ? "bg-red-50 border-red-200"
+                : "bg-green-50 border-green-200"
+            }`}
+          >
+            <Text
+              fontWeight="SemiBold"
+              className={`text-base ${
+                editUser.active ? "text-red-600" : "text-green-700"
+              }`}
+            >
+              {editUser.active ? t("users.deactivate") : t("users.activate")}
+            </Text>
+          </PressableOpacity>
+        ) : null}
 
-            {canDelete && editUser ? (
-              <PressableOpacity
-                onPress={() => void handleDeletePress()}
-                className="rounded-xl py-3.5 items-center mb-6 border bg-red-50 border-red-200"
-              >
-                <Text fontWeight="SemiBold" className="text-base text-red-600">
-                  {t("users.delete_label")}
-                </Text>
-              </PressableOpacity>
-            ) : null}
+        {canDelete && editUser ? (
+          <PressableOpacity
+            onPress={() => void handleDeletePress()}
+            className="rounded-xl py-3.5 items-center mb-6 border bg-red-50 border-red-200"
+          >
+            <Text fontWeight="SemiBold" className="text-base text-red-600">
+              {t("users.delete_label")}
+            </Text>
+          </PressableOpacity>
+        ) : null}
 
         <View className="h-24" />
       </FormSheet>

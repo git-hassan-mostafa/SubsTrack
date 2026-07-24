@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { View } from "react-native";
 import { COLORS } from "@/src/shared/constants";
-import { PressableOpacity } from "./PressableOpacity";
+import { PressableOpacity } from "./PressableOpacity/PressableOpacity";
 
 interface Props {
   active: boolean;

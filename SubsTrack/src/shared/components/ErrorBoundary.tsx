@@ -1,6 +1,6 @@
 import { Component, type ReactNode } from "react";
 import { View } from "react-native";
-import { PressableOpacity } from "./PressableOpacity";
+import { PressableOpacity } from "./PressableOpacity/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import i18n from "i18next";
 import { logException } from "@/src/core/errorLog/errorLogger";
