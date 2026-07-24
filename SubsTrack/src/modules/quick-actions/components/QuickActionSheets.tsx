@@ -1,5 +1,6 @@
 import { useUiSlice } from "@/src/state/hooks/useUiSlice";
 import { CustomerFormSheet } from "@/src/modules/customer/customers";
+import { PaymentsHistorySheet } from "@/src/modules/customer/customer-payments";
 import { SaleFormSheet } from "@/src/modules/transaction/sales";
 import {
   CustomDebtFormSheet,
@@ -27,6 +28,8 @@ export function QuickActionSheets() {
       return <CustomDebtFormSheet onDismiss={close} />;
     case "debtPayment":
       return <DebtPaymentFormSheet onDismiss={close} />;
+    case "paymentsHistory":
+      return <PaymentsHistorySheet onDismiss={close} />;
     default:
       return null;
   }

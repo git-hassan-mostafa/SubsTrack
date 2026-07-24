@@ -1,5 +1,9 @@
 import type { StateCreator } from 'zustand';
-import { customerPlanService, type LineDraft } from '@/src/modules/customer/customer-plans';
+import {
+  customerPlanService,
+  type LineDraft,
+  type RemovedLine,
+} from '@/src/modules/customer/customer-plans';
 import type { GlobalState } from '@/src/state/globalStore';
 
 // Thin slice for the customer form's inline Plans editor. Service lines are the
@@ -12,9 +16,12 @@ export interface CustomerPlanSlice {
   syncLines: (
     customerId: string,
     lines: LineDraft[],
-    removedIds: string[],
+    removed: RemovedLine[],
+    reactivated: string[],
     tenantId: string,
   ) => Promise<boolean>;
+  // Whether a service line has recorded payments (drives the remove-plan prompt).
+  hasPayments: (lineId: string) => Promise<boolean>;
   clearError: () => void;
   reset: () => void;
 }
@@ -28,7 +35,7 @@ export const createCustomerPlanSlice: StateCreator<
   loading: false,
   error: null,
 
-  syncLines: async (customerId, lines, removedIds, tenantId) => {
+  syncLines: async (customerId, lines, removed, reactivated, tenantId) => {
     if (get().customerPlans.loading) return false;
     set((state) => {
       state.customerPlans.loading = true;
@@ -41,17 +48,21 @@ export const createCustomerPlanSlice: StateCreator<
       const { active, cancelled } = await customerPlanService.syncLines(
         customerId,
         lines,
-        removedIds,
+        removed,
+        reactivated,
         tenantId,
         existing.filter((l) => l.active),
       );
-      // Rebuild the owning customer's lines locally instead of re-fetching: the
-      // active result, plus soft-cancelled removals and previously-cancelled
-      // lines kept so their payment history stays viewable. The grids read from
-      // here and re-render.
-      const removed = new Set(removedIds);
+      // Rebuild the owning customer's lines locally instead of re-fetching. The
+      // service returns `active` (kept / created / reactivated) and `cancelled`
+      // (soft-cancelled removals). Add previously-cancelled lines the user left
+      // alone so their history stays viewable, excluding anything reactivated
+      // (now in `active`) or hard-deleted this session. The grids read from here.
+      const reactivatedSet = new Set(reactivated);
+      const removedSet = new Set(removed.map((r) => r.id));
       const keptCancelled = existing.filter(
-        (l) => !l.active && !removed.has(l.id),
+        (l) =>
+          !l.active && !reactivatedSet.has(l.id) && !removedSet.has(l.id),
       );
       get().customers.setCustomerLines(customerId, [
         ...active,
@@ -70,6 +81,8 @@ export const createCustomerPlanSlice: StateCreator<
       return false;
     }
   },
+
+  hasPayments: (lineId) => customerPlanService.hasPayments(lineId),
 
   clearError: () =>
     set((state) => {

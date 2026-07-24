@@ -20,6 +20,13 @@ export type LineDraft = {
   startDate: string;
 };
 
+// A line the user removed in the form. `hardDelete` = permanently delete the
+// line and all its payments (checkbox on); false = soft-cancel and keep it.
+export type RemovedLine = {
+  id: string;
+  hardDelete: boolean;
+};
+
 class CustomerPlanService {
   async createLine(data: CustomerPlanInput, tenantId: string): Promise<CustomerPlan> {
     this.validateDate(data.startDate);
@@ -32,25 +39,32 @@ class CustomerPlanService {
     return mapDbCustomerPlanToCustomerPlan(row);
   }
 
+  // `reactivate` also flips a soft-cancelled line back to active (clears
+  // cancelled_at) in the same write — the form's reactivate path.
   async updateLine(
     id: string,
     data: { planId: string | null; startDate: string },
+    reactivate = false,
   ): Promise<CustomerPlan> {
     this.validateDate(data.startDate);
     const row = await repository.update(id, {
       plan_id: data.planId,
       start_date: data.startDate,
+      ...(reactivate ? { active: true, cancelled_at: null } : {}),
     });
     return mapDbCustomerPlanToCustomerPlan(row);
   }
 
-  // Removes a line: hard-delete when it has no payments (returns null), else
-  // soft-cancel so payment history is never lost (rule #7 — no hard deletes of
-  // paid records) and return the cancelled line so callers can keep it visible
-  // for history.
-  async deleteLine(id: string): Promise<CustomerPlan | null> {
+  // Removes a line. `hardDelete` (the form's checkbox) permanently deletes the
+  // line and cascade-deletes all its payments — an INTENTIONAL exception to
+  // rule #7 (no hard deletes); the user is warned it can't be undone. Otherwise
+  // it soft-cancels (active=false) so history is kept and the line stays visible
+  // in the form as cancelled with a reactivate option. A line with no payments
+  // is always hard-deleted (nothing to lose). Returns the cancelled line, or
+  // null when the row was deleted.
+  async deleteLine(id: string, hardDelete = false): Promise<CustomerPlan | null> {
     const paymentCount = await repository.countPayments(id);
-    if (paymentCount === 0) {
+    if (hardDelete || paymentCount === 0) {
       await repository.delete(id);
       return null;
     }
@@ -58,22 +72,30 @@ class CustomerPlanService {
     return mapDbCustomerPlanToCustomerPlan(row);
   }
 
-  // Applies the customer form's inline Plans editor in one pass. Removals and
-  // create/updates touch independent rows, so they all run concurrently; a kept
-  // line whose plan + start date are unchanged is carried over without a DB
-  // round-trip. Returns the resulting lines — active rows plus any soft-cancelled
-  // removals — so the caller can patch state instead of re-fetching the customer.
+  // Applies the customer form's inline Plans editor in one pass. Removals,
+  // reactivations, and create/updates touch independent rows, so they all run
+  // concurrently; a kept line whose plan + start date are unchanged is carried
+  // over without a DB round-trip. Returns the resulting lines — active rows
+  // (kept, created, reactivated) plus any soft-cancelled removals — so the
+  // caller can patch state instead of re-fetching the customer.
   async syncLines(
     customerId: string,
     lines: LineDraft[],
-    removedIds: string[],
+    removed: RemovedLine[],
+    reactivated: string[],
     tenantId: string,
     existingLines: CustomerPlan[] = [],
   ): Promise<{ active: CustomerPlan[]; cancelled: CustomerPlan[] }> {
     const existingById = new Map(existingLines.map((l) => [l.id, l]));
+    const reactivatedSet = new Set(reactivated);
 
-    const removals = Promise.all(removedIds.map((id) => this.deleteLine(id)));
+    const removals = Promise.all(
+      removed.map((r) => this.deleteLine(r.id, r.hardDelete)),
+    );
 
+    // A reactivated line is just an active row (`getLines` includes it), so it
+    // flows through this one upsert path — no separate reactivation write, which
+    // is what previously double-listed the line. Its update also re-activates it.
     const upserts = Promise.all(
       lines.map((line) => {
         if (!line.id) {
@@ -82,15 +104,23 @@ class CustomerPlanService {
             tenantId,
           );
         }
+        const reactivate = reactivatedSet.has(line.id);
         const prev = existingById.get(line.id);
-        // Unchanged kept line — reuse the loaded row, skip the round-trip.
-        if (prev && prev.planId === line.planId && prev.startDate === line.startDate) {
+        // Unchanged kept line — reuse the loaded row, skip the round-trip. Never
+        // skip a reactivation (it still needs active flipped back on).
+        if (
+          !reactivate &&
+          prev &&
+          prev.planId === line.planId &&
+          prev.startDate === line.startDate
+        ) {
           return Promise.resolve(prev);
         }
-        return this.updateLine(line.id, {
-          planId: line.planId,
-          startDate: line.startDate,
-        });
+        return this.updateLine(
+          line.id,
+          { planId: line.planId, startDate: line.startDate },
+          reactivate,
+        );
       }),
     );
 
@@ -99,6 +129,12 @@ class CustomerPlanService {
       (r): r is CustomerPlan => r !== null,
     );
     return { active, cancelled };
+  }
+
+  // Whether a line has any recorded payments — the form uses it to decide if
+  // removing it needs the "void paid months?" prompt.
+  async hasPayments(id: string): Promise<boolean> {
+    return (await repository.countPayments(id)) > 0;
   }
 
   private validateDate(startDate: string): void {

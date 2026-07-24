@@ -7,9 +7,11 @@ import { CurrencyInput } from "@/src/shared/components/CurrencyInput";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { COLORS } from "@/src/shared/constants";
 
+export type PaymentMode = "full" | "partial" | "debt";
+
 interface Props {
-  paymentMode: "full" | "partial" | "debt";
-  onPaymentModeChange: (mode: "full" | "partial" | "debt") => void;
+  paymentMode: PaymentMode;
+  onPaymentModeChange: (mode: PaymentMode) => void;
   amountPaid: number | null;
   onAmountPaidChange: (amount: number | null) => void;
   // Currency the Amount Paid input is locked to (same unit as Amount Due).
@@ -22,6 +24,9 @@ interface Props {
   // True when an Amount Due is not yet known (custom-amount path with no
   // value typed). Partial cannot be chosen without a due to validate against.
   partialDisabled?: boolean;
+  // Adds a third "debt" option (collect nothing now, whole amount is owed).
+  // Used by the sales flow; the regular payment sheet leaves it off.
+  allowDebt?: boolean;
 }
 
 export function PaymentAmountPaidSection({
@@ -34,14 +39,25 @@ export function PaymentAmountPaidSection({
   formatAmount,
   onFocusClearError,
   partialDisabled = false,
+  allowDebt = false,
 }: Props) {
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
 
+  const modes: PaymentMode[] = allowDebt
+    ? ["full", "partial", "debt"]
+    : ["full", "partial"];
+
+  const modeLabel: Record<PaymentMode, string> = {
+    full: t("payments.full_payment"),
+    partial: t("payments.partial_payment"),
+    debt: t("payments.no_payment"),
+  };
+
   return (
     <View className="mb-4">
       <View className="flex-row gap-6">
-        {(["full", "partial", "debt"] as const).map((mode) => {
+        {modes.map((mode) => {
           const isSelected = paymentMode === mode;
           const isDisabled = mode === "partial" && partialDisabled;
           return (
@@ -61,13 +77,7 @@ export function PaymentAmountPaidSection({
                   <View className="w-2 h-2 rounded-full bg-primary" />
                 ) : null}
               </View>
-              <Text className="text-sm text-gray-700">
-                {mode === "full"
-                  ? t("payments.full_payment")
-                  : mode === "partial"
-                    ? t("payments.partial_payment")
-                    : t("payments.debt_payment")}
-              </Text>
+              <Text className="text-sm text-gray-700">{modeLabel[mode]}</Text>
             </PressableOpacity>
           );
         })}

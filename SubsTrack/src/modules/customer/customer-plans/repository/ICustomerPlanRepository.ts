@@ -9,7 +9,9 @@ export interface ICustomerPlanRepository {
   create(payload: CreateCustomerPlanPayload): Promise<DbCustomerPlan>;
   update(
     id: string,
-    payload: Partial<Pick<DbCustomerPlan, 'plan_id' | 'start_date'>>,
+    payload: Partial<
+      Pick<DbCustomerPlan, 'plan_id' | 'start_date' | 'active' | 'cancelled_at'>
+    >,
   ): Promise<DbCustomerPlan>;
   cancel(id: string): Promise<DbCustomerPlan>;
   delete(id: string): Promise<void>;

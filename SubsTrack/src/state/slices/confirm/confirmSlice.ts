@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { StateCreator } from 'zustand';
 import type { GlobalState } from '@/src/state/globalStore';
 
@@ -8,6 +9,10 @@ export interface ConfirmOptions {
   cancelLabel?: string;
   destructive?: boolean;
   hideCancel?: boolean;
+  // Optional extra content rendered between the message and the buttons — e.g. a
+  // checkbox the caller reads (through its own closure) after the promise
+  // settles. A render callback, not a stored element, so it lives outside immer.
+  content?: () => ReactNode;
 }
 
 export interface ConfirmSlice {
@@ -15,10 +20,14 @@ export interface ConfirmSlice {
   options: ConfirmOptions | null;
   show: (options: ConfirmOptions) => Promise<boolean>;
   settle: (result: boolean) => void;
+  // Reads the current dialog's extra content renderer (kept out of immer state).
+  getContent: () => (() => ReactNode) | null;
 }
 
-// Stored outside immer state — immer cannot proxy function references.
+// Stored outside immer state — immer cannot proxy function references. The
+// content renderer rides alongside the resolver for the same reason.
 let pendingResolve: ((v: boolean) => void) | null = null;
+let pendingContent: (() => ReactNode) | null = null;
 
 export const createConfirmSlice: StateCreator<
   GlobalState,
@@ -32,9 +41,12 @@ export const createConfirmSlice: StateCreator<
   show: (options) =>
     new Promise<boolean>((resolve) => {
       pendingResolve = resolve;
+      pendingContent = options.content ?? null;
       set((s) => {
         s.confirm.visible = true;
-        s.confirm.options = options;
+        // The content callback can't be proxied by immer — strip it before it
+        // enters state; it's read back through getContent().
+        s.confirm.options = { ...options, content: undefined };
       });
     }),
 
@@ -45,5 +57,8 @@ export const createConfirmSlice: StateCreator<
     });
     pendingResolve?.(result);
     pendingResolve = null;
+    pendingContent = null;
   },
+
+  getContent: () => pendingContent,
 });

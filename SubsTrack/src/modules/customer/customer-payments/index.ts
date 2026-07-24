@@ -15,6 +15,7 @@ export { PaymentDetailSheet } from './components/PaymentDetailSheet';
 export { PaymentFormSheet } from './components/PaymentFormSheet';
 export { PaymentListCard } from './components/PaymentListCard';
 export { PaymentListVoidSheet } from './components/PaymentListVoidSheet';
+export { PaymentsHistorySheet } from './components/PaymentsHistorySheet';
 export { PaymentsPanel } from './screens/PaymentsPanel';
 export { VoidSheet } from './components/VoidSheet';
 export { YearNavigator } from './components/YearNavigator';

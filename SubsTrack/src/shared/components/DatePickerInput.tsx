@@ -27,6 +27,8 @@ interface Props {
   // When true, picks a month only: the day column is hidden, the value is
   // normalized to YYYY-MM-01, and the trigger renders "MMM YYYY".
   monthOnly?: boolean;
+  // When true, the trigger is read-only (muted, won't open the picker).
+  disabled?: boolean;
 }
 
 const ITEM_HEIGHT = 44;
@@ -168,6 +170,7 @@ export function DatePickerInput({
   triggerStyle = "default",
   clearable = false,
   monthOnly = false,
+  disabled = false,
 }: Props) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -209,6 +212,7 @@ export function DatePickerInput({
   );
 
   function handleOpen() {
+    if (disabled) return;
     const p = parseValue(value);
     if (p) {
       setSelYear(p.year);
@@ -381,11 +385,20 @@ export function DatePickerInput({
       ) : null}
       <PressableOpacity
         onPress={handleOpen}
-        className="border border-gray-300 rounded-lg px-4 py-3 bg-white flex-row items-center justify-between"
+        disabled={disabled}
+        className={`border border-gray-300 rounded-lg px-4 py-3 flex-row items-center justify-between ${
+          disabled ? "bg-gray-100" : "bg-white"
+        }`}
       >
         <Text
           numberOfLines={1}
-          className={`text-base flex-1 ${displayValue ? "text-gray-900" : "text-gray-400"}`}
+          className={`text-base flex-1 ${
+            disabled
+              ? "text-gray-400"
+              : displayValue
+                ? "text-gray-900"
+                : "text-gray-400"
+          }`}
         >
           {formattedValue ??
             placeholder ??

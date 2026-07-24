@@ -10,22 +10,21 @@ import {
   type Segment,
 } from "@/src/shared/components/SegmentedTabs";
 import { SalesPanel } from "@/src/modules/transaction/sales";
-import { PaymentsPanel } from "@/src/modules/customer/customer-payments";
 import { DebtsPanel } from "@/src/modules/transaction/debts";
 import { ServicesPanel } from "./ServicesPanel";
 import { PageHeader } from "@/src/shared/components/PageHeader";
 
-type TransactionsTab = "sales" | "payments" | "debts" | "services";
+type TransactionsTab = "sales" | "debts" | "services";
 
-// The Transactions hub: a single bottom tab hosting Sales, Payments, and (future)
+// The Transactions hub: a single bottom tab hosting Sales, Debts, and (future)
 // Services as in-page segments. Owns the page chrome; each panel owns its body.
+// (Payments history moved out to a quick-actions sheet — PaymentsHistorySheet.)
 export function TransactionsScreen() {
   const { t } = useTranslation();
-  const [tab, setTab] = useState<TransactionsTab>("payments");
+  const [tab, setTab] = useState<TransactionsTab>("debts");
 
   const segments: Segment<TransactionsTab>[] = useMemo(
     () => [
-      { key: "payments", label: t("transactions.tab_payments") },
       { key: "debts", label: t("transactions.tab_debts") },
       { key: "sales", label: t("transactions.tab_sales") },
       { key: "services", label: t("transactions.tab_services") },
@@ -66,7 +65,6 @@ export function TransactionsScreen() {
       <GestureDetector gesture={swipe}>
         <View className="flex-1">
           {tab === "sales" ? <SalesPanel /> : null}
-          {tab === "payments" ? <PaymentsPanel /> : null}
           {tab === "debts" ? <DebtsPanel /> : null}
           {tab === "services" ? <ServicesPanel /> : null}
         </View>

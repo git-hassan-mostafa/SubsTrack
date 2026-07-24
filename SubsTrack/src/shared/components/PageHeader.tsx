@@ -117,6 +117,12 @@ function QuickActionsMenuButton() {
 
   const actions: ActionMenuItem[] = [
     {
+      key: "paymentsHistory",
+      label: t("payments.history"),
+      icon: "receipt-outline",
+      onPress: () => openQuickAction("paymentsHistory"),
+    },
+    {
       key: "customer",
       label: t("customers.add"),
       icon: "person-add-outline",

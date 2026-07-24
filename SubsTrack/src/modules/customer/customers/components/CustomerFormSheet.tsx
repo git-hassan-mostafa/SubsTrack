@@ -118,7 +118,8 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
         isRegular: form.isRegular,
       };
       const finalLines = plansEditor.current?.getLines() ?? [];
-      const removedIds = plansEditor.current?.getRemovedIds() ?? [];
+      const removed = plansEditor.current?.getRemoved() ?? [];
+      const reactivated = plansEditor.current?.getReactivated() ?? [];
 
       if (customer) {
         await updateCustomer(customer.id, payload);
@@ -126,7 +127,8 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
         const ok = await syncLines(
           customer.id,
           finalLines,
-          removedIds,
+          removed,
+          reactivated,
           user.tenantId,
         );
         if (ok) onDismiss();
@@ -139,7 +141,7 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
           usage,
         );
         if (!created) return; // error / tier-limit surfaced via the banners/modal
-        const ok = await syncLines(created.id, finalLines, [], user.tenantId);
+        const ok = await syncLines(created.id, finalLines, [], [], user.tenantId);
         if (ok) onDismiss();
       }
     } finally {

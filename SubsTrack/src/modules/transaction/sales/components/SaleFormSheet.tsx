@@ -154,6 +154,7 @@ export function SaleFormSheet({
             formatAmount={(a) => formatMoney(a, cart.currency, cart.currency)}
             onFocusClearError={clearError}
             partialDisabled={total <= 0}
+            allowDebt
           />
         ) : null}
 

@@ -8,26 +8,33 @@ import { DatePickerInput } from "@/src/shared/components/DatePickerInput";
 import { PlanPicker } from "@/src/shared/components/PlanPicker";
 import { COLORS } from "@/src/shared/constants";
 import type { Customer } from "@/src/core/types";
-import type { LineDraft } from "@/src/modules/customer/customer-plans";
+import type { LineDraft, RemovedLine } from "@/src/modules/customer/customer-plans";
 import { getTodayDateString } from "@/src/core/utils/date";
 import { usePlanSlice } from "@/src/state/hooks/usePlanSlice";
+import { useCustomerPlanSlice } from "@/src/state/hooks/useCustomerPlanSlice";
+import { confirm } from "@/src/shared/lib/confirm";
+import { RemovePlanChoice } from "./RemovePlanChoice";
 import { PlanFormSheet } from "@/src/modules/admin/plans";
 
 // One row in the inline Plans editor. `id` present = an existing line being
-// kept/edited; absent = a new line to create. `startDate` is preserved for
-// existing lines; new lines inherit the customer's start date on save.
+// kept/edited; absent = a new line to create. `status` "cancelled" = a
+// soft-cancelled line, shown read-only with a Reactivate action.
 type PlanRow = {
   key: string;
   id?: string;
   planId: string | null;
   startDate: string;
+  status: "active" | "cancelled";
 };
 
-// What the parent form reads back on submit. Lines are the active rows turned
-// into drafts; removedIds are existing lines the user deleted.
+// What the parent form reads back on submit. `lines` = the active rows as
+// drafts (created / kept / updated). `removed` = existing active lines the user
+// deleted this session (each with whether it's a permanent hard delete).
+// `reactivated` = cancelled line ids the user brought back to active.
 export interface CustomerPlansEditorHandle {
   getLines: () => LineDraft[];
-  getRemovedIds: () => string[];
+  getRemoved: () => RemovedLine[];
+  getReactivated: () => string[];
 }
 
 interface Props {
@@ -41,9 +48,11 @@ interface Props {
 }
 
 // Inline Plans (service lines) editor. Owns the row state for a customer's
-// service lines — add / change / remove inline. A customer always keeps at
-// least one line; a plan-less line records custom amounts only. The parent form
-// drives submit and reads the drafts through the imperative ref handle.
+// service lines — add / change / remove / reactivate inline. A customer always
+// keeps at least one active line; a plan-less line records custom amounts only.
+// Cancelled lines stay visible (read-only) so their history is reachable and
+// they can be reactivated. The parent form drives submit and reads the drafts
+// through the imperative ref handle.
 export function CustomerPlansEditor({
   customer,
   branchId,
@@ -52,42 +61,52 @@ export function CustomerPlansEditor({
 }: Props) {
   const { t } = useTranslation();
   const plans = usePlanSlice((s) => s.items);
+  const hasPayments = useCustomerPlanSlice((s) => s.hasPayments);
 
   const rowKey = useRef(0);
   const newRow = (date: string): PlanRow => ({
     key: `new-${rowKey.current++}`,
     planId: null,
     startDate: date,
+    status: "active",
   });
 
-  // Existing customer → one row per active line; new customer → one empty row.
+  // Existing customer → one row per line (active + cancelled, so cancelled ones
+  // stay visible); new customer → one empty active row.
   const [rows, setRows] = useState<PlanRow[]>(() => {
-    const active = (customer?.customerPlans ?? []).filter((l) => l.active);
-    if (active.length > 0) {
-      return active.map((l) => ({
+    const lines = customer?.customerPlans ?? [];
+    if (lines.length > 0) {
+      return lines.map((l) => ({
         key: l.id,
         id: l.id,
         planId: l.planId,
         startDate: l.startDate,
+        status: l.active ? ("active" as const) : ("cancelled" as const),
       }));
     }
     return [newRow(customer?.startDate ?? getTodayDateString())];
   });
-  const [removedIds, setRemovedIds] = useState<string[]>([]);
+  const [removed, setRemoved] = useState<RemovedLine[]>([]);
+  const [reactivated, setReactivated] = useState<string[]>([]);
   const [addPlanOpen, setAddPlanOpen] = useState(false);
 
   useImperativeHandle(ref, () => ({
+    // Only active rows become create/update drafts; cancelled rows are excluded.
     getLines: () =>
-      rows.map((r) => ({ id: r.id, planId: r.planId, startDate: r.startDate })),
-    getRemovedIds: () => removedIds,
+      rows
+        .filter((r) => r.status === "active")
+        .map((r) => ({ id: r.id, planId: r.planId, startDate: r.startDate })),
+    getRemoved: () => removed,
+    getReactivated: () => reactivated,
   }));
 
   // When the branch changes, drop any selected plan that's branch-specific to a
   // different branch (shared plans — branchId null — stay valid everywhere).
+  // Cancelled rows are read-only, so leave them untouched.
   useEffect(() => {
     setRows((prev) =>
       prev.map((r) => {
-        if (!r.planId) return r;
+        if (r.status !== "active" || !r.planId) return r;
         const p = plans.find((pl) => pl.id === r.planId);
         if (p && p.branchId !== null && p.branchId !== branchId) {
           return { ...r, planId: null };
@@ -111,13 +130,73 @@ export function CustomerPlansEditor({
     setRows((prev) => [...prev, newRow(startDate)]);
   }
 
-  function removeRow(key: string) {
-    setRows((prev) => {
-      if (prev.length <= 1) return prev; // keep at least one line
-      const target = prev.find((r) => r.key === key);
-      if (target?.id) setRemovedIds((ids) => [...ids, target.id!]);
-      return prev.filter((r) => r.key !== key);
-    });
+  const activeCount = rows.filter((r) => r.status === "active").length;
+
+  // Removes an active row. A new (unsaved) row just drops. A saved line with
+  // payments opens the confirm dialog whose choice (keep months vs delete
+  // permanently) rides on a ref; "keep" soft-cancels (row stays as cancelled),
+  // "delete" hard-deletes (row drops). A saved line with no payments hard-deletes.
+  async function removeRow(key: string) {
+    if (activeCount <= 1) return; // keep at least one active line
+    const target = rows.find((r) => r.key === key);
+    if (!target || target.status !== "active") return;
+
+    // New (unsaved) row → just drop it; nothing recorded server-side yet.
+    if (!target.id) {
+      setRows((prev) => prev.filter((r) => r.key !== key));
+      return;
+    }
+
+    const id = target.id;
+    const paid = await hasPayments(id);
+    if (paid) {
+      const hardRef = { current: false };
+      const ok = await confirm({
+        title: t("subscriptions.remove_plan_title"),
+        message: t("subscriptions.remove_plan_paid_message"),
+        confirmLabel: t("subscriptions.remove_plan"),
+        destructive: true,
+        content: () => (
+          <RemovePlanChoice onChange={(v) => (hardRef.current = v)} />
+        ),
+      });
+      if (!ok) return; // user backed out — keep the plan active
+      const hardDelete = hardRef.current;
+      setRemoved((prev) => [...prev, { id, hardDelete }]);
+      if (hardDelete) {
+        // Permanent delete → the row disappears.
+        setRows((prev) => prev.filter((r) => r.key !== key));
+      } else {
+        // Soft-cancel → the row stays, shown as cancelled.
+        setRows((prev) =>
+          prev.map((r) =>
+            r.key === key ? { ...r, status: "cancelled" } : r,
+          ),
+        );
+      }
+    } else {
+      // No payments → hard-delete on save; the row disappears.
+      setRemoved((prev) => [...prev, { id, hardDelete: true }]);
+      setRows((prev) => prev.filter((r) => r.key !== key));
+    }
+  }
+
+  // Brings a cancelled row back to active. If it was soft-cancelled in THIS
+  // session (still in `removed`), the two cancel out — just undo the removal.
+  // Otherwise it was cancelled in a past session, so schedule a reactivation.
+  function reactivateRow(key: string) {
+    const target = rows.find((r) => r.key === key);
+    if (!target || !target.id) return;
+    const id = target.id;
+    const wasRemovedThisSession = removed.some((r) => r.id === id);
+    if (wasRemovedThisSession) {
+      setRemoved((prev) => prev.filter((r) => r.id !== id));
+    } else {
+      setReactivated((prev) => (prev.includes(id) ? prev : [...prev, id]));
+    }
+    setRows((prev) =>
+      prev.map((r) => (r.key === key ? { ...r, status: "active" } : r)),
+    );
   }
 
   const multiple = rows.length > 1;
@@ -145,70 +224,107 @@ export function CustomerPlansEditor({
       </View>
 
       {/* Line cards */}
-      {rows.map((row, i) => (
-        <View
-          key={row.key}
-          className="rounded-2xl border border-gray-200 bg-gray-50 px-3.5 pt-4 mb-3"
-        >
-          {/* Card header — line number + remove. Hidden when there's a single
-                line so the common case stays uncluttered. */}
-          {multiple ? (
-            <View className="flex-row items-center justify-between mb-1">
-              <View className="flex-row items-center">
-                <View className="w-6 h-6 rounded-full bg-indigo-50 items-center justify-center">
-                  <Text fontWeight="Bold" className="text-xs text-primary">
-                    {i + 1}
+      {rows.map((row, i) => {
+        const cancelled = row.status === "cancelled";
+        return (
+          <View
+            key={row.key}
+            className={`rounded-2xl border px-3.5 pt-4 mb-3 ${
+              cancelled
+                ? "border-gray-200 bg-gray-100 opacity-70"
+                : "border-gray-200 bg-gray-50"
+            }`}
+          >
+            {/* Card header — line number + remove/reactivate. Hidden when there's
+                a single line so the common case stays uncluttered. */}
+            {multiple ? (
+              <View className="flex-row items-center justify-between mb-1">
+                <View className="flex-row items-center">
+                  <View className="w-6 h-6 rounded-full bg-indigo-50 items-center justify-center">
+                    <Text fontWeight="Bold" className="text-xs text-primary">
+                      {i + 1}
+                    </Text>
+                  </View>
+                  <Text
+                    fontWeight="SemiBold"
+                    className="ms-2 text-sm text-gray-700"
+                  >
+                    {t("subscriptions.line_label", { number: i + 1 })}
                   </Text>
+                  {cancelled ? (
+                    <View className="ms-2 rounded-full bg-gray-200 px-2 py-0.5">
+                      <Text
+                        fontWeight="SemiBold"
+                        className="text-[10px] text-gray-500"
+                      >
+                        {t("subscriptions.cancelled_badge")}
+                      </Text>
+                    </View>
+                  ) : null}
                 </View>
-                <Text
-                  fontWeight="SemiBold"
-                  className="ms-2 text-sm text-gray-700"
-                >
-                  {t("subscriptions.line_label", { number: i + 1 })}
-                </Text>
+                {cancelled ? (
+                  <PressableOpacity
+                    onPress={() => reactivateRow(row.key)}
+                    accessibilityLabel={t("subscriptions.reactivate_plan")}
+                    hitSlop={8}
+                    className="flex-row items-center px-2 py-1 -me-1"
+                  >
+                    <Ionicons
+                      name="refresh"
+                      size={15}
+                      color={COLORS.primary}
+                    />
+                    <Text className="ms-1 text-xs text-primary font-medium">
+                      {t("subscriptions.reactivate_plan")}
+                    </Text>
+                  </PressableOpacity>
+                ) : (
+                  <PressableOpacity
+                    onPress={() => void removeRow(row.key)}
+                    accessibilityLabel={t("subscriptions.remove_plan")}
+                    hitSlop={8}
+                    className="flex-row items-center px-2 py-1 -me-1"
+                  >
+                    <Ionicons
+                      name="trash-outline"
+                      size={15}
+                      color={COLORS.danger}
+                    />
+                    <Text className="ms-1 text-xs text-danger font-medium">
+                      {t("subscriptions.remove_plan")}
+                    </Text>
+                  </PressableOpacity>
+                )}
               </View>
-              <PressableOpacity
-                onPress={() => removeRow(row.key)}
-                accessibilityLabel={t("subscriptions.remove_plan")}
-                hitSlop={8}
-                className="flex-row items-center px-2 py-1 -me-1"
-              >
-                <Ionicons
-                  name="trash-outline"
-                  size={15}
-                  color={COLORS.danger}
-                />
-                <Text className="ms-1 text-xs text-danger font-medium">
-                  {t("subscriptions.remove_plan")}
-                </Text>
-              </PressableOpacity>
-            </View>
-          ) : null}
+            ) : null}
 
-          {/* Fields — plan picker + start date on one line */}
-          <View className="flex-row items-end gap-2">
-            <View className="flex-1">
-              <PlanPicker
-                branchId={branchId}
-                value={row.planId}
-                onChange={(v) => setRowPlan(row.key, v)}
-                label={t("customers.plan_label")}
-                onAddNew={() => setAddPlanOpen(true)}
-                disabled={branchId === null}
-                disabledHint={t("subscriptions.select_branch_first")}
-              />
-            </View>
-            <View className="w-44">
-              <DatePickerInput
-                label={t("subscriptions.start_label")}
-                value={row.startDate}
-                onChange={(v) => setRowStartDate(row.key, v)}
-                placeholder={t("customers.start_date_placeholder")}
-              />
+            {/* Fields — plan picker + start date on one line. Cancelled rows are
+                read-only (disabled) until reactivated. */}
+            <View className="flex-row items-end gap-2">
+              <View className="flex-1">
+                <PlanPicker
+                  branchId={branchId}
+                  value={row.planId}
+                  onChange={(v) => setRowPlan(row.key, v)}
+                  label={t("customers.plan_label")}
+                  onAddNew={() => setAddPlanOpen(true)}
+                  disabled={cancelled || branchId === null}
+                  disabledHint={t("subscriptions.select_branch_first")}
+                />
+              </View>
+              <View className="w-44">
+                <DatePickerInput
+                  label={t("subscriptions.start_label")}
+                  value={row.startDate}
+                  onChange={(v) => setRowStartDate(row.key, v)}
+                  placeholder={t("customers.start_date_placeholder")}
+                  disabled={cancelled}
+                />
+              </View>
             </View>
           </View>
-        </View>
-      ))}
+        );
+      })}
 
       {/* Add line — dashed affordance */}
       <PressableOpacity

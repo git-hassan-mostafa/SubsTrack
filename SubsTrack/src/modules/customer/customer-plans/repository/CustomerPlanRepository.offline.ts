@@ -41,7 +41,9 @@ export class OfflineCustomerPlanRepository
 
   async update(
     id: string,
-    payload: Partial<Pick<DbCustomerPlan, 'plan_id' | 'start_date'>>,
+    payload: Partial<
+      Pick<DbCustomerPlan, 'plan_id' | 'start_date' | 'active' | 'cancelled_at'>
+    >,
   ): Promise<DbCustomerPlan> {
     await this.write((db) => updateDirty(db, 'customer_plans', id, { ...payload, updated_at: nowIso() }));
     return this.readById(id);

@@ -9,7 +9,10 @@ import { CurrencyInput } from "@/src/shared/components/CurrencyInput";
 import { usePaymentSlice } from "@/src/state/hooks/usePaymentSlice";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
-import { PaymentAmountPaidSection } from "./PaymentAmountPaidSection";
+import {
+  PaymentAmountPaidSection,
+  type PaymentMode,
+} from "./PaymentAmountPaidSection";
 
 export interface BulkPaymentValues {
   amountDue: number;
@@ -40,17 +43,10 @@ export function BulkPaymentFormSheet({
 
   const [amountDue, setAmountDue] = useState<number | null>(null);
   const [currencyId, setCurrencyId] = useState<string | null>(null);
-  const [paymentMode, setPaymentMode] = useState<"full" | "partial" | "debt">(
-    "full",
-  );
+  const [paymentMode, setPaymentMode] = useState<PaymentMode>("full");
   const [amountPaid, setAmountPaid] = useState<number | null>(null);
 
-  const resolvedPaid =
-    paymentMode === "full"
-      ? amountDue
-      : paymentMode === "debt"
-        ? 0
-        : amountPaid;
+  const resolvedPaid = paymentMode === "full" ? amountDue : amountPaid;
   const currency = findCurrency(currencies, currencyId);
   const formatResolved = (amount: number) =>
     formatMoney(amount, currency, currency);
@@ -113,7 +109,7 @@ export function BulkPaymentFormSheet({
               </View>
             </View>
 
-            {/* Full / Partial / Debt selector. */}
+            {/* Full / Partial selector. */}
             <PaymentAmountPaidSection
               paymentMode={paymentMode}
               onPaymentModeChange={(mode) => {

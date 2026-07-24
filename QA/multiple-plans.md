@@ -29,9 +29,26 @@ A customer can subscribe to several plans at once, each a **service line** (`cus
 1. Edit a customer → the **Plans** section lists one row per active line, each row = plan dropdown + inline start-date picker + delete button on one line. Tap **Add plan**, pick a different plan, set its start date → Save → the detail screen's line selector now shows two tabs; the new line's grid greys months before its start date.
 2. Pay the same calendar month on each line independently → two payment rows, both visible (previously blocked by the old unique constraint).
 3. Edit a line's plan and/or its start date inline in the form → Save → grid + card summary update; changing the start date moves that line's before_start boundary.
-4. **Remove** a line in the form (trash/Remove): a line with **no** payments is hard-deleted; a line **with** payments is soft-cancelled — it shows dimmed in the panel selector (history viewable), its future months stop being payable, the other line keeps working.
-5. The form keeps at least one row — removing the last is blocked; clearing its plan makes it a plan-less (custom) line.
-6. The month-grid panel selector is **view-only** — it has no add/edit/remove controls.
+4. **Remove** a line in the form (trash/Remove):
+   - A line with **no** payments is hard-deleted silently (no prompt).
+   - A line **with** payments opens a **"Remove this plan?"** confirm carrying a **"Delete permanently"** checkbox (unchecked by default). Backing out (Cancel / Back) keeps the plan active.
+   - Confirm with the checkbox **unchecked** → line is soft-cancelled only. Its row **stays visible in the form** — dimmed, read-only, with a "Cancelled" badge and a **Reactivate** button — and its months keep their paid state (history intact).
+   - Confirm with the checkbox **checked** → the line **and all its payments are permanently deleted** from the database (cascade). The row disappears from the form; the payments are gone from revenue, debts, and the wallet. This cannot be undone (the dialog warns).
+   - In both cases the other line keeps working, and future months of the removed line stop being payable (see 3a for the soft-cancelled case — the deleted case has no line left to pay).
+5. **Reactivate** a cancelled line in the form:
+   - Press **Reactivate** on a cancelled row → it becomes active again; its plan/date fields become editable; on Save the line is active in the DB (`active = true`, `cancelled_at` cleared) with its payment history intact.
+   - Soft-cancel a paid line and then Reactivate it **in the same edit session before saving** → the two cancel out, the row is active again with no DB round-trip for that line.
+6. The form keeps at least one **active** row — removing the last active one is blocked; clearing a plan makes it a plan-less (custom) line.
+7. A cancelled row is **read-only**: its plan dropdown and start-date picker are disabled until you Reactivate it.
+8. The month-grid panel selector is **view-only** — it has no add/edit/remove controls.
+
+### 3a. Payments on a cancelled plan
+
+1. Select a cancelled (dimmed) line in the panel. A **past** or **current** month tap opens the payment form and records normally; a **future** month tap shows a "Not available" dialog (`cancelled_plan_future_blocked`).
+2. **Quick pay** (cell 3-dot) is offered for a cancelled line's past/current unpaid fixed-price month, and records; it is **not** offered on a future month.
+3. **Bulk-select + Pay** on a cancelled line only pays the selected past/current months; future months are dropped from the payable set.
+4. The **current month during its grace window** (grid shows "future"-status gray) is still payable on a cancelled line — the gate keys off the calendar month, not the grid status.
+5. When the whole customer is inactive, the same past/current-allowed, future-blocked rule applies, but the dialog reads `inactive_future_blocked` (customer-inactive message wins over the cancelled-plan one).
 
 ## 4. Aggregated customer-list status
 

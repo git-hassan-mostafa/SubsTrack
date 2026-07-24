@@ -25,7 +25,9 @@ export class CustomerPlanRepository extends BaseRepository implements ICustomerP
 
   async update(
     id: string,
-    payload: Partial<Pick<DbCustomerPlan, 'plan_id' | 'start_date'>>,
+    payload: Partial<
+      Pick<DbCustomerPlan, 'plan_id' | 'start_date' | 'active' | 'cancelled_at'>
+    >,
   ): Promise<DbCustomerPlan> {
     const { data, error } = await this.db
       .from('customer_plans')
@@ -49,7 +51,9 @@ export class CustomerPlanRepository extends BaseRepository implements ICustomerP
     return data as DbCustomerPlan;
   }
 
-  // Hard-delete a line (only safe when it has no payments — payments cascade).
+  // Hard-delete a line. Its payments cascade-delete (FK ON DELETE CASCADE) —
+  // an intentional exception to the no-hard-deletes rule for the form's
+  // "delete permanently" checkbox; also used when a line has no payments.
   async delete(id: string): Promise<void> {
     const { error } = await this.db.from('customer_plans').delete().eq('id', id);
     if (error) this.handleError(error);

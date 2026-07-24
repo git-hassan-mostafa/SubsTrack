@@ -11,7 +11,7 @@ import type { GlobalState } from '@/src/state/globalStore';
 
 // The global "quick add" sheets the PageHeader 3-dot menu can launch on any
 // screen. Each maps to a standalone form sheet hosted by QuickActionSheets.
-export type QuickActionSheet = 'customer' | 'sale' | 'customDebt' | 'debtPayment';
+export type QuickActionSheet = 'customer' | 'sale' | 'customDebt' | 'debtPayment' | 'paymentsHistory';
 
 export interface UiSlice {
   // Which quick-action sheet is open (null = none).

@@ -180,6 +180,21 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
 
   const lineActive = selectedLine?.active ?? false;
 
+  // Calendar-future month (strictly after the current month) — distinct from the
+  // "future" grid STATUS, which also covers a current/recent month still inside
+  // its grace window.
+  function isCalendarFuture(entry: MonthEntry): boolean {
+    const { year: cy, month: cm } = getCurrentYearMonth();
+    return entry.year > cy || (entry.year === cy && entry.month > cm);
+  }
+
+  // On an inactive customer OR a cancelled plan, only FUTURE months are blocked;
+  // past + current months stay fully payable (record, quick-pay, bulk-pay). This
+  // is the single gate all three pay paths share.
+  function isPayBlocked(entry: MonthEntry): boolean {
+    return (!customer.active || !lineActive) && isCalendarFuture(entry);
+  }
+
   function handleCellPress(entry: MonthEntry) {
     if (entry.status === "before_start") {
       void confirm({
@@ -191,14 +206,14 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
       return;
     }
 
-    const { year: cy, month: cm } = getCurrentYearMonth();
-    const isFutureMonth =
-      entry.year > cy || (entry.year === cy && entry.month > cm);
     // Future months are blocked when either the customer OR the line is inactive.
-    if ((!customer.active || !lineActive) && isFutureMonth) {
+    if (isPayBlocked(entry)) {
       void confirm({
         title: t("common.not_available"),
-        message: t("payments.inactive_future_blocked"),
+        // Customer-inactive takes priority; otherwise it's the plan that's cancelled.
+        message: !customer.active
+          ? t("payments.inactive_future_blocked")
+          : t("payments.cancelled_plan_future_blocked"),
         confirmLabel: t("common.close"),
         hideCancel: true,
       });
@@ -218,12 +233,13 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
     setVoidVisible(true);
   }
 
-  // Quick Pay is available on unpaid + future (prepay) months of an active line
-  // with a fixed-price plan — custom-price / planless fall back to the form.
+  // Quick Pay is available on unpaid + future-status (prepay) months of a
+  // fixed-price plan — custom-price / planless fall back to the form. A cancelled
+  // plan (or inactive customer) can still quick-pay its PAST/CURRENT months;
+  // only calendar-future months are blocked (isPayBlocked).
   function canQuickPay(entry: MonthEntry): boolean {
     return (
-      customer.active &&
-      lineActive &&
+      !isPayBlocked(entry) &&
       (entry.status === "unpaid" || entry.status === "future") &&
       plan != null &&
       !plan.isCustomPrice &&
@@ -367,10 +383,11 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
   const selectedEntries = grid.filter((m) =>
     selection.selectedIds.has(m.billingMonth),
   );
+  // Payable in bulk: unpaid, or a future-status (prepay) slot — but never a
+  // calendar-future month on a cancelled plan / inactive customer (isPayBlocked).
   const payableEntries = selectedEntries.filter(
     (e) =>
-      e.status === "unpaid" ||
-      (e.status === "future" && customer.active && lineActive),
+      (e.status === "unpaid" || e.status === "future") && !isPayBlocked(e),
   );
   const voidableEntries = selectedEntries.filter(
     (e) =>
