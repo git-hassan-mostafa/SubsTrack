@@ -142,6 +142,27 @@ Covers the one-off sales ledger: recording a sale (with **one or more products**
 
 ---
 
+## 2B. Stock limits when recording a sale
+
+| # | Scenario | Steps | Expected result |
+|---|----------|-------|-----------------|
+| 2B.1 | Stock shown in the picker | Open the product dropdown | Each in-stock product's sub-line reads "«price» · N left" |
+| 2B.2 | Out-of-stock is visible but unpickable | A product has 0 stock | It is listed, greyed out, sub-line "Out of stock", and tapping it does nothing |
+| 2B.3 | Remaining shown per line | Pick a product with 4 in stock | The row shows "4 left" under the quantity stepper |
+| 2B.4 | Stepper caps at stock | Product has 3 in stock; tap "+" repeatedly | Quantity stops at 3 |
+| 2B.5 | Same product on two lines | 3 in stock; line 1 = product A ×2, line 2 = product A | Line 2's "+" stops at 1 (the combined 3), and its hint reads "1 left" |
+| 2B.6 | Oversold cart blocks submit | Force lines summing above stock (e.g. stock dropped after the form opened) | Submit stays disabled |
+| 2B.7 | Service blocks an oversell | Sell 4 of a product with 3 (bypass the UI cap, e.g. stock changed on another device) | Save fails with "Only 3 left of «product»"; NO sale row and NO movement is written |
+| 2B.8 | Service blocks a zero-stock sale | Sell a product whose stock hit 0 after the form opened | Save fails with "«product» is out of stock" |
+| 2B.9 | Per-product sum, not per line | 3 in stock; two lines of 2 each (total 4) | Blocked — the check sums per product, not per line |
+| 2B.10 | Blocked from every entry point | Repeat 2B.7 from the quick-actions menu, the customer card, and `CustomerSalesListScreen` | Same error each time (the check lives in `SaleService`) |
+| 2B.11 | Successful sale decrements | Sell 2 of 5 | Sale saves; the product card shows 3; one `-2` `Sold` movement exists |
+| 2B.12 | Void restores | Void that sale | Product returns to 5; the movement is struck through in the stock history |
+| 2B.13 | Bulk void restores each | Bulk-void 3 sales of the same product | Every one of their movements is voided; stock returns to the pre-sale total |
+| 2B.14 | Offline oversell is allowed | Two devices offline each sell the last unit, then sync | Both sales survive; stock goes to −1 and the card reads "Short by 1" |
+
+---
+
 ## 3. Sale receipt (SaleDetailSheet)
 
 | # | Scenario | Steps | Expected result |

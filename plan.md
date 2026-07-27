@@ -559,6 +559,10 @@ One-off sellable items distinct from subscription plans. Routers sold outright, 
 - Currency on the row (`currency_id`, NULL = USD).
 - Soft-delete when referenced by sales (preserves history); hard-delete otherwise.
 - Tier-gated via `tier_plans.max_products` — Free: 5, Pro: unlimited, Business: unlimited.
+- **Stock.** Every product carries a quantity and can be **out of stock**. Stock on hand is computed at runtime as `SUM(stock_movements.quantity_delta)` over non-voided rows — never a counter column (an offline counter would be clobbered by whole-row sync). A SHARED product has one pool across all branches.
+  - Recording a sale appends one negative `'sale'` movement per line, written with the sale itself; voiding the sale **soft-voids** those movements (idempotent — a repeat void can't return the stock twice).
+  - Staff add or correct stock through the product's **stock sheet** (`'restock'` / `'adjustment'`, each with an optional note), never by typing a new total. Product create takes a "Starting stock" that becomes the first `'initial'` movement. The sheet also lists the recent history (what changed, when, by whom).
+  - A sale that would oversell is **blocked** in `SaleService.createSale` (summed per product across cart lines). The sale form mirrors it: out-of-stock products are greyed out in the picker and the quantity stepper caps at what's left. The check is advisory — two offline devices can still each sell the last unit, so stock may read negative and is shown as "Short by N".
 
 **Sales** (ledger — header + product lines):
 

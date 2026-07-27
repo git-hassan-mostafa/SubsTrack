@@ -266,6 +266,32 @@ export interface Product {
   active: boolean;
   createdAt: string;
   updatedAt: string;
+  // Derived: SUM(stock_movements.quantityDelta) for this product (no DB column).
+  // <= 0 means out of stock — the sale form blocks it. Filled by ProductService.
+  stockOnHand: number;
+}
+
+// Why a product's stock changed. 'sale' is written automatically by the sale
+// flow; the rest come from the product's stock sheet.
+export type StockReason = 'initial' | 'restock' | 'adjustment' | 'sale';
+
+// One entry in a product's stock ledger. Rows are never edited or deleted:
+// a mistake is corrected with a new 'adjustment', and voiding a sale soft-voids
+// the sale's movements.
+export interface StockMovement {
+  id: string;
+  tenantId: string;
+  productId: string;
+  // Signed: positive adds stock, negative removes it.
+  quantityDelta: number;
+  reason: StockReason;
+  saleId: string | null;
+  note: string | null;
+  recordedByUserId: string | null;
+  occurredAt: string;
+  voidedAt: string | null;
+  voidedBy: string | null;
+  createdAt: string;
 }
 
 // One product line within a sale. A sale (header) holds one or more of these.

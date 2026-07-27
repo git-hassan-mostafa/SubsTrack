@@ -1,9 +1,13 @@
 // Single source of truth for the local SQLite mirror. Drives:
-//   1. CREATE TABLE generation (schema.ts)
+//   1. CREATE TABLE + ADD COLUMN reconcile on every app start (schema.ts / applySchema.ts)
 //   2. row encode/decode at the repository boundary (codec.ts)
 //   3. generic upserts in the sync engine (pull/push)
 // Columns mirror src/core/types/db.ts EXACTLY (snake_case). Keeping one
 // descriptor avoids the three places drifting apart.
+//
+// Adding a table or a column here is the WHOLE local schema change — existing
+// installs pick it up on next start (no migration list). Removing/renaming a
+// column or changing a type/constraint is NOT reconciled; see docs/offline.md.
 
 export type ColType =
   | 'text' // TEXT
@@ -15,7 +19,11 @@ export interface TableSpec {
   name: string;
   /** ordered column → type. `id` is always the TEXT primary key. */
   columns: Record<string, ColType>;
-  /** extra table-level constraints appended to CREATE TABLE. */
+  /**
+   * Extra table-level constraints appended to CREATE TABLE. Applied only when
+   * the table is CREATED — SQLite can't ALTER one in, so adding a constraint
+   * here later reaches fresh installs only (docs/offline.md).
+   */
   constraints?: string[];
   /**
    * Columns the SERVER computes (Postgres `GENERATED ALWAYS`). Stored/computed
@@ -161,6 +169,20 @@ export const TABLES: TableSpec[] = [
     },
   },
   {
+    // Stock ledger. Stock on hand is SUM(quantity_delta) over non-voided rows —
+    // never a counter column, so two devices selling offline can't clobber each
+    // other. quantity_delta MUST stay 'int': 'num' maps to TEXT, and SUM() over
+    // TEXT compares by storage class.
+    name: 'stock_movements',
+    scope: 'tenant',
+    columns: {
+      id: 'text', tenant_id: 'text', product_id: 'text', quantity_delta: 'int',
+      reason: 'text', sale_id: 'text', note: 'text', recorded_by_user_id: 'text',
+      occurred_at: 'text', voided_at: 'text', voided_by: 'text',
+      created_at: 'text', updated_at: 'text',
+    },
+  },
+  {
     name: 'custom_debts',
     scope: 'tenant',
     columns: {
@@ -211,5 +233,5 @@ export const TABLE_BY_NAME: Record<string, TableSpec> = Object.fromEntries(
 export const SYNC_PULL_ORDER = [
   'tenants', 'tier_plans', 'app_options', 'currencies', 'branches', 'users',
   'plans', 'customers', 'customer_plans', 'payments', 'products', 'sales',
-  'sale_items', 'custom_debts', 'debt_payments', 'exception_logs',
+  'sale_items', 'stock_movements', 'custom_debts', 'debt_payments', 'exception_logs',
 ] as const;

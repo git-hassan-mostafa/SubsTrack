@@ -7,23 +7,38 @@ const SQL_TYPE: Record<ColType, string> = {
   bool: "INTEGER",
 };
 
+// Local-only sync flag (stripped before push). `_dirty` = 1 while a local
+// change awaits push; the push scans WHERE _dirty = 1.
+const DIRTY_COLUMN: [string, string] = ["_dirty", "_dirty INTEGER NOT NULL DEFAULT 0"];
+
+/**
+ * Every column of a table as `[name, SQL definition]`, in declaration order.
+ * Shared by CREATE TABLE and the ADD COLUMN reconcile in `applySchema.ts`, so a
+ * column is declared exactly once. Definitions must stay ALTER-able: no PRIMARY
+ * KEY / UNIQUE, and no NOT NULL without a constant DEFAULT (`id` is the sole
+ * exception — it only ever ships with a freshly created table).
+ */
+export function columnDefs(t: TableSpec): [string, string][] {
+  const cols: [string, string][] = Object.entries(t.columns).map(([name, type]) => [
+    name,
+    name === "id" ? "id TEXT PRIMARY KEY NOT NULL" : `${name} ${SQL_TYPE[type]}`,
+  ]);
+  cols.push(DIRTY_COLUMN);
+  return cols;
+}
+
 function createTableSql(t: TableSpec): string {
-  const cols = Object.entries(t.columns).map(([name, type]) =>
-    name === "id"
-      ? "id TEXT PRIMARY KEY NOT NULL"
-      : `${name} ${SQL_TYPE[type]}`,
-  );
-  // Local-only sync flag (stripped before push). `_dirty` = 1 while a local
-  // change awaits push; the new push scans WHERE _dirty = 1.
-  cols.push("_dirty INTEGER NOT NULL DEFAULT 0");
-  const body = [...cols, ...(t.constraints ?? [])].join(",\n  ");
+  const body = [
+    ...columnDefs(t).map(([, def]) => def),
+    ...(t.constraints ?? []),
+  ].join(",\n  ");
   return `CREATE TABLE IF NOT EXISTS ${t.name} (\n  ${body}\n);`;
 }
 
 // Note: the local mirror does NOT declare SQL foreign keys. Rows arrive out of
 // order during pull, so FK enforcement would wrongly reject them. `PRAGMA
 // foreign_keys` stays off.
-export const SCHEMA_V1: string[] = [
+export const CREATE_TABLE_STATEMENTS: string[] = [
   ...TABLES.map(createTableSql),
 
   // ── Sync bookkeeping ───────────────────────────────────────────────────────
@@ -39,8 +54,10 @@ export const SCHEMA_V1: string[] = [
     row_id TEXT NOT NULL,
     PRIMARY KEY (table_name, row_id)
   );`,
+];
 
-  // ── Read-path indices ──────────────────────────────────────────────────────
+// ── Read-path indices ────────────────────────────────────────────────────────
+export const CREATE_INDEX_STATEMENTS: string[] = [
   `CREATE INDEX IF NOT EXISTS idx_customers_name ON customers(name);`,
   `CREATE INDEX IF NOT EXISTS idx_customers_branch ON customers(branch_id);`,
   `CREATE INDEX IF NOT EXISTS idx_customer_plans_customer ON customer_plans(customer_id);`,
@@ -53,9 +70,6 @@ export const SCHEMA_V1: string[] = [
   `CREATE INDEX IF NOT EXISTS idx_sales_customer ON sales(customer_id);`,
   `CREATE INDEX IF NOT EXISTS idx_custom_debts_customer ON custom_debts(customer_id);`,
   `CREATE INDEX IF NOT EXISTS idx_debt_payments_customer ON debt_payments(customer_id);`,
+  `CREATE INDEX IF NOT EXISTS idx_stock_movements_product ON stock_movements(product_id);`,
+  `CREATE INDEX IF NOT EXISTS idx_stock_movements_sale ON stock_movements(sale_id);`,
 ];
-
-// Dev-mode only: one version, always run from scratch (clear app data to pick
-// up a schema change instead of writing a migration). Append delta arrays here
-// once this ships to real users who can't just wipe local data.
-export const MIGRATIONS: string[][] = [SCHEMA_V1];

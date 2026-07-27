@@ -33,6 +33,12 @@ export function ProductCard({
   const source = findCurrency(currencies, product.currencyId);
   const target = findCurrency(currencies, displayCurrencyId);
   const priceLabel = formatMoney(product.price, source, target);
+  const inStock = product.stockOnHand > 0;
+  const stockLabel = inStock
+    ? t("products.in_stock", { quantity: product.stockOnHand })
+    : product.stockOnHand < 0
+      ? t("products.oversold", { quantity: -product.stockOnHand })
+      : t("products.out_of_stock");
 
   return (
     <EntityCard
@@ -63,6 +69,20 @@ export function ProductCard({
             {t("products.inactive_badge")}
           </Text>
         ) : null}
+
+        {/* Stock can read negative if two devices sold the last unit offline. */}
+        <View className="flex-row mt-1.5">
+          <View
+            className={`rounded-full px-2 py-0.5 ${inStock ? "bg-emerald-50" : "bg-red-50"}`}
+          >
+            <Text
+              fontWeight="SemiBold"
+              className={`text-xs ${inStock ? "text-success" : "text-danger"}`}
+            >
+              {stockLabel}
+            </Text>
+          </View>
+        </View>
       </View>
 
       <View className="items-end me-2">

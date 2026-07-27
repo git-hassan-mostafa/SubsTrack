@@ -14,6 +14,9 @@ export interface DropdownOption<T = string> {
   label: string;
   sublabel?: string;
   value: T;
+  // Listed but not pickable (e.g. an out-of-stock product) — greyed out. Shown
+  // rather than hidden so the user can see why the option is unavailable.
+  disabled?: boolean;
 }
 
 // "default" — full-width form field with label, used inside form sheets.
@@ -212,6 +215,7 @@ export function DropdownModal<T extends string | number | null = string>({
     sublabel?: string;
     value: T | null;
     isNull: boolean;
+    disabled?: boolean;
   };
 
   const allItems: ListItem[] = [
@@ -273,12 +277,25 @@ export function DropdownModal<T extends string | number | null = string>({
             : item.value === value;
           return (
             <PressableOpacity
-              onPress={() => handleSelect(item.value)}
-              className={`flex-row items-center px-5 py-3.5 border-b border-gray-50 ${isSelected ? "bg-indigo-50" : "bg-white"}`}
+              onPress={() => !item.disabled && handleSelect(item.value)}
+              disabled={item.disabled}
+              className={`flex-row items-center px-5 py-3.5 border-b border-gray-50 ${
+                item.disabled
+                  ? "bg-gray-50"
+                  : isSelected
+                    ? "bg-indigo-50"
+                    : "bg-white"
+              }`}
             >
               <View className="flex-1">
                 <Text
-                  className={`text-base font-semibold ${isSelected ? "text-primary" : "text-gray-900"}`}
+                  className={`text-base font-semibold ${
+                    item.disabled
+                      ? "text-gray-400"
+                      : isSelected
+                        ? "text-primary"
+                        : "text-gray-900"
+                  }`}
                 >
                   {item.label}
                 </Text>
@@ -288,7 +305,7 @@ export function DropdownModal<T extends string | number | null = string>({
                   </Text>
                 ) : null}
               </View>
-              {isSelected ? (
+              {isSelected && !item.disabled ? (
                 <Ionicons name="checkmark" size={18} color={COLORS.primary} />
               ) : null}
             </PressableOpacity>

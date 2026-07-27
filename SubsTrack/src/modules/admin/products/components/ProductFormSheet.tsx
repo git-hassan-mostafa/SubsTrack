@@ -22,6 +22,7 @@ interface Props {
   product?: Product | null;
   onDismiss: () => void;
   onRequestDelete?: (product: Product) => void;
+  onAdjustStock?: (product: Product) => void;
 }
 
 type FormState = {
@@ -30,12 +31,16 @@ type FormState = {
   price: number | null;
   currencyId: string | null;
   branchId: string | null;
+  // Create only — becomes the first ledger movement. Editing never touches
+  // stock; that goes through ProductStockSheet so every change is recorded.
+  initialStock: string;
 };
 
 export function ProductFormSheet({
   product,
   onDismiss,
   onRequestDelete,
+  onAdjustStock,
 }: Props) {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -46,6 +51,14 @@ export function ProductFormSheet({
   const tierLimitError = useProductSlice((s) => s.tierLimitError);
   const clearError = useProductSlice((s) => s.clearError);
   const clearTierLimitError = useProductSlice((s) => s.clearTierLimitError);
+  // Live from the list, so the figure follows an adjustment made in the stock
+  // sheet stacked on top of this form instead of showing the opening snapshot.
+  const stockOnHand = useProductSlice(
+    (s) =>
+      s.items.find((p) => p.id === product?.id)?.stockOnHand ??
+      product?.stockOnHand ??
+      0,
+  );
   const currencies = useCurrencySlice((s) => s.items);
   const currentTier = useSubscriptionSlice((s) => s.currentTier);
   const usage = useSubscriptionSlice((s) => s.usage);
@@ -71,6 +84,7 @@ export function ProductFormSheet({
     price: product?.price ?? null,
     currencyId: product?.currencyId ?? null,
     branchId: defaultBranchId,
+    initialStock: "",
   });
 
   useEffect(() => {
@@ -90,7 +104,12 @@ export function ProductFormSheet({
     if (product) {
       await updateProduct(product.id, payload);
     } else {
-      await createProduct(payload, user.tenantId, currentTier, usage);
+      await createProduct(
+        { ...payload, initialStock: Number(form.initialStock) || 0 },
+        user.tenantId,
+        currentTier,
+        usage,
+      );
     }
     const { error: nextError, tierLimitError: nextTier } =
       getStore().getState().products;
@@ -145,6 +164,42 @@ export function ProductFormSheet({
           placeholder="0.00"
           onFocus={clearError}
         />
+
+        {/* Stock: typed once on create, then only ever changed through the
+            stock sheet so every movement is on the record. */}
+        {product ? (
+          <View className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 mb-4 flex-row items-center justify-between">
+            <View>
+              <Text className="text-xs text-gray-400">
+                {t("products.stock_on_hand")}
+              </Text>
+              <Text
+                fontWeight="Bold"
+                className={`text-lg ${stockOnHand > 0 ? "text-gray-900" : "text-danger"}`}
+              >
+                {stockOnHand}
+              </Text>
+            </View>
+            {onAdjustStock ? (
+              <PressableOpacity onPress={() => onAdjustStock(product)}>
+                <Text className="text-sm text-primary font-semibold">
+                  {t("products.adjust_stock_title")}
+                </Text>
+              </PressableOpacity>
+            ) : null}
+          </View>
+        ) : (
+          <Input
+            label={t("products.initial_stock_label")}
+            value={form.initialStock}
+            onChangeText={(v) =>
+              setForm((p) => ({ ...p, initialStock: v.replace(/[^0-9]/g, "") }))
+            }
+            keyboardType="number-pad"
+            placeholder="0"
+            onFocus={clearError}
+          />
+        )}
 
         <Button
           label={product ? t("common.save_changes") : t("products.add_title")}

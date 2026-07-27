@@ -33,6 +33,7 @@ import {
 import type { Product } from "@/src/core/types";
 import { ProductCard } from "../components/ProductCard";
 import { ProductFormSheet } from "../components/ProductFormSheet";
+import { ProductStockSheet } from "../components/ProductStockSheet";
 import { useProductSlice } from "@/src/state/hooks/useProductSlice";
 
 export function ProductListScreen() {
@@ -49,6 +50,7 @@ export function ProductListScreen() {
 
   const [formVisible, setFormVisible] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
+  const [stockFor, setStockFor] = useState<Product | null>(null);
   const [menuItem, setMenuItem] = useState<Product | null>(null);
   const [searchText, setSearchText] = useState("");
   const debouncedSearch = useDebounce(searchText);
@@ -81,6 +83,12 @@ export function ProductListScreen() {
     setFormVisible(true);
   }
 
+  // The form sheet stays open underneath: the stock sheet stacks on top
+  // (AppBottomSheet uses stackBehavior="push") and closing it returns to the form.
+  function openStock(product: Product) {
+    setStockFor(product);
+  }
+
   async function handleDelete(product: Product) {
     const ok = await confirm({
       title: t("products.delete_title"),
@@ -108,6 +116,12 @@ export function ProductListScreen() {
       },
     ];
     if (product.active) {
+      actions.push({
+        key: "stock",
+        label: t("products.adjust_stock_title"),
+        icon: "cube-outline",
+        onPress: () => openStock(product),
+      });
       actions.push({
         key: "delete",
         label: t("common.delete"),
@@ -296,6 +310,14 @@ export function ProductListScreen() {
             setEditing(null);
           }}
           onRequestDelete={(p) => void handleDelete(p)}
+          onAdjustStock={openStock}
+        />
+      )}
+
+      {stockFor && (
+        <ProductStockSheet
+          product={stockFor}
+          onDismiss={() => setStockFor(null)}
         />
       )}
 

@@ -1,7 +1,7 @@
 import { IS_OFFLINE_CAPABLE } from '../platform';
 import { initOfflineDb } from '../db/sqlite';
 /**
- * Open the local DB (+ run migrations) and start the sync triggers. Call once at
+ * Open the local DB (+ reconcile its schema) and start the sync triggers. Call once at
  * app bootstrap, BEFORE any repository read. No-op on web (offline is native-only).
  */
 export async function initOffline(): Promise<void> {

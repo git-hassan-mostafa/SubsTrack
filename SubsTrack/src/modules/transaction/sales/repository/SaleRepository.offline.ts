@@ -1,5 +1,5 @@
 import { OFFLINE_PAGE_SIZE, type BranchFilter } from '@/src/core/constants';
-import type { DbCustomer, DbProduct, DbSale, DbSaleItem } from '@/src/core/types/db';
+import type { DbCustomer, DbProduct, DbSale, DbSaleItem, DbStockMovement } from '@/src/core/types/db';
 import { OfflineBaseRepository } from '@/src/core/offline/OfflineBaseRepository';
 import { insertDirty } from '@/src/core/offline/db/dml';
 import { newId, nowIso } from '@/src/core/offline/ids';
@@ -91,7 +91,7 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
   }
 
   async create(payload: CreateSalePayload): Promise<DbSale> {
-    const { items, ...header } = payload;
+    const { items, movements, ...header } = payload;
     const now = nowIso();
     const saleId = newId();
     const saleRow: DbSale = {
@@ -112,11 +112,21 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
       created_at: now,
       updated_at: now,
     }));
-    // Header + all lines in one local transaction (atomic offline; the generic
-    // sync pushes them separately, parents-before-children).
+    const movementRows: DbStockMovement[] = movements.map((m) => ({
+      ...m,
+      id: newId(),
+      sale_id: saleId,
+      voided_at: null,
+      voided_by: null,
+      created_at: now,
+      updated_at: now,
+    }));
+    // Header + all lines + the stock decrements in one local transaction (atomic
+    // offline; the generic sync pushes them separately, parents-before-children).
     await this.write(async (db) => {
       await insertDirty(db, 'sales', saleRow);
       for (const it of itemRows) await insertDirty(db, 'sale_items', it);
+      for (const m of movementRows) await insertDirty(db, 'stock_movements', m);
     });
     const created = await this.findById(saleId);
     return created as DbSale;
@@ -124,13 +134,20 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
 
   async voidSale(id: string, voidedBy: string, reason: string): Promise<DbSale> {
     const now = nowIso();
-    await this.write((db) =>
-      db.runAsync(
+    await this.write(async (db) => {
+      await db.runAsync(
         `UPDATE sales SET voided_at = ?, voided_by = ?, void_reason = ?, updated_at = ?, _dirty = 1
          WHERE id = ? AND voided_at IS NULL`,
         [now, voidedBy, reason, now, id] as never[],
-      ),
-    );
+      );
+      // Give the stock back by voiding the sale's movements — `IS NULL` makes a
+      // repeat void a no-op instead of crediting the stock twice.
+      await db.runAsync(
+        `UPDATE stock_movements SET voided_at = ?, voided_by = ?, updated_at = ?, _dirty = 1
+         WHERE sale_id = ? AND voided_at IS NULL`,
+        [now, voidedBy, now, id] as never[],
+      );
+    });
     const row = await this.first('SELECT * FROM sales WHERE id = ?', [id]);
     if (!row) this.handleError(new Error('Sale not found'));
     const [hydrated] = await this.hydrate([this.decodeOne<DbSale>('sales', row)!]);

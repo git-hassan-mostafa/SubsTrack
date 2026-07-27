@@ -2,6 +2,9 @@ import type { Sale } from '@/src/core/types';
 import type { BranchFilter } from '@/src/core/constants';
 import i18n from '@/src/core/i18n';
 import repository from '../repository/SaleRepository';
+// Direct path, not the products barrel: the barrel pulls in components → the
+// global store → saleSlice → back here.
+import productService from '@/src/modules/admin/products/services/ProductService';
 import { CreateSaleInput, CreateSaleItemInput, type FindSalesOptions } from '../utils/types'
 import { mapDbSaleToSale } from '../utils/mapper';
 
@@ -26,6 +29,10 @@ class SaleService {
 
   async createSale(input: CreateSaleInput): Promise<Sale> {
     this.validate(input);
+    // Fresh read, not the cached product list — the store can be minutes stale.
+    // Every entry point (sale form, quick actions, customer screens) goes
+    // through here, so this is the one place stock can be enforced.
+    await this.assertStockAvailable(input.items);
     const ratePerUsdSnapshot = input.currency?.ratePerUsd ?? 1;
     if (!(ratePerUsdSnapshot > 0)) {
       throw new Error(i18n.t('errors.rate_snapshot_positive'));
@@ -50,6 +57,14 @@ class SaleService {
         quantity: it.quantity,
         unit_amount: it.unitAmount,
       })),
+      // Stock leaving with the sale. Written by the repository alongside the
+      // header + lines (offline: same transaction), so a sale can never exist
+      // without the stock it consumed. sale_id is filled in there.
+      movements: input.items.map((it) =>
+        productService.movement(input.tenantId, it.product.id, -it.quantity, 'sale', {
+          userId: input.recordedByUserId,
+        }),
+      ),
     });
     return mapDbSaleToSale(row);
   }
@@ -102,6 +117,31 @@ class SaleService {
     const monthEndExclusive = new Date(year, month, 1).toISOString();
     const rows = await repository.totalsForMonth(monthStart, monthEndExclusive, branchFilter);
     return rows.reduce((acc, r) => acc + r.amount / r.ratePerUsdSnapshot, 0);
+  }
+
+  // Blocks a sale that would oversell. The same product can sit on several cart
+  // lines, so the check compares the SUM per product, not each line on its own.
+  // Advisory only: two devices selling the last unit offline can still both
+  // succeed — the DB must accept whatever they replay (see gotchas).
+  private async assertStockAvailable(items: CreateSaleItemInput[]): Promise<void> {
+    const needed = new Map<string, { name: string; quantity: number }>();
+    for (const it of items) {
+      const prev = needed.get(it.product.id);
+      needed.set(it.product.id, {
+        name: it.product.name,
+        quantity: (prev?.quantity ?? 0) + it.quantity,
+      });
+    }
+    const onHand = await productService.getStockOnHand([...needed.keys()]);
+    for (const [id, { name, quantity }] of needed) {
+      const available = onHand[id] ?? 0;
+      if (available <= 0) {
+        throw new Error(i18n.t('errors.sale_out_of_stock', { product: name }));
+      }
+      if (available < quantity) {
+        throw new Error(i18n.t('errors.sale_insufficient_stock', { product: name, available }));
+      }
+    }
   }
 
   private validate(input: CreateSaleInput): void {

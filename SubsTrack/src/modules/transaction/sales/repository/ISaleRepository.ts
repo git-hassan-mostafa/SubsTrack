@@ -1,5 +1,6 @@
 import type { BranchFilter } from '@/src/core/constants';
 import type { DbSale, DbSaleItem } from '@/src/core/types/db';
+import type { CreateStockMovementPayload } from '@/src/modules/admin/products';
 import type { FindSalesOptions } from '../utils/types';
 
 // One line of the sale to create. `sale_id` is filled in by the repository.
@@ -8,8 +9,12 @@ export type CreateSaleItemPayload = Omit<
   'id' | 'sale_id' | 'created_at' | 'updated_at' | 'products'
 >;
 
-// Sale header to create + its product lines. `total_amount` and `items_summary`
-// are computed by the service (total_amount is app-written, not generated).
+// Sale header to create + its product lines + the stock decrements they cause.
+// `total_amount` and `items_summary` are computed by the service (total_amount
+// is app-written, not generated). `movements` travels with the sale so that
+// offline the whole thing lands in ONE transaction — a sale can never exist
+// without the stock it consumed. `sale_id` on each movement is filled by the
+// repository, like `sale_id` on each item.
 export type CreateSalePayload = Omit<
   DbSale,
   | 'id'
@@ -22,7 +27,10 @@ export type CreateSalePayload = Omit<
   | 'remitted_by'
   | 'sale_items'
   | 'customers'
-> & { items: CreateSaleItemPayload[] };
+> & {
+  items: CreateSaleItemPayload[];
+  movements: Omit<CreateStockMovementPayload, 'sale_id'>[];
+};
 
 export interface ISaleRepository {
   findAll(opts?: FindSalesOptions): Promise<DbSale[]>;

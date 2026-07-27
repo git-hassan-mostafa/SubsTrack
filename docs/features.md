@@ -312,9 +312,36 @@ Components read `currentTier` and `usage` from `useSubscriptionSlice` and forwar
 
 Presentation: the screen uses a shared `StatTile` (label / big value / sub-line / tone / optional icon) for the stat grid (Active, Unpaid, New, Cancelled, Payments, Sales) and the Outstanding-balance money tile. The three new repo range queries each have a Supabase + Offline SQLite implementation behind the `IPaymentRepository` / `ISaleRepository` / `ICustomerRepository` seam.
 
-**Tier-gating** is sale-blind: products consume a slot (gated by `max_products`), but recording sales is unlimited on every tier.
+**Tier-gating** is sale-blind: products consume a slot (gated by `max_products`), but recording sales is unlimited on every tier. Stock is not gated at all — restocking is unlimited.
 
-See gotchas #35, #36, #37.
+### Stock
+
+Every product carries a stock quantity and can be **out of stock**. Stock on hand is **computed at runtime** — `Product.stockOnHand = SUM(stock_movements.quantity_delta)` over the non-voided rows — exactly like Debts and the Collector Wallet. There is deliberately **no counter column on `products`**: the offline sync pushes whole rows with latest-`updated_at`-wins, so two devices each selling one unit offline would both write the same decremented number and one sale would vanish. Additive ledger rows merge with no conflict.
+
+**`stock_movements`** — `product_id`, signed `quantity_delta` (never 0), `reason`, `sale_id` (only for `'sale'`), `note`, `recorded_by_user_id`, `occurred_at`, plus soft-void fields. Reasons:
+
+| Reason | Written by | Sign |
+| --- | --- | --- |
+| `initial` | the "Starting stock" field on **product create** | + |
+| `restock` | the product's stock sheet, "Add" | + |
+| `adjustment` | the product's stock sheet, "Remove" (damage, miscount) | − |
+| `sale` | `SaleService.createSale`, one row per line | − |
+
+**Reading it.** Web reads the `product_stock` view — `SUM(quantity_delta) … WHERE voided_at IS NULL GROUP BY product_id, tenant_id`, declared `WITH (security_invoker = true)` so the caller's RLS on `stock_movements` still applies (**requires PG 15+**; without `security_invoker` the view runs as its owner and leaks every tenant's stock). Offline runs the same `GROUP BY` on the mirror — there is no local view. Both are `IProductRepository.stockOnHand(ids?)` returning `Record<productId, number>`; products with no movements are absent and default to 0. `ProductService.getProducts` folds the map into each `Product`.
+
+**Branch scoping is inherited from the PRODUCT, not the sale.** The `stock_movements_all` policy mirrors `products_select` (`current_branch_id() IS NULL OR p.branch_id IS NULL OR p.branch_id = current_branch_id()`) — **not** `sale_items_all`, which inherits `sales`' *owned* semantics. Copying `sale_items_all` would hide every SHARED product's movements from a branch-scoped user, so each shared product would read as permanently out of stock and be unsellable for them. A shared product has **one** stock pool across all branches. The `WITH CHECK` also allows shared products (unlike `products_modify`): a branch user who can *sell* a shared item must be able to write its movement.
+
+**Writing it.**
+
+- **Sale create** — `SaleService.createSale` builds one negative `'sale'` movement per line and passes them in `CreateSalePayload.movements`. The repository writes them alongside the header + lines (offline: the *same* transaction), so a sale can never exist without the stock it consumed.
+- **Sale void** — the sale's movements are **soft-voided** (`UPDATE … WHERE sale_id = ? AND voided_at IS NULL`), not reversed with opposite rows. One statement, independent of line count, and idempotent — a repeat void is a no-op instead of returning the stock twice. Bulk void inherits this for free (`saleSlice.voidSales` loops `saleService.voidSale`).
+- **Manual** — `ProductService.adjustStock` appends a single `restock` / `adjustment` row. Rows are never edited or deleted; a mistake is corrected with another movement.
+
+**Blocking.** `SaleService.createSale` calls `assertStockAvailable` after `validate()` — a **fresh** `stockOnHand` read (the store can be minutes stale), summing the requested quantity **per product across all cart lines** (the same product can sit on two rows). Throws `errors.sale_out_of_stock` / `errors.sale_insufficient_stock`. Because it lives in the service, every entry point is covered (sale form, quick actions, customer screens). `SaleItemsEditor` mirrors it as a soft guard: out-of-stock products stay listed but greyed via `DropdownOption.disabled`, the quantity stepper caps at *on-hand minus what other rows already took*, each row shows "N left", and an oversold cart reports `ready: false`. The check is **advisory** — two offline devices can still each sell the last unit, and the DB deliberately allows a negative total (gotcha #48).
+
+**UI.** `ProductCard` shows a green "N in stock" / red "Out of stock" / red "Short by N" chip. `ProductStockSheet` (product row menu → "Adjust Stock", or the link on the edit form) shows the current on-hand, an Add/Remove toggle, a quantity + note, and the recent movement history with voided rows struck through. `ProductFormSheet` takes "Starting stock" on **create only**; on edit it renders the number read-only next to an "Adjust Stock" link, so the total is never free-typed.
+
+See gotchas #35, #36, #37, #48.
 
 ---
 

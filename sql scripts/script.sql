@@ -1,4 +1,37 @@
 -- ============================================================
+-- HOW TO CHANGE THIS SCRIPT (READ FIRST)
+--
+-- This file is the FULL schema AND the migration. Every statement is
+-- idempotent, so re-running the whole file on a live database is safe and
+-- brings it up to date. There are no separate migration files.
+--
+--  * New table          → CREATE TABLE IF NOT EXISTS (+ CREATE INDEX IF NOT EXISTS).
+--
+--  * New column on an EXISTING table → do NOT add it to that table's
+--    CREATE TABLE block. Add one line to the "Columns added after the initial
+--    schema" block placed directly under the table (create the block if the
+--    table has none yet):
+--        ALTER TABLE <table> ADD COLUMN IF NOT EXISTS <col> <type> [DEFAULT ...];
+--    A fresh database gets the column from that ALTER too, so the end state is
+--    identical and the column is declared exactly once. Keeping it under its own
+--    table (not in one section at the bottom) means views, policies and triggers
+--    further down always see it.
+--    NOT NULL requires a DEFAULT — existing rows must get a value.
+--
+--  * A single-column CHECK or a REFERENCES (FK) → put it inline on the ADD COLUMN.
+--    New table-level constraint (multi-column CHECK / UNIQUE / FK) → guard it:
+--        DO $$ BEGIN
+--            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = '<name>')
+--            THEN ALTER TABLE <table> ADD CONSTRAINT <name> ...; END IF;
+--        END $$;
+--    A UNIQUE rule is simpler as CREATE UNIQUE INDEX IF NOT EXISTS.
+--
+--  * Mirror every column change in the offline client's table descriptor
+--    (SubsTrack/src/core/offline/db/tables.ts) or the native app won't store or
+--    sync it. That side self-heals the same way (ADD COLUMN on next app start).
+-- ============================================================
+
+-- ============================================================
 -- EXTENSIONS
 -- ============================================================
 
@@ -850,6 +883,112 @@ CREATE OR REPLACE TRIGGER trg_sale_items_updated_at
     EXECUTE FUNCTION set_updated_at();
 
 -- ============================================================
+-- STOCK MOVEMENTS
+-- Append-only ledger of every change to a product's stock. Stock on hand is
+-- DERIVED at runtime as SUM(quantity_delta) per product — never stored as a
+-- counter, same principle as debts and the collector wallet. Additive rows also
+-- merge cleanly offline: two devices each selling one unit produce two rows
+-- instead of clobbering one another's counter.
+-- No branch_id: branch is inherited via the parent product (RLS EXISTS),
+-- exactly like sale_items inherit via the parent sale.
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS stock_movements (
+    id                  UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id           UUID        NOT NULL,
+    product_id          UUID        NOT NULL,
+    -- Signed, never zero: positive adds stock (restock), negative removes it (sale).
+    quantity_delta      INTEGER     NOT NULL CHECK (quantity_delta <> 0),
+    reason              TEXT        NOT NULL,
+    -- Set only for reason = 'sale', so a movement traces back to its sale.
+    sale_id             UUID,
+    note                TEXT,
+    recorded_by_user_id UUID,
+    occurred_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    -- Soft-void, like every other ledger. Voiding a sale VOIDS its movements
+    -- rather than inserting opposite ones: one statement, and replaying it is
+    -- harmless, so a double void can never give the stock back twice.
+    voided_at           TIMESTAMPTZ,
+    voided_by           UUID,
+
+    CONSTRAINT chk_stock_movements_reason
+        CHECK (reason IN ('initial', 'restock', 'adjustment', 'sale')),
+
+    CONSTRAINT chk_stock_movements_sale_link
+        CHECK (
+            (reason =  'sale' AND sale_id IS NOT NULL AND quantity_delta < 0)
+            OR
+            (reason <> 'sale' AND sale_id IS NULL)
+        ),
+
+    CONSTRAINT chk_stock_movements_void_consistency
+        CHECK (
+            (voided_at IS NULL AND voided_by IS NULL)
+            OR
+            (voided_at IS NOT NULL AND voided_by IS NOT NULL)
+        ),
+
+    -- A hard-deleted product (one with no sales) takes its ledger with it.
+    CONSTRAINT fk_stock_movements_product
+        FOREIGN KEY (product_id)
+        REFERENCES products(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_stock_movements_tenant
+        FOREIGN KEY (tenant_id)
+        REFERENCES tenants(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_stock_movements_sale
+        FOREIGN KEY (sale_id)
+        REFERENCES sales(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_stock_movements_recorded_by
+        FOREIGN KEY (recorded_by_user_id)
+        REFERENCES users(id)
+        ON DELETE SET NULL,
+
+    CONSTRAINT fk_stock_movements_voided_by
+        FOREIGN KEY (voided_by)
+        REFERENCES users(id)
+        ON DELETE SET NULL
+);
+
+-- Deliberately NO check that the running total stays >= 0. Selling more than
+-- you hold is blocked in the app, but the DB must accept whatever an offline
+-- device replays — a rejected push would retry forever and, because the sync
+-- upserts a table's dirty rows as one batch, would block every other movement.
+
+CREATE INDEX IF NOT EXISTS idx_stock_movements_product
+    ON stock_movements (product_id) WHERE voided_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_stock_movements_tenant
+    ON stock_movements (tenant_id);
+
+CREATE INDEX IF NOT EXISTS idx_stock_movements_sale
+    ON stock_movements (sale_id) WHERE sale_id IS NOT NULL;
+
+CREATE OR REPLACE TRIGGER trg_stock_movements_updated_at
+    BEFORE UPDATE ON stock_movements
+    FOR EACH ROW
+    EXECUTE FUNCTION set_updated_at();
+
+-- Stock on hand per product. security_invoker keeps the caller's RLS on
+-- stock_movements in force, so the view is tenant/branch safe by construction.
+-- Requires PostgreSQL 15+ — on older servers the view would silently run as its
+-- owner and leak every tenant's stock.
+CREATE OR REPLACE VIEW product_stock WITH (security_invoker = true) AS
+    SELECT product_id, tenant_id, SUM(quantity_delta)::INT AS on_hand
+    FROM stock_movements
+    WHERE voided_at IS NULL
+    GROUP BY product_id, tenant_id;
+
+GRANT SELECT ON product_stock TO authenticated;
+
+-- ============================================================
 -- CUSTOM DEBTS
 -- Hand-typed debts a customer owes that have no source transaction
 -- (months come from partial payments, sales from partial sales — those are
@@ -1069,6 +1208,7 @@ ALTER TABLE payments   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE products   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sales      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sale_items ENABLE ROW LEVEL SECURITY;
+ALTER TABLE stock_movements ENABLE ROW LEVEL SECURITY;
 ALTER TABLE custom_debts  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE debt_payments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE exception_logs ENABLE ROW LEVEL SECURITY;
@@ -1530,6 +1670,41 @@ DO $$ BEGIN
                     AND (
                         current_branch_id() IS NULL
                         OR s.branch_id = current_branch_id()
+                    )
+                )
+            );
+    END IF;
+
+    -- ── STOCK MOVEMENTS ──────────────────────────────────────
+    -- No own branch_id; inherit from the parent product. Mirrors products_select:
+    -- a branch-scoped user reaches their own branch's products AND shared ones.
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE tablename = 'stock_movements' AND policyname = 'stock_movements_all'
+    ) THEN
+        CREATE POLICY stock_movements_all ON stock_movements
+            FOR ALL
+            USING (
+                tenant_id = current_tenant_id()
+                AND EXISTS (
+                    SELECT 1 FROM products p
+                    WHERE p.id = stock_movements.product_id
+                    AND (
+                        current_branch_id() IS NULL
+                        OR p.branch_id IS NULL
+                        OR p.branch_id = current_branch_id()
+                    )
+                )
+            )
+            WITH CHECK (
+                tenant_id = current_tenant_id()
+                AND EXISTS (
+                    SELECT 1 FROM products p
+                    WHERE p.id = stock_movements.product_id
+                    AND (
+                        current_branch_id() IS NULL
+                        OR p.branch_id IS NULL
+                        OR p.branch_id = current_branch_id()
                     )
                 )
             );

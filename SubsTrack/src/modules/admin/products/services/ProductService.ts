@@ -1,16 +1,18 @@
-import type { Product, TierPlan, TenantUsage } from '@/src/core/types';
+import type { Product, StockMovement, TierPlan, TenantUsage } from '@/src/core/types';
 import type { BranchFilter } from '@/src/core/constants';
 import i18n from '@/src/core/i18n';
 import repository from '../repository/ProductRepository';
+import type { CreateStockMovementPayload } from '../repository/IProductRepository';
 import { tierService } from '@/src/modules/admin/subscription';
-import { mapDbProductToProduct } from '../utils/mapper';
-import { ProductInput } from '../utils/types';
+import { mapDbProductToProduct, mapDbStockMovementToStockMovement } from '../utils/mapper';
+import { ProductInput, StockAdjustReason } from '../utils/types';
 
 
 class ProductService {
   async getProducts(branchFilter: BranchFilter = null): Promise<Product[]> {
     const rows = await repository.findAll(branchFilter);
-    return rows.map(mapDbProductToProduct);
+    const stock = await repository.stockOnHand(rows.map((r) => r.id));
+    return rows.map((r) => mapDbProductToProduct(r, stock[r.id] ?? 0));
   }
 
   async createProduct(
@@ -18,6 +20,7 @@ class ProductService {
     tenantId: string,
     tier: TierPlan,
     usage: TenantUsage,
+    userId: string | null = null,
   ): Promise<Product> {
     this.validate(data);
     tierService.assertCanCreate(tier, usage, 'products');
@@ -31,12 +34,20 @@ class ProductService {
         currency_id: data.currencyId,
         active: true,
       });
-      return mapDbProductToProduct(row);
+      // Opening balance becomes the first ledger entry (0 writes no row).
+      const initial = data.initialStock ?? 0;
+      if (initial > 0) {
+        await repository.addMovements([
+          this.movement(tenantId, row.id, initial, 'initial', { userId }),
+        ]);
+      }
+      return mapDbProductToProduct(row, initial);
     } catch (err) {
       return this.rethrow(err);
     }
   }
 
+  // Editing a product never touches stock — adjustStock owns that.
   async updateProduct(id: string, data: ProductInput): Promise<Product> {
     this.validate(data);
     try {
@@ -47,7 +58,8 @@ class ProductService {
         currency_id: data.currencyId,
         branch_id: data.branchId,
       });
-      return mapDbProductToProduct(row);
+      const stock = await repository.stockOnHand([id]);
+      return mapDbProductToProduct(row, stock[id] ?? 0);
     } catch (err) {
       return this.rethrow(err);
     }
@@ -67,7 +79,8 @@ class ProductService {
 
   async reactivateProduct(id: string): Promise<Product> {
     const row = await repository.update(id, { active: true });
-    return mapDbProductToProduct(row);
+    const stock = await repository.stockOnHand([id]);
+    return mapDbProductToProduct(row, stock[id] ?? 0);
   }
 
   // Batch counterpart to deleteProduct: products with sales are soft-deleted,
@@ -88,12 +101,68 @@ class ProductService {
     return { hard, soft };
   }
 
+  // ── Stock ────────────────────────────────────────────────────────────────
+  // Stock on hand is the ledger sum, so a manual change is just one more row:
+  // positive delta = restock, negative = a correction (damaged / miscounted).
+  async adjustStock(
+    productId: string,
+    tenantId: string,
+    delta: number,
+    reason: StockAdjustReason,
+    note: string | null = null,
+    userId: string | null = null,
+  ): Promise<number> {
+    if (!Number.isInteger(delta) || delta === 0) {
+      throw new Error(i18n.t('errors.stock_delta_invalid'));
+    }
+    await repository.addMovements([
+      this.movement(tenantId, productId, delta, reason, { note, userId }),
+    ]);
+    const stock = await repository.stockOnHand([productId]);
+    return stock[productId] ?? 0;
+  }
+
+  async getStockOnHand(productIds?: string[]): Promise<Record<string, number>> {
+    return repository.stockOnHand(productIds);
+  }
+
+  async getMovements(productId: string, limit = 20): Promise<StockMovement[]> {
+    const rows = await repository.movementsForProduct(productId, limit);
+    return rows.map(mapDbStockMovementToStockMovement);
+  }
+
+  // One place that fills the ledger row's shape, so every writer stays in sync.
+  // Public because SaleService builds its own 'sale' rows to hand to the sale
+  // repository (they must be written in the same transaction as the sale).
+  movement(
+    tenantId: string,
+    productId: string,
+    quantityDelta: number,
+    reason: CreateStockMovementPayload['reason'],
+    extra: { saleId?: string | null; note?: string | null; userId?: string | null; occurredAt?: string } = {},
+  ): CreateStockMovementPayload {
+    return {
+      tenant_id: tenantId,
+      product_id: productId,
+      quantity_delta: quantityDelta,
+      reason,
+      sale_id: extra.saleId ?? null,
+      note: extra.note?.trim() || null,
+      recorded_by_user_id: extra.userId ?? null,
+      occurred_at: extra.occurredAt ?? new Date().toISOString(),
+    };
+  }
+
   private validate(data: ProductInput): void {
     if (!data.name?.trim()) throw new Error(i18n.t('errors.product_name_required'));
     if (typeof data.price !== 'number' || Number.isNaN(data.price)) {
       throw new Error(i18n.t('errors.product_price_required'));
     }
     if (data.price <= 0) throw new Error(i18n.t('errors.product_price_positive'));
+    const initial = data.initialStock ?? 0;
+    if (!Number.isInteger(initial) || initial < 0) {
+      throw new Error(i18n.t('errors.product_stock_invalid'));
+    }
   }
 
   private rethrow(err: unknown): never {

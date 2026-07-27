@@ -186,6 +186,29 @@ export interface DbSale {
   customers?: DbCustomer | null;
 }
 
+// One entry in a product's stock ledger. Stock on hand is SUM(quantity_delta)
+// over the non-voided rows — there is no counter column on products.
+export interface DbStockMovement {
+  id: string;
+  tenant_id: string;
+  product_id: string;
+  // Signed: positive adds stock, negative removes it.
+  quantity_delta: number;
+  reason: DbStockReason;
+  // Set only for reason = 'sale'.
+  sale_id: string | null;
+  note: string | null;
+  recorded_by_user_id: string | null;
+  occurred_at: string;
+  // Soft-void: voiding a sale voids its movements (never inserts opposite ones).
+  voided_at: string | null;
+  voided_by: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type DbStockReason = 'initial' | 'restock' | 'adjustment' | 'sale';
+
 // One product line of a sale (sale_items table).
 export interface DbSaleItem {
   id: string;

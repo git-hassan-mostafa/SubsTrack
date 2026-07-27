@@ -100,15 +100,28 @@ export function SaleItemsEditor({ onChange, onFocusClearError }: Props) {
 
   // Prices show in the sale currency so products priced in different currencies
   // stay comparable — and match the unit amount the pick will prefill.
+  // Out-of-stock products stay listed but greyed out, so the user can see why
+  // they can't be sold. SaleService re-checks on submit — this is only a hint.
   const productOptions: DropdownOption<string>[] = activeProducts.map((p) => ({
     label: p.name,
-    sublabel: formatMoney(
-      p.price,
-      findCurrency(currencies, p.currencyId),
-      saleCurrency,
-    ),
+    sublabel:
+      p.stockOnHand > 0
+        ? `${formatMoney(p.price, findCurrency(currencies, p.currencyId), saleCurrency)} · ${t("sales.stock_left", { quantity: p.stockOnHand })}`
+        : t("products.out_of_stock"),
     value: p.id,
+    disabled: p.stockOnHand <= 0,
   }));
+
+  // What's still sellable for a row: on-hand minus what the OTHER rows already
+  // took of the same product (the same product can sit on several lines).
+  function availableIn(list: Row[], key: string, productId: string | null): number {
+    const product = activeProducts.find((p) => p.id === productId);
+    if (!product) return 0;
+    const takenElsewhere = list
+      .filter((r) => r.key !== key && r.productId === productId)
+      .reduce((sum, r) => sum + r.quantity, 0);
+    return product.stockOnHand - takenElsewhere;
+  }
 
   // Convert a product's catalog price into the given sale currency (rounded).
   function priceInCurrency(product: Product, target: Currency | null): number {
@@ -137,6 +150,10 @@ export function SaleItemsEditor({ onChange, onFocusClearError }: Props) {
           ? {
               ...r,
               productId,
+              // A switch to a lower-stock product must not carry the old quantity over.
+              quantity: product
+                ? Math.min(r.quantity, Math.max(1, availableIn(prev, key, productId)))
+                : r.quantity,
               unitAmount: product
                 ? priceInCurrency(product, target)
                 : r.unitAmount,
@@ -159,11 +176,15 @@ export function SaleItemsEditor({ onChange, onFocusClearError }: Props) {
     );
   }
 
+  // Capped at what's left in stock so the form can't build a sale the service
+  // would reject.
   function setQuantity(key: string, quantity: number) {
     setRows((prev) =>
-      prev.map((r) =>
-        r.key === key ? { ...r, quantity: Math.max(1, quantity) } : r,
-      ),
+      prev.map((r) => {
+        if (r.key !== key) return r;
+        const max = Math.max(1, availableIn(prev, key, r.productId));
+        return { ...r, quantity: Math.min(max, Math.max(1, quantity)) };
+      }),
     );
   }
 
@@ -200,13 +221,23 @@ export function SaleItemsEditor({ onChange, onFocusClearError }: Props) {
         incomplete = true;
       }
     }
+    // Sum per product, not per line — the same product can sit on two rows and
+    // only their total is what stock has to cover. Mirrors SaleService's check.
+    const perProduct = new Map<string, number>();
+    for (const l of lines) {
+      perProduct.set(l.product.id, (perProduct.get(l.product.id) ?? 0) + l.quantity);
+    }
+    const oversold = [...perProduct].some(([id, qty]) => {
+      const product = activeProducts.find((p) => p.id === id);
+      return !product || product.stockOnHand < qty;
+    });
     const total = lines.reduce((sum, l) => sum + l.unitAmount * l.quantity, 0);
     onChange({
       lines,
       total,
       currency: saleCurrency,
       currencyId,
-      ready: lines.length > 0 && !incomplete,
+      ready: lines.length > 0 && !incomplete && !oversold,
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rows, currencyId, activeProducts]);
@@ -296,7 +327,7 @@ export function SaleItemsEditor({ onChange, onFocusClearError }: Props) {
           />
 
           <View className="flex-row items-start gap-2">
-            {/* Quantity stepper */}
+            {/* Quantity stepper — capped at what stock is left for this row */}
             <View className="mb-4">
               <Text className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
                 {t("sales.quantity_label")}
@@ -334,6 +365,17 @@ export function SaleItemsEditor({ onChange, onFocusClearError }: Props) {
               />
             </View>
           </View>
+
+          {/* Remaining stock for this row */}
+          {row.productId ? (
+            <View className="-mt-2 mb-2">
+              <Text className="text-xs text-gray-400">
+                {t("sales.stock_left", {
+                  quantity: availableIn(rows, row.key, row.productId),
+                })}
+              </Text>
+            </View>
+          ) : null}
 
           {/* Line total */}
           {row.unitAmount != null && row.unitAmount > 0 && row.quantity > 1 ? (

@@ -237,6 +237,9 @@ export const createSaleSlice: StateCreator<
         state.sales.items.unshift(sale);
         state.sales.loading = false;
       });
+      // The sale consumed stock — refresh so the next sale form and the product
+      // list show the new on-hand instead of the pre-sale figure.
+      void get().products.fetchProducts();
       return sale;
     } catch (e) {
       set((state) => {
@@ -262,6 +265,8 @@ export const createSaleSlice: StateCreator<
         // for normal usage; keeps the reduced data observable in detail sheet).
         void voided;
       });
+      // The void gave the stock back.
+      void get().products.fetchProducts();
     } catch (e) {
       set((state) => {
         state.sales.error = (e as Error).message;
@@ -299,6 +304,8 @@ export const createSaleSlice: StateCreator<
       state.sales.loading = false;
       state.sales.error = lastError;
     });
+    // The voids gave their stock back.
+    if (voidedIds.length > 0) void get().products.fetchProducts();
     return { ok: voidedIds.length, failed };
   },
 

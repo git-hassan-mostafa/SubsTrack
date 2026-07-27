@@ -1,6 +1,6 @@
 import type { StateCreator } from 'zustand';
 import type { Product, TierPlan, TenantUsage } from '@/src/core/types';
-import { productService, type ProductInput } from '@/src/modules/admin/products';
+import { productService, type ProductInput, type StockAdjustReason } from '@/src/modules/admin/products';
 import { resolveBranchFilter } from '@/src/shared/lib/branchFilter';
 import { TierLimitError } from '@/src/modules/admin/subscription';
 import type { TierLimitErrorPayload } from '@/src/modules/admin/subscription';
@@ -15,6 +15,14 @@ export interface ProductSlice {
   fetchProducts: () => Promise<void>;
   createProduct: (data: ProductInput, tenantId: string, tier: TierPlan, usage: TenantUsage) => Promise<void>;
   updateProduct: (id: string, data: ProductInput) => Promise<void>;
+  adjustStock: (
+    id: string,
+    tenantId: string,
+    delta: number,
+    reason: StockAdjustReason,
+    note?: string | null,
+    userId?: string | null,
+  ) => Promise<boolean>;
   deleteProduct: (id: string) => Promise<'hard' | 'soft' | null>;
   bulkDeleteProducts: (ids: string[]) => Promise<boolean>;
   reactivateProduct: (id: string) => Promise<void>;
@@ -64,7 +72,13 @@ export const createProductSlice: StateCreator<
       state.products.tierLimitError = null;
     });
     try {
-      const product = await productService.createProduct(data, tenantId, tier, usage);
+      const product = await productService.createProduct(
+        data,
+        tenantId,
+        tier,
+        usage,
+        get().auth.user?.id ?? null,
+      );
       set((state) => {
         state.products.items.unshift(product);
         state.products.loading = false;
@@ -106,6 +120,28 @@ export const createProductSlice: StateCreator<
         state.products.error = (e as Error).message;
         state.products.loading = false;
       });
+    }
+  },
+
+  adjustStock: async (id, tenantId, delta, reason, note = null, userId = null) => {
+    set((state) => {
+      state.products.loading = true;
+      state.products.error = null;
+    });
+    try {
+      const onHand = await productService.adjustStock(id, tenantId, delta, reason, note, userId);
+      set((state) => {
+        const i = state.products.items.findIndex((p) => p.id === id);
+        if (i !== -1) state.products.items[i].stockOnHand = onHand;
+        state.products.loading = false;
+      });
+      return true;
+    } catch (e) {
+      set((state) => {
+        state.products.error = (e as Error).message;
+        state.products.loading = false;
+      });
+      return false;
     }
   },
 

@@ -1,5 +1,12 @@
 import type { BranchFilter } from '@/src/core/constants';
-import type { DbProduct } from '@/src/core/types/db';
+import type { DbProduct, DbStockMovement } from '@/src/core/types/db';
+
+/** A ledger row to append. `id`, timestamps and the void fields are filled in
+ *  by the repository — a movement is never born voided. */
+export type CreateStockMovementPayload = Omit<
+  DbStockMovement,
+  'id' | 'created_at' | 'updated_at' | 'voided_at' | 'voided_by'
+>;
 
 /**
  * The Product repository contract. Both the Supabase (online/web) class and the
@@ -20,4 +27,13 @@ export interface IProductRepository {
   referencedIds(ids: string[]): Promise<Set<string>>;
   countAll(branchFilter?: BranchFilter): Promise<number>;
   countReferences(id: string): Promise<number>;
+
+  // ── Stock ledger ───────────────────────────────────────────────────────────
+  /** Stock on hand per product id: SUM over non-voided rows. Products with no
+   *  movements are absent from the map (the caller defaults them to 0). */
+  stockOnHand(productIds?: string[]): Promise<Record<string, number>>;
+  /** Append 1..N ledger rows — one call so a sale's lines land together. */
+  addMovements(payloads: CreateStockMovementPayload[]): Promise<void>;
+  /** Newest first, voided rows included so the history shows corrections. */
+  movementsForProduct(productId: string, limit?: number): Promise<DbStockMovement[]>;
 }

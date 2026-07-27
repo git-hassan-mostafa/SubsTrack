@@ -1,6 +1,6 @@
 import * as SQLite from 'expo-sqlite';
 import { IS_OFFLINE_CAPABLE } from '../platform';
-import { runMigrations } from './migrations';
+import { applySchema } from './applySchema';
 
 const DB_NAME = 'substrack.db';
 
@@ -8,8 +8,9 @@ let _db: SQLite.SQLiteDatabase | null = null;
 let _initPromise: Promise<void> | null = null;
 
 /**
- * Open the local DB and run migrations. Idempotent and safe to call from
- * bootstrap before any repository use. No-op on web (offline is native-only).
+ * Open the local DB and reconcile its schema with `tables.ts`. Idempotent and
+ * safe to call from bootstrap before any repository use. No-op on web (offline
+ * is native-only).
  */
 export async function initOfflineDb(): Promise<void> {
   if (!IS_OFFLINE_CAPABLE) return;
@@ -17,7 +18,7 @@ export async function initOfflineDb(): Promise<void> {
   _initPromise = (async () => {
     const db = await SQLite.openDatabaseAsync(DB_NAME);
     await db.execAsync('PRAGMA journal_mode = WAL;'); // concurrent reads during writes
-    await runMigrations(db);
+    await applySchema(db);
     _db = db;
   })();
   return _initPromise;

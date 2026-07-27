@@ -1,8 +1,8 @@
 import { Platform } from 'react-native';
 import { BaseRepository } from '@/src/core/utils/BaseRepository';
 import type { BranchFilter } from '@/src/core/constants';
-import type { DbProduct } from '@/src/core/types/db';
-import type { IProductRepository } from './IProductRepository';
+import type { DbProduct, DbStockMovement } from '@/src/core/types/db';
+import type { CreateStockMovementPayload, IProductRepository } from './IProductRepository';
 import { OfflineProductRepository } from './ProductRepository.offline';
 
 export class ProductRepository extends BaseRepository implements IProductRepository {
@@ -93,6 +93,38 @@ export class ProductRepository extends BaseRepository implements IProductReposit
       .eq('product_id', id);
     if (error) this.handleError(error);
     return count ?? 0;
+  }
+
+  // Reads the `product_stock` view (SUM of the non-voided ledger rows, grouped
+  // per product). The view is security_invoker, so tenant/branch RLS applies.
+  async stockOnHand(productIds?: string[]): Promise<Record<string, number>> {
+    if (productIds && productIds.length === 0) return {};
+    let query = this.db.from('product_stock').select('product_id, on_hand');
+    if (productIds) query = query.in('product_id', productIds);
+    const { data, error } = await query;
+    if (error) this.handleError(error);
+    const totals: Record<string, number> = {};
+    for (const r of (data ?? []) as { product_id: string; on_hand: number }[]) {
+      totals[r.product_id] = Number(r.on_hand);
+    }
+    return totals;
+  }
+
+  async addMovements(payloads: CreateStockMovementPayload[]): Promise<void> {
+    if (payloads.length === 0) return;
+    const { error } = await this.db.from('stock_movements').insert(payloads);
+    if (error) this.handleError(error);
+  }
+
+  async movementsForProduct(productId: string, limit = 20): Promise<DbStockMovement[]> {
+    const { data, error } = await this.db
+      .from('stock_movements')
+      .select('*')
+      .eq('product_id', productId)
+      .order('occurred_at', { ascending: false })
+      .limit(limit);
+    if (error) this.handleError(error);
+    return (data ?? []) as DbStockMovement[];
   }
 }
 

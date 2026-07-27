@@ -97,7 +97,7 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
   }
 
   async create(payload: CreateSalePayload): Promise<DbSale> {
-    const { items, ...header } = payload;
+    const { items, movements, ...header } = payload;
     // Insert the header first, then its lines (FK requires the sale to exist).
     // Sequential insert mirrors the customer + customer_plans create path.
     const { data: sale, error } = await this.db
@@ -112,23 +112,38 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
     const { error: itemsError } = await this.db.from('sale_items').insert(itemRows);
     if (itemsError) this.handleError(itemsError);
 
+    // Stock decrements, tied back to the sale that caused them.
+    if (movements.length > 0) {
+      const movementRows = movements.map((m) => ({ ...m, sale_id: saleId }));
+      const { error: stockError } = await this.db.from('stock_movements').insert(movementRows);
+      if (stockError) this.handleError(stockError);
+    }
+
     const created = await this.findById(saleId);
     return created as DbSale;
   }
 
   async voidSale(id: string, voidedBy: string, reason: string): Promise<DbSale> {
+    const now = new Date().toISOString();
     const { data, error } = await this.db
       .from('sales')
-      .update({
-        voided_at: new Date().toISOString(),
-        voided_by: voidedBy,
-        void_reason: reason,
-      })
+      .update({ voided_at: now, voided_by: voidedBy, void_reason: reason })
       .eq('id', id)
       .is('voided_at', null)
       .select(SALE_SELECT)
       .single();
     if (error) this.handleError(error);
+
+    // Give the stock back by voiding the sale's movements rather than inserting
+    // opposite ones — `IS NULL` makes a repeat void a no-op instead of crediting
+    // the stock twice.
+    const { error: stockError } = await this.db
+      .from('stock_movements')
+      .update({ voided_at: now, voided_by: voidedBy })
+      .eq('sale_id', id)
+      .is('voided_at', null);
+    if (stockError) this.handleError(stockError);
+
     return data as DbSale;
   }
 
