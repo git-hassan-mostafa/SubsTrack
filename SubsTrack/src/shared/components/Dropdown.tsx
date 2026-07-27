@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { View } from "react-native";
-import { BottomSheetFlatList } from "@gorhom/bottom-sheet";
+// Plain RN FlatList, NOT Gorhom's: a Gorhom scrollable hijacks the content-height
+// measurement of a content-sized sheet and clips the last rows (gotcha #47).
+import { FlatList, View } from "react-native";
 import { PressableOpacity } from "./PressableOpacity/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { useTranslation } from "react-i18next";
@@ -261,7 +262,7 @@ export function DropdownModal<T extends string | number | null = string>({
         </View>
       )}
 
-      <BottomSheetFlatList
+      <FlatList
         data={listItems}
         keyExtractor={(item) => String(item.value ?? "__null__")}
         style={{ maxHeight: 360 }}

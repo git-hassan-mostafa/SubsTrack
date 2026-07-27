@@ -23,8 +23,9 @@ interface FormSheetProps {
  * Full-height form / detail bottom sheet. Wraps {@link AppBottomSheet}
  * (`variant="full"`) with the shared chrome every form used to hand-roll: a
  * Gorhom drag handle, a header (title + one dismiss action), and a scrollable
- * body ({@link BottomSheetScrollView}, which cooperates with the sheet's
- * pan-to-close). Body width is capped on wide viewports via
+ * body ({@link BottomSheetScrollView}). `full` sheets turn Gorhom's content pan
+ * off (gotcha #45), so the body scrolls freely and the sheet is dragged by its
+ * handle. Body width is capped on wide viewports via
  * {@link ResponsiveContainer}.
  *
  * Text inputs rendered inside automatically become `BottomSheetTextInput`

@@ -48,20 +48,10 @@ export function CustomerDetailScreen() {
     fetchSelectedCustomer();
   }, [id]);
 
-  const subtitle = customer
-    ? t("customers.customer_since", {
-        date: formatDate(customer.startDate, "en-US", {
-          month: "short",
-          year: "numeric",
-        }),
-      })
-    : undefined;
-
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
       <PageHeader
         title={customer?.name ?? ""}
-        subtitle={subtitle}
         showBack
         onBack={() => router.back()}
         actionLabel={t("common.edit")}

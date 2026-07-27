@@ -43,11 +43,13 @@ export function useSheetTextInput(): ComponentType<TextInputProps> {
 
 /**
  * Vertical-scroll counterpart of {@link useSheetTextInput}: returns
- * `BottomSheetScrollView` inside a sheet (so its scroll cooperates with the
- * sheet's pan-to-close) and a plain `ScrollView` elsewhere. Used by bodies that
- * render both inside a sheet and on a standalone screen (e.g. the wallet detail
- * view). Horizontal scrollers don't conflict with the vertical pan and can stay
- * plain `ScrollView`s.
+ * `BottomSheetScrollView` inside a sheet and a plain `ScrollView` elsewhere.
+ * Used by bodies that render both inside a sheet and on a standalone screen
+ * (e.g. the wallet detail view).
+ *
+ * Only for FIXED-height sheets (`FormSheet` / `variant="full"`). A
+ * content-sized (`auto`) sheet must use plain scrollables — a Gorhom one
+ * overwrites the sheet's measured content height (gotcha #47).
  */
 export function useSheetScrollView(): ComponentType<ScrollViewProps> {
   const insideSheet = useContext(InsideBottomSheetContext);

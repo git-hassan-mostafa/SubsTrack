@@ -120,7 +120,7 @@ Cross-cutting concerns that don't fit a single feature: performance, error handl
 
 ## 9b. Web browser Back button (web build only)
 
-On web, the browser Back button closes the topmost **form sheet / dialog** instead of navigating the route. Transient tap-outside popups (dropdowns, date/currency/entity pickers, action menu) are intentionally NOT tied to Back — they close by clicking their backdrop. Run these in a desktop browser.
+On web, the browser Back button closes the topmost open surface — form sheet, dialog **or** popup (dropdown, date/currency/entity picker, action menu) — instead of navigating the route. Back must never change the screen while anything is open. Run these in a desktop browser.
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
@@ -132,6 +132,31 @@ On web, the browser Back button closes the topmost **form sheet / dialog** inste
 | 9b.6 | Picker closes by clicking outside (not Back) | Open a dropdown / currency / date picker inside a form; click the dark backdrop | Picker closes; the form sheet stays open |
 | 9b.7 | Action menu closes by clicking outside | Open a row's 3-dot action menu; click outside | Menu closes without navigating |
 | 9b.8 | Confirm can't be dismissed mid-action | Start a confirm action that shows a spinner; press Back while it runs | Back is ignored until the action finishes |
+| 9b.9 | **Reported bug — Back closed the sheet AND changed the screen** | Customers → open a customer (route change) → open the edit form sheet → press Back once | Only the sheet closes. Still on the customer detail screen — must NOT drop back to the customer list |
+| 9b.10 | Back closes a lone popup without navigating | On any list screen open a row's 3-dot menu (no sheet under it); press Back | Menu closes; still on the same screen |
+| 9b.11 | Back after a popup handoff | Open a 3-dot menu → choose a destructive action so its confirm dialog replaces the menu → press Back twice | 1st Back closes the confirm, 2nd Back navigates normally. The site must not jump pages |
+| 9b.12 | Router history survives an open sheet | Customers → customer detail → open a sheet → close it with Cancel → press Back | Goes back to the customer list exactly once (router history is intact) |
+
+## 9c. Bottom sheets — Android Back, scrolling, keyboard (native build only)
+
+Regression pack for the sheet defects fixed after the Gorhom migration (gotchas #44 / #45 / #47). Run on a real Android device (edge-to-edge behaviour does not always reproduce in a simulator).
+
+| # | Scenario | Steps | Expected result |
+|---|----------|-------|-----------------|
+| 9c.1 | Back closes a form sheet | Open any form sheet (Customer / Sale / Payment form); press hardware Back | Sheet closes; still on the same screen — the route must NOT change |
+| 9c.2 | Back closes a popup, not the route | Open a Dropdown / date picker / 3-dot action menu; press Back | Only the popup closes; the screen (and any sheet under it) stays open |
+| 9c.3 | Back unwinds stacked sheets in order | Open a form sheet → open a picker inside it → press Back twice | 1st Back closes the picker, 2nd closes the form sheet; still on the same screen |
+| 9c.4 | Back exits selection before the sheet | Admin → Wallets → open a collector → long-press a transaction (selection bar) → press Back | 1st Back clears the selection, 2nd Back closes the wallet sheet |
+| 9c.5 | Payments-history sheet scrolls | 3-dot menu → Payments history; swipe up over the list | The list scrolls through every section; pull-to-refresh and infinite scroll still work |
+| 9c.6 | Collector wallet sheet scrolls | Admin → Wallets → open a collector with many transactions; swipe up | The body scrolls to the last transaction |
+| 9c.7 | Sheet still drags closed by its handle | Open any full sheet; drag the grey handle bar down | Sheet closes (dragging the body scrolls it instead — that is expected) |
+| 9c.8 | Long form reaches its last field with the keyboard open | Open the Customer form, focus a field near the top so the keyboard opens, then scroll to the bottom | The last field AND the Save button are reachable and fully visible above the keyboard |
+| 9c.9 | Dropdown search stays above the keyboard | Open a searchable picker (e.g. customer picker) and type | The search box and results stay visible above the keyboard |
+| 9c.10 | Keyboard close restores the sheet | From 9c.8, dismiss the keyboard | The sheet returns to its normal height with no gap or jump |
+| 9c.11 | **Reported bug — picker sheet clips its last rows** | Open the currency picker (a money field's currency chip) and the product picker (Record sale → product dropdown), each with 2, 4 and 10+ options | Every row is fully visible; the sheet height matches its content (header + list, nothing cut off at the bottom) and no empty gap under the list |
+| 9c.12 | Picker list scrolls when it is capped | Open a dropdown with many options (e.g. products, plans, branches); swipe up over the list | The list scrolls to the last option inside the 360px cap; the sheet itself does not move |
+| 9c.13 | Date picker sheet hugs its columns | Open any date picker (native + web) | The sheet is only as tall as header + the 200px wheels (+ Clear row); wheels scroll and open on the selected value |
+| 9c.14 | Customer picker's last row clears the nav bar | Open the customer picker (Record sale / debt form) and scroll to the very end | The last row sits fully above the Android nav bar / home indicator |
 
 ## 10. Update / migration
 

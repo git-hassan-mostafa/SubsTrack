@@ -288,6 +288,8 @@ Components read `currentTier` and `usage` from `useSubscriptionSlice` and forwar
 
 **Create is header-then-lines.** `SaleService.createSale` computes the summed `total_amount` + `items_summary`, then `SaleRepository.create` inserts the header, then the lines (web: sequential insert like the customer + `customer_plans` path; offline: header + all lines in one SQLite transaction, pushed parents-before-children via `SYNC_PULL_ORDER`). List/detail reads join `sale_items(*, products(*))`; the lean aggregate/label reads (`partialSales`, `unremittedForWallet`, dashboard totals) read only header columns.
 
+**Receipt (`SaleDetailSheet`).** The product lines get their **own card**, separate from the customer / sold-at / receipt-ID rows: a "Products" header (cart icon + line count when >1), then one row per line — numbered bubble, `product_name_snapshot`, a `qty × unit price` sub-line, and the line total on the right. A totals footer (Total, plus Paid / Remaining when the sale is partial) renders only when it adds information (multi-line or partial sale). The hero's caption swaps the frozen `items_summary` for a "{{count}} products" count once there is more than one line, since the summary gets long. Lean reads (empty `items`) simply skip the card.
+
 **Branch semantics:**
 
 - `products.branch_id`: same as `plans` — `NULL` = SHARED catalog item visible to every branch.

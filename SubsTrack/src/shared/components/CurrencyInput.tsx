@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { View } from "react-native";
-import { BottomSheetFlatList } from "@gorhom/bottom-sheet";
+// Plain RN FlatList, NOT Gorhom's: a Gorhom scrollable hijacks the content-height
+// measurement of a content-sized sheet and clips the last rows (gotcha #47).
+import { FlatList, View } from "react-native";
 import { PressableOpacity } from "./PressableOpacity/PressableOpacity";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
@@ -171,7 +172,7 @@ export function CurrencyInput({
           </PressableOpacity>
         </View>
 
-        <BottomSheetFlatList
+        <FlatList
           data={[
             {
               id: null as string | null,

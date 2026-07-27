@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useRef, type ReactNode } from "react";
-import { Platform, View, useWindowDimensions } from "react-native";
+import {
+  Platform,
+  View,
+  useWindowDimensions,
+  type ViewStyle,
+} from "react-native";
 import {
   useSafeAreaFrame,
   useSafeAreaInsets,
@@ -12,6 +17,7 @@ import {
 } from "@gorhom/bottom-sheet";
 import { InsideBottomSheetContext } from "./bottomSheetInputContext";
 import { useWebBackDismiss } from "@/src/shared/hooks/useWebBackDismiss";
+import { useAndroidBackDismiss } from "@/src/shared/hooks/useAndroidBackDismiss";
 import { COLORS } from "@/src/shared/constants";
 
 export type BottomSheetVariant = "auto" | "full";
@@ -22,16 +28,17 @@ interface AppBottomSheetProps {
   children: ReactNode;
   /**
    * `auto` — the sheet is sized to its content (transient popups: dropdowns,
-   * pickers, action menus). `full` — a tall, fixed sheet the caller scrolls
-   * itself (forms / detail sheets). Defaults to `auto`.
+   * pickers, action menus). Its body must use PLAIN RN scrollables, never
+   * Gorhom's (see the class doc — they break the content measurement).
+   * `full` — a tall, fixed sheet the caller scrolls itself (forms / detail
+   * sheets). Defaults to `auto`.
    */
   variant?: BottomSheetVariant;
   /**
-   * `auto`-only. When the body contains a virtualized list
-   * (`BottomSheetFlatList`), pass `scrollable` so the sheet uses a FIXED snap
-   * height and the body fills it with `flex:1` — Gorhom's `enableDynamicSizing`
-   * measures a virtualized list wrong and leaves a big empty gap under a long
-   * list (the list scrolls internally while the sheet is taller than it).
+   * `auto`-only. Pass `scrollable` when the body is a long list that should own
+   * the sheet height: the sheet uses a FIXED snap height and the body fills it
+   * with `flex:1`. Fixed snap also switches dynamic sizing off, so a Gorhom
+   * scrollable (`BottomSheetFlatList`) is safe here.
    */
   scrollable?: boolean;
 }
@@ -40,12 +47,10 @@ interface AppBottomSheetProps {
 // the sheet (no dead space) and scrolls internally.
 const LIST_SNAP_RATIO = 0.7;
 
-// Cap width on wide viewports (desktop web / tablet). Phones are always
-// narrower, so this never constrains a phone layout.
-const MAX_WIDTH: Record<BottomSheetVariant, number> = {
-  auto: 512,
-  full: 768,
-};
+// Web only: cap the sheet to the page content column (ResponsiveContainer's
+// `max-w-3xl`) so it doesn't stretch across a wide browser window. Native sheets
+// stay edge-to-edge — that is the platform convention there.
+const WEB_MAX_WIDTH = 768;
 // Height of a `full` sheet — leaves a strip of backdrop at the top so it reads
 // as a bottom sheet (and gives a tap-to-close / drag-down target).
 const FULL_SNAP = ["92%"];
@@ -56,11 +61,11 @@ const FULL_SNAP = ["92%"];
  * {@link FormSheet} (`full`). It replaces the previous hand-rolled Reanimated
  * sheet.
  *
- * Gorhom gives us drag-down-to-close, backdrop-tap-to-close, and — because it
- * is a `BottomSheetModal` under a `BottomSheetModalProvider` — Android
- * hardware-back closes the top sheet automatically. On web, browser Back is
- * wired for the `full` (page-like) variant via {@link useWebBackDismiss}; the
- * transient `auto` popups stay out of the history stack (gotcha #44/#45).
+ * Gorhom gives us drag-down-to-close and backdrop-tap-to-close. Back is ours to
+ * wire — Gorhom v5 has no `BackHandler` of its own: Android hardware-back goes
+ * through {@link useAndroidBackDismiss}, browser Back on web through
+ * {@link useWebBackDismiss}. Both cover EVERY variant, so Back never reaches the
+ * router while any sheet or popup is open (gotcha #44/#45).
  *
  * Callers stay declarative (`visible` / `onDismiss`); this bridges that to
  * Gorhom's imperative `present()` / `dismiss()` and guards the completion
@@ -68,6 +73,12 @@ const FULL_SNAP = ["92%"];
  *
  * Sizing: `full` uses a fixed `snapPoints` (92%); `auto` (popups) uses Gorhom's
  * `enableDynamicSizing` to fit its content, capped by `maxDynamicContentSize`.
+ * An `auto` body must therefore use PLAIN RN scrollables (`FlatList` /
+ * `ScrollView`) — a Gorhom scrollable OVERWRITES the sheet's measured content
+ * height with its own scroll-content height, so the sheet ends up shorter than
+ * its body (bottom rows clipped) or far taller (empty gap). See gotcha #47.
+ * Content panning is off for every variant, which is what lets a plain
+ * scrollable scroll inside a sheet.
  *
  * Present/dismiss lifecycle: the `auto` popups are ALWAYS mounted and toggle
  * `visible`. Calling Gorhom's `present()` / `dismiss()` out of sync with the
@@ -92,9 +103,11 @@ export function AppBottomSheet({
   const { height: frameHeight } = useSafeAreaFrame();
   const ref = useRef<BottomSheetModal>(null);
 
-  // Only the page-like `full` sheets participate in browser Back on web; `auto`
-  // popups pass active=false, making the hook a no-op for them.
-  useWebBackDismiss(variant === "full" && visible, onDismiss);
+  // Back closes the top-most sheet on both platforms, for EVERY variant — a popup
+  // must swallow it too, otherwise Back falls through to the router and changes
+  // the screen out from under it (which also takes the popup with it).
+  useWebBackDismiss(visible, onDismiss);
+  useAndroidBackDismiss(visible, onDismiss);
 
   // Track Gorhom's REAL open/closed state (its sheet index, via `onChange`).
   // The bridge below drives present()/dismiss() off this — not off assumptions —
@@ -144,15 +157,17 @@ export function AppBottomSheet({
     [],
   );
 
-  // Width cap for wide viewports (desktop web / tablet). We center the sheet by
-  // padding the OUTER container symmetrically — never by constraining the sheet
-  // container's own `style`, which breaks Gorhom's height measurement (the auto
-  // sheet then never appears) and, with `width:100%`+`maxWidth`, pins it left.
-  // On phones the screen is narrower than the cap, so `sidePad` is 0 and this is
-  // a no-op — the sheet stays edge-to-edge.
-  const sidePad = Math.max(0, (screenWidth - MAX_WIDTH[variant]) / 2);
-  const containerStyle =
-    sidePad > 0 ? { paddingHorizontal: sidePad } : undefined;
+  // Width cap on wide web viewports, applied to Gorhom's HOSTING CONTAINER (the
+  // backdrop is its sibling, so it still covers the whole window).
+  // `width` + AUTO side margins is the only thing that centers it: the sheet is
+  // absolutely positioned and Gorhom re-applies `left:0/right:0` AFTER our
+  // style, so `left`/`paddingHorizontal` can't move it (padding never insets an
+  // absolute child) and `width` alone would pin it to one edge. Auto margins
+  // still center an over-constrained absolute box, in LTR and RTL alike.
+  const containerStyle: ViewStyle | undefined =
+    Platform.OS === "web" && screenWidth > WEB_MAX_WIDTH
+      ? { width: WEB_MAX_WIDTH, marginHorizontal: "auto" }
+      : undefined;
 
   // Three layouts:
   // - `full`            → fixed 92% snap, body fills it (`flex:1`), caller scrolls.
@@ -180,18 +195,38 @@ export function AppBottomSheet({
       enableDynamicSizing={!useFixedSnap}
       maxDynamicContentSize={!useFixedSnap ? frameHeight * 0.9 : undefined}
       snapPoints={snapPoints}
+      // Off for EVERY variant: the content pan steals the vertical drag from any
+      // non-Gorhom scrollable (which every `auto` body now is — see the class
+      // doc) AND hard-locks Gorhom's own scrollables whenever the sheet isn't
+      // exactly at its extended position. The handle, the backdrop and Back
+      // still close every sheet. See gotcha #45/#47.
+      enableContentPanningGesture={false}
       backdropComponent={renderBackdrop}
       keyboardBehavior={Platform.OS === "web" ? "extend" : "interactive"}
       keyboardBlurBehavior="restore"
-      android_keyboardInputMode="adjustResize"
+      // NOT `adjustResize`: that tells Gorhom "Android resizes the window itself,
+      // stay out of it" — untrue under edge-to-edge (app.json `edgeToEdgeEnabled`),
+      // where the window never shrinks, so the sheet kept its full height and the
+      // bottom of its content stayed unreachable under the keyboard. `adjustPan`
+      // (Gorhom's default) lets its own `interactive` handling do the work.
+      android_keyboardInputMode="adjustPan"
       backgroundStyle={styles.background}
       handleIndicatorStyle={styles.handleIndicator}
     >
       <InsideBottomSheetContext.Provider value={true}>
         {useFixedSnap ? (
           // Fixed-height sheet: the body fills it so the list/scroll view inside
-          // takes the whole height (no gap under a long list).
-          <View style={{ flex: 1 }}>{children}</View>
+          // takes the whole height (no gap under a long list). A `full` body pads
+          // its own scroll area (FormSheet), so only the list picker needs the
+          // safe-area inset here — without it its last row sits under the nav bar.
+          <View
+            style={{
+              flex: 1,
+              paddingBottom: variant === "full" ? 0 : insets.bottom,
+            }}
+          >
+            {children}
+          </View>
         ) : (
           <BottomSheetView style={{ paddingBottom: insets.bottom }}>
             {children}

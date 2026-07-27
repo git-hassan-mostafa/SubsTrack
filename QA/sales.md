@@ -148,12 +148,16 @@ Covers the one-off sales ledger: recording a sale (with **one or more products**
 |---|----------|-------|-----------------|
 | 3.1 | Open receipt | Tap a sale card | SaleDetailSheet opens |
 | 3.2 | Header | Look at the sheet title | "Sale Receipt" (or locale equivalent) |
-| 3.3 | Products list | On receipt | One row per product line (`name × qty` → line total), each a frozen `product_name_snapshot` |
+| 3.3 | Products list | On receipt | Its own card, separate from the customer/date rows: "Products" header, then one row per line — name (frozen `product_name_snapshot`), `qty × unit price` sub-line, line total on the right |
 | 3.4 | Amount (stored currency primary) | Sale in LBP, display currency = USD | Primary line shows LBP amount; secondary "≈ $X.XX" line via snapshot rate |
 | 3.5 | Snapshot immunity | Renamed product / edited currency rate after recording | Displayed values unchanged (snapshot-based) |
 | 3.6 | Walk-in customer | Customer = null | Shows "Walk-in" or equivalent in customer row |
 | 3.7 | Customer name | Sale linked to customer | Customer name shown; tapping (if navigable) opens customer detail |
-| 3.8 | Per-line rows | 2-product sale | Each product shown as "name × qty" with its line total; a single-quantity line shows just the name |
+| 3.8 | Multi-product layout | 3-product sale | Products header shows a "3" count badge; each row is numbered 1–3; a Total footer row shows `total_amount` |
+| 3.8a | Single-product layout | 1-product sale, fully paid | No count badge, no line numbers, no Total footer (the hero already shows the amount); the one row still shows `1 × price` |
+| 3.8b | Hero caption | 3-product sale | Hero shows "3 products" instead of the long frozen `items_summary`; a 1-product sale still shows the summary |
+| 3.8c | Partial sale totals | Sale with `amount_paid < total_amount` | Footer shows Total, Paid, and Remaining (amber); Remaining = `total_amount − amount_paid` |
+| 3.8d | Lean read (no lines) | Sale loaded without `sale_items` | Products card not rendered; rest of the receipt unaffected |
 | 3.9 | Notes row visible | Sale has notes | Notes row shown |
 | 3.10 | Notes row hidden | Sale has no notes | Notes row not rendered |
 | 3.11 | Date | Always shown | Formatted sale date |

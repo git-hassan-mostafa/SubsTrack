@@ -92,15 +92,23 @@ export function SaleItemsEditor({ onChange, onFocusClearError }: Props) {
     () => products.filter((p) => p.active),
     [products],
   );
-  const productOptions: DropdownOption<string>[] = activeProducts.map((p) => ({
-    label: p.name,
-    value: p.id,
-  }));
   const currencyOptions: DropdownOption<string>[] = currencies
     .filter((c) => c.active || c.id === currencyId)
     .map((c) => ({ label: c.code, sublabel: c.name, value: c.id }));
 
   const saleCurrency = findCurrency(currencies, currencyId);
+
+  // Prices show in the sale currency so products priced in different currencies
+  // stay comparable — and match the unit amount the pick will prefill.
+  const productOptions: DropdownOption<string>[] = activeProducts.map((p) => ({
+    label: p.name,
+    sublabel: formatMoney(
+      p.price,
+      findCurrency(currencies, p.currencyId),
+      saleCurrency,
+    ),
+    value: p.id,
+  }));
 
   // Convert a product's catalog price into the given sale currency (rounded).
   function priceInCurrency(product: Product, target: Currency | null): number {

@@ -6,11 +6,10 @@ interface BottomSheetScaffoldProps {
   onDismiss: () => void;
   children: ReactNode;
   /**
-   * Pass `true` when the body contains a virtualized list
-   * (`BottomSheetFlatList`) — the sheet then opens at a fixed height and the
-   * list fills it (no empty gap under a long list). Give the list `flex:1`
-   * instead of a `maxHeight`. Small/non-list popups (e.g. `ActionMenu`) omit it
-   * and hug their content.
+   * Pass `true` when the body is a long list that should own the sheet height —
+   * the sheet then opens at a fixed height and the list fills it (`flex:1`
+   * instead of a `maxHeight`). Content-sized popups (dropdowns, pickers,
+   * `ActionMenu`) omit it and hug their content.
    */
   scrollable?: boolean;
 }
@@ -23,9 +22,12 @@ interface BottomSheetScaffoldProps {
  * own keyboard handling (text inputs inside auto-swap to `BottomSheetTextInput`
  * via {@link useSheetTextInput}), so callers no longer need a `wrap` prop.
  *
- * Any scrollable inside MUST be a Gorhom scrollable (`BottomSheetFlatList` /
- * `BottomSheetScrollView`) so its scroll cooperates with the sheet's
- * pan-to-close gesture.
+ * Without `scrollable` the sheet is sized to its content, so the body must use
+ * PLAIN RN scrollables (`FlatList` / `ScrollView`) — a Gorhom scrollable
+ * overwrites that measurement with its own scroll-content height and the sheet
+ * comes out too short (last rows clipped) or too tall. Cap such a list with
+ * `maxHeight`. With `scrollable` the fixed snap turns dynamic sizing off, so
+ * either kind works — see gotchas #45 / #47.
  */
 export function BottomSheetScaffold({
   visible,

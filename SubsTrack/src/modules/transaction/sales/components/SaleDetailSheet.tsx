@@ -1,11 +1,13 @@
 import { useState } from "react";
 import { View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { FormSheet } from "@/src/shared/components/FormSheet";
 import { useTranslation } from "react-i18next";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { Input } from "@/src/shared/components/Input";
-import type { Currency, Sale } from "@/src/core/types";
+import { COLORS } from "@/src/shared/constants";
+import type { Currency, Sale, SaleItem } from "@/src/core/types";
 import {
   findCurrency,
   formatMoney,
@@ -79,7 +81,15 @@ export function SaleDetailSheet({
     ? `${stripCurrencyLabel(fmtSource(sale.amountPaid), source)}/${totalSourceLabel}`
     : totalSourceLabel;
   const receiptId = sale.id.slice(-6).toUpperCase();
-  const itemsLabel = sale.itemsSummary;
+  const items = sale.items;
+  const multipleItems = items.length > 1;
+  // The frozen summary gets long with many products — the list below carries the
+  // detail, so the hero only needs a count once there is more than one line.
+  const itemsLabel = multipleItems
+    ? t("sales.items_count", { count: items.length })
+    : sale.itemsSummary;
+  const remaining = sale.totalAmount - sale.amountPaid;
+  const showTotals = multipleItems || partiallyPaid;
 
   return (
     <FormSheet
@@ -140,20 +150,76 @@ export function SaleDetailSheet({
         </View>
       ) : null}
 
+      {/* Products card — one row per line, with a totals footer */}
+      {items.length > 0 ? (
+        <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden mb-4">
+          <View className="flex-row items-center bg-gray-50 px-4 py-3 border-b border-gray-100">
+            <Ionicons name="cart-outline" size={16} color={COLORS.gray500} />
+            <Text
+              fontWeight="SemiBold"
+              className="ms-2 flex-1 text-sm text-gray-700"
+            >
+              {t("sales.items_section_title")}
+            </Text>
+            {multipleItems ? (
+              <View className="rounded-full bg-gray-200 px-2 py-0.5">
+                <Text fontWeight="SemiBold" className="text-xs text-gray-600">
+                  {items.length}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+
+          {items.map((it, i) => (
+            <ItemRow
+              key={it.id}
+              item={it}
+              index={i}
+              numbered={multipleItems}
+              format={fmtSource}
+              divider={i < items.length - 1 || showTotals}
+            />
+          ))}
+
+          {/* Totals — redundant noise on a single fully-paid line, so only shown
+              when it adds information. */}
+          {showTotals ? (
+            <View className="bg-gray-50 px-4 py-3">
+              <View className="flex-row items-center justify-between">
+                <Text className="text-sm text-gray-500">
+                  {t("sales.total_label")}
+                </Text>
+                <Text fontWeight="Bold" className="text-base text-gray-900">
+                  {totalSourceLabel}
+                </Text>
+              </View>
+              {partiallyPaid ? (
+                <>
+                  <View className="flex-row items-center justify-between mt-2">
+                    <Text className="text-xs text-gray-400">
+                      {t("sales.paid_label")}
+                    </Text>
+                    <Text className="text-xs font-semibold text-gray-700">
+                      {fmtSource(sale.amountPaid)}
+                    </Text>
+                  </View>
+                  <View className="flex-row items-center justify-between mt-1">
+                    <Text className="text-xs text-amber-600">
+                      {t("sales.remaining_label")}
+                    </Text>
+                    <Text className="text-xs font-semibold text-amber-600">
+                      {fmtSource(remaining)}
+                    </Text>
+                  </View>
+                </>
+              ) : null}
+            </View>
+          ) : null}
+        </View>
+      ) : null}
+
       {/* Detail rows card */}
       <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden mb-4">
-        {/* One row per product line */}
-        {sale.items.map((it) => (
-          <Row
-            key={it.id}
-            label={
-              it.quantity > 1
-                ? `${it.productNameSnapshot} × ${it.quantity}`
-                : it.productNameSnapshot
-            }
-            value={fmtSource(it.lineTotal)}
-          />
-        ))}
         <Row
           label={t("sales.customer_label")}
           value={sale.customer?.name ?? t("sales.walk_in")}
@@ -234,6 +300,46 @@ export function SaleDetailSheet({
 
       <View className="h-8" />
     </FormSheet>
+  );
+}
+
+// One product line: name + "qty × unit price" on the left, line total on the right.
+function ItemRow({
+  item,
+  index,
+  numbered,
+  format,
+  divider,
+}: {
+  item: SaleItem;
+  index: number;
+  numbered: boolean;
+  format: (v: number) => string;
+  divider: boolean;
+}) {
+  return (
+    <View
+      className={`flex-row items-center px-4 py-3 ${divider ? "border-b border-gray-100" : ""}`}
+    >
+      {numbered ? (
+        <View className="w-6 h-6 rounded-full bg-gray-100 items-center justify-center me-3">
+          <Text fontWeight="SemiBold" className="text-xs text-gray-500">
+            {index + 1}
+          </Text>
+        </View>
+      ) : null}
+      <View className="flex-1 pe-3">
+        <Text fontWeight="SemiBold" className="text-sm text-gray-900">
+          {item.productNameSnapshot}
+        </Text>
+        <Text className="text-xs text-gray-400 mt-0.5">
+          {item.quantity} × {format(item.unitAmount)}
+        </Text>
+      </View>
+      <Text fontWeight="SemiBold" className="text-sm text-gray-900">
+        {format(item.lineTotal)}
+      </Text>
+    </View>
   );
 }
 

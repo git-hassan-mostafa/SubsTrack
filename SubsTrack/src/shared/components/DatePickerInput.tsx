@@ -1,6 +1,8 @@
 import { useMemo } from "react";
-import { View } from "react-native";
-import { BottomSheetFlatList } from "@gorhom/bottom-sheet";
+// Plain RN FlatList, NOT Gorhom's: a Gorhom scrollable hijacks the content-height
+// measurement of a content-sized sheet — and with several side-by-side columns each
+// one fights the others for it, blowing the sheet up to full height (gotcha #47).
+import { FlatList, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { PressableOpacity } from "./PressableOpacity/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
@@ -81,7 +83,7 @@ function ScrollColumn({
       <Text className="text-xs text-center text-gray-400 mb-1 font-medium">
         {label}
       </Text>
-      <BottomSheetFlatList
+      <FlatList
         data={items}
         keyExtractor={(v) => String(v)}
         style={{ height: 200 }}
@@ -127,7 +129,7 @@ function MonthScrollColumn({
       <Text className="text-xs text-center text-gray-400 mb-1 font-medium">
         {t("date_picker.month")}
       </Text>
-      <BottomSheetFlatList
+      <FlatList
         data={monthNames}
         keyExtractor={(_, i) => String(i)}
         style={{ height: 200 }}

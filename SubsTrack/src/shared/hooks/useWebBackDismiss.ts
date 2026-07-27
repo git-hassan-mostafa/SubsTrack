@@ -3,23 +3,21 @@ import { Platform } from "react-native";
 
 /**
  * Web-only: make the browser **Back** button close an open modal instead of
- * navigating the route — mirroring Android's hardware-back → `onRequestClose`.
+ * navigating the route. Native counterpart: `useAndroidBackDismiss` for sheets,
+ * `onRequestClose` for the centered RN `Modal` dialogs.
  *
- * On native this is a no-op: RN's `Modal` already routes hardware back to
- * `onRequestClose`. On web, RN-Web's `Modal` ignores browser history entirely,
- * so without this the Back button falls through to Expo Router and pops the
- * route.
+ * On native this is a no-op. On web, RN-Web's `Modal` ignores browser history
+ * entirely (and Gorhom's sheets aren't `Modal`s at all), so without this the
+ * Back button falls through to Expo Router and pops the route.
  *
- * SCOPE — only "page-like" / stacking modals use this: the full-page form
- * `<SheetModal>`s (Back should feel like navigating back out of the page) and
- * the dialogs that can stack on top of them (`ConfirmDialog`,
- * `UpgradePromptModal`) — a dialog must trap Back too, otherwise Back would
- * close the sheet *underneath* it and leave the dialog floating. Transient
- * tap-outside popups (dropdowns, date/currency/entity pickers, the action
- * menu) deliberately do NOT use this — they close by tapping their backdrop
- * (and native hardware-back via their own `onRequestClose`), so keeping them
- * out of the history stack removes the churniest participants and the races
- * they used to cause.
+ * SCOPE — every open surface: `AppBottomSheet` registers for BOTH variants (form
+ * sheets AND the transient pickers / action menu), and the centered dialogs
+ * (`ConfirmDialog`, `UpgradePromptModal`) call it directly, since a dialog must
+ * trap Back too or Back would close the sheet *underneath* it and leave the
+ * dialog floating. The popups used to be excluded to reduce history churn, but
+ * that left Back falling through to the router whenever one was the top surface —
+ * the route changed and the popup vanished with the screen. The per-modal
+ * sentinel + per-tick reconcile below is what makes the churn safe.
  *
  * How it works: we keep a LIFO stack of open modals and mirror its depth in
  * browser history with one throwaway entry per open modal (a "sentinel"). A
@@ -67,7 +65,15 @@ let reconcileScheduled = false;
 
 function pushSentinel() {
   sentinelCount += 1;
-  window.history.pushState({ __modal: true }, "");
+  // Spread the CURRENT history state — Expo Router keeps its entry `id` there and
+  // uses it to locate itself (`createMemoryHistory.index`). A sentinel with no id
+  // makes the router read index 0, and any navigation-state change while a sheet
+  // is open then hits `history.replace()`, which mints a NEW id, fails to find it,
+  // and RESETS the router's in-memory history to a single entry. Back afterwards
+  // resolved to the wrong record and the router reset the route on top of our
+  // dismiss — the sheet closed AND the screen changed. Copying the id keeps the
+  // sentinel invisible to the router.
+  window.history.pushState({ ...window.history.state, __modal: true }, "");
 }
 
 function popSentinel() {
