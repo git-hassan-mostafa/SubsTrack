@@ -9,9 +9,13 @@ import { ProductInput, StockAdjustReason } from '../utils/types';
 
 
 class ProductService {
+  // The unscoped ledger read is a superset of `rows` (same RLS scope) but doesn't
+  // depend on it, so both go out together instead of one after the other.
   async getProducts(branchFilter: BranchFilter = null): Promise<Product[]> {
-    const rows = await repository.findAll(branchFilter);
-    const stock = await repository.stockOnHand(rows.map((r) => r.id));
+    const [rows, stock] = await Promise.all([
+      repository.findAll(branchFilter),
+      repository.stockOnHand(),
+    ]);
     return rows.map((r) => mapDbProductToProduct(r, stock[r.id] ?? 0));
   }
 

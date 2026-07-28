@@ -1,15 +1,15 @@
 import { Platform } from 'react-native';
 import { BaseRepository } from '@/src/core/utils/BaseRepository';
 import { PAGE_SIZE, type BranchFilter } from '@/src/core/constants';
-import type { DbSale } from '@/src/core/types/db';
+import type { DbSale, DbSaleItem } from '@/src/core/types/db';
 import { FindSalesOptions } from '../utils/types';
 import type { CreateSalePayload, ISaleRepository } from './ISaleRepository';
 import { OfflineSaleRepository } from './SaleRepository.offline';
 
 // Header + its lines (each line with its product) + the customer.
 const SALE_SELECT = '*, sale_items(*, products(*)), customers(*)';
-// Lean select for aggregates/labels — the header's items_summary is enough; no
-// need to hydrate the lines.
+// Header only. Enough for aggregates/labels (items_summary carries the product
+// names) and for create, which gets its lines back from their own insert.
 const SALE_SELECT_LEAN = '*, customers(*)';
 
 // Convert a calendar day (YYYY-MM-DD) to the start of that local day as ISO.
@@ -98,29 +98,34 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
 
   async create(payload: CreateSalePayload): Promise<DbSale> {
     const { items, movements, ...header } = payload;
-    // Insert the header first, then its lines (FK requires the sale to exist).
-    // Sequential insert mirrors the customer + customer_plans create path.
+    // The header must land first — the lines and the stock ledger both FK to it.
+    // It returns its own joined customer so no read-back is needed afterwards.
     const { data: sale, error } = await this.db
       .from('sales')
       .insert(header)
-      .select('id')
+      .select(SALE_SELECT_LEAN)
       .single();
     if (error) this.handleError(error);
-    const saleId = (sale as { id: string }).id;
+    const created = sale as DbSale;
 
-    const itemRows = items.map((it) => ({ ...it, sale_id: saleId }));
-    const { error: itemsError } = await this.db.from('sale_items').insert(itemRows);
-    if (itemsError) this.handleError(itemsError);
+    // Lines and their stock decrements only depend on the header, so they go out
+    // together — one network wave instead of two.
+    const [itemsResult, stockResult] = await Promise.all([
+      this.db
+        .from('sale_items')
+        .insert(items.map((it) => ({ ...it, sale_id: created.id })))
+        .select('*, products(*)'),
+      movements.length > 0
+        ? this.db
+            .from('stock_movements')
+            .insert(movements.map((m) => ({ ...m, sale_id: created.id })))
+        : null,
+    ]);
+    if (itemsResult.error) this.handleError(itemsResult.error);
+    if (stockResult?.error) this.handleError(stockResult.error);
 
-    // Stock decrements, tied back to the sale that caused them.
-    if (movements.length > 0) {
-      const movementRows = movements.map((m) => ({ ...m, sale_id: saleId }));
-      const { error: stockError } = await this.db.from('stock_movements').insert(movementRows);
-      if (stockError) this.handleError(stockError);
-    }
-
-    const created = await this.findById(saleId);
-    return created as DbSale;
+    // Same shape SALE_SELECT would have returned, assembled from the writes.
+    return { ...created, sale_items: (itemsResult.data ?? []) as DbSaleItem[] };
   }
 
   async voidSale(id: string, voidedBy: string, reason: string): Promise<DbSale> {
