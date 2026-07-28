@@ -20,9 +20,10 @@ interface Props {
 }
 
 // A minimal stacked bar chart of a 6-month revenue window, one bar per month.
-// Each bar splits subscription (indigo) vs sales (emerald) so the mix reads at a glance.
-// Prev/next arrows page the window 6 months at a time; the current month is emphasized
-// when it's part of the visible window.
+// Each bar splits the cash streams — subscription (indigo), sales (emerald), debt
+// payments (red-500 = COLORS.danger, same red the Debts tab uses) — so the mix
+// reads at a glance. Prev/next arrows page the window 6 months at a time; the
+// current month is emphasized when it's visible.
 export function RevenueTrendChart({
   data,
   format,
@@ -39,6 +40,9 @@ export function RevenueTrendChart({
     (d) => d.year === now.getFullYear() && d.monthIndex === now.getMonth(),
   );
   const hasSales = data.some((d) => d.sales > 0);
+  const hasDebt = data.some((d) => d.debt > 0);
+  // The legend only earns its space once a bar is actually split.
+  const showLegend = hasSales || hasDebt;
   // Disambiguate with the year whenever a bar isn't in the current calendar
   // year — a window entirely within one past year (e.g. Feb'25-Jul'25) is
   // just as ambiguous as one spanning two years, so this can't be limited to
@@ -75,8 +79,8 @@ export function RevenueTrendChart({
         </View>
       </View>
 
-      {/* Legend — only when both revenue streams are present */}
-      {hasSales ? (
+      {/* Legend — only when more than one revenue stream is present */}
+      {showLegend ? (
         <View className="flex-row items-center gap-4 mb-6">
           <View className="flex-row items-center gap-1.5">
             <View className="w-3 h-3 rounded-sm bg-primary" />
@@ -84,12 +88,22 @@ export function RevenueTrendChart({
               {t("dashboard.subscriptions")}
             </Text>
           </View>
-          <View className="flex-row items-center gap-1.5">
-            <View className="w-3 h-3 rounded-sm bg-emerald-400" />
-            <Text className="text-xs text-gray-500">
-              {t("dashboard.sales_label")}
-            </Text>
-          </View>
+          {hasSales ? (
+            <View className="flex-row items-center gap-1.5">
+              <View className="w-3 h-3 rounded-sm bg-emerald-400" />
+              <Text className="text-xs text-gray-500">
+                {t("dashboard.sales_label")}
+              </Text>
+            </View>
+          ) : null}
+          {hasDebt ? (
+            <View className="flex-row items-center gap-1.5">
+              <View className="w-3 h-3 rounded-sm bg-red-500" />
+              <Text className="text-xs text-gray-500">
+                {t("dashboard.debts_label")}
+              </Text>
+            </View>
+          ) : null}
         </View>
       ) : (
         <View className="mb-3" />
@@ -107,12 +121,18 @@ export function RevenueTrendChart({
               MIN_BAR,
               Math.round((point.total / max) * CHART_HEIGHT),
             );
-            // Split the bar height by revenue mix; sales stacks on top of subscriptions.
+            // Split the bar height by revenue mix; debt stacks on sales, sales on
+            // subscriptions. Subscriptions absorb the rounding so the parts always
+            // add back up to totalH.
             const salesH =
               point.total > 0
                 ? Math.round((point.sales / point.total) * totalH)
                 : 0;
-            const subH = totalH - salesH;
+            const debtH =
+              point.total > 0
+                ? Math.round((point.debt / point.total) * totalH)
+                : 0;
+            const subH = Math.max(0, totalH - salesH - debtH);
             // Every month that actually earned something gets its amount above the bar.
             const showLabel = point.total > 0;
 
@@ -136,12 +156,15 @@ export function RevenueTrendChart({
                   </Text>
                 ) : null}
 
-                {/* Stacked bar: subscription (bottom) + sales (top). The bar fills
-                    its column; the flex cell's horizontal padding is the gap. */}
+                {/* Stacked bar: subscription (bottom) + sales + debt (top). The bar
+                    fills its column; the flex cell's horizontal padding is the gap. */}
                 <View
                   style={{ height: totalH }}
                   className="w-full overflow-hidden rounded-md justify-end"
                 >
+                  {debtH > 0 ? (
+                    <View style={{ height: debtH }} className="bg-red-500" />
+                  ) : null}
                   {salesH > 0 ? (
                     <View
                       style={{ height: salesH }}

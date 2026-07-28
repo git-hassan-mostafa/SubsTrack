@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import {
   ActivityIndicator,
   RefreshControl,
@@ -71,7 +71,23 @@ export function DashboardScreen() {
     activeCustomers > 0
       ? Math.round((paidCustomers / activeCustomers) * 100)
       : 0;
-  const hasSalesRevenue = (metrics?.salesRevenue ?? 0) > 0;
+  // Revenue mix, keeping only the streams that earned something. A single stream
+  // needs no breakdown (it just repeats the total). Collected debts are
+  // deliberately NOT listed: the only debt figure the card shows is what
+  // customers still owe (the red chip below). They still count in the total.
+  const revenueMix = [
+    {
+      key: "subscriptions",
+      label: t("dashboard.subscriptions"),
+      value: metrics?.subscriptionRevenue ?? 0,
+    },
+    {
+      key: "sales",
+      label: t("dashboard.sales_label"),
+      value: metrics?.salesRevenue ?? 0,
+    },
+  ].filter((s) => s.value > 0);
+  const showRevenueMix = revenueMix.length > 1;
   const hasDebt = (metrics?.totalDebt ?? 0) > 0;
 
   // Collector wallets — admin overview of cash collected but not yet handed over.
@@ -209,30 +225,47 @@ export function DashboardScreen() {
                   </View>
                 ) : null}
 
-                {/* Revenue breakdown — only shown when sales revenue exists */}
-                {hasSalesRevenue ? (
-                  <View className="flex-row mt-3 gap-6">
-                    <View>
-                      <Text className="text-xs text-indigo-300 mb-0.5">
-                        {t("dashboard.subscriptions")}
+                {/* Revenue breakdown — only when more than one stream earned */}
+                {showRevenueMix ? (
+                  <View className="flex-row mt-3 gap-3">
+                    {revenueMix.map((stream, i) => (
+                      <Fragment key={stream.key}>
+                        {i > 0 ? (
+                          <View className="w-px bg-indigo-500" />
+                        ) : null}
+                        <View className="flex-1">
+                          <Text
+                            numberOfLines={1}
+                            className="text-xs text-indigo-300 mb-0.5"
+                          >
+                            {stream.label}
+                          </Text>
+                          <Text
+                            fontWeight="SemiBold"
+                            numberOfLines={1}
+                            className="text-sm text-white"
+                          >
+                            {fmt(stream.value)}
+                          </Text>
+                        </View>
+                      </Fragment>
+                    ))}
+                  </View>
+                ) : null}
+
+                {/* Debt customers still owe — money OUT, not part of the collected
+                    total above, so it carries a red tint and a leading minus. */}
+                {hasDebt ? (
+                  <View className="flex-row mt-3">
+                    <View className="flex-row items-baseline gap-2 rounded-lg bg-red-400/20 px-2.5 py-1.5">
+                      <Text className="text-xs text-red-200">
+                        {t("dashboard.owed_by_customers")}
                       </Text>
                       <Text
                         fontWeight="SemiBold"
-                        className="text-sm text-white"
+                        className="text-sm text-red-100"
                       >
-                        {fmt(metrics?.subscriptionRevenue ?? 0)}
-                      </Text>
-                    </View>
-                    <View className="w-px bg-indigo-500" />
-                    <View>
-                      <Text className="text-xs text-indigo-300 mb-0.5">
-                        {t("dashboard.sales_label")}
-                      </Text>
-                      <Text
-                        fontWeight="SemiBold"
-                        className="text-sm text-white"
-                      >
-                        {fmt(metrics?.salesRevenue ?? 0)}
+                        {`−${fmt(metrics?.totalDebt ?? 0)}`}
                       </Text>
                     </View>
                   </View>
@@ -359,7 +392,7 @@ export function DashboardScreen() {
                 </View>
               ) : null}
 
-              {/* Total debt owed by customers (all-time, not month-scoped) — only shown when > 0 */}
+              {/* Net debt still owed (all-time, not month-scoped) — only shown when > 0 */}
               {hasDebt ? (
                 <View className="flex-row mx-4 mb-3">
                   <StatTile

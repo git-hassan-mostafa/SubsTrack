@@ -38,13 +38,16 @@ export interface ISaleRepository {
   findById(id: string): Promise<DbSale | null>;
   create(payload: CreateSalePayload): Promise<DbSale>;
   voidSale(id: string, voidedBy: string, reason: string): Promise<DbSale>;
+  // Revenue is CASH: every total below sums `amount_paid`, never `total_amount`.
+  // The unpaid part of a partial sale is a debt, and it enters revenue only when
+  // it's collected as a debt payment. Row count is still every sale (salesCount).
   totalsForMonth(
     monthStart: string,
     monthEndExclusive: string,
     branchFilter?: BranchFilter,
   ): Promise<{ amount: number; ratePerUsdSnapshot: number }[]>;
-  // Sale totals across a date range, each tagged with sold_at — the dashboard
-  // buckets these by month into the revenue trend.
+  // Cash collected on sales across a date range, each tagged with sold_at — the
+  // dashboard buckets these by month into the revenue trend.
   totalsInRange(
     rangeStart: string,
     rangeEndExclusive: string,

@@ -82,6 +82,29 @@ export class DebtRepository extends BaseRepository implements IDebtRepository {
     return data as DbDebtPayment;
   }
 
+  async paidAmountsInRange(
+    rangeStartIso: string,
+    rangeEndExclusiveIso: string,
+    branchFilter: BranchFilter = null,
+  ): Promise<{ paidAt: string; amount: number; ratePerUsdSnapshot: number }[]> {
+    let query = this.db
+      .from('debt_payments')
+      .select('paid_at, amount, rate_per_usd_snapshot, customers!inner(branch_id)')
+      .gte('paid_at', rangeStartIso)
+      .lt('paid_at', rangeEndExclusiveIso)
+      .is('voided_at', null);
+    query = this.applyBranchFilter(query, branchFilter, this.BRANCH_SCOPES.debt_payments);
+    const { data, error } = await query;
+    if (error) this.handleError(error);
+    return (data ?? []).map(
+      (r: { paid_at: string; amount: number; rate_per_usd_snapshot: number }) => ({
+        paidAt: r.paid_at,
+        amount: Number(r.amount),
+        ratePerUsdSnapshot: Number(r.rate_per_usd_snapshot),
+      }),
+    );
+  }
+
   async unremittedDebtPayments(
     branchFilter: BranchFilter = null,
     collectorUserId: string | null = null,

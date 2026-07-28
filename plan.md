@@ -531,21 +531,24 @@ Load on screen focus. All metrics scoped to current tenant.
 |--------|-------------|
 | Total customers | COUNT all customers |
 | Active customers | COUNT where active = true |
-| Monthly revenue | (Subscription revenue + Sales revenue) summed in USD via each row's `rate_per_usd_snapshot` |
-| Subscription revenue | SUM of non-voided payment `amount_paid` for current billing month (USD-converted) |
-| Sales revenue | SUM of non-voided sale `total_amount` for current calendar month (USD-converted) |
+| Monthly revenue | **Cash collected, not billed** — (Subscription revenue + Sales revenue + Debt revenue) summed in USD via each row's `rate_per_usd_snapshot` |
+| Subscription revenue | SUM of non-voided payment `amount_paid` for current calendar month (by `paid_at`, USD-converted) |
+| Sales revenue | SUM of non-voided sale `amount_paid` for current calendar month (by `sold_at`, USD-converted) |
+| Debt revenue | SUM of non-voided `debt_payments.amount` for current calendar month (by `paid_at`, USD-converted) |
 | Unpaid this month | COUNT active regular customers with no non-voided payment for current billing month |
-| Total debt | Net debt across all customers/categories, all-time (Σ partial-payment balances + Σ partial-sale balances + Σ custom debts − Σ debt payments, USD-converted); same figure as the Debts tab total. Sub-line breaks out gross months debt and gross sales debt. |
+| Total debt | **Net** debt still owed across all customers/categories, all-time (Σ partial-payment balances + Σ partial-sale balances + Σ custom debts − Σ debt payments, USD-converted); same figure as the Debts tab total. Sub-line breaks out **gross** months debt and gross sales debt — deliberately kept as-is, so note it does not add up to the net headline and omits custom debts. |
 | New customers this month | COUNT customers with `created_at` in current calendar month |
 | Cancelled this month | COUNT customers with `cancelled_at` in current calendar month |
 | Payments recorded | COUNT positive-amount non-voided payments for current billing month (avg = subscription revenue ÷ this count) |
 | Sales recorded | COUNT non-voided sales for current calendar month |
 | Prev-month revenue | Total revenue of the previous calendar month (drives the ▲/▼ % vs-last-month pill) |
-| Revenue trend | Every month of the current year, Jan→Dec (subscription + sales, USD) bucketed by month for the bar chart |
+| Revenue trend | 6 months ending on the current month (subscription + sales + debt, USD) bucketed by month for the bar chart |
 
-The dashboard's Revenue card shows the combined figure with a ▲/▼ month-over-month pill and a sub-line "Subscriptions: $X · Sales: $Y" when sales are non-zero. Below it: a current-year revenue bar chart (`RevenueTrendChart`) — one stacked bar per month (subscription indigo + sales emerald), a stat grid (Active, Unpaid, New, Cancelled, Payments, Sales) built from a shared `StatTile`, and the outstanding-balance money tile.
+**Revenue is cash, never billed value.** All three streams sum only what was actually received, so a partial payment or partial sale contributes just its paid part. The unpaid remainder becomes a debt and enters revenue later, in the month that debt is collected — money is counted exactly once, and nothing collected is ever lost from the total.
 
-Use `Promise.all` for parallel queries. Do not use N+1 queries. The current-year trend is served by two range queries (`payment.paidAmountsInRange`, `sale.totalsInRange`) plus two growth counters (`customer.countCreatedInRange`, `countCancelledInRange`) — each with a Supabase + Offline SQLite implementation.
+The dashboard's Revenue card shows the combined figure with a ▲/▼ month-over-month pill and a breakdown sub-line of **Subscriptions · Sales** (only the ones that earned, shown once both did). Collected debts are counted in the total but **not listed** — the card's single debt figure is what's still owed, so in a month with debt collections the two listed streams sum to less than the headline by exactly `debtRevenue`. Below the breakdown, when `totalDebt > 0`, a **red-tinted chip with a leading minus** — "Owed by customers −$383.00" — carries the debt customers still owe. That is the card's only money-**out** figure, so the red tint and minus mark it apart from everything above it. Below it: a revenue bar chart (`RevenueTrendChart`) — one stacked bar per month (subscription indigo + sales emerald + debt red, the Debts tab's `COLORS.danger`), a stat grid (Active, Unpaid, New, Cancelled, Payments, Sales) built from a shared `StatTile`, and the outstanding-balance money tile.
+
+Use `Promise.all` for parallel queries. Do not use N+1 queries. The trend is served by three range queries (`payment.paidAmountsInRange`, `sale.totalsInRange`, `debt.paidAmountsInRange`) plus two growth counters (`customer.countCreatedInRange`, `countCancelledInRange`) — each with a Supabase + Offline SQLite implementation.
 
 ---
 

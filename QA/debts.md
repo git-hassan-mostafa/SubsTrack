@@ -24,6 +24,7 @@ Covers the per-customer debt ledger (Transactions → **Debts** tab — a **sing
 5. **No hard delete.** Custom debts + debt payments void via `voided_at`/`voided_by`/`void_reason`; voided rows drop from the totals but stay in DB.
 6. **Branch scoping via the customer** (RLS `EXISTS`; offline joins `customers`). Walk-in sales (no customer) never appear as debts.
 7. **Tenant isolation via RLS.** No tier gating — recording debts/payments is unlimited.
+8. **A debt payment is revenue.** Dashboard revenue counts cash, so collecting a debt adds to `debtRevenue` (and `monthlyRevenue`) in the calendar month of its `paid_at` — this is where the unpaid part of a partial payment/sale finally lands. It never retroactively changes the source row's month. Voiding a debt payment removes it from revenue and restores the debt.
 
 ---
 

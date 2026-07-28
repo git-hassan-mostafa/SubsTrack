@@ -36,6 +36,14 @@ export interface IDebtRepository {
   voidCustomDebt(id: string, voidedBy: string, reason: string | null): Promise<DbCustomDebt>;
   createDebtPayment(payload: CreateDebtPaymentPayload): Promise<DbDebtPayment>;
   voidDebtPayment(id: string, voidedBy: string, reason: string | null): Promise<DbDebtPayment>;
+  // Cash collected on debts across a date range, tagged with paid_at. Revenue is
+  // cash, so a collected debt is revenue in the month it was collected — this is
+  // the third stream behind the dashboard total, next to payments and sales.
+  paidAmountsInRange(
+    rangeStartIso: string,
+    rangeEndExclusiveIso: string,
+    branchFilter?: BranchFilter,
+  ): Promise<{ paidAt: string; amount: number; ratePerUsdSnapshot: number }[]>;
   // Collector wallet: non-voided debt payments still in a wallet (remitted_at IS
   // NULL), joined with the customer. Optionally scoped to one collector.
   unremittedDebtPayments(

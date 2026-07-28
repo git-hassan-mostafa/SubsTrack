@@ -219,22 +219,30 @@ export interface RevenuePoint {
   monthIndex: number;  // 0–11, for the months.* label lookup
   year: number;
   subscription: number; // USD collected from subscription payments
-  sales: number;        // USD from one-off sales
-  total: number;        // subscription + sales
+  sales: number;        // USD collected on one-off sales
+  debt: number;         // USD collected as debt payments
+  total: number;        // subscription + sales + debt
 }
 
 export interface DashboardMetrics {
   totalCustomers: number;
   activeCustomers: number;
-  monthlyRevenue: number;
+  // Revenue is CASH COLLECTED, not billed: every stream sums what was actually
+  // received. An unpaid remainder is a debt and enters revenue only later, as a
+  // debt payment — so a partial payment/sale never inflates the month.
+  monthlyRevenue: number;    // subscriptionRevenue + salesRevenue + debtRevenue
   subscriptionRevenue: number;
   salesRevenue: number;
+  debtRevenue: number;       // debt payments collected this month
   unpaidThisMonth: number;
   totalUsers: number;
   totalPlans: number;
-  totalDebt: number;         // net debt across all customers/categories (all-time, not month-scoped)
-  monthsDebt: number;        // portion of totalDebt from partial subscription payments
-  salesDebt: number;         // portion of totalDebt from partial sales
+  // Debt is all-time, never month-scoped. totalDebt is NET (after debt payments)
+  // while the two category fields are GROSS, so the parts read larger than the
+  // total — the tile shows them side by side anyway, by the owner's choice.
+  totalDebt: number;         // net debt still owed across all customers/categories
+  monthsDebt: number;        // gross portion from partial subscription payments
+  salesDebt: number;         // gross portion from partial sales
   // Collector wallets — cash collected but not yet handed over to an admin.
   // Admin-only: 0 when the caller isn't an admin (not computed then). USD.
   walletCash: number;        // total unremitted cash across all collectors (net, USD)
@@ -248,7 +256,7 @@ export interface DashboardMetrics {
   salesCount: number;             // # of one-off sales this month
   // Trend / comparison (canonical USD)
   prevMonthRevenue: number;       // total revenue of the previous month
-  revenueTrend: RevenuePoint[];   // every month of the current year, Jan → Dec
+  revenueTrend: RevenuePoint[];   // 6 months ending on the current month
 }
 
 // One-off sellable item. Distinct from Plan (recurring subscription).

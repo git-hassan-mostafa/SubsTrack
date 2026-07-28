@@ -111,6 +111,26 @@ export class OfflineDebtRepository extends OfflineBaseRepository implements IDeb
     return hydrated;
   }
 
+  async paidAmountsInRange(
+    rangeStartIso: string,
+    rangeEndExclusiveIso: string,
+    branchFilter: BranchFilter = null,
+  ): Promise<{ paidAt: string; amount: number; ratePerUsdSnapshot: number }[]> {
+    const branch = this.branchWhere(branchFilter, this.BRANCH_SCOPES.debt_payments, 'c');
+    const rows = await this.all<{ paid_at: string; amount: string; rate_per_usd_snapshot: string }>(
+      `SELECT d.paid_at, d.amount, d.rate_per_usd_snapshot FROM debt_payments d
+       JOIN customers c ON d.customer_id = c.id
+       WHERE d.paid_at >= ? AND d.paid_at < ? AND d.voided_at IS NULL
+         ${branch.clause ? `AND ${branch.clause}` : ''}`,
+      [rangeStartIso, rangeEndExclusiveIso, ...branch.params],
+    );
+    return rows.map((r) => ({
+      paidAt: r.paid_at,
+      amount: Number(r.amount),
+      ratePerUsdSnapshot: Number(r.rate_per_usd_snapshot),
+    }));
+  }
+
   async unremittedDebtPayments(
     branchFilter: BranchFilter = null,
     collectorUserId: string | null = null,

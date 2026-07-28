@@ -108,6 +108,8 @@
     "active": "العملاء النشطون",
     "subscriptions": "الاشتراكات",
     "sales_label": "المبيعات",
+    "debts_label": "الديون",
+    "owed_by_customers": "مطلوب من العملاء",
     "collection_progress": "نسبة التحصيل",
     "paid_of_active": "{{paid}} من {{total}} عميل دفعوا",
     "customers_this_month": "عملاء هذا الشهر",

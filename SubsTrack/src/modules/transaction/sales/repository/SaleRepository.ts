@@ -161,15 +161,15 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
   ): Promise<{ amount: number; ratePerUsdSnapshot: number }[]> {
     let query = this.db
       .from('sales')
-      .select('total_amount, rate_per_usd_snapshot')
+      .select('amount_paid, rate_per_usd_snapshot')
       .gte('sold_at', monthStart)
       .lt('sold_at', monthEndExclusive)
       .is('voided_at', null);
     query = this.applyBranchFilter(query, branchFilter, this.BRANCH_SCOPES.sales);
     const { data, error } = await query;
     if (error) this.handleError(error);
-    return (data ?? []).map((r: { total_amount: number; rate_per_usd_snapshot: number }) => ({
-      amount: Number(r.total_amount),
+    return (data ?? []).map((r: { amount_paid: number; rate_per_usd_snapshot: number }) => ({
+      amount: Number(r.amount_paid),
       ratePerUsdSnapshot: Number(r.rate_per_usd_snapshot),
     }));
   }
@@ -181,7 +181,7 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
   ): Promise<{ soldAt: string; amount: number; ratePerUsdSnapshot: number }[]> {
     let query = this.db
       .from('sales')
-      .select('sold_at, total_amount, rate_per_usd_snapshot')
+      .select('sold_at, amount_paid, rate_per_usd_snapshot')
       .gte('sold_at', rangeStart)
       .lt('sold_at', rangeEndExclusive)
       .is('voided_at', null);
@@ -189,9 +189,9 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
     const { data, error } = await query;
     if (error) this.handleError(error);
     return (data ?? []).map(
-      (r: { sold_at: string; total_amount: number; rate_per_usd_snapshot: number }) => ({
+      (r: { sold_at: string; amount_paid: number; rate_per_usd_snapshot: number }) => ({
         soldAt: r.sold_at,
-        amount: Number(r.total_amount),
+        amount: Number(r.amount_paid),
         ratePerUsdSnapshot: Number(r.rate_per_usd_snapshot),
       }),
     );
@@ -206,7 +206,7 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
   ): Promise<{ soldAt: string; amount: number; ratePerUsdSnapshot: number }[]> {
     let query = this.db
       .from('sales')
-      .select('sold_at, total_amount, rate_per_usd_snapshot, customers(name)');
+      .select('sold_at, amount_paid, rate_per_usd_snapshot, customers(name)');
 
     if (!opts.includeVoided) query = query.is('voided_at', null);
     if (opts.customerId !== undefined && opts.customerId !== null) {
@@ -223,9 +223,9 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
 
     const { data, error } = await query;
     if (error) this.handleError(error);
-    return (data ?? []).map((r: { sold_at: string; total_amount: number; rate_per_usd_snapshot: number }) => ({
+    return (data ?? []).map((r: { sold_at: string; amount_paid: number; rate_per_usd_snapshot: number }) => ({
       soldAt: r.sold_at,
-      amount: Number(r.total_amount),
+      amount: Number(r.amount_paid),
       ratePerUsdSnapshot: Number(r.rate_per_usd_snapshot),
     }));
   }

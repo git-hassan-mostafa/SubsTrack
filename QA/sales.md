@@ -2,7 +2,7 @@
 
 Covers the one-off sales ledger: recording a sale (with **one or more products**) against an optional customer, viewing the sales list, the sale receipt, voiding a sale, and the per-customer sales panel. Sales are a completely separate ledger from subscription payments — they share no schema or service code beyond the snapshot-rate principle.
 
-**A sale is a header (`sales`) + one or more product lines (`sale_items`).** One sale can hold several products (a "cart"). The header carries the single sale currency + rate snapshot, the summed `total_amount`, `amount_paid`, and a frozen `items_summary`. Each line is one product (`product_name_snapshot`, `quantity`, `unit_amount`). Partial payment / debt / wallet / dashboard are all header-level (one debt, one wallet entry, one revenue figure per sale).
+**A sale is a header (`sales`) + one or more product lines (`sale_items`).** One sale can hold several products (a "cart"). The header carries the single sale currency + rate snapshot, the summed `total_amount`, `amount_paid`, and a frozen `items_summary`. Each line is one product (`product_name_snapshot`, `quantity`, `unit_amount`). Partial payment / debt / wallet / dashboard are all header-level (one debt, one wallet entry, one revenue figure per sale). Revenue, wallet, and the Sales-tab month headers all read `amount_paid`; only the debt reads `total_amount − amount_paid`.
 
 **Reference code:**
 - Screen: [SalesListScreen.tsx](SubsTrack/src/modules/sales/screens/SalesListScreen.tsx)
@@ -31,7 +31,7 @@ Covers the one-off sales ledger: recording a sale (with **one or more products**
 3. **One currency per sale.** Every line's `unit_amount` is in the sale's `currency_id`. Products priced in another currency are auto-converted into the sale currency (live rate) as the editable prefill.
 4. **`customer_id` (header) is nullable.** Walk-in (anonymous) sales have `customer_id = NULL`.
 5. **No hard delete.** Void via `voided_at` / `voided_by` / `void_reason` on the header. Voided sales drop from the active list but stay in DB; lines cascade only on hard delete.
-6. **Dashboard revenue includes sales.** `DashboardService.getMetrics()` sums `rate_per_usd_snapshot`-converted sale `total_amount`s alongside payment totals. `salesCount` counts sales (headers), not products.
+6. **Dashboard revenue includes sales, as CASH.** `DashboardService.getMetrics()` sums `rate_per_usd_snapshot`-converted sale **`amount_paid`** (not `total_amount`) alongside payment and debt-payment totals — a partial sale contributes only its collected part, and the remainder arrives later via `debtRevenue`. `salesCount` counts sales (headers), not products, paid or not.
 7. **Product delete-reference counts key off `sale_items.product_id`.** A product used by any sale line soft-deletes (kept), else hard-deletes.
 8. **Tenant isolation via RLS.** `sale_items` inherits its branch from the parent sale.
 
@@ -198,7 +198,7 @@ Covers the one-off sales ledger: recording a sale (with **one or more products**
 | 4.5 | Cancel | Tap Cancel | Returns to receipt, sale unchanged |
 | 4.6 | Confirm void | Tap confirm | `voided_at`, `voided_by`, `void_reason` set on row. Sale disappears from active list |
 | 4.7 | Audit trail | Inspect DB after void | Row still exists with all void fields populated |
-| 4.8 | Dashboard impact | Void a current-month sale | Dashboard `salesRevenue` drops by the sale's USD equivalent; `monthlyRevenue` updates |
+| 4.8 | Dashboard impact | Void a current-month sale | Dashboard `salesRevenue` drops by the sale's **collected** USD equivalent (`amount_paid`, so a partial sale drops only that part); `monthlyRevenue` updates |
 | 4.9 | Network error during void | Disable network, confirm | ErrorBanner; sale NOT voided |
 | 4.10 | Permission gating | User role | Void available (or admin-only — verify gate; file as finding if unexpected) |
 
@@ -250,14 +250,22 @@ Reached via the panel's "Show all" link. Route: `customers/[id]/sales`. Mirrors 
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 6.1 | Sales included in revenue | Record a $50 sale, open Dashboard | Hero card `monthlyRevenue` increases by $50 |
-| 6.2 | Sub-line visible | Sales revenue > 0 | "Subscriptions: $X · Sales: $Y" line rendered |
-| 6.3 | Sub-line hidden | No sales this month | Sub-line not rendered |
-| 6.4 | Snapshot conversion | Record a 50,000 LBP sale (rate 50,000 → $1), open Dashboard | Dashboard shows +$1 from that sale |
-| 6.5 | Voided sale excluded | Record then void a sale | Dashboard revenue decrements |
+**Revenue counts CASH, not the invoice.** `salesRevenue` sums `amount_paid`, never `total_amount` — so a partial sale adds only what was collected, and the remainder enters revenue later as a debt payment (`debtRevenue`). `salesCount` still counts every sale header.
+
+| # | Scenario | Steps | Expected result |
+|---|----------|-------|-----------------|
+| 6.1 | Fully-paid sale included in revenue | Record a $50 sale, collect $50, open Dashboard | Hero card `monthlyRevenue` increases by $50 |
+| 6.1a | Partial sale adds only the cash | Record a $100 sale, collect $30 | `salesRevenue` +$30 (NOT +$100). The $70 appears in Debts. `salesCount` +1 |
+| 6.1b | Fully-unpaid sale adds nothing | Record a $100 sale, collect $0 | `salesRevenue` unchanged; `salesCount` +1; $100 shows as a Sales debt |
+| 6.1c | Collecting the remainder | Then record a $70 debt payment for that customer | `monthlyRevenue` +$70 through `debtRevenue`; the sale row is untouched; total counted across both months = exactly $100 |
+| 6.2 | Breakdown sub-line visible | Two or more streams non-zero this month | Sub-line lists each non-zero stream (Subscriptions / Sales / Debts) with its amount |
+| 6.3 | Breakdown sub-line hidden | Only one stream earned this month | Sub-line not rendered |
+| 6.4 | Snapshot conversion | Record a fully-paid 50,000 LBP sale (rate 50,000 → $1), open Dashboard | Dashboard shows +$1 from that sale |
+| 6.5 | Voided sale excluded | Record then void a sale | Dashboard revenue decrements by the collected amount only |
 | 6.6 | Walk-in included | Walk-in (no customer) sale | Included in salesRevenue |
 | 6.7 | Branch filter | Tenant-wide admin filters to branch A | Only branch A sales in revenue |
 | 6.8 | Previous-month sale | Sale recorded in last month | NOT in current month's salesRevenue |
+| 6.9 | Sales tab month header agrees | Compare a month's section-header total in the Sales tab to that month's `salesRevenue` | Identical — both sum `amount_paid` for the month |
 
 ---
 

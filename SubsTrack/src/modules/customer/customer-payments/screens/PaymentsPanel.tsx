@@ -184,7 +184,7 @@ export function PaymentsPanel() {
   }
 
   return (
-    <View className="flex-1">
+    <View className="flex-1 py-3">
       <ResponsiveContainer className="flex-1">
         {/* Filters hide while selecting; the single selection toolbar takes over. */}
         {!selectionActive ? (
