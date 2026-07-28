@@ -89,3 +89,13 @@ Labels depend on how many plans the customer has **in play this month** (active 
 
 1. A plan-less line (or custom-price plan) records ad-hoc amounts via the manual form (Scenario C), exactly as before.
 2. Transactions → Payments rows show the plan name so a customer's multiple lines are distinguishable; voiding + re-paying reuses the per-line row.
+
+## 7. Offline mirror — paying a second line for a month already paid on another line (regression)
+
+Native only (SQLite mirror). `payments` has two unique keys — `id` and `(customer_plan_id, billing_month)` — and the offline id is derived from that key, so a mirror row whose id and key drift apart used to make the write fail with `UNIQUE constraint failed: payments.id` and permanently block that month on that device (gotcha #49).
+
+1. Two plans on one customer, month X paid on plan A → recording month X on plan B **succeeds** (no `UNIQUE constraint failed: payments.id`), and each line's grid shows its own payment.
+2. Record → void → re-record the same month on the same line → updates the **same** row (one payment per line per month, `voided_at` cleared, remittance reset), no duplicate row in Developer → `payments`.
+3. Record a month on the web app, then on the phone void it and re-record it offline → the phone updates the row **the server created** (its id is kept, not replaced); voiding/editing that payment straight after works (the returned payment points at a real row).
+4. A mirror row left with an empty/foreign `customer_plan_id` (visible in Settings → Developer → `payments`) no longer blocks anything: the new payment is written with a fresh id, the odd row is left untouched.
+5. Same line+month existing on the server under a different id than the mirror's copy → the next sync repairs it (the stale local duplicate is dropped) and **the payments pull keeps flowing** — check Developer → `payments` has one row for that line+month and later payments still arrive.

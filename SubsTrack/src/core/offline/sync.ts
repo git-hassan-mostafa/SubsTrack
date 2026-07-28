@@ -16,7 +16,7 @@ import { IS_OFFLINE_CAPABLE } from './platform';
 import { isOnline } from './net/connectivity';
 import { getDb } from './db/sqlite';
 import { decodeRow } from './db/codec';
-import { upsertFromServer } from './db/dml';
+import { clearNaturalKeyDuplicate, upsertFromServer } from './db/dml';
 import { TABLE_BY_NAME, SYNC_PULL_ORDER } from './db/tables';
 import { nowIso } from './ids';
 
@@ -201,6 +201,9 @@ async function pullChanges(): Promise<boolean> {
               [row.id as string] as never[],
             );
             if (local?._dirty === 1) continue;
+            // Payments also carry a natural-key UNIQUE index — a local row holding
+            // this row's (line, month) under another id has to go first.
+            if (!(await clearNaturalKeyDuplicate(db, table, row))) continue;
             await upsertFromServer(db, table, row);
           }
         });

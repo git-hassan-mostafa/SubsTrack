@@ -98,8 +98,11 @@ export class OfflinePaymentRepository extends OfflineBaseRepository implements I
   async create(payload: CreatePaymentPayload): Promise<DbPayment> {
     const id = await deterministicId(payload.customer_plan_id, payload.billing_month);
     const row = this.buildRow(payload, id, nowIso());
-    await this.write((db) => upsertPaymentDirty(db, row));
-    return row;
+    // The mirror may already hold this line+month under another id (created on the
+    // web / another device) — echo back the id it actually stored, never the
+    // intended one, or the caller's Payment would point at a row that isn't there.
+    const storedId = await this.write((db) => upsertPaymentDirty(db, row));
+    return { ...row, id: storedId };
   }
 
   async createMany(payloads: CreatePaymentPayload[]): Promise<DbPayment[]> {
@@ -109,10 +112,12 @@ export class OfflinePaymentRepository extends OfflineBaseRepository implements I
     for (const p of payloads) {
       rows.push(this.buildRow(p, await deterministicId(p.customer_plan_id, p.billing_month), now));
     }
-    await this.write(async (db) => {
-      for (const row of rows) await upsertPaymentDirty(db, row);
+    const storedIds = await this.write(async (db) => {
+      const ids: string[] = [];
+      for (const row of rows) ids.push(await upsertPaymentDirty(db, row));
+      return ids;
     });
-    return rows;
+    return rows.map((row, i) => ({ ...row, id: storedIds[i] }));
   }
 
   async updatePayment(id: string, payload: UpdatePaymentPayload): Promise<DbPayment> {
