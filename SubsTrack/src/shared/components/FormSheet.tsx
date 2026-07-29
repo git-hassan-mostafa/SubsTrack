@@ -7,6 +7,7 @@ import { AppBottomSheet } from "./AppBottomSheet";
 import { ResponsiveContainer } from "./ResponsiveContainer";
 import { PressableOpacity } from "./PressableOpacity/PressableOpacity";
 import { Text } from "./Text";
+import { useAfterFirstFrame } from "@/src/shared/hooks/useAfterFirstFrame";
 
 interface FormSheetProps {
   /** Defaults to `true` — most form sheets are mounted only while open. */
@@ -31,6 +32,12 @@ interface FormSheetProps {
  * Text inputs rendered inside automatically become `BottomSheetTextInput`
  * (see {@link useSheetTextInput}), so the keyboard pushes the focused field
  * into view — no per-field wiring needed. Replaces the old `SheetModal`.
+ *
+ * The body is rendered one frame after the chrome ({@link useAfterFirstFrame}):
+ * a form is by far the most expensive part of an open, and rendering it in the
+ * same commit holds back the native layout the slide-up animation waits on. The
+ * header appears immediately, the fields land during the slide. Safe because a
+ * `full` sheet has a FIXED snap point — its height never depends on the body.
  */
 export function FormSheet({
   visible = true,
@@ -41,6 +48,7 @@ export function FormSheet({
 }: FormSheetProps) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
+  const bodyReady = useAfterFirstFrame(visible);
 
   return (
     <AppBottomSheet visible={visible} onDismiss={onDismiss} variant="full">
@@ -65,7 +73,7 @@ export function FormSheet({
             paddingBottom: 48 + insets.bottom,
           }}
         >
-          {children}
+          {bodyReady ? children : null}
         </BottomSheetScrollView>
       </ResponsiveContainer>
     </AppBottomSheet>

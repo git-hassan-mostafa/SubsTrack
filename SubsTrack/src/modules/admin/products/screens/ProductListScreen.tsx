@@ -70,8 +70,7 @@ export function ProductListScreen() {
   useEffect(() => {
     clearSelection();
     fetchProducts();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [branchFilter]);
+  }, [branchFilter, clearSelection, fetchProducts]);
 
   function openCreate() {
     setEditing(null);

@@ -4,6 +4,7 @@ import { AppBottomSheet } from "@/src/shared/components/AppBottomSheet";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
+import { useAfterFirstFrame } from "@/src/shared/hooks/useAfterFirstFrame";
 import { PaymentsPanel } from "../screens/PaymentsPanel";
 
 interface Props {
@@ -16,6 +17,8 @@ interface Props {
 // own SectionList body — a scroll container would fight it.
 export function PaymentsHistorySheet({ onDismiss }: Props) {
   const { t } = useTranslation();
+  // The panel is a whole screen with its own list — keep it off the open path.
+  const bodyReady = useAfterFirstFrame();
 
   return (
     <AppBottomSheet visible onDismiss={onDismiss} variant="full">
@@ -31,7 +34,7 @@ export function PaymentsHistorySheet({ onDismiss }: Props) {
           </PressableOpacity>
         </View>
 
-        <PaymentsPanel />
+        {bodyReady ? <PaymentsPanel /> : null}
       </ResponsiveContainer>
     </AppBottomSheet>
   );

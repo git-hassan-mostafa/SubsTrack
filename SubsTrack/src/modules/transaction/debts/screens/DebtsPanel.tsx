@@ -68,8 +68,7 @@ export function DebtsPanel() {
 
   useEffect(() => {
     fetchDebts();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [branchFilter]);
+  }, [branchFilter, fetchDebts]);
 
   const target = findCurrency(currencies, displayCurrencyId);
 

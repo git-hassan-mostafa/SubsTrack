@@ -147,8 +147,13 @@ export function CustomerListScreen() {
     fetchCustomers();
     fetchCurrentMonthPaymentStatus();
     void fetchNetDebtByCustomer();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [branchFilter]);
+  }, [
+    branchFilter,
+    clearSelection,
+    fetchCustomers,
+    fetchCurrentMonthPaymentStatus,
+    fetchNetDebtByCustomer,
+  ]);
 
   // Recomputes overdue status on focus and whenever the loaded customer set
   // changes (reload, pagination). Refreshing on focus keeps the badge correct
@@ -686,6 +691,79 @@ export function CustomerListScreen() {
     return items;
   }
 
+  // Memoized so opening a sheet (form / sale / debt / menu — all plain state on
+  // this screen) doesn't rebuild the list. Without this, every "Add customer" tap
+  // re-rendered the whole FlatList before the sheet could even start animating.
+  // React Compiler would do this for free, but it can't optimize this file — the
+  // bulk-pay handlers use `try/finally`, which the current version rejects.
+  const listElement = useMemo(
+    () => (
+      <FlatList
+        data={filtered}
+        keyExtractor={(c) => c.id}
+        contentContainerStyle={{
+          padding: 16,
+          paddingBottom: 96,
+          flexGrow: 1,
+        }}
+        refreshControl={
+          <RefreshControl
+            refreshing={loading}
+            onRefresh={() => {
+              clearSelection();
+              fetchCustomers();
+              fetchCurrentMonthPaymentStatus();
+              void fetchNetDebtByCustomer();
+            }}
+            tintColor={COLORS.primary}
+          />
+        }
+        onEndReached={() => fetchMoreCustomers()}
+        onEndReachedThreshold={0.3}
+        renderItem={renderItem}
+        ListFooterComponent={
+          loadingMore ? (
+            <ActivityIndicator color={COLORS.primary} className="py-4" />
+          ) : null
+        }
+        ListEmptyComponent={
+          <EmptyState
+            message={t("customers.no_customers")}
+            subMessage={
+              debouncedSearch
+                ? t("customers.no_search_results")
+                : t("customers.no_customers_hint")
+            }
+            actionLabel={
+              !debouncedSearch && customers.length === 0
+                ? t("customers.create_first_customer")
+                : undefined
+            }
+            onAction={
+              !debouncedSearch && customers.length === 0
+                ? () => setFormVisible(true)
+                : undefined
+            }
+          />
+        }
+      />
+    ),
+    [
+      filtered,
+      loading,
+      loadingMore,
+      renderItem,
+      t,
+      debouncedSearch,
+      customers.length,
+      clearSelection,
+      fetchCustomers,
+      fetchCurrentMonthPaymentStatus,
+      fetchNetDebtByCustomer,
+      fetchMoreCustomers,
+    ],
+  );
+
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
       <PageHeader
@@ -761,55 +839,7 @@ export function CustomerListScreen() {
             <ActivityIndicator color={COLORS.primary} />
           </View>
         ) : (
-          <FlatList
-            data={filtered}
-            keyExtractor={(c) => c.id}
-            contentContainerStyle={{
-              padding: 16,
-              paddingBottom: 96,
-              flexGrow: 1,
-            }}
-            refreshControl={
-              <RefreshControl
-                refreshing={loading}
-                onRefresh={() => {
-                  clearSelection();
-                  fetchCustomers();
-                  fetchCurrentMonthPaymentStatus();
-                  void fetchNetDebtByCustomer();
-                }}
-                tintColor={COLORS.primary}
-              />
-            }
-            onEndReached={() => fetchMoreCustomers()}
-            onEndReachedThreshold={0.3}
-            renderItem={renderItem}
-            ListFooterComponent={
-              loadingMore ? (
-                <ActivityIndicator color={COLORS.primary} className="py-4" />
-              ) : null
-            }
-            ListEmptyComponent={
-              <EmptyState
-                message={t("customers.no_customers")}
-                subMessage={
-                  debouncedSearch
-                    ? t("customers.no_search_results")
-                    : t("customers.no_customers_hint")
-                }
-                actionLabel={
-                  !debouncedSearch && customers.length === 0
-                    ? t("customers.create_first_customer")
-                    : undefined
-                }
-                onAction={
-                  !debouncedSearch && customers.length === 0
-                    ? () => setFormVisible(true)
-                    : undefined
-                }
-              />
-            }
-          />
+          listElement
         )}
 
         {!selectionActive && (

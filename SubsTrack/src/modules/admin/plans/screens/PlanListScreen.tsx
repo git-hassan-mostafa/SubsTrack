@@ -67,8 +67,7 @@ export function PlanListScreen() {
   useEffect(() => {
     clearSelection();
     fetchPlans();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [branchFilter]);
+  }, [branchFilter, clearSelection, fetchPlans]);
 
   function openCreate() {
     setEditingPlan(null);

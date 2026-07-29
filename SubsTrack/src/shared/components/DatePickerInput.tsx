@@ -208,7 +208,6 @@ export function DatePickerInput({
       t("months.oct"),
       t("months.nov"),
       t("months.dec"),
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     ],
     [t],
   );
@@ -265,8 +264,10 @@ export function DatePickerInput({
 
   const yearItems = useMemo(() => range(minYear, maxYear), [minYear, maxYear]);
   const dayItems = useMemo(() => range(1, maxDay), [maxDay]);
-  const hourItems = useMemo(() => (withTime ? range(0, 23) : []), []);
-  const minuteItems = useMemo(() => (withTime ? range(0, 59) : []), []);
+  // `withTime` must be a dep — memoizing on `[]` froze these to the value it had
+  // on first render.
+  const hourItems = useMemo(() => (withTime ? range(0, 23) : []), [withTime]);
+  const minuteItems = useMemo(() => (withTime ? range(0, 59) : []), [withTime]);
 
   const displayValue = value || null;
   const isActive = !!displayValue;

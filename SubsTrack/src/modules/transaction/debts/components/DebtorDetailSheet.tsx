@@ -13,6 +13,7 @@ import type { DebtItem, DebtPaymentItem } from "@/src/core/types";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
+import { useAfterFirstFrame } from "@/src/shared/hooks/useAfterFirstFrame";
 import { sumDebtNetUsd } from "../utils/debtAggregations";
 import { DebtList } from "./DebtList";
 import { CustomDebtFormSheet } from "./CustomDebtFormSheet";
@@ -54,6 +55,8 @@ export function DebtorDetailSheet({
   const [menuOpen, setMenuOpen] = useState(false);
   const [customDebtOpen, setCustomDebtOpen] = useState(false);
   const [paymentOpen, setPaymentOpen] = useState(false);
+  // The debts history can be long — keep it off the open path.
+  const bodyReady = useAfterFirstFrame();
 
   const net = sumDebtNetUsd(items, payments).netUsd;
   const isCredit = net < -1e-9;
@@ -106,13 +109,15 @@ export function DebtorDetailSheet({
               paddingBottom: 48,
             }}
           >
-            <DebtList
-              items={items}
-              payments={payments}
-              onPay={onPay}
-              onVoidItem={onVoidItem}
-              onVoidPayment={onVoidPayment}
-            />
+            {bodyReady ? (
+              <DebtList
+                items={items}
+                payments={payments}
+                onPay={onPay}
+                onVoidItem={onVoidItem}
+                onVoidPayment={onVoidPayment}
+              />
+            ) : null}
           </BottomSheetScrollView>
         </ResponsiveContainer>
       </AppBottomSheet>

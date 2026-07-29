@@ -79,8 +79,7 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
 
   useEffect(() => {
     clearError();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [clearError]);
 
   const isMultiMonth = form.durationMonths > 1;
 

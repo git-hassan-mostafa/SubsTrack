@@ -53,8 +53,7 @@ export function CustomDebtFormSheet({
 
   useEffect(() => {
     clearError();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [clearError]);
 
   async function handleSubmit() {
     if (!user || !customer || amount == null || amount <= 0) return;

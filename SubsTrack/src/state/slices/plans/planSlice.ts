@@ -17,6 +17,12 @@ interface PlanInput {
 
 export interface PlanSlice {
   items: Plan[];
+  /**
+   * A fetch has completed at least once. The "ensure loaded" guard keys off this,
+   * NOT `items.length` — an empty result is a valid loaded state, and a length-based
+   * guard re-queries on every caller (i.e. every form open) for a tenant with no rows.
+   */
+  loaded: boolean;
   loading: boolean;
   error: string | null;
   tierLimitError: TierLimitErrorPayload | null;
@@ -38,12 +44,16 @@ export const createPlanSlice: StateCreator<
   PlanSlice
 > = (set, get) => ({
   items: [],
+  loaded: false,
   loading: false,
   error: null,
   tierLimitError: null,
 
   getPlans: async () => {
-    if (get().plans.items.length > 0) return;
+    const { loaded, loading } = get().plans;
+    // Already loaded, or a fetch is already in flight — several components
+    // mount-fetch the same slice in one tick (see docs/gotchas.md).
+    if (loaded || loading) return;
     await get().plans.fetchPlans();
   },
 
@@ -57,6 +67,7 @@ export const createPlanSlice: StateCreator<
       const items = await planService.getPlans(branchFilter);
       set((state) => {
         state.plans.items = items;
+        state.plans.loaded = true;
         state.plans.loading = false;
       });
     } catch (e) {
@@ -188,6 +199,7 @@ export const createPlanSlice: StateCreator<
   reset: () =>
     set((state) => {
       state.plans.items = [];
+      state.plans.loaded = false;
       state.plans.loading = false;
       state.plans.error = null;
       state.plans.tierLimitError = null;

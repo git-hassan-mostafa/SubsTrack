@@ -93,7 +93,30 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
   const router = useRouter();
   const { quickPay } = useLocalSearchParams<{ quickPay?: string }>();
   const { user } = useAuth();
-  const paymentStore = usePaymentSlice();
+  // Per-field selectors, never `usePaymentSlice()` bare: subscribing to the whole
+  // slice re-renders this panel (month grid included) on every unrelated payment
+  // change, and hands every effect a dep that changes identity each time.
+  const payments = usePaymentSlice((s) => s.items);
+  const monthGridsByLine = usePaymentSlice((s) => s.monthGridsByLine);
+  const paymentsLoading = usePaymentSlice((s) => s.loading);
+  const loadingUpdate = usePaymentSlice((s) => s.loadingUpdate);
+  const paymentsError = usePaymentSlice((s) => s.error);
+  const paymentsTierLimitError = usePaymentSlice((s) => s.tierLimitError);
+  const getPayments = usePaymentSlice((s) => s.getPayments);
+  const createPayment = usePaymentSlice((s) => s.createPayment);
+  const createPayments = usePaymentSlice((s) => s.createPayments);
+  const createMultiMonthPayment = usePaymentSlice(
+    (s) => s.createMultiMonthPayment,
+  );
+  const createMultiMonthPayments = usePaymentSlice(
+    (s) => s.createMultiMonthPayments,
+  );
+  const updatePayment = usePaymentSlice((s) => s.updatePayment);
+  const clearPaymentError = usePaymentSlice((s) => s.clearError);
+  const clearPaymentTierLimitError = usePaymentSlice(
+    (s) => s.clearTierLimitError,
+  );
+  const resetPayments = usePaymentSlice((s) => s.reset);
   const currencies = useCurrencySlice((s) => s.items);
   const currentTier = useSubscriptionSlice((s) => s.currentTier);
   const { displayCurrencyId } = useUiPrefStore();
@@ -136,39 +159,40 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
       const firstActive = lines.find((l) => l.active) ?? lines[0];
       setSelectedLineId(firstActive.id);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [linesKey]);
+    // `linesKey` stays the content-based trigger; the rest are listed because the
+    // body is idempotent (a still-valid selection writes nothing).
+  }, [linesKey, lines, selectedLineId]);
 
   const selectedLine = lines.find((l) => l.id === selectedLineId) ?? null;
   const plan = selectedLine?.plan ?? null;
   const grid = selectedLine
-    ? (paymentStore.monthGridsByLine[selectedLine.id] ?? EMPTY_GRID)
+    ? (monthGridsByLine[selectedLine.id] ?? EMPTY_GRID)
     : EMPTY_GRID;
 
   // Loads every line's payments once per customer; switching years/lines
   // rebuilds the grids from the store instead of re-fetching.
   useEffect(() => {
     if (lines.length > 0) {
-      paymentStore.getPayments(customer.id, lines, year, graceDays);
+      getPayments(customer.id, lines, year, graceDays);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [customer.id, year, linesKey]);
+  }, [customer.id, year, linesKey, lines, graceDays, getPayments]);
+
+  // `selection.clear` (not `selection`) — the hook returns a fresh object each
+  // render, so depending on it would loop.
+  const clearGridSelection = selection.clear;
+  useEffect(() => {
+    clearGridSelection();
+  }, [year, selectedLineId, clearGridSelection]);
 
   useEffect(() => {
-    selection.clear();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [year, selectedLineId]);
-
-  useEffect(() => {
-    return () => paymentStore.reset();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    return () => resetPayments();
+  }, [resetPayments]);
 
   // ?quickPay=1 handshake from the customer list: open the form for the current
   // month of the (first) selected line once its grid is ready. Fires at most once.
   useEffect(() => {
     if (quickPay !== "1" || quickPayHandledRef.current) return;
-    if (paymentStore.loading || grid.length === 0) return;
+    if (paymentsLoading || grid.length === 0) return;
     const { year: cy, month: cm } = getCurrentYearMonth();
     const currentEntry = grid.find((m) => m.year === cy && m.month === cm);
     if (!currentEntry) return;
@@ -176,7 +200,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
     setSelectedEntry(currentEntry);
     setFormVisible(true);
     router.setParams({ quickPay: undefined });
-  }, [quickPay, paymentStore.loading, grid, router]);
+  }, [quickPay, paymentsLoading, grid, router]);
 
   const lineActive = selectedLine?.active ?? false;
 
@@ -286,7 +310,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
       if (!ok) return;
       setQuickPayMonth(entry.billingMonth);
       try {
-        await paymentStore.createMultiMonthPayment(
+        await createMultiMonthPayment(
           entry.billingMonth,
           customer,
           selectedLine.id,
@@ -310,7 +334,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
 
     setQuickPayMonth(entry.billingMonth);
     try {
-      await paymentStore.createPayment(
+      await createPayment(
         {
           billingMonth: entry.billingMonth,
           amountDue: plan.price,
@@ -368,7 +392,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
 
   async function handleEditAmount(next: { amountPaid: number }) {
     if (!selectedEntry?.payment) return;
-    await paymentStore.updatePayment(
+    await updatePayment(
       selectedEntry.payment.id,
       next.amountPaid,
       lines,
@@ -444,10 +468,10 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
       tenantId: user.tenantId,
       notes: null,
     }));
-    paymentStore.clearError();
+    clearPaymentError();
     setBulkBusy(true);
     try {
-      await paymentStore.createPayments(
+      await createPayments(
         inputs,
         planCurrency,
         lines,
@@ -471,11 +495,11 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
     });
     if (!ok) return;
     const planCurrency = findCurrency(currencies, plan.currencyId);
-    paymentStore.clearError();
-    paymentStore.clearTierLimitError();
+    clearPaymentError();
+    clearPaymentTierLimitError();
     setBulkBusy(true);
     try {
-      await paymentStore.createMultiMonthPayments(
+      await createMultiMonthPayments(
         blocks.map((b) => b.startBillingMonth),
         customer,
         selectedLine.id,
@@ -512,10 +536,10 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
       tenantId: user.tenantId,
       notes: null,
     }));
-    paymentStore.clearError();
+    clearPaymentError();
     setBulkBusy(true);
     try {
-      await paymentStore.createPayments(
+      await createPayments(
         inputs,
         currency,
         lines,
@@ -569,7 +593,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
 
   const paidCount = grid.filter((m) => m.status === "paid").length;
   const unpaidCount = grid.filter((m) => m.status === "unpaid").length;
-  const collectedTotalUsd = paymentStore.items
+  const collectedTotalUsd = payments
     .filter(
       (p) =>
         !p.voidedAt &&
@@ -623,11 +647,11 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
 
   return (
     <>
-      {paymentStore.error ? (
+      {paymentsError ? (
         <View className="px-4 mt-4">
           <ErrorBanner
-            message={paymentStore.error}
-            onDismiss={paymentStore.clearError}
+            message={paymentsError}
+            onDismiss={clearPaymentError}
           />
         </View>
       ) : null}
@@ -645,7 +669,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
             {lines.map((line) => {
               const isSel = line.id === selectedLineId;
               const dot = lineIndicatorStatus(
-                paymentStore.monthGridsByLine[line.id] ?? EMPTY_GRID,
+                monthGridsByLine[line.id] ?? EMPTY_GRID,
               );
               return (
                 <PressableOpacity
@@ -772,7 +796,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
             ) : null}
           </View>
 
-          {paymentStore.loading ? (
+          {paymentsLoading ? (
             <View className="h-40 items-center justify-center">
               <ActivityIndicator color={COLORS.primary} />
             </View>
@@ -835,7 +859,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
           entry={selectedEntry}
           onVoid={handleVoidPress}
           onEdit={canEditAmount ? handleEditAmount : undefined}
-          editLoading={paymentStore.loadingUpdate}
+          editLoading={loadingUpdate}
           onDismiss={() => setDetailVisible(false)}
         />
       )}
@@ -875,8 +899,8 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
       )}
 
       <UpgradePromptModal
-        payload={paymentStore.tierLimitError}
-        onClose={paymentStore.clearTierLimitError}
+        payload={paymentsTierLimitError}
+        onClose={clearPaymentTierLimitError}
       />
 
       <ActionMenu

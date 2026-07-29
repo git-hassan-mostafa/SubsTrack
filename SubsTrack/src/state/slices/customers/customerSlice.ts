@@ -23,6 +23,12 @@ export interface CustomerSlice {
   activeCount: number;
   page: number;
   hasMore: boolean;
+  /**
+   * A fetch has completed at least once. The "ensure loaded" guard keys off this,
+   * NOT `items.length` — an empty result is a valid loaded state, and a length-based
+   * guard re-queries on every caller (i.e. every form open) for a tenant with no rows.
+   */
+  loaded: boolean;
   loading: boolean;
   loadingMore: boolean;
   error: string | null;
@@ -62,6 +68,7 @@ export const createCustomerSlice: StateCreator<
   activeCount: 0,
   page: 0,
   hasMore: true,
+  loaded: false,
   loading: false,
   loadingMore: false,
   error: null,
@@ -70,7 +77,10 @@ export const createCustomerSlice: StateCreator<
   searchToken: 0,
 
   getCustomers: async () => {
-    if (get().customers.items.length > 0) return;
+    const { loaded, loading } = get().customers;
+    // Already loaded, or a fetch is already in flight — several components
+    // mount-fetch the same slice in one tick (see docs/gotchas.md).
+    if (loaded || loading) return;
     await get().customers.fetchCustomers();
   },
 
@@ -95,6 +105,7 @@ export const createCustomerSlice: StateCreator<
         state.customers.hasMore = hasMore;
         state.customers.activeCount = activeCount;
         state.customers.page = 0;
+        state.customers.loaded = true;
         state.customers.loading = false;
       });
     } catch (e) {
@@ -390,6 +401,7 @@ export const createCustomerSlice: StateCreator<
   reset: () =>
     set((state) => {
       state.customers.items = [];
+      state.customers.loaded = false;
       state.customers.activeCount = 0;
       state.customers.page = 0;
       state.customers.hasMore = true;

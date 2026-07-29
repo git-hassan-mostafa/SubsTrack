@@ -58,8 +58,7 @@ export function SaleFormSheet({
 
   useEffect(() => {
     clearError();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [clearError]);
 
   const total = cart.total;
   const hasCustomer = customer != null;

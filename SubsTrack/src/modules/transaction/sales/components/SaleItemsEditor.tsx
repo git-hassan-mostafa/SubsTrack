@@ -54,6 +54,12 @@ function roundTo(value: number, decimals: number): number {
   return Math.round(value * f) / f;
 }
 
+// Row keys only need to be unique within one editor, so the suffix is handed in
+// by the caller. Pure on purpose — see the note on CustomerPlansEditor.makeRow.
+function makeRow(suffix: number): Row {
+  return { key: `row-${suffix}`, productId: null, quantity: 1, unitAmount: null };
+}
+
 // Multi-product "cart" editor for a sale. Owns the row + sale-currency state and
 // reports the resolved draft up via onChange. One currency per sale: each
 // product's catalog price is auto-converted into the sale currency (editable).
@@ -61,19 +67,15 @@ function roundTo(value: number, decimals: number): number {
 export function SaleItemsEditor({ onChange, onFocusClearError }: Props) {
   const { t } = useTranslation();
   const products = useProductSlice((s) => s.items);
-  const fetchProducts = useProductSlice((s) => s.fetchProducts);
+  const getProducts = useProductSlice((s) => s.getProducts);
   const currencies = useCurrencySlice((s) => s.items);
   const { lastUsedCurrencyId } = useUiPrefStore();
 
+  // Suffix of the last row added in this session. Only ever touched from an event
+  // handler — never during render.
   const rowKey = useRef(0);
-  const newRow = (): Row => ({
-    key: `row-${rowKey.current++}`,
-    productId: null,
-    quantity: 1,
-    unitAmount: null,
-  });
 
-  const [rows, setRows] = useState<Row[]>(() => [newRow()]);
+  const [rows, setRows] = useState<Row[]>(() => [makeRow(0)]);
   // The single currency for the whole sale. Defaults to last-used until the
   // first product is picked (which adopts its currency, unless the user has
   // already changed it manually).
@@ -83,10 +85,11 @@ export function SaleItemsEditor({ onChange, onFocusClearError }: Props) {
   const [currencyTouched, setCurrencyTouched] = useState(false);
   const [addProductOpen, setAddProductOpen] = useState(false);
 
+  // `getProducts` self-guards on the slice's `loaded` flag — no length check, and
+  // no re-query on every sale-form open for a tenant with no products yet.
   useEffect(() => {
-    if (products.length === 0) void fetchProducts();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    void getProducts();
+  }, [getProducts]);
 
   const activeProducts = useMemo(
     () => products.filter((p) => p.active),
@@ -195,7 +198,8 @@ export function SaleItemsEditor({ onChange, onFocusClearError }: Props) {
   }
 
   function addRow() {
-    setRows((prev) => [...prev, newRow()]);
+    rowKey.current += 1;
+    setRows((prev) => [...prev, makeRow(rowKey.current)]);
   }
 
   function removeRow(key: string) {
@@ -239,8 +243,7 @@ export function SaleItemsEditor({ onChange, onFocusClearError }: Props) {
       currencyId,
       ready: lines.length > 0 && !incomplete && !oversold,
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, currencyId, activeProducts]);
+  }, [rows, currencyId, activeProducts, saleCurrency, onChange]);
 
   const multiple = rows.length > 1;
 

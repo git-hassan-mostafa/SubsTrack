@@ -124,8 +124,7 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
 
   useEffect(() => {
     clearError();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [clearError]);
 
   // Staff users must be assigned to a branch once the tenant has any.
   // BranchPicker hides itself when there are no branches, so this validation

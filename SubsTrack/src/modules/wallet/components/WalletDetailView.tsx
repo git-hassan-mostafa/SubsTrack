@@ -132,6 +132,10 @@ export function WalletDetailView({
   const allItems = detail?.items ?? [];
   const collectorId = detail?.collectorUserId ?? null;
 
+  // `selection.clear` (not `selection`) — the hook returns a fresh object each
+  // render, so depending on it would loop.
+  const clearItemSelection = selection.clear;
+
   // Switching to a different collector resets the view. Refetches for the SAME
   // collector (e.g. after receiving) keep the id, so filters/selection persist.
   useEffect(() => {
@@ -140,9 +144,8 @@ export function WalletDetailView({
     setTypeFilter(null);
     setFromDate(null);
     setToDate(null);
-    selection.clear();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [collectorId]);
+    clearItemSelection();
+  }, [collectorId, clearItemSelection]);
 
   // Raw cash amount formatted in its own currency (source === target, so the
   // live rate is irrelevant — this shows the physical cash count).

@@ -27,12 +27,15 @@ export function MyWalletScreen() {
 
   const branchFilter = useEffectiveBranchFilter();
 
+  // Refresh on focus + whenever the effective branch changes. `branchFilter` is
+  // an intentional dep even though the body doesn't read it — the slice action
+  // resolves it internally (same pattern as WalletsScreen).
+  const userId = user?.id;
   useFocusEffect(
     useCallback(() => {
-      if (user) void fetchDetail(user.id);
+      if (userId) void fetchDetail(userId);
       return () => clearDetail();
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [user?.id, branchFilter]),
+    }, [userId, branchFilter, fetchDetail, clearDetail]),
   );
 
   return (

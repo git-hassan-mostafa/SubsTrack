@@ -7,6 +7,12 @@ import type { GlobalState } from '@/src/state/globalStore';
 
 export interface CurrencySlice {
   items: Currency[];
+  /**
+   * A fetch has completed at least once. The "ensure loaded" guard keys off this,
+   * NOT `items.length` — an empty result is a valid loaded state, and a length-based
+   * guard re-queries on every caller (i.e. every form open) for a tenant with no rows.
+   */
+  loaded: boolean;
   loading: boolean;
   error: string | null;
   tierLimitError: TierLimitErrorPayload | null;
@@ -29,12 +35,16 @@ export const createCurrencySlice: StateCreator<
   CurrencySlice
 > = (set, get) => ({
   items: [],
+  loaded: false,
   loading: false,
   error: null,
   tierLimitError: null,
 
   getCurrencies: async () => {
-    if (get().currencies.items.length > 0) return;
+    const { loaded, loading } = get().currencies;
+    // Already loaded, or a fetch is already in flight — several components
+    // mount-fetch the same slice in one tick (see docs/gotchas.md).
+    if (loaded || loading) return;
     await get().currencies.fetchCurrencies();
   },
 
@@ -47,6 +57,7 @@ export const createCurrencySlice: StateCreator<
       const items = await currencyService.getCurrencies();
       set((state) => {
         state.currencies.items = items;
+        state.currencies.loaded = true;
         state.currencies.loading = false;
       });
     } catch (e) {
@@ -205,6 +216,7 @@ export const createCurrencySlice: StateCreator<
   reset: () =>
     set((state) => {
       state.currencies.items = [];
+      state.currencies.loaded = false;
       state.currencies.loading = false;
       state.currencies.error = null;
       state.currencies.tierLimitError = null;

@@ -38,8 +38,7 @@ export function BranchFormSheet({ branch, onDismiss, onRequestDelete }: Props) {
 
   useEffect(() => {
     clearError();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [clearError]);
 
   async function handleSubmit() {
     if (!user) return;

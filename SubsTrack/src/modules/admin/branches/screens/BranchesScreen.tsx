@@ -60,8 +60,7 @@ export function BranchesScreen() {
 
   useEffect(() => {
     getBranches();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [getBranches]);
 
   function openCreate() {
     setEditing(null);

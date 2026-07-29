@@ -59,8 +59,7 @@ export function DebtPaymentFormSheet({
 
   useEffect(() => {
     clearError();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [clearError]);
 
   // Load the picked customer's current net debt so we can guide the amount and
   // block payments when nothing is owed. Not branch-scoped — matches the panel.

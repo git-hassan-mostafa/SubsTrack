@@ -5,6 +5,7 @@ import {
   useWindowDimensions,
   type ViewStyle,
 } from "react-native";
+import { Easing, type WithTimingConfig } from "react-native-reanimated";
 import {
   useSafeAreaFrame,
   useSafeAreaInsets,
@@ -54,6 +55,16 @@ const WEB_MAX_WIDTH = 768;
 // Height of a `full` sheet — leaves a strip of backdrop at the top so it reads
 // as a bottom sheet (and gives a tap-to-close / drag-down target).
 const FULL_SNAP = ["92%"];
+
+// Gorhom's default open/close animation is platform-split: iOS gets a very stiff
+// spring that settles almost instantly, Android a 250ms timing curve — so sheets
+// measurably lag on Android out of the box. Override Android only (undefined =
+// keep Gorhom's default), matching iOS's snappiness. `Easing.out(Easing.cubic)`
+// decelerates without the long tail of Gorhom's `Easing.out(Easing.exp)`.
+const ANIMATION_CONFIGS: WithTimingConfig | undefined =
+  Platform.OS === "android"
+    ? { duration: 180, easing: Easing.out(Easing.cubic) }
+    : undefined;
 
 /**
  * The single Gorhom bottom-sheet foundation for the whole app. Every popup and
@@ -191,6 +202,7 @@ export function AppBottomSheet({
       onDismiss={handleDismiss}
       stackBehavior="push"
       enablePanDownToClose
+      animationConfigs={ANIMATION_CONFIGS}
       // Dynamic sizing only for content-hugging `auto` popups (no fixed snap).
       enableDynamicSizing={!useFixedSnap}
       maxDynamicContentSize={!useFixedSnap ? frameHeight * 0.9 : undefined}

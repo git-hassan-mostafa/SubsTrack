@@ -8,6 +8,12 @@ import type { GlobalState } from '@/src/state/globalStore';
 
 export interface ProductSlice {
   items: Product[];
+  /**
+   * A fetch has completed at least once. The "ensure loaded" guard keys off this,
+   * NOT `items.length` — an empty result is a valid loaded state, and a length-based
+   * guard re-queries on every caller (i.e. every form open) for a tenant with no rows.
+   */
+  loaded: boolean;
   loading: boolean;
   error: string | null;
   tierLimitError: TierLimitErrorPayload | null;
@@ -38,11 +44,15 @@ export const createProductSlice: StateCreator<
   ProductSlice
 > = (set, get) => ({
   items: [],
+  loaded: false,
   loading: false,
   error: null,
   tierLimitError: null,
   getProducts: async () => {
-    if (get().products.items.length > 0) return;
+    const { loaded, loading } = get().products;
+    // Already loaded, or a fetch is already in flight — several components
+    // mount-fetch the same slice in one tick (see docs/gotchas.md).
+    if (loaded || loading) return;
     await get().products.fetchProducts();
   },
   fetchProducts: async () => {
@@ -55,6 +65,7 @@ export const createProductSlice: StateCreator<
       const items = await productService.getProducts(branchFilter);
       set((state) => {
         state.products.items = items;
+        state.products.loaded = true;
         state.products.loading = false;
       });
     } catch (e) {
@@ -232,6 +243,7 @@ export const createProductSlice: StateCreator<
   reset: () =>
     set((state) => {
       state.products.items = [];
+      state.products.loaded = false;
       state.products.loading = false;
       state.products.error = null;
       state.products.tierLimitError = null;

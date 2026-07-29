@@ -7,6 +7,12 @@ import type { GlobalState } from "@/src/state/globalStore";
 
 export interface BranchSlice {
   items: Branch[];
+  /**
+   * A fetch has completed at least once. The "ensure loaded" guard keys off this,
+   * NOT `items.length` — an empty result is a valid loaded state, and a length-based
+   * guard re-queries on every caller (i.e. every form open) for a tenant with no rows.
+   */
+  loaded: boolean;
   loading: boolean;
   error: string | null;
   tierLimitError: TierLimitErrorPayload | null;
@@ -34,12 +40,16 @@ export const createBranchSlice: StateCreator<
   BranchSlice
 > = (set, get) => ({
   items: [],
+  loaded: false,
   loading: false,
   error: null,
   tierLimitError: null,
 
   getBranches: async () => {
-    if (get().branches.items.length > 0) return;
+    const { loaded, loading } = get().branches;
+    // Already loaded, or a fetch is already in flight — several components
+    // mount-fetch the same slice in one tick (see docs/gotchas.md).
+    if (loaded || loading) return;
     await get().branches.fetchBranches();
   },
 
@@ -52,6 +62,7 @@ export const createBranchSlice: StateCreator<
       const items = await branchService.getBranches();
       set((state) => {
         state.branches.items = items;
+        state.branches.loaded = true;
         state.branches.loading = false;
       });
     } catch (e) {
@@ -217,6 +228,7 @@ export const createBranchSlice: StateCreator<
   reset: () =>
     set((state) => {
       state.branches.items = [];
+      state.branches.loaded = false;
       state.branches.loading = false;
       state.branches.error = null;
       state.branches.tierLimitError = null;

@@ -20,6 +20,7 @@ import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
 import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
+import { useAfterFirstFrame } from "@/src/shared/hooks/useAfterFirstFrame";
 import { useWalletSlice } from "@/src/state/hooks/useWalletSlice";
 import type { CollectorWallet, WalletItem } from "@/src/core/types";
 import { CollectorWalletCard } from "../components/CollectorWalletCard";
@@ -52,6 +53,8 @@ export function WalletsScreen() {
 
   const branchFilter = useEffectiveBranchFilter();
   const [openWallet, setOpenWallet] = useState<CollectorWallet | null>(null);
+  // Sheet is always mounted, so gate on its visibility — see useAfterFirstFrame.
+  const detailReady = useAfterFirstFrame(!!openWallet);
   const [menuWallet, setMenuWallet] = useState<CollectorWallet | null>(null);
   const [busy, setBusy] = useState(false);
   // Collector whose "receive all" is currently running from the list card (its
@@ -214,13 +217,15 @@ export function WalletsScreen() {
               </Text>
             </PressableOpacity>
           </View>
-          <WalletDetailView
-            detail={detail}
-            loading={detailLoading}
-            busy={busy}
-            onReceiveItems={handleReceiveItems}
-            onReceiveAll={handleReceiveAll}
-          />
+          {detailReady ? (
+            <WalletDetailView
+              detail={detail}
+              loading={detailLoading}
+              busy={busy}
+              onReceiveItems={handleReceiveItems}
+              onReceiveAll={handleReceiveAll}
+            />
+          ) : null}
         </ResponsiveContainer>
       </AppBottomSheet>
 

@@ -62,8 +62,7 @@ export function CurrenciesScreen() {
 
   useEffect(() => {
     getCurrencies();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [getCurrencies]);
 
   function openCreate() {
     setEditing(null);

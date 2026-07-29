@@ -63,8 +63,9 @@ export default function RootLayout() {
         console.error("[RootLayout] Failed to initialize i18n:", error);
       }
     })();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    // Both deps are Zustand slice actions — stable for the store's lifetime, so
+    // this bootstrap still runs exactly once.
+  }, [fetchOptions, restoreSession]);
 
   useEffect(() => {
     if (!i18nReady || loading) return;

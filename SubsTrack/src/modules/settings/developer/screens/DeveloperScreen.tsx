@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ScrollView, View } from "react-native";
 import { FormSheet } from "@/src/shared/components/FormSheet";
 import { useTranslation } from "react-i18next";
@@ -41,11 +41,24 @@ export function DeveloperScreen() {
   const [resyncBusy, setResyncBusy] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
 
+  // Declared before the effect that depends on it (a `useCallback` isn't hoisted
+  // the way the old function declaration was).
+  const refreshCounts = useCallback(async () => {
+    const db = getDb();
+    const next: Record<string, number> = {};
+    for (const name of ALL_TABLE_NAMES) {
+      const row = await db.getFirstAsync<{ n: number }>(
+        `SELECT COUNT(*) AS n FROM ${name}`,
+      );
+      next[name] = row?.n ?? 0;
+    }
+    setCounts(next);
+  }, []);
+
   useEffect(() => {
     if (!IS_OFFLINE_CAPABLE) return;
     void refreshCounts();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [refreshCounts]);
 
   // Deep-linking could theoretically reach this route on web; there is
   // nothing to show since web has no local SQLite mirror.
@@ -82,18 +95,6 @@ export function DeveloperScreen() {
     }
     await Clipboard.setStringAsync(JSON.stringify(dump));
     flashMessage(t("settings.developer_export_done"));
-  }
-
-  async function refreshCounts() {
-    const db = getDb();
-    const next: Record<string, number> = {};
-    for (const name of ALL_TABLE_NAMES) {
-      const row = await db.getFirstAsync<{ n: number }>(
-        `SELECT COUNT(*) AS n FROM ${name}`,
-      );
-      next[name] = row?.n ?? 0;
-    }
-    setCounts(next);
   }
 
   // Forget the pull cursor and re-pull the whole tenant. Repairs a mirror whose

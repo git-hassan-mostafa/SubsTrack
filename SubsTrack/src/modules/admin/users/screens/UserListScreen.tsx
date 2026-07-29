@@ -71,8 +71,7 @@ export function UserListScreen() {
   useEffect(() => {
     clearSelection();
     fetchUsers();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [branchFilter]);
+  }, [branchFilter, clearSelection, fetchUsers]);
 
   // A user can be managed (toggled/deleted) by the current user when it's not
   // their own account and the role hierarchy allows it.

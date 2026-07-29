@@ -99,8 +99,7 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
     clearError();
     clearPlanError();
     getPlans();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [clearError, clearPlanError, getPlans]);
 
   async function handleSubmit() {
     if (!user || submitting) return;

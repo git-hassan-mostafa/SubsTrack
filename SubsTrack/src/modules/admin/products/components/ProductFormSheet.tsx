@@ -89,8 +89,7 @@ export function ProductFormSheet({
 
   useEffect(() => {
     clearError();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [clearError]);
 
   async function handleSubmit() {
     if (!user || !currentTier) return;

@@ -50,7 +50,7 @@ export function DashboardScreen() {
 
   useEffect(() => {
     fetchMetrics();
-  }, [branchFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [branchFilter, fetchMetrics]);
 
   const now = new Date();
   const locale = getDateLocale(i18n.language);

@@ -102,14 +102,13 @@ export function SalesPanel() {
   useEffect(() => {
     clearSelection();
     fetchSales();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [branchFilter]);
+  }, [branchFilter, clearSelection, fetchSales]);
 
   // Populate the product filter dropdown (products aren't loaded by this tab otherwise).
+  // `getProducts` self-guards on the slice's `loaded` flag — no length check here.
   useEffect(() => {
-    if (products.length === 0) void getProducts();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    void getProducts();
+  }, [getProducts]);
 
   const productOptions: DropdownOption<string>[] = useMemo(
     () =>
@@ -138,8 +137,7 @@ export function SalesPanel() {
 
   useEffect(() => {
     setSearchQuery(debouncedSearch);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debouncedSearch]);
+  }, [debouncedSearch, setSearchQuery]);
 
   async function handleVoid(reason: string) {
     if (!activeSale || !user) return;

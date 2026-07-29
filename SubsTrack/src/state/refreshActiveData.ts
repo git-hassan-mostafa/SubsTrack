@@ -25,20 +25,23 @@ export function refreshActiveData(): void {
   void s.dashboard.fetchMetrics();
 
   // Each list refreshes only if it was ever loaded (its screen was opened).
-  if (s.customers.items.length) void s.customers.fetchCustomers();
-  if (s.plans.items.length) void s.plans.fetchPlans();
-  if (s.currencies.items.length) void s.currencies.fetchCurrencies();
-  if (s.branches.items.length) void s.branches.fetchBranches();
-  if (s.products.items.length) void s.products.fetchProducts();
+  // The slices with an "ensure loaded" action carry a `loaded` flag, so an
+  // empty-but-visited screen still refreshes; the rest have no such flag and
+  // fall back to `items.length`.
+  if (s.customers.loaded) void s.customers.fetchCustomers();
+  if (s.plans.loaded) void s.plans.fetchPlans();
+  if (s.currencies.loaded) void s.currencies.fetchCurrencies();
+  if (s.branches.loaded) void s.branches.fetchBranches();
+  if (s.products.loaded) void s.products.fetchProducts();
+  if (s.users.loaded) void s.users.fetchUsers();
   if (s.sales.items.length) void s.sales.fetchSales();
-  if (s.users.items.length) void s.users.fetchUsers();
   if (s.paymentsList.items.length) void s.paymentsList.fetchPayments();
   if (s.wallet.items.length) void s.wallet.fetchWallets();
   if (s.debts.items.length) void s.debts.fetchDebts();
 
   // The customer-list payment flags (current-month status, net debt) are derived
   // from the customer set, so refresh them whenever the customer list is loaded.
-  if (s.customers.items.length) {
+  if (s.customers.loaded) {
     void s.payments.fetchCurrentMonthPaymentStatus();
     void s.debts.fetchNetByCustomer();
   }

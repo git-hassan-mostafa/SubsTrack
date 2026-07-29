@@ -117,14 +117,13 @@ export function PaymentsPanel() {
   useEffect(() => {
     clearSelection();
     fetchPayments();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [branchFilter]);
+  }, [branchFilter, clearSelection, fetchPayments]);
 
   // Paid-by dropdown needs the user list (this tab doesn't load it otherwise).
+  // `getUsers` self-guards on the slice's `loaded` flag — no length check here.
   useEffect(() => {
-    if (users.length === 0) void getUsers();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    void getUsers();
+  }, [getUsers]);
 
   const userOptions: DropdownOption<string>[] = useMemo(
     () => users.map((u) => ({ label: u.fullName, value: u.id })),

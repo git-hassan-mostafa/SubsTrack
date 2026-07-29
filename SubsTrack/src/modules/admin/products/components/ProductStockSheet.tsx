@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
@@ -44,13 +44,14 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
   const [note, setNote] = useState("");
   const [history, setHistory] = useState<StockMovement[]>([]);
 
-  async function loadHistory() {
+  // Stable across renders so the mount effect below can depend on it.
+  const loadHistory = useCallback(async () => {
     try {
       setHistory(await productService.getMovements(product.id));
     } catch {
       // History is supporting detail — a failure here must not block adjusting.
     }
-  }
+  }, [product.id]);
 
   useEffect(() => {
     clearError();
@@ -58,8 +59,7 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
     // Clear on the way out too — the product form may still be open underneath
     // and shares this slice's error, so a stock failure must not linger there.
     return clearError;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [clearError, loadHistory]);
 
   const parsed = Number(quantity);
   const validQuantity = Number.isInteger(parsed) && parsed > 0;

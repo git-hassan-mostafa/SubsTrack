@@ -68,8 +68,8 @@ export function CurrencyInput({
       );
       if (exists) onChange({ amount: null, currencyId: lastUsedCurrencyId });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    // Listing the deps is safe: the ref guard above makes every later run a no-op.
+  }, [amount, currencyId, currencies, lastUsedCurrencyId, onChange]);
 
   const activeCurrencies = useMemo(
     () => currencies.filter((c) => c.active || c.id === currencyId),
@@ -87,7 +87,6 @@ export function CurrencyInput({
   useEffect(() => {
     const incoming = amount != null ? String(amount) : "";
     setText((prev) => (Number(prev) === amount ? prev : incoming));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [amount]);
 
   function handleText(next: string) {

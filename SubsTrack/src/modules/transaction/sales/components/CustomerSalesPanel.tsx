@@ -56,10 +56,10 @@ export function CustomerSalesPanel({ customer }: Props) {
     }
   }, [customer.id]);
 
+  // `refresh` is already keyed on `customer.id`, so this is the same trigger.
   useEffect(() => {
     refresh();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [customer.id]);
+  }, [refresh]);
 
   async function handleVoid(reason: string) {
     if (!activeSale || !user) return;

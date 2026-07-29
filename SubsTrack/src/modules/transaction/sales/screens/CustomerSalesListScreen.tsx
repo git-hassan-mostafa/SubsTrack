@@ -85,8 +85,7 @@ export function CustomerSalesListScreen() {
   // page is reached without the detail screen having cached it first.
   useEffect(() => {
     if (id && !customer) void getCustomer(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  }, [id, customer, getCustomer]);
 
   async function handleVoid(reason: string) {
     if (!activeSale || !user) return;

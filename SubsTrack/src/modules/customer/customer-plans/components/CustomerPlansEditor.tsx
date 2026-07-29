@@ -37,6 +37,19 @@ export interface CustomerPlansEditorHandle {
   getReactivated: () => string[];
 }
 
+// Row keys only need to be unique within one editor, so the suffix is handed in
+// by the caller. Pure on purpose: the previous version read a ref counter, which
+// also ran in the `useState` initializer (i.e. during render) and made React
+// Compiler skip optimizing this whole component.
+function makeRow(suffix: number, date: string): PlanRow {
+  return {
+    key: `new-${suffix}`,
+    planId: null,
+    startDate: date,
+    status: "active",
+  };
+}
+
 interface Props {
   customer?: Customer | null;
   // The customer's currently-selected branch. Scopes the PlanPicker and drops
@@ -63,13 +76,9 @@ export function CustomerPlansEditor({
   const plans = usePlanSlice((s) => s.items);
   const hasPayments = useCustomerPlanSlice((s) => s.hasPayments);
 
+  // Suffix of the last row added in this session. Only ever touched from an event
+  // handler — never during render.
   const rowKey = useRef(0);
-  const newRow = (date: string): PlanRow => ({
-    key: `new-${rowKey.current++}`,
-    planId: null,
-    startDate: date,
-    status: "active",
-  });
 
   // Existing customer → one row per line (active + cancelled, so cancelled ones
   // stay visible); new customer → one empty active row.
@@ -84,7 +93,7 @@ export function CustomerPlansEditor({
         status: l.active ? ("active" as const) : ("cancelled" as const),
       }));
     }
-    return [newRow(customer?.startDate ?? getTodayDateString())];
+    return [makeRow(0, customer?.startDate ?? getTodayDateString())];
   });
   const [removed, setRemoved] = useState<RemovedLine[]>([]);
   const [reactivated, setReactivated] = useState<string[]>([]);
@@ -103,17 +112,24 @@ export function CustomerPlansEditor({
   // When the branch changes, drop any selected plan that's branch-specific to a
   // different branch (shared plans — branchId null — stay valid everywhere).
   // Cancelled rows are read-only, so leave them untouched.
+  //
+  // Returns `prev` untouched when nothing was dropped so React can bail out.
+  // `prev.map()` always allocates a new array, which made this effect force a
+  // second render of the whole customer form on every single open.
   useEffect(() => {
-    setRows((prev) =>
-      prev.map((r) => {
+    setRows((prev) => {
+      let changed = false;
+      const next = prev.map((r) => {
         if (r.status !== "active" || !r.planId) return r;
         const p = plans.find((pl) => pl.id === r.planId);
         if (p && p.branchId !== null && p.branchId !== branchId) {
+          changed = true;
           return { ...r, planId: null };
         }
         return r;
-      }),
-    );
+      });
+      return changed ? next : prev;
+    });
   }, [branchId, plans]);
 
   function setRowPlan(key: string, planId: string | null) {
@@ -127,7 +143,8 @@ export function CustomerPlansEditor({
   }
 
   function addRow() {
-    setRows((prev) => [...prev, newRow(startDate)]);
+    rowKey.current += 1;
+    setRows((prev) => [...prev, makeRow(rowKey.current, startDate)]);
   }
 
   const activeCount = rows.filter((r) => r.status === "active").length;

@@ -26,6 +26,12 @@ interface UserUpdateInput {
 
 export interface UserSlice {
   items: AppUser[];
+  /**
+   * A fetch has completed at least once. The "ensure loaded" guard keys off this,
+   * NOT `items.length` — an empty result is a valid loaded state, and a length-based
+   * guard re-queries on every caller (i.e. every form open) for a tenant with no rows.
+   */
+  loaded: boolean;
   loading: boolean;
   error: string | null;
   tierLimitError: TierLimitErrorPayload | null;
@@ -66,12 +72,16 @@ export const createUserSlice: StateCreator<
 
   return {
     items: [],
+    loaded: false,
     loading: false,
     error: null,
     tierLimitError: null,
 
     getUsers: async () => {
-      if (get().users.items.length > 0) return;
+      const { loaded, loading } = get().users;
+      // Already loaded, or a fetch is already in flight — several components
+      // mount-fetch the same slice in one tick (see docs/gotchas.md).
+      if (loaded || loading) return;
       await get().users.fetchUsers();
     },
 
@@ -85,6 +95,7 @@ export const createUserSlice: StateCreator<
         const items = await userService.getUsers(branchFilter);
         set((state) => {
           state.users.items = items;
+          state.users.loaded = true;
           state.users.loading = false;
         });
       } catch (e) {
@@ -264,6 +275,7 @@ export const createUserSlice: StateCreator<
     reset: () =>
       set((state) => {
         state.users.items = [];
+        state.users.loaded = false;
         state.users.loading = false;
         state.users.error = null;
         state.users.tierLimitError = null;
