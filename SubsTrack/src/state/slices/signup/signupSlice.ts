@@ -21,7 +21,7 @@ export interface SignupSlice {
   checkingCode: boolean;
   error: string | null;
 
-  setWorkspace: (patch: Partial<{ name: string; tenantCode: string }>) => void;
+  setOrganization: (patch: Partial<{ name: string; tenantCode: string }>) => void;
   setAccount: (
     patch: Partial<{
       adminUserName: string;
@@ -56,7 +56,7 @@ export const createSignupSlice: StateCreator<
 > = (set, get) => ({
   ...INITIAL,
 
-  setWorkspace: (patch) =>
+  setOrganization: (patch) =>
     set((state) => {
       Object.assign(state.signup, patch);
       state.signup.error = null;
@@ -76,7 +76,7 @@ export const createSignupSlice: StateCreator<
     });
     try {
       const { name, tenantCode } = get().signup;
-      signupService.validateWorkspace({ name, tenantCode });
+      signupService.validateOrganization({ name, tenantCode });
       const available = await signupService.checkTenantCodeAvailable(tenantCode);
       if (!available) {
         set((state) => {

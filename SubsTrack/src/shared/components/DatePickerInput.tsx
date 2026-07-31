@@ -10,6 +10,7 @@ import { COLORS } from "@/src/shared/constants";
 import { useTranslation } from "react-i18next";
 import { useState } from "react";
 import { BottomSheetScaffold } from "./BottomSheetScaffold";
+import { SheetDragArea } from "./SheetDragArea";
 
 // "default" — full-width form field with label, used inside form sheets.
 // "chip"    — compact fit-content pill, used in filter bars alongside other chips.
@@ -280,7 +281,7 @@ export function DatePickerInput({
   const picker = (
     <BottomSheetScaffold visible={open} onDismiss={() => setOpen(false)}>
       {/* Header */}
-      <View className="flex-row justify-between items-center px-5 py-3 border-b border-gray-100">
+      <SheetDragArea className="flex-row justify-between items-center px-5 py-3 border-b border-gray-100">
         <PressableOpacity onPress={() => setOpen(false)}>
           <Text className="text-base text-primary font-medium">
             {t("common.cancel")}
@@ -294,7 +295,7 @@ export function DatePickerInput({
             {t("common.confirm")}
           </Text>
         </PressableOpacity>
-      </View>
+      </SheetDragArea>
 
       {/* Columns */}
       <View className="flex-row px-3 py-3 gap-1">

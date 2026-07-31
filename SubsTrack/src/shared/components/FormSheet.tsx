@@ -1,10 +1,10 @@
 import type { ReactNode } from "react";
-import { View } from "react-native";
 import { BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { AppBottomSheet } from "./AppBottomSheet";
 import { ResponsiveContainer } from "./ResponsiveContainer";
+import { SheetDragArea } from "./SheetDragArea";
 import { PressableOpacity } from "./PressableOpacity/PressableOpacity";
 import { Text } from "./Text";
 import { useAfterFirstFrame } from "@/src/shared/hooks/useAfterFirstFrame";
@@ -26,8 +26,8 @@ interface FormSheetProps {
  * Gorhom drag handle, a header (title + one dismiss action), and a scrollable
  * body ({@link BottomSheetScrollView}). `full` sheets turn Gorhom's content pan
  * off (gotcha #45), so the body scrolls freely and the sheet is dragged by its
- * handle. Body width is capped on wide viewports via
- * {@link ResponsiveContainer}.
+ * handle — plus the whole header row, which is a {@link SheetDragArea}. Body
+ * width is capped on wide viewports via {@link ResponsiveContainer}.
  *
  * Text inputs rendered inside automatically become `BottomSheetTextInput`
  * (see {@link useSheetTextInput}), so the keyboard pushes the focused field
@@ -53,7 +53,7 @@ export function FormSheet({
   return (
     <AppBottomSheet visible={visible} onDismiss={onDismiss} variant="full">
       <ResponsiveContainer className="flex-1">
-        <View className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
+        <SheetDragArea className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
           <Text fontWeight="Bold" className="text-lg text-gray-900">
             {title}
           </Text>
@@ -62,7 +62,7 @@ export function FormSheet({
               {dismissLabel ?? t("common.cancel")}
             </Text>
           </PressableOpacity>
-        </View>
+        </SheetDragArea>
 
         <BottomSheetScrollView
           style={{ flex: 1 }}

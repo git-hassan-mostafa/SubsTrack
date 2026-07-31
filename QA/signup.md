@@ -1,6 +1,6 @@
 # Self-Service Tenant Signup — QA Scenarios
 
-Covers the 2-step public signup flow that lets a new business owner create their own workspace without involving the SaaS admin. Step 1 collects workspace name + tenant code. Step 2 collects the owner account credentials. On success, the tenant is created and the owner is auto-logged in.
+Covers the 2-step public signup flow that lets a new business owner create their own organization without involving the SaaS admin. Step 1 collects organization name + tenant code. Step 2 collects the owner account credentials. On success, the tenant is created and the owner is auto-logged in.
 
 This flow uses the `create-tenant` Edge Function (no JWT required — deployed with `--no-verify-jwt`). The anon key in the mobile app cannot write directly to `tenants`, `branches`, or `auth.users` tables — the Edge Function is the only permitted path.
 
@@ -8,12 +8,12 @@ This flow uses the `create-tenant` Edge Function (no JWT required — deployed w
 - Signup slice: [signupSlice.ts](SubsTrack/src/state/slices/signup/signupSlice.ts)
 - Signup service: [SignupService.ts](SubsTrack/src/modules/signup/services/SignupService.ts)
 - Signup repository: [SignupRepository.ts](SubsTrack/src/modules/signup/repository/SignupRepository.ts)
-- Step 1 screen: [SignupWorkspaceScreen.tsx](SubsTrack/src/modules/signup/screens/SignupWorkspaceScreen.tsx)
+- Step 1 screen: [SignupOrganizationScreen.tsx](SubsTrack/src/modules/signup/screens/SignupOrganizationScreen.tsx)
 - Step 2 screen: [SignupAccountScreen.tsx](SubsTrack/src/modules/signup/screens/SignupAccountScreen.tsx)
 - Step indicator: [StepIndicator.tsx](SubsTrack/src/modules/signup/components/StepIndicator.tsx)
 - Edge function: [create-tenant/index.ts](SubsTrack/supabase/functions/create-tenant/index.ts)
 - Login entry point: [LoginScreen.tsx](SubsTrack/src/modules/auth/screens/LoginScreen.tsx)
-- Route: [signup-workspace.tsx](SubsTrack/app/(auth)/signup-workspace.tsx), [signup-account.tsx](SubsTrack/app/(auth)/signup-account.tsx)
+- Route: [signup-organization.tsx](SubsTrack/app/(auth)/signup-organization.tsx), [signup-account.tsx](SubsTrack/app/(auth)/signup-account.tsx)
 
 ---
 
@@ -33,27 +33,27 @@ This flow uses the `create-tenant` Edge Function (no JWT required — deployed w
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 1.1 | CTA visible | Open login screen | "Create a new workspace" button / link visible below the login form |
-| 1.2 | Tap CTA | Tap "Create a new workspace" | Navigates to Step 1 (SignupWorkspaceScreen) |
+| 1.1 | CTA visible | Open login screen | "Create a new organization" button / link visible below the login form |
+| 1.2 | Tap CTA | Tap "Create a new organization" | Navigates to Step 1 (SignupOrganizationScreen) |
 | 1.3 | Back from step 1 | Navigate back | Returns to login screen |
 
 ---
 
-## 2. Step 1 — Workspace details (SignupWorkspaceScreen)
+## 2. Step 1 — Organization details (SignupOrganizationScreen)
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
 | 2.1 | Step indicator | Look at the top | Step indicator shows "1 / 2" (first dot filled, second dot empty) |
-| 2.2 | Fields visible | Look at screen | Workspace Name field + Tenant Code field |
+| 2.2 | Fields visible | Look at screen | Organization Name field + Tenant Code field |
 | 2.3 | Happy path | Enter "My ISP" as name, "myisp" as code, tap Next | Code availability checked; transitions to Step 2 |
 | 2.4 | Required: name | Leave name blank | "Next" button disabled or inline validation error |
 | 2.5 | Required: code | Leave code blank | "Next" button disabled |
 | 2.6 | Code available | Enter a code not in use | `is_tenant_code_available` returns true; proceeds to step 2 |
-| 2.7 | Code taken | Enter an existing tenant code | Inline error: "This workspace code is already taken" (or equivalent) |
-| 2.8 | Code validation — length | Enter a code that is too short or too long | Validation error displayed (verify min/max per `SignupService.validateWorkspace`) |
+| 2.7 | Code taken | Enter an existing tenant code | Inline error: "This organization code is already taken" (or equivalent) |
+| 2.8 | Code validation — length | Enter a code that is too short or too long | Validation error displayed (verify min/max per `SignupService.validateOrganization`) |
 | 2.9 | Code validation — characters | Enter code with spaces or special characters | Validation error; only allowed characters accepted |
 | 2.10 | Code case handling | Enter "MYISP" (uppercase) | Code normalised to lowercase before availability check (verify expected behavior) |
-| 2.11 | Name max length | Enter very long workspace name | Verify client-side or server-side trim/reject |
+| 2.11 | Name max length | Enter very long organization name | Verify client-side or server-side trim/reject |
 | 2.12 | Loading state on Next | Tap Next | Button shows "..." while availability check is in-flight |
 | 2.13 | Network error on check | Disable network, tap Next | ErrorBanner shown; stays on Step 1 |
 | 2.14 | Retry after error | Fix network, tap Next again | Retries cleanly |
@@ -66,13 +66,13 @@ This flow uses the `create-tenant` Edge Function (no JWT required — deployed w
 |---|----------|-------|-----------------|
 | 3.1 | Step indicator | Look at the top | Step indicator shows "2 / 2" (both dots filled / second active) |
 | 3.2 | Fields visible | Look at screen | Full Name, Username, Password, Confirm Password fields |
-| 3.3 | Back from step 2 | Navigate back | Returns to Step 1 with previously entered workspace data pre-filled |
+| 3.3 | Back from step 2 | Navigate back | Returns to Step 1 with previously entered organization data pre-filled |
 | 3.4 | Required: all fields | Leave any field blank | Submit disabled |
 | 3.5 | Password min length | Enter password shorter than minimum (8 chars) | Inline error: "Password must be at least 8 characters" |
 | 3.6 | Password mismatch | Enter different passwords | Inline error: "Passwords do not match". Submit disabled |
 | 3.7 | Password match | Enter matching passwords ≥ 8 chars | No error; submit enabled |
 | 3.8 | Username uniqueness | Username will be unique per tenant (own tenant — no conflict possible at this stage) | No pre-check needed |
-| 3.9 | Happy path — submit | Fill all fields correctly, tap "Create Workspace" | Loading spinner shown; Edge Function called |
+| 3.9 | Happy path — submit | Fill all fields correctly, tap "Create Organization" | Loading spinner shown; Edge Function called |
 | 3.10 | Loading state | Slow network | Button shows "..." / disabled during in-flight call |
 | 3.11 | Success — auto-login | Edge Function succeeds | User lands on the main app (admin/superadmin home), no manual login required |
 | 3.12 | Error — code conflict (race) | Two users submit same code simultaneously | Second request fails; error shown; user returned to Step 1 to pick a new code |
@@ -114,7 +114,7 @@ This flow uses the `create-tenant` Edge Function (no JWT required — deployed w
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 6.1 | New tenant isolated | Create workspace, log in, open customers | Empty lists; no data from other tenants |
+| 6.1 | New tenant isolated | Create organization, log in, open customers | Empty lists; no data from other tenants |
 | 6.2 | RLS from day 1 | New tenant queries any table | All results scoped to own `tenant_id` via JWT claim |
 | 6.3 | Existing tenants unaffected | While one user signs up | Other tenants' data untouched |
 
@@ -125,8 +125,8 @@ This flow uses the `create-tenant` Edge Function (no JWT required — deployed w
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
 | 7.1 | Hardware back during step 1 | Press back | Returns to login |
-| 7.2 | Hardware back during step 2 | Press back | Returns to step 1 with workspace data preserved |
-| 7.3 | Already-logged-in user | Navigate to `/(auth)/signup-workspace` while logged in | Redirected to the main app (auth layout guards against it) |
+| 7.2 | Hardware back during step 2 | Press back | Returns to step 1 with organization data preserved |
+| 7.3 | Already-logged-in user | Navigate to `/(auth)/signup-organization` while logged in | Redirected to the main app (auth layout guards against it) |
 | 7.4 | Language | App in Arabic | Both signup screens render RTL; all labels translated |
 | 7.5 | Small device | Signup on iPhone SE | Fields not clipped; scroll works |
 | 7.6 | Keyboard avoidance | Focus on Password field | Form scrolls up so field is visible above keyboard |

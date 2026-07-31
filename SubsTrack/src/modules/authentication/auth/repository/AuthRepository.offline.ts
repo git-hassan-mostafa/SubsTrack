@@ -4,7 +4,7 @@ import type { DbBranch, DbTenant, DbTierPlan, DbUser } from '@/src/core/types/db
 import { OfflineBaseRepository } from '@/src/core/offline/OfflineBaseRepository';
 import { upsertFromServer } from '@/src/core/offline/db/dml';
 import { isOnline } from '@/src/core/offline/net/connectivity';
-import { RequiresConnectionError, WorkspaceSwitchBlockedError } from '@/src/core/offline/errors';
+import { RequiresConnectionError, OrganizationSwitchBlockedError } from '@/src/core/offline/errors';
 import { ensureTenantScope, hasUnsyncedWrites } from '@/src/core/offline/bootstrap/tenant';
 import { runSync, flushPendingWrites } from '@/src/core/offline/sync';
 import type { IAuthRepository } from './IAuthRepository';
@@ -58,7 +58,7 @@ export class OfflineAuthRepository extends OfflineBaseRepository implements IAut
       // writes. We refuse rather than wipe (would lose money) or mix two tenants in
       // one mirror. Thrown before caching anything so nothing is half-applied; the
       // caller signs the new session back out.
-      if (scope.blockedByPending) throw new WorkspaceSwitchBlockedError();
+      if (scope.blockedByPending) throw new OrganizationSwitchBlockedError();
       // Empty AFTER scoping — so a tenant switch (which just wiped) counts as empty
       // and blocks on the full pull below, instead of dropping the user into blank
       // screens while a background pull runs.

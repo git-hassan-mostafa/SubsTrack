@@ -118,12 +118,14 @@ export function CustomerDebtsPanel({ customer }: Props) {
             key: "custom_debt",
             label: t("debts.add_custom_debt"),
             icon: "document-text-outline",
+            iconBadge: "add",
             onPress: () => setCustomDebtOpen(true),
           },
           {
             key: "payment",
             label: t("debts.record_debt_payment"),
             icon: "cash-outline",
+            iconBadge: "add",
             onPress: () => setPaymentOpen(true),
           },
         ]}

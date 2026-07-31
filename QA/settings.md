@@ -1,6 +1,6 @@
 # Settings — QA Scenarios
 
-Covers the **user-level** Settings tab: profile card, language switcher (with restart), workspace info row, support row, and logout. Admin-level tenant configuration (display currency, currencies CRUD, branches CRUD) lives separately in [tenant-settings.md](tenant-settings.md).
+Covers the **user-level** Settings tab: profile card, language switcher (with restart), organization info row, support row, and logout. Admin-level tenant configuration (display currency, currencies CRUD, branches CRUD) lives separately in [tenant-settings.md](tenant-settings.md).
 
 **Reference code:**
 - Screen: [SettingsScreen.tsx](SubsTrack/src/modules/settings/screens/SettingsScreen.tsx)
@@ -43,11 +43,11 @@ The screen lists every value in `SUPPORTED_LANGUAGES`. Today: English and Arabic
 | 2.13 | Restart on web build | Web target | window.location.reload() fires |
 | 2.14 | Network during restart | Disable network, switch language | Local-only operation; works offline |
 
-## 3. Workspace section
+## 3. Organization section
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 3.1 | Workspace row | Look at row | Label "Workspace", value = `user.tenant.name` |
+| 3.1 | Organization row | Look at row | Label "Organization", value = `user.tenant.name` |
 | 3.2 | Privacy & data row | Look at row | Label "Privacy & data" — currently no destination; tapping is a no-op |
 | 3.3 | Both rows show chevron | Look at right side | Forward chevron icon |
 

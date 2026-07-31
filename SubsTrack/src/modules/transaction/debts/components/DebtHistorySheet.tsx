@@ -1,9 +1,9 @@
 import { useMemo } from "react";
-import { View } from "react-native";
 import { BottomSheetSectionList } from "@gorhom/bottom-sheet";
 import { AppBottomSheet } from "@/src/shared/components/AppBottomSheet";
 import { useTranslation } from "react-i18next";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
+import { SheetDragArea } from "@/src/shared/components/SheetDragArea";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { EmptyState } from "@/src/shared/components/EmptyState";
@@ -75,7 +75,7 @@ export function DebtHistorySheet({ items, payments, onDismiss }: Props) {
   return (
     <AppBottomSheet visible onDismiss={onDismiss} variant="full">
       <ResponsiveContainer className="flex-1">
-        <View className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
+        <SheetDragArea className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
           <Text
             fontWeight="Bold"
             className="text-lg text-gray-900"
@@ -88,7 +88,7 @@ export function DebtHistorySheet({ items, payments, onDismiss }: Props) {
               {t("common.close")}
             </Text>
           </PressableOpacity>
-        </View>
+        </SheetDragArea>
 
         <BottomSheetSectionList
           sections={sections}

@@ -5,11 +5,14 @@ import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
 import { COLORS } from "@/src/shared/constants";
 import { BottomSheetScaffold } from "./BottomSheetScaffold";
+import { SheetDragArea } from "./SheetDragArea";
 
 export interface ActionMenuItem {
   key: string;
   label: string;
   icon?: keyof typeof Ionicons.glyphMap;
+  /** Small glyph punched into the icon's bottom corner (e.g. `add` on "record sale"). */
+  iconBadge?: keyof typeof Ionicons.glyphMap;
   onPress: () => void;
   destructive?: boolean;
   disabled?: boolean;
@@ -40,54 +43,72 @@ export function ActionMenu({
 
   return (
     <BottomSheetScaffold visible={visible} onDismiss={onDismiss}>
-      {title ? (
-        <View className="px-5 pt-2 pb-3 border-b border-gray-100">
-          <Text
-            className="text-base text-gray-900"
-            fontWeight="SemiBold"
-            numberOfLines={1}
-          >
-            {title}
-          </Text>
-        </View>
-      ) : null}
-
-      {actions.length === 0 ? (
-        <View className="px-5 py-6 items-center">
-          <Text className="text-sm text-gray-500">
-            {emptyLabel ?? t("common.no_actions_available")}
-          </Text>
-        </View>
-      ) : (
-        actions.map((item, index) => (
-          <PressableOpacity
-            key={item.key}
-            onPress={() => handlePress(item)}
-            disabled={item.disabled}
-            className={`flex-row items-center px-5 py-4 ${
-              index > 0 ? "border-t border-gray-100" : ""
-            } ${item.disabled ? "opacity-40" : ""}`}
-          >
-            {item.icon ? (
-              <View className="w-7 items-start">
-                <Ionicons
-                  name={item.icon}
-                  size={20}
-                  color={item.destructive ? COLORS.danger : COLORS.gray700}
-                />
-              </View>
-            ) : null}
+      {/* The WHOLE menu drags the sheet, not just its title: the body is a plain
+          column of buttons with no scrollable, so nothing can be stolen from a
+          list. The 12pt threshold keeps a slightly sloppy tap a tap. */}
+      <SheetDragArea activationDistance={12}>
+        {title ? (
+          <View className="px-5 pt-2 pb-3 border-b border-gray-100">
             <Text
-              className={`text-base ${
-                item.destructive ? "text-danger" : "text-gray-900"
-              }`}
-              fontWeight="Medium"
+              className="text-base text-gray-900"
+              fontWeight="SemiBold"
+              numberOfLines={1}
             >
-              {item.label}
+              {title}
             </Text>
-          </PressableOpacity>
-        ))
-      )}
+          </View>
+        ) : null}
+
+        {actions.length === 0 ? (
+          <View className="px-5 py-6 items-center">
+            <Text className="text-sm text-gray-500">
+              {emptyLabel ?? t("common.no_actions_available")}
+            </Text>
+          </View>
+        ) : (
+          actions.map((item, index) => (
+            <PressableOpacity
+              key={item.key}
+              onPress={() => handlePress(item)}
+              disabled={item.disabled}
+              className={`flex-row items-center px-5 py-4 ${
+                index > 0 ? "border-t border-gray-100" : ""
+              } ${item.disabled ? "opacity-40" : ""}`}
+            >
+              {item.icon ? (
+                <View className="w-7 items-start">
+                  <View>
+                    <Ionicons
+                      name={item.icon}
+                      size={20}
+                      color={item.destructive ? COLORS.danger : COLORS.gray700}
+                    />
+                    {item.iconBadge ? (
+                      <View className="absolute -bottom-0.5 right-0 rounded-full bg-white">
+                        <Ionicons
+                          name={item.iconBadge}
+                          size={11}
+                          color={
+                            item.destructive ? COLORS.danger : COLORS.gray700
+                          }
+                        />
+                      </View>
+                    ) : null}
+                  </View>
+                </View>
+              ) : null}
+              <Text
+                className={`text-base ${
+                  item.destructive ? "text-danger" : "text-gray-900"
+                }`}
+                fontWeight="Medium"
+              >
+                {item.label}
+              </Text>
+            </PressableOpacity>
+          ))
+        )}
+      </SheetDragArea>
     </BottomSheetScaffold>
   );
 }

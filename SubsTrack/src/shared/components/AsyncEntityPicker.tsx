@@ -9,6 +9,7 @@ import { useDebounce } from "@/src/shared/hooks/useDebounce";
 import { PAGE_SIZE } from "@/src/core/constants";
 import { COLORS } from "@/src/shared/constants";
 import { BottomSheetScaffold } from "@/src/shared/components/BottomSheetScaffold";
+import { SheetDragArea } from "@/src/shared/components/SheetDragArea";
 import { Input } from "./Input";
 
 // "default" — full-width form field with label, used inside form sheets.
@@ -274,14 +275,14 @@ function AsyncPickerModal<T>({
 
   return (
     <BottomSheetScaffold visible onDismiss={handleClose} scrollable>
-      <View className="flex-row items-center justify-between px-5 py-3 border-b border-gray-100">
+      <SheetDragArea className="flex-row items-center justify-between px-5 py-3 border-b border-gray-100">
         <Text className="text-base font-semibold text-gray-900">{title}</Text>
         <PressableOpacity onPress={handleClose}>
           <Text className="text-base text-primary font-medium">
             {t("common.cancel")}
           </Text>
         </PressableOpacity>
-      </View>
+      </SheetDragArea>
 
       <View className="px-4 py-2 border-b border-gray-100">
         <Input

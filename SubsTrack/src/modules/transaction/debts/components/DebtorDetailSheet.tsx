@@ -5,6 +5,7 @@ import { AppBottomSheet } from "@/src/shared/components/AppBottomSheet";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
+import { SheetDragArea } from "@/src/shared/components/SheetDragArea";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { ActionMenu } from "@/src/shared/components/ActionMenu";
@@ -68,7 +69,7 @@ export function DebtorDetailSheet({
     <>
       <AppBottomSheet visible onDismiss={onDismiss} variant="full">
         <ResponsiveContainer className="flex-1">
-          <View className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
+          <SheetDragArea className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
             <View className="flex-1 pe-2">
               <Text
                 fontWeight="Bold"
@@ -99,7 +100,7 @@ export function DebtorDetailSheet({
                 </Text>
               </PressableOpacity>
             </View>
-          </View>
+          </SheetDragArea>
 
           <BottomSheetScrollView
             style={{ flex: 1 }}
@@ -131,12 +132,14 @@ export function DebtorDetailSheet({
             key: "custom_debt",
             label: t("debts.add_custom_debt"),
             icon: "document-text-outline",
+            iconBadge: "add",
             onPress: () => setCustomDebtOpen(true),
           },
           {
             key: "payment",
             label: t("debts.record_debt_payment"),
             icon: "cash-outline",
+            iconBadge: "add",
             onPress: () => setPaymentOpen(true),
           },
         ]}

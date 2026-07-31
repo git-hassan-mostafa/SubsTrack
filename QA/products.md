@@ -127,9 +127,10 @@ Covers the Products catalog: a list of one-off sellable items (not subscriptions
 | 6A.2 | Starting stock left blank | Create a product, leave the field empty | Card shows red "Out of stock"; history is empty (no `initial` row is written for 0) |
 | 6A.3 | Starting stock rejects junk | Type letters / a negative sign in the field | Field only accepts digits; a non-integer or negative value is rejected with "Starting stock must be a whole number of 0 or more" |
 | 6A.4 | Edit form never edits the total | Open an existing product for edit | Stock is shown **read-only** next to an "Adjust Stock" link — there is no editable stock field |
-| 6A.5 | Restock | Product menu → Adjust Stock → Add → 10 → Save | On-hand rises by 10 immediately; a green `Stock added` `+10` row appears in the history with today's date |
-| 6A.6 | Restock with a note | Add 3 with note "new delivery" | The note shows next to the date on the history row |
-| 6A.7 | Remove / correction | Adjust Stock → Remove → 2 → Save | On-hand drops by 2; a red `Correction` `-2` row appears |
+| 6A.5 | Restock | Product menu → Adjust Stock → Add → 10 → Save | The stock sheet **closes on save**; on-hand rises by 10 immediately, and reopening it shows a green `Stock added` `+10` row with today's date |
+| 6A.6 | Restock with a note | Add 3 with note "new delivery", then reopen the stock sheet | The note shows next to the date on the history row |
+| 6A.7 | Remove / correction | Adjust Stock → Remove → 2 → Save | Sheet closes; on-hand drops by 2 and a red `Correction` `-2` row is in the history |
+| 6A.7a | Failed save keeps the sheet open | Force the save to fail (e.g. offline write error) | The sheet stays open with the typed values and shows the error banner — it only closes on success |
 | 6A.8 | Zero / empty quantity | Leave quantity empty or type 0 | Save button stays disabled |
 | 6A.9 | Sale decrements | Sell 2 of a product with 5 in stock | Card shows "3 in stock"; history holds a red `Sold` `-2` row |
 | 6A.10 | Void returns stock | Void that sale | On-hand returns to 5; the `Sold` row is struck through in the history |
@@ -145,7 +146,7 @@ Covers the Products catalog: a list of one-off sellable items (not subscriptions
 | 6A.20 | Stock survives a product edit | Edit a product's name / price | On-hand is unchanged (the edit path re-reads it rather than defaulting to 0) |
 | 6A.21 | Existing install schema reconcile | Update the app on a device that already had local data | `applySchema` creates `stock_movements` (and adds any new column on an existing table) at startup — no "no such table" / "no such column" error, no wipe needed |
 | 6A.22 | Stock sheet stacks on the form | Open a product for edit → tap "Adjust Stock" | The stock sheet opens **on top**; the edit form stays open underneath and is still there (with its typed values) after closing the stock sheet |
-| 6A.23 | Form follows the adjustment | From the edit form, adjust stock +5, close the stock sheet | The form's read-only stock now reads the new total, not the value it opened with |
+| 6A.23 | Form follows the adjustment | From the edit form, adjust stock +5 and save | The stock sheet closes back to the edit form, whose read-only stock now reads the new total |
 | 6A.24 | Back closes one sheet at a time | With both sheets open, press Back (Android) / browser Back (web) | Only the stock sheet closes; the edit form stays open and the route does not change |
 
 ---

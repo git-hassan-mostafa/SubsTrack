@@ -38,7 +38,7 @@ export function SignupAccountScreen() {
     const credentials = await submit();
     if (!credentials) return;
     // Edge function succeeded — try to auto-login. If the JWT/profile lookup
-    // races and login fails, fall back to the login screen with the workspace
+    // races and login fails, fall back to the login screen with the organization
     // code pre-filled rather than leaving the user staring at this form.
     await getStore()
       .getState()
@@ -126,7 +126,7 @@ export function SignupAccountScreen() {
               variant="ghost"
             />
             <Button
-              label={t("signup.create_workspace")}
+              label={t("signup.create_organization")}
               onPress={handleCreate}
               loading={loading}
               disabled={!canSubmit}

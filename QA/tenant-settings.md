@@ -61,7 +61,7 @@ Full coverage in [branches.md](branches.md). Key links from Tenant Settings:
 | 4.1 | Reach Branches | Tenant Settings → Branches (or admin sub-menu) | Branches screen renders |
 | 4.2 | Single-branch UI hiding | Tenant has 0 or 1 branch | BranchSelector and other branch-aware UI hide globally |
 
-## 5. Workspace / app prefs (from existing Settings tab)
+## 5. Organization / app prefs (from existing Settings tab)
 
 The existing user-level Settings tab is documented separately in [settings.md](settings.md). It covers:
 - Profile card

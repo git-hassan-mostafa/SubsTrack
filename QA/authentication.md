@@ -18,14 +18,14 @@ Covers the login flow, session restoration, tenant activation gating, and logout
 
 | #    | Scenario                          | Steps                                                    | Expected result                                                                                                        |
 | ---- | --------------------------------- | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| 1.1  | First open of the app, no session | Cold-start the app while logged out                      | LoadingScreen briefly, then login screen with empty Workspace Code, Username, Password fields                          |
-| 1.2  | Brand and copy                    | Open login screen                                        | "SubsTrack" logo and "Welcome back" heading visible. Subtitle "Sign in to your workspace to start collecting." visible |
+| 1.1  | First open of the app, no session | Cold-start the app while logged out                      | LoadingScreen briefly, then login screen with empty Organization Code, Username, Password fields                          |
+| 1.2  | Brand and copy                    | Open login screen                                        | "SubsTrack" logo and "Welcome back" heading visible. Subtitle "Sign in to your organization to start collecting." visible |
 | 1.3  | Sign-in button initial state      | Open login screen                                        | Button is disabled while any of the three fields is empty/whitespace-only                                              |
-| 1.4  | Sign-in button enabled            | Type non-blank Workspace Code, Username and any Password | Button becomes enabled                                                                                                 |
-| 1.5  | Whitespace-only Workspace Code    | Enter only spaces in Workspace Code                      | Button stays disabled                                                                                                  |
+| 1.4  | Sign-in button enabled            | Type non-blank Organization Code, Username and any Password | Button becomes enabled                                                                                                 |
+| 1.5  | Whitespace-only Organization Code    | Enter only spaces in Organization Code                      | Button stays disabled                                                                                                  |
 | 1.6  | Whitespace-only Username          | Enter only spaces in Username                            | Button stays disabled                                                                                                  |
-| 1.7  | Empty Password                    | Type only Workspace Code and Username                    | Button stays disabled                                                                                                  |
-| 1.8  | Auto-capitalize / autocorrect off | Tap each field on iOS and Android                        | Workspace Code, Username and Password do not auto-capitalize and do not show autocorrect suggestions                   |
+| 1.7  | Empty Password                    | Type only Organization Code and Username                    | Button stays disabled                                                                                                  |
+| 1.8  | Auto-capitalize / autocorrect off | Tap each field on iOS and Android                        | Organization Code, Username and Password do not auto-capitalize and do not show autocorrect suggestions                   |
 | 1.9  | Password masking                  | Enter characters in Password                             | Characters render as dots/asterisks; field never reveals plain text                                                    |
 | 1.10 | Keyboard avoidance                | Tap any field on a small device                          | Keyboard does not cover the focused input; the screen scrolls/lifts (KeyboardAvoidingView)                             |
 
@@ -33,9 +33,9 @@ Covers the login flow, session restoration, tenant activation gating, and logout
 
 | #   | Scenario                     | Steps                                                       | Expected result                                                                                |
 | --- | ---------------------------- | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
-| 2.1 | Valid admin login            | Enter valid Workspace Code, Username, Password for an admin | App navigates to `/(app)/(tabs)/customers`. Bottom tab bar shows Customers, Admin and Settings |
+| 2.1 | Valid admin login            | Enter valid Organization Code, Username, Password for an admin | App navigates to `/(app)/(tabs)/customers`. Bottom tab bar shows Customers, Admin and Settings |
 | 2.2 | Valid staff login            | Same as 2.1 with a `user` role account                      | App navigates to Customers tab. Admin tab is HIDDEN from the bottom bar                        |
-| 2.3 | Mixed-case Workspace Code    | Enter Workspace Code with capitals (`AcmeISP`)              | Login succeeds — the service lowercases before building the email                              |
+| 2.3 | Mixed-case Organization Code    | Enter Organization Code with capitals (`AcmeISP`)              | Login succeeds — the service lowercases before building the email                              |
 | 2.4 | Mixed-case Username          | Enter Username with capitals                                | Login succeeds — username is lowercased                                                        |
 | 2.5 | Trim leading/trailing spaces | Enter `"  acme "` and `"  alice "`                          | Login succeeds — trim is applied                                                               |
 | 2.6 | Loading indicator            | Tap Sign In with valid creds on a slow network              | Button shows loading spinner; fields stay disabled-feeling until success or error              |
@@ -45,9 +45,9 @@ Covers the login flow, session restoration, tenant activation gating, and logout
 
 | #   | Scenario                     | Steps                                                | Expected result                                                                                                                                       |
 | --- | ---------------------------- | ---------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 3.1 | Wrong password               | Valid Workspace Code & Username, wrong password      | Inline error on Password field: "Invalid username or password". Password field value is preserved (not cleared)                                       |
-| 3.2 | Wrong username               | Valid Workspace Code, unknown Username, any password | Same inline error: "Invalid username or password"                                                                                                     |
-| 3.3 | Wrong Workspace Code         | Wrong Workspace Code, valid Username/Password        | Same inline error: "Invalid username or password" (because the email lookup fails)                                                                    |
+| 3.1 | Wrong password               | Valid Organization Code & Username, wrong password      | Inline error on Password field: "Invalid username or password". Password field value is preserved (not cleared)                                       |
+| 3.2 | Wrong username               | Valid Organization Code, unknown Username, any password | Same inline error: "Invalid username or password"                                                                                                     |
+| 3.3 | Wrong Organization Code         | Wrong Organization Code, valid Username/Password        | Same inline error: "Invalid username or password" (because the email lookup fails)                                                                    |
 | 3.4 | Error clears on edit         | After error, type into any field                     | Error disappears as soon as the user edits a field (`clearError` is called from each onChangeText)                                                    |
 | 3.5 | Repeated failed attempts     | Enter wrong password 5 times in a row                | Each attempt shows the same inline error; no lockout banner from the app side. (Backend rate limits are out of scope but should not crash the screen) |
 | 3.6 | Network failure during login | Disable internet and tap Sign In                     | Inline error: "Connection error. Please try again." Button returns to enabled state                                                                   |
@@ -102,7 +102,7 @@ Triggered when the tenant exists but `active = false`.
 
 | #   | Scenario                | Steps                                          | Expected result                                                                                        |
 | --- | ----------------------- | ---------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| 8.1 | English locale          | App language = English                         | Labels: "Workspace Code", "Username", "Password", "Sign In"                                            |
+| 8.1 | English locale          | App language = English                         | Labels: "Organization Code", "Username", "Password", "Sign In"                                            |
 | 8.2 | Arabic locale           | Switch language to Arabic in Settings, log out | Login screen renders in Arabic with RTL direction. "Sign In" button text in Arabic. Cairo font applied |
 | 8.3 | RTL alignment           | While in Arabic                                | Logo + brand row reads right-to-left, input alignment matches RTL                                      |
 | 8.4 | Error banner translated | Trigger account-not-configured in Arabic       | Banner text appears in Arabic                                                                          |
@@ -114,7 +114,7 @@ Triggered when the tenant exists but `active = false`.
 | 9.1 | Tap Sign In twice fast                      | Double-tap the button on a slow network      | Only one login request is sent (button shows loading and stays disabled while loading)        |
 | 9.2 | Background app during login                 | Tap Sign In, immediately background the app  | On return, the request completes; success → routed to Customers, error → inline error visible |
 | 9.3 | Very long inputs                            | Paste 500-char strings into each field       | Service rejects with "Invalid username or password" without crashing the UI                   |
-| 9.4 | Unicode in username                         | Enter `mañana@workspace` style values        | Backend accepts/rejects normally; UI never crashes                                            |
+| 9.4 | Unicode in username                         | Enter `mañana@organization` style values        | Backend accepts/rejects normally; UI never crashes                                            |
 | 9.5 | Trailing newline pasted                     | Paste `"alice\n"`                            | Trim handles newline, login proceeds                                                          |
 | 9.6 | Field focus while loading                   | Tap a field while spinner is active          | Either ignored or accepts focus but does not allow a second submit                            |
 | 9.7 | Hardware back on Android during login       | Press hardware back while spinner is showing | App stays on login (does not crash, does not navigate elsewhere)                              |

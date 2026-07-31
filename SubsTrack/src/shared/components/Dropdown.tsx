@@ -9,6 +9,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { COLORS } from "@/src/shared/constants";
 import { Input } from "@/src/shared/components/Input";
 import { BottomSheetScaffold } from "./BottomSheetScaffold";
+import { SheetDragArea } from "./SheetDragArea";
 
 export interface DropdownOption<T = string> {
   label: string;
@@ -244,14 +245,14 @@ export function DropdownModal<T extends string | number | null = string>({
 
   return (
     <BottomSheetScaffold visible={visible} onDismiss={handleClose}>
-      <View className="flex-row items-center justify-between px-5 py-3 border-b border-gray-100">
+      <SheetDragArea className="flex-row items-center justify-between px-5 py-3 border-b border-gray-100">
         <Text className="text-base font-semibold text-gray-900">{title}</Text>
         <PressableOpacity onPress={handleClose}>
           <Text className="text-base text-primary font-medium">
             {t("common.cancel")}
           </Text>
         </PressableOpacity>
-      </View>
+      </SheetDragArea>
 
       {hideSearch == false && (
         <View className="px-4 py-2 border-b border-gray-100">

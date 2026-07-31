@@ -5,7 +5,7 @@ import {
   type CreateTenantResult,
 } from "../utils/types";
 
-interface WorkspaceForm {
+interface OrganizationForm {
   name: string;
   tenantCode: string;
 }
@@ -22,7 +22,7 @@ const USERNAME_REGEX = /^[a-z0-9._]+$/;
 const RESERVED_TENANT_CODES = new Set(["usd", "www", "admin", "api"]);
 
 class SignupService {
-  validateWorkspace(form: WorkspaceForm): void {
+  validateOrganization(form: OrganizationForm): void {
     const name = form.name.trim();
     const code = form.tenantCode.trim().toLowerCase();
     if (!name) throw new Error(i18n.t("signup.errors.name_required"));
@@ -59,15 +59,15 @@ class SignupService {
   }
 
   async createTenant(
-    workspace: WorkspaceForm,
+    organization: OrganizationForm,
     account: AccountForm,
   ): Promise<CreateTenantResult> {
-    this.validateWorkspace(workspace);
+    this.validateOrganization(organization);
     this.validateAccount(account);
 
     const input: CreateTenantInput = {
-      name: workspace.name.trim(),
-      tenantCode: workspace.tenantCode.trim().toLowerCase(),
+      name: organization.name.trim(),
+      tenantCode: organization.tenantCode.trim().toLowerCase(),
       adminUserName: account.adminUserName.trim().toLowerCase(),
       adminFullName: account.adminFullName.trim(),
       adminPassword: account.adminPassword,

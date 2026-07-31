@@ -3,7 +3,7 @@ import repository from "../repository/AuthRepository";
 import { mapDbUserToAuthUser } from "../utils/mapper";
 import { AuthUser } from "@/src/core/types";
 import type { DbUser } from "@/src/core/types/db";
-import { WorkspaceSwitchBlockedError } from "@/src/core/offline/errors";
+import { OrganizationSwitchBlockedError } from "@/src/core/offline/errors";
 
 interface AuthResult {
   user: AuthUser;
@@ -45,7 +45,7 @@ class AuthService {
       // Blocked tenant switch (unsynced writes on the previous tenant): undo the
       // half-completed sign-in so we don't leave a dangling session, then surface
       // the localized message.
-      if (e instanceof WorkspaceSwitchBlockedError) {
+      if (e instanceof OrganizationSwitchBlockedError) {
         await repository.signOut().catch(() => { });
       }
       throw e;
@@ -79,7 +79,7 @@ class AuthService {
     } catch (e) {
       // Defensive: a blocked switch shouldn't happen on the same persisted
       // session, but if it does, drop the session and fall back to the login screen.
-      if (e instanceof WorkspaceSwitchBlockedError) {
+      if (e instanceof OrganizationSwitchBlockedError) {
         await repository.signOut().catch(() => { });
         return null;
       }

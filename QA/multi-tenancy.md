@@ -31,7 +31,7 @@ A separate file because tenant isolation is a CRITICAL release blocker. Every ot
 | 2.2 | Update tenant_id manually | Attempt to PATCH a customer's tenant_id | RLS rejects |
 | 2.3 | Insert payment for tenant B customer while logged in as A | Forge request | Backend denies; surface a friendly error |
 | 2.4 | Plan reuse | Create a plan in tenant A, in tenant B create with same name | Both succeed (per-tenant uniqueness) |
-| 2.5 | User reuse | Create a user with username `alice` in tenant A and tenant B | Both succeed; login uses workspace code to disambiguate |
+| 2.5 | User reuse | Create a user with username `alice` in tenant A and tenant B | Both succeed; login uses organization code to disambiguate |
 
 ## 3. Tenant active / inactive
 
@@ -42,7 +42,7 @@ A separate file because tenant isolation is a CRITICAL release blocker. Every ot
 | 3.3 | Re-activation | Tenant flipped back to active | User must logout & relogin (or relaunch app with restored session) to clear the inactive screen |
 | 3.4 | Inactive tenant cannot make changes | Force a write while tenantActive = false | UI never reaches forms; if forced via API, RLS policies should still block (verify) |
 
-## 4. Workspace code (tenant_code)
+## 4. Organization code (tenant_code)
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|

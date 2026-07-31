@@ -33,9 +33,9 @@ SubsTrack/
 │   ├── index.tsx                  # Entry: redirects to login or home
 │   ├── (auth)/
 │   │   ├── _layout.tsx
-│   │   ├── login.tsx              # Login route (also exposes "Create a new workspace" CTA)
-│   │   ├── signup-workspace.tsx   # Step 1 of self-service signup (workspace name + code)
-│   │   └── signup-account.tsx     # Step 2 (owner account); creates tenant + auto-logs in
+│   │   ├── login.tsx                 # Login route (also exposes "Create a new organization" CTA)
+│   │   ├── signup-organization.tsx   # Step 1 of self-service signup (organization name + code)
+│   │   └── signup-account.tsx        # Step 2 (owner account); creates tenant + auto-logs in
 │   └── (app)/
 │       ├── _layout.tsx            # Auth guard (checks authStore, tenantActive)
 │       └── (tabs)/
@@ -105,9 +105,9 @@ SubsTrack/
 │   │   │
 │   │   ├── signup/                             # public self-service tenant creation
 │   │   │   ├── repository/SignupRepository.ts  # calls is_tenant_code_available RPC + create-tenant edge fn
-│   │   │   ├── services/SignupService.ts       # workspace + account validation (no Supabase)
+│   │   │   ├── services/SignupService.ts       # organization + account validation (no Supabase)
 │   │   │   ├── components/StepIndicator.tsx    # fillable dot progress (1/2, 2/2)
-│   │   │   └── screens/{SignupWorkspaceScreen, SignupAccountScreen}.tsx
+│   │   │   └── screens/{SignupOrganizationScreen, SignupAccountScreen}.tsx
 │   │   │
 │   │   ├── subscription/                       # Tier limits + upgrade flow
 │   │   │   ├── repository/SubscriptionRepository.ts  # findAllTiers, getTenantWithTier, countTenantUsage, upgradeTenant

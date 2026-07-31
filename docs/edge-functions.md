@@ -38,7 +38,7 @@ Located at `SubsTrack/supabase/functions/create-tenant/index.ts`.
   4. Auto-seed an `LBP` currency (`decimals 0`, symbol `ل.ل`) using `app_options.LiraRate` (fallback `DEFAULT_LIRA_RATE = 89000`).
   5. `auth.users`.
   6. `public.users` (role = `superadmin`, `branch_id = null`).
-- The pre-check on the workspace signup screen uses the `is_tenant_code_available` SECURITY DEFINER RPC (granted to `anon`) — returns a boolean only, no row data.
+- The pre-check on the organization signup screen uses the `is_tenant_code_available` SECURITY DEFINER RPC (granted to `anon`) — returns a boolean only, no row data.
 - Accepts (but currently ignores) a `paymentToken` field in the request body — the hook point for future paid-plan gating.
 - Deploy: `yarn deploy-create-tenant-edge-function` (from inside `SubsTrack/`).
 

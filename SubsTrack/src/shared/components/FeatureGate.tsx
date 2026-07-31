@@ -23,8 +23,8 @@ export function CanUpgrade({ children, fallback = null }: GateProps) {
   return <>{enabled ? children : fallback}</>;
 }
 
-/** Gates self-service workspace creation (option `AllowSelfServiceSignup`). */
-export function CanCreateWorkspace({ children, fallback = null }: GateProps) {
+/** Gates self-service organization creation (option `AllowSelfServiceSignup`). */
+export function CanCreateOrganization({ children, fallback = null }: GateProps) {
   const enabled = useSelfServiceSignupEnabled();
   return <>{enabled ? children : fallback}</>;
 }

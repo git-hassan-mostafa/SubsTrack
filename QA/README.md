@@ -15,7 +15,7 @@ This folder contains the production QA test plan for the SubsTrack mobile app. E
 | Area | File | What it covers |
 |------|------|----------------|
 | Authentication | [authentication.md](authentication.md) | Login, session restore, tenant inactive, logout |
-| Signup | [signup.md](signup.md) | Self-service 2-step tenant creation: workspace name + code, owner account, Edge Function atomicity, auto-login, security |
+| Signup | [signup.md](signup.md) | Self-service 2-step tenant creation: organization name + code, owner account, Edge Function atomicity, auto-login, security |
 | Customers | [customers.md](customers.md) | List, search, filter, action menu, Quick Pay, create/edit, delete, deactivate/reactivate, detail (with branch + notes + area + isRegular) |
 | Payments | [payments.md](payments.md) | Record (Scenarios A/B/C/D), partial payments, multi-month bundles, multi-currency, edit payment, void, receipt sheet, grace period |
 | Monthly Grid | [monthly-grid.md](monthly-grid.md) | Cell statuses (a partial payment looks paid — remainder is a debt), regular vs non-regular colors, multi-month merging, year navigation, date/timezone correctness |
@@ -33,7 +33,7 @@ This folder contains the production QA test plan for the SubsTrack mobile app. E
 | Dashboard | [dashboard.md](dashboard.md) | Hero card (subscription + sales revenue, USD-aggregated via snapshots, display-currency formatted), stat cards, admin compact stats, refresh, branch scoping |
 | Settings | [settings.md](settings.md) | User-level prefs: profile, language switcher with restart, logout |
 | Admin & Navigation | [admin-and-navigation.md](admin-and-navigation.md) | Tab visibility, role gating, routing, deep links, ActionMenu pattern, PressableOpacity feedback, asterisk required fields |
-| Multi-tenancy | [multi-tenancy.md](multi-tenancy.md) | Tenant isolation reads/writes, tenant inactive, workspace code |
+| Multi-tenancy | [multi-tenancy.md](multi-tenancy.md) | Tenant isolation reads/writes, tenant inactive, organization code |
 | Non-functional | [non-functional.md](non-functional.md) | Performance, accessibility, i18n/RTL, security, resilience |
 
 ## Pre-release checklist (high level)

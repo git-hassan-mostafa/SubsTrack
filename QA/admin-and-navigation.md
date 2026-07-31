@@ -40,7 +40,7 @@ Covers role-based navigation, the Admin landing screen, tab visibility, the acti
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 3.1 | Render | Tap Admin tab | Title "Admin", subtitle "Manage your workspace" |
+| 3.1 | Render | Tap Admin tab | Title "Admin", subtitle "Manage your organization" |
 | 3.2 | Compact stats card | Top of screen | Cells: Collected (display currency), Unpaid, Customers |
 | 3.3 | Loading on first open | First open with no metrics | ActivityIndicator inside Collected cell |
 | 3.4 | Refresh on focus | Switch tabs and back | Metrics refresh |

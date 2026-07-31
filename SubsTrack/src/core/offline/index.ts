@@ -12,7 +12,7 @@ export {
   subscribeSyncStatus,
 } from './sync';
 export type { SyncStatus } from './sync';
-export { RequiresConnectionError, WorkspaceSwitchBlockedError } from './errors';
+export { RequiresConnectionError, OrganizationSwitchBlockedError } from './errors';
 export { newId, nowIso, deterministicId } from './ids';
 export { getIsOnline, isOnline } from './net/connectivity';
 export { OfflineBaseRepository } from './OfflineBaseRepository';

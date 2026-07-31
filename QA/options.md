@@ -87,7 +87,7 @@ A single **global** key/value table `app_options` (NOT tenant-scoped) holds app-
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 6.1 | Self-service signup | In SubsTrack, "Create a new workspace" → complete both steps | New tenant created and auto-logged in; the tenant has an `LBP` currency seeded from `LiraRate` |
+| 6.1 | Self-service signup | In SubsTrack, "Create a new organization" → complete both steps | New tenant created and auto-logged in; the tenant has an `LBP` currency seeded from `LiraRate` |
 | 6.2 | LBP visible in app | After signup, open Tenant Settings → Currencies | `LBP` listed (note: visible only if the tier permits multi-currency display; the row exists in DB regardless) |
 | 6.3 | Fallback on signup | Delete `LiraRate`, then self-service sign up | Signup succeeds; LBP seeded at `89000` (a misconfigured option never blocks signup) |
 | 6.4 | Idempotent re-run of script.sql | Re-run `script.sql` after editing `LiraRate` | `INSERT … ON CONFLICT (key) DO NOTHING` preserves the edited value (does not reset to `89000`) |
@@ -129,8 +129,8 @@ Default `true`. Enforced both client (login screen) and server (`create-tenant` 
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 10.1 | Enabled (default) | `AllowSelfServiceSignup` = `true` (or row absent), open login screen | "or / Create a new workspace" divider + button visible; signup flow works |
-| 10.2 | Disabled hides button | Set `AllowSelfServiceSignup` = `false`, cold-start app, open login screen | The divider and "Create a new workspace" button are hidden |
+| 10.1 | Enabled (default) | `AllowSelfServiceSignup` = `true` (or row absent), open login screen | "or / Create a new organization" divider + button visible; signup flow works |
+| 10.2 | Disabled hides button | Set `AllowSelfServiceSignup` = `false`, cold-start app, open login screen | The divider and "Create a new organization" button are hidden |
 | 10.3 | Server rejects bypass | With flag `false`, call the `create-tenant` edge function directly | Returns `403 { code: 'signup_disabled' }`; no tenant/branch/user/currency rows created |
 | 10.4 | Flag readable pre-auth | Flag `false`, never logged in | Login screen correctly hides signup (options fetched at bootstrap with anon key) |
 | 10.5 | Missing row defaults allowed | Delete `AllowSelfServiceSignup`, open login + call edge function | Signup allowed (button shown, edge function proceeds) — absent option never locks out |

@@ -70,10 +70,10 @@ Deno.serve(async (req) => {
       ? body.adminPassword
       : "";
 
-    if (!name) return jsonResponse({ error: "Workspace name is required" }, 400);
-    if (!tenantCode) return jsonResponse({ error: "Workspace code is required" }, 400);
+    if (!name) return jsonResponse({ error: "Organization name is required" }, 400);
+    if (!tenantCode) return jsonResponse({ error: "Organization code is required" }, 400);
     if (!TENANT_CODE_REGEX.test(tenantCode) || tenantCode.length < 2 || tenantCode.length > 32) {
-      return jsonResponse({ error: "Workspace code must be 2-32 lowercase letters or digits" }, 400);
+      return jsonResponse({ error: "Organization code must be 2-32 lowercase letters or digits" }, 400);
     }
     if (!adminUserName) return jsonResponse({ error: "Username is required" }, 400);
     if (!USERNAME_REGEX.test(adminUserName)) {
@@ -142,13 +142,13 @@ Deno.serve(async (req) => {
         const msg = (tenantErr.message ?? "").toLowerCase();
         if (msg.includes("tenant_code")) {
           return jsonResponse(
-            { error: "Workspace code already taken", code: "tenant_code_taken" },
+            { error: "Organization code already taken", code: "tenant_code_taken" },
             409,
           );
         }
         if (msg.includes("name")) {
           return jsonResponse(
-            { error: "Workspace name already taken", code: "tenant_name_taken" },
+            { error: "Organization name already taken", code: "tenant_name_taken" },
             409,
           );
         }

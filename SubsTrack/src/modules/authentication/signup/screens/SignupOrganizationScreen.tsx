@@ -11,14 +11,14 @@ import { useSignupSlice } from "@/src/state/hooks/useSignupSlice";
 import { StepIndicator } from "../components/StepIndicator";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 
-export function SignupWorkspaceScreen() {
+export function SignupOrganizationScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const name = useSignupSlice((s) => s.name);
   const tenantCode = useSignupSlice((s) => s.tenantCode);
   const error = useSignupSlice((s) => s.error);
   const checkingCode = useSignupSlice((s) => s.checkingCode);
-  const setWorkspace = useSignupSlice((s) => s.setWorkspace);
+  const setOrganization = useSignupSlice((s) => s.setOrganization);
   const validateAndCheckCode = useSignupSlice((s) => s.validateAndCheckCode);
   const clearError = useSignupSlice((s) => s.clearError);
 
@@ -42,10 +42,10 @@ export function SignupWorkspaceScreen() {
           >
             <View className="flex-1 px-6 py-8">
               <Text fontWeight="Bold" className="text-3xl text-gray-900 mb-2">
-                {t("signup.workspace_title")}
+                {t("signup.organization_title")}
               </Text>
               <Text className="text-base text-gray-500 mb-6">
-                {t("signup.workspace_subtitle")}
+                {t("signup.organization_subtitle")}
               </Text>
 
               {error ? (
@@ -53,10 +53,10 @@ export function SignupWorkspaceScreen() {
               ) : null}
 
               <Input
-                label={t("signup.workspace_name_label")}
+                label={t("signup.organization_name_label")}
                 value={name}
-                onChangeText={(v) => setWorkspace({ name: v })}
-                placeholder={t("signup.workspace_name_placeholder")}
+                onChangeText={(v) => setOrganization({ name: v })}
+                placeholder={t("signup.organization_name_placeholder")}
                 autoCorrect={false}
               />
 
@@ -64,7 +64,7 @@ export function SignupWorkspaceScreen() {
                 label={t("signup.tenant_code_label")}
                 value={tenantCode}
                 onChangeText={(v) =>
-                  setWorkspace({
+                  setOrganization({
                     tenantCode: v.toLowerCase().replace(/\s+/g, ""),
                   })
                 }

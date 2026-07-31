@@ -32,7 +32,7 @@ Tier seed values (defaults — editable from SuperAdmin):
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 1.1 | Self-service signup defaults to Free | Sign up a new workspace via `signup-workspace` → `signup-account` | Resulting `tenants.tier_id` row points at the Free tier; SubscriptionScreen shows Free as current |
+| 1.1 | Self-service signup defaults to Free | Sign up a new organization via `signup-organization` → `signup-account` | Resulting `tenants.tier_id` row points at the Free tier; SubscriptionScreen shows Free as current |
 | 1.2 | SuperAdmin tenant creation defaults to Free | In SuperAdmin Tenants tab → + Add, leave tier picker at default | New tenant lands on Free tier |
 | 1.3 | SuperAdmin tenant creation with tier override | Pick Pro in the form before submit | New tenant lands on Pro; `tier_upgraded_at` is null until next change |
 | 1.4 | Post-auth init | Log in to SubsTrack | Subscription store populates `tiers`, `currentTier`, `usage` before any screen renders limits |

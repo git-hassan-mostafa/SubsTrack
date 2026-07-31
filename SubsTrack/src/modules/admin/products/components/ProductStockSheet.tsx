@@ -75,9 +75,7 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
       user.id,
     );
     if (!ok) return;
-    setQuantity("");
-    setNote("");
-    void loadHistory();
+    onDismiss();
   }
 
   return (

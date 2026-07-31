@@ -10,6 +10,7 @@ import { COLORS } from "@/src/shared/constants";
 import type { Currency } from "@/src/core/types";
 import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
 import { BottomSheetScaffold } from "./BottomSheetScaffold";
+import { SheetDragArea } from "./SheetDragArea";
 import { useSheetTextInput } from "./bottomSheetInputContext";
 
 interface CurrencyInputProps {
@@ -160,7 +161,7 @@ export function CurrencyInput({
         visible={pickerOpen}
         onDismiss={() => setPickerOpen(false)}
       >
-        <View className="flex-row items-center justify-between px-5 py-3 border-b border-gray-100">
+        <SheetDragArea className="flex-row items-center justify-between px-5 py-3 border-b border-gray-100">
           <Text className="text-base font-semibold text-gray-900">
             {t("tenant_settings.currencies_section_title")}
           </Text>
@@ -169,7 +170,7 @@ export function CurrencyInput({
               {t("common.cancel")}
             </Text>
           </PressableOpacity>
-        </View>
+        </SheetDragArea>
 
         <FlatList
           data={[

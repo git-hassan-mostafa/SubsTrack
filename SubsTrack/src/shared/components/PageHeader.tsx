@@ -76,7 +76,7 @@ export function PageHeader({
             {title}
           </Text>
           {subtitle ? (
-            <Text className="text-xs text-gray-400 mt-0.5">{subtitle}</Text>
+            <Text className="text-xs text-gray-400">{subtitle}</Text>
           ) : null}
         </View>
         {actionLabel && onAction ? (
@@ -89,7 +89,9 @@ export function PageHeader({
             </Text>
           </PressableOpacity>
         ) : null}
-        {!hideBranchSelector && <BranchSelector className="self-start" />}
+        {/* No `self-start`: the row is `items-center`, so the chip must center
+            with the title and the 3-dot button instead of hugging the top. */}
+        {!hideBranchSelector && <BranchSelector className="" />}
         {!hideQuickActions && <QuickActionsMenuButton />}
       </View>
       {selection?.active ? (
@@ -119,7 +121,7 @@ function QuickActionsMenuButton() {
     {
       key: "paymentsHistory",
       label: t("payments.history"),
-      icon: "receipt-outline",
+      icon: "time-outline",
       onPress: () => openQuickAction("paymentsHistory"),
     },
     {
@@ -131,19 +133,23 @@ function QuickActionsMenuButton() {
     {
       key: "sale",
       label: t("sales.record_button"),
-      icon: "cart-outline",
+      // Same glyph as the dashboard's "Record sale" tile.
+      icon: "receipt-outline",
+      iconBadge: "add",
       onPress: () => openQuickAction("sale"),
     },
     {
       key: "customDebt",
       label: t("debts.add_custom_debt"),
       icon: "document-text-outline",
+      iconBadge: "add",
       onPress: () => openQuickAction("customDebt"),
     },
     {
       key: "debtPayment",
       label: t("debts.record_debt_payment"),
       icon: "cash-outline",
+      iconBadge: "add",
       onPress: () => openQuickAction("debtPayment"),
     },
   ];

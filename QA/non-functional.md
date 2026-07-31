@@ -150,6 +150,11 @@ Regression pack for the sheet defects fixed after the Gorhom migration (gotchas 
 | 9c.5 | Payments-history sheet scrolls | 3-dot menu → Payments history; swipe up over the list | The list scrolls through every section; pull-to-refresh and infinite scroll still work |
 | 9c.6 | Collector wallet sheet scrolls | Admin → Wallets → open a collector with many transactions; swipe up | The body scrolls to the last transaction |
 | 9c.7 | Sheet still drags closed by its handle | Open any full sheet; drag the grey handle bar down | Sheet closes (dragging the body scrolls it instead — that is expected) |
+| 9c.7a | Sheet drags from its whole header | Open any sheet with a header row (form sheet, dropdown, currency / date / customer picker, payments-history, debtor detail, collector wallet); drag **from the title text**, not the handle | The sheet follows the finger and closes on a downward drag — the same as dragging the handle |
+| 9c.7b | Header buttons still tap | In the same headers, tap Cancel / Close / Confirm and the "+" in the debtor-detail header | Each button fires normally; a plain tap is never swallowed by the drag gesture |
+| 9c.7d | Action menu drags from anywhere | Open any 3-dot action menu; drag down starting **on one of the action rows** | The whole menu follows the finger and closes; the row is NOT triggered |
+| 9c.7e | Action menu rows still tap | Tap each row of an action menu, including a slightly imprecise tap that moves a few pixels | The action fires every time (the drag only takes over after ~12pt of vertical movement) |
+| 9c.7c | Header drag does not break the body | Open the Customer form and the payments-history sheet; scroll the body up and down | The body still scrolls freely; the sheet itself does not move while scrolling |
 | 9c.8 | Long form reaches its last field with the keyboard open | Open the Customer form, focus a field near the top so the keyboard opens, then scroll to the bottom | The last field AND the Save button are reachable and fully visible above the keyboard |
 | 9c.9 | Dropdown search stays above the keyboard | Open a searchable picker (e.g. customer picker) and type | The search box and results stay visible above the keyboard |
 | 9c.10 | Keyboard close restores the sheet | From 9c.8, dismiss the keyboard | The sheet returns to its normal height with no gap or jump |

@@ -213,15 +213,15 @@ export function SettingsScreen() {
             </View>
           </View>
 
-          {/* Workspace */}
+          {/* Organization */}
           <View className="mx-4 mb-5">
             <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2 px-1">
-              {t("settings.workspace")}
+              {t("settings.organization")}
             </Text>
             <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
               <SettingsRow
                 icon="grid-outline"
-                label={t("settings.workspace")}
+                label={t("settings.organization")}
                 value={user?.tenant.name}
               />
               <SettingsRow

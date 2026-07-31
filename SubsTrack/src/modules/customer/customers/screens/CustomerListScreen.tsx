@@ -641,19 +641,22 @@ export function CustomerListScreen() {
     items.push({
       key: "record-sale",
       label: t("sales.record_button"),
-      icon: "cart-outline",
+      icon: "receipt-outline",
+      iconBadge: "add",
       onPress: () => setSaleCustomer(customer),
     });
     items.push({
       key: "add-custom-debt",
       label: t("debts.add_custom_debt"),
       icon: "document-text-outline",
+      iconBadge: "add",
       onPress: () => setCustomDebtCustomer(customer),
     });
     items.push({
       key: "record-debt-payment",
       label: t("debts.record_debt_payment"),
       icon: "cash-outline",
+      iconBadge: "add",
       onPress: () => setDebtPaymentCustomer(customer),
     });
     if (hasDebt) {

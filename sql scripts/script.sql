@@ -116,7 +116,7 @@ CREATE TABLE IF NOT EXISTS app_options (
 INSERT INTO app_options (key, value, description) VALUES
     ('LiraRate', '89000', 'Default USD→LBP exchange rate (LBP per 1 USD) seeded onto each new tenant''s Lebanese Pound currency.'),
     ('AllowPlanUpgrade', 'true', 'When ''false'', tenants cannot self-upgrade in-app; the upgrade button is replaced by a WhatsApp "contact to upgrade" button (uses SupportWhatsAppNumber).'),
-    ('AllowSelfServiceSignup', 'true', 'When ''false'', the login screen hides the "Create workspace" button and the create-tenant Edge Function rejects new signups.'),
+    ('AllowSelfServiceSignup', 'true', 'When ''false'', the login screen hides the "Create organization" button and the create-tenant Edge Function rejects new signups.'),
     ('SupportWhatsAppNumber', '', 'Support WhatsApp number in international format (digits only, e.g. 9613123456). Used by the "contact to upgrade" button when AllowPlanUpgrade is false.')
 ON CONFLICT (key) DO NOTHING;
 
@@ -1346,7 +1346,7 @@ DO $$ BEGIN
     -- Global, non-tenant config (e.g. LiraRate, feature flags, support
     -- contact). Readable by everyone (anon + authenticated) because some
     -- flags gate pre-auth UI — e.g. the login screen hides the self-service
-    -- "Create workspace" button when AllowSelfServiceSignup = false. No write
+    -- "Create organization" button when AllowSelfServiceSignup = false. No write
     -- policy exists, so only service_role (which bypasses RLS — used by
     -- SuperAdmin and the create-tenant Edge Function) can mutate.
     -- (Drop+create so the role set updates on existing deployments.)
@@ -1795,7 +1795,7 @@ END $$;
 -- ============================================================
 -- PUBLIC RPC: is_tenant_code_available
 -- Exposed to the anon role so the public signup flow in SubsTrack
--- can pre-check workspace-code availability before walking the user
+-- can pre-check organization-code availability before walking the user
 -- through the account form. SECURITY DEFINER is required because the
 -- tenants SELECT policy hides every row from anon callers — without
 -- it the function would always return TRUE. Returning only a boolean

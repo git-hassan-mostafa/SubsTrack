@@ -657,7 +657,7 @@ RLS: `app_options_select` → `SELECT` to `authenticated` only. No write policy 
 
 **Priority:** 🔴 High
 
-**Purpose:** Let the SaaS owner toggle, app-wide, whether tenants can (a) upgrade their plan in-app and (b) self-create a new workspace — without a deploy. When upgrades are off, tenants are routed to the owner's WhatsApp to request an upgrade (the owner handles billing manually). When self-service signup is off, the "Create workspace" entry point disappears and the server refuses new signups.
+**Purpose:** Let the SaaS owner toggle, app-wide, whether tenants can (a) upgrade their plan in-app and (b) self-create a new organization — without a deploy. When upgrades are off, tenants are routed to the owner's WhatsApp to request an upgrade (the owner handles billing manually). When self-service signup is off, the "Create organization" entry point disappears and the server refuses new signups.
 
 **Schema changes:** None — three new `app_options` rows (seeded idempotently):
 
@@ -668,9 +668,9 @@ RLS: `app_options_select` → `SELECT` to `authenticated` only. No write policy 
 **Implementation:**
 
 - RLS on `app_options` widened to `anon` + `authenticated` (the signup flag must be readable pre-auth). Options now fetched at app bootstrap (`app/_layout.tsx`) and no longer reset on logout.
-- Reusable readers: typed hooks in `useOptionSlice.ts` (`useOptionValue` / `useBooleanOption` + semantic `useCanUpgradePlan` / `useSelfServiceSignupEnabled` / `useSupportWhatsAppNumber`); declarative UI gates `<CanUpgrade>` / `<CanCreateWorkspace>` in `shared/components/FeatureGate.tsx`; `openWhatsApp()` deep-link helper in `shared/lib/whatsapp.ts`; shared `ContactToUpgradeButton` component.
+- Reusable readers: typed hooks in `useOptionSlice.ts` (`useOptionValue` / `useBooleanOption` + semantic `useCanUpgradePlan` / `useSelfServiceSignupEnabled` / `useSupportWhatsAppNumber`); declarative UI gates `<CanUpgrade>` / `<CanCreateOrganization>` in `shared/components/FeatureGate.tsx`; `openWhatsApp()` deep-link helper in `shared/lib/whatsapp.ts`; shared `ContactToUpgradeButton` component.
 - **Plan upgrade:** `TierCard` + `UpgradePromptModal` render `ContactToUpgradeButton` (WhatsApp, pre-filled message) instead of the upgrade CTA when `AllowPlanUpgrade = false`.
-- **Self-service signup:** `LoginScreen` hides "Create workspace"; the public `create-tenant` edge function rejects signups with `403 { code: 'signup_disabled' }` (authoritative server-side gate).
+- **Self-service signup:** `LoginScreen` hides "Create organization"; the public `create-tenant` edge function rejects signups with `403 { code: 'signup_disabled' }` (authoritative server-side gate).
 - Configurable from SuperAdmin's existing **Options** tab (generic key/value CRUD) — no SuperAdmin code change.
 
 ---
