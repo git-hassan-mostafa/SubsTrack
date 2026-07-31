@@ -17,6 +17,9 @@
     "build-dev": "eas build --platform android --profile development",
     "build-preview": "eas build --platform android --profile preview",
     "build-prod": "eas build --platform android --profile production",
+    "ota-preview": "eas update --channel preview",
+    "ota-prod": "eas update --channel production",
+    "ota-fingerprint": "node ./scripts/print-fingerprint.js",
     "build-web": "npx expo export -p web",
     "serve-web": "npm run build-web && node -e \"require('fs').copyFileSync('serve.json', 'dist/serve.json')\" && npx serve dist"
   },

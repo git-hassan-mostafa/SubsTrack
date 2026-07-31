@@ -3,6 +3,12 @@
     "name": "SubStrack",
     "slug": "SubStrack",
     "version": "1.0.0",
+    "updates": {
+      "url": "https://u.expo.dev/383ea658-af58-435a-8e75-198491e8118e"
+    },
+    "runtimeVersion": {
+      "policy": "fingerprint"
+    },
     "orientation": "default",
     "icon": "./assets/images/icon.png",
     "scheme": "substrack",

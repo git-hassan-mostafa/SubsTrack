@@ -774,3 +774,13 @@ The only new storage is two columns on `payments`, `sales`, `debt_payments`: `re
 ### Code
 
 Module `src/modules/wallet/` (`WalletService`, screens, `WalletDetailView`, `CollectorWalletCard`); slice `walletSlice` (`useWalletSlice`). Cash services gained `getUnremittedForWallet` + a mark method; repositories gained `unremittedForWallet`/`markRemitted` (web + offline). Types in `src/core/types` (`WalletItem`, `WalletCurrencyTotal`, `CollectorWallet`, `CollectorWalletDetail`, `WalletSource`).
+
+## Over-the-Air Updates (EAS Update)
+
+JS-only fixes reach installed phones without a reinstall. `expo-updates` is configured against the EAS project (`updates.url`) with `runtimeVersion: { policy: "fingerprint" }`, so Expo derives the native-compatibility label itself and a build that no longer matches simply receives nothing instead of crashing. Channels sit on the `eas.json` build profiles (`development` / `preview` / `production`).
+
+Native changes (a new native library, an SDK upgrade, icon / splash / permissions) still require a rebuild and a manual install. Commands, the full OTA-vs-rebuild table, and the fingerprint trap live in `CLAUDE.md` → "Releasing SubsTrack" and gotcha #53.
+
+### UI
+
+The only user-facing part: `useAppUpdate` downloads pending updates in the background (on cold start, plus a re-check on every foreground, since staff keep the app open all day) and `<UpdateBanner>` — mounted once in `app/(app)/_layout.tsx` beside `SyncIndicator` — shows a bottom pill **"New version ready → Restart"**. Restart calls `Updates.reloadAsync()`; ignoring the pill applies the update on the next launch anyway. Both no-op on web and in dev builds. Offline is silent by design — no error, and launch is never blocked on the network.

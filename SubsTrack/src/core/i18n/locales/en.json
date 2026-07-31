@@ -864,5 +864,9 @@
     "date_to": "To",
     "filter_empty_title": "No matching transactions",
     "filter_empty_desc": "Try changing the filters."
+  },
+  "update": {
+    "ready": "New version ready",
+    "restart": "Restart"
   }
 }

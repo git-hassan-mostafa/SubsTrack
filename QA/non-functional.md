@@ -167,9 +167,17 @@ Regression pack for the sheet defects fixed after the Gorhom migration (gotchas 
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 10.1 | OTA update via expo-updates | Push an update, reopen app | Update applied on next launch |
+| 10.1 | OTA update via expo-updates | On a build made after `updates.url` + `channel` existed: change a visible string, `npm run ota-preview`, fully close and reopen the app | The bundle downloads in the background; the "New version ready" pill appears at the bottom above the tab bar |
+| 10.1a | Restart applies the update | From 10.1, tap **Restart** | The app reloads immediately and shows the new string; reopening later still shows it |
+| 10.1b | Ignoring the banner still updates | From 10.1, ignore the pill and kill + reopen the app instead | The new string is live; no pill (nothing left pending) |
+| 10.1c | Update check while offline | Airplane mode, open the app | No pill, no error banner, no delay on launch — every screen works from SQLite |
+| 10.1d | Update arrives while the app is open | Keep the app open, publish an update, background the app ~5 s, return to it | The pill appears without a cold start (foreground re-check) |
+| 10.1e | Rollback reaches devices | `eas update:rollback`, then background + return | The pill appears; Restart returns the app to the previous JS |
+| 10.1f | Fingerprint mismatch delivers nothing | Add a native dep (fingerprint changes), publish, reopen the installed app | Nothing downloads, no pill, no crash — the old JS keeps running |
+| 10.1g | Dev + web are unaffected | Run `npx expo run:android` (dev build) and `npm run serve-web` | No update pill in either; app behaves as before |
 | 10.2 | Schema migration applied | Run new migration | App that requires the column does not crash |
 | 10.3 | Backwards compatibility | Old client with new server | Soft errors for missing columns; no app crash |
+| 10.4 | OTA that adds a local column | Publish an update adding a column to `tables.ts`, reopen | `applySchema` `ALTER`s it in on start; no crash, sync still works |
 
 ## 11. Background / lifecycle
 

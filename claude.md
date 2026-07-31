@@ -110,6 +110,30 @@ EXPO_PUBLIC_SUPABASE_ANON_KEY=<your-anon-key>
 
 There is no automated test suite. Verification is manual via the running app.
 
+### Releasing SubsTrack — OTA updates (EAS Update)
+
+SubsTrack ships JS over the air. Default to an OTA publish; build only when something **native** changed.
+
+```bash
+npm run ota-prod                        # publish JS to the production channel (prompts for a message)
+npm run ota-prod -- -m "fix debt tile"  # …or pass the message
+npm run ota-preview                     # same, to the preview channel
+npm run ota-fingerprint                 # print the local runtime fingerprint
+npm run build-preview / build-prod      # full rebuild — only when the table below says so
+```
+
+| Ships over the air ✅                                                                     | Needs a rebuild + reinstall ❌                                                |
+| ---------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| anything in `src/` and `app/`, locale JSON, Tailwind styles, bundled `assets/`            | a new or upgraded **native** library or config plugin                        |
+| additive columns in the SQLite mirror `tables.ts` (`applySchema.ts` `ALTER`s them in)     | Expo SDK / React Native upgrade                                              |
+| new Supabase queries and edge-function call sites                                        | app icon, splash, permissions, `android.package`, `newArchEnabled`           |
+
+Postgres changes are server-side and unrelated — but run `script.sql` **before** publishing an update that reads a new column. Non-additive local-schema changes are still not reconciled on either side.
+
+`runtimeVersion` is `{ policy: "fingerprint" }`: Expo derives the compatibility label itself and only matching builds receive an update, so a forgotten rebuild means "no update arrives", never a crash. **This is also the main trap** — `package.json` → `scripts` feeds the fingerprint. Read gotcha #53 before changing scripts or native deps. Channels live on the `eas.json` build profiles (`development` / `preview` / `production`); a build with no channel can never receive an update. Rollback with `eas update:rollback`, promote preview → production with `eas update:republish`.
+
+In-app, `useAppUpdate` + `<UpdateBanner>` (mounted once in `app/(app)/_layout.tsx`) download in the background, re-check on every foreground, and show a "New version ready → Restart" pill. Both no-op on web and in dev builds.
+
 ---
 
 ## Tech Stack
