@@ -699,7 +699,17 @@
     "stock_reason_initial": "Starting stock",
     "stock_reason_restock": "Stock added",
     "stock_reason_adjustment": "Correction",
-    "stock_reason_sale": "Sold"
+    "stock_reason_sale": "Sold",
+    "batch_restock_title": "Batch Restock",
+    "batch_restock_action": "Restock",
+    "batch_restock_subtitle": "Add stock to several products in one save.",
+    "batch_restock_search": "Search products...",
+    "batch_restock_products": "{{count}} products",
+    "batch_restock_no_products": "No active products to restock.",
+    "batch_restock_no_match": "No product matches your search.",
+    "batch_restock_note_label": "Note (added to every product)",
+    "batch_restock_selected": "{{count}} products selected",
+    "batch_restock_save": "Add Stock"
   },
   "sales": {
     "title": "Sales",

@@ -699,7 +699,17 @@
     "stock_reason_initial": "الكمية الأولية",
     "stock_reason_restock": "إضافة مخزون",
     "stock_reason_adjustment": "تصحيح",
-    "stock_reason_sale": "تم بيعه"
+    "stock_reason_sale": "تم بيعه",
+    "batch_restock_title": "إضافة مخزون دفعة واحدة",
+    "batch_restock_action": "إضافة مخزون",
+    "batch_restock_subtitle": "أضف مخزوناً لعدة منتجات بحفظ واحد.",
+    "batch_restock_search": "ابحث عن منتج...",
+    "batch_restock_products": "{{count}} منتجات",
+    "batch_restock_no_products": "لا توجد منتجات نشطة لإضافة مخزون لها.",
+    "batch_restock_no_match": "لا يوجد منتج مطابق لبحثك.",
+    "batch_restock_note_label": "ملاحظة (تُضاف لكل منتج)",
+    "batch_restock_selected": "{{count}} منتجات محددة",
+    "batch_restock_save": "حفظ المخزون"
   },
   "sales": {
     "title": "المبيعات",

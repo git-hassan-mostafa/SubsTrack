@@ -329,7 +329,7 @@ Every product carries a stock quantity and can be **out of stock**. Stock on han
 | Reason | Written by | Sign |
 | --- | --- | --- |
 | `initial` | the "Starting stock" field on **product create** | + |
-| `restock` | the product's stock sheet, "Add" | + |
+| `restock` | the product's stock sheet, "Add" — or the **batch restock** sheet | + |
 | `adjustment` | the product's stock sheet, "Remove" (damage, miscount) | − |
 | `sale` | `SaleService.createSale`, one row per line | − |
 
@@ -342,10 +342,13 @@ Every product carries a stock quantity and can be **out of stock**. Stock on han
 - **Sale create** — `SaleService.createSale` builds one negative `'sale'` movement per line and passes them in `CreateSalePayload.movements`. The repository writes them alongside the header + lines (offline: the *same* transaction), so a sale can never exist without the stock it consumed.
 - **Sale void** — the sale's movements are **soft-voided** (`UPDATE … WHERE sale_id = ? AND voided_at IS NULL`), not reversed with opposite rows. One statement, independent of line count, and idempotent — a repeat void is a no-op instead of returning the stock twice. Bulk void inherits this for free (`saleSlice.voidSales` loops `saleService.voidSale`).
 - **Manual** — `ProductService.adjustStock` appends a single `restock` / `adjustment` row. Rows are never edited or deleted; a mistake is corrected with another movement.
+- **Batch restock** — `ProductService.restockMany(entries, tenantId, note, userId)` appends one `restock` row **per product** in a single `addMovements` call (offline: one transaction), then returns the fresh on-hand map so `productSlice.batchRestock` updates the list without a refetch. One arriving delivery = one save, but the per-product history stays exactly as detailed as the one-at-a-time path — there is no "batch" reason and no grouping row. The shared note is copied onto every row.
 
 **Blocking.** `SaleService.createSale` calls `assertStockAvailable` after `validate()` — a **fresh** `stockOnHand` read (the store can be minutes stale), summing the requested quantity **per product across all cart lines** (the same product can sit on two rows). Throws `errors.sale_out_of_stock` / `errors.sale_insufficient_stock`. Because it lives in the service, every entry point is covered (sale form, quick actions, customer screens). `SaleItemsEditor` mirrors it as a soft guard: out-of-stock products stay listed but greyed via `DropdownOption.disabled`, the quantity stepper caps at *on-hand minus what other rows already took*, each row shows "N left", and an oversold cart reports `ready: false`. The check is **advisory** — two offline devices can still each sell the last unit, and the DB deliberately allows a negative total (gotcha #48).
 
 **UI.** `ProductCard` shows a green "N in stock" / red "Out of stock" / red "Short by N" chip. `ProductStockSheet` (product row menu → "Adjust Stock", or the link on the edit form) shows the current on-hand, an Add/Remove toggle, a quantity + note, and the last 20 movements as a bordered list: a reason icon tinted by direction (green adds / red removes), the reason, date **and** time (`formatDateTime`), who recorded it (resolved from the users slice via `recordedByUserId`), the note, and a "Reversed" chip with struck-through amount on voided rows. `ProductFormSheet` takes "Starting stock" on **create only**; on edit it renders the number read-only next to an "Adjust Stock" link, so the total is never free-typed.
+
+`ProductBatchRestockSheet` is the many-products counterpart: a search box, then every **active** product as one compact row — name, current on-hand, and a `[−] qty [+]` stepper. A row with a quantity turns indigo and previews the result (`3 → 8`), so what's included is visible without reordering the list while the user types. One shared note applies to every row, and a summary line ("N products selected · +40") sits above the save button. Quantities are held per product id, so filtering the list never loses what was already typed. Two entry points, one component: the **Restock** button beside the search box on the products screen, and **Batch Restock** in the PageHeader quick-actions menu (admin-only there, since products live in the admin tab that non-admins never see).
 
 See gotchas #35, #36, #37, #48.
 

@@ -156,6 +156,31 @@ Covers the Products catalog: a list of one-off sellable items (not subscriptions
 
 ---
 
+## 6B. Batch restock
+
+| # | Scenario | Steps | Expected result |
+|---|----------|-------|-----------------|
+| 6B.1 | Open from the products screen | Products → "Restock" button beside the search box | The Batch Restock sheet opens listing every **active** product with its current on-hand and a `[−] 0 [+]` stepper |
+| 6B.2 | Open from quick actions | Any screen → 3-dot menu → "Batch Restock" | The same sheet opens; it loads the product list itself even on a screen that never fetched products |
+| 6B.3 | Non-admin never sees it | Log in as a `user` and open the 3-dot menu on any screen | "Batch Restock" is absent (products are admin-only) |
+| 6B.4 | Inactive products excluded | Soft-delete a product, then open the sheet | The inactive product is not listed |
+| 6B.5 | Restock several at once | Set 10 on product A, 5 on product B, Save | Sheet closes; both cards show the new totals immediately, and each product's own history holds **one** green `Stock added` row (`+10` / `+5`) — no shared/grouping row |
+| 6B.6 | Shared note lands on every row | Set quantities on 3 products, note "delivery 12 Aug", Save | All three history rows carry that note |
+| 6B.7 | Row preview | Type 5 on a product with 3 in stock | The row turns indigo and reads `3 → 8`; the summary line updates to "1 products selected · +5" |
+| 6B.8 | Stepper + typing agree | Use `+` / `−` and also type a number in the box | Both edit the same value; `−` stops at 0 and is greyed out there; letters and a minus sign are ignored |
+| 6B.9 | Save disabled with nothing picked | Open the sheet and save without setting any quantity | Save button is disabled (a 0 on every row counts as nothing picked) |
+| 6B.10 | Search keeps typed quantities | Set 5 on product A, search for product B, then clear the search | A still shows 5 and is still counted in the summary — filtering only changes the view |
+| 6B.11 | Search with no match | Type a term matching nothing | "No product matches your search." — the note, summary and save button remain usable |
+| 6B.12 | Clear | Set quantities on 2 products, tap "Clear" | Every row returns to 0, the summary reads 0, and Save goes disabled |
+| 6B.13 | Failed save keeps the sheet open | Force the save to fail | The sheet stays open with the typed quantities and shows the error banner |
+| 6B.14 | No active products | Open the sheet in a tenant with no active products | A dashed placeholder ("No active products to restock.") replaces the list, search and save |
+| 6B.15 | Offline batch restock syncs | Airplane mode → restock 3 products → reconnect | All movements push in one go; a second device shows the same on-hand after its pull |
+| 6B.16 | Branch scoping | As a branch-scoped admin, open the sheet | Only the products that user can see are listed (their branch + SHARED), and restocking a SHARED one moves the single shared pool |
+| 6B.17 | Keyboard + sheet | Tap the search box, then a quantity box, on a phone | The sheet lifts so the focused field stays visible; the sheet still drags closed from its header |
+| 6B.18 | Back closes the sheet | Press Back (Android) / browser Back (web) with the sheet open | Only the sheet closes; the route does not change |
+
+---
+
 ## 7. Multi-tenancy
 
 | # | Scenario | Steps | Expected result |

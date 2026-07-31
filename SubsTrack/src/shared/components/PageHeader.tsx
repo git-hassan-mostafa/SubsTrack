@@ -6,6 +6,7 @@ import { Text } from "@/src/shared/components/Text";
 import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
 import { COLORS } from "@/src/shared/constants";
 import { useUiSlice } from "@/src/state/hooks/useUiSlice";
+import { useAuthSlice } from "@/src/state/hooks/useAuthSlice";
 import { PressableOpacity } from "./PressableOpacity/PressableOpacity";
 import { BranchSelector } from "./BranchSelector";
 import { SelectionBar, type SelectionAction } from "./SelectionBar";
@@ -115,6 +116,8 @@ export function PageHeader({
 function QuickActionsMenuButton() {
   const { t } = useTranslation();
   const openQuickAction = useUiSlice((s) => s.openQuickAction);
+  const role = useAuthSlice((s) => s.user?.role);
+  const isAdmin = role === "admin" || role === "superadmin";
   const [menuOpen, setMenuOpen] = useState(false);
 
   const actions: ActionMenuItem[] = [
@@ -153,6 +156,18 @@ function QuickActionsMenuButton() {
       onPress: () => openQuickAction("debtPayment"),
     },
   ];
+
+  // Products are managed from the admin tab, which non-admins never see — so the
+  // restock shortcut stays admin-only too.
+  if (isAdmin) {
+    actions.push({
+      key: "batchRestock",
+      label: t("products.batch_restock_title"),
+      icon: "cube-outline",
+      iconBadge: "add",
+      onPress: () => openQuickAction("batchRestock"),
+    });
+  }
 
   return (
     <>

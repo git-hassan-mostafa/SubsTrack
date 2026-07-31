@@ -1,6 +1,11 @@
 import type { StateCreator } from 'zustand';
 import type { Product, TierPlan, TenantUsage } from '@/src/core/types';
-import { productService, type ProductInput, type StockAdjustReason } from '@/src/modules/admin/products';
+import {
+  productService,
+  type ProductInput,
+  type RestockEntry,
+  type StockAdjustReason,
+} from '@/src/modules/admin/products';
 import { resolveBranchFilter } from '@/src/shared/lib/branchFilter';
 import { TierLimitError } from '@/src/modules/admin/subscription';
 import type { TierLimitErrorPayload } from '@/src/modules/admin/subscription';
@@ -26,6 +31,12 @@ export interface ProductSlice {
     tenantId: string,
     delta: number,
     reason: StockAdjustReason,
+    note?: string | null,
+    userId?: string | null,
+  ) => Promise<boolean>;
+  batchRestock: (
+    entries: RestockEntry[],
+    tenantId: string,
     note?: string | null,
     userId?: string | null,
   ) => Promise<boolean>;
@@ -144,6 +155,30 @@ export const createProductSlice: StateCreator<
       set((state) => {
         const i = state.products.items.findIndex((p) => p.id === id);
         if (i !== -1) state.products.items[i].stockOnHand = onHand;
+        state.products.loading = false;
+      });
+      return true;
+    } catch (e) {
+      set((state) => {
+        state.products.error = (e as Error).message;
+        state.products.loading = false;
+      });
+      return false;
+    }
+  },
+
+  batchRestock: async (entries, tenantId, note = null, userId = null) => {
+    if (entries.length === 0) return true;
+    set((state) => {
+      state.products.loading = true;
+      state.products.error = null;
+    });
+    try {
+      const onHand = await productService.restockMany(entries, tenantId, note, userId);
+      set((state) => {
+        for (const p of state.products.items) {
+          if (p.id in onHand) p.stockOnHand = onHand[p.id];
+        }
         state.products.loading = false;
       });
       return true;

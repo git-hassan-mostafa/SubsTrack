@@ -2,6 +2,7 @@ import { useUiSlice } from "@/src/state/hooks/useUiSlice";
 import { CustomerFormSheet } from "@/src/modules/customer/customers";
 import { PaymentsHistorySheet } from "@/src/modules/customer/customer-payments";
 import { SaleFormSheet } from "@/src/modules/transaction/sales";
+import { ProductBatchRestockSheet } from "@/src/modules/admin/products";
 import {
   CustomDebtFormSheet,
   DebtPaymentFormSheet,
@@ -30,6 +31,8 @@ export function QuickActionSheets() {
       return <DebtPaymentFormSheet onDismiss={close} />;
     case "paymentsHistory":
       return <PaymentsHistorySheet onDismiss={close} />;
+    case "batchRestock":
+      return <ProductBatchRestockSheet onDismiss={close} />;
     default:
       return null;
   }

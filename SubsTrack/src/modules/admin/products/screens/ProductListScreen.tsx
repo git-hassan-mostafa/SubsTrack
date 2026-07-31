@@ -6,9 +6,12 @@ import {
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
 import { COLORS } from "@/src/shared/constants";
+import { Text } from "@/src/shared/components/Text";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
 import { confirm } from "@/src/shared/lib/confirm";
 import { EmptyState } from "@/src/shared/components/EmptyState";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
@@ -34,6 +37,7 @@ import type { Product } from "@/src/core/types";
 import { ProductCard } from "../components/ProductCard";
 import { ProductFormSheet } from "../components/ProductFormSheet";
 import { ProductStockSheet } from "../components/ProductStockSheet";
+import { ProductBatchRestockSheet } from "../components/ProductBatchRestockSheet";
 import { useProductSlice } from "@/src/state/hooks/useProductSlice";
 
 export function ProductListScreen() {
@@ -51,6 +55,7 @@ export function ProductListScreen() {
   const [formVisible, setFormVisible] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
   const [stockFor, setStockFor] = useState<Product | null>(null);
+  const [batchRestockOpen, setBatchRestockOpen] = useState(false);
   const [menuItem, setMenuItem] = useState<Product | null>(null);
   const [searchText, setSearchText] = useState("");
   const debouncedSearch = useDebounce(searchText);
@@ -233,11 +238,28 @@ export function ProductListScreen() {
           never jumps; the selection toolbar (with the select-all checkbox) is
           overlaid on the header instead. */}
       <SelectionOverlaySlot selecting={selectionActive}>
-        <View className="px-4 pt-4">
-          <SearchTextBox
-            searchText={searchText}
-            setSearchText={setSearchText}
-          />
+        <View className="px-4 pt-4 flex-row items-center gap-x-2">
+          <View className="flex-1">
+            <SearchTextBox
+              searchText={searchText}
+              setSearchText={setSearchText}
+            />
+          </View>
+          {/* Restock several products in one save — the same sheet the
+              quick-actions menu opens. */}
+          <PressableOpacity
+            onPress={() => setBatchRestockOpen(true)}
+            className="flex-row items-center justify-center h-9 px-3 rounded-xl bg-emerald-50"
+            accessibilityLabel={t("products.batch_restock_title")}
+          >
+            <Ionicons name="cube-outline" size={16} color={COLORS.success} />
+            <Text
+              fontWeight="SemiBold"
+              className="ms-1.5 text-xs text-success"
+            >
+              {t("products.batch_restock_action")}
+            </Text>
+          </PressableOpacity>
         </View>
       </SelectionOverlaySlot>
       {error ? (
@@ -317,6 +339,12 @@ export function ProductListScreen() {
         <ProductStockSheet
           product={stockFor}
           onDismiss={() => setStockFor(null)}
+        />
+      )}
+
+      {batchRestockOpen && (
+        <ProductBatchRestockSheet
+          onDismiss={() => setBatchRestockOpen(false)}
         />
       )}
 

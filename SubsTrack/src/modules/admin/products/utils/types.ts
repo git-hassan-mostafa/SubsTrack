@@ -9,3 +9,6 @@ export type ProductInput = Pick<Product, 'name' | 'description' | 'price' | 'cur
 // Manual stock change from the product's stock sheet. Sales write their own
 // movements ('sale' / 'sale_void') and never go through this.
 export type StockAdjustReason = 'restock' | 'adjustment';
+
+// One line of a batch restock: how many units arrived for a product.
+export type RestockEntry = { productId: string; quantity: number };

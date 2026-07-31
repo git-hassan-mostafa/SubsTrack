@@ -5,7 +5,7 @@ import repository from '../repository/ProductRepository';
 import type { CreateStockMovementPayload } from '../repository/IProductRepository';
 import { tierService } from '@/src/modules/admin/subscription';
 import { mapDbProductToProduct, mapDbStockMovementToStockMovement } from '../utils/mapper';
-import { ProductInput, StockAdjustReason } from '../utils/types';
+import { ProductInput, RestockEntry, StockAdjustReason } from '../utils/types';
 
 
 class ProductService {
@@ -124,6 +124,25 @@ class ProductService {
     ]);
     const stock = await repository.stockOnHand([productId]);
     return stock[productId] ?? 0;
+  }
+
+  // Batch counterpart to adjustStock: one 'restock' row per product, appended in
+  // a single write so a whole delivery lands together. Returns the new on-hand
+  // per product so the store can refresh its list without a refetch.
+  async restockMany(
+    entries: RestockEntry[],
+    tenantId: string,
+    note: string | null = null,
+    userId: string | null = null,
+  ): Promise<Record<string, number>> {
+    const valid = entries.filter((e) => Number.isInteger(e.quantity) && e.quantity > 0);
+    if (valid.length === 0) throw new Error(i18n.t('errors.stock_delta_invalid'));
+    await repository.addMovements(
+      valid.map((e) =>
+        this.movement(tenantId, e.productId, e.quantity, 'restock', { note, userId }),
+      ),
+    );
+    return repository.stockOnHand(valid.map((e) => e.productId));
   }
 
   async getStockOnHand(productIds?: string[]): Promise<Record<string, number>> {
