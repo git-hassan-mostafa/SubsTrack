@@ -376,6 +376,20 @@
       "confirm_multi_month_title": "تسجيل دفعة الباقة؟",
       "confirm_multi_month_message": "سيتم تسجيل دفعة بقيمة {{amount}} تشمل {{months}}.",
       "confirm": "تسجيل"
+    },
+    "skip": {
+      "skipped_label": "متخطّى",
+      "skip_action": "تخطّي الشهر",
+      "unskip_action": "إلغاء التخطّي",
+      "skip_title": "تخطّي هذا الشهر؟",
+      "unskip_title": "إلغاء تخطّي هذا الشهر؟",
+      "skip_message": "لن يُحتسب {{monthYear}} كشهر غير مدفوع. يمكنك إلغاء التخطّي في أي وقت.",
+      "skip_message_many": "لن تُحتسب {{count}} أشهر محددة كأشهر غير مدفوعة. يمكنك إلغاء التخطّي في أي وقت.",
+      "unskip_message": "سيُحتسب {{monthYear}} من جديد ويمكن دفعه.",
+      "unskip_message_many": "ستُحتسب {{count}} أشهر محددة من جديد ويمكن دفعها.",
+      "note_placeholder": "السبب (اختياري)",
+      "note_label": "السبب",
+      "pay_blocked": "هذا الشهر متخطّى، لذا لا يوجد مبلغ مستحق. ألغِ التخطّي أولاً لتسجيل دفعة."
     }
   },
   "months": {
@@ -588,6 +602,7 @@
     "plan_fixed_for_multimonth": "يجب أن تكون الخطة بسعر ثابت لتسجيل دفعة متعددة الأشهر",
     "months_already_paid": "الأشهر التالية مدفوعة بالفعل: {{months}}",
     "all_months_paid": "جميع أشهر هذه الباقة مدفوعة بالفعل",
+    "months_skipped": "الأشهر التالية متخطّاة: {{months}}. ألغِ التخطّي أولاً لدفع هذه الباقة.",
     "product_name_required": "اسم المنتج مطلوب",
     "product_price_required": "السعر مطلوب",
     "product_price_positive": "السعر يجب أن يكون أكبر من 0",

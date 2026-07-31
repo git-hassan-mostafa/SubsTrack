@@ -27,11 +27,14 @@ interface Props {
   onLongPress?: (entry: MonthEntry) => void;
 }
 
+// Skipped is the same muted slate for both customer kinds — it means "nothing
+// expected", which has nothing to do with being a regular customer.
 const regularBgColor: Record<MonthStatus, string> = {
   paid: "bg-green-500",
   unpaid: "bg-red-500",
   future: "bg-gray-100",
   before_start: "bg-gray-100",
+  skipped: "bg-slate-400",
 };
 
 const nonRegularBgColor: Record<MonthStatus, string> = {
@@ -39,6 +42,7 @@ const nonRegularBgColor: Record<MonthStatus, string> = {
   unpaid: "bg-gray-200",
   future: "bg-gray-100",
   before_start: "bg-gray-100",
+  skipped: "bg-slate-400",
 };
 
 const regularTextColor: Record<MonthStatus, string> = {
@@ -46,6 +50,7 @@ const regularTextColor: Record<MonthStatus, string> = {
   unpaid: "text-white",
   future: "text-gray-400",
   before_start: "text-gray-300",
+  skipped: "text-white",
 };
 
 const nonRegularTextColor: Record<MonthStatus, string> = {
@@ -53,6 +58,7 @@ const nonRegularTextColor: Record<MonthStatus, string> = {
   unpaid: "text-gray-400",
   future: "text-gray-400",
   before_start: "text-gray-300",
+  skipped: "text-white",
 };
 
 export const MonthCell = memo(function MonthCell({
@@ -99,7 +105,9 @@ export const MonthCell = memo(function MonthCell({
 
   // Match the dots to the label colour so they stay visible on every cell type.
   const usesWhiteText =
-    entry.status === "paid" || (isRegular && entry.status === "unpaid");
+    entry.status === "paid" ||
+    entry.status === "skipped" ||
+    (isRegular && entry.status === "unpaid");
   const menuIconColor =
     isRegular && isCurrentMonth && entry.status === "unpaid"
       ? COLORS.danger
@@ -111,6 +119,7 @@ export const MonthCell = memo(function MonthCell({
     if (entry.status === "paid" && entry.isGroupSecondary)
       return t("payments.included_label");
     if (entry.status === "paid") return t("common.paid");
+    if (entry.status === "skipped") return t("payments.skip.skipped_label");
     if (isCurrentMonth) return t("payments.this_month").toUpperCase();
     return null;
   })();

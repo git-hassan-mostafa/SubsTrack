@@ -4,7 +4,10 @@ export type UserRole = 'superadmin' | 'admin' | 'user';
 // A partially-paid month (a payment exists but `balance > 0`) is reported as
 // `paid` — the remaining amount is tracked as a debt, not as a month status.
 // The owed amount still rides along on `MonthEntry.balance` for drill-in views.
-export type MonthStatus = 'paid' | 'unpaid' | 'future' | 'before_start';
+// `skipped` = the user marked the month as "nothing expected here". It ranks
+// below `paid` (money always wins) and above `future`/`unpaid`, and it is never
+// payable — the month must be unskipped first.
+export type MonthStatus = 'paid' | 'unpaid' | 'future' | 'before_start' | 'skipped';
 
 export interface Tenant {
   id: string;
@@ -193,6 +196,21 @@ export interface Payment {
   createdAt: string;
 }
 
+// A month marked as "not expected to pay" on ONE service line. Toggled by
+// `skipped`; the row is kept when unskipped so the change syncs.
+export interface SkippedMonth {
+  id: string;
+  tenantId: string;
+  customerId: string;
+  customerPlanId: string;
+  billingMonth: string;
+  skipped: boolean;
+  note: string | null;
+  skippedByUserId: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface MonthEntry {
   year: number;
   month: number;
@@ -202,6 +220,8 @@ export interface MonthEntry {
   payment: Payment | null;
   isGroupSecondary: boolean;
   balance: number;
+  // The active skip covering this month, when status === 'skipped'.
+  skip: SkippedMonth | null;
 }
 
 // Current-month tally for a customer's service lines, used by the customer-list

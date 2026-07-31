@@ -1,4 +1,6 @@
 export { default as paymentService } from './services/PaymentService';
+export { default as skippedMonthService } from './services/SkippedMonthService';
+export type { SetSkipInput } from './services/SkippedMonthService';
 export type {
   MultiMonthConflict,
   CreateMultiMonthPaymentResult,
@@ -7,6 +9,7 @@ export type {
   PaymentStatusFilter,
 } from './utils/types';
 export { default as paymentRepository } from './repository/PaymentRepository';
+export { SkipMonthSheet } from './components/SkipMonthSheet';
 export { CustomerPaymentPanel } from './components/CustomerPaymentPanel';
 export { MonthCell } from './components/MonthCell';
 export { MonthGrid } from './components/MonthGrid';

@@ -2,7 +2,7 @@ import { OFFLINE_PAGE_SIZE, type BranchFilter } from '@/src/core/constants';
 import type { CurrentMonthPlanCount } from '@/src/core/types';
 import type { DbCustomer, DbPayment, DbPlan } from '@/src/core/types/db';
 import { OfflineBaseRepository } from '@/src/core/offline/OfflineBaseRepository';
-import { upsertPaymentDirty } from '@/src/core/offline/db/dml';
+import { upsertNaturalKeyDirty } from '@/src/core/offline/db/dml';
 import { deterministicId, nowIso } from '@/src/core/offline/ids';
 import type { FindPaymentsOptions } from '../utils/types';
 import type {
@@ -10,6 +10,7 @@ import type {
   CreatePaymentPayload,
   IPaymentRepository,
   MonthlyAmountRow,
+  MonthStatusSets,
   UpdatePaymentPayload,
 } from './IPaymentRepository';
 
@@ -101,7 +102,7 @@ export class OfflinePaymentRepository extends OfflineBaseRepository implements I
     // The mirror may already hold this line+month under another id (created on the
     // web / another device) — echo back the id it actually stored, never the
     // intended one, or the caller's Payment would point at a row that isn't there.
-    const storedId = await this.write((db) => upsertPaymentDirty(db, row));
+    const storedId = await this.write((db) => upsertNaturalKeyDirty(db, 'payments', row));
     return { ...row, id: storedId };
   }
 
@@ -114,7 +115,7 @@ export class OfflinePaymentRepository extends OfflineBaseRepository implements I
     }
     const storedIds = await this.write(async (db) => {
       const ids: string[] = [];
-      for (const row of rows) ids.push(await upsertPaymentDirty(db, row));
+      for (const row of rows) ids.push(await upsertNaturalKeyDirty(db, 'payments', row));
       return ids;
     });
     return rows.map((row, i) => ({ ...row, id: storedIds[i] }));
@@ -166,14 +167,7 @@ export class OfflinePaymentRepository extends OfflineBaseRepository implements I
   }
 
   // Reuses the ONLINE JS aggregation verbatim; only the two fetches are local SQL.
-  async findPaymentStatusForMonth(
-    billingMonth: string,
-  ): Promise<{
-    fullyPaidIds: Set<string>;
-    partialIds: Set<string>;
-    planCounts: Map<string, CurrentMonthPlanCount>;
-    coveredLineIds: Set<string>;
-  }> {
+  async findPaymentStatusForMonth(billingMonth: string): Promise<MonthStatusSets> {
     const [year, monthStr] = billingMonth.split('-').map(Number);
     const cutoffDate = new Date(year, monthStr - 1 - 12, 1);
     const cutoff = `${cutoffDate.getFullYear()}-${String(cutoffDate.getMonth() + 1).padStart(2, '0')}-01`;
@@ -202,6 +196,12 @@ export class OfflinePaymentRepository extends OfflineBaseRepository implements I
       [billingMonth, cutoff],
     );
 
+    const skipRows = await this.all<{ customer_plan_id: string }>(
+      'SELECT customer_plan_id FROM skipped_months WHERE billing_month = ? AND skipped = 1',
+      [billingMonth],
+    );
+    const skippedLineIds = new Set(skipRows.map((r) => r.customer_plan_id));
+
     const settledByLine = new Map<string, boolean>();
     for (const r of data) {
       const start = new Date(r.billing_month);
@@ -216,14 +216,19 @@ export class OfflinePaymentRepository extends OfflineBaseRepository implements I
 
     const fullyPaidIds = new Set<string>();
     const partialIds = new Set<string>();
-    // Per customer: how many started lines are fully settled this month, out of
-    // the total started lines — drives the customer-list "N/M plans paid" badge.
+    const skippedIds = new Set<string>();
+    // Per customer: how many due lines are fully settled this month, out of the
+    // total due lines — drives the customer-list "N/M plans paid" badge.
     const planCounts = new Map<string, CurrentMonthPlanCount>();
     for (const [customerId, lineIds] of linesByCustomer) {
       let anyCovered = false;
       let allCoveredAndSettled = true;
       let paid = 0;
+      let total = 0;
       for (const lineId of lineIds) {
+        // A skipped line is owed by nobody (grid rule: paid > skipped > unpaid).
+        if (skippedLineIds.has(lineId) && !settledByLine.has(lineId)) continue;
+        total++;
         if (settledByLine.has(lineId)) {
           anyCovered = true;
           if (settledByLine.get(lineId)) paid++;
@@ -232,14 +237,19 @@ export class OfflinePaymentRepository extends OfflineBaseRepository implements I
           allCoveredAndSettled = false;
         }
       }
-      planCounts.set(customerId, { paid, total: lineIds.length });
+      planCounts.set(customerId, { paid, total });
+      // Every started line dropped out as skipped → nothing is owed this month.
+      if (total === 0) {
+        skippedIds.add(customerId);
+        continue;
+      }
       if (!anyCovered) continue;
       if (allCoveredAndSettled) fullyPaidIds.add(customerId);
       else partialIds.add(customerId);
     }
-    // Every line with a covering payment this month (settled or partial).
-    const coveredLineIds = new Set(settledByLine.keys());
-    return { fullyPaidIds, partialIds, planCounts, coveredLineIds };
+    // Lines not to quick-pay: covered by a payment this month, or skipped.
+    const notDueLineIds = new Set([...settledByLine.keys(), ...skippedLineIds]);
+    return { fullyPaidIds, partialIds, skippedIds, planCounts, notDueLineIds };
   }
 
   async findActivePayments(): Promise<DbPayment[]> {

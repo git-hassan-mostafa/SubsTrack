@@ -7,9 +7,17 @@ import type { CurrentMonthPlanCount, Customer } from "@/src/core/types";
 import { COLORS } from "../../../../shared/constants";
 import { EntityCard } from "@/src/shared/components/EntityCard";
 
+// "skipped" = the customer owes nothing this month (every line's month is skipped).
+export type CustomerPaymentStatus =
+  | "paid"
+  | "partial"
+  | "unpaid"
+  | "mixed"
+  | "skipped";
+
 interface Props {
   customer: Customer;
-  paymentStatus: "paid" | "partial" | "unpaid" | "mixed";
+  paymentStatus: CustomerPaymentStatus;
   /** For "mixed": how many of the customer's plans are paid this month, out of total. */
   planCount?: CurrentMonthPlanCount | null;
   monthLabel: string;
@@ -115,6 +123,12 @@ export const CustomerCard = memo(function CustomerCard({
               text={t("common.partial")}
               textClassName="text-amber-600"
               bgClassName="bg-amber-100"
+            />
+          ) : paymentStatus === "skipped" ? (
+            <Flag
+              text={t("payments.skip.skipped_label")}
+              textClassName="text-slate-600"
+              bgClassName="bg-slate-200"
             />
           ) : (
             <Flag

@@ -61,6 +61,7 @@ function toEntry(p: PaymentListItem): MonthEntry {
     payment: p,
     isGroupSecondary: false,
     balance: p.balance,
+    skip: null,
   };
 }
 

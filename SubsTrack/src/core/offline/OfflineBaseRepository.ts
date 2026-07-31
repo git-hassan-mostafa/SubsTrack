@@ -184,7 +184,7 @@ export abstract class OfflineBaseRepository {
   // ── write (local mutation, atomic) ───────────────────────────────────────
   /**
    * Run one or more local mutations in a single transaction. The dml helpers
-   * (`insertDirty` / `updateDirty` / `upsertPaymentDirty`) mark rows `_dirty = 1`
+   * (`insertDirty` / `updateDirty` / `upsertNaturalKeyDirty`) mark rows `_dirty = 1`
    * so the next push sends them; hard deletes call `markDeleted(db, table, id)`.
    * No outbox — the `_dirty` flag + `pending_deletes` are the whole write intent.
    */

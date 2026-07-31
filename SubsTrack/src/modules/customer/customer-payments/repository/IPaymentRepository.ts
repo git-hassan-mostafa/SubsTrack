@@ -36,6 +36,21 @@ export interface MonthlyAmountRow extends AmountRow {
   paidAt: string; // ISO timestamp
 }
 
+// The current-month badge sets for the customer list, computed in one pass.
+export interface MonthStatusSets {
+  fullyPaidIds: Set<string>;
+  partialIds: Set<string>;
+  // Customers that owe nothing this month because EVERY started active line is
+  // skipped — otherwise they'd fall through to the list's red "unpaid" default.
+  skippedIds: Set<string>;
+  planCounts: Map<string, CurrentMonthPlanCount>;
+  // Service-line IDs that must NOT be quick-paid this month: they already have
+  // a covering (non-voided) payment — full or partial, where the upsert would
+  // overwrite the existing row — or the month is skipped on that line. So a
+  // mixed multi-plan customer pays only its still-due lines.
+  notDueLineIds: Set<string>;
+}
+
 export interface IPaymentRepository {
   findAll(opts?: FindPaymentsOptions): Promise<DbPayment[]>;
   findByCustomer(customerId: string): Promise<DbPayment[]>;
@@ -44,18 +59,7 @@ export interface IPaymentRepository {
   updatePayment(id: string, payload: UpdatePaymentPayload): Promise<DbPayment>;
   voidPayment(id: string, voidedBy: string, notes: string | null): Promise<DbPayment>;
   voidMany(ids: string[], voidedBy: string, notes: string | null): Promise<DbPayment[]>;
-  findPaymentStatusForMonth(
-    billingMonth: string,
-  ): Promise<{
-    fullyPaidIds: Set<string>;
-    partialIds: Set<string>;
-    planCounts: Map<string, CurrentMonthPlanCount>;
-    // Service-line IDs that already have a covering (non-voided) payment this
-    // month — full or partial. Quick pay must skip these (the upsert would
-    // overwrite the existing row), so a mixed multi-plan customer pays only its
-    // still-unpaid lines.
-    coveredLineIds: Set<string>;
-  }>;
+  findPaymentStatusForMonth(billingMonth: string): Promise<MonthStatusSets>;
   findActivePayments(): Promise<DbPayment[]>;
   // Scoped by paid_at (recorded date), matching the Payments tab's "This Month".
   paidAmountsForMonth(

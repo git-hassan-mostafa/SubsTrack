@@ -1,6 +1,6 @@
 # Monthly Grid — QA Scenarios
 
-The 12-cell grid is the core of the customer detail screen. Each cell encodes a month's status: PAID (green for regular / yellow for non-regular), PARTIAL (amber for both regular and non-regular), UNPAID (red for regular / light gray for non-regular), FUTURE (gray), or BEFORE_START (gray, slightly dimmer). **Multi-month payments** visually merge consecutive cells with a "Included" sublabel for months 2+. **Partial payments** (`amount_paid < amount_due`) render as a distinct `"partial"` status — amber cells, NOT an orange dot on a green cell.
+The 12-cell grid is the core of the customer detail screen. Each cell encodes a month's status: PAID (green for regular / yellow for non-regular), SKIPPED (slate, both kinds), UNPAID (red for regular / light gray for non-regular), FUTURE (gray), or BEFORE_START (gray, slightly dimmer). **Multi-month payments** visually merge consecutive cells with a "Included" sublabel for months 2+. **Partial payments** (`amount_paid < amount_due`) render as a distinct `"partial"` status — amber cells, NOT an orange dot on a green cell.
 
 The status logic lives in exactly one place: `PaymentService.buildMonthGrid`. Verify nothing else re-implements it.
 
@@ -23,6 +23,7 @@ For year Y, month M, given today = (CY, CM), customer.startDate = SY-SM-SD, grac
 | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
 | Y < SY OR (Y == SY AND M < SM)                                                                             | `before_start`                                                                                                     |
 | A covering payment exists for Y-M AND `voided_at IS NULL` AND `amount_paid > 0` (ANY balance, incl. `balance > 0`) | `paid` (green for regular, yellow for non-regular; `isGroupSecondary = true` for months 2+ in a multi-month block) |
+| An active skip exists for (line, Y-M) — `skipped_months.skipped = true`                                    | `skipped` (slate, same for regular and non-regular) — ranks BELOW `paid`                                            |
 | Y > CY OR (Y == CY AND M > CM)                                                                             | `future`                                                                                                           |
 | First-of-month ≤ today ≤ first-of-month + G days                                                           | `future` (within grace)                                                                                            |
 | Otherwise                                                                                                  | `unpaid`                                                                                                           |
@@ -31,6 +32,7 @@ Notes:
 
 - A payment with `amount_paid = 0` is treated as "no payment" — cell shows unpaid (slot reserved but not paid). This lets staff reserve a row without recording a collection.
 - A **partial** payment (`0 < amount_paid < amount_due`, `balance > 0`) renders exactly like a full `paid` cell (green/yellow) — there is **no** separate `partial` status. The remaining `balance` is tracked only as a **debt** (Debts tab → "months" category); it is not shown as a distinct cell state. Tapping opens the receipt sheet, where the remaining amount is shown (amber accent, "added to debts").
+- A **skipped** month means "nothing is expected here". It is never unpaid, never overdue, never counted in the dashboard's `unpaidThisMonth`, and **never payable** — the user must unskip first. Money wins: if a skipped month somehow also holds an active payment, the cell reads `paid`.
 
 ## 2. Cell rendering — regular customer (default)
 
@@ -108,6 +110,34 @@ Notes:
 | 4.4.2 | Current month, no payment (regular) | Tap                         | Form opens; current-month highlight in cell      |
 | 4.4.3 | Voided payment leaves cell unpaid   | Void a paid month           | Cell flips to red (regular) / gray (non-regular) |
 | 4.4.4 | Re-pay after void                   | Tap voided-month cell, save | Cell green/yellow again                          |
+
+### 4.5 SKIPPED
+
+A month marked "not expected to pay" on ONE service line (`skipped_months`, boolean toggle). Any user can skip / unskip; the note is optional.
+
+| #      | Scenario                              | Steps                                                          | Expected result                                                                                                       |
+| ------ | ------------------------------------- | -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| 4.5.1  | Skip an unpaid month                  | 3-dot → Skip month → confirm (no note)                         | Cell turns slate with "Skipped" sublabel; year card shows a "N skipped" chip; the month leaves the unpaid count        |
+| 4.5.2  | Skip with a note                      | Skip and type a reason                                         | Saved on the row; shown when the unskip dialog opens for that month                                                    |
+| 4.5.3  | Skip a future month                   | 3-dot → Skip on a future month                                 | Allowed; cell reads skipped (skipped outranks future)                                                                  |
+| 4.5.4  | Skip not offered on a paid month      | 3-dot on a paid / partial cell                                 | Skip NOT listed (void the payment first)                                                                               |
+| 4.5.5  | Tap a skipped cell                    | Tap the cell body                                              | Unskip confirmation opens — **never** the payment form                                                                 |
+| 4.5.6  | Unskip                                | Confirm the unskip                                             | Cell reverts to unpaid / future by the normal rules; the row stays in the DB with `skipped = false`                    |
+| 4.5.7  | Re-skip the same month                | Skip → unskip → skip again                                     | Works; the same row is reused (no duplicate row, no unique-violation error)                                            |
+| 4.5.8  | Quick pay excludes it                 | Customer list → Quick pay, customer's only line skipped this month | The line is not paid; the customer shows no "quick pay" prompt for it                                                |
+| 4.5.9  | Deep-link quick pay                   | Customer list quick-pay on a customer whose current month is skipped | Popup "This month is skipped… unskip it first"; the form does NOT open                                            |
+| 4.5.10 | Multi-month block over a skipped month | 3-month plan, month 2 of the window is skipped → Pay           | Payment refused with "The following months are skipped: … Unskip them first"; nothing is written                       |
+| 4.5.11 | Not overdue                           | Skip a past unpaid month, return to the customer list          | The customer loses the red "Unpaid" flag if that was the only unpaid month                                             |
+| 4.5.12 | Dashboard unpaid count                | Skip the current month for a regular customer                  | `unpaidThisMonth` drops by one                                                                                         |
+| 4.5.13 | "N/M plans paid" badge                | 2 plans: one paid, one skipped this month                      | Customer reads fully **paid** (the skipped line is not due, so the badge doesn't show "1/2")                            |
+| 4.5.13a | Card badge — all lines skipped       | Single-plan customer, skip the current month, return to the list | Card shows a slate **"Skipped"** pill, NOT the red "Unpaid"; same after a pull-to-refresh (both status paths agree)    |
+| 4.5.13b | Card badge — partly skipped          | 2 plans: one skipped, one unpaid this month                    | Card still reads **Unpaid** (a real line is owed)                                                                       |
+| 4.5.13c | Card badge — skipped but overdue     | Skip the current month on a customer with an older unpaid month | Card stays red **Unpaid** — an unpaid past month outranks the skip                                                     |
+| 4.5.13d | Unpaid tab                            | Skip the current month for a customer with no older debt, open the **Unpaid** tab | The customer is not listed                                                                    |
+| 4.5.14 | Cancelled plan / inactive customer    | Unskip a future month on a cancelled plan                      | Unskip still allowed (it isn't a payment); paying that future month stays blocked by the existing rule                  |
+| 4.5.15 | Skip is per line                      | 2 plans, skip the current month on plan A only                 | Plan B's grid is unaffected and still owes the month                                                                   |
+| 4.5.16 | Offline skip + sync                   | Skip offline, then reconnect                                   | Row pushes on the natural key; a second device skipping the same month converges to one row (no duplicate)             |
+| 4.5.17 | Offline unskip + sync                 | Skip on device A (synced), unskip on device B, sync both       | Device A's cell returns to unpaid after pull — the `skipped = false` row carries the change                            |
 
 ## 5. Year navigation
 
@@ -197,6 +227,7 @@ Each actionable cell shows a small 3-dot button in its top-end corner. Tapping i
 | 11.12 | Dots tap vs cell tap             | Tap the 3-dot only                             | Opens the menu; does NOT trigger the cell-body open action                                               |
 | 11.13 | Quick Pay error                   | Force a create failure (e.g. month conflict)   | Error surfaces in the panel ErrorBanner; spinner clears                                                  |
 | 11.14 | RTL placement                     | Arabic                                         | 3-dot sits in the top-leading corner (end-anchored), menu labels localized                               |
+| 11.15 | Skip / Unskip rows                | 3-dot on an unpaid, a future, and a skipped cell | "Skip month" listed on unpaid + future; "Unskip month" on skipped; never both at once                  |
 
 ## 12. Multi-select bulk actions
 
@@ -220,3 +251,7 @@ Long-press a non-`before_start` cell to enter selection mode: selected cells gai
 | 12.14 | Partial failure summary                   | Force one create/void to fail in a bulk run                     | Remaining succeed; an amber notice banner shows "ok · failed" counts; selection clears                            |
 | 12.15 | Single round-trip                         | Bulk-pay N months / void N payments                             | One batched DB write per action (not N) — verify via network/db; grid rebuilds once                               |
 | 12.16 | RTL                                       | Arabic                                                          | Toolbar, badges, and ring render correctly end-anchored; labels localized                                        |
+| 12.17 | Bulk skip                                 | Select several unpaid/future months → Skip                      | One confirm (with optional note applied to all) → every selected month turns slate in one write; selection clears |
+| 12.18 | Bulk unskip                               | Select several skipped months → Unskip                          | All revert in one write                                                                                          |
+| 12.19 | Mixed skip selection                      | Select some unpaid + some skipped months                        | Toolbar shows **both** Skip and Unskip; each acts only on its own subset                                         |
+| 12.20 | Skipped cell selection unit               | Multi-month plan: tap a skipped cell in a block window          | Only that one cell is selected (a skipped month is never part of a payable block)                                |

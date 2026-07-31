@@ -1149,6 +1149,71 @@ CREATE INDEX IF NOT EXISTS idx_debt_payments_wallet
     WHERE remitted_at IS NULL AND voided_at IS NULL;
 
 -- ============================================================
+-- SKIPPED MONTHS
+-- A month a service line is NOT expected to pay (vacation, free month, …).
+-- One row per (service line, month) — the same grain as payments — and the
+-- state is a BOOLEAN toggle: skip = true, unskip = false. The row is kept
+-- either way so `updated_at` carries the change to other devices (offline
+-- sync is latest-updated_at-wins; a deleted row would carry nothing).
+-- Carries NO money: skipping never creates or clears a debt.
+-- No branch_id: inherited via the customer, exactly like payments.
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS skipped_months (
+    id                    UUID          PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id             UUID          NOT NULL,
+    customer_id           UUID          NOT NULL,
+    -- The service line this month belongs to.
+    customer_plan_id      UUID          NOT NULL,
+    billing_month         DATE          NOT NULL,
+    -- false = the skip was removed (the row stays as history).
+    skipped               BOOLEAN       NOT NULL DEFAULT TRUE,
+    -- Optional reason shown on the month cell / skip sheet.
+    note                  TEXT,
+    skipped_by_user_id    UUID,
+    created_at            TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    updated_at            TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+
+    -- One skip state per service line per month (mirrors payments' natural key,
+    -- and lets offline derive a deterministic id so two devices converge).
+    CONSTRAINT uq_skipped_months_line_month
+        UNIQUE (customer_plan_id, billing_month),
+
+    CONSTRAINT chk_skipped_months_billing_month_first_day
+        CHECK (EXTRACT(DAY FROM billing_month) = 1),
+
+    CONSTRAINT fk_skipped_months_tenant
+        FOREIGN KEY (tenant_id)
+        REFERENCES tenants(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_skipped_months_customer
+        FOREIGN KEY (customer_id)
+        REFERENCES customers(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_skipped_months_customer_plan
+        FOREIGN KEY (customer_plan_id)
+        REFERENCES customer_plans(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_skipped_months_skipped_by
+        FOREIGN KEY (skipped_by_user_id)
+        REFERENCES users(id)
+        ON DELETE SET NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_skipped_months_tenant_id
+    ON skipped_months (tenant_id);
+
+CREATE INDEX IF NOT EXISTS idx_skipped_months_customer_id
+    ON skipped_months (customer_id);
+
+CREATE INDEX IF NOT EXISTS idx_skipped_months_active_month
+    ON skipped_months (billing_month)
+    WHERE skipped;
+
+-- ============================================================
 -- EXCEPTION LOGS
 -- Local-first crash/error log written by the native app's global error
 -- logger (React ErrorBoundary, RN ErrorUtils global handler, repository
@@ -1211,6 +1276,7 @@ ALTER TABLE sale_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE stock_movements ENABLE ROW LEVEL SECURITY;
 ALTER TABLE custom_debts  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE debt_payments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE skipped_months ENABLE ROW LEVEL SECURITY;
 ALTER TABLE exception_logs ENABLE ROW LEVEL SECURITY;
 
 -- ==============================================================
@@ -1776,6 +1842,38 @@ DO $$ BEGIN
             );
     END IF;
 
+    -- ── SKIPPED MONTHS ───────────────────────────────────────
+    -- Same branch-via-customer inheritance as payments / custom_debts.
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE tablename = 'skipped_months' AND policyname = 'skipped_months_all'
+    ) THEN
+        CREATE POLICY skipped_months_all ON skipped_months
+            FOR ALL
+            USING (
+                tenant_id = current_tenant_id()
+                AND (
+                    current_branch_id() IS NULL
+                    OR EXISTS (
+                        SELECT 1 FROM customers c
+                        WHERE c.id = skipped_months.customer_id
+                          AND c.branch_id = current_branch_id()
+                    )
+                )
+            )
+            WITH CHECK (
+                tenant_id = current_tenant_id()
+                AND (
+                    current_branch_id() IS NULL
+                    OR EXISTS (
+                        SELECT 1 FROM customers c
+                        WHERE c.id = skipped_months.customer_id
+                          AND c.branch_id = current_branch_id()
+                    )
+                )
+            );
+    END IF;
+
     -- ── EXCEPTION LOGS ───────────────────────────────────────
     -- Flat debug/audit log, not branch-owned. Tenant-scoped read/write;
     -- rows with a NULL tenant_id (pre-auth errors) are also visible/insertable
@@ -1897,6 +1995,11 @@ CREATE OR REPLACE TRIGGER trg_custom_debts_updated_at
 
 CREATE OR REPLACE TRIGGER trg_debt_payments_updated_at
     BEFORE UPDATE ON debt_payments
+    FOR EACH ROW
+    EXECUTE FUNCTION set_updated_at();
+
+CREATE OR REPLACE TRIGGER trg_skipped_months_updated_at
+    BEFORE UPDATE ON skipped_months
     FOR EACH ROW
     EXECUTE FUNCTION set_updated_at();
 

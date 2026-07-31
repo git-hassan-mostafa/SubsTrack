@@ -4,7 +4,11 @@ import { PAGE_SIZE, type BranchFilter } from '@/src/core/constants';
 import type { CurrentMonthPlanCount } from '@/src/core/types';
 import type { DbPayment } from '@/src/core/types/db';
 import type { FindPaymentsOptions } from '../utils/types';
-import type { CreatePaymentPayload, IPaymentRepository } from './IPaymentRepository';
+import type {
+  CreatePaymentPayload,
+  IPaymentRepository,
+  MonthStatusSets,
+} from './IPaymentRepository';
 import { OfflinePaymentRepository } from './PaymentRepository.offline';
 
 // Joins the customer name (and branch_id, needed by the inherited branch filter)
@@ -171,20 +175,14 @@ export class PaymentRepository extends BaseRepository implements IPaymentReposit
 
   // Returns customer IDs whose CURRENT-month status, aggregated across all their
   // active (started) service lines, is:
-  //   - fullyPaidIds — every started line is covered and settled (balance == 0)
-  //   - partialIds   — some coverage exists, but a line is uncovered or unsettled
+  //   - fullyPaidIds — every started, due line is covered and settled (balance == 0)
+  //   - partialIds   — some coverage exists, but a due line is uncovered or unsettled
   // A customer with several lines only turns "fully paid" once every line is
-  // settled. Handles multi-month coverage. amount_paid = 0 is treated as unpaid.
-  // Branch scoping is left to RLS (customer_plans + payments inherit the
-  // customer's branch). Must stay in sync with PaymentService.buildMonthGrid().
-  async findPaymentStatusForMonth(
-    billingMonth: string,
-  ): Promise<{
-    fullyPaidIds: Set<string>;
-    partialIds: Set<string>;
-    planCounts: Map<string, CurrentMonthPlanCount>;
-    coveredLineIds: Set<string>;
-  }> {
+  // settled. Skipped lines are not due: they neither count nor block. Handles
+  // multi-month coverage. amount_paid = 0 is treated as unpaid. Branch scoping is
+  // left to RLS (customer_plans + payments + skipped_months inherit the customer's
+  // branch). Must stay in sync with PaymentService.buildMonthGrid().
+  async findPaymentStatusForMonth(billingMonth: string): Promise<MonthStatusSets> {
     const [year, monthStr] = billingMonth.split('-').map(Number);
     // A payment from up to 12 months prior could still cover this month (max duration = 12).
     const cutoffDate = new Date(year, monthStr - 1 - 12, 1);
@@ -216,6 +214,17 @@ export class PaymentRepository extends BaseRepository implements IPaymentReposit
       .gt('amount_paid', 0);
     if (error) this.handleError(error);
 
+    // Lines whose month is skipped — not due, so they drop out of the tally.
+    const { data: skipRows, error: sErr } = await this.db
+      .from('skipped_months')
+      .select('customer_plan_id')
+      .eq('billing_month', billingMonth)
+      .eq('skipped', true);
+    if (sErr) this.handleError(sErr);
+    const skippedLineIds = new Set(
+      ((skipRows ?? []) as { customer_plan_id: string }[]).map((r) => r.customer_plan_id),
+    );
+
     const settledByLine = new Map<string, boolean>();
     for (const r of (data ?? []) as {
       customer_plan_id: string;
@@ -234,14 +243,19 @@ export class PaymentRepository extends BaseRepository implements IPaymentReposit
 
     const fullyPaidIds = new Set<string>();
     const partialIds = new Set<string>();
-    // Per customer: how many started lines are fully settled this month, out of
-    // the total started lines — drives the customer-list "N/M plans paid" badge.
+    const skippedIds = new Set<string>();
+    // Per customer: how many due lines are fully settled this month, out of the
+    // total due lines — drives the customer-list "N/M plans paid" badge.
     const planCounts = new Map<string, CurrentMonthPlanCount>();
     for (const [customerId, lineIds] of linesByCustomer) {
       let anyCovered = false;
       let allCoveredAndSettled = true;
       let paid = 0;
+      let total = 0;
       for (const lineId of lineIds) {
+        // A skipped line is owed by nobody (grid rule: paid > skipped > unpaid).
+        if (skippedLineIds.has(lineId) && !settledByLine.has(lineId)) continue;
+        total++;
         if (settledByLine.has(lineId)) {
           anyCovered = true;
           if (settledByLine.get(lineId)) paid++;
@@ -250,14 +264,19 @@ export class PaymentRepository extends BaseRepository implements IPaymentReposit
           allCoveredAndSettled = false; // an active line has no payment this month
         }
       }
-      planCounts.set(customerId, { paid, total: lineIds.length });
+      planCounts.set(customerId, { paid, total });
+      // Every started line dropped out as skipped → nothing is owed this month.
+      if (total === 0) {
+        skippedIds.add(customerId);
+        continue;
+      }
       if (!anyCovered) continue;
       if (allCoveredAndSettled) fullyPaidIds.add(customerId);
       else partialIds.add(customerId);
     }
-    // Every line with a covering payment this month (settled or partial).
-    const coveredLineIds = new Set(settledByLine.keys());
-    return { fullyPaidIds, partialIds, planCounts, coveredLineIds };
+    // Lines not to quick-pay: covered by a payment this month, or skipped.
+    const notDueLineIds = new Set([...settledByLine.keys(), ...skippedLineIds]);
+    return { fullyPaidIds, partialIds, skippedIds, planCounts, notDueLineIds };
   }
 
   // Returns every active (non-voided, non-zero-paid) payment across all

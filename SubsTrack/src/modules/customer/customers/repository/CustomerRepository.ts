@@ -221,6 +221,17 @@ export class CustomerRepository extends BaseRepository implements ICustomerRepos
         .map((r) => r.customer_plan_id),
     );
 
+    // Lines whose month is skipped — nothing is owed, so they never count.
+    const { data: skipRows, error: sErr } = await this.db
+      .from('skipped_months')
+      .select('customer_plan_id')
+      .eq('billing_month', billingMonth)
+      .eq('skipped', true);
+    if (sErr) this.handleError(sErr);
+    const skippedLineIds = new Set(
+      ((skipRows as { customer_plan_id: string }[] | null) ?? []).map((r) => r.customer_plan_id),
+    );
+
     // Active lines on active, regular customers (started by this month).
     let linesQuery = this.db
       .from('customer_plans')
@@ -236,6 +247,7 @@ export class CustomerRepository extends BaseRepository implements ICustomerRepos
     for (const l of ((lines as { id: string; customer_id: string; start_date: string }[] | null) ?? [])) {
       const [sy, sm] = l.start_date.split('-').map(Number);
       if (new Date(`${sy}-${String(sm).padStart(2, '0')}-01`) > target) continue; // not started yet
+      if (skippedLineIds.has(l.id)) continue; // skipped month — not owed
       if (!coveredLineIds.has(l.id)) unpaidCustomers.add(l.customer_id);
     }
     return unpaidCustomers.size;

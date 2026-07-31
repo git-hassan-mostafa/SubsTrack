@@ -45,6 +45,7 @@ function isPayable(entry: MonthEntry): boolean {
  * toggles `entry`:
  * - cell backed by an active payment → every visible month sharing that payment
  *   (keeps a multi-month block whole for voiding);
+ * - skipped cell → just itself (it can only be unskipped);
  * - multi-month plan + payable cell → the visible payable months of its
  *   start-aligned window;
  * - otherwise → just the cell itself.
@@ -61,6 +62,10 @@ export function expandSelectionUnit(
       .filter((m) => m.payment?.id === paymentId)
       .map((m) => m.billingMonth);
   }
+
+  // A skipped month is never part of a payable block — selecting it only ever
+  // means "unskip this one".
+  if (entry.status === "skipped") return [entry.billingMonth];
 
   if (!isPayable(entry)) return [];
 

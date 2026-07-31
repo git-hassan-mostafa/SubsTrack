@@ -143,6 +143,22 @@ export interface DbPayment {
   updated_at: string;
 }
 
+// A month one service line is not expected to pay. `skipped` is a toggle: the
+// row stays when the skip is removed so `updated_at` carries the change to
+// other devices. Carries no money.
+export interface DbSkippedMonth {
+  id: string;
+  tenant_id: string;
+  customer_id: string;
+  customer_plan_id: string;
+  billing_month: string;
+  skipped: boolean;
+  note: string | null;
+  skipped_by_user_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface DbProduct {
   id: string;
   tenant_id: string;

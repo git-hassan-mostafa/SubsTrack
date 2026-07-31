@@ -8,7 +8,9 @@ export type MultiMonthConflict = {
 
 export type CreateMultiMonthPaymentResult = {
     payment: Payment;
-    skippedMonths: MultiMonthConflict[];
+    // Months the block stepped over because they were ALREADY PAID. Not related
+    // to the skipped-month feature (a skipped month blocks the whole block).
+    conflictMonths: MultiMonthConflict[];
 };
 
 // "all" → any settled payment; "paid" → balance cleared; "partial" → balance owed.

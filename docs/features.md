@@ -16,6 +16,7 @@
 - [Transactions Hub](#transactions-hub)
 - [Debts](#debts)
 - [Regular Customer](#regular-customer)
+- [Skipped Months](#skipped-months)
 - [Multiple Plans per Customer (service lines)](#multiple-plans-per-customer-service-lines)
 - [Payment Scenarios](#payment-scenarios)
 - [Multi-Select & Bulk Actions](#multi-select--bulk-actions)
@@ -429,6 +430,43 @@ See gotcha #16.
 
 ---
 
+## Skipped Months
+
+A **skipped month** is a month one service line is **not expected to pay** — a free month, a vacation, a service pause. It is neither paid nor unpaid, and it is reversible.
+
+**Model — `skipped_months`, one row per (service line, month).** Columns: `tenant_id`, `customer_id`, `customer_plan_id`, `billing_month`, `skipped` (BOOLEAN), `note` (optional), `skipped_by_user_id`, timestamps. `UNIQUE(customer_plan_id, billing_month)` — deliberately the **same natural key as `payments`**, so the grain matches the grid and offline can derive a deterministic id.
+
+- **Unskip flips the boolean to `false`; the row is KEPT.** A deleted row would carry nothing to the other devices (the pull is latest-`updated_at`-wins), so the toggle is the sync signal. Re-skipping the same month reuses the row. The store only ever holds the **active** skips (`skipped = true`) — `SkippedMonthService.getSkipsForCustomer` / `getActiveSkips` filter server-side.
+- Carries **no money at all**: skipping never creates, clears, or touches a debt, a payment, or the wallet.
+- **Any user** can skip or unskip. `skipped_by_user_id` records who last set the state.
+
+**Grid rule (the only status change).** `buildMonthGrid(line, payments, skips, year, graceDays)` inserts one step: `before_start` → `paid` → **`skipped`** → `future` → `unpaid`. So **money always wins** — a skip left on a month that later gets paid is inert (the cell reads paid), which is why the service does not need to guard against skipping an already-paid month. The cell renders slate with a "Skipped" sub-label for regular and non-regular customers alike, and `MonthEntry.skip` carries the note for the sheet.
+
+**Not payable — the user must unskip first.** There is no "pay anyway":
+
+- Tapping a skipped cell opens the **unskip** confirmation (checked *before* the inactive/cancelled gate, since unskipping is not a payment).
+- The `?quickPay=1` deep link from the customer list shows `payments.skip.pay_blocked` instead of the form.
+- Every other pay path filters on `status === 'unpaid' || 'future'`, so the new status excludes itself: `canQuickPay`, `payableEntries`, and `isPayable` in `monthSelection.ts`.
+- A **multi-month block** covering a skipped month is refused whole (`assertNoSkippedMonths` → `errors.months_skipped`) — the block covers consecutive months and cannot leave a hole.
+
+**Nothing is owed, so nothing counts it.** Three paths had to learn the rule and stay in lockstep:
+
+| Path | Behavior |
+| --- | --- |
+| `findOverdueCustomerIds` (JS, all years) | Loads the tenant's active skips alongside `findActivePayments`; a skipped month never resolves to `unpaid`, so it never makes a customer overdue. |
+| `findPaymentStatusForMonth` (SQL, current month) + `computeCurrentMonthStatus` (in-memory) | A skipped line drops out of the "N/M plans paid" tally (`total`) and doesn't block "fully paid". When `total` falls to **0** (every started line skipped), the customer goes into `skippedIds` / status `"skipped"` instead of falling through to the list's red "Unpaid" default. |
+| `CustomerRepository.countUnpaidForMonth` (web + offline) | The dashboard's `unpaidThisMonth` skips those lines. |
+
+**Customer-list badge.** Both status paths return `skippedIds` (slice: `currentMonthSkippedIds`) — customers that owe nothing this month because **every** started active line is skipped. The card shows a slate **"Skipped"** pill, and the list's **Unpaid** tab leaves them out. Priority is unchanged otherwise: `mixed` → overdue `unpaid` → `paid` → `partial` → **`skipped`** → `unpaid`, so a past unpaid month still wins (a customer overdue from earlier months stays red even when this month is skipped), and a customer with one skipped and one unpaid line is still red — only *all* lines skipped counts.
+
+**`coveredLineIds` was renamed `notDueLineIds`** (slice: `currentMonthNotDueLineIds`) because it now means "must not be quick-paid this month" — already covered by a payment **or** skipped. `CustomerListScreen`'s `eligibleFixedLines` / `hasUnpaidStartedLine` read it unchanged, so "Collect all due" leaves skipped lines alone.
+
+**UI.** `SkipMonthSheet` (a `ConfirmDialog`, like `VoidSheet`) handles both directions: skipping takes the optional note, unskipping echoes back the note it was skipped with. Entry points: the month cell's 3-dot menu (**Skip month** on unpaid/future, **Unskip month** on skipped), a tap on a skipped cell, and the grid's **multi-select** toolbar — a selection can hold both kinds, so *Skip* and *Unskip* appear together and each acts on its own subset. A skipped cell's selection unit is always just itself (never part of a payable block). The year card shows a **"N skipped"** chip next to paid/unpaid when the year has any.
+
+**Offline.** `skipped_months` is a synced tenant table (`db/tables.ts` + `SYNC_PULL_ORDER`, right after `payments`) with a local `UNIQUE (customer_plan_id, billing_month)`. Writes go through `upsertNaturalKeyDirty` — the generalization of the old `upsertPaymentDirty` — and the id is `deterministicId('skip', customer_plan_id, billing_month)`, prefixed so it can't collide with the payment id built from the same pair. Push uses the natural key as the conflict target (`conflictTarget` in `sync.ts`), so two devices skipping the same month converge.
+
+---
+
 ## Customer Map Location
 
 Each customer can carry an optional `Customer.locationUrl` (`customers.location_url`, nullable) so a
@@ -469,11 +507,11 @@ A customer can subscribe to **several plans at once** (e.g. an ISP customer with
 
 **Payments on a cancelled plan (or inactive customer).** A cancelled line stays **payable for its PAST + CURRENT months** (record via form, quick-pay, and bulk-pay all work); only **calendar-future** months are blocked (a "Not available" dialog: `payments.cancelled_plan_future_blocked`, or `payments.inactive_future_blocked` when the whole customer is inactive — customer-inactive takes priority). This is one shared gate in `CustomerPaymentPanel` — `isPayBlocked(entry) = (!customer.active || !lineActive) && isCalendarFuture(entry)` — used by `handleCellPress`, `canQuickPay`, and the `payableEntries` bulk filter, so all three paths agree. Note **calendar**-future (year/month strictly after now), NOT the grid "future" **status** (which also covers a current/recent month still inside its grace window) — so the current month is always payable even during grace. `PaymentFormSheet.blockedForInactive` uses the same rule, so an opened form on a past/current cancelled month submits normally.
 
-**Aggregation across lines.** Customer-list status is aggregated over a customer's **active** lines: fully-paid (green) only when every line has a covering payment for the current month (a **partial** payment counts as covered — its remainder is a debt, not an unsettled month), overdue (red) if any active line has an unpaid month (`findOverdueCustomerIds` / `findPaymentStatusForMonth` / `computeCurrentMonthStatus`).
+**Aggregation across lines.** Customer-list status is aggregated over a customer's **active** lines: fully-paid (green) only when every line has a covering payment for the current month (a **partial** payment counts as covered — its remainder is a debt, not an unsettled month), overdue (red) if any active line has an unpaid month (`findOverdueCustomerIds` / `findPaymentStatusForMonth` / `computeCurrentMonthStatus`). A **skipped** line is not due at all: it neither counts nor blocks, and a customer whose lines are *all* skipped reads "Skipped" rather than unpaid (see [Skipped Months](#skipped-months)).
 
-**"N/M plans paid" badge (multi-plan).** A customer with **2+ started plans where some are paid this month and some are not** gets its own amber badge — e.g. **"1/2 plans paid"** — instead of the plain red "Unpaid". It takes priority over overdue in the card's status derivation, so a partly-paid account is never confused with a fully-unpaid one. The tally is `CurrentMonthPlanCount { paid, total }` where `total` = started lines this month (grid status ≠ `before_start`; a within-grace `future` line still counts) and `paid` = lines fully settled this month (grid status `paid`). Two code paths compute it and are kept **in lockstep**: `PaymentRepository.findPaymentStatusForMonth` (SQL, initial/bulk load → `planCounts` map) and `PaymentService.computeCurrentMonthStatus` (in-memory, the optimistic update after a pay/void — returns `{ status, count, coveredLineIds }`). The slice stores `currentMonthPlanCounts`; `syncCustomerMonthStatus` refreshes an entry after every pay/void and `clearPaymentStatus` (void-this-month path) drops it. The badge shows only when `total >= 2 && 0 < paid < total`. A partially-paid line counts toward `paid` (a partial payment reports as `paid`), so a single-plan customer who paid partially reads as fully **paid** (green), not partial — the remaining amount shows only on the Debts tab.
+**"N/M plans paid" badge (multi-plan).** A customer with **2+ started plans where some are paid this month and some are not** gets its own amber badge — e.g. **"1/2 plans paid"** — instead of the plain red "Unpaid". It takes priority over overdue in the card's status derivation, so a partly-paid account is never confused with a fully-unpaid one. The tally is `CurrentMonthPlanCount { paid, total }` where `total` = started lines this month (grid status ≠ `before_start`; a within-grace `future` line still counts) and `paid` = lines fully settled this month (grid status `paid`). Two code paths compute it and are kept **in lockstep**: `PaymentRepository.findPaymentStatusForMonth` (SQL, initial/bulk load → `planCounts` map) and `PaymentService.computeCurrentMonthStatus` (in-memory, the optimistic update after a pay/void — returns `{ status, count, notDueLineIds }`). `total` also excludes **skipped** lines. The slice stores `currentMonthPlanCounts`; `syncCustomerMonthStatus` refreshes an entry after every pay/void and `clearPaymentStatus` (void-this-month path) drops it. The badge shows only when `total >= 2 && 0 < paid < total`. A partially-paid line counts toward `paid` (a partial payment reports as `paid`), so a single-plan customer who paid partially reads as fully **paid** (green), not partial — the remaining amount shows only on the Debts tab.
 
-**Covered-line tracking (quick-pay eligibility).** Alongside the badge tally, both status paths also return **`coveredLineIds`** — the service-line ids that already have a covering (non-voided) payment this month, full or partial. The slice keeps it as `currentMonthCoveredLineIds` (a `Set`), refreshed by `fetchCurrentMonthPaymentStatus` and maintained optimistically by `syncCustomerMonthStatus` → `updateCoveredLines`. Quick pay skips any line in this set, so a **mixed** multi-plan customer pays only its still-unpaid plans and never re-pays a line (the payments `createMany` upsert would otherwise overwrite the existing row and reset its remittance). The list's own void-this-month path refreshes the full status (covered set included) after voiding so freed lines become quick-payable again.
+**Not-due-line tracking (quick-pay eligibility).** Alongside the badge tally, both status paths also return **`notDueLineIds`** — the service-line ids that must not be quick-paid this month: they already have a covering (non-voided) payment, full or partial, **or** the month is skipped on that line. The slice keeps it as `currentMonthNotDueLineIds` (a `Set`), refreshed by `fetchCurrentMonthPaymentStatus` and maintained optimistically by `syncCustomerMonthStatus` → `updateNotDueLines`. Quick pay skips any line in this set, so a **mixed** multi-plan customer pays only its still-due plans and never re-pays a line (the payments `createMany` upsert would otherwise overwrite the existing row and reset its remittance). The list's own void-this-month path refreshes the full status (the set included) after voiding so freed lines become quick-payable again.
 
 **Collect all due.** Customer-list Quick Pay (single or bulk) pays **every eligible fixed-price line still unpaid this month** in one batch via `bulkPayCustomers` (one `BulkPayCustomerRequest` per line; already-covered lines are filtered out by `currentMonthCoveredLineIds`). Custom-price / plan-less customers fall back to the detail form. The Transactions → Payments rows show the plan name so a customer's lines are distinguishable.
 

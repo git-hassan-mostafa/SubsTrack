@@ -33,6 +33,7 @@ import { getBlockRangeLabel } from "../utils/blockRangeLabel";
 import { MonthGrid } from "./MonthGrid";
 import { PaymentDetailSheet } from "./PaymentDetailSheet";
 import { PaymentFormSheet } from "./PaymentFormSheet";
+import { SkipMonthSheet } from "./SkipMonthSheet";
 import { VoidSheet } from "./VoidSheet";
 import { GridSelectionToolbar } from "./GridSelectionToolbar";
 import {
@@ -148,6 +149,11 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkPayVisible, setBulkPayVisible] = useState(false);
   const [bulkVoidIds, setBulkVoidIds] = useState<string[] | null>(null);
+  // Months being skipped / unskipped (one cell, or a whole selection).
+  const [skipRequest, setSkipRequest] = useState<{
+    entries: MonthEntry[];
+    mode: "skip" | "unskip";
+  } | null>(null);
 
   // Keep a valid line selected as lines load / change (prefer active lines).
   useEffect(() => {
@@ -197,10 +203,20 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
     const currentEntry = grid.find((m) => m.year === cy && m.month === cm);
     if (!currentEntry) return;
     quickPayHandledRef.current = true;
+    router.setParams({ quickPay: undefined });
+    // A skipped month can't be paid — explain instead of opening the form.
+    if (currentEntry.status === "skipped") {
+      void confirm({
+        title: t("common.not_available"),
+        message: t("payments.skip.pay_blocked"),
+        confirmLabel: t("common.close"),
+        hideCancel: true,
+      });
+      return;
+    }
     setSelectedEntry(currentEntry);
     setFormVisible(true);
-    router.setParams({ quickPay: undefined });
-  }, [quickPay, paymentsLoading, grid, router]);
+  }, [quickPay, paymentsLoading, grid, router, t]);
 
   const lineActive = selectedLine?.active ?? false;
 
@@ -227,6 +243,14 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
         confirmLabel: t("common.close"),
         hideCancel: true,
       });
+      return;
+    }
+
+    // A skipped month is not payable — tapping it offers the unskip instead.
+    // Checked before the inactive gate: unskipping is not a payment, so it stays
+    // available on a cancelled plan / inactive customer.
+    if (entry.status === "skipped") {
+      setSkipRequest({ entries: [entry], mode: "unskip" });
       return;
     }
 
@@ -375,6 +399,24 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
         onPress: () => void handleQuickPay(entry),
       });
     }
+    // Skip is offered on months with nothing to collect yet; a paid month must
+    // be voided first, so the two actions never appear together.
+    if (entry.status === "unpaid" || entry.status === "future") {
+      items.push({
+        key: "skip",
+        label: t("payments.skip.skip_action"),
+        icon: "play-skip-forward-outline",
+        onPress: () => setSkipRequest({ entries: [entry], mode: "skip" }),
+      });
+    }
+    if (entry.status === "skipped") {
+      items.push({
+        key: "unskip",
+        label: t("payments.skip.unskip_action"),
+        icon: "refresh-outline",
+        onPress: () => setSkipRequest({ entries: [entry], mode: "unskip" }),
+      });
+    }
     if (hasActivePayment(entry)) {
       items.push({
         key: "void",
@@ -417,6 +459,11 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
     (e) =>
       e.status === "paid" && e.payment != null && e.payment.voidedAt === null,
   );
+  // Skippable = nothing collected yet on that month; unskippable = already skipped.
+  const skippableEntries = selectedEntries.filter(
+    (e) => e.status === "unpaid" || e.status === "future",
+  );
+  const skippedEntries = selectedEntries.filter((e) => e.status === "skipped");
 
   function handleCellToggle(entry: MonthEntry) {
     if (!selectedLine) return;
@@ -571,6 +618,24 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
       onPress: runBulkPay,
     });
   }
+  if (skippableEntries.length > 0) {
+    selectionActions.push({
+      key: "skip",
+      icon: "play-skip-forward-outline",
+      label: t("payments.skip.skip_action"),
+      disabled: bulkBusy,
+      onPress: () => setSkipRequest({ entries: skippableEntries, mode: "skip" }),
+    });
+  }
+  if (skippedEntries.length > 0) {
+    selectionActions.push({
+      key: "unskip",
+      icon: "refresh-outline",
+      label: t("payments.skip.unskip_action"),
+      disabled: bulkBusy,
+      onPress: () => setSkipRequest({ entries: skippedEntries, mode: "unskip" }),
+    });
+  }
   if (voidableEntries.length > 0) {
     selectionActions.push({
       key: "void",
@@ -593,6 +658,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
 
   const paidCount = grid.filter((m) => m.status === "paid").length;
   const unpaidCount = grid.filter((m) => m.status === "unpaid").length;
+  const skippedCount = grid.filter((m) => m.status === "skipped").length;
   const collectedTotalUsd = payments
     .filter(
       (p) =>
@@ -775,6 +841,16 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
                     {t("customers.year_unpaid").toLowerCase()}
                   </Text>
                 </View>
+                {skippedCount > 0 ? (
+                  <View className="flex-row items-center bg-gray-100 rounded-full px-2 py-0.5">
+                    <Text fontWeight="SemiBold" className="text-xs text-gray-900">
+                      {skippedCount}
+                    </Text>
+                    <Text className="text-xs text-gray-500 ms-1">
+                      {t("payments.skip.skipped_label").toLowerCase()}
+                    </Text>
+                  </View>
+                ) : null}
                 <View className="flex-row items-center bg-gray-100 rounded-full px-2 py-0.5">
                   <Text fontWeight="SemiBold" className="text-xs text-gray-900">
                     {collectedTotalLabel}
@@ -884,6 +960,23 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
           onDismiss={() => setBulkPayVisible(false)}
         />
       )}
+      {skipRequest && selectedLine && (
+        <SkipMonthSheet
+          entries={skipRequest.entries}
+          mode={skipRequest.mode}
+          customerId={customer.id}
+          line={selectedLine}
+          lines={lines}
+          year={year}
+          graceDays={graceDays}
+          onDone={() => {
+            setSkipRequest(null);
+            selection.clear();
+          }}
+          onDismiss={() => setSkipRequest(null)}
+        />
+      )}
+
       {bulkVoidIds && (
         <BulkVoidSheet
           paymentIds={bulkVoidIds}

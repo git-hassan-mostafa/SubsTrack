@@ -92,11 +92,14 @@ function stripForPush(table: string, row: Record<string, unknown>): Record<strin
 }
 
 /**
- * The upsert conflict key. Payments converge on their natural key (one payment
- * per service line per month); every other table converges on its primary key.
+ * The upsert conflict key. Payments and skipped months converge on their natural
+ * key (one row per service line per month); every other table converges on its
+ * primary key.
  */
 function conflictTarget(table: string): string {
-  return table === 'payments' ? 'customer_plan_id,billing_month' : 'id';
+  return table === 'payments' || table === 'skipped_months'
+    ? 'customer_plan_id,billing_month'
+    : 'id';
 }
 
 /**

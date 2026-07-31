@@ -23,7 +23,10 @@ import {
   useSubscriptionSlice,
 } from "@/src/state/hooks/useSubscriptionSlice";
 import type { Customer } from "@/src/core/types";
-import { CustomerCard } from "../components/CustomerCard";
+import {
+  CustomerCard,
+  type CustomerPaymentStatus,
+} from "../components/CustomerCard";
 import { CustomerFormSheet } from "../components/CustomerFormSheet";
 import { CustomDebtFormSheet } from "@/src/modules/transaction/debts/components/CustomDebtFormSheet";
 import { DebtPaymentFormSheet } from "@/src/modules/transaction/debts/components/DebtPaymentFormSheet";
@@ -80,11 +83,14 @@ export function CustomerListScreen() {
   const currentMonthPartialIds = usePaymentSlice(
     (s) => s.currentMonthPartialIds,
   );
+  const currentMonthSkippedIds = usePaymentSlice(
+    (s) => s.currentMonthSkippedIds,
+  );
   const currentMonthPlanCounts = usePaymentSlice(
     (s) => s.currentMonthPlanCounts,
   );
-  const currentMonthCoveredLineIds = usePaymentSlice(
-    (s) => s.currentMonthCoveredLineIds,
+  const currentMonthNotDueLineIds = usePaymentSlice(
+    (s) => s.currentMonthNotDueLineIds,
   );
   const overdueCustomerIds = usePaymentSlice((s) => s.overdueCustomerIds);
   const fetchCurrentMonthPaymentStatus = usePaymentSlice(
@@ -197,10 +203,18 @@ export function CustomerListScreen() {
         (c) =>
           c.active &&
           c.isRegular &&
-          (overdueCustomerIds.has(c.id) || !hasCurrentMonthPayment(c.id)),
+          // A customer whose every line is skipped owes nothing this month.
+          (overdueCustomerIds.has(c.id) ||
+            (!hasCurrentMonthPayment(c.id) && !currentMonthSkippedIds.has(c.id))),
       );
     return customers;
-  }, [activeTab, customers, hasCurrentMonthPayment, overdueCustomerIds]);
+  }, [
+    activeTab,
+    customers,
+    hasCurrentMonthPayment,
+    overdueCustomerIds,
+    currentMonthSkippedIds,
+  ]);
 
   // Resolve selected ids against the VISIBLE list, so a selected-then-filtered-out
   // customer can never be acted on invisibly.
@@ -237,8 +251,8 @@ export function CustomerListScreen() {
 
   // Active, started, fixed-price service lines eligible for one-tap current-month
   // pay. Custom-price / plan-less lines need the manual form and are excluded.
-  // Lines already covered by a payment this month are skipped so a mixed
-  // multi-plan customer pays only the plans still unpaid (never re-pays a line).
+  // Lines not due this month (already covered by a payment, or skipped) are left
+  // out so a mixed multi-plan customer pays only the plans still owed.
   function eligibleFixedLines(customer: Customer): BulkPayCustomerRequest[] {
     return startedActiveLines(customer)
       .filter(
@@ -246,7 +260,7 @@ export function CustomerListScreen() {
           l.plan != null &&
           !l.plan.isCustomPrice &&
           l.plan.price !== null &&
-          !currentMonthCoveredLineIds.has(l.id),
+          !currentMonthNotDueLineIds.has(l.id),
       )
       .map((l) => ({
         customerId: customer.id,
@@ -262,7 +276,7 @@ export function CustomerListScreen() {
   // or a custom/plan-less line that opens the manual form).
   function hasUnpaidStartedLine(customer: Customer): boolean {
     return startedActiveLines(customer).some(
-      (l) => !currentMonthCoveredLineIds.has(l.id),
+      (l) => !currentMonthNotDueLineIds.has(l.id),
     );
   }
 
@@ -340,14 +354,15 @@ export function CustomerListScreen() {
       // "N/M plans paid" badge instead of a plain red "Unpaid" — it takes
       // priority so a partly-paid account never looks like a fully-unpaid one.
       // Otherwise: any unpaid past month forces "unpaid" even when the current
-      // month is settled, else fall back to the current month's status.
+      // month is settled, then the current month's status — and a customer whose
+      // every line is skipped reads "skipped", never the red "unpaid" default.
       const planCount = currentMonthPlanCounts.get(item.id) ?? null;
       const isMixed =
         !!planCount &&
         planCount.total >= 2 &&
         planCount.paid > 0 &&
         planCount.paid < planCount.total;
-      const paymentStatus: "paid" | "partial" | "unpaid" | "mixed" = isMixed
+      const paymentStatus: CustomerPaymentStatus = isMixed
         ? "mixed"
         : overdueCustomerIds.has(item.id)
           ? "unpaid"
@@ -355,7 +370,9 @@ export function CustomerListScreen() {
             ? "paid"
             : currentMonthPartialIds.has(item.id)
               ? "partial"
-              : "unpaid";
+              : currentMonthSkippedIds.has(item.id)
+                ? "skipped"
+                : "unpaid";
       const debtUsd = netDebtByCustomer[item.id];
       const debtLabel =
         debtUsd && debtUsd > 0
@@ -381,6 +398,7 @@ export function CustomerListScreen() {
     [
       currentMonthFullyPaidIds,
       currentMonthPartialIds,
+      currentMonthSkippedIds,
       currentMonthPlanCounts,
       overdueCustomerIds,
       netDebtByCustomer,

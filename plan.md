@@ -233,6 +233,23 @@ created_at          timestamptz
 
 Constraint: UNIQUE(customer_plan_id, billing_month) — one payment per **service line** per month (a customer with several lines pays each one independently). Enforced at DB level, also via the upsert conflict target in PaymentRepository.
 
+### skipped_months (months a service line is not expected to pay)
+
+```
+id                  uuid pk
+tenant_id           uuid fk → tenants (ON DELETE CASCADE)
+customer_id         uuid fk → customers (ON DELETE CASCADE)
+customer_plan_id    uuid fk → customer_plans (ON DELETE CASCADE)   — the service line
+billing_month       date   — MUST be first day of month (YYYY-MM-01)
+skipped             boolean not null default true   — false = unskipped; the ROW IS KEPT
+note                text nullable                   — optional reason
+skipped_by_user_id  uuid nullable fk → users (ON DELETE SET NULL)  — who last set the state
+created_at          timestamptz
+updated_at          timestamptz
+```
+
+Constraint: UNIQUE(customer_plan_id, billing_month) — the same natural key as `payments`, so one month of one line has exactly one skip state. Carries no money. Unskip flips `skipped` to false rather than deleting, so the change reaches other devices through the normal latest-`updated_at`-wins sync.
+
 ---
 
 ## Multi-Tenancy Rules (NON-NEGOTIABLE)
@@ -276,10 +293,15 @@ Months are NEVER stored in the database. They are generated dynamically in the U
 
 ```
 if payment exists AND voided_at is null → PAID
+else if an active skip covers the month → SKIPPED      (money always wins over a skip)
 else if month is in the future (after current month) → FUTURE
 else if within grace period (configurable per tenant, default 0 days) → FUTURE
 else → UNPAID
 ```
+
+### Skipped months
+
+A month can be marked **skipped** on one service line — a free month, a pause, a vacation. It is never unpaid, never overdue, never counted in the dashboard's unpaid figure, and **never payable**: the user must unskip it first (a multi-month block covering a skipped month is refused whole). Any user can skip or unskip, with an optional note. Skips live in `skipped_months` (one row per line+month, boolean toggle). On the customer list, a customer whose every started line is skipped this month shows a slate **"Skipped"** badge and drops out of the Unpaid tab. See docs/features.md → Skipped Months.
 
 ### Grace period
 

@@ -1,5 +1,5 @@
-import type { DbPayment } from "@/src/core/types/db";
-import type { Payment } from "@/src/core/types";
+import type { DbPayment, DbSkippedMonth } from "@/src/core/types/db";
+import type { Payment, SkippedMonth } from "@/src/core/types";
 import type { PaymentListItem } from "./types";
 
 // A payment row joined with its customer name + plan name, as returned by
@@ -14,6 +14,21 @@ export function mapDbPaymentRowToListItem(db: DbPaymentListRow): PaymentListItem
         ...mapDbPaymentToPayment(db),
         customerName: db.customers?.name ?? "",
         planName: db.plans?.name ?? null,
+    };
+}
+
+export function mapDbSkippedMonthToSkippedMonth(db: DbSkippedMonth): SkippedMonth {
+    return {
+        id: db.id,
+        tenantId: db.tenant_id,
+        customerId: db.customer_id,
+        customerPlanId: db.customer_plan_id,
+        billingMonth: db.billing_month,
+        skipped: db.skipped,
+        note: db.note,
+        skippedByUserId: db.skipped_by_user_id,
+        createdAt: db.created_at,
+        updatedAt: db.updated_at,
     };
 }
 

@@ -215,6 +215,13 @@ export class OfflineCustomerRepository
         .map((r) => r.customer_plan_id),
     );
 
+    // (a2) Lines whose month is skipped — nothing is owed, so they never count.
+    const skipRows = await this.all<{ customer_plan_id: string }>(
+      'SELECT customer_plan_id FROM skipped_months WHERE billing_month = ? AND skipped = 1',
+      [billingMonth],
+    );
+    const skippedLineIds = new Set(skipRows.map((r) => r.customer_plan_id));
+
     // (b) Active lines on active, regular customers — inherited branch filter.
     const lBranch = this.branchWhere(branchFilter, this.BRANCH_SCOPES.customer_plans, 'c');
     const lines = await this.all<{ id: string; customer_id: string; start_date: string }>(
@@ -229,6 +236,7 @@ export class OfflineCustomerRepository
     for (const l of lines) {
       const [sy, sm] = l.start_date.split('-').map(Number);
       if (new Date(`${sy}-${String(sm).padStart(2, '0')}-01`) > target) continue; // not started yet
+      if (skippedLineIds.has(l.id)) continue; // skipped month — not owed
       if (!coveredLineIds.has(l.id)) unpaidCustomers.add(l.customer_id);
     }
     return unpaidCustomers.size;

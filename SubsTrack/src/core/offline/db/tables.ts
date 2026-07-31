@@ -135,6 +135,20 @@ export const TABLES: TableSpec[] = [
     generated: ['balance'], // server: GENERATED ALWAYS AS (amount_due - amount_paid)
   },
   {
+    // Months a service line is not expected to pay. `skipped` toggles; the row
+    // is kept when unskipped so the change syncs like any other update.
+    name: 'skipped_months',
+    scope: 'tenant',
+    columns: {
+      id: 'text', tenant_id: 'text', customer_id: 'text', customer_plan_id: 'text',
+      billing_month: 'text', skipped: 'bool', note: 'text', skipped_by_user_id: 'text',
+      created_at: 'text', updated_at: 'text',
+    },
+    // Mirrors the server's natural key, so a deterministic id keeps two devices
+    // skipping the same month converging instead of duplicating.
+    constraints: ['UNIQUE (customer_plan_id, billing_month)'],
+  },
+  {
     name: 'products',
     scope: 'tenant',
     columns: {
@@ -232,6 +246,7 @@ export const TABLE_BY_NAME: Record<string, TableSpec> = Object.fromEntries(
 /** Tables the sync engine pulls (everything; ordered parents-before-children matters for FK-ish merges). */
 export const SYNC_PULL_ORDER = [
   'tenants', 'tier_plans', 'app_options', 'currencies', 'branches', 'users',
-  'plans', 'customers', 'customer_plans', 'payments', 'products', 'sales',
-  'sale_items', 'stock_movements', 'custom_debts', 'debt_payments', 'exception_logs',
+  'plans', 'customers', 'customer_plans', 'payments', 'skipped_months',
+  'products', 'sales', 'sale_items', 'stock_movements', 'custom_debts',
+  'debt_payments', 'exception_logs',
 ] as const;

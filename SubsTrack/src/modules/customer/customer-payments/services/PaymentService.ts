@@ -6,6 +6,7 @@ import type {
   MonthStatus,
   Payment,
   Plan,
+  SkippedMonth,
   TierPlan,
 } from "@/src/core/types";
 import { MONTHS, type BranchFilter } from "@/src/core/constants";
@@ -16,6 +17,8 @@ import {
 } from "@/src/core/utils/date";
 import i18n from "@/src/core/i18n";
 import repository from "../repository/PaymentRepository";
+import type { MonthStatusSets } from "../repository/IPaymentRepository";
+import skippedMonthService from "./SkippedMonthService";
 import { tierService } from "@/src/modules/admin/subscription";
 import { mapDbPaymentToPayment, mapDbPaymentRowToListItem } from "../utils/mapper";
 import { CreateMultiMonthPaymentResult, FindPaymentsOptions, MultiMonthConflict, PaymentListItem } from "../utils/types";
@@ -146,7 +149,8 @@ class PaymentService {
   // Creates a multi-month payment starting at startMonth covering durationMonths months.
   // amountPaid: what was actually collected (may be less than plan.price for partial payments).
   // existingPayments: the current payments for this customer (to detect conflicts).
-  // skipConflicts: if true, skips already-covered months; if false, throws on conflict.
+  // lineSkips: the line's active skips — a block covering one is refused whole.
+  // skipConflicts: if true, steps over already-paid months; if false, throws on conflict.
   async createMultiMonthPayment(
     startMonth: string,
     customer: Customer,
@@ -157,6 +161,7 @@ class PaymentService {
     notes: string | null,
     tenantId: string,
     existingPayments: Payment[],
+    lineSkips: SkippedMonth[],
     skipConflicts: boolean,
     ratePerUsdSnapshot: number,
     tier: TierPlan,
@@ -176,18 +181,19 @@ class PaymentService {
     }
 
     const coveredByExisting = buildCoverageSet(existingPayments);
-    const { effectiveStart, effectiveDuration, skippedMonths } =
+    const { effectiveStart, effectiveDuration, conflictMonths } =
       resolveMultiMonthBlock(startMonth, plan, coveredByExisting);
 
-    if (!skipConflicts && skippedMonths.length > 0) {
+    if (!skipConflicts && conflictMonths.length > 0) {
       throw new Error(
-        i18n.t("errors.months_already_paid", { months: skippedMonths.map((m) => m.label).join(", ") }),
+        i18n.t("errors.months_already_paid", { months: conflictMonths.map((m) => m.label).join(", ") }),
       );
     }
     // If all months are covered, nothing to create.
     if (effectiveDuration <= 0) {
       throw new Error(i18n.t("errors.all_months_paid"));
     }
+    assertNoSkippedMonths(effectiveStart, effectiveDuration, lineSkips);
 
     const row = await repository.create({
       billing_month: effectiveStart,
@@ -204,13 +210,13 @@ class PaymentService {
       notes,
     });
 
-    return { payment: mapDbPaymentToPayment(row), skippedMonths };
+    return { payment: mapDbPaymentToPayment(row), conflictMonths };
   }
 
   // Creates one multi-month block payment per start month in a single
   // round-trip. The starts come from the grid's start-aligned windows and are
   // non-overlapping, so each block is resolved against the same pre-existing
-  // coverage; fully-covered blocks are dropped and surfaced via skippedMonths.
+  // coverage; fully-covered blocks are dropped and surfaced via conflictMonths.
   async createMultiMonthPayments(
     starts: string[],
     customer: Customer,
@@ -221,9 +227,10 @@ class PaymentService {
     notes: string | null,
     tenantId: string,
     existingPayments: Payment[],
+    lineSkips: SkippedMonth[],
     ratePerUsdSnapshot: number,
     tier: TierPlan,
-  ): Promise<{ payments: Payment[]; skippedMonths: MultiMonthConflict[] }> {
+  ): Promise<{ payments: Payment[]; conflictMonths: MultiMonthConflict[] }> {
     tierService.assertMultiMonth(tier);
     if (!plan.price || plan.price <= 0) {
       throw new Error(i18n.t("errors.plan_fixed_for_multimonth"));
@@ -237,14 +244,15 @@ class PaymentService {
 
     const covered = buildCoverageSet(existingPayments);
     const payloads = [];
-    const skippedMonths: MultiMonthConflict[] = [];
+    const conflictMonths: MultiMonthConflict[] = [];
     for (const startMonth of starts) {
       if (!startMonth.endsWith("-01")) {
         throw new Error(i18n.t("errors.billing_month_format"));
       }
       const resolved = resolveMultiMonthBlock(startMonth, plan, covered);
-      skippedMonths.push(...resolved.skippedMonths);
+      conflictMonths.push(...resolved.conflictMonths);
       if (resolved.effectiveDuration <= 0) continue; // whole block already covered
+      assertNoSkippedMonths(resolved.effectiveStart, resolved.effectiveDuration, lineSkips);
       payloads.push({
         billing_month: resolved.effectiveStart,
         amount_due: plan.price,
@@ -264,7 +272,7 @@ class PaymentService {
       throw new Error(i18n.t("errors.all_months_paid"));
     }
     const rows = await repository.createMany(payloads);
-    return { payments: rows.map(mapDbPaymentToPayment), skippedMonths };
+    return { payments: rows.map(mapDbPaymentToPayment), conflictMonths };
   }
 
   // Updates an existing (non-voided) payment's amount_paid in place. Amount
@@ -340,14 +348,7 @@ class PaymentService {
     return rows.map(mapDbPaymentToPayment);
   }
 
-  async findPaymentStatusForMonth(
-    billingMonth: string,
-  ): Promise<{
-    fullyPaidIds: Set<string>;
-    partialIds: Set<string>;
-    planCounts: Map<string, CurrentMonthPlanCount>;
-    coveredLineIds: Set<string>;
-  }> {
+  async findPaymentStatusForMonth(billingMonth: string): Promise<MonthStatusSets> {
     return repository.findPaymentStatusForMonth(billingMonth);
   }
 
@@ -355,12 +356,15 @@ class PaymentService {
   // month on ANY of their active service lines, from the line's start date
   // through the current year — even if the current month itself is paid. Status
   // is decided exclusively by buildMonthGrid (rule #1): a customer is overdue if
-  // any month of any active line resolves to "unpaid".
+  // any month of any active line resolves to "unpaid" (a skipped month never does).
   async findOverdueCustomerIds(
     customers: Customer[],
     graceDays: number,
   ): Promise<Set<string>> {
-    const rows = await repository.findActivePayments();
+    const [rows, skips] = await Promise.all([
+      repository.findActivePayments(),
+      skippedMonthService.getActiveSkips(),
+    ]);
     const paymentsByLine = new Map<string, Payment[]>();
     for (const row of rows) {
       const payment = mapDbPaymentToPayment(row);
@@ -368,6 +372,7 @@ class PaymentService {
       if (list) list.push(payment);
       else paymentsByLine.set(payment.customerPlanId, [payment]);
     }
+    const skipsByLine = groupSkipsByLine(skips);
 
     const { year: currentYear } = getCurrentYearMonth();
     const overdue = new Set<string>();
@@ -376,9 +381,10 @@ class PaymentService {
       const lines = (customer.customerPlans ?? []).filter((l) => l.active);
       const isOverdue = lines.some((line) => {
         const payments = paymentsByLine.get(line.id) ?? [];
+        const lineSkips = skipsByLine.get(line.id) ?? [];
         const startYear = new Date(line.startDate).getFullYear();
         for (let year = startYear; year <= currentYear; year++) {
-          const grid = this.buildMonthGrid(line, payments, year, graceDays);
+          const grid = this.buildMonthGrid(line, payments, lineSkips, year, graceDays);
           if (grid.some((entry) => entry.status === "unpaid")) return true;
         }
         return false;
@@ -395,60 +401,87 @@ class PaymentService {
   //   full    — every started, due line has a covering payment (a partial
   //             payment counts as covered; its balance becomes a debt)
   //   partial — some lines are covered but at least one started line is unpaid
+  //   skipped — every started line is skipped, so nothing is owed at all
   // Also returns the plan tally for the "N/M plans paid" badge:
-  //   total   — started lines (grid status != before_start; future/grace counts)
+  //   total   — started lines that are DUE (grid status != before_start and
+  //             != skipped; future/grace counts)
   //   paid    — started lines fully settled this month (grid status "paid")
-  // Lines whose current month is "future" (within grace) or before start are not
-  // "owed" and don't block "full". This mirrors the SQL path in
+  // Lines whose current month is "future" (within grace), skipped, or before
+  // start are not "owed" and don't block "full". This mirrors the SQL path in
   // PaymentRepository.findPaymentStatusForMonth, so both stay in lockstep.
-  // Also returns coveredLineIds — lines whose current month already has a
-  // covering payment (paid or partial); quick pay skips these.
+  // Also returns notDueLineIds — lines that must not be quick-paid this month
+  // because they are already covered by a payment, or skipped.
   computeCurrentMonthStatus(
     lines: CustomerPlan[],
     payments: Payment[],
+    skips: SkippedMonth[],
     graceDays: number,
   ): {
-    status: "full" | "partial" | "none";
+    status: "full" | "partial" | "none" | "skipped";
     count: CurrentMonthPlanCount;
-    coveredLineIds: string[];
+    notDueLineIds: string[];
   } {
     const { year, month } = getCurrentYearMonth();
     let anyCovered = false;
     let allOwedPaid = true;
+    let anySkipped = false;
     let paid = 0;
     let total = 0;
-    const coveredLineIds: string[] = [];
+    const notDueLineIds: string[] = [];
     for (const line of lines) {
       if (!line.active) continue;
       const linePayments = payments.filter((p) => p.customerPlanId === line.id);
-      const entry = this.buildMonthGrid(line, linePayments, year, graceDays).find(
+      const lineSkips = skips.filter((s) => s.customerPlanId === line.id);
+      const entry = this.buildMonthGrid(line, linePayments, lineSkips, year, graceDays).find(
         (e) => e.month === month,
       );
       if (!entry || entry.status === "before_start") continue; // not started
+      // A skipped month is owed by nobody: it neither counts in the tally nor
+      // blocks "full", and quick pay must leave it alone.
+      if (entry.status === "skipped") {
+        notDueLineIds.push(line.id);
+        anySkipped = true;
+        continue;
+      }
       total++;
       // A partial month resolves to "paid" (its balance becomes a debt), so a
       // covered line always counts toward "paid" here — never as unsettled.
       if (entry.status === "paid") {
         anyCovered = true;
         paid++;
-        coveredLineIds.push(line.id);
+        notDueLineIds.push(line.id);
       } else if (entry.status === "unpaid") allOwedPaid = false;
     }
-    const status = !anyCovered ? "none" : allOwedPaid ? "full" : "partial";
-    return { status, count: { paid, total }, coveredLineIds };
+    // Every started line skipped → nothing owed, so the list must not fall back
+    // to its red "unpaid" default. Mirrors the repository's `total === 0` branch.
+    const status =
+      total === 0 && anySkipped
+        ? "skipped"
+        : !anyCovered
+          ? "none"
+          : allOwedPaid
+            ? "full"
+            : "partial";
+    return { status, count: { paid, total }, notDueLineIds };
   }
 
   // THE single source of truth for month status logic. No other file may reimplement this.
-  // Builds the grid for ONE service line: `payments` must already be scoped to
-  // that line, and `line.startDate` sets the before_start boundary. (A customer
-  // with several lines builds one grid per line — see paymentSlice.buildGrids.)
+  // Builds the grid for ONE service line: `payments` and `skips` must already be
+  // scoped to that line, and `line.startDate` sets the before_start boundary. (A
+  // customer with several lines builds one grid per line — see paymentSlice.buildGrids.)
   buildMonthGrid(
     line: CustomerPlan,
     payments: Payment[],
+    skips: SkippedMonth[],
     year: number,
     graceDays: number,
   ): MonthEntry[] {
     const { year: cy, month: cm } = getCurrentYearMonth();
+
+    const skipByMonth = new Map<string, SkippedMonth>();
+    for (const skip of skips) {
+      if (skip.skipped) skipByMonth.set(skip.billingMonth, skip);
+    }
 
     // Build coverage map: billingMonth → { payment, isSecondary }
     // Multi-month payments cover consecutive months; each covered month points back to the payment.
@@ -483,11 +516,13 @@ class PaymentService {
           payment: null,
           isGroupSecondary: false,
           balance: 0,
+          skip: null,
         };
       }
 
       // A payment with amountPaid = 0 is treated as no payment (slot reserved but unpaid).
       const isEffectivelyPaid = payment !== null && payment.voidedAt === null && payment.amountPaid > 0;
+      const skip = skipByMonth.get(billingMonth) ?? null;
 
       let status: MonthStatus;
       if (isEffectivelyPaid) {
@@ -495,6 +530,11 @@ class PaymentService {
         // settled and the remaining amount is surfaced as a debt (never here).
         // The owed amount still rides along on `balance` for drill-in views.
         status = "paid";
+      } else if (skip) {
+        // Nothing is expected this month. Ranks below "paid" (money always wins)
+        // and above future/unpaid, so a skipped month is never overdue and never
+        // payable until it is unskipped.
+        status = "skipped";
       } else if (year > cy || (year === cy && month > cm)) {
         status = "future";
       } else {
@@ -506,7 +546,17 @@ class PaymentService {
 
       const balance = isEffectivelyPaid ? (payment?.balance ?? 0) : 0;
 
-      return { year, month, label, billingMonth, status, payment, isGroupSecondary, balance };
+      return {
+        year,
+        month,
+        label,
+        billingMonth,
+        status,
+        payment,
+        isGroupSecondary,
+        balance,
+        skip: status === "skipped" ? skip : null,
+      };
     });
   }
 }
@@ -548,15 +598,15 @@ function toPaymentPayload(data: CreatePaymentInput) {
 
 // Resolves a multi-month block against the already-covered months: returns the
 // effective start (first non-covered month in the range), the duration from
-// there to the end of the original window, and the months skipped because they
-// were already covered. effectiveDuration <= 0 means the whole block is covered.
+// there to the end of the original window, and the months stepped over because
+// they were already paid. effectiveDuration <= 0 means the whole block is covered.
 function resolveMultiMonthBlock(
   startMonth: string,
   plan: Plan,
   covered: Set<string>,
-): { effectiveStart: string; effectiveDuration: number; skippedMonths: MultiMonthConflict[] } {
+): { effectiveStart: string; effectiveDuration: number; conflictMonths: MultiMonthConflict[] } {
   const [startYear, startMonthNum] = startMonth.split("-").map(Number);
-  const skippedMonths: MultiMonthConflict[] = [];
+  const conflictMonths: MultiMonthConflict[] = [];
   let effectiveStart = startMonth;
   let effectiveDuration = plan.durationMonths;
   let foundStart = false;
@@ -565,7 +615,7 @@ function resolveMultiMonthBlock(
     const date = new Date(startYear, startMonthNum - 1 + d, 1);
     const bm = toBillingMonth(date.getFullYear(), date.getMonth() + 1);
     if (covered.has(bm)) {
-      skippedMonths.push({ billingMonth: bm, label: MONTHS[date.getMonth()] });
+      conflictMonths.push({ billingMonth: bm, label: MONTHS[date.getMonth()] });
     } else if (!foundStart) {
       effectiveStart = bm;
       effectiveDuration = plan.durationMonths - d;
@@ -574,9 +624,43 @@ function resolveMultiMonthBlock(
   }
 
   // Every month in the window was already covered.
-  if (skippedMonths.length === plan.durationMonths) effectiveDuration = 0;
+  if (conflictMonths.length === plan.durationMonths) effectiveDuration = 0;
 
-  return { effectiveStart, effectiveDuration, skippedMonths };
+  return { effectiveStart, effectiveDuration, conflictMonths };
+}
+
+// A block payment may not silently pay over a skipped month — the block covers
+// consecutive months and cannot leave a hole, so the whole payment is refused
+// and the user is told which months to unskip first.
+function assertNoSkippedMonths(
+  startMonth: string,
+  durationMonths: number,
+  lineSkips: SkippedMonth[],
+): void {
+  if (lineSkips.length === 0) return;
+  const active = new Set(lineSkips.filter((s) => s.skipped).map((s) => s.billingMonth));
+  if (active.size === 0) return;
+  const [startYear, startMonthNum] = startMonth.split("-").map(Number);
+  const hits: string[] = [];
+  for (let d = 0; d < durationMonths; d++) {
+    const date = new Date(startYear, startMonthNum - 1 + d, 1);
+    const bm = toBillingMonth(date.getFullYear(), date.getMonth() + 1);
+    if (active.has(bm)) hits.push(i18n.t(`months.${MONTHS[date.getMonth()]}`));
+  }
+  if (hits.length > 0) {
+    throw new Error(i18n.t("errors.months_skipped", { months: hits.join(", ") }));
+  }
+}
+
+// Active skips grouped by service line, for the per-line grid builds.
+function groupSkipsByLine(skips: SkippedMonth[]): Map<string, SkippedMonth[]> {
+  const map = new Map<string, SkippedMonth[]>();
+  for (const skip of skips) {
+    const list = map.get(skip.customerPlanId);
+    if (list) list.push(skip);
+    else map.set(skip.customerPlanId, [skip]);
+  }
+  return map;
 }
 
 // Returns a Set of billing months already covered by the given payments (including multi-month ranges).

@@ -14,6 +14,7 @@ function placeholders(n: number): string {
  */
 const NATURAL_KEYS: Record<string, string[]> = {
   payments: ['customer_plan_id', 'billing_month'],
+  skipped_months: ['customer_plan_id', 'billing_month'],
 };
 
 /** INSERT a fully-formed local row (id + timestamps already set) and mark it dirty. */
@@ -44,40 +45,41 @@ export async function updateDirty(
   await db.runAsync(`UPDATE ${table} SET ${set} WHERE id = ?`, [...values, id] as never[]);
 }
 
-// A payment's identity + natural key are never overwritten by a re-record.
-const PAYMENT_KEEP = ['id', 'customer_plan_id', 'billing_month', 'created_at'];
-
 /**
- * Write a payment on its natural key (customer_plan_id, billing_month) and mark it
- * dirty — mirrors the server upsert so re-recording a voided month replaces the row
- * instead of inserting (gotcha #1). Returns the id ACTUALLY stored, which is not
- * always `row.id`: an existing row keeps its own id (it may have been created on the
- * web or another device), and an id already taken by an unrelated row falls back to
- * a fresh one. Resolved with a lookup rather than `ON CONFLICT (natural key)` because
- * that only ever heals ONE of the table's two UNIQUE constraints (gotcha #49).
+ * Write a row on its `NATURAL_KEYS` key and mark it dirty — mirrors the server
+ * upsert so re-recording a voided month (or re-skipping one) replaces the row
+ * instead of inserting (gotcha #1). Identity + key columns + created_at are never
+ * overwritten. Returns the id ACTUALLY stored, which is not always `row.id`: an
+ * existing row keeps its own id (it may have been created on the web or another
+ * device), and an id already taken by an unrelated row falls back to a fresh one.
+ * Resolved with a lookup rather than `ON CONFLICT (natural key)` because that only
+ * ever heals ONE of the table's two UNIQUE constraints (gotcha #49).
  */
-export async function upsertPaymentDirty(
+export async function upsertNaturalKeyDirty(
   db: SQLiteDatabase,
+  table: string,
   row: object,
 ): Promise<string> {
+  const key = NATURAL_KEYS[table];
+  if (!key) throw new Error(`upsertNaturalKeyDirty: ${table} has no natural key`);
+  const keep = ['id', ...key, 'created_at'];
   const r = row as Record<string, unknown>;
+  const where = key.map((c) => `${c} = ?`).join(' AND ');
   const existing = await db.getFirstAsync<{ id: string }>(
-    'SELECT id FROM payments WHERE customer_plan_id = ? AND billing_month = ?',
-    [r.customer_plan_id, r.billing_month] as never[],
+    `SELECT id FROM ${table} WHERE ${where}`,
+    key.map((c) => r[c]) as never[],
   );
   if (existing) {
-    const patch = Object.fromEntries(
-      Object.entries(r).filter(([c]) => !PAYMENT_KEEP.includes(c)),
-    );
-    await updateDirty(db, 'payments', existing.id, patch);
+    const patch = Object.fromEntries(Object.entries(r).filter(([c]) => !keep.includes(c)));
+    await updateDirty(db, table, existing.id, patch);
     return existing.id;
   }
   const taken = await db.getFirstAsync<{ id: string }>(
-    'SELECT id FROM payments WHERE id = ?',
+    `SELECT id FROM ${table} WHERE id = ?`,
     [r.id as string] as never[],
   );
   const id = taken ? newId() : (r.id as string);
-  await insertDirty(db, 'payments', { ...r, id });
+  await insertDirty(db, table, { ...r, id });
   return id;
 }
 
