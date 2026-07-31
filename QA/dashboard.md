@@ -167,7 +167,7 @@ The Admin tab landing screen has its own compact summary that shares the dashboa
 
 ## 10. Revenue trend chart
 
-`RevenueTrendChart` renders the **6 months ending on the current month** as a row of 6 stacked vertical bars; each bar splits subscription (indigo, bottom) / sales (emerald) / debt payments (red, top — matching the Debts tab's `COLORS.danger`). The current month is emphasized (primary color + value label above it). Prev/next chevrons page the window 6 months at a time, capped at the current month.
+`RevenueTrendChart` renders the **6 months ending on the current month** as a row of 6 stacked vertical bars; each bar splits subscription (indigo, bottom) / sales (emerald) / debt payments (red, top — matching the Debts tab's `COLORS.danger`). The current month is emphasized (primary color + value label above it). Prev/next chevrons — or a horizontal swipe anywhere on the card (`useHorizontalSwipe`) — page the window 6 months at a time, capped at the current month.
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
@@ -186,6 +186,9 @@ The Admin tab landing screen has its own compact summary that shares the dashboa
 | 10.11 | Voided excluded | Void a payment / sale / debt payment from a prior month | That month's bar shrinks accordingly on refresh |
 | 10.12 | Branch-scoped | Pick a branch | All 6 bars scope to that branch |
 | 10.13 | Year rollover | Open in January | The window spans Aug–Jan across two calendar years; month labels add a 2-digit year suffix for the months outside the current year |
+| 10.14 | Swipe paging | Swipe the card right→left, then left→right | First flick pages to the newer window, second back to the older one — same result as the chevrons; a vertical drag still scrolls the dashboard |
+| 10.15 | Swipe capped | Swipe toward newer while already on the current month | Nothing happens (same cap as the disabled next chevron) |
+| 10.16 | RTL chevrons | Switch to Arabic | The back chevron (now on the right) points right and the forward chevron points left; both still page the same way, and a swipe matches the on-screen arrows |
 
 ## 11. Growth tiles — New / Cancelled this month
 

@@ -9,10 +9,12 @@ import { Button } from "@/src/shared/components/Button";
 import { Input } from "@/src/shared/components/Input";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { COLORS } from "@/src/shared/constants";
-import { formatDate } from "@/src/core/utils/date";
-import type { Product, StockMovement } from "@/src/core/types";
+import { formatDateTime } from "@/src/core/utils/date";
+import { useLanguageStore } from "@/src/core/i18n/languageStore";
+import type { Product, StockMovement, StockReason } from "@/src/core/types";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { useProductSlice } from "@/src/state/hooks/useProductSlice";
+import { useUserSlice } from "@/src/state/hooks/useUserSlice";
 import productService from "../services/ProductService";
 
 interface Props {
@@ -22,6 +24,15 @@ interface Props {
 
 type Mode = "add" | "remove";
 
+// Icon per ledger reason; the tint comes from the direction, not the reason,
+// because an 'adjustment' can go either way.
+const REASON_ICON: Record<StockReason, keyof typeof Ionicons.glyphMap> = {
+  initial: "flag-outline",
+  restock: "add-circle-outline",
+  adjustment: "create-outline",
+  sale: "cart-outline",
+};
+
 /**
  * Adds or removes stock for one product, and shows the recent history. Stock is
  * never typed as a total — each save appends one ledger movement, so who
@@ -30,6 +41,10 @@ type Mode = "add" | "remove";
 export function ProductStockSheet({ product, onDismiss }: Props) {
   const { t } = useTranslation();
   const { user } = useAuth();
+  const { language } = useLanguageStore();
+  const locale = language === "ar" ? "ar" : "en-US";
+  const users = useUserSlice((s) => s.items);
+  const getUsers = useUserSlice((s) => s.getUsers);
   const adjustStock = useProductSlice((s) => s.adjustStock);
   const loading = useProductSlice((s) => s.loading);
   const error = useProductSlice((s) => s.error);
@@ -56,10 +71,13 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
   useEffect(() => {
     clearError();
     void loadHistory();
+    // History names who changed the stock. `getUsers` self-guards on the slice's
+    // `loaded` flag, so this is a no-op when the list is already in memory.
+    void getUsers();
     // Clear on the way out too — the product form may still be open underneath
     // and shares this slice's error, so a stock failure must not linger there.
     return clearError;
-  }, [clearError, loadHistory]);
+  }, [clearError, getUsers, loadHistory]);
 
   const parsed = Number(quantity);
   const validQuantity = Number.isInteger(parsed) && parsed > 0;
@@ -153,44 +171,124 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
       />
 
       {/* History */}
-      <Text fontWeight="SemiBold" className="text-base text-gray-900 mt-8 mb-2">
-        {t("products.stock_history")}
-      </Text>
-      {history.length === 0 ? (
-        <Text className="text-sm text-gray-400">
-          {t("products.stock_history_empty")}
+      <View className="flex-row items-center justify-between mt-8 mb-2">
+        <Text fontWeight="SemiBold" className="text-base text-gray-900">
+          {t("products.stock_history")}
         </Text>
+        {history.length > 0 ? (
+          <Text className="text-xs text-gray-400">
+            {t("products.stock_history_count", { count: history.length })}
+          </Text>
+        ) : null}
+      </View>
+
+      {history.length === 0 ? (
+        <View className="rounded-2xl border border-dashed border-gray-200 px-4 py-6 items-center">
+          <Ionicons name="time-outline" size={22} color={COLORS.gray300} />
+          <Text className="text-sm text-gray-400 mt-2 text-center">
+            {t("products.stock_history_empty")}
+          </Text>
+        </View>
       ) : (
-        history.map((m) => (
-          <View
-            key={m.id}
-            className="flex-row items-center justify-between border-b border-gray-50 py-3"
-          >
-            <View className="flex-1 pe-3">
-              <Text
-                className={`text-sm ${m.voidedAt ? "text-gray-400 line-through" : "text-gray-900"}`}
+        <View className="rounded-2xl border border-gray-100 overflow-hidden">
+          {history.map((m, i) => {
+            const added = m.quantityDelta > 0;
+            const voided = m.voidedAt !== null;
+            const byName =
+              users.find((u) => u.id === m.recordedByUserId)?.fullName ?? null;
+            return (
+              <View
+                key={m.id}
+                className={`flex-row px-3 py-3 ${i > 0 ? "border-t border-gray-100" : ""} ${
+                  voided ? "bg-gray-50" : "bg-white"
+                }`}
               >
-                {t(`products.stock_reason_${m.reason}`)}
-              </Text>
-              <Text className="text-xs text-gray-400 mt-0.5">
-                {formatDate(m.occurredAt)}
-                {m.note ? ` · ${m.note}` : ""}
-              </Text>
-            </View>
-            <Text
-              fontWeight="SemiBold"
-              className={`text-sm ${
-                m.voidedAt
-                  ? "text-gray-300 line-through"
-                  : m.quantityDelta > 0
-                    ? "text-success"
-                    : "text-danger"
-              }`}
-            >
-              {m.quantityDelta > 0 ? `+${m.quantityDelta}` : m.quantityDelta}
-            </Text>
-          </View>
-        ))
+                <View
+                  className={`w-8 h-8 rounded-xl items-center justify-center me-3 ${
+                    voided ? "bg-gray-100" : added ? "bg-green-50" : "bg-red-50"
+                  }`}
+                >
+                  <Ionicons
+                    name={REASON_ICON[m.reason]}
+                    size={15}
+                    color={
+                      voided
+                        ? COLORS.gray400
+                        : added
+                          ? COLORS.success
+                          : COLORS.danger
+                    }
+                  />
+                </View>
+
+                <View className="flex-1">
+                  <View className="flex-row items-center justify-between">
+                    <Text
+                      fontWeight="SemiBold"
+                      numberOfLines={1}
+                      className={`flex-1 pe-2 text-sm ${
+                        voided ? "text-gray-400 line-through" : "text-gray-900"
+                      }`}
+                    >
+                      {t(`products.stock_reason_${m.reason}`)}
+                    </Text>
+                    <Text
+                      fontWeight="Bold"
+                      className={`text-sm ${
+                        voided
+                          ? "text-gray-300 line-through"
+                          : added
+                            ? "text-success"
+                            : "text-danger"
+                      }`}
+                    >
+                      {added ? `+${m.quantityDelta}` : m.quantityDelta}
+                    </Text>
+                  </View>
+
+                  <Text className="text-xs text-gray-500 mt-0.5">
+                    {formatDateTime(m.occurredAt, locale)}
+                  </Text>
+
+                  {byName ? (
+                    <View className="flex-row items-center mt-1">
+                      <Ionicons
+                        name="person-outline"
+                        size={11}
+                        color={COLORS.gray400}
+                      />
+                      <Text
+                        numberOfLines={1}
+                        className="text-xs text-gray-400 ms-1 flex-1"
+                      >
+                        {byName}
+                      </Text>
+                    </View>
+                  ) : null}
+
+                  {m.note ? (
+                    <Text
+                      numberOfLines={2}
+                      className="text-xs text-gray-500 mt-1"
+                    >
+                      {m.note}
+                    </Text>
+                  ) : null}
+
+                  {voided ? (
+                    <View className="flex-row mt-1.5">
+                      <View className="rounded-md bg-gray-200 px-1.5 py-0.5">
+                        <Text className="text-[10px] text-gray-600">
+                          {t("products.stock_reversed")}
+                        </Text>
+                      </View>
+                    </View>
+                  ) : null}
+                </View>
+              </View>
+            );
+          })}
+        </View>
       )}
 
       <View className="h-24" />

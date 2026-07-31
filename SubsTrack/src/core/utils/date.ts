@@ -31,6 +31,17 @@ export function formatDate(iso: string, locale = "en-US", options: Intl.DateTime
   return new Date(iso).toLocaleDateString(locale, options);
 }
 
+// Date + clock time, for logs where the exact moment matters (e.g. stock history).
+export function formatDateTime(iso: string, locale = "en-US"): string {
+  return new Date(iso).toLocaleString(locale, {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 export function isValidDateString(s: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(Date.parse(s));
 }

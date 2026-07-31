@@ -127,8 +127,8 @@ Covers the Products catalog: a list of one-off sellable items (not subscriptions
 | 6A.2 | Starting stock left blank | Create a product, leave the field empty | Card shows red "Out of stock"; history is empty (no `initial` row is written for 0) |
 | 6A.3 | Starting stock rejects junk | Type letters / a negative sign in the field | Field only accepts digits; a non-integer or negative value is rejected with "Starting stock must be a whole number of 0 or more" |
 | 6A.4 | Edit form never edits the total | Open an existing product for edit | Stock is shown **read-only** next to an "Adjust Stock" link — there is no editable stock field |
-| 6A.5 | Restock | Product menu → Adjust Stock → Add → 10 → Save | The stock sheet **closes on save**; on-hand rises by 10 immediately, and reopening it shows a green `Stock added` `+10` row with today's date |
-| 6A.6 | Restock with a note | Add 3 with note "new delivery", then reopen the stock sheet | The note shows next to the date on the history row |
+| 6A.5 | Restock | Product menu → Adjust Stock → Add → 10 → Save | The stock sheet **closes on save**; on-hand rises by 10 immediately, and reopening it shows a green `Stock added` `+10` row stamped with today's date **and time** |
+| 6A.6 | Restock with a note | Add 3 with note "new delivery", then reopen the stock sheet | The note shows on its own line under the date/time and who recorded it |
 | 6A.7 | Remove / correction | Adjust Stock → Remove → 2 → Save | Sheet closes; on-hand drops by 2 and a red `Correction` `-2` row is in the history |
 | 6A.7a | Failed save keeps the sheet open | Force the save to fail (e.g. offline write error) | The sheet stays open with the typed values and shows the error banner — it only closes on success |
 | 6A.8 | Zero / empty quantity | Leave quantity empty or type 0 | Save button stays disabled |
@@ -148,6 +148,11 @@ Covers the Products catalog: a list of one-off sellable items (not subscriptions
 | 6A.22 | Stock sheet stacks on the form | Open a product for edit → tap "Adjust Stock" | The stock sheet opens **on top**; the edit form stays open underneath and is still there (with its typed values) after closing the stock sheet |
 | 6A.23 | Form follows the adjustment | From the edit form, adjust stock +5 and save | The stock sheet closes back to the edit form, whose read-only stock now reads the new total |
 | 6A.24 | Back closes one sheet at a time | With both sheets open, press Back (Android) / browser Back (web) | Only the stock sheet closes; the edit form stays open and the route does not change |
+| 6A.25 | History shows date + time | Restock twice within the same hour | Both rows carry the date **and** hour:minute, so the two changes are told apart and stay newest-first |
+| 6A.26 | History names the user | Restock as user A, then as user B, and reopen the sheet as an admin | Each row shows the full name of the user who recorded it (person icon + name); a row with no recorded user simply omits that line |
+| 6A.27 | Reason icon + direction color | Compare a `Starting stock`, `Stock added`, `Correction` (remove) and `Sold` row | Each has its own icon (flag / plus / pencil / cart); the tile and amount are green when the change adds stock and red when it removes |
+| 6A.28 | Voided row is marked | Void a sale, then open the product's stock sheet | The `Sold` row is greyed out with the amount struck through and carries a "Reversed" chip |
+| 6A.29 | Empty history | Open the stock sheet of a product with no movements | A dashed placeholder box with a clock icon and "No stock changes yet." — no bare text, no crash |
 
 ---
 
