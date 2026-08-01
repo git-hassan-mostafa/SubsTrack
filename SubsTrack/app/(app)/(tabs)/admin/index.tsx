@@ -2,7 +2,7 @@ import { useCallback, useMemo } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { Href, router, useFocusEffect } from "expo-router";
 import { useTranslation } from "react-i18next";
-import { Pressable, View } from "react-native";
+import { Pressable, ScrollView, View } from "react-native";
 import { Text } from "@/src/shared/components/Text";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useSubscriptionSlice } from "@/src/state/hooks/useSubscriptionSlice";
@@ -121,54 +121,60 @@ export default function AdminMenuScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
-      <View className="px-5 pt-5 pb-4">
-        <Text fontWeight="Bold" className="text-2xl text-gray-900">
-          {t("admin.title")}
-        </Text>
-        <Text className="text-sm text-gray-400 mt-0.5">
-          {t("admin.description")}
-        </Text>
-      </View>
-
-      {/* Manage section */}
-      <View className="mx-4">
-        <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2 px-1">
-          {t("admin.manage_section")}
-        </Text>
-        <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-          {menuItems.map((item, index) => (
-            <Pressable
-              key={item.route}
-              onPress={() => router.push(item.route as Href)}
-              className={`flex-row items-center justify-between px-4 py-4 ${index < menuItems.length - 1 ? "border-b border-gray-100" : ""}`}
-            >
-              <View className="flex-row items-center gap-3">
-                <View
-                  className="w-10 h-10 rounded-xl items-center justify-center"
-                  style={{ backgroundColor: item.iconBg }}
-                >
-                  <Ionicons name={item.icon} size={20} color={item.iconColor} />
-                </View>
-                <View>
-                  <Text className="text-base font-semibold text-gray-900">
-                    {t(item.labelKey)}
-                  </Text>
-                  <Text className="text-xs text-gray-400 mt-0.5">
-                    {t(item.subtitleKey, {
-                      count: item.countKey ? usage[item.countKey] : undefined,
-                    })}
-                  </Text>
-                </View>
-              </View>
-              <DirectionalIcon
-                name="chevron-forward"
-                size={16}
-                color={COLORS.gray300}
-              />
-            </Pressable>
-          ))}
+      <ScrollView>
+        <View className="px-5 pt-5 pb-4">
+          <Text fontWeight="Bold" className="text-2xl text-gray-900">
+            {t("admin.title")}
+          </Text>
+          <Text className="text-sm text-gray-400 mt-0.5">
+            {t("admin.description")}
+          </Text>
         </View>
-      </View>
+
+        {/* Manage section */}
+        <View className="mx-4 mb-16">
+          <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2 px-1">
+            {t("admin.manage_section")}
+          </Text>
+          <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+            {menuItems.map((item, index) => (
+              <Pressable
+                key={item.route}
+                onPress={() => router.push(item.route as Href)}
+                className={`flex-row items-center justify-between px-4 py-4 ${index < menuItems.length - 1 ? "border-b border-gray-100" : ""}`}
+              >
+                <View className="flex-row items-center gap-3">
+                  <View
+                    className="w-10 h-10 rounded-xl items-center justify-center"
+                    style={{ backgroundColor: item.iconBg }}
+                  >
+                    <Ionicons
+                      name={item.icon}
+                      size={20}
+                      color={item.iconColor}
+                    />
+                  </View>
+                  <View>
+                    <Text className="text-base font-semibold text-gray-900">
+                      {t(item.labelKey)}
+                    </Text>
+                    <Text className="text-xs text-gray-400 mt-0.5">
+                      {t(item.subtitleKey, {
+                        count: item.countKey ? usage[item.countKey] : undefined,
+                      })}
+                    </Text>
+                  </View>
+                </View>
+                <DirectionalIcon
+                  name="chevron-forward"
+                  size={16}
+                  color={COLORS.gray300}
+                />
+              </Pressable>
+            ))}
+          </View>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }

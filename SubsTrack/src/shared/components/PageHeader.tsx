@@ -73,7 +73,7 @@ export function PageHeader({
           </PressableOpacity>
         ) : null}
         <View className="flex-1 min-w-0 flex items-center flex-row gap-4">
-          <Text fontWeight="Bold" className="text-2xl text-gray-900">
+          <Text fontWeight="Bold" className="text-lg text-gray-900">
             {title}
           </Text>
           {subtitle ? (

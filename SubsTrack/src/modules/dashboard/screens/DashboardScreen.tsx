@@ -56,11 +56,6 @@ export function DashboardScreen() {
   const locale = getDateLocale(i18n.language);
   const monthLabel = t(`months.${MONTHS[now.getMonth()]}`);
   const year = now.getFullYear();
-  const dateLabel = now.toLocaleDateString(locale, {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-  });
 
   const paidCustomers = Math.max(
     0,
@@ -130,7 +125,6 @@ export function DashboardScreen() {
                 name: user?.fullName ?? user?.username ?? "",
               })}
             </Text>
-            <Text className="text-sm text-gray-500 mt-0.5">{dateLabel}</Text>
             <BranchSelector />
           </View>
 
@@ -230,9 +224,7 @@ export function DashboardScreen() {
                   <View className="flex-row mt-3 gap-3">
                     {revenueMix.map((stream, i) => (
                       <Fragment key={stream.key}>
-                        {i > 0 ? (
-                          <View className="w-px bg-indigo-500" />
-                        ) : null}
+                        {i > 0 ? <View className="w-px bg-indigo-500" /> : null}
                         <View className="flex-1">
                           <Text
                             numberOfLines={1}

@@ -151,14 +151,13 @@ export function WalletsScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50" edges={["top"]}>
+      <PageHeader
+        title={t("wallet.title")}
+        showBack
+        onBack={() => router.back()}
+      />
+      {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}
       <ResponsiveContainer className="flex-1">
-        <PageHeader
-          title={t("wallet.title")}
-          showBack
-          onBack={() => router.back()}
-        />
-        {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}
-
         <View className="px-5 py-4">
           <Text className="text-xs text-gray-400 uppercase tracking-wide">
             {t("wallet.unremitted_total")}
