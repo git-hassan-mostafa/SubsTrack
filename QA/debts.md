@@ -113,3 +113,16 @@ The clock icon on the net-total summary card opens a **read-only, branch-wide** 
 | 5.6 | Customer names shown | Multiple debtors | Each row shows the customer name (this is a cross-customer view) |
 | 5.7 | Empty state | A branch with no debts or payments | "No history yet" empty message |
 | 5.8 | Branch scope | Branch-scoped user / switched branch | History shows only the current branch's debts + payments |
+
+### 5b. Group separators (shared by Payments / Sales / Debt history)
+
+`MonthSectionHeader` is one shared component, so every grouped list must behave identically here.
+
+| # | Scenario | Steps | Expected result |
+|---|----------|-------|-----------------|
+| 5b.1 | Separator between groups | A list with 2+ month groups | A short **centered** bar (~64px wide, 3px thick, rounded) + extra space sits above every group header except the first — never a full-width rule |
+| 5b.2 | No bar above the first group | Same list, scrolled to top | The topmost header has **no** bar above it (nothing floating under the list padding) |
+| 5b.3 | Single group only | A list whose rows all fall in one bucket | No separator anywhere |
+| 5b.4 | Day/week buckets included | Rows in Today + This Week + older months | Rules appear between Today→This Week→month groups too, not only between months |
+| 5b.5 | Pagination | Scroll to load more pages (Payments / Sales) | Newly appended groups get their separators; the first group keeps none |
+| 5b.6 | All three lists match | Compare Payments tab, Sales tab, Debt history | Identical separator spacing and colour in all three |

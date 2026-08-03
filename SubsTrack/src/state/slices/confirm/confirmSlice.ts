@@ -40,6 +40,11 @@ export const createConfirmSlice: StateCreator<
 
   show: (options) =>
     new Promise<boolean>((resolve) => {
+      // Settle any dialog still outstanding as "cancelled" before replacing it.
+      // Without this its promise never resolves, so an `await confirm(...)` in
+      // the previous caller hangs forever — which leaves callers that gate on a
+      // "already asking" flag (useUnsavedChangesGuard) permanently stuck.
+      pendingResolve?.(false);
       pendingResolve = resolve;
       pendingContent = options.content ?? null;
       set((s) => {

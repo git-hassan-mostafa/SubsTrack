@@ -9,6 +9,7 @@ import { CurrencyInput } from "@/src/shared/components/CurrencyInput";
 import { usePaymentSlice } from "@/src/state/hooks/usePaymentSlice";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
+import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
 import {
   PaymentAmountPaidSection,
   type PaymentMode,
@@ -46,6 +47,10 @@ export function BulkPaymentFormSheet({
   const [paymentMode, setPaymentMode] = useState<PaymentMode>("full");
   const [amountPaid, setAmountPaid] = useState<number | null>(null);
 
+  // `currencyId` excluded — CurrencyInput self-seeds it from the last-used
+  // currency after mount, so it changes without the user doing anything.
+  const dirty = useDirtyForm({ amountDue, paymentMode, amountPaid });
+
   const resolvedPaid = paymentMode === "full" ? amountDue : amountPaid;
   const currency = findCurrency(currencies, currencyId);
   const formatResolved = (amount: number) =>
@@ -70,7 +75,11 @@ export function BulkPaymentFormSheet({
   }
 
   return (
-    <FormSheet onDismiss={handleDismiss} title={t("payments.record_payment")}>
+    <FormSheet
+      onDismiss={handleDismiss}
+      dirty={dirty}
+      title={t("payments.record_payment")}
+    >
             {error ? (
               <ErrorBanner message={error} onDismiss={clearError} />
             ) : null}

@@ -48,6 +48,13 @@ const isWeb = Platform.OS === "web";
 
 interface ModalEntry {
   dismiss: () => void;
+  // A surface that ASKS before closing (a dirty form's "Discard changes?") does
+  // not actually close on the Back press that reached it. It stays on the stack
+  // and keeps its sentinel; the dialog it opens gets its own on top. Popping it
+  // here instead made the counts drift: the entry left the stack, the dialog
+  // pushed a replacement sentinel, and the dialog's own close then ran a
+  // `history.back()` that unwound past the route. See useUnsavedChangesGuard.
+  defersClose?: () => boolean;
 }
 
 // LIFO stack of open modals — one entry per open modal.
@@ -105,20 +112,53 @@ function handlePopState() {
   // Genuine user Back: the browser consumed the topmost sentinel. The next
   // Back already has its own sentinel below it, so nothing to re-arm here.
   if (sentinelCount > 0) sentinelCount -= 1;
-  const top = dismissStack.pop();
-  if (top) top.dismiss();
+
+  const top = dismissStack[dismissStack.length - 1];
+  if (!top) return;
+
+  // Surfaces that only ASK on Back stay open (and stay on the stack). Leaving the
+  // entry in place makes `scheduleReconcile` re-push the sentinel the browser just
+  // ate, so the depth still mirrors the stack and the dialog's own sentinel lands
+  // on top of ours rather than in place of it.
+  if (top.defersClose?.()) {
+    scheduleReconcile();
+    top.dismiss();
+    return;
+  }
+
+  dismissStack.pop();
+  top.dismiss();
 }
 
-export function useWebBackDismiss(active: boolean, onDismiss: () => void) {
-  // Keep the latest callback without re-running the effect (which would churn
+/**
+ * A surface that asks a question before closing (a dirty form's "Discard
+ * changes?") passes `defersClose` — a predicate saying "a Back press right now
+ * only opens my prompt, it does not close me". Such a surface STAYS registered
+ * while its dialog is up: the dialog pushes its own entry on top and owns Back,
+ * and the entry underneath keeps its sentinel so the history depth still matches
+ * the stack. Deregistering it instead (passing `active: false` for the duration)
+ * silently dropped one real sentinel and left the dialog's close running a
+ * `history.back()` that popped the ROUTE. See `useUnsavedChangesGuard`.
+ */
+export function useWebBackDismiss(
+  active: boolean,
+  onDismiss: () => void,
+  defersClose?: () => boolean,
+) {
+  // Keep the latest callbacks without re-running the effect (which would churn
   // the stack). Only `active` drives the open/close lifecycle.
   const onDismissRef = useRef(onDismiss);
   onDismissRef.current = onDismiss;
+  const defersCloseRef = useRef(defersClose);
+  defersCloseRef.current = defersClose;
 
   useEffect(() => {
     if (!isWeb || !active) return;
 
-    const entry: ModalEntry = { dismiss: () => onDismissRef.current() };
+    const entry: ModalEntry = {
+      dismiss: () => onDismissRef.current(),
+      defersClose: () => defersCloseRef.current?.() ?? false,
+    };
     dismissStack.push(entry);
     if (!listenerBound) {
       window.addEventListener("popstate", handlePopState);

@@ -17,6 +17,7 @@ import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
 import { useLanguageStore } from "@/src/core/i18n/languageStore";
 import { formatDate } from "@/src/core/utils/date";
+import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
 
 // Strips the trailing currency symbol/code that formatMoney appends, so a
 // paid/total fraction shows the currency label once instead of twice.
@@ -52,6 +53,9 @@ export function SaleDetailSheet({
 
   const [voidMode, setVoidMode] = useState(false);
   const [voidReason, setVoidReason] = useState("");
+
+  // Only a typed reason is worth guarding — opening void mode loses nothing.
+  const dirty = useDirtyForm({ voidReason });
 
   function handleDismiss() {
     setVoidMode(false);
@@ -94,6 +98,7 @@ export function SaleDetailSheet({
   return (
     <FormSheet
       onDismiss={handleDismiss}
+      dirty={dirty}
       title={t("sales.receipt_title")}
       dismissLabel={t("common.close")}
     >

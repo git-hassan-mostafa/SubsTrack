@@ -33,6 +33,7 @@ This folder contains the production QA test plan for the SubsTrack mobile app. E
 | Dashboard | [dashboard.md](dashboard.md) | Hero card (subscription + sales revenue, USD-aggregated via snapshots, display-currency formatted), stat cards, admin compact stats, refresh, branch scoping |
 | Settings | [settings.md](settings.md) | User-level prefs: profile, language switcher with restart, logout |
 | Admin & Navigation | [admin-and-navigation.md](admin-and-navigation.md) | Tab visibility, role gating, routing, deep links, ActionMenu pattern, PressableOpacity feedback, asterisk required fields |
+| Unsaved Changes | [unsaved-changes.md](unsaved-changes.md) | App-wide "Discard changes?" guard on every form-sheet close path (button / Back / drag-down / backdrop), clean forms never prompting, nested sheets |
 | Multi-tenancy | [multi-tenancy.md](multi-tenancy.md) | Tenant isolation reads/writes, tenant inactive, organization code |
 | Non-functional | [non-functional.md](non-functional.md) | Performance, accessibility, i18n/RTL, security, resilience |
 
@@ -52,6 +53,7 @@ This folder contains the production QA test plan for the SubsTrack mobile app. E
 - [ ] [Products](products.md) passes: tier gating, soft/hard delete, branch scoping, snapshot immunity in sales.
 - [ ] [Sales](sales.md) passes: snapshots frozen at sale time, walk-in customer, void, customer panel, dashboard revenue included.
 - [ ] [Debts](debts.md) passes: runtime net = Σ debts − Σ payments; debt payment doesn't touch the underlying month/sale; partial sales create a Sales debt; void + credit + branch/offline behave.
+- [ ] [Unsaved changes](unsaved-changes.md) passes: all four close paths prompt on a dirty form, a **clean** form never prompts, and repeated keep-editing → discard never shows an extra dialog or navigates the route away.
 - [ ] All identified findings ("verify…", "file a finding…" notes) reviewed and either fixed or signed off as known limitations.
 
 ## Test data needed

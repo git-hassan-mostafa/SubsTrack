@@ -13,6 +13,7 @@ import { useBranchSlice } from "@/src/state/hooks/useBranchSlice";
 import { getStore } from "@/src/state/globalStore";
 import { useSubscriptionSlice } from "@/src/state/hooks/useSubscriptionSlice";
 import { UpgradePromptModal } from "@/src/modules/admin/subscription";
+import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
 
 interface Props {
   branch?: Branch | null;
@@ -35,6 +36,7 @@ export function BranchFormSheet({ branch, onDismiss, onRequestDelete }: Props) {
   const usage = useSubscriptionSlice((s) => s.usage);
 
   const [name, setName] = useState(branch?.name ?? "");
+  const dirty = useDirtyForm({ name });
 
   useEffect(() => {
     clearError();
@@ -65,6 +67,7 @@ export function BranchFormSheet({ branch, onDismiss, onRequestDelete }: Props) {
     <>
       <FormSheet
         onDismiss={onDismiss}
+        dirty={dirty}
         title={branch ? t("branches.edit_branch") : t("branches.add_branch")}
       >
         {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}

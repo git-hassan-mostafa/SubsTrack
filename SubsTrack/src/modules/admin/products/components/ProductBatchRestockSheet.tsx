@@ -15,6 +15,7 @@ import { Input } from "@/src/shared/components/Input";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
 import { useSheetTextInput } from "@/src/shared/components/bottomSheetInputContext";
+import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
 import { COLORS } from "@/src/shared/constants";
 import type { Product } from "@/src/core/types";
 import { useAuth } from "@/src/modules/authentication/auth";
@@ -79,6 +80,11 @@ export function ProductBatchRestockSheet({ onDismiss }: Props) {
   );
   const totalUnits = entries.reduce((sum, e) => sum + e.quantity, 0);
   const hasProducts = activeProducts.length > 0;
+
+  // Quantity TOTALS, not the `quantities` map: "Clear" writes a fresh empty
+  // object, so an identity diff would keep the form dirty after clearing it.
+  // `search` is excluded — it only filters, nothing is lost by closing.
+  const dirty = useDirtyForm({ lineCount: entries.length, totalUnits, note });
 
   function setQuantity(productId: string, quantity: number) {
     clearError();
@@ -171,7 +177,7 @@ export function ProductBatchRestockSheet({ onDismiss }: Props) {
   );
 
   return (
-    <AppBottomSheet visible onDismiss={onDismiss} variant="full">
+    <AppBottomSheet visible onDismiss={onDismiss} variant="full" dirty={dirty}>
       <ResponsiveContainer className="flex-1">
         <SheetDragArea className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
           <Text

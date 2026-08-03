@@ -16,6 +16,7 @@ import { getStore } from "@/src/state/globalStore";
 import { useActiveBranches } from "@/src/modules/admin/branches";
 import { useSubscriptionSlice } from "@/src/state/hooks/useSubscriptionSlice";
 import { UpgradePromptModal } from "@/src/modules/admin/subscription";
+import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
 
 interface Props {
   user?: AppUser | null;
@@ -78,6 +79,8 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
     newPassword: "",
     confirmNewPassword: "",
   });
+
+  const dirty = useDirtyForm(form);
 
   const isOwnAccount = editUser?.id === currentUser?.id;
 
@@ -179,6 +182,7 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
     <>
       <FormSheet
         onDismiss={onDismiss}
+        dirty={dirty}
         title={editUser ? t("users.edit_title") : t("users.add_title")}
       >
         {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}

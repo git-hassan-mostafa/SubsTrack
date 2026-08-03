@@ -3,6 +3,7 @@ import { BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { AppBottomSheet } from "./AppBottomSheet";
+import { useSheetDismiss } from "./sheetDismissContext";
 import { ResponsiveContainer } from "./ResponsiveContainer";
 import { SheetDragArea } from "./SheetDragArea";
 import { PressableOpacity } from "./PressableOpacity/PressableOpacity";
@@ -17,6 +18,12 @@ interface FormSheetProps {
   title: string;
   /** Right-hand dismiss action label. Defaults to `common.cancel`. */
   dismissLabel?: string;
+  /**
+   * The form holds unsaved edits — closing it (header button, Back, drag-down,
+   * backdrop) asks to discard first. Wire it to a real dirty check; see
+   * {@link useDirtyForm}.
+   */
+  dirty?: boolean;
   children: ReactNode;
 }
 
@@ -44,38 +51,75 @@ export function FormSheet({
   onDismiss,
   title,
   dismissLabel,
+  dirty = false,
   children,
 }: FormSheetProps) {
+  return (
+    <AppBottomSheet
+      visible={visible}
+      onDismiss={onDismiss}
+      variant="full"
+      dirty={dirty}
+    >
+      <FormSheetBody
+        visible={visible}
+        title={title}
+        dismissLabel={dismissLabel}
+        onDismiss={onDismiss}
+      >
+        {children}
+      </FormSheetBody>
+    </AppBottomSheet>
+  );
+}
+
+/**
+ * Split out so it renders INSIDE the sheet and can read the guarded dismiss from
+ * {@link SheetDismissContext} — the header button must go through the same
+ * unsaved-changes check as Back and the drag gesture.
+ */
+function FormSheetBody({
+  visible,
+  title,
+  dismissLabel,
+  onDismiss,
+  children,
+}: {
+  visible: boolean;
+  title: string;
+  dismissLabel?: string;
+  onDismiss: () => void;
+  children: ReactNode;
+}) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const bodyReady = useAfterFirstFrame(visible);
+  const dismiss = useSheetDismiss(onDismiss);
 
   return (
-    <AppBottomSheet visible={visible} onDismiss={onDismiss} variant="full">
-      <ResponsiveContainer className="flex-1">
-        <SheetDragArea className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
-          <Text fontWeight="Bold" className="text-lg text-gray-900">
-            {title}
+    <ResponsiveContainer className="flex-1">
+      <SheetDragArea className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
+        <Text fontWeight="Bold" className="text-lg text-gray-900">
+          {title}
+        </Text>
+        <PressableOpacity onPress={dismiss}>
+          <Text className="text-base text-primary font-medium">
+            {dismissLabel ?? t("common.cancel")}
           </Text>
-          <PressableOpacity onPress={onDismiss}>
-            <Text className="text-base text-primary font-medium">
-              {dismissLabel ?? t("common.cancel")}
-            </Text>
-          </PressableOpacity>
-        </SheetDragArea>
+        </PressableOpacity>
+      </SheetDragArea>
 
-        <BottomSheetScrollView
-          style={{ flex: 1 }}
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{
-            paddingHorizontal: 24,
-            paddingTop: 24,
-            paddingBottom: 48 + insets.bottom,
-          }}
-        >
-          {bodyReady ? children : null}
-        </BottomSheetScrollView>
-      </ResponsiveContainer>
-    </AppBottomSheet>
+      <BottomSheetScrollView
+        style={{ flex: 1 }}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{
+          paddingHorizontal: 24,
+          paddingTop: 24,
+          paddingBottom: 48 + insets.bottom,
+        }}
+      >
+        {bodyReady ? children : null}
+      </BottomSheetScrollView>
+    </ResponsiveContainer>
   );
 }

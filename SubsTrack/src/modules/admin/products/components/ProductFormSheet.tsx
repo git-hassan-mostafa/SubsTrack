@@ -17,6 +17,7 @@ import { useSubscriptionSlice } from "@/src/state/hooks/useSubscriptionSlice";
 import { useActiveBranches } from "@/src/modules/admin/branches";
 import { getStore } from "@/src/state/globalStore";
 import { UpgradePromptModal } from "@/src/modules/admin/subscription";
+import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
 
 interface Props {
   product?: Product | null;
@@ -87,6 +88,10 @@ export function ProductFormSheet({
     initialStock: "",
   });
 
+  // CurrencyInput self-seeds `currencyId` from the last-used currency after
+  // mount, so it changes with no user action — ignore it in the dirty check.
+  const dirty = useDirtyForm(form, ["currencyId"]);
+
   useEffect(() => {
     clearError();
   }, [clearError]);
@@ -122,6 +127,7 @@ export function ProductFormSheet({
     <>
       <FormSheet
         onDismiss={onDismiss}
+        dirty={dirty}
         title={product ? t("products.edit_title") : t("products.add_title")}
       >
         {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}

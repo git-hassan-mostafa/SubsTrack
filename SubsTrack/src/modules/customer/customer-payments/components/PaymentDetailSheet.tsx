@@ -57,6 +57,12 @@ export function PaymentDetailSheet({
   const [editMode, setEditMode] = useState(false);
   const [editPaid, setEditPaid] = useState<number | null>(null);
 
+  // Guard only a real amount CHANGE. Not `useDirtyForm`: `editPaid` is seeded
+  // from the payment when edit mode opens, so a null-baseline diff would flag
+  // merely tapping "Edit" — and opening edit mode loses nothing.
+  const dirty =
+    editMode && editPaid != null && editPaid !== payment?.amountPaid;
+
   function handleOpenEdit() {
     setEditPaid(payment ? payment.amountPaid : null);
     setEditMode(true);
@@ -108,6 +114,7 @@ export function PaymentDetailSheet({
   return (
     <FormSheet
       onDismiss={handleDismiss}
+      dirty={dirty}
       title={
         isMultiMonth
           ? t("payments.block_receipt_title")

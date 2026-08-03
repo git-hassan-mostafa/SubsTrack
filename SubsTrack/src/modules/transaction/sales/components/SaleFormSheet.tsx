@@ -15,6 +15,7 @@ import type { Customer } from "@/src/core/types";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { useSaleSlice } from "@/src/state/hooks/useSaleSlice";
 import { formatMoney } from "@/src/core/utils/currency";
+import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
 import { SaleItemsEditor, type SaleCartDraft } from "./SaleItemsEditor";
 
 const EMPTY_CART: SaleCartDraft = {
@@ -55,6 +56,20 @@ export function SaleFormSheet({
   const [amountPaid, setAmountPaid] = useState<number | null>(null);
   const [notes, setNotes] = useState("");
   const [addCustomerOpen, setAddCustomerOpen] = useState(false);
+
+  // Cart VALUES, not the `cart` object: SaleItemsEditor re-reports the draft from
+  // an effect (on mount, and again when the products list loads), so the object
+  // identity changes with no user action and would mark the form dirty on open.
+  // Its currency is excluded for the same reason — it self-seeds from the
+  // last-used one; only actual cart lines mean the user built something.
+  const dirty = useDirtyForm({
+    cartLines: cart.lines.length,
+    cartTotal: cart.total,
+    customerId: customer?.id ?? null,
+    paymentMode,
+    amountPaid,
+    notes,
+  });
 
   useEffect(() => {
     clearError();
@@ -100,7 +115,11 @@ export function SaleFormSheet({
 
   return (
     <>
-      <FormSheet onDismiss={onDismiss} title={t("sales.record_title")}>
+      <FormSheet
+        onDismiss={onDismiss}
+        dirty={dirty}
+        title={t("sales.record_title")}
+      >
         {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}
 
         {!initialCustomer ? (

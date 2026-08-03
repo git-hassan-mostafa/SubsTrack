@@ -41,7 +41,11 @@
     "bulk_void_summary": "تم الإلغاء {{ok}} · فشل {{failed}}.",
     "current_month": "هذا الشهر",
     "today": "اليوم",
-    "this_week": "هذا الأسبوع"
+    "this_week": "هذا الأسبوع",
+    "discard_changes_title": "تجاهل التغييرات؟",
+    "discard_changes_message": "لديك تغييرات غير محفوظة. إذا أغلقت الآن سيتم فقدانها.",
+    "discard": "تجاهل",
+    "keep_editing": "متابعة التعديل"
   },
   "auth": {
     "title": "SubsTrack",

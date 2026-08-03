@@ -41,7 +41,11 @@
     "bulk_void_summary": "Voided {{ok}} · {{failed}} failed.",
     "current_month": "This Month",
     "today": "Today",
-    "this_week": "This Week"
+    "this_week": "This Week",
+    "discard_changes_title": "Discard changes?",
+    "discard_changes_message": "You have unsaved changes. If you close now, they will be lost.",
+    "discard": "Discard",
+    "keep_editing": "Keep Editing"
   },
   "auth": {
     "title": "SubsTrack",

@@ -15,6 +15,7 @@ import type { Product, StockMovement, StockReason } from "@/src/core/types";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { useProductSlice } from "@/src/state/hooks/useProductSlice";
 import { useUserSlice } from "@/src/state/hooks/useUserSlice";
+import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
 import productService from "../services/ProductService";
 
 interface Props {
@@ -59,6 +60,9 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
   const [note, setNote] = useState("");
   const [history, setHistory] = useState<StockMovement[]>([]);
 
+  // `history` is background-loaded, so it stays out of the dirty check.
+  const dirty = useDirtyForm({ mode, quantity, note });
+
   // Stable across renders so the mount effect below can depend on it.
   const loadHistory = useCallback(async () => {
     try {
@@ -99,6 +103,7 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
   return (
     <FormSheet
       onDismiss={onDismiss}
+      dirty={dirty}
       title={t("products.adjust_stock_title")}
       dismissLabel={t("common.close")}
     >

@@ -57,6 +57,10 @@ interface Props {
   branchId: string | null;
   // The customer's start date — new lines inherit it.
   startDate: string;
+  // Reports whether the user has touched the plan rows, so the parent form can
+  // include them in its unsaved-changes check (the rows live here, not in the
+  // parent's form state, so a state diff up there would miss them).
+  onDirtyChange?: (dirty: boolean) => void;
   ref: Ref<CustomerPlansEditorHandle>;
 }
 
@@ -70,6 +74,7 @@ export function CustomerPlansEditor({
   customer,
   branchId,
   startDate,
+  onDirtyChange,
   ref,
 }: Props) {
   const { t } = useTranslation();
@@ -99,6 +104,36 @@ export function CustomerPlansEditor({
   const [reactivated, setReactivated] = useState<string[]>([]);
   const [addPlanOpen, setAddPlanOpen] = useState(false);
 
+  // Baseline for the dirty check — the rows as first built, captured in a lazy
+  // initializer (never read a ref during render: gotcha #52).
+  const [initialRows] = useState(() => rows);
+  // Rows whose plan the branch-reconciliation effect below cleared on its own.
+  // That is not a user edit, so their planId is excluded from the dirty compare —
+  // otherwise merely opening an existing customer whose line points at an
+  // out-of-branch plan raised the discard prompt once `plans` finished loading.
+  const [autoCleared, setAutoCleared] = useState<string[]>([]);
+
+  // A removal/reactivation is a change by definition; otherwise compare the rows
+  // field-by-field. Reported upward so the parent's discard prompt covers plans.
+  const plansDirty =
+    removed.length > 0 ||
+    reactivated.length > 0 ||
+    rows.length !== initialRows.length ||
+    rows.some((r, i) => {
+      const base = initialRows[i];
+      return (
+        !base ||
+        base.key !== r.key ||
+        (base.planId !== r.planId && !autoCleared.includes(r.key)) ||
+        base.startDate !== r.startDate ||
+        base.status !== r.status
+      );
+    });
+
+  useEffect(() => {
+    onDirtyChange?.(plansDirty);
+  }, [plansDirty, onDirtyChange]);
+
   useImperativeHandle(ref, () => ({
     // Only active rows become create/update drafts; cancelled rows are excluded.
     getLines: () =>
@@ -117,6 +152,7 @@ export function CustomerPlansEditor({
   // `prev.map()` always allocates a new array, which made this effect force a
   // second render of the whole customer form on every single open.
   useEffect(() => {
+    const cleared: string[] = [];
     setRows((prev) => {
       let changed = false;
       const next = prev.map((r) => {
@@ -124,16 +160,23 @@ export function CustomerPlansEditor({
         const p = plans.find((pl) => pl.id === r.planId);
         if (p && p.branchId !== null && p.branchId !== branchId) {
           changed = true;
+          cleared.push(r.key);
           return { ...r, planId: null };
         }
         return r;
       });
       return changed ? next : prev;
     });
+    // Remember which rows WE cleared so the dirty check doesn't read it as an edit.
+    if (cleared.length > 0) {
+      setAutoCleared((prev) => [...new Set([...prev, ...cleared])]);
+    }
   }, [branchId, plans]);
 
   function setRowPlan(key: string, planId: string | null) {
     setRows((prev) => prev.map((r) => (r.key === key ? { ...r, planId } : r)));
+    // A deliberate pick overrides the auto-clear, so this row counts as edited again.
+    setAutoCleared((prev) => prev.filter((k) => k !== key));
   }
 
   function setRowStartDate(key: string, date: string) {

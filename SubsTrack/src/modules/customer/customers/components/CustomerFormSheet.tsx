@@ -28,6 +28,7 @@ import { useSubscriptionSlice } from "@/src/state/hooks/useSubscriptionSlice";
 import { UpgradePromptModal } from "@/src/modules/admin/subscription";
 import { openMapsApp } from "@/src/shared/lib/maps";
 import { COLORS } from "@/src/shared/constants";
+import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
 
 interface Props {
   customer?: Customer | null;
@@ -95,6 +96,11 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
   const plansEditor = useRef<CustomerPlansEditorHandle>(null);
   const [submitting, setSubmitting] = useState(false);
 
+  // The plan rows live inside CustomerPlansEditor, so it reports its own dirty
+  // state up — a diff of `form` alone would miss an added/changed plan line.
+  const [plansDirty, setPlansDirty] = useState(false);
+  const dirty = useDirtyForm(form) || plansDirty;
+
   useEffect(() => {
     clearError();
     clearPlanError();
@@ -158,6 +164,7 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
     <>
       <FormSheet
         onDismiss={onDismiss}
+        dirty={dirty}
         title={customer ? t("customers.edit_title") : t("customers.add_title")}
       >
         {bannerError ? (
@@ -278,6 +285,7 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
           customer={customer}
           branchId={form.branchId}
           startDate={form.startDate}
+          onDirtyChange={setPlansDirty}
         />
 
         <Input

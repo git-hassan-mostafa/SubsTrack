@@ -288,9 +288,13 @@ export function DeveloperScreen() {
         ) : null}
       </ResponsiveContainer>
 
+      {/* Not `useDirtyForm`: this sheet is always mounted, so a first-render
+          baseline would be the screen's mount, not the sheet's open. `importText`
+          is empty until typed, so its own emptiness is the dirty check. */}
       <FormSheet
         visible={importOpen}
         onDismiss={() => setImportOpen(false)}
+        dirty={importText.trim().length > 0}
         title={t("settings.developer_import")}
       >
         {importError ? (

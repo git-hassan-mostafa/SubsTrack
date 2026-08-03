@@ -150,6 +150,22 @@ A month marked "not expected to pay" on ONE service line (`skipped_months`, bool
 | 5.6 | Concurrent switch                 | Tap "<" twice fast           | Latest fetch wins (no flickering or stale data)                           |
 | 5.7 | Multi-month visible in both years | Block crossing year boundary | Source in year Y; secondary cells in year Y+1                             |
 
+## 5b. Plan name + price header (above the grid)
+
+The header shows the selected service line's plan name and its price. It renders for **every** customer now, not only multi-plan ones.
+
+| #    | Scenario                    | Steps                                              | Expected result                                                                       |
+| ---- | --------------------------- | -------------------------------------------------- | ------------------------------------------------------------------------------------- |
+| 5b.1 | Single-plan customer        | Open a customer holding one fixed-price plan       | Header shows "<plan name> · <price> / month" above the year row                        |
+| 5b.2 | Multi-plan customer         | Open a customer with 2+ lines, switch line tabs    | Header name + price follow the selected line                                          |
+| 5b.3 | Custom-price plan           | Line whose plan has isCustomPrice                  | Price reads "Custom" — no amount (there is no fixed price to show)                     |
+| 5b.4 | Plan-less line              | Line with planId = null                            | Name reads "No plan"; price reads "Custom"                                            |
+| 5b.5 | Multi-month plan            | Plan with durationMonths = 3                       | Price reads "<price> / 3mo" — the bundle price, not a per-month amount                |
+| 5b.6 | Display-currency conversion | Switch display currency                            | Price re-renders converted into the display currency (plan currency is the source)     |
+| 5b.7 | Cancelled line             | Select a cancelled line                            | Name still carries the "· Cancelled" tag, price shown as normal                        |
+| 5b.8 | Long plan name             | Plan with a very long name                         | Name truncates to one line; the price stays visible (never pushed off-screen)          |
+| 5b.9 | Arabic / RTL               | Switch to Arabic                                   | Header mirrors correctly; price sits after the name; "/ شهرياً" reads right            |
+
 ## 6. Current month turns unpaid on day 1 (no grace period)
 
 There is no grace setting anywhere — no tier, no tenant option. The current month is UNPAID as soon as it starts and has no payment.

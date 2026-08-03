@@ -26,6 +26,7 @@ import {
 } from "./PaymentAmountPaidSection";
 import { Ionicons } from "@expo/vector-icons";
 import { COLORS } from "@/src/shared/constants";
+import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
 
 interface Props {
   entry: MonthEntry;
@@ -86,6 +87,10 @@ export function PaymentFormSheet({
   const locale = language === "ar" ? "ar" : "en-US";
 
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
+
+  // CurrencyInput self-seeds the currency from the last-used one after mount, so
+  // it changes with no user action — ignore it in the dirty check.
+  const dirty = useDirtyForm(form, ["customCurrencyId"]);
 
   const plan = line.plan ?? null;
   const isMultiMonth = (plan?.durationMonths ?? 1) > 1;
@@ -250,7 +255,11 @@ export function PaymentFormSheet({
 
   return (
     <>
-      <FormSheet onDismiss={handleDismiss} title={t("payments.record_payment")}>
+      <FormSheet
+        onDismiss={handleDismiss}
+        dirty={dirty}
+        title={t("payments.record_payment")}
+      >
         {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}
 
         {blockedForInactive ? (

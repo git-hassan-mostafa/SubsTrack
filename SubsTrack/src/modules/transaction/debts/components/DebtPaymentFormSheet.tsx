@@ -17,6 +17,7 @@ import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
 import { useDebtSlice } from "@/src/state/hooks/useDebtSlice";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
+import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
 import debtService from "../services/DebtService";
 
 // When locked to a specific customer, the form only needs their id + name (no
@@ -56,6 +57,12 @@ export function DebtPaymentFormSheet({
   // debt payment can never exceed this; the service enforces it too.
   const [owedUsd, setOwedUsd] = useState<number | null>(null);
   const [owedLoading, setOwedLoading] = useState(false);
+
+  // `owedUsd` / `owedLoading` are background-loaded, so they stay out — they'd
+  // mark an untouched form dirty.
+  // `currencyId` excluded — CurrencyInput self-seeds it from the last-used
+  // currency after mount, so it changes without the user doing anything.
+  const dirty = useDirtyForm({ pickedId: picked?.id ?? null, amount, notes });
 
   useEffect(() => {
     clearError();
@@ -122,7 +129,11 @@ export function DebtPaymentFormSheet({
 
   return (
     <>
-      <FormSheet onDismiss={onDismiss} title={t("debts.record_debt_payment")}>
+      <FormSheet
+        onDismiss={onDismiss}
+        dirty={dirty}
+        title={t("debts.record_debt_payment")}
+      >
             {error ? (
               <ErrorBanner message={error} onDismiss={clearError} />
             ) : null}

@@ -16,6 +16,7 @@ import { useAuth } from "@/src/modules/authentication/auth";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDebtSlice } from "@/src/state/hooks/useDebtSlice";
 import { findCurrency } from "@/src/core/utils/currency";
+import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
 
 // When locked to a specific customer, the form only needs their id + name (no
 // picker is rendered), so callers may pass a lightweight customer ref — e.g. the
@@ -49,6 +50,15 @@ export function CustomDebtFormSheet({
   const [description, setDescription] = useState("");
   const [addCustomerOpen, setAddCustomerOpen] = useState(false);
 
+  // `currencyId` is excluded: CurrencyInput self-seeds it from the last-used
+  // currency in a mount effect, so it changes with no user action. An amount is
+  // what makes the form dirty; a default currency alone is not an edit.
+  const dirty = useDirtyForm({
+    pickedId: picked?.id ?? null,
+    amount,
+    description,
+  });
+
   const customer: CustomerRef | null = initialCustomer ?? picked;
 
   useEffect(() => {
@@ -75,7 +85,11 @@ export function CustomDebtFormSheet({
 
   return (
     <>
-      <FormSheet onDismiss={onDismiss} title={t("debts.add_custom_debt")}>
+      <FormSheet
+        onDismiss={onDismiss}
+        dirty={dirty}
+        title={t("debts.add_custom_debt")}
+      >
             {error ? (
               <ErrorBanner message={error} onDismiss={clearError} />
             ) : null}

@@ -13,6 +13,7 @@ import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { getStore } from "@/src/state/globalStore";
 import { useSubscriptionSlice } from "@/src/state/hooks/useSubscriptionSlice";
 import { UpgradePromptModal } from "@/src/modules/admin/subscription";
+import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
 
 interface Props {
   currency?: Currency | null;
@@ -52,6 +53,8 @@ export function CurrencyFormSheet({
     rateText: currency?.ratePerUsd != null ? String(currency.ratePerUsd) : "",
     decimalsText: currency?.decimals != null ? String(currency.decimals) : "2",
   });
+
+  const dirty = useDirtyForm(form);
 
   useEffect(() => {
     clearError();
@@ -94,6 +97,7 @@ export function CurrencyFormSheet({
     <>
       <FormSheet
         onDismiss={onDismiss}
+        dirty={dirty}
         title={
           currency
             ? t("tenant_settings.edit_currency")
