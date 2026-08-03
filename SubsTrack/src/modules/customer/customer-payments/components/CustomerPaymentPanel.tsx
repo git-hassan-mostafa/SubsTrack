@@ -171,6 +171,23 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
     ? (monthGridsByLine[selectedLine.id] ?? EMPTY_GRID)
     : EMPTY_GRID;
 
+  // Price shown next to the plan name above the grid. A custom-price or
+  // plan-less line has no fixed amount, so it reads "Custom" instead. Multi-month
+  // plans say so, since the price covers the whole block, not one month.
+  const linePriceLabel = (() => {
+    if (!plan) return null;
+    if (plan.isCustomPrice || plan.price === null) return t("common.custom");
+    const amount = formatMoney(
+      plan.price,
+      findCurrency(currencies, plan.currencyId),
+      displayCurrency,
+    );
+    // `subscription.per_month` is already slash-prefixed ("/ month") in both locales.
+    return plan.durationMonths > 1
+      ? `${amount} / ${t("plans.n_months", { count: plan.durationMonths })}`
+      : `${amount} ${t("subscription.per_month")}`;
+  })();
+
   // Loads every line's payments once per customer; switching years/lines
   // rebuilds the grids from the store instead of re-fetching.
   useEffect(() => {
@@ -751,13 +768,12 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
         <View className="bg-white mx-4 mt-3 rounded-2xl border border-gray-100 overflow-hidden">
           <View className="relative">
             <View className="px-4 pt-4 pb-2">
-              {/* Selected line header (the plan this grid is for) — shown only
-                when the customer has more than one line. */}
-              {lines.length > 1 && selectedLine ? (
-                <View className="mb-1">
+              {/* Selected line header — the plan this grid is for, plus its price. */}
+              {selectedLine ? (
+                <View className="mb-1 flex-row items-baseline">
                   <Text
                     fontWeight="SemiBold"
-                    className="text-sm text-gray-700"
+                    className="text-sm text-gray-700 shrink"
                     numberOfLines={1}
                   >
                     {lineLabel(selectedLine, t("common.no_plan"))}
@@ -765,6 +781,14 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
                       ? ""
                       : ` · ${t("subscriptions.cancelled")}`}
                   </Text>
+                  {linePriceLabel ? (
+                    <Text
+                      className="text-xs text-gray-400 ms-2"
+                      numberOfLines={1}
+                    >
+                      · {linePriceLabel}
+                    </Text>
+                  ) : null}
                 </View>
               ) : null}
 

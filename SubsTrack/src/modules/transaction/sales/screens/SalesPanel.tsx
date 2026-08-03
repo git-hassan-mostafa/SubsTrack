@@ -317,6 +317,7 @@ export function SalesPanel() {
               <MonthSectionHeader
                 title={section.title}
                 count={section.data.length}
+                first={section.key === sections[0]?.key}
                 total={formatMoney(
                   section.totalUsd ?? 0,
                   null,
