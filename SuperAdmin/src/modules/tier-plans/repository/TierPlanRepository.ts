@@ -25,7 +25,6 @@ export class TierPlanRepository extends BaseRepository {
         | "max_products"
         | "multi_currency_enabled"
         | "multi_month_plans_enabled"
-        | "grace_days"
         | "price_monthly_usd"
         | "price_yearly_usd"
         | "active"

@@ -21,7 +21,6 @@ function mapDbTierPlanToTierPlan(db: DbTierPlan): TierPlan {
     maxCurrencies: db.max_currencies,
     multiCurrencyEnabled: db.multi_currency_enabled,
     multiMonthPlansEnabled: db.multi_month_plans_enabled,
-    graceDays: db.grace_days,
     priceMonthlyUsd: Number(db.price_monthly_usd),
     priceYearlyUsd: db.price_yearly_usd === null ? null : Number(db.price_yearly_usd),
     active: db.active,

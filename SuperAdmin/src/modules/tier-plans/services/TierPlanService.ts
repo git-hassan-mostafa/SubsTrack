@@ -16,7 +16,6 @@ export function mapDbTierPlanToTierPlan(db: DbTierPlan): TierPlan {
     maxProducts: db.max_products,
     multiCurrencyEnabled: db.multi_currency_enabled,
     multiMonthPlansEnabled: db.multi_month_plans_enabled,
-    graceDays: db.grace_days,
     priceMonthlyUsd: Number(db.price_monthly_usd),
     priceYearlyUsd: db.price_yearly_usd === null ? null : Number(db.price_yearly_usd),
     active: db.active,
@@ -33,7 +32,6 @@ export interface TierPlanInput {
   maxProducts: number | null;
   multiCurrencyEnabled: boolean;
   multiMonthPlansEnabled: boolean;
-  graceDays: number;
   priceMonthlyUsd: number;
   priceYearlyUsd: number | null;
   active: boolean;
@@ -59,7 +57,6 @@ export class TierPlanService {
       max_products: data.maxProducts,
       multi_currency_enabled: data.multiCurrencyEnabled,
       multi_month_plans_enabled: data.multiMonthPlansEnabled,
-      grace_days: data.graceDays,
       price_monthly_usd: data.priceMonthlyUsd,
       price_yearly_usd: data.priceYearlyUsd,
       active: data.active,
@@ -69,9 +66,6 @@ export class TierPlanService {
 
   private validate(data: TierPlanInput): void {
     if (!data.name.trim()) throw new Error("Tier name is required");
-    if (data.graceDays < 0 || !Number.isInteger(data.graceDays)) {
-      throw new Error("Grace days must be a non-negative integer");
-    }
     if (data.priceMonthlyUsd < 0) {
       throw new Error("Monthly price must be non-negative");
     }

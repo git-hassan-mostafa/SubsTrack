@@ -9,7 +9,7 @@ import { SubscriptionRepository } from './SubscriptionRepository';
 
 /**
  * Offline subscription reads: tiers, tenant+tier, and usage counts all resolve
- * from the local mirror so tier limits + grace days work offline. `upgradeTenant`
+ * from the local mirror so tier limits work offline. `upgradeTenant`
  * is billing/entitlement — online-only.
  */
 export class OfflineSubscriptionRepository

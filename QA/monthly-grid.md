@@ -17,7 +17,7 @@ The status logic lives in exactly one place: `PaymentService.buildMonthGrid`. Ve
 
 ## 1. Status truth table
 
-For year Y, month M, given today = (CY, CM), customer.startDate = SY-SM-SD, graceDays = G:
+For year Y, month M, given today = (CY, CM), customer.startDate = SY-SM-SD:
 
 | Condition                                                                                                  | Status                                                                                                             |
 | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
@@ -25,8 +25,7 @@ For year Y, month M, given today = (CY, CM), customer.startDate = SY-SM-SD, grac
 | A covering payment exists for Y-M AND `voided_at IS NULL` AND `amount_paid > 0` (ANY balance, incl. `balance > 0`) | `paid` (green for regular, yellow for non-regular; `isGroupSecondary = true` for months 2+ in a multi-month block) |
 | An active skip exists for (line, Y-M) — `skipped_months.skipped = true`                                    | `skipped` (slate, same for regular and non-regular) — ranks BELOW `paid`                                            |
 | Y > CY OR (Y == CY AND M > CM)                                                                             | `future`                                                                                                           |
-| First-of-month ≤ today ≤ first-of-month + G days                                                           | `future` (within grace)                                                                                            |
-| Otherwise                                                                                                  | `unpaid`                                                                                                           |
+| Otherwise                                                                                                  | `unpaid` (from day 1 of the month — there is no grace period)                                                       |
 
 Notes:
 
@@ -151,14 +150,16 @@ A month marked "not expected to pay" on ONE service line (`skipped_months`, bool
 | 5.6 | Concurrent switch                 | Tap "<" twice fast           | Latest fetch wins (no flickering or stale data)                           |
 | 5.7 | Multi-month visible in both years | Block crossing year boundary | Source in year Y; secondary cells in year Y+1                             |
 
-## 6. Grace period interaction
+## 6. Current month turns unpaid on day 1 (no grace period)
 
-| #   | Scenario                       | Steps                         | Expected result                                                |
-| --- | ------------------------------ | ----------------------------- | -------------------------------------------------------------- |
-| 6.1 | graceDays = 0 (default)        | Day 1 of month, no payment    | Cell UNPAID immediately                                        |
-| 6.2 | graceDays = 5, day 3           | Within grace                  | Cell FUTURE (no current-month highlight since status = future) |
-| 6.3 | graceDays = 5, day 6           | Past cutoff                   | Cell UNPAID with current-month highlight                       |
-| 6.4 | Grace edge — day 5 (== cutoff) | Today equals firstOfMonth + 5 | Cell FUTURE (`<=` cutoff)                                      |
+There is no grace setting anywhere — no tier, no tenant option. The current month is UNPAID as soon as it starts and has no payment.
+
+| #   | Scenario                     | Steps                                        | Expected result                                                                                                        |
+| --- | ---------------------------- | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| 6.1 | Day 1, no payment            | Set the device date to the 1st               | Cell UNPAID with the current-month highlight                                                                            |
+| 6.2 | Mid-month, no payment        | Day 10, still unpaid                         | Cell UNPAID (unchanged — nothing flips part-way through the month)                                                       |
+| 6.3 | Card matches grid            | Day 1, no payment                            | Customer-list pill red "Unpaid" and the grid cell red — never one red and the other grey (see [customers.md § 1.15b](customers.md)) |
+| 6.4 | Any tier behaves the same    | Repeat 6.1 on Free, Pro and Business tenants | Identical result — the tier no longer affects month status                                                               |
 
 ## 7. Date / timezone correctness
 
@@ -173,7 +174,7 @@ A month marked "not expected to pay" on ONE service line (`skipped_months`, bool
 
 | #   | Scenario            | Steps                                   | Expected result                                                         |
 | --- | ------------------- | --------------------------------------- | ----------------------------------------------------------------------- |
-| 8.1 | useMemo on grid     | Re-render parent                        | Grid recomputed only when payments / customer / year / graceDays change |
+| 8.1 | useMemo on grid     | Re-render parent                        | Grid recomputed only when payments / customer / year change             |
 | 8.2 | React.memo on cells | Tap a cell                              | Other 11 cells do not re-render                                         |
 | 8.3 | Smooth tap          | Tap rapidly across cells                | Transitions smooth (memoization keeps rendering cheap)                  |
 | 8.4 | Large payment count | Customer with many payments in the year | Grid still computes in <16ms                                            |

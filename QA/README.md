@@ -17,7 +17,7 @@ This folder contains the production QA test plan for the SubsTrack mobile app. E
 | Authentication | [authentication.md](authentication.md) | Login, session restore, tenant inactive, logout |
 | Signup | [signup.md](signup.md) | Self-service 2-step tenant creation: organization name + code, owner account, Edge Function atomicity, auto-login, security |
 | Customers | [customers.md](customers.md) | List, search, filter, action menu, Quick Pay, create/edit, delete, deactivate/reactivate, detail (with branch + notes + area + isRegular) |
-| Payments | [payments.md](payments.md) | Record (Scenarios A/B/C/D), partial payments, multi-month bundles, multi-currency, edit payment, void, receipt sheet, grace period |
+| Payments | [payments.md](payments.md) | Record (Scenarios A/B/C/D), partial payments, multi-month bundles, multi-currency, edit payment, void, receipt sheet |
 | Monthly Grid | [monthly-grid.md](monthly-grid.md) | Cell statuses (a partial payment looks paid — remainder is a debt), regular vs non-regular colors, multi-month merging, year navigation, date/timezone correctness |
 | Plans | [plans.md](plans.md) | List, create/edit/delete, fixed vs custom pricing, multi-month bundles (1–12), per-currency price, branch scoping (shared vs branch-specific) |
 | Users (Staff) | [users.md](users.md) | List, create/edit, role assignment, password rules, branch enforcement, delete user |

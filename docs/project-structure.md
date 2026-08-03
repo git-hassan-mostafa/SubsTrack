@@ -13,7 +13,6 @@ App/
 │   ├── features.md
 │   ├── gotchas.md
 │   └── edge-functions.md
-├── plan.md              # Full feature specification (source of truth for requirements)
 ├── new-features.md      # Feature backlog (mark items done when implemented)
 ├── SubsTrack/           # Main tenant-facing Expo app
 ├── SuperAdmin/          # Internal SaaS-owner admin Expo app
@@ -77,7 +76,7 @@ SubsTrack/
 │   │   ├── globalStore.ts         # GlobalState + getStore() singleton (stashed on globalThis)
 │   │   ├── hooks/
 │   │   │   ├── useGlobalStore.ts  # Overloaded wrapper around useStore(getStore(), sel)
-│   │   │   └── use<Feature>Slice.ts × 11  # Per-slice overloaded hooks (e.g. useCustomerSlice, useOptionSlice, useGraceDays exported from useSubscriptionSlice)
+│   │   │   └── use<Feature>Slice.ts × 11  # Per-slice overloaded hooks (e.g. useCustomerSlice, useOptionSlice, useSubscriptionSlice)
 │   │   └── slices/
 │   │       ├── auth/authSlice.ts
 │   │       ├── subscription/subscriptionSlice.ts

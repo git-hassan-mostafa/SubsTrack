@@ -47,13 +47,13 @@ A customer can subscribe to several plans at once, each a **service line** (`cus
 1. Select a cancelled (dimmed) line in the panel. A **past** or **current** month tap opens the payment form and records normally; a **future** month tap shows a "Not available" dialog (`cancelled_plan_future_blocked`).
 2. **Quick pay** (cell 3-dot) is offered for a cancelled line's past/current unpaid fixed-price month, and records; it is **not** offered on a future month.
 3. **Bulk-select + Pay** on a cancelled line only pays the selected past/current months; future months are dropped from the payable set.
-4. The **current month during its grace window** (grid shows "future"-status gray) is still payable on a cancelled line — the gate keys off the calendar month, not the grid status.
+4. The **current month** is still payable on a cancelled line — the gate keys off the calendar month, not the grid status.
 5. When the whole customer is inactive, the same past/current-allowed, future-blocked rule applies, but the dialog reads `inactive_future_blocked` (customer-inactive message wins over the cancelled-plan one).
 
 ## 4. Aggregated customer-list status
 
 1. Customer with two active lines, both current month paid → list badge **paid** (green).
-2. One line paid, the other unpaid (past grace) → badge **"1/2 plans paid"** (amber); customer still appears in the Unpaid tab.
+2. One line paid, the other unpaid → badge **"1/2 plans paid"** (amber); customer still appears in the Unpaid tab.
 3. Any active line with an unpaid past month → customer is **overdue** (red) even if the current month is paid — **unless** the current month is a mixed pay (some plans paid), in which case the "N/M plans paid" badge wins over the red.
 4. Dashboard `unpaidThisMonth` counts the customer once if any active regular line is uncovered this month.
 5. Non-regular customer: lines never counted in unpaid/overdue (gotcha #16); the "N/M plans paid" badge never shows (the "Non-Regular" flag wins).
@@ -65,7 +65,7 @@ A customer can subscribe to several plans at once, each a **service line** (`cus
 3. All plans paid this month → green "Paid" (badge does not show). None paid → red "Unpaid" (badge does not show — needs `0 < paid < total`).
 4. Single plan with a partial-amount payment → green **"Paid"** badge (a partial payment counts as paid; the remaining amount shows only on the Debts tab). The "N/M plans paid" badge never fires for a single plan (`total >= 2` required).
 5. Pay the last unpaid plan (or "Collect all due") → badge flips to green "Paid" immediately (optimistic, no refetch). Void one plan's month → badge updates to the new count on next focus refresh.
-6. A plan whose current month is still within the grace window counts toward the denominator but not the numerator (e.g. one paid + one in-grace-unpaid → "1/2 plans paid").
+6. A started plan with no payment this month counts toward the denominator but not the numerator (e.g. one paid + one unpaid → "1/2 plans paid"); a skipped or not-yet-started plan counts toward neither.
 
 ## 4b. Card 3-dot menu labels (customer list)
 

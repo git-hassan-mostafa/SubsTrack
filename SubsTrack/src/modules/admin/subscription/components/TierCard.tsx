@@ -65,11 +65,6 @@ export function TierCard({
       label: t("subscription.feature.multi_month"),
       value: tier.multiMonthPlansEnabled ? t("common.yes") : t("common.no"),
     },
-    {
-      key: "grace_days",
-      label: t("subscription.feature.grace_days"),
-      value: String(tier.graceDays),
-    },
   ];
 
   const actionButton = onAction ? (

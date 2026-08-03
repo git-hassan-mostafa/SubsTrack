@@ -43,7 +43,6 @@ export function TierPlanFormSheet({ visible, tierPlan, onDismiss }: Props) {
   const [maxProducts, setMaxProducts] = useState("");
   const [multiCurrency, setMultiCurrency] = useState(false);
   const [multiMonth, setMultiMonth] = useState(false);
-  const [graceDays, setGraceDays] = useState("0");
   const [priceMonthly, setPriceMonthly] = useState("0");
   const [active, setActive] = useState(true);
 
@@ -58,7 +57,6 @@ export function TierPlanFormSheet({ visible, tierPlan, onDismiss }: Props) {
       setMaxProducts(toLimitText(tierPlan.maxProducts));
       setMultiCurrency(tierPlan.multiCurrencyEnabled);
       setMultiMonth(tierPlan.multiMonthPlansEnabled);
-      setGraceDays(String(tierPlan.graceDays));
       setPriceMonthly(String(tierPlan.priceMonthlyUsd));
       setActive(tierPlan.active);
       clearError();
@@ -78,7 +76,6 @@ export function TierPlanFormSheet({ visible, tierPlan, onDismiss }: Props) {
       maxProducts: parseLimit(maxProducts),
       multiCurrencyEnabled: multiCurrency,
       multiMonthPlansEnabled: multiMonth,
-      graceDays: parseInt(graceDays, 10) || 0,
       priceMonthlyUsd: parseFloat(priceMonthly) || 0,
       priceYearlyUsd: null,
       active,
@@ -180,15 +177,6 @@ export function TierPlanFormSheet({ visible, tierPlan, onDismiss }: Props) {
               trackColor={{ true: "#0a7ea4" }}
             />
           </View>
-
-          <Input
-            label="Grace days"
-            value={graceDays}
-            onChangeText={setGraceDays}
-            placeholder="0"
-            keyboardType="number-pad"
-            onFocus={clearError}
-          />
 
           <Text style={styles.section}>Pricing</Text>
 

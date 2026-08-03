@@ -545,7 +545,7 @@ CREATE TABLE audit_log (
 
 **Priority:** 🔴 High
 
-**Purpose:** Monetize the platform. Free tier hooks small businesses for word-of-mouth growth, Pro / Business unlock higher limits and premium features (multi-branch, multi-currency, multi-month plans, longer grace days). Replaces the never-wired `saas_tiers` placeholder.
+**Purpose:** Monetize the platform. Free tier hooks small businesses for word-of-mouth growth, Pro / Business unlock higher limits and premium features (multi-branch, multi-currency, multi-month plans). Replaces the never-wired `saas_tiers` placeholder.
 
 **Schema changes:**
 
@@ -558,7 +558,6 @@ CREATE TABLE tier_plans (
   sort_order INT,
   max_customers / max_users / max_plans / max_branches / max_currencies INT NULL,  -- NULL = unlimited
   multi_currency_enabled / multi_month_plans_enabled BOOLEAN,
-  grace_days INT,
   price_monthly_usd / price_yearly_usd NUMERIC,
   active BOOLEAN
 );
@@ -573,7 +572,6 @@ ALTER TABLE tenants
 
 - New `src/modules/subscription/` module: TierService (limit enforcement + typed `TierLimitError`), SubscriptionRepository (fetch tiers + tenant usage + upgrade), subscriptionStore (state + `init` + `upgrade` + `refreshUsage`), SubscriptionScreen (usage bars + tier cards), `UpgradePromptModal` (block dialog when a limit is hit).
 - Each feature Service (`createCustomer` / `createUser` / `createPlan` / `createBranch` / `createCurrency` / `createMultiMonthPayment`) now calls `tierService.assertCanCreate(tier, usage, resource)` after its `validate()`.
-- The mobile app's `DEFAULT_GRACE_DAYS = 0` constant is gone — grace days come from the current tier via `useGraceDays()`.
 - SuperAdmin: `saas-tiers` module deleted; replaced by `tier-plans` module that lets the SaaS owner edit limits / prices on the 3 global tier rows. The Tenant edit form now has a tier picker for manual upgrades (out-of-band billing).
 - Upgrade flow performs an instant tier swap today (no billing). Stripe integration is the documented future hook — `tier_plans` has room for `stripe_price_id_*` columns and `tenants` for `stripe_customer_id` without touching call sites.
 

@@ -35,7 +35,6 @@ interface Props {
   // slice rebuild every line's grid after the write.
   line: CustomerPlan;
   lines: CustomerPlan[];
-  graceDays: number;
   monthGrid: MonthEntry[];
   onDismiss: () => void;
 }
@@ -67,7 +66,6 @@ export function PaymentFormSheet({
   customer,
   line,
   lines,
-  graceDays,
   monthGrid,
   onDismiss,
 }: Props) {
@@ -210,7 +208,6 @@ export function PaymentFormSheet({
         true, // skipConflicts — conflicts already confirmed or absent
         lines,
         entry.year,
-        graceDays,
         currentTier,
       );
     } else {
@@ -230,7 +227,6 @@ export function PaymentFormSheet({
         },
         findCurrency(currencies, resolvedCurrencyId),
         lines,
-        graceDays,
       );
     }
     if (!getStore().getState().payments.error) {

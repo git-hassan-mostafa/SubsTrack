@@ -6,7 +6,7 @@ Covers the Free / Pro / Business tier system: hard limits, feature flags, the Su
 
 - Module: [SubsTrack/src/modules/subscription/](../SubsTrack/src/modules/subscription/)
 - Service: [TierService.ts](../SubsTrack/src/modules/subscription/services/TierService.ts)
-- Store: [subscriptionStore.ts](../SubsTrack/src/modules/subscription/store/subscriptionStore.ts) — also exports `useGraceDays()`
+- Store: [subscriptionStore.ts](../SubsTrack/src/modules/subscription/store/subscriptionStore.ts)
 - Screen: [SubscriptionScreen.tsx](../SubsTrack/src/modules/subscription/screens/SubscriptionScreen.tsx)
 - Block dialog: [UpgradePromptModal.tsx](../SubsTrack/src/modules/subscription/components/UpgradePromptModal.tsx)
 - SQL: `tier_plans` table + `tenants.tier_id` in [sql scripts/script.sql](../sql%20scripts/script.sql)
@@ -23,7 +23,6 @@ Tier seed values (defaults — editable from SuperAdmin):
 | max_currencies | 0 | ∞ | ∞ |
 | multi_currency | ✗ | ✓ | ✓ |
 | multi_month plans | ✗ | ✓ | ✓ |
-| grace_days | 0 | 3 | 7 |
 | $/mo | 0 | 9 | 29 |
 
 ---
@@ -88,18 +87,15 @@ Tier seed values (defaults — editable from SuperAdmin):
 | 7.2 | Pro unlocks | Upgrade to Pro, open Plan form | Duration picker visible; can set 3 / 6 / 12 |
 | 7.3 | Multi-month payment recording blocked on Free | Manually craft a payment via store with `durationMonths > 1` on Free | `TierLimitError` thrown; modal appears (defensive — UI normally prevents this) |
 
-## 8. Grace days
+## 8. Tier does NOT affect month status
 
-`useGraceDays()` reads `currentTier.graceDays`. Replaces the prior `DEFAULT_GRACE_DAYS = 0` constant.
+Grace days were removed from the product: `tier_plans.grace_days` is dropped and no code reads a grace value. The tier controls limits, feature flags and price only.
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 8.1 | Free = 0 | Current month, no payment, on day 1 | Cell renders UNPAID immediately (no grace) |
-| 8.2 | Pro = 3 | Same scenario on Pro, day 2 | Cell renders FUTURE (within grace window) |
-| 8.3 | Pro = 3, day 5 | Day 5 of current month, no payment | UNPAID (grace expired) |
-| 8.4 | Business = 7 | Day 4 of current month on Business | FUTURE |
-| 8.5 | Tier swap mid-session | Upgrade Free→Pro while on a customer detail screen | Grid recomputes on next refetch using new graceDays |
-| 8.6 | SuperAdmin edits grace_days | SaaS owner changes Free.grace_days = 2 in SuperAdmin | After next login on a Free tenant, the grid honors 2 days of grace |
+| 8.1 | Day 1 unpaid on every tier | Current month, no payment, day 1, on Free then Pro then Business | Cell renders UNPAID immediately in all three |
+| 8.2 | Tier swap mid-session | Upgrade Free→Pro while on a customer detail screen | Month statuses do not change (only limits / flags do) |
+| 8.3 | No grace field in the editor | SuperAdmin → tier-plans → edit a tier | No "Grace days" input; the tier row shows no grace value |
 
 ## 9. Upgrade flow
 

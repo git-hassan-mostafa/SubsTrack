@@ -11,6 +11,3 @@ export function useSubscriptionSlice<T = SubscriptionSlice>(
     return selector ? selector(slice) : (slice as T);
   });
 }
-
-export const useGraceDays = (): number =>
-  useGlobalStore((s) => s.subscription.currentTier?.graceDays ?? 0);

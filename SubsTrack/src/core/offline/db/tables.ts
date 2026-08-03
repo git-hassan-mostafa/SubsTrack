@@ -65,7 +65,7 @@ export const TABLES: TableSpec[] = [
       max_customers: 'int', max_users: 'int', max_plans: 'int', max_branches: 'int',
       max_currencies: 'int', max_products: 'int',
       multi_currency_enabled: 'bool', multi_month_plans_enabled: 'bool',
-      grace_days: 'int', price_monthly_usd: 'num', price_yearly_usd: 'num',
+      price_monthly_usd: 'num', price_yearly_usd: 'num',
       active: 'bool', created_at: 'text', updated_at: 'text',
     },
   },

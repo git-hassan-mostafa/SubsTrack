@@ -357,10 +357,7 @@ class PaymentService {
   // through the current year — even if the current month itself is paid. Status
   // is decided exclusively by buildMonthGrid (rule #1): a customer is overdue if
   // any month of any active line resolves to "unpaid" (a skipped month never does).
-  async findOverdueCustomerIds(
-    customers: Customer[],
-    graceDays: number,
-  ): Promise<Set<string>> {
+  async findOverdueCustomerIds(customers: Customer[]): Promise<Set<string>> {
     const [rows, skips] = await Promise.all([
       repository.findActivePayments(),
       skippedMonthService.getActiveSkips(),
@@ -384,7 +381,7 @@ class PaymentService {
         const lineSkips = skipsByLine.get(line.id) ?? [];
         const startYear = new Date(line.startDate).getFullYear();
         for (let year = startYear; year <= currentYear; year++) {
-          const grid = this.buildMonthGrid(line, payments, lineSkips, year, graceDays);
+          const grid = this.buildMonthGrid(line, payments, lineSkips, year);
           if (grid.some((entry) => entry.status === "unpaid")) return true;
         }
         return false;
@@ -404,10 +401,10 @@ class PaymentService {
   //   skipped — every started line is skipped, so nothing is owed at all
   // Also returns the plan tally for the "N/M plans paid" badge:
   //   total   — started lines that are DUE (grid status != before_start and
-  //             != skipped; future/grace counts)
+  //             != skipped)
   //   paid    — started lines fully settled this month (grid status "paid")
-  // Lines whose current month is "future" (within grace), skipped, or before
-  // start are not "owed" and don't block "full". This mirrors the SQL path in
+  // Lines that are skipped or before start are not "owed" and don't block
+  // "full". This mirrors the SQL path in
   // PaymentRepository.findPaymentStatusForMonth, so both stay in lockstep.
   // Also returns notDueLineIds — lines that must not be quick-paid this month
   // because they are already covered by a payment, or skipped.
@@ -415,7 +412,6 @@ class PaymentService {
     lines: CustomerPlan[],
     payments: Payment[],
     skips: SkippedMonth[],
-    graceDays: number,
   ): {
     status: "full" | "partial" | "none" | "skipped";
     count: CurrentMonthPlanCount;
@@ -432,7 +428,7 @@ class PaymentService {
       if (!line.active) continue;
       const linePayments = payments.filter((p) => p.customerPlanId === line.id);
       const lineSkips = skips.filter((s) => s.customerPlanId === line.id);
-      const entry = this.buildMonthGrid(line, linePayments, lineSkips, year, graceDays).find(
+      const entry = this.buildMonthGrid(line, linePayments, lineSkips, year).find(
         (e) => e.month === month,
       );
       if (!entry || entry.status === "before_start") continue; // not started
@@ -474,7 +470,6 @@ class PaymentService {
     payments: Payment[],
     skips: SkippedMonth[],
     year: number,
-    graceDays: number,
   ): MonthEntry[] {
     const { year: cy, month: cm } = getCurrentYearMonth();
 
@@ -538,10 +533,8 @@ class PaymentService {
       } else if (year > cy || (year === cy && month > cm)) {
         status = "future";
       } else {
-        const firstOfMonth = new Date(year, month - 1, 1);
-        const graceCutoff = new Date(firstOfMonth);
-        graceCutoff.setDate(graceCutoff.getDate() + graceDays);
-        status = new Date() <= graceCutoff ? "future" : "unpaid";
+        // Past or current month with no payment — unpaid from day 1.
+        status = "unpaid";
       }
 
       const balance = isEffectivelyPaid ? (payment?.balance ?? 0) : 0;

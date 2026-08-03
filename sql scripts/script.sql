@@ -66,9 +66,6 @@ CREATE TABLE IF NOT EXISTS tier_plans (
     multi_currency_enabled    BOOLEAN       NOT NULL DEFAULT FALSE,
     multi_month_plans_enabled BOOLEAN       NOT NULL DEFAULT FALSE,
 
-    -- Operational
-    grace_days                INT           NOT NULL DEFAULT 0 CHECK (grace_days >= 0),
-
     -- Pricing (USD). Stripe price IDs can be added later as nullable columns.
     price_monthly_usd         NUMERIC(10,2) NOT NULL DEFAULT 0 CHECK (price_monthly_usd >= 0),
     price_yearly_usd          NUMERIC(10,2)             CHECK (price_yearly_usd IS NULL OR price_yearly_usd >= 0),
@@ -84,12 +81,16 @@ INSERT INTO tier_plans (
     code, name, sort_order,
     max_customers, max_users, max_plans, max_branches, max_currencies, max_products,
     multi_currency_enabled, multi_month_plans_enabled,
-    grace_days, price_monthly_usd
+    price_monthly_usd
 ) VALUES
-    ('free',     'Free',     0,   30,   1,    3,    1,    0,    5, FALSE, FALSE, 0,  0),
-    ('pro',      'Pro',      1,  300,   5, NULL,    3, NULL, NULL, TRUE,  TRUE,  3,  9),
-    ('business', 'Business', 2, NULL, NULL, NULL, NULL, NULL, NULL, TRUE,  TRUE,  7, 29)
+    ('free',     'Free',     0,   30,   1,    3,    1,    0,    5, FALSE, FALSE,  0),
+    ('pro',      'Pro',      1,  300,   5, NULL,    3, NULL, NULL, TRUE,  TRUE,   9),
+    ('business', 'Business', 2, NULL, NULL, NULL, NULL, NULL, NULL, TRUE,  TRUE,  29)
 ON CONFLICT (code) DO NOTHING;
+
+-- Grace days were removed from the product: a month is unpaid from its first
+-- day. Idempotent, so existing databases lose the column on the next run.
+ALTER TABLE tier_plans DROP COLUMN IF EXISTS grace_days;
 
 -- ============================================================
 -- APP OPTIONS

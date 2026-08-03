@@ -19,7 +19,6 @@ interface Props {
   line: CustomerPlan;
   lines: CustomerPlan[];
   year: number;
-  graceDays: number;
   onDone: () => void;
   onDismiss: () => void;
 }
@@ -35,7 +34,6 @@ export function SkipMonthSheet({
   line,
   lines,
   year,
-  graceDays,
   onDone,
   onDismiss,
 }: Props) {
@@ -69,7 +67,6 @@ export function SkipMonthSheet({
       user.id,
       lines,
       year,
-      graceDays,
     );
     if (!getStore().getState().payments.error) {
       setNote("");

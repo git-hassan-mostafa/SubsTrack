@@ -13,7 +13,6 @@ interface Props {
   paymentIds: string[];
   lines: CustomerPlan[];
   year: number;
-  graceDays: number;
   onVoided: () => void;
   onDismiss: () => void;
 }
@@ -24,7 +23,6 @@ export function BulkVoidSheet({
   paymentIds,
   lines,
   year,
-  graceDays,
   onVoided,
   onDismiss,
 }: Props) {
@@ -38,7 +36,7 @@ export function BulkVoidSheet({
   async function handleConfirm() {
     if (!user) return;
     clearError();
-    await voidPayments(paymentIds, user.id, reason, lines, year, graceDays);
+    await voidPayments(paymentIds, user.id, reason, lines, year);
     if (!getStore().getState().payments.error) {
       setReason("");
       onVoided();

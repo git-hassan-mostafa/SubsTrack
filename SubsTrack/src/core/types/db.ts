@@ -26,7 +26,6 @@ export interface DbTierPlan {
   max_products: number | null;
   multi_currency_enabled: boolean;
   multi_month_plans_enabled: boolean;
-  grace_days: number;
   price_monthly_usd: number;
   price_yearly_usd: number | null;
   active: boolean;

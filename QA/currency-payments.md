@@ -320,6 +320,5 @@ The following areas are covered in detail in sibling files. Refer there for the 
 | Void flow | [payments.md](payments.md) | § 10 |
 | Edit payment (general mechanics) | [payments.md](payments.md) | § 9 |
 | Multi-month conflict resolution | [payments.md](payments.md) | § 5.5–5.7 |
-| Grace period | [payments.md](payments.md) | § 12 |
 | Plan CRUD and currency | [plans.md](plans.md) | All sections |
 | Dashboard metrics and branch filtering | [dashboard.md](dashboard.md) | All sections |

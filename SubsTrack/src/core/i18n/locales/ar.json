@@ -658,8 +658,7 @@
     },
     "feature": {
       "multi_currency": "تعدد العملات",
-      "multi_month": "خطط متعددة الأشهر",
-      "grace_days": "أيام السماح"
+      "multi_month": "خطط متعددة الأشهر"
     },
     "locked": {
       "upgrade_title": "ترقية باقتك",

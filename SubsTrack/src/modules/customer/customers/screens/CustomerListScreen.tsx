@@ -18,10 +18,7 @@ import {
 } from "@/src/shared/components/ActionMenu";
 import { useDebounce } from "@/src/shared/hooks/useDebounce";
 import { COLORS } from "@/src/shared/constants";
-import {
-  useGraceDays,
-  useSubscriptionSlice,
-} from "@/src/state/hooks/useSubscriptionSlice";
+import { useSubscriptionSlice } from "@/src/state/hooks/useSubscriptionSlice";
 import type { Customer } from "@/src/core/types";
 import {
   CustomerCard,
@@ -62,7 +59,6 @@ export function CustomerListScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const { user, isAdmin } = useAuth();
-  const graceDays = useGraceDays();
   const currentTier = useSubscriptionSlice((s) => s.currentTier);
   const customers = useCustomerSlice((s) => s.items);
   const activeCount = useCustomerSlice((s) => s.activeCount);
@@ -166,11 +162,11 @@ export function CustomerListScreen() {
   // after a past month is paid from the detail panel.
   useFocusEffect(
     useCallback(() => {
-      if (customers.length > 0) void fetchOverdueStatus(customers, graceDays);
+      if (customers.length > 0) void fetchOverdueStatus(customers);
       // Refresh debt flags on return — debts change from the Debts tab, quick
       // pay, and partial payments made in the detail panel.
       void fetchNetDebtByCustomer();
-    }, [customers, graceDays, fetchOverdueStatus, fetchNetDebtByCustomer]),
+    }, [customers, fetchOverdueStatus, fetchNetDebtByCustomer]),
   );
 
   const monthLabel = useMemo(() => {
@@ -292,7 +288,7 @@ export function CustomerListScreen() {
     );
     clearSelection();
     fetchCurrentMonthPaymentStatus();
-    void fetchOverdueStatus(customers, graceDays);
+    void fetchOverdueStatus(customers);
     const failed = requests.length - paid;
     if (failed > 0) {
       clearPaymentError();
@@ -459,7 +455,7 @@ export function CustomerListScreen() {
     // (overdue), and the voided lines must drop out of the covered set so quick
     // pay can collect them again.
     if (voided) {
-      void fetchOverdueStatus(customers, graceDays);
+      void fetchOverdueStatus(customers);
       void fetchCurrentMonthPaymentStatus();
     }
   }

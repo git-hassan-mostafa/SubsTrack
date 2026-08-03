@@ -14,11 +14,10 @@ interface Props {
   entry: MonthEntry | null;
   lines: CustomerPlan[];
   year: number;
-  graceDays: number;
   onDismiss: () => void;
 }
 
-export function VoidSheet({ entry, lines, year, graceDays, onDismiss }: Props) {
+export function VoidSheet({ entry, lines, year, onDismiss }: Props) {
   const { t } = useTranslation();
   const { user } = useAuth();
   const voidPayment = usePaymentSlice((s) => s.voidPayment);
@@ -28,14 +27,7 @@ export function VoidSheet({ entry, lines, year, graceDays, onDismiss }: Props) {
 
   async function handleConfirm() {
     if (!user || !entry?.payment) return;
-    await voidPayment(
-      entry.payment.id,
-      user.id,
-      reason,
-      lines,
-      year,
-      graceDays,
-    );
+    await voidPayment(entry.payment.id, user.id, reason, lines, year);
     if (!getStore().getState().payments.error) {
       setReason("");
       onDismiss();

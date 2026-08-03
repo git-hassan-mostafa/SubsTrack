@@ -24,10 +24,7 @@ import {
 } from "@/src/core/utils/currency";
 import { COLORS } from "@/src/shared/constants";
 import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
-import {
-  useGraceDays,
-  useSubscriptionSlice,
-} from "@/src/state/hooks/useSubscriptionSlice";
+import { useSubscriptionSlice } from "@/src/state/hooks/useSubscriptionSlice";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { getBlockRangeLabel } from "../utils/blockRangeLabel";
 import { MonthGrid } from "./MonthGrid";
@@ -122,7 +119,6 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
   const currentTier = useSubscriptionSlice((s) => s.currentTier);
   const { displayCurrencyId } = useUiPrefStore();
   const displayCurrency = findCurrency(currencies, displayCurrencyId);
-  const graceDays = useGraceDays();
 
   // All of the customer's service lines (active + cancelled). Grids are built
   // for every line so a cancelled line's history stays viewable.
@@ -179,9 +175,9 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
   // rebuilds the grids from the store instead of re-fetching.
   useEffect(() => {
     if (lines.length > 0) {
-      getPayments(customer.id, lines, year, graceDays);
+      getPayments(customer.id, lines, year);
     }
-  }, [customer.id, year, linesKey, lines, graceDays, getPayments]);
+  }, [customer.id, year, linesKey, lines, getPayments]);
 
   // `selection.clear` (not `selection`) — the hook returns a fresh object each
   // render, so depending on it would loop.
@@ -220,9 +216,8 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
 
   const lineActive = selectedLine?.active ?? false;
 
-  // Calendar-future month (strictly after the current month) — distinct from the
-  // "future" grid STATUS, which also covers a current/recent month still inside
-  // its grace window.
+  // Calendar-future month (strictly after the current month) — the same thing
+  // the "future" grid STATUS means for an unpaid month.
   function isCalendarFuture(entry: MonthEntry): boolean {
     const { year: cy, month: cm } = getCurrentYearMonth();
     return entry.year > cy || (entry.year === cy && entry.month > cm);
@@ -347,7 +342,6 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
           false,
           lines,
           year,
-          graceDays,
           currentTier,
         );
       } finally {
@@ -374,7 +368,6 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
         },
         planCurrency,
         lines,
-        graceDays,
       );
     } finally {
       setQuickPayMonth(null);
@@ -439,7 +432,6 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
       next.amountPaid,
       lines,
       year,
-      graceDays,
     );
     if (!getStore().getState().payments.error) setDetailVisible(false);
   }
@@ -518,13 +510,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
     clearPaymentError();
     setBulkBusy(true);
     try {
-      await createPayments(
-        inputs,
-        planCurrency,
-        lines,
-        year,
-        graceDays,
-      );
+      await createPayments(inputs, planCurrency, lines, year);
     } finally {
       setBulkBusy(false);
     }
@@ -558,7 +544,6 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
         user.tenantId,
         lines,
         year,
-        graceDays,
         currentTier,
       );
     } finally {
@@ -586,13 +571,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
     clearPaymentError();
     setBulkBusy(true);
     try {
-      await createPayments(
-        inputs,
-        currency,
-        lines,
-        year,
-        graceDays,
-      );
+      await createPayments(inputs, currency, lines, year);
     } finally {
       setBulkBusy(false);
     }
@@ -925,7 +904,6 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
           customer={customer}
           line={selectedLine}
           lines={lines}
-          graceDays={graceDays}
           monthGrid={grid}
           onDismiss={() => setFormVisible(false)}
         />
@@ -944,7 +922,6 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
           entry={selectedEntry}
           lines={lines}
           year={year}
-          graceDays={graceDays}
           onDismiss={() => {
             setDetailVisible(false);
             setVoidVisible(false);
@@ -968,7 +945,6 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
           line={selectedLine}
           lines={lines}
           year={year}
-          graceDays={graceDays}
           onDone={() => {
             setSkipRequest(null);
             selection.clear();
@@ -982,7 +958,6 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
           paymentIds={bulkVoidIds}
           lines={lines}
           year={year}
-          graceDays={graceDays}
           onVoided={() => {
             setBulkVoidIds(null);
             selection.clear();

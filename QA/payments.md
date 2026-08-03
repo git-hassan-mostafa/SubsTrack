@@ -221,17 +221,17 @@ Edit re-snapshots `rate_per_usd_snapshot` from the currency live rate at edit ti
 | 11.5 | Multi-month payment visible from both years | Pay Nov–Jan multi-month | Year Y shows Nov + Dec paid. Year Y+1 shows Jan paid (isGroupSecondary). Receipt accessible from any of the 3 cells |
 | 11.6 | Concurrent payment from two devices | Both try to pay same (customer, month) | Only one succeeds — the second sees the unique-violation error |
 
-## 12. Grace period
+## 12. No grace period
 
-`PaymentService.buildMonthGrid` accepts `graceDays`. The value comes from the tenant's current `TierPlan.graceDays`, read via the `useGraceDays()` selector hook from `subscriptionStore`. Defaults are Free = 0, Pro = 3, Business = 7 (editable from SuperAdmin's tier-plans editor).
+`PaymentService.buildMonthGrid` takes no grace value — the tier `grace_days` setting was removed from the product (DB column dropped). An unpaid month is UNPAID from its first day, on every tier.
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 12.1 | graceDays = 0 (default) | First day of month, no payment | Cell is UNPAID immediately |
-| 12.2 | graceDays = 5 (when configurable) | Day 3 of month, no payment | Cell shows FUTURE (within grace) |
-| 12.3 | graceDays = 5, day 10 | Day 10 of month, no payment | Cell is UNPAID |
-| 12.4 | Grace edge — exact cutoff | Day = grace cutoff | Cell is FUTURE (uses `<=`) |
-| 12.5 | Grace edge — day after cutoff | Today > grace cutoff | Cell is UNPAID |
+| 12.1 | Day 1, no payment | First day of month | Cell is UNPAID immediately, with the current-month highlight |
+| 12.2 | Mid-month, no payment | Day 10, still unpaid | Cell is UNPAID (no state change during the month) |
+| 12.3 | Card / grid consistency | Day 1, no payment | Customer card pill red "Unpaid" AND grid cell red — the two always match |
+| 12.4 | Tier makes no difference | Repeat on Free, Pro, Business | Same result on every tier |
+| 12.5 | No grace field in SuperAdmin | Open the tier-plans editor | No "Grace days" input; tier rows show limits, flags and price only |
 
 ## 13. Currency and snapshot semantics
 

@@ -658,8 +658,7 @@
     },
     "feature": {
       "multi_currency": "Multi-currency",
-      "multi_month": "Multi-month plans",
-      "grace_days": "Grace days"
+      "multi_month": "Multi-month plans"
     },
     "locked": {
       "upgrade_title": "Upgrade your plan",

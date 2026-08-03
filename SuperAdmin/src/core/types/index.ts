@@ -24,7 +24,6 @@ export interface TierPlan {
   maxProducts: number | null;
   multiCurrencyEnabled: boolean;
   multiMonthPlansEnabled: boolean;
-  graceDays: number;
   priceMonthlyUsd: number;
   priceYearlyUsd: number | null;
   active: boolean;

@@ -64,7 +64,6 @@ export function TierPlanListScreen() {
                 <Text style={styles.cell}>Branches: {formatLimit(item.maxBranches)}</Text>
                 <Text style={styles.cell}>Currencies: {formatLimit(item.maxCurrencies)}</Text>
                 <Text style={styles.cell}>Products: {formatLimit(item.maxProducts)}</Text>
-                <Text style={styles.cell}>Grace: {item.graceDays}d</Text>
               </View>
               <View style={styles.flagRow}>
                 <Text style={[styles.flag, item.multiCurrencyEnabled && styles.flagOn]}>
