@@ -1,5 +1,5 @@
 import type { BranchFilter } from '@/src/core/constants';
-import type { CurrentMonthPlanCount } from '@/src/core/types';
+import type { CurrentMonthPlanCount, UnpaidStartRule } from '@/src/core/types';
 import type { DbPayment } from '@/src/core/types/db';
 import type { FindPaymentsOptions } from '../utils/types';
 
@@ -43,6 +43,11 @@ export interface MonthStatusSets {
   // Customers that owe nothing this month because EVERY started active line is
   // skipped — otherwise they'd fall through to the list's red "unpaid" default.
   skippedIds: Set<string>;
+  // Under the 'customer_start_day' unpaid rule: customers whose every started,
+  // unpaid line has not reached its billing day yet. Same purpose as skippedIds
+  // — keep them out of the red "unpaid" default until the day arrives. Always
+  // empty under the 'month_start' rule.
+  notDueYetIds: Set<string>;
   planCounts: Map<string, CurrentMonthPlanCount>;
   // Service-line IDs that must NOT be quick-paid this month: they already have
   // a covering (non-voided) payment — full or partial, where the upsert would
@@ -59,7 +64,10 @@ export interface IPaymentRepository {
   updatePayment(id: string, payload: UpdatePaymentPayload): Promise<DbPayment>;
   voidPayment(id: string, voidedBy: string, notes: string | null): Promise<DbPayment>;
   voidMany(ids: string[], voidedBy: string, notes: string | null): Promise<DbPayment[]>;
-  findPaymentStatusForMonth(billingMonth: string): Promise<MonthStatusSets>;
+  findPaymentStatusForMonth(
+    billingMonth: string,
+    unpaidRule?: UnpaidStartRule,
+  ): Promise<MonthStatusSets>;
   findActivePayments(): Promise<DbPayment[]>;
   // Scoped by paid_at (recorded date), matching the Payments tab's "This Month".
   paidAmountsForMonth(

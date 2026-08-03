@@ -82,6 +82,9 @@ export function CustomerListScreen() {
   const currentMonthSkippedIds = usePaymentSlice(
     (s) => s.currentMonthSkippedIds,
   );
+  const currentMonthNotDueYetIds = usePaymentSlice(
+    (s) => s.currentMonthNotDueYetIds,
+  );
   const currentMonthPlanCounts = usePaymentSlice(
     (s) => s.currentMonthPlanCounts,
   );
@@ -199,9 +202,13 @@ export function CustomerListScreen() {
         (c) =>
           c.active &&
           c.isRegular &&
-          // A customer whose every line is skipped owes nothing this month.
+          // A customer whose every line is skipped — or whose every line has yet
+          // to reach its billing day — owes nothing this month. An overdue past
+          // month still lists them regardless.
           (overdueCustomerIds.has(c.id) ||
-            (!hasCurrentMonthPayment(c.id) && !currentMonthSkippedIds.has(c.id))),
+            (!hasCurrentMonthPayment(c.id) &&
+              !currentMonthSkippedIds.has(c.id) &&
+              !currentMonthNotDueYetIds.has(c.id))),
       );
     return customers;
   }, [
@@ -210,6 +217,7 @@ export function CustomerListScreen() {
     hasCurrentMonthPayment,
     overdueCustomerIds,
     currentMonthSkippedIds,
+    currentMonthNotDueYetIds,
   ]);
 
   // Resolve selected ids against the VISIBLE list, so a selected-then-filtered-out
@@ -368,7 +376,9 @@ export function CustomerListScreen() {
               ? "partial"
               : currentMonthSkippedIds.has(item.id)
                 ? "skipped"
-                : "unpaid";
+                : currentMonthNotDueYetIds.has(item.id)
+                  ? "not_due_yet"
+                  : "unpaid";
       const debtUsd = netDebtByCustomer[item.id];
       const debtLabel =
         debtUsd && debtUsd > 0
@@ -395,6 +405,7 @@ export function CustomerListScreen() {
       currentMonthFullyPaidIds,
       currentMonthPartialIds,
       currentMonthSkippedIds,
+      currentMonthNotDueYetIds,
       currentMonthPlanCounts,
       overdueCustomerIds,
       netDebtByCustomer,

@@ -11,6 +11,7 @@
 - [Multi-Month Plans](#multi-month-plans)
 - [Multi-Currency](#multi-currency)
 - [App Options (Global Config)](#app-options-global-config)
+- [Tenant Settings (Per-Tenant Config)](#tenant-settings-per-tenant-config)
 - [Subscription Tiers](#subscription-tiers)
 - [Products & One-Off Sales](#products--one-off-sales)
 - [Transactions Hub](#transactions-hub)
@@ -203,6 +204,24 @@ See gotchas #18, #19, #21, #22, #24, #36 for the snapshot/conversion rules.
 - **SubsTrack** has a **read-only** `options` module (repository `findAll`/`findByKey` + `OptionService.getOptions`/`getOptionValue` + `optionSlice` + `useOptionSlice`). It never writes. Options are fetched **at app bootstrap** (`app/_layout.tsx`, so the pre-auth login screen can read flags) and re-primed on login/restore via `primePostAuth`; they are intentionally **not** reset on `logout`. Reference keys through `OPTION_KEYS`, never magic strings. Read values through the typed selector hooks in [useOptionSlice.ts](../SubsTrack/src/state/hooks/useOptionSlice.ts): generic `useOptionValue(key)` / `useBooleanOption(key, fallback)`, and semantic `useCanUpgradePlan()` / `useSelfServiceSignupEnabled()` / `useSupportWhatsAppNumber()`. For **conditional UI**, prefer the declarative gate components in [FeatureGate.tsx](../SubsTrack/src/shared/components/FeatureGate.tsx) — `<CanUpgrade fallback={…}>` and `<CanCreateOrganization>` — which wrap the gated element and render `children` when enabled, else `fallback`; this keeps flag ternaries out of the screens. WhatsApp deep-links go through `openWhatsApp()` in [shared/lib/whatsapp.ts](../SubsTrack/src/shared/lib/whatsapp.ts).
 
 See gotcha #38.
+
+---
+
+## Tenant Settings (Per-Tenant Config)
+
+`tenant_settings` is the **tenant-scoped twin** of `app_options`: same key/value shape, but every row carries a `tenant_id`, and it is written **in-app by admins** rather than by the SaaS owner. Columns: `id`, `tenant_id`, `key`, `value`, timestamps, with `UNIQUE(tenant_id, key)`.
+
+- **RLS:** `tenant_settings_select` lets **every member** of the tenant read (the values drive shared behavior, so a non-admin collector must see them too); `tenant_settings_write` restricts `ALL` to `admin` / `superadmin` of that tenant. Both scope on `current_tenant_id()`.
+- **Module:** `src/modules/admin/tenant-settings/` — the usual repository (platform switch) + service + mapper + `TENANT_SETTING_KEYS`. `TenantSettingService` owns the **parsing** of raw strings into typed settings (`parseUnpaidStartRule`), so no caller ever inspects a raw value.
+- **State:** the `tenantSettings` slice (loaded in `primePostAuth`, **reset on logout** — unlike the global `options` slice, since it is tenant-scoped and must not leak to the next tenant on a shared device). Read through [useTenantSettingSlice.ts](../SubsTrack/src/state/hooks/useTenantSettingSlice.ts): generic `useTenantSettingValue(key)` and semantic `useUnpaidStartRule()`. Reference keys through `TENANT_SETTING_KEYS`, never magic strings.
+- **UI:** Admin → Tenant Settings, one section per setting (`UnpaidRuleSection`), matching `DisplayCurrencySection`'s card layout. Saving refreshes the current-month badge sets, since a rule change restates which months are unpaid.
+- **Offline:** a normal tenant-scoped synced table. The offline write derives a **deterministic id from `(tenant_id, key)`** and upserts on that natural key (registered in `NATURAL_KEYS` **and** in `sync.ts`'s `conflictTarget`), so two devices setting the same option offline converge on one row instead of stalling the push on the UNIQUE index.
+
+**Keys today:**
+
+- `UnpaidStartRule` (`'month_start'` default \| `'customer_start_day'`) — when the **current** month turns unpaid. See [CLAUDE.md](../CLAUDE.md) → Critical Business Logic: Month Grid for the full rule; the one implementation is `isNotDueYet()` in `src/core/utils/date.ts`, shared by the grid, the aggregator, and both repositories.
+
+**Adding a new key:** add it to `TENANT_SETTING_KEYS`, give `TenantSettingService` a typed setter + parser, add a semantic hook, and render a section on the screen. No schema change is needed — it is a key/value table.
 
 ---
 

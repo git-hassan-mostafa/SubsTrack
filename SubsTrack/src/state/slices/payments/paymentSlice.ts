@@ -1,5 +1,5 @@
 import type { StateCreator } from 'zustand';
-import type { Currency, CurrentMonthPlanCount, Customer, CustomerPlan, MonthEntry, Payment, Plan, SkippedMonth, TierPlan } from '@/src/core/types';
+import type { Currency, CurrentMonthPlanCount, Customer, CustomerPlan, MonthEntry, Payment, Plan, SkippedMonth, TierPlan, UnpaidStartRule } from '@/src/core/types';
 import { getCurrentYearMonth, toBillingMonth } from '@/src/core/utils/date';
 import {
   paymentService,
@@ -9,9 +9,20 @@ import {
 } from '@/src/modules/customer/customer-payments';
 import { TierLimitError } from '@/src/modules/admin/subscription';
 import type { TierLimitErrorPayload } from '@/src/modules/admin/subscription';
+// Deep imports (not the module barrel) — the barrel re-exports screens, which
+// would make the state layer pull in UI and risk an import cycle.
+import tenantSettingService from '@/src/modules/admin/tenant-settings/services/TenantSettingService';
+import { TENANT_SETTING_KEYS } from '@/src/modules/admin/tenant-settings/utils/constants';
 import type { GlobalState } from '@/src/state/globalStore';
 
 const snapshotRate = (currency: Currency | null): number => currency?.ratePerUsd ?? 1;
+
+// The tenant's unpaid rule, read cross-slice at call time (never cached) so a
+// change in Tenant Settings takes effect on the very next status computation.
+const getUnpaidRule = (get: () => GlobalState): UnpaidStartRule =>
+  tenantSettingService.parseUnpaidStartRule(
+    get().tenantSettings.items.find((s) => s.key === TENANT_SETTING_KEYS.unpaidStartRule)?.value,
+  );
 
 interface CreatePaymentInput {
   billingMonth: string;
@@ -51,6 +62,10 @@ export interface PaymentSlice {
   // Customers owing nothing this month because every started line is skipped —
   // without this they'd fall through to the list's red "unpaid" default.
   currentMonthSkippedIds: Set<string>;
+  // Customers owing nothing YET because no started line has reached its billing
+  // day ('customer_start_day' rule). Same "keep them out of the red default"
+  // purpose as currentMonthSkippedIds. Always empty under the 'month_start' rule.
+  currentMonthNotDueYetIds: Set<string>;
   // Per customer: how many started service lines are fully paid this month, out
   // of the total. Drives the "N/M plans paid" badge for multi-plan customers.
   currentMonthPlanCounts: Map<string, CurrentMonthPlanCount>;
@@ -180,6 +195,7 @@ export const createPaymentSlice: StateCreator<
   currentMonthFullyPaidIds: new Set(),
   currentMonthPartialIds: new Set(),
   currentMonthSkippedIds: new Set(),
+  currentMonthNotDueYetIds: new Set(),
   currentMonthPlanCounts: new Map(),
   currentMonthNotDueLineIds: new Set(),
   overdueCustomerIds: new Set(),
@@ -194,11 +210,13 @@ export const createPaymentSlice: StateCreator<
   fetchCurrentMonthPaymentStatus: async () => {
     const { year, month } = getCurrentYearMonth();
     const billingMonth = toBillingMonth(year, month);
-    const { fullyPaidIds, partialIds, skippedIds, planCounts, notDueLineIds } = await paymentService.findPaymentStatusForMonth(billingMonth);
+    const { fullyPaidIds, partialIds, skippedIds, notDueYetIds, planCounts, notDueLineIds } =
+      await paymentService.findPaymentStatusForMonth(billingMonth, getUnpaidRule(get));
     set((state) => {
       state.payments.currentMonthFullyPaidIds = fullyPaidIds;
       state.payments.currentMonthPartialIds = partialIds;
       state.payments.currentMonthSkippedIds = skippedIds;
+      state.payments.currentMonthNotDueYetIds = notDueYetIds;
       state.payments.currentMonthPlanCounts = planCounts;
       state.payments.currentMonthNotDueLineIds = notDueLineIds;
     });
@@ -206,7 +224,7 @@ export const createPaymentSlice: StateCreator<
 
   fetchOverdueStatus: async (customers) => {
     const overdueCustomerIds =
-      await paymentService.findOverdueCustomerIds(customers);
+      await paymentService.findOverdueCustomerIds(customers, getUnpaidRule(get));
     set((state) => {
       state.payments.overdueCustomerIds = overdueCustomerIds;
     });
@@ -231,7 +249,7 @@ export const createPaymentSlice: StateCreator<
         paymentService.getPaymentsForCustomer(customerId),
         skippedMonthService.getSkipsForCustomer(customerId),
       ]);
-      const monthGridsByLine = buildGridsFor(lines, items, skips, year);
+      const monthGridsByLine = buildGridsFor(lines, items, skips, year, getUnpaidRule(get));
       set((state) => {
         state.payments.items = items;
         state.payments.skips = skips;
@@ -248,7 +266,7 @@ export const createPaymentSlice: StateCreator<
 
   buildGrids: (lines, year) => {
     const { items, skips } = get().payments;
-    const monthGridsByLine = buildGridsFor(lines, items, skips, year);
+    const monthGridsByLine = buildGridsFor(lines, items, skips, year, getUnpaidRule(get));
     set((state) => {
       state.payments.monthGridsByLine = monthGridsByLine;
     });
@@ -272,13 +290,13 @@ export const createPaymentSlice: StateCreator<
         ...written.filter((s) => s.skipped),
       ];
       const items = get().payments.items;
-      const monthGridsByLine = buildGridsFor(lines, items, skips, year);
+      const monthGridsByLine = buildGridsFor(lines, items, skips, year, getUnpaidRule(get));
       const customerId = inputs[0].customerId;
       set((state) => {
         state.payments.skips = skips;
         state.payments.monthGridsByLine = monthGridsByLine;
         state.payments.loadingSkip = false;
-        syncCustomerMonthStatus(state.payments, customerId, lines, items, skips);
+        syncCustomerMonthStatus(state.payments, customerId, lines, items, skips, getUnpaidRule(get));
       });
     } catch (e) {
       set((state) => {
@@ -302,12 +320,12 @@ export const createPaymentSlice: StateCreator<
       const [year] = data.billingMonth.split('-').map(Number);
       const items = [...get().payments.items, payment];
       const skips = get().payments.skips;
-      const monthGridsByLine = buildGridsFor(lines, items, skips, year);
+      const monthGridsByLine = buildGridsFor(lines, items, skips, year, getUnpaidRule(get));
       set((state) => {
         state.payments.items = items;
         state.payments.monthGridsByLine = monthGridsByLine;
         state.payments.loadingCreate = false;
-        syncCustomerMonthStatus(state.payments, data.customerId, lines, items, skips);
+        syncCustomerMonthStatus(state.payments, data.customerId, lines, items, skips, getUnpaidRule(get));
       });
     } catch (e) {
       set((state) => {
@@ -330,13 +348,13 @@ export const createPaymentSlice: StateCreator<
       );
       const items = [...get().payments.items, ...created];
       const skips = get().payments.skips;
-      const monthGridsByLine = buildGridsFor(lines, items, skips, year);
+      const monthGridsByLine = buildGridsFor(lines, items, skips, year, getUnpaidRule(get));
       const customerId = data[0]?.customerId;
       set((state) => {
         state.payments.items = items;
         state.payments.monthGridsByLine = monthGridsByLine;
         state.payments.loadingCreate = false;
-        if (customerId) syncCustomerMonthStatus(state.payments, customerId, lines, items, skips);
+        if (customerId) syncCustomerMonthStatus(state.payments, customerId, lines, items, skips, getUnpaidRule(get));
       });
     } catch (e) {
       set((state) => {
@@ -434,12 +452,12 @@ export const createPaymentSlice: StateCreator<
       );
       const items = [...get().payments.items, payment];
       const skips = get().payments.skips;
-      const monthGridsByLine = buildGridsFor(lines, items, skips, year);
+      const monthGridsByLine = buildGridsFor(lines, items, skips, year, getUnpaidRule(get));
       set((state) => {
         state.payments.items = items;
         state.payments.monthGridsByLine = monthGridsByLine;
         state.payments.loadingCreate = false;
-        syncCustomerMonthStatus(state.payments, customer.id, lines, items, skips);
+        syncCustomerMonthStatus(state.payments, customer.id, lines, items, skips, getUnpaidRule(get));
       });
       return conflictMonths;
     } catch (e) {
@@ -501,12 +519,12 @@ export const createPaymentSlice: StateCreator<
       );
       const items = [...get().payments.items, ...payments];
       const skips = get().payments.skips;
-      const monthGridsByLine = buildGridsFor(lines, items, skips, year);
+      const monthGridsByLine = buildGridsFor(lines, items, skips, year, getUnpaidRule(get));
       set((state) => {
         state.payments.items = items;
         state.payments.monthGridsByLine = monthGridsByLine;
         state.payments.loadingCreate = false;
-        syncCustomerMonthStatus(state.payments, customer.id, lines, items, skips);
+        syncCustomerMonthStatus(state.payments, customer.id, lines, items, skips, getUnpaidRule(get));
       });
       return conflictMonths;
     } catch (e) {
@@ -541,12 +559,12 @@ export const createPaymentSlice: StateCreator<
       const updated = await paymentService.updatePayment(existing, amountPaid);
       const items = get().payments.items.map((p) => (p.id === id ? updated : p));
       const skips = get().payments.skips;
-      const monthGridsByLine = buildGridsFor(lines, items, skips, year);
+      const monthGridsByLine = buildGridsFor(lines, items, skips, year, getUnpaidRule(get));
       set((state) => {
         state.payments.items = items;
         state.payments.monthGridsByLine = monthGridsByLine;
         state.payments.loadingUpdate = false;
-        syncCustomerMonthStatus(state.payments, updated.customerId, lines, items, skips);
+        syncCustomerMonthStatus(state.payments, updated.customerId, lines, items, skips, getUnpaidRule(get));
       });
     } catch (e) {
       set((state) => {
@@ -567,13 +585,13 @@ export const createPaymentSlice: StateCreator<
       await paymentService.voidPayment(id, voidedBy, notes);
       const items = get().payments.items.filter((p) => p.id !== id);
       const skips = get().payments.skips;
-      const monthGridsByLine = buildGridsFor(lines, items, skips, year);
+      const monthGridsByLine = buildGridsFor(lines, items, skips, year, getUnpaidRule(get));
       set((state) => {
         state.payments.items = items;
         state.payments.monthGridsByLine = monthGridsByLine;
         state.payments.loadingVoid = false;
         if (paymentToVoid) {
-          syncCustomerMonthStatus(state.payments, paymentToVoid.customerId, lines, items, skips);
+          syncCustomerMonthStatus(state.payments, paymentToVoid.customerId, lines, items, skips, getUnpaidRule(get));
         }
       });
     } catch (e) {
@@ -618,13 +636,13 @@ export const createPaymentSlice: StateCreator<
       await paymentService.voidPayments(ids, voidedBy, notes);
       const items = get().payments.items.filter((p) => !idSet.has(p.id));
       const skips = get().payments.skips;
-      const monthGridsByLine = buildGridsFor(lines, items, skips, year);
+      const monthGridsByLine = buildGridsFor(lines, items, skips, year, getUnpaidRule(get));
       const customerId = paymentsToVoid[0]?.customerId;
       set((state) => {
         state.payments.items = items;
         state.payments.monthGridsByLine = monthGridsByLine;
         state.payments.loadingVoid = false;
-        if (customerId) syncCustomerMonthStatus(state.payments, customerId, lines, items, skips);
+        if (customerId) syncCustomerMonthStatus(state.payments, customerId, lines, items, skips, getUnpaidRule(get));
       });
     } catch (e) {
       set((state) => {
@@ -647,6 +665,7 @@ export const createPaymentSlice: StateCreator<
       state.payments.items = [];
       state.payments.skips = [];
       state.payments.monthGridsByLine = {};
+      state.payments.currentMonthNotDueYetIds = new Set();
       state.payments.loading = false;
       state.payments.loadingCreate = false;
       state.payments.loadingVoid = false;
@@ -665,12 +684,19 @@ function buildGridsFor(
   items: Payment[],
   skips: SkippedMonth[],
   year: number,
+  unpaidRule: UnpaidStartRule,
 ): Record<string, MonthEntry[]> {
   const grids: Record<string, MonthEntry[]> = {};
   for (const line of lines) {
     const linePayments = items.filter((p) => p.customerPlanId === line.id);
     const lineSkips = skips.filter((s) => s.customerPlanId === line.id);
-    grids[line.id] = paymentService.buildMonthGrid(line, linePayments, lineSkips, year);
+    grids[line.id] = paymentService.buildMonthGrid(
+      line,
+      linePayments,
+      lineSkips,
+      year,
+      unpaidRule,
+    );
   }
   return grids;
 }
@@ -681,6 +707,7 @@ type StatusStore = {
   currentMonthFullyPaidIds: Set<string>;
   currentMonthPartialIds: Set<string>;
   currentMonthSkippedIds: Set<string>;
+  currentMonthNotDueYetIds: Set<string>;
   currentMonthPlanCounts: Map<string, CurrentMonthPlanCount>;
   currentMonthNotDueLineIds: Set<string>;
 };
@@ -695,16 +722,20 @@ function syncCustomerMonthStatus(
   lines: CustomerPlan[],
   items: Payment[],
   skips: SkippedMonth[],
+  unpaidRule: UnpaidStartRule,
 ): void {
   const { status, count, notDueLineIds } = paymentService.computeCurrentMonthStatus(
     lines,
     items,
     skips,
+    unpaidRule,
   );
   updateNotDueLines(slice, lines, notDueLineIds);
   setSkippedStatus(slice, customerId, status === 'skipped');
-  if (status === 'none' || status === 'skipped') clearPaymentStatus(slice, customerId);
-  else {
+  setNotDueYetStatus(slice, customerId, status === 'notDueYet');
+  if (status === 'none' || status === 'skipped' || status === 'notDueYet') {
+    clearPaymentStatus(slice, customerId);
+  } else {
     applyPaymentStatus(slice, customerId, status === 'partial');
     setPlanCount(slice, customerId, count);
   }
@@ -717,6 +748,16 @@ function setSkippedStatus(slice: StatusStore, customerId: string, skipped: boole
   if (skipped) next.add(customerId);
   else next.delete(customerId);
   slice.currentMonthSkippedIds = next;
+}
+
+// Adds/removes the customer from the "nothing owed YET — no line has reached its
+// billing day" set ('customer_start_day' rule).
+function setNotDueYetStatus(slice: StatusStore, customerId: string, notDueYet: boolean): void {
+  if (notDueYet === slice.currentMonthNotDueYetIds.has(customerId)) return;
+  const next = new Set(slice.currentMonthNotDueYetIds);
+  if (notDueYet) next.add(customerId);
+  else next.delete(customerId);
+  slice.currentMonthNotDueYetIds = next;
 }
 
 // Replaces the not-due membership for one customer: drops every one of its

@@ -13,6 +13,7 @@ DROP TRIGGER IF EXISTS trg_branches_updated_at   ON branches;
 DROP TRIGGER IF EXISTS trg_products_updated_at   ON products;
 DROP TRIGGER IF EXISTS trg_stock_movements_updated_at ON stock_movements;
 DROP TRIGGER IF EXISTS trg_app_options_updated_at ON app_options;
+DROP TRIGGER IF EXISTS trg_tenant_settings_updated_at ON tenant_settings;
 
 -- ── VIEWS ────────────────────────────────────────────────────
 DROP VIEW IF EXISTS product_stock;
@@ -35,6 +36,8 @@ DROP POLICY IF EXISTS users_insert      ON users;
 DROP POLICY IF EXISTS users_select      ON users;
 DROP POLICY IF EXISTS tier_plans_select ON tier_plans;
 DROP POLICY IF EXISTS app_options_select ON app_options;
+DROP POLICY IF EXISTS tenant_settings_write  ON tenant_settings;
+DROP POLICY IF EXISTS tenant_settings_select ON tenant_settings;
 DROP POLICY IF EXISTS tenants_select    ON tenants;
 DROP POLICY IF EXISTS tenants_update    ON tenants;
 
@@ -49,6 +52,7 @@ DROP TABLE IF EXISTS plans      CASCADE;
 DROP TABLE IF EXISTS users      CASCADE;
 DROP TABLE IF EXISTS branches   CASCADE;
 DROP TABLE IF EXISTS currencies CASCADE;
+DROP TABLE IF EXISTS tenant_settings CASCADE;
 DROP TABLE IF EXISTS tenants     CASCADE;
 DROP TABLE IF EXISTS tier_plans  CASCADE;
 DROP TABLE IF EXISTS app_options CASCADE;

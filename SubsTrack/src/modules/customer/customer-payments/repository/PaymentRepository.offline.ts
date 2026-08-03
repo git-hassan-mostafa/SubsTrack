@@ -1,6 +1,8 @@
 import { OFFLINE_PAGE_SIZE, type BranchFilter } from '@/src/core/constants';
-import type { CurrentMonthPlanCount } from '@/src/core/types';
+import type { CurrentMonthPlanCount, UnpaidStartRule } from '@/src/core/types';
 import type { DbCustomer, DbPayment, DbPlan } from '@/src/core/types/db';
+import { isNotDueYet } from '@/src/core/utils/date';
+import { DEFAULT_UNPAID_START_RULE } from '@/src/modules/admin/tenant-settings/services/TenantSettingService';
 import { OfflineBaseRepository } from '@/src/core/offline/OfflineBaseRepository';
 import { upsertNaturalKeyDirty } from '@/src/core/offline/db/dml';
 import { deterministicId, nowIso } from '@/src/core/offline/ids';
@@ -167,7 +169,10 @@ export class OfflinePaymentRepository extends OfflineBaseRepository implements I
   }
 
   // Reuses the ONLINE JS aggregation verbatim; only the two fetches are local SQL.
-  async findPaymentStatusForMonth(billingMonth: string): Promise<MonthStatusSets> {
+  async findPaymentStatusForMonth(
+    billingMonth: string,
+    unpaidRule: UnpaidStartRule = DEFAULT_UNPAID_START_RULE,
+  ): Promise<MonthStatusSets> {
     const [year, monthStr] = billingMonth.split('-').map(Number);
     const cutoffDate = new Date(year, monthStr - 1 - 12, 1);
     const cutoff = `${cutoffDate.getFullYear()}-${String(cutoffDate.getMonth() + 1).padStart(2, '0')}-01`;
@@ -177,9 +182,12 @@ export class OfflinePaymentRepository extends OfflineBaseRepository implements I
       'SELECT id, customer_id, start_date FROM customer_plans WHERE active = 1',
     );
     const linesByCustomer = new Map<string, string[]>();
+    // Lines whose billing day hasn't arrived yet ('customer_start_day' rule).
+    const notDueYetLineIds = new Set<string>();
     for (const l of lineRows) {
       const [sy, sm] = l.start_date.split('-').map(Number);
       if (new Date(`${sy}-${String(sm).padStart(2, '0')}-01`) > target) continue;
+      if (isNotDueYet(unpaidRule, year, monthStr, l.start_date)) notDueYetLineIds.add(l.id);
       const list = linesByCustomer.get(l.customer_id);
       if (list) list.push(l.id);
       else linesByCustomer.set(l.customer_id, [l.id]);
@@ -217,6 +225,7 @@ export class OfflinePaymentRepository extends OfflineBaseRepository implements I
     const fullyPaidIds = new Set<string>();
     const partialIds = new Set<string>();
     const skippedIds = new Set<string>();
+    const notDueYetIds = new Set<string>();
     // Per customer: how many due lines are fully settled this month, out of the
     // total due lines — drives the customer-list "N/M plans paid" badge.
     const planCounts = new Map<string, CurrentMonthPlanCount>();
@@ -225,9 +234,15 @@ export class OfflinePaymentRepository extends OfflineBaseRepository implements I
       let allCoveredAndSettled = true;
       let paid = 0;
       let total = 0;
+      let anySkipped = false;
       for (const lineId of lineIds) {
         // A skipped line is owed by nobody (grid rule: paid > skipped > unpaid).
-        if (skippedLineIds.has(lineId) && !settledByLine.has(lineId)) continue;
+        if (skippedLineIds.has(lineId) && !settledByLine.has(lineId)) {
+          anySkipped = true;
+          continue;
+        }
+        // Nor is a line that hasn't reached its billing day yet.
+        if (notDueYetLineIds.has(lineId) && !settledByLine.has(lineId)) continue;
         total++;
         if (settledByLine.has(lineId)) {
           anyCovered = true;
@@ -238,18 +253,21 @@ export class OfflinePaymentRepository extends OfflineBaseRepository implements I
         }
       }
       planCounts.set(customerId, { paid, total });
-      // Every started line dropped out as skipped → nothing is owed this month.
+      // Every started line dropped out → nothing is owed this month. Which set
+      // it lands in decides the badge (slate "Skipped" vs no badge at all).
       if (total === 0) {
-        skippedIds.add(customerId);
+        if (anySkipped) skippedIds.add(customerId);
+        else notDueYetIds.add(customerId);
         continue;
       }
       if (!anyCovered) continue;
       if (allCoveredAndSettled) fullyPaidIds.add(customerId);
       else partialIds.add(customerId);
     }
-    // Lines not to quick-pay: covered by a payment this month, or skipped.
+    // Lines not to quick-pay: covered by a payment this month, or skipped. A
+    // not-due-yet line stays payable, so it is deliberately absent here.
     const notDueLineIds = new Set([...settledByLine.keys(), ...skippedLineIds]);
-    return { fullyPaidIds, partialIds, skippedIds, planCounts, notDueLineIds };
+    return { fullyPaidIds, partialIds, skippedIds, notDueYetIds, planCounts, notDueLineIds };
   }
 
   async findActivePayments(): Promise<DbPayment[]> {

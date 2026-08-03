@@ -7,13 +7,16 @@ import type { CurrentMonthPlanCount, Customer } from "@/src/core/types";
 import { COLORS } from "../../../../shared/constants";
 import { EntityCard } from "@/src/shared/components/EntityCard";
 
-// "skipped" = the customer owes nothing this month (every line's month is skipped).
+// "skipped"     = the customer owes nothing this month (every line's month is skipped).
+// "not_due_yet" = owes nothing YET — no line has reached its billing day
+//                 ('customer_start_day' unpaid rule).
 export type CustomerPaymentStatus =
   | "paid"
   | "partial"
   | "unpaid"
   | "mixed"
-  | "skipped";
+  | "skipped"
+  | "not_due_yet";
 
 interface Props {
   customer: Customer;
@@ -129,6 +132,12 @@ export const CustomerCard = memo(function CustomerCard({
               text={t("payments.skip.skipped_label")}
               textClassName="text-slate-600"
               bgClassName="bg-slate-200"
+            />
+          ) : paymentStatus === "not_due_yet" ? (
+            <Flag
+              text={t("payments.not_due_yet_label")}
+              textClassName="text-gray-500"
+              bgClassName="bg-gray-100"
             />
           ) : (
             <Flag

@@ -162,6 +162,37 @@ CREATE INDEX IF NOT EXISTS idx_tenants_tier_id
     ON tenants (tier_id);
 
 -- ============================================================
+-- TENANT SETTINGS
+-- Per-tenant key/value config — the tenant-scoped twin of app_options
+-- (which is global and SuperAdmin-owned). Written in-app by admins from
+-- Admin → Tenant Settings, read by every member of the tenant.
+-- Example: 'UnpaidStartRule' = when a month turns unpaid ('month_start'
+-- on the 1st, or 'customer_start_day' on the line's start day-of-month).
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS tenant_settings (
+    id          UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id   UUID        NOT NULL,
+    key         TEXT        NOT NULL,
+    value       TEXT,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT fk_tenant_settings_tenant
+        FOREIGN KEY (tenant_id)
+        REFERENCES tenants(id)
+        ON DELETE CASCADE
+);
+
+-- One row per key per tenant. Also the natural key the offline mirror hashes
+-- into a deterministic id, so two devices creating the same setting converge.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_tenant_settings_key
+    ON tenant_settings (tenant_id, key);
+
+CREATE INDEX IF NOT EXISTS idx_tenant_settings_tenant_id
+    ON tenant_settings (tenant_id);
+
+-- ============================================================
 -- CURRENCIES
 -- Per-tenant supported non-USD currencies with current rate.
 -- USD is the implicit base — never stored as a row.
@@ -490,6 +521,11 @@ CREATE OR REPLACE TRIGGER trg_tier_plans_updated_at
 
 CREATE OR REPLACE TRIGGER trg_tenants_updated_at
     BEFORE UPDATE ON tenants
+    FOR EACH ROW
+    EXECUTE FUNCTION set_updated_at();
+
+CREATE OR REPLACE TRIGGER trg_tenant_settings_updated_at
+    BEFORE UPDATE ON tenant_settings
     FOR EACH ROW
     EXECUTE FUNCTION set_updated_at();
 
@@ -1264,6 +1300,7 @@ CREATE INDEX IF NOT EXISTS idx_exception_logs_occurred_at
 ALTER TABLE tenants     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tier_plans  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE app_options ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tenant_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE currencies  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE branches   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE users      ENABLE ROW LEVEL SECURITY;
@@ -1422,6 +1459,43 @@ DO $$ BEGIN
         FOR SELECT
         TO anon, authenticated
         USING (TRUE);
+
+    -- ── TENANT SETTINGS ──────────────────────────────────────
+    -- Every member of the tenant reads them (they drive shared behavior like
+    -- the unpaid rule), but only admins may write.
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE tablename = 'tenant_settings' AND policyname = 'tenant_settings_select'
+    ) THEN
+        CREATE POLICY tenant_settings_select ON tenant_settings
+            FOR SELECT USING (tenant_id = current_tenant_id());
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE tablename = 'tenant_settings' AND policyname = 'tenant_settings_write'
+    ) THEN
+        CREATE POLICY tenant_settings_write ON tenant_settings
+            FOR ALL
+            USING (
+                tenant_id = current_tenant_id()
+                AND EXISTS (
+                    SELECT 1 FROM public.users u
+                    WHERE u.id = auth.uid()
+                      AND u.role IN ('admin', 'superadmin')
+                      AND u.active = true
+                )
+            )
+            WITH CHECK (
+                tenant_id = current_tenant_id()
+                AND EXISTS (
+                    SELECT 1 FROM public.users u
+                    WHERE u.id = auth.uid()
+                      AND u.role IN ('admin', 'superadmin')
+                      AND u.active = true
+                )
+            );
+    END IF;
 
     -- ── CURRENCIES ───────────────────────────────────────────
     -- Tenant-wide; not branch-scoped.

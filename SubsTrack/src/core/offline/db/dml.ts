@@ -15,6 +15,7 @@ function placeholders(n: number): string {
 const NATURAL_KEYS: Record<string, string[]> = {
   payments: ['customer_plan_id', 'billing_month'],
   skipped_months: ['customer_plan_id', 'billing_month'],
+  tenant_settings: ['tenant_id', 'key'],
 };
 
 /** INSERT a fully-formed local row (id + timestamps already set) and mark it dirty. */

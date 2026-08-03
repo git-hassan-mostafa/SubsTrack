@@ -14,4 +14,7 @@ export function resetAllDomainStores() {
   state.sales.reset();
   state.debts.reset();
   state.wallet.reset();
+  // Tenant-scoped, unlike the global `options` slice — must not leak to the
+  // next tenant that logs in on this device.
+  state.tenantSettings.reset();
 }

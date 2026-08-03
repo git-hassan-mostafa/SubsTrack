@@ -528,3 +528,21 @@ export interface AppOption {
   createdAt: string;
   updatedAt: string;
 }
+
+// Per-tenant key/value config — the tenant-scoped twin of AppOption. Written
+// in-app by admins (Admin → Tenant Settings), read by every tenant member.
+// e.g. key 'UnpaidStartRule' = when a month turns unpaid.
+export interface TenantSetting {
+  id: string;
+  tenantId: string;
+  key: string;
+  value: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// When an unbilled month flips to "unpaid" in the month grid.
+//   month_start        — on the 1st of the month (the original behavior)
+//   customer_start_day — on the service line's own start day-of-month; before
+//                        that day the current month reads as "future"
+export type UnpaidStartRule = 'month_start' | 'customer_start_day';

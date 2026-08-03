@@ -92,14 +92,18 @@ function stripForPush(table: string, row: Record<string, unknown>): Record<strin
 }
 
 /**
- * The upsert conflict key. Payments and skipped months converge on their natural
- * key (one row per service line per month); every other table converges on its
- * primary key.
+ * The upsert conflict key. Tables with a natural-key UNIQUE index converge on
+ * that key — the local row may exist on the server under a different id (created
+ * on the web or another device), and an id-targeted upsert would insert a
+ * duplicate and fail on the index forever. Everything else converges on its
+ * primary key. Keep in sync with NATURAL_KEYS in db/dml.ts.
  */
 function conflictTarget(table: string): string {
-  return table === 'payments' || table === 'skipped_months'
-    ? 'customer_plan_id,billing_month'
-    : 'id';
+  if (table === 'payments' || table === 'skipped_months') {
+    return 'customer_plan_id,billing_month';
+  }
+  if (table === 'tenant_settings') return 'tenant_id,key';
+  return 'id';
 }
 
 /**

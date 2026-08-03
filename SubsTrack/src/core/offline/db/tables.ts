@@ -228,6 +228,14 @@ export const TABLES: TableSpec[] = [
     },
   },
   {
+    name: 'tenant_settings',
+    scope: 'tenant',
+    columns: {
+      id: 'text', tenant_id: 'text', key: 'text', value: 'text',
+      created_at: 'text', updated_at: 'text',
+    },
+  },
+  {
     name: 'exception_logs',
     scope: 'tenant',
     pushOnly: true,
@@ -245,7 +253,7 @@ export const TABLE_BY_NAME: Record<string, TableSpec> = Object.fromEntries(
 
 /** Tables the sync engine pulls (everything; ordered parents-before-children matters for FK-ish merges). */
 export const SYNC_PULL_ORDER = [
-  'tenants', 'tier_plans', 'app_options', 'currencies', 'branches', 'users',
+  'tenants', 'tier_plans', 'app_options', 'tenant_settings', 'currencies', 'branches', 'users',
   'plans', 'customers', 'customer_plans', 'payments', 'skipped_months',
   'products', 'sales', 'sale_items', 'stock_movements', 'custom_debts',
   'debt_payments', 'exception_logs',

@@ -8,13 +8,16 @@ import type {
   Plan,
   SkippedMonth,
   TierPlan,
+  UnpaidStartRule,
 } from "@/src/core/types";
 import { MONTHS, type BranchFilter } from "@/src/core/constants";
 import {
   getCurrentYearMonth,
   isBeforeStartDate,
+  isNotDueYet,
   toBillingMonth,
 } from "@/src/core/utils/date";
+import { DEFAULT_UNPAID_START_RULE } from "@/src/modules/admin/tenant-settings/services/TenantSettingService";
 import i18n from "@/src/core/i18n";
 import repository from "../repository/PaymentRepository";
 import type { MonthStatusSets } from "../repository/IPaymentRepository";
@@ -348,8 +351,11 @@ class PaymentService {
     return rows.map(mapDbPaymentToPayment);
   }
 
-  async findPaymentStatusForMonth(billingMonth: string): Promise<MonthStatusSets> {
-    return repository.findPaymentStatusForMonth(billingMonth);
+  async findPaymentStatusForMonth(
+    billingMonth: string,
+    unpaidRule: UnpaidStartRule = DEFAULT_UNPAID_START_RULE,
+  ): Promise<MonthStatusSets> {
+    return repository.findPaymentStatusForMonth(billingMonth, unpaidRule);
   }
 
   // Returns the IDs of active, regular customers that have at least one unpaid
@@ -357,7 +363,10 @@ class PaymentService {
   // through the current year — even if the current month itself is paid. Status
   // is decided exclusively by buildMonthGrid (rule #1): a customer is overdue if
   // any month of any active line resolves to "unpaid" (a skipped month never does).
-  async findOverdueCustomerIds(customers: Customer[]): Promise<Set<string>> {
+  async findOverdueCustomerIds(
+    customers: Customer[],
+    unpaidRule: UnpaidStartRule = DEFAULT_UNPAID_START_RULE,
+  ): Promise<Set<string>> {
     const [rows, skips] = await Promise.all([
       repository.findActivePayments(),
       skippedMonthService.getActiveSkips(),
@@ -381,7 +390,7 @@ class PaymentService {
         const lineSkips = skipsByLine.get(line.id) ?? [];
         const startYear = new Date(line.startDate).getFullYear();
         for (let year = startYear; year <= currentYear; year++) {
-          const grid = this.buildMonthGrid(line, payments, lineSkips, year);
+          const grid = this.buildMonthGrid(line, payments, lineSkips, year, unpaidRule);
           if (grid.some((entry) => entry.status === "unpaid")) return true;
         }
         return false;
@@ -399,6 +408,8 @@ class PaymentService {
   //             payment counts as covered; its balance becomes a debt)
   //   partial — some lines are covered but at least one started line is unpaid
   //   skipped — every started line is skipped, so nothing is owed at all
+  //   notDueYet — every started line is still before its billing day
+  //             ('customer_start_day' rule), so nothing is owed YET
   // Also returns the plan tally for the "N/M plans paid" badge:
   //   total   — started lines that are DUE (grid status != before_start and
   //             != skipped)
@@ -412,8 +423,9 @@ class PaymentService {
     lines: CustomerPlan[],
     payments: Payment[],
     skips: SkippedMonth[],
+    unpaidRule: UnpaidStartRule = DEFAULT_UNPAID_START_RULE,
   ): {
-    status: "full" | "partial" | "none" | "skipped";
+    status: "full" | "partial" | "none" | "skipped" | "notDueYet";
     count: CurrentMonthPlanCount;
     notDueLineIds: string[];
   } {
@@ -421,6 +433,7 @@ class PaymentService {
     let anyCovered = false;
     let allOwedPaid = true;
     let anySkipped = false;
+    let anyNotDueYet = false;
     let paid = 0;
     let total = 0;
     const notDueLineIds: string[] = [];
@@ -428,7 +441,7 @@ class PaymentService {
       if (!line.active) continue;
       const linePayments = payments.filter((p) => p.customerPlanId === line.id);
       const lineSkips = skips.filter((s) => s.customerPlanId === line.id);
-      const entry = this.buildMonthGrid(line, linePayments, lineSkips, year).find(
+      const entry = this.buildMonthGrid(line, linePayments, lineSkips, year, unpaidRule).find(
         (e) => e.month === month,
       );
       if (!entry || entry.status === "before_start") continue; // not started
@@ -437,6 +450,14 @@ class PaymentService {
       if (entry.status === "skipped") {
         notDueLineIds.push(line.id);
         anySkipped = true;
+        continue;
+      }
+      // 'customer_start_day' rule: the current month hasn't reached this line's
+      // billing day, so nothing is owed yet — it must not count in the tally or
+      // block "full". Unlike a skip it stays quick-payable, so it is NOT added
+      // to notDueLineIds.
+      if (entry.status === "future") {
+        anyNotDueYet = true;
         continue;
       }
       total++;
@@ -448,16 +469,20 @@ class PaymentService {
         notDueLineIds.push(line.id);
       } else if (entry.status === "unpaid") allOwedPaid = false;
     }
-    // Every started line skipped → nothing owed, so the list must not fall back
-    // to its red "unpaid" default. Mirrors the repository's `total === 0` branch.
+    // Every started line dropped out → nothing owed, so the list must not fall
+    // back to its red "unpaid" default. An explicit skip outranks "not due yet",
+    // since it is a deliberate choice worth showing. Mirrors the repository's
+    // `total === 0` branch.
     const status =
       total === 0 && anySkipped
         ? "skipped"
-        : !anyCovered
-          ? "none"
-          : allOwedPaid
-            ? "full"
-            : "partial";
+        : total === 0 && anyNotDueYet
+          ? "notDueYet"
+          : !anyCovered
+            ? "none"
+            : allOwedPaid
+              ? "full"
+              : "partial";
     return { status, count: { paid, total }, notDueLineIds };
   }
 
@@ -465,11 +490,14 @@ class PaymentService {
   // Builds the grid for ONE service line: `payments` and `skips` must already be
   // scoped to that line, and `line.startDate` sets the before_start boundary. (A
   // customer with several lines builds one grid per line — see paymentSlice.buildGrids.)
+  // `unpaidRule` is the tenant's UnpaidStartRule; it only ever affects the CURRENT
+  // month (see the status ladder below).
   buildMonthGrid(
     line: CustomerPlan,
     payments: Payment[],
     skips: SkippedMonth[],
     year: number,
+    unpaidRule: UnpaidStartRule = DEFAULT_UNPAID_START_RULE,
   ): MonthEntry[] {
     const { year: cy, month: cm } = getCurrentYearMonth();
 
@@ -532,8 +560,13 @@ class PaymentService {
         status = "skipped";
       } else if (year > cy || (year === cy && month > cm)) {
         status = "future";
+      } else if (isNotDueYet(unpaidRule, year, month, line.startDate)) {
+        // 'customer_start_day' rule: the current month is not overdue until the
+        // line's own billing day arrives. Reported as "future" — the month stays
+        // fully payable (pay-early is allowed) but counts as nothing owed yet.
+        status = "future";
       } else {
-        // Past or current month with no payment — unpaid from day 1.
+        // Past month, or a current month whose due day has arrived.
         status = "unpaid";
       }
 

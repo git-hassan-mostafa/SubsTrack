@@ -293,3 +293,12 @@ export interface DbAppOption {
   created_at: string;
   updated_at: string;
 }
+
+export interface DbTenantSetting {
+  id: string;
+  tenant_id: string;
+  key: string;
+  value: string | null;
+  created_at: string;
+  updated_at: string;
+}
