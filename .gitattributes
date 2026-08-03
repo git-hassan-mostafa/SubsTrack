@@ -1,0 +1,8 @@
+# Force LF in the working tree on every OS.
+#
+# This is not cosmetic: EAS Update's runtime fingerprint hashes some tracked
+# text files byte-for-byte (`eas.json`, `.gitignore`). EAS builds on Linux (LF),
+# so a Windows checkout with core.autocrlf=true (CRLF) computes a DIFFERENT
+# fingerprint — and `eas update` then publishes under a runtime no installed
+# build asks for, so the update silently never arrives. See gotchas.md #53.
+* text=auto eol=lf
