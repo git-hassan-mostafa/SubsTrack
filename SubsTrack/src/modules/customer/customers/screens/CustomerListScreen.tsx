@@ -20,10 +20,7 @@ import { useDebounce } from "@/src/shared/hooks/useDebounce";
 import { COLORS } from "@/src/shared/constants";
 import { useSubscriptionSlice } from "@/src/state/hooks/useSubscriptionSlice";
 import type { Customer } from "@/src/core/types";
-import {
-  CustomerCard,
-  type CustomerPaymentStatus,
-} from "../components/CustomerCard";
+import { CustomerCard } from "../components/CustomerCard";
 import { CustomerFormSheet } from "../components/CustomerFormSheet";
 import { CustomDebtFormSheet } from "@/src/modules/transaction/debts/components/CustomDebtFormSheet";
 import { DebtPaymentFormSheet } from "@/src/modules/transaction/debts/components/DebtPaymentFormSheet";
@@ -73,29 +70,8 @@ export function CustomerListScreen() {
   const reactivateCustomer = useCustomerSlice((s) => s.reactivateCustomer);
   const deleteCustomer = useCustomerSlice((s) => s.deleteCustomer);
   const bulkDeleteCustomers = useCustomerSlice((s) => s.bulkDeleteCustomers);
-  const currentMonthFullyPaidIds = usePaymentSlice(
-    (s) => s.currentMonthFullyPaidIds,
-  );
-  const currentMonthPartialIds = usePaymentSlice(
-    (s) => s.currentMonthPartialIds,
-  );
-  const currentMonthSkippedIds = usePaymentSlice(
-    (s) => s.currentMonthSkippedIds,
-  );
-  const currentMonthNotDueYetIds = usePaymentSlice(
-    (s) => s.currentMonthNotDueYetIds,
-  );
-  const currentMonthPlanCounts = usePaymentSlice(
-    (s) => s.currentMonthPlanCounts,
-  );
-  const currentMonthNotDueLineIds = usePaymentSlice(
-    (s) => s.currentMonthNotDueLineIds,
-  );
-  const overdueCustomerIds = usePaymentSlice((s) => s.overdueCustomerIds);
-  const fetchCurrentMonthPaymentStatus = usePaymentSlice(
-    (s) => s.fetchCurrentMonthPaymentStatus,
-  );
-  const fetchOverdueStatus = usePaymentSlice((s) => s.fetchOverdueStatus);
+  const customerStatuses = usePaymentSlice((s) => s.customerStatuses);
+  const fetchCustomerStatuses = usePaymentSlice((s) => s.fetchCustomerStatuses);
   const bulkPayCustomers = usePaymentSlice((s) => s.bulkPayCustomers);
   const voidCurrentMonthForCustomer = usePaymentSlice(
     (s) => s.voidCurrentMonthForCustomer,
@@ -150,26 +126,21 @@ export function CustomerListScreen() {
   useEffect(() => {
     clearSelection();
     fetchCustomers();
-    fetchCurrentMonthPaymentStatus();
     void fetchNetDebtByCustomer();
-  }, [
-    branchFilter,
-    clearSelection,
-    fetchCustomers,
-    fetchCurrentMonthPaymentStatus,
-    fetchNetDebtByCustomer,
-  ]);
+  }, [branchFilter, clearSelection, fetchCustomers, fetchNetDebtByCustomer]);
 
-  // Recomputes overdue status on focus and whenever the loaded customer set
-  // changes (reload, pagination). Refreshing on focus keeps the badge correct
-  // after a past month is paid from the detail panel.
+  // Rebuilds every badge on focus and whenever the loaded customer set changes
+  // (reload, pagination). ONE call covers this month AND older unpaid months, so
+  // the two facts always land together — the badge is never assembled from a
+  // half-loaded picture. Refreshing on focus keeps it correct after a month is
+  // paid from the detail panel.
   useFocusEffect(
     useCallback(() => {
-      if (customers.length > 0) void fetchOverdueStatus(customers);
+      if (customers.length > 0) void fetchCustomerStatuses(customers);
       // Refresh debt flags on return — debts change from the Debts tab, quick
       // pay, and partial payments made in the detail panel.
       void fetchNetDebtByCustomer();
-    }, [customers, fetchOverdueStatus, fetchNetDebtByCustomer]),
+    }, [customers, fetchCustomerStatuses, fetchNetDebtByCustomer]),
   );
 
   const monthLabel = useMemo(() => {
@@ -186,39 +157,34 @@ export function CustomerListScreen() {
     ];
   }, [t]);
 
-  // A customer has *any* payment record for the current month when either set holds them.
-  // Used by the unpaid tab + Quick Pay gating to mean "already has a record this month."
+  // "Already has a payment recorded for this month" — some or all plans. Used by
+  // the Unpaid tab + Quick Pay gating.
   const hasCurrentMonthPayment = useCallback(
-    (id: string) =>
-      currentMonthFullyPaidIds.has(id) || currentMonthPartialIds.has(id),
-    [currentMonthFullyPaidIds, currentMonthPartialIds],
+    (id: string) => {
+      const s = customerStatuses.get(id)?.status;
+      return s === "paid" || s === "mixed";
+    },
+    [customerStatuses],
   );
 
   const filtered = useMemo(() => {
     if (activeTab === "active") return customers.filter((c) => c.active);
     if (activeTab === "inactive") return customers.filter((c) => !c.active);
     if (activeTab === "unpaid")
-      return customers.filter(
-        (c) =>
-          c.active &&
-          c.isRegular &&
-          // A customer whose every line is skipped — or whose every line has yet
-          // to reach its billing day — owes nothing this month. An overdue past
-          // month still lists them regardless.
-          (overdueCustomerIds.has(c.id) ||
-            (!hasCurrentMonthPayment(c.id) &&
-              !currentMonthSkippedIds.has(c.id) &&
-              !currentMonthNotDueYetIds.has(c.id))),
-      );
+      return customers.filter((c) => {
+        if (!c.active || !c.isRegular) return false;
+        const status = customerStatuses.get(c.id);
+        if (!status) return false; // not computed yet — don't guess either way
+        // Owes something: this month, or an earlier one. "skipped" and
+        // "not_due_yet" owe nothing, so they drop out.
+        return (
+          status.overdue ||
+          status.status === "unpaid" ||
+          status.status === "mixed"
+        );
+      });
     return customers;
-  }, [
-    activeTab,
-    customers,
-    hasCurrentMonthPayment,
-    overdueCustomerIds,
-    currentMonthSkippedIds,
-    currentMonthNotDueYetIds,
-  ]);
+  }, [activeTab, customers, customerStatuses]);
 
   // Resolve selected ids against the VISIBLE list, so a selected-then-filtered-out
   // customer can never be acted on invisibly.
@@ -258,13 +224,14 @@ export function CustomerListScreen() {
   // Lines not due this month (already covered by a payment, or skipped) are left
   // out so a mixed multi-plan customer pays only the plans still owed.
   function eligibleFixedLines(customer: Customer): BulkPayCustomerRequest[] {
+    const notDue = new Set(customerStatuses.get(customer.id)?.notDueLineIds);
     return startedActiveLines(customer)
       .filter(
         (l) =>
           l.plan != null &&
           !l.plan.isCustomPrice &&
           l.plan.price !== null &&
-          !currentMonthNotDueLineIds.has(l.id),
+          !notDue.has(l.id),
       )
       .map((l) => ({
         customerId: customer.id,
@@ -279,9 +246,8 @@ export function CustomerListScreen() {
   // so there is something a quick pay could collect (a fixed line to one-tap pay
   // or a custom/plan-less line that opens the manual form).
   function hasUnpaidStartedLine(customer: Customer): boolean {
-    return startedActiveLines(customer).some(
-      (l) => !currentMonthNotDueLineIds.has(l.id),
-    );
+    const notDue = new Set(customerStatuses.get(customer.id)?.notDueLineIds);
+    return startedActiveLines(customer).some((l) => !notDue.has(l.id));
   }
 
   // Pays the current month for every eligible fixed-price line of the given
@@ -295,8 +261,7 @@ export function CustomerListScreen() {
       currentTier,
     );
     clearSelection();
-    fetchCurrentMonthPaymentStatus();
-    void fetchOverdueStatus(customers);
+    void fetchCustomerStatuses(customers);
     const failed = requests.length - paid;
     if (failed > 0) {
       clearPaymentError();
@@ -354,31 +319,10 @@ export function CustomerListScreen() {
 
   const renderItem = useCallback(
     ({ item }: { item: Customer }) => {
-      // A multi-plan customer with some plans paid and some not shows a distinct
-      // "N/M plans paid" badge instead of a plain red "Unpaid" — it takes
-      // priority so a partly-paid account never looks like a fully-unpaid one.
-      // Otherwise: any unpaid past month forces "unpaid" even when the current
-      // month is settled, then the current month's status — and a customer whose
-      // every line is skipped reads "skipped", never the red "unpaid" default.
-      const planCount = currentMonthPlanCounts.get(item.id) ?? null;
-      const isMixed =
-        !!planCount &&
-        planCount.total >= 2 &&
-        planCount.paid > 0 &&
-        planCount.paid < planCount.total;
-      const paymentStatus: CustomerPaymentStatus = isMixed
-        ? "mixed"
-        : overdueCustomerIds.has(item.id)
-          ? "unpaid"
-          : currentMonthFullyPaidIds.has(item.id)
-            ? "paid"
-            : currentMonthPartialIds.has(item.id)
-              ? "partial"
-              : currentMonthSkippedIds.has(item.id)
-                ? "skipped"
-                : currentMonthNotDueYetIds.has(item.id)
-                  ? "not_due_yet"
-                  : "unpaid";
+      // The card decides its own flags from the status — no priority chain here.
+      // `undefined` (not yet computed) is passed through as null so the card
+      // renders no payment flag instead of guessing "unpaid".
+      const status = customerStatuses.get(item.id) ?? null;
       const debtUsd = netDebtByCustomer[item.id];
       const debtLabel =
         debtUsd && debtUsd > 0
@@ -387,8 +331,7 @@ export function CustomerListScreen() {
       return (
         <CustomerCard
           customer={item}
-          paymentStatus={paymentStatus}
-          planCount={planCount}
+          status={status}
           monthLabel={monthLabel}
           debtLabel={debtLabel}
           onPress={openDetail}
@@ -402,12 +345,7 @@ export function CustomerListScreen() {
       );
     },
     [
-      currentMonthFullyPaidIds,
-      currentMonthPartialIds,
-      currentMonthSkippedIds,
-      currentMonthNotDueYetIds,
-      currentMonthPlanCounts,
-      overdueCustomerIds,
+      customerStatuses,
       netDebtByCustomer,
       displayCurrency,
       monthLabel,
@@ -462,13 +400,9 @@ export function CustomerListScreen() {
     });
     if (!ok) return;
     const voided = await voidCurrentMonthForCustomer(customer.id, user.id);
-    // Refresh both status views: the freed month may now read as unpaid
-    // (overdue), and the voided lines must drop out of the covered set so quick
-    // pay can collect them again.
-    if (voided) {
-      void fetchOverdueStatus(customers);
-      void fetchCurrentMonthPaymentStatus();
-    }
+    // The freed month may now read as unpaid (or overdue), and the voided lines
+    // must drop out of the covered set so quick pay can collect them again.
+    if (voided) void fetchCustomerStatuses(customers);
   }
 
   async function handleDeleteCustomer(customer: Customer) {
@@ -740,7 +674,6 @@ export function CustomerListScreen() {
             onRefresh={() => {
               clearSelection();
               fetchCustomers();
-              fetchCurrentMonthPaymentStatus();
               void fetchNetDebtByCustomer();
             }}
             tintColor={COLORS.primary}
@@ -786,7 +719,6 @@ export function CustomerListScreen() {
       customers.length,
       clearSelection,
       fetchCustomers,
-      fetchCurrentMonthPaymentStatus,
       fetchNetDebtByCustomer,
       fetchMoreCustomers,
     ],

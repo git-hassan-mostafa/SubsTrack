@@ -1,5 +1,4 @@
 import type { BranchFilter } from '@/src/core/constants';
-import type { CurrentMonthPlanCount, UnpaidStartRule } from '@/src/core/types';
 import type { DbPayment } from '@/src/core/types/db';
 import type { FindPaymentsOptions } from '../utils/types';
 
@@ -36,26 +35,6 @@ export interface MonthlyAmountRow extends AmountRow {
   paidAt: string; // ISO timestamp
 }
 
-// The current-month badge sets for the customer list, computed in one pass.
-export interface MonthStatusSets {
-  fullyPaidIds: Set<string>;
-  partialIds: Set<string>;
-  // Customers that owe nothing this month because EVERY started active line is
-  // skipped — otherwise they'd fall through to the list's red "unpaid" default.
-  skippedIds: Set<string>;
-  // Under the 'customer_start_day' unpaid rule: customers whose every started,
-  // unpaid line has not reached its billing day yet. Same purpose as skippedIds
-  // — keep them out of the red "unpaid" default until the day arrives. Always
-  // empty under the 'month_start' rule.
-  notDueYetIds: Set<string>;
-  planCounts: Map<string, CurrentMonthPlanCount>;
-  // Service-line IDs that must NOT be quick-paid this month: they already have
-  // a covering (non-voided) payment — full or partial, where the upsert would
-  // overwrite the existing row — or the month is skipped on that line. So a
-  // mixed multi-plan customer pays only its still-due lines.
-  notDueLineIds: Set<string>;
-}
-
 export interface IPaymentRepository {
   findAll(opts?: FindPaymentsOptions): Promise<DbPayment[]>;
   findByCustomer(customerId: string): Promise<DbPayment[]>;
@@ -64,10 +43,10 @@ export interface IPaymentRepository {
   updatePayment(id: string, payload: UpdatePaymentPayload): Promise<DbPayment>;
   voidPayment(id: string, voidedBy: string, notes: string | null): Promise<DbPayment>;
   voidMany(ids: string[], voidedBy: string, notes: string | null): Promise<DbPayment[]>;
-  findPaymentStatusForMonth(
-    billingMonth: string,
-    unpaidRule?: UnpaidStartRule,
-  ): Promise<MonthStatusSets>;
+  // Every non-voided payment with money on it, all customers, all months. The
+  // service derives the whole customer-list status from these (PaymentService
+  // .getCustomerStatuses) — the aggregation is NOT mirrored in SQL, so there is
+  // only ever one implementation of the month rules (rule #1).
   findActivePayments(): Promise<DbPayment[]>;
   // Scoped by paid_at (recorded date), matching the Payments tab's "This Month".
   paidAmountsForMonth(

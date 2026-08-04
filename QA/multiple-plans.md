@@ -8,7 +8,7 @@ A customer can subscribe to several plans at once, each a **service line** (`cus
 - Slice: [customerPlanSlice.ts](../SubsTrack/src/state/slices/customer-plans/customerPlanSlice.ts) (`syncLines`)
 - Plans editor (inline): [CustomerFormSheet.tsx](../SubsTrack/src/modules/customers/components/CustomerFormSheet.tsx)
 - Grid host (view-only tabbed selector): [CustomerPaymentPanel.tsx](../SubsTrack/src/modules/customer-payments/components/CustomerPaymentPanel.tsx)
-- Aggregation: `findOverdueCustomerIds` / `findPaymentStatusForMonth` / `computeCurrentMonthStatus` in [PaymentService.ts](../SubsTrack/src/modules/customer-payments/services/PaymentService.ts), `countUnpaidForMonth` in [CustomerRepository.ts](../SubsTrack/src/modules/customers/repository/CustomerRepository.ts)
+- Aggregation: `buildCustomerStatus` / `getCustomerStatuses` in [PaymentService.ts](../SubsTrack/src/modules/customer/customer-payments/services/PaymentService.ts), `countUnpaidForMonth` in [CustomerRepository.ts](../SubsTrack/src/modules/customer/customers/repository/CustomerRepository.ts)
 - Migration: [migration-customer-plans.sql](../sql%20scripts/migration-customer-plans.sql)
 
 ---

@@ -232,6 +232,35 @@ export interface CurrentMonthPlanCount {
   total: number;
 }
 
+// THIS MONTH only, aggregated across a customer's active service lines. Never
+// mixes in older months — that is `CustomerStatus.overdue`, a separate fact.
+//   paid        every due line is covered
+//   mixed       2+ due lines, some covered some not ("N/M plans paid")
+//   unpaid      a due line has no payment
+//   skipped     nothing expected this month (every started line is skipped)
+//   not_due_yet nothing owed YET — no line has started or reached its billing
+//               day ('customer_start_day' rule)
+export type CustomerMonthStatus =
+  | "paid"
+  | "mixed"
+  | "unpaid"
+  | "skipped"
+  | "not_due_yet";
+
+// Everything the customer list needs about one customer, built in ONE pass from
+// buildMonthGrid. The two facts are deliberately separate: `status` answers
+// "what about this month?" and `overdue` answers "does this customer owe from an
+// EARLIER month?". Collapsing them into a single badge is what made a not-due-yet
+// customer with old debt read as plain "unpaid" — see gotcha #56.
+export interface CustomerStatus {
+  status: CustomerMonthStatus;
+  overdue: boolean;
+  planCount: CurrentMonthPlanCount;
+  // Lines that must NOT be quick-paid this month: already covered by a payment,
+  // or skipped. A not-due-yet line stays payable, so it is absent here.
+  notDueLineIds: string[];
+}
+
 // One point on the dashboard revenue trend — one calendar month, canonical USD.
 export interface RevenuePoint {
   month: string;       // 'YYYY-MM'

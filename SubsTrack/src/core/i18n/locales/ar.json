@@ -208,6 +208,7 @@
     "reactivate_title": "إعادة تفعيل العميل",
     "reactivate_message": "هل أنت متأكد من إعادة تفعيل {{name}}؟",
     "non_regular": "غير منتظم",
+    "overdue": "متأخر",
     "debt": "دين",
     "plans_paid_count": "مدفوع {{paid}} من {{total}} خطط",
     "regular_label": "عميل منتظم",

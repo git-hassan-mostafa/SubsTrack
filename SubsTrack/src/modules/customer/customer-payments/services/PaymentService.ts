@@ -1,7 +1,8 @@
 import type {
-  CurrentMonthPlanCount,
   Customer,
+  CustomerMonthStatus,
   CustomerPlan,
+  CustomerStatus,
   MonthEntry,
   MonthStatus,
   Payment,
@@ -20,7 +21,6 @@ import {
 import { DEFAULT_UNPAID_START_RULE } from "@/src/modules/admin/tenant-settings/services/TenantSettingService";
 import i18n from "@/src/core/i18n";
 import repository from "../repository/PaymentRepository";
-import type { MonthStatusSets } from "../repository/IPaymentRepository";
 import skippedMonthService from "./SkippedMonthService";
 import { tierService } from "@/src/modules/admin/subscription";
 import { mapDbPaymentToPayment, mapDbPaymentRowToListItem } from "../utils/mapper";
@@ -351,139 +351,119 @@ class PaymentService {
     return rows.map(mapDbPaymentToPayment);
   }
 
-  async findPaymentStatusForMonth(
-    billingMonth: string,
-    unpaidRule: UnpaidStartRule = DEFAULT_UNPAID_START_RULE,
-  ): Promise<MonthStatusSets> {
-    return repository.findPaymentStatusForMonth(billingMonth, unpaidRule);
-  }
-
-  // Returns the IDs of active, regular customers that have at least one unpaid
-  // month on ANY of their active service lines, from the line's start date
-  // through the current year — even if the current month itself is paid. Status
-  // is decided exclusively by buildMonthGrid (rule #1): a customer is overdue if
-  // any month of any active line resolves to "unpaid" (a skipped month never does).
-  async findOverdueCustomerIds(
-    customers: Customer[],
-    unpaidRule: UnpaidStartRule = DEFAULT_UNPAID_START_RULE,
-  ): Promise<Set<string>> {
-    const [rows, skips] = await Promise.all([
-      repository.findActivePayments(),
-      skippedMonthService.getActiveSkips(),
-    ]);
-    const paymentsByLine = new Map<string, Payment[]>();
-    for (const row of rows) {
-      const payment = mapDbPaymentToPayment(row);
-      const list = paymentsByLine.get(payment.customerPlanId);
-      if (list) list.push(payment);
-      else paymentsByLine.set(payment.customerPlanId, [payment]);
-    }
-    const skipsByLine = groupSkipsByLine(skips);
-
-    const { year: currentYear } = getCurrentYearMonth();
-    const overdue = new Set<string>();
-    for (const customer of customers) {
-      if (!customer.active || !customer.isRegular) continue;
-      const lines = (customer.customerPlans ?? []).filter((l) => l.active);
-      const isOverdue = lines.some((line) => {
-        const payments = paymentsByLine.get(line.id) ?? [];
-        const lineSkips = skipsByLine.get(line.id) ?? [];
-        const startYear = new Date(line.startDate).getFullYear();
-        for (let year = startYear; year <= currentYear; year++) {
-          const grid = this.buildMonthGrid(line, payments, lineSkips, year, unpaidRule);
-          if (grid.some((entry) => entry.status === "unpaid")) return true;
-        }
-        return false;
-      });
-      if (isOverdue) overdue.add(customer.id);
-    }
-    return overdue;
-  }
-
-  // Aggregates a customer's CURRENT-month status across its active lines, for the
-  // customer-list badge / status sets. Used by the slice after a create/void to
-  // keep the badge in sync without re-fetching. Rules:
-  //   none    — no line has a covering payment this month
-  //   full    — every started, due line has a covering payment (a partial
-  //             payment counts as covered; its balance becomes a debt)
-  //   partial — some lines are covered but at least one started line is unpaid
-  //   skipped — every started line is skipped, so nothing is owed at all
-  //   notDueYet — every started line is still before its billing day
-  //             ('customer_start_day' rule), so nothing is owed YET
-  // Also returns the plan tally for the "N/M plans paid" badge:
-  //   total   — started lines that are DUE (grid status != before_start and
-  //             != skipped)
-  //   paid    — started lines fully settled this month (grid status "paid")
-  // Lines that are skipped or before start are not "owed" and don't block
-  // "full". This mirrors the SQL path in
-  // PaymentRepository.findPaymentStatusForMonth, so both stay in lockstep.
-  // Also returns notDueLineIds — lines that must not be quick-paid this month
-  // because they are already covered by a payment, or skipped.
-  computeCurrentMonthStatus(
+  // Builds the complete customer-list status for ONE customer, straight from
+  // buildMonthGrid (rule #1) — this is the only place the list's badge data is
+  // decided. `payments` / `skips` must be that customer's FULL history (all
+  // lines, all years), because `overdue` looks back to each line's start.
+  //
+  // The two facts it returns are deliberately independent:
+  //   status  — this month only
+  //   overdue — any EARLIER month still unpaid on any active line
+  // Merging them would hide one behind the other (gotcha #56).
+  buildCustomerStatus(
     lines: CustomerPlan[],
     payments: Payment[],
     skips: SkippedMonth[],
     unpaidRule: UnpaidStartRule = DEFAULT_UNPAID_START_RULE,
-  ): {
-    status: "full" | "partial" | "none" | "skipped" | "notDueYet";
-    count: CurrentMonthPlanCount;
-    notDueLineIds: string[];
-  } {
-    const { year, month } = getCurrentYearMonth();
-    let anyCovered = false;
-    let allOwedPaid = true;
+  ): CustomerStatus {
+    const { year: currentYear, month: currentMonth } = getCurrentYearMonth();
+    const notDueLineIds: string[] = [];
+    let overdue = false;
     let anySkipped = false;
-    let anyNotDueYet = false;
     let paid = 0;
     let total = 0;
-    const notDueLineIds: string[] = [];
+
     for (const line of lines) {
       if (!line.active) continue;
       const linePayments = payments.filter((p) => p.customerPlanId === line.id);
       const lineSkips = skips.filter((s) => s.customerPlanId === line.id);
-      const entry = this.buildMonthGrid(line, linePayments, lineSkips, year, unpaidRule).find(
-        (e) => e.month === month,
-      );
-      if (!entry || entry.status === "before_start") continue; // not started
-      // A skipped month is owed by nobody: it neither counts in the tally nor
-      // blocks "full", and quick pay must leave it alone.
-      if (entry.status === "skipped") {
-        notDueLineIds.push(line.id);
+      const startYear = new Date(line.startDate).getFullYear();
+
+      let current: MonthEntry | null = null;
+      for (let year = startYear; year <= currentYear; year++) {
+        for (const entry of this.buildMonthGrid(line, linePayments, lineSkips, year, unpaidRule)) {
+          if (entry.year === currentYear && entry.month === currentMonth) {
+            current = entry;
+          } else if (entry.status === "unpaid") {
+            // Only a month strictly BEFORE this one can be overdue. Future
+            // months never resolve to "unpaid", so no upper guard is needed.
+            overdue = true;
+          }
+        }
+      }
+
+      // "before_start" (the line starts later) and a missing entry both mean the
+      // line is not in play this month, so it neither counts nor blocks.
+      if (!current || current.status === "before_start") continue;
+      if (current.status === "skipped") {
         anySkipped = true;
+        notDueLineIds.push(line.id);
         continue;
       }
-      // 'customer_start_day' rule: the current month hasn't reached this line's
-      // billing day, so nothing is owed yet — it must not count in the tally or
-      // block "full". Unlike a skip it stays quick-payable, so it is NOT added
-      // to notDueLineIds.
-      if (entry.status === "future") {
-        anyNotDueYet = true;
-        continue;
-      }
+      // "future" here can only be the 'customer_start_day' rule holding the
+      // CURRENT month back — nothing owed yet. It stays quick-payable (pay
+      // early is allowed), so it is NOT added to notDueLineIds.
+      if (current.status === "future") continue;
+
       total++;
-      // A partial month resolves to "paid" (its balance becomes a debt), so a
-      // covered line always counts toward "paid" here — never as unsettled.
-      if (entry.status === "paid") {
-        anyCovered = true;
+      if (current.status === "paid") {
+        // A partial payment resolves to "paid" (its balance becomes a debt), so
+        // a covered line always counts as paid here.
         paid++;
         notDueLineIds.push(line.id);
-      } else if (entry.status === "unpaid") allOwedPaid = false;
+      }
     }
-    // Every started line dropped out → nothing owed, so the list must not fall
-    // back to its red "unpaid" default. An explicit skip outranks "not due yet",
-    // since it is a deliberate choice worth showing. Mirrors the repository's
-    // `total === 0` branch.
-    const status =
-      total === 0 && anySkipped
-        ? "skipped"
-        : total === 0 && anyNotDueYet
-          ? "notDueYet"
-          : !anyCovered
-            ? "none"
-            : allOwedPaid
-              ? "full"
-              : "partial";
-    return { status, count: { paid, total }, notDueLineIds };
+
+    // total === 0 → nothing is owed this month at all. A deliberate skip is
+    // worth showing; everything else (line not started, billing day not
+    // reached, no plan) reads as "not due yet". Never fall back to "unpaid" —
+    // an absent fact is not a debt.
+    const status: CustomerMonthStatus =
+      total === 0
+        ? anySkipped
+          ? "skipped"
+          : "not_due_yet"
+        : paid === total
+          ? "paid"
+          : paid > 0
+            ? "mixed"
+            : "unpaid";
+
+    return { status, overdue, planCount: { paid, total }, notDueLineIds };
+  }
+
+  // The customer list's whole badge dataset, in ONE query pass: every payment
+  // and skip is fetched once, grouped per customer, then run through
+  // buildCustomerStatus. Customers absent from the returned map have no status
+  // yet — the list must render no payment badge for them rather than guessing.
+  async getCustomerStatuses(
+    customers: Customer[],
+    unpaidRule: UnpaidStartRule = DEFAULT_UNPAID_START_RULE,
+  ): Promise<Map<string, CustomerStatus>> {
+    const [rows, skips] = await Promise.all([
+      repository.findActivePayments(),
+      skippedMonthService.getActiveSkips(),
+    ]);
+    const paymentsByCustomer = groupBy(rows.map(mapDbPaymentToPayment), (p) => p.customerId);
+    const skipsByCustomer = groupBy(skips, (s) => s.customerId);
+
+    const statuses = new Map<string, CustomerStatus>();
+    for (const customer of customers) {
+      // Inactive and occasional (non-regular) customers show their own flag
+      // instead of a payment one, and quick pay skips them — so there is
+      // nothing to compute.
+      if (!customer.active || !customer.isRegular) continue;
+      statuses.set(
+        customer.id,
+        this.buildCustomerStatus(
+          customer.customerPlans ?? [],
+          paymentsByCustomer.get(customer.id) ?? [],
+          skipsByCustomer.get(customer.id) ?? [],
+          unpaidRule,
+        ),
+      );
+    }
+    return statuses;
   }
 
   // THE single source of truth for month status logic. No other file may reimplement this.
@@ -678,13 +658,13 @@ function assertNoSkippedMonths(
   }
 }
 
-// Active skips grouped by service line, for the per-line grid builds.
-function groupSkipsByLine(skips: SkippedMonth[]): Map<string, SkippedMonth[]> {
-  const map = new Map<string, SkippedMonth[]>();
-  for (const skip of skips) {
-    const list = map.get(skip.customerPlanId);
-    if (list) list.push(skip);
-    else map.set(skip.customerPlanId, [skip]);
+// Buckets rows by a key — used to slice one tenant-wide fetch per customer.
+function groupBy<T>(rows: T[], key: (row: T) => string): Map<string, T[]> {
+  const map = new Map<string, T[]>();
+  for (const row of rows) {
+    const list = map.get(key(row));
+    if (list) list.push(row);
+    else map.set(key(row), [row]);
   }
   return map;
 }

@@ -208,6 +208,7 @@
     "reactivate_title": "Reactivate Customer",
     "reactivate_message": "Are you sure you want to reactivate {{name}}?",
     "non_regular": "Non-Regular",
+    "overdue": "Overdue",
     "debt": "Debt",
     "plans_paid_count": "{{paid}}/{{total}} plans paid",
     "regular_label": "Regular Customer",

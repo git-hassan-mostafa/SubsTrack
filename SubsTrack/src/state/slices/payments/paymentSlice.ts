@@ -1,5 +1,5 @@
 import type { StateCreator } from 'zustand';
-import type { Currency, CurrentMonthPlanCount, Customer, CustomerPlan, MonthEntry, Payment, Plan, SkippedMonth, TierPlan, UnpaidStartRule } from '@/src/core/types';
+import type { Currency, Customer, CustomerPlan, CustomerStatus, MonthEntry, Payment, Plan, SkippedMonth, TierPlan, UnpaidStartRule } from '@/src/core/types';
 import { getCurrentYearMonth, toBillingMonth } from '@/src/core/utils/date';
 import {
   paymentService,
@@ -55,28 +55,12 @@ export interface PaymentSlice {
   skips: SkippedMonth[];
   // The viewed customer's month grids, one per service line, keyed by line id.
   monthGridsByLine: Record<string, MonthEntry[]>;
-  // Customers fully settled for the current month (all active lines covered + settled).
-  currentMonthFullyPaidIds: Set<string>;
-  // Customers with some current-month coverage but not fully settled across lines.
-  currentMonthPartialIds: Set<string>;
-  // Customers owing nothing this month because every started line is skipped —
-  // without this they'd fall through to the list's red "unpaid" default.
-  currentMonthSkippedIds: Set<string>;
-  // Customers owing nothing YET because no started line has reached its billing
-  // day ('customer_start_day' rule). Same "keep them out of the red default"
-  // purpose as currentMonthSkippedIds. Always empty under the 'month_start' rule.
-  currentMonthNotDueYetIds: Set<string>;
-  // Per customer: how many started service lines are fully paid this month, out
-  // of the total. Drives the "N/M plans paid" badge for multi-plan customers.
-  currentMonthPlanCounts: Map<string, CurrentMonthPlanCount>;
-  // Service-line IDs NOT due this month: already covered by a payment (full or
-  // partial) or skipped. Quick pay pays only lines outside this set, so a mixed
-  // multi-plan customer never re-pays (upserts over) a paid line, and never pays
-  // a skipped one.
-  currentMonthNotDueLineIds: Set<string>;
-  // Active regular customers with any unpaid month on any active line up to now
-  // (even if the current month is paid). Drives the "unpaid" status on the list.
-  overdueCustomerIds: Set<string>;
+  // The customer list's badge data, keyed by customer id — this month's status,
+  // whether older months are still unpaid, the plan tally, and which lines quick
+  // pay may collect. ONE map from ONE query, so the badge can never be assembled
+  // from two half-loaded sources. A customer that is ABSENT has no status yet;
+  // the list renders no payment badge rather than guessing "unpaid" (gotcha #56).
+  customerStatuses: Map<string, CustomerStatus>;
   loading: boolean;
   loadingCreate: boolean;
   loadingVoid: boolean;
@@ -84,8 +68,9 @@ export interface PaymentSlice {
   loadingSkip: boolean;
   error: string | null;
   tierLimitError: TierLimitErrorPayload | null;
-  fetchCurrentMonthPaymentStatus: () => Promise<void>;
-  fetchOverdueStatus: (customers: Customer[]) => Promise<void>;
+  // Rebuilds the whole customerStatuses map. One call, one query — every badge
+  // fact lands together, so nothing can be shown from partial data.
+  fetchCustomerStatuses: (customers: Customer[]) => Promise<void>;
   // Loads all of a customer's payments only when they aren't already in the
   // store, then builds each line's grid for the year.
   getPayments: (
@@ -192,13 +177,7 @@ export const createPaymentSlice: StateCreator<
   items: [],
   skips: [],
   monthGridsByLine: {},
-  currentMonthFullyPaidIds: new Set(),
-  currentMonthPartialIds: new Set(),
-  currentMonthSkippedIds: new Set(),
-  currentMonthNotDueYetIds: new Set(),
-  currentMonthPlanCounts: new Map(),
-  currentMonthNotDueLineIds: new Set(),
-  overdueCustomerIds: new Set(),
+  customerStatuses: new Map(),
   loading: false,
   loadingCreate: false,
   loadingVoid: false,
@@ -207,26 +186,10 @@ export const createPaymentSlice: StateCreator<
   error: null,
   tierLimitError: null,
 
-  fetchCurrentMonthPaymentStatus: async () => {
-    const { year, month } = getCurrentYearMonth();
-    const billingMonth = toBillingMonth(year, month);
-    const { fullyPaidIds, partialIds, skippedIds, notDueYetIds, planCounts, notDueLineIds } =
-      await paymentService.findPaymentStatusForMonth(billingMonth, getUnpaidRule(get));
+  fetchCustomerStatuses: async (customers) => {
+    const statuses = await paymentService.getCustomerStatuses(customers, getUnpaidRule(get));
     set((state) => {
-      state.payments.currentMonthFullyPaidIds = fullyPaidIds;
-      state.payments.currentMonthPartialIds = partialIds;
-      state.payments.currentMonthSkippedIds = skippedIds;
-      state.payments.currentMonthNotDueYetIds = notDueYetIds;
-      state.payments.currentMonthPlanCounts = planCounts;
-      state.payments.currentMonthNotDueLineIds = notDueLineIds;
-    });
-  },
-
-  fetchOverdueStatus: async (customers) => {
-    const overdueCustomerIds =
-      await paymentService.findOverdueCustomerIds(customers, getUnpaidRule(get));
-    set((state) => {
-      state.payments.overdueCustomerIds = overdueCustomerIds;
+      state.payments.customerStatuses = statuses;
     });
   },
 
@@ -296,7 +259,7 @@ export const createPaymentSlice: StateCreator<
         state.payments.skips = skips;
         state.payments.monthGridsByLine = monthGridsByLine;
         state.payments.loadingSkip = false;
-        syncCustomerMonthStatus(state.payments, customerId, lines, items, skips, getUnpaidRule(get));
+        syncCustomerStatus(state.payments, customerId, lines, items, skips, getUnpaidRule(get));
       });
     } catch (e) {
       set((state) => {
@@ -325,7 +288,7 @@ export const createPaymentSlice: StateCreator<
         state.payments.items = items;
         state.payments.monthGridsByLine = monthGridsByLine;
         state.payments.loadingCreate = false;
-        syncCustomerMonthStatus(state.payments, data.customerId, lines, items, skips, getUnpaidRule(get));
+        syncCustomerStatus(state.payments, data.customerId, lines, items, skips, getUnpaidRule(get));
       });
     } catch (e) {
       set((state) => {
@@ -354,7 +317,7 @@ export const createPaymentSlice: StateCreator<
         state.payments.items = items;
         state.payments.monthGridsByLine = monthGridsByLine;
         state.payments.loadingCreate = false;
-        if (customerId) syncCustomerMonthStatus(state.payments, customerId, lines, items, skips, getUnpaidRule(get));
+        if (customerId) syncCustomerStatus(state.payments, customerId, lines, items, skips, getUnpaidRule(get));
       });
     } catch (e) {
       set((state) => {
@@ -457,7 +420,7 @@ export const createPaymentSlice: StateCreator<
         state.payments.items = items;
         state.payments.monthGridsByLine = monthGridsByLine;
         state.payments.loadingCreate = false;
-        syncCustomerMonthStatus(state.payments, customer.id, lines, items, skips, getUnpaidRule(get));
+        syncCustomerStatus(state.payments, customer.id, lines, items, skips, getUnpaidRule(get));
       });
       return conflictMonths;
     } catch (e) {
@@ -524,7 +487,7 @@ export const createPaymentSlice: StateCreator<
         state.payments.items = items;
         state.payments.monthGridsByLine = monthGridsByLine;
         state.payments.loadingCreate = false;
-        syncCustomerMonthStatus(state.payments, customer.id, lines, items, skips, getUnpaidRule(get));
+        syncCustomerStatus(state.payments, customer.id, lines, items, skips, getUnpaidRule(get));
       });
       return conflictMonths;
     } catch (e) {
@@ -564,7 +527,7 @@ export const createPaymentSlice: StateCreator<
         state.payments.items = items;
         state.payments.monthGridsByLine = monthGridsByLine;
         state.payments.loadingUpdate = false;
-        syncCustomerMonthStatus(state.payments, updated.customerId, lines, items, skips, getUnpaidRule(get));
+        syncCustomerStatus(state.payments, updated.customerId, lines, items, skips, getUnpaidRule(get));
       });
     } catch (e) {
       set((state) => {
@@ -591,7 +554,7 @@ export const createPaymentSlice: StateCreator<
         state.payments.monthGridsByLine = monthGridsByLine;
         state.payments.loadingVoid = false;
         if (paymentToVoid) {
-          syncCustomerMonthStatus(state.payments, paymentToVoid.customerId, lines, items, skips, getUnpaidRule(get));
+          syncCustomerStatus(state.payments, paymentToVoid.customerId, lines, items, skips, getUnpaidRule(get));
         }
       });
     } catch (e) {
@@ -612,7 +575,7 @@ export const createPaymentSlice: StateCreator<
       const voided = await paymentService.voidCurrentMonth(customerId, voidedBy, '');
       set((state) => {
         state.payments.loadingVoid = false;
-        if (voided.length > 0) clearPaymentStatus(state.payments, customerId);
+        if (voided.length > 0) forgetCustomerStatus(state.payments, customerId);
       });
       return voided.length > 0;
     } catch (e) {
@@ -642,7 +605,7 @@ export const createPaymentSlice: StateCreator<
         state.payments.items = items;
         state.payments.monthGridsByLine = monthGridsByLine;
         state.payments.loadingVoid = false;
-        if (customerId) syncCustomerMonthStatus(state.payments, customerId, lines, items, skips, getUnpaidRule(get));
+        if (customerId) syncCustomerStatus(state.payments, customerId, lines, items, skips, getUnpaidRule(get));
       });
     } catch (e) {
       set((state) => {
@@ -665,7 +628,8 @@ export const createPaymentSlice: StateCreator<
       state.payments.items = [];
       state.payments.skips = [];
       state.payments.monthGridsByLine = {};
-      state.payments.currentMonthNotDueYetIds = new Set();
+      // Tenant-scoped — or the next tenant on this device inherits stale badges.
+      state.payments.customerStatuses = new Map();
       state.payments.loading = false;
       state.payments.loadingCreate = false;
       state.payments.loadingVoid = false;
@@ -701,123 +665,33 @@ function buildGridsFor(
   return grids;
 }
 
-// The badge-status shape carried by the three status stores kept in lockstep:
-// two membership sets + the per-customer plan tally map.
-type StatusStore = {
-  currentMonthFullyPaidIds: Set<string>;
-  currentMonthPartialIds: Set<string>;
-  currentMonthSkippedIds: Set<string>;
-  currentMonthNotDueYetIds: Set<string>;
-  currentMonthPlanCounts: Map<string, CurrentMonthPlanCount>;
-  currentMonthNotDueLineIds: Set<string>;
-};
-
-// Recomputes a customer's aggregate current-month status from its lines +
-// payments + skips and places it in exactly one (or neither) of the badge sets,
-// refreshes its "N/M plans paid" tally, and re-syncs which of its lines are not
-// due this month (drives quick-pay eligibility).
-function syncCustomerMonthStatus(
-  slice: StatusStore,
+// Recomputes ONE customer's entry in the badge map after a local mutation, so
+// the list stays correct without another round-trip. `payments` must be that
+// customer's FULL history — the slice holds exactly that for the viewed
+// customer (findByCustomer is not year-scoped), which is what lets `overdue` be
+// recomputed locally too.
+function syncCustomerStatus(
+  slice: { customerStatuses: Map<string, CustomerStatus> },
   customerId: string,
   lines: CustomerPlan[],
-  items: Payment[],
+  payments: Payment[],
   skips: SkippedMonth[],
   unpaidRule: UnpaidStartRule,
 ): void {
-  const { status, count, notDueLineIds } = paymentService.computeCurrentMonthStatus(
-    lines,
-    items,
-    skips,
-    unpaidRule,
-  );
-  updateNotDueLines(slice, lines, notDueLineIds);
-  setSkippedStatus(slice, customerId, status === 'skipped');
-  setNotDueYetStatus(slice, customerId, status === 'notDueYet');
-  if (status === 'none' || status === 'skipped' || status === 'notDueYet') {
-    clearPaymentStatus(slice, customerId);
-  } else {
-    applyPaymentStatus(slice, customerId, status === 'partial');
-    setPlanCount(slice, customerId, count);
-  }
+  const next = new Map(slice.customerStatuses);
+  next.set(customerId, paymentService.buildCustomerStatus(lines, payments, skips, unpaidRule));
+  slice.customerStatuses = next;
 }
 
-// Adds/removes the customer from the "nothing owed — all lines skipped" set.
-function setSkippedStatus(slice: StatusStore, customerId: string, skipped: boolean): void {
-  if (skipped === slice.currentMonthSkippedIds.has(customerId)) return;
-  const next = new Set(slice.currentMonthSkippedIds);
-  if (skipped) next.add(customerId);
-  else next.delete(customerId);
-  slice.currentMonthSkippedIds = next;
-}
-
-// Adds/removes the customer from the "nothing owed YET — no line has reached its
-// billing day" set ('customer_start_day' rule).
-function setNotDueYetStatus(slice: StatusStore, customerId: string, notDueYet: boolean): void {
-  if (notDueYet === slice.currentMonthNotDueYetIds.has(customerId)) return;
-  const next = new Set(slice.currentMonthNotDueYetIds);
-  if (notDueYet) next.add(customerId);
-  else next.delete(customerId);
-  slice.currentMonthNotDueYetIds = next;
-}
-
-// Replaces the not-due membership for one customer: drops every one of its
-// lines from the global set, then re-adds only the currently not-due ones.
-function updateNotDueLines(
-  slice: StatusStore,
-  lines: CustomerPlan[],
-  notDueLineIds: string[],
-): void {
-  const next = new Set(slice.currentMonthNotDueLineIds);
-  for (const line of lines) next.delete(line.id);
-  for (const id of notDueLineIds) next.add(id);
-  slice.currentMonthNotDueLineIds = next;
-}
-
-// Mutates the partial / fully-paid sets so the customer sits in exactly one.
-function applyPaymentStatus(
-  slice: StatusStore,
+// Drops a customer from the badge map — used when a mutation invalidates the
+// entry but the slice lacks the data to rebuild it. The card then shows no
+// payment badge until the next fetch, which is honest; guessing is not.
+function forgetCustomerStatus(
+  slice: { customerStatuses: Map<string, CustomerStatus> },
   customerId: string,
-  isPartial: boolean,
 ): void {
-  const target = isPartial ? slice.currentMonthPartialIds : slice.currentMonthFullyPaidIds;
-  const other = isPartial ? slice.currentMonthFullyPaidIds : slice.currentMonthPartialIds;
-  const nextTarget = new Set(target);
-  nextTarget.add(customerId);
-  if (isPartial) slice.currentMonthPartialIds = nextTarget;
-  else slice.currentMonthFullyPaidIds = nextTarget;
-  if (other.has(customerId)) {
-    const nextOther = new Set(other);
-    nextOther.delete(customerId);
-    if (isPartial) slice.currentMonthFullyPaidIds = nextOther;
-    else slice.currentMonthPartialIds = nextOther;
-  }
-}
-
-function setPlanCount(
-  slice: StatusStore,
-  customerId: string,
-  count: CurrentMonthPlanCount,
-): void {
-  const next = new Map(slice.currentMonthPlanCounts);
-  next.set(customerId, count);
-  slice.currentMonthPlanCounts = next;
-}
-
-function clearPaymentStatus(slice: StatusStore, customerId: string): void {
-  if (slice.currentMonthFullyPaidIds.has(customerId)) {
-    const next = new Set(slice.currentMonthFullyPaidIds);
-    next.delete(customerId);
-    slice.currentMonthFullyPaidIds = next;
-  }
-  if (slice.currentMonthPartialIds.has(customerId)) {
-    const next = new Set(slice.currentMonthPartialIds);
-    next.delete(customerId);
-    slice.currentMonthPartialIds = next;
-  }
-  // No current-month coverage left → no "N/M plans paid" tally to show.
-  if (slice.currentMonthPlanCounts.has(customerId)) {
-    const next = new Map(slice.currentMonthPlanCounts);
-    next.delete(customerId);
-    slice.currentMonthPlanCounts = next;
-  }
+  if (!slice.customerStatuses.has(customerId)) return;
+  const next = new Map(slice.customerStatuses);
+  next.delete(customerId);
+  slice.customerStatuses = next;
 }

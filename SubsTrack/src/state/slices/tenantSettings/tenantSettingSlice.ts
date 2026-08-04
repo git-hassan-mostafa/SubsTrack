@@ -72,10 +72,9 @@ export const createTenantSettingSlice: StateCreator<
         else state.tenantSettings.items.push(saved);
         state.tenantSettings.saving = false;
       });
-      // The rule changes which months read as unpaid, so the cached
-      // current-month badge sets are now stale. (The overdue set is refreshed by
-      // the customer list on focus, which needs the customer array as input.)
-      await get().payments.fetchCurrentMonthPaymentStatus();
+      // The rule changes which months read as unpaid, so every cached customer
+      // badge is now stale — one call rebuilds them all.
+      await get().payments.fetchCustomerStatuses(get().customers.items);
     } catch (e) {
       set((state) => {
         state.tenantSettings.error = (e as Error).message;

@@ -3,26 +3,23 @@ import { View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
-import type { CurrentMonthPlanCount, Customer } from "@/src/core/types";
+import type { TFunction } from "i18next";
+import type {
+  Customer,
+  CustomerMonthStatus,
+  CustomerStatus,
+} from "@/src/core/types";
 import { COLORS } from "../../../../shared/constants";
 import { EntityCard } from "@/src/shared/components/EntityCard";
 
-// "skipped"     = the customer owes nothing this month (every line's month is skipped).
-// "not_due_yet" = owes nothing YET — no line has reached its billing day
-//                 ('customer_start_day' unpaid rule).
-export type CustomerPaymentStatus =
-  | "paid"
-  | "partial"
-  | "unpaid"
-  | "mixed"
-  | "skipped"
-  | "not_due_yet";
-
 interface Props {
   customer: Customer;
-  paymentStatus: CustomerPaymentStatus;
-  /** For "mixed": how many of the customer's plans are paid this month, out of total. */
-  planCount?: CurrentMonthPlanCount | null;
+  /**
+   * This month's status + whether older months are unpaid. `null` while the
+   * status is still loading — the card then shows no payment flag at all, which
+   * is why the red "Unpaid" pill can never appear on missing data (gotcha #56).
+   */
+  status: CustomerStatus | null;
   monthLabel: string;
   /** Formatted net debt (e.g. "150,000 ل.ل"), or null when the customer owes nothing. */
   debtLabel?: string | null;
@@ -34,6 +31,47 @@ interface Props {
   onToggleSelect?: (customer: Customer) => void;
   onEnterSelection?: (customer: Customer) => void;
 }
+
+// Pill styling per month status — a lookup, not a ternary chain: a new status
+// is one row here, and every status is forced to have exactly one appearance.
+const MONTH_FLAGS: Record<
+  CustomerMonthStatus,
+  {
+    label: (t: TFunction, s: CustomerStatus) => string;
+    textClassName: string;
+    bgClassName: string;
+  }
+> = {
+  paid: {
+    label: (t) => `✓ ${t("common.paid")}`,
+    textClassName: "text-green-700",
+    bgClassName: "bg-green-100",
+  },
+  mixed: {
+    label: (t, s) =>
+      t("customers.plans_paid_count", {
+        paid: s.planCount.paid,
+        total: s.planCount.total,
+      }),
+    textClassName: "text-amber-600",
+    bgClassName: "bg-amber-100",
+  },
+  unpaid: {
+    label: (t) => t("dashboard.unpaid"),
+    textClassName: "text-red-500",
+    bgClassName: "bg-red-100",
+  },
+  skipped: {
+    label: (t) => t("payments.skip.skipped_label"),
+    textClassName: "text-slate-600",
+    bgClassName: "bg-slate-200",
+  },
+  not_due_yet: {
+    label: (t) => t("payments.not_due_yet_label"),
+    textClassName: "text-gray-500",
+    bgClassName: "bg-gray-100",
+  },
+};
 
 // A single pill badge. Rendered on the card's top flags row.
 function Flag({
@@ -54,8 +92,7 @@ function Flag({
 
 export const CustomerCard = memo(function CustomerCard({
   customer,
-  paymentStatus,
-  planCount = null,
+  status,
   monthLabel,
   debtLabel = null,
   onPress,
@@ -78,6 +115,18 @@ export const CustomerCard = memo(function CustomerCard({
         ? activeLines[0].plan?.name || t("common.no_plan")
         : t("subscriptions.count_plans", { count: activeLines.length });
 
+  // This month's pill — nothing to show while the status is still loading, or
+  // when it is a plain "unpaid" that the red "Overdue" pill already covers.
+  let monthFlag: {
+    text: string;
+    textClassName: string;
+    bgClassName: string;
+  } | null = null;
+  if (status && !(status.status === "unpaid" && status.overdue)) {
+    const style = MONTH_FLAGS[status.status];
+    monthFlag = { ...style, text: style.label(t, status) };
+  }
+
   return (
     <EntityCard
       icon="person-outline"
@@ -92,8 +141,9 @@ export const CustomerCard = memo(function CustomerCard({
       }
     >
       <View className="flex-1 me-2">
-        {/* Flags — their own line at the top right of the card. */}
-        <View className="flex-row items-center justify-end gap-1.5 mb-1">
+        {/* Flags — their own line at the top right of the card. The min height
+            keeps the row from collapsing while the status is still loading. */}
+        <View className="flex-row items-center justify-end gap-1.5 mb-1 min-h-[20px]">
           {!customer.active ? (
             <Flag
               text={t("common.inactive")}
@@ -106,45 +156,29 @@ export const CustomerCard = memo(function CustomerCard({
               textClassName="text-amber-600"
               bgClassName="bg-amber-100"
             />
-          ) : paymentStatus === "paid" ? (
-            <Flag
-              text={`✓ ${t("common.paid")}`}
-              textClassName="text-green-700"
-              bgClassName="bg-green-100"
-            />
-          ) : paymentStatus === "mixed" ? (
-            <Flag
-              text={t("customers.plans_paid_count", {
-                paid: planCount?.paid ?? 0,
-                total: planCount?.total ?? 0,
-              })}
-              textClassName="text-amber-600"
-              bgClassName="bg-amber-100"
-            />
-          ) : paymentStatus === "partial" ? (
-            <Flag
-              text={t("common.partial")}
-              textClassName="text-amber-600"
-              bgClassName="bg-amber-100"
-            />
-          ) : paymentStatus === "skipped" ? (
-            <Flag
-              text={t("payments.skip.skipped_label")}
-              textClassName="text-slate-600"
-              bgClassName="bg-slate-200"
-            />
-          ) : paymentStatus === "not_due_yet" ? (
-            <Flag
-              text={t("payments.not_due_yet_label")}
-              textClassName="text-gray-500"
-              bgClassName="bg-gray-100"
-            />
           ) : (
-            <Flag
-              text={t("dashboard.unpaid")}
-              textClassName="text-red-500"
-              bgClassName="bg-red-100"
-            />
+            <>
+              {/* THIS month. Absent while the status loads, and suppressed when
+                  it would only repeat the "Overdue" pill sitting next to it. */}
+              {monthFlag ? (
+                <Flag
+                  text={monthFlag.text}
+                  textClassName={monthFlag.textClassName}
+                  bgClassName={monthFlag.bgClassName}
+                />
+              ) : null}
+
+              {/* EARLIER months — a separate fact, so it sits beside the month
+                  flag instead of replacing it. "✓ Paid + Overdue" and
+                  "Not due yet + Overdue" are both real, useful states. */}
+              {status?.overdue ? (
+                <Flag
+                  text={t("customers.overdue")}
+                  textClassName="text-red-600"
+                  bgClassName="bg-red-100"
+                />
+              ) : null}
+            </>
           )}
 
           {/* Debt flag — shown whenever the customer has a net outstanding debt. */}

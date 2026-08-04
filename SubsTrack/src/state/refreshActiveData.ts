@@ -39,10 +39,12 @@ export function refreshActiveData(): void {
   if (s.wallet.items.length) void s.wallet.fetchWallets();
   if (s.debts.items.length) void s.debts.fetchDebts();
 
-  // The customer-list payment flags (current-month status, net debt) are derived
-  // from the customer set, so refresh them whenever the customer list is loaded.
+  // The customer-list badges (month status + overdue, net debt) are derived from
+  // the customer set, so refresh them whenever the customer list is loaded. The
+  // status map is built from the customers already in the store — the list
+  // screen rebuilds it again on focus once its own fetch lands.
   if (s.customers.loaded) {
-    void s.payments.fetchCurrentMonthPaymentStatus();
+    void s.payments.fetchCustomerStatuses(s.customers.items);
     void s.debts.fetchNetByCustomer();
   }
 

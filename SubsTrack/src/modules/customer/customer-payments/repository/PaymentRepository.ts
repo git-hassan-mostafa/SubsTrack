@@ -1,16 +1,9 @@
 import { Platform } from 'react-native';
 import { BaseRepository } from '@/src/core/utils/BaseRepository';
 import { PAGE_SIZE, type BranchFilter } from '@/src/core/constants';
-import type { CurrentMonthPlanCount, UnpaidStartRule } from '@/src/core/types';
 import type { DbPayment } from '@/src/core/types/db';
-import { isNotDueYet } from '@/src/core/utils/date';
-import { DEFAULT_UNPAID_START_RULE } from '@/src/modules/admin/tenant-settings/services/TenantSettingService';
 import type { FindPaymentsOptions } from '../utils/types';
-import type {
-  CreatePaymentPayload,
-  IPaymentRepository,
-  MonthStatusSets,
-} from './IPaymentRepository';
+import type { CreatePaymentPayload, IPaymentRepository } from './IPaymentRepository';
 import { OfflinePaymentRepository } from './PaymentRepository.offline';
 
 // Joins the customer name (and branch_id, needed by the inherited branch filter)
@@ -175,133 +168,10 @@ export class PaymentRepository extends BaseRepository implements IPaymentReposit
     return (data ?? []) as DbPayment[];
   }
 
-  // Returns customer IDs whose CURRENT-month status, aggregated across all their
-  // active (started) service lines, is:
-  //   - fullyPaidIds — every started, due line is covered and settled (balance == 0)
-  //   - partialIds   — some coverage exists, but a due line is uncovered or unsettled
-  // A customer with several lines only turns "fully paid" once every line is
-  // settled. Skipped lines are not due: they neither count nor block. Handles
-  // multi-month coverage. amount_paid = 0 is treated as unpaid. Branch scoping is
-  // left to RLS (customer_plans + payments + skipped_months inherit the customer's
-  // branch). Must stay in sync with PaymentService.buildMonthGrid().
-  async findPaymentStatusForMonth(
-    billingMonth: string,
-    unpaidRule: UnpaidStartRule = DEFAULT_UNPAID_START_RULE,
-  ): Promise<MonthStatusSets> {
-    const [year, monthStr] = billingMonth.split('-').map(Number);
-    // A payment from up to 12 months prior could still cover this month (max duration = 12).
-    const cutoffDate = new Date(year, monthStr - 1 - 12, 1);
-    const cutoff = `${cutoffDate.getFullYear()}-${String(cutoffDate.getMonth() + 1).padStart(2, '0')}-01`;
-    const target = new Date(billingMonth);
-
-    // Active lines that have started by this month, grouped per customer.
-    const { data: lineRows, error: lErr } = await this.db
-      .from('customer_plans')
-      .select('id, customer_id, start_date')
-      .eq('active', true);
-    if (lErr) this.handleError(lErr);
-    const linesByCustomer = new Map<string, string[]>();
-    // Lines whose billing day hasn't arrived yet — only under the
-    // 'customer_start_day' rule, and only when the target IS the current month.
-    const notDueYetLineIds = new Set<string>();
-    for (const l of (lineRows ?? []) as { id: string; customer_id: string; start_date: string }[]) {
-      const [sy, sm] = l.start_date.split('-').map(Number);
-      if (new Date(`${sy}-${String(sm).padStart(2, '0')}-01`) > target) continue; // not started yet
-      if (isNotDueYet(unpaidRule, year, monthStr, l.start_date)) notDueYetLineIds.add(l.id);
-      const list = linesByCustomer.get(l.customer_id);
-      if (list) list.push(l.id);
-      else linesByCustomer.set(l.customer_id, [l.id]);
-    }
-
-    // Covering payments for the month, keyed by line (last write wins per line).
-    const { data, error } = await this.db
-      .from('payments')
-      .select('customer_plan_id, billing_month, duration_months, amount_paid')
-      .lte('billing_month', billingMonth)
-      .gte('billing_month', cutoff)
-      .is('voided_at', null)
-      .gt('amount_paid', 0);
-    if (error) this.handleError(error);
-
-    // Lines whose month is skipped — not due, so they drop out of the tally.
-    const { data: skipRows, error: sErr } = await this.db
-      .from('skipped_months')
-      .select('customer_plan_id')
-      .eq('billing_month', billingMonth)
-      .eq('skipped', true);
-    if (sErr) this.handleError(sErr);
-    const skippedLineIds = new Set(
-      ((skipRows ?? []) as { customer_plan_id: string }[]).map((r) => r.customer_plan_id),
-    );
-
-    const settledByLine = new Map<string, boolean>();
-    for (const r of (data ?? []) as {
-      customer_plan_id: string;
-      billing_month: string;
-      duration_months: number;
-    }[]) {
-      const start = new Date(r.billing_month);
-      const end = new Date(start);
-      end.setMonth(end.getMonth() + r.duration_months - 1);
-      if (end < target) continue;
-      // Any covering payment settles the line for the month — a partial payment
-      // (balance > 0) counts as paid; its remainder is tracked as a debt.
-      // Mirrors PaymentService.buildMonthGrid, so both stay in lockstep.
-      settledByLine.set(r.customer_plan_id, true);
-    }
-
-    const fullyPaidIds = new Set<string>();
-    const partialIds = new Set<string>();
-    const skippedIds = new Set<string>();
-    const notDueYetIds = new Set<string>();
-    // Per customer: how many due lines are fully settled this month, out of the
-    // total due lines — drives the customer-list "N/M plans paid" badge.
-    const planCounts = new Map<string, CurrentMonthPlanCount>();
-    for (const [customerId, lineIds] of linesByCustomer) {
-      let anyCovered = false;
-      let allCoveredAndSettled = true;
-      let paid = 0;
-      let total = 0;
-      let anySkipped = false;
-      for (const lineId of lineIds) {
-        // A skipped line is owed by nobody (grid rule: paid > skipped > unpaid).
-        if (skippedLineIds.has(lineId) && !settledByLine.has(lineId)) {
-          anySkipped = true;
-          continue;
-        }
-        // Nor is a line that hasn't reached its billing day yet.
-        if (notDueYetLineIds.has(lineId) && !settledByLine.has(lineId)) continue;
-        total++;
-        if (settledByLine.has(lineId)) {
-          anyCovered = true;
-          if (settledByLine.get(lineId)) paid++;
-          else allCoveredAndSettled = false;
-        } else {
-          allCoveredAndSettled = false; // an active line has no payment this month
-        }
-      }
-      planCounts.set(customerId, { paid, total });
-      // Every started line dropped out → nothing is owed this month. Which set
-      // it lands in decides the badge (slate "Skipped" vs no badge at all).
-      if (total === 0) {
-        if (anySkipped) skippedIds.add(customerId);
-        else notDueYetIds.add(customerId);
-        continue;
-      }
-      if (!anyCovered) continue;
-      if (allCoveredAndSettled) fullyPaidIds.add(customerId);
-      else partialIds.add(customerId);
-    }
-    // Lines not to quick-pay: covered by a payment this month, or skipped. A
-    // not-due-yet line stays payable, so it is deliberately absent here.
-    const notDueLineIds = new Set([...settledByLine.keys(), ...skippedLineIds]);
-    return { fullyPaidIds, partialIds, skippedIds, notDueYetIds, planCounts, notDueLineIds };
-  }
-
-  // Returns every active (non-voided, non-zero-paid) payment across all
-  // customers/years, so the service can run buildMonthGrid per customer and
-  // detect overdue (unpaid past) months for the customer-list status badge.
-  // amount_paid = 0 is excluded — it is treated as unpaid (same as the grid).
+  // Every active (non-voided, non-zero-paid) payment across all customers and
+  // years — the single input the service needs to build the whole customer-list
+  // status (this month AND overdue) from buildMonthGrid. amount_paid = 0 is
+  // excluded: it is treated as unpaid, same as the grid.
   async findActivePayments(): Promise<DbPayment[]> {
     const { data, error } = await this.db
       .from('payments')
