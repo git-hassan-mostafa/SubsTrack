@@ -20,6 +20,14 @@ export class TenantSettingRepository
   }
 
   async upsert(tenantId: string, key: string, value: string | null): Promise<DbTenantSetting> {
+    // Read first: an upsert hides whether this is a new option or a changed one,
+    // and "UnpaidStartRule: month_start → customer_start_day" is the useful entry.
+    const { data: prior } = await this.db
+      .from('tenant_settings')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .eq('key', key)
+      .maybeSingle();
     // Upsert on the (tenant_id, key) natural key — the row may already exist
     // under an id this client never saw (set on the web or another device).
     const { data, error } = await this.db
@@ -28,7 +36,16 @@ export class TenantSettingRepository
       .select()
       .single();
     if (error) this.handleError(error);
-    return data as DbTenantSetting;
+    const saved = data as DbTenantSetting;
+    // Tenant-wide setting — no branch dimension, so every admin sees it.
+    await this.audit({
+      table: 'tenant_settings',
+      recordId: saved.id,
+      action: prior ? 'update' : 'create',
+      before: prior,
+      after: saved,
+    });
+    return saved;
   }
 }
 

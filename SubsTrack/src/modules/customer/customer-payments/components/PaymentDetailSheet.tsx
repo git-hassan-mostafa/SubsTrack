@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { COLORS } from "@/src/shared/constants";
 import { FormSheet } from "@/src/shared/components/FormSheet";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
@@ -16,6 +18,8 @@ import { CurrencyInput } from "@/src/shared/components/CurrencyInput";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
 import { useLanguageStore } from "@/src/core/i18n/languageStore";
+import { useAuth } from "@/src/modules/authentication/auth";
+import { RecordHistorySheet } from "@/src/modules/admin/audit";
 
 interface Props {
   entry: MonthEntry | null;
@@ -56,6 +60,10 @@ export function PaymentDetailSheet({
 
   const [editMode, setEditMode] = useState(false);
   const [editPaid, setEditPaid] = useState<number | null>(null);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  // Only admins can read the audit trail (audit_logs_select RLS), so staff
+  // must not see a button that would come back empty.
+  const { isAdmin } = useAuth();
 
   // Guard only a real amount CHANGE. Not `useDirtyForm`: `editPaid` is seeded
   // from the payment when edit mode opens, so a null-baseline diff would flag
@@ -267,6 +275,17 @@ export function PaymentDetailSheet({
         </View>
       ) : null}
 
+      {/* Change history — admin-only, mirroring the audit_logs read policy. */}
+      {isAdmin && payment && !editMode ? (
+        <PressableOpacity
+          onPress={() => setHistoryOpen(true)}
+          className="border border-gray-200 rounded-xl py-3 items-center mb-3 flex-row justify-center gap-2"
+        >
+          <Ionicons name="time-outline" size={16} color={COLORS.gray600} />
+          <Text className="text-gray-600 font-medium">{t("audit.history")}</Text>
+        </PressableOpacity>
+      ) : null}
+
       {/* Void button */}
       {onVoid && !editMode ? (
         <PressableOpacity
@@ -275,6 +294,14 @@ export function PaymentDetailSheet({
         >
           <Text className="text-red-500 font-semibold">{voidLabel}</Text>
         </PressableOpacity>
+      ) : null}
+
+      {historyOpen && payment ? (
+        <RecordHistorySheet
+          table="payments"
+          recordId={payment.id}
+          onDismiss={() => setHistoryOpen(false)}
+        />
       ) : null}
     </FormSheet>
   );

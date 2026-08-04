@@ -27,7 +27,15 @@ export class ProductRepository extends BaseRepository implements IProductReposit
       .select()
       .single();
     if (error) this.handleError(error);
-    return data as DbProduct;
+    const created = data as DbProduct;
+    await this.audit({
+      table: 'products',
+      recordId: created.id,
+      action: 'create',
+      after: created,
+      branchId: created.branch_id,
+    });
+    return created;
   }
 
   async update(
@@ -36,36 +44,26 @@ export class ProductRepository extends BaseRepository implements IProductReposit
       Pick<DbProduct, 'name' | 'description' | 'price' | 'currency_id' | 'branch_id' | 'active'>
     >,
   ): Promise<DbProduct> {
-    const { data, error } = await this.db
-      .from('products')
-      .update(payload)
-      .eq('id', id)
-      .select()
-      .single();
-    if (error) this.handleError(error);
-    return data as DbProduct;
+    return this.auditedUpdate<DbProduct>('products', id, payload, {
+      action: payload.active === true ? 'restore' : 'update',
+    });
   }
 
   async delete(id: string): Promise<void> {
-    const { error } = await this.db.from('products').delete().eq('id', id);
-    if (error) this.handleError(error);
+    await this.deleteMany([id]);
   }
 
   // Hard-delete many products in one statement.
   async deleteMany(ids: string[]): Promise<void> {
-    if (ids.length === 0) return;
-    const { error } = await this.db.from('products').delete().in('id', ids);
-    if (error) this.handleError(error);
+    await this.auditedDelete<DbProduct>('products', ids);
   }
 
   // Soft-delete many products in one statement.
   async deactivateMany(ids: string[]): Promise<void> {
     if (ids.length === 0) return;
-    const { error } = await this.db
-      .from('products')
-      .update({ active: false })
-      .in('id', ids);
-    if (error) this.handleError(error);
+    for (const id of ids) {
+      await this.auditedUpdate<DbProduct>('products', id, { active: false });
+    }
   }
 
   // The subset of the given products that any sale line references — one query.

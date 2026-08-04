@@ -69,6 +69,17 @@ export class PaymentRepository extends BaseRepository implements IPaymentReposit
     return (data ?? []) as DbPayment[];
   }
 
+  // Payments carry no branch_id of their own; the audit row denormalizes the
+  // owning customer's so a branch-scoped admin can filter on one column.
+  private async branchOf(customerId: string): Promise<string | null> {
+    const { data } = await this.db
+      .from('customers')
+      .select('branch_id')
+      .eq('id', customerId)
+      .maybeSingle();
+    return (data as { branch_id: string | null } | null)?.branch_id ?? null;
+  }
+
   async create(payload: CreatePaymentPayload): Promise<DbPayment> {
     const { data, error } = await this.db
       .from('payments')
@@ -87,7 +98,15 @@ export class PaymentRepository extends BaseRepository implements IPaymentReposit
       .select()
       .single();
     if (error) this.handleError(error);
-    return data as DbPayment;
+    const created = data as DbPayment;
+    await this.audit({
+      table: 'payments',
+      recordId: created.id,
+      action: 'create',
+      after: created,
+      branchId: await this.branchOf(created.customer_id),
+    });
+    return created;
   }
 
   // Inserts several payments in a single round-trip. Callers must ensure the
@@ -109,7 +128,21 @@ export class PaymentRepository extends BaseRepository implements IPaymentReposit
       .upsert(rows, { onConflict: 'customer_plan_id,billing_month' })
       .select();
     if (error) this.handleError(error);
-    return (data ?? []) as DbPayment[];
+    const created = (data ?? []) as DbPayment[];
+    const branches = new Map<string, string | null>();
+    for (const p of created) {
+      if (!branches.has(p.customer_id)) branches.set(p.customer_id, await this.branchOf(p.customer_id));
+    }
+    for (const p of created) {
+      await this.audit({
+        table: 'payments',
+        recordId: p.id,
+        action: 'create',
+        after: p,
+        branchId: branches.get(p.customer_id) ?? null,
+      });
+    }
+    return created;
   }
 
   async updatePayment(
@@ -121,6 +154,9 @@ export class PaymentRepository extends BaseRepository implements IPaymentReposit
       ratePerUsdSnapshot: number;
     },
   ): Promise<DbPayment> {
+    // One extra read so the trail can say what the amount WAS. PostgREST cannot
+    // return old values from an UPDATE.
+    const { data: prior } = await this.db.from('payments').select('*').eq('id', id).maybeSingle();
     const { data, error } = await this.db
       .from('payments')
       .update({
@@ -134,10 +170,20 @@ export class PaymentRepository extends BaseRepository implements IPaymentReposit
       .select()
       .single();
     if (error) this.handleError(error);
-    return data as DbPayment;
+    const updated = data as DbPayment;
+    await this.audit({
+      table: 'payments',
+      recordId: id,
+      action: 'update',
+      before: prior,
+      after: updated,
+      branchId: await this.branchOf(updated.customer_id),
+    });
+    return updated;
   }
 
   async voidPayment(id: string, voidedBy: string, notes: string | null): Promise<DbPayment> {
+    const { data: prior } = await this.db.from('payments').select('*').eq('id', id).maybeSingle();
     const { data, error } = await this.db
       .from('payments')
       .update({
@@ -149,12 +195,25 @@ export class PaymentRepository extends BaseRepository implements IPaymentReposit
       .select()
       .single();
     if (error) this.handleError(error);
-    return data as DbPayment;
+    const voided = data as DbPayment;
+    await this.audit({
+      table: 'payments',
+      recordId: id,
+      action: 'void',
+      before: prior,
+      after: voided,
+      branchId: await this.branchOf(voided.customer_id),
+    });
+    return voided;
   }
 
   // Voids several payments in a single round-trip.
   async voidMany(ids: string[], voidedBy: string, notes: string | null): Promise<DbPayment[]> {
     if (ids.length === 0) return [];
+    const { data: prior } = await this.db.from('payments').select('*').in('id', ids);
+    const before = new Map(
+      ((prior ?? []) as DbPayment[]).map((p) => [p.id, p]),
+    );
     const { data, error } = await this.db
       .from('payments')
       .update({
@@ -165,7 +224,18 @@ export class PaymentRepository extends BaseRepository implements IPaymentReposit
       .in('id', ids)
       .select();
     if (error) this.handleError(error);
-    return (data ?? []) as DbPayment[];
+    const voided = (data ?? []) as DbPayment[];
+    for (const p of voided) {
+      await this.audit({
+        table: 'payments',
+        recordId: p.id,
+        action: 'void',
+        before: before.get(p.id) ?? null,
+        after: p,
+        branchId: await this.branchOf(p.customer_id),
+      });
+    }
+    return voided;
   }
 
   // Every active (non-voided, non-zero-paid) payment across all customers and
@@ -294,13 +364,27 @@ export class PaymentRepository extends BaseRepository implements IPaymentReposit
 
   async markRemitted(ids: string[], remittedBy: string): Promise<void> {
     if (ids.length === 0) return;
-    const { error } = await this.db
+    const remittedAt = new Date().toISOString();
+    const { error, data } = await this.db
       .from('payments')
-      .update({ remitted_at: new Date().toISOString(), remitted_by: remittedBy })
+      .update({ remitted_at: remittedAt, remitted_by: remittedBy })
       .in('id', ids)
       .is('remitted_at', null)
-      .is('voided_at', null);
+      .is('voided_at', null)
+      // Returned so the trail records only the rows the conditional UPDATE
+      // actually moved, not every id the caller passed.
+      .select();
     if (error) this.handleError(error);
+    for (const p of (data ?? []) as DbPayment[]) {
+      await this.audit({
+        table: 'payments',
+        recordId: p.id,
+        action: 'update',
+        before: { ...p, remitted_at: null, remitted_by: null },
+        after: p,
+        branchId: await this.branchOf(p.customer_id),
+      });
+    }
   }
 }
 

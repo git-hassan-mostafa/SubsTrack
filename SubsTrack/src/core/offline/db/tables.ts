@@ -13,7 +13,8 @@ export type ColType =
   | 'text' // TEXT
   | 'int' //  INTEGER (counts, durations, decimals, sort order)
   | 'num' //  numeric/money/rate — stored as TEXT (exact decimal), decoded via Number()
-  | 'bool'; // boolean — stored as INTEGER 0/1
+  | 'bool' // boolean — stored as INTEGER 0/1
+  | 'json'; // object/array ↔ Postgres jsonb — stored as TEXT (stringified), decoded via JSON.parse
 
 export interface TableSpec {
   name: string;
@@ -46,7 +47,26 @@ export interface TableSpec {
    * rows for no benefit. See sync.ts's pullChanges().
    */
   pushOnly?: boolean;
+  /**
+   * Log/ledger table whose rows are NEVER modified after insert. Two effects:
+   *  1. pushed with ON CONFLICT DO NOTHING — a re-sent batch (the server
+   *     committed but the reply was lost) must not need UPDATE rights, which an
+   *     insert-only RLS table like audit_logs does not grant. A plain upsert
+   *     would take the DO UPDATE path, be refused forever, and wedge the queue.
+   *  2. un-pushed rows do NOT block an organization switch (hasUnsyncedWrites) —
+   *     a log is not the user's money, and blocking a login over one is wrong.
+   */
+  appendOnly?: boolean;
+  /**
+   * Keep only a rolling window locally: pull rows whose `occurred_at` is within
+   * N days and prune older local rows (pruneWindowedTables in sync.ts). The
+   * server keeps everything; older history is read online on demand.
+   */
+  pullDays?: number;
 }
+
+/** Days of audit history the local mirror keeps. Older entries are online-only. */
+export const AUDIT_LOCAL_DAYS = 30;
 
 export const TABLES: TableSpec[] = [
   {
@@ -239,9 +259,26 @@ export const TABLES: TableSpec[] = [
     name: 'exception_logs',
     scope: 'tenant',
     pushOnly: true,
+    appendOnly: true,
     columns: {
       id: 'text', tenant_id: 'text', user_id: 'text', username: 'text',
       source: 'text', message: 'text', stack: 'text', context: 'text',
+      occurred_at: 'text', created_at: 'text', updated_at: 'text',
+    },
+  },
+  {
+    // Append-only audit trail, written by the repositories next to each change
+    // (never by a DB trigger — a trigger would record the sync moment, not the
+    // action). Pulled with a rolling 30-day window; the server keeps everything.
+    name: 'audit_logs',
+    scope: 'tenant',
+    appendOnly: true,
+    pullDays: AUDIT_LOCAL_DAYS,
+    columns: {
+      id: 'text', tenant_id: 'text', branch_id: 'text',
+      table_name: 'text', record_id: 'text', action: 'text',
+      before_data: 'json', after_data: 'json', changed: 'json',
+      label: 'text', actor_user_id: 'text', actor_username: 'text',
       occurred_at: 'text', created_at: 'text', updated_at: 'text',
     },
   },
@@ -251,10 +288,14 @@ export const TABLE_BY_NAME: Record<string, TableSpec> = Object.fromEntries(
   TABLES.map((t) => [t.name, t]),
 );
 
-/** Tables the sync engine pulls (everything; ordered parents-before-children matters for FK-ish merges). */
+/**
+ * Every table the sync engine touches, ordered parents-before-children (matters
+ * for FK-ish merges). The PUSH loop iterates this array too, so a table missing
+ * from here is neither pushed nor pulled.
+ */
 export const SYNC_PULL_ORDER = [
   'tenants', 'tier_plans', 'app_options', 'tenant_settings', 'currencies', 'branches', 'users',
   'plans', 'customers', 'customer_plans', 'payments', 'skipped_months',
   'products', 'sales', 'sale_items', 'stock_movements', 'custom_debts',
-  'debt_payments', 'exception_logs',
+  'debt_payments', 'exception_logs', 'audit_logs',
 ] as const;

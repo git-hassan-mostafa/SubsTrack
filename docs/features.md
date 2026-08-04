@@ -21,6 +21,7 @@
 - [Multiple Plans per Customer (service lines)](#multiple-plans-per-customer-service-lines)
 - [Payment Scenarios](#payment-scenarios)
 - [Multi-Select & Bulk Actions](#multi-select--bulk-actions)
+- [Audit Trail](#audit-trail)
 - [Developer Tools](#developer-tools)
 
 ---
@@ -591,6 +592,56 @@ The month grid on the customer detail screen has its own selection mode (same `u
 - **Auto-expand unit** ([`utils/monthSelection.ts`](../SubsTrack/src/modules/customer-payments/utils/monthSelection.ts) `expandSelectionUnit`): a cell backed by a live payment selects **every visible month sharing that `payment.id`** (whole block, for voiding); a multi-month-plan payable cell selects its **start-aligned N-month window**; otherwise just the cell. Windows are anchored at the customer's `startDate` month via absolute month index, so they never overlap and never start before the start date.
 - **Pay** branches on `customer.plan` (one plan per customer): *fixed single-month* → confirm then `createPayment` full price per month; *custom / no plan* → `BulkPaymentFormSheet` collects one amount (due + full/partial + currency) applied to every selected month; *multi-month* → `groupPayableBlocks` collapses the selection to distinct block starts, one `createMultiMonthPayment(..., skipConflicts = true)` each (already-paid months inside a window are skipped). **Void** dedupes the voidable subset by `payment.id` → `BulkVoidSheet` (ConfirmDialog + optional reason) voids each once.
 - **Loops are sequential** (same `loadingCreate`/`loadingVoid` early-return constraint as the customer list); per-iteration `getStore().getState().payments` checks aggregate ok/failed into an amber `bulkNotice` banner on partial failure. Multi-month with a missing/disallowing tier counts as failed (the service `assertMultiMonth` gate).
+
+---
+
+## Audit Trail
+
+An **append-only** record of who changed what, when, and what the value was before. It exists because nothing remembered the old value: `payments.amount_paid` can be edited and the original figure was simply gone — the exact fact an admin-vs-staff dispute turns on.
+
+**The app writes the trail, NEVER a Postgres trigger.** A trigger only fires when the row reaches Postgres, which for an offline device is at the **next sync** — it would stamp the sync moment and the syncing session instead of the real action and the real person, and a device that never synced would hold no history at all. So each repository writes its own audit row alongside the change. (This is why §9.1 of `new-features.md` originally said "triggers, no app code" — that note predates the offline-first layer.)
+
+**What one row stores** — the `audit_logs` table: `tenant_id`, `branch_id` (denormalized from the row or its parent; NULL = tenant-wide record), `table_name`, `record_id`, `action` (`create` | `update` | `delete` | `void` | `restore`, CHECK-constrained), `before_data` / `after_data` / `changed` (JSONB), `label`, `actor_user_id`, `actor_username`, `occurred_at`, `created_at`, `updated_at`.
+
+- An **edit keeps only the changed columns** — `changed` is the list of column names, `before_data`/`after_data` hold just those columns' old/new values (~150 bytes). Each entry is therefore self-contained and readable without hunting for the previous one. A **create** stores the whole new row in `after_data`; a **delete** the whole removed row in `before_data`.
+- `updated_at` and the generated `balance` are **excluded from the diff**, so a form saved untouched writes nothing at all (`buildAuditRow` returns `null`).
+- `actor_username` is a **snapshot**, so the trail still names the person after their user row is deleted.
+- `label` is a **frozen one-liner** built by `describeAudit(table, row)` from the row's **own** columns only — a name pulled off another table would dangle once that row is deleted (same reasoning as `sales.items_summary`).
+- `occurred_at` is the **device clock** — when the staff member acted, not when the row synced. Never sort or display the trail by `updated_at` (that is the server clock and the sync cursor).
+- `branch_id` deliberately carries **no foreign key**: every other table uses `ON DELETE SET NULL`, which here would blank the trail when a branch is deleted. Evidence must outlive the branch. (`tenant_id` cascades, `actor_user_id` sets null.)
+- Four indexes: `(tenant_id, occurred_at DESC)`, `(table_name, record_id, occurred_at DESC)`, `(actor_user_id, occurred_at DESC)`, and `(updated_at)` for the pull cursor.
+
+**RLS — three policies, and one deliberate absence:**
+
+- `audit_logs_select` — **admins only** (reuses the `tenant_settings_write` role test), branch-aware via the row's own `branch_id`.
+- `audit_logs_insert` — **every** tenant member: a staff device must be able to push its own trail even though it can never read one back.
+- **No UPDATE and no DELETE policy, on purpose** — append-only from the client; only `service_role` can rewrite or purge (the same "absence of a policy = service_role only" idiom as `app_options`).
+- Consequence worth knowing, not a bug: a staff device's pull returns no audit rows, so its local table only ever holds its own un-pushed ones.
+
+**Audited tables** (`AUDITED_TABLES` in `src/modules/admin/audit/utils/constants.ts`) — 14: `payments`, `sales`, `custom_debts`, `debt_payments`, `customers`, `customer_plans`, `skipped_months`, `plans`, `products`, `branches`, `currencies`, `users`, `tenant_settings`, `tenants`.
+
+**Deliberately not audited:** `sale_items` (no independent life — the parent sale covers it, and its `items_summary` is already frozen there) and `stock_movements` (already an append-only ledger with actor, note and its own history UI — auditing it would duplicate itself). Also out: the log tables themselves (`exception_logs`, `audit_logs`) and `app_options` / `tier_plans`, which this app never writes (`scope: 'global'`).
+
+**Writing it — one line per call site:**
+
+- `BaseRepository.audit(input)` (web/online) — **never throws**: a failed audit insert must not fail the user's save.
+- `OfflineBaseRepository.auditIn(db, input)` (native) — called **inside the caller's `write()` transaction**, so the change and its trail commit or roll back together. A failure here **does** propagate; rolling back is the correct outcome.
+- `auditedUpdate()` / `auditedDelete()` on both base classes wrap the repeated read-patch-diff dance. `branchColumn: null` marks a table with no branch dimension; `branchColumn: 'id'` is for `branches`, which *are* a branch.
+- Builders live in `src/core/audit/`: `buildAuditRow.ts` (diff + actor/tenant/timestamps, `null` when nothing changed) and `describe.ts` (the `label`). The actor is read through a **lazy `require`** of the global store — same require-cycle reason and shape as `src/core/errorLog/errorLogger.ts`; a top-level store import from a file `BaseRepository` imports would crash.
+
+**Reading it** (`src/modules/admin/audit/`) — `IAuditRepository` is **read-only**; writes come from each repository, never through it.
+
+- `findRecent` reads the **local 30-day window**, so it works offline. `findAll` and a record's `full` timeline are **online-only on native** (`throw new RequiresConnectionError()`, else delegate to the Supabase sibling — the same pattern as `SubscriptionRepository.offline.upgradeTenant`).
+- Ordered by `occurred_at DESC`, never `updated_at`.
+- `auditPageSize(scope)` exists because the local window pages at `OFFLINE_PAGE_SIZE` (100) while every Supabase query pages at `PAGE_SIZE` (30) — a hardcoded `PAGE_SIZE` would make the native list stop after one page.
+
+**UI** — **Admin → Audit Log** (`app/(app)/(tabs)/admin/audit.tsx`): filter chips (record type / action / staff / date range), a day-ordered list, tap for a field-by-field *before → new* diff sheet, and a "Load full history" action that flips the scope from local to server. Plus a per-record **History** action on `PaymentDetailSheet` (admin-only, mirroring the read policy) opening `RecordHistorySheet`. New `audit` slice + `useAuditSlice`, registered in `globalStore.ts`, reset in `storeReset.ts`, refreshed in `refreshActiveData.ts`.
+
+**Storage** — ~150 bytes per row: a busy tenant at ~600 changes/month ≈ 90 KB/month locally and ~1 MB/year on the server.
+
+**Shipping** — OTA-safe (no native module), but run `sql scripts/script.sql` **before** publishing: the push writes a column set the server must already have.
+
+Offline specifics (the `appendOnly` + `pullDays` table flags, the `json` column type, local pruning) are in [docs/offline.md](offline.md); the traps are gotchas #57–#63.
 
 ---
 

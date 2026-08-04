@@ -5,6 +5,7 @@ const SQL_TYPE: Record<ColType, string> = {
   int: "INTEGER",
   num: "TEXT", // numeric/money/rate stored as exact decimal text
   bool: "INTEGER",
+  json: "TEXT", // stringified object/array; server side is jsonb
 };
 
 // Local-only sync flag (stripped before push). `_dirty` = 1 while a local
@@ -72,4 +73,9 @@ export const CREATE_INDEX_STATEMENTS: string[] = [
   `CREATE INDEX IF NOT EXISTS idx_debt_payments_customer ON debt_payments(customer_id);`,
   `CREATE INDEX IF NOT EXISTS idx_stock_movements_product ON stock_movements(product_id);`,
   `CREATE INDEX IF NOT EXISTS idx_stock_movements_sale ON stock_movements(sale_id);`,
+  // Audit trail: the list is ordered by occurred_at, the History sheet filters
+  // by (table, record), and the prune scans occurred_at.
+  `CREATE INDEX IF NOT EXISTS idx_audit_logs_occurred ON audit_logs(occurred_at);`,
+  `CREATE INDEX IF NOT EXISTS idx_audit_logs_record ON audit_logs(table_name, record_id);`,
+  `CREATE INDEX IF NOT EXISTS idx_audit_logs_actor ON audit_logs(actor_user_id);`,
 ];

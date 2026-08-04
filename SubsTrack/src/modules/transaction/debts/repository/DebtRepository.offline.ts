@@ -47,6 +47,16 @@ export class OfflineDebtRepository extends OfflineBaseRepository implements IDeb
     return this.attachCustomers(this.decodeAll<DbDebtPayment>('debt_payments', rows));
   }
 
+  // Neither debt table has a branch_id of its own; the audit row denormalizes
+  // the owning customer's so a branch-scoped admin can filter on one column.
+  private async branchOf(customerId: string): Promise<string | null> {
+    const row = await this.first<{ branch_id: string | null }>(
+      'SELECT branch_id FROM customers WHERE id = ?',
+      [customerId],
+    );
+    return row?.branch_id ?? null;
+  }
+
   async createCustomDebt(payload: CreateCustomDebtPayload): Promise<DbCustomDebt> {
     const now = nowIso();
     const row: DbCustomDebt = {
@@ -58,20 +68,48 @@ export class OfflineDebtRepository extends OfflineBaseRepository implements IDeb
       voided_by: null,
       void_reason: null,
     };
-    await this.write((db) => insertDirty(db, 'custom_debts', row));
+    const branchId = await this.branchOf(payload.customer_id);
+    await this.write(async (db) => {
+      await insertDirty(db, 'custom_debts', row);
+      await this.auditIn(db, {
+        table: 'custom_debts',
+        recordId: row.id,
+        action: 'create',
+        after: row,
+        branchId,
+      });
+    });
     const [hydrated] = await this.attachCustomers([row]);
     return hydrated;
   }
 
   async voidCustomDebt(id: string, voidedBy: string, reason: string | null): Promise<DbCustomDebt> {
     const now = nowIso();
-    await this.write((db) =>
-      db.runAsync(
+    await this.write(async (db) => {
+      const before = this.decodeOne<DbCustomDebt>(
+        'custom_debts',
+        await this.first('SELECT * FROM custom_debts WHERE id = ?', [id]),
+      );
+      await db.runAsync(
         `UPDATE custom_debts SET voided_at = ?, voided_by = ?, void_reason = ?, updated_at = ?, _dirty = 1
          WHERE id = ? AND voided_at IS NULL`,
         [now, voidedBy, reason, now, id] as never[],
-      ),
-    );
+      );
+      const after = this.decodeOne<DbCustomDebt>(
+        'custom_debts',
+        await this.first('SELECT * FROM custom_debts WHERE id = ?', [id]),
+      );
+      if (before && after) {
+        await this.auditIn(db, {
+          table: 'custom_debts',
+          recordId: id,
+          action: 'void',
+          before,
+          after,
+          branchId: await this.branchOf(after.customer_id),
+        });
+      }
+    });
     const row = await this.first('SELECT * FROM custom_debts WHERE id = ?', [id]);
     if (!row) this.handleError(new Error('Custom debt not found'));
     const [hydrated] = await this.attachCustomers([this.decodeOne<DbCustomDebt>('custom_debts', row)!]);
@@ -91,20 +129,48 @@ export class OfflineDebtRepository extends OfflineBaseRepository implements IDeb
       remitted_at: null,
       remitted_by: null,
     };
-    await this.write((db) => insertDirty(db, 'debt_payments', row));
+    const branchId = await this.branchOf(payload.customer_id);
+    await this.write(async (db) => {
+      await insertDirty(db, 'debt_payments', row);
+      await this.auditIn(db, {
+        table: 'debt_payments',
+        recordId: row.id,
+        action: 'create',
+        after: row,
+        branchId,
+      });
+    });
     const [hydrated] = await this.attachCustomers([row]);
     return hydrated;
   }
 
   async voidDebtPayment(id: string, voidedBy: string, reason: string | null): Promise<DbDebtPayment> {
     const now = nowIso();
-    await this.write((db) =>
-      db.runAsync(
+    await this.write(async (db) => {
+      const before = this.decodeOne<DbDebtPayment>(
+        'debt_payments',
+        await this.first('SELECT * FROM debt_payments WHERE id = ?', [id]),
+      );
+      await db.runAsync(
         `UPDATE debt_payments SET voided_at = ?, voided_by = ?, void_reason = ?, updated_at = ?, _dirty = 1
          WHERE id = ? AND voided_at IS NULL`,
         [now, voidedBy, reason, now, id] as never[],
-      ),
-    );
+      );
+      const after = this.decodeOne<DbDebtPayment>(
+        'debt_payments',
+        await this.first('SELECT * FROM debt_payments WHERE id = ?', [id]),
+      );
+      if (before && after) {
+        await this.auditIn(db, {
+          table: 'debt_payments',
+          recordId: id,
+          action: 'void',
+          before,
+          after,
+          branchId: await this.branchOf(after.customer_id),
+        });
+      }
+    });
     const row = await this.first('SELECT * FROM debt_payments WHERE id = ?', [id]);
     if (!row) this.handleError(new Error('Debt payment not found'));
     const [hydrated] = await this.attachCustomers([this.decodeOne<DbDebtPayment>('debt_payments', row)!]);
@@ -155,12 +221,31 @@ export class OfflineDebtRepository extends OfflineBaseRepository implements IDeb
     if (ids.length === 0) return;
     const now = nowIso();
     const ph = ids.map(() => '?').join(', ');
-    await this.write((db) =>
-      db.runAsync(
+    await this.write(async (db) => {
+      // Snapshot first: the UPDATE is conditional, so only the rows it actually
+      // moved (still unremitted, not voided) belong in the trail.
+      const before = this.decodeAll<DbDebtPayment>(
+        'debt_payments',
+        await this.all(
+          `SELECT * FROM debt_payments WHERE id IN (${ph}) AND remitted_at IS NULL AND voided_at IS NULL`,
+          ids,
+        ),
+      );
+      await db.runAsync(
         `UPDATE debt_payments SET remitted_at = ?, remitted_by = ?, updated_at = ?, _dirty = 1
          WHERE id IN (${ph}) AND remitted_at IS NULL AND voided_at IS NULL`,
         [now, remittedBy, now, ...ids] as never[],
-      ),
-    );
+      );
+      for (const row of before) {
+        await this.auditIn(db, {
+          table: 'debt_payments',
+          recordId: row.id,
+          action: 'update',
+          before: row,
+          after: { ...row, remitted_at: now, remitted_by: remittedBy },
+          branchId: await this.branchOf(row.customer_id),
+        });
+      }
+    });
   }
 }

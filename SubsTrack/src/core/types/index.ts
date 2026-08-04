@@ -570,6 +570,67 @@ export interface TenantSetting {
   updatedAt: string;
 }
 
+// ── Audit trail ──────────────────────────────────────────────────────────────
+
+// 'void' / 'restore' are updates too, kept distinct so the trail can be filtered
+// by what a staff member actually did.
+export type AuditAction = 'create' | 'update' | 'delete' | 'void' | 'restore';
+
+// Tables the app records a trail for. sale_items is covered by its parent sale,
+// and stock_movements is already an append-only ledger with its own history UI —
+// auditing either would just duplicate itself. See docs/features.md → Audit Trail.
+export type AuditTable =
+  | 'payments'
+  | 'sales'
+  | 'custom_debts'
+  | 'debt_payments'
+  | 'customers'
+  | 'customer_plans'
+  | 'skipped_months'
+  | 'plans'
+  | 'products'
+  | 'branches'
+  | 'currencies'
+  | 'users'
+  | 'tenant_settings'
+  | 'tenants';
+
+// One field that changed, ready to render as "old → new".
+export interface AuditChange {
+  field: string;
+  before: unknown;
+  after: unknown;
+}
+
+// One entry in the audit trail. `changes` is empty for create/delete — those
+// carry the whole row in `snapshot` instead.
+export interface AuditEntry {
+  id: string;
+  tenantId: string;
+  branchId: string | null;
+  table: AuditTable;
+  recordId: string;
+  action: AuditAction;
+  changes: AuditChange[];
+  /** create: the whole new row. delete: the whole removed row. update: null. */
+  snapshot: Record<string, unknown> | null;
+  label: string | null;
+  actorUserId: string | null;
+  actorUsername: string | null;
+  /** Device clock at the moment the staff member acted — NOT the sync moment. */
+  occurredAt: string;
+}
+
+// Audit list filters. All optional; omitted means "no restriction".
+export interface AuditFilter {
+  table?: AuditTable;
+  action?: AuditAction;
+  actorUserId?: string;
+  /** Inclusive ISO bounds on occurredAt. */
+  from?: string;
+  to?: string;
+}
+
 // When an unbilled month flips to "unpaid" in the month grid.
 //   month_start        — on the 1st of the month (the original behavior)
 //   customer_start_day — on the service line's own start day-of-month; before

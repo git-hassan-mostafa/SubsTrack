@@ -94,13 +94,34 @@ export class OfflinePaymentRepository extends OfflineBaseRepository implements I
     return this.decodeAll<DbPayment>('payments', rows);
   }
 
+  // Payments carry no branch_id of their own; the audit row denormalizes the
+  // owning customer's so a branch-scoped admin can filter on one column.
+  private async branchOf(customerId: string): Promise<string | null> {
+    const row = await this.first<{ branch_id: string | null }>(
+      'SELECT branch_id FROM customers WHERE id = ?',
+      [customerId],
+    );
+    return row?.branch_id ?? null;
+  }
+
   async create(payload: CreatePaymentPayload): Promise<DbPayment> {
     const id = await deterministicId(payload.customer_plan_id, payload.billing_month);
     const row = this.buildRow(payload, id, nowIso());
+    const branchId = await this.branchOf(payload.customer_id);
     // The mirror may already hold this line+month under another id (created on the
     // web / another device) — echo back the id it actually stored, never the
     // intended one, or the caller's Payment would point at a row that isn't there.
-    const storedId = await this.write((db) => upsertNaturalKeyDirty(db, 'payments', row));
+    const storedId = await this.write(async (db) => {
+      const stored = await upsertNaturalKeyDirty(db, 'payments', row);
+      await this.auditIn(db, {
+        table: 'payments',
+        recordId: stored,
+        action: 'create',
+        after: { ...row, id: stored },
+        branchId,
+      });
+      return stored;
+    });
     return { ...row, id: storedId };
   }
 
@@ -111,9 +132,23 @@ export class OfflinePaymentRepository extends OfflineBaseRepository implements I
     for (const p of payloads) {
       rows.push(this.buildRow(p, await deterministicId(p.customer_plan_id, p.billing_month), now));
     }
+    const branches = new Map<string, string | null>();
+    for (const p of payloads) {
+      if (!branches.has(p.customer_id)) branches.set(p.customer_id, await this.branchOf(p.customer_id));
+    }
     const storedIds = await this.write(async (db) => {
       const ids: string[] = [];
-      for (const row of rows) ids.push(await upsertNaturalKeyDirty(db, 'payments', row));
+      for (const row of rows) {
+        const stored = await upsertNaturalKeyDirty(db, 'payments', row);
+        ids.push(stored);
+        await this.auditIn(db, {
+          table: 'payments',
+          recordId: stored,
+          action: 'create',
+          after: { ...row, id: stored },
+          branchId: branches.get(row.customer_id) ?? null,
+        });
+      }
       return ids;
     });
     return rows.map((row, i) => ({ ...row, id: storedIds[i] }));
@@ -122,8 +157,12 @@ export class OfflinePaymentRepository extends OfflineBaseRepository implements I
   async updatePayment(id: string, payload: UpdatePaymentPayload): Promise<DbPayment> {
     const now = nowIso();
     const balance = payload.amountDue - payload.amountPaid;
-    await this.write((db) =>
-      db.runAsync(
+    const updated = await this.write(async (db) => {
+      const before = this.decodeOne<DbPayment>(
+        'payments',
+        await this.first('SELECT * FROM payments WHERE id = ?', [id]),
+      );
+      await db.runAsync(
         `UPDATE payments SET amount_due = ?, amount_paid = ?, currency_id = ?,
            rate_per_usd_snapshot = ?, balance = ?, updated_at = ?, _dirty = 1
          WHERE id = ? AND voided_at IS NULL`,
@@ -136,11 +175,25 @@ export class OfflinePaymentRepository extends OfflineBaseRepository implements I
           now,
           id,
         ] as never[],
-      ),
-    );
-    const row = await this.first('SELECT * FROM payments WHERE id = ?', [id]);
-    if (!row) this.handleError(new Error('Payment not found'));
-    return this.decodeOne<DbPayment>('payments', row)!;
+      );
+      const after = this.decodeOne<DbPayment>(
+        'payments',
+        await this.first('SELECT * FROM payments WHERE id = ?', [id]),
+      );
+      if (before && after) {
+        await this.auditIn(db, {
+          table: 'payments',
+          recordId: id,
+          action: 'update',
+          before,
+          after,
+          branchId: await this.branchOf(after.customer_id),
+        });
+      }
+      return after;
+    });
+    if (!updated) this.handleError(new Error('Payment not found'));
+    return updated;
   }
 
   async voidPayment(id: string, voidedBy: string, notes: string | null): Promise<DbPayment> {
@@ -153,10 +206,28 @@ export class OfflinePaymentRepository extends OfflineBaseRepository implements I
     const now = nowIso();
     await this.write(async (db) => {
       for (const id of ids) {
+        const before = this.decodeOne<DbPayment>(
+          'payments',
+          await this.first('SELECT * FROM payments WHERE id = ?', [id]),
+        );
         await db.runAsync(
           `UPDATE payments SET voided_at = ?, voided_by = ?, notes = ?, updated_at = ?, _dirty = 1 WHERE id = ?`,
           [now, voidedBy, notes, now, id] as never[],
         );
+        const after = this.decodeOne<DbPayment>(
+          'payments',
+          await this.first('SELECT * FROM payments WHERE id = ?', [id]),
+        );
+        if (before && after) {
+          await this.auditIn(db, {
+            table: 'payments',
+            recordId: id,
+            action: 'void',
+            before,
+            after,
+            branchId: await this.branchOf(after.customer_id),
+          });
+        }
       }
     });
     const ph = ids.map(() => '?').join(', ');
@@ -279,12 +350,31 @@ export class OfflinePaymentRepository extends OfflineBaseRepository implements I
     if (ids.length === 0) return;
     const now = nowIso();
     const ph = ids.map(() => '?').join(', ');
-    await this.write((db) =>
-      db.runAsync(
+    await this.write(async (db) => {
+      // Snapshot first: the UPDATE is conditional, so only the rows it actually
+      // moved (still unremitted, not voided) should appear in the trail.
+      const before = this.decodeAll<DbPayment>(
+        'payments',
+        await this.all(
+          `SELECT * FROM payments WHERE id IN (${ph}) AND remitted_at IS NULL AND voided_at IS NULL`,
+          ids,
+        ),
+      );
+      await db.runAsync(
         `UPDATE payments SET remitted_at = ?, remitted_by = ?, updated_at = ?, _dirty = 1
          WHERE id IN (${ph}) AND remitted_at IS NULL AND voided_at IS NULL`,
         [now, remittedBy, now, ...ids] as never[],
-      ),
-    );
+      );
+      for (const row of before) {
+        await this.auditIn(db, {
+          table: 'payments',
+          recordId: row.id,
+          action: 'update',
+          before: row,
+          after: { ...row, remitted_at: now, remitted_by: remittedBy },
+          branchId: await this.branchOf(row.customer_id),
+        });
+      }
+    });
   }
 }

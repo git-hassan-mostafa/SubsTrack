@@ -24,37 +24,30 @@ export class PlanRepository extends BaseRepository implements IPlanRepository {
       .select()
       .single();
     if (error) this.handleError(error);
-    return data as DbPlan;
+    const created = data as DbPlan;
+    await this.audit({
+      table: 'plans',
+      recordId: created.id,
+      action: 'create',
+      after: created,
+      branchId: created.branch_id,
+    });
+    return created;
   }
 
   async update(id: string, payload: Partial<Pick<DbPlan, 'name' | 'price' | 'is_custom_price' | 'duration_months' | 'currency_id' | 'branch_id'>>): Promise<DbPlan> {
-    const { error: updateError } = await this.db
-      .from('plans')
-      .update(payload)
-      .eq('id', id)
-      .select()
-    if (updateError) return this.handleError(updateError)
-
-    const { data, error } = await this.db.from('plans')
-      .select()
-      .eq('id', id)
-      .single();
-    if (error) this.handleError(error);
-    return data as DbPlan;
+    return this.auditedUpdate<DbPlan>('plans', id, payload);
   }
 
   async delete(id: string): Promise<void> {
-    const { error } = await this.db.from('plans').delete().eq('id', id);
-    if (error) this.handleError(error);
+    await this.deleteMany([id]);
   }
 
   // Hard-delete many plans in one statement. Service lines on a deleted plan
   // fall back to plan-less via the customer_plans.plan_id ON DELETE SET NULL
   // constraint (payment history is preserved by the plan_id snapshot on payments).
   async deleteMany(ids: string[]): Promise<void> {
-    if (ids.length === 0) return;
-    const { error } = await this.db.from('plans').delete().in('id', ids);
-    if (error) this.handleError(error);
+    await this.auditedDelete<DbPlan>('plans', ids);
   }
 
   // Plans use the 'shared' scope: NULL means "available to every branch".

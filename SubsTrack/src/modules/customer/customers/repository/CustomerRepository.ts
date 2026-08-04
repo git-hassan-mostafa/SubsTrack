@@ -55,43 +55,59 @@ export class CustomerRepository extends BaseRepository implements ICustomerRepos
       .select(SELECT)
       .single();
     if (error) this.handleError(error);
-    return data as CustomerWithLines;
+    const created = data as CustomerWithLines;
+    await this.audit({
+      table: 'customers',
+      recordId: created.id,
+      action: 'create',
+      after: created,
+      branchId: created.branch_id,
+    });
+    return created;
+  }
+
+  /**
+   * Every single-row customer patch funnels through here: read the row first (an
+   * UPDATE cannot return old values), apply the patch, record the diff.
+   */
+  private async patch(
+    id: string,
+    values: Record<string, unknown>,
+    action: 'update' | 'restore',
+  ): Promise<CustomerWithLines> {
+    const { data: prior } = await this.db.from('customers').select('*').eq('id', id).maybeSingle();
+    const { data, error } = await this.db
+      .from('customers')
+      .update(values)
+      .eq('id', id)
+      .select(SELECT)
+      .single();
+    if (error) this.handleError(error);
+    const updated = data as CustomerWithLines;
+    await this.audit({
+      table: 'customers',
+      recordId: id,
+      action,
+      before: prior,
+      after: updated,
+      branchId: updated.branch_id,
+    });
+    return updated;
   }
 
   async update(
     id: string,
     payload: Partial<Pick<DbCustomer, 'name' | 'phone_number' | 'address' | 'area' | 'notes' | 'location_url' | 'branch_id' | 'start_date' | 'is_regular'>>,
   ): Promise<CustomerWithLines> {
-    const { data, error } = await this.db
-      .from('customers')
-      .update(payload)
-      .eq('id', id)
-      .select(SELECT)
-      .single();
-    if (error) this.handleError(error);
-    return data as CustomerWithLines;
+    return this.patch(id, payload, 'update');
   }
 
   async deactivate(id: string): Promise<CustomerWithLines> {
-    const { data, error } = await this.db
-      .from('customers')
-      .update({ active: false, cancelled_at: new Date().toISOString() })
-      .eq('id', id)
-      .select(SELECT)
-      .single();
-    if (error) this.handleError(error);
-    return data as CustomerWithLines;
+    return this.patch(id, { active: false, cancelled_at: new Date().toISOString() }, 'update');
   }
 
   async reactivate(id: string): Promise<CustomerWithLines> {
-    const { data, error } = await this.db
-      .from('customers')
-      .update({ active: true, cancelled_at: null })
-      .eq('id', id)
-      .select(SELECT)
-      .single();
-    if (error) this.handleError(error);
-    return data as CustomerWithLines;
+    return this.patch(id, { active: true, cancelled_at: null }, 'restore');
   }
 
   async countPayments(id: string): Promise<number> {
@@ -104,8 +120,7 @@ export class CustomerRepository extends BaseRepository implements ICustomerRepos
   }
 
   async delete(id: string): Promise<void> {
-    const { error } = await this.db.from('customers').delete().eq('id', id);
-    if (error) this.handleError(error);
+    await this.deleteMany([id]);
   }
 
   // Hard-delete many customers in one statement (payments cascade via
@@ -113,18 +128,43 @@ export class CustomerRepository extends BaseRepository implements ICustomerRepos
   // with payment history — those get soft-deleted instead.
   async deleteMany(ids: string[]): Promise<void> {
     if (ids.length === 0) return;
+    // Snapshot before the rows are gone — a delete's whole value in the trail is
+    // the copy of what was removed. The cascaded children get no entry of their
+    // own; the customer entry is the record of the whole removal.
+    const { data: prior } = await this.db.from('customers').select('*').in('id', ids);
     const { error } = await this.db.from('customers').delete().in('id', ids);
     if (error) this.handleError(error);
+    for (const c of (prior ?? []) as DbCustomer[]) {
+      await this.audit({
+        table: 'customers',
+        recordId: c.id,
+        action: 'delete',
+        before: c,
+        branchId: c.branch_id,
+      });
+    }
   }
 
   // Soft-delete many customers in one statement — mirrors `deactivate`.
   async deactivateMany(ids: string[]): Promise<void> {
     if (ids.length === 0) return;
-    const { error } = await this.db
+    const cancelledAt = new Date().toISOString();
+    const { error, data } = await this.db
       .from('customers')
-      .update({ active: false, cancelled_at: new Date().toISOString() })
-      .in('id', ids);
+      .update({ active: false, cancelled_at: cancelledAt })
+      .in('id', ids)
+      .select('*');
     if (error) this.handleError(error);
+    for (const c of (data ?? []) as DbCustomer[]) {
+      await this.audit({
+        table: 'customers',
+        recordId: c.id,
+        action: 'update',
+        before: { ...c, active: true, cancelled_at: null },
+        after: c,
+        branchId: c.branch_id,
+      });
+    }
   }
 
   // The subset of the given customers that have any payment — one query.

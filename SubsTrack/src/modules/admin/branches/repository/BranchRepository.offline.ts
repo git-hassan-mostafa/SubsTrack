@@ -1,6 +1,6 @@
 import type { DbBranch } from '@/src/core/types/db';
 import { OfflineBaseRepository } from '@/src/core/offline/OfflineBaseRepository';
-import { insertDirty, updateDirty, markDeleted } from '@/src/core/offline/db/dml';
+import { insertDirty } from '@/src/core/offline/db/dml';
 import { newId, nowIso } from '@/src/core/offline/ids';
 import type { IBranchRepository } from './IBranchRepository';
 
@@ -19,41 +19,50 @@ export class OfflineBranchRepository extends OfflineBaseRepository implements IB
   async create(payload: Omit<DbBranch, 'id' | 'created_at' | 'updated_at'>): Promise<DbBranch> {
     const now = nowIso();
     const row: DbBranch = { id: newId(), created_at: now, updated_at: now, ...payload };
-    await this.write((db) => insertDirty(db, 'branches', row));
+    await this.write(async (db) => {
+      await insertDirty(db, 'branches', row);
+      // A branch IS a branch: the entry is scoped to the row's own id.
+      await this.auditIn(db, {
+        table: 'branches',
+        recordId: row.id,
+        action: 'create',
+        after: row,
+        branchId: row.id,
+      });
+    });
     return row;
   }
 
   async update(id: string, payload: Partial<Pick<DbBranch, 'name' | 'active'>>): Promise<DbBranch> {
-    await this.write((db) => updateDirty(db, 'branches', id, { ...payload, updated_at: nowIso() }));
-    const row = await this.first('SELECT * FROM branches WHERE id = ?', [id]);
+    // A branch IS a branch: `id` is its own branch scope.
+    const row = await this.auditedUpdate<DbBranch>(
+      'branches',
+      id,
+      { ...payload, updated_at: nowIso() },
+      { action: payload.active === true ? 'restore' : 'update', branchColumn: 'id' },
+    );
     if (!row) this.handleError(new Error('Branch not found'));
-    return this.decodeOne<DbBranch>('branches', row)!;
+    return row;
   }
 
   async delete(id: string): Promise<void> {
-    await this.write(async (db) => {
-      await db.runAsync('DELETE FROM branches WHERE id = ?', [id] as never[]);
-      await markDeleted(db, 'branches', id);
-    });
+    await this.deleteMany([id]);
   }
 
   async deleteMany(ids: string[]): Promise<void> {
-    if (ids.length === 0) return;
-    await this.write(async (db) => {
-      for (const id of ids) {
-        await db.runAsync('DELETE FROM branches WHERE id = ?', [id] as never[]);
-        await markDeleted(db, 'branches', id);
-      }
-    });
+    await this.auditedDelete<DbBranch>('branches', ids, { branchColumn: 'id' });
   }
 
   async deactivateMany(ids: string[]): Promise<void> {
     if (ids.length === 0) return;
-    await this.write(async (db) => {
-      for (const id of ids) {
-        await updateDirty(db, 'branches', id, { active: false, updated_at: nowIso() });
-      }
-    });
+    for (const id of ids) {
+      await this.auditedUpdate<DbBranch>(
+        'branches',
+        id,
+        { active: false, updated_at: nowIso() },
+        { branchColumn: 'id' },
+      );
+    }
   }
 
   async referencedIds(ids: string[]): Promise<Set<string>> {

@@ -22,12 +22,18 @@ export function branchScopeKey(branchId: string | null): string {
   return branchId ?? BRANCH_SCOPE_TENANT_WIDE;
 }
 
-/** Any local change not yet pushed: a `_dirty` row in any tenant table, or a logged hard delete. */
+/**
+ * Any local change not yet pushed: a `_dirty` row in any tenant table, or a
+ * logged hard delete. `appendOnly` log tables (audit_logs, exception_logs) are
+ * excluded — they are not the user's money, and refusing a login because a crash
+ * log or an audit entry is still queued is the wrong trade. Logout already calls
+ * flushPendingWrites(), so in the normal flow they are pushed before any wipe.
+ */
 export async function hasUnsyncedWrites(db: SQLiteDatabase): Promise<boolean> {
   const del = await db.getFirstAsync<{ n: number }>('SELECT COUNT(*) AS n FROM pending_deletes');
   if ((del?.n ?? 0) > 0) return true;
   for (const t of TABLES) {
-    if (t.scope !== 'tenant') continue;
+    if (t.scope !== 'tenant' || t.appendOnly) continue;
     const r = await db.getFirstAsync<{ n: number }>(`SELECT COUNT(*) AS n FROM ${t.name} WHERE _dirty = 1`);
     if ((r?.n ?? 0) > 0) return true;
   }

@@ -24,44 +24,45 @@ export class BranchRepository extends BaseRepository implements IBranchRepositor
       .select()
       .single();
     if (error) this.handleError(error);
-    return data as DbBranch;
+    const created = data as DbBranch;
+    // A branch IS a branch: the entry is scoped to the row's own id.
+    await this.audit({
+      table: 'branches',
+      recordId: created.id,
+      action: 'create',
+      after: created,
+      branchId: created.id,
+    });
+    return created;
   }
 
   async update(
     id: string,
     payload: Partial<Pick<DbBranch, 'name' | 'active'>>,
   ): Promise<DbBranch> {
-    const { data, error } = await this.db
-      .from('branches')
-      .update(payload)
-      .eq('id', id)
-      .select()
-      .single();
-    if (error) this.handleError(error);
-    return data as DbBranch;
+    // A branch IS a branch: `id` is its own branch scope.
+    return this.auditedUpdate<DbBranch>('branches', id, payload, {
+      action: payload.active === true ? 'restore' : 'update',
+      branchColumn: 'id',
+    });
   }
 
   async delete(id: string): Promise<void> {
-    const { error } = await this.db.from('branches').delete().eq('id', id);
-    if (error) this.handleError(error);
+    await this.deleteMany([id]);
   }
 
   // Hard-delete many branches in one statement. Referencing users/customers/plans
   // fall back to "unassigned"/"shared" via their ON DELETE SET NULL constraints.
   async deleteMany(ids: string[]): Promise<void> {
-    if (ids.length === 0) return;
-    const { error } = await this.db.from('branches').delete().in('id', ids);
-    if (error) this.handleError(error);
+    await this.auditedDelete<DbBranch>('branches', ids, { branchColumn: 'id' });
   }
 
   // Soft-delete many branches in one statement.
   async deactivateMany(ids: string[]): Promise<void> {
     if (ids.length === 0) return;
-    const { error } = await this.db
-      .from('branches')
-      .update({ active: false })
-      .in('id', ids);
-    if (error) this.handleError(error);
+    for (const id of ids) {
+      await this.auditedUpdate<DbBranch>('branches', id, { active: false }, { branchColumn: 'id' });
+    }
   }
 
   // The subset of the given branches referenced by any user, customer, or plan.

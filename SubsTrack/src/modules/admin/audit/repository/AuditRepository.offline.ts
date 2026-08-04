@@ -1,0 +1,61 @@
+import type { AuditFilter } from '@/src/core/types';
+import type { DbAuditLog } from '@/src/core/types/db';
+import { OFFLINE_PAGE_SIZE } from '@/src/core/constants';
+import { OfflineBaseRepository } from '@/src/core/offline/OfflineBaseRepository';
+import { isOnline } from '@/src/core/offline/net/connectivity';
+import { RequiresConnectionError } from '@/src/core/offline/errors';
+import type { IAuditRepository } from './IAuditRepository';
+import { AuditRepository } from './AuditRepository';
+
+/**
+ * SQLite-backed audit reads. The mirror holds a rolling 30-day window
+ * (TableSpec.pullDays), which is what makes the recent trail readable offline.
+ *
+ * Anything older lives only on the server, so `findAll` — and a `full` record
+ * timeline — are online-only and delegate to the Supabase sibling, the same
+ * pattern as SubscriptionRepository.offline.upgradeTenant.
+ *
+ * Note the mirror only ever contains what RLS let this device pull: an admin
+ * sees the whole tenant's window, a staff user sees nothing but their own
+ * un-pushed rows. That is intended — the trail is admin-only.
+ */
+export class OfflineAuditRepository extends OfflineBaseRepository implements IAuditRepository {
+  private online = new AuditRepository();
+
+  private where(filter: AuditFilter): { sql: string; params: unknown[] } {
+    const parts: { clause: string; params: unknown[] }[] = [];
+    if (filter.table) parts.push({ clause: 'table_name = ?', params: [filter.table] });
+    if (filter.action) parts.push({ clause: 'action = ?', params: [filter.action] });
+    if (filter.actorUserId) parts.push({ clause: 'actor_user_id = ?', params: [filter.actorUserId] });
+    if (filter.from) parts.push({ clause: 'occurred_at >= ?', params: [filter.from] });
+    if (filter.to) parts.push({ clause: 'occurred_at <= ?', params: [filter.to] });
+    return this.combineWhere(parts);
+  }
+
+  async findRecent(filter: AuditFilter, page = 0): Promise<DbAuditLog[]> {
+    const { sql, params } = this.where(filter);
+    const rows = await this.all(
+      `SELECT * FROM audit_logs ${sql} ORDER BY occurred_at DESC
+       LIMIT ${OFFLINE_PAGE_SIZE} OFFSET ${page * OFFLINE_PAGE_SIZE}`,
+      params,
+    );
+    return this.decodeAll<DbAuditLog>('audit_logs', rows);
+  }
+
+  async findAll(filter: AuditFilter, page = 0): Promise<DbAuditLog[]> {
+    if (!(await isOnline())) throw new RequiresConnectionError();
+    return this.online.findAll(filter, page);
+  }
+
+  async findForRecord(table: string, recordId: string, full = false): Promise<DbAuditLog[]> {
+    if (full) {
+      if (!(await isOnline())) throw new RequiresConnectionError();
+      return this.online.findForRecord(table, recordId, true);
+    }
+    const rows = await this.all(
+      'SELECT * FROM audit_logs WHERE table_name = ? AND record_id = ? ORDER BY occurred_at DESC',
+      [table, recordId],
+    );
+    return this.decodeAll<DbAuditLog>('audit_logs', rows);
+  }
+}

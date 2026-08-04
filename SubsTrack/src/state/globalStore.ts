@@ -20,6 +20,7 @@ import { createDebtSlice, type DebtSlice } from './slices/debts/debtSlice';
 import { createWalletSlice, type WalletSlice } from './slices/wallet/walletSlice';
 import { createOptionSlice, type OptionSlice } from './slices/options/optionSlice';
 import { createTenantSettingSlice, type TenantSettingSlice } from './slices/tenantSettings/tenantSettingSlice';
+import { createAuditSlice, type AuditSlice } from './slices/audit/auditSlice';
 import { createUiSlice, type UiSlice } from './slices/ui/uiSlice';
 
 export interface GlobalState {
@@ -42,6 +43,7 @@ export interface GlobalState {
   wallet: WalletSlice;
   options: OptionSlice;
   tenantSettings: TenantSettingSlice;
+  audit: AuditSlice;
   ui: UiSlice;
 }
 
@@ -69,6 +71,7 @@ const initStore = (): StoreApi<GlobalState> =>
       wallet: createWalletSlice(set, get, store),
       options: createOptionSlice(set, get, store),
       tenantSettings: createTenantSettingSlice(set, get, store),
+      audit: createAuditSlice(set, get, store),
       ui: createUiSlice(set, get, store),
     })),
   );

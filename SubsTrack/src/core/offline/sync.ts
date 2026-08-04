@@ -17,8 +17,8 @@ import { isOnline } from './net/connectivity';
 import { getDb } from './db/sqlite';
 import { decodeRow } from './db/codec';
 import { clearNaturalKeyDuplicate, upsertFromServer } from './db/dml';
-import { TABLE_BY_NAME, SYNC_PULL_ORDER } from './db/tables';
-import { nowIso } from './ids';
+import { TABLE_BY_NAME, SYNC_PULL_ORDER, TABLES } from './db/tables';
+import { isoDaysAgo, nowIso } from './ids';
 
 // ── Observable status (drives the UI "syncing" indicator) ────────────────────
 
@@ -116,14 +116,21 @@ async function pushDirty(): Promise<void> {
 
   // 1. Upserts — every row flagged `_dirty` (created / edited / soft-deleted).
   for (const table of SYNC_PULL_ORDER) {
-    if (TABLE_BY_NAME[table]?.scope !== 'tenant') continue; // global tables are read-only caches
+    const spec = TABLE_BY_NAME[table];
+    if (spec?.scope !== 'tenant') continue; // global tables are read-only caches
     const raw = await db.getAllAsync<Record<string, unknown>>(
       `SELECT * FROM ${table} WHERE _dirty = 1`,
     );
     if (raw.length === 0) continue;
 
     const rows = raw.map((r) => stripForPush(table, decodeRow(table, r)));
-    const { error } = await supabase.from(table).upsert(rows, { onConflict: conflictTarget(table) });
+    // appendOnly → ON CONFLICT DO NOTHING. `_dirty` clears only on a successful
+    // reply, so a push that committed but lost its response is re-sent; the
+    // DO UPDATE path of a plain upsert would then be refused forever by an
+    // insert-only RLS table (audit_logs) and wedge its queue. See TableSpec.
+    const { error } = await supabase
+      .from(table)
+      .upsert(rows, { onConflict: conflictTarget(table), ignoreDuplicates: spec.appendOnly === true });
     if (error) {
       console.warn(`[sync] push ${table} failed:`, error.message); // stays dirty → retried next sync
       continue;
@@ -177,7 +184,10 @@ async function pullChanges(): Promise<boolean> {
   let complete = true;
 
   for (const table of SYNC_PULL_ORDER) {
-    if (TABLE_BY_NAME[table]?.pushOnly) continue; // e.g. exception_logs — push up, never pull down
+    const spec = TABLE_BY_NAME[table];
+    if (spec?.pushOnly) continue; // e.g. exception_logs — push up, never pull down
+    // Windowed tables (audit_logs) keep only the last N days locally.
+    const windowStart = spec?.pullDays ? isoDaysAgo(spec.pullDays) : null;
 
     try {
       // Offset-page over a STABLE predicate (`updated_at > startedAt`), ordered by
@@ -193,6 +203,7 @@ async function pullChanges(): Promise<boolean> {
           .order('id', { ascending: true })
           .range(offset, offset + PAGE - 1);
         if (startedAt) q = q.gt('updated_at', startedAt);
+        if (windowStart) q = q.gte('occurred_at', windowStart);
 
         const { data, error } = await q;
         if (error) throw new Error(error.message);
@@ -295,6 +306,26 @@ async function reconcileDeletes(db: SQLiteDatabase): Promise<boolean> {
   return ok;
 }
 
+// ── Local retention for windowed tables ──────────────────────────────────────
+
+/**
+ * Drop local rows that fell out of a windowed table's range (`TableSpec.pullDays`
+ * — currently only audit_logs' 30 days). The server keeps the full history; the
+ * app fetches older entries online on demand.
+ *
+ * The `_dirty = 0` guard is mandatory: a row that has not been pushed yet is the
+ * ONLY copy in existence, so age must never delete it. Exported and also called
+ * at bootstrap, so a device that stays offline for months still prunes.
+ */
+export async function pruneWindowedTables(db: SQLiteDatabase): Promise<void> {
+  for (const t of TABLES) {
+    if (!t.pullDays) continue;
+    await db.runAsync(`DELETE FROM ${t.name} WHERE occurred_at < ? AND _dirty = 0`, [
+      isoDaysAgo(t.pullDays),
+    ] as never[]);
+  }
+}
+
 // ── Orchestration + triggers ─────────────────────────────────────────────────
 
 let running: Promise<void> | null = null;
@@ -315,6 +346,8 @@ export async function runSync(): Promise<void> {
     try {
       await pushDirty();
       const complete = await pullChanges();
+      // After push, so a pruned-away row was already sent up.
+      await pruneWindowedTables(getDb());
       // Only stamp a successful lastSyncAt when the cycle fully completed; a
       // partial cycle records `sync_incomplete` so the UI can stop claiming success
       // and the next tick retries. Not localized — read via the `ok` flag, never shown raw.

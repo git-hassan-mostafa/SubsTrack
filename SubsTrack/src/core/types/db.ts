@@ -302,3 +302,32 @@ export interface DbTenantSetting {
   created_at: string;
   updated_at: string;
 }
+
+// 'void' / 'restore' are updates too, kept distinct so the trail can be filtered
+// by what a staff member actually did.
+export type DbAuditAction = 'create' | 'update' | 'delete' | 'void' | 'restore';
+
+// One entry in the append-only audit trail. Built by the app next to each change
+// (never by a DB trigger — see sql scripts/script.sql → AUDIT LOGS). `before_data`
+// / `after_data` hold ONLY the changed columns on an edit; a create carries the
+// whole new row in `after_data`, a delete the whole removed row in `before_data`.
+export interface DbAuditLog {
+  id: string;
+  tenant_id: string;
+  // Denormalized from the changed row (or its parent). null = tenant-wide record.
+  branch_id: string | null;
+  table_name: string;
+  record_id: string;
+  action: DbAuditAction;
+  before_data: Record<string, unknown> | null;
+  after_data: Record<string, unknown> | null;
+  changed: string[] | null;
+  label: string | null;
+  actor_user_id: string | null;
+  // Snapshot: survives the user row being deleted.
+  actor_username: string | null;
+  // Device clock at the moment the staff member acted — NOT the sync moment.
+  occurred_at: string;
+  created_at: string;
+  updated_at: string;
+}

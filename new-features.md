@@ -489,29 +489,32 @@ CREATE TABLE notification_log (
 
 ## 9. Trust & Compliance
 
-### 9.1 Audit Log
+### 9.1 Audit Log ✅
 
 **Priority:** 🔴 High
 
-**Purpose:** Track every create, update, void, and delete action — who did it, when, and what the data looked like before and after. Critical for resolving disputes between staff and admin.
+**Purpose:** Track every create, update, void, delete and restore action — who did it, when, and what the data looked like before and after. Critical for resolving disputes between staff and admin.
 
-**Implementation:** Postgres triggers populate the table automatically. No app-layer code required for writes.
+**Implementation:** **The app writes the trail — NOT a Postgres trigger.** (The original note here said "triggers populate the table automatically, no app-layer code required"; that predates the offline-first layer and is wrong.) A trigger only fires when the row reaches Postgres, which for an offline device is at the **next sync** — it would record the sync moment and the syncing session instead of the real action and the real person, and an offline device would hold no history at all. So each repository writes its own row: `BaseRepository.audit()` online (never throws — a failed audit must not fail the save) and `OfflineBaseRepository.auditIn(db, …)` **inside the caller's `write()` transaction** (change + trail commit or roll back together), plus `auditedUpdate()` / `auditedDelete()` for the repeated read-patch-diff. Builders in `src/core/audit/`, read side in `src/modules/admin/audit/` (read-only repository, local 30-day window offline, full history online-only on native).
 
 **Schema:**
 
 ```sql
-CREATE TABLE audit_log (
-  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id    UUID NOT NULL REFERENCES tenants(id),
-  performed_by UUID REFERENCES users(id),
-  table_name   TEXT NOT NULL,
-  operation    TEXT NOT NULL,  -- INSERT / UPDATE / DELETE
-  record_id    UUID,
-  old_data     JSONB,
-  new_data     JSONB,
-  created_at   TIMESTAMPTZ DEFAULT now()
+CREATE TABLE audit_logs (  -- append-only; the app writes it, no triggers
+  id, tenant_id, branch_id,  -- branch denormalized; NO FK (ON DELETE SET NULL would blank the trail)
+  table_name, record_id,
+  action        TEXT,   -- create | update | delete | void | restore (CHECK)
+  before_data   JSONB,  -- an EDIT stores only the changed columns (~150 B); a DELETE the whole row
+  after_data    JSONB,  -- an EDIT the changed columns; a CREATE the whole new row
+  changed       JSONB,  -- the changed column names
+  label         TEXT,   -- frozen one-liner, from the row's OWN columns only
+  actor_user_id, actor_username,  -- username snapshot: survives user deletion
+  occurred_at,  -- DEVICE clock = when staff acted, NOT sync time
+  created_at, updated_at
 );
 ```
+
+4 indexes (`(tenant_id, occurred_at DESC)`, `(table_name, record_id, occurred_at DESC)`, `(actor_user_id, occurred_at DESC)`, `(updated_at)` = pull cursor). RLS: SELECT **admins only** (branch-aware), INSERT **every tenant member**, and **no UPDATE/DELETE policy on purpose** (append-only from the client; only `service_role` can purge). `updated_at` and the generated `balance` are excluded from the diff, so a form saved untouched writes nothing. 14 audited tables; `sale_items` and `stock_movements` are deliberately excluded (already covered by their parent / already an append-only ledger). Offline: `appendOnly` + `pullDays: 30` flags in `db/tables.ts`, last in `SYNC_PULL_ORDER`. Full detail in [docs/features.md](docs/features.md) → Audit Trail, [docs/offline.md](docs/offline.md), gotchas #57–#63.
 
 ---
 
@@ -694,7 +697,7 @@ RLS: `app_options_select` → `SELECT` to `authenticated` only. No write policy 
 | WhatsApp reminders           | 🔴 High   | Yes — new `notification_templates` + `notification_log` tables        |
 | SMS integration              | 🟡 Medium | No (reuses notification tables)                                       |
 | Broadcast message            | 🟡 Medium | No                                                                    |
-| Audit log                    | 🔴 High   | Yes — new `audit_log` table                                           |
+| Audit log ✅                 | 🔴 High   | Yes — new `audit_logs` table (append-only, written by the app)        |
 | Printed receipt (PDF)        | 🔴 High   | No                                                                    |
 | Data export (CSV)            | 🟡 Medium | No                                                                    |
 | Churn tracking               | 🟡 Medium | No                                                                    |

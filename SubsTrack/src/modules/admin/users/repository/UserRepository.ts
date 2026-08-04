@@ -22,32 +22,28 @@ export class UserRepository extends BaseRepository implements IUserRepository {
       body: payload,
     });
     if (error) await this.handleFunctionsError(error);
-    return data as DbUser;
+    const created = data as DbUser;
+    await this.audit({
+      table: "users",
+      recordId: created.id,
+      action: "create",
+      after: created,
+      branchId: created.branch_id,
+    });
+    return created;
   }
 
   async update(
     id: string,
     payload: Partial<Pick<DbUser, "username" | "full_name" | "phone_number" | "role" | "branch_id">>,
   ): Promise<DbUser> {
-    const { data, error } = await this.db
-      .from("users")
-      .update(payload)
-      .eq("id", id)
-      .select()
-      .single();
-    if (error) this.handleError(error);
-    return data as DbUser;
+    return this.auditedUpdate<DbUser>("users", id, payload);
   }
 
   async setActive(id: string, active: boolean): Promise<DbUser> {
-    const { data, error } = await this.db
-      .from("users")
-      .update({ active })
-      .eq("id", id)
-      .select()
-      .single();
-    if (error) this.handleError(error);
-    return data as DbUser;
+    return this.auditedUpdate<DbUser>("users", id, { active }, {
+      action: active ? "restore" : "update",
+    });
   }
 
   async countPayments(id: string): Promise<number> {
@@ -68,18 +64,30 @@ export class UserRepository extends BaseRepository implements IUserRepository {
   // Soft-delete many users in one statement.
   async setActiveMany(ids: string[], active: boolean): Promise<void> {
     if (ids.length === 0) return;
-    const { error } = await this.db
-      .from('users')
-      .update({ active })
-      .in('id', ids);
-    if (error) this.handleError(error);
+    for (const id of ids) {
+      await this.auditedUpdate<DbUser>('users', id, { active }, {
+        action: active ? 'restore' : 'update',
+      });
+    }
   }
 
   async delete(id: string): Promise<void> {
+    // Snapshot before the edge function removes the row.
+    const { data: prior } = await this.db.from('users').select('*').eq('id', id).maybeSingle();
     const { error } = await this.db.functions.invoke('delete-user', {
       body: { userId: id },
     });
     if (error) await this.handleFunctionsError(error);
+    const removed = prior as DbUser | null;
+    if (removed) {
+      await this.audit({
+        table: 'users',
+        recordId: id,
+        action: 'delete',
+        before: removed,
+        branchId: removed.branch_id,
+      });
+    }
   }
 
   async updatePassword(userId: string, newPassword: string): Promise<void> {
@@ -87,6 +95,14 @@ export class UserRepository extends BaseRepository implements IUserRepository {
       body: { userId, newPassword },
     });
     if (error) await this.handleFunctionsError(error);
+    // The password itself is never recorded — only that it was changed.
+    await this.audit({
+      table: 'users',
+      recordId: userId,
+      action: 'update',
+      before: { password: '***' },
+      after: { password: '***changed***' },
+    });
   }
 
   async countAll(branchFilter: BranchFilter = null): Promise<number> {

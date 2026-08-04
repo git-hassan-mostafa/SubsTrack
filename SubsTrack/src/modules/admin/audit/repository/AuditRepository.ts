@@ -1,0 +1,68 @@
+import { Platform } from 'react-native';
+import { BaseRepository } from '@/src/core/utils/BaseRepository';
+import { PAGE_SIZE } from '@/src/core/constants';
+import type { AuditFilter } from '@/src/core/types';
+import type { DbAuditLog } from '@/src/core/types/db';
+import type { IAuditRepository } from './IAuditRepository';
+import { OfflineAuditRepository } from './AuditRepository.offline';
+
+/**
+ * Supabase-backed audit reads. Tenant and branch scoping, and the admin-only
+ * restriction, are all enforced by the audit_logs_select RLS policy — a
+ * non-admin caller simply gets an empty result, so nothing is filtered here.
+ */
+export class AuditRepository extends BaseRepository implements IAuditRepository {
+  private applyFilter<T extends Record<string, any>>(query: T, filter: AuditFilter): T {
+    let q = query;
+    if (filter.table) q = q.eq('table_name', filter.table);
+    if (filter.action) q = q.eq('action', filter.action);
+    if (filter.actorUserId) q = q.eq('actor_user_id', filter.actorUserId);
+    if (filter.from) q = q.gte('occurred_at', filter.from);
+    if (filter.to) q = q.lte('occurred_at', filter.to);
+    return q;
+  }
+
+  private async page(filter: AuditFilter, page: number): Promise<DbAuditLog[]> {
+    const from = page * PAGE_SIZE;
+    let query = this.db
+      .from('audit_logs')
+      .select('*')
+      // occurred_at, never updated_at: the trail is ordered by when the staff
+      // member acted, not by when the row reached the server.
+      .order('occurred_at', { ascending: false })
+      .range(from, from + PAGE_SIZE - 1);
+    query = this.applyFilter(query, filter);
+    const { data, error } = await query;
+    if (error) this.handleError(error);
+    return (data ?? []) as DbAuditLog[];
+  }
+
+  // On the web there is no local window, so "recent" and "all" are the same query.
+  findRecent(filter: AuditFilter, page = 0): Promise<DbAuditLog[]> {
+    return this.page(filter, page);
+  }
+
+  findAll(filter: AuditFilter, page = 0): Promise<DbAuditLog[]> {
+    return this.page(filter, page);
+  }
+
+  // `full` is ignored on the web: there is no local window to be limited by, so
+  // this is always the record's complete history.
+  async findForRecord(table: string, recordId: string, _full = false): Promise<DbAuditLog[]> {
+    const { data, error } = await this.db
+      .from('audit_logs')
+      .select('*')
+      .eq('table_name', table)
+      .eq('record_id', recordId)
+      .order('occurred_at', { ascending: false });
+    if (error) this.handleError(error);
+    return (data ?? []) as DbAuditLog[];
+  }
+}
+
+// Platform seam: web → Supabase directly; native → the local 30-day window, with
+// the full history fetched online on demand.
+const impl: IAuditRepository =
+  Platform.OS === 'web' ? new AuditRepository() : new OfflineAuditRepository();
+
+export default impl;

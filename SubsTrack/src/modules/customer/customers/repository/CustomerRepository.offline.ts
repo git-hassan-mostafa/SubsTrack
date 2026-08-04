@@ -63,8 +63,48 @@ export class OfflineCustomerRepository
   async create(payload: CreateCustomerPayload): Promise<CustomerWithLines> {
     const now = nowIso();
     const row: DbCustomer = { id: newId(), created_at: now, updated_at: now, ...payload };
-    await this.write((db) => insertDirty(db, 'customers', row));
+    await this.write(async (db) => {
+      await insertDirty(db, 'customers', row);
+      await this.auditIn(db, {
+        table: 'customers',
+        recordId: row.id,
+        action: 'create',
+        after: row,
+        branchId: row.branch_id,
+      });
+    });
     return { ...row, customer_plans: [] };
+  }
+
+  // Every single-row customer edit funnels through here: read the row, patch it,
+  // record the diff — all inside one transaction.
+  private async patch(
+    id: string,
+    patch: Record<string, unknown>,
+    action: 'update' | 'restore',
+  ): Promise<CustomerWithLines> {
+    await this.write(async (db) => {
+      const before = this.decodeOne<DbCustomer>(
+        'customers',
+        await this.first('SELECT * FROM customers WHERE id = ?', [id]),
+      );
+      await updateDirty(db, 'customers', id, patch);
+      const after = this.decodeOne<DbCustomer>(
+        'customers',
+        await this.first('SELECT * FROM customers WHERE id = ?', [id]),
+      );
+      if (before && after) {
+        await this.auditIn(db, {
+          table: 'customers',
+          recordId: id,
+          action,
+          before,
+          after,
+          branchId: after.branch_id,
+        });
+      }
+    });
+    return this.findById(id);
   }
 
   async update(
@@ -76,27 +116,24 @@ export class OfflineCustomerRepository
       >
     >,
   ): Promise<CustomerWithLines> {
-    await this.write((db) => updateDirty(db, 'customers', id, { ...payload, updated_at: nowIso() }));
-    return this.findById(id);
+    return this.patch(id, { ...payload, updated_at: nowIso() }, 'update');
   }
 
   async deactivate(id: string): Promise<CustomerWithLines> {
     const cancelledAt = nowIso();
-    await this.write((db) =>
-      updateDirty(db, 'customers', id, {
-        active: false,
-        cancelled_at: cancelledAt,
-        updated_at: cancelledAt,
-      }),
+    return this.patch(
+      id,
+      { active: false, cancelled_at: cancelledAt, updated_at: cancelledAt },
+      'update',
     );
-    return this.findById(id);
   }
 
   async reactivate(id: string): Promise<CustomerWithLines> {
-    await this.write((db) =>
-      updateDirty(db, 'customers', id, { active: true, cancelled_at: null, updated_at: nowIso() }),
+    return this.patch(
+      id,
+      { active: true, cancelled_at: null, updated_at: nowIso() },
+      'restore',
     );
-    return this.findById(id);
   }
 
   async countPayments(id: string): Promise<number> {
@@ -111,12 +148,28 @@ export class OfflineCustomerRepository
     if (ids.length === 0) return;
     await this.write(async (db) => {
       for (const id of ids) {
+        // Snapshot before the row is gone — a delete's whole value in the trail is
+        // the copy of what was removed. The cascaded children get no entry of
+        // their own; the customer entry is the record of the whole removal.
+        const before = this.decodeOne<DbCustomer>(
+          'customers',
+          await this.first('SELECT * FROM customers WHERE id = ?', [id]),
+        );
         // Children cascade server-side; delete locally for immediate consistency.
         // Only the customer id is logged — the server FK cascade removes children.
         await db.runAsync('DELETE FROM payments WHERE customer_id = ?', [id] as never[]);
         await db.runAsync('DELETE FROM customer_plans WHERE customer_id = ?', [id] as never[]);
         await db.runAsync('DELETE FROM customers WHERE id = ?', [id] as never[]);
         await markDeleted(db, 'customers', id);
+        if (before) {
+          await this.auditIn(db, {
+            table: 'customers',
+            recordId: id,
+            action: 'delete',
+            before,
+            branchId: before.branch_id,
+          });
+        }
       }
     });
   }
@@ -126,11 +179,25 @@ export class OfflineCustomerRepository
     const cancelledAt = nowIso();
     await this.write(async (db) => {
       for (const id of ids) {
+        const before = this.decodeOne<DbCustomer>(
+          'customers',
+          await this.first('SELECT * FROM customers WHERE id = ?', [id]),
+        );
         await updateDirty(db, 'customers', id, {
           active: false,
           cancelled_at: cancelledAt,
           updated_at: cancelledAt,
         });
+        if (before) {
+          await this.auditIn(db, {
+            table: 'customers',
+            recordId: id,
+            action: 'update',
+            before,
+            after: { ...before, active: false, cancelled_at: cancelledAt },
+            branchId: before.branch_id,
+          });
+        }
       }
     });
   }

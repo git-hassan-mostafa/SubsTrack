@@ -1294,6 +1294,80 @@ CREATE INDEX IF NOT EXISTS idx_exception_logs_occurred_at
     ON exception_logs (occurred_at);
 
 -- ============================================================
+-- AUDIT LOGS
+-- Append-only trail of every create / edit / delete / void the app makes:
+-- who did it, when, and which fields changed from what to what.
+--
+-- WRITTEN BY THE APP, NEVER BY A TRIGGER. A trigger only fires when the row
+-- reaches Postgres, which for an offline device is at the next sync — it would
+-- record the sync moment and the syncing session instead of the real action and
+-- the real person, and an offline device would hold no history at all. So the
+-- client builds the row next to the change (inside the same local transaction).
+--
+-- The client mirror keeps a rolling 30-day window (TableSpec.pullDays); the
+-- server keeps everything, and the full trail is read online on demand.
+-- See docs/features.md → Audit Trail.
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS audit_logs (
+    id             UUID          PRIMARY KEY DEFAULT uuid_generate_v4(),
+    tenant_id      UUID          NOT NULL,
+    -- Denormalized from the changed row (or its parent) so a branch-scoped admin
+    -- filters on one column instead of an EXISTS per audited table.
+    -- NULL = a tenant-wide record (currencies, settings) → every admin sees it.
+    branch_id      UUID,
+    table_name     TEXT          NOT NULL,
+    record_id      UUID          NOT NULL,
+    action         TEXT          NOT NULL,
+    -- update/void/restore: ONLY the changed columns. delete: the whole row. create: NULL.
+    before_data    JSONB,
+    -- create: the whole new row. update/void/restore: ONLY the changed columns. delete: NULL.
+    after_data     JSONB,
+    -- update/void/restore: ["amount_paid","notes"]. Otherwise NULL.
+    changed        JSONB,
+    -- Frozen one-line description, so the entry stays readable after the row is gone.
+    label          TEXT,
+    actor_user_id  UUID,
+    -- Snapshot (like exception_logs.username): survives the user being deleted.
+    actor_username TEXT,
+    -- When the STAFF acted, from the device clock. NOT the sync moment — that is
+    -- exactly what makes a DB trigger unusable here. Drives the 30-day window.
+    occurred_at    TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    created_at     TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+    updated_at     TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT chk_audit_logs_action
+        CHECK (action IN ('create', 'update', 'delete', 'void', 'restore')),
+
+    CONSTRAINT fk_audit_logs_tenant
+        FOREIGN KEY (tenant_id)
+        REFERENCES tenants(id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_audit_logs_actor
+        FOREIGN KEY (actor_user_id)
+        REFERENCES users(id)
+        ON DELETE SET NULL
+    -- branch_id deliberately has NO foreign key: every other table uses
+    -- ON DELETE SET NULL, which here would blank the trail when a branch is
+    -- deleted. Evidence must outlive the branch.
+);
+
+CREATE INDEX IF NOT EXISTS idx_audit_logs_tenant_occurred
+    ON audit_logs (tenant_id, occurred_at DESC);
+
+-- Serves the per-record History sheet.
+CREATE INDEX IF NOT EXISTS idx_audit_logs_record
+    ON audit_logs (table_name, record_id, occurred_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_audit_logs_actor
+    ON audit_logs (actor_user_id, occurred_at DESC);
+
+-- The offline client's incremental pull cursor (WHERE updated_at > cursor).
+CREATE INDEX IF NOT EXISTS idx_audit_logs_updated_at
+    ON audit_logs (updated_at);
+
+-- ============================================================
 -- ROW LEVEL SECURITY
 -- ============================================================
 
@@ -1316,6 +1390,7 @@ ALTER TABLE custom_debts  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE debt_payments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE skipped_months ENABLE ROW LEVEL SECURITY;
 ALTER TABLE exception_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
 
 -- ==============================================================
 CREATE OR REPLACE FUNCTION get_free_tier_id()
@@ -1963,6 +2038,48 @@ DO $$ BEGIN
             WITH CHECK (tenant_id = current_tenant_id() OR tenant_id IS NULL);
     END IF;
 
+    -- ── AUDIT LOGS ───────────────────────────────────────────
+    -- Read: ADMINS ONLY — the trail exists to settle staff-vs-admin disputes, so
+    -- staff must not read it. Branch-aware via the row's own denormalized
+    -- branch_id (NULL = a tenant-wide record, visible to every admin).
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE tablename = 'audit_logs' AND policyname = 'audit_logs_select'
+    ) THEN
+        CREATE POLICY audit_logs_select ON audit_logs
+            FOR SELECT
+            USING (
+                tenant_id = current_tenant_id()
+                AND EXISTS (
+                    SELECT 1 FROM public.users u
+                    WHERE u.id = auth.uid()
+                      AND u.role IN ('admin', 'superadmin')
+                      AND u.active = true
+                )
+                AND (
+                    branch_id IS NULL
+                    OR current_branch_id() IS NULL
+                    OR branch_id = current_branch_id()
+                )
+            );
+    END IF;
+
+    -- Write: EVERY tenant member inserts — a staff device must be able to push
+    -- its own trail even though it can never read one back.
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE tablename = 'audit_logs' AND policyname = 'audit_logs_insert'
+    ) THEN
+        CREATE POLICY audit_logs_insert ON audit_logs
+            FOR INSERT
+            WITH CHECK (tenant_id = current_tenant_id());
+    END IF;
+
+    -- No UPDATE and no DELETE policy ON PURPOSE: the trail is append-only from
+    -- the client and cannot be edited or erased from the app (same "absence of a
+    -- policy = service_role only" idiom as app_options). This is why the sync
+    -- pushes audit_logs with ON CONFLICT DO NOTHING — see TableSpec.appendOnly.
+
 END $$;
 
 -- ============================================================
@@ -2080,6 +2197,14 @@ CREATE OR REPLACE TRIGGER trg_skipped_months_updated_at
 
 CREATE OR REPLACE TRIGGER trg_exception_logs_updated_at
     BEFORE UPDATE ON exception_logs
+    FOR EACH ROW
+    EXECUTE FUNCTION set_updated_at();
+
+-- audit_logs is append-only, so this never actually fires from the app (no
+-- UPDATE policy exists). It is here so the pull cursor stays server-authoritative
+-- if service_role ever touches a row.
+CREATE OR REPLACE TRIGGER trg_audit_logs_updated_at
+    BEFORE UPDATE ON audit_logs
     FOR EACH ROW
     EXECUTE FUNCTION set_updated_at();
 

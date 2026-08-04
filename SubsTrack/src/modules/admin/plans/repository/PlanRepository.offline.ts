@@ -1,7 +1,7 @@
 import type { BranchFilter } from '@/src/core/constants';
 import type { DbPlan } from '@/src/core/types/db';
 import { OfflineBaseRepository } from '@/src/core/offline/OfflineBaseRepository';
-import { insertDirty, updateDirty, markDeleted } from '@/src/core/offline/db/dml';
+import { insertDirty } from '@/src/core/offline/db/dml';
 import { newId, nowIso } from '@/src/core/offline/ids';
 import type { IPlanRepository } from './IPlanRepository';
 
@@ -28,7 +28,16 @@ export class OfflinePlanRepository extends OfflineBaseRepository implements IPla
 
   async create(payload: Omit<DbPlan, 'id' | 'created_at'>): Promise<DbPlan> {
     const row: DbPlan = { id: newId(), created_at: nowIso(), ...payload };
-    await this.write((db) => insertDirty(db, 'plans', row));
+    await this.write(async (db) => {
+      await insertDirty(db, 'plans', row);
+      await this.auditIn(db, {
+        table: 'plans',
+        recordId: row.id,
+        action: 'create',
+        after: row,
+        branchId: row.branch_id,
+      });
+    });
     return row;
   }
 
@@ -38,27 +47,17 @@ export class OfflinePlanRepository extends OfflineBaseRepository implements IPla
       Pick<DbPlan, 'name' | 'price' | 'is_custom_price' | 'duration_months' | 'currency_id' | 'branch_id'>
     >,
   ): Promise<DbPlan> {
-    await this.write((db) => updateDirty(db, 'plans', id, payload));
-    const row = await this.first('SELECT * FROM plans WHERE id = ?', [id]);
+    const row = await this.auditedUpdate<DbPlan>('plans', id, payload);
     if (!row) this.handleError(new Error('Plan not found'));
-    return this.decodeOne<DbPlan>('plans', row)!;
+    return row;
   }
 
   async delete(id: string): Promise<void> {
-    await this.write(async (db) => {
-      await db.runAsync('DELETE FROM plans WHERE id = ?', [id] as never[]);
-      await markDeleted(db, 'plans', id);
-    });
+    await this.deleteMany([id]);
   }
 
   async deleteMany(ids: string[]): Promise<void> {
-    if (ids.length === 0) return;
-    await this.write(async (db) => {
-      for (const id of ids) {
-        await db.runAsync('DELETE FROM plans WHERE id = ?', [id] as never[]);
-        await markDeleted(db, 'plans', id);
-      }
-    });
+    await this.auditedDelete<DbPlan>('plans', ids);
   }
 
   async countAll(branchFilter: BranchFilter = null): Promise<number> {

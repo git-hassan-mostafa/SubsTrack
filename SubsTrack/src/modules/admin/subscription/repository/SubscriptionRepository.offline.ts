@@ -48,6 +48,7 @@ export class OfflineSubscriptionRepository
     return { customers, users, plans, branches, currencies, products };
   }
 
+  // The online sibling records the audit entry, so there is nothing to add here.
   async upgradeTenant(tenantId: string, tierId: string): Promise<DbTenant> {
     if (!(await isOnline())) throw new RequiresConnectionError();
     const tenant = await this.online.upgradeTenant(tenantId, tierId);

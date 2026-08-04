@@ -26,7 +26,7 @@ export class OfflineUserRepository extends OfflineBaseRepository implements IUse
     return this.decodeAll<DbUser>('users', rows);
   }
 
-  // Edge function — online only.
+  // Edge function — online only. The online sibling records the audit entry.
   async create(payload: CreateUserPayload): Promise<DbUser> {
     if (!(await isOnline())) throw new RequiresConnectionError();
     const user = await this.online.create(payload);
@@ -38,17 +38,23 @@ export class OfflineUserRepository extends OfflineBaseRepository implements IUse
     id: string,
     payload: Partial<Pick<DbUser, 'username' | 'full_name' | 'phone_number' | 'role' | 'branch_id'>>,
   ): Promise<DbUser> {
-    await this.write((db) => updateDirty(db, 'users', id, { ...payload, updated_at: nowIso() }));
-    const row = await this.first('SELECT * FROM users WHERE id = ?', [id]);
+    const row = await this.auditedUpdate<DbUser>('users', id, {
+      ...payload,
+      updated_at: nowIso(),
+    });
     if (!row) this.handleError(new Error('User not found'));
-    return this.decodeOne<DbUser>('users', row)!;
+    return row;
   }
 
   async setActive(id: string, active: boolean): Promise<DbUser> {
-    await this.write((db) => updateDirty(db, 'users', id, { active, updated_at: nowIso() }));
-    const row = await this.first('SELECT * FROM users WHERE id = ?', [id]);
+    const row = await this.auditedUpdate<DbUser>(
+      'users',
+      id,
+      { active, updated_at: nowIso() },
+      { action: active ? 'restore' : 'update' },
+    );
     if (!row) this.handleError(new Error('User not found'));
-    return this.decodeOne<DbUser>('users', row)!;
+    return row;
   }
 
   async countPayments(id: string): Promise<number> {
@@ -63,14 +69,18 @@ export class OfflineUserRepository extends OfflineBaseRepository implements IUse
   // Soft-delete many users — one offline write each.
   async setActiveMany(ids: string[], active: boolean): Promise<void> {
     if (ids.length === 0) return;
-    await this.write(async (db) => {
-      for (const id of ids) {
-        await updateDirty(db, 'users', id, { active, updated_at: nowIso() });
-      }
-    });
+    for (const id of ids) {
+      await this.auditedUpdate<DbUser>(
+        'users',
+        id,
+        { active, updated_at: nowIso() },
+        { action: active ? 'restore' : 'update' },
+      );
+    }
   }
 
-  // Edge function — online only.
+  // Edge function — online only. The online sibling records the audit entry, so
+  // there is nothing to add here (adding one would double-count the delete).
   async delete(id: string): Promise<void> {
     if (!(await isOnline())) throw new RequiresConnectionError();
     await this.online.delete(id);

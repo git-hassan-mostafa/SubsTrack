@@ -1,6 +1,6 @@
 import type { DbCurrency } from '@/src/core/types/db';
 import { OfflineBaseRepository } from '@/src/core/offline/OfflineBaseRepository';
-import { insertDirty, updateDirty, markDeleted } from '@/src/core/offline/db/dml';
+import { insertDirty } from '@/src/core/offline/db/dml';
 import { newId, nowIso } from '@/src/core/offline/ids';
 import type { ICurrencyRepository } from './ICurrencyRepository';
 
@@ -19,7 +19,16 @@ export class OfflineCurrencyRepository extends OfflineBaseRepository implements 
   async create(payload: Omit<DbCurrency, 'id' | 'created_at' | 'updated_at'>): Promise<DbCurrency> {
     const now = nowIso();
     const row: DbCurrency = { id: newId(), created_at: now, updated_at: now, ...payload };
-    await this.write((db) => insertDirty(db, 'currencies', row));
+    await this.write(async (db) => {
+      await insertDirty(db, 'currencies', row);
+      // Currencies are tenant-wide — no branch dimension, so every admin sees it.
+      await this.auditIn(db, {
+        table: 'currencies',
+        recordId: row.id,
+        action: 'create',
+        after: row,
+      });
+    });
     return row;
   }
 
@@ -29,36 +38,34 @@ export class OfflineCurrencyRepository extends OfflineBaseRepository implements 
       Pick<DbCurrency, 'code' | 'name' | 'symbol' | 'rate_per_usd' | 'decimals' | 'active'>
     >,
   ): Promise<DbCurrency> {
-    await this.write((db) => updateDirty(db, 'currencies', id, { ...payload, updated_at: nowIso() }));
-    const row = await this.first('SELECT * FROM currencies WHERE id = ?', [id]);
+    const row = await this.auditedUpdate<DbCurrency>(
+      'currencies',
+      id,
+      { ...payload, updated_at: nowIso() },
+      { action: payload.active === true ? 'restore' : 'update', branchColumn: null },
+    );
     if (!row) this.handleError(new Error('Currency not found'));
-    return this.decodeOne<DbCurrency>('currencies', row)!;
+    return row;
   }
 
   async delete(id: string): Promise<void> {
-    await this.write(async (db) => {
-      await db.runAsync('DELETE FROM currencies WHERE id = ?', [id] as never[]);
-      await markDeleted(db, 'currencies', id);
-    });
+    await this.deleteMany([id]);
   }
 
   async deleteMany(ids: string[]): Promise<void> {
-    if (ids.length === 0) return;
-    await this.write(async (db) => {
-      for (const id of ids) {
-        await db.runAsync('DELETE FROM currencies WHERE id = ?', [id] as never[]);
-        await markDeleted(db, 'currencies', id);
-      }
-    });
+    await this.auditedDelete<DbCurrency>('currencies', ids, { branchColumn: null });
   }
 
   async deactivateMany(ids: string[]): Promise<void> {
     if (ids.length === 0) return;
-    await this.write(async (db) => {
-      for (const id of ids) {
-        await updateDirty(db, 'currencies', id, { active: false, updated_at: nowIso() });
-      }
-    });
+    for (const id of ids) {
+      await this.auditedUpdate<DbCurrency>(
+        'currencies',
+        id,
+        { active: false, updated_at: nowIso() },
+        { branchColumn: null },
+      );
+    }
   }
 
   async referencedIds(ids: string[]): Promise<Set<string>> {

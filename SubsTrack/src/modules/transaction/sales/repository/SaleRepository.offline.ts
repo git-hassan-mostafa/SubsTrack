@@ -127,6 +127,15 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
       await insertDirty(db, 'sales', saleRow);
       for (const it of itemRows) await insertDirty(db, 'sale_items', it);
       for (const m of movementRows) await insertDirty(db, 'stock_movements', m);
+      // One entry for the sale as a whole: the lines are already summarized on the
+      // header (items_summary) and the movements are their own ledger.
+      await this.auditIn(db, {
+        table: 'sales',
+        recordId: saleId,
+        action: 'create',
+        after: saleRow,
+        branchId: saleRow.branch_id,
+      });
     });
     const created = await this.findById(saleId);
     return created as DbSale;
@@ -135,6 +144,10 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
   async voidSale(id: string, voidedBy: string, reason: string): Promise<DbSale> {
     const now = nowIso();
     await this.write(async (db) => {
+      const before = this.decodeOne<DbSale>(
+        'sales',
+        await this.first('SELECT * FROM sales WHERE id = ?', [id]),
+      );
       await db.runAsync(
         `UPDATE sales SET voided_at = ?, voided_by = ?, void_reason = ?, updated_at = ?, _dirty = 1
          WHERE id = ? AND voided_at IS NULL`,
@@ -147,6 +160,20 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
          WHERE sale_id = ? AND voided_at IS NULL`,
         [now, voidedBy, now, id] as never[],
       );
+      const after = this.decodeOne<DbSale>(
+        'sales',
+        await this.first('SELECT * FROM sales WHERE id = ?', [id]),
+      );
+      if (before && after) {
+        await this.auditIn(db, {
+          table: 'sales',
+          recordId: id,
+          action: 'void',
+          before,
+          after,
+          branchId: after.branch_id,
+        });
+      }
     });
     const row = await this.first('SELECT * FROM sales WHERE id = ?', [id]);
     if (!row) this.handleError(new Error('Sale not found'));
@@ -266,12 +293,31 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
     if (ids.length === 0) return;
     const now = nowIso();
     const ph = ids.map(() => '?').join(', ');
-    await this.write((db) =>
-      db.runAsync(
+    await this.write(async (db) => {
+      // Snapshot first: the UPDATE is conditional, so only the rows it actually
+      // moved (still unremitted, not voided) belong in the trail.
+      const before = this.decodeAll<DbSale>(
+        'sales',
+        await this.all(
+          `SELECT * FROM sales WHERE id IN (${ph}) AND remitted_at IS NULL AND voided_at IS NULL`,
+          ids,
+        ),
+      );
+      await db.runAsync(
         `UPDATE sales SET remitted_at = ?, remitted_by = ?, updated_at = ?, _dirty = 1
          WHERE id IN (${ph}) AND remitted_at IS NULL AND voided_at IS NULL`,
         [now, remittedBy, now, ...ids] as never[],
-      ),
-    );
+      );
+      for (const row of before) {
+        await this.auditIn(db, {
+          table: 'sales',
+          recordId: row.id,
+          action: 'update',
+          before: row,
+          after: { ...row, remitted_at: now, remitted_by: remittedBy },
+          branchId: row.branch_id,
+        });
+      }
+    });
   }
 }

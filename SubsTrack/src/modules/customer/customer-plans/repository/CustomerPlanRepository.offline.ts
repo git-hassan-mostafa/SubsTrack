@@ -22,6 +22,16 @@ export class OfflineCustomerPlanRepository
     return this.hydrate(this.decodeOne<DbCustomerPlan>('customer_plans', row)!);
   }
 
+  // Service lines carry no branch_id of their own; the audit row denormalizes the
+  // owning customer's so a branch-scoped admin can filter on one column.
+  private async branchOf(customerId: string): Promise<string | null> {
+    const row = await this.first<{ branch_id: string | null }>(
+      'SELECT branch_id FROM customers WHERE id = ?',
+      [customerId],
+    );
+    return row?.branch_id ?? null;
+  }
+
   async create(payload: CreateCustomerPlanPayload): Promise<DbCustomerPlan> {
     const now = nowIso();
     const row: DbCustomerPlan = {
@@ -35,8 +45,48 @@ export class OfflineCustomerPlanRepository
       created_at: now,
       updated_at: now,
     };
-    await this.write((db) => insertDirty(db, 'customer_plans', row));
+    const branchId = await this.branchOf(payload.customer_id);
+    await this.write(async (db) => {
+      await insertDirty(db, 'customer_plans', row);
+      await this.auditIn(db, {
+        table: 'customer_plans',
+        recordId: row.id,
+        action: 'create',
+        after: row,
+        branchId,
+      });
+    });
     return this.hydrate(row);
+  }
+
+  // Both single-row patches funnel through here: read, patch, record the diff.
+  private async patch(
+    id: string,
+    patch: Record<string, unknown>,
+    action: 'update' | 'restore',
+  ): Promise<DbCustomerPlan> {
+    await this.write(async (db) => {
+      const before = this.decodeOne<DbCustomerPlan>(
+        'customer_plans',
+        await this.first('SELECT * FROM customer_plans WHERE id = ?', [id]),
+      );
+      await updateDirty(db, 'customer_plans', id, patch);
+      const after = this.decodeOne<DbCustomerPlan>(
+        'customer_plans',
+        await this.first('SELECT * FROM customer_plans WHERE id = ?', [id]),
+      );
+      if (before && after) {
+        await this.auditIn(db, {
+          table: 'customer_plans',
+          recordId: id,
+          action,
+          before,
+          after,
+          branchId: await this.branchOf(after.customer_id),
+        });
+      }
+    });
+    return this.readById(id);
   }
 
   async update(
@@ -45,29 +95,40 @@ export class OfflineCustomerPlanRepository
       Pick<DbCustomerPlan, 'plan_id' | 'start_date' | 'active' | 'cancelled_at'>
     >,
   ): Promise<DbCustomerPlan> {
-    await this.write((db) => updateDirty(db, 'customer_plans', id, { ...payload, updated_at: nowIso() }));
-    return this.readById(id);
+    // Re-activating a cancelled line reads as a restore, not a plain edit.
+    const action = payload.active === true && payload.cancelled_at === null ? 'restore' : 'update';
+    return this.patch(id, { ...payload, updated_at: nowIso() }, action);
   }
 
   async cancel(id: string): Promise<DbCustomerPlan> {
     const cancelledAt = nowIso();
-    await this.write((db) =>
-      updateDirty(db, 'customer_plans', id, {
-        active: false,
-        cancelled_at: cancelledAt,
-        updated_at: cancelledAt,
-      }),
+    return this.patch(
+      id,
+      { active: false, cancelled_at: cancelledAt, updated_at: cancelledAt },
+      'update',
     );
-    return this.readById(id);
   }
 
   async delete(id: string): Promise<void> {
     await this.write(async (db) => {
+      const before = this.decodeOne<DbCustomerPlan>(
+        'customer_plans',
+        await this.first('SELECT * FROM customer_plans WHERE id = ?', [id]),
+      );
       // Payments on this line cascade server-side; remove locally for consistency.
       // Only the line id is logged — the server FK cascade removes its payments.
       await db.runAsync('DELETE FROM payments WHERE customer_plan_id = ?', [id] as never[]);
       await db.runAsync('DELETE FROM customer_plans WHERE id = ?', [id] as never[]);
       await markDeleted(db, 'customer_plans', id);
+      if (before) {
+        await this.auditIn(db, {
+          table: 'customer_plans',
+          recordId: id,
+          action: 'delete',
+          before,
+          branchId: await this.branchOf(before.customer_id),
+        });
+      }
     });
   }
 

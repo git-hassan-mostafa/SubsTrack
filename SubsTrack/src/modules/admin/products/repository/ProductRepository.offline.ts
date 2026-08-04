@@ -27,7 +27,16 @@ export class OfflineProductRepository extends OfflineBaseRepository implements I
   async create(payload: Omit<DbProduct, 'id' | 'created_at' | 'updated_at'>): Promise<DbProduct> {
     const now = nowIso();
     const row: DbProduct = { id: newId(), created_at: now, updated_at: now, ...payload };
-    await this.write((db) => insertDirty(db, 'products', row));
+    await this.write(async (db) => {
+      await insertDirty(db, 'products', row);
+      await this.auditIn(db, {
+        table: 'products',
+        recordId: row.id,
+        action: 'create',
+        after: row,
+        branchId: row.branch_id,
+      });
+    });
     return row;
   }
 
@@ -37,25 +46,41 @@ export class OfflineProductRepository extends OfflineBaseRepository implements I
       Pick<DbProduct, 'name' | 'description' | 'price' | 'currency_id' | 'branch_id' | 'active'>
     >,
   ): Promise<DbProduct> {
-    await this.write((db) => updateDirty(db, 'products', id, { ...payload, updated_at: nowIso() }));
-    const row = await this.first('SELECT * FROM products WHERE id = ?', [id]);
+    const row = await this.auditedUpdate<DbProduct>(
+      'products',
+      id,
+      { ...payload, updated_at: nowIso() },
+      { action: payload.active === true ? 'restore' : 'update' },
+    );
     if (!row) this.handleError(new Error('Product not found'));
-    return this.decodeOne<DbProduct>('products', row)!;
+    return row;
   }
 
   async delete(id: string): Promise<void> {
-    await this.write(async (db) => {
-      await this.deleteProductRow(db, id);
-      await markDeleted(db, 'products', id);
-    });
+    await this.deleteMany([id]);
   }
 
+  // Not auditedDelete: a product's own cascade (stock_movements) has to run in
+  // the same transaction, which the generic helper doesn't know about.
   async deleteMany(ids: string[]): Promise<void> {
     if (ids.length === 0) return;
     await this.write(async (db) => {
       for (const id of ids) {
+        const before = this.decodeOne<DbProduct>(
+          'products',
+          await this.first('SELECT * FROM products WHERE id = ?', [id]),
+        );
         await this.deleteProductRow(db, id);
         await markDeleted(db, 'products', id);
+        if (before) {
+          await this.auditIn(db, {
+            table: 'products',
+            recordId: id,
+            action: 'delete',
+            before,
+            branchId: before.branch_id,
+          });
+        }
       }
     });
   }
@@ -72,11 +97,12 @@ export class OfflineProductRepository extends OfflineBaseRepository implements I
 
   async deactivateMany(ids: string[]): Promise<void> {
     if (ids.length === 0) return;
-    await this.write(async (db) => {
-      for (const id of ids) {
-        await updateDirty(db, 'products', id, { active: false, updated_at: nowIso() });
-      }
-    });
+    for (const id of ids) {
+      await this.auditedUpdate<DbProduct>('products', id, {
+        active: false,
+        updated_at: nowIso(),
+      });
+    }
   }
 
   async referencedIds(ids: string[]): Promise<Set<string>> {

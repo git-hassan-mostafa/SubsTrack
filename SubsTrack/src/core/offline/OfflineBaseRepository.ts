@@ -3,7 +3,9 @@ import i18n from '@/src/core/i18n';
 import { BRANCH_FILTER_UNASSIGNED, type BranchFilter } from '@/src/core/constants';
 import { getDb } from './db/sqlite';
 import { decodeRow, decodeRows } from './db/codec';
+import { insertDirty, markDeleted, updateDirty } from './db/dml';
 import { logException } from '../errorLog/errorLogger';
+import { buildAuditRow, type AuditInput } from '../audit';
 
 /** Mirror of BaseRepository.BranchScope — same three semantics, SQL-side. */
 export type OfflineBranchScope =
@@ -41,6 +43,91 @@ export abstract class OfflineBaseRepository {
     console.error('[Offline Repository Error]', error);
     void logException({ source: 'repository', message: String(error), context: this.constructor.name });
     throw new Error(i18n.t('errors.unexpected'));
+  }
+
+  /**
+   * Append one entry to the audit trail, INSIDE the caller's `write()`
+   * transaction — pass the `db` handle `write()` gave you, never `this.db`. That
+   * is what guarantees a change and its trail commit or roll back together, and
+   * that both work with no network.
+   *
+   * A no-op edit (nothing actually changed) writes nothing. Unlike the online
+   * `audit()`, a failure here DOES propagate: it would roll back the surrounding
+   * transaction, which is the correct outcome — a local write we cannot account
+   * for is worse than a failed save the user can retry.
+   */
+  protected async auditIn(db: SQLiteDatabase, input: AuditInput): Promise<void> {
+    const row = buildAuditRow(input);
+    if (row) await insertDirty(db, 'audit_logs', row);
+  }
+
+  /**
+   * `UPDATE` one row by id and record the diff, in one transaction. Covers the
+   * repeated read-patch-diff dance for tables whose branch is their own
+   * `branch_id` column (plans, products, branches, currencies, users, …).
+   *
+   * `branchColumn: null` marks a table with no branch dimension at all
+   * (currencies, tenant_settings) — the entry gets `branch_id = null`, meaning
+   * "tenant-wide", so every admin can see it.
+   */
+  protected async auditedUpdate<T extends { id: string }>(
+    table: AuditInput['table'],
+    id: string,
+    patch: object,
+    opts: { action?: AuditInput['action']; branchColumn?: keyof T | null } = {},
+  ): Promise<T | null> {
+    const { action = 'update', branchColumn = 'branch_id' as keyof T } = opts;
+    return this.write(async (db) => {
+      const read = async (): Promise<T | null> =>
+        this.decodeOne<T>(table, await this.first(`SELECT * FROM ${table} WHERE id = ?`, [id]));
+      const before = await read();
+      await updateDirty(db, table, id, patch);
+      const after = await read();
+      if (before && after) {
+        await this.auditIn(db, {
+          table,
+          recordId: id,
+          action,
+          before,
+          after,
+          branchId: branchColumn ? ((after[branchColumn] as string | null) ?? null) : null,
+        });
+      }
+      return after;
+    });
+  }
+
+  /**
+   * Hard-delete rows by id, logging each for replay and snapshotting it first —
+   * a delete's whole value in the trail is the copy of what was removed.
+   * `branchColumn` follows the same rule as `auditedUpdate`.
+   */
+  protected async auditedDelete<T extends { id: string }>(
+    table: AuditInput['table'],
+    ids: string[],
+    opts: { branchColumn?: keyof T | null } = {},
+  ): Promise<void> {
+    if (ids.length === 0) return;
+    const { branchColumn = 'branch_id' as keyof T } = opts;
+    await this.write(async (db) => {
+      for (const id of ids) {
+        const before = this.decodeOne<T>(
+          table,
+          await this.first(`SELECT * FROM ${table} WHERE id = ?`, [id]),
+        );
+        await db.runAsync(`DELETE FROM ${table} WHERE id = ?`, [id] as never[]);
+        await markDeleted(db, table, id);
+        if (before) {
+          await this.auditIn(db, {
+            table,
+            recordId: id,
+            action: 'delete',
+            before,
+            branchId: branchColumn ? ((before[branchColumn] as string | null) ?? null) : null,
+          });
+        }
+      }
+    });
   }
 
   // Same per-table branch semantics as BaseRepository.BRANCH_SCOPES.

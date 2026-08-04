@@ -73,6 +73,11 @@ export class SubscriptionRepository extends BaseRepository implements ISubscript
   }
 
   async upgradeTenant(tenantId: string, tierId: string): Promise<DbTenant> {
+    const { data: prior } = await this.db
+      .from("tenants")
+      .select("*")
+      .eq("id", tenantId)
+      .maybeSingle();
     const { error: updateError } = await this.db
       .from("tenants")
       .update({ tier_id: tierId, tier_upgraded_at: new Date().toISOString() })
@@ -85,7 +90,16 @@ export class SubscriptionRepository extends BaseRepository implements ISubscript
       .eq("id", tenantId)
       .single();
     if (error) this.handleError(error);
-    return data as DbTenant;
+    const upgraded = data as DbTenant;
+    // Tenant-wide — no branch dimension, so every admin sees the plan change.
+    await this.audit({
+      table: "tenants",
+      recordId: tenantId,
+      action: "update",
+      before: prior,
+      after: upgraded,
+    });
+    return upgraded;
   }
 }
 

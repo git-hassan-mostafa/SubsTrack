@@ -85,6 +85,14 @@ const MENU_ITEMS: MenuItem[] = [
     route: "/(app)/(tabs)/admin/tenant-settings",
   },
   {
+    labelKey: "audit.title",
+    subtitleKey: "audit.menu_sub",
+    icon: "time-outline",
+    iconBg: COLORS.warningLight,
+    iconColor: COLORS.warning,
+    route: "/(app)/(tabs)/admin/audit",
+  },
+  {
     labelKey: "subscription.title",
     subtitleKey: "subscription.menu_sub",
     icon: "diamond-outline",

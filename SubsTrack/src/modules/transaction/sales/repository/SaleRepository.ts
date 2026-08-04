@@ -124,12 +124,23 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
     if (itemsResult.error) this.handleError(itemsResult.error);
     if (stockResult?.error) this.handleError(stockResult.error);
 
+    // One entry for the sale as a whole: the lines are already summarized on the
+    // header (items_summary) and the movements are their own ledger.
+    await this.audit({
+      table: 'sales',
+      recordId: created.id,
+      action: 'create',
+      after: created,
+      branchId: created.branch_id,
+    });
+
     // Same shape SALE_SELECT would have returned, assembled from the writes.
     return { ...created, sale_items: (itemsResult.data ?? []) as DbSaleItem[] };
   }
 
   async voidSale(id: string, voidedBy: string, reason: string): Promise<DbSale> {
     const now = new Date().toISOString();
+    const { data: prior } = await this.db.from('sales').select('*').eq('id', id).maybeSingle();
     const { data, error } = await this.db
       .from('sales')
       .update({ voided_at: now, voided_by: voidedBy, void_reason: reason })
@@ -149,7 +160,16 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
       .is('voided_at', null);
     if (stockError) this.handleError(stockError);
 
-    return data as DbSale;
+    const voided = data as DbSale;
+    await this.audit({
+      table: 'sales',
+      recordId: id,
+      action: 'void',
+      before: prior,
+      after: voided,
+      branchId: voided.branch_id,
+    });
+    return voided;
   }
 
   // Returns raw totals + their snapshot rate so the service can convert to USD
@@ -269,13 +289,27 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
 
   async markRemitted(ids: string[], remittedBy: string): Promise<void> {
     if (ids.length === 0) return;
-    const { error } = await this.db
+    const remittedAt = new Date().toISOString();
+    const { error, data } = await this.db
       .from('sales')
-      .update({ remitted_at: new Date().toISOString(), remitted_by: remittedBy })
+      .update({ remitted_at: remittedAt, remitted_by: remittedBy })
       .in('id', ids)
       .is('remitted_at', null)
-      .is('voided_at', null);
+      .is('voided_at', null)
+      // Returned so the trail records only the rows the conditional UPDATE
+      // actually moved, not every id the caller passed.
+      .select();
     if (error) this.handleError(error);
+    for (const s of (data ?? []) as DbSale[]) {
+      await this.audit({
+        table: 'sales',
+        recordId: s.id,
+        action: 'update',
+        before: { ...s, remitted_at: null, remitted_by: null },
+        after: s,
+        branchId: s.branch_id,
+      });
+    }
   }
 }
 

@@ -33,7 +33,34 @@ export class SkippedMonthRepository extends BaseRepository implements ISkippedMo
       .upsert(payloads, { onConflict: 'customer_plan_id,billing_month' })
       .select();
     if (error) this.handleError(error);
-    return (data ?? []) as DbSkippedMonth[];
+    const saved = (data ?? []) as DbSkippedMonth[];
+    const branches = new Map<string, string | null>();
+    for (const s of saved) {
+      if (!branches.has(s.customer_id)) branches.set(s.customer_id, await this.branchOf(s.customer_id));
+    }
+    for (const s of saved) {
+      // One row covers both directions: `skipped: false` is an unskip, which
+      // reads as restoring the month to payable.
+      await this.audit({
+        table: 'skipped_months',
+        recordId: s.id,
+        action: s.skipped ? 'create' : 'restore',
+        after: s,
+        branchId: branches.get(s.customer_id) ?? null,
+      });
+    }
+    return saved;
+  }
+
+  // Skips carry no branch_id of their own; the audit row denormalizes the owning
+  // customer's so a branch-scoped admin can filter on one column.
+  private async branchOf(customerId: string): Promise<string | null> {
+    const { data } = await this.db
+      .from('customers')
+      .select('branch_id')
+      .eq('id', customerId)
+      .maybeSingle();
+    return (data as { branch_id: string | null } | null)?.branch_id ?? null;
   }
 }
 

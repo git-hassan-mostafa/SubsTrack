@@ -34,6 +34,7 @@ This folder contains the production QA test plan for the SubsTrack mobile app. E
 | Settings | [settings.md](settings.md) | User-level prefs: profile, language switcher with restart, logout |
 | Admin & Navigation | [admin-and-navigation.md](admin-and-navigation.md) | Tab visibility, role gating, routing, deep links, ActionMenu pattern, PressableOpacity feedback, asterisk required fields |
 | Unsaved Changes | [unsaved-changes.md](unsaved-changes.md) | App-wide "Discard changes?" guard on every form-sheet close path (button / Back / drag-down / backdrop), clean forms never prompting, nested sheets |
+| Audit Trail | [audit-log.md](audit-log.md) | Append-only `audit_logs`: what is (and isn't) recorded, old→new diffs, offline writes + real action time, the 30-day local window and pruning, admin-only reads, append-only RLS, per-record History |
 | Multi-tenancy | [multi-tenancy.md](multi-tenancy.md) | Tenant isolation reads/writes, tenant inactive, organization code |
 | Non-functional | [non-functional.md](non-functional.md) | Performance, accessibility, i18n/RTL, security, resilience |
 
@@ -54,6 +55,7 @@ This folder contains the production QA test plan for the SubsTrack mobile app. E
 - [ ] [Sales](sales.md) passes: snapshots frozen at sale time, walk-in customer, void, customer panel, dashboard revenue included.
 - [ ] [Debts](debts.md) passes: runtime net = Σ debts − Σ payments; debt payment doesn't touch the underlying month/sale; partial sales create a Sales debt; void + credit + branch/offline behave.
 - [ ] [Unsaved changes](unsaved-changes.md) passes: all four close paths prompt on a dirty form, a **clean** form never prompts, and repeated keep-editing → discard never shows an extra dialog or navigates the route away.
+- [ ] [Audit trail](audit-log.md) passes: an edit records the **old** value, a no-op save records **nothing**, `occurred_at` is the action time (not the sync time), offline writes commit with their change, staff can write but never read, and the trail cannot be edited or deleted from the app.
 - [ ] All identified findings ("verify…", "file a finding…" notes) reviewed and either fixed or signed off as known limitations.
 
 ## Test data needed

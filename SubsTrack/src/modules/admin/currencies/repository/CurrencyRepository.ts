@@ -24,7 +24,15 @@ export class CurrencyRepository extends BaseRepository implements ICurrencyRepos
       .select()
       .single();
     if (error) this.handleError(error);
-    return data as DbCurrency;
+    const created = data as DbCurrency;
+    // Currencies are tenant-wide — no branch dimension, so every admin sees it.
+    await this.audit({
+      table: 'currencies',
+      recordId: created.id,
+      action: 'create',
+      after: created,
+    });
+    return created;
   }
 
   async update(
@@ -33,36 +41,32 @@ export class CurrencyRepository extends BaseRepository implements ICurrencyRepos
       Pick<DbCurrency, 'code' | 'name' | 'symbol' | 'rate_per_usd' | 'decimals' | 'active'>
     >,
   ): Promise<DbCurrency> {
-    const { data, error } = await this.db
-      .from('currencies')
-      .update(payload)
-      .eq('id', id)
-      .select()
-      .single();
-    if (error) this.handleError(error);
-    return data as DbCurrency;
+    return this.auditedUpdate<DbCurrency>('currencies', id, payload, {
+      action: payload.active === true ? 'restore' : 'update',
+      branchColumn: null,
+    });
   }
 
   async delete(id: string): Promise<void> {
-    const { error } = await this.db.from('currencies').delete().eq('id', id);
-    if (error) this.handleError(error);
+    await this.deleteMany([id]);
   }
 
   // Hard-delete many currencies in one statement.
   async deleteMany(ids: string[]): Promise<void> {
-    if (ids.length === 0) return;
-    const { error } = await this.db.from('currencies').delete().in('id', ids);
-    if (error) this.handleError(error);
+    await this.auditedDelete<DbCurrency>('currencies', ids, { branchColumn: null });
   }
 
   // Soft-delete many currencies in one statement.
   async deactivateMany(ids: string[]): Promise<void> {
     if (ids.length === 0) return;
-    const { error } = await this.db
-      .from('currencies')
-      .update({ active: false })
-      .in('id', ids);
-    if (error) this.handleError(error);
+    for (const id of ids) {
+      await this.auditedUpdate<DbCurrency>(
+        'currencies',
+        id,
+        { active: false },
+        { branchColumn: null },
+      );
+    }
   }
 
   // The subset of the given currencies referenced by any plan or payment.

@@ -4,6 +4,7 @@ import i18n from "@/src/core/i18n";
 import { BRANCH_FILTER_UNASSIGNED, BranchFilter } from "../constants";
 import { readFunctionsErrorBody } from "./functionsError";
 import { logException } from "../errorLog/errorLogger";
+import { buildAuditRow, type AuditInput } from "../audit";
 
 // ──────────────────────────────────────────────────────────────────────
 // Applying the filter — branch-scope semantics per table
@@ -46,6 +47,95 @@ export abstract class BaseRepository {
     console.error("[Repository Error]", error);
     void logException({ source: "repository", message: String(error), context: this.constructor.name });
     throw new Error(i18n.t("errors.unexpected"));
+  }
+
+  /**
+   * Append one entry to the audit trail. Call it right after a write, from the
+   * method that already holds the row — see docs/features.md → Audit Trail.
+   *
+   * Never throws and never rejects: a failed audit insert must not fail the
+   * user's save. A no-op edit (nothing actually changed) writes nothing.
+   */
+  protected async audit(input: AuditInput): Promise<void> {
+    try {
+      const row = buildAuditRow(input);
+      if (!row) return;
+      const { error } = await this.db.from("audit_logs").insert(row);
+      if (error) throw new Error(error.message);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e);
+      console.warn("[audit] failed to record:", message);
+      void logException({ source: "repository", message, context: `audit:${input.table}` });
+    }
+  }
+
+  /**
+   * `UPDATE` one row by id and record the diff. The extra read is unavoidable:
+   * PostgREST cannot return old values from an UPDATE. Covers the repeated
+   * read-patch-diff dance for tables whose branch is their own `branch_id`
+   * column (plans, products, branches, currencies, users, …).
+   *
+   * `branchColumn: null` marks a table with no branch dimension at all
+   * (currencies, tenant_settings) — the entry gets `branch_id = null`, meaning
+   * "tenant-wide", so every admin can see it.
+   */
+  protected async auditedUpdate<T extends { id: string }>(
+    table: AuditInput["table"],
+    id: string,
+    values: object,
+    opts: { action?: AuditInput["action"]; select?: string; branchColumn?: keyof T | null } = {},
+  ): Promise<T> {
+    const {
+      action = "update",
+      select = "*",
+      branchColumn = "branch_id" as keyof T,
+    } = opts;
+    const { data: prior } = await this.db.from(table).select("*").eq("id", id).maybeSingle();
+    const { data, error } = await this.db
+      .from(table)
+      .update(values)
+      .eq("id", id)
+      .select(select)
+      .single();
+    if (error) this.handleError(error);
+    // Via `unknown`: `select` is a runtime string, so PostgREST cannot infer the
+    // row shape and widens it to its error union.
+    const after = data as unknown as T;
+    await this.audit({
+      table,
+      recordId: id,
+      action,
+      before: prior,
+      after,
+      branchId: branchColumn ? ((after[branchColumn] as string | null) ?? null) : null,
+    });
+    return after;
+  }
+
+  /**
+   * Hard-delete rows by id, snapshotting them first — a delete's whole value in
+   * the trail is the copy of what was removed. `branchColumn` follows the same
+   * rule as `auditedUpdate`.
+   */
+  protected async auditedDelete<T extends { id: string }>(
+    table: AuditInput["table"],
+    ids: string[],
+    opts: { branchColumn?: keyof T | null } = {},
+  ): Promise<void> {
+    if (ids.length === 0) return;
+    const { branchColumn = "branch_id" as keyof T } = opts;
+    const { data: prior } = await this.db.from(table).select("*").in("id", ids);
+    const { error } = await this.db.from(table).delete().in("id", ids);
+    if (error) this.handleError(error);
+    for (const row of (prior ?? []) as T[]) {
+      await this.audit({
+        table,
+        recordId: row.id,
+        action: "delete",
+        before: row,
+        branchId: branchColumn ? ((row[branchColumn] as string | null) ?? null) : null,
+      });
+    }
   }
 
   /**

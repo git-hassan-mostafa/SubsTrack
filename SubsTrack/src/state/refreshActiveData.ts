@@ -38,6 +38,8 @@ export function refreshActiveData(): void {
   if (s.paymentsList.items.length) void s.paymentsList.fetchPayments();
   if (s.wallet.items.length) void s.wallet.fetchWallets();
   if (s.debts.items.length) void s.debts.fetchDebts();
+  // A pull brings other devices' audit entries into the local window.
+  if (s.audit.items.length) void s.audit.fetchEntries();
 
   // The customer-list badges (month status + overdue, net debt) are derived from
   // the customer set, so refresh them whenever the customer list is loaded. The

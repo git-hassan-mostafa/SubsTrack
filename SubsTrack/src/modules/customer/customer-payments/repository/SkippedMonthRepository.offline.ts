@@ -40,13 +40,39 @@ export class OfflineSkippedMonthRepository
         updated_at: now,
       });
     }
+    const branches = new Map<string, string | null>();
+    for (const p of payloads) {
+      if (!branches.has(p.customer_id)) branches.set(p.customer_id, await this.branchOf(p.customer_id));
+    }
     // The mirror may already hold this line+month under another id (created on
     // the web or another device) — echo back the id it actually stored.
     const storedIds = await this.write(async (db) => {
       const ids: string[] = [];
-      for (const row of rows) ids.push(await upsertNaturalKeyDirty(db, 'skipped_months', row));
+      for (const row of rows) {
+        const stored = await upsertNaturalKeyDirty(db, 'skipped_months', row);
+        ids.push(stored);
+        // One row covers both directions: `skipped: false` is an unskip, which
+        // reads as restoring the month to payable.
+        await this.auditIn(db, {
+          table: 'skipped_months',
+          recordId: stored,
+          action: row.skipped ? 'create' : 'restore',
+          after: { ...row, id: stored },
+          branchId: branches.get(row.customer_id) ?? null,
+        });
+      }
       return ids;
     });
     return rows.map((row, i) => ({ ...row, id: storedIds[i] }));
+  }
+
+  // Skips carry no branch_id of their own; the audit row denormalizes the owning
+  // customer's so a branch-scoped admin can filter on one column.
+  private async branchOf(customerId: string): Promise<string | null> {
+    const row = await this.first<{ branch_id: string | null }>(
+      'SELECT branch_id FROM customers WHERE id = ?',
+      [customerId],
+    );
+    return row?.branch_id ?? null;
   }
 }
