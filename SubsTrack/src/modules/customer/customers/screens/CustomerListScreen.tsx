@@ -21,6 +21,7 @@ import { COLORS } from "@/src/shared/constants";
 import { useSubscriptionSlice } from "@/src/state/hooks/useSubscriptionSlice";
 import type { Customer } from "@/src/core/types";
 import { CustomerCard } from "../components/CustomerCard";
+import { CustomerHistorySheet } from "../components/CustomerHistorySheet";
 import { CustomerFormSheet } from "../components/CustomerFormSheet";
 import { CustomDebtFormSheet } from "@/src/modules/transaction/debts/components/CustomDebtFormSheet";
 import { DebtPaymentFormSheet } from "@/src/modules/transaction/debts/components/DebtPaymentFormSheet";
@@ -103,6 +104,7 @@ export function CustomerListScreen() {
   const [debtPaymentCustomer, setDebtPaymentCustomer] =
     useState<Customer | null>(null);
   const [saleCustomer, setSaleCustomer] = useState<Customer | null>(null);
+  const [historyCustomer, setHistoryCustomer] = useState<Customer | null>(null);
   const selection = useSelection();
   const {
     active: selectionActive,
@@ -632,6 +634,12 @@ export function CustomerListScreen() {
       icon: "create-outline",
       onPress: () => setEditingCustomer(customer),
     });
+    items.push({
+      key: "history",
+      label: t("audit.customer_history_action"),
+      icon: "time-outline",
+      onPress: () => setHistoryCustomer(customer),
+    });
     if (isAdmin) {
       items.push({
         key: "toggle-active",
@@ -833,6 +841,12 @@ export function CustomerListScreen() {
           initialCustomer={saleCustomer}
           onDismiss={() => setSaleCustomer(null)}
           onCreated={() => void fetchNetDebtByCustomer()}
+        />
+      )}
+      {historyCustomer && (
+        <CustomerHistorySheet
+          customer={historyCustomer}
+          onDismiss={() => setHistoryCustomer(null)}
         />
       )}
       {customDebtCustomer && (

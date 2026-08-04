@@ -635,7 +635,24 @@ An **append-only** record of who changed what, when, and what the value was befo
 - Ordered by `occurred_at DESC`, never `updated_at`.
 - `auditPageSize(scope)` exists because the local window pages at `OFFLINE_PAGE_SIZE` (100) while every Supabase query pages at `PAGE_SIZE` (30) — a hardcoded `PAGE_SIZE` would make the native list stop after one page.
 
-**UI** — **Admin → Audit Log** (`app/(app)/(tabs)/admin/audit.tsx`): filter chips (record type / action / staff / date range), a day-ordered list, tap for a field-by-field *before → new* diff sheet, and a "Load full history" action that flips the scope from local to server. Plus a per-record **History** action on `PaymentDetailSheet` (admin-only, mirroring the read policy) opening `RecordHistorySheet`. New `audit` slice + `useAuditSlice`, registered in `globalStore.ts`, reset in `storeReset.ts`, refreshed in `refreshActiveData.ts`.
+**UI** — **Admin → Audit Log** (`app/(app)/(tabs)/admin/audit.tsx`): filter chips (record type / action / staff / date range), a day-ordered list, tap for a field-by-field *before → new* diff sheet, and a "Load full history" action that flips the scope from local to server. Plus a per-record **History** action on `PaymentDetailSheet` (admin-only, mirroring the read policy) opening `RecordHistorySheet`.
+
+A third entry point is the **customer** trail: `CustomerHistorySheet` (`modules/customer/customers/components/`), opened from the customer card's quick-actions menu **and** a History row on `CustomerDetailsCard`. It merges the customer row with **every one of its service lines** into one newest-first timeline, so "renamed → moved branch → a plan was cancelled" reads as one story. That needs a multi-record read: `IAuditRepository.findForRecords(targets, full)` takes explicit `(table, recordId)` pairs, because the trail stores **no parent link** — an entry knows only its own table and record id. Both impls match pairs as an OR of `(table AND id)` terms; **two separate `IN`s would cross-match**, accepting a plan line's id under `table_name = 'customers'`.
+
+Deliberately **not** in the customer sheet: payments, sales and debts (a busy customer has hundreds — they would bury the profile edits, and payments already have their own per-record History), and **skipped months** — a skip's id is a hash of `(customer_plan_id, billing_month)`, so it cannot be enumerated without querying every month; skips remain visible in the month grid and the main Audit Log.
+
+Unlike the Audit Log tab, the customer sheet is offered to **every role**, since staff use these two screens constantly. A non-admin's `audit_logs_select` returns no rows, so the sheet shows an explicit "Admins only" state — never an empty list, which would read as the false claim "this customer was never changed".
+
+Both admin views render the same **`<HistoryList>`** (`components/HistoryList.tsx`) — a purely presentational list (entries + loading/error/scope in, `onLoadMore` / `onLoadFull` / `onRefresh` out) that owns no query state, so it can be pointed at any filter. `inSheet` picks Gorhom's `BottomSheetFlatList` over RN's (a plain `FlatList` cannot scroll inside a sheet). Reuse it for any new "history of X" view rather than rebuilding the list, scope note and detail-sheet plumbing.
+
+**Where the read state lives is split by lifetime**, and the split matters:
+
+| State | Home | Why |
+| --- | --- | --- |
+| The admin screen's filter session + paging (`tableFilter`, `actorFilter`, `from`/`to`, `scope`, `page`, `hasMore`) | the **`audit` slice** (`useAuditSlice`), registered in `globalStore.ts`, reset in `storeReset.ts`, refreshed in `refreshActiveData.ts` | must survive navigating into an entry and back, and **must** be cleared on logout so a previous tenant's entries can never surface |
+| One record's timeline in a History sheet | the **`useRecordHistory(table, recordId)`** hook, local to the sheet | per-record and transient; in the store it needed a second parallel set of fields (`recordItems`/`recordLoading`/`recordError`) that two open sheets would overwrite, plus a manual clear on close. Unmounting the sheet now discards it, and the hook carries a stale-response guard the slice version lacked |
+
+Don't move the record timeline into the slice, and don't move the filter session out of it.
 
 **Storage** — ~150 bytes per row: a busy tenant at ~600 changes/month ≈ 90 KB/month locally and ~1 MB/year on the server.
 

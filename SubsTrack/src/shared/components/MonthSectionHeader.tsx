@@ -21,7 +21,7 @@ export function MonthSectionHeader({
   first?: boolean;
 }) {
   return (
-    <View className="bg-white">
+    <View>
       {first ? null : (
         <View className="items-center py-4">
           <View className="h-[3px] w-16 rounded-full bg-gray-200" />

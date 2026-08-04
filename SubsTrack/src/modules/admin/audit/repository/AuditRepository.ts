@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 import { BaseRepository } from '@/src/core/utils/BaseRepository';
 import { PAGE_SIZE } from '@/src/core/constants';
-import type { AuditFilter } from '@/src/core/types';
+import type { AuditFilter, AuditRecordTarget } from '@/src/core/types';
 import type { DbAuditLog } from '@/src/core/types/db';
 import type { IAuditRepository } from './IAuditRepository';
 import { OfflineAuditRepository } from './AuditRepository.offline';
@@ -54,6 +54,23 @@ export class AuditRepository extends BaseRepository implements IAuditRepository 
       .select('*')
       .eq('table_name', table)
       .eq('record_id', recordId)
+      .order('occurred_at', { ascending: false });
+    if (error) this.handleError(error);
+    return (data ?? []) as DbAuditLog[];
+  }
+
+  // `full` ignored for the same reason as findForRecord: no local window on web.
+  async findForRecords(targets: AuditRecordTarget[], _full = false): Promise<DbAuditLog[]> {
+    if (targets.length === 0) return [];
+    // One OR of (table AND id) pairs. Two separate `.in()` calls would cross-match —
+    // a plan line's id would be accepted under table_name 'customers'.
+    const clause = targets
+      .map((tr) => `and(table_name.eq.${tr.table},record_id.eq.${tr.recordId})`)
+      .join(',');
+    const { data, error } = await this.db
+      .from('audit_logs')
+      .select('*')
+      .or(clause)
       .order('occurred_at', { ascending: false });
     if (error) this.handleError(error);
     return (data ?? []) as DbAuditLog[];

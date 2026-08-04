@@ -595,6 +595,13 @@ export type AuditTable =
   | 'tenant_settings'
   | 'tenants';
 
+// One row to pull the trail for. Several of these merge into one timeline when an
+// entity spans more than one table (a customer plus its service lines).
+export interface AuditRecordTarget {
+  table: AuditTable;
+  recordId: string;
+}
+
 // One field that changed, ready to render as "old → new".
 export interface AuditChange {
   field: string;

@@ -1,6 +1,6 @@
 import { Platform } from 'react-native';
 import { OFFLINE_PAGE_SIZE, PAGE_SIZE } from '@/src/core/constants';
-import type { AuditEntry, AuditFilter } from '@/src/core/types';
+import type { AuditEntry, AuditFilter, AuditRecordTarget } from '@/src/core/types';
 import repository from '../repository/AuditRepository';
 import { mapDbAuditLogToAuditEntry } from '../utils/mapper';
 
@@ -46,6 +46,19 @@ class AuditService {
   /** One record's timeline, newest first. */
   async getRecordHistory(table: string, recordId: string, full = false): Promise<AuditEntry[]> {
     const rows = await repository.findForRecord(table, recordId, full);
+    return rows.map(mapDbAuditLogToAuditEntry);
+  }
+
+  /**
+   * The merged timeline of several rows that make up one entity — a customer plus
+   * its service lines and skipped months. Newest first across all of them, so the
+   * result reads as one story rather than per-table sections.
+   */
+  async getRecordsHistory(
+    targets: AuditRecordTarget[],
+    full = false,
+  ): Promise<AuditEntry[]> {
+    const rows = await repository.findForRecords(targets, full);
     return rows.map(mapDbAuditLogToAuditEntry);
   }
 

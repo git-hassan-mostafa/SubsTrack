@@ -1,4 +1,4 @@
-import type { AuditFilter } from '@/src/core/types';
+import type { AuditFilter, AuditRecordTarget } from '@/src/core/types';
 import type { DbAuditLog } from '@/src/core/types/db';
 import { OFFLINE_PAGE_SIZE } from '@/src/core/constants';
 import { OfflineBaseRepository } from '@/src/core/offline/OfflineBaseRepository';
@@ -55,6 +55,23 @@ export class OfflineAuditRepository extends OfflineBaseRepository implements IAu
     const rows = await this.all(
       'SELECT * FROM audit_logs WHERE table_name = ? AND record_id = ? ORDER BY occurred_at DESC',
       [table, recordId],
+    );
+    return this.decodeAll<DbAuditLog>('audit_logs', rows);
+  }
+
+  async findForRecords(targets: AuditRecordTarget[], full = false): Promise<DbAuditLog[]> {
+    if (targets.length === 0) return [];
+    if (full) {
+      if (!(await isOnline())) throw new RequiresConnectionError();
+      return this.online.findForRecords(targets, true);
+    }
+    // Pairs, not two INs: a plan line's id must not match under table_name
+    // 'customers'. Parameterized, so the ids are never interpolated.
+    const clause = targets.map(() => '(table_name = ? AND record_id = ?)').join(' OR ');
+    const params = targets.flatMap((tr) => [tr.table, tr.recordId]);
+    const rows = await this.all(
+      `SELECT * FROM audit_logs WHERE ${clause} ORDER BY occurred_at DESC`,
+      params,
     );
     return this.decodeAll<DbAuditLog>('audit_logs', rows);
   }

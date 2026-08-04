@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { View } from "react-native";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
 import { useTranslation } from "react-i18next";
@@ -12,6 +13,7 @@ import { COLORS } from "@/src/shared/constants";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { useBranchSlice } from "@/src/state/hooks/useBranchSlice";
 import { useCustomerSlice } from "@/src/state/hooks/useCustomerSlice";
+import { CustomerHistorySheet } from "./CustomerHistorySheet";
 
 interface CustomerDetailsCardProps {
   customer: Customer;
@@ -26,6 +28,7 @@ export function CustomerDetailsCard({
   const locale = getDateLocale(i18n.language);
   const customerStore = useCustomerSlice();
   const { isAdmin } = useAuth();
+  const [historyVisible, setHistoryVisible] = useState(false);
   const branch = useBranchSlice(
     (state) => state.items.find((b) => b.id === customer.branchId) ?? null,
   );
@@ -242,6 +245,23 @@ export function CustomerDetailsCard({
             </View>
           </PressableOpacity>
 
+          <PressableOpacity
+            onPress={() => setHistoryVisible(true)}
+            className="flex-row items-center justify-between px-4 py-3.5 border-t border-gray-100"
+          >
+            <View className="flex-row items-center gap-3">
+              <Ionicons name="time-outline" size={16} color={COLORS.gray500} />
+              <Text className="text-sm text-gray-700">
+                {t("audit.customer_history_action")}
+              </Text>
+            </View>
+            <DirectionalIcon
+              name="chevron-forward"
+              size={14}
+              color={COLORS.gray400}
+            />
+          </PressableOpacity>
+
           {isAdmin && (
             <PressableOpacity
               onPress={() => void handleDelete()}
@@ -266,6 +286,13 @@ export function CustomerDetailsCard({
           )}
         </View>
       </View>
+
+      {historyVisible && (
+        <CustomerHistorySheet
+          customer={customer}
+          onDismiss={() => setHistoryVisible(false)}
+        />
+      )}
     </>
   );
 }

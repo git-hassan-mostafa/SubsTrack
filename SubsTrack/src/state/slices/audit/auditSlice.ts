@@ -10,6 +10,16 @@ import type { GlobalState } from '@/src/state/globalStore';
  */
 export type AuditScope = 'local' | 'full';
 
+/**
+ * The admin Audit Log screen's filter session + paged results.
+ *
+ * Scope note: ONE record's timeline is deliberately NOT here — it lives in the
+ * `useRecordHistory` hook, local to the sheet showing it. That state is per-record
+ * and transient, and holding it in the store needed a second parallel set of fields
+ * that two open sheets would overwrite. What IS here is the filter session, which
+ * must survive navigating to an entry and back, and must be cleared on logout so a
+ * previous tenant's entries can never appear.
+ */
 export interface AuditSlice {
   items: AuditEntry[];
   page: number;
@@ -26,10 +36,6 @@ export interface AuditSlice {
   actorFilter: string | null;
   from: string | null;
   to: string | null;
-  // One record's timeline (the History sheet), kept apart from the main list.
-  recordItems: AuditEntry[];
-  recordLoading: boolean;
-  recordError: string | null;
   fetchEntries: () => Promise<void>;
   fetchMoreEntries: () => Promise<void>;
   setScope: (scope: AuditScope) => Promise<void>;
@@ -39,8 +45,6 @@ export interface AuditSlice {
   setFrom: (date: string | null) => Promise<void>;
   setTo: (date: string | null) => Promise<void>;
   clearFilters: () => Promise<void>;
-  fetchRecordHistory: (table: string, recordId: string, full?: boolean) => Promise<void>;
-  clearRecordHistory: () => void;
   clearError: () => void;
   reset: () => void;
 }
@@ -87,9 +91,6 @@ export const createAuditSlice: StateCreator<
     actorFilter: null,
     from: null,
     to: null,
-    recordItems: [],
-    recordLoading: false,
-    recordError: null,
 
     fetchEntries: async () => {
       const token = get().audit.searchToken;
@@ -211,31 +212,6 @@ export const createAuditSlice: StateCreator<
       await get().audit.fetchEntries();
     },
 
-    fetchRecordHistory: async (table, recordId, full = false) => {
-      set((state) => {
-        state.audit.recordLoading = true;
-        state.audit.recordError = null;
-      });
-      try {
-        const items = await auditService.getRecordHistory(table, recordId, full);
-        set((state) => {
-          state.audit.recordItems = items;
-          state.audit.recordLoading = false;
-        });
-      } catch (e) {
-        set((state) => {
-          state.audit.recordError = (e as Error).message;
-          state.audit.recordLoading = false;
-        });
-      }
-    },
-
-    clearRecordHistory: () =>
-      set((state) => {
-        state.audit.recordItems = [];
-        state.audit.recordError = null;
-      }),
-
     clearError: () =>
       set((state) => {
         state.audit.error = null;
@@ -256,9 +232,6 @@ export const createAuditSlice: StateCreator<
         state.audit.actorFilter = null;
         state.audit.from = null;
         state.audit.to = null;
-        state.audit.recordItems = [];
-        state.audit.recordLoading = false;
-        state.audit.recordError = null;
       }),
   };
 };

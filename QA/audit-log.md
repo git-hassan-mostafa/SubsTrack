@@ -137,6 +137,10 @@ Turn on airplane mode for each. Use Settings → Developer → `audit_logs` to i
 | 5.11 | Stale response        | Change a filter twice quickly                                            | The list matches the LAST filter chosen, never the earlier one              |
 | 5.12 | Pull to refresh       | Pull down                                                                | Reloads from the top                                                       |
 | 5.13 | Newest first          | Any list                                                                 | Ordered newest → oldest by when staff acted                                |
+| 5.14 | Filters survive a drill-in | Set staff + date filters → tap an entry → close the detail sheet     | The **same filters are still applied** and the list is unchanged (the filter session lives in the slice, not the screen) |
+| 5.15 | …and a tab round-trip | With filters set, leave the Audit Log for another tab and come back      | Filters still applied                                                      |
+| 5.16 | Filters cleared on logout | Set filters → log out → log in as a **different** organization's admin | Audit Log opens **unfiltered** and shows **no** entries from the previous organization |
+| 5.17 | Filter chips scroll   | Scroll the list down on a phone                                          | The chip row scrolls away with the entries (it is the list header)          |
 
 ---
 
@@ -161,6 +165,29 @@ Turn on airplane mode for each. Use Settings → Developer → `audit_logs` to i
 | 6.15 | …opened from History   | Payment detail → History → tap the void entry (staff list not yet loaded) | Name still resolves — the sheet loads the staff list itself                |
 | 6.16 | Record ids unchanged   | An entry whose diff moved `plan_id` or `currency_id`                 | Still shown as the raw id (intended: a deleted record has no name)          |
 | 6.17 | Timestamp wording      | Open an entry for a **customer** or **plan** edit                    | The time row reads "When", not "Paid on"                                    |
+| 6.18 | History sheet isolation | Open History on payment A → close → open History on payment **B**    | B's timeline only. **A's entries must not appear**, not even for a moment (the sheet's state dies with it) |
+| 6.19 | …and its scope resets  | On A tap **Load full history** → close → reopen History on A          | Back to the 30-day window with the "Load full history" action offered again  |
+| 6.20 | Close during a slow load | Open History on a slow connection and close before it finishes → open another record | No crash, no flash of the first record's entries (stale-response guard)  |
+| 6.21 | Shared list, both views | Compare the Audit Log screen and a History sheet                     | Same card layout, scope note and detail sheet — one `<HistoryList>` renders both |
+
+### 6b. Customer history sheet
+
+| #    | Scenario                  | Steps                                                                | Expected result                                                             |
+| ---- | ------------------------- | -------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| 6.30 | From the card menu        | Customer list → card 3-dot menu → **History**                         | Sheet opens titled "Customer history" with the customer's name beneath       |
+| 6.31 | From the detail screen    | Open a customer → details card → **History** row                       | Same sheet, same contents                                                   |
+| 6.32 | Customer + plans merged   | Rename a customer, then cancel one of its plan lines → open History     | **Both** entries in one newest-first list (a `customers` edit and a `customer_plans` change) |
+| 6.33 | No foreign entries        | A customer with 2+ plan lines; other customers also edited              | Only THIS customer's row and ITS lines — no other customer's entries, and no `payments` entries (gotcha #66) |
+| 6.34 | Cancelled lines included  | Cancel a line, then open History                                        | The cancelled line's history still appears (it is still part of the story)   |
+| 6.35 | Excluded by design        | Record a payment and a sale for the customer → open History              | **Neither appears.** Payments/sales/debts are excluded; use the payment's own History or the Sales/Debts panels |
+| 6.36 | Skipped months excluded   | Skip a month for the customer → open History                            | Not listed (known limitation — visible in the month grid and the main Audit Log) |
+| 6.37 | Staff sees a clear reason | Log in as a **staff** (non-admin) user → open History from either place   | Sheet opens showing **"Admins only"**, NOT an empty "nothing recorded" list  |
+| 6.38 | Admin sees entries        | Same customer as 6.37, now as an admin                                  | The real timeline                                                           |
+| 6.39 | Load full history         | In the sheet tap **Load full history** (native, online)                  | Fetches beyond the 30-day window for the customer AND its lines             |
+| 6.40 | …offline                  | Airplane mode → **Load full history**                                    | "Needs a connection" error in the banner; the 30-day list stays visible      |
+| 6.41 | No repeated fetching      | Open the sheet and leave it open (watch logs / network)                  | One fetch, not a loop — the hook keys on the targets' contents (gotcha #66)  |
+| 6.42 | Customer with no plans    | An occasional customer with zero service lines → open History             | The customer's own entries only; no crash from an empty target list          |
+| 6.43 | RTL                       | Switch to Arabic → open History                                          | Title, name, rows and chevrons mirror correctly                             |
 
 ---
 

@@ -1,4 +1,4 @@
-import type { AuditFilter } from '@/src/core/types';
+import type { AuditFilter, AuditRecordTarget } from '@/src/core/types';
 import type { DbAuditLog } from '@/src/core/types/db';
 
 /**
@@ -26,4 +26,14 @@ export interface IAuditRepository {
    * (online only on native).
    */
   findForRecord(table: string, recordId: string, full: boolean): Promise<DbAuditLog[]>;
+  /**
+   * The merged timeline of SEVERAL records, newest first — one entity whose story
+   * spans more than one row (a customer plus its service lines and skipped months).
+   *
+   * Takes explicit `(table, id)` targets rather than a parent id because the trail
+   * stores no parent link: an entry knows its own table and record id, nothing more.
+   * The caller therefore resolves the children it cares about and passes them in.
+   * An empty `targets` returns `[]` without querying.
+   */
+  findForRecords(targets: AuditRecordTarget[], full: boolean): Promise<DbAuditLog[]>;
 }

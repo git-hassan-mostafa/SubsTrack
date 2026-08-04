@@ -1,24 +1,20 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, FlatList, RefreshControl, ScrollView, View } from "react-native";
+import { useCallback, useEffect, useMemo } from "react";
+import { ScrollView, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { useFocusEffect, useRouter } from "expo-router";
-import type { AuditAction, AuditEntry, AuditTable } from "@/src/core/types";
-import { IS_OFFLINE_CAPABLE } from "@/src/core/offline";
+import type { AuditAction, AuditTable } from "@/src/core/types";
 import { COLORS } from "@/src/shared/constants";
 import { PageHeader } from "@/src/shared/components/PageHeader";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
-import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
-import { EmptyState } from "@/src/shared/components/EmptyState";
 import { Text } from "@/src/shared/components/Text";
 import { Dropdown, type DropdownOption } from "@/src/shared/components/Dropdown";
 import { DatePickerInput } from "@/src/shared/components/DatePickerInput";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
 import { useAuditSlice } from "@/src/state/hooks/useAuditSlice";
 import { useUserSlice } from "@/src/state/hooks/useUserSlice";
-import { AuditEntryCard } from "../components/AuditEntryCard";
-import { AuditEntrySheet } from "../components/AuditEntrySheet";
+import { HistoryList } from "../components/HistoryList";
 import { AUDITED_TABLES } from "../utils/constants";
 import { actionLabel, tableLabel } from "../utils/format";
 
@@ -61,8 +57,6 @@ export function AuditLogScreen() {
   const users = useUserSlice((s) => s.items);
   const getUsers = useUserSlice((s) => s.getUsers);
 
-  const [openEntry, setOpenEntry] = useState<AuditEntry | null>(null);
-
   // The staff dropdown needs the user list; `getUsers` self-guards on its
   // `loaded` flag, so no length check here.
   useEffect(() => {
@@ -94,152 +88,101 @@ export function AuditLogScreen() {
   const hasActiveFilters =
     !!tableFilter || !!actionFilter || !!actorFilter || !!from || !!to;
 
+
+  // Passed to HistoryList as its header so the chips scroll with the entries —
+  // a fixed filter bar would eat vertical space on a phone.
+  const filters = (
+    <View className="-mx-4 mb-1">
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{ paddingHorizontal: 16, gap: 8, alignItems: "center" }}
+      >
+        <Dropdown<string>
+          placeholder={t("audit.filter_by_table")}
+          options={tableOptions}
+          value={tableFilter}
+          onChange={(v) => setTableFilter(v as AuditTable | null)}
+          nullable
+          nullLabel={t("audit.all_tables")}
+          triggerStyle="chip"
+        />
+        <Dropdown<string>
+          placeholder={t("audit.filter_by_action")}
+          options={actionOptions}
+          value={actionFilter}
+          onChange={(v) => setActionFilter(v as AuditAction | null)}
+          nullable
+          nullLabel={t("audit.all_actions")}
+          triggerStyle="chip"
+        />
+        <Dropdown<string>
+          placeholder={t("audit.filter_by_actor")}
+          options={actorOptions}
+          value={actorFilter}
+          onChange={(v) => setActorFilter(v)}
+          nullable
+          nullLabel={t("audit.all_actors")}
+          triggerStyle="chip"
+        />
+        <DatePickerInput
+          placeholder={t("audit.date_from")}
+          value={from ?? ""}
+          onChange={(v) => void setFrom(v || null)}
+          maxDate={to ?? undefined}
+          triggerStyle="chip"
+          clearable
+        />
+        <DatePickerInput
+          placeholder={t("audit.date_to")}
+          value={to ?? ""}
+          onChange={(v) => void setTo(v || null)}
+          minDate={from ?? undefined}
+          triggerStyle="chip"
+          clearable
+        />
+        {hasActiveFilters ? (
+          <PressableOpacity
+            onPress={() => void clearFilters()}
+            className="flex-row items-center gap-x-1 rounded-full px-3 py-1.5"
+          >
+            <Ionicons name="close" size={14} color={COLORS.gray500} />
+            <Text className="text-sm font-medium text-gray-500">
+              {t("audit.clear_filters")}
+            </Text>
+          </PressableOpacity>
+        ) : null}
+      </ScrollView>
+    </View>
+  );
+
   return (
     <SafeAreaView className="flex-1 bg-gray-50" edges={["top"]}>
-      <PageHeader
-        title={t("audit.title")}
-        showBack
-        onBack={() => router.back()}
-      />
-      {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}
+      <PageHeader title={t("audit.title")} showBack onBack={() => router.back()} />
 
       <ResponsiveContainer className="flex-1">
-        {/* Filters — one horizontal chip row, bled to the screen edge. */}
-        <View className="px-4 pt-3">
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
-            className="-mx-4"
-            contentContainerStyle={{ paddingHorizontal: 16, gap: 8, alignItems: "center" }}
-          >
-            <Dropdown<string>
-              placeholder={t("audit.filter_by_table")}
-              options={tableOptions}
-              value={tableFilter}
-              onChange={(v) => setTableFilter(v as AuditTable | null)}
-              nullable
-              nullLabel={t("audit.all_tables")}
-              triggerStyle="chip"
-            />
-            <Dropdown<string>
-              placeholder={t("audit.filter_by_action")}
-              options={actionOptions}
-              value={actionFilter}
-              onChange={(v) => setActionFilter(v as AuditAction | null)}
-              nullable
-              nullLabel={t("audit.all_actions")}
-              triggerStyle="chip"
-            />
-            <Dropdown<string>
-              placeholder={t("audit.filter_by_actor")}
-              options={actorOptions}
-              value={actorFilter}
-              onChange={(v) => setActorFilter(v)}
-              nullable
-              nullLabel={t("audit.all_actors")}
-              triggerStyle="chip"
-            />
-            <DatePickerInput
-              placeholder={t("audit.date_from")}
-              value={from ?? ""}
-              onChange={(v) => void setFrom(v || null)}
-              maxDate={to ?? undefined}
-              triggerStyle="chip"
-              clearable
-            />
-            <DatePickerInput
-              placeholder={t("audit.date_to")}
-              value={to ?? ""}
-              onChange={(v) => void setTo(v || null)}
-              minDate={from ?? undefined}
-              triggerStyle="chip"
-              clearable
-            />
-            {hasActiveFilters ? (
-              <PressableOpacity
-                onPress={() => void clearFilters()}
-                className="flex-row items-center gap-x-1 rounded-full px-3 py-1.5"
-              >
-                <Ionicons name="close" size={14} color={COLORS.gray500} />
-                <Text className="text-sm font-medium text-gray-500">
-                  {t("audit.clear_filters")}
-                </Text>
-              </PressableOpacity>
-            ) : null}
-          </ScrollView>
-        </View>
-
-        {/* The local window only exists on native; on web every query is server-side. */}
-        {IS_OFFLINE_CAPABLE ? (
-          <View className="px-5 pt-3">
-            {scope === "full" ? (
-              <Text className="text-xs text-gray-400">{t("audit.showing_full")}</Text>
-            ) : (
-              <View className="flex-row items-center flex-wrap gap-x-2">
-                <Text className="text-xs text-gray-400">{t("audit.local_window_note")}</Text>
-                <PressableOpacity onPress={() => void setScope("full")}>
-                  <Text className="text-xs text-primary font-medium">
-                    {t("audit.load_full")}
-                  </Text>
-                </PressableOpacity>
-              </View>
-            )}
-          </View>
-        ) : null}
-
-        {loading && items.length === 0 ? (
-          <View className="flex-1 items-center justify-center">
-            <ActivityIndicator color={COLORS.primary} />
-          </View>
-        ) : (
-          <FlatList
-            data={items}
-            keyExtractor={(e) => e.id}
-            renderItem={({ item }) => (
-              <AuditEntryCard entry={item} onPress={() => setOpenEntry(item)} />
-            )}
-            contentContainerStyle={{
-              paddingHorizontal: 16,
-              paddingTop: 12,
-              paddingBottom: 32,
-              flexGrow: 1,
-            }}
-            refreshControl={
-              <RefreshControl
-                refreshing={loading}
-                onRefresh={() => void fetchEntries()}
-                tintColor={COLORS.primary}
-              />
-            }
-            onEndReached={() => {
-              if (hasMore && !loadingMore) void fetchMoreEntries();
-            }}
-            onEndReachedThreshold={0.3}
-            ListFooterComponent={
-              loadingMore ? (
-                <View className="py-4 items-center">
-                  <ActivityIndicator color={COLORS.primary} />
-                </View>
-              ) : null
-            }
-            ListEmptyComponent={
-              <EmptyState
-                message={t(
-                  hasActiveFilters ? "audit.filter_empty_title" : "audit.empty_title",
-                )}
-                subMessage={t(
-                  hasActiveFilters ? "audit.filter_empty_desc" : "audit.empty_desc",
-                )}
-              />
-            }
-          />
-        )}
+        <HistoryList
+          entries={items}
+          loading={loading}
+          error={error}
+          onDismissError={clearError}
+          scope={scope}
+          onLoadFull={() => void setScope("full")}
+          onRefresh={() => void fetchEntries()}
+          onLoadMore={() => {
+            if (hasMore && !loadingMore) void fetchMoreEntries();
+          }}
+          loadingMore={loadingMore}
+          header={filters}
+          emptyTitle={t(
+            hasActiveFilters ? "audit.filter_empty_title" : "audit.empty_title",
+          )}
+          emptyDescription={t(
+            hasActiveFilters ? "audit.filter_empty_desc" : "audit.empty_desc",
+          )}
+        />
       </ResponsiveContainer>
-
-      {openEntry ? (
-        <AuditEntrySheet entry={openEntry} onDismiss={() => setOpenEntry(null)} />
-      ) : null}
     </SafeAreaView>
   );
 }
