@@ -144,6 +144,21 @@ export function AppBottomSheet({
   // makes the bridge idempotent and fixes both.
   const openRef = useRef(false);
 
+  // Set once the sheet is being torn down. Form sheets are CONDITIONALLY MOUNTED
+  // (`{formVisible && <XFormSheet/>}`), so a successful Save unmounts the whole
+  // tree instead of flipping `visible` to false — Gorhom then fires its dismissal
+  // on the way out while `visible` is still `true` and `dirty` is still `true`
+  // (the fields were edited; saving doesn't reset the baseline). `handleDismiss`
+  // read that as a user close and opened "Discard changes?" AFTER the form had
+  // already closed. Nothing may ask a question on behalf of an unmounting sheet.
+  const unmountingRef = useRef(false);
+  useEffect(
+    () => () => {
+      unmountingRef.current = true;
+    },
+    [],
+  );
+
   const handleChange = useCallback((index: number) => {
     openRef.current = index >= 0;
   }, []);
@@ -205,6 +220,7 @@ export function AppBottomSheet({
   const handleAnimate = useCallback(
     (_fromIndex: number, toIndex: number) => {
       if (toIndex !== -1 || !dirty || !visible || asking) return;
+      if (unmountingRef.current) return;
       ref.current?.expand();
       guardedDismiss();
     },
@@ -223,7 +239,7 @@ export function AppBottomSheet({
   // already up, so one gesture can never ask twice.
   const handleDismiss = useCallback(() => {
     openRef.current = false;
-    if (asking) return;
+    if (asking || unmountingRef.current) return;
     if (visible) guardedDismiss();
   }, [asking, guardedDismiss, visible]);
 

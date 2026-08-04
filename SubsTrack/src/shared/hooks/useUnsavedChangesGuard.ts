@@ -48,11 +48,13 @@ export function useUnsavedChangesGuard(
   const askingRef = useRef(false);
   const [asking, setAsking] = useState(false);
 
-  // If the sheet is torn down while the prompt is still up (the parent unmounted
-  // it, or the screen navigated away), close the dialog — otherwise it is left
-  // floating over an empty screen with nothing behind it to answer for.
+  // The owning sheet is gone (parent unmounted it, screen navigated away). The
+  // confirm dialog lives in the GLOBAL store, so it outlives us — it must neither
+  // be left floating nor be opened on our way out.
+  const deadRef = useRef(false);
   useEffect(
     () => () => {
+      deadRef.current = true;
       if (askingRef.current) getStore().getState().confirm.settle(false);
     },
     [],
@@ -63,6 +65,9 @@ export function useUnsavedChangesGuard(
       onDismissRef.current();
       return;
     }
+    // Asking on behalf of a sheet that no longer exists would strand the prompt
+    // on screen after the form closed — the user has nothing left to answer for.
+    if (deadRef.current) return;
     if (askingRef.current) return;
     askingRef.current = true;
     setAsking(true);
