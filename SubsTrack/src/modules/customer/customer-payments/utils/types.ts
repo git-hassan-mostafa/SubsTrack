@@ -32,10 +32,12 @@ export interface FindPaymentsOptions {
     includeVoided?: boolean;
 }
 
-// A payment row enriched with its customer name (and the plan it was for, when
-// snapshotted) for the flat list. The recording user's name is resolved
-// client-side from the loaded user list.
+// A payment row enriched with its customer name + phone (and the plan it was
+// for, when snapshotted) for the flat list. The phone is what lets the receipt
+// sheet send a WhatsApp invoice from this list. The recording user's name is
+// resolved client-side from the loaded user list.
 export interface PaymentListItem extends Payment {
     customerName: string;
+    customerPhone: string | null;
     planName: string | null;
 }

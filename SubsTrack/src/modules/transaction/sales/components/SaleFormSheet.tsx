@@ -11,6 +11,7 @@ import {
   CustomerFormSheet,
 } from "@/src/modules/customer/customers";
 import { PaymentAmountPaidSection } from "@/src/modules/customer/customer-payments";
+import { SendOnWhatsAppButton, useSendInvoice } from "@/src/modules/invoicing";
 import type { Customer } from "@/src/core/types";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { useSaleSlice } from "@/src/state/hooks/useSaleSlice";
@@ -42,11 +43,15 @@ export function SaleFormSheet({
   const { t } = useTranslation();
   const { user } = useAuth();
   const createSale = useSaleSlice((s) => s.createSale);
-  const loading = useSaleSlice((s) => s.loading);
   const error = useSaleSlice((s) => s.error);
   const clearError = useSaleSlice((s) => s.clearError);
+  const { sendSaleInvoice } = useSendInvoice();
 
   const [cart, setCart] = useState<SaleCartDraft>(EMPTY_CART);
+  // Which button is mid-submit — set before the write, so the spinner stays on
+  // the button the user actually pressed for the whole save + send.
+  const [busyOn, setBusyOn] = useState<"save" | "send" | null>(null);
+  const busy = busyOn !== null;
   const [customer, setCustomer] = useState<Customer | null>(
     initialCustomer ?? null,
   );
@@ -87,8 +92,18 @@ export function SaleFormSheet({
         ? (amountPaid ?? 0)
         : total;
 
-  async function handleSubmit() {
-    if (!user || !cart.ready) return;
+  async function handleSubmit(send = false) {
+    if (!user || !cart.ready || busy) return;
+    setBusyOn(send ? "send" : "save");
+    try {
+      await submit(send);
+    } finally {
+      setBusyOn(null);
+    }
+  }
+
+  async function submit(send: boolean) {
+    if (!user) return;
     const branchId = customer?.branchId ?? user.branchId ?? null;
     const sale = await createSale({
       items: cart.lines,
@@ -101,17 +116,27 @@ export function SaleFormSheet({
       notes: notes.trim() || null,
     });
     if (sale) {
+      // The form's own `customer` is the recipient, not `sale.customer` — the
+      // send must not depend on the write's join.
+      if (send && customer) {
+        await sendSaleInvoice({
+          phone: customer.phoneNumber,
+          customerName: customer.name,
+          sale,
+        });
+      }
       onCreated?.();
       onDismiss();
     }
   }
 
+  // Validity only — the busy state is gated per button, so the pressed one keeps
+  // its own spinner instead of both greying out.
   const submitDisabled =
     !cart.ready ||
     (paymentMode === "partial" &&
       hasCustomer &&
-      (amountPaid == null || amountPaid < 0 || amountPaid > total)) ||
-    loading;
+      (amountPaid == null || amountPaid < 0 || amountPaid > total));
 
   return (
     <>
@@ -186,10 +211,20 @@ export function SaleFormSheet({
 
         <Button
           label={t("sales.record_button")}
-          onPress={handleSubmit}
-          loading={loading}
-          disabled={submitDisabled}
+          onPress={() => void handleSubmit(false)}
+          loading={busyOn === "save"}
+          disabled={submitDisabled || busyOn === "send"}
           fullWidth
+        />
+        <SendOnWhatsAppButton
+          // A walk-in has nobody to send to — say that instead of "no phone".
+          phone={hasCustomer ? customer?.phoneNumber : null}
+          reason={hasCustomer ? undefined : t("invoice.no_customer")}
+          label={t("invoice.save_and_send_whatsapp")}
+          onPress={() => void handleSubmit(true)}
+          loading={busyOn === "send"}
+          disabled={submitDisabled || busyOn === "save"}
+          className="mt-2"
         />
 
         <View className="h-24" />

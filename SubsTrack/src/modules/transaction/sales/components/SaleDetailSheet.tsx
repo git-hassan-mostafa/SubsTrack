@@ -18,6 +18,7 @@ import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { useLanguageStore } from "@/src/core/i18n/languageStore";
 import { formatDate } from "@/src/core/utils/date";
 import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
+import { SendOnWhatsAppButton, useSendInvoice } from "@/src/modules/invoicing";
 
 // Strips the trailing currency symbol/code that formatMoney appends, so a
 // paid/total fraction shows the currency label once instead of twice.
@@ -50,6 +51,7 @@ export function SaleDetailSheet({
   const displayCurrencyId = useDisplayCurrencyId();
   const { language } = useLanguageStore();
   const locale = language === "ar" ? "ar" : "en-US";
+  const { sendSaleInvoice } = useSendInvoice();
 
   const [voidMode, setVoidMode] = useState(false);
   const [voidReason, setVoidReason] = useState("");
@@ -254,6 +256,24 @@ export function SaleDetailSheet({
           />
         ) : null}
       </View>
+
+      {/* Send the receipt to the customer. A voided sale is not a receipt, so it
+          is never sendable. */}
+      {!voided && !voidMode ? (
+        <SendOnWhatsAppButton
+          phone={sale.customer?.phoneNumber}
+          reason={sale.customer ? undefined : t("invoice.no_customer")}
+          label={t("invoice.send_whatsapp")}
+          onPress={() =>
+            void sendSaleInvoice({
+              phone: sale.customer?.phoneNumber ?? null,
+              customerName: sale.customer?.name ?? null,
+              sale,
+            })
+          }
+          className="mb-4"
+        />
+      ) : null}
 
       {/* Void controls (active sales only) */}
       {!voided && onVoid ? (

@@ -788,6 +788,17 @@
     "bulk_void_message": "Void {{count}} selected sale(s)? The records stay in the audit log — voids cannot be undone.",
     "partial_debt_notice": "This sale is not fully paid. The remaining balance appears in the Debts tab."
   },
+  "invoice": {
+    "send_whatsapp": "Send on WhatsApp",
+    "save_and_send_whatsapp": "Save & send on WhatsApp",
+    "pay_and_send_whatsapp": "Pay & send on WhatsApp",
+    "no_phone": "No phone number for this customer",
+    "no_customer": "Walk-in sale — no customer to send to",
+    "total_paid": "Total paid",
+    "thank_you": "Thank you!",
+    "whatsapp_failed": "Couldn't open WhatsApp",
+    "whatsapp_failed_message": "WhatsApp could not be opened on this device. The record was still saved."
+  },
   "transactions": {
     "title": "Transactions",
     "tab_sales": "Sales",

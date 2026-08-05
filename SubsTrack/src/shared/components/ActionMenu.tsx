@@ -16,6 +16,8 @@ export interface ActionMenuItem {
   onPress: () => void;
   destructive?: boolean;
   disabled?: boolean;
+  /** Small second line under the label — mainly why a disabled row is disabled. */
+  caption?: string;
 }
 
 interface ActionMenuProps {
@@ -97,14 +99,21 @@ export function ActionMenu({
                   </View>
                 </View>
               ) : null}
-              <Text
-                className={`text-base ${
-                  item.destructive ? "text-danger" : "text-gray-900"
-                }`}
-                fontWeight="Medium"
-              >
-                {item.label}
-              </Text>
+              <View className="flex-1">
+                <Text
+                  className={`text-base ${
+                    item.destructive ? "text-danger" : "text-gray-900"
+                  }`}
+                  fontWeight="Medium"
+                >
+                  {item.label}
+                </Text>
+                {item.caption ? (
+                  <Text className="text-xs text-gray-400 mt-0.5">
+                    {item.caption}
+                  </Text>
+                ) : null}
+              </View>
             </PressableOpacity>
           ))
         )}

@@ -20,12 +20,19 @@ import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { useLanguageStore } from "@/src/core/i18n/languageStore";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { RecordHistorySheet } from "@/src/modules/admin/audit";
+import { SendOnWhatsAppButton, useSendInvoice } from "@/src/modules/invoicing";
 
 interface Props {
   entry: MonthEntry | null;
   // Shown as a detail row when the sheet is opened outside a customer's own
   // screen (e.g. the tenant-wide Payments list) so the customer is identifiable.
   customerName?: string;
+  // Who to send the WhatsApp invoice to. Deliberately separate from
+  // `customerName` (which drives the visible row), so adding a send button to a
+  // caller never adds a "Customer" row it didn't have before. Omit to hide it.
+  recipient?: { name: string; phone: string | null };
+  // Plan name for the invoice text — the sheet only holds the payment.
+  planName?: string | null;
   onVoid?: () => void;
   onEdit?: (next: { amountPaid: number }) => void;
   editLoading?: boolean;
@@ -35,6 +42,8 @@ interface Props {
 export function PaymentDetailSheet({
   entry,
   customerName,
+  recipient,
+  planName,
   onVoid,
   onEdit,
   editLoading,
@@ -44,8 +53,7 @@ export function PaymentDetailSheet({
   const payment = entry?.payment;
   const currencies = useCurrencySlice((s) => s.items);
   const displayCurrencyId = useDisplayCurrencyId();
-  const { language } = useLanguageStore();
-  const locale = language === "ar" ? "ar" : "en-US";
+  const { sendPaymentInvoice } = useSendInvoice();
   // Use the snapshot rate frozen on the payment so historical USD equivalents
   // don't drift when the live currencies.ratePerUsd is later edited.
   const source = payment ? paymentSnapshotCurrency(payment, currencies) : null;
@@ -226,6 +234,23 @@ export function PaymentDetailSheet({
         </View>
       ) : null}
 
+      {/* Send the receipt to the customer. A voided payment is not a receipt, so
+          it is never sendable. */}
+      {payment && payment.voidedAt === null && recipient && !editMode ? (
+        <SendOnWhatsAppButton
+          phone={recipient.phone}
+          label={t("invoice.send_whatsapp")}
+          onPress={() =>
+            void sendPaymentInvoice({
+              phone: recipient.phone,
+              customerName: recipient.name,
+              rows: [{ payment, planName: planName ?? null }],
+            })
+          }
+          className="mb-3"
+        />
+      ) : null}
+
       {/* Edit payment */}
       {onEdit && !editMode ? (
         <PressableOpacity
@@ -282,7 +307,9 @@ export function PaymentDetailSheet({
           className="border border-gray-200 rounded-xl py-3 items-center mb-3 flex-row justify-center gap-2"
         >
           <Ionicons name="time-outline" size={16} color={COLORS.gray600} />
-          <Text className="text-gray-600 font-medium">{t("audit.history")}</Text>
+          <Text className="text-gray-600 font-medium">
+            {t("audit.history")}
+          </Text>
         </PressableOpacity>
       ) : null}
 

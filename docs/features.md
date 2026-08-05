@@ -14,6 +14,7 @@
 - [Tenant Settings (Per-Tenant Config)](#tenant-settings-per-tenant-config)
 - [Subscription Tiers](#subscription-tiers)
 - [Products & One-Off Sales](#products--one-off-sales)
+- [WhatsApp Invoices](#whatsapp-invoices)
 - [Transactions Hub](#transactions-hub)
 - [Debts](#debts)
 - [Regular Customer](#regular-customer)
@@ -372,6 +373,49 @@ Every product carries a stock quantity and can be **out of stock**. Stock on han
 `ProductBatchRestockSheet` is the many-products counterpart: a search box, then every **active** product as one compact row — name, current on-hand, and a `[−] qty [+]` stepper. A row with a quantity turns indigo and previews the result (`3 → 8`), so what's included is visible without reordering the list while the user types. One shared note applies to every row, and a summary line ("N products selected · +40") sits above the save button. Quantities are held per product id, so filtering the list never loses what was already typed. Two entry points, one component: the **Restock** button beside the search box on the products screen, and **Batch Restock** in the PageHeader quick-actions menu (admin-only there, since products live in the admin tab that non-admins never see).
 
 See gotchas #35, #36, #37, #48.
+
+---
+
+## WhatsApp Invoices
+
+Staff can send the customer a **plain-text receipt over WhatsApp** — at the moment the money is taken, or later from the saved record. It is a `wa.me` deep link end to end: no PDF, no printing, no new dependency, no DB change, no server work. Everything lives in the small `src/modules/invoicing/` module.
+
+**The module (3 files).**
+
+- `utils/invoiceText.ts` — **pure** builders, no React and no i18n singleton: `t` arrives inside an `InvoiceContext { t, orgName, locale, currencies, displayCurrencyId }` (the same "pass `t` in" pattern as `blockRangeLabel.ts`). Exports `buildPaymentInvoiceText(ctx, customerName, rows)` and `buildSaleInvoiceText(ctx, sale, customerName)`. It is **not a Service** — it decides nothing, validates nothing, throws nothing. It lives in a module rather than `src/core/` only because it reuses `getBlockRangeLabel`, and Core may not import from a module.
+- `hooks/useSendInvoice.ts` — the one place that turns a saved record into a message. Gathers the context from the stores (`useAuthSlice` tenant name, `useCurrencySlice`, `useDisplayCurrencyId`, `useLanguageStore`, `useTranslation`), calls `openWhatsApp`, and on a `false` result shows the `confirm({ hideCancel: true })` dialog. Returns `{ canSend, sendPaymentInvoice, sendSaleInvoice }`.
+- `components/SendOnWhatsAppButton.tsx` — the app's single green (`bg-[#25D366]` + `logo-whatsapp`) action row. Matches `Button`'s geometry but is its own component because `Button` takes no icon and no `className`. `ContactToUpgradeButton` was re-pointed at it, so that markup now exists once.
+
+**Five entry points.**
+
+| Where | Action |
+| --- | --- |
+| `PaymentFormSheet` | a second, stacked button — **Save & send on WhatsApp** (`handleSubmit(send)`) |
+| `SaleFormSheet` | the same second button, using the `Sale` `createSale` already returns |
+| Quick pay — month-cell menu (`CustomerPaymentPanel`) + customer-card menu (`CustomerListScreen`) | a **Pay & send on WhatsApp** row beside "Quick pay" |
+| **Month-grid multi-select** (`GridSelectionToolbar`) | a green WhatsApp action beside "Pay now" — **one** invoice for every selected month |
+| `PaymentDetailSheet` / `SaleDetailSheet` | **Send on WhatsApp**, to re-send a saved record any time |
+
+Stacked, not side-by-side: `Button` takes no `className`, and the long label (and its Arabic form) truncates at half a phone width.
+
+**Both busy states are one marker, not two flags.** Each form tracks `busyOn: "save" | "send" | null`, set **before** the write and cleared in a `finally`, so the spinner stays on the button the user actually pressed across both phases (the store write, then the awaited deep link). Consequently `canSubmit` / `submitDisabled` are **validity-only** — folding the slice's loading flag into them greys out *both* buttons, and a disabled `SendOnWhatsAppButton` shows no spinner at all.
+
+**No phone → visible but disabled, with a caption.** `canSend` digit-strips exactly like `openWhatsApp`, so `"-"` or `"n/a"` disables rather than producing a broken link. The button caption is `invoice.no_phone`, or `invoice.no_customer` for a walk-in sale; the menu rows use the new `ActionMenuItem.caption` field for the same hint. **A voided payment or sale never shows the button** — a cancelled receipt is not a receipt.
+
+**Message format** (owned entirely by `invoiceText.ts`): `*Org name*` bold header + a receipt title, then `Label: value` lines, list rows prefixed with a literal `•`, and an `invoice.thank_you` footer. Amounts are `formatMoney(v, source, source)` where `source = paymentSnapshotCurrency(row, currencies)` — the literal cash at the row's frozen rate — with a ` (≈ …)` display-currency suffix on the **one** headline amount only (Amount Paid / Total). A multi-row payment invoice (see below) prints **one Total per distinct currency**, never a single numeric sum, because each service line can carry its own currency. The date uses `getDateLocale(language)`, which always returns `en-US`: `formatMoney` hardcodes Latin digits, so an `"ar"` date would mix numeral systems inside one message.
+
+**Multi-plan quick pay is ONE message.** `CustomerListScreen.handleQuickPay(customer, send)` can create several payments in one batch, so `executePay` now returns the created `Payment[]` and each row is mapped back to its plan name via `requests.find((r) => r.customerPlanId === p.customerPlanId)`. The result is a single chat listing every line plus the per-currency totals and every receipt ID. The **customer-list** bulk toolbar is deliberately untouched — one WhatsApp chat cannot serve many customers.
+
+**Selecting many months is also ONE message.** The month grid's multi-select toolbar carries a WhatsApp action next to "Pay now", routing to the same `runBulkPay(send)` and its three sub-paths (fixed / multi-month blocks / custom amount). Every payment the batch created becomes one bullet in a single invoice, with a **Total paid per currency** and every receipt ID — `buildPaymentInvoiceText` already handled 2+ rows, so the text builder needed no change. Two details:
+
+- A **multi-month** selection produces one bullet **per block**, each labelled with its own range via `getBlockRangeLabel` — not one bullet per covered month.
+- The **custom-price** path asks for the amount in `BulkPaymentFormSheet` *after* the toolbar tap, so the send intent is carried to it as `sendToPhone` (the recipient's number, not a boolean): the sheet's submit button then renders as the green `SendOnWhatsAppButton`. The panel clears the intent on dismiss, so a later plain "Pay now" can't inherit it. Since the toolbar is icon-only with nowhere for a caption, the WhatsApp action is **hidden** (not disabled) when the customer has no dialable number — unlike the menu rows and form buttons, which disable with a caption. Adding a 4th action also forced `GridSelectionToolbar`'s pills to become **icon-only round buttons** (the label moves to `accessibilityLabel`): four labelled pills overflow a phone row, and squeezing them crushed the "N selected" count into one character per line.
+
+**Getting the created record back.** Five `payments` slice actions now forward what the service already returned instead of discarding it (no new state field): `createPayment → Promise<Payment | null>`, `createPayments → Promise<Payment[]>`, `createMultiMonthPayment → Promise<CreateMultiMonthPaymentResult | null>` (the already-exported `{ payment, conflictMonths }` shape), `createMultiMonthPayments → Promise<{ payments, conflictMonths } | null>`, `bulkPayCustomers → Promise<Payment[]>`. `PaymentFormSheet` still tests success with the store's `error` (not the returned record), so the tier-limit path behaves exactly as before, and the bulk paths still judge success with `bulkSucceeded()` before clearing the selection.
+
+**One additive read change.** `PaymentDetailSheet` opened from the tenant-wide list receives a `PaymentListItem`, which had no phone, so `PAYMENT_LIST_SELECT` now also selects `phone_number` and `PaymentListItem` carries `customerPhone`. The offline sibling needed nothing — `hydrateListJoins` already attaches the whole `customers` row. The sheet takes the recipient as its own `recipient?: { name, phone }` prop, kept **separate from `customerName`** (which drives the visible "Customer" row) so adding a send button never adds a row a caller didn't have.
+
+See gotchas #68, #69. QA: [../QA/whatsapp-invoices.md](../QA/whatsapp-invoices.md).
 
 ---
 

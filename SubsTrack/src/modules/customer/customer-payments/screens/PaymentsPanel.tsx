@@ -351,6 +351,11 @@ export function PaymentsPanel() {
         <PaymentDetailSheet
           entry={toEntry(activePayment)}
           customerName={activePayment.customerName}
+          recipient={{
+            name: activePayment.customerName,
+            phone: activePayment.customerPhone,
+          }}
+          planName={activePayment.planName}
           onVoid={() => setVoidIds([activePayment.id])}
           onEdit={handleEdit}
           editLoading={loadingUpdate}

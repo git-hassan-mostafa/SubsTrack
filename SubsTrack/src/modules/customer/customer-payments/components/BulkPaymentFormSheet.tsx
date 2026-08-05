@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 import { Button } from "@/src/shared/components/Button";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { CurrencyInput } from "@/src/shared/components/CurrencyInput";
+import { SendOnWhatsAppButton } from "@/src/modules/invoicing";
 import { usePaymentSlice } from "@/src/state/hooks/usePaymentSlice";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
@@ -24,6 +25,10 @@ export interface BulkPaymentValues {
 interface Props {
   count: number;
   submitting: boolean;
+  // The recipient's number when the caller will also send the invoice after
+  // saving; the submit button then turns green and says so. Undefined/null =
+  // a plain save.
+  sendToPhone?: string | null;
   onConfirm: (values: BulkPaymentValues) => void;
   onDismiss: () => void;
 }
@@ -34,6 +39,7 @@ interface Props {
 export function BulkPaymentFormSheet({
   count,
   submitting,
+  sendToPhone,
   onConfirm,
   onDismiss,
 }: Props) {
@@ -134,19 +140,29 @@ export function BulkPaymentFormSheet({
               partialDisabled={amountDue == null || amountDue <= 0}
             />
 
-            <Button
-              label={
-                amountDue !== null &&
-                resolvedPaid !== null &&
-                resolvedPaid < amountDue
-                  ? t("payments.record_payment_action")
-                  : t("payments.mark_as_paid")
-              }
-              onPress={handleSubmit}
-              loading={submitting}
-              disabled={!canSubmit}
-              fullWidth
-            />
+            {sendToPhone ? (
+              <SendOnWhatsAppButton
+                label={t("invoice.save_and_send_whatsapp")}
+                phone={sendToPhone}
+                onPress={handleSubmit}
+                loading={submitting}
+                disabled={!canSubmit}
+              />
+            ) : (
+              <Button
+                label={
+                  amountDue !== null &&
+                  resolvedPaid !== null &&
+                  resolvedPaid < amountDue
+                    ? t("payments.record_payment_action")
+                    : t("payments.mark_as_paid")
+                }
+                onPress={handleSubmit}
+                loading={submitting}
+                disabled={!canSubmit}
+                fullWidth
+              />
+            )}
         <View className="h-4" />
     </FormSheet>
   );

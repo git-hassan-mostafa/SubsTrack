@@ -1,6 +1,6 @@
 # Sales — QA Scenarios
 
-Covers the one-off sales ledger: recording a sale (with **one or more products**) against an optional customer, viewing the sales list, the sale receipt, voiding a sale, and the per-customer sales panel. Sales are a completely separate ledger from subscription payments — they share no schema or service code beyond the snapshot-rate principle.
+Covers the one-off sales ledger: recording a sale (with **one or more products**) against an optional customer, viewing the sales list, the sale receipt, voiding a sale, and the per-customer sales panel. Sales are a completely separate ledger from subscription payments — they share no schema or service code beyond the snapshot-rate principle. Sending the sale receipt to the customer over WhatsApp (the form's second button and the receipt sheet's Send button) is covered in [whatsapp-invoices.md](whatsapp-invoices.md).
 
 **A sale is a header (`sales`) + one or more product lines (`sale_items`).** One sale can hold several products (a "cart"). The header carries the single sale currency + rate snapshot, the summed `total_amount`, `amount_paid`, and a frozen `items_summary`. Each line is one product (`product_name_snapshot`, `quantity`, `unit_amount`). Partial payment / debt / wallet / dashboard are all header-level (one debt, one wallet entry, one revenue figure per sale). Revenue, wallet, and the Sales-tab month headers all read `amount_paid`; only the debt reads `total_amount − amount_paid`.
 

@@ -8,7 +8,12 @@ import { Button } from "@/src/shared/components/Button";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { Input } from "@/src/shared/components/Input";
 import { CurrencyInput } from "@/src/shared/components/CurrencyInput";
-import type { Customer, CustomerPlan, MonthEntry } from "@/src/core/types";
+import type {
+  Customer,
+  CustomerPlan,
+  MonthEntry,
+  Payment,
+} from "@/src/core/types";
 import { getCurrentYearMonth, toBillingMonth } from "@/src/core/utils/date";
 import { getBlockRangeLabel } from "../utils/blockRangeLabel";
 import { useAuth } from "@/src/modules/authentication/auth";
@@ -17,6 +22,7 @@ import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useSubscriptionSlice } from "@/src/state/hooks/useSubscriptionSlice";
 import { getStore } from "@/src/state/globalStore";
 import { UpgradePromptModal } from "@/src/modules/admin/subscription";
+import { SendOnWhatsAppButton, useSendInvoice } from "@/src/modules/invoicing";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { useLanguageStore } from "@/src/core/i18n/languageStore";
 import { MONTHS } from "@/src/core/constants";
@@ -85,8 +91,13 @@ export function PaymentFormSheet({
   const currencies = useCurrencySlice((s) => s.items);
   const { language } = useLanguageStore();
   const locale = language === "ar" ? "ar" : "en-US";
+  const { sendPaymentInvoice } = useSendInvoice();
 
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
+  // Which button is mid-submit — set before the write, so the spinner stays on
+  // the button the user actually pressed for the whole save + send.
+  const [busyOn, setBusyOn] = useState<"save" | "send" | null>(null);
+  const busy = busyOn !== null;
 
   // CurrencyInput self-seeds the currency from the last-used one after mount, so
   // it changes with no user action — ignore it in the dirty check.
@@ -162,13 +173,14 @@ export function PaymentFormSheet({
   const formatResolved = (amount: number) =>
     formatMoney(amount, resolvedCurrency, resolvedCurrency);
 
+  // Validity only — the busy state is gated per button, so the pressed one keeps
+  // its own spinner instead of both greying out.
   const canSubmit =
     resolvedDue !== null &&
     resolvedDue > 0 &&
     resolvedPaid !== null &&
     resolvedPaid >= 0 &&
     resolvedPaid <= resolvedDue &&
-    !loadingCreate &&
     !blockedForInactive &&
     !showConflictWarning;
 
@@ -194,13 +206,25 @@ export function PaymentFormSheet({
     }));
   }
 
-  async function handleSubmit() {
-    if (!user || !canSubmit || loadingCreate) return;
+  async function handleSubmit(send = false) {
+    if (!user || !canSubmit || loadingCreate || busy) return;
     if (resolvedDue === null || resolvedPaid === null) return;
 
+    setBusyOn(send ? "send" : "save");
+    try {
+      await submit(send);
+    } finally {
+      setBusyOn(null);
+    }
+  }
+
+  async function submit(send: boolean) {
+    if (!user || resolvedDue === null || resolvedPaid === null) return;
+
+    let created: Payment | null;
     if (isMultiMonth && plan) {
       if (!currentTier) return;
-      await createMultiMonthPayment(
+      const result = await createMultiMonthPayment(
         entry.billingMonth,
         customer,
         line.id,
@@ -215,8 +239,9 @@ export function PaymentFormSheet({
         entry.year,
         currentTier,
       );
+      created = result?.payment ?? null;
     } else {
-      await createPayment(
+      created = await createPayment(
         {
           billingMonth: entry.billingMonth,
           amountDue: resolvedDue,
@@ -234,7 +259,16 @@ export function PaymentFormSheet({
         lines,
       );
     }
+    // Store error (not `created`) stays the success test, so the tier-limit path
+    // keeps behaving exactly as before.
     if (!getStore().getState().payments.error) {
+      if (send && created) {
+        await sendPaymentInvoice({
+          phone: customer.phoneNumber,
+          customerName: customer.name,
+          rows: [{ payment: created, planName: plan?.name ?? null }],
+        });
+      }
       onDismiss();
     }
   }
@@ -499,10 +533,18 @@ export function PaymentFormSheet({
               ? t("payments.record_payment_action")
               : t("payments.mark_as_paid")
           }
-          onPress={handleSubmit}
-          loading={loadingCreate}
-          disabled={!canSubmit}
+          onPress={() => void handleSubmit(false)}
+          loading={busyOn === "save"}
+          disabled={!canSubmit || busyOn === "send"}
           fullWidth
+        />
+        <SendOnWhatsAppButton
+          phone={customer.phoneNumber}
+          label={t("invoice.save_and_send_whatsapp")}
+          onPress={() => void handleSubmit(true)}
+          loading={busyOn === "send"}
+          disabled={!canSubmit || busyOn === "save"}
+          className="mt-2"
         />
         <Text className="text-xs text-gray-400 text-center mt-2">
           {t("payments.receipt_id_hint")}

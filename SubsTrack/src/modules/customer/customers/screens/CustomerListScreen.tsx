@@ -19,7 +19,8 @@ import {
 import { useDebounce } from "@/src/shared/hooks/useDebounce";
 import { COLORS } from "@/src/shared/constants";
 import { useSubscriptionSlice } from "@/src/state/hooks/useSubscriptionSlice";
-import type { Customer } from "@/src/core/types";
+import type { Customer, Payment } from "@/src/core/types";
+import { useSendInvoice } from "@/src/modules/invoicing";
 import { CustomerCard } from "../components/CustomerCard";
 import { CustomerHistorySheet } from "../components/CustomerHistorySheet";
 import { CustomerFormSheet } from "../components/CustomerFormSheet";
@@ -86,6 +87,7 @@ export function CustomerListScreen() {
   const netDebtByCustomer = useDebtSlice((s) => s.netByCustomer);
   const fetchNetDebtByCustomer = useDebtSlice((s) => s.fetchNetByCustomer);
   const addDebtPayment = useDebtSlice((s) => s.addDebtPayment);
+  const { canSend, sendPaymentInvoice } = useSendInvoice();
   const displayCurrencyId = useDisplayCurrencyId();
   const displayCurrency = findCurrency(currencies, displayCurrencyId);
   const [formVisible, setFormVisible] = useState(false);
@@ -254,9 +256,12 @@ export function CustomerListScreen() {
 
   // Pays the current month for every eligible fixed-price line of the given
   // requests in one batch ("collect all due"), then refreshes the badges.
-  async function executePay(requests: BulkPayCustomerRequest[]) {
-    if (!user || !currentTier || requests.length === 0) return;
-    const paid = await bulkPayCustomers(
+  // Returns the created payments so a caller can invoice them.
+  async function executePay(
+    requests: BulkPayCustomerRequest[],
+  ): Promise<Payment[]> {
+    if (!user || !currentTier || requests.length === 0) return [];
+    const created = await bulkPayCustomers(
       requests,
       user.id,
       user.tenantId,
@@ -264,17 +269,21 @@ export function CustomerListScreen() {
     );
     clearSelection();
     void fetchCustomerStatuses(customers);
-    const failed = requests.length - paid;
+    const failed = requests.length - created.length;
     if (failed > 0) {
       clearPaymentError();
       clearPaymentTierLimitError();
-      setBulkNotice(t("customers.bulk_pay_summary", { ok: paid, failed }));
+      setBulkNotice(
+        t("customers.bulk_pay_summary", { ok: created.length, failed }),
+      );
     }
+    return created;
   }
 
   // Single-customer quick pay from the card / menu. Pays all eligible fixed-price
   // lines; custom-price / plan-less customers open the detail form instead.
-  async function handleQuickPay(customer: Customer) {
+  // `send` also WhatsApps one invoice covering every line just paid.
+  async function handleQuickPay(customer: Customer, send = false) {
     const requests = eligibleFixedLines(customer);
     if (requests.length === 0) {
       router.push({
@@ -300,7 +309,21 @@ export function CustomerListScreen() {
     }
     setQuickPayCustomerId(customer.id);
     try {
-      await executePay(requests);
+      const created = await executePay(requests);
+      // ONE message for the whole batch — a multi-plan customer gets a single
+      // chat listing every line, not one message per plan.
+      if (send && created.length > 0) {
+        await sendPaymentInvoice({
+          phone: customer.phoneNumber,
+          customerName: customer.name,
+          rows: created.map((p) => ({
+            payment: p,
+            planName:
+              requests.find((r) => r.customerPlanId === p.customerPlanId)?.plan
+                .name ?? null,
+          })),
+        });
+      }
     } finally {
       setQuickPayCustomerId(null);
     }
@@ -587,6 +610,20 @@ export function CustomerListScreen() {
         icon: "flash-outline",
         onPress: () => handleQuickPay(customer),
       });
+      // Only when there is really something to one-tap pay: with no eligible
+      // fixed line, quick pay routes to the detail screen instead of paying, and
+      // that screen's form already carries its own "Save & send".
+      if (eligibleFixedLines(customer).length > 0) {
+        const sendable = canSend(customer.phoneNumber);
+        items.push({
+          key: "quick-pay-whatsapp",
+          label: t("invoice.pay_and_send_whatsapp"),
+          icon: "logo-whatsapp",
+          disabled: !sendable,
+          caption: sendable ? undefined : t("invoice.no_phone"),
+          onPress: () => void handleQuickPay(customer, true),
+        });
+      }
     }
     if (hasCurrentMonthPayment(customer.id)) {
       items.push({

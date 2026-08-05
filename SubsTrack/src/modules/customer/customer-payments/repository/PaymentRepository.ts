@@ -8,7 +8,9 @@ import { OfflinePaymentRepository } from './PaymentRepository.offline';
 
 // Joins the customer name (and branch_id, needed by the inherited branch filter)
 // for the flat Payments list.
-const PAYMENT_LIST_SELECT = '*, customers!inner(name, branch_id), plans(name)';
+// phone_number rides along so a receipt opened from the tenant-wide list can be
+// sent to the customer without a second query.
+const PAYMENT_LIST_SELECT = '*, customers!inner(name, phone_number, branch_id), plans(name)';
 
 // Start of a YYYY-MM-DD day as a local-time ISO timestamp (matches the
 // day-bound helpers in SaleRepository — same local→UTC conversion).

@@ -87,6 +87,20 @@ export function formatDateTime(iso: string, locale = "en-US"): string {
   });
 }
 
+// Same stamp, minus the year while it's the current one — keeps a log row's
+// "who · when" line on one line on a phone.
+export function formatDateTimeShort(iso: string, locale = "en-US"): string {
+  const d = new Date(iso);
+  const thisYear = d.getFullYear() === new Date().getFullYear();
+  return d.toLocaleString(locale, {
+    month: "short",
+    day: "numeric",
+    ...(thisYear ? {} : { year: "numeric" }),
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
 export function isValidDateString(s: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(Date.parse(s));
 }

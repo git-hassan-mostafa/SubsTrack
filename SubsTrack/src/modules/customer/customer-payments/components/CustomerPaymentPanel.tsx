@@ -14,7 +14,12 @@ import {
   ActionMenu,
   type ActionMenuItem,
 } from "@/src/shared/components/ActionMenu";
-import type { Customer, CustomerPlan, MonthEntry } from "@/src/core/types";
+import type {
+  Customer,
+  CustomerPlan,
+  MonthEntry,
+  Payment,
+} from "@/src/core/types";
 import { getCurrentYearMonth, getDateLocale } from "@/src/core/utils/date";
 import {
   findCurrency,
@@ -48,6 +53,7 @@ import {
 } from "@/src/shared/hooks/useSelection";
 import type { SelectionAction } from "@/src/shared/components/PageHeader";
 import { UpgradePromptModal } from "@/src/modules/admin/subscription";
+import { useSendInvoice } from "@/src/modules/invoicing";
 import { usePaymentSlice } from "@/src/state/hooks/usePaymentSlice";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { getStore } from "@/src/state/globalStore";
@@ -117,6 +123,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
   const resetPayments = usePaymentSlice((s) => s.reset);
   const currencies = useCurrencySlice((s) => s.items);
   const currentTier = useSubscriptionSlice((s) => s.currentTier);
+  const { canSend, sendPaymentInvoice } = useSendInvoice();
   const displayCurrencyId = useDisplayCurrencyId();
   const displayCurrency = findCurrency(currencies, displayCurrencyId);
 
@@ -144,6 +151,9 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
   useSelectionBackHandler(selection.active, selection.clear);
   const [bulkBusy, setBulkBusy] = useState(false);
   const [bulkPayVisible, setBulkPayVisible] = useState(false);
+  // Whether the custom-amount bulk sheet should also send the invoice — the
+  // choice is made in the toolbar, the amount only afterwards.
+  const [bulkPaySend, setBulkPaySend] = useState(false);
   const [bulkVoidIds, setBulkVoidIds] = useState<string[] | null>(null);
   // Months being skipped / unskipped (one cell, or a whole selection).
   const [skipRequest, setSkipRequest] = useState<{
@@ -315,7 +325,21 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
     );
   }
 
-  async function handleQuickPay(entry: MonthEntry) {
+  // Sends ONE invoice covering every just-created payment (a multi-select pays
+  // several months, and the builder already totals them per currency). No-op
+  // when the write failed or the customer has no number — the pay must still
+  // count as done.
+  async function sendCreatedInvoice(created: Payment[]) {
+    const rows = created.filter((p) => p != null);
+    if (rows.length === 0 || !canSend(customer.phoneNumber)) return;
+    await sendPaymentInvoice({
+      phone: customer.phoneNumber,
+      customerName: customer.name,
+      rows: rows.map((payment) => ({ payment, planName: plan?.name ?? null })),
+    });
+  }
+
+  async function handleQuickPay(entry: MonthEntry, send = false) {
     if (
       !selectedLine ||
       !plan ||
@@ -346,7 +370,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
       if (!ok) return;
       setQuickPayMonth(entry.billingMonth);
       try {
-        await createMultiMonthPayment(
+        const result = await createMultiMonthPayment(
           entry.billingMonth,
           customer,
           selectedLine.id,
@@ -361,6 +385,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
           year,
           currentTier,
         );
+        if (send) await sendCreatedInvoice(result ? [result.payment] : []);
       } finally {
         setQuickPayMonth(null);
       }
@@ -369,7 +394,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
 
     setQuickPayMonth(entry.billingMonth);
     try {
-      await createPayment(
+      const created = await createPayment(
         {
           billingMonth: entry.billingMonth,
           amountDue: plan.price,
@@ -386,6 +411,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
         planCurrency,
         lines,
       );
+      if (send) await sendCreatedInvoice(created ? [created] : []);
     } finally {
       setQuickPayMonth(null);
     }
@@ -407,6 +433,15 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
         label: t("payments.quick_pay.pay_now"),
         icon: "flash-outline",
         onPress: () => void handleQuickPay(entry),
+      });
+      const sendable = canSend(customer.phoneNumber);
+      items.push({
+        key: "quick-pay-whatsapp",
+        label: t("invoice.pay_and_send_whatsapp"),
+        icon: "logo-whatsapp",
+        disabled: !sendable,
+        caption: sendable ? undefined : t("invoice.no_phone"),
+        onPress: () => void handleQuickPay(entry, true),
       });
     }
     // Skip is offered on months with nothing to collect yet; a paid month must
@@ -491,18 +526,21 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
     return !ps.error && !ps.tierLimitError;
   }
 
-  function runBulkPay() {
+  function runBulkPay(send = false) {
     if (bulkBusy || payableEntries.length === 0) return;
     if (!plan || plan.isCustomPrice) {
+      // The custom-amount sheet asks for the amount first; it carries the send
+      // intent to its own submit.
+      setBulkPaySend(send);
       setBulkPayVisible(true);
     } else if (plan.durationMonths > 1) {
-      void runBulkMultiMonthPay();
+      void runBulkMultiMonthPay(send);
     } else {
-      void runBulkFixedPay();
+      void runBulkFixedPay(send);
     }
   }
 
-  async function runBulkFixedPay() {
+  async function runBulkFixedPay(send: boolean) {
     if (!user || !selectedLine || !plan || plan.price === null) return;
     const ok = await confirm({
       title: t("payments.quick_pay.pay_now"),
@@ -527,14 +565,15 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
     clearPaymentError();
     setBulkBusy(true);
     try {
-      await createPayments(inputs, planCurrency, lines, year);
+      const created = await createPayments(inputs, planCurrency, lines, year);
+      if (send) await sendCreatedInvoice(created);
     } finally {
       setBulkBusy(false);
     }
     if (bulkSucceeded()) selection.clear();
   }
 
-  async function runBulkMultiMonthPay() {
+  async function runBulkMultiMonthPay(send: boolean) {
     if (!user || !selectedLine || !plan || plan.price === null || !currentTier)
       return;
     const blocks = groupPayableBlocks(payableEntries, selectedLine);
@@ -549,7 +588,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
     clearPaymentTierLimitError();
     setBulkBusy(true);
     try {
-      await createMultiMonthPayments(
+      const result = await createMultiMonthPayments(
         blocks.map((b) => b.startBillingMonth),
         customer,
         selectedLine.id,
@@ -563,6 +602,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
         year,
         currentTier,
       );
+      if (send) await sendCreatedInvoice(result?.payments ?? []);
     } finally {
       setBulkBusy(false);
     }
@@ -588,7 +628,8 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
     clearPaymentError();
     setBulkBusy(true);
     try {
-      await createPayments(inputs, currency, lines, year);
+      const created = await createPayments(inputs, currency, lines, year);
+      if (bulkPaySend) await sendCreatedInvoice(created);
     } finally {
       setBulkBusy(false);
     }
@@ -611,8 +652,19 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
       icon: "flash-outline",
       label: t("payments.quick_pay.pay_now"),
       disabled: bulkBusy,
-      onPress: runBulkPay,
+      onPress: () => runBulkPay(),
     });
+    // One invoice for the whole selection — hidden (not disabled) without a
+    // number, since the toolbar is icon-sized and has nowhere for a caption.
+    if (canSend(customer.phoneNumber)) {
+      selectionActions.push({
+        key: "pay-whatsapp",
+        icon: "logo-whatsapp",
+        label: t("invoice.pay_and_send_whatsapp"),
+        disabled: bulkBusy,
+        onPress: () => runBulkPay(true),
+      });
+    }
   }
   if (skippableEntries.length > 0) {
     selectionActions.push({
@@ -935,6 +987,8 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
       {detailVisible && selectedEntry && (
         <PaymentDetailSheet
           entry={selectedEntry}
+          recipient={{ name: customer.name, phone: customer.phoneNumber }}
+          planName={plan?.name ?? null}
           onVoid={handleVoidPress}
           onEdit={canEditAmount ? handleEditAmount : undefined}
           editLoading={loadingUpdate}
@@ -958,7 +1012,11 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
           count={payableEntries.length}
           submitting={bulkBusy}
           onConfirm={runBulkCustomPay}
-          onDismiss={() => setBulkPayVisible(false)}
+          sendToPhone={bulkPaySend ? customer.phoneNumber : null}
+          onDismiss={() => {
+            setBulkPayVisible(false);
+            setBulkPaySend(false);
+          }}
         />
       )}
       {skipRequest && selectedLine && (

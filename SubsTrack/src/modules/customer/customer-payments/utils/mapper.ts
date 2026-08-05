@@ -2,10 +2,11 @@ import type { DbPayment, DbSkippedMonth } from "@/src/core/types/db";
 import type { Payment, SkippedMonth } from "@/src/core/types";
 import type { PaymentListItem } from "./types";
 
-// A payment row joined with its customer name + plan name, as returned by
-// PaymentRepository.findAll (select '*, customers!inner(name, branch_id), plans(name)').
+// A payment row joined with its customer (name + phone) and plan name, as
+// returned by PaymentRepository.findAll (PAYMENT_LIST_SELECT). The offline
+// sibling attaches the whole customers row, so both paths satisfy this shape.
 type DbPaymentListRow = DbPayment & {
-    customers?: { name: string } | null;
+    customers?: { name: string; phone_number?: string | null } | null;
     plans?: { name: string } | null;
 };
 
@@ -13,6 +14,7 @@ export function mapDbPaymentRowToListItem(db: DbPaymentListRow): PaymentListItem
     return {
         ...mapDbPaymentToPayment(db),
         customerName: db.customers?.name ?? "",
+        customerPhone: db.customers?.phone_number ?? null,
         planName: db.plans?.name ?? null,
     };
 }

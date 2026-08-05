@@ -4,6 +4,7 @@ import { getCurrentYearMonth, toBillingMonth } from '@/src/core/utils/date';
 import {
   paymentService,
   skippedMonthService,
+  type CreateMultiMonthPaymentResult,
   type MultiMonthConflict,
   type SetSkipInput,
 } from '@/src/modules/customer/customer-payments';
@@ -93,25 +94,30 @@ export interface PaymentSlice {
     userId: string | null,
     lines: CustomerPlan[],
     year: number,  ) => Promise<void>;
+  // Returns the created payment so the caller can build a receipt/invoice from
+  // the real record (id, paidAt). null = the write failed; check `error`.
   createPayment: (
     data: CreatePaymentInput,
     currency: Currency | null,
-    lines: CustomerPlan[],  ) => Promise<void>;
+    lines: CustomerPlan[],  ) => Promise<Payment | null>;
+  // Returns the created payments so one invoice can cover the whole batch
+  // (empty on failure; check `error`).
   createPayments: (
     data: CreatePaymentInput[],
     currency: Currency | null,
     lines: CustomerPlan[],
-    year: number,  ) => Promise<void>;
+    year: number,  ) => Promise<Payment[]>;
   // Customer-list "collect all due": pays the current month for many eligible
   // fixed-price lines (one payment each) in one DB round-trip. All-or-nothing —
-  // returns the number paid (0 on failure; check error/tierLimitError). The
-  // caller refreshes the current-month / overdue status afterwards.
+  // returns the created payments (empty on failure; check error/tierLimitError),
+  // so a caller can both count them and build one invoice covering every line.
+  // The caller refreshes the current-month / overdue status afterwards.
   bulkPayCustomers: (
     requests: BulkPayCustomerRequest[],
     receivedByUserId: string,
     tenantId: string,
     tier: TierPlan,
-  ) => Promise<number>;
+  ) => Promise<Payment[]>;
   createMultiMonthPayment: (
     startMonth: string,
     customer: Customer,
@@ -125,7 +131,9 @@ export interface PaymentSlice {
     skipConflicts: boolean,
     lines: CustomerPlan[],
     year: number,    tier: TierPlan,
-  ) => Promise<MultiMonthConflict[]>;
+    // The service's own shape, forwarded whole: the payment (for a receipt) plus
+    // the months the block stepped over. null = the write failed.
+  ) => Promise<CreateMultiMonthPaymentResult | null>;
   createMultiMonthPayments: (
     starts: string[],
     customer: Customer,
@@ -138,7 +146,9 @@ export interface PaymentSlice {
     tenantId: string,
     lines: CustomerPlan[],
     year: number,    tier: TierPlan,
-  ) => Promise<MultiMonthConflict[]>;
+    // The created blocks (for one batch invoice) plus the months the blocks
+    // stepped over. null = the write failed.
+  ) => Promise<{ payments: Payment[]; conflictMonths: MultiMonthConflict[] } | null>;
   updatePayment: (
     id: string,
     amountPaid: number,
@@ -270,7 +280,7 @@ export const createPaymentSlice: StateCreator<
   },
 
   createPayment: async (data, currency, lines) => {
-    if (get().payments.loadingCreate) return;
+    if (get().payments.loadingCreate) return null;
     set((state) => {
       state.payments.loadingCreate = true;
       state.payments.error = null;
@@ -290,16 +300,18 @@ export const createPaymentSlice: StateCreator<
         state.payments.loadingCreate = false;
         syncCustomerStatus(state.payments, data.customerId, lines, items, skips, getUnpaidRule(get));
       });
+      return payment;
     } catch (e) {
       set((state) => {
         state.payments.error = (e as Error).message;
         state.payments.loadingCreate = false;
       });
+      return null;
     }
   },
 
   createPayments: async (data, currency, lines, year) => {
-    if (data.length === 0 || get().payments.loadingCreate) return;
+    if (data.length === 0 || get().payments.loadingCreate) return [];
     set((state) => {
       state.payments.loadingCreate = true;
       state.payments.error = null;
@@ -319,16 +331,18 @@ export const createPaymentSlice: StateCreator<
         state.payments.loadingCreate = false;
         if (customerId) syncCustomerStatus(state.payments, customerId, lines, items, skips, getUnpaidRule(get));
       });
+      return created;
     } catch (e) {
       set((state) => {
         state.payments.error = (e as Error).message;
         state.payments.loadingCreate = false;
       });
+      return [];
     }
   },
 
   bulkPayCustomers: async (requests, receivedByUserId, tenantId, tier) => {
-    if (requests.length === 0 || get().payments.loadingCreate) return 0;
+    if (requests.length === 0 || get().payments.loadingCreate) return [];
     set((state) => {
       state.payments.loading = true;
       state.payments.error = null;
@@ -353,7 +367,7 @@ export const createPaymentSlice: StateCreator<
       set((state) => {
         state.payments.loading = false;
       });
-      return created.length;
+      return created;
     } catch (e) {
       if (e instanceof TierLimitError) {
         set((state) => {
@@ -370,7 +384,7 @@ export const createPaymentSlice: StateCreator<
           state.payments.loading = false;
         });
       }
-      return 0;
+      return [];
     }
   },
 
@@ -389,7 +403,7 @@ export const createPaymentSlice: StateCreator<
     year,
     tier,
   ) => {
-    if (get().payments.loadingCreate) return [];
+    if (get().payments.loadingCreate) return null;
     set((state) => {
       state.payments.loadingCreate = true;
       state.payments.error = null;
@@ -422,7 +436,7 @@ export const createPaymentSlice: StateCreator<
         state.payments.loadingCreate = false;
         syncCustomerStatus(state.payments, customer.id, lines, items, skips, getUnpaidRule(get));
       });
-      return conflictMonths;
+      return { payment, conflictMonths };
     } catch (e) {
       if (e instanceof TierLimitError) {
         set((state) => {
@@ -439,7 +453,7 @@ export const createPaymentSlice: StateCreator<
           state.payments.loadingCreate = false;
         });
       }
-      return [];
+      return null;
     }
   },
 
@@ -457,7 +471,7 @@ export const createPaymentSlice: StateCreator<
     year,
     tier,
   ) => {
-    if (starts.length === 0 || get().payments.loadingCreate) return [];
+    if (starts.length === 0 || get().payments.loadingCreate) return null;
     set((state) => {
       state.payments.loadingCreate = true;
       state.payments.error = null;
@@ -489,7 +503,7 @@ export const createPaymentSlice: StateCreator<
         state.payments.loadingCreate = false;
         syncCustomerStatus(state.payments, customer.id, lines, items, skips, getUnpaidRule(get));
       });
-      return conflictMonths;
+      return { payments, conflictMonths };
     } catch (e) {
       if (e instanceof TierLimitError) {
         set((state) => {
@@ -506,7 +520,7 @@ export const createPaymentSlice: StateCreator<
           state.payments.loadingCreate = false;
         });
       }
-      return [];
+      return null;
     }
   },
 

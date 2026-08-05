@@ -71,7 +71,8 @@ export class OfflinePaymentRepository extends OfflineBaseRepository implements I
     return this.hydrateListJoins(this.decodeAll<DbPayment>('payments', rows));
   }
 
-  // Attach the joined `customers` (name, branch_id) and `plans` (name) shapes.
+  // Attach the joined `customers` (whole row — name, phone_number, branch_id) and
+  // `plans` (name) shapes.
   private async hydrateListJoins(payments: DbPayment[]): Promise<DbPayment[]> {
     if (payments.length === 0) return payments;
     const customers = await this.rowsById<DbCustomer>('customers', payments.map((p) => p.customer_id));

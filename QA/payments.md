@@ -1,6 +1,6 @@
 # Payments — QA Scenarios
 
-Covers everything that happens when a user taps a month cell or uses Quick Pay: recording a payment (Scenarios A / B / C / D), partial payments, multi-month bundles, currency selection, the receipt sheet (with edit + void), and the void flow. Voids are soft (audit-preserved). The month-grid status logic is documented separately in [monthly-grid.md](monthly-grid.md). Currency CRUD and the display-currency preference are in [currencies.md](currencies.md).
+Covers everything that happens when a user taps a month cell or uses Quick Pay: recording a payment (Scenarios A / B / C / D), partial payments, multi-month bundles, currency selection, the receipt sheet (with edit + void), and the void flow. Voids are soft (audit-preserved). The month-grid status logic is documented separately in [monthly-grid.md](monthly-grid.md). Currency CRUD and the display-currency preference are in [currencies.md](currencies.md). Sending the receipt to the customer over WhatsApp (the form's second button, the "Pay & send" quick-pay row, and the receipt sheet's Send button) is covered in [whatsapp-invoices.md](whatsapp-invoices.md).
 
 **Reference code:**
 - Form sheet: [PaymentFormSheet.tsx](SubsTrack/src/modules/customer-payments/components/PaymentFormSheet.tsx)

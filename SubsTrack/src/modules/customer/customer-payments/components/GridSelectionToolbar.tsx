@@ -22,12 +22,20 @@ export function GridSelectionToolbar({ count, actions, onClose }: Props) {
       <PressableOpacity onPress={onClose} className="p-1" hitSlop={8}>
         <Ionicons name="close" size={20} color={COLORS.gray700} />
       </PressableOpacity>
+      {/* `flex-1` so the count keeps its own line and the actions take the rest —
+          without it the label is squeezed to one character per line. */}
       <View className="flex-1 min-w-0">
-        <Text fontWeight="SemiBold" className="text-sm text-gray-900">
+        <Text
+          fontWeight="SemiBold"
+          className="text-sm text-gray-900"
+          numberOfLines={1}
+        >
           {t("common.selected_count", { count })}
         </Text>
       </View>
-      <View className="flex-row items-center gap-1">
+      {/* Icon-only: up to 4 actions (pay / pay & send / skip / void) are on this
+          one fixed-height row, and labelled pills overflow a phone width. */}
+      <View className="flex-row items-center gap-1.5">
         {actions.map((action) => (
           <PressableOpacity
             key={action.key}
@@ -35,7 +43,7 @@ export function GridSelectionToolbar({ count, actions, onClose }: Props) {
             disabled={action.disabled}
             hitSlop={8}
             accessibilityLabel={action.label}
-            className={`flex-row items-center gap-1.5 px-3 h-9 rounded-full bg-white border border-gray-200 ${
+            className={`w-9 h-9 rounded-full items-center justify-center bg-white border border-gray-200 ${
               action.disabled ? "opacity-40" : ""
             }`}
           >
@@ -44,12 +52,6 @@ export function GridSelectionToolbar({ count, actions, onClose }: Props) {
               size={18}
               color={action.destructive ? COLORS.danger : COLORS.primary}
             />
-            <Text
-              fontWeight="SemiBold"
-              className={`text-sm ${action.destructive ? "text-red-500" : "text-primary"}`}
-            >
-              {action.label}
-            </Text>
           </PressableOpacity>
         ))}
       </View>

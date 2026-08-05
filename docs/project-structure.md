@@ -182,6 +182,11 @@ SubsTrack/
 │   │   │   ├── screens/CustomerSalesListScreen.tsx  # full per-customer sales list at customers/[id]/sales
 │   │   │   └── components/{SaleCard, SaleFormSheet, SaleDetailSheet, CustomerSalesPanel}.tsx
 │   │   │
+│   │   ├── invoicing/                           # WhatsApp receipt/invoice — a wa.me deep link, no native module
+│   │   │   ├── utils/invoiceText.ts             # PURE builders (t arrives in InvoiceContext); owns the whole message format
+│   │   │   ├── hooks/useSendInvoice.ts          # gathers ctx from the stores → openWhatsApp; { canSend, sendPaymentInvoice, sendSaleInvoice }
+│   │   │   └── components/SendOnWhatsAppButton.tsx  # the app's single green button (+ disabled caption); also used by ContactToUpgradeButton
+│   │   │
 │   │   ├── debts/                               # Per-customer debt ledger (runtime-computed; Transactions → Debts)
 │   │   │   ├── repository/DebtRepository.ts    # custom_debts + debt_payments CRUD/reads (+ .offline sibling)
 │   │   │   ├── services/DebtService.ts         # composes partial payments + partial sales + custom_debts → DebtItem[] + USD DebtSummary
