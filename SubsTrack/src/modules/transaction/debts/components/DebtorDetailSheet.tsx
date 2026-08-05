@@ -13,7 +13,7 @@ import { COLORS } from "@/src/shared/constants";
 import type { DebtItem, DebtPaymentItem } from "@/src/core/types";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
-import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
+import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { useAfterFirstFrame } from "@/src/shared/hooks/useAfterFirstFrame";
 import { sumDebtNetUsd } from "../utils/debtAggregations";
 import { DebtList } from "./DebtList";
@@ -50,7 +50,7 @@ export function DebtorDetailSheet({
 }: Props) {
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
-  const { displayCurrencyId } = useUiPrefStore();
+  const displayCurrencyId = useDisplayCurrencyId();
   const target = findCurrency(currencies, displayCurrencyId);
 
   const [menuOpen, setMenuOpen] = useState(false);

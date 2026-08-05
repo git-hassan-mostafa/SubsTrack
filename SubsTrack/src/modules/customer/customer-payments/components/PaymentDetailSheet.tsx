@@ -16,7 +16,7 @@ import {
 import { getBlockRangeLabel } from "../utils/blockRangeLabel";
 import { CurrencyInput } from "@/src/shared/components/CurrencyInput";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
-import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
+import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { useLanguageStore } from "@/src/core/i18n/languageStore";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { RecordHistorySheet } from "@/src/modules/admin/audit";
@@ -43,7 +43,7 @@ export function PaymentDetailSheet({
   const { t, i18n } = useTranslation();
   const payment = entry?.payment;
   const currencies = useCurrencySlice((s) => s.items);
-  const { displayCurrencyId } = useUiPrefStore();
+  const displayCurrencyId = useDisplayCurrencyId();
   const { language } = useLanguageStore();
   const locale = language === "ar" ? "ar" : "en-US";
   // Use the snapshot rate frozen on the payment so historical USD equivalents

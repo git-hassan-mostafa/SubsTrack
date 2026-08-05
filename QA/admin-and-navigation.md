@@ -137,7 +137,7 @@ Per recent enhancement (`enhancement: add astrisk to required fields`), every fo
 | User delete | Only `user`-role accounts | All | ✗ |
 | Branches CRUD | ✓ | ✓ | ✗ |
 | Currencies CRUD | ✓ | ✓ | ✗ |
-| Tenant Settings (display currency) | ✓ | ✓ | ✗ — N/A from admin tab; settings tab covers user prefs |
+| Tenant Settings (display currency, unpaid rule) | ✓ | ✓ | ✗ — admin tab hidden; the settings written here are tenant-wide, so a `user` sees the result but cannot change it |
 | Dashboard | ✓ | ✓ | ✗ |
 | Settings (user prefs) | ✓ | ✓ | ✓ |
 

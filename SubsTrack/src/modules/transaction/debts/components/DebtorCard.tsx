@@ -4,7 +4,7 @@ import { COLORS } from "@/src/shared/constants";
 import { EntityCard } from "@/src/shared/components/EntityCard";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
-import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
+import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import type { Debtor } from "../utils/debtAggregations";
 
 interface Props {
@@ -19,7 +19,7 @@ interface Props {
 // debtor detail modal; the 3-dot menu offers "Pay full debt".
 export function DebtorCard({ debtor, onPress, onMenu }: Props) {
   const currencies = useCurrencySlice((s) => s.items);
-  const { displayCurrencyId } = useUiPrefStore();
+  const displayCurrencyId = useDisplayCurrencyId();
   const target = findCurrency(currencies, displayCurrencyId);
 
   return (

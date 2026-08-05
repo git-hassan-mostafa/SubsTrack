@@ -1,11 +1,11 @@
 # Tenant Settings — QA Scenarios
 
-The admin-only "Tenant Settings" hub is reachable from the Admin tab. It collects tenant-level configuration: **Display Currency** preference (per-user UI pref), **Currencies CRUD** (tenant-wide), and **Branches CRUD** (tenant-wide). Each of those has its own deep file referenced below; this file covers navigation, layout, gating, and the per-user display-currency selector.
+The admin-only "Tenant Settings" hub is reachable from the Admin tab. It collects tenant-level configuration: **Display Currency** (tenant-wide), **Currencies CRUD** (tenant-wide), and **Branches CRUD** (tenant-wide). Each of those has its own deep file referenced below; this file covers navigation, layout, gating, and the display-currency selector.
 
 **Reference code:**
-- Screen: [TenantSettingsScreen.tsx](SubsTrack/src/modules/tenant-settings/screens/TenantSettingsScreen.tsx)
-- Display currency section: [DisplayCurrencySection.tsx](SubsTrack/src/modules/tenant-settings/components/DisplayCurrencySection.tsx)
-- UI prefs store: [uiPrefStore.ts](SubsTrack/src/shared/lib/uiPrefStore.ts)
+- Screen: [TenantSettingsScreen.tsx](SubsTrack/src/modules/admin/tenant-settings/screens/TenantSettingsScreen.tsx)
+- Display currency section: [DisplayCurrencySection.tsx](SubsTrack/src/modules/admin/tenant-settings/components/DisplayCurrencySection.tsx)
+- Setting read hook: [useTenantSettingSlice.ts](SubsTrack/src/state/hooks/useTenantSettingSlice.ts) (`useDisplayCurrencyId`)
 - Tenant Settings tab route: `app/(app)/(tabs)/admin/tenant-settings.tsx`
 - Currencies tab route: `app/(app)/(tabs)/admin/currencies.tsx` (deep dive: [currencies.md](currencies.md))
 - Branches tab route: `app/(app)/(tabs)/admin/branches.tsx` (deep dive: [branches.md](branches.md))
@@ -25,16 +25,16 @@ The admin-only "Tenant Settings" hub is reachable from the Admin tab. It collect
 
 ## 2. Display currency section
 
-The currency the user wants to SEE values in. Stored in `uiPrefStore.displayCurrencyId` (AsyncStorage, per-user).
+The currency the whole ORGANIZATION sees values in. Stored in `tenant_settings` under key `DisplayCurrencyId` (the `currencies.id`; blank/unset = USD), written by admins only (RLS) and read by every member via `useDisplayCurrencyId()`. It is **not** a device preference — it used to live in `uiPrefStore`/AsyncStorage.
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 2.1 | Section title | Look at section | "Display Currency" header + helper text explaining it's a personal preference |
+| 2.1 | Section title | Look at section | "Display" header + helper text saying it applies to everyone in the organization |
 | 2.2 | Available choices | Open dropdown / list | USD + every active tenant currency |
-| 2.3 | Default value | First install | USD (null) |
-| 2.4 | Change to LBP | Pick LBP from the list | Persisted immediately. No restart required |
-| 2.5 | Persistence across restarts | Restart app | Still LBP |
-| 2.6 | Persistence across logout | Logout, log back in as same user | Still LBP (it's a UI pref, not session-bound) |
+| 2.3 | Default value | Tenant that never set it | USD (no row, or empty value) |
+| 2.4 | Change to LBP | Pick LBP from the list | Saved immediately, dropdown disabled while saving. No restart required |
+| 2.5 | Persistence across restarts | Restart app | Still LBP (re-fetched from `tenant_settings` at login) |
+| 2.6 | Persistence across logout | Logout, log back in as same user | Still LBP — the slice resets on logout and `primePostAuth` re-fetches it |
 | 2.7 | Effect on Plan cards | Open Plans screen | USD plans show "$X" + "≈ LBP equivalent (via live rate)" |
 | 2.8 | Effect on Dashboard | Open Dashboard | "Collected" hero formatted in LBP |
 | 2.9 | Effect on PaymentDetailSheet | Open a receipt | Primary line = stored currency; secondary line = LBP equivalent (via snapshot) |
@@ -42,6 +42,12 @@ The currency the user wants to SEE values in. Stored in `uiPrefStore.displayCurr
 | 2.11 | Inactive currency selected | Display currency was X, then admin soft-deletes X | UI falls back to USD without crashing |
 | 2.12 | Empty tenant currencies | Tenant has zero `currencies` | Dropdown shows USD only |
 | 2.13 | RTL display | Switch app to Arabic | Section layout mirrors RTL |
+| 2.14 | Applies to every user | Admin sets LBP; a `user`-role staff logs in on another device | Staff sees every amount in LBP without setting anything |
+| 2.15 | Reaches other devices | Admin A sets LBP; Admin B is already logged in on another device | B picks it up on next sync/pull (native) or next login/refresh — not instantly mid-session |
+| 2.16 | Non-admin cannot write | Force a write as a `user` role (RLS check) | Rejected by RLS; error surfaces in the ErrorBanner, value unchanged |
+| 2.17 | Set offline (native) | Airplane mode → change to LBP | Saved to the local mirror, applied immediately, pushed on next sync |
+| 2.18 | Back to USD | Pick the "USD" option | Value cleared to null; all screens format in USD |
+| 2.19 | Audit entry | Change the value, open Admin → Audit Log | One `tenant_settings` update entry with the before/after value |
 
 ## 2b. Unpaid months rule (`UnpaidStartRule`)
 
@@ -116,7 +122,7 @@ The tenant-level configuration here is a separate concept managed by admins. Kee
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 6.1 | Two admins change tenant settings concurrently | Admin A and B both pick a different display currency | Each admin keeps their own (AsyncStorage is per-device) |
+| 6.1 | Two admins change tenant settings concurrently | Admin A and B both pick a different display currency | One tenant-wide value wins — the later `updated_at` (latest-write-wins on the `(tenant_id, key)` natural key). No duplicate rows |
 | 6.2 | Concurrent edits to currencies/branches | Admin A creates LBP, Admin B creates LBP | Second create fails with duplicate-code error |
-| 6.3 | Tenant Settings while offline | Disable network, open the screen | Display currency picker works offline (local-only). Currencies/Branches sub-screens show network error on refresh |
+| 6.3 | Tenant Settings while offline | Disable network, open the screen | Display currency picker reads/writes the local mirror and pushes on next sync. Currencies/Branches sub-screens show network error on refresh |
 | 6.4 | Deep link without auth | Force-navigate to `/(app)/(tabs)/admin/tenant-settings` while logged out | Redirected to login (AppLayout guard) |

@@ -5,7 +5,7 @@ import { COLORS } from '@/src/shared/constants';
 import { EntityCard } from '@/src/shared/components/EntityCard';
 import { findCurrency, formatMoney } from '@/src/core/utils/currency';
 import { useCurrencySlice } from '@/src/state/hooks/useCurrencySlice';
-import { useUiPrefStore } from '@/src/shared/lib/uiPrefStore';
+import { useDisplayCurrencyId } from '@/src/state/hooks/useTenantSettingSlice';
 import type { CollectorWallet } from '@/src/core/types';
 
 interface Props {
@@ -24,7 +24,7 @@ interface Props {
 export function CollectorWalletCard({ wallet, onPress, onMenu, menuLoading }: Props) {
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
-  const { displayCurrencyId } = useUiPrefStore();
+  const displayCurrencyId = useDisplayCurrencyId();
   const target = findCurrency(currencies, displayCurrencyId);
 
   return (

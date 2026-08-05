@@ -11,8 +11,8 @@ Multi-currency support. USD is the implicit base — never stored as a `currenci
 - Repository: [CurrencyRepository.ts](SubsTrack/src/modules/currencies/repository/CurrencyRepository.ts)
 - Reusable input: [CurrencyInput.tsx](SubsTrack/src/shared/components/CurrencyInput.tsx)
 - Conversion utils: [currency.ts](SubsTrack/src/core/utils/currency.ts)
-- Display currency preference: [uiPrefStore.ts](SubsTrack/src/shared/lib/uiPrefStore.ts)
-- Tenant settings host: [TenantSettingsScreen.tsx](SubsTrack/src/modules/tenant-settings/screens/TenantSettingsScreen.tsx)
+- Display currency setting: [useTenantSettingSlice.ts](SubsTrack/src/state/hooks/useTenantSettingSlice.ts) (`useDisplayCurrencyId`)
+- Tenant settings host: [TenantSettingsScreen.tsx](SubsTrack/src/modules/admin/tenant-settings/screens/TenantSettingsScreen.tsx)
 
 **DB constraints:**
 - `UNIQUE(tenant_id, code)` — code must be unique per tenant.
@@ -30,7 +30,7 @@ Multi-currency support. USD is the implicit base — never stored as a `currenci
 2. **Codes are uppercase 2–8 letters, not USD.** Enforced by DB CHECK and re-validated by service.
 3. **Editing live rate must never shift historical payment USD totals.** Payments use `rate_per_usd_snapshot`. Plans use the live rate (forward-looking pricing).
 4. **Soft-delete preserves history.** Deleting a referenced currency sets `active = false` and removes it from pickers, but does NOT touch the rows that reference it.
-5. **Display currency is per-user, persisted in AsyncStorage.** There is no column on `users` — `uiPrefStore.displayCurrencyId`.
+5. **Display currency is per-tenant, stored in `tenant_settings`** (key `DisplayCurrencyId`, admin-writable). There is no column on `users` or `tenants`.
 
 ---
 
@@ -140,21 +140,22 @@ The reusable input with embedded currency dropdown. Used in PlanFormSheet (price
 | 7.9 | Currency change clears partial state | In PaymentFormSheet, type custom + Partial, switch currency | Partial Amount Paid is cleared (old unit value invalid) |
 | 7.10 | Negative input | Try to type `-` | Decimal-pad blocks; if forced, parseFloat rejects |
 
-## 8. Display currency (per-user preference)
+## 8. Display currency (tenant-wide setting)
 
-Lives in `uiPrefStore.displayCurrencyId`, persisted to AsyncStorage. Controlled from Tenant Settings → "Display currency" section.
+Lives in `tenant_settings` under key `DisplayCurrencyId`, read via `useDisplayCurrencyId()`. Set by an admin in Tenant Settings → "Display" section; it applies to every user of the organization.
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 8.1 | Default | First install | Display currency = USD (null) |
+| 8.1 | Default | Tenant that never set it | Display currency = USD (no row / empty value) |
 | 8.2 | Change to LBP | Tenant Settings → Display currency → select LBP | All read-only displays now show LBP equivalents: plan cards, dashboard "Collected", admin compact stats, customer year-total |
-| 8.3 | Persistence | Restart app | Selection persists |
+| 8.3 | Persistence | Restart app | Selection persists (re-fetched from `tenant_settings`) |
 | 8.4 | Receipt fidelity | Payment was recorded in LBP, display currency = USD | Receipt primary line is LBP (stored currency); secondary "≈ $X.XX" line via snapshot rate |
 | 8.5 | No change to stored data | Switch display | DB rows are unchanged. UI conversion only |
-| 8.6 | Cross-currency aggregate | Multiple payments in mixed currencies | Dashboard sums each to USD via its snapshot, then displays the USD total formatted in the user's display currency |
-| 8.7 | Display currency deleted | User has display = LBP; admin soft-deletes LBP | Verify UI falls back to USD without crashing |
-| 8.8 | Display currency per user, not per tenant | Two admins of same tenant pick different display currencies | Both stick locally; no cross-user effect |
-| 8.9 | Logout does NOT reset display | Logout, log back in | Display currency persists (it's a UI pref, not session-bound) |
+| 8.6 | Cross-currency aggregate | Multiple payments in mixed currencies | Dashboard sums each to USD via its snapshot, then displays the USD total formatted in the tenant's display currency |
+| 8.7 | Display currency deleted | Tenant display = LBP; admin soft-deletes LBP | Verify UI falls back to USD without crashing |
+| 8.8 | Per tenant, not per user | Admin A picks LBP; Admin B and a `user`-role staff open the app | Everyone sees LBP — there is no per-user override |
+| 8.9 | Logout does NOT lose the choice | Logout, log back in | Still LBP (slice resets on logout, `primePostAuth` re-fetches it) |
+| 8.10 | Only admins can set it | Login as `user` role | No Admin tab / Tenant Settings; a forced write is rejected by RLS |
 
 ## 9. Currency in plans
 

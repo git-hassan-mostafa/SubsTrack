@@ -4,12 +4,17 @@ import { useTranslation } from 'react-i18next';
 import { Text } from '@/src/shared/components/Text';
 import { Dropdown, type DropdownOption } from '@/src/shared/components/Dropdown';
 import { useCurrencySlice } from '@/src/state/hooks/useCurrencySlice';
-import { useUiPrefStore } from '@/src/shared/lib/uiPrefStore';
+import {
+  useDisplayCurrencyId,
+  useTenantSettingSlice,
+} from '@/src/state/hooks/useTenantSettingSlice';
 
 export function DisplayCurrencySection() {
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
-  const { displayCurrencyId, setDisplayCurrencyId } = useUiPrefStore();
+  const displayCurrencyId = useDisplayCurrencyId();
+  const saving = useTenantSettingSlice((s) => s.saving);
+  const setDisplayCurrencyId = useTenantSettingSlice((s) => s.setDisplayCurrencyId);
 
   const displayCurrencyOptions: DropdownOption<string>[] = useMemo(
     () =>
@@ -32,10 +37,11 @@ export function DisplayCurrencySection() {
         placeholder="USD"
         options={displayCurrencyOptions}
         value={displayCurrencyId}
-        onChange={(value) => setDisplayCurrencyId(value)}
+        onChange={(value) => void setDisplayCurrencyId(value)}
         nullable
         nullLabel="USD"
         nullSublabel={t('tenant_settings.usd_base_note')}
+        disabled={saving}
       />
     </View>
   );

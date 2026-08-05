@@ -38,7 +38,7 @@ import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchF
 import type { Sale } from "@/src/core/types";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
-import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
+import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { SaleCard } from "../components/SaleCard";
 import { SaleFormSheet } from "../components/SaleFormSheet";
 import { SaleDetailSheet } from "../components/SaleDetailSheet";
@@ -76,7 +76,7 @@ export function SalesPanel() {
   const products = useProductSlice((s) => s.items);
   const getProducts = useProductSlice((s) => s.getProducts);
   const currencies = useCurrencySlice((s) => s.items);
-  const { displayCurrencyId } = useUiPrefStore();
+  const displayCurrencyId = useDisplayCurrencyId();
   const displayCurrency = findCurrency(currencies, displayCurrencyId);
 
   const [searchText, setSearchText] = useState("");

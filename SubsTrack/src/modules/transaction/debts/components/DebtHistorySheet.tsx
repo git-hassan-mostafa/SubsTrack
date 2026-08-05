@@ -11,7 +11,7 @@ import { MonthSectionHeader } from "@/src/shared/components/MonthSectionHeader";
 import { groupByMonth } from "@/src/shared/lib/monthSections";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
-import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
+import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import type { DebtItem, DebtPaymentItem } from "@/src/core/types";
 import { DebtItemCard } from "./DebtItemCard";
 import { DebtPaymentCard } from "./DebtPaymentCard";
@@ -36,7 +36,7 @@ interface Props {
 export function DebtHistorySheet({ items, payments, onDismiss }: Props) {
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
-  const { displayCurrencyId } = useUiPrefStore();
+  const displayCurrencyId = useDisplayCurrencyId();
   const target = findCurrency(currencies, displayCurrencyId);
 
   // Merge both sources into one union list, then sort newest-first by date

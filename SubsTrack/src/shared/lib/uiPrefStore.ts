@@ -6,8 +6,8 @@ import type { BranchFilter } from '@/src/core/constants';
 // Ad-hoc UI preferences shared across screens. Persisted to AsyncStorage
 // so the user's last choices survive app restarts.
 //
-// displayCurrencyId — the currency the user wants amounts displayed in.
-//   null = USD (the base). Set from Tenant Settings.
+// The display currency is NOT here — it belongs to the organization, not the
+// device, so it lives in `tenant_settings` (see useDisplayCurrencyId).
 //
 // lastUsedCurrencyId — the currency most recently typed into a CurrencyInput.
 //   CurrencyInput defaults to this so staff don't re-pick on every form.
@@ -22,8 +22,6 @@ import type { BranchFilter } from '@/src/core/constants';
 // possible filter, enforced by RLS).
 
 interface UiPrefState {
-  displayCurrencyId: string | null;
-  setDisplayCurrencyId: (id: string | null) => void;
   lastUsedCurrencyId: string | null;
   setLastUsedCurrencyId: (id: string | null) => void;
   currentBranchId: BranchFilter;
@@ -33,8 +31,6 @@ interface UiPrefState {
 export const useUiPrefStore = create<UiPrefState>()(
   persist(
     (set) => ({
-      displayCurrencyId: null,
-      setDisplayCurrencyId: (id) => set({ displayCurrencyId: id }),
       lastUsedCurrencyId: null,
       setLastUsedCurrencyId: (id) => set({ lastUsedCurrencyId: id }),
       currentBranchId: null,
@@ -44,7 +40,6 @@ export const useUiPrefStore = create<UiPrefState>()(
       name: STORAGE_KEYS.UI_PREF_STORE,
       storage: createJSONStorage(() => uiPrefPersistStorage),
       partialize: (state) => ({
-        displayCurrencyId: state.displayCurrencyId,
         lastUsedCurrencyId: state.lastUsedCurrencyId,
         currentBranchId: state.currentBranchId,
       }),

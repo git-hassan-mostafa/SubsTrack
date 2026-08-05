@@ -15,7 +15,7 @@ import type {
 } from "@/src/core/types";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
-import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
+import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import debtService from "../services/DebtService";
 import { DebtList } from "./DebtList";
 import { CustomDebtFormSheet } from "./CustomDebtFormSheet";
@@ -36,7 +36,7 @@ const EMPTY_SUMMARY: DebtSummary = { grossUsd: 0, paymentsUsd: 0, netUsd: 0 };
 export function CustomerDebtsPanel({ customer }: Props) {
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
-  const { displayCurrencyId } = useUiPrefStore();
+  const displayCurrencyId = useDisplayCurrencyId();
 
   const [items, setItems] = useState<DebtItem[]>([]);
   const [payments, setPayments] = useState<DebtPaymentItem[]>([]);

@@ -13,7 +13,7 @@ import {
 import { formatDate } from "@/src/core/utils/date";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useUserSlice } from "@/src/state/hooks/useUserSlice";
-import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
+import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { useLanguageStore } from "@/src/core/i18n/languageStore";
 import type { PaymentListItem } from "../utils/types";
 import { getBlockRangeLabel } from "../utils/blockRangeLabel";
@@ -38,7 +38,7 @@ export function PaymentListCard({
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
   const users = useUserSlice((s) => s.items);
-  const { displayCurrencyId } = useUiPrefStore();
+  const displayCurrencyId = useDisplayCurrencyId();
   const { language } = useLanguageStore();
   const locale = language === "ar" ? "ar" : "en-US";
 

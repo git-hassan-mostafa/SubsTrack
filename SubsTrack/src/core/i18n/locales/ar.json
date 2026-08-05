@@ -447,7 +447,7 @@
     "currencies_count": "{{count}} نشط",
     "display_section_title": "العرض",
     "display_currency_label": "عملة العرض",
-    "display_currency_hint": "تُعرض المبالغ بهذه العملة. القيم المخزنة لا تتغير.",
+    "display_currency_hint": "تُعرض المبالغ بهذه العملة لجميع مستخدمي المؤسسة. القيم المخزنة لا تتغير.",
     "unpaid_section_title": "الأشهر غير المدفوعة",
     "unpaid_rule_hint": "اختر متى يصبح الشهر غير مدفوع (أحمر) لعملائك.",
     "unpaid_rule_label": "تحديد غير مدفوع",

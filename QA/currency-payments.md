@@ -29,7 +29,7 @@ These are non-negotiable and must be re-verified after any release touching paym
 5. **Editing a payment re-snapshots** — `PaymentService.updatePayment()` re-reads the live `ratePerUsd` of the (possibly changed) currency and writes a new `rate_per_usd_snapshot`. This is the "correcting the record" semantic.
 6. **Amount Paid currency is locked to Amount Due currency** — within one payment, `amount_due` and `amount_paid` are always in the same currency (one `currency_id`).
 7. **Soft-deleted currencies are preserved on historical rows** — plans and payments that reference an inactive currency must continue to display correctly. Pickers exclude inactive currencies for new entries only.
-8. **Display currency is per-user, AsyncStorage only** — no `display_currency_id` column on the DB `users` table.
+8. **Display currency is per-tenant** — one `tenant_settings` row (key `DisplayCurrencyId`), admin-writable, applied to every user. No `display_currency_id` column on `users` or `tenants`.
 
 ---
 
@@ -189,9 +189,9 @@ Editing a payment writes a new `rate_per_usd_snapshot` from the live rate at edi
 
 ---
 
-## 10. Display currency preference — cross-screen impact
+## 10. Display currency — cross-screen impact
 
-`uiPrefStore.displayCurrencyId` converts all read-only money displays without touching stored data.
+The tenant-wide `DisplayCurrencyId` setting (read via `useDisplayCurrencyId()`) converts all read-only money displays without touching stored data.
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
@@ -204,10 +204,10 @@ Editing a payment writes a new `rate_per_usd_snapshot` from the live rate at edi
 | 10.7 | Compact admin stats | Admin tab summary cards; display = LBP | All revenue figures in LBP |
 | 10.8 | Receipt is immune | Payment in LBP; display = USD | Receipt primary = LBP (stored currency). Secondary ≈ USD. Display preference does NOT override the receipt's primary currency |
 | 10.9 | Persistence across restarts | Set display = LBP, kill/reopen app | LBP still selected |
-| 10.10 | Logout does not reset | Set display = LBP, logout, re-login | LBP persists (AsyncStorage, not session-bound) |
-| 10.11 | Per-user, not per-tenant | Admin A: display = LBP. Admin B: display = USD. Same tenant | Each user sees their own preference |
-| 10.12 | Fallback when display currency soft-deleted | User has display = LBP; admin soft-deletes LBP | UI falls back to USD for formatting. No crash |
-| 10.13 | Display currency not in DB | Inspect `users` table row | No `display_currency_id` column. Confirms it lives only in AsyncStorage |
+| 10.10 | Logout does not lose it | Set display = LBP, logout, re-login | LBP still applied (re-fetched from `tenant_settings`) |
+| 10.11 | Per-tenant, not per-user | Admin A sets LBP. Admin B and a `user`-role staff open the app | Everyone in the tenant sees LBP |
+| 10.12 | Fallback when display currency soft-deleted | Tenant display = LBP; admin soft-deletes LBP | UI falls back to USD for formatting. No crash |
+| 10.13 | Where it is stored | Inspect the DB | One `tenant_settings` row `(tenant_id, 'DisplayCurrencyId')`. No `display_currency_id` column on `users` or `tenants` |
 
 ---
 

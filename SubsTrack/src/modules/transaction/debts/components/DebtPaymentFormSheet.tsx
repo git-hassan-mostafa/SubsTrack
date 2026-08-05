@@ -14,7 +14,7 @@ import {
 import type { Customer } from "@/src/core/types";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
-import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
+import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { useDebtSlice } from "@/src/state/hooks/useDebtSlice";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
@@ -39,7 +39,7 @@ export function DebtPaymentFormSheet({
   const { t } = useTranslation();
   const { user } = useAuth();
   const currencies = useCurrencySlice((s) => s.items);
-  const { displayCurrencyId } = useUiPrefStore();
+  const displayCurrencyId = useDisplayCurrencyId();
   const addDebtPayment = useDebtSlice((s) => s.addDebtPayment);
   const loading = useDebtSlice((s) => s.loading);
   const error = useDebtSlice((s) => s.error);

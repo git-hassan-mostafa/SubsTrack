@@ -447,7 +447,7 @@
     "currencies_count": "{{count}} active",
     "display_section_title": "Display",
     "display_currency_label": "Display currency",
-    "display_currency_hint": "Amounts are shown to you in this currency. Stored values are unchanged.",
+    "display_currency_hint": "Amounts are shown in this currency for everyone in your organization. Stored values are unchanged.",
     "unpaid_section_title": "Unpaid months",
     "unpaid_rule_hint": "Choose when a month becomes unpaid (red) for your customers.",
     "unpaid_rule_label": "Mark unpaid",

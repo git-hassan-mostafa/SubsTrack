@@ -5,7 +5,7 @@ import { Text } from "@/src/shared/components/Text";
 import { COLORS } from "@/src/shared/constants";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
-import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
+import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { EntityCard } from "@/src/shared/components/EntityCard";
 
 interface Props {
@@ -29,7 +29,7 @@ export function ProductCard({
 }: Props) {
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
-  const { displayCurrencyId } = useUiPrefStore();
+  const displayCurrencyId = useDisplayCurrencyId();
   const source = findCurrency(currencies, product.currencyId);
   const target = findCurrency(currencies, displayCurrencyId);
   const priceLabel = formatMoney(product.price, source, target);

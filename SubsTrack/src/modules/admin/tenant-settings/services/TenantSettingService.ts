@@ -31,10 +31,27 @@ class TenantSettingService {
     return mapDbTenantSettingToTenantSetting(row);
   }
 
+  async setDisplayCurrencyId(
+    tenantId: string,
+    currencyId: string | null,
+  ): Promise<TenantSetting> {
+    const row = await repository.upsert(
+      tenantId,
+      TENANT_SETTING_KEYS.displayCurrencyId,
+      currencyId,
+    );
+    return mapDbTenantSettingToTenantSetting(row);
+  }
+
   /** Resolve the stored value to a valid rule; unknown/missing falls back to the default. */
   parseUnpaidStartRule(value: string | null | undefined): UnpaidStartRule {
     const v = value?.trim() as UnpaidStartRule | undefined;
     return v && UNPAID_START_RULES.includes(v) ? v : DEFAULT_UNPAID_START_RULE;
+  }
+
+  /** Currency id amounts are displayed in; blank/missing means USD (the base). */
+  parseDisplayCurrencyId(value: string | null | undefined): string | null {
+    return value?.trim() || null;
   }
 }
 

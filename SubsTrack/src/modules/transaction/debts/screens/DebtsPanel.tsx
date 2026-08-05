@@ -22,7 +22,7 @@ import { useAuth } from "@/src/modules/authentication/auth";
 import { confirm } from "@/src/shared/lib/confirm";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
-import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
+import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { useDebtSlice } from "@/src/state/hooks/useDebtSlice";
 import type { DebtItem, DebtPaymentItem } from "@/src/core/types";
 import {
@@ -44,7 +44,7 @@ export function DebtsPanel() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const currencies = useCurrencySlice((s) => s.items);
-  const { displayCurrencyId } = useUiPrefStore();
+  const displayCurrencyId = useDisplayCurrencyId();
 
   const items = useDebtSlice((s) => s.items);
   const payments = useDebtSlice((s) => s.payments);

@@ -19,7 +19,7 @@ import {
 import { confirm } from "@/src/shared/lib/confirm";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
-import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
+import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
 import { useAfterFirstFrame } from "@/src/shared/hooks/useAfterFirstFrame";
 import { useWalletSlice } from "@/src/state/hooks/useWalletSlice";
@@ -49,7 +49,7 @@ export function WalletsScreen() {
   const clearError = useWalletSlice((s) => s.clearError);
 
   const currencies = useCurrencySlice((s) => s.items);
-  const { displayCurrencyId } = useUiPrefStore();
+  const displayCurrencyId = useDisplayCurrencyId();
   const target = findCurrency(currencies, displayCurrencyId);
 
   const branchFilter = useEffectiveBranchFilter();

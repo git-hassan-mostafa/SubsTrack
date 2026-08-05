@@ -29,7 +29,7 @@ import { useCustomerSlice } from "@/src/state/hooks/useCustomerSlice";
 import { usePaymentSlice } from "@/src/state/hooks/usePaymentSlice";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDebtSlice } from "@/src/state/hooks/useDebtSlice";
-import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
+import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { useAuth } from "../../../authentication/auth/hooks/useAuth";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { getCurrentYearMonth, isBeforeStartDate } from "@/src/core/utils/date";
@@ -86,7 +86,7 @@ export function CustomerListScreen() {
   const netDebtByCustomer = useDebtSlice((s) => s.netByCustomer);
   const fetchNetDebtByCustomer = useDebtSlice((s) => s.fetchNetByCustomer);
   const addDebtPayment = useDebtSlice((s) => s.addDebtPayment);
-  const { displayCurrencyId } = useUiPrefStore();
+  const displayCurrencyId = useDisplayCurrencyId();
   const displayCurrency = findCurrency(currencies, displayCurrencyId);
   const [formVisible, setFormVisible] = useState(false);
   const [searchText, setSearchText] = useState("");

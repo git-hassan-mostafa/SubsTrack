@@ -17,7 +17,7 @@ import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { useDashboardSlice } from "@/src/state/hooks/useDashboardSlice";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
-import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
+import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { BranchSelector } from "@/src/shared/components/BranchSelector";
 import { COLORS } from "@/src/shared/constants";
 import { MONTHS } from "@/src/core/constants";
@@ -40,7 +40,7 @@ export function DashboardScreen() {
   const navigateTrend = useDashboardSlice((s) => s.navigateTrend);
   const clearError = useDashboardSlice((s) => s.clearError);
   const currencies = useCurrencySlice((s) => s.items);
-  const { displayCurrencyId } = useUiPrefStore();
+  const displayCurrencyId = useDisplayCurrencyId();
   const displayCurrency = findCurrency(currencies, displayCurrencyId);
   const fmt = (usd: number) => formatMoney(usd, null, displayCurrency);
 

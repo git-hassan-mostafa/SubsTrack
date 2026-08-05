@@ -30,3 +30,12 @@ export const useUnpaidStartRule = (): UnpaidStartRule =>
   tenantSettingService.parseUnpaidStartRule(
     useTenantSettingValue(TENANT_SETTING_KEYS.unpaidStartRule),
   );
+
+/**
+ * The currency amounts are displayed in — `null` = USD (the base).
+ * Tenant-wide, not per device: every user of the organization sees the same one.
+ */
+export const useDisplayCurrencyId = (): string | null =>
+  tenantSettingService.parseDisplayCurrencyId(
+    useTenantSettingValue(TENANT_SETTING_KEYS.displayCurrencyId),
+  );

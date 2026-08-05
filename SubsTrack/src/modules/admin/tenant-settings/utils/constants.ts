@@ -4,4 +4,6 @@
 export const TENANT_SETTING_KEYS = {
   // When an unbilled month turns "unpaid" — see UnpaidStartRule.
   unpaidStartRule: 'UnpaidStartRule',
+  // Currency every amount is displayed in. Empty/unset = USD (the base).
+  displayCurrencyId: 'DisplayCurrencyId',
 } as const;

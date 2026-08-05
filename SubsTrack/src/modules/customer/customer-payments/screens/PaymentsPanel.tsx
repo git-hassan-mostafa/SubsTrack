@@ -41,7 +41,7 @@ import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { usePaymentsListSlice } from "@/src/state/hooks/usePaymentsListSlice";
 import { useUserSlice } from "@/src/state/hooks/useUserSlice";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
-import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
+import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { getStore } from "@/src/state/globalStore";
 import type { PaymentListItem, PaymentStatusFilter } from "../utils/types";
 import { PaymentListCard } from "../components/PaymentListCard";
@@ -95,7 +95,7 @@ export function PaymentsPanel() {
   const users = useUserSlice((s) => s.items);
   const getUsers = useUserSlice((s) => s.getUsers);
   const currencies = useCurrencySlice((s) => s.items);
-  const { displayCurrencyId } = useUiPrefStore();
+  const displayCurrencyId = useDisplayCurrencyId();
   const displayCurrency = findCurrency(currencies, displayCurrencyId);
   const branchFilter = useEffectiveBranchFilter();
 

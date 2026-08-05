@@ -4,7 +4,7 @@ import type { Plan } from "@/src/core/types";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { usePlanSlice } from "@/src/state/hooks/usePlanSlice";
-import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
+import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 
 interface PlanPickerProps {
   value: string | null;
@@ -55,7 +55,7 @@ export function PlanPicker({
   const { t } = useTranslation();
   const plans = usePlanSlice((s) => s.items);
   const currencies = useCurrencySlice((s) => s.items);
-  const { displayCurrencyId } = useUiPrefStore();
+  const displayCurrencyId = useDisplayCurrencyId();
   const displayCurrency = findCurrency(currencies, displayCurrencyId);
 
   const options: DropdownOption<string>[] = plans

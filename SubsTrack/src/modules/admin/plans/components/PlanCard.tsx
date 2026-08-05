@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
-import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
+import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { EntityCard } from "@/src/shared/components/EntityCard";
 
 interface Props {
@@ -28,7 +28,7 @@ export function PlanCard({
 }: Props) {
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
-  const { displayCurrencyId } = useUiPrefStore();
+  const displayCurrencyId = useDisplayCurrencyId();
   const source = findCurrency(currencies, plan.currencyId);
   const target = findCurrency(currencies, displayCurrencyId);
   const priceLabel =

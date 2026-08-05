@@ -12,7 +12,7 @@ The compact stats card on the Admin landing screen also surfaces a subset of the
 - Range queries: `paidAmountsInRange` (payment repo), `totalsInRange` (sale repo), `countCreatedInRange` / `countCancelledInRange` (customer repo) — each with a Supabase + Offline SQLite impl
 - Admin home (compact stats card): [admin/index.tsx](SubsTrack/app/(app)/(tabs)/admin/index.tsx)
 - Currency conversion: [currency.ts](SubsTrack/src/core/utils/currency.ts)
-- Display currency preference: [uiPrefStore.ts](SubsTrack/src/shared/lib/uiPrefStore.ts)
+- Display currency setting: [useTenantSettingSlice.ts](SubsTrack/src/state/hooks/useTenantSettingSlice.ts) (`useDisplayCurrencyId`)
 
 ---
 

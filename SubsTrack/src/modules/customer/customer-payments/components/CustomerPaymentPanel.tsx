@@ -23,7 +23,7 @@ import {
   toUsd,
 } from "@/src/core/utils/currency";
 import { COLORS } from "@/src/shared/constants";
-import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
+import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { useSubscriptionSlice } from "@/src/state/hooks/useSubscriptionSlice";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { getBlockRangeLabel } from "../utils/blockRangeLabel";
@@ -117,7 +117,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
   const resetPayments = usePaymentSlice((s) => s.reset);
   const currencies = useCurrencySlice((s) => s.items);
   const currentTier = useSubscriptionSlice((s) => s.currentTier);
-  const { displayCurrencyId } = useUiPrefStore();
+  const displayCurrencyId = useDisplayCurrencyId();
   const displayCurrency = findCurrency(currencies, displayCurrencyId);
 
   // All of the customer's service lines (active + cancelled). Grids are built
