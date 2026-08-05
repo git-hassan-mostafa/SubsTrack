@@ -6,13 +6,13 @@ import type { AuditTable } from '@/src/core/types';
  *
  * Deliberately NOT every table: `sale_items` is covered by its parent sale, and
  * `stock_movements` is already an append-only ledger with its own history UI, so
- * auditing either would duplicate itself. See docs/features.md → Audit Trail.
+ * auditing either would duplicate itself. `custom_debts` / `debt_payments` are out
+ * for the same reason — append-only + voidable, so the Debts view is the history.
+ * See docs/features.md → Audit Trail.
  */
 export const AUDITED_TABLES: AuditTable[] = [
   'payments',
   'sales',
-  'debt_payments',
-  'custom_debts',
   'customers',
   'customer_plans',
   'skipped_months',

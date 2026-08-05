@@ -38,12 +38,8 @@ export class DebtRepository extends BaseRepository implements IDebtRepository {
     return (data ?? []) as DbDebtPayment[];
   }
 
-  // Neither debt table has a branch_id of its own — it comes from the joined
-  // customer, which both SELECT constants already fetch.
-  private branchOf(row: { customers?: { branch_id?: string | null } | null }): string | null {
-    return row.customers?.branch_id ?? null;
-  }
-
+  // Not audited: both debt tables are append-only + voidable, so the Debts view is
+  // already their history. See docs/features.md → Audit Trail.
   async createCustomDebt(payload: CreateCustomDebtPayload): Promise<DbCustomDebt> {
     const { data, error } = await this.db
       .from('custom_debts')
@@ -51,19 +47,10 @@ export class DebtRepository extends BaseRepository implements IDebtRepository {
       .select(CUSTOM_DEBT_SELECT)
       .single();
     if (error) this.handleError(error);
-    const created = data as DbCustomDebt;
-    await this.audit({
-      table: 'custom_debts',
-      recordId: created.id,
-      action: 'create',
-      after: created,
-      branchId: this.branchOf(created),
-    });
-    return created;
+    return data as DbCustomDebt;
   }
 
   async voidCustomDebt(id: string, voidedBy: string, reason: string | null): Promise<DbCustomDebt> {
-    const { data: prior } = await this.db.from('custom_debts').select('*').eq('id', id).maybeSingle();
     const { data, error } = await this.db
       .from('custom_debts')
       .update({ voided_at: new Date().toISOString(), voided_by: voidedBy, void_reason: reason })
@@ -72,16 +59,7 @@ export class DebtRepository extends BaseRepository implements IDebtRepository {
       .select(CUSTOM_DEBT_SELECT)
       .single();
     if (error) this.handleError(error);
-    const voided = data as DbCustomDebt;
-    await this.audit({
-      table: 'custom_debts',
-      recordId: id,
-      action: 'void',
-      before: prior,
-      after: voided,
-      branchId: this.branchOf(voided),
-    });
-    return voided;
+    return data as DbCustomDebt;
   }
 
   async createDebtPayment(payload: CreateDebtPaymentPayload): Promise<DbDebtPayment> {
@@ -91,19 +69,10 @@ export class DebtRepository extends BaseRepository implements IDebtRepository {
       .select(DEBT_PAYMENT_SELECT)
       .single();
     if (error) this.handleError(error);
-    const created = data as DbDebtPayment;
-    await this.audit({
-      table: 'debt_payments',
-      recordId: created.id,
-      action: 'create',
-      after: created,
-      branchId: this.branchOf(created),
-    });
-    return created;
+    return data as DbDebtPayment;
   }
 
   async voidDebtPayment(id: string, voidedBy: string, reason: string | null): Promise<DbDebtPayment> {
-    const { data: prior } = await this.db.from('debt_payments').select('*').eq('id', id).maybeSingle();
     const { data, error } = await this.db
       .from('debt_payments')
       .update({ voided_at: new Date().toISOString(), voided_by: voidedBy, void_reason: reason })
@@ -112,16 +81,7 @@ export class DebtRepository extends BaseRepository implements IDebtRepository {
       .select(DEBT_PAYMENT_SELECT)
       .single();
     if (error) this.handleError(error);
-    const voided = data as DbDebtPayment;
-    await this.audit({
-      table: 'debt_payments',
-      recordId: id,
-      action: 'void',
-      before: prior,
-      after: voided,
-      branchId: this.branchOf(voided),
-    });
-    return voided;
+    return data as DbDebtPayment;
   }
 
   async paidAmountsInRange(
@@ -167,26 +127,13 @@ export class DebtRepository extends BaseRepository implements IDebtRepository {
   async markDebtPaymentsRemitted(ids: string[], remittedBy: string): Promise<void> {
     if (ids.length === 0) return;
     const remittedAt = new Date().toISOString();
-    const { error, data } = await this.db
+    const { error } = await this.db
       .from('debt_payments')
       .update({ remitted_at: remittedAt, remitted_by: remittedBy })
       .in('id', ids)
       .is('remitted_at', null)
-      .is('voided_at', null)
-      // Returned so the trail records only the rows the conditional UPDATE
-      // actually moved, not every id the caller passed.
-      .select(DEBT_PAYMENT_SELECT);
+      .is('voided_at', null);
     if (error) this.handleError(error);
-    for (const d of (data ?? []) as DbDebtPayment[]) {
-      await this.audit({
-        table: 'debt_payments',
-        recordId: d.id,
-        action: 'update',
-        before: { ...d, remitted_at: null, remitted_by: null },
-        after: d,
-        branchId: this.branchOf(d),
-      });
-    }
   }
 }
 

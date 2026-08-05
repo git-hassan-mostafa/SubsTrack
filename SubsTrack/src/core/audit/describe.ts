@@ -25,10 +25,6 @@ export function describeAudit(table: AuditTable, row: Record<string, unknown> | 
       return join(s('billing_month'), s('amount_paid'));
     case 'sales':
       return join(s('items_summary'), s('total_amount'));
-    case 'custom_debts':
-      return join(s('description'), s('amount'));
-    case 'debt_payments':
-      return s('amount');
     case 'customers':
     case 'plans':
     case 'products':

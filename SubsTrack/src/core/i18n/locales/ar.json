@@ -947,6 +947,7 @@
     "table": {
       "payments": "دفعة",
       "sales": "عملية بيع",
+      "_comment_debts": "No longer audited — kept so rows written before the change still read as words.",
       "custom_debts": "دين مخصص",
       "debt_payments": "دفعة دين",
       "customers": "عميل",

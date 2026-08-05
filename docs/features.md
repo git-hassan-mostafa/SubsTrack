@@ -618,9 +618,11 @@ An **append-only** record of who changed what, when, and what the value was befo
 - **No UPDATE and no DELETE policy, on purpose** — append-only from the client; only `service_role` can rewrite or purge (the same "absence of a policy = service_role only" idiom as `app_options`).
 - Consequence worth knowing, not a bug: a staff device's pull returns no audit rows, so its local table only ever holds its own un-pushed ones.
 
-**Audited tables** (`AUDITED_TABLES` in `src/modules/admin/audit/utils/constants.ts`) — 14: `payments`, `sales`, `custom_debts`, `debt_payments`, `customers`, `customer_plans`, `skipped_months`, `plans`, `products`, `branches`, `currencies`, `users`, `tenant_settings`, `tenants`.
+**Audited tables** (`AUDITED_TABLES` in `src/modules/admin/audit/utils/constants.ts`) — 12: `payments`, `sales`, `customers`, `customer_plans`, `skipped_months`, `plans`, `products`, `branches`, `currencies`, `users`, `tenant_settings`, `tenants`.
 
-**Deliberately not audited:** `sale_items` (no independent life — the parent sale covers it, and its `items_summary` is already frozen there) and `stock_movements` (already an append-only ledger with actor, note and its own history UI — auditing it would duplicate itself). Also out: the log tables themselves (`exception_logs`, `audit_logs`) and `app_options` / `tier_plans`, which this app never writes (`scope: 'global'`).
+**Deliberately not audited:** `sale_items` (no independent life — the parent sale covers it, and its `items_summary` is already frozen there) and `stock_movements` (already an append-only ledger with actor, note and its own history UI — auditing it would duplicate itself). **`custom_debts` + `debt_payments`** are out for the same reason: neither row is ever edited — it is created, then at most voided — so the Debts view already shows who recorded what and when, and the trail would only repeat it. Also out: the log tables themselves (`exception_logs`, `audit_logs`) and `app_options` / `tier_plans`, which this app never writes (`scope: 'global'`).
+
+Rows written before these two were dropped stay in `audit_logs` and still render (the table label keys are kept in the locales for exactly that); only the filter no longer offers them.
 
 **Writing it — one line per call site:**
 

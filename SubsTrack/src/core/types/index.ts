@@ -578,12 +578,12 @@ export type AuditAction = 'create' | 'update' | 'delete' | 'void' | 'restore';
 
 // Tables the app records a trail for. sale_items is covered by its parent sale,
 // and stock_movements is already an append-only ledger with its own history UI —
-// auditing either would just duplicate itself. See docs/features.md → Audit Trail.
+// auditing either would just duplicate itself. custom_debts / debt_payments are
+// out too: both are append-only + voidable, so the Debts view is their own history.
+// See docs/features.md → Audit Trail.
 export type AuditTable =
   | 'payments'
   | 'sales'
-  | 'custom_debts'
-  | 'debt_payments'
   | 'customers'
   | 'customer_plans'
   | 'skipped_months'

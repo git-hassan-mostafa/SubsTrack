@@ -947,6 +947,7 @@
     "table": {
       "payments": "Payment",
       "sales": "Sale",
+      "_comment_debts": "No longer audited — kept so rows written before the change still read as words.",
       "custom_debts": "Custom debt",
       "debt_payments": "Debt payment",
       "customers": "Customer",
