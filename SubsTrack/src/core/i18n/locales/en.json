@@ -918,6 +918,8 @@
     "clear_filters": "Clear filters",
     "unknown_actor": "Unknown",
     "deleted_user": "Deleted user",
+    "deleted_record": "(deleted)",
+    "base_currency": "USD",
     "occurred_at": "When",
     "record": "Record",
     "no_fields": "No field values recorded.",
@@ -1009,6 +1011,10 @@
       "tier_id": "Plan",
       "tier_upgraded_at": "Plan changed at",
       "password": "Password"
+    },
+    "setting": {
+      "UnpaidStartRule": "Unpaid months rule",
+      "DisplayCurrencyId": "Display currency"
     }
   }
 }

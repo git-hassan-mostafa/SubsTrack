@@ -918,6 +918,8 @@
     "clear_filters": "مسح عوامل التصفية",
     "unknown_actor": "غير معروف",
     "deleted_user": "مستخدم محذوف",
+    "deleted_record": "(محذوف)",
+    "base_currency": "USD",
     "occurred_at": "التاريخ",
     "record": "السجل",
     "no_fields": "لا توجد قيم مسجّلة.",
@@ -1009,6 +1011,10 @@
       "tier_id": "الخطة",
       "tier_upgraded_at": "تاريخ تغيير الخطة",
       "password": "كلمة المرور"
+    },
+    "setting": {
+      "UnpaidStartRule": "قاعدة الأشهر غير المدفوعة",
+      "DisplayCurrencyId": "عملة العرض"
     }
   }
 }

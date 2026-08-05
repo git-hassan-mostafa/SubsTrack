@@ -7,7 +7,7 @@ import { formatDateTime } from "@/src/core/utils/date";
 import { COLORS } from "@/src/shared/constants";
 import { Text } from "@/src/shared/components/Text";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
-import { actionLabel, fieldLabel, tableLabel } from "../utils/format";
+import { actionLabel, fieldLabel, recordLabel, tableLabel } from "../utils/format";
 
 // Colour + icon per action, so the list scans by shape before you read it.
 // `bg` is a Tailwind class (mirrors DebtItemCard) — there is no dangerLight token.
@@ -35,6 +35,8 @@ export function AuditEntryCard({ entry, onPress }: AuditEntryCardProps) {
   // Capped at three — a long list would push the row to two lines for no gain.
   const fields = entry.changes.slice(0, 3).map((c) => fieldLabel(t, c.field));
   const extra = entry.changes.length - fields.length;
+  // Same one-liner the sheet shows, so the list and the detail never disagree.
+  const label = recordLabel(t, entry);
 
   return (
     <PressableOpacity
@@ -52,9 +54,9 @@ export function AuditEntryCard({ entry, onPress }: AuditEntryCardProps) {
           </Text>
         </View>
 
-        {entry.label ? (
+        {label ? (
           <Text className="text-xs text-gray-500 mt-0.5" numberOfLines={1}>
-            {entry.label}
+            {label}
           </Text>
         ) : null}
 

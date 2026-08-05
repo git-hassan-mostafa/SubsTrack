@@ -621,6 +621,12 @@ export interface AuditEntry {
   changes: AuditChange[];
   /** create: the whole new row. delete: the whole removed row. update: null. */
   snapshot: Record<string, unknown> | null;
+  /**
+   * Every column value this entry knows — what changed, plus any context column
+   * carried for decoding (`tenant_settings.key`). A display formatter for one
+   * column reads its siblings from here; never rendered as a change.
+   */
+  context: Record<string, unknown>;
   label: string | null;
   actorUserId: string | null;
   actorUsername: string | null;

@@ -11,6 +11,7 @@ The device keeps a rolling **30-day window**; the server keeps everything.
 - Sync flags: [tables.ts](../SubsTrack/src/core/offline/db/tables.ts) (`appendOnly`, `pullDays`, `ColType: 'json'`), [sync.ts](../SubsTrack/src/core/offline/sync.ts) (`ignoreDuplicates`, window filter, `pruneWindowedTables`)
 - Read path: [AuditRepository.ts](../SubsTrack/src/modules/admin/audit/repository/AuditRepository.ts) / [.offline.ts](../SubsTrack/src/modules/admin/audit/repository/AuditRepository.offline.ts), [AuditService.ts](../SubsTrack/src/modules/admin/audit/services/AuditService.ts)
 - UI: [AuditLogScreen.tsx](../SubsTrack/src/modules/admin/audit/screens/AuditLogScreen.tsx), [AuditEntrySheet.tsx](../SubsTrack/src/modules/admin/audit/components/AuditEntrySheet.tsx), [RecordHistorySheet.tsx](../SubsTrack/src/modules/admin/audit/components/RecordHistorySheet.tsx)
+- Display: [valueDisplay.ts](../SubsTrack/src/modules/admin/audit/utils/valueDisplay.ts) (per-column display registry), [format.ts](../SubsTrack/src/modules/admin/audit/utils/format.ts) (generic fallback), [useAuditLookups.ts](../SubsTrack/src/modules/admin/audit/hooks/useAuditLookups.ts) (id → name)
 - Server: `sql scripts/script.sql` → `AUDIT LOGS` section + the `audit_logs_select` / `audit_logs_insert` policies
 - Strings: the `audit.*` group in `en.json` / `ar.json`
 
@@ -54,7 +55,7 @@ Sign in as an **admin** and check each via Admin → Audit Log.
 | 1.15 | Branch, currency      | Add + rename a branch; change a currency rate                      | Entries with the changed field only                                          |
 | 1.16 | Staff member          | Add a user, change their role, deactivate them                      | Added, then `Role  user → admin`, then `Active  Yes → No`                     |
 | 1.17 | Change a password     | Staff → change password                                            | **Edited · Staff member** — and the password value is **NOT** recorded        |
-| 1.18 | Tenant setting        | Admin → Tenant Settings → switch the unpaid rule                    | **Edited · Setting**, `month_start → customer_start_day`                      |
+| 1.18 | Tenant setting        | Admin → Tenant Settings → switch the unpaid rule                    | **Edited · Setting**, record "Unpaid months rule", one field with the two rules in words (see 6c) |
 | 1.19 | Bulk actions          | Select 3 customers → bulk deactivate                                | **3** entries, one per customer — not one lumped entry                       |
 
 ### 1b. What must NOT be recorded
@@ -152,7 +153,7 @@ Turn on airplane mode for each. Use Settings → Developer → `audit_logs` to i
 | 6.2 | Create sheet            | Tap an **Added** entry                                        | The whole new row's values; no arrows (nothing changed *from*)               |
 | 6.3 | Delete sheet            | Tap a **Deleted** entry                                       | The whole removed row — this is the only place it still exists               |
 | 6.4 | Readable values         | Any entry with a date, a true/false and an amount              | Date+time formatted, Yes/No not `1`/`0`, empty shown as `(empty)`            |
-| 6.5 | Technical noise hidden  | Any entry                                                     | No `tenant_id`, `updated_at` or generated `balance` row                      |
+| 6.5 | Technical noise hidden  | Any entry, **including an Added one** (whole-row snapshot)      | No `id`, `tenant_id`, `created_at`, `updated_at` or generated `balance` row   |
 | 6.6 | Record History          | Payment detail (as admin) → **History**                        | Only that payment's entries, newest first                                    |
 | 6.7 | Record History full     | In the History sheet → **Load full history**                   | Fetches that record's complete server-side timeline                          |
 | 6.8 | Record History empty    | Open History on a record created before this feature shipped    | "No changes recorded / not changed since the audit log started"              |
@@ -163,7 +164,7 @@ Turn on airplane mode for each. Use Settings → Developer → `audit_logs` to i
 | 6.13 | …received by           | Wallets → receive a collector's cash → open the entry                | `Received by admin` shows the admin's name, not an id                      |
 | 6.14 | …after the user is gone | Delete that staff member → reopen the same entry                   | `Voided by` reads **"Deleted user"** — still no UUID. The "Staff" row keeps the snapshotted username |
 | 6.15 | …opened from History   | Payment detail → History → tap the void entry (staff list not yet loaded) | Name still resolves — the sheet loads the staff list itself                |
-| 6.16 | Record ids unchanged   | An entry whose diff moved `plan_id` or `currency_id`                 | Still shown as the raw id (intended: a deleted record has no name)          |
+| 6.16 | Record ids unchanged   | An entry whose diff moved `plan_id`, `customer_id` or `customer_plan_id` | Still shown as the raw id (intended: a deleted record has no name). `branch_id` / `currency_id` DO resolve — see 6c |
 | 6.17 | Timestamp wording      | Open an entry for a **customer** or **plan** edit                    | The time row reads "When", not "Paid on"                                    |
 | 6.18 | History sheet isolation | Open History on payment A → close → open History on payment **B**    | B's timeline only. **A's entries must not appear**, not even for a moment (the sheet's state dies with it) |
 | 6.19 | …and its scope resets  | On A tap **Load full history** → close → reopen History on A          | Back to the 30-day window with the "Load full history" action offered again  |
@@ -188,6 +189,29 @@ Turn on airplane mode for each. Use Settings → Developer → `audit_logs` to i
 | 6.41 | No repeated fetching      | Open the sheet and leave it open (watch logs / network)                  | One fetch, not a loop — the hook keys on the targets' contents (gotcha #66)  |
 | 6.42 | Customer with no plans    | An occasional customer with zero service lines → open History             | The customer's own entries only; no crash from an empty target list          |
 | 6.43 | RTL                       | Switch to Arabic → open History                                          | Title, name, rows and chevrons mirror correctly                             |
+
+---
+
+### 6c. Displayed values (the per-column display registry)
+
+Raw columns are stored, human text is shown — declared once per column in [valueDisplay.ts](../SubsTrack/src/modules/admin/audit/utils/valueDisplay.ts). An unregistered column must still render exactly as before.
+
+| #    | Scenario                     | Steps                                                                        | Expected result                                                             |
+| ---- | ---------------------------- | ---------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
+| 6.50 | Setting name, not its key    | Admin → Organization Settings → change **Mark unpaid** → open the entry        | Record reads **"Unpaid months rule"**, not `UnpaidStartRule · month_start`    |
+| 6.51 | Setting value, not its code  | Same entry                                                                    | Value reads "On the customer's start day → On the first day of the month" — no `customer_start_day` |
+| 6.52 | Same text in the list        | The same entry in the Audit Log list                                          | The card's second line matches the sheet's Record row exactly                 |
+| 6.53 | Display currency setting     | Change the **display currency** → open the entry                              | Record "Display currency"; value shows the currency **code** (USD when cleared), never a UUID |
+| 6.54 | Old rows still readable      | An entry recorded **before** this change (no `key` carried)                    | Falls back to the frozen `key · value` label and the raw value — readable, no crash |
+| 6.55 | Staff role                   | Change a staff member's role → open the entry                                  | "Admin" / "User", not `admin` / `user`                                       |
+| 6.56 | Branch id → name             | Move a customer to another branch → open the entry                            | Both sides show branch **names**                                            |
+| 6.57 | Null branch wording          | Move a customer to no branch; a plan/product to Shared; a staff to tenant-wide | "Unassigned" / "Shared (all branches)" / "Tenant-wide admin" — never "(empty)" |
+| 6.58 | Currency id → code           | Edit a payment's currency, or view a payment/plan create entry                 | The currency **code** (`LBP`); a null currency reads `USD`, not "(empty)"     |
+| 6.59 | Deleted reference            | Deactivate/delete the referenced currency or branch → reopen the entry         | "(deleted)" — never a UUID                                                  |
+| 6.60 | Unregistered column          | An entry touching a column with no formatter (`notes`, `price`, `active`)      | Unchanged rendering: text, number, Yes/No, `(empty)`                        |
+| 6.61 | Unknown coded value          | (Developer) set a setting value to garbage → view the entry                    | The raw value is shown as-is; no blank row, no crash                        |
+| 6.62 | Arabic                       | Switch to Arabic → repeat 6.50, 6.55, 6.57                                    | Setting name, role and branch wording all translated                        |
+| 6.63 | Not a change row             | The setting entry from 6.50                                                    | Exactly ONE changed field (`Value`); `Setting` is context, never listed as changed |
 
 ---
 

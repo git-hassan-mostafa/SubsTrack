@@ -1,6 +1,7 @@
 import type { TFunction } from 'i18next';
-import type { AuditAction, AuditTable } from '@/src/core/types';
+import type { AuditAction, AuditEntry, AuditTable } from '@/src/core/types';
 import { formatDateTime, isValidDateString } from '@/src/core/utils/date';
+import { displayLabel, displayValue, type AuditFieldContext } from './valueDisplay';
 
 /** Human label for a table name, falling back to the raw name for anything new. */
 export function tableLabel(t: TFunction, table: AuditTable | string): string {
@@ -21,50 +22,29 @@ export function actionLabel(t: TFunction, action: AuditAction): string {
 }
 
 /**
- * Columns holding a USER id. A raw UUID is unreadable and, on a trail whose whole
- * point is "who did this", useless — so these are resolved to a username for
- * display (see `formatField`). Record ids (`customer_id`, `plan_id`, …) are NOT in
- * here on purpose: they identify the row the entry already names, and a deleted
- * record has no name left to resolve to.
+ * Render one field's value: the per-column display registry first (enum labels,
+ * ids resolved to names — see valueDisplay.ts), the generic rendering otherwise.
+ * A column with no registered display therefore still renders, unchanged.
  */
-const PERSON_FIELDS = new Set([
-  'voided_by',
-  'remitted_by',
-  'received_by_user_id',
-  'skipped_by_user_id',
-  'recorded_by_user_id',
-  'actor_user_id',
-]);
-
-/** Resolves a user id to a display name; returns null when unknown. */
-export type UserLookup = (userId: string) => string | null;
-
-/**
- * Render one field's value, resolving a person id to their name when the field
- * holds one. Falls back to `formatValue` for every other column.
- *
- * The id is resolved at READ time, never stored: a name frozen at write time would
- * go stale on a rename, and the id must survive in the row either way.
- */
-export function formatField(
-  t: TFunction,
-  field: string,
-  value: unknown,
-  locale = 'en-US',
-  lookupUser?: UserLookup,
-): string {
-  if (PERSON_FIELDS.has(field) && typeof value === 'string' && value !== '') {
-    // An unresolvable id means a deleted user (or a staff list not loaded) — say so
-    // rather than showing a UUID nobody can act on.
-    return lookupUser?.(value) ?? t('audit.deleted_user');
-  }
-  return formatValue(t, value, locale);
+export function formatField(field: string, value: unknown, ctx: AuditFieldContext): string {
+  return displayValue(field, value, ctx) ?? formatValue(ctx.t, value, ctx.locale);
 }
 
 /**
- * Render a raw DB value for display. Deliberately plain: the trail must stay
- * readable for ANY column, including ones added after this was written, so there
- * is no per-field special casing beyond the obvious shapes.
+ * The Record row's one-liner. `entry.label` is frozen at write time from raw
+ * columns; a table may render it better at read time (a setting's name instead of
+ * `UnpaidStartRule · month_start`). Built from the row's OWN columns only, so it
+ * never needs an id lookup.
+ */
+export function recordLabel(t: TFunction, entry: AuditEntry): string | null {
+  return displayLabel(t, entry) ?? entry.label;
+}
+
+/**
+ * Render a raw DB value for display. Deliberately column-agnostic: the trail must
+ * stay readable for ANY column, including ones added after this was written, so
+ * there is no per-field casing here beyond the obvious shapes — that belongs in
+ * the display registry (valueDisplay.ts).
  */
 export function formatValue(t: TFunction, value: unknown, locale = 'en-US'): string {
   if (value === null || value === undefined || value === '') return t('audit.empty_value');

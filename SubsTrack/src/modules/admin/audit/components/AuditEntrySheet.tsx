@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import { View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
@@ -8,8 +8,9 @@ import { formatDateTime } from "@/src/core/utils/date";
 import { COLORS } from "@/src/shared/constants";
 import { Text } from "@/src/shared/components/Text";
 import { FormSheet } from "@/src/shared/components/FormSheet";
-import { useUserSlice } from "@/src/state/hooks/useUserSlice";
-import { actionLabel, fieldLabel, formatField, tableLabel } from "../utils/format";
+import { useAuditLookups } from "../hooks/useAuditLookups";
+import { actionLabel, fieldLabel, formatField, recordLabel, tableLabel } from "../utils/format";
+import { showsColumn, type AuditFieldContext } from "../utils/valueDisplay";
 
 interface AuditEntrySheetProps {
   entry: AuditEntry;
@@ -20,23 +21,19 @@ interface AuditEntrySheetProps {
 export function AuditEntrySheet({ entry, onDismiss }: AuditEntrySheetProps) {
   const { t } = useTranslation();
 
-  // Person columns (voided_by, remitted_by, …) store a user id; resolve it to a
-  // name for display. `getUsers` self-guards on its `loaded` flag, so calling it
-  // here costs nothing when the list is already in the store — needed because this
-  // sheet also opens from RecordHistorySheet, which never loaded it.
-  const users = useUserSlice((s) => s.items);
-  const getUsers = useUserSlice((s) => s.getUsers);
-  useEffect(() => {
-    void getUsers();
-  }, [getUsers]);
-
-  const usersById = useMemo(() => new Map(users.map((u) => [u.id, u.fullName])), [users]);
-  const lookupUser = useCallback((id: string) => usersById.get(id) ?? null, [usersById]);
+  // Id columns (voided_by, currency_id, …) and coded values (month_start, admin)
+  // are rendered through the display registry, which needs the name lists.
+  const lookups = useAuditLookups();
+  const label = recordLabel(t, entry);
+  const ctx = useMemo<AuditFieldContext>(
+    () => ({ t, locale: i18n.language, table: entry.table, row: entry.context, lookups }),
+    [t, entry.table, entry.context, lookups],
+  );
 
   // A create/delete has no diff — it carries the whole row instead, which we show
   // as a plain field list (nothing "changed from", so no arrow).
   const snapshotRows = entry.snapshot
-    ? Object.entries(entry.snapshot).filter(([k]) => !k.endsWith("_id") || k === "branch_id")
+    ? Object.entries(entry.snapshot).filter(([k]) => showsColumn(entry.table, k))
     : [];
 
   return (
@@ -45,7 +42,7 @@ export function AuditEntrySheet({ entry, onDismiss }: AuditEntrySheetProps) {
       title={`${actionLabel(t, entry.action)} · ${tableLabel(t, entry.table)}`}
       dismissLabel={t("common.close")}
     >
-      {/* Who + when */}
+      {/* Who + when. The record line prefers a read-time label over the frozen one. */}
       <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden mb-4">
         <Row
           label={t("audit.filter_by_actor")}
@@ -55,9 +52,9 @@ export function AuditEntrySheet({ entry, onDismiss }: AuditEntrySheetProps) {
         <Row
           label={t("audit.occurred_at")}
           value={formatDateTime(entry.occurredAt, i18n.language)}
-          last={!entry.label}
+          last={!label}
         />
-        {entry.label ? <Row label={t("audit.record")} value={entry.label} last /> : null}
+        {label ? <Row label={t("audit.record")} value={label} last /> : null}
       </View>
 
       {/* The diff: old → new, one row per changed field */}
@@ -71,14 +68,14 @@ export function AuditEntrySheet({ entry, onDismiss }: AuditEntrySheetProps) {
               <Text className="text-xs text-gray-400">{fieldLabel(t, c.field)}</Text>
               <View className="flex-row items-center gap-2 mt-1">
                 <Text className="text-sm text-gray-400 line-through flex-shrink" numberOfLines={2}>
-                  {formatField(t, c.field, c.before, i18n.language, lookupUser)}
+                  {formatField(c.field, c.before, ctx)}
                 </Text>
                 <Ionicons name="arrow-forward" size={13} color={COLORS.gray400} />
                 <Text
                   className="text-sm font-semibold text-gray-900 flex-1"
                   numberOfLines={2}
                 >
-                  {formatField(t, c.field, c.after, i18n.language, lookupUser)}
+                  {formatField(c.field, c.after, ctx)}
                 </Text>
               </View>
             </View>
@@ -93,7 +90,7 @@ export function AuditEntrySheet({ entry, onDismiss }: AuditEntrySheetProps) {
             <Row
               key={key}
               label={fieldLabel(t, key)}
-              value={formatField(t, key, value, i18n.language, lookupUser)}
+              value={formatField(key, value, ctx)}
               last={i === snapshotRows.length - 1}
             />
           ))}

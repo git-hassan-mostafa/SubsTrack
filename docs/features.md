@@ -645,6 +645,23 @@ Unlike the Audit Log tab, the customer sheet is offered to **every role**, since
 
 Both admin views render the same **`<HistoryList>`** (`components/HistoryList.tsx`) — a purely presentational list (entries + loading/error/scope in, `onLoadMore` / `onLoadFull` / `onRefresh` out) that owns no query state, so it can be pointed at any filter. `inSheet` picks Gorhom's `BottomSheetFlatList` over RN's (a plain `FlatList` cannot scroll inside a sheet). Reuse it for any new "history of X" view rather than rebuilding the list, scope note and detail-sheet plumbing.
 
+**Displaying a raw value — the per-column display registry.** The trail stores raw columns on purpose (evidence, not prose), so a value the DB finds perfectly clear can be unreadable on screen: `month_start`, `admin`, a currency UUID. `valueDisplay.ts` (`modules/admin/audit/utils/`) is the ONE place that maps a column to human text — a small registry, not a chain of `if`s in the sheet:
+
+```ts
+const DISPLAY: Record<string, AuditValueFormatter> = {
+  '*.currency_id': currency,                                          // any table
+  'users.role': enumLabel({ admin: 'users.admin', user: 'users.user' }), // one table
+};
+```
+
+- A formatter returns `null` for anything it doesn't recognize, so an unregistered column — or a value added later — still renders through `formatValue` exactly as before. **Never blank, never a crash.**
+- One flat table keyed `<table>.<column>`, with `*.<column>` for a column that reads the same everywhere (the five person ids, `currency_id`, `branch_id`). First answer wins: the table's own key → the wildcard → the generic `formatValue`.
+- Helpers: `enumLabel({ raw: 'i18n.key' })` for coded values, `idRef(kind, { blank, missing })` for an id column — `blank` names what NULL means *there* (a null currency is USD, a null branch is "Shared" on a plan but "Unassigned" on a customer), `missing` covers a deleted reference ("Deleted user" / "(deleted)"), so a UUID is never shown.
+- **Ids resolve at READ time**, through `useAuditLookups()` (staff + currencies + branches; each `getX()` self-guards on its `loaded` flag). A name frozen at write time would go stale on a rename.
+- A table may also replace the **frozen `label`** on the Record row: `tenant_settings` shows the setting's own name instead of the raw `UnpaidStartRule · month_start`. Label formatters get `t` + the entry only — no lookups — because a label is built from the row's own columns (same rule as `describeAudit`).
+- `showsColumn()` decides what a create/delete snapshot lists: never the technical columns (`id`, `tenant_id`, `created_at`, `updated_at`, `balance` — the same set the diff hides), and an id column only when the registry can name it, so "Currency: LBP" and "Received by: John" appear while `customer_id` and `plan_id` stay hidden.
+- **Some values need a sibling column to be readable at all**: `tenant_settings.value` is `month_start` under one key and a currency id under another. `CONTEXT_FIELDS` in `buildAuditRow.ts` copies those columns into an edit's payload even when unchanged, **outside `changed`** so they never render as a change, and the read side exposes them as `AuditEntry.context`. Rows written before this simply carry less context and fall back to the raw value.
+
 **Where the read state lives is split by lifetime**, and the split matters:
 
 | State | Home | Why |

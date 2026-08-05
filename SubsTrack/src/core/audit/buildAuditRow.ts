@@ -34,6 +34,18 @@ export interface AuditInput {
 const IGNORED_FIELDS = new Set(['updated_at', 'balance']);
 
 /**
+ * Columns an EDIT carries even when they didn't change, because the changed column
+ * can't be read without them: `tenant_settings.value` is meaningless on its own —
+ * `month_start` under one key, a currency id under another.
+ *
+ * They stay OUT of `changed`, so they never render as a change; the read side picks
+ * them up as `AuditEntry.context` for the display registry (valueDisplay.ts).
+ */
+const CONTEXT_FIELDS: Partial<Record<AuditTable, string[]>> = {
+  tenant_settings: ['key'],
+};
+
+/**
  * Drop joined children before diffing. A repository's write often re-reads the row
  * with its join select (`customers` returns a nested `customer_plans` array), while
  * the "before" snapshot is a bare `select('*')`. Diffing those two compares "key
@@ -112,6 +124,9 @@ export function buildAuditRow(input: AuditInput): DbAuditLog | null {
       diffAfter[f] = after[f] ?? null;
     }
     if (names.length === 0) return null; // nothing actually changed
+    for (const f of CONTEXT_FIELDS[input.table] ?? []) {
+      if (!names.includes(f)) diffAfter[f] = after[f] ?? null;
+    }
     changed = names;
     beforeData = diffBefore;
     afterData = diffAfter;
