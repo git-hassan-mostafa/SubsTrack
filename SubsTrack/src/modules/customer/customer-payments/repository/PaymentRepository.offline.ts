@@ -95,20 +95,12 @@ export class OfflinePaymentRepository extends OfflineBaseRepository implements I
     return this.decodeAll<DbPayment>('payments', rows);
   }
 
-  // Payments carry no branch_id of their own; the audit row denormalizes the
-  // owning customer's so a branch-scoped admin can filter on one column.
-  private async branchOf(customerId: string): Promise<string | null> {
-    const row = await this.first<{ branch_id: string | null }>(
-      'SELECT branch_id FROM customers WHERE id = ?',
-      [customerId],
-    );
-    return row?.branch_id ?? null;
-  }
-
   async create(payload: CreatePaymentPayload): Promise<DbPayment> {
     const id = await deterministicId(payload.customer_plan_id, payload.billing_month);
     const row = this.buildRow(payload, id, nowIso());
-    const branchId = await this.branchOf(payload.customer_id);
+    // Read before write() — the audit facts come from a read, and the transaction
+    // must stay as short as possible.
+    const owner = await this.customerAudit(payload.customer_id);
     // The mirror may already hold this line+month under another id (created on the
     // web / another device) — echo back the id it actually stored, never the
     // intended one, or the caller's Payment would point at a row that isn't there.
@@ -119,7 +111,7 @@ export class OfflinePaymentRepository extends OfflineBaseRepository implements I
         recordId: stored,
         action: 'create',
         after: { ...row, id: stored },
-        branchId,
+        ...owner,
       });
       return stored;
     });
@@ -133,9 +125,10 @@ export class OfflinePaymentRepository extends OfflineBaseRepository implements I
     for (const p of payloads) {
       rows.push(this.buildRow(p, await deterministicId(p.customer_plan_id, p.billing_month), now));
     }
-    const branches = new Map<string, string | null>();
+    // One lookup per distinct customer, resolved before the transaction opens.
+    const owners = new Map<string, { branchId: string | null; subject: string | null }>();
     for (const p of payloads) {
-      if (!branches.has(p.customer_id)) branches.set(p.customer_id, await this.branchOf(p.customer_id));
+      if (!owners.has(p.customer_id)) owners.set(p.customer_id, await this.customerAudit(p.customer_id));
     }
     const storedIds = await this.write(async (db) => {
       const ids: string[] = [];
@@ -147,7 +140,7 @@ export class OfflinePaymentRepository extends OfflineBaseRepository implements I
           recordId: stored,
           action: 'create',
           after: { ...row, id: stored },
-          branchId: branches.get(row.customer_id) ?? null,
+          ...owners.get(row.customer_id),
         });
       }
       return ids;
@@ -188,7 +181,7 @@ export class OfflinePaymentRepository extends OfflineBaseRepository implements I
           action: 'update',
           before,
           after,
-          branchId: await this.branchOf(after.customer_id),
+          ...(await this.customerAudit(after.customer_id)),
         });
       }
       return after;
@@ -226,7 +219,7 @@ export class OfflinePaymentRepository extends OfflineBaseRepository implements I
             action: 'void',
             before,
             after,
-            branchId: await this.branchOf(after.customer_id),
+            ...(await this.customerAudit(after.customer_id)),
           });
         }
       }
@@ -373,7 +366,7 @@ export class OfflinePaymentRepository extends OfflineBaseRepository implements I
           action: 'update',
           before: row,
           after: { ...row, remitted_at: now, remitted_by: remittedBy },
-          branchId: await this.branchOf(row.customer_id),
+          ...(await this.customerAudit(row.customer_id)),
         });
       }
     });

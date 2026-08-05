@@ -202,6 +202,29 @@ export abstract class OfflineBaseRepository {
     return this.db.getFirstAsync<T>(sql, params as never[]);
   }
 
+  /**
+   * The audit facts a child row inherits from its owning customer — mirrors
+   * `BaseRepository.customerAudit`. See it for why both come from one query.
+   */
+  protected async customerAudit(
+    customerId: string,
+  ): Promise<{ branchId: string | null; subject: string | null }> {
+    const row = await this.first<{ branch_id: string | null; name: string | null }>(
+      'SELECT branch_id, name FROM customers WHERE id = ?',
+      [customerId],
+    );
+    return { branchId: row?.branch_id ?? null, subject: row?.name ?? null };
+  }
+
+  /**
+   * Just the frozen customer name, for a table that already owns its branch_id
+   * (sales). `null` for a record with no customer — a walk-in sale.
+   */
+  protected async customerSubject(customerId: string | null): Promise<string | null> {
+    if (!customerId) return null;
+    return (await this.customerAudit(customerId)).subject;
+  }
+
   protected decodeAll<T>(table: string, rows: Record<string, unknown>[]): T[] {
     return decodeRows<T>(table, rows);
   }

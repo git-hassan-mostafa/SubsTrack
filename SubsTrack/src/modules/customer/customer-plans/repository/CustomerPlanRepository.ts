@@ -13,17 +13,6 @@ import { OfflineCustomerPlanRepository } from './CustomerPlanRepository.offline'
 const SELECT = '*, plans(*)';
 
 export class CustomerPlanRepository extends BaseRepository implements ICustomerPlanRepository {
-  // Service lines carry no branch_id of their own; the audit row denormalizes the
-  // owning customer's so a branch-scoped admin can filter on one column.
-  private async branchOf(customerId: string): Promise<string | null> {
-    const { data } = await this.db
-      .from('customers')
-      .select('branch_id')
-      .eq('id', customerId)
-      .maybeSingle();
-    return (data as { branch_id: string | null } | null)?.branch_id ?? null;
-  }
-
   async create(payload: CreateCustomerPlanPayload): Promise<DbCustomerPlan> {
     const { data, error } = await this.db
       .from('customer_plans')
@@ -37,7 +26,7 @@ export class CustomerPlanRepository extends BaseRepository implements ICustomerP
       recordId: created.id,
       action: 'create',
       after: created,
-      branchId: await this.branchOf(created.customer_id),
+      ...(await this.customerAudit(created.customer_id)),
     });
     return created;
   }
@@ -68,7 +57,7 @@ export class CustomerPlanRepository extends BaseRepository implements ICustomerP
       action,
       before: prior,
       after: updated,
-      branchId: await this.branchOf(updated.customer_id),
+      ...(await this.customerAudit(updated.customer_id)),
     });
     return updated;
   }
@@ -109,7 +98,7 @@ export class CustomerPlanRepository extends BaseRepository implements ICustomerP
         recordId: id,
         action: 'delete',
         before: removed,
-        branchId: await this.branchOf(removed.customer_id),
+        ...(await this.customerAudit(removed.customer_id)),
       });
     }
   }

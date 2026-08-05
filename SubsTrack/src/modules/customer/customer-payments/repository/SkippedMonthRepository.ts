@@ -34,9 +34,10 @@ export class SkippedMonthRepository extends BaseRepository implements ISkippedMo
       .select();
     if (error) this.handleError(error);
     const saved = (data ?? []) as DbSkippedMonth[];
-    const branches = new Map<string, string | null>();
+    // One lookup per distinct customer — a whole month is often skipped at once.
+    const owners = new Map<string, { branchId: string | null; subject: string | null }>();
     for (const s of saved) {
-      if (!branches.has(s.customer_id)) branches.set(s.customer_id, await this.branchOf(s.customer_id));
+      if (!owners.has(s.customer_id)) owners.set(s.customer_id, await this.customerAudit(s.customer_id));
     }
     for (const s of saved) {
       // One row covers both directions: `skipped: false` is an unskip, which
@@ -46,21 +47,10 @@ export class SkippedMonthRepository extends BaseRepository implements ISkippedMo
         recordId: s.id,
         action: s.skipped ? 'create' : 'restore',
         after: s,
-        branchId: branches.get(s.customer_id) ?? null,
+        ...owners.get(s.customer_id),
       });
     }
     return saved;
-  }
-
-  // Skips carry no branch_id of their own; the audit row denormalizes the owning
-  // customer's so a branch-scoped admin can filter on one column.
-  private async branchOf(customerId: string): Promise<string | null> {
-    const { data } = await this.db
-      .from('customers')
-      .select('branch_id')
-      .eq('id', customerId)
-      .maybeSingle();
-    return (data as { branch_id: string | null } | null)?.branch_id ?? null;
   }
 }
 

@@ -22,6 +22,13 @@ export interface AuditInput {
   branchId?: string | null;
   /** Overrides the generated one-liner when the caller has a better name. */
   label?: string;
+  /**
+   * Who the record belongs to — the customer's name for a payment / sale / skip /
+   * plan line. Frozen here rather than resolved from `customer_id` at read time,
+   * because a deleted customer leaves the id pointing at nothing. Omit for a
+   * record that belongs to nobody (a plan, a setting, a staff member).
+   */
+  subject?: string | null;
 }
 
 /**
@@ -68,6 +75,12 @@ function ownColumns(row: Record<string, unknown> | null): Record<string, unknown
 /** NULL, undefined and '' are all "no value" as far as the trail is concerned. */
 function isBlank(v: unknown): boolean {
   return v === null || v === undefined || v === '';
+}
+
+/** A row's own `name`, for the one table whose record IS the subject (customers). */
+function subjectOfRow(row: Record<string, unknown> | null): string | null {
+  const name = row?.name;
+  return typeof name === 'string' && name !== '' ? name : null;
 }
 
 /** Shallow value compare — enough for the flat scalar rows the mirror stores. */
@@ -150,6 +163,9 @@ export function buildAuditRow(input: AuditInput): DbAuditLog | null {
     after_data: afterData,
     changed,
     label: input.label ?? describeAudit(input.table, row),
+    // On `customers` the customer IS the record, so its own name is the subject —
+    // no caller needs to pass one. Elsewhere only the caller knows the parent.
+    subject: input.subject ?? (input.table === 'customers' ? subjectOfRow(row) : null),
     actor_user_id: user.id,
     actor_username: user.username,
     occurred_at: now,

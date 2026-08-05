@@ -323,6 +323,9 @@ export interface DbAuditLog {
   after_data: Record<string, unknown> | null;
   changed: string[] | null;
   label: string | null;
+  // Who the record belongs to (the customer). Frozen like `label`, for the same
+  // reason: a deleted customer leaves no name to resolve an id to.
+  subject: string | null;
   actor_user_id: string | null;
   // Snapshot: survives the user row being deleted.
   actor_username: string | null;

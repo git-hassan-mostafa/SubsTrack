@@ -44,6 +44,11 @@ export function AuditEntrySheet({ entry, onDismiss }: AuditEntrySheetProps) {
     >
       {/* Who + when. The record line prefers a read-time label over the frozen one. */}
       <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden mb-4">
+        {/* The frozen customer name, so the sheet names the same person the card
+            does. Skipped on `customers`, where it IS the record line below. */}
+        {entry.subject && entry.table !== "customers" ? (
+          <Row label={t("audit.field.customer_id")} value={entry.subject} />
+        ) : null}
         <Row
           label={t("audit.filter_by_actor")}
           value={entry.actorUsername ?? t("audit.unknown_actor")}

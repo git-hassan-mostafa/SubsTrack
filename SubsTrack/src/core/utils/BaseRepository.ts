@@ -70,6 +70,34 @@ export abstract class BaseRepository {
   }
 
   /**
+   * The audit facts a child row inherits from its owning customer: the branch to
+   * file the entry under (a payment / skip / plan line has no branch_id of its
+   * own) and the customer's name, frozen into the entry so the list can say WHO
+   * it was about after the customer is gone.
+   *
+   * One query for both — the branch lookup was already being made at every one of
+   * these call sites, so naming the customer costs nothing extra.
+   */
+  protected async customerAudit(customerId: string): Promise<{ branchId: string | null; subject: string | null }> {
+    const { data } = await this.db
+      .from("customers")
+      .select("branch_id, name")
+      .eq("id", customerId)
+      .maybeSingle();
+    const row = data as { branch_id: string | null; name: string | null } | null;
+    return { branchId: row?.branch_id ?? null, subject: row?.name ?? null };
+  }
+
+  /**
+   * Just the frozen customer name, for a table that already owns its branch_id
+   * (sales). `null` for a record with no customer — a walk-in sale.
+   */
+  protected async customerSubject(customerId: string | null): Promise<string | null> {
+    if (!customerId) return null;
+    return (await this.customerAudit(customerId)).subject;
+  }
+
+  /**
    * `UPDATE` one row by id and record the diff. The extra read is unavoidable:
    * PostgREST cannot return old values from an UPDATE. Covers the repeated
    * read-patch-diff dance for tables whose branch is their own `branch_id`

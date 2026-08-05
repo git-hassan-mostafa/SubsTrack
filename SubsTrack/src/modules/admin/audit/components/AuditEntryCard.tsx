@@ -7,12 +7,7 @@ import { formatDateTimeShort } from "@/src/core/utils/date";
 import { COLORS } from "@/src/shared/constants";
 import { Text } from "@/src/shared/components/Text";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
-import {
-  actionLabel,
-  fieldLabel,
-  recordLabel,
-  tableLabel,
-} from "../utils/format";
+import { actionLabel, fieldLabel, recordLabel, tableLabel } from "../utils/format";
 
 // Colour + icon per action, so the list scans by shape before you read it.
 // Tailwind classes (mirrors DebtItemCard) — there are no light danger/indigo tokens.
@@ -69,42 +64,75 @@ interface AuditEntryCardProps {
 }
 
 /**
- * One row of the trail: what kind of record, what happened to it, which fields
- * moved, and who did it — in that reading order, so a long log scans top-down.
+ * One row of the trail, in two lines: WHAT record (type + whose it is) with the
+ * action as a colour, then WHO did it and when.
+ *
+ * Deliberately not a summary of the change itself — the field names used to be
+ * listed here as chips, which made every row three or four lines tall and still
+ * said less than one tap does. The count alone tells the reader whether the entry
+ * is worth opening; the sheet holds the detail.
  */
 export function AuditEntryCard({ entry, onPress }: AuditEntryCardProps) {
   const { t } = useTranslation();
   const style = ACTION_STYLE[entry.action];
 
-  // The changed field names, so the row says WHAT moved without being tapped.
-  // Capped at three — a longer list turns the chip row into a paragraph.
-  const fields = entry.changes.slice(0, 3).map((c) => fieldLabel(t, c.field));
-  const extra = entry.changes.length - fields.length;
+  const type = tableLabel(t, entry.table);
+  // Whose record it is (a customer), frozen at write time. Absent on records that
+  // belong to nobody (a plan, a setting) and on entries written before it existed.
+  const subject = entry.subject;
   // Same one-liner the sheet shows, so the list and the detail never disagree.
-  const label = recordLabel(t, entry);
+  // Dropped when it repeats the subject — on `customers` the record IS the person,
+  // so both are the same name and printing it twice says nothing.
+  const recordName = recordLabel(t, entry);
+  const label = recordName === subject ? null : recordName;
+
+  // What moved, in one phrase: a single changed field is worth naming, several are
+  // only worth counting, and a create/delete changed the whole row so it says
+  // nothing here (the type + record line already covers it).
+  const summary =
+    entry.changes.length === 1
+      ? fieldLabel(t, entry.changes[0].field)
+      : entry.changes.length > 1
+        ? t("audit.changed_count", { count: entry.changes.length })
+        : null;
+
+  // Line 2 reads "<record> · <what moved>" — both are optional, and the dot only
+  // appears between two present halves.
+  const detail = [label, summary].filter(Boolean).join(" · ");
 
   return (
     <PressableOpacity
       onPress={onPress}
-      className="bg-white border border-gray-100 rounded-2xl px-4 py-3.5 mb-2.5 flex-row items-start"
+      className="bg-white border border-gray-100 rounded-2xl px-4 py-3 mb-2 flex-row items-center"
     >
       <View
-        className={`w-10 h-10 rounded-xl items-center justify-center me-3 ${style.tile}`}
+        className={`w-9 h-9 rounded-xl items-center justify-center me-3 ${style.tile}`}
       >
-        <Ionicons name={style.icon} size={18} color={style.color} />
+        <Ionicons name={style.icon} size={17} color={style.color} />
       </View>
 
       <View className="flex-1">
-        {/* What kind of record + what happened to it (the action as a colour, not prose). */}
+        {/* Record type, then the customer it belongs to — the customer reads as the
+            subject without competing with the type for the eye. */}
         <View className="flex-row items-center">
           <Text
             fontWeight="SemiBold"
-            className="flex-1 text-[15px] text-gray-900 pe-2"
+            className="text-[15px] text-gray-900"
             numberOfLines={1}
           >
-            {tableLabel(t, entry.table)}
+            {type}
           </Text>
-          <View className={`rounded-full px-2 py-0.5 ${style.pill}`}>
+          {subject ? (
+            <Text
+              className="flex-1 text-[15px] text-gray-500 ms-1.5"
+              numberOfLines={1}
+            >
+              {subject}
+            </Text>
+          ) : (
+            <View className="flex-1" />
+          )}
+          <View className={`rounded-full px-2 py-0.5 ms-2 ${style.pill}`}>
             <Text
               fontWeight="SemiBold"
               className={`text-[10px] uppercase tracking-wide ${style.pillText}`}
@@ -114,43 +142,24 @@ export function AuditEntryCard({ entry, onPress }: AuditEntryCardProps) {
           </View>
         </View>
 
-        {label ? (
-          <Text className="text-xs text-gray-500 mt-0.5" numberOfLines={1}>
-            {label}
-          </Text>
-        ) : null}
-
-        {/* Chips instead of a comma list — the eye picks one field out at a glance. */}
-        {fields.length > 0 ? (
-          <View className="flex-row flex-wrap items-center gap-1 mt-1.5">
-            {fields.map((f) => (
-              <View
-                key={f}
-                className="bg-gray-50 border border-gray-100 rounded-md px-1.5 py-0.5"
-              >
-                <Text className="text-[10px] text-gray-600" numberOfLines={1}>
-                  {f}
-                </Text>
-              </View>
-            ))}
-            {extra > 0 ? (
-              <Text className="text-[10px] text-gray-400">{`+${extra}`}</Text>
-            ) : null}
-          </View>
-        ) : null}
-
-        {/* Who + when, split off by a hairline: the evidence a dispute turns on. */}
-        <View className="flex-row items-center mt-2">
-          <Ionicons name="person-outline" size={11} color={COLORS.gray400} />
-          <Text
-            className="flex-1 text-[11px] text-gray-500 ms-1"
-            numberOfLines={1}
-          >
+        {/* Who + when + what moved, on one muted line — the evidence a dispute
+            turns on, without taking a line each. */}
+        <View className="flex-row items-center mt-1">
+          <Text className="text-[11px] text-gray-500" numberOfLines={1}>
             {entry.actorUsername ?? t("audit.unknown_actor")}
           </Text>
-          <Text className="text-[11px] text-gray-400 ms-2" numberOfLines={1}>
+          <Text className="text-[11px] text-gray-300 mx-1.5">·</Text>
+          <Text className="text-[11px] text-gray-400" numberOfLines={1}>
             {formatDateTimeShort(entry.occurredAt, i18n.language)}
           </Text>
+          {detail ? (
+            <Text
+              className="flex-1 text-[11px] text-gray-400 ms-1.5 text-right"
+              numberOfLines={1}
+            >
+              {detail}
+            </Text>
+          ) : null}
         </View>
       </View>
     </PressableOpacity>

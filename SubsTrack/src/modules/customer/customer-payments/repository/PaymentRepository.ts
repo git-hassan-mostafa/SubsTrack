@@ -71,17 +71,6 @@ export class PaymentRepository extends BaseRepository implements IPaymentReposit
     return (data ?? []) as DbPayment[];
   }
 
-  // Payments carry no branch_id of their own; the audit row denormalizes the
-  // owning customer's so a branch-scoped admin can filter on one column.
-  private async branchOf(customerId: string): Promise<string | null> {
-    const { data } = await this.db
-      .from('customers')
-      .select('branch_id')
-      .eq('id', customerId)
-      .maybeSingle();
-    return (data as { branch_id: string | null } | null)?.branch_id ?? null;
-  }
-
   async create(payload: CreatePaymentPayload): Promise<DbPayment> {
     const { data, error } = await this.db
       .from('payments')
@@ -106,7 +95,7 @@ export class PaymentRepository extends BaseRepository implements IPaymentReposit
       recordId: created.id,
       action: 'create',
       after: created,
-      branchId: await this.branchOf(created.customer_id),
+      ...(await this.customerAudit(created.customer_id)),
     });
     return created;
   }
@@ -131,9 +120,11 @@ export class PaymentRepository extends BaseRepository implements IPaymentReposit
       .select();
     if (error) this.handleError(error);
     const created = (data ?? []) as DbPayment[];
-    const branches = new Map<string, string | null>();
+    // One lookup per distinct customer, not per payment — a bulk collect touches
+    // the same handful of customers repeatedly.
+    const owners = new Map<string, { branchId: string | null; subject: string | null }>();
     for (const p of created) {
-      if (!branches.has(p.customer_id)) branches.set(p.customer_id, await this.branchOf(p.customer_id));
+      if (!owners.has(p.customer_id)) owners.set(p.customer_id, await this.customerAudit(p.customer_id));
     }
     for (const p of created) {
       await this.audit({
@@ -141,7 +132,7 @@ export class PaymentRepository extends BaseRepository implements IPaymentReposit
         recordId: p.id,
         action: 'create',
         after: p,
-        branchId: branches.get(p.customer_id) ?? null,
+        ...owners.get(p.customer_id),
       });
     }
     return created;
@@ -179,7 +170,7 @@ export class PaymentRepository extends BaseRepository implements IPaymentReposit
       action: 'update',
       before: prior,
       after: updated,
-      branchId: await this.branchOf(updated.customer_id),
+      ...(await this.customerAudit(updated.customer_id)),
     });
     return updated;
   }
@@ -204,7 +195,7 @@ export class PaymentRepository extends BaseRepository implements IPaymentReposit
       action: 'void',
       before: prior,
       after: voided,
-      branchId: await this.branchOf(voided.customer_id),
+      ...(await this.customerAudit(voided.customer_id)),
     });
     return voided;
   }
@@ -227,6 +218,10 @@ export class PaymentRepository extends BaseRepository implements IPaymentReposit
       .select();
     if (error) this.handleError(error);
     const voided = (data ?? []) as DbPayment[];
+    const owners = new Map<string, { branchId: string | null; subject: string | null }>();
+    for (const p of voided) {
+      if (!owners.has(p.customer_id)) owners.set(p.customer_id, await this.customerAudit(p.customer_id));
+    }
     for (const p of voided) {
       await this.audit({
         table: 'payments',
@@ -234,7 +229,7 @@ export class PaymentRepository extends BaseRepository implements IPaymentReposit
         action: 'void',
         before: before.get(p.id) ?? null,
         after: p,
-        branchId: await this.branchOf(p.customer_id),
+        ...owners.get(p.customer_id),
       });
     }
     return voided;
@@ -377,14 +372,19 @@ export class PaymentRepository extends BaseRepository implements IPaymentReposit
       // actually moved, not every id the caller passed.
       .select();
     if (error) this.handleError(error);
-    for (const p of (data ?? []) as DbPayment[]) {
+    const remitted = (data ?? []) as DbPayment[];
+    const owners = new Map<string, { branchId: string | null; subject: string | null }>();
+    for (const p of remitted) {
+      if (!owners.has(p.customer_id)) owners.set(p.customer_id, await this.customerAudit(p.customer_id));
+    }
+    for (const p of remitted) {
       await this.audit({
         table: 'payments',
         recordId: p.id,
         action: 'update',
         before: { ...p, remitted_at: null, remitted_by: null },
         after: p,
-        branchId: await this.branchOf(p.customer_id),
+        ...owners.get(p.customer_id),
       });
     }
   }

@@ -132,6 +132,9 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
       action: 'create',
       after: created,
       branchId: created.branch_id,
+      // Already joined by SALE_SELECT_LEAN — no lookup needed. A walk-in sale has
+      // no customer, so the entry simply has no subject.
+      subject: created.customers?.name ?? null,
     });
 
     // Same shape SALE_SELECT would have returned, assembled from the writes.
@@ -168,6 +171,7 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
       before: prior,
       after: voided,
       branchId: voided.branch_id,
+      subject: voided.customers?.name ?? null,
     });
     return voided;
   }
@@ -300,7 +304,16 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
       // actually moved, not every id the caller passed.
       .select();
     if (error) this.handleError(error);
-    for (const s of (data ?? []) as DbSale[]) {
+    const remitted = (data ?? []) as DbSale[];
+    // The conditional UPDATE returns bare rows (no customer join), so the subject
+    // is looked up — once per distinct customer, and never for a walk-in sale.
+    const names = new Map<string, string | null>();
+    for (const s of remitted) {
+      if (s.customer_id && !names.has(s.customer_id)) {
+        names.set(s.customer_id, await this.customerSubject(s.customer_id));
+      }
+    }
+    for (const s of remitted) {
       await this.audit({
         table: 'sales',
         recordId: s.id,
@@ -308,6 +321,7 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
         before: { ...s, remitted_at: null, remitted_by: null },
         after: s,
         branchId: s.branch_id,
+        subject: s.customer_id ? (names.get(s.customer_id) ?? null) : null,
       });
     }
   }

@@ -121,6 +121,8 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
       created_at: now,
       updated_at: now,
     }));
+    // Read before write() — the transaction must stay as short as possible.
+    const subject = await this.customerSubject(saleRow.customer_id);
     // Header + all lines + the stock decrements in one local transaction (atomic
     // offline; the generic sync pushes them separately, parents-before-children).
     await this.write(async (db) => {
@@ -135,6 +137,7 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
         action: 'create',
         after: saleRow,
         branchId: saleRow.branch_id,
+        subject,
       });
     });
     const created = await this.findById(saleId);
@@ -172,6 +175,7 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
           before,
           after,
           branchId: after.branch_id,
+          subject: await this.customerSubject(after.customer_id),
         });
       }
     });
@@ -316,6 +320,7 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
           before: row,
           after: { ...row, remitted_at: now, remitted_by: remittedBy },
           branchId: row.branch_id,
+          subject: await this.customerSubject(row.customer_id),
         });
       }
     });

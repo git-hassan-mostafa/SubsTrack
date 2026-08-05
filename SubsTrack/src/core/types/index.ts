@@ -628,6 +628,12 @@ export interface AuditEntry {
    */
   context: Record<string, unknown>;
   label: string | null;
+  /**
+   * Who the record belongs to — the customer behind a payment / sale / skip /
+   * plan line. Frozen at write time, so it survives the customer being deleted.
+   * null for a record that belongs to nobody (a plan, a setting, a staff member).
+   */
+  subject: string | null;
   actorUserId: string | null;
   actorUsername: string | null;
   /** Device clock at the moment the staff member acted — NOT the sync moment. */

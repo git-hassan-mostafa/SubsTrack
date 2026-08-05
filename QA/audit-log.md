@@ -145,6 +145,34 @@ Turn on airplane mode for each. Use Settings → Developer → `audit_logs` to i
 
 ---
 
+### 5b. The entry card (two lines, and the customer)
+
+The card is deliberately two lines: **record type + the customer it belongs to + the action pill**, then **staff · when · what moved**. The customer name comes from `audit_logs.subject`, **frozen at write time** — never resolved from `customer_id` at read time, because a deleted customer leaves the id pointing at nothing.
+
+| #    | Scenario                       | Steps                                                                       | Expected result                                                                     |
+| ---- | ------------------------------ | --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| 5.20 | Customer on a payment          | Record a payment → open the Audit Log                                        | Card line 1 reads **Payment · <customer name>** with the green "Added" pill          |
+| 5.21 | Customer on a sale             | Record a sale for a customer                                                 | Line 1 names the customer                                                           |
+| 5.22 | Walk-in sale has no customer   | Record a sale with **no customer**                                            | Line 1 shows the type + pill only — **no blank space or "(empty)"** where a name would be |
+| 5.23 | Customer on a skip             | Skip a month for a customer                                                  | Line 1 names the customer                                                           |
+| 5.24 | Customer on a plan line        | Add / change / remove a service line from the customer form                   | Line 1 names the customer                                                           |
+| 5.25 | A customer edit                | Edit a customer's phone                                                       | Line 1 names the customer **once** — the name is not repeated on line 2             |
+| 5.26 | Records with no owner          | Add a plan, a product, a currency, a staff member, change a setting            | Line 1 shows the type + pill only; nothing implies a customer                        |
+| 5.27 | Exactly two lines              | Any entry, any action                                                          | The card is **two lines tall** — the old field-name chip row is gone entirely        |
+| 5.28 | One changed field is named     | Edit only a payment's amount                                                   | Line 2 ends with **"Amount paid"** — the field name, not a count                    |
+| 5.29 | Several changed fields counted | Edit a customer's name AND phone AND address                                   | Line 2 ends with **"3 fields changed"**                                             |
+| 5.30 | Create / delete say nothing    | An **Added** or **Deleted** entry                                              | Line 2 has no field summary (the whole row changed) — just staff · when · the record |
+| 5.31 | Renamed customer keeps history | Record a payment → **rename** the customer → reopen the Audit Log               | The old entry still shows the **name at the time**, not the new one (frozen on purpose) |
+| 5.32 | Deleted customer keeps history | Record a payment → delete that customer → reopen the Audit Log                  | The entry still names them — **never** "(deleted)" or a UUID                        |
+| 5.33 | Old rows have no subject       | An entry recorded **before** `subject` shipped                                  | Renders with no customer name — no blank row, no crash                              |
+| 5.34 | Long names truncate            | A customer with a very long name                                               | Line 1 truncates on one line; the action pill stays fully visible and never wraps    |
+| 5.35 | Card and sheet agree           | Tap an entry from 5.20                                                          | The sheet's **Customer** row shows the same name the card did                        |
+| 5.36 | …but not twice on a customer   | Tap the customer edit from 5.25                                                 | The sheet shows the name on the **Record** row only — no duplicate Customer row      |
+| 5.37 | Arabic + RTL                   | Switch to Arabic → repeat 5.20 and 5.29                                        | Name follows the type on the correct side; the pill sits at the line's end; line 2 mirrors |
+| 5.38 | Same card in both views        | Compare the Audit Log screen and a per-record History sheet                     | Identical two-line card in both                                                     |
+
+---
+
 ## 6. Entry detail and per-record history
 
 | #   | Scenario                | Steps                                                        | Expected result                                                             |

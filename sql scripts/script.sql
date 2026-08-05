@@ -1327,6 +1327,7 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     changed        JSONB,
     -- Frozen one-line description, so the entry stays readable after the row is gone.
     label          TEXT,
+    subject        TEXT,
     actor_user_id  UUID,
     -- Snapshot (like exception_logs.username): survives the user being deleted.
     actor_username TEXT,

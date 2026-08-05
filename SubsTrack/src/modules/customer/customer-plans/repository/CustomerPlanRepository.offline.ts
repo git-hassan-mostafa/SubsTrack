@@ -22,16 +22,6 @@ export class OfflineCustomerPlanRepository
     return this.hydrate(this.decodeOne<DbCustomerPlan>('customer_plans', row)!);
   }
 
-  // Service lines carry no branch_id of their own; the audit row denormalizes the
-  // owning customer's so a branch-scoped admin can filter on one column.
-  private async branchOf(customerId: string): Promise<string | null> {
-    const row = await this.first<{ branch_id: string | null }>(
-      'SELECT branch_id FROM customers WHERE id = ?',
-      [customerId],
-    );
-    return row?.branch_id ?? null;
-  }
-
   async create(payload: CreateCustomerPlanPayload): Promise<DbCustomerPlan> {
     const now = nowIso();
     const row: DbCustomerPlan = {
@@ -45,7 +35,8 @@ export class OfflineCustomerPlanRepository
       created_at: now,
       updated_at: now,
     };
-    const branchId = await this.branchOf(payload.customer_id);
+    // Read before write() — the transaction must stay as short as possible.
+    const owner = await this.customerAudit(payload.customer_id);
     await this.write(async (db) => {
       await insertDirty(db, 'customer_plans', row);
       await this.auditIn(db, {
@@ -53,7 +44,7 @@ export class OfflineCustomerPlanRepository
         recordId: row.id,
         action: 'create',
         after: row,
-        branchId,
+        ...owner,
       });
     });
     return this.hydrate(row);
@@ -82,7 +73,7 @@ export class OfflineCustomerPlanRepository
           action,
           before,
           after,
-          branchId: await this.branchOf(after.customer_id),
+          ...(await this.customerAudit(after.customer_id)),
         });
       }
     });
@@ -126,7 +117,7 @@ export class OfflineCustomerPlanRepository
           recordId: id,
           action: 'delete',
           before,
-          branchId: await this.branchOf(before.customer_id),
+          ...(await this.customerAudit(before.customer_id)),
         });
       }
     });

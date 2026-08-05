@@ -57,6 +57,8 @@ export function mapDbAuditLogToAuditEntry(row: DbAuditLog): AuditEntry {
     snapshot: row.changed ? null : (row.after_data ?? row.before_data),
     context: toContext(row),
     label: row.label,
+    // Entries written before `subject` existed have none — the card just omits it.
+    subject: row.subject ?? null,
     actorUserId: row.actor_user_id,
     actorUsername: row.actor_username,
     occurredAt: row.occurred_at,
