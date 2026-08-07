@@ -92,7 +92,7 @@ export class SubscriptionRepository extends BaseRepository implements ISubscript
     if (error) this.handleError(error);
     const upgraded = data as DbTenant;
     // Tenant-wide — no branch dimension, so every admin sees the plan change.
-    await this.audit({
+    this.audit({
       table: "tenants",
       recordId: tenantId,
       action: "update",

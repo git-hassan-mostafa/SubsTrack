@@ -38,7 +38,7 @@ export class TenantSettingRepository
     if (error) this.handleError(error);
     const saved = data as DbTenantSetting;
     // Tenant-wide setting — no branch dimension, so every admin sees it.
-    await this.audit({
+    this.audit({
       table: 'tenant_settings',
       recordId: saved.id,
       action: prior ? 'update' : 'create',

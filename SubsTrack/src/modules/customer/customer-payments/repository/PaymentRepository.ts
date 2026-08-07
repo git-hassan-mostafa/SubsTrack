@@ -90,12 +90,12 @@ export class PaymentRepository extends BaseRepository implements IPaymentReposit
       .single();
     if (error) this.handleError(error);
     const created = data as DbPayment;
-    await this.audit({
+    this.audit({
       table: 'payments',
       recordId: created.id,
       action: 'create',
       after: created,
-      ...(await this.customerAudit(created.customer_id)),
+      customerId: created.customer_id,
     });
     return created;
   }
@@ -120,19 +120,13 @@ export class PaymentRepository extends BaseRepository implements IPaymentReposit
       .select();
     if (error) this.handleError(error);
     const created = (data ?? []) as DbPayment[];
-    // One lookup per distinct customer, not per payment — a bulk collect touches
-    // the same handful of customers repeatedly.
-    const owners = new Map<string, { branchId: string | null; subject: string | null }>();
     for (const p of created) {
-      if (!owners.has(p.customer_id)) owners.set(p.customer_id, await this.customerAudit(p.customer_id));
-    }
-    for (const p of created) {
-      await this.audit({
+      this.audit({
         table: 'payments',
         recordId: p.id,
         action: 'create',
         after: p,
-        ...owners.get(p.customer_id),
+        customerId: p.customer_id,
       });
     }
     return created;
@@ -164,13 +158,13 @@ export class PaymentRepository extends BaseRepository implements IPaymentReposit
       .single();
     if (error) this.handleError(error);
     const updated = data as DbPayment;
-    await this.audit({
+    this.audit({
       table: 'payments',
       recordId: id,
       action: 'update',
       before: prior,
       after: updated,
-      ...(await this.customerAudit(updated.customer_id)),
+      customerId: updated.customer_id,
     });
     return updated;
   }
@@ -189,13 +183,13 @@ export class PaymentRepository extends BaseRepository implements IPaymentReposit
       .single();
     if (error) this.handleError(error);
     const voided = data as DbPayment;
-    await this.audit({
+    this.audit({
       table: 'payments',
       recordId: id,
       action: 'void',
       before: prior,
       after: voided,
-      ...(await this.customerAudit(voided.customer_id)),
+      customerId: voided.customer_id,
     });
     return voided;
   }
@@ -218,18 +212,14 @@ export class PaymentRepository extends BaseRepository implements IPaymentReposit
       .select();
     if (error) this.handleError(error);
     const voided = (data ?? []) as DbPayment[];
-    const owners = new Map<string, { branchId: string | null; subject: string | null }>();
     for (const p of voided) {
-      if (!owners.has(p.customer_id)) owners.set(p.customer_id, await this.customerAudit(p.customer_id));
-    }
-    for (const p of voided) {
-      await this.audit({
+      this.audit({
         table: 'payments',
         recordId: p.id,
         action: 'void',
         before: before.get(p.id) ?? null,
         after: p,
-        ...owners.get(p.customer_id),
+        customerId: p.customer_id,
       });
     }
     return voided;
@@ -373,18 +363,14 @@ export class PaymentRepository extends BaseRepository implements IPaymentReposit
       .select();
     if (error) this.handleError(error);
     const remitted = (data ?? []) as DbPayment[];
-    const owners = new Map<string, { branchId: string | null; subject: string | null }>();
     for (const p of remitted) {
-      if (!owners.has(p.customer_id)) owners.set(p.customer_id, await this.customerAudit(p.customer_id));
-    }
-    for (const p of remitted) {
-      await this.audit({
+      this.audit({
         table: 'payments',
         recordId: p.id,
         action: 'update',
         before: { ...p, remitted_at: null, remitted_by: null },
         after: p,
-        ...owners.get(p.customer_id),
+        customerId: p.customer_id,
       });
     }
   }

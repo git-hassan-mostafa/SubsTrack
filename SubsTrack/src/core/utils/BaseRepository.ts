@@ -53,12 +53,35 @@ export abstract class BaseRepository {
    * Append one entry to the audit trail. Call it right after a write, from the
    * method that already holds the row — see docs/features.md → Audit Trail.
    *
-   * Never throws and never rejects: a failed audit insert must not fail the
-   * user's save. A no-op edit (nothing actually changed) writes nothing.
+   * Fire-and-forget: returns `void` and inserts in the background, so the trail
+   * never sits between the user's save and the spinner stopping. Safe because the
+   * entry describes a write that already committed — nothing depends on its
+   * result, and it never threw even when awaited. Call it without `await`.
+   *
+   * The offline `auditIn()` is deliberately NOT detached (gotcha #72): it is
+   * local, and belongs inside the caller's transaction.
+   *
+   * A no-op edit (nothing actually changed) writes nothing.
    */
-  protected async audit(input: AuditInput): Promise<void> {
+  protected audit(input: AuditInput): void {
+    void this.writeAudit(input);
+  }
+
+  /** The detached body of `audit()`. Never throws — it has no caller to throw to. */
+  private async writeAudit(input: AuditInput): Promise<void> {
     try {
-      const row = buildAuditRow(input);
+      // Resolved here, off the user's critical path — this lookup used to be
+      // awaited at the call site. Only fills what the caller didn't supply.
+      const owner = input.customerId ? await this.customerAudit(input.customerId) : null;
+      const row = buildAuditRow(
+        owner
+          ? {
+              ...input,
+              subject: input.subject ?? owner.subject,
+              branchId: input.branchId ?? owner.branchId,
+            }
+          : input,
+      );
       if (!row) return;
       const { error } = await this.db.from("audit_logs").insert(row);
       if (error) throw new Error(error.message);
@@ -129,7 +152,7 @@ export abstract class BaseRepository {
     // Via `unknown`: `select` is a runtime string, so PostgREST cannot infer the
     // row shape and widens it to its error union.
     const after = data as unknown as T;
-    await this.audit({
+    this.audit({
       table,
       recordId: id,
       action,
@@ -156,7 +179,7 @@ export abstract class BaseRepository {
     const { error } = await this.db.from(table).delete().in("id", ids);
     if (error) this.handleError(error);
     for (const row of (prior ?? []) as T[]) {
-      await this.audit({
+      this.audit({
         table,
         recordId: row.id,
         action: "delete",

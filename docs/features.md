@@ -671,7 +671,8 @@ Rows written before these two were dropped stay in `audit_logs` and still render
 
 **Writing it — one line per call site:**
 
-- `BaseRepository.audit(input)` (web/online) — **never throws**: a failed audit insert must not fail the user's save.
+- `BaseRepository.audit(input)` (web/online) — **fire-and-forget and never throws**. Returns `void` and inserts in the background, so the trail never sits between the user's save and the spinner stopping. Call it without `await`.
+- For a child row pass `customerId` instead of a pre-resolved `subject`/`branchId`: `audit()` looks it up **inside** the detached write, so that query is off the user's critical path too, and it only fills the fields the caller omitted (sales pass their own `branchId`, so only the name is inherited).
 - `OfflineBaseRepository.auditIn(db, input)` (native) — called **inside the caller's `write()` transaction**, so the change and its trail commit or roll back together. A failure here **does** propagate; rolling back is the correct outcome.
 - `auditedUpdate()` / `auditedDelete()` on both base classes wrap the repeated read-patch-diff dance. `branchColumn: null` marks a table with no branch dimension; `branchColumn: 'id'` is for `branches`, which *are* a branch.
 - Builders live in `src/core/audit/`: `buildAuditRow.ts` (diff + actor/tenant/timestamps, `null` when nothing changed) and `describe.ts` (the `label`). The actor is read through a **lazy `require`** of the global store — same require-cycle reason and shape as `src/core/errorLog/errorLogger.ts`; a top-level store import from a file `BaseRepository` imports would crash.

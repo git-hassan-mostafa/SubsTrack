@@ -29,6 +29,12 @@ export interface AuditInput {
    * record that belongs to nobody (a plan, a setting, a staff member).
    */
   subject?: string | null;
+  /**
+   * The owning customer, for a child row that has no `subject`/`branchId` of its
+   * own. The online repository looks it up in the background (the audit write is
+   * detached), filling in whichever of the two fields above the caller omitted.
+   */
+  customerId?: string | null;
 }
 
 /**

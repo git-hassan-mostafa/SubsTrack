@@ -26,7 +26,7 @@ export class CurrencyRepository extends BaseRepository implements ICurrencyRepos
     if (error) this.handleError(error);
     const created = data as DbCurrency;
     // Currencies are tenant-wide — no branch dimension, so every admin sees it.
-    await this.audit({
+    this.audit({
       table: 'currencies',
       recordId: created.id,
       action: 'create',

@@ -117,8 +117,8 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
         .select('*, products(*)'),
       movements.length > 0
         ? this.db
-            .from('stock_movements')
-            .insert(movements.map((m) => ({ ...m, sale_id: created.id })))
+          .from('stock_movements')
+          .insert(movements.map((m) => ({ ...m, sale_id: created.id })))
         : null,
     ]);
     if (itemsResult.error) this.handleError(itemsResult.error);
@@ -126,7 +126,7 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
 
     // One entry for the sale as a whole: the lines are already summarized on the
     // header (items_summary) and the movements are their own ledger.
-    await this.audit({
+    this.audit({
       table: 'sales',
       recordId: created.id,
       action: 'create',
@@ -164,7 +164,7 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
     if (stockError) this.handleError(stockError);
 
     const voided = data as DbSale;
-    await this.audit({
+    this.audit({
       table: 'sales',
       recordId: id,
       action: 'void',
@@ -305,23 +305,17 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
       .select();
     if (error) this.handleError(error);
     const remitted = (data ?? []) as DbSale[];
-    // The conditional UPDATE returns bare rows (no customer join), so the subject
-    // is looked up — once per distinct customer, and never for a walk-in sale.
-    const names = new Map<string, string | null>();
     for (const s of remitted) {
-      if (s.customer_id && !names.has(s.customer_id)) {
-        names.set(s.customer_id, await this.customerSubject(s.customer_id));
-      }
-    }
-    for (const s of remitted) {
-      await this.audit({
+      // A sale owns its branch_id, so the passed one wins; only the customer name
+      // is looked up, in the background, and never for a walk-in sale.
+      this.audit({
         table: 'sales',
         recordId: s.id,
         action: 'update',
         before: { ...s, remitted_at: null, remitted_by: null },
         after: s,
         branchId: s.branch_id,
-        subject: s.customer_id ? (names.get(s.customer_id) ?? null) : null,
+        customerId: s.customer_id,
       });
     }
   }

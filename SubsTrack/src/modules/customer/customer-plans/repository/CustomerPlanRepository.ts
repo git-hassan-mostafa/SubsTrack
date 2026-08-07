@@ -21,12 +21,12 @@ export class CustomerPlanRepository extends BaseRepository implements ICustomerP
       .single();
     if (error) this.handleError(error);
     const created = data as DbCustomerPlan;
-    await this.audit({
+    this.audit({
       table: 'customer_plans',
       recordId: created.id,
       action: 'create',
       after: created,
-      ...(await this.customerAudit(created.customer_id)),
+      customerId: created.customer_id,
     });
     return created;
   }
@@ -51,13 +51,13 @@ export class CustomerPlanRepository extends BaseRepository implements ICustomerP
       .single();
     if (error) this.handleError(error);
     const updated = data as DbCustomerPlan;
-    await this.audit({
+    this.audit({
       table: 'customer_plans',
       recordId: id,
       action,
       before: prior,
       after: updated,
-      ...(await this.customerAudit(updated.customer_id)),
+      customerId: updated.customer_id,
     });
     return updated;
   }
@@ -93,12 +93,12 @@ export class CustomerPlanRepository extends BaseRepository implements ICustomerP
     if (error) this.handleError(error);
     const removed = prior as DbCustomerPlan | null;
     if (removed) {
-      await this.audit({
+      this.audit({
         table: 'customer_plans',
         recordId: id,
         action: 'delete',
         before: removed,
-        ...(await this.customerAudit(removed.customer_id)),
+        customerId: removed.customer_id,
       });
     }
   }

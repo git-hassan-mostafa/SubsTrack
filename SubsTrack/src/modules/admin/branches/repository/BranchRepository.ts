@@ -26,7 +26,7 @@ export class BranchRepository extends BaseRepository implements IBranchRepositor
     if (error) this.handleError(error);
     const created = data as DbBranch;
     // A branch IS a branch: the entry is scoped to the row's own id.
-    await this.audit({
+    this.audit({
       table: 'branches',
       recordId: created.id,
       action: 'create',

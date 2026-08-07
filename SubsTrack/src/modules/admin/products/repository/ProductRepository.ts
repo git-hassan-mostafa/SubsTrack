@@ -28,7 +28,7 @@ export class ProductRepository extends BaseRepository implements IProductReposit
       .single();
     if (error) this.handleError(error);
     const created = data as DbProduct;
-    await this.audit({
+    this.audit({
       table: 'products',
       recordId: created.id,
       action: 'create',

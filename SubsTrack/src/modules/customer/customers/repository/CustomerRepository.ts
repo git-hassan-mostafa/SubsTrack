@@ -56,7 +56,7 @@ export class CustomerRepository extends BaseRepository implements ICustomerRepos
       .single();
     if (error) this.handleError(error);
     const created = data as CustomerWithLines;
-    await this.audit({
+    this.audit({
       table: 'customers',
       recordId: created.id,
       action: 'create',
@@ -84,7 +84,7 @@ export class CustomerRepository extends BaseRepository implements ICustomerRepos
       .single();
     if (error) this.handleError(error);
     const updated = data as CustomerWithLines;
-    await this.audit({
+    this.audit({
       table: 'customers',
       recordId: id,
       action,
@@ -135,7 +135,7 @@ export class CustomerRepository extends BaseRepository implements ICustomerRepos
     const { error } = await this.db.from('customers').delete().in('id', ids);
     if (error) this.handleError(error);
     for (const c of (prior ?? []) as DbCustomer[]) {
-      await this.audit({
+      this.audit({
         table: 'customers',
         recordId: c.id,
         action: 'delete',
@@ -156,7 +156,7 @@ export class CustomerRepository extends BaseRepository implements ICustomerRepos
       .select('*');
     if (error) this.handleError(error);
     for (const c of (data ?? []) as DbCustomer[]) {
-      await this.audit({
+      this.audit({
         table: 'customers',
         recordId: c.id,
         action: 'update',

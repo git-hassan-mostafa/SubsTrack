@@ -25,7 +25,7 @@ export class PlanRepository extends BaseRepository implements IPlanRepository {
       .single();
     if (error) this.handleError(error);
     const created = data as DbPlan;
-    await this.audit({
+    this.audit({
       table: 'plans',
       recordId: created.id,
       action: 'create',

@@ -34,20 +34,15 @@ export class SkippedMonthRepository extends BaseRepository implements ISkippedMo
       .select();
     if (error) this.handleError(error);
     const saved = (data ?? []) as DbSkippedMonth[];
-    // One lookup per distinct customer — a whole month is often skipped at once.
-    const owners = new Map<string, { branchId: string | null; subject: string | null }>();
-    for (const s of saved) {
-      if (!owners.has(s.customer_id)) owners.set(s.customer_id, await this.customerAudit(s.customer_id));
-    }
     for (const s of saved) {
       // One row covers both directions: `skipped: false` is an unskip, which
       // reads as restoring the month to payable.
-      await this.audit({
+      this.audit({
         table: 'skipped_months',
         recordId: s.id,
         action: s.skipped ? 'create' : 'restore',
         after: s,
-        ...owners.get(s.customer_id),
+        customerId: s.customer_id,
       });
     }
     return saved;

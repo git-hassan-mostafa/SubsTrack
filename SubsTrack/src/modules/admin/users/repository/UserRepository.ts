@@ -23,7 +23,7 @@ export class UserRepository extends BaseRepository implements IUserRepository {
     });
     if (error) await this.handleFunctionsError(error);
     const created = data as DbUser;
-    await this.audit({
+    this.audit({
       table: "users",
       recordId: created.id,
       action: "create",
@@ -80,7 +80,7 @@ export class UserRepository extends BaseRepository implements IUserRepository {
     if (error) await this.handleFunctionsError(error);
     const removed = prior as DbUser | null;
     if (removed) {
-      await this.audit({
+      this.audit({
         table: 'users',
         recordId: id,
         action: 'delete',
@@ -96,7 +96,7 @@ export class UserRepository extends BaseRepository implements IUserRepository {
     });
     if (error) await this.handleFunctionsError(error);
     // The password itself is never recorded — only that it was changed.
-    await this.audit({
+    this.audit({
       table: 'users',
       recordId: userId,
       action: 'update',
