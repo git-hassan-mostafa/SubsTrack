@@ -183,57 +183,27 @@ export function DebtsPanel() {
   return (
     <View className="flex-1">
       <ResponsiveContainer className="flex-1">
-        {/* Net summary header — the clock opens the branch-wide debt history. */}
-        <View className="px-4 pt-3">
-          <View className="bg-white border border-gray-100 rounded-2xl px-4 py-3">
-            <View className="flex-row items-start justify-between">
-              <Text
-                className="text-xs text-gray-500 uppercase tracking-wide flex-1 pe-2"
-                numberOfLines={1}
-              >
-                {t("debts.total_outstanding")}
-              </Text>
-              <PressableOpacity
-                onPress={() => setHistoryOpen(true)}
-                accessibilityLabel={t("debts.history_hint")}
-                className="w-8 h-8 -mt-1 -me-1 rounded-full bg-indigo-50 items-center justify-center"
-              >
-                <Ionicons
-                  name="time-outline"
-                  size={18}
-                  color={COLORS.primary}
-                />
-              </PressableOpacity>
-            </View>
-            <View className="flex-row items-end justify-between mt-1">
-              <Text
-                className="text-[11px] text-gray-400 flex-1 pe-2"
-                numberOfLines={1}
-              >
-                {t("debts.summary_breakdown", {
-                  debts: formatMoney(summary.grossUsd, null, target),
-                  paid: formatMoney(summary.paymentsUsd, null, target),
-                })}
-              </Text>
-              <View className="items-end">
-                <Text
-                  fontWeight="Bold"
-                  className={`text-xl ${isCredit ? "text-green-600" : "text-gray-900"}`}
-                >
-                  {isCredit ? `- ${netLabel}` : netLabel}
-                </Text>
-                {isCredit ? (
-                  <Text className="text-[10px] font-semibold text-green-600 uppercase tracking-wide">
-                    {t("debts.credit")}
-                  </Text>
-                ) : null}
-              </View>
-            </View>
-          </View>
+        {/* Net summary — amount only; the clock opens the branch-wide history. */}
+        <View className="px-4 pt-3 flex-row items-center justify-between">
+          <Text
+            fontWeight="Bold"
+            accessibilityLabel={t("debts.total_outstanding")}
+            className={`text-2xl ${isCredit ? "text-green-600" : "text-gray-900"}`}
+            numberOfLines={1}
+          >
+            {isCredit ? `- ${netLabel}` : netLabel}
+          </Text>
+          <PressableOpacity
+            onPress={() => setHistoryOpen(true)}
+            accessibilityLabel={t("debts.history_hint")}
+            className="w-9 h-9 rounded-full bg-indigo-50 items-center justify-center"
+          >
+            <Ionicons name="time-outline" size={18} color={COLORS.primary} />
+          </PressableOpacity>
         </View>
 
         {/* Search — by customer name. */}
-        <View className="px-4 pt-3">
+        <View className="px-4 pt-2">
           <SearchTextBox
             searchText={debtorSearch}
             setSearchText={setDebtorSearch}

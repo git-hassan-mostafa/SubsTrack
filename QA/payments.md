@@ -277,3 +277,26 @@ Edit re-snapshots `rate_per_usd_snapshot` from the currency live rate at edit ti
 | Quick Pay | ✓ | ✓ |
 
 (File any role-leak as a release blocker.)
+
+## 16. Voided payments in the payments-history list
+
+The payments history (PageHeader 3-dot → **Payments history**) is a record of what happened, so voided rows stay visible and are marked. The **month grid is unaffected** — it still treats a voided payment as non-existent.
+
+| # | Scenario | Steps | Expected result |
+|---|----------|-------|-----------------|
+| 16.1 | Voided row stays listed | Void a payment from the history list → stay on the list | The row does **not** disappear. It stays in place, now marked |
+| 16.2 | Voided marking | Look at the voided row | Grey icon (`close-circle-outline`) instead of the green cash icon, the whole card dimmed, the amount struck through in grey, and a grey **VOIDED** badge |
+| 16.3 | Partial badge replaced | Void a **partial** payment | The card shows **VOIDED** only — never VOIDED and PARTIAL together |
+| 16.4 | Section total excludes it | Note a group's header total → void a payment in that group | The header total **drops** by that payment's amount. A voided payment contributes nothing |
+| 16.5 | Total after reload | Pull-to-refresh / reopen the sheet after 16.4 | The total stays the reduced value (the server-side totals query also skips voided rows) |
+| 16.6 | Voided row is read-only | Tap the voided row | The detail sheet opens, but **no Edit** and **no Void** button is offered |
+| 16.7 | No WhatsApp receipt | Same sheet as 16.6 | The "Send on WhatsApp" button is absent (a void is not a receipt) |
+| 16.8 | Cannot re-void via selection | Long-press a voided row to select it, alone | The selection toolbar offers **no** void action |
+| 16.9 | Mixed selection | Select one voided + two live payments → Void | Only the **two live** ones are voided; the already-voided one is untouched (no error) |
+| 16.10 | Month grid unchanged | After 16.1, open that customer's month grid | The month reads UNPAID / FUTURE — the grid still ignores voided payments entirely |
+| 16.11 | Debts unaffected | Void a partial payment that created a "months" debt | That debt disappears from the Debts tab (the underlying row is voided) |
+| 16.12 | Dashboard revenue unaffected | After 16.1, refresh the dashboard | Collected revenue drops by the voided amount — revenue never counts a void |
+| 16.13 | Wallet unaffected | Void an unremitted payment | It leaves the collector's wallet |
+| 16.14 | Status filter | Set the status filter to Paid / Partial | Voided rows still obey the filter's balance rule; they remain marked |
+| 16.15 | Offline parity (native) | Repeat 16.1–16.4 offline | Same behaviour; the row stays listed and marked, totals exclude it |
+| 16.16 | Arabic | Switch to Arabic | The VOIDED badge reads "ملغية"; the card mirrors correctly in RTL |

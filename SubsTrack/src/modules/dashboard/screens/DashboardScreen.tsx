@@ -19,6 +19,7 @@ import { useDashboardSlice } from "@/src/state/hooks/useDashboardSlice";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { BranchSelector } from "@/src/shared/components/BranchSelector";
+import { QuickActionsMenuButton } from "@/src/shared/components/QuickActionsMenuButton";
 import { COLORS } from "@/src/shared/constants";
 import { MONTHS } from "@/src/core/constants";
 import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
@@ -118,14 +119,20 @@ export function DashboardScreen() {
             />
           }
         >
-          {/* Greeting */}
-          <View className="px-5 pt-5 pb-4">
-            <Text fontWeight="Bold" className="text-2xl text-gray-900">
+          {/* Greeting — name, branch chip and quick actions share one row, the
+              same arrangement PageHeader uses on every other screen. */}
+          <View className="flex-row items-center gap-2 px-5 pt-5 pb-4">
+            <Text
+              fontWeight="Bold"
+              className="flex-1 text-2xl text-gray-900"
+              numberOfLines={1}
+            >
               {t("dashboard.greeting", {
                 name: user?.fullName ?? user?.username ?? "",
               })}
             </Text>
-            <BranchSelector />
+            <BranchSelector className="" />
+            <QuickActionsMenuButton />
           </View>
 
           {/* Quick actions */}

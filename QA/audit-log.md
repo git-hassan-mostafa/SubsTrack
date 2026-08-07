@@ -114,10 +114,29 @@ Turn on airplane mode for each. Use Settings → Developer → `audit_logs` to i
 | 4.2 | Staff still writes         | As `user`: record a payment → sync → check Supabase                 | The entry **is** on the server with that user as actor                               |
 | 4.3 | Staff pull returns nothing | As `user`: sync → Developer → `audit_logs`                          | Only that device's own rows; no colleague's entries (intended, invariant 5)          |
 | 4.4 | Branch admin scoping       | Branch-scoped admin opens Audit Log                                 | Only their branch's records, plus tenant-wide ones (currencies, settings)            |
-| 4.5 | Tenant-wide admin          | Admin with `branch_id = null`                                        | Every branch's entries                                                              |
+| 4.5 | Tenant-wide admin          | Admin with `branch_id = null` and the picker on **All Branches**     | Every branch's entries                                                              |
 | 4.6 | Append-only                | Try `update` and `delete` on `audit_logs` as an authenticated client  | Both refused; the row is unchanged                                                   |
 | 4.7 | Cross-tenant               | Sign in to another organization                                      | None of the first organization's entries are visible                                |
 | 4.8 | Per-record History gating  | Open a payment's detail sheet as `user`, then as admin                | The **History** action shows for the admin only                                     |
+
+### 4b. Branch picker narrows the trail
+
+RLS only scopes a branch-**bound** user. A tenant-wide admin sees every branch, so their header branch chip must narrow the query itself. Tenant-wide records (plans, settings, staff — `branch_id IS NULL`) always stay visible, since they belong to no branch.
+
+| #    | Scenario                          | Steps                                                                                   | Expected result                                                                          |
+| ---- | --------------------------------- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| 4b.1 | Pick a branch                     | Tenant-wide admin, 2+ branches with activity → Audit Log → pick **Branch A** in the chip   | Only Branch A's entries remain. Branch B's entries **disappear** (this was the bug)      |
+| 4b.2 | Tenant-wide rows survive          | Same as 4b.1, having also edited a plan / a tenant setting / a staff member                | Those entries are **still listed** — they belong to no branch                            |
+| 4b.3 | Switch branches                   | Switch the chip from Branch A to Branch B                                                  | The list refetches immediately; A's entries go, B's arrive                               |
+| 4b.4 | Back to All Branches              | Set the chip back to **All Branches**                                                      | Every branch's entries return                                                            |
+| 4b.5 | Unassigned                        | Pick the **Unassigned** option (if shown)                                                  | Only entries whose `branch_id IS NULL`                                                   |
+| 4b.6 | Combined with other filters       | Pick Branch A **and** the Payment record type **and** a staff member                       | All three narrow together (AND), not one overriding the others                           |
+| 4b.7 | Paging keeps the branch           | With Branch A picked, scroll to load page 2                                                | Page 2 is also Branch A only — no other branch leaks in on the second page               |
+| 4b.8 | Full-history scope                | Pick Branch A → switch the scope to the complete server history                            | Still Branch A only                                                                      |
+| 4b.9 | Offline parity (native)           | Go offline → repeat 4b.1 and 4b.3 against the local 30-day window                          | Same narrowing from the SQLite mirror                                                    |
+| 4b.10 | Branch-bound admin is unaffected | Branch-scoped admin (chip hidden for them)                                                 | Still sees only their branch + tenant-wide rows, exactly as in 4.4                       |
+| 4b.11 | Return to screen                  | Pick Branch A → navigate away → come back                                                  | Branch A is still applied (the chip selection persists) and the list refetches            |
+| 4b.12 | Per-record History unchanged      | Open one payment's **History** sheet while Branch A is picked                              | That record's full timeline shows regardless of the chip — it is scoped to the record     |
 
 ---
 

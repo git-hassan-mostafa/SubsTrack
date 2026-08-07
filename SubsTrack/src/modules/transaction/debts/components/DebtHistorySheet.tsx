@@ -28,10 +28,18 @@ interface Props {
   onDismiss: () => void;
 }
 
+// The date every row is filed under: when it was RECORDED, never what it is
+// about. A subscription debt's billing month can be years out, so grouping by it
+// scattered today's entries across future sections.
+function rowDate(row: Row): string {
+  return row.kind === "item" ? row.item.createdAt : row.payment.paidAt;
+}
+
 // A read-only, branch-wide activity log: debts and debt payments merged into one
-// newest-first list, bucketed into month sections (Today / This Week / This
-// Month / <Month> <Year>) exactly like the Payments and Sales tabs. Each month
-// header shows the NET change for that month (debts add, payments subtract).
+// newest-first list, bucketed into date sections (Today / This Week / This
+// Month / <Month> <Year>) exactly like the Payments and Sales tabs. Each header
+// shows the two sums side by side — debts added (red) and payments collected
+// (green) — rather than one net figure that hides both.
 // Opened from the clock icon on the Debts total card.
 export function DebtHistorySheet({ items, payments, onDismiss }: Props) {
   const { t } = useTranslation();
@@ -39,38 +47,39 @@ export function DebtHistorySheet({ items, payments, onDismiss }: Props) {
   const displayCurrencyId = useDisplayCurrencyId();
   const target = findCurrency(currencies, displayCurrencyId);
 
-  // Merge both sources into one union list, then sort newest-first by date
-  // (DebtItem.date / DebtPayment.paidAt). groupByMonth only buckets — the sort
-  // here stays the single source of order.
+  // Merge both sources into one union list, newest-recorded first. groupByMonth
+  // only buckets — the sort here stays the single source of order.
   const rows: Row[] = useMemo(() => {
-    const merged: { row: Row; date: string }[] = [
-      ...items.map((item) => ({
-        row: { kind: "item", item } as Row,
-        date: item.date,
-      })),
-      ...payments.map((payment) => ({
-        row: { kind: "payment", payment } as Row,
-        date: payment.paidAt,
-      })),
+    const merged: Row[] = [
+      ...items.map((item) => ({ kind: "item", item }) as Row),
+      ...payments.map((payment) => ({ kind: "payment", payment }) as Row),
     ];
-    merged.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
-    return merged.map((entry) => entry.row);
+    merged.sort((a, b) => {
+      const x = rowDate(a);
+      const y = rowDate(b);
+      return x < y ? 1 : x > y ? -1 : 0;
+    });
+    return merged;
   }, [items, payments]);
 
-  // Net USD per month: a debt adds, a payment subtracts.
-  const sections = useMemo(
-    () =>
-      groupByMonth(
-        rows,
-        (r) => (r.kind === "item" ? r.item.date : r.payment.paidAt),
-        t,
-        (r) =>
-          r.kind === "item"
-            ? r.item.remaining / r.item.ratePerUsdSnapshot
-            : -(r.payment.amount / r.payment.ratePerUsdSnapshot),
-      ),
-    [rows, t],
-  );
+  // Two independent sums per section — kept apart on purpose: a month that added
+  // $300 of debt and collected $300 is NOT the same story as a quiet month, and
+  // a single net figure tells both identically.
+  const sections = useMemo(() => {
+    const grouped = groupByMonth(rows, rowDate, t);
+    return grouped.map((section) => {
+      let debtsUsd = 0;
+      let paymentsUsd = 0;
+      for (const row of section.data) {
+        if (row.kind === "item") {
+          debtsUsd += row.item.remaining / row.item.ratePerUsdSnapshot;
+        } else {
+          paymentsUsd += row.payment.amount / row.payment.ratePerUsdSnapshot;
+        }
+      }
+      return { ...section, debtsUsd, paymentsUsd };
+    });
+  }, [rows, t]);
 
   return (
     <AppBottomSheet visible onDismiss={onDismiss} variant="full">
@@ -108,7 +117,26 @@ export function DebtHistorySheet({ items, payments, onDismiss }: Props) {
               title={section.title}
               count={section.data.length}
               first={section.key === sections[0]?.key}
-              total={formatMoney(section.totalUsd ?? 0, null, target)}
+              // Only the sides that actually moved are shown, so a
+              // payments-only section doesn't print a meaningless "+$0.00".
+              totals={[
+                ...(section.debtsUsd > 0
+                  ? [
+                      {
+                        text: `+${formatMoney(section.debtsUsd, null, target)}`,
+                        className: "text-red-600",
+                      },
+                    ]
+                  : []),
+                ...(section.paymentsUsd > 0
+                  ? [
+                      {
+                        text: `-${formatMoney(section.paymentsUsd, null, target)}`,
+                        className: "text-green-600",
+                      },
+                    ]
+                  : []),
+              ]}
             />
           )}
           renderItem={({ item: row }) =>

@@ -101,18 +101,43 @@ The FAB add menu (Add custom debt / Record debt payment) is **picker-driven** �
 
 ## 5. Debt history (clock icon)
 
-The clock icon on the net-total summary card opens a **read-only, branch-wide** log of debts + payments together, grouped by month.
+The clock icon on the net-total summary card opens a **read-only, branch-wide** log of debts + payments together, grouped by **when each was recorded**.
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
 | 5.1 | Open history | Tap the clock icon on the total card | A sheet opens titled "Debt history" |
-| 5.2 | Merged + ordered | With both debts and debt payments present | Debts and payments appear in one list, newest first, mixed by date (not two separate sections) |
-| 5.3 | Month grouping | Rows across several months | Rows sit under month headers (Today / This Week / This Month / `<Month> <Year>`), like the Payments/Sales tabs |
-| 5.4 | Month net total | A month with more payments than new debt | That month's header total shows a **negative** net (payments subtract, debts add) |
+| 5.2 | Merged + ordered | With both debts and debt payments present | Debts and payments appear in one list, newest first, mixed by recorded date (not two separate sections) |
+| 5.3 | Grouped by recorded date | Rows across several days/months | Rows sit under date headers (Today / This Week / This Month / `<Month> <Year>`), like the Payments/Sales tabs |
+| 5.4 | Debts + payments totals side by side | A group holding both a new debt and a debt payment | The header shows **two** amounts: the debts total in **red** with a leading `+`, and the payments total in **green** with a leading `−`. They are NOT subtracted into one net figure |
 | 5.5 | Read-only | Tap a debt or payment row in the history | Nothing happens — no menu, no pay/void (use the debtor detail modal for actions) |
 | 5.6 | Customer names shown | Multiple debtors | Each row shows the customer name (this is a cross-customer view) |
 | 5.7 | Empty state | A branch with no debts or payments | "No history yet" empty message |
 | 5.8 | Branch scope | Branch-scoped user / switched branch | History shows only the current branch's debts + payments |
+
+### 5a. Grouping uses the recorded date, never the billing month
+
+A subscription debt is *about* a billing month but was *created* the day the short payment was recorded. These two dates can be years apart — grouping must always use the second.
+
+| # | Scenario | Steps | Expected result |
+|---|----------|-------|-----------------|
+| 5a.1 | Future billing month | Today, record a **partial** payment for a billing month far in the future (e.g. Nov 2027) → open Debt history | The row appears under **TODAY**, not under "November 2027". No future-dated group is created |
+| 5a.2 | Past billing month | Record a partial payment today for a **past** month (e.g. Sep 2026 while it is Aug 2026… or any earlier month) | The row appears under **TODAY**, not under that past month |
+| 5a.3 | Card still shows the billing month | The same row from 5a.1 | The card's own subtitle still reads the plan + the **billing month** date — only the grouping changed |
+| 5a.4 | Sales debt | Record a partial sale today | Appears under TODAY (sold-at = recorded date, so this was always correct) |
+| 5a.5 | Custom debt | Add a custom debt today | Appears under TODAY |
+| 5a.6 | Debt payment | Record a debt payment today | Appears under TODAY, in green |
+| 5a.7 | Order across categories | Mix a month debt (future billing month), a sale debt and a custom debt recorded minutes apart | Ordered by **recorded time**, newest first — the future billing month does not jump to the top |
+| 5a.8 | Debtor detail list matches | Open a debtor's detail sheet with the same mix | The same recorded-date ordering as the history sheet (both read `DebtItem.createdAt`) |
+
+### 5c. One-sided groups
+
+| # | Scenario | Steps | Expected result |
+|---|----------|-------|-----------------|
+| 5c.1 | Debts only | A group holding only new debts | Only the red `+` total is shown; no green `−$0.00` |
+| 5c.2 | Payments only | A group holding only debt payments | Only the green `−` total is shown; no red `+$0.00` |
+| 5c.3 | Display currency | Set a non-USD display currency | Both totals are converted and formatted in that currency |
+| 5c.4 | Mixed currencies in one group | Debts recorded in two different currencies | Each side sums in USD via its own frozen snapshot rate, then formats once |
+| 5c.5 | RTL | Switch to Arabic | The two totals stay in the same reading order and do not overlap the title |
 
 ### 5b. Group separators (shared by Payments / Sales / Debt history)
 

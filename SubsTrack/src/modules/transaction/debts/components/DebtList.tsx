@@ -26,8 +26,9 @@ interface Props {
 
 // The shared debt-list body: a customer's outstanding debts (partial months,
 // partial sales, custom) and the debt payments recorded against them, merged
-// into one newest-first list ordered by date (DebtItem.date / DebtPayment.paidAt)
-// — the same interleaving as DebtHistorySheet. Always `hideCustomerName`
+// into one newest-first list ordered by when each was RECORDED
+// (DebtItem.createdAt / DebtPayment.paidAt) — the same interleaving as
+// DebtHistorySheet. Always `hideCustomerName`
 // (rendered on a single-customer surface). Purely presentational — the container
 // owns the title / net header. Reused by CustomerDebtsPanel (read-only) and
 // DebtorDetailSheet (interactive).
@@ -45,7 +46,9 @@ export function DebtList({
 
   const rows: Row[] = useMemo(() => {
     const merged: Row[] = [
-      ...items.map((item) => ({ kind: "item", item, date: item.date }) as Row),
+      ...items.map(
+        (item) => ({ kind: "item", item, date: item.createdAt }) as Row,
+      ),
       ...payments.map(
         (payment) => ({ kind: "payment", payment, date: payment.paidAt }) as Row,
       ),

@@ -36,6 +36,24 @@ The compact stats card on the Admin landing screen also surfaces a subset of the
 | 1.3 | Date label | Sub-title under greeting | Today's weekday + month + day |
 | 1.4 | Locale | App in English / Arabic | Date follows active locale (verify — file a finding if hardcoded en-US) |
 
+### 1b. Header row — greeting + branch chip + quick actions
+
+The home greeting is one row, matching `PageHeader` on every other screen: name on the leading edge, branch chip and the 3-dot quick-actions menu on the trailing edge.
+
+| # | Scenario | Steps | Expected result |
+|---|----------|-------|-----------------|
+| 1b.1 | One line | Tenant-wide admin, multi-branch org, open Home | The greeting, the branch chip and the 3-dot button are all on the **same** row — the chip is no longer on its own second line |
+| 1b.2 | Long name | A user with a very long full name | The name truncates with an ellipsis; the chip and 3-dot stay fully visible and never wrap |
+| 1b.3 | No branch chip | Branch-bound user, or a single-branch org | The chip is hidden; the greeting and the 3-dot still sit on one row with no gap left behind |
+| 1b.4 | Quick actions open | Tap the 3-dot on Home | The same menu as every other screen: Payments history / Add customer / Record sale / Add custom debt / Record debt payment (+ Batch restock for admins) |
+| 1b.5 | Non-admin menu | As `user`, tap the 3-dot on Home | **Batch restock** is absent; every other entry is present |
+| 1b.6 | Each action works | Open each menu entry in turn | Each opens its sheet (hosted by `QuickActionSheets`) and the dashboard refreshes where relevant |
+| 1b.7 | Tiles still work | The "Add customer" and "Record sale" tiles below the greeting | Both still open their forms — the menu is additional, not a replacement |
+| 1b.8 | Branch chip works | Pick a different branch from the chip | The dashboard metrics refetch for that branch |
+| 1b.9 | Scrolls with content | Scroll the dashboard down | The header row scrolls away with the content (it is inside the ScrollView, not pinned) |
+| 1b.10 | RTL | Switch to Arabic | The name sits on the right, the chip and 3-dot on the left; nothing overlaps |
+| 1b.11 | Menu matches PageHeader | Compare the Home 3-dot menu with the Transactions tab's | Identical entries and order (one shared component) |
+
 ## 2. Hero card — Monthly Collected (USD-converted, display-currency formatted)
 
 | # | Scenario | Steps | Expected result |

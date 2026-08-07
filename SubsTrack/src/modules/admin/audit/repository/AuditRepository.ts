@@ -7,11 +7,17 @@ import type { IAuditRepository } from './IAuditRepository';
 import { OfflineAuditRepository } from './AuditRepository.offline';
 
 /**
- * Supabase-backed audit reads. Tenant and branch scoping, and the admin-only
- * restriction, are all enforced by the audit_logs_select RLS policy — a
- * non-admin caller simply gets an empty result, so nothing is filtered here.
+ * Supabase-backed audit reads. Tenant scoping and the admin-only restriction are
+ * enforced by the audit_logs_select RLS policy — a non-admin caller simply gets
+ * an empty result. The BRANCH picker is applied here: RLS already limits a
+ * branch-scoped user, but a tenant-wide admin sees every branch, so their
+ * selection has to narrow the query.
  */
 export class AuditRepository extends BaseRepository implements IAuditRepository {
+  // 'shared': a selected branch keeps its own rows AND the tenant-wide ones
+  // (branch_id IS NULL) — plans, settings and staff changes belong to no branch.
+  private static readonly BRANCH_SCOPE = { kind: 'shared' } as const;
+
   private applyFilter<T extends Record<string, any>>(query: T, filter: AuditFilter): T {
     let q = query;
     if (filter.table) q = q.eq('table_name', filter.table);
@@ -19,6 +25,7 @@ export class AuditRepository extends BaseRepository implements IAuditRepository 
     if (filter.actorUserId) q = q.eq('actor_user_id', filter.actorUserId);
     if (filter.from) q = q.gte('occurred_at', filter.from);
     if (filter.to) q = q.lte('occurred_at', filter.to);
+    q = this.applyBranchFilter(q, filter.branchFilter ?? null, AuditRepository.BRANCH_SCOPE);
     return q;
   }
 

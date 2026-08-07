@@ -53,6 +53,9 @@ class DebtService {
         currencyId: p.currencyId,
         ratePerUsdSnapshot: p.ratePerUsdSnapshot,
         date: p.billingMonth,
+        // The debt started when the short payment was recorded, not in the
+        // month it covers (which may be years out).
+        createdAt: p.paidAt,
         sourceType: 'payment',
       }));
 
@@ -69,6 +72,7 @@ class DebtService {
         currencyId: s.currencyId,
         ratePerUsdSnapshot: s.ratePerUsdSnapshot,
         date: s.soldAt,
+        createdAt: s.soldAt,
         sourceType: 'sale',
       }));
 
@@ -85,12 +89,13 @@ class DebtService {
         currencyId: d.currency_id,
         ratePerUsdSnapshot: Number(d.rate_per_usd_snapshot),
         date: d.incurred_at,
+        createdAt: d.created_at,
         sourceType: 'custom_debt',
       }));
 
-    // Newest first across categories.
+    // Newest first across categories — by when the debt was RECORDED.
     const items = [...monthItems, ...saleItems, ...customItems].sort((a, b) =>
-      a.date < b.date ? 1 : a.date > b.date ? -1 : 0,
+      a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0,
     );
 
     const payments: DebtPaymentItem[] = debtPayments

@@ -156,7 +156,9 @@ export function PaymentsPanel() {
         items,
         (p) => p.paidAt,
         t,
-        (p) => p.amountPaid / p.ratePerUsdSnapshot,
+        // Voided rows stay visible but contribute nothing — the header is money
+        // collected, and getMonthlyTotals excludes them server-side too.
+        (p) => (p.voidedAt ? 0 : p.amountPaid / p.ratePerUsdSnapshot),
         monthlyTotals,
       ),
     [items, t, monthlyTotals],
@@ -165,14 +167,17 @@ export function PaymentsPanel() {
   function buildSelectionActions(
     selected: PaymentListItem[],
   ): SelectionAction[] {
-    if (selected.length === 0) return [];
+    // Already-voided rows are visible in the list now, so a mixed selection must
+    // only void the live ones; an all-voided selection offers nothing.
+    const voidable = selected.filter((p) => p.voidedAt === null);
+    if (voidable.length === 0) return [];
     return [
       {
         key: "void",
         icon: "close-circle-outline",
         label: t("payments.void_payment"),
         destructive: true,
-        onPress: () => setVoidIds(selected.map((p) => p.id)),
+        onPress: () => setVoidIds(voidable.map((p) => p.id)),
       },
     ];
   }
@@ -356,8 +361,13 @@ export function PaymentsPanel() {
             phone: activePayment.customerPhone,
           }}
           planName={activePayment.planName}
-          onVoid={() => setVoidIds([activePayment.id])}
-          onEdit={handleEdit}
+          // A voided payment is history: readable, never re-voided or edited.
+          onVoid={
+            activePayment.voidedAt
+              ? undefined
+              : () => setVoidIds([activePayment.id])
+          }
+          onEdit={activePayment.voidedAt ? undefined : handleEdit}
           editLoading={loadingUpdate}
           onDismiss={() => setActivePayment(null)}
         />

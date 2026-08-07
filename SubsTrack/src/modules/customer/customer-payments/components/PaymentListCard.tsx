@@ -53,7 +53,10 @@ export function PaymentListCard({
     payment.durationMonths,
     t,
   );
-  const isPartial = payment.balance > 0;
+  const isVoided = payment.voidedAt !== null;
+  // A voided payment collected nothing, so its leftover balance is meaningless —
+  // "Voided" replaces the partial badge rather than sitting next to it.
+  const isPartial = !isVoided && payment.balance > 0;
 
   return (
     <PressableOpacity
@@ -63,15 +66,25 @@ export function PaymentListCard({
       onLongPress={
         selectionMode ? undefined : () => onEnterSelection?.(payment)
       }
-      className="bg-white border border-gray-100 rounded-2xl px-4 py-4 mb-2.5 flex-row items-center"
+      className={`bg-white border border-gray-100 rounded-2xl px-4 py-4 mb-2.5 flex-row items-center ${
+        isVoided ? "opacity-60" : ""
+      }`}
     >
       {selectionMode ? (
         <View className="w-10 h-10 items-center justify-center me-3 flex-shrink-0">
           <Checkbox checked={selected} />
         </View>
       ) : (
-        <View className="w-10 h-10 rounded-xl bg-green-50 items-center justify-center me-3">
-          <Ionicons name="cash-outline" size={18} color={COLORS.success} />
+        <View
+          className={`w-10 h-10 rounded-xl items-center justify-center me-3 ${
+            isVoided ? "bg-gray-100" : "bg-green-50"
+          }`}
+        >
+          <Ionicons
+            name={isVoided ? "close-circle-outline" : "cash-outline"}
+            size={18}
+            color={isVoided ? COLORS.gray500 : COLORS.success}
+          />
         </View>
       )}
 
@@ -94,10 +107,21 @@ export function PaymentListCard({
       </View>
 
       <View className="items-end ms-2">
-        <Text fontWeight="Bold" className="text-base text-gray-900">
+        <Text
+          fontWeight="Bold"
+          className={`text-base ${
+            isVoided ? "text-gray-400 line-through" : "text-gray-900"
+          }`}
+        >
           {amountLabel}
         </Text>
-        {isPartial ? (
+        {isVoided ? (
+          <View className="mt-1 bg-gray-200 rounded-full px-2 py-0.5">
+            <Text className="text-[10px] text-gray-600 font-semibold">
+              {t("payments.voided_badge")}
+            </Text>
+          </View>
+        ) : isPartial ? (
           <View className="mt-1 bg-amber-100 rounded-full px-2 py-0.5">
             <Text className="text-[10px] text-amber-700 font-semibold">
               {t("payments.partial_badge")}

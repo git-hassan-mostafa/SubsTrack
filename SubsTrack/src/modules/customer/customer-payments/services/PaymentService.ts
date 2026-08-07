@@ -60,7 +60,9 @@ class PaymentService {
   // keys, by paid_at) — the authoritative total for a Payments tab section
   // header, independent of how many of that month's rows are paginated in.
   async getMonthlyTotals(opts: FindPaymentsOptions = {}): Promise<Record<string, number>> {
-    const rows = await repository.monthlyTotals(opts);
+    // A total is money actually collected, so voided rows never count — even
+    // when the LIST asks for them (history shows the reversal, the sum doesn't).
+    const rows = await repository.monthlyTotals({ ...opts, includeVoided: false });
     const totals: Record<string, number> = {};
     for (const r of rows) {
       const d = new Date(r.paidAt);

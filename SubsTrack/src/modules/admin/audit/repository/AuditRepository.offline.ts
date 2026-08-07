@@ -22,6 +22,10 @@ import { AuditRepository } from './AuditRepository';
 export class OfflineAuditRepository extends OfflineBaseRepository implements IAuditRepository {
   private online = new AuditRepository();
 
+  // Mirrors AuditRepository.BRANCH_SCOPE — a selected branch keeps its own rows
+  // plus the tenant-wide ones (branch_id IS NULL).
+  private static readonly BRANCH_SCOPE = { kind: 'shared' } as const;
+
   private where(filter: AuditFilter): { sql: string; params: unknown[] } {
     const parts: { clause: string; params: unknown[] }[] = [];
     if (filter.table) parts.push({ clause: 'table_name = ?', params: [filter.table] });
@@ -29,6 +33,13 @@ export class OfflineAuditRepository extends OfflineBaseRepository implements IAu
     if (filter.actorUserId) parts.push({ clause: 'actor_user_id = ?', params: [filter.actorUserId] });
     if (filter.from) parts.push({ clause: 'occurred_at >= ?', params: [filter.from] });
     if (filter.to) parts.push({ clause: 'occurred_at <= ?', params: [filter.to] });
+    parts.push(
+      this.branchWhere(
+        filter.branchFilter ?? null,
+        OfflineAuditRepository.BRANCH_SCOPE,
+        'audit_logs',
+      ),
+    );
     return this.combineWhere(parts);
   }
 

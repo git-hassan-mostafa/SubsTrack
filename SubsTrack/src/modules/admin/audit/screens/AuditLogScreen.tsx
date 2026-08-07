@@ -9,16 +9,26 @@ import { COLORS } from "@/src/shared/constants";
 import { PageHeader } from "@/src/shared/components/PageHeader";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { Text } from "@/src/shared/components/Text";
-import { Dropdown, type DropdownOption } from "@/src/shared/components/Dropdown";
+import {
+  Dropdown,
+  type DropdownOption,
+} from "@/src/shared/components/Dropdown";
 import { DatePickerInput } from "@/src/shared/components/DatePickerInput";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
 import { useAuditSlice } from "@/src/state/hooks/useAuditSlice";
 import { useUserSlice } from "@/src/state/hooks/useUserSlice";
+import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
 import { HistoryList } from "../components/HistoryList";
 import { AUDITED_TABLES } from "../utils/constants";
 import { actionLabel, tableLabel } from "../utils/format";
 
-const ACTIONS: AuditAction[] = ["create", "update", "delete", "void", "restore"];
+const ACTIONS: AuditAction[] = [
+  "create",
+  "update",
+  "delete",
+  "void",
+  "restore",
+];
 
 /**
  * Admin screen: every change staff made — who, when, and what moved. Reads the
@@ -44,6 +54,7 @@ export function AuditLogScreen() {
   const from = useAuditSlice((s) => s.from);
   const to = useAuditSlice((s) => s.to);
   const fetchEntries = useAuditSlice((s) => s.fetchEntries);
+  const refetchForBranch = useAuditSlice((s) => s.refetchForBranch);
   const fetchMoreEntries = useAuditSlice((s) => s.fetchMoreEntries);
   const setScope = useAuditSlice((s) => s.setScope);
   const setTableFilter = useAuditSlice((s) => s.setTableFilter);
@@ -56,6 +67,7 @@ export function AuditLogScreen() {
 
   const users = useUserSlice((s) => s.items);
   const getUsers = useUserSlice((s) => s.getUsers);
+  const branchFilter = useEffectiveBranchFilter();
 
   // The staff dropdown needs the user list; `getUsers` self-guards on its
   // `loaded` flag, so no length check here.
@@ -63,17 +75,13 @@ export function AuditLogScreen() {
     void getUsers();
   }, [getUsers]);
 
-  // No branchFilter dependency, unlike the other admin lists: audit rows carry
-  // their own denormalized branch_id and are scoped by the audit_logs_select RLS
-  // policy, so there is no app-level branch filter to react to.
-  useFocusEffect(
-    useCallback(() => {
-      void fetchEntries();
-    }, [fetchEntries]),
-  );
+  useEffect(() => {
+    void refetchForBranch();
+  }, [branchFilter, refetchForBranch]);
 
   const tableOptions: DropdownOption<string>[] = useMemo(
-    () => AUDITED_TABLES.map((tbl) => ({ label: tableLabel(t, tbl), value: tbl })),
+    () =>
+      AUDITED_TABLES.map((tbl) => ({ label: tableLabel(t, tbl), value: tbl })),
     [t],
   );
   const actionOptions: DropdownOption<string>[] = useMemo(
@@ -88,7 +96,6 @@ export function AuditLogScreen() {
   const hasActiveFilters =
     !!tableFilter || !!actionFilter || !!actorFilter || !!from || !!to;
 
-
   // Passed to HistoryList as its header so the chips scroll with the entries —
   // a fixed filter bar would eat vertical space on a phone.
   const filters = (
@@ -97,7 +104,11 @@ export function AuditLogScreen() {
         horizontal
         showsHorizontalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
-        contentContainerStyle={{ paddingHorizontal: 16, gap: 8, alignItems: "center" }}
+        contentContainerStyle={{
+          paddingHorizontal: 16,
+          gap: 8,
+          alignItems: "center",
+        }}
       >
         <Dropdown<string>
           placeholder={t("audit.filter_by_table")}
@@ -159,7 +170,11 @@ export function AuditLogScreen() {
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50" edges={["top"]}>
-      <PageHeader title={t("audit.title")} showBack onBack={() => router.back()} />
+      <PageHeader
+        title={t("audit.title")}
+        showBack
+        onBack={() => router.back()}
+      />
 
       <ResponsiveContainer className="flex-1">
         <HistoryList

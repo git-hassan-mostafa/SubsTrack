@@ -55,6 +55,9 @@ function buildOptions(state: PaymentsListSlice, page: number, branchFilter: Retu
     paidTo: state.paidTo,
     billingMonth: state.billingMonth,
     status: state.statusFilter,
+    // History is a record of what happened, so a voided payment stays visible
+    // (the card marks it). It is excluded from the section totals instead.
+    includeVoided: true,
   };
 }
 
@@ -276,11 +279,17 @@ export const createPaymentsListSlice: StateCreator<
       state.paymentsList.error = null;
     });
     try {
-      await paymentService.voidPayments(ids, voidedBy, reason);
+      const voided = await paymentService.voidPayments(ids, voidedBy, reason);
       set((state) => {
-        const removed = new Set(ids);
-        // Voided payments fall out of the list (it shows settled rows only).
-        state.paymentsList.items = state.paymentsList.items.filter((p) => !removed.has(p.id));
+        // The row STAYS in the list, now marked as voided — history shows what
+        // happened, including reversals. Only its contribution to the section
+        // total drops (the list computes totals over non-voided rows).
+        const byId = new Map(voided.map((p) => [p.id, p]));
+        state.paymentsList.items = state.paymentsList.items.map((p) => {
+          const v = byId.get(p.id);
+          // Merge, not replace: `updated` carries no joined customerName/planName.
+          return v ? { ...p, ...v } : p;
+        });
         state.paymentsList.loading = false;
       });
     } catch (e) {

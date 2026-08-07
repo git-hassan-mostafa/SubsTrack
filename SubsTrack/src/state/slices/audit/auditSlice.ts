@@ -2,6 +2,7 @@ import type { StateCreator } from 'zustand';
 import type { AuditAction, AuditEntry, AuditFilter, AuditTable } from '@/src/core/types';
 // Deep import (not the module barrel) — the barrel re-exports screens.
 import auditService, { auditPageSize } from '@/src/modules/admin/audit/services/AuditService';
+import { resolveBranchFilter } from '@/src/shared/lib/branchFilter';
 import type { GlobalState } from '@/src/state/globalStore';
 
 /**
@@ -37,6 +38,7 @@ export interface AuditSlice {
   from: string | null;
   to: string | null;
   fetchEntries: () => Promise<void>;
+  refetchForBranch: () => Promise<void>;
   fetchMoreEntries: () => Promise<void>;
   setScope: (scope: AuditScope) => Promise<void>;
   setTableFilter: (table: AuditTable | null) => Promise<void>;
@@ -49,7 +51,10 @@ export interface AuditSlice {
   reset: () => void;
 }
 
-function buildFilter(state: AuditSlice): AuditFilter {
+function buildFilter(
+  state: AuditSlice,
+  branchFilter: ReturnType<typeof resolveBranchFilter>,
+): AuditFilter {
   return {
     table: state.tableFilter ?? undefined,
     action: state.actionFilter ?? undefined,
@@ -57,6 +62,7 @@ function buildFilter(state: AuditSlice): AuditFilter {
     // Day bounds → timestamp bounds, so `to` covers its whole day.
     from: state.from ? `${state.from}T00:00:00.000Z` : undefined,
     to: state.to ? `${state.to}T23:59:59.999Z` : undefined,
+    branchFilter,
   };
 }
 
@@ -94,6 +100,7 @@ export const createAuditSlice: StateCreator<
 
     fetchEntries: async () => {
       const token = get().audit.searchToken;
+      const branchFilter = resolveBranchFilter(get().auth.user);
       set((state) => {
         state.audit.loading = true;
         state.audit.error = null;
@@ -101,7 +108,11 @@ export const createAuditSlice: StateCreator<
       });
       try {
         const { scope } = get().audit;
-        const items = await auditService.getEntries(buildFilter(get().audit), 0, scope);
+        const items = await auditService.getEntries(
+          buildFilter(get().audit, branchFilter),
+          0,
+          scope,
+        );
         if (get().audit.searchToken !== token) return;
         set((state) => {
           state.audit.items = items;
@@ -118,15 +129,28 @@ export const createAuditSlice: StateCreator<
       }
     },
 
+    // The branch chip changes the query just like a filter does, so it must
+    // invalidate the same way. Without the token bump the in-flight fetch for
+    // the OLD branch stays valid and can land last, overwriting the new rows.
+    refetchForBranch: async () => {
+      invalidate(() => {});
+      await get().audit.fetchEntries();
+    },
+
     fetchMoreEntries: async () => {
       const { loadingMore, hasMore, page, searchToken, scope } = get().audit;
       if (loadingMore || !hasMore) return;
+      const branchFilter = resolveBranchFilter(get().auth.user);
       set((state) => {
         state.audit.loadingMore = true;
       });
       try {
         const nextPage = page + 1;
-        const items = await auditService.getEntries(buildFilter(get().audit), nextPage, scope);
+        const items = await auditService.getEntries(
+          buildFilter(get().audit, branchFilter),
+          nextPage,
+          scope,
+        );
         if (get().audit.searchToken !== searchToken) {
           set((state) => {
             state.audit.loadingMore = false;

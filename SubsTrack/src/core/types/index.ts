@@ -1,5 +1,7 @@
 // Domain models — camelCase. Used by all layers except repositories (which use db.ts).
 
+import type { BranchFilter } from '@/src/core/constants';
+
 export type UserRole = 'superadmin' | 'admin' | 'user';
 // A partially-paid month (a payment exists but `balance > 0`) is reported as
 // `paid` — the remaining amount is tracked as a debt, not as a month status.
@@ -468,8 +470,16 @@ export interface DebtItem {
   remaining: number;
   currencyId: string | null;
   ratePerUsdSnapshot: number;
-  // billing_month / sold_at / incurred_at — used for sorting.
+  // What the debt is ABOUT: billing_month / sold_at / incurred_at. Display only —
+  // a month debt's billing month can be far in the future, so it must never
+  // order or group the list.
   date: string;
+  /**
+   * When the debt was actually recorded (created_at / paid_at / sold_at /
+   * incurred_at). This is what sorts and groups every debt view — a November
+   * 2027 subscription paid today belongs under "Today", not under 2027.
+   */
+  createdAt: string;
   sourceType: 'payment' | 'sale' | 'custom_debt';
 }
 
@@ -648,6 +658,14 @@ export interface AuditFilter {
   /** Inclusive ISO bounds on occurredAt. */
   from?: string;
   to?: string;
+  /**
+   * The active branch picker selection. RLS already hides other branches from a
+   * branch-scoped user, but a tenant-wide admin sees everything — so the picker
+   * has to narrow the trail here. 'shared' semantics: a specific branch also
+   * keeps the tenant-wide rows (branch_id IS NULL), which is where plan,
+   * setting and staff changes live.
+   */
+  branchFilter?: BranchFilter;
 }
 
 // When an unbilled month flips to "unpaid" in the month grid.
