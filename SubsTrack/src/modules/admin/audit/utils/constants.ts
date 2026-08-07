@@ -10,6 +10,21 @@ import type { AuditTable } from '@/src/core/types';
  * for the same reason — append-only + voidable, so the Debts view is the history.
  * See docs/features.md → Audit Trail.
  */
+/**
+ * What the customer History sheet counts as "this customer's story": the profile
+ * row, its service lines, and the month payments / skips on them.
+ *
+ * `sales` is left out even though its entries carry the same customer — a sale is
+ * a one-off purchase with its own panel on the customer screen, and mixing the two
+ * buries the subscription timeline this sheet exists to show.
+ */
+export const CUSTOMER_HISTORY_TABLES: AuditTable[] = [
+  'customers',
+  'customer_plans',
+  'payments',
+  'skipped_months',
+];
+
 export const AUDITED_TABLES: AuditTable[] = [
   'payments',
   'sales',

@@ -2,6 +2,7 @@ import { Platform } from 'react-native';
 import { OFFLINE_PAGE_SIZE, PAGE_SIZE } from '@/src/core/constants';
 import type { AuditEntry, AuditFilter, AuditRecordTarget } from '@/src/core/types';
 import repository from '../repository/AuditRepository';
+import { CUSTOMER_HISTORY_TABLES } from '../utils/constants';
 import { mapDbAuditLogToAuditEntry } from '../utils/mapper';
 
 /**
@@ -59,6 +60,16 @@ class AuditService {
     full = false,
   ): Promise<AuditEntry[]> {
     const rows = await repository.findForRecords(targets, full);
+    return rows.map(mapDbAuditLogToAuditEntry);
+  }
+
+  /**
+   * One customer's whole timeline — profile, service lines, month payments and
+   * skips — newest first. Filtered on the entry's frozen `subject_id`, so it needs
+   * no list of child ids and picks up rows whose record has since been deleted.
+   */
+  async getCustomerHistory(customerId: string, full = false): Promise<AuditEntry[]> {
+    const rows = await repository.findForCustomer(customerId, CUSTOMER_HISTORY_TABLES, full);
     return rows.map(mapDbAuditLogToAuditEntry);
   }
 

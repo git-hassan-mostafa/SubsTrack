@@ -33,6 +33,10 @@ export interface AuditInput {
    * The owning customer, for a child row that has no `subject`/`branchId` of its
    * own. The online repository looks it up in the background (the audit write is
    * detached), filling in whichever of the two fields above the caller omitted.
+   *
+   * It is also stored as `subject_id` — what a customer's whole timeline filters
+   * on — so a table that should appear there must pass this, not just `subject`.
+   * Sales deliberately don't: they are not part of the subscription timeline.
    */
   customerId?: string | null;
 }
@@ -169,9 +173,11 @@ export function buildAuditRow(input: AuditInput): DbAuditLog | null {
     after_data: afterData,
     changed,
     label: input.label ?? describeAudit(input.table, row),
-    // On `customers` the customer IS the record, so its own name is the subject —
-    // no caller needs to pass one. Elsewhere only the caller knows the parent.
+    // On `customers` the customer IS the record, so its own name and id are the
+    // subject — no caller needs to pass either. Elsewhere only the caller knows
+    // the parent.
     subject: input.subject ?? (input.table === 'customers' ? subjectOfRow(row) : null),
+    subject_id: input.customerId ?? (input.table === 'customers' ? input.recordId : null),
     actor_user_id: user.id,
     actor_username: user.username,
     occurred_at: now,

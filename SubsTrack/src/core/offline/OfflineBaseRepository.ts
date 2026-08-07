@@ -208,12 +208,12 @@ export abstract class OfflineBaseRepository {
    */
   protected async customerAudit(
     customerId: string,
-  ): Promise<{ branchId: string | null; subject: string | null }> {
+  ): Promise<{ branchId: string | null; subject: string | null; customerId: string }> {
     const row = await this.first<{ branch_id: string | null; name: string | null }>(
       'SELECT branch_id, name FROM customers WHERE id = ?',
       [customerId],
     );
-    return { branchId: row?.branch_id ?? null, subject: row?.name ?? null };
+    return { branchId: row?.branch_id ?? null, subject: row?.name ?? null, customerId };
   }
 
   /**

@@ -644,6 +644,8 @@ export interface AuditEntry {
    * null for a record that belongs to nobody (a plan, a setting, a staff member).
    */
   subject: string | null;
+  /** The same owner as an id — what a customer's whole timeline is filtered on. */
+  subjectId: string | null;
   actorUserId: string | null;
   actorUsername: string | null;
   /** Device clock at the moment the staff member acted — NOT the sync moment. */

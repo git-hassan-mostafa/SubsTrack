@@ -1,7 +1,6 @@
-import { useMemo } from "react";
 import { View } from "react-native";
 import { useTranslation } from "react-i18next";
-import type { AuditRecordTarget, Customer } from "@/src/core/types";
+import type { Customer } from "@/src/core/types";
 import { useAuth } from "@/src/modules/authentication/auth/hooks/useAuth";
 import { AppBottomSheet } from "@/src/shared/components/AppBottomSheet";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
@@ -9,7 +8,7 @@ import { SheetDragArea } from "@/src/shared/components/SheetDragArea";
 import { EmptyState } from "@/src/shared/components/EmptyState";
 import { Text } from "@/src/shared/components/Text";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
-import { HistoryList, useRecordHistory } from "@/src/modules/admin/audit";
+import { HistoryList, useCustomerHistory } from "@/src/modules/admin/audit";
 
 interface CustomerHistorySheetProps {
   customer: Customer;
@@ -17,34 +16,23 @@ interface CustomerHistorySheetProps {
 }
 
 /**
- * One customer's change timeline: the customer row itself PLUS each of its service
- * lines, merged newest-first — so "renamed, then moved branch, then a plan was
- * cancelled" reads as one story instead of three separate lookups.
+ * One customer's change timeline: the customer row, every service line it has ever
+ * held, and the month payments / skips on those lines — merged newest-first, so
+ * "renamed, then a plan was cancelled, then March was voided" reads as one story.
  *
- * Payments, sales and debts are deliberately NOT here: a busy customer has hundreds
- * of them and they would bury the profile edits this sheet exists to show. Each of
- * those already has its own history (the payment detail sheet's History action) or
- * its own panel on the customer detail screen.
+ * Every entry is found through its frozen `subject_id`, not a list of child ids:
+ * a cancelled line, a deleted plan and a voided payment all stay in the trail, and
+ * skipped months (whose ids are a hash of line + month) become reachable at all.
+ *
+ * Sales and debts stay out — a sale is a one-off with its own panel on the customer
+ * screen, and the debt tables are append-only, so the Debts view is their history.
+ * The set lives in CUSTOMER_HISTORY_TABLES.
  */
 export function CustomerHistorySheet({ customer, onDismiss }: CustomerHistorySheetProps) {
   const { t } = useTranslation();
   const { isAdmin } = useAuth();
 
-  // The customer plus every service line it has ever held (cancelled lines still
-  // carry history worth reading). Skipped months are not included — their ids are a
-  // hash of (line, month) and are not enumerable without querying every month.
-  const targets = useMemo<AuditRecordTarget[]>(
-    () => [
-      { table: "customers", recordId: customer.id },
-      ...(customer.customerPlans ?? []).map((line) => ({
-        table: "customer_plans" as const,
-        recordId: line.id,
-      })),
-    ],
-    [customer.id, customer.customerPlans],
-  );
-
-  const { entries, loading, error, full, loadFull } = useRecordHistory(targets);
+  const { entries, loading, error, full, loadFull } = useCustomerHistory(customer.id);
 
   return (
     <AppBottomSheet visible onDismiss={onDismiss} variant="full">

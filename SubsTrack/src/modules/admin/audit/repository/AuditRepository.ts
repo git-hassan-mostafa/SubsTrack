@@ -82,6 +82,22 @@ export class AuditRepository extends BaseRepository implements IAuditRepository 
     if (error) this.handleError(error);
     return (data ?? []) as DbAuditLog[];
   }
+
+  // `full` ignored for the same reason as findForRecord: no local window on web.
+  async findForCustomer(
+    customerId: string,
+    tables: string[],
+    _full = false,
+  ): Promise<DbAuditLog[]> {
+    const { data, error } = await this.db
+      .from('audit_logs')
+      .select('*')
+      .eq('subject_id', customerId)
+      .in('table_name', tables)
+      .order('occurred_at', { ascending: false });
+    if (error) this.handleError(error);
+    return (data ?? []) as DbAuditLog[];
+  }
 }
 
 // Platform seam: web → Supabase directly; native → the local 30-day window, with

@@ -36,4 +36,14 @@ export interface IAuditRepository {
    * An empty `targets` returns `[]` without querying.
    */
   findForRecords(targets: AuditRecordTarget[], full: boolean): Promise<DbAuditLog[]>;
+  /**
+   * Everything ever recorded about ONE customer, newest first, across the given
+   * tables — the customer row, its service lines, its payments, its skips.
+   *
+   * Keys off the frozen `subject_id` instead of a list of child ids: a caller
+   * cannot enumerate skipped-month ids (hashed natural key), and a long-standing
+   * customer has hundreds of payments, which would not fit in one query anyway.
+   * `tables` is the caller's choice of what belongs in the story.
+   */
+  findForCustomer(customerId: string, tables: string[], full: boolean): Promise<DbAuditLog[]>;
 }

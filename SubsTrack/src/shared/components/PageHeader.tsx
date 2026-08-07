@@ -1,4 +1,5 @@
 import { View } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/src/shared/components/Text";
 import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
 import { COLORS } from "@/src/shared/constants";
@@ -21,6 +22,15 @@ export interface PageHeaderSelection {
   onToggleAll?: () => void;
 }
 
+/** A screen-specific icon button in the header, next to the quick-actions menu. */
+export interface PageHeaderIconAction {
+  key: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  /** Used as the accessibility label — the header renders the icon only. */
+  label: string;
+  onPress: () => void;
+}
+
 interface PageHeaderProps {
   title: string;
   subtitle?: string;
@@ -28,6 +38,8 @@ interface PageHeaderProps {
   onBack?: () => void;
   actionLabel?: string;
   onAction?: () => void;
+  /** Icon buttons for THIS screen, rendered before the branch chip. */
+  iconActions?: PageHeaderIconAction[];
   hideBranchSelector?: boolean;
   /** Hides the top-right quick-actions (3-dot) menu on this screen. */
   hideQuickActions?: boolean;
@@ -42,6 +54,7 @@ export function PageHeader({
   onBack,
   actionLabel,
   onAction,
+  iconActions,
   hideBranchSelector,
   hideQuickActions,
   selection,
@@ -85,6 +98,17 @@ export function PageHeader({
             </Text>
           </PressableOpacity>
         ) : null}
+        {iconActions?.map((action) => (
+          <PressableOpacity
+            key={action.key}
+            onPress={action.onPress}
+            className="p-1"
+            hitSlop={8}
+            accessibilityLabel={action.label}
+          >
+            <Ionicons name={action.icon} size={22} color={COLORS.gray700} />
+          </PressableOpacity>
+        ))}
         {/* No `self-start`: the row is `items-center`, so the chip must center
             with the title and the 3-dot button instead of hugging the top. */}
         {!hideBranchSelector && <BranchSelector className="" />}

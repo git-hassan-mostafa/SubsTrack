@@ -278,7 +278,7 @@ export const TABLES: TableSpec[] = [
       id: 'text', tenant_id: 'text', branch_id: 'text',
       table_name: 'text', record_id: 'text', action: 'text',
       before_data: 'json', after_data: 'json', changed: 'json',
-      label: 'text', subject: 'text',
+      label: 'text', subject: 'text', subject_id: 'text',
       actor_user_id: 'text', actor_username: 'text',
       occurred_at: 'text', created_at: 'text', updated_at: 'text',
     },

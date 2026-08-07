@@ -18,6 +18,7 @@ import { CustomerSalesPanel } from "@/src/modules/transaction/sales";
 import { CustomerDebtsPanel } from "@/src/modules/transaction/debts";
 import { CustomerDetailsCard } from "../components/CustomerDetailsCard";
 import { CustomerFormSheet } from "../components/CustomerFormSheet";
+import { CustomerHistorySheet } from "../components/CustomerHistorySheet";
 import { useCustomerSlice } from "@/src/state/hooks/useCustomerSlice";
 
 export function CustomerDetailScreen() {
@@ -31,6 +32,7 @@ export function CustomerDetailScreen() {
   );
 
   const [editVisible, setEditVisible] = useState(false);
+  const [historyVisible, setHistoryVisible] = useState(false);
 
   useEffect(() => {
     getSelectedCustomer();
@@ -56,7 +58,18 @@ export function CustomerDetailScreen() {
         onBack={() => router.back()}
         actionLabel={t("common.edit")}
         onAction={() => setEditVisible(true)}
+        iconActions={[
+          {
+            key: "history",
+            icon: "time-outline",
+            label: t("audit.customer_history_action"),
+            onPress: () => setHistoryVisible(true),
+          },
+        ]}
         hideBranchSelector
+        // The screen is about ONE customer; the global "quick add" shortcuts
+        // (add customer, record sale, …) belong to the list screens.
+        hideQuickActions
       />
 
       <ResponsiveContainer className="flex-1">
@@ -100,6 +113,13 @@ export function CustomerDetailScreen() {
         <CustomerFormSheet
           customer={customer}
           onDismiss={() => setEditVisible(false)}
+        />
+      )}
+
+      {historyVisible && customer && (
+        <CustomerHistorySheet
+          customer={customer}
+          onDismiss={() => setHistoryVisible(false)}
         />
       )}
     </SafeAreaView>

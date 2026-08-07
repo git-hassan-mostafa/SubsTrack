@@ -86,4 +86,23 @@ export class OfflineAuditRepository extends OfflineBaseRepository implements IAu
     );
     return this.decodeAll<DbAuditLog>('audit_logs', rows);
   }
+
+  async findForCustomer(
+    customerId: string,
+    tables: string[],
+    full = false,
+  ): Promise<DbAuditLog[]> {
+    if (tables.length === 0) return [];
+    if (full) {
+      if (!(await isOnline())) throw new RequiresConnectionError();
+      return this.online.findForCustomer(customerId, tables, true);
+    }
+    const placeholders = tables.map(() => '?').join(', ');
+    const rows = await this.all(
+      `SELECT * FROM audit_logs WHERE subject_id = ? AND table_name IN (${placeholders})
+       ORDER BY occurred_at DESC`,
+      [customerId, ...tables],
+    );
+    return this.decodeAll<DbAuditLog>('audit_logs', rows);
+  }
 }

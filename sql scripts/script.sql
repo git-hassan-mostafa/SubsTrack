@@ -1328,6 +1328,10 @@ CREATE TABLE IF NOT EXISTS audit_logs (
     -- Frozen one-line description, so the entry stays readable after the row is gone.
     label          TEXT,
     subject        TEXT,
+    -- The same owner as an id — what a customer's whole timeline filters on.
+    -- Frozen like `subject` and never joined back, so no FK: the trail must
+    -- outlive the customer. NULL for a record that belongs to nobody.
+    subject_id     UUID,
     actor_user_id  UUID,
     -- Snapshot (like exception_logs.username): survives the user being deleted.
     actor_username TEXT,
@@ -1367,6 +1371,10 @@ CREATE INDEX IF NOT EXISTS idx_audit_logs_actor
 -- The offline client's incremental pull cursor (WHERE updated_at > cursor).
 CREATE INDEX IF NOT EXISTS idx_audit_logs_updated_at
     ON audit_logs (updated_at);
+
+-- Serves the customer History sheet.
+CREATE INDEX IF NOT EXISTS idx_audit_logs_subject
+    ON audit_logs (subject_id, occurred_at DESC);
 
 -- ============================================================
 -- ROW LEVEL SECURITY

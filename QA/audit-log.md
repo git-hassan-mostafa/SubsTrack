@@ -10,7 +10,8 @@ The device keeps a rolling **30-day window**; the server keeps everything.
 - Call helpers: [BaseRepository.ts](../SubsTrack/src/core/utils/BaseRepository.ts) (`audit`, `auditedUpdate`, `auditedDelete`), [OfflineBaseRepository.ts](../SubsTrack/src/core/offline/OfflineBaseRepository.ts) (`auditIn` — inside the caller's transaction)
 - Sync flags: [tables.ts](../SubsTrack/src/core/offline/db/tables.ts) (`appendOnly`, `pullDays`, `ColType: 'json'`), [sync.ts](../SubsTrack/src/core/offline/sync.ts) (`ignoreDuplicates`, window filter, `pruneWindowedTables`)
 - Read path: [AuditRepository.ts](../SubsTrack/src/modules/admin/audit/repository/AuditRepository.ts) / [.offline.ts](../SubsTrack/src/modules/admin/audit/repository/AuditRepository.offline.ts), [AuditService.ts](../SubsTrack/src/modules/admin/audit/services/AuditService.ts)
-- UI: [AuditLogScreen.tsx](../SubsTrack/src/modules/admin/audit/screens/AuditLogScreen.tsx), [AuditEntrySheet.tsx](../SubsTrack/src/modules/admin/audit/components/AuditEntrySheet.tsx), [RecordHistorySheet.tsx](../SubsTrack/src/modules/admin/audit/components/RecordHistorySheet.tsx)
+- UI: [AuditLogScreen.tsx](../SubsTrack/src/modules/admin/audit/screens/AuditLogScreen.tsx), [AuditEntrySheet.tsx](../SubsTrack/src/modules/admin/audit/components/AuditEntrySheet.tsx), [RecordHistorySheet.tsx](../SubsTrack/src/modules/admin/audit/components/RecordHistorySheet.tsx), [CustomerHistorySheet.tsx](../SubsTrack/src/modules/customer/customers/components/CustomerHistorySheet.tsx)
+- Timeline hooks: [useRecordHistory.ts](../SubsTrack/src/modules/admin/audit/hooks/useRecordHistory.ts) (`useRecordHistory` + `useCustomerHistory`), table set in [constants.ts](../SubsTrack/src/modules/admin/audit/utils/constants.ts) (`CUSTOMER_HISTORY_TABLES`)
 - Display: [valueDisplay.ts](../SubsTrack/src/modules/admin/audit/utils/valueDisplay.ts) (per-column display registry), [format.ts](../SubsTrack/src/modules/admin/audit/utils/format.ts) (generic fallback), [useAuditLookups.ts](../SubsTrack/src/modules/admin/audit/hooks/useAuditLookups.ts) (id → name)
 - Server: `sql scripts/script.sql` → `AUDIT LOGS` section + the `audit_logs_select` / `audit_logs_insert` policies
 - Strings: the `audit.*` group in `en.json` / `ar.json`
@@ -220,22 +221,46 @@ The card is deliberately two lines: **record type + the customer it belongs to +
 
 ### 6b. Customer history sheet
 
+One customer's whole story: the customer row, every service line it has ever held, and the **month payments and skips** on those lines. Found by the entry's frozen `subject_id` (`CUSTOMER_HISTORY_TABLES`), not by listing child ids — see 6d.
+
 | #    | Scenario                  | Steps                                                                | Expected result                                                             |
 | ---- | ------------------------- | -------------------------------------------------------------------- | --------------------------------------------------------------------------- |
 | 6.30 | From the card menu        | Customer list → card 3-dot menu → **History**                         | Sheet opens titled "Customer history" with the customer's name beneath       |
-| 6.31 | From the detail screen    | Open a customer → details card → **History** row                       | Same sheet, same contents                                                   |
+| 6.31 | From the detail header    | Open a customer → tap the **clock icon** in the header                 | Same sheet, same contents                                                   |
 | 6.32 | Customer + plans merged   | Rename a customer, then cancel one of its plan lines → open History     | **Both** entries in one newest-first list (a `customers` edit and a `customer_plans` change) |
-| 6.33 | No foreign entries        | A customer with 2+ plan lines; other customers also edited              | Only THIS customer's row and ITS lines — no other customer's entries, and no `payments` entries (gotcha #66) |
+| 6.33 | No foreign entries        | A customer with 2+ plan lines; other customers also edited + paid       | Only THIS customer's entries — no other customer's row, line or payment      |
 | 6.34 | Cancelled lines included  | Cancel a line, then open History                                        | The cancelled line's history still appears (it is still part of the story)   |
-| 6.35 | Excluded by design        | Record a payment and a sale for the customer → open History              | **Neither appears.** Payments/sales/debts are excluded; use the payment's own History or the Sales/Debts panels |
-| 6.36 | Skipped months excluded   | Skip a month for the customer → open History                            | Not listed (known limitation — visible in the month grid and the main Audit Log) |
-| 6.37 | Staff sees a clear reason | Log in as a **staff** (non-admin) user → open History from either place   | Sheet opens showing **"Admins only"**, NOT an empty "nothing recorded" list  |
-| 6.38 | Admin sees entries        | Same customer as 6.37, now as an admin                                  | The real timeline                                                           |
-| 6.39 | Load full history         | In the sheet tap **Load full history** (native, online)                  | Fetches beyond the 30-day window for the customer AND its lines             |
-| 6.40 | …offline                  | Airplane mode → **Load full history**                                    | "Needs a connection" error in the banner; the 30-day list stays visible      |
-| 6.41 | No repeated fetching      | Open the sheet and leave it open (watch logs / network)                  | One fetch, not a loop — the hook keys on the targets' contents (gotcha #66)  |
-| 6.42 | Customer with no plans    | An occasional customer with zero service lines → open History             | The customer's own entries only; no crash from an empty target list          |
-| 6.43 | RTL                       | Switch to Arabic → open History                                          | Title, name, rows and chevrons mirror correctly                             |
+| 6.35 | Month payments included   | Record a payment, edit its amount, then void it → open History           | **All three** entries appear, newest first, interleaved with the profile edits |
+| 6.36 | Voided payments included  | The void from 6.35                                                      | Present — the void is exactly the entry a dispute is about, and it must not be filtered out |
+| 6.37 | Skipped months included   | Skip a month, then unskip it → open History                             | **Added · Skipped month** then **Restored · Skipped month** (these were previously unreachable) |
+| 6.38 | Sales excluded by design  | Record a sale for the customer → open History                            | **Not listed.** A sale has its own panel on the customer screen              |
+| 6.39 | Debts excluded            | Add a custom debt + a debt payment → open History                        | Neither appears (the debt tables are not audited at all)                     |
+| 6.40 | Deleted line survives     | Remove a service line entirely → open History                            | Its entries **remain** — `subject_id` is never joined back to a live row     |
+| 6.41 | Staff sees a clear reason | Log in as a **staff** (non-admin) user → open History from either place   | Sheet opens showing **"Admins only"**, NOT an empty "nothing recorded" list  |
+| 6.42 | Admin sees entries        | Same customer as 6.41, now as an admin                                  | The real timeline                                                           |
+| 6.43 | Load full history         | In the sheet tap **Load full history** (native, online)                  | Fetches beyond the 30-day window, still scoped to this customer             |
+| 6.44 | …offline                  | Airplane mode → **Load full history**                                    | "Needs a connection" error in the banner; the 30-day list stays visible      |
+| 6.45 | No repeated fetching      | Open the sheet and leave it open (watch logs / network)                  | One fetch, not a loop — the hook keys on a plain customer-id string          |
+| 6.46 | Busy customer            | A customer with 100+ payments → open History (online, full scope)         | Loads in one query; no URL-length error and no truncated list                |
+| 6.47 | Customer with no plans    | An occasional customer with zero service lines → open History             | The customer's own entries only; no crash                                    |
+| 6.48 | RTL                       | Switch to Arabic → open History                                          | Title, name, rows and chevrons mirror correctly                             |
+
+### 6d. `subject_id` — who an entry is about
+
+The id is frozen at write time next to the name. It is what 6b filters on, so a gap here empties the customer sheet.
+
+| #    | Scenario                       | Steps                                                                       | Expected result                                                            |
+| ---- | ------------------------------ | ----------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| 6.70 | Written on a payment           | Record a payment → Developer → `audit_logs`                                    | The new row's `subject_id` = the customer's id                              |
+| 6.71 | Written on the customer itself | Edit a customer → inspect the row                                              | `subject_id` = `record_id` (the customer IS the record)                     |
+| 6.72 | Written on a plan line / skip  | Change a service line; skip a month                                             | Both rows carry the customer's `subject_id`                                 |
+| 6.73 | Sales carry none               | Record a sale for a customer → inspect the row                                   | `subject_id` NULL — by design; sales are outside the customer timeline (6.38) |
+| 6.74 | Walk-in sale                   | Record a sale with **no** customer                                              | `subject_id` NULL; no crash anywhere                                        |
+| 6.75 | Owner-less records             | Add a plan / a product / a staff member / change a setting                       | `subject_id` NULL; the main Audit Log is unaffected                         |
+| 6.76 | Offline write                  | Airplane mode → record a payment → inspect the local row                        | `subject_id` filled locally too (it comes from `customerAudit`, inside the transaction) |
+| 6.77 | Pre-existing entries           | Entries recorded **before** the column shipped                                   | `subject_id` NULL → absent from the customer History sheet, still listed in the main Audit Log. There is no backfill |
+| 6.78 | Column actually exists         | Run `sql scripts/script.sql` on an **existing** DB, then record a payment         | If `audit_logs` predates the column the push/insert fails — `subject_id` is in the `CREATE TABLE`, so a re-run does not add it. Reset the DB or `ALTER` by hand |
+| 6.79 | Deleted customer               | Record a payment → delete the customer → open the main Audit Log                 | The entry still lists with its frozen name; nothing tries to resolve the id  |
 
 ---
 

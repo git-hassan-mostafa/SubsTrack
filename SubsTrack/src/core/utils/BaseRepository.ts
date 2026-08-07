@@ -95,20 +95,23 @@ export abstract class BaseRepository {
   /**
    * The audit facts a child row inherits from its owning customer: the branch to
    * file the entry under (a payment / skip / plan line has no branch_id of its
-   * own) and the customer's name, frozen into the entry so the list can say WHO
-   * it was about after the customer is gone.
+   * own), the customer's name — frozen into the entry so the list can say WHO it
+   * was about after the customer is gone — and the id the entry files itself
+   * under. Spreadable straight into an `AuditInput`.
    *
-   * One query for both — the branch lookup was already being made at every one of
-   * these call sites, so naming the customer costs nothing extra.
+   * One query for all three — the branch lookup was already being made at every
+   * one of these call sites, so naming the customer costs nothing extra.
    */
-  protected async customerAudit(customerId: string): Promise<{ branchId: string | null; subject: string | null }> {
+  protected async customerAudit(
+    customerId: string,
+  ): Promise<{ branchId: string | null; subject: string | null; customerId: string }> {
     const { data } = await this.db
       .from("customers")
       .select("branch_id, name")
       .eq("id", customerId)
       .maybeSingle();
     const row = data as { branch_id: string | null; name: string | null } | null;
-    return { branchId: row?.branch_id ?? null, subject: row?.name ?? null };
+    return { branchId: row?.branch_id ?? null, subject: row?.name ?? null, customerId };
   }
 
   /**
