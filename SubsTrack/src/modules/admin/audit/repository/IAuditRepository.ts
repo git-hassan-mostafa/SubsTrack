@@ -1,31 +1,39 @@
-import type { AuditFilter, AuditRecordTarget } from '@/src/core/types';
+import type { AuditFilter, AuditRecordTarget, AuditSource } from '@/src/core/types';
 import type { DbAuditLog } from '@/src/core/types/db';
+
+/** Rows plus where they came from, so the UI can say which it is showing. */
+export interface AuditRows {
+  rows: DbAuditLog[];
+  source: AuditSource;
+}
+
+/** One page of the trail. */
+export interface AuditPage extends AuditRows {
+  /**
+   * More rows exist after this page. Decided by the repository, not the caller:
+   * `rows` may carry this device's un-pushed entries on top of the fetched page,
+   * so its length no longer reveals whether the page was full.
+   */
+  hasMore: boolean;
+}
 
 /**
  * The audit-trail READ contract. Writes are not here: entries are appended by
  * each repository next to the change it made (BaseRepository.audit /
  * OfflineBaseRepository.auditIn), never through this repository.
  *
+ * Every read returns the SERVER's rows with this device's un-pushed ones merged
+ * in, falling back to the local 30-day window when the server can't be reached.
+ * There is no caller-chosen scope — see docs/features.md → Audit Trail.
+ *
  * Both the Supabase (online/web) class and the offline SQLite class implement
  * this — the compiler keeps the two in lockstep.
  */
 export interface IAuditRepository {
-  /**
-   * The recent trail. On native this reads the local mirror, which holds a
-   * rolling 30-day window, so it works offline. On web it queries Supabase.
-   */
-  findRecent(filter: AuditFilter, page: number): Promise<DbAuditLog[]>;
-  /**
-   * The COMPLETE trail from the server, beyond the local window. Online only on
-   * native: throws `RequiresConnectionError` when there is no connection.
-   */
-  findAll(filter: AuditFilter, page: number): Promise<DbAuditLog[]>;
-  /**
-   * One record's timeline, newest first. Reads the local window offline; when
-   * `full` is set it fetches the record's whole history from the server
-   * (online only on native).
-   */
-  findForRecord(table: string, recordId: string, full: boolean): Promise<DbAuditLog[]>;
+  /** The filtered trail, newest first, one page at a time. */
+  findRecent(filter: AuditFilter, page: number): Promise<AuditPage>;
+  /** One record's timeline, newest first. Short by nature, so not paged. */
+  findForRecord(table: string, recordId: string): Promise<AuditRows>;
   /**
    * The merged timeline of SEVERAL records, newest first — one entity whose story
    * spans more than one row (a customer plus its service lines and skipped months).
@@ -33,9 +41,9 @@ export interface IAuditRepository {
    * Takes explicit `(table, id)` targets rather than a parent id because the trail
    * stores no parent link: an entry knows its own table and record id, nothing more.
    * The caller therefore resolves the children it cares about and passes them in.
-   * An empty `targets` returns `[]` without querying.
+   * An empty `targets` returns no rows without querying.
    */
-  findForRecords(targets: AuditRecordTarget[], full: boolean): Promise<DbAuditLog[]>;
+  findForRecords(targets: AuditRecordTarget[]): Promise<AuditRows>;
   /**
    * Everything ever recorded about ONE customer, newest first, across the given
    * tables — the customer row, its service lines, its payments, its skips.
@@ -45,5 +53,5 @@ export interface IAuditRepository {
    * customer has hundreds of payments, which would not fit in one query anyway.
    * `tables` is the caller's choice of what belongs in the story.
    */
-  findForCustomer(customerId: string, tables: string[], full: boolean): Promise<DbAuditLog[]>;
+  findForCustomer(customerId: string, tables: string[]): Promise<AuditRows>;
 }

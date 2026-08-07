@@ -32,7 +32,7 @@ export function CustomerHistorySheet({ customer, onDismiss }: CustomerHistoryShe
   const { t } = useTranslation();
   const { isAdmin } = useAuth();
 
-  const { entries, loading, error, full, loadFull } = useCustomerHistory(customer.id);
+  const { entries, loading, error, source } = useCustomerHistory(customer.id);
 
   return (
     <AppBottomSheet visible onDismiss={onDismiss} variant="full">
@@ -62,8 +62,7 @@ export function CustomerHistorySheet({ customer, onDismiss }: CustomerHistoryShe
             entries={entries}
             loading={loading}
             error={error}
-            scope={full ? "full" : "local"}
-            onLoadFull={loadFull}
+            source={source}
             emptyTitle={t("audit.record_empty_title")}
             emptyDescription={t("audit.record_empty_desc")}
           />

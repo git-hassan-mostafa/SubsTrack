@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { ScrollView, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import type { AuditAction, AuditTable } from "@/src/core/types";
 import { COLORS } from "@/src/shared/constants";
 import { PageHeader } from "@/src/shared/components/PageHeader";
@@ -32,8 +32,8 @@ const ACTIONS: AuditAction[] = [
 
 /**
  * Admin screen: every change staff made — who, when, and what moved. Reads the
- * device's rolling 30-day window by default (so it works offline) and can switch
- * to the complete server-side history on demand.
+ * complete server history straight away, with this device's un-pushed entries
+ * merged in, and falls back to the local 30-day window with no connection.
  *
  * Admin-only is enforced by the audit_logs_select RLS policy, and the whole
  * admin tab is already hidden from non-admins, so there is no role check here.
@@ -47,7 +47,7 @@ export function AuditLogScreen() {
   const loadingMore = useAuditSlice((s) => s.loadingMore);
   const hasMore = useAuditSlice((s) => s.hasMore);
   const error = useAuditSlice((s) => s.error);
-  const scope = useAuditSlice((s) => s.scope);
+  const source = useAuditSlice((s) => s.source);
   const tableFilter = useAuditSlice((s) => s.tableFilter);
   const actionFilter = useAuditSlice((s) => s.actionFilter);
   const actorFilter = useAuditSlice((s) => s.actorFilter);
@@ -56,7 +56,6 @@ export function AuditLogScreen() {
   const fetchEntries = useAuditSlice((s) => s.fetchEntries);
   const refetchForBranch = useAuditSlice((s) => s.refetchForBranch);
   const fetchMoreEntries = useAuditSlice((s) => s.fetchMoreEntries);
-  const setScope = useAuditSlice((s) => s.setScope);
   const setTableFilter = useAuditSlice((s) => s.setTableFilter);
   const setActionFilter = useAuditSlice((s) => s.setActionFilter);
   const setActorFilter = useAuditSlice((s) => s.setActorFilter);
@@ -182,8 +181,7 @@ export function AuditLogScreen() {
           loading={loading}
           error={error}
           onDismissError={clearError}
-          scope={scope}
-          onLoadFull={() => void setScope("full")}
+          source={source}
           onRefresh={() => void fetchEntries()}
           onLoadMore={() => {
             if (hasMore && !loadingMore) void fetchMoreEntries();

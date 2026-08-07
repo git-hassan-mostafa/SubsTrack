@@ -3,21 +3,22 @@ import type { DbAuditLog } from '@/src/core/types/db';
 import { OFFLINE_PAGE_SIZE } from '@/src/core/constants';
 import { OfflineBaseRepository } from '@/src/core/offline/OfflineBaseRepository';
 import { isOnline } from '@/src/core/offline/net/connectivity';
-import { RequiresConnectionError } from '@/src/core/offline/errors';
-import type { IAuditRepository } from './IAuditRepository';
+import type { AuditPage, AuditRows, IAuditRepository } from './IAuditRepository';
 import { AuditRepository } from './AuditRepository';
 
 /**
- * SQLite-backed audit reads. The mirror holds a rolling 30-day window
- * (TableSpec.pullDays), which is what makes the recent trail readable offline.
+ * Native audit reads: the SERVER is the source, with this device's un-pushed rows
+ * merged on top, and the local SQLite window as the fallback.
  *
- * Anything older lives only on the server, so `findAll` — and a `full` record
- * timeline — are online-only and delegate to the Supabase sibling, the same
- * pattern as SubscriptionRepository.offline.upgradeTenant.
+ * The mirror only ever holds a rolling 30-day window (TableSpec.pullDays) and only
+ * what RLS let this device pull, so it is not a substitute for the server — it is
+ * what keeps the trail readable with no connection. The un-pushed rows are the
+ * mirror image: they exist NOWHERE else until the next push, so a server-only read
+ * would hide the newest actions taken on this very device.
  *
- * Note the mirror only ever contains what RLS let this device pull: an admin
- * sees the whole tenant's window, a staff user sees nothing but their own
- * un-pushed rows. That is intended — the trail is admin-only.
+ * There is no caller-chosen scope. Reading the whole history is the default, and
+ * an unreachable server downgrades the answer instead of failing it — the trail is
+ * evidence, so showing less is acceptable, showing nothing is not.
  */
 export class OfflineAuditRepository extends OfflineBaseRepository implements IAuditRepository {
   private online = new AuditRepository();
@@ -26,8 +27,20 @@ export class OfflineAuditRepository extends OfflineBaseRepository implements IAu
   // plus the tenant-wide ones (branch_id IS NULL).
   private static readonly BRANCH_SCOPE = { kind: 'shared' } as const;
 
-  private where(filter: AuditFilter): { sql: string; params: unknown[] } {
-    const parts: { clause: string; params: unknown[] }[] = [];
+  /** Newest first, de-duped by id — an un-pushed row can already be up there. */
+  private static merge(server: DbAuditLog[], pending: DbAuditLog[]): DbAuditLog[] {
+    if (pending.length === 0) return server;
+    const seen = new Set(server.map((r) => r.id));
+    return [...server, ...pending.filter((r) => !seen.has(r.id))].sort(
+      (a, b) => new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime(),
+    );
+  }
+
+  private where(
+    filter: AuditFilter,
+    extra: { clause: string; params: unknown[] }[] = [],
+  ): { sql: string; params: unknown[] } {
+    const parts: { clause: string; params: unknown[] }[] = [...extra];
     if (filter.table) parts.push({ clause: 'table_name = ?', params: [filter.table] });
     if (filter.action) parts.push({ clause: 'action = ?', params: [filter.action] });
     if (filter.actorUserId) parts.push({ clause: 'actor_user_id = ?', params: [filter.actorUserId] });
@@ -43,66 +56,92 @@ export class OfflineAuditRepository extends OfflineBaseRepository implements IAu
     return this.combineWhere(parts);
   }
 
-  async findRecent(filter: AuditFilter, page = 0): Promise<DbAuditLog[]> {
-    const { sql, params } = this.where(filter);
+  private async localRows(where: string, params: unknown[], limit = ''): Promise<DbAuditLog[]> {
     const rows = await this.all(
-      `SELECT * FROM audit_logs ${sql} ORDER BY occurred_at DESC
-       LIMIT ${OFFLINE_PAGE_SIZE} OFFSET ${page * OFFLINE_PAGE_SIZE}`,
+      `SELECT * FROM audit_logs ${where} ORDER BY occurred_at DESC ${limit}`,
       params,
     );
     return this.decodeAll<DbAuditLog>('audit_logs', rows);
   }
 
-  async findAll(filter: AuditFilter, page = 0): Promise<DbAuditLog[]> {
-    if (!(await isOnline())) throw new RequiresConnectionError();
-    return this.online.findAll(filter, page);
+  /** This device's entries that no push has delivered yet — they exist nowhere else. */
+  private pending(filter: AuditFilter): Promise<DbAuditLog[]> {
+    const { sql, params } = this.where(filter, [{ clause: '_dirty = 1', params: [] }]);
+    return this.localRows(sql, params);
   }
 
-  async findForRecord(table: string, recordId: string, full = false): Promise<DbAuditLog[]> {
-    if (full) {
-      if (!(await isOnline())) throw new RequiresConnectionError();
-      return this.online.findForRecord(table, recordId, true);
+  async findRecent(filter: AuditFilter, page = 0): Promise<AuditPage> {
+    if (await isOnline()) {
+      try {
+        const server = await this.online.findRecent(filter, page);
+        // Only page 0 gets the un-pushed rows: they are newer than the last
+        // successful push, so they belong at the top, and merging them into every
+        // page would repeat them.
+        const pending = page === 0 ? await this.pending(filter) : [];
+        return { ...server, rows: OfflineAuditRepository.merge(server.rows, pending) };
+      } catch {
+        // Reachable network ≠ reachable server. Fall through to the local window
+        // rather than leaving an admin with an error where the trail should be.
+      }
     }
-    const rows = await this.all(
-      'SELECT * FROM audit_logs WHERE table_name = ? AND record_id = ? ORDER BY occurred_at DESC',
+    const { sql, params } = this.where(filter);
+    const rows = await this.localRows(
+      sql,
+      params,
+      `LIMIT ${OFFLINE_PAGE_SIZE} OFFSET ${page * OFFLINE_PAGE_SIZE}`,
+    );
+    return { rows, source: 'local', hasMore: rows.length === OFFLINE_PAGE_SIZE };
+  }
+
+  /**
+   * The server's timeline for one entity plus this device's un-pushed rows for it,
+   * falling back to the local window. `clause` + `params` select the same entity
+   * locally that `fetchServer` selects remotely. Parenthesized on use, since a
+   * caller's clause can be an OR chain.
+   */
+  private async timeline(
+    fetchServer: () => Promise<AuditRows>,
+    clause: string,
+    params: unknown[],
+  ): Promise<AuditRows> {
+    if (await isOnline()) {
+      try {
+        const server = await fetchServer();
+        const pending = await this.localRows(`WHERE (${clause}) AND _dirty = 1`, params);
+        return { ...server, rows: OfflineAuditRepository.merge(server.rows, pending) };
+      } catch {
+        // Same fallback as findRecent.
+      }
+    }
+    return { rows: await this.localRows(`WHERE (${clause})`, params), source: 'local' };
+  }
+
+  findForRecord(table: string, recordId: string): Promise<AuditRows> {
+    return this.timeline(
+      () => this.online.findForRecord(table, recordId),
+      'table_name = ? AND record_id = ?',
       [table, recordId],
     );
-    return this.decodeAll<DbAuditLog>('audit_logs', rows);
   }
 
-  async findForRecords(targets: AuditRecordTarget[], full = false): Promise<DbAuditLog[]> {
-    if (targets.length === 0) return [];
-    if (full) {
-      if (!(await isOnline())) throw new RequiresConnectionError();
-      return this.online.findForRecords(targets, true);
-    }
+  findForRecords(targets: AuditRecordTarget[]): Promise<AuditRows> {
+    if (targets.length === 0) return Promise.resolve({ rows: [], source: 'server' });
     // Pairs, not two INs: a plan line's id must not match under table_name
     // 'customers'. Parameterized, so the ids are never interpolated.
-    const clause = targets.map(() => '(table_name = ? AND record_id = ?)').join(' OR ');
-    const params = targets.flatMap((tr) => [tr.table, tr.recordId]);
-    const rows = await this.all(
-      `SELECT * FROM audit_logs WHERE ${clause} ORDER BY occurred_at DESC`,
-      params,
+    return this.timeline(
+      () => this.online.findForRecords(targets),
+      targets.map(() => '(table_name = ? AND record_id = ?)').join(' OR '),
+      targets.flatMap((tr) => [tr.table, tr.recordId]),
     );
-    return this.decodeAll<DbAuditLog>('audit_logs', rows);
   }
 
-  async findForCustomer(
-    customerId: string,
-    tables: string[],
-    full = false,
-  ): Promise<DbAuditLog[]> {
-    if (tables.length === 0) return [];
-    if (full) {
-      if (!(await isOnline())) throw new RequiresConnectionError();
-      return this.online.findForCustomer(customerId, tables, true);
-    }
+  findForCustomer(customerId: string, tables: string[]): Promise<AuditRows> {
+    if (tables.length === 0) return Promise.resolve({ rows: [], source: 'server' });
     const placeholders = tables.map(() => '?').join(', ');
-    const rows = await this.all(
-      `SELECT * FROM audit_logs WHERE subject_id = ? AND table_name IN (${placeholders})
-       ORDER BY occurred_at DESC`,
+    return this.timeline(
+      () => this.online.findForCustomer(customerId, tables),
+      `subject_id = ? AND table_name IN (${placeholders})`,
       [customerId, ...tables],
     );
-    return this.decodeAll<DbAuditLog>('audit_logs', rows);
   }
 }

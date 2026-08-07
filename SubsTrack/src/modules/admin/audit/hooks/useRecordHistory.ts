@@ -1,20 +1,19 @@
-import { useCallback, useEffect, useState } from 'react';
-import type { AuditEntry, AuditRecordTarget } from '@/src/core/types';
-import auditService from '../services/AuditService';
+import { useEffect, useState } from 'react';
+import type { AuditEntry, AuditRecordTarget, AuditSource } from '@/src/core/types';
+import auditService, { type AuditEntries } from '../services/AuditService';
 
 interface RecordHistoryState {
   entries: AuditEntry[];
   loading: boolean;
   error: string | null;
-  /** True once the caller asked for the complete server-side history. */
-  full: boolean;
-  loadFull: () => void;
+  /** Where the entries came from — the server, or the local window as a fallback. */
+  source: AuditSource;
 }
 
 /** Loads one timeline. Module-level, so the effect below has a stable dependency. */
-type Loader = (key: string, full: boolean) => Promise<AuditEntry[]>;
+type Loader = (key: string) => Promise<AuditEntries>;
 
-const loadTargets: Loader = (key, full) =>
+const loadTargets: Loader = (key) =>
   auditService.getRecordsHistory(
     key
       ? key.split('|').map((pair) => {
@@ -22,35 +21,35 @@ const loadTargets: Loader = (key, full) =>
           return { table, recordId } as AuditRecordTarget;
         })
       : [],
-    full,
   );
 
-const loadCustomer: Loader = (customerId, full) =>
-  auditService.getCustomerHistory(customerId, full);
+const loadCustomer: Loader = (customerId) => auditService.getCustomerHistory(customerId);
 
 /**
  * The fetch/loading/error machinery both History hooks share. `key` is a plain
  * string identifying what to load — callers must not pass an object, or a new
  * identity every render would re-fetch forever.
  *
- * Starts on the device's 30-day window so it works offline; `loadFull()`
- * re-fetches the complete history (online-only on native — the error surfaces
- * in `error`).
+ * Loads the complete server-side history straight away (with this device's
+ * un-pushed entries merged in), and degrades to the local 30-day window when there
+ * is no connection — reported through `source`, never asked for.
  */
 function useAuditTimeline(key: string, load: Loader): RecordHistoryState {
   const [entries, setEntries] = useState<AuditEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [full, setFull] = useState(false);
+  const [source, setSource] = useState<AuditSource>('server');
 
   useEffect(() => {
     let active = true;
     setLoading(true);
     setError(null);
-    load(key, full)
-      .then((rows) => {
-        // The sheet can close, or `full` flip, before a slow fetch lands.
-        if (active) setEntries(rows);
+    load(key)
+      .then((result) => {
+        // The sheet can close before a slow fetch lands.
+        if (!active) return;
+        setEntries(result.entries);
+        setSource(result.source);
       })
       .catch((e: Error) => {
         if (active) setError(e.message);
@@ -61,11 +60,9 @@ function useAuditTimeline(key: string, load: Loader): RecordHistoryState {
     return () => {
       active = false;
     };
-  }, [key, full, load]);
+  }, [key, load]);
 
-  const loadFull = useCallback(() => setFull(true), []);
-
-  return { entries, loading, error, full, loadFull };
+  return { entries, loading, error, source };
 }
 
 /**

@@ -1,15 +1,15 @@
 import type { StateCreator } from 'zustand';
-import type { AuditAction, AuditEntry, AuditFilter, AuditTable } from '@/src/core/types';
+import type {
+  AuditAction,
+  AuditEntry,
+  AuditFilter,
+  AuditSource,
+  AuditTable,
+} from '@/src/core/types';
 // Deep import (not the module barrel) — the barrel re-exports screens.
-import auditService, { auditPageSize } from '@/src/modules/admin/audit/services/AuditService';
+import auditService from '@/src/modules/admin/audit/services/AuditService';
 import { resolveBranchFilter } from '@/src/shared/lib/branchFilter';
 import type { GlobalState } from '@/src/state/globalStore';
-
-/**
- * 'local' — the device's rolling 30-day window; works offline.
- * 'full'  — the complete server-side history; needs a connection on native.
- */
-export type AuditScope = 'local' | 'full';
 
 /**
  * The admin Audit Log screen's filter session + paged results.
@@ -28,10 +28,11 @@ export interface AuditSlice {
   loading: boolean;
   loadingMore: boolean;
   error: string | null;
-  // Bumped on every filter/scope change so a slow in-flight fetch can't
-  // overwrite the results of a newer one.
+  // Bumped on every filter change so a slow in-flight fetch can't overwrite the
+  // results of a newer one.
   searchToken: number;
-  scope: AuditScope;
+  /** Where the loaded entries came from — reported, never chosen. */
+  source: AuditSource;
   tableFilter: AuditTable | null;
   actionFilter: AuditAction | null;
   actorFilter: string | null;
@@ -40,7 +41,6 @@ export interface AuditSlice {
   fetchEntries: () => Promise<void>;
   refetchForBranch: () => Promise<void>;
   fetchMoreEntries: () => Promise<void>;
-  setScope: (scope: AuditScope) => Promise<void>;
   setTableFilter: (table: AuditTable | null) => Promise<void>;
   setActionFilter: (action: AuditAction | null) => Promise<void>;
   setActorFilter: (userId: string | null) => Promise<void>;
@@ -91,7 +91,7 @@ export const createAuditSlice: StateCreator<
     loadingMore: false,
     error: null,
     searchToken: 0,
-    scope: 'local',
+    source: 'server',
     tableFilter: null,
     actionFilter: null,
     actorFilter: null,
@@ -107,16 +107,15 @@ export const createAuditSlice: StateCreator<
         state.audit.page = 0;
       });
       try {
-        const { scope } = get().audit;
-        const items = await auditService.getEntries(
+        const { entries, source, hasMore } = await auditService.getEntries(
           buildFilter(get().audit, branchFilter),
           0,
-          scope,
         );
         if (get().audit.searchToken !== token) return;
         set((state) => {
-          state.audit.items = items;
-          state.audit.hasMore = items.length === auditPageSize(scope);
+          state.audit.items = entries;
+          state.audit.source = source;
+          state.audit.hasMore = hasMore;
           state.audit.page = 0;
           state.audit.loading = false;
         });
@@ -138,7 +137,7 @@ export const createAuditSlice: StateCreator<
     },
 
     fetchMoreEntries: async () => {
-      const { loadingMore, hasMore, page, searchToken, scope } = get().audit;
+      const { loadingMore, hasMore, page, searchToken } = get().audit;
       if (loadingMore || !hasMore) return;
       const branchFilter = resolveBranchFilter(get().auth.user);
       set((state) => {
@@ -146,10 +145,9 @@ export const createAuditSlice: StateCreator<
       });
       try {
         const nextPage = page + 1;
-        const items = await auditService.getEntries(
+        const result = await auditService.getEntries(
           buildFilter(get().audit, branchFilter),
           nextPage,
-          scope,
         );
         if (get().audit.searchToken !== searchToken) {
           set((state) => {
@@ -158,8 +156,11 @@ export const createAuditSlice: StateCreator<
           return;
         }
         set((state) => {
-          state.audit.items.push(...items);
-          state.audit.hasMore = items.length === auditPageSize(scope);
+          state.audit.items.push(...result.entries);
+          // The connection can drop between pages, so the note follows the last
+          // page that actually landed.
+          state.audit.source = result.source;
+          state.audit.hasMore = result.hasMore;
           state.audit.page = nextPage;
           state.audit.loadingMore = false;
         });
@@ -175,14 +176,6 @@ export const createAuditSlice: StateCreator<
           state.audit.loadingMore = false;
         });
       }
-    },
-
-    setScope: async (scope) => {
-      if (get().audit.scope === scope) return;
-      invalidate((s) => {
-        s.scope = scope;
-      });
-      await get().audit.fetchEntries();
     },
 
     setTableFilter: async (table) => {
@@ -250,7 +243,7 @@ export const createAuditSlice: StateCreator<
         state.audit.loadingMore = false;
         state.audit.error = null;
         state.audit.searchToken += 1;
-        state.audit.scope = 'local';
+        state.audit.source = 'server';
         state.audit.tableFilter = null;
         state.audit.actionFilter = null;
         state.audit.actorFilter = null;

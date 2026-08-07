@@ -1,19 +1,17 @@
-import { Platform } from 'react-native';
-import { OFFLINE_PAGE_SIZE, PAGE_SIZE } from '@/src/core/constants';
-import type { AuditEntry, AuditFilter, AuditRecordTarget } from '@/src/core/types';
+import type { AuditEntry, AuditFilter, AuditRecordTarget, AuditSource } from '@/src/core/types';
 import repository from '../repository/AuditRepository';
 import { CUSTOMER_HISTORY_TABLES } from '../utils/constants';
 import { mapDbAuditLogToAuditEntry } from '../utils/mapper';
 
-/**
- * Rows returned per page, which differs by where the page came from: the local
- * SQLite window pages at OFFLINE_PAGE_SIZE, every Supabase query at PAGE_SIZE.
- * Callers must compare a page's length against THIS to decide "is there more" —
- * a hardcoded PAGE_SIZE would make the native local list stop after one page.
- */
-export function auditPageSize(scope: 'local' | 'full'): number {
-  // 'full' always comes from Supabase, even on native (the offline repo delegates).
-  return scope === 'local' && Platform.OS !== 'web' ? OFFLINE_PAGE_SIZE : PAGE_SIZE;
+/** Entries plus where they came from — see AuditSource. */
+export interface AuditEntries {
+  entries: AuditEntry[];
+  source: AuditSource;
+}
+
+/** One page of the trail. `hasMore` comes from the repository (see AuditPage). */
+export interface AuditEntryPage extends AuditEntries {
+  hasMore: boolean;
 }
 
 /** One day's entries, for a section-grouped list. */
@@ -27,27 +25,21 @@ export interface AuditDayGroup {
  * Business layer over the audit trail. Read-only by design: entries are appended
  * by each repository next to the change it made, so there is no create path here.
  *
- * `scope` decides where the entries come from:
- *   'local' — the device's rolling 30-day window (works offline)
- *   'full'  — the complete server-side history (needs a connection on native)
+ * Every read is the complete server-side history with this device's un-pushed
+ * entries merged in; with no connection it degrades to the local 30-day window and
+ * says so through `source`. Nothing here chooses — the repository decides and
+ * reports what it managed to read.
  */
 class AuditService {
-  async getEntries(
-    filter: AuditFilter,
-    page = 0,
-    scope: 'local' | 'full' = 'local',
-  ): Promise<AuditEntry[]> {
-    const rows =
-      scope === 'full'
-        ? await repository.findAll(filter, page)
-        : await repository.findRecent(filter, page);
-    return rows.map(mapDbAuditLogToAuditEntry);
+  async getEntries(filter: AuditFilter, page = 0): Promise<AuditEntryPage> {
+    const { rows, source, hasMore } = await repository.findRecent(filter, page);
+    return { entries: rows.map(mapDbAuditLogToAuditEntry), source, hasMore };
   }
 
   /** One record's timeline, newest first. */
-  async getRecordHistory(table: string, recordId: string, full = false): Promise<AuditEntry[]> {
-    const rows = await repository.findForRecord(table, recordId, full);
-    return rows.map(mapDbAuditLogToAuditEntry);
+  async getRecordHistory(table: string, recordId: string): Promise<AuditEntries> {
+    const { rows, source } = await repository.findForRecord(table, recordId);
+    return { entries: rows.map(mapDbAuditLogToAuditEntry), source };
   }
 
   /**
@@ -55,12 +47,9 @@ class AuditService {
    * its service lines and skipped months. Newest first across all of them, so the
    * result reads as one story rather than per-table sections.
    */
-  async getRecordsHistory(
-    targets: AuditRecordTarget[],
-    full = false,
-  ): Promise<AuditEntry[]> {
-    const rows = await repository.findForRecords(targets, full);
-    return rows.map(mapDbAuditLogToAuditEntry);
+  async getRecordsHistory(targets: AuditRecordTarget[]): Promise<AuditEntries> {
+    const { rows, source } = await repository.findForRecords(targets);
+    return { entries: rows.map(mapDbAuditLogToAuditEntry), source };
   }
 
   /**
@@ -68,9 +57,9 @@ class AuditService {
    * skips — newest first. Filtered on the entry's frozen `subject_id`, so it needs
    * no list of child ids and picks up rows whose record has since been deleted.
    */
-  async getCustomerHistory(customerId: string, full = false): Promise<AuditEntry[]> {
-    const rows = await repository.findForCustomer(customerId, CUSTOMER_HISTORY_TABLES, full);
-    return rows.map(mapDbAuditLogToAuditEntry);
+  async getCustomerHistory(customerId: string): Promise<AuditEntries> {
+    const { rows, source } = await repository.findForCustomer(customerId, CUSTOMER_HISTORY_TABLES);
+    return { entries: rows.map(mapDbAuditLogToAuditEntry), source };
   }
 
   /**

@@ -4,6 +4,8 @@ Covers the append-only `audit_logs` trail: who changed what, when, and what the 
 
 The device keeps a rolling **30-day window**; the server keeps everything.
 
+**Reading is server-first, with no button to press.** Opening any of the three views fetches the **complete server history** and merges in this device's **un-pushed** (`_dirty = 1`) entries, which exist nowhere else yet. With no connection — or if the server can't be reached — it falls back to the local 30-day window and the note above the list says so. There is no "Load full history" action any more.
+
 **Reference code:**
 
 - Row builder: [buildAuditRow.ts](../SubsTrack/src/core/audit/buildAuditRow.ts) (diff, actor, `null` when nothing changed), [describe.ts](../SubsTrack/src/core/audit/describe.ts) (the frozen `label`)
@@ -83,11 +85,13 @@ Turn on airplane mode for each. Use Settings → Developer → `audit_logs` to i
 | #   | Scenario                    | Steps                                                                    | Expected result                                                                |
 | --- | --------------------------- | ------------------------------------------------------------------------ | ------------------------------------------------------------------------------ |
 | 2.1 | Offline write               | Offline: record a payment, edit it, void it                                | 3 rows in `audit_logs`, all `_dirty = 1`, correct username                      |
-| 2.2 | Offline read               | Offline: open Admin → Audit Log                                            | The entries show; note reads "last 30 days saved on this device"                |
+| 2.2 | Offline read               | Offline: open Admin → Audit Log                                            | The entries show; note reads "No connection — last 30 days saved on this device". **No "Load full history" action anywhere** |
 | 2.3 | Real action time            | Note the clock, record a payment offline, wait, go online, sync            | `occurred_at` = when you recorded it, **not** the sync time (invariant 1)       |
 | 2.4 | Push                        | From 2.1 → go online → wait for sync (or Settings → Sync now)               | The 3 rows become `_dirty = 0` and appear in Supabase `audit_logs`              |
-| 2.5 | Full history needs a link   | Offline → tap **Load full history**                                        | Error banner: "requires an internet connection". List is unchanged, no crash    |
-| 2.6 | Full history online         | Online → tap **Load full history**                                          | Note switches to "showing the full history from the server"; older rows appear  |
+| 2.5 | Server-first on open        | Online → open Admin → Audit Log                                            | Loads the full server history immediately, no tap needed; note reads "showing the full history from the server"; entries older than 30 days are present |
+| 2.6 | Un-pushed rows are merged   | Airplane mode → record a payment → **before** syncing, disable airplane mode and open the Audit Log **while the row is still `_dirty = 1`** | The new entry appears at the top **together with** the server's entries — a server-only read would have hidden it |
+| 2.6b | …and never twice           | From 2.6 → let the sync push the row → pull-to-refresh                     | The entry appears exactly **once** (de-duped by id), still in date order        |
+| 2.6c | Server unreachable          | Connected to Wi-Fi with no internet (or stop the server) → open the Audit Log | Falls back to the local window with the "No connection" note — never an error screen, never an empty list |
 | 2.7 | Change + trail are atomic   | Offline: record a payment, then force-quit the app immediately; reopen      | Either both the payment and its entry exist, or neither. Never one alone        |
 | 2.8 | Second device sees it       | Device A (staff) records offline → syncs. Device B (admin) syncs             | B's Audit Log shows A's entries with A's username and A's action time           |
 | 2.9 | Org switch is not blocked   | Offline, with un-pushed audit rows only → log out → log in to another org    | Login is **not** refused (a log is not the user's money)                        |
@@ -102,7 +106,7 @@ Turn on airplane mode for each. Use Settings → Developer → `audit_logs` to i
 | 3.2 | Un-pushed rows survive       | Set a row 40 days back **and** `_dirty = 1` → sync                                       | The row **survives** (invariant 8) — never deleted by age     |
 | 3.3 | Recent rows kept             | A row 5 days old → sync                                                                   | Still there                                                   |
 | 3.4 | Pull is windowed             | Fresh install → first sync                                                                | Only the last 30 days of the tenant's entries arrive          |
-| 3.5 | Older history is online-only | Look for an entry 60 days old in the local view, then via **Load full history**            | Absent locally; present in the full view                      |
+| 3.5 | Older history is online-only | Look for an entry 60 days old: online, then in airplane mode                              | Present online (server read); absent offline (outside the window) |
 | 3.6 | Offline for a long time      | Stay offline past 30 days (or backdate the device) → reopen the app                        | Prune still runs at startup; nothing un-pushed is lost        |
 
 ---
@@ -153,8 +157,8 @@ RLS only scopes a branch-**bound** user. A tenant-wide admin sees every branch, 
 | 5.6 | Clear filters         | With filters set → tap **Clear filters**                               | Chip clears; full list returns; the pill disappears                        |
 | 5.7 | Filtered empty state  | Filter to a combination with no rows                                    | "No matching changes / Try changing the filters" — not the first-run text   |
 | 5.8 | First-run empty state | A brand-new organization opens the Audit Log                            | "Nothing recorded yet / Changes staff make will appear here"                |
-| 5.9 | Paging                | With 150+ entries, scroll to the bottom repeatedly                      | More load each time; **no stop after the first page** (native pages by 100) |
-| 5.10 | Paging when full      | Switch to full history, then page                                       | Keeps loading (server pages by 30) — the page size follows the scope        |
+| 5.9 | Paging (offline)      | Airplane mode, 150+ local entries → scroll to the bottom repeatedly       | More load each time; **no stop after the first page** (the local window pages by 100) |
+| 5.10 | Paging (online)      | Online, 150+ entries → scroll to the bottom repeatedly                    | Keeps loading (the server pages by 30). With un-pushed rows merged into page 1, paging **still continues** — the "is there more" answer comes from the server page, not the merged length |
 | 5.11 | Stale response        | Change a filter twice quickly                                            | The list matches the LAST filter chosen, never the earlier one              |
 | 5.12 | Pull to refresh       | Pull down                                                                | Reloads from the top                                                       |
 | 5.13 | Newest first          | Any list                                                                 | Ordered newest → oldest by when staff acted                                |
@@ -203,7 +207,7 @@ The card is deliberately two lines: **record type + the customer it belongs to +
 | 6.4 | Readable values         | Any entry with a date, a true/false and an amount              | Date+time formatted, Yes/No not `1`/`0`, empty shown as `(empty)`            |
 | 6.5 | Technical noise hidden  | Any entry, **including an Added one** (whole-row snapshot)      | No `id`, `tenant_id`, `created_at`, `updated_at` or generated `balance` row   |
 | 6.6 | Record History          | Payment detail (as admin) → **History**                        | Only that payment's entries, newest first                                    |
-| 6.7 | Record History full     | In the History sheet → **Load full history**                   | Fetches that record's complete server-side timeline                          |
+| 6.7 | Record History is full   | Payment detail → **History**, on a record older than 30 days   | The complete server-side timeline loads on open — no action to tap. Offline: the 30-day window plus any un-pushed entries for that record |
 | 6.8 | Record History empty    | Open History on a record created before this feature shipped    | "No changes recorded / not changed since the audit log started"              |
 | 6.9 | Nested sheet closes     | History sheet → tap an entry → close the detail                  | Returns to the History list; the History sheet stays open                    |
 | 6.10 | Deleted user's entries | Delete a staff member who had recorded payments                  | Their old entries still show their username (it is snapshotted)              |
@@ -215,9 +219,9 @@ The card is deliberately two lines: **record type + the customer it belongs to +
 | 6.16 | Record ids unchanged   | An entry whose diff moved `plan_id`, `customer_id` or `customer_plan_id` | Still shown as the raw id (intended: a deleted record has no name). `branch_id` / `currency_id` DO resolve — see 6c |
 | 6.17 | Timestamp wording      | Open an entry for a **customer** or **plan** edit                    | The time row reads "When", not "Paid on"                                    |
 | 6.18 | History sheet isolation | Open History on payment A → close → open History on payment **B**    | B's timeline only. **A's entries must not appear**, not even for a moment (the sheet's state dies with it) |
-| 6.19 | …and its scope resets  | On A tap **Load full history** → close → reopen History on A          | Back to the 30-day window with the "Load full history" action offered again  |
+| 6.19 | …and refetches on open | Close and reopen History on A                                          | Fetches again from the server; no stale entries from the previous open       |
 | 6.20 | Close during a slow load | Open History on a slow connection and close before it finishes → open another record | No crash, no flash of the first record's entries (stale-response guard)  |
-| 6.21 | Shared list, both views | Compare the Audit Log screen and a History sheet                     | Same card layout, scope note and detail sheet — one `<HistoryList>` renders both |
+| 6.21 | Shared list, both views | Compare the Audit Log screen and a History sheet                     | Same card layout, source note and detail sheet — one `<HistoryList>` renders both |
 
 ### 6b. Customer history sheet
 
@@ -238,10 +242,10 @@ One customer's whole story: the customer row, every service line it has ever hel
 | 6.40 | Deleted line survives     | Remove a service line entirely → open History                            | Its entries **remain** — `subject_id` is never joined back to a live row     |
 | 6.41 | Staff sees a clear reason | Log in as a **staff** (non-admin) user → open History from either place   | Sheet opens showing **"Admins only"**, NOT an empty "nothing recorded" list  |
 | 6.42 | Admin sees entries        | Same customer as 6.41, now as an admin                                  | The real timeline                                                           |
-| 6.43 | Load full history         | In the sheet tap **Load full history** (native, online)                  | Fetches beyond the 30-day window, still scoped to this customer             |
-| 6.44 | …offline                  | Airplane mode → **Load full history**                                    | "Needs a connection" error in the banner; the 30-day list stays visible      |
+| 6.43 | Full history on open      | Open the sheet (native, online) for a customer with entries older than 30 days | Everything beyond the window is there without any action, still scoped to this customer |
+| 6.44 | …offline                  | Airplane mode → open the sheet                                           | The 30-day window plus this device's un-pushed entries; note says "No connection"; no error banner |
 | 6.45 | No repeated fetching      | Open the sheet and leave it open (watch logs / network)                  | One fetch, not a loop — the hook keys on a plain customer-id string          |
-| 6.46 | Busy customer            | A customer with 100+ payments → open History (online, full scope)         | Loads in one query; no URL-length error and no truncated list                |
+| 6.46 | Busy customer            | A customer with 100+ payments → open History (online)                     | Loads in one query; no URL-length error and no truncated list                |
 | 6.47 | Customer with no plans    | An occasional customer with zero service lines → open History             | The customer's own entries only; no crash                                    |
 | 6.48 | RTL                       | Switch to Arabic → open History                                          | Title, name, rows and chevrons mirror correctly                             |
 

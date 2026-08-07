@@ -28,7 +28,7 @@ export function RecordHistorySheet({ table, recordId, onDismiss }: RecordHistory
   // Local to this sheet, so closing it needs no cleanup and two open sheets can't
   // overwrite each other's entries.
   const targets = useMemo(() => [{ table, recordId }], [table, recordId]);
-  const { entries, loading, error, full, loadFull } = useRecordHistory(targets);
+  const { entries, loading, error, source } = useRecordHistory(targets);
 
   return (
     <AppBottomSheet visible onDismiss={onDismiss} variant="full">
@@ -51,8 +51,7 @@ export function RecordHistorySheet({ table, recordId, onDismiss }: RecordHistory
           entries={entries}
           loading={loading}
           error={error}
-          scope={full ? "full" : "local"}
-          onLoadFull={loadFull}
+          source={source}
           emptyTitle={t("audit.record_empty_title")}
           emptyDescription={t("audit.record_empty_desc")}
         />

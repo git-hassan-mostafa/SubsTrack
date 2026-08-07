@@ -605,6 +605,11 @@ export type AuditTable =
   | 'tenant_settings'
   | 'tenants';
 
+// Where a set of audit rows actually came from — an OUTCOME, never a user choice.
+//   'server' — the complete history (plus this device's un-pushed rows merged in)
+//   'local'  — the device's rolling 30-day window, because the server was unreachable
+export type AuditSource = 'server' | 'local';
+
 // One row to pull the trail for. Several of these merge into one timeline when an
 // entity spans more than one table (a customer plus its service lines).
 export interface AuditRecordTarget {

@@ -3,7 +3,7 @@ import { BaseRepository } from '@/src/core/utils/BaseRepository';
 import { PAGE_SIZE } from '@/src/core/constants';
 import type { AuditFilter, AuditRecordTarget } from '@/src/core/types';
 import type { DbAuditLog } from '@/src/core/types/db';
-import type { IAuditRepository } from './IAuditRepository';
+import type { AuditPage, AuditRows, IAuditRepository } from './IAuditRepository';
 import { OfflineAuditRepository } from './AuditRepository.offline';
 
 /**
@@ -29,7 +29,7 @@ export class AuditRepository extends BaseRepository implements IAuditRepository 
     return q;
   }
 
-  private async page(filter: AuditFilter, page: number): Promise<DbAuditLog[]> {
+  async findRecent(filter: AuditFilter, page = 0): Promise<AuditPage> {
     const from = page * PAGE_SIZE;
     let query = this.db
       .from('audit_logs')
@@ -41,21 +41,11 @@ export class AuditRepository extends BaseRepository implements IAuditRepository 
     query = this.applyFilter(query, filter);
     const { data, error } = await query;
     if (error) this.handleError(error);
-    return (data ?? []) as DbAuditLog[];
+    const rows = (data ?? []) as DbAuditLog[];
+    return { rows, source: 'server', hasMore: rows.length === PAGE_SIZE };
   }
 
-  // On the web there is no local window, so "recent" and "all" are the same query.
-  findRecent(filter: AuditFilter, page = 0): Promise<DbAuditLog[]> {
-    return this.page(filter, page);
-  }
-
-  findAll(filter: AuditFilter, page = 0): Promise<DbAuditLog[]> {
-    return this.page(filter, page);
-  }
-
-  // `full` is ignored on the web: there is no local window to be limited by, so
-  // this is always the record's complete history.
-  async findForRecord(table: string, recordId: string, _full = false): Promise<DbAuditLog[]> {
+  async findForRecord(table: string, recordId: string): Promise<AuditRows> {
     const { data, error } = await this.db
       .from('audit_logs')
       .select('*')
@@ -63,12 +53,11 @@ export class AuditRepository extends BaseRepository implements IAuditRepository 
       .eq('record_id', recordId)
       .order('occurred_at', { ascending: false });
     if (error) this.handleError(error);
-    return (data ?? []) as DbAuditLog[];
+    return { rows: (data ?? []) as DbAuditLog[], source: 'server' };
   }
 
-  // `full` ignored for the same reason as findForRecord: no local window on web.
-  async findForRecords(targets: AuditRecordTarget[], _full = false): Promise<DbAuditLog[]> {
-    if (targets.length === 0) return [];
+  async findForRecords(targets: AuditRecordTarget[]): Promise<AuditRows> {
+    if (targets.length === 0) return { rows: [], source: 'server' };
     // One OR of (table AND id) pairs. Two separate `.in()` calls would cross-match —
     // a plan line's id would be accepted under table_name 'customers'.
     const clause = targets
@@ -80,15 +69,10 @@ export class AuditRepository extends BaseRepository implements IAuditRepository 
       .or(clause)
       .order('occurred_at', { ascending: false });
     if (error) this.handleError(error);
-    return (data ?? []) as DbAuditLog[];
+    return { rows: (data ?? []) as DbAuditLog[], source: 'server' };
   }
 
-  // `full` ignored for the same reason as findForRecord: no local window on web.
-  async findForCustomer(
-    customerId: string,
-    tables: string[],
-    _full = false,
-  ): Promise<DbAuditLog[]> {
+  async findForCustomer(customerId: string, tables: string[]): Promise<AuditRows> {
     const { data, error } = await this.db
       .from('audit_logs')
       .select('*')
@@ -96,12 +80,12 @@ export class AuditRepository extends BaseRepository implements IAuditRepository 
       .in('table_name', tables)
       .order('occurred_at', { ascending: false });
     if (error) this.handleError(error);
-    return (data ?? []) as DbAuditLog[];
+    return { rows: (data ?? []) as DbAuditLog[], source: 'server' };
   }
 }
 
-// Platform seam: web → Supabase directly; native → the local 30-day window, with
-// the full history fetched online on demand.
+// Platform seam: web → Supabase directly; native → Supabase too, with this
+// device's un-pushed rows merged in and the local 30-day window as the fallback.
 const impl: IAuditRepository =
   Platform.OS === 'web' ? new AuditRepository() : new OfflineAuditRepository();
 

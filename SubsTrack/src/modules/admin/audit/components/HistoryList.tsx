@@ -2,14 +2,12 @@ import { useState, type ReactElement } from "react";
 import { ActivityIndicator, FlatList, RefreshControl, View } from "react-native";
 import { BottomSheetFlatList } from "@gorhom/bottom-sheet";
 import { useTranslation } from "react-i18next";
-import type { AuditEntry } from "@/src/core/types";
+import type { AuditEntry, AuditSource } from "@/src/core/types";
 import { IS_OFFLINE_CAPABLE } from "@/src/core/offline";
 import { COLORS } from "@/src/shared/constants";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { EmptyState } from "@/src/shared/components/EmptyState";
 import { Text } from "@/src/shared/components/Text";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
-import type { AuditScope } from "@/src/state/slices/audit/auditSlice";
 import { AuditEntryCard } from "./AuditEntryCard";
 import { AuditEntrySheet } from "./AuditEntrySheet";
 
@@ -18,10 +16,8 @@ interface HistoryListProps {
   loading: boolean;
   error?: string | null;
   onDismissError?: () => void;
-  /** The device's 30-day window vs the full server history. Drives the scope note. */
-  scope: AuditScope;
-  /** Omit to hide the "Load full history" action (e.g. on web, where every read is server-side). */
-  onLoadFull?: () => void;
+  /** Where the entries came from. Drives the note above the list. */
+  source: AuditSource;
   /** Pull-to-refresh. Omit inside a sheet — the gesture belongs to the sheet there. */
   onRefresh?: () => void;
   /** Omit for a non-paged list (one record's timeline is short by nature). */
@@ -52,8 +48,7 @@ export function HistoryList({
   loading,
   error,
   onDismissError,
-  scope,
-  onLoadFull,
+  source,
   onRefresh,
   onLoadMore,
   loadingMore = false,
@@ -90,7 +85,7 @@ export function HistoryList({
           ListHeaderComponent={
             <>
               {header}
-              <ScopeNote scope={scope} onLoadFull={onLoadFull} />
+              <SourceNote source={source} />
             </>
           }
           refreshControl={
@@ -125,23 +120,17 @@ export function HistoryList({
 }
 
 /**
- * Explains that the list is the device's 30-day window, and offers the full server
- * history. Renders nothing on web, where there is no local window to explain.
+ * Says which trail is on screen — the full server history, or the device's 30-day
+ * window when the server could not be reached. Informational only: there is no
+ * action, because the server read is already the default. Renders nothing on web,
+ * where there is no local window and so nothing to distinguish.
  */
-function ScopeNote({ scope, onLoadFull }: { scope: AuditScope; onLoadFull?: () => void }) {
+function SourceNote({ source }: { source: AuditSource }) {
   const { t } = useTranslation();
   if (!IS_OFFLINE_CAPABLE) return null;
-  if (scope === "full") {
-    return <Text className="text-xs text-gray-400 mb-3">{t("audit.showing_full")}</Text>;
-  }
   return (
-    <View className="mb-3">
-      <Text className="text-xs text-gray-400">{t("audit.local_window_note")}</Text>
-      {onLoadFull ? (
-        <PressableOpacity onPress={onLoadFull} className="mt-1">
-          <Text className="text-xs text-primary font-medium">{t("audit.load_full")}</Text>
-        </PressableOpacity>
-      ) : null}
-    </View>
+    <Text className="text-xs text-gray-400 mb-3">
+      {t(source === "server" ? "audit.showing_full" : "audit.local_window_note")}
+    </Text>
   );
 }
