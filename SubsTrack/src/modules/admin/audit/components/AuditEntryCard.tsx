@@ -7,7 +7,12 @@ import { formatDateTimeShort } from "@/src/core/utils/date";
 import { COLORS } from "@/src/shared/constants";
 import { Text } from "@/src/shared/components/Text";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
-import { actionLabel, fieldLabel, recordLabel, tableLabel } from "../utils/format";
+import {
+  actionLabel,
+  fieldLabel,
+  recordLabel,
+  tableLabel,
+} from "../utils/format";
 
 // Colour + icon per action, so the list scans by shape before you read it.
 // Tailwind classes (mirrors DebtItemCard) — there are no light danger/indigo tokens.
@@ -84,7 +89,12 @@ export function AuditEntryCard({ entry, onPress }: AuditEntryCardProps) {
   // Dropped when it repeats the subject — on `customers` the record IS the person,
   // so both are the same name and printing it twice says nothing.
   const recordName = recordLabel(t, entry);
-  const label = recordName === subject ? null : recordName;
+  const label =
+    entry.changes.length === 1
+      ? recordName === subject
+        ? null
+        : recordName
+      : null;
 
   // What moved, in one phrase: a single changed field is worth naming, several are
   // only worth counting, and a create/delete changed the whole row so it says
@@ -98,7 +108,7 @@ export function AuditEntryCard({ entry, onPress }: AuditEntryCardProps) {
 
   // Line 2 reads "<record> · <what moved>" — both are optional, and the dot only
   // appears between two present halves.
-  const detail = [label, summary].filter(Boolean).join(" · ");
+  const detail = [summary, label].filter(Boolean).join(" -> ");
 
   return (
     <PressableOpacity
@@ -109,6 +119,12 @@ export function AuditEntryCard({ entry, onPress }: AuditEntryCardProps) {
         className={`w-9 h-9 rounded-xl items-center justify-center me-3 ${style.tile}`}
       >
         <Ionicons name={style.icon} size={17} color={style.color} />
+        <Text
+          fontWeight="Regular"
+          className={`text-[7px] uppercase tracking-wide ${style.pillText}`}
+        >
+          {actionLabel(t, entry.action)}
+        </Text>
       </View>
 
       <View className="flex-1">
@@ -116,35 +132,41 @@ export function AuditEntryCard({ entry, onPress }: AuditEntryCardProps) {
             subject without competing with the type for the eye. */}
         <View className="flex-row items-center">
           <Text
-            fontWeight="SemiBold"
-            className="text-[15px] text-gray-900"
+            fontWeight="Bold"
+            className="flex-1 text-[15px] text-gray-900"
             numberOfLines={1}
           >
             {type}
           </Text>
-          {subject ? (
-            <Text
-              className="flex-1 text-[15px] text-gray-500 ms-1.5"
-              numberOfLines={1}
+          {!!subject && (
+            <View
+              className={`flex-row items-center rounded-full px-2 py-0.5 ms-2 ${style.pill}`}
             >
-              {subject}
-            </Text>
-          ) : (
-            <View className="flex-1" />
+              <Ionicons
+                name="person-outline"
+                className={`${style.pillText} mr-1.5`}
+                size={11}
+                color={COLORS.gray400}
+              />
+              <Text
+                fontWeight="SemiBold"
+                className={`text-[10px] uppercase tracking-wide ${style.pillText}`}
+              >
+                {subject}
+              </Text>
+            </View>
           )}
-          <View className={`rounded-full px-2 py-0.5 ms-2 ${style.pill}`}>
-            <Text
-              fontWeight="SemiBold"
-              className={`text-[10px] uppercase tracking-wide ${style.pillText}`}
-            >
-              {actionLabel(t, entry.action)}
-            </Text>
-          </View>
         </View>
 
         {/* Who + when + what moved, on one muted line — the evidence a dispute
             turns on, without taking a line each. */}
         <View className="flex-row items-center mt-1">
+          <Ionicons
+            name="person"
+            className="mr-1.5"
+            size={11}
+            color={COLORS.gray400}
+          />
           <Text className="text-[11px] text-gray-500" numberOfLines={1}>
             {entry.actorUsername ?? t("audit.unknown_actor")}
           </Text>
