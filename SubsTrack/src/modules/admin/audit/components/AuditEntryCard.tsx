@@ -85,30 +85,6 @@ export function AuditEntryCard({ entry, onPress }: AuditEntryCardProps) {
   // Whose record it is (a customer), frozen at write time. Absent on records that
   // belong to nobody (a plan, a setting) and on entries written before it existed.
   const subject = entry.subject;
-  // Same one-liner the sheet shows, so the list and the detail never disagree.
-  // Dropped when it repeats the subject — on `customers` the record IS the person,
-  // so both are the same name and printing it twice says nothing.
-  const recordName = recordLabel(t, entry);
-  const label =
-    entry.changes.length === 1
-      ? recordName === subject
-        ? null
-        : recordName
-      : null;
-
-  // What moved, in one phrase: a single changed field is worth naming, several are
-  // only worth counting, and a create/delete changed the whole row so it says
-  // nothing here (the type + record line already covers it).
-  const summary =
-    entry.changes.length === 1
-      ? fieldLabel(t, entry.changes[0].field)
-      : entry.changes.length > 1
-        ? t("audit.changed_count", { count: entry.changes.length })
-        : null;
-
-  // Line 2 reads "<record> · <what moved>" — both are optional, and the dot only
-  // appears between two present halves.
-  const detail = [summary, label].filter(Boolean).join(" -> ");
 
   return (
     <PressableOpacity
@@ -132,7 +108,7 @@ export function AuditEntryCard({ entry, onPress }: AuditEntryCardProps) {
             subject without competing with the type for the eye. */}
         <View className="flex-row items-center">
           <Text
-            fontWeight="Bold"
+            fontWeight="SemiBold"
             className="flex-1 text-[15px] text-gray-900"
             numberOfLines={1}
           >
@@ -140,17 +116,17 @@ export function AuditEntryCard({ entry, onPress }: AuditEntryCardProps) {
           </Text>
           {!!subject && (
             <View
-              className={`flex-row items-center rounded-full px-2 py-0.5 ms-2 ${style.pill}`}
+              className={`flex-row items-center rounded-full px-2 py-0.5 ms-2 bg-indigo-50`}
             >
               <Ionicons
                 name="person-outline"
-                className={`${style.pillText} mr-1.5`}
+                className="mr-1.5"
                 size={11}
                 color={COLORS.gray400}
               />
               <Text
                 fontWeight="SemiBold"
-                className={`text-[10px] uppercase tracking-wide ${style.pillText}`}
+                className={`text-[10px] uppercase tracking-wide text-gray-600`}
               >
                 {subject}
               </Text>
@@ -160,13 +136,8 @@ export function AuditEntryCard({ entry, onPress }: AuditEntryCardProps) {
 
         {/* Who + when + what moved, on one muted line — the evidence a dispute
             turns on, without taking a line each. */}
-        <View className="flex-row items-center mt-1">
-          <Ionicons
-            name="person"
-            className="mr-1.5"
-            size={11}
-            color={COLORS.gray400}
-          />
+        <View className="flex-row items-center">
+          <Ionicons name="person" className="text-gray-600 mr-1.5" size={11} />
           <Text className="text-[11px] text-gray-500" numberOfLines={1}>
             {entry.actorUsername ?? t("audit.unknown_actor")}
           </Text>
@@ -174,14 +145,6 @@ export function AuditEntryCard({ entry, onPress }: AuditEntryCardProps) {
           <Text className="text-[11px] text-gray-400" numberOfLines={1}>
             {formatDateTimeShort(entry.occurredAt, i18n.language)}
           </Text>
-          {detail ? (
-            <Text
-              className="flex-1 text-[11px] text-gray-400 ms-1.5 text-right"
-              numberOfLines={1}
-            >
-              {detail}
-            </Text>
-          ) : null}
         </View>
       </View>
     </PressableOpacity>

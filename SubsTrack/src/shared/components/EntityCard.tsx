@@ -60,7 +60,7 @@ export function EntityCard({
     <PressableOpacity
       onPress={() => (selectionMode ? onToggleSelect?.() : onPress?.())}
       onLongPress={selectionMode ? undefined : (onEnterSelection ?? onMenu)}
-      className={`bg-white border rounded-2xl px-4 py-4 mb-2.5 flex-row items-center ${
+      className={`bg-white border rounded-2xl px-4 py-2 mb-2.5 flex-row items-center ${
         dimmed ? "border-gray-200 opacity-60" : "border-gray-100"
       } ${className}`}
     >

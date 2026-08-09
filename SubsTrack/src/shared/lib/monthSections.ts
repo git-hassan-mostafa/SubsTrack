@@ -34,7 +34,11 @@ function weekStartDateString(): string {
   const now = new Date();
   const day = now.getDay(); // 0 = Sunday … 6 = Saturday
   const daysSinceMonday = (day + 6) % 7;
-  const monday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - daysSinceMonday);
+  const monday = new Date(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate() - daysSinceMonday,
+  );
   const y = monday.getFullYear();
   const m = String(monday.getMonth() + 1).padStart(2, "0");
   const d = String(monday.getDate()).padStart(2, "0");
@@ -52,7 +56,7 @@ function sectionTitle(
   if (year === current.year && month === current.month) {
     return t("common.current_month");
   }
-  const name = t(`months_long.${MONTHS[month - 1]}`);
+  const name = t(`months.${MONTHS[month - 1]}`);
   return `${name} ${year}`;
 }
 
@@ -92,7 +96,11 @@ export function groupByMonth<T>(
   const peeledUsdByMonth: Record<string, number> = {};
 
   // The bucket a row belongs to: "today", "this-week", or its "YYYY-MM" month.
-  function bucketOf(iso: string): { key: string; title: string; monthKey: string } {
+  function bucketOf(iso: string): {
+    key: string;
+    title: string;
+    monthKey: string;
+  } {
     const { year, month } = yearMonthOf(iso);
     const monthKey = `${year}-${String(month).padStart(2, "0")}`;
     const day = dayOf(iso);
@@ -102,7 +110,11 @@ export function groupByMonth<T>(
     if (day >= weekStart && day < today) {
       return { key: "this-week", title: t("common.this_week"), monthKey };
     }
-    return { key: monthKey, title: sectionTitle(year, month, t, current), monthKey };
+    return {
+      key: monthKey,
+      title: sectionTitle(year, month, t, current),
+      monthKey,
+    };
   }
 
   for (const item of items) {

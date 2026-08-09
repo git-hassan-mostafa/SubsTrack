@@ -1,28 +1,42 @@
-import type { StateCreator } from 'zustand';
-import type { Currency, Customer, CustomerPlan, CustomerStatus, MonthEntry, Payment, Plan, SkippedMonth, TierPlan, UnpaidStartRule } from '@/src/core/types';
-import { getCurrentYearMonth, toBillingMonth } from '@/src/core/utils/date';
+import type { StateCreator } from "zustand";
+import type {
+  Currency,
+  Customer,
+  CustomerPlan,
+  CustomerStatus,
+  MonthEntry,
+  Payment,
+  Plan,
+  SkippedMonth,
+  TierPlan,
+  UnpaidStartRule,
+} from "@/src/core/types";
+import { getCurrentYearMonth, toBillingMonth } from "@/src/core/utils/date";
 import {
   paymentService,
   skippedMonthService,
   type CreateMultiMonthPaymentResult,
   type MultiMonthConflict,
   type SetSkipInput,
-} from '@/src/modules/customer/customer-payments';
-import { TierLimitError } from '@/src/modules/admin/subscription';
-import type { TierLimitErrorPayload } from '@/src/modules/admin/subscription';
+} from "@/src/modules/customer/customer-payments";
+import { TierLimitError } from "@/src/modules/admin/subscription";
+import type { TierLimitErrorPayload } from "@/src/modules/admin/subscription";
 // Deep imports (not the module barrel) — the barrel re-exports screens, which
 // would make the state layer pull in UI and risk an import cycle.
-import tenantSettingService from '@/src/modules/admin/tenant-settings/services/TenantSettingService';
-import { TENANT_SETTING_KEYS } from '@/src/modules/admin/tenant-settings/utils/constants';
-import type { GlobalState } from '@/src/state/globalStore';
+import tenantSettingService from "@/src/modules/admin/tenant-settings/services/TenantSettingService";
+import { TENANT_SETTING_KEYS } from "@/src/modules/admin/tenant-settings/utils/constants";
+import type { GlobalState } from "@/src/state/globalStore";
 
-const snapshotRate = (currency: Currency | null): number => currency?.ratePerUsd ?? 1;
+const snapshotRate = (currency: Currency | null): number =>
+  currency?.ratePerUsd ?? 1;
 
 // The tenant's unpaid rule, read cross-slice at call time (never cached) so a
 // change in Tenant Settings takes effect on the very next status computation.
 const getUnpaidRule = (get: () => GlobalState): UnpaidStartRule =>
   tenantSettingService.parseUnpaidStartRule(
-    get().tenantSettings.items.find((s) => s.key === TENANT_SETTING_KEYS.unpaidStartRule)?.value,
+    get().tenantSettings.items.find(
+      (s) => s.key === TENANT_SETTING_KEYS.unpaidStartRule,
+    )?.value,
   );
 
 interface CreatePaymentInput {
@@ -77,11 +91,13 @@ export interface PaymentSlice {
   getPayments: (
     customerId: string,
     lines: CustomerPlan[],
-    year: number,  ) => Promise<void>;
+    year: number,
+  ) => Promise<void>;
   fetchPayments: (
     customerId: string,
     lines: CustomerPlan[],
-    year: number,  ) => Promise<void>;
+    year: number,
+  ) => Promise<void>;
   // Rebuilds the viewed year's grids from payments/skips already in the store —
   // used when navigating years or when the customer's lines change (no re-fetch).
   buildGrids: (lines: CustomerPlan[], year: number) => void;
@@ -93,20 +109,23 @@ export interface PaymentSlice {
     tenantId: string,
     userId: string | null,
     lines: CustomerPlan[],
-    year: number,  ) => Promise<void>;
+    year: number,
+  ) => Promise<void>;
   // Returns the created payment so the caller can build a receipt/invoice from
   // the real record (id, paidAt). null = the write failed; check `error`.
   createPayment: (
     data: CreatePaymentInput,
     currency: Currency | null,
-    lines: CustomerPlan[],  ) => Promise<Payment | null>;
+    lines: CustomerPlan[],
+  ) => Promise<Payment | null>;
   // Returns the created payments so one invoice can cover the whole batch
   // (empty on failure; check `error`).
   createPayments: (
     data: CreatePaymentInput[],
     currency: Currency | null,
     lines: CustomerPlan[],
-    year: number,  ) => Promise<Payment[]>;
+    year: number,
+  ) => Promise<Payment[]>;
   // Customer-list "collect all due": pays the current month for many eligible
   // fixed-price lines (one payment each) in one DB round-trip. All-or-nothing —
   // returns the created payments (empty on failure; check error/tierLimitError),
@@ -130,7 +149,8 @@ export interface PaymentSlice {
     tenantId: string,
     skipConflicts: boolean,
     lines: CustomerPlan[],
-    year: number,    tier: TierPlan,
+    year: number,
+    tier: TierPlan,
     // The service's own shape, forwarded whole: the payment (for a receipt) plus
     // the months the block stepped over. null = the write failed.
   ) => Promise<CreateMultiMonthPaymentResult | null>;
@@ -145,21 +165,27 @@ export interface PaymentSlice {
     notes: string | null,
     tenantId: string,
     lines: CustomerPlan[],
-    year: number,    tier: TierPlan,
+    year: number,
+    tier: TierPlan,
     // The created blocks (for one batch invoice) plus the months the blocks
     // stepped over. null = the write failed.
-  ) => Promise<{ payments: Payment[]; conflictMonths: MultiMonthConflict[] } | null>;
+  ) => Promise<{
+    payments: Payment[];
+    conflictMonths: MultiMonthConflict[];
+  } | null>;
   updatePayment: (
     id: string,
     amountPaid: number,
     lines: CustomerPlan[],
-    year: number,  ) => Promise<void>;
+    year: number,
+  ) => Promise<void>;
   voidPayment: (
     id: string,
     voidedBy: string,
     notes: string,
     lines: CustomerPlan[],
-    year: number,  ) => Promise<void>;
+    year: number,
+  ) => Promise<void>;
   // Customer-list quick void: voids the payment block(s) covering the CURRENT
   // month across all of a customer's lines (fetched on demand). Clears the
   // current-month badge. Returns true if anything was voided.
@@ -172,7 +198,8 @@ export interface PaymentSlice {
     voidedBy: string,
     notes: string,
     lines: CustomerPlan[],
-    year: number,  ) => Promise<void>;
+    year: number,
+  ) => Promise<void>;
   clearError: () => void;
   clearTierLimitError: () => void;
   reset: () => void;
@@ -180,7 +207,7 @@ export interface PaymentSlice {
 
 export const createPaymentSlice: StateCreator<
   GlobalState,
-  [['zustand/immer', never]],
+  [["zustand/immer", never]],
   [],
   PaymentSlice
 > = (set, get) => ({
@@ -197,7 +224,11 @@ export const createPaymentSlice: StateCreator<
   tierLimitError: null,
 
   fetchCustomerStatuses: async (customers) => {
-    const statuses = await paymentService.getCustomerStatuses(customers, getUnpaidRule(get));
+    if (customers.length == 0) return;
+    const statuses = await paymentService.getCustomerStatuses(
+      customers,
+      getUnpaidRule(get),
+    );
     set((state) => {
       state.payments.customerStatuses = statuses;
     });
@@ -222,7 +253,13 @@ export const createPaymentSlice: StateCreator<
         paymentService.getPaymentsForCustomer(customerId),
         skippedMonthService.getSkipsForCustomer(customerId),
       ]);
-      const monthGridsByLine = buildGridsFor(lines, items, skips, year, getUnpaidRule(get));
+      const monthGridsByLine = buildGridsFor(
+        lines,
+        items,
+        skips,
+        year,
+        getUnpaidRule(get),
+      );
       set((state) => {
         state.payments.items = items;
         state.payments.skips = skips;
@@ -239,7 +276,13 @@ export const createPaymentSlice: StateCreator<
 
   buildGrids: (lines, year) => {
     const { items, skips } = get().payments;
-    const monthGridsByLine = buildGridsFor(lines, items, skips, year, getUnpaidRule(get));
+    const monthGridsByLine = buildGridsFor(
+      lines,
+      items,
+      skips,
+      year,
+      getUnpaidRule(get),
+    );
     set((state) => {
       state.payments.monthGridsByLine = monthGridsByLine;
     });
@@ -252,10 +295,17 @@ export const createPaymentSlice: StateCreator<
       state.payments.error = null;
     });
     try {
-      const written = await skippedMonthService.setSkipped(inputs, skipped, tenantId, userId);
+      const written = await skippedMonthService.setSkipped(
+        inputs,
+        skipped,
+        tenantId,
+        userId,
+      );
       // One row per (line, month): replace the touched keys, then drop the ones
       // that were just unskipped — the store only holds ACTIVE skips.
-      const touched = new Set(written.map((s) => `${s.customerPlanId}|${s.billingMonth}`));
+      const touched = new Set(
+        written.map((s) => `${s.customerPlanId}|${s.billingMonth}`),
+      );
       const skips = [
         ...get().payments.skips.filter(
           (s) => !touched.has(`${s.customerPlanId}|${s.billingMonth}`),
@@ -263,13 +313,26 @@ export const createPaymentSlice: StateCreator<
         ...written.filter((s) => s.skipped),
       ];
       const items = get().payments.items;
-      const monthGridsByLine = buildGridsFor(lines, items, skips, year, getUnpaidRule(get));
+      const monthGridsByLine = buildGridsFor(
+        lines,
+        items,
+        skips,
+        year,
+        getUnpaidRule(get),
+      );
       const customerId = inputs[0].customerId;
       set((state) => {
         state.payments.skips = skips;
         state.payments.monthGridsByLine = monthGridsByLine;
         state.payments.loadingSkip = false;
-        syncCustomerStatus(state.payments, customerId, lines, items, skips, getUnpaidRule(get));
+        syncCustomerStatus(
+          state.payments,
+          customerId,
+          lines,
+          items,
+          skips,
+          getUnpaidRule(get),
+        );
       });
     } catch (e) {
       set((state) => {
@@ -290,15 +353,28 @@ export const createPaymentSlice: StateCreator<
         ...data,
         ratePerUsdSnapshot: snapshotRate(currency),
       });
-      const [year] = data.billingMonth.split('-').map(Number);
+      const [year] = data.billingMonth.split("-").map(Number);
       const items = [...get().payments.items, payment];
       const skips = get().payments.skips;
-      const monthGridsByLine = buildGridsFor(lines, items, skips, year, getUnpaidRule(get));
+      const monthGridsByLine = buildGridsFor(
+        lines,
+        items,
+        skips,
+        year,
+        getUnpaidRule(get),
+      );
       set((state) => {
         state.payments.items = items;
         state.payments.monthGridsByLine = monthGridsByLine;
         state.payments.loadingCreate = false;
-        syncCustomerStatus(state.payments, data.customerId, lines, items, skips, getUnpaidRule(get));
+        syncCustomerStatus(
+          state.payments,
+          data.customerId,
+          lines,
+          items,
+          skips,
+          getUnpaidRule(get),
+        );
       });
       return payment;
     } catch (e) {
@@ -323,13 +399,27 @@ export const createPaymentSlice: StateCreator<
       );
       const items = [...get().payments.items, ...created];
       const skips = get().payments.skips;
-      const monthGridsByLine = buildGridsFor(lines, items, skips, year, getUnpaidRule(get));
+      const monthGridsByLine = buildGridsFor(
+        lines,
+        items,
+        skips,
+        year,
+        getUnpaidRule(get),
+      );
       const customerId = data[0]?.customerId;
       set((state) => {
         state.payments.items = items;
         state.payments.monthGridsByLine = monthGridsByLine;
         state.payments.loadingCreate = false;
-        if (customerId) syncCustomerStatus(state.payments, customerId, lines, items, skips, getUnpaidRule(get));
+        if (customerId)
+          syncCustomerStatus(
+            state.payments,
+            customerId,
+            lines,
+            items,
+            skips,
+            getUnpaidRule(get),
+          );
       });
       return created;
     } catch (e) {
@@ -410,31 +500,49 @@ export const createPaymentSlice: StateCreator<
       state.payments.tierLimitError = null;
     });
     try {
-      const linePayments = get().payments.items.filter((p) => p.customerPlanId === customerPlanId);
-      const lineSkips = get().payments.skips.filter((s) => s.customerPlanId === customerPlanId);
-      const { payment, conflictMonths } = await paymentService.createMultiMonthPayment(
-        startMonth,
-        customer,
-        customerPlanId,
-        plan,
-        amountPaid,
-        receivedByUserId,
-        notes,
-        tenantId,
-        linePayments,
-        lineSkips,
-        skipConflicts,
-        snapshotRate(planCurrency),
-        tier,
+      const linePayments = get().payments.items.filter(
+        (p) => p.customerPlanId === customerPlanId,
       );
+      const lineSkips = get().payments.skips.filter(
+        (s) => s.customerPlanId === customerPlanId,
+      );
+      const { payment, conflictMonths } =
+        await paymentService.createMultiMonthPayment(
+          startMonth,
+          customer,
+          customerPlanId,
+          plan,
+          amountPaid,
+          receivedByUserId,
+          notes,
+          tenantId,
+          linePayments,
+          lineSkips,
+          skipConflicts,
+          snapshotRate(planCurrency),
+          tier,
+        );
       const items = [...get().payments.items, payment];
       const skips = get().payments.skips;
-      const monthGridsByLine = buildGridsFor(lines, items, skips, year, getUnpaidRule(get));
+      const monthGridsByLine = buildGridsFor(
+        lines,
+        items,
+        skips,
+        year,
+        getUnpaidRule(get),
+      );
       set((state) => {
         state.payments.items = items;
         state.payments.monthGridsByLine = monthGridsByLine;
         state.payments.loadingCreate = false;
-        syncCustomerStatus(state.payments, customer.id, lines, items, skips, getUnpaidRule(get));
+        syncCustomerStatus(
+          state.payments,
+          customer.id,
+          lines,
+          items,
+          skips,
+          getUnpaidRule(get),
+        );
       });
       return { payment, conflictMonths };
     } catch (e) {
@@ -478,30 +586,48 @@ export const createPaymentSlice: StateCreator<
       state.payments.tierLimitError = null;
     });
     try {
-      const linePayments = get().payments.items.filter((p) => p.customerPlanId === customerPlanId);
-      const lineSkips = get().payments.skips.filter((s) => s.customerPlanId === customerPlanId);
-      const { payments, conflictMonths } = await paymentService.createMultiMonthPayments(
-        starts,
-        customer,
-        customerPlanId,
-        plan,
-        amountPaid,
-        receivedByUserId,
-        notes,
-        tenantId,
-        linePayments,
-        lineSkips,
-        snapshotRate(planCurrency),
-        tier,
+      const linePayments = get().payments.items.filter(
+        (p) => p.customerPlanId === customerPlanId,
       );
+      const lineSkips = get().payments.skips.filter(
+        (s) => s.customerPlanId === customerPlanId,
+      );
+      const { payments, conflictMonths } =
+        await paymentService.createMultiMonthPayments(
+          starts,
+          customer,
+          customerPlanId,
+          plan,
+          amountPaid,
+          receivedByUserId,
+          notes,
+          tenantId,
+          linePayments,
+          lineSkips,
+          snapshotRate(planCurrency),
+          tier,
+        );
       const items = [...get().payments.items, ...payments];
       const skips = get().payments.skips;
-      const monthGridsByLine = buildGridsFor(lines, items, skips, year, getUnpaidRule(get));
+      const monthGridsByLine = buildGridsFor(
+        lines,
+        items,
+        skips,
+        year,
+        getUnpaidRule(get),
+      );
       set((state) => {
         state.payments.items = items;
         state.payments.monthGridsByLine = monthGridsByLine;
         state.payments.loadingCreate = false;
-        syncCustomerStatus(state.payments, customer.id, lines, items, skips, getUnpaidRule(get));
+        syncCustomerStatus(
+          state.payments,
+          customer.id,
+          lines,
+          items,
+          skips,
+          getUnpaidRule(get),
+        );
       });
       return { payments, conflictMonths };
     } catch (e) {
@@ -534,14 +660,29 @@ export const createPaymentSlice: StateCreator<
     });
     try {
       const updated = await paymentService.updatePayment(existing, amountPaid);
-      const items = get().payments.items.map((p) => (p.id === id ? updated : p));
+      const items = get().payments.items.map((p) =>
+        p.id === id ? updated : p,
+      );
       const skips = get().payments.skips;
-      const monthGridsByLine = buildGridsFor(lines, items, skips, year, getUnpaidRule(get));
+      const monthGridsByLine = buildGridsFor(
+        lines,
+        items,
+        skips,
+        year,
+        getUnpaidRule(get),
+      );
       set((state) => {
         state.payments.items = items;
         state.payments.monthGridsByLine = monthGridsByLine;
         state.payments.loadingUpdate = false;
-        syncCustomerStatus(state.payments, updated.customerId, lines, items, skips, getUnpaidRule(get));
+        syncCustomerStatus(
+          state.payments,
+          updated.customerId,
+          lines,
+          items,
+          skips,
+          getUnpaidRule(get),
+        );
       });
     } catch (e) {
       set((state) => {
@@ -562,13 +703,26 @@ export const createPaymentSlice: StateCreator<
       await paymentService.voidPayment(id, voidedBy, notes);
       const items = get().payments.items.filter((p) => p.id !== id);
       const skips = get().payments.skips;
-      const monthGridsByLine = buildGridsFor(lines, items, skips, year, getUnpaidRule(get));
+      const monthGridsByLine = buildGridsFor(
+        lines,
+        items,
+        skips,
+        year,
+        getUnpaidRule(get),
+      );
       set((state) => {
         state.payments.items = items;
         state.payments.monthGridsByLine = monthGridsByLine;
         state.payments.loadingVoid = false;
         if (paymentToVoid) {
-          syncCustomerStatus(state.payments, paymentToVoid.customerId, lines, items, skips, getUnpaidRule(get));
+          syncCustomerStatus(
+            state.payments,
+            paymentToVoid.customerId,
+            lines,
+            items,
+            skips,
+            getUnpaidRule(get),
+          );
         }
       });
     } catch (e) {
@@ -586,7 +740,11 @@ export const createPaymentSlice: StateCreator<
       state.payments.error = null;
     });
     try {
-      const voided = await paymentService.voidCurrentMonth(customerId, voidedBy, '');
+      const voided = await paymentService.voidCurrentMonth(
+        customerId,
+        voidedBy,
+        "",
+      );
       set((state) => {
         state.payments.loadingVoid = false;
         if (voided.length > 0) forgetCustomerStatus(state.payments, customerId);
@@ -613,13 +771,27 @@ export const createPaymentSlice: StateCreator<
       await paymentService.voidPayments(ids, voidedBy, notes);
       const items = get().payments.items.filter((p) => !idSet.has(p.id));
       const skips = get().payments.skips;
-      const monthGridsByLine = buildGridsFor(lines, items, skips, year, getUnpaidRule(get));
+      const monthGridsByLine = buildGridsFor(
+        lines,
+        items,
+        skips,
+        year,
+        getUnpaidRule(get),
+      );
       const customerId = paymentsToVoid[0]?.customerId;
       set((state) => {
         state.payments.items = items;
         state.payments.monthGridsByLine = monthGridsByLine;
         state.payments.loadingVoid = false;
-        if (customerId) syncCustomerStatus(state.payments, customerId, lines, items, skips, getUnpaidRule(get));
+        if (customerId)
+          syncCustomerStatus(
+            state.payments,
+            customerId,
+            lines,
+            items,
+            skips,
+            getUnpaidRule(get),
+          );
       });
     } catch (e) {
       set((state) => {
@@ -693,7 +865,10 @@ function syncCustomerStatus(
   unpaidRule: UnpaidStartRule,
 ): void {
   const next = new Map(slice.customerStatuses);
-  next.set(customerId, paymentService.buildCustomerStatus(lines, payments, skips, unpaidRule));
+  next.set(
+    customerId,
+    paymentService.buildCustomerStatus(lines, payments, skips, unpaidRule),
+  );
   slice.customerStatuses = next;
 }
 

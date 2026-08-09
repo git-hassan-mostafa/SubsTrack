@@ -140,17 +140,12 @@ export function CustomerListScreen() {
   // paid from the detail panel.
   useFocusEffect(
     useCallback(() => {
-      if (customers.length > 0) void fetchCustomerStatuses(customers);
+      void fetchCustomerStatuses(customers);
       // Refresh debt flags on return — debts change from the Debts tab, quick
       // pay, and partial payments made in the detail panel.
       void fetchNetDebtByCustomer();
     }, [customers, fetchCustomerStatuses, fetchNetDebtByCustomer]),
   );
-
-  const monthLabel = useMemo(() => {
-    const now = new Date();
-    return `${t(`months.${MONTHS[now.getMonth()]}`)} ${now.getFullYear()}`;
-  }, [t]);
 
   const tabs = useMemo(() => {
     return [
@@ -357,7 +352,6 @@ export function CustomerListScreen() {
         <CustomerCard
           customer={item}
           status={status}
-          monthLabel={monthLabel}
           debtLabel={debtLabel}
           onPress={openDetail}
           onMenu={openMenu}
@@ -373,7 +367,6 @@ export function CustomerListScreen() {
       customerStatuses,
       netDebtByCustomer,
       displayCurrency,
-      monthLabel,
       openDetail,
       openMenu,
       quickPayCustomerId,

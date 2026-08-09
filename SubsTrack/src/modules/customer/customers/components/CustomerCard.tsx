@@ -20,7 +20,6 @@ interface Props {
    * is why the red "Unpaid" pill can never appear on missing data (gotcha #56).
    */
   status: CustomerStatus | null;
-  monthLabel: string;
   /** Formatted net debt (e.g. "150,000 ل.ل"), or null when the customer owes nothing. */
   debtLabel?: string | null;
   onPress: (customer: Customer) => void;
@@ -93,7 +92,6 @@ function Flag({
 export const CustomerCard = memo(function CustomerCard({
   customer,
   status,
-  monthLabel,
   debtLabel = null,
   onPress,
   onMenu,
@@ -194,21 +192,16 @@ export const CustomerCard = memo(function CustomerCard({
         {/* Name + Date on one line */}
         <View className="flex-row items-center">
           <Text
-            className="flex-1 text-base font-semibold text-gray-900 me-2"
+            className="flex-1 text-base font-semibold text-gray-900"
             numberOfLines={1}
           >
             {customer.name}
           </Text>
-          <Text className="text-xs text-gray-400">{monthLabel}</Text>
+          <Text className="text-xs text-gray-400">{planSummary}</Text>
         </View>
-
-        {/* Plan + phone */}
-        <Text className="text-sm text-gray-400 mt-0.5" numberOfLines={1}>
-          {planSummary}
-        </Text>
         {!!customer.phoneNumber && (
           <View className="flex-row items-center mt-1">
-            <Ionicons name="call-outline" size={12} color={COLORS.gray400} />
+            <Ionicons name="call" size={12} color={COLORS.gray400} />
             <Text className="text-xs text-gray-400 ms-1" numberOfLines={1}>
               {customer.phoneNumber}
             </Text>
