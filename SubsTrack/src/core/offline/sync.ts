@@ -9,16 +9,16 @@
 // a hard-deleted row is logged in `pending_deletes`; the last pull position is
 // one `last_pulled_at` value in `sync_meta`. That is the entire bookkeeping.
 
-import { AppState } from 'react-native';
-import type { SQLiteDatabase } from 'expo-sqlite';
-import { supabase } from '@/src/shared/lib/supabase';
-import { IS_OFFLINE_CAPABLE } from './platform';
-import { isOnline } from './net/connectivity';
-import { getDb } from './db/sqlite';
-import { decodeRow } from './db/codec';
-import { clearNaturalKeyDuplicate, upsertFromServer } from './db/dml';
-import { TABLE_BY_NAME, SYNC_PULL_ORDER, TABLES } from './db/tables';
-import { isoDaysAgo, nowIso } from './ids';
+import { AppState } from "react-native";
+import type { SQLiteDatabase } from "expo-sqlite";
+import { supabase } from "@/src/shared/lib/supabase";
+import { IS_OFFLINE_CAPABLE } from "./platform";
+import { isOnline } from "./net/connectivity";
+import { getDb } from "./db/sqlite";
+import { decodeRow } from "./db/codec";
+import { clearNaturalKeyDuplicate, upsertFromServer } from "./db/dml";
+import { TABLE_BY_NAME, SYNC_PULL_ORDER, TABLES } from "./db/tables";
+import { isoDaysAgo, nowIso } from "./ids";
 
 // ── Observable status (drives the UI "syncing" indicator) ────────────────────
 
@@ -53,21 +53,28 @@ export function subscribeSyncStatus(cb: (s: SyncStatus) => void): () => void {
 
 // ── Tiny key/value meta (the `sync_meta` table) ──────────────────────────────
 
-export const META_ACTIVE_TENANT = 'active_tenant_id'; // which tenant the mirror holds
-export const META_ACTIVE_BRANCH_SCOPE = 'active_branch_scope'; // which branch view (tenant-wide vs one branch) the mirror was pulled under
-const META_LAST_PULLED_AT = 'last_pulled_at'; // newest server updated_at we've pulled
+export const META_ACTIVE_TENANT = "active_tenant_id"; // which tenant the mirror holds
+export const META_ACTIVE_BRANCH_SCOPE = "active_branch_scope"; // which branch view (tenant-wide vs one branch) the mirror was pulled under
+const META_LAST_PULLED_AT = "last_pulled_at"; // newest server updated_at we've pulled
 
 /** Read a meta value (null if unset). */
-export async function getMeta(db: SQLiteDatabase, key: string): Promise<string | null> {
+export async function getMeta(
+  db: SQLiteDatabase,
+  key: string,
+): Promise<string | null> {
   const r = await db.getFirstAsync<{ value: string | null }>(
-    'SELECT value FROM sync_meta WHERE key = ?',
+    "SELECT value FROM sync_meta WHERE key = ?",
     [key] as never[],
   );
   return r?.value ?? null;
 }
 
 /** Write a meta value (insert or replace). */
-export async function setMeta(db: SQLiteDatabase, key: string, value: string): Promise<void> {
+export async function setMeta(
+  db: SQLiteDatabase,
+  key: string,
+  value: string,
+): Promise<void> {
   await db.runAsync(
     `INSERT INTO sync_meta (key, value) VALUES (?, ?)
      ON CONFLICT (key) DO UPDATE SET value = excluded.value`,
@@ -84,7 +91,10 @@ export async function setMeta(db: SQLiteDatabase, key: string, value: string): P
  *  - `generated` columns (payments.balance, sales.total_amount) are rejected by
  *    Postgres if a value is provided.
  */
-function stripForPush(table: string, row: Record<string, unknown>): Record<string, unknown> {
+function stripForPush(
+  table: string,
+  row: Record<string, unknown>,
+): Record<string, unknown> {
   const out = { ...row };
   delete out.updated_at;
   for (const c of TABLE_BY_NAME[table]?.generated ?? []) delete out[c];
@@ -99,11 +109,11 @@ function stripForPush(table: string, row: Record<string, unknown>): Record<strin
  * primary key. Keep in sync with NATURAL_KEYS in db/dml.ts.
  */
 function conflictTarget(table: string): string {
-  if (table === 'payments' || table === 'skipped_months') {
-    return 'customer_plan_id,billing_month';
+  if (table === "payments" || table === "skipped_months") {
+    return "customer_plan_id,billing_month";
   }
-  if (table === 'tenant_settings') return 'tenant_id,key';
-  return 'id';
+  if (table === "tenant_settings") return "tenant_id,key";
+  return "id";
 }
 
 /**
@@ -117,7 +127,7 @@ async function pushDirty(): Promise<void> {
   // 1. Upserts — every row flagged `_dirty` (created / edited / soft-deleted).
   for (const table of SYNC_PULL_ORDER) {
     const spec = TABLE_BY_NAME[table];
-    if (spec?.scope !== 'tenant') continue; // global tables are read-only caches
+    if (spec?.scope !== "tenant") continue; // global tables are read-only caches
     const raw = await db.getAllAsync<Record<string, unknown>>(
       `SELECT * FROM ${table} WHERE _dirty = 1`,
     );
@@ -130,7 +140,10 @@ async function pushDirty(): Promise<void> {
     // insert-only RLS table (audit_logs) and wedge its queue. See TableSpec.
     const { error } = await supabase
       .from(table)
-      .upsert(rows, { onConflict: conflictTarget(table), ignoreDuplicates: spec.appendOnly === true });
+      .upsert(rows, {
+        onConflict: conflictTarget(table),
+        ignoreDuplicates: spec.appendOnly === true,
+      });
     if (error) {
       console.warn(`[sync] push ${table} failed:`, error.message); // stays dirty → retried next sync
       continue;
@@ -139,25 +152,31 @@ async function pushDirty(): Promise<void> {
     // Clear the flag only for the exact rows we just pushed (a row edited during
     // the network call keeps its flag and syncs next time).
     const ids = raw.map((r) => r.id as string);
-    const ph = ids.map(() => '?').join(', ');
-    await db.runAsync(`UPDATE ${table} SET _dirty = 0 WHERE id IN (${ph})`, ids as never[]);
+    const ph = ids.map(() => "?").join(", ");
+    await db.runAsync(
+      `UPDATE ${table} SET _dirty = 0 WHERE id IN (${ph})`,
+      ids as never[],
+    );
   }
 
   // 2. Hard deletes — replay each logged (table, id) as a real server delete
   //    (server foreign keys cascade to children). Drop the log entry on success.
   const dels = await db.getAllAsync<{ table_name: string; row_id: string }>(
-    'SELECT table_name, row_id FROM pending_deletes',
+    "SELECT table_name, row_id FROM pending_deletes",
   );
   for (const d of dels) {
-    const { error } = await supabase.from(d.table_name).delete().eq('id', d.row_id);
+    const { error } = await supabase
+      .from(d.table_name)
+      .delete()
+      .eq("id", d.row_id);
     if (error) {
       console.warn(`[sync] delete ${d.table_name} failed:`, error.message); // retried next sync
       continue;
     }
-    await db.runAsync('DELETE FROM pending_deletes WHERE table_name = ? AND row_id = ?', [
-      d.table_name,
-      d.row_id,
-    ] as never[]);
+    await db.runAsync(
+      "DELETE FROM pending_deletes WHERE table_name = ? AND row_id = ?",
+      [d.table_name, d.row_id] as never[],
+    );
   }
 }
 
@@ -198,12 +217,12 @@ async function pullChanges(): Promise<boolean> {
       for (let offset = 0; ; offset += PAGE) {
         let q = supabase
           .from(table)
-          .select('*')
-          .order('updated_at', { ascending: true })
-          .order('id', { ascending: true })
+          .select("*")
+          .order("updated_at", { ascending: true })
+          .order("id", { ascending: true })
           .range(offset, offset + PAGE - 1);
-        if (startedAt) q = q.gt('updated_at', startedAt);
-        if (windowStart) q = q.gte('occurred_at', windowStart);
+        if (startedAt) q = q.gt("updated_at", startedAt);
+        if (windowStart) q = q.gte("occurred_at", windowStart);
 
         const { data, error } = await q;
         if (error) throw new Error(error.message);
@@ -255,7 +274,13 @@ async function pullChanges(): Promise<boolean> {
 // A hard delete leaves no updated_at to pull, so we compare id lists to drop rows
 // that were deleted on another device / the web app. Ledger tables (payments,
 // sales, debts) are only voided, never hard-deleted, so they're skipped.
-const DELETE_RECONCILE_TABLES = ['customers', 'plans', 'branches', 'currencies', 'products'];
+const DELETE_RECONCILE_TABLES = [
+  "customers",
+  "plans",
+  "branches",
+  "currencies",
+  "products",
+];
 
 /**
  * Drop local rows that no longer exist on the server (a delete done elsewhere).
@@ -274,7 +299,7 @@ async function reconcileDeletes(db: SQLiteDatabase): Promise<boolean> {
     for (let offset = 0; ; offset += PAGE) {
       const { data, error } = await supabase
         .from(table)
-        .select('id')
+        .select("id")
         .range(offset, offset + PAGE - 1);
       if (error) {
         console.warn(`[sync] delete-reconcile ${table} failed:`, error.message);
@@ -290,7 +315,9 @@ async function reconcileDeletes(db: SQLiteDatabase): Promise<boolean> {
       continue;
     }
 
-    const localIds = await db.getAllAsync<{ id: string }>(`SELECT id FROM ${table} WHERE _dirty = 0`);
+    const localIds = await db.getAllAsync<{ id: string }>(
+      `SELECT id FROM ${table} WHERE _dirty = 0`,
+    );
     // Never mass-delete on an empty server list: an empty result is ambiguous —
     // "every row really was deleted" vs. "nothing is visible" (the session is gone,
     // or RLS returned nothing). Deleting here would wipe the whole local table;
@@ -299,7 +326,9 @@ async function reconcileDeletes(db: SQLiteDatabase): Promise<boolean> {
 
     for (const { id } of localIds) {
       if (!serverIds.has(id)) {
-        await db.runAsync(`DELETE FROM ${table} WHERE id = ? AND _dirty = 0`, [id] as never[]);
+        await db.runAsync(`DELETE FROM ${table} WHERE id = ? AND _dirty = 0`, [
+          id,
+        ] as never[]);
       }
     }
   }
@@ -320,9 +349,10 @@ async function reconcileDeletes(db: SQLiteDatabase): Promise<boolean> {
 export async function pruneWindowedTables(db: SQLiteDatabase): Promise<void> {
   for (const t of TABLES) {
     if (!t.pullDays) continue;
-    await db.runAsync(`DELETE FROM ${t.name} WHERE occurred_at < ? AND _dirty = 0`, [
-      isoDaysAgo(t.pullDays),
-    ] as never[]);
+    await db.runAsync(
+      `DELETE FROM ${t.name} WHERE occurred_at < ? AND _dirty = 0`,
+      [isoDaysAgo(t.pullDays)] as never[],
+    );
   }
 }
 
@@ -354,11 +384,11 @@ export async function runSync(): Promise<void> {
       setStatus({
         syncing: false,
         lastSyncAt: complete ? nowIso() : status.lastSyncAt,
-        lastError: complete ? null : 'sync_incomplete',
+        lastError: complete ? null : "sync_incomplete",
       });
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
-      console.warn('[sync] failed:', message);
+      console.warn("[sync] failed:", message);
       setStatus({ syncing: false, lastError: message });
     }
   })().finally(() => {
@@ -400,11 +430,16 @@ export async function flushPendingWrites(): Promise<void> {
  * — `_dirty` local rows still win the merge. Use it to repair a mirror whose
  * incremental pull skipped rows. Same return shape as `syncNow()`.
  */
-export async function resyncFromScratch(): Promise<{ ok: boolean; offline: boolean }> {
+export async function resyncFromScratch(): Promise<{
+  ok: boolean;
+  offline: boolean;
+}> {
   if (!IS_OFFLINE_CAPABLE) return { ok: true, offline: false };
   if (!(await isOnline())) return { ok: false, offline: true };
   const db = getDb();
-  await db.runAsync('DELETE FROM sync_meta WHERE key = ?', [META_LAST_PULLED_AT] as never[]);
+  await db.runAsync("DELETE FROM sync_meta WHERE key = ?", [
+    META_LAST_PULLED_AT,
+  ] as never[]);
   await runSync();
   return { ok: status.lastError === null, offline: false };
 }
@@ -417,9 +452,6 @@ export async function resyncFromScratch(): Promise<{ ok: boolean; offline: boole
 export async function startSync(cb: () => void): Promise<void> {
   if (!IS_OFFLINE_CAPABLE || started) return;
   started = true;
-  setInterval(() => {
-    if (AppState.currentState === 'active') void runSync();
-  }, 600_000);
   await runSync();
   cb();
 }
