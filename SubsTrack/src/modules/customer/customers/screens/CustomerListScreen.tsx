@@ -223,14 +223,20 @@ export function CustomerListScreen() {
   // Lines not due this month (already covered by a payment, or skipped) are left
   // out so a mixed multi-plan customer pays only the plans still owed.
   function eligibleFixedLines(customer: Customer): BulkPayCustomerRequest[] {
-    const notDue = new Set(customerStatuses.get(customer.id)?.notDueLineIds);
+    const status = customerStatuses.get(customer.id);
+    const notDue = new Set(status?.notDueLineIds);
+    // Months are settled oldest-first, so a line with an older unpaid month
+    // can't have THIS month collected — its backlog is paid from the customer's
+    // month grid instead.
+    const overdue = new Set(status?.overdueLineIds);
     return startedActiveLines(customer)
       .filter(
         (l) =>
           l.plan != null &&
           !l.plan.isCustomPrice &&
           l.plan.price !== null &&
-          !notDue.has(l.id),
+          !notDue.has(l.id) &&
+          !overdue.has(l.id),
       )
       .map((l) => ({
         customerId: customer.id,
@@ -245,8 +251,12 @@ export function CustomerListScreen() {
   // so there is something a quick pay could collect (a fixed line to one-tap pay
   // or a custom/plan-less line that opens the manual form).
   function hasUnpaidStartedLine(customer: Customer): boolean {
-    const notDue = new Set(customerStatuses.get(customer.id)?.notDueLineIds);
-    return startedActiveLines(customer).some((l) => !notDue.has(l.id));
+    const status = customerStatuses.get(customer.id);
+    const notDue = new Set(status?.notDueLineIds);
+    const overdue = new Set(status?.overdueLineIds);
+    return startedActiveLines(customer).some(
+      (l) => !notDue.has(l.id) && !overdue.has(l.id),
+    );
   }
 
   // Pays the current month for every eligible fixed-price line of the given

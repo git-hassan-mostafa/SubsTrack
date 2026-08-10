@@ -107,11 +107,7 @@ export function AuditEntryCard({ entry, onPress }: AuditEntryCardProps) {
         {/* Record type, then the customer it belongs to — the customer reads as the
             subject without competing with the type for the eye. */}
         <View className="flex-row items-center">
-          <Text
-            fontWeight="SemiBold"
-            className="flex-1 text-[15px] text-gray-900"
-            numberOfLines={1}
-          >
+          <Text className="flex-1 text-[15px] text-gray-900" numberOfLines={1}>
             {type}
           </Text>
           {!!subject && (

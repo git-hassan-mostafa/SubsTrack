@@ -21,6 +21,8 @@ export function Input({ label, error, style, ...props }: InputProps) {
       ) : null}
       <TextInput
         {...props}
+        multiline={true}
+        numberOfLines={props.numberOfLines || 1}
         className={`border rounded-xl px-4 py-3 text-base text-gray-900 bg-white ${
           error ? "border-danger" : "border-gray-200"
         }`}

@@ -26,6 +26,12 @@
 --        END $$;
 --    A UNIQUE rule is simpler as CREATE UNIQUE INDEX IF NOT EXISTS.
 --
+--  * Dropping a column → remove it from the CREATE TABLE block AND add
+--        ALTER TABLE <table> DROP COLUMN IF EXISTS <col>;
+--    to a "Columns removed after the initial schema" block under that table, so
+--    a fresh database and a live one still end up identical. The offline mirror
+--    does NOT reconcile this — an old install keeps a harmless stale column.
+--
 --  * Mirror every column change in the offline client's table descriptor
 --    (SubsTrack/src/core/offline/db/tables.ts) or the native app won't store or
 --    sync it. That side self-heals the same way (ADD COLUMN on next app start).
@@ -388,7 +394,6 @@ CREATE TABLE IF NOT EXISTS customers (
     -- tenant-wide admins (users with users.branch_id IS NULL). Branch-scoped
     -- users do not see unassigned customers.
     branch_id    UUID,
-    start_date   DATE        NOT NULL,
     cancelled_at TIMESTAMPTZ,
     created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),

@@ -7,7 +7,6 @@ import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
 import { confirm } from "@/src/shared/lib/confirm";
 import { openLocation } from "@/src/shared/lib/maps";
 import type { Customer } from "@/src/core/types";
-import { formatDate, getDateLocale } from "@/src/core/utils/date";
 import { COLORS } from "@/src/shared/constants";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { useBranchSlice } from "@/src/state/hooks/useBranchSlice";
@@ -22,8 +21,7 @@ export function CustomerDetailsCard({
   customer,
   onDeleted,
 }: CustomerDetailsCardProps) {
-  const { t, i18n } = useTranslation();
-  const locale = getDateLocale(i18n.language);
+  const { t } = useTranslation();
   const customerStore = useCustomerSlice();
   const { isAdmin } = useAuth();
   const branch = useBranchSlice(
@@ -164,21 +162,8 @@ export function CustomerDetailsCard({
           </PressableOpacity>
         ) : null}
 
-        <View className="flex-row items-center justify-between px-4 py-3.5 border-b border-gray-100">
-          <View className="flex-row items-center gap-3">
-            <Ionicons
-              name="calendar-outline"
-              size={16}
-              color={COLORS.gray400}
-            />
-            <Text className="text-sm text-gray-500">
-              {t("customers.started_label")}
-            </Text>
-          </View>
-          <Text className="text-sm font-semibold text-gray-900">
-            {formatDate(customer.startDate, locale)}
-          </Text>
-        </View>
+        {/* No "Started" row — a start date belongs to a service line, and the
+            payment panel shows each line's own grid from its own start. */}
 
         {customer.notes ? (
           <View className="px-4 py-3.5 border-b border-gray-100">

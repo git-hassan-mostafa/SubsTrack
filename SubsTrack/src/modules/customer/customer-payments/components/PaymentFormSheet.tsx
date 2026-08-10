@@ -16,6 +16,7 @@ import type {
 } from "@/src/core/types";
 import { getCurrentYearMonth, toBillingMonth } from "@/src/core/utils/date";
 import { getBlockRangeLabel } from "../utils/blockRangeLabel";
+import { billingMonthLabel, blockingUnpaidMonths } from "../utils/payOrder";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { usePaymentSlice } from "@/src/state/hooks/usePaymentSlice";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
@@ -82,6 +83,7 @@ export function PaymentFormSheet({
   const createMultiMonthPayment = usePaymentSlice(
     (s) => s.createMultiMonthPayment,
   );
+  const unpaidMonthsByLine = usePaymentSlice((s) => s.unpaidMonthsByLine);
   const loadingCreate = usePaymentSlice((s) => s.loadingCreate);
   const error = usePaymentSlice((s) => s.error);
   const clearError = usePaymentSlice((s) => s.clearError);
@@ -116,6 +118,14 @@ export function PaymentFormSheet({
     entry.year > cy || (entry.year === cy && entry.month > cm);
   const blockedForInactive =
     (!customer.active || !line.active) && isFutureMonth;
+
+  // Months are settled oldest-first. Every path into this form already checks,
+  // so this is the backstop for a form reached some other way — the slice
+  // refuses the write regardless.
+  const earlierUnpaidMonth = blockingUnpaidMonths(
+    unpaidMonthsByLine[line.id] ?? [],
+    [entry.billingMonth],
+  )[0];
 
   const conflictingLabels = useMemo(() => {
     if (!isMultiMonth || !plan) return [];
@@ -182,6 +192,7 @@ export function PaymentFormSheet({
     resolvedPaid >= 0 &&
     resolvedPaid <= resolvedDue &&
     !blockedForInactive &&
+    !earlierUnpaidMonth &&
     !showConflictWarning;
 
   // Switching between plan/custom amount or toggling override invalidates any
@@ -300,6 +311,16 @@ export function PaymentFormSheet({
           <View className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-4">
             <Text className="text-sm text-amber-700">
               {t("payments.inactive_customer_future")}
+            </Text>
+          </View>
+        ) : null}
+
+        {earlierUnpaidMonth ? (
+          <View className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-4">
+            <Text className="text-sm text-amber-700">
+              {t("payments.earlier_month_unpaid", {
+                month: billingMonthLabel(earlierUnpaidMonth),
+              })}
             </Text>
           </View>
         ) : null}

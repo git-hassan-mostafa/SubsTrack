@@ -39,7 +39,7 @@ These are non-negotiable and should be re-verified after any release:
 | 1.4 | Tap an unpaid past month | Active customer, prior month with no payment | `PaymentFormSheet` opens |
 | 1.5 | Tap a future month — active customer | Active customer | `PaymentFormSheet` opens (future payment allowed) |
 | 1.6 | Tap a future month — inactive customer | Inactive customer | Inline amber banner in the sheet: "This customer is inactive. Future month payments cannot be recorded for inactive customers." Submit disabled |
-| 1.7 | Tap a before-start month | Month < customer.start_date | Info popup: "This month is before the customer's start date. No payment can be recorded here." |
+| 1.7 | Tap a before-start month | Month < the line`s start_date | Info popup: "This month is before the plan's start date. No payment can be recorded here." |
 | 1.8 | Tap a `isGroupSecondary` cell (multi-month included) | Tap a month covered as month 2+ in a bundle | Opens the original payment's receipt (the source `billingMonth`), not the form |
 | 1.9 | Repeated rapid taps | Tap a cell 3 times fast | Only one sheet opens (modal animation absorbs subsequent taps) |
 | 1.10 | Tap then immediately scroll | Tap a cell, scroll the grid | Sheet still opens correctly; no orphaned overlays |
@@ -262,7 +262,7 @@ Edit re-snapshots `rate_per_usd_snapshot` from the currency live rate at edit ti
 | 14.12 | Form sheet auto-dismiss | After saving, sheet calls `onDismiss` | Keyboard hides cleanly, no flicker |
 | 14.13 | amount_paid = 0 means unpaid | Save with `amount_paid = 0` (if allowed) | Cell renders UNPAID in the grid — the slot is reserved but not paid |
 | 14.14 | Quick Pay on inactive customer | Try to Quick Pay an inactive customer | Quick Pay action hidden from the menu (`shouldShowQuickPay` returns false) |
-| 14.15 | Quick Pay before customer's start date | start_date > today | Quick Pay action hidden |
+| 14.15 | Quick Pay before the line's start date | every line start_date > today | Quick Pay action hidden |
 | 14.16 | Quick Pay on already-paid current month | Already paid | Quick Pay action hidden |
 | 14.17 | Quick Pay on non-regular customer | `isRegular = false` | Quick Pay action hidden |
 

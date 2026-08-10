@@ -68,7 +68,7 @@ This folder contains the production QA test plan for the SubsTrack mobile app. E
 - 2+ tenant currencies (e.g. LBP, EUR) with non-trivial `rate_per_usd` for snapshot verification.
 - 5 plans per tenant: 2 fixed-price single-month, 2 custom-price, 1 multi-month (durationMonths > 1), and at least 1 priced in a non-USD currency.
 - 30+ customers in tenant A (to test pagination), mix of: active/inactive, regular/non-regular, assigned/unassigned plans, branched/unbranched.
-- Customers with start_dates spanning past, current and future to exercise the monthly grid.
+- Customers whose PLAN LINE start_dates span past, current and future to exercise the monthly grid.
 - Existing payments per customer covering: paid full, paid partial, voided, multi-month bundles, multi-year history, mixed currencies.
 - 5+ products per tenant (mix of SHARED and branch-specific, USD and non-USD prices, at least 1 with existing sales and 1 with none) to test soft vs hard delete.
 - 10+ sales: linked to customers, walk-in (customer = null), in multiple currencies, at least 1 voided, spanning current and prior months.

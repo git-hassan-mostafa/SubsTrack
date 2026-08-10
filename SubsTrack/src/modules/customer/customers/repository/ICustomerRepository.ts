@@ -14,7 +14,6 @@ export type CreateCustomerPayload = Pick<
   | 'location_url'
   | 'branch_id'
   | 'tenant_id'
-  | 'start_date'
   | 'active'
   | 'is_regular'
   | 'cancelled_at'
@@ -33,7 +32,7 @@ export interface ICustomerRepository {
     payload: Partial<
       Pick<
         DbCustomer,
-        'name' | 'phone_number' | 'address' | 'area' | 'notes' | 'location_url' | 'branch_id' | 'start_date' | 'is_regular'
+        'name' | 'phone_number' | 'address' | 'area' | 'notes' | 'location_url' | 'branch_id' | 'is_regular'
       >
     >,
   ): Promise<CustomerWithLines>;

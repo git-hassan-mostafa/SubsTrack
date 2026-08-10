@@ -14,7 +14,6 @@ interface CustomerInput {
   notes: string | null;
   locationUrl: string | null;
   branchId: string | null;
-  startDate: string;
   isRegular: boolean;
 }
 

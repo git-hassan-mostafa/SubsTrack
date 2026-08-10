@@ -8,7 +8,10 @@ import { DatePickerInput } from "@/src/shared/components/DatePickerInput";
 import { PlanPicker } from "@/src/shared/components/PlanPicker";
 import { COLORS } from "@/src/shared/constants";
 import type { Customer } from "@/src/core/types";
-import type { LineDraft, RemovedLine } from "@/src/modules/customer/customer-plans";
+import type {
+  LineDraft,
+  RemovedLine,
+} from "@/src/modules/customer/customer-plans";
 import { getTodayDateString } from "@/src/core/utils/date";
 import { usePlanSlice } from "@/src/state/hooks/usePlanSlice";
 import { useCustomerPlanSlice } from "@/src/state/hooks/useCustomerPlanSlice";
@@ -55,8 +58,6 @@ interface Props {
   // The customer's currently-selected branch. Scopes the PlanPicker and drops
   // any row plan that no longer belongs to the branch when it changes.
   branchId: string | null;
-  // The customer's start date — new lines inherit it.
-  startDate: string;
   // Reports whether the user has touched the plan rows, so the parent form can
   // include them in its unsaved-changes check (the rows live here, not in the
   // parent's form state, so a state diff up there would miss them).
@@ -73,7 +74,6 @@ interface Props {
 export function CustomerPlansEditor({
   customer,
   branchId,
-  startDate,
   onDirtyChange,
   ref,
 }: Props) {
@@ -98,7 +98,8 @@ export function CustomerPlansEditor({
         status: l.active ? ("active" as const) : ("cancelled" as const),
       }));
     }
-    return [makeRow(0, customer?.startDate ?? getTodayDateString())];
+    // A service line owns the only start date there is, so a fresh row starts today.
+    return [makeRow(0, getTodayDateString())];
   });
   const [removed, setRemoved] = useState<RemovedLine[]>([]);
   const [reactivated, setReactivated] = useState<string[]>([]);
@@ -185,9 +186,17 @@ export function CustomerPlansEditor({
     );
   }
 
+  // A new line inherits the last row's start date — the common case is a second
+  // service beginning alongside the first — falling back to today.
   function addRow() {
     rowKey.current += 1;
-    setRows((prev) => [...prev, makeRow(rowKey.current, startDate)]);
+    setRows((prev) => [
+      ...prev,
+      makeRow(
+        rowKey.current,
+        prev[prev.length - 1]?.startDate ?? getTodayDateString(),
+      ),
+    ]);
   }
 
   const activeCount = rows.filter((r) => r.status === "active").length;
@@ -229,9 +238,7 @@ export function CustomerPlansEditor({
       } else {
         // Soft-cancel → the row stays, shown as cancelled.
         setRows((prev) =>
-          prev.map((r) =>
-            r.key === key ? { ...r, status: "cancelled" } : r,
-          ),
+          prev.map((r) => (r.key === key ? { ...r, status: "cancelled" } : r)),
         );
       }
     } else {
@@ -329,11 +336,7 @@ export function CustomerPlansEditor({
                     hitSlop={8}
                     className="flex-row items-center px-2 py-1 -me-1"
                   >
-                    <Ionicons
-                      name="refresh"
-                      size={15}
-                      color={COLORS.primary}
-                    />
+                    <Ionicons name="refresh" size={15} color={COLORS.primary} />
                     <Text className="ms-1 text-xs text-primary font-medium">
                       {t("subscriptions.reactivate_plan")}
                     </Text>

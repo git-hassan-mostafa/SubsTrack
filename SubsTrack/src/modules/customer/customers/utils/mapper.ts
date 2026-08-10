@@ -15,7 +15,6 @@ export function mapDbCustomerToCustomer(db: DbCustomerWithLines): Customer {
         isRegular: db.is_regular,
         branchId: db.branch_id,
         tenantId: db.tenant_id,
-        startDate: db.start_date,
         cancelledAt: db.cancelled_at,
         createdAt: db.created_at,
         updatedAt: db.updated_at,

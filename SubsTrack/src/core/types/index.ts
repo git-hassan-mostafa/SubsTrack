@@ -141,7 +141,6 @@ export interface Customer {
   // tenant-wide admins. Branch-scoped users never see unassigned customers.
   branchId: string | null;
   tenantId: string;
-  startDate: string;
   cancelledAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -261,6 +260,10 @@ export interface CustomerStatus {
   // Lines that must NOT be quick-paid this month: already covered by a payment,
   // or skipped. A not-due-yet line stays payable, so it is absent here.
   notDueLineIds: string[];
+  // Lines with an EARLIER month still unpaid. Months are settled oldest-first,
+  // so quick pay must skip these — their backlog is collected from the customer
+  // detail grid instead. The per-line detail behind the `overdue` flag.
+  overdueLineIds: string[];
 }
 
 // One point on the dashboard revenue trend — one calendar month, canonical USD.

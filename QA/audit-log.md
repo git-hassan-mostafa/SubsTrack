@@ -70,7 +70,7 @@ Sign in as an **admin** and check each via Admin → Audit Log.
 | 1.22 | Sale lines / stock movements | After 1.4, filter by every record type                              | No `sale_items` type exists; no stock entries from the sale   |
 | 1.23 | Sync pull                    | Change a customer on device B → sync device A                        | Device A gains **no** entry of its own for that pull          |
 | 1.24 | Adding stock                 | Product → stock sheet → restock                                     | No audit entry (the stock ledger already is one, with a note) |
-| 1.25 | Child rows on a parent edit  | Customer with 2+ plan lines → Edit → change **only** the start date → Save → open the entry | Exactly **one** changed field, `Start date`, `2026-06-13 → 2026-06-14`. **No** `customer_plans` row, and no raw JSON anywhere in the sheet (gotcha #64) |
+| 1.25 | Child rows on a parent edit  | Customer with 2+ plan lines → Edit → change **only** the customer's name → Save → open the entry | Exactly **one** changed field, `Name`. **No** `customer_plans` row, and no raw JSON anywhere in the sheet (gotcha #64) |
 | 1.26 | …on a plan line edit         | Edit one service line's start date → Save → open the entry           | Only the line's own columns; **no** `plans` row from the join |
 | 1.27 | …web and native agree        | Repeat 1.25 on web and on the native app                             | Same single changed field on both — the online path joins, the offline path doesn't, and neither may leak children |
 | 1.28 | Blank optional field         | Void a sale leaving the reason box **empty** → open the entry         | `Voided at` and `Voided by` only. **No** `Void reason` row (a blank string over NULL is not a change, gotcha #65) |

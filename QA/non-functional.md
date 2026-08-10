@@ -196,3 +196,25 @@ Regression pack for the sheet defects fixed after the Gorhom migration (gotchas 
 | 12.1 | Force-quit and reopen | After every feature touched | Data persists, last route is reasonable (default = Customers) |
 | 12.2 | Clear app storage | Wipe data | Fresh login required; no leftover preferences |
 | 12.3 | OS-killed in background | Long background, OS evicts | On reopen, restore proceeds via restoreSession |
+
+## 13. Multiline text boxes must not steal the page scroll
+
+Regression cover for gotcha #78 — a multiline `TextInput` inside a scroll view used to scroll its own text instead of the page. Applies to every field built on the shared `Input` with `multiline`.
+
+| # | Scenario | Steps | Expected result |
+|---|----------|-------|-----------------|
+| 13.1 | Customer form notes | Open Add/Edit Customer, put a finger **on the Notes box** and drag up/down | The **sheet** scrolls; the notes box does not scroll internally |
+| 13.1b | Box that already has text (the reported bug) | Edit a customer whose Notes are 2–4 lines long, then drag starting on the Notes box — **on Android** | The sheet scrolls and the text inside does **not** shift even slightly. A few px of jiggle means the pinned height regressed |
+| 13.2 | Long note grows the box | Type/paste ~10 lines into Notes | The box grows to fit every line (no inner scrollbar, nothing clipped); the sheet scrolls to reach the buttons |
+| 13.3 | Sale form notes | Record Sale → drag starting on Notes | Sheet scrolls |
+| 13.4 | Product description | Add Product → drag starting on Description | Sheet scrolls |
+| 13.5 | Custom debt description | Add custom debt → drag starting on Description | Sheet scrolls |
+| 13.6 | Debt payment notes | Record debt payment → drag starting on Notes | Sheet scrolls |
+| 13.7 | Sale void reason | Sale detail → Void → drag starting on the reason box | Sheet scrolls |
+| 13.8 | Keyboard still lifts the field | Focus each multiline field with the keyboard open | Field stays above the keyboard; text remains fully visible while typing |
+| 13.9 | Developer import box (deliberate exception) | Settings → Developer → paste a large export, drag on the box | The BOX scrolls its own content and stays 220px tall — it must not grow the page |
+| 13.10 | Void-reason dialogs unchanged | Payment void / bulk void / skip-month sheets | Reason box behaves as before; the dialog's buttons stay on screen |
+| 13.11 | Android + iOS | Repeat 13.1 on both | Same behavior on both platforms (Android pins the height, iOS disables the inner scroll — the result must look identical) |
+| 13.12 | RTL | Arabic | Text stays top-aligned and end-anchored; scrolling behaves identically |
+| 13.13 | Growing box does not flicker | Type a long note one word at a time | The box grows line by line, no jump/flicker, caret stays visible |
+| 13.14 | Known remainder — single-line field | Give a customer a very long address, then drag starting on the **Address** box (single line) | The page may not scroll (Android keeps the drag for a horizontally scrollable field). Documented in gotcha #78, not a regression |

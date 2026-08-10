@@ -1,6 +1,5 @@
 import type { Customer, TierPlan, TenantUsage } from "@/src/core/types";
 import { PAGE_SIZE, type BranchFilter } from "@/src/core/constants";
-import { isValidDateString } from "@/src/core/utils/date";
 import i18n from "@/src/core/i18n";
 import repository from "../repository/CustomerRepository";
 import { tierService } from "@/src/modules/admin/subscription";
@@ -8,7 +7,7 @@ import { mapDbCustomerToCustomer } from "../utils/mapper";
 
 type CustomerInput = Pick<
   Customer,
-  "name" | "phoneNumber" | "address" | "area" | "notes" | "locationUrl" | "branchId" | "startDate" | "isRegular"
+  "name" | "phoneNumber" | "address" | "area" | "notes" | "locationUrl" | "branchId" | "isRegular"
 >;
 
 class CustomerService {
@@ -50,7 +49,6 @@ class CustomerService {
       location_url: data.locationUrl?.trim() || null,
       branch_id: data.branchId,
       tenant_id: tenantId,
-      start_date: data.startDate,
       active: true,
       is_regular: data.isRegular,
       cancelled_at: null,
@@ -71,7 +69,6 @@ class CustomerService {
       notes: data.notes?.trim() || null,
       location_url: data.locationUrl?.trim() || null,
       branch_id: data.branchId,
-      start_date: data.startDate,
       is_regular: data.isRegular,
     });
     return mapDbCustomerToCustomer(row);
@@ -117,9 +114,6 @@ class CustomerService {
 
   private validateInput(data: CustomerInput): void {
     if (!data.name.trim()) throw new Error(i18n.t("errors.customer_name_required"));
-    if (!data.startDate) throw new Error(i18n.t("errors.start_date_required"));
-    if (!isValidDateString(data.startDate))
-      throw new Error(i18n.t("errors.start_date_format"));
     if (!data.branchId) {
       throw new Error(i18n.t("errors.customer_needs_branch"));
     }

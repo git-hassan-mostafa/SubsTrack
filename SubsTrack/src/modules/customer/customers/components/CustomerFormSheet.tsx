@@ -6,7 +6,6 @@ import { PressableOpacity } from "@/src/shared/components/PressableOpacity/Press
 import { Text } from "@/src/shared/components/Text";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/src/shared/components/Button";
-import { DatePickerInput } from "@/src/shared/components/DatePickerInput";
 import { BranchPicker } from "@/src/shared/components/BranchPicker";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { Input } from "@/src/shared/components/Input";
@@ -15,7 +14,6 @@ import {
   CustomerPlansEditor,
   type CustomerPlansEditorHandle,
 } from "@/src/modules/customer/customer-plans";
-import { getTodayDateString } from "@/src/core/utils/date";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { usePlanSlice } from "@/src/state/hooks/usePlanSlice";
 import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
@@ -43,7 +41,6 @@ type FormState = {
   notes: string;
   locationUrl: string;
   branchId: string | null;
-  startDate: string;
   isRegular: boolean;
 };
 
@@ -89,7 +86,6 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
     notes: customer?.notes ?? "",
     locationUrl: customer?.locationUrl ?? "",
     branchId: defaultBranchId,
-    startDate: customer?.startDate ?? getTodayDateString(),
     isRegular: customer?.isRegular ?? true,
   });
 
@@ -119,7 +115,6 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
         notes: form.notes || null,
         locationUrl: form.locationUrl || null,
         branchId: form.branchId,
-        startDate: form.startDate,
         isRegular: form.isRegular,
       };
       const finalLines = plansEditor.current?.getLines() ?? [];
@@ -146,7 +141,13 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
           usage,
         );
         if (!created) return; // error / tier-limit surfaced via the banners/modal
-        const ok = await syncLines(created.id, finalLines, [], [], user.tenantId);
+        const ok = await syncLines(
+          created.id,
+          finalLines,
+          [],
+          [],
+          user.tenantId,
+        );
         if (ok) onDismiss();
       }
     } finally {
@@ -179,28 +180,13 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
           onFocus={clearError}
         />
 
-        {/* Phone + Start Date side by side */}
-        <View className="flex-row gap-3">
-          <View className="flex-1">
-            <Input
-              label={t("customers.phone_label")}
-              value={form.phoneNumber}
-              onChangeText={(v) =>
-                setForm((prev) => ({ ...prev, phoneNumber: v }))
-              }
-              placeholder={t("customers.phone_placeholder")}
-              keyboardType="phone-pad"
-            />
-          </View>
-          <View className="flex-1">
-            <DatePickerInput
-              label={t("customers.start_date_label") + " *"}
-              value={form.startDate}
-              onChange={(v) => setForm((prev) => ({ ...prev, startDate: v }))}
-              placeholder={t("customers.start_date_placeholder")}
-            />
-          </View>
-        </View>
+        <Input
+          label={t("customers.phone_label")}
+          value={form.phoneNumber}
+          onChangeText={(v) => setForm((prev) => ({ ...prev, phoneNumber: v }))}
+          placeholder={t("customers.phone_placeholder")}
+          keyboardType="phone-pad"
+        />
 
         <Input
           label={t("customers.address_label")}
@@ -284,7 +270,6 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
           ref={plansEditor}
           customer={customer}
           branchId={form.branchId}
-          startDate={form.startDate}
           onDirtyChange={setPlansDirty}
         />
 
@@ -294,8 +279,6 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
           onChangeText={(v) => setForm((prev) => ({ ...prev, notes: v }))}
           placeholder={t("customers.notes_placeholder")}
           multiline
-          numberOfLines={3}
-          textAlignVertical="top"
           style={{ minHeight: 80 }}
         />
 
@@ -321,7 +304,7 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
           label={customer ? t("common.save_changes") : t("customers.add_title")}
           onPress={handleSubmit}
           loading={submitting}
-          disabled={!form.name.trim() || !form.startDate || !form.branchId}
+          disabled={!form.name.trim() || !form.branchId}
           fullWidth
         />
         <View className="h-24" />

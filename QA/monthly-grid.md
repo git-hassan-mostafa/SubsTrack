@@ -42,7 +42,7 @@ Notes:
 | 2.3  | UNPAID cell (past)                 | Past month with no payment          | Red background, white "Mar" text, blank sublabel                                                                                |
 | 2.4  | UNPAID cell (current month)        | Current month with no payment       | Red-100 background with red-500 border (highlight), red text, "THIS MONTH" sublabel                                             |
 | 2.5  | FUTURE cell                        | A month after today                 | Gray-100 background, gray-400 text, blank sublabel                                                                              |
-| 2.6  | BEFORE_START cell                  | Month before customer.start_date    | Gray-100 background, gray-300 text (lighter than future), blank sublabel                                                        |
+| 2.6  | BEFORE_START cell                  | Month before the LINE`s start_date (customers have none)    | Gray-100 background, gray-300 text (lighter than future), blank sublabel                                                        |
 | 2.7  | Multi-month source cell            | First month of a multi-month block  | Green, "PAID" sublabel                                                                                                          |
 | 2.8  | Multi-month secondary cell         | Months 2+ in a multi-month block    | Green, "Included" sublabel (`isGroupSecondary = true`). Visually merged with adjacent cells (no gap, square inner corners)      |
 | 2.9  | Multi-month spanning year boundary | Block covers Dec → Feb              | In year Y: Dec source. In year Y+1: Jan + Feb secondary, with chevron indicator that the block continues from the previous year |
@@ -73,9 +73,9 @@ Notes:
 | ----- | --------------------------------- | ------------------------- | ---------------------------------------------------------------------------------------------- |
 | 4.1.1 | Customer started 2024-06          | View 2024 grid            | Jan–May = before_start, Jun → status logic                                                     |
 | 4.1.2 | Same customer in 2023             | Navigate to 2023          | All 12 months = before_start                                                                   |
-| 4.1.3 | Tap a before_start cell           | Tap                       | Info popup: "This month is before the customer's start date. No payment can be recorded here." |
-| 4.1.4 | Customer with start_date today    | Today is 2026-05-08       | Jan–Apr 2026 = before_start. May = current/unpaid                                              |
-| 4.1.5 | Customer with future start_date   | Start = next month        | Current month + earlier = before_start; start month onward follows future/unpaid logic         |
+| 4.1.3 | Tap a before_start cell           | Tap                       | Info popup: "This month is before the plan's start date. No payment can be recorded here." |
+| 4.1.4 | Plan line with start_date today    | Today is 2026-05-08       | Jan–Apr 2026 = before_start. May = current/unpaid                                              |
+| 4.1.5 | Plan line with future start_date   | Start = next month        | Current month + earlier = before_start; start month onward follows future/unpaid logic         |
 | 4.1.6 | start_date day in middle of month | start_date = "2024-03-15" | Mar 2024 is NOT before_start (month-level comparison). Customer can pay for March              |
 
 ### 4.2 PAID
@@ -272,3 +272,35 @@ Long-press a non-`before_start` cell to enter selection mode: selected cells gai
 | 12.18 | Bulk unskip                               | Select several skipped months → Unskip                          | All revert in one write                                                                                          |
 | 12.19 | Mixed skip selection                      | Select some unpaid + some skipped months                        | Toolbar shows **both** Skip and Unskip; each acts only on its own subset                                         |
 | 12.20 | Skipped cell selection unit               | Multi-month plan: tap a skipped cell in a block window          | Only that one cell is selected (a skipped month is never part of a payable block)                                |
+
+---
+
+## 13. Pay oldest month first
+
+A month cannot be paid while an **earlier** month of the same service line is still unpaid. See [features.md](../docs/features.md) → Pay Oldest Month First and gotcha #77. Setup for most rows: one line starting Jan 2026, nothing paid, "today" = May 2026 (so Jan–May are unpaid).
+
+| #     | Scenario                                       | Steps                                                                       | Expected result                                                                                                          |
+| ----- | ---------------------------------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| 13.1  | Tap a later unpaid month                       | Tap March                                                                   | Info popup "January 2026 is still unpaid on this plan. Older months must be paid first." Form does NOT open              |
+| 13.2  | Tap the oldest unpaid month                    | Tap January                                                                 | Payment form opens normally                                                                                              |
+| 13.3  | Pay in order                                   | Pay January, then tap February                                              | February now opens; March still blocked until February is paid                                                           |
+| 13.4  | Quick-pay menu hidden                          | Open the 3-dot menu on March                                                | "Pay now" and "Pay & send on WhatsApp" are absent; Open and Skip remain                                                   |
+| 13.5  | Quick-pay menu shown on the oldest             | Open the 3-dot menu on January                                              | "Pay now" present and works                                                                                              |
+| 13.6  | Prepay a future month with a backlog           | Tap July (future)                                                           | Blocked with the same popup                                                                                              |
+| 13.7  | Prepay with NOTHING owed                       | Line fully paid through May → tap July                                      | Allowed — the form opens (prepay is still possible)                                                                       |
+| 13.8  | Backlog paid together (multi-select)           | Long-press January, add February + March → Pay                              | Allowed; all three recorded in one batch                                                                                  |
+| 13.9  | Cherry-picked selection refused                | Select February + March only (January still unpaid) → Pay                   | Popup names January; nothing is written                                                                                   |
+| 13.10 | Backlog in a PREVIOUS year                     | Line starts 2025, Dec 2025 unpaid → open 2026 and tap any month             | Blocked and the popup names **December 2025**, even though it is not on the visible grid                                  |
+| 13.11 | Skipped months never block                     | Skip January, then tap February                                             | Allowed — a skipped month is not owed                                                                                     |
+| 13.12 | Partially-paid months never block              | Pay January partially (balance > 0), then tap February                      | Allowed — a partial payment reads as paid; the remainder is a debt                                                        |
+| 13.13 | Multi-month block starting at the first unpaid | 3-month plan, nothing paid → tap the block's first month                    | Allowed; the whole window is recorded                                                                                     |
+| 13.14 | Later multi-month window refused               | 3-month plan, first window unpaid → tap a month in the SECOND window        | Blocked, naming the first window's first month                                                                            |
+| 13.15 | Unpaid banner "Collect"                        | Backlog exists, tap Collect in the red current-month banner                 | Same popup — the banner button goes through the same gate                                                                 |
+| 13.16 | Customer-list quick pay hidden                 | Customer list, a customer with an older unpaid month                        | Quick pay row absent from the card menu; the red "Overdue" pill still shows                                               |
+| 13.17 | Bulk quick pay skips overdue lines             | Select several customers, some overdue → Quick pay                          | Overdue lines are excluded from the batch; the confirm counts only collectable lines (all-overdue selection → "none" info) |
+| 13.18 | Multi-plan: only the overdue line is blocked   | Customer with plan A (up to date) + plan B (backlog) → list quick pay        | Plan A's current month is collected; plan B is left for the detail grid                                                   |
+| 13.19 | Form banner backstop                           | Reach `PaymentFormSheet` for a blocked month (deep link / stale sheet)      | Amber banner with the same message; both submit buttons disabled                                                          |
+| 13.20 | Service-level refusal                          | Force a blocked write past the UI                                           | Store `error` banner: "<Month> is still unpaid on this plan…"; nothing written                                            |
+| 13.21 | Void reopens the order                         | Pay Jan + Feb, then void January                                            | January is unpaid again → March becomes blocked until January is re-paid                                                  |
+| 13.22 | Voiding / skipping / editing unaffected        | On a blocked month use Skip; on a paid month use Void and Edit amount        | All work — the rule only gates recording NEW money                                                                        |
+| 13.23 | RTL + Arabic message                           | Arabic                                                                      | Popup text localized, month name and year read correctly                                                                  |

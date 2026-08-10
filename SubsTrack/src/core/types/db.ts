@@ -93,7 +93,6 @@ export interface DbCustomer {
   is_regular: boolean;
   branch_id: string | null;
   tenant_id: string;
-  start_date: string;
   cancelled_at: string | null;
   created_at: string;
   updated_at: string;

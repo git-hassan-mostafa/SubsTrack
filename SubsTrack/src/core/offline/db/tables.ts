@@ -127,7 +127,7 @@ export const TABLES: TableSpec[] = [
     columns: {
       id: 'text', name: 'text', phone_number: 'text', address: 'text', area: 'text', notes: 'text',
       location_url: 'text', active: 'bool', is_regular: 'bool', branch_id: 'text', tenant_id: 'text',
-      start_date: 'text', cancelled_at: 'text', created_at: 'text', updated_at: 'text',
+      cancelled_at: 'text', created_at: 'text', updated_at: 'text',
     },
   },
   {

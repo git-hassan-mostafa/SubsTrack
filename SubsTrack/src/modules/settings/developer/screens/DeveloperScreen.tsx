@@ -312,8 +312,10 @@ export function DeveloperScreen() {
           placeholder={t("settings.developer_import_placeholder")}
           multiline
           numberOfLines={12}
-          textAlignVertical="top"
-          style={{ minHeight: 220 }}
+          // The one multiline box that keeps its own scroll: a pasted export can
+          // be thousands of lines, and letting it grow would blow up the page.
+          scrollEnabled
+          style={{ minHeight: 220, maxHeight: 220 }}
           autoCapitalize="none"
           autoCorrect={false}
         />

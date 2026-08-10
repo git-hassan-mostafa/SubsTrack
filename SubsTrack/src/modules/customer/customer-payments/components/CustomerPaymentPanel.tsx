@@ -47,6 +47,7 @@ import {
   expandSelectionUnit,
   groupPayableBlocks,
 } from "../utils/monthSelection";
+import { billingMonthLabel, blockingUnpaidMonths } from "../utils/payOrder";
 import {
   useSelection,
   useSelectionBackHandler,
@@ -63,6 +64,7 @@ interface CustomerPaymentPanelProps {
 }
 
 const EMPTY_GRID: MonthEntry[] = [];
+const EMPTY_MONTHS: string[] = [];
 
 // Label for a service line tab/header: its plan name, else a "no plan" tag.
 function lineLabel(line: CustomerPlan, noPlan: string): string {
@@ -102,6 +104,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
   // change, and hands every effect a dep that changes identity each time.
   const payments = usePaymentSlice((s) => s.items);
   const monthGridsByLine = usePaymentSlice((s) => s.monthGridsByLine);
+  const unpaidMonthsByLine = usePaymentSlice((s) => s.unpaidMonthsByLine);
   const paymentsLoading = usePaymentSlice((s) => s.loading);
   const loadingUpdate = usePaymentSlice((s) => s.loadingUpdate);
   const paymentsError = usePaymentSlice((s) => s.error);
@@ -180,6 +183,12 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
   const grid = selectedLine
     ? (monthGridsByLine[selectedLine.id] ?? EMPTY_GRID)
     : EMPTY_GRID;
+  // Every month this line still owes, across ALL years — a backlog from a
+  // previous year blocks paying a later one even though the viewed grid can't
+  // show it. Declared here because the quick-pay effect below depends on it.
+  const lineUnpaidMonths = selectedLine
+    ? (unpaidMonthsByLine[selectedLine.id] ?? EMPTY_MONTHS)
+    : EMPTY_MONTHS;
 
   // Price shown next to the plan name above the grid. A custom-price or
   // plan-less line has no fixed amount, so it reads "Custom" instead. Multi-month
@@ -237,9 +246,25 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
       });
       return;
     }
+    // Same oldest-first rule as a manual tap — the list can hand us a customer
+    // whose current month is unpaid but whose backlog is older still.
+    const blocker = blockingUnpaidMonths(lineUnpaidMonths, [
+      currentEntry.billingMonth,
+    ])[0];
+    if (blocker) {
+      void confirm({
+        title: t("common.not_available"),
+        message: t("payments.earlier_month_unpaid", {
+          month: billingMonthLabel(blocker),
+        }),
+        confirmLabel: t("common.close"),
+        hideCancel: true,
+      });
+      return;
+    }
     setSelectedEntry(currentEntry);
     setFormVisible(true);
-  }, [quickPay, paymentsLoading, grid, router, t]);
+  }, [quickPay, paymentsLoading, grid, lineUnpaidMonths, router, t]);
 
   const lineActive = selectedLine?.active ?? false;
 
@@ -255,6 +280,29 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
   // is the single gate all three pay paths share.
   function isPayBlocked(entry: MonthEntry): boolean {
     return (!customer.active || !lineActive) && isCalendarFuture(entry);
+  }
+
+  // Months are settled OLDEST FIRST: returns the oldest month that must be
+  // collected before `entries` may be paid, or null when the pay is allowed.
+  // Months inside the same write never block it, so paying a whole backlog in
+  // one selection is fine while cherry-picking a later month is not.
+  function payOrderBlocker(entries: MonthEntry[]): string | null {
+    const blocking = blockingUnpaidMonths(
+      lineUnpaidMonths,
+      entries.map((e) => e.billingMonth),
+    );
+    return blocking[0] ?? null;
+  }
+
+  function showPayOrderBlocked(month: string) {
+    void confirm({
+      title: t("common.not_available"),
+      message: t("payments.earlier_month_unpaid", {
+        month: billingMonthLabel(month),
+      }),
+      confirmLabel: t("common.close"),
+      hideCancel: true,
+    });
   }
 
   function handleCellPress(entry: MonthEntry) {
@@ -294,9 +342,17 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
 
     if (entry.status === "paid" && entry.payment) {
       setDetailVisible(true);
-    } else {
-      setFormVisible(true);
+      return;
     }
+
+    // Older month still open → collect that one first.
+    const blocker = payOrderBlocker([entry]);
+    if (blocker) {
+      showPayOrderBlocked(blocker);
+      return;
+    }
+
+    setFormVisible(true);
   }
 
   function handleVoidPress() {
@@ -310,6 +366,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
   function canQuickPay(entry: MonthEntry): boolean {
     return (
       !isPayBlocked(entry) &&
+      payOrderBlocker([entry]) === null &&
       (entry.status === "unpaid" || entry.status === "future") &&
       plan != null &&
       !plan.isCustomPrice &&
@@ -528,6 +585,13 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
 
   function runBulkPay(send = false) {
     if (bulkBusy || payableEntries.length === 0) return;
+    // The whole selection is judged at once, so a backlog selected together
+    // passes while cherry-picking a later month does not.
+    const blocker = payOrderBlocker(payableEntries);
+    if (blocker) {
+      showPayOrderBlocked(blocker);
+      return;
+    }
     if (!plan || plan.isCustomPrice) {
       // The custom-amount sheet asks for the amount first; it carries the send
       // intent to its own submit.
@@ -730,9 +794,14 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
     !selectedEntry.isGroupSecondary &&
     selectedEntry.payment.voidedAt === null;
 
+  // Back-limit for the year navigator: the selected line's start year, or —
+  // before a line is selected — the earliest of all the customer's lines.
   const minYear = selectedLine
     ? new Date(selectedLine.startDate).getFullYear()
-    : new Date(customer.startDate).getFullYear();
+    : Math.min(
+        ...lines.map((l) => new Date(l.startDate).getFullYear()),
+        getCurrentYearMonth().year,
+      );
 
   // Swipe left/right on the grid steps the year (forward = next year, back =
   // previous, clamped at the line's start year like the chevron buttons).

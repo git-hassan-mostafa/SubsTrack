@@ -24,6 +24,7 @@ import repository from "../repository/PaymentRepository";
 import skippedMonthService from "./SkippedMonthService";
 import { tierService } from "@/src/modules/admin/subscription";
 import { mapDbPaymentToPayment, mapDbPaymentRowToListItem } from "../utils/mapper";
+import { billingMonthLabel, blockingUnpaidMonths } from "../utils/payOrder";
 import { CreateMultiMonthPaymentResult, FindPaymentsOptions, MultiMonthConflict, PaymentListItem } from "../utils/types";
 
 type CreatePaymentInput = Pick<Payment, 'billingMonth' | 'amountDue' | 'amountPaid' | 'durationMonths' | 'currencyId' | 'ratePerUsdSnapshot' | 'customerId' | 'customerPlanId' | 'planId' | 'receivedByUserId' | 'tenantId' | 'notes'>
@@ -370,6 +371,7 @@ class PaymentService {
   ): CustomerStatus {
     const { year: currentYear, month: currentMonth } = getCurrentYearMonth();
     const notDueLineIds: string[] = [];
+    const overdueLineIds: string[] = [];
     let overdue = false;
     let anySkipped = false;
     let paid = 0;
@@ -382,6 +384,7 @@ class PaymentService {
       const startYear = new Date(line.startDate).getFullYear();
 
       let current: MonthEntry | null = null;
+      let lineOverdue = false;
       for (let year = startYear; year <= currentYear; year++) {
         for (const entry of this.buildMonthGrid(line, linePayments, lineSkips, year, unpaidRule)) {
           if (entry.year === currentYear && entry.month === currentMonth) {
@@ -389,9 +392,13 @@ class PaymentService {
           } else if (entry.status === "unpaid") {
             // Only a month strictly BEFORE this one can be overdue. Future
             // months never resolve to "unpaid", so no upper guard is needed.
-            overdue = true;
+            lineOverdue = true;
           }
         }
+      }
+      if (lineOverdue) {
+        overdue = true;
+        overdueLineIds.push(line.id);
       }
 
       // "before_start" (the line starts later) and a missing entry both mean the
@@ -431,7 +438,7 @@ class PaymentService {
             ? "mixed"
             : "unpaid";
 
-    return { status, overdue, planCount: { paid, total }, notDueLineIds };
+    return { status, overdue, planCount: { paid, total }, notDueLineIds, overdueLineIds };
   }
 
   // The customer list's whole badge dataset, in ONE query pass: every payment
@@ -466,6 +473,49 @@ class PaymentService {
       );
     }
     return statuses;
+  }
+
+  // Every month this service line still owes, oldest first, across ALL years
+  // from its start to today. Derived from buildMonthGrid (rule #1) because an
+  // unpaid month can sit in a year the caller isn't looking at — the panel only
+  // holds the viewed year's grid.
+  unpaidBillingMonths(
+    line: CustomerPlan,
+    linePayments: Payment[],
+    lineSkips: SkippedMonth[],
+    unpaidRule: UnpaidStartRule = DEFAULT_UNPAID_START_RULE,
+  ): string[] {
+    const { year: currentYear } = getCurrentYearMonth();
+    const months: string[] = [];
+    for (let year = new Date(line.startDate).getFullYear(); year <= currentYear; year++) {
+      for (const entry of this.buildMonthGrid(line, linePayments, lineSkips, year, unpaidRule)) {
+        if (entry.status === "unpaid") months.push(entry.billingMonth);
+      }
+    }
+    return months;
+  }
+
+  // Months are settled OLDEST FIRST: a write is refused while an earlier month
+  // of the same line is still unpaid. The guard every pay path runs before it
+  // writes; `targetMonths` is every month the write would cover, so paying a
+  // backlog in one batch is allowed.
+  assertPayableInOrder(
+    line: CustomerPlan,
+    targetMonths: string[],
+    linePayments: Payment[],
+    lineSkips: SkippedMonth[],
+    unpaidRule: UnpaidStartRule = DEFAULT_UNPAID_START_RULE,
+  ): void {
+    const blocking = blockingUnpaidMonths(
+      this.unpaidBillingMonths(line, linePayments, lineSkips, unpaidRule),
+      targetMonths,
+    );
+    // Only the oldest is named — that is the one month the user must collect next.
+    if (blocking.length > 0) {
+      throw new Error(
+        i18n.t("errors.earlier_month_unpaid", { month: billingMonthLabel(blocking[0]) }),
+      );
+    }
   }
 
   // THE single source of truth for month status logic. No other file may reimplement this.

@@ -114,7 +114,7 @@ Per recent enhancement (`enhancement: add astrisk to required fields`), every fo
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 9.1 | Customer form | Open Add Customer | Name and Start Date labels show "*" |
+| 9.1 | Customer form | Open Add Customer | Name and Branch labels show "*" (there is no customer Start Date field) |
 | 9.2 | Plan form | Open Add Plan | Name and Price labels show "*" (Price hidden when Custom Pricing toggled on) |
 | 9.3 | User form | Open Add Staff | Full Name, Username, Password, Confirm Password labels show "*". Branch label shows "*" when branch is required |
 | 9.4 | Currency form | Open Add Currency | Code, Name, Symbol, Rate, Decimals labels show "*" |
