@@ -1,4 +1,4 @@
 run sql script from ./script.sql
 add auth hook custom_access_token_hook
-deploy create-user function.
+deploy all supabase functions.
 Authentication > Sessions > Refresh token reuse interval = 30
