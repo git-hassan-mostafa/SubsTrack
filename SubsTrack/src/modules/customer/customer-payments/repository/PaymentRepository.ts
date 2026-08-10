@@ -71,6 +71,18 @@ export class PaymentRepository extends BaseRepository implements IPaymentReposit
     return (data ?? []) as DbPayment[];
   }
 
+  // Voided rows included on purpose: the void-order guard reads these to decide,
+  // and an already-voided target must be recognisable as such.
+  async findByIds(ids: string[]): Promise<DbPayment[]> {
+    if (ids.length === 0) return [];
+    const { data, error } = await this.db
+      .from('payments')
+      .select('*')
+      .in('id', ids);
+    if (error) this.handleError(error);
+    return (data ?? []) as DbPayment[];
+  }
+
   async create(payload: CreatePaymentPayload): Promise<DbPayment> {
     const { data, error } = await this.db
       .from('payments')

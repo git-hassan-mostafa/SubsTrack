@@ -224,23 +224,28 @@ export interface MonthEntry {
   skip: SkippedMonth | null;
 }
 
-// Current-month tally for a customer's service lines, used by the customer-list
-// badge: how many started lines are fully paid this month (`paid`) out of the
-// total started lines (`total`). A customer with `total >= 2` and `0 < paid <
-// total` is "partly paid" — some plans paid, some not.
-export interface CurrentMonthPlanCount {
+// Plan tally for the customer-list badge: how many of the customer's in-play
+// service lines owe nothing (`paid`) out of every line that has ever had a
+// required month (`total`). "Owes nothing" spans ALL of a line's required months
+// up to its last one — not just this month — so a line with an old unpaid month
+// never counts as paid. A customer with `total >= 2` and `0 < paid < total` is
+// "partly paid" — some plans paid, some not.
+export interface PlanPaidCount {
   paid: number;
   total: number;
 }
 
-// THIS MONTH only, aggregated across a customer's active service lines. Never
-// mixes in older months — that is `CustomerStatus.overdue`, a separate fact.
-//   paid        every due line is covered
-//   mixed       2+ due lines, some covered some not ("N/M plans paid")
-//   unpaid      a due line has no payment
-//   skipped     nothing expected this month (every started line is skipped)
-//   not_due_yet nothing owed YET — no line has started or reached its billing
+// A customer's payment state, aggregated across their active service lines.
+// Skipped, not-yet-due and not-yet-started months are treated as non-existent.
+//   paid        owes nothing at all, and at least one line owed this month
+//   mixed       some lines owe nothing, some still owe ("N/M plans paid")
+//   unpaid      no line is fully settled
+//   skipped     owes nothing, and nothing is expected this month (deliberate skip)
+//   not_due_yet owes nothing YET — no line has started or reached its billing
 //               day ('customer_start_day' rule)
+// The last three all mean "nothing owed", so none of them can appear with
+// `CustomerStatus.overdue`; only `mixed` can (and `unpaid`, which the Overdue
+// pill replaces).
 export type CustomerMonthStatus =
   | "paid"
   | "mixed"
@@ -249,14 +254,14 @@ export type CustomerMonthStatus =
   | "not_due_yet";
 
 // Everything the customer list needs about one customer, built in ONE pass from
-// buildMonthGrid. The two facts are deliberately separate: `status` answers
-// "what about this month?" and `overdue` answers "does this customer owe from an
-// EARLIER month?". Collapsing them into a single badge is what made a not-due-yet
-// customer with old debt read as plain "unpaid" — see gotcha #56.
+// buildMonthGrid. `status` answers "is this customer settled, and if not how
+// far?" and `overdue` answers "does this customer owe from an EARLIER month?".
+// Collapsing them into a single badge is what made a not-due-yet customer with
+// old debt read as plain "unpaid" — see gotcha #56.
 export interface CustomerStatus {
   status: CustomerMonthStatus;
   overdue: boolean;
-  planCount: CurrentMonthPlanCount;
+  planCount: PlanPaidCount;
   // Lines that must NOT be quick-paid this month: already covered by a payment,
   // or skipped. A not-due-yet line stays payable, so it is absent here.
   notDueLineIds: string[];

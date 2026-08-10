@@ -52,20 +52,20 @@ A customer can subscribe to several plans at once, each a **service line** (`cus
 
 ## 4. Aggregated customer-list status
 
-1. Customer with two active lines, both current month paid → list badge **paid** (green).
-2. One line paid, the other unpaid → badge **"1/2 plans paid"** (amber); customer still appears in the Unpaid tab.
-3. Any active line with an unpaid past month → customer is **overdue** (red) even if the current month is paid — **unless** the current month is a mixed pay (some plans paid), in which case the "N/M plans paid" badge wins over the red.
+1. Customer with two active lines, both owing nothing → list badge **paid** (green).
+2. One line owing nothing, the other unpaid this month → badge **"1/2 plans paid"** (amber); the customer is in the **Partly paid** tab, not Unpaid (a tab holds exactly the customers whose card shows its pill).
+3. Any active line with an unpaid past month → the red **"Overdue"** pill, whatever this month's state is. It never appears beside green "✓ Paid" (paid means the customer owes nothing); it *can* appear beside "N/M plans paid" when the customer's other plans are clear.
 4. Dashboard `unpaidThisMonth` counts the customer once if any active regular line is uncovered this month.
 5. Non-regular customer: lines never counted in unpaid/overdue (gotcha #16); the "N/M plans paid" badge never shows (the "Non-Regular" flag wins).
 
 ### 4a. "N/M plans paid" badge (multi-plan)
 
-1. Two active plans, plan A paid + plan B unpaid this month → **"1/2 plans paid"** (amber), NOT red "Unpaid".
-2. Three plans, 2 paid + 1 unpaid → **"2/3 plans paid"**.
-3. All plans paid this month → green "Paid" (badge does not show). None paid → red "Unpaid" (badge does not show — needs `0 < paid < total`).
+1. Two active plans, plan A owing nothing + plan B unpaid this month → **"1/2 plans paid"** (amber), NOT red "Unpaid".
+2. Three plans, 2 clear + 1 unpaid → **"2/3 plans paid"**.
+3. Every plan clear → green "Paid" (badge does not show). No plan clear → red "Unpaid" (badge does not show — needs `0 < paid < total`).
 4. Single plan with a partial-amount payment → green **"Paid"** badge (a partial payment counts as paid; the remaining amount shows only on the Debts tab). The "N/M plans paid" badge never fires for a single plan (`total >= 2` required).
 5. Pay the last unpaid plan (or "Collect all due") → badge flips to green "Paid" immediately (optimistic, no refetch). Void one plan's month → badge updates to the new count on next focus refresh.
-6. A started plan with no payment this month counts toward the denominator but not the numerator (e.g. one paid + one unpaid → "1/2 plans paid"); a skipped or not-yet-started plan counts toward neither.
+6. The tally counts **all** of a plan's required months, not just this one: the denominator is every plan that has ever had a required month, the numerator is the plans that owe **nothing**. So a plan whose January is unpaid never counts as paid even with this month paid (that customer reads "N/M plans paid" + "Overdue", never "M/M"), while a plan that is skipped or not-yet-due this month but paid up before still counts as paid (a not-required month is treated as non-existent). A plan that has never had a required month counts on neither side.
 
 ## 4b. Card 3-dot menu labels (customer list)
 

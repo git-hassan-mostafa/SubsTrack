@@ -1,4 +1,4 @@
-import { View } from "react-native";
+import { ScrollView } from "react-native";
 import { Text } from "@/src/shared/components/Text";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
 
@@ -19,6 +19,10 @@ interface PillTabsProps<T extends string> {
 // light (bg-gray-100). Used as a lightweight secondary tab/filter switch (the
 // customer-list filter tabs, the inner Debts sub-tabs). Distinct from the
 // SegmentedTabs pill track so nested levels read as different levels.
+// The row stays ONE line and scrolls sideways — the customer list carries eight
+// tabs, which never fit a phone screen. `keyboardShouldPersistTaps` because the
+// row sits right under a search box: a tap must pick the tab, not just close the
+// keyboard.
 export function PillTabs<T extends string>({
   value,
   onChange,
@@ -26,7 +30,13 @@ export function PillTabs<T extends string>({
   className = "",
 }: PillTabsProps<T>) {
   return (
-    <View className={`flex-row gap-2 ${className}`}>
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
+      className={className}
+      contentContainerStyle={{ gap: 8, alignItems: "center" }}
+    >
       {tabs.map((tab) => {
         const active = tab.key === value;
         return (
@@ -43,6 +53,6 @@ export function PillTabs<T extends string>({
           </PressableOpacity>
         );
       })}
-    </View>
+    </ScrollView>
   );
 }

@@ -95,6 +95,14 @@ export class OfflinePaymentRepository extends OfflineBaseRepository implements I
     return this.decodeAll<DbPayment>('payments', rows);
   }
 
+  // Voided rows included on purpose — see the Supabase sibling.
+  async findByIds(ids: string[]): Promise<DbPayment[]> {
+    if (ids.length === 0) return [];
+    const ph = ids.map(() => '?').join(', ');
+    const rows = await this.all(`SELECT * FROM payments WHERE id IN (${ph})`, ids);
+    return this.decodeAll<DbPayment>('payments', rows);
+  }
+
   async create(payload: CreatePaymentPayload): Promise<DbPayment> {
     const id = await deterministicId(payload.customer_plan_id, payload.billing_month);
     const row = this.buildRow(payload, id, nowIso());

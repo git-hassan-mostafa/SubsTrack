@@ -2,9 +2,10 @@ import { MONTHS } from "@/src/core/constants";
 import { toBillingMonth } from "@/src/core/utils/date";
 import i18n from "@/src/core/i18n";
 
-// "Pay the oldest month first" — the pure rule, shared by the UI gate and the
-// service guard so it exists exactly once. Billing months are always YYYY-MM-01,
-// so plain string comparison is chronological.
+// "Pay the oldest month first", and its mirror "void the newest month first" —
+// the pure rules, shared by the UI gates and the service guards so each exists
+// exactly once. Billing months are always YYYY-MM-01, so plain string
+// comparison is chronological.
 
 /** Every billing month a payment covers (a multi-month block covers N of them). */
 export function coveredBillingMonths(
@@ -34,6 +35,30 @@ export function blockingUnpaidMonths(
   const latest = targetMonths.reduce((a, b) => (b > a ? b : a));
   const inWrite = new Set(targetMonths);
   return unpaidMonths.filter((m) => m < latest && !inWrite.has(m));
+}
+
+/**
+ * The NEWER paid months that must be voided before `targetMonths` may be —
+ * empty when the void is allowed. The exact mirror of `blockingUnpaidMonths`:
+ * voids run newest-first, so undoing a month never leaves a paid month sitting
+ * on top of an unpaid one (the "✓ Paid + Overdue" shape the pay rule exists to
+ * prevent).
+ *
+ * `paidMonths` is every month the line currently has covered. A month inside the
+ * same write never blocks it, so voiding a whole block — or several months at
+ * once — is fine. Returned NEWEST first: that is the one the user must void next.
+ */
+export function blockingPaidMonths(
+  paidMonths: string[],
+  targetMonths: string[],
+): string[] {
+  if (paidMonths.length === 0 || targetMonths.length === 0) return [];
+  const earliest = targetMonths.reduce((a, b) => (b < a ? b : a));
+  const inWrite = new Set(targetMonths);
+  return paidMonths
+    .filter((m) => m > earliest && !inWrite.has(m))
+    .sort()
+    .reverse();
 }
 
 /** "March 2026" for a YYYY-MM-01 billing month, in the current language. */

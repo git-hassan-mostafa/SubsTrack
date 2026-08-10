@@ -111,6 +111,18 @@ export class CustomerPlanRepository extends BaseRepository implements ICustomerP
     if (error) this.handleError(error);
     return count ?? 0;
   }
+
+  async findPaidLineIds(customerId: string): Promise<string[]> {
+    const { data, error } = await this.db
+      .from('payments')
+      .select('customer_plan_id')
+      .eq('customer_id', customerId)
+      .is('voided_at', null)
+      .gt('amount_paid', 0);
+    if (error) this.handleError(error);
+    const ids = (data ?? []).map((r) => (r as { customer_plan_id: string }).customer_plan_id);
+    return [...new Set(ids)];
+  }
 }
 
 // Platform seam: web → Supabase directly (unchanged); native → offline SQLite.

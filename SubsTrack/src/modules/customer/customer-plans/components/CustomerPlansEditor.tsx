@@ -80,6 +80,7 @@ export function CustomerPlansEditor({
   const { t } = useTranslation();
   const plans = usePlanSlice((s) => s.items);
   const hasPayments = useCustomerPlanSlice((s) => s.hasPayments);
+  const getPaidLineIds = useCustomerPlanSlice((s) => s.getPaidLineIds);
 
   // Suffix of the last row added in this session. Only ever touched from an event
   // handler — never during render.
@@ -104,6 +105,22 @@ export function CustomerPlansEditor({
   const [removed, setRemoved] = useState<RemovedLine[]>([]);
   const [reactivated, setReactivated] = useState<string[]>([]);
   const [addPlanOpen, setAddPlanOpen] = useState(false);
+  // Lines holding standing money — their start date is frozen (the service
+  // refuses the write either way). Loaded async, so it never feeds the dirty
+  // check (gotcha #55).
+  const [lockedLineIds, setLockedLineIds] = useState<string[]>([]);
+
+  const customerId = customer?.id;
+  useEffect(() => {
+    if (!customerId) return;
+    let alive = true;
+    void getPaidLineIds(customerId).then((ids) => {
+      if (alive) setLockedLineIds(ids);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [customerId, getPaidLineIds]);
 
   // Baseline for the dirty check — the rows as first built, captured in a lazy
   // initializer (never read a ref during render: gotcha #52).
@@ -293,6 +310,9 @@ export function CustomerPlansEditor({
       {/* Line cards */}
       {rows.map((row, i) => {
         const cancelled = row.status === "cancelled";
+        // Once a month is paid on this line, its start date is frozen: moving it
+        // would invent or hide months a payment already covers.
+        const dateLocked = row.id != null && lockedLineIds.includes(row.id);
         return (
           <View
             key={row.key}
@@ -381,10 +401,18 @@ export function CustomerPlansEditor({
                   value={row.startDate}
                   onChange={(v) => setRowStartDate(row.key, v)}
                   placeholder={t("customers.start_date_placeholder")}
-                  disabled={cancelled}
+                  disabled={cancelled || dateLocked}
                 />
               </View>
             </View>
+            {/* Says WHY the date is greyed out — a disabled field with no reason
+                reads as a bug. Not shown on a cancelled row: everything there is
+                read-only already. */}
+            {dateLocked && !cancelled ? (
+              <Text className="text-xs text-gray-400 mt-1">
+                {t("subscriptions.start_date_locked")}
+              </Text>
+            ) : null}
           </View>
         );
       })}

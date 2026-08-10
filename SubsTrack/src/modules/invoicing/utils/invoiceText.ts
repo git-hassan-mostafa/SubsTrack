@@ -74,23 +74,35 @@ function receiptId(id: string): string {
   return id.slice(-6).toUpperCase();
 }
 
-// Totals are grouped PER CURRENCY, never summed numerically: each service line
-// can carry its own currency, so one number would be meaningless.
+// Totals are grouped PER CURRENCY, never summed numerically: each row can carry
+// its own currency, so one number would be meaningless.
+function sumByCurrency<T>(
+  rows: T[],
+  amountOf: (r: T) => number,
+  currencyOf: (r: T) => Currency | null,
+): { source: Currency | null; sum: number }[] {
+  const groups = new Map<string, { source: Currency | null; sum: number }>();
+  for (const r of rows) {
+    const source = currencyOf(r);
+    const key = source?.id ?? "USD";
+    const group = groups.get(key) ?? { source, sum: 0 };
+    group.sum += amountOf(r);
+    groups.set(key, group);
+  }
+  return [...groups.values()];
+}
+
 function totalsByCurrency(
   ctx: InvoiceContext,
   rows: PaymentInvoiceRow[],
 ): string[] {
-  const groups = new Map<string, { source: Currency | null; sum: number }>();
-  for (const { payment } of rows) {
-    const source = paymentSnapshotCurrency(payment, ctx.currencies);
-    const key = source?.id ?? "USD";
-    const group = groups.get(key) ?? { source, sum: 0 };
-    group.sum += payment.amountPaid;
-    groups.set(key, group);
-  }
   // "Total paid", not "Total": these sum amountPaid, and a bare "Total" next to a
   // line that still owes a balance reads as "nothing is owed".
-  return [...groups.values()].map(({ source, sum }) =>
+  return sumByCurrency(
+    rows,
+    (r) => r.payment.amountPaid,
+    (r) => paymentSnapshotCurrency(r.payment, ctx.currencies),
+  ).map(({ source, sum }) =>
     row(ctx.t("invoice.total_paid"), money(sum, source)),
   );
 }
@@ -138,31 +150,41 @@ export function buildPaymentInvoiceText(
     return assemble(ctx, title, [lines.join("\n")]);
   }
 
-  // Several service lines paid in one go (customer-list quick pay): one bullet
-  // per line, then a total per currency, then every receipt id.
-  const bullets = rows.map((r) => {
+  // Several months in one message — either paid together (quick pay) or picked
+  // from the grid/list afterwards. One bullet per line, then a total per
+  // currency, then every receipt id.
+  // Oldest month first: a receipt reads as a statement, and a selection reaches
+  // us in list order (newest first). Stable, so several lines of the SAME month
+  // (a multi-plan quick pay) keep their order.
+  const ordered = [...rows].sort((a, b) =>
+    a.payment.billingMonth.localeCompare(b.payment.billingMonth),
+  );
+  // Paid together → one "Paid on" header; months collected on different days
+  // date each bullet instead, or the header would speak for all of them.
+  const dates = ordered.map((r) => formatDate(r.payment.paidAt, ctx.locale));
+  const oneDate = dates.every((d) => d === dates[0]);
+
+  const bullets = ordered.map((r, i) => {
     const source = paymentSnapshotCurrency(r.payment, ctx.currencies);
     const remaining =
       r.payment.balance > 0
         ? ` (${ctx.t("sales.remaining_label")}: ${money(r.payment.balance, source)})`
         : "";
-    return `${BULLET} ${periodLabel(ctx, r)}: ${money(r.payment.amountPaid, source)}${remaining}`;
+    const when = oneDate ? "" : ` · ${dates[i]}`;
+    return `${BULLET} ${periodLabel(ctx, r)}: ${money(r.payment.amountPaid, source)}${remaining}${when}`;
   });
 
+  const header = [row(ctx.t("sales.customer_label"), customerName)];
+  if (oneDate) header.push(row(ctx.t("payments.paid_on"), dates[0]));
+
   return assemble(ctx, title, [
-    [
-      row(ctx.t("sales.customer_label"), customerName),
-      row(
-        ctx.t("payments.paid_on"),
-        formatDate(rows[0].payment.paidAt, ctx.locale),
-      ),
-    ].join("\n"),
+    header.join("\n"),
     bullets.join("\n"),
     [
-      ...totalsByCurrency(ctx, rows),
+      ...totalsByCurrency(ctx, ordered),
       row(
         ctx.t("payments.receipt_id"),
-        rows.map((r) => receiptId(r.payment.id)).join(", "),
+        ordered.map((r) => receiptId(r.payment.id)).join(", "),
       ),
     ].join("\n"),
   ]);
@@ -204,6 +226,64 @@ export function buildSaleInvoiceText(
   return assemble(ctx, ctx.t("sales.receipt_title"), [
     row(ctx.t("sales.customer_label"), customerName ?? ctx.t("sales.walk_in")),
     itemLines.join("\n"),
+    totals.join("\n"),
+  ]);
+}
+
+// Several sales in one receipt (a multi-select in the sales list). Each sale is
+// one bullet built from its FROZEN items_summary — listing every product of
+// every sale would bury the totals.
+export function buildSalesInvoiceText(
+  ctx: InvoiceContext,
+  rows: Sale[],
+  customerName: string | null,
+): string {
+  const title = ctx.t("sales.receipt_title");
+  if (rows.length === 0) return assemble(ctx, title, []);
+  if (rows.length === 1) {
+    return buildSaleInvoiceText(ctx, rows[0], customerName);
+  }
+
+  // Oldest sale first — the list hands us newest-first.
+  const sales = [...rows].sort((a, b) => a.soldAt.localeCompare(b.soldAt));
+  const currencyOf = (s: Sale) => paymentSnapshotCurrency(s, ctx.currencies);
+  const remainingOf = (s: Sale) => s.totalAmount - s.amountPaid;
+
+  const bullets = sales.map((sale) => {
+    const source = currencyOf(sale);
+    const remaining = remainingOf(sale);
+    const owed =
+      remaining > 0
+        ? ` (${ctx.t("sales.remaining_label")}: ${money(remaining, source)})`
+        : "";
+    return `${BULLET} ${formatDate(sale.soldAt, ctx.locale)} · ${sale.itemsSummary}: ${money(sale.totalAmount, source)}${owed}`;
+  });
+
+  const totals = [
+    ...sumByCurrency(sales, (s) => s.totalAmount, currencyOf).map(
+      ({ source, sum }) =>
+        row(
+          ctx.t("sales.total_label"),
+          money(sum, source) + equivalent(ctx, sum, source),
+        ),
+    ),
+    ...sumByCurrency(sales, (s) => s.amountPaid, currencyOf).map(
+      ({ source, sum }) => row(ctx.t("sales.paid_label"), money(sum, source)),
+    ),
+    ...sumByCurrency(sales, remainingOf, currencyOf)
+      .filter((g) => g.sum > 0)
+      .map(({ source, sum }) =>
+        row(ctx.t("sales.remaining_label"), money(sum, source)),
+      ),
+    row(
+      ctx.t("sales.receipt_id_label"),
+      sales.map((s) => receiptId(s.id)).join(", "),
+    ),
+  ];
+
+  return assemble(ctx, title, [
+    row(ctx.t("sales.customer_label"), customerName ?? ctx.t("sales.walk_in")),
+    bullets.join("\n"),
     totals.join("\n"),
   ]);
 }

@@ -28,6 +28,7 @@ These are non-negotiable and should be re-verified after any release:
 7. **Tenant isolation.** Payment row's `tenant_id` always equals the current tenant's id.
 8. **Voided payments are excluded** from the year fetch, from "paid this month" queries, and from multi-month coverage.
 9. **Payment with `amount_paid = 0` is unpaid.** Slot is reserved but the month grid shows it as unpaid (see [monthly-grid.md](monthly-grid.md)).
+10. **Months are paid OLDEST first and voided NEWEST first.** A month can't be paid while an earlier month of the same line is unpaid, and can't be voided while a later month of the same line is paid. Together they mean a paid month can never sit on top of an unpaid one. The third door is closed by locking a line's start date once it has a payment (§17). Independently of all three, the customer card can't show "✓ Paid" beside "Overdue" even for legacy data: "paid" means the customer owes **nothing** (see [customers.md](customers.md) §1).
 
 ## 1. Tapping a month cell — entry router
 
@@ -210,6 +211,27 @@ Edit re-snapshots `rate_per_usd_snapshot` from the currency live rate at edit ti
 | 10.12 | Network error | Disable network, confirm | ErrorBanner inside sheet; payment NOT voided |
 | 10.13 | Permission gating | Logged in as user role | Void path may still be exposed; per spec, void is admin-only — verify gate at service or UI level (file as a finding if user role can void) |
 
+### 10b. Void order — newest first
+
+The mirror of the pay-oldest-first rule. One pure helper (`blockingPaidMonths`) + one service guard (`assertVoidableInOrder`, inside `voidPayment` / `voidPayments` / `voidCurrentMonth`), so every void path obeys it.
+
+| # | Scenario | Steps | Expected result |
+|---|----------|-------|-----------------|
+| 10b.1 | Void an older month with a newer one paid | Jan + Feb paid on a line. Open Jan's receipt, tap Void | Popup "Not available": "February 2026 is paid on this plan. Newer months must be voided first." Nothing is voided |
+| 10b.2 | Void the newest month | Same data, void Feb | Works normally |
+| 10b.3 | Void backwards | After 10b.2, void Jan | Works — nothing later is paid any more |
+| 10b.4 | Cell menu says why | Long-press Jan's cell → "Void payment" | The row is VISIBLE (not hidden); pressing it shows the same popup naming February |
+| 10b.5 | Multi-select void of the whole tail | Select Jan + Feb together, void | Allowed — months inside the same void never block each other |
+| 10b.6 | Multi-select skipping a paid month | Jan + Feb + Mar paid. Select Jan + Mar only, void | Blocked, naming February |
+| 10b.7 | Multi-month block | A 3-month block (Jan–Mar) paid, plus Apr paid separately. Void the block | Blocked, naming April. Void Apr first, then the block voids whole |
+| 10b.8 | Later month in the NEXT year | Dec 2026 + Jan 2027 paid. Viewing 2026, void Dec | Blocked, naming January 2027 — the check spans all years, not the viewed one |
+| 10b.9 | Partial payment blocks too | Feb partially paid (balance > 0), void Jan | Blocked, naming February — a partial payment is still money on a later month |
+| 10b.10 | Skipped month between | Jan paid, Feb skipped, Mar paid. Void Jan | Blocked, naming March |
+| 10b.11 | Per line, not per customer | Line A: Jan + Feb paid. Line B: Jan paid only. Void line B's Jan | Allowed — the rule is per service line |
+| 10b.12 | Transactions → Payments tab | Void an old payment from the flat payments list | Refused with the same message in the ErrorBanner (the service guard covers the list, which loads no grid) |
+| 10b.13 | Customer-list "void current month" | Customer has this month AND next month paid (prepay). Use the card menu | Refused with the message in the list's ErrorBanner; nothing voided |
+| 10b.14 | Offline | Go offline, repeat 10b.1 and 10b.2 | Same behavior — the guard reads the local mirror |
+
 ## 11. Cross-year and cross-month interactions
 
 | # | Scenario | Steps | Expected result |
@@ -300,3 +322,21 @@ The payments history (PageHeader 3-dot → **Payments history**) is a record of 
 | 16.14 | Status filter | Set the status filter to Paid / Partial | Voided rows still obey the filter's balance rule; they remain marked |
 | 16.15 | Offline parity (native) | Repeat 16.1–16.4 offline | Same behaviour; the row stays listed and marked, totals exclude it |
 | 16.16 | Arabic | Switch to Arabic | The VOIDED badge reads "ملغية"; the card mirrors correctly in RTL |
+
+## 17. Start date locked once a plan has payments
+
+A service line's start date is frozen as soon as it holds standing money. Moving it earlier would invent unpaid months behind the paid ones; moving it later would hide months a payment already covers. Guarded in `CustomerPlanService.syncLines` and pre-gated in the form's Plans editor.
+
+| # | Scenario | Steps | Expected result |
+|---|----------|-------|-----------------|
+| 17.1 | Locked input | Customer with one paid month → Edit customer → Plans section | The line's **Start date** field is greyed out and not tappable, with the note "Start date is locked — this plan already has payments." |
+| 17.2 | Plan still changeable | Same row | The **Plan** picker is still editable — only the date is frozen |
+| 17.3 | Unpaid line stays free | A line with no payments (or a brand-new row) | Its start date is fully editable, no note |
+| 17.4 | Voided-only line stays free | Record a payment on a line, then void it → reopen the form | The date is editable again — a voided payment is not standing money |
+| 17.5 | Zero-amount slot stays free | A line whose only payment row has `amount_paid = 0` | Editable — that slot is not a payment |
+| 17.6 | Service refuses anyway | Force a changed start date on a paid line (e.g. stale form) → Save | ErrorBanner: "This plan already has payments recorded, so its start date can no longer be changed." No line is written |
+| 17.7 | Same date is not a change | Open the form on a paid line and save without touching the date | Saves normally — only a CHANGED date is checked, and the extra query is skipped |
+| 17.8 | Per line | Multi-plan customer: line A paid, line B not | Only line A's date is locked |
+| 17.9 | Other fields still save | On a paid line, edit the customer's name and save | Name saves; nothing is blocked |
+| 17.10 | Offline | Repeat 17.1 and 17.6 offline | Same behavior — the lookup reads the local mirror |
+| 17.11 | Arabic | Switch to Arabic | The note reads "تاريخ البداية مقفل — هذه الخطة لديها مدفوعات مسجّلة." |

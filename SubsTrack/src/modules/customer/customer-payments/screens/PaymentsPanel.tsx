@@ -32,6 +32,7 @@ import {
 } from "@/src/shared/hooks/useSelection";
 import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
 import { CustomerPicker } from "@/src/modules/customer/customers";
+import { useSendInvoice } from "@/src/modules/invoicing";
 import {
   getDateMonthsAgoString,
   getTodayDateString,
@@ -98,6 +99,7 @@ export function PaymentsPanel() {
   const displayCurrencyId = useDisplayCurrencyId();
   const displayCurrency = findCurrency(currencies, displayCurrencyId);
   const branchFilter = useEffectiveBranchFilter();
+  const { sendPaymentInvoice, resolveRecipient } = useSendInvoice();
 
   const [activePayment, setActivePayment] = useState<PaymentListItem | null>(
     null,
@@ -164,20 +166,45 @@ export function PaymentsPanel() {
     [items, t, monthlyTotals],
   );
 
+  // One receipt covering every selected payment. A voided payment is not a
+  // receipt, so the caller passes the live rows only.
+  async function sendSelectionInvoice(rows: PaymentListItem[]) {
+    const to = await resolveRecipient(
+      rows.map((p) => ({
+        customerId: p.customerId,
+        customerName: p.customerName,
+        phone: p.customerPhone,
+      })),
+    );
+    if (!to) return;
+    await sendPaymentInvoice({
+      phone: to.phone,
+      customerName: to.name,
+      rows: rows.map((payment) => ({ payment, planName: payment.planName })),
+    });
+    clearSelection();
+  }
+
   function buildSelectionActions(
     selected: PaymentListItem[],
   ): SelectionAction[] {
     // Already-voided rows are visible in the list now, so a mixed selection must
-    // only void the live ones; an all-voided selection offers nothing.
-    const voidable = selected.filter((p) => p.voidedAt === null);
-    if (voidable.length === 0) return [];
+    // only void/send the live ones; an all-voided selection offers nothing.
+    const live = selected.filter((p) => p.voidedAt === null);
+    if (live.length === 0) return [];
     return [
+      {
+        key: "send-invoice",
+        icon: "receipt-outline",
+        label: t("invoice.send_invoice_whatsapp"),
+        onPress: () => void sendSelectionInvoice(live),
+      },
       {
         key: "void",
         icon: "close-circle-outline",
         label: t("payments.void_payment"),
         destructive: true,
-        onPress: () => setVoidIds(voidable.map((p) => p.id)),
+        onPress: () => setVoidIds(live.map((p) => p.id)),
       },
     ];
   }

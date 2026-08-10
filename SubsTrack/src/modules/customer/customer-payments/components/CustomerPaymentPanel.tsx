@@ -47,7 +47,12 @@ import {
   expandSelectionUnit,
   groupPayableBlocks,
 } from "../utils/monthSelection";
-import { billingMonthLabel, blockingUnpaidMonths } from "../utils/payOrder";
+import {
+  billingMonthLabel,
+  blockingPaidMonths,
+  blockingUnpaidMonths,
+  coveredBillingMonths,
+} from "../utils/payOrder";
 import {
   useSelection,
   useSelectionBackHandler,
@@ -105,6 +110,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
   const payments = usePaymentSlice((s) => s.items);
   const monthGridsByLine = usePaymentSlice((s) => s.monthGridsByLine);
   const unpaidMonthsByLine = usePaymentSlice((s) => s.unpaidMonthsByLine);
+  const paidMonthsByLine = usePaymentSlice((s) => s.paidMonthsByLine);
   const paymentsLoading = usePaymentSlice((s) => s.loading);
   const loadingUpdate = usePaymentSlice((s) => s.loadingUpdate);
   const paymentsError = usePaymentSlice((s) => s.error);
@@ -188,6 +194,11 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
   // show it. Declared here because the quick-pay effect below depends on it.
   const lineUnpaidMonths = selectedLine
     ? (unpaidMonthsByLine[selectedLine.id] ?? EMPTY_MONTHS)
+    : EMPTY_MONTHS;
+  // The same, for the months this line HAS paid — voids run newest-first, and a
+  // later paid month can also sit outside the viewed year.
+  const linePaidMonths = selectedLine
+    ? (paidMonthsByLine[selectedLine.id] ?? EMPTY_MONTHS)
     : EMPTY_MONTHS;
 
   // Price shown next to the plan name above the grid. A custom-price or
@@ -305,6 +316,35 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
     });
   }
 
+  // Voids run NEWEST FIRST (the mirror of the above): returns the newest paid
+  // month that must be voided before `entries` may be, or null when allowed.
+  // Months inside the same void never block it.
+  function voidOrderBlocker(entries: MonthEntry[]): string | null {
+    const blocking = blockingPaidMonths(
+      linePaidMonths,
+      // A block is voided whole, so the target is every month ITS payment covers
+      // — read off the payment, since a secondary cell's own month is not the
+      // block's start.
+      entries.flatMap((e) =>
+        e.payment
+          ? coveredBillingMonths(e.payment.billingMonth, e.payment.durationMonths)
+          : [e.billingMonth],
+      ),
+    );
+    return blocking[0] ?? null;
+  }
+
+  function showVoidOrderBlocked(month: string) {
+    void confirm({
+      title: t("common.not_available"),
+      message: t("payments.later_month_paid", {
+        month: billingMonthLabel(month),
+      }),
+      confirmLabel: t("common.close"),
+      hideCancel: true,
+    });
+  }
+
   function handleCellPress(entry: MonthEntry) {
     if (entry.status === "before_start") {
       void confirm({
@@ -355,7 +395,15 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
     setFormVisible(true);
   }
 
+  // From the payment detail sheet. A newer paid month must go first, so say which
+  // one instead of opening the void sheet.
   function handleVoidPress() {
+    if (!selectedEntry) return;
+    const blocker = voidOrderBlocker([selectedEntry]);
+    if (blocker) {
+      showVoidOrderBlocked(blocker);
+      return;
+    }
     setVoidVisible(true);
   }
 
@@ -382,12 +430,12 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
     );
   }
 
-  // Sends ONE invoice covering every just-created payment (a multi-select pays
-  // several months, and the builder already totals them per currency). No-op
-  // when the write failed or the customer has no number — the pay must still
-  // count as done.
-  async function sendCreatedInvoice(created: Payment[]) {
-    const rows = created.filter((p) => p != null);
+  // Sends ONE invoice covering every payment passed in — the months just
+  // created by a pay, or already-paid months picked in the grid (the builder
+  // totals them per currency either way). No-op when the write failed or the
+  // customer has no number — the pay must still count as done.
+  async function sendInvoiceFor(payments: Payment[]) {
+    const rows = payments.filter((p) => p != null);
     if (rows.length === 0 || !canSend(customer.phoneNumber)) return;
     await sendPaymentInvoice({
       phone: customer.phoneNumber,
@@ -442,7 +490,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
           year,
           currentTier,
         );
-        if (send) await sendCreatedInvoice(result ? [result.payment] : []);
+        if (send) await sendInvoiceFor(result ? [result.payment] : []);
       } finally {
         setQuickPayMonth(null);
       }
@@ -468,7 +516,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
         planCurrency,
         lines,
       );
-      if (send) await sendCreatedInvoice(created ? [created] : []);
+      if (send) await sendInvoiceFor(created ? [created] : []);
     } finally {
       setQuickPayMonth(null);
     }
@@ -525,7 +573,14 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
         label: t("payments.void_payment"),
         icon: "close-circle-outline",
         destructive: true,
+        // Kept visible when a newer month blocks it — pressing explains which
+        // month to void first, rather than the row silently disappearing.
         onPress: () => {
+          const blocker = voidOrderBlocker([entry]);
+          if (blocker) {
+            showVoidOrderBlocked(blocker);
+            return;
+          }
           setSelectedEntry(entry);
           setVoidVisible(true);
         },
@@ -560,6 +615,11 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
     (e) =>
       e.status === "paid" && e.payment != null && e.payment.voidedAt === null,
   );
+  // The same rows as a receipt: one entry per PAYMENT, since a multi-month block
+  // fills several cells from a single payment row and must be listed once.
+  const selectedPayments = [
+    ...new Map(voidableEntries.map((e) => [e.payment!.id, e.payment!])).values(),
+  ];
   // Skippable = nothing collected yet on that month; unskippable = already skipped.
   const skippableEntries = selectedEntries.filter(
     (e) => e.status === "unpaid" || e.status === "future",
@@ -630,7 +690,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
     setBulkBusy(true);
     try {
       const created = await createPayments(inputs, planCurrency, lines, year);
-      if (send) await sendCreatedInvoice(created);
+      if (send) await sendInvoiceFor(created);
     } finally {
       setBulkBusy(false);
     }
@@ -666,7 +726,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
         year,
         currentTier,
       );
-      if (send) await sendCreatedInvoice(result?.payments ?? []);
+      if (send) await sendInvoiceFor(result?.payments ?? []);
     } finally {
       setBulkBusy(false);
     }
@@ -693,7 +753,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
     setBulkBusy(true);
     try {
       const created = await createPayments(inputs, currency, lines, year);
-      if (bulkPaySend) await sendCreatedInvoice(created);
+      if (bulkPaySend) await sendInvoiceFor(created);
     } finally {
       setBulkBusy(false);
     }
@@ -705,8 +765,20 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
 
   function runBulkVoid() {
     if (bulkBusy || voidableEntries.length === 0) return;
+    // The whole selection is judged at once, so voiding a paid tail together
+    // passes while cherry-picking an older month out of it does not.
+    const blocker = voidOrderBlocker(voidableEntries);
+    if (blocker) {
+      showVoidOrderBlocked(blocker);
+      return;
+    }
     const ids = Array.from(new Set(voidableEntries.map((e) => e.payment!.id)));
     setBulkVoidIds(ids);
+  }
+
+  async function sendSelectedInvoice() {
+    await sendInvoiceFor(selectedPayments);
+    selection.clear();
   }
 
   const selectionActions: SelectionAction[] = [];
@@ -746,6 +818,17 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
       label: t("payments.skip.unskip_action"),
       disabled: bulkBusy,
       onPress: () => setSkipRequest({ entries: skippedEntries, mode: "unskip" }),
+    });
+  }
+  // Re-send the receipt for months already collected. Hidden (not disabled)
+  // without a number, like the pay-and-send action above.
+  if (selectedPayments.length > 0 && canSend(customer.phoneNumber)) {
+    selectionActions.push({
+      key: "send-invoice",
+      icon: "receipt-outline",
+      label: t("invoice.send_invoice_whatsapp"),
+      disabled: bulkBusy,
+      onPress: () => void sendSelectedInvoice(),
     });
   }
   if (voidableEntries.length > 0) {

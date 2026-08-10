@@ -88,6 +88,7 @@ class CustomerPlanService {
   ): Promise<{ active: CustomerPlan[]; cancelled: CustomerPlan[] }> {
     const existingById = new Map(existingLines.map((l) => [l.id, l]));
     const reactivatedSet = new Set(reactivated);
+    await this.assertStartDatesUnlocked(customerId, lines, existingById);
 
     const removals = Promise.all(
       removed.map((r) => this.deleteLine(r.id, r.hardDelete)),
@@ -135,6 +136,33 @@ class CustomerPlanService {
   // removing it needs the "void paid months?" prompt.
   async hasPayments(id: string): Promise<boolean> {
     return (await repository.countPayments(id)) > 0;
+  }
+
+  // The customer's lines that hold standing money. The form reads it to lock
+  // their start-date input; `syncLines` re-checks it before writing.
+  async getPaidLineIds(customerId: string): Promise<string[]> {
+    return repository.findPaidLineIds(customerId);
+  }
+
+  // A line's start date is FROZEN once it has a payment: moving it earlier
+  // invents unpaid months behind the paid ones (a customer who reads "✓ Paid"
+  // and "Overdue" at once), and moving it later hides months a payment already
+  // covers. Only lines whose date actually changed are checked, so the one query
+  // is skipped entirely for the common save.
+  private async assertStartDatesUnlocked(
+    customerId: string,
+    lines: LineDraft[],
+    existingById: Map<string, CustomerPlan>,
+  ): Promise<void> {
+    const moved = lines.filter((l) => {
+      const prev = l.id ? existingById.get(l.id) : undefined;
+      return prev != null && prev.startDate !== l.startDate;
+    });
+    if (moved.length === 0) return;
+    const locked = new Set(await repository.findPaidLineIds(customerId));
+    if (moved.some((l) => l.id && locked.has(l.id))) {
+      throw new Error(i18n.t("errors.start_date_locked_paid"));
+    }
   }
 
   private validateDate(startDate: string): void {

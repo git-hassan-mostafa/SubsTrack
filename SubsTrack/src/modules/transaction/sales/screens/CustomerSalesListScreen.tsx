@@ -30,6 +30,7 @@ import { SaleFormSheet } from "../components/SaleFormSheet";
 import { SaleDetailSheet } from "../components/SaleDetailSheet";
 import { SaleBulkVoidSheet } from "../components/SaleBulkVoidSheet";
 import { useCustomerSalesList } from "../hooks/useCustomerSalesList";
+import { useSaleInvoiceAction } from "../hooks/useSaleInvoiceAction";
 import { useCustomerSlice } from "@/src/state/hooks/useCustomerSlice";
 import { useSaleSlice } from "@/src/state/hooks/useSaleSlice";
 import { useAuth } from "@/src/modules/authentication/auth";
@@ -100,10 +101,12 @@ export function CustomerSalesListScreen() {
   }
 
   const selectedSales = items.filter((s) => selectedIds.has(s.id));
+  const invoiceAction = useSaleInvoiceAction(selectedSales, clearSelection);
 
   function buildSelectionActions(selected: Sale[]): SelectionAction[] {
     if (selected.length === 0) return [];
     return [
+      ...(invoiceAction ? [invoiceAction] : []),
       {
         key: "void",
         icon: "close-circle-outline",

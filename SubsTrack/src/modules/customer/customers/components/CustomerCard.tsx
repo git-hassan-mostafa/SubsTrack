@@ -4,20 +4,18 @@ import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
 import type { TFunction } from "i18next";
-import type {
-  Customer,
-  CustomerMonthStatus,
-  CustomerStatus,
-} from "@/src/core/types";
+import type { Customer, CustomerStatus } from "@/src/core/types";
 import { COLORS } from "../../../../shared/constants";
 import { EntityCard } from "@/src/shared/components/EntityCard";
+import { customerFlags, type CustomerFlag } from "../utils/customerFlags";
 
 interface Props {
   customer: Customer;
   /**
-   * This month's status + whether older months are unpaid. `null` while the
-   * status is still loading — the card then shows no payment flag at all, which
-   * is why the red "Unpaid" pill can never appear on missing data (gotcha #56).
+   * The customer's settle status + whether older months are unpaid. `null` while
+   * the status is still loading — the card then shows no payment flag at all,
+   * which is why the red "Unpaid" pill can never appear on missing data
+   * (gotcha #56).
    */
   status: CustomerStatus | null;
   /** Formatted net debt (e.g. "150,000 ل.ل"), or null when the customer owes nothing. */
@@ -31,10 +29,11 @@ interface Props {
   onEnterSelection?: (customer: Customer) => void;
 }
 
-// Pill styling per month status — a lookup, not a ternary chain: a new status
-// is one row here, and every status is forced to have exactly one appearance.
-const MONTH_FLAGS: Record<
-  CustomerMonthStatus,
+// Pill styling per flag — a lookup, not a ternary chain: a new flag is one row
+// here, and every flag is forced to have exactly one appearance. WHICH flags a
+// customer gets is decided by `customerFlags`, not here.
+const FLAG_STYLES: Record<
+  CustomerFlag,
   {
     label: (t: TFunction, s: CustomerStatus) => string;
     textClassName: string;
@@ -70,7 +69,22 @@ const MONTH_FLAGS: Record<
     textClassName: "text-gray-500",
     bgClassName: "bg-gray-100",
   },
+  // EARLIER months — a separate fact, so it sits beside the "N/M plans paid"
+  // flag instead of replacing it.
+  overdue: {
+    label: (t) => t("customers.overdue"),
+    textClassName: "text-red-600",
+    bgClassName: "bg-red-100",
+  },
 };
+
+// Pill props for each flag this customer wears, in the helper's display order.
+function flagPills(status: CustomerStatus, t: TFunction) {
+  return customerFlags(status).map((flag) => {
+    const style = FLAG_STYLES[flag];
+    return { ...style, key: flag, text: style.label(t, status) };
+  });
+}
 
 // A single pill badge. Rendered on the card's top flags row.
 function Flag({
@@ -113,17 +127,10 @@ export const CustomerCard = memo(function CustomerCard({
         ? activeLines[0].plan?.name || t("common.no_plan")
         : t("subscriptions.count_plans", { count: activeLines.length });
 
-  // This month's pill — nothing to show while the status is still loading, or
-  // when it is a plain "unpaid" that the red "Overdue" pill already covers.
-  let monthFlag: {
-    text: string;
-    textClassName: string;
-    bgClassName: string;
-  } | null = null;
-  if (status && !(status.status === "unpaid" && status.overdue)) {
-    const style = MONTH_FLAGS[status.status];
-    monthFlag = { ...style, text: style.label(t, status) };
-  }
+  // The payment pills, straight from the shared helper the filter tabs also
+  // read — so the card and its tab can never disagree. Empty while the status
+  // is still loading.
+  const flags = status ? flagPills(status, t) : [];
 
   return (
     <EntityCard
@@ -155,28 +162,17 @@ export const CustomerCard = memo(function CustomerCard({
               bgClassName="bg-amber-100"
             />
           ) : (
-            <>
-              {/* THIS month. Absent while the status loads, and suppressed when
-                  it would only repeat the "Overdue" pill sitting next to it. */}
-              {monthFlag ? (
-                <Flag
-                  text={monthFlag.text}
-                  textClassName={monthFlag.textClassName}
-                  bgClassName={monthFlag.bgClassName}
-                />
-              ) : null}
-
-              {/* EARLIER months — a separate fact, so it sits beside the month
-                  flag instead of replacing it. "✓ Paid + Overdue" and
-                  "Not due yet + Overdue" are both real, useful states. */}
-              {status?.overdue ? (
-                <Flag
-                  text={t("customers.overdue")}
-                  textClassName="text-red-600"
-                  bgClassName="bg-red-100"
-                />
-              ) : null}
-            </>
+            /* This month + earlier months, in the helper's order. Empty while
+               the status is still loading, so a red pill can never come from
+               missing data. */
+            flags.map((flag) => (
+              <Flag
+                key={flag.key}
+                text={flag.text}
+                textClassName={flag.textClassName}
+                bgClassName={flag.bgClassName}
+              />
+            ))
           )}
 
           {/* Debt flag — shown whenever the customer has a net outstanding debt. */}

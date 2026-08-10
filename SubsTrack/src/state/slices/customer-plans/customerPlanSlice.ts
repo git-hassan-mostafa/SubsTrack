@@ -22,6 +22,9 @@ export interface CustomerPlanSlice {
   ) => Promise<boolean>;
   // Whether a service line has recorded payments (drives the remove-plan prompt).
   hasPayments: (lineId: string) => Promise<boolean>;
+  // The customer's lines holding standing money — their start date is frozen.
+  // One query for the whole form; `syncLines` re-checks server-side anyway.
+  getPaidLineIds: (customerId: string) => Promise<string[]>;
   clearError: () => void;
   reset: () => void;
 }
@@ -83,6 +86,8 @@ export const createCustomerPlanSlice: StateCreator<
   },
 
   hasPayments: (lineId) => customerPlanService.hasPayments(lineId),
+
+  getPaidLineIds: (customerId) => customerPlanService.getPaidLineIds(customerId),
 
   clearError: () =>
     set((state) => {

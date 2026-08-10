@@ -38,6 +38,9 @@ export interface MonthlyAmountRow extends AmountRow {
 export interface IPaymentRepository {
   findAll(opts?: FindPaymentsOptions): Promise<DbPayment[]>;
   findByCustomer(customerId: string): Promise<DbPayment[]>;
+  // The rows behind a set of ids, voided ones included — the void-order guard
+  // has to see what it is about to change, whatever list the ids came from.
+  findByIds(ids: string[]): Promise<DbPayment[]>;
   create(payload: CreatePaymentPayload): Promise<DbPayment>;
   createMany(payloads: CreatePaymentPayload[]): Promise<DbPayment[]>;
   updatePayment(id: string, payload: UpdatePaymentPayload): Promise<DbPayment>;

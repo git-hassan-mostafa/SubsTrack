@@ -22,6 +22,7 @@ import { useSubscriptionSlice } from "@/src/state/hooks/useSubscriptionSlice";
 import type { Customer, Payment } from "@/src/core/types";
 import { useSendInvoice } from "@/src/modules/invoicing";
 import { CustomerCard } from "../components/CustomerCard";
+import { customerFlags, type CustomerFlag } from "../utils/customerFlags";
 import { CustomerHistorySheet } from "../components/CustomerHistorySheet";
 import { CustomerFormSheet } from "../components/CustomerFormSheet";
 import { CustomDebtFormSheet } from "@/src/modules/transaction/debts/components/CustomDebtFormSheet";
@@ -52,7 +53,27 @@ import {
 import type { BulkPayCustomerRequest } from "@/src/state/slices/payments/paymentSlice";
 import { SaleFormSheet } from "@/src/modules/transaction/sales";
 
-type FilterTab = "all" | "unpaid" | "active" | "inactive";
+// The payment tabs are exactly the card's payment flags (`CustomerFlag`), so a
+// customer is in a tab if and only if their card shows that pill. "skipped" has
+// no tab — nothing is owed, so there is nothing to work through.
+type StatusTab = Exclude<CustomerFlag, "skipped">;
+type FilterTab = "all" | "active" | "inactive" | StatusTab;
+
+const STATUS_TABS: StatusTab[] = [
+  "unpaid",
+  "overdue",
+  "mixed",
+  "paid",
+  "not_due_yet",
+];
+
+const STATUS_TAB_LABELS: Record<StatusTab, string> = {
+  unpaid: "dashboard.unpaid",
+  overdue: "customers.overdue",
+  mixed: "customers.partly_paid",
+  paid: "common.paid",
+  not_due_yet: "payments.not_due_yet_label",
+};
 
 export function CustomerListScreen() {
   const { t } = useTranslation();
@@ -150,14 +171,17 @@ export function CustomerListScreen() {
   const tabs = useMemo(() => {
     return [
       { key: "active" as FilterTab, label: t("common.active") },
-      { key: "unpaid" as FilterTab, label: t("dashboard.unpaid") },
+      ...STATUS_TABS.map((key) => ({
+        key: key as FilterTab,
+        label: t(STATUS_TAB_LABELS[key]),
+      })),
       { key: "all" as FilterTab, label: t("customers.all") },
       { key: "inactive" as FilterTab, label: t("common.inactive") },
     ];
   }, [t]);
 
-  // "Already has a payment recorded for this month" — some or all plans. Used by
-  // the Unpaid tab + Quick Pay gating.
+  // "Already has a payment recorded for this month" — some or all plans. Gates
+  // the menu's void-this-month row (there has to be something to void).
   const hasCurrentMonthPayment = useCallback(
     (id: string) => {
       const s = customerStatuses.get(id)?.status;
@@ -167,22 +191,17 @@ export function CustomerListScreen() {
   );
 
   const filtered = useMemo(() => {
+    if (activeTab === "all") return customers;
     if (activeTab === "active") return customers.filter((c) => c.active);
     if (activeTab === "inactive") return customers.filter((c) => !c.active);
-    if (activeTab === "unpaid")
-      return customers.filter((c) => {
-        if (!c.active || !c.isRegular) return false;
-        const status = customerStatuses.get(c.id);
-        if (!status) return false; // not computed yet — don't guess either way
-        // Owes something: this month, or an earlier one. "skipped" and
-        // "not_due_yet" owe nothing, so they drop out.
-        return (
-          status.overdue ||
-          status.status === "unpaid" ||
-          status.status === "mixed"
-        );
-      });
-    return customers;
+    // Payment tabs are the card's flags: same helper, so a customer shows up in
+    // every tab whose pill they wear, and in none they don't.
+    return customers.filter((c) => {
+      if (!c.active || !c.isRegular) return false;
+      const status = customerStatuses.get(c.id);
+      if (!status) return false; // not computed yet — don't guess either way
+      return customerFlags(status).includes(activeTab);
+    });
   }, [activeTab, customers, customerStatuses]);
 
   // Resolve selected ids against the VISIBLE list, so a selected-then-filtered-out
@@ -240,7 +259,7 @@ export function CustomerListScreen() {
       )
       .map((l) => ({
         customerId: customer.id,
-        customerPlanId: l.id,
+        line: l,
         plan: l.plan!,
         currency: findCurrency(currencies, l.plan!.currencyId),
         amountPaid: l.plan!.price!,
@@ -324,8 +343,8 @@ export function CustomerListScreen() {
           rows: created.map((p) => ({
             payment: p,
             planName:
-              requests.find((r) => r.customerPlanId === p.customerPlanId)?.plan
-                .name ?? null,
+              requests.find((r) => r.line.id === p.customerPlanId)?.plan.name ??
+              null,
           })),
         });
       }

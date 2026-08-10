@@ -5,11 +5,13 @@ Covers sending a customer their receipt over WhatsApp. The whole feature is a `w
 **Reference code:**
 
 - Message format (one file owns it): [invoiceText.ts](../SubsTrack/src/modules/invoicing/utils/invoiceText.ts) — pure builders, `t` arrives in `InvoiceContext`
+- One-recipient rule for a selection: [invoiceRecipient.ts](../SubsTrack/src/modules/invoicing/utils/invoiceRecipient.ts) + `useSendInvoice.resolveRecipient`
 - Send seam: [useSendInvoice.ts](../SubsTrack/src/modules/invoicing/hooks/useSendInvoice.ts) → [whatsapp.ts](../SubsTrack/src/shared/lib/whatsapp.ts) `openWhatsApp`
 - Button: [SendOnWhatsAppButton.tsx](../SubsTrack/src/modules/invoicing/components/SendOnWhatsAppButton.tsx)
 - Entry points: [PaymentFormSheet.tsx](../SubsTrack/src/modules/customer/customer-payments/components/PaymentFormSheet.tsx), [SaleFormSheet.tsx](../SubsTrack/src/modules/transaction/sales/components/SaleFormSheet.tsx), [CustomerPaymentPanel.tsx](../SubsTrack/src/modules/customer/customer-payments/components/CustomerPaymentPanel.tsx), [CustomerListScreen.tsx](../SubsTrack/src/modules/customer/customers/screens/CustomerListScreen.tsx), [PaymentDetailSheet.tsx](../SubsTrack/src/modules/customer/customer-payments/components/PaymentDetailSheet.tsx), [SaleDetailSheet.tsx](../SubsTrack/src/modules/transaction/sales/components/SaleDetailSheet.tsx)
 - Created-record forwarding: [paymentSlice.ts](../SubsTrack/src/state/slices/payments/paymentSlice.ts) (`createPayment`, `createPayments`, `createMultiMonthPayment`, `createMultiMonthPayments`, `bulkPayCustomers`)
 - Multi-select toolbar: [GridSelectionToolbar.tsx](../SubsTrack/src/modules/customer/customer-payments/components/GridSelectionToolbar.tsx), custom-amount sheet [BulkPaymentFormSheet.tsx](../SubsTrack/src/modules/customer/customer-payments/components/BulkPaymentFormSheet.tsx)
+- Re-send a selection: [PaymentsPanel.tsx](../SubsTrack/src/modules/customer/customer-payments/screens/PaymentsPanel.tsx), [useSaleInvoiceAction.ts](../SubsTrack/src/modules/transaction/sales/hooks/useSaleInvoiceAction.ts) (shared by [SalesPanel.tsx](../SubsTrack/src/modules/transaction/sales/screens/SalesPanel.tsx) + [CustomerSalesListScreen.tsx](../SubsTrack/src/modules/transaction/sales/screens/CustomerSalesListScreen.tsx))
 - Strings: the `invoice.*` namespace in `en.json` / `ar.json`
 - Related: [docs/features.md](../docs/features.md) → WhatsApp Invoices; gotchas #68, #69
 
@@ -22,7 +24,8 @@ Covers sending a customer their receipt over WhatsApp. The whole feature is a `w
 3. **Amounts in the message equal the amounts in the receipt sheet**, in the currency actually collected (the row's frozen snapshot rate). A later edit to that currency's live rate must not change an already-sent or re-sent invoice.
 4. **A voided payment or sale is never sendable.** The button is gone, not just disabled.
 5. **No phone → visible but disabled, with a caption.** Never a broken `wa.me/` link and never a silent no-op.
-6. **One customer, one message.** Paying several plans — or several selected months — at once produces a single chat, not one per plan/month.
+6. **One customer, one message.** Paying several plans — or several selected months/sales — at once produces a single chat, not one per plan/month. A selection that spans customers is **refused with a dialog**, never split into several chats.
+6b. **Re-sending writes nothing.** The "Send invoice" action on a selection of already-collected records only opens a chat: no payment, no sale, no void, no edit.
 7. **The receipt ID in the message matches the receipt sheet** (last 6 of the id, uppercased).
 8. **Saving never triggers the "Discard changes?" prompt** — via either button (see [unsaved-changes.md](unsaved-changes.md)).
 
@@ -98,6 +101,39 @@ Customer detail → long-press a month to enter selection, then tap more months.
 | 3b.13 | Toolbar fits | Selection with all 4 actions available (pay + pay & send + skip + void), narrow phone | All 4 are **icon-only round buttons** on one row, none clipped; the "N selected" count stays on **one line** (it was wrapping one character per line while the pills were labelled) |
 | 3b.14 | Icons are distinguishable | Same | Pay = lightning, Pay & send = WhatsApp logo, Skip = skip-forward, Void = red X. Long-press / screen-reader still announces the full label ("Pay & send on WhatsApp") |
 | 3b.15 | Arabic toolbar | Switch to Arabic, open a selection | Icons order right-to-left; the count label is Arabic and on one line |
+
+---
+
+## 3c. Multi-select records already collected — re-send them as one receipt
+
+The same toolbars that void a selection now carry a **receipt icon** action, "Send invoice on WhatsApp": the month grid (paid months), Payments history, and both sales lists. Nothing is written — this only re-sends.
+
+| #   | Scenario | Steps | Expected result |
+| --- | --- | --- | --- |
+| 3c.1 | Paid months in the grid | Customer detail → long-press a **paid** month, add 2 more paid months → **Send invoice** | ONE message, one bullet per month, a **Total paid** line, all 3 receipt IDs; selection clears; **nothing is paid, voided or changed** |
+| 3c.2 | Months collected on different days | Pick 3 paid months collected on 3 different days | **No** single "Paid on" header — each bullet ends with its own date |
+| 3c.3 | Months collected together | Pick months that were paid in one go (e.g. after a bulk pay) | The single "Paid on" header is back; bullets carry **no** dates (this is the quick-pay format, unchanged) |
+| 3c.4 | Oldest first | Select March, then January, then February | The message lists Jan → Feb → Mar, and the receipt IDs are in the same order |
+| 3c.5 | **Multi-month block** | Select a 3-month block (selecting one cell takes the whole block) → Send invoice | **ONE** bullet with the range ("Jan – Mar 2026"), **one** amount, **one** receipt ID — never three |
+| 3c.6 | Mixed selection | Select 2 unpaid + 2 paid months | Toolbar shows both "Pay & send" and "Send invoice"; **Send invoice** covers only the 2 paid months, pays nothing |
+| 3c.7 | Partial month | Select a partly-paid month | Its bullet shows the amount paid **and** "Remaining" |
+| 3c.8 | Voided month | Void a payment, then select that month | The month is no longer "paid", so it is not in the selection's receipt |
+| 3c.9 | Grid, no phone | Customer with no phone → select paid months | The Send-invoice action is **absent** (the toolbar has no room for a caption); Void still there |
+| 3c.10 | Toolbar fits (5 icons) | Selection with pay + pay & send + skip + send invoice + void, narrow phone | All 5 are icon-only round buttons on one row, none clipped; "N selected" stays on one line. Send invoice = **receipt** icon, distinct from the WhatsApp logo of "Pay & send" |
+| 3c.11 | Payments history | 3-dot → Payments history → long-press a row, select 2 more rows **of the same customer** → Send invoice | ONE message with all 3 months, dated per bullet, all receipt IDs; selection clears |
+| 3c.12 | Payments history, several customers | Select rows belonging to 2 different customers → Send invoice | Dialog: "One invoice goes to one number. Select records for a single customer." Nothing is sent; the selection stays |
+| 3c.13 | Payments history, voided rows | Select 2 live rows + 1 voided row → Send invoice | Only the 2 live rows are in the message (same rows the Void action would take) |
+| 3c.14 | Payments history, all voided | Select only voided rows | Neither Send invoice nor Void is offered |
+| 3c.15 | Payments history, no phone | Select rows of a customer with no phone | Dialog: "No phone number for this customer"; nothing sent |
+| 3c.16 | Sales tab | Transactions → Sales → select 3 sales of one customer → Send invoice | ONE message: a bullet per sale (`date · items summary: total`), then **Total**, **Paid**, **Remaining** (only if any is owed) and every receipt ID, oldest sale first |
+| 3c.17 | Sales, one partly paid | Include a partly-paid sale | That bullet shows its own "Remaining"; the footer **Remaining** is the sum |
+| 3c.18 | Sales, single row | Select exactly one sale → Send invoice | The message is the **normal single-sale receipt** (product lines, Sold at) — identical to the one from the sale's receipt sheet |
+| 3c.19 | Sales, walk-in | Select a walk-in sale (no customer) → Send invoice | Dialog: "Walk-in sale — no customer to send to" |
+| 3c.20 | Sales, several customers | Select sales of 2 customers | The "one number" dialog; nothing sent |
+| 3c.21 | Sales, voided | Select a voided sale together with a live one | Only the live sale is in the message |
+| 3c.22 | Customer sales page | Customer → Sales → Show all → select several → Send invoice | Same behaviour as the Sales tab (both lists share one hook) |
+| 3c.23 | Two currencies in one selection | Select paid months (or sales) collected in USD **and** LBP | **One total line per currency** — never a single mixed number |
+| 3c.24 | Void actions unchanged | Repeat any selection above and press **Void** instead | Voiding behaves exactly as before, including the void-order (newest first) rule |
 
 ---
 

@@ -33,8 +33,9 @@ export function GridSelectionToolbar({ count, actions, onClose }: Props) {
           {t("common.selected_count", { count })}
         </Text>
       </View>
-      {/* Icon-only: up to 4 actions (pay / pay & send / skip / void) are on this
-          one fixed-height row, and labelled pills overflow a phone width. */}
+      {/* Icon-only: up to 5 actions (pay / pay & send / skip / send invoice /
+          void) are on this one fixed-height row, and labelled pills overflow a
+          phone width. */}
       <View className="flex-row items-center gap-1.5">
         {actions.map((action) => (
           <PressableOpacity

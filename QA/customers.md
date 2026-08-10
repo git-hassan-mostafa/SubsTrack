@@ -1,6 +1,6 @@
 # Customers — QA Scenarios
 
-Covers the customer list, search/filter (including the Unpaid tab), action menu (long-press or ⋮), Quick Pay shortcut, customer detail (excluding the Monthly Grid which has its own file), and the create / edit / deactivate / reactivate / delete flows.
+Covers the customer list, search/filter (including the payment tabs: Unpaid / Overdue / Partly paid / Paid / Not due yet), action menu (long-press or ⋮), Quick Pay shortcut, customer detail (excluding the Monthly Grid which has its own file), and the create / edit / deactivate / reactivate / delete flows.
 
 Customers can be touched by both `admin` and `user` roles for view + create + edit + payment. Deactivate and **delete** are admin-only.
 
@@ -30,7 +30,7 @@ Customers can be touched by both `admin` and `user` roles for view + create + ed
 | 1.3  | First load empty               | Tenant has zero customers                                  | EmptyState "No customers found" + "Create First Customer" CTA when not searching                                                                                 |
 | 1.4  | First load with data           | Tenant has ≥1 customer                                     | Each customer rendered as a card: avatar (initials, color from name), name, plan name (or "No plan"), status pill, current month label, ⋮ menu icon at the right |
 | 1.5  | Loading state                  | Pull-to-refresh on slow network                            | Spinner; list does not flicker. After load, list returns to scroll position                                                                                      |
-| 1.6  | Filter tabs                    | Look below search                                          | Four tabs in order: Active, Unpaid, All, Inactive                                                                                                                |
+| 1.6  | Filter tabs                    | Look below search                                          | Eight tabs on ONE line that scrolls sideways, in order: Active, Unpaid, Overdue, Partly paid, Paid, Not due yet, All, Inactive                                    |
 | 1.7  | Default tab is Active          | Open the screen                                            | "Active" tab selected by default                                                                                                                                 |
 | 1.8  | Avatar color stability         | Same customer name                                         | Avatar color deterministic (charCode of first char modulo palette)                                                                                               |
 | 1.9  | Initials computed correctly    | Customer "Mary Jane Smith"                                 | "MJ" (first letters of first two whitespace-separated parts)                                                                                                     |
@@ -38,10 +38,19 @@ Customers can be touched by both `admin` and `user` roles for view + create + ed
 | 1.11 | Long customer name             | Overflow                                                   | One line, ellipsis-truncated                                                                                                                                     |
 | 1.12 | Status pill — inactive         | Inactive customer                                          | Gray "Inactive" pill (overrides everything else)                                                                                                                 |
 | 1.13 | Status pill — non-regular      | Active customer with `isRegular = false`                   | Amber "Non-Regular" pill (overrides paid/unpaid)                                                                                                                 |
-| 1.14 | Status pill — paid (regular)   | Active regular customer fully paid this month AND no unpaid past month | Green "✓ Paid" pill                                                                                                                                  |
-| 1.15 | Status pill — unpaid (regular) | Active regular customer with no payment this month | Red "Unpaid" pill — from **day 1** of the month (no grace period) |
-| 1.15a | Status pill — overdue past month | Active regular customer with current month paid (incl. a partial payment) BUT any earlier month unpaid | Red "Unpaid" pill (an overdue past month overrides a paid current month) |
-| 1.15b | Pill matches the grid | Day 1 of the month, no payment. Read the pill, then open the customer | Pill red "Unpaid" AND the grid cell red — never one red and the other grey |
+| 1.14 | Status pill — paid (regular)   | Active regular customer whose every plan is paid for **every** month it was required to pay | Green "✓ Paid" pill                                                                                                             |
+| 1.15 | Status pill — unpaid (regular) | Active regular customer with no payment this month, no earlier unpaid month | Red "Unpaid" pill — from **day 1** of the month (no grace period) |
+| 1.15a | Status pill — unpaid + overdue | Active regular customer with this month unpaid AND an earlier month unpaid | ONE red "Overdue" pill; the plain "Unpaid" pill is **not** repeated (months are settled oldest-first, so "Overdue" already means this month is unpaid) |
+| 1.15b | Pill matches the grid | Day 1 of the month, no payment. Read the pill, then open the customer | Pill red ("Unpaid" or "Overdue") AND the grid cell red — never one red and the other grey |
+| 1.15c | "✓ Paid" NEVER appears with "Overdue" | Single-plan customer whose current month is paid but an earlier month is unpaid (legacy data — the pay/void order rules block creating it now) | ONE red "Overdue" pill. No green "✓ Paid": a plan counts as paid only when it owes **nothing** |
+| 1.15d | Status pill — partly paid | Customer with 2 in-play plans, one owing nothing and one unpaid this month | Amber "1/2 plans paid" pill |
+| 1.15e | Partly paid + overdue | 3-plan customer: plan A owes nothing, plans B and C each have an earlier month unpaid (whatever this month's state) | TWO pills: amber "1/3 plans paid" **and** red "Overdue" — the only pill pair that can include a paid count |
+| 1.15f | Status pill — not due yet | `UnpaidStartRule = customer_start_day`, today is before every line's start day-of-month, nothing owed from earlier months | Gray "Not due yet" pill; no red pill |
+| 1.15g | Not due yet + a backlog | Same as 1.15f but one earlier month is unpaid | ONE red "Overdue" pill — owing money outranks "this month isn't due yet" |
+| 1.15h | Status pill — skipped | Every started line has this month skipped, nothing owed from earlier months | Slate "Skipped" pill |
+| 1.15i | Skipped + a backlog | Same as 1.15h but one earlier month is unpaid | ONE red "Overdue" pill — a skip excuses its own month, never a backlog |
+| 1.15j | A skipped month is not required | Line paid through last month, this month skipped | Green "✓ Paid" pill — the skipped month is treated as if it did not exist, so the customer owes nothing |
+| 1.15k | Pills = tabs | Read a customer's pills, then visit each tab | The customer appears in **exactly** the tabs matching their pills — one shared helper (`customerFlags`) decides both |
 | 1.16 | Long-press opens menu          | Long-press on a card                                       | ActionMenu opens (same as ⋮ tap)                                                                                                                                 |
 | 1.17 | Tap menu icon                  | Tap ⋮ on a card                                            | ActionMenu opens                                                                                                                                                 |
 
@@ -63,16 +72,32 @@ Search is debounced (see [useDebounce.ts](SubsTrack/src/shared/hooks/useDebounce
 
 ## 3. Filter tabs
 
+The five payment tabs are the card's payment pills, one tab per pill (`customerFlags`): a customer is in a tab **if and only if** their card shows that pill. All five cover **active + regular** customers only. There is deliberately no "Skipped" tab — nothing is owed, so there is nothing to work through. "Paid" means the customer owes **nothing** (every required month of every plan), so Paid and Overdue can never hold the same customer; "Partly paid" + Overdue is the one legal overlap.
+
 | #   | Scenario                               | Steps                                   | Expected result                                                                                       |
 | --- | -------------------------------------- | --------------------------------------- | ----------------------------------------------------------------------------------------------------- |
 | 3.1 | Active tab                             | Tap "Active"                            | Only active customers (irrespective of regular/non-regular)                                           |
-| 3.2 | Unpaid tab                             | Tap "Unpaid"                            | Active REGULAR customers that either have no payment this month OR have any unpaid past month (overdue). Non-regular customers excluded |
-| 3.2a | Unpaid tab on day 1                   | Day 1 of the month, nobody has paid yet | Every active regular customer appears (a month is unpaid from day 1 — no grace period) |
+| 3.2 | Unpaid tab                             | Tap "Unpaid"                            | Active REGULAR customers whose **every** due plan is unpaid this month AND who have **no** earlier unpaid month — i.e. exactly the customers you can collect right now |
+| 3.2a | Unpaid tab on day 1                   | Day 1 of the month, nobody has paid yet | Every active regular customer with no backlog appears (a month is unpaid from day 1 — no grace period) |
+| 3.2b | Unpaid tab excludes overdue           | Customer with this month AND an earlier month unpaid | NOT in Unpaid — they are in Overdue instead (their backlog must be cleared first; the current month is not payable yet) |
+| 3.2c | Unpaid tab honors the tenant rule     | `UnpaidStartRule = customer_start_day`, today is before the line's start day | NOT in Unpaid (nothing owed yet) — they are in "Not due yet". Switch the setting to `month_start` → they move to Unpaid |
+| 3.2d | Overdue tab                            | Tap "Overdue"                           | Active REGULAR customers with at least one plan holding an **earlier** month unpaid, whatever this month's state is |
+| 3.2e | Partly paid tab                        | Tap "Partly paid"                       | Customers with 2+ in-play plans where some owe nothing and some still owe (the "N/M plans paid" pill) |
+| 3.2f | Paid tab                               | Tap "Paid"                              | Customers whose **every** plan is paid for **every** required month (a partial payment counts as paid — the remainder is a debt) |
+| 3.2g | Not due yet tab                        | Tap "Not due yet"                       | Customers who owe nothing at all and have no month due this month for a reason that is not a skip: no started plan, no plan at all, or the `customer_start_day` billing day not reached |
+| 3.2h | Paid tab excludes overdue              | Customer whose current month is paid but who has an earlier unpaid month | NOT in Paid — only in Overdue. "Paid" means owes nothing, so the two tabs can never share a customer |
+| 3.2i | A customer can be in two tabs          | 3-plan customer: one plan owing nothing, one with an earlier unpaid month | Listed in BOTH Partly paid and Overdue — the one pill pair that coexists |
+| 3.2j | Non-regular / inactive excluded        | Non-regular or inactive customer        | Absent from all five payment tabs (their card shows "Non-Regular" / "Inactive" instead of a payment pill) |
+| 3.2k | Status still loading                   | Open the screen on a slow network and tap a payment tab before badges appear | List is empty rather than wrongly populated — an uncomputed status is never guessed |
 | 3.3 | All tab                                | Tap "All"                               | All customers                                                                                         |
 | 3.4 | Inactive tab                           | Tap "Inactive"                          | Only inactive customers                                                                               |
 | 3.5 | Tab + search combine                   | On any tab, type                        | Filter applied to the tab's set                                                                       |
 | 3.6 | Tab persists during scroll             | Scroll list, scroll back                | Active tab unchanged                                                                                  |
 | 3.7 | Tab does NOT persist across navigation | Switch tab, leave Customers tab, return | Tab resets to default "Active" (state is per-mount)                                                   |
+| 3.8 | Tabs scroll sideways                   | Open the filter row on a narrow phone, drag it left | The row stays a single line and scrolls; every tab reachable, no scrollbar shown, row height unchanged |
+| 3.8a | Tab tap while typing                  | Type in search (keyboard up), tap a tab | The tab is selected on the first tap (the keyboard closing does not swallow it)                        |
+| 3.8b | Tabs scroll in Arabic                 | Switch to Arabic, open the filter row   | Row starts at the right; scrolls the other way; every tab reachable                                   |
+| 3.9 | Tab set stays correct after a payment  | On Unpaid, quick-pay a customer, then check Paid | They leave Unpaid and appear in Paid without a manual refresh (badges refresh after the write) |
 
 ## 4. Pagination & refresh
 

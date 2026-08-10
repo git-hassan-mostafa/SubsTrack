@@ -43,6 +43,7 @@ import { SaleCard } from "../components/SaleCard";
 import { SaleFormSheet } from "../components/SaleFormSheet";
 import { SaleDetailSheet } from "../components/SaleDetailSheet";
 import { SaleBulkVoidSheet } from "../components/SaleBulkVoidSheet";
+import { useSaleInvoiceAction } from "../hooks/useSaleInvoiceAction";
 import { useSaleSlice } from "@/src/state/hooks/useSaleSlice";
 import { useProductSlice } from "@/src/state/hooks/useProductSlice";
 import { useAuth } from "@/src/modules/authentication/auth";
@@ -151,12 +152,14 @@ export function SalesPanel() {
   }
 
   const selectedSales = sales.filter((s) => selectedIds.has(s.id));
+  const invoiceAction = useSaleInvoiceAction(selectedSales, clearSelection);
 
-  // Selection toolbar: one "void" action that opens the shared-reason sheet for
-  // every selected sale.
+  // Selection toolbar: one receipt covering the selected sales, plus a "void"
+  // action that opens the shared-reason sheet for every selected sale.
   function buildSelectionActions(selected: Sale[]): SelectionAction[] {
     if (selected.length === 0) return [];
     return [
+      ...(invoiceAction ? [invoiceAction] : []),
       {
         key: "void",
         icon: "close-circle-outline",

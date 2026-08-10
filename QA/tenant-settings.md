@@ -74,18 +74,18 @@ Tenant-wide setting stored in the `tenant_settings` table (key `UnpaidStartRule`
 | 2b.10c | No duplicate red | Current month unpaid AND an earlier month unpaid | Only the red "Overdue" pill shows — the plain "Unpaid" pill is suppressed so the card never shows two red pills saying the same thing |
 | 2b.11 | Short-month clamp | Line starts on the 31st, current month is February | Due day clamps to the last day of February — the month still becomes unpaid, never skipped entirely |
 | 2b.12 | Start day = 1 | Line starts on the 1st | Both rules behave identically for that line |
-| 2b.13 | Multi-plan, mixed due days | Lines start on the 5th and the 25th; today is the 10th | Only the 5th line counts as due — the "N/M plans paid" tally excludes the not-yet-due line |
-| 2b.14 | Multi-plan all not due | Every line is before its start day | Card shows "Not due yet"; quick pay still offered for those lines |
+| 2b.13 | Multi-plan, mixed due days | Lines start on the 5th and the 25th (both started months ago, every earlier month paid); today is the 10th and nothing is paid this month | Amber **"1/2 plans paid"** — the 5th line owes this month, the 25th owes nothing yet, and a line that owes nothing counts as paid |
+| 2b.14 | Multi-plan all not due | Every line is before its start day, nothing owed from earlier months | Card shows "Not due yet"; quick pay still offered for those lines |
 | 2b.15 | Switch back to month_start | Change the rule back | Every current month immediately reads red again where unpaid |
 | 2b.16 | Non-admin cannot write | Login as `user` role | Admin tab hidden. A direct write is rejected by the `tenant_settings_write` RLS policy |
 | 2b.17 | Tenant isolation | Tenant A sets start-day rule | Tenant B still on its own value (RLS scopes reads to `current_tenant_id()`) |
 | 2b.18 | Offline change (native) | Go offline, change the rule, reconnect | Saved to the local mirror, flagged dirty, pushed on the next sync; converges on the `(tenant_id, key)` natural key |
 | 2b.19 | Two devices change it offline | Both set a different value offline, then sync | Latest `updated_at` wins; both devices converge to one row (no duplicate-key stall) |
 | 2b.20 | Logout isolation | Logout, login as a different tenant | The previous tenant's rule does not leak (slice is reset on logout) |
-| 2b.21 | The reported case | Rule = start day, line starts **13/5/2026**, nothing paid, today is **4/8/2026** | Card shows grey **"Not due yet"** + red **"Overdue"**. Opening the customer shows August grey and May/June/July red |
+| 2b.21 | The reported case | Rule = start day, line starts **13/5/2026**, nothing paid, today is **4/8/2026** | Card shows ONE red **"Overdue"** pill — the customer owes May/June/July, which outranks "August isn't due yet". Opening the customer shows August grey and May/June/July red |
 | 2b.22 | Badge must not change by itself | Same customer — open the list, wait, open a customer detail, come back | The pills are identical on the first paint and after returning. Nothing ever flips from grey to red on its own (both facts come from one query) |
 | 2b.23 | No badge before data | Watch the list on a cold start | A card may briefly show **no** payment pill while the status loads; it must never show a red "Unpaid" that later turns grey. The flags row keeps its height so nothing jumps |
-| 2b.24 | Skipped customer with old debt | Every line skipped this month, an earlier month unpaid | Card shows slate "Skipped" **and** red "Overdue" |
+| 2b.24 | Skipped customer with old debt | Every line skipped this month, an earlier month unpaid | Card shows ONE red "Overdue" pill — no slate "Skipped": a skip excuses its own month, never a backlog |
 | 2b.25 | Unpaid tab during first load | Rule = start day, open the Unpaid tab immediately on app start | Customers appear once their status lands. Nobody is listed or hidden on missing data |
 | 2b.26 | Badges cleared on logout | Login as tenant A, view the customer list, logout, login as tenant B | Tenant B's list shows no leftover badges from tenant A |
 | 2b.27 | Quick pay still offered | Rule = start day, customer's only line is not due yet and unpaid | "Pay now" is still offered for that line (pay early is allowed) and paying it turns the pill green |

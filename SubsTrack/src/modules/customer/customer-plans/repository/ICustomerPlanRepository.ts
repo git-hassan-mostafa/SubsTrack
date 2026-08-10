@@ -15,5 +15,11 @@ export interface ICustomerPlanRepository {
   ): Promise<DbCustomerPlan>;
   cancel(id: string): Promise<DbCustomerPlan>;
   delete(id: string): Promise<void>;
+  // Counts EVERY payment row, voided ones included — a line whose payments were
+  // voided still has history that a hard delete would take with it.
   countPayments(id: string): Promise<number>;
+  // The customer's line ids that hold real, still-standing money (non-voided,
+  // amount_paid > 0) — one query for the whole form. A line in here has its start
+  // date locked: moving it would invent or hide months a payment already covers.
+  findPaidLineIds(customerId: string): Promise<string[]>;
 }

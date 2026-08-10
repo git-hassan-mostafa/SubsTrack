@@ -126,4 +126,13 @@ export class OfflineCustomerPlanRepository
   async countPayments(id: string): Promise<number> {
     return this.count('SELECT COUNT(*) AS n FROM payments WHERE customer_plan_id = ?', [id]);
   }
+
+  async findPaidLineIds(customerId: string): Promise<string[]> {
+    const rows = await this.all<{ customer_plan_id: string }>(
+      `SELECT DISTINCT customer_plan_id FROM payments
+       WHERE customer_id = ? AND voided_at IS NULL AND CAST(amount_paid AS REAL) > 0`,
+      [customerId],
+    );
+    return rows.map((r) => r.customer_plan_id);
+  }
 }
