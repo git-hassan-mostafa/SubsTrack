@@ -56,14 +56,18 @@ export function CustomerDetailScreen() {
         title={customer?.name ?? ""}
         showBack
         onBack={() => router.back()}
-        actionLabel={t("common.edit")}
-        onAction={() => setEditVisible(true)}
         iconActions={[
           {
             key: "history",
             icon: "time-outline",
             label: t("audit.customer_history_action"),
             onPress: () => setHistoryVisible(true),
+          },
+          {
+            key: "edit",
+            icon: "create-outline",
+            label: t("common.edit"),
+            onPress: () => setEditVisible(true),
           },
         ]}
         hideBranchSelector

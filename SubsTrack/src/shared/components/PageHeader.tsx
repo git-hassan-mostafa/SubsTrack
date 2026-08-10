@@ -36,8 +36,6 @@ interface PageHeaderProps {
   subtitle?: string;
   showBack?: boolean;
   onBack?: () => void;
-  actionLabel?: string;
-  onAction?: () => void;
   /** Icon buttons for THIS screen, rendered before the branch chip. */
   iconActions?: PageHeaderIconAction[];
   hideBranchSelector?: boolean;
@@ -52,8 +50,6 @@ export function PageHeader({
   subtitle,
   showBack,
   onBack,
-  actionLabel,
-  onAction,
   iconActions,
   hideBranchSelector,
   hideQuickActions,
@@ -88,16 +84,6 @@ export function PageHeader({
             <Text className="text-xs text-gray-400">{subtitle}</Text>
           ) : null}
         </View>
-        {actionLabel && onAction ? (
-          <PressableOpacity
-            onPress={onAction}
-            className="bg-primary rounded-full px-4 py-2"
-          >
-            <Text className="text-white font-semibold text-sm">
-              {actionLabel}
-            </Text>
-          </PressableOpacity>
-        ) : null}
         {iconActions?.map((action) => (
           <PressableOpacity
             key={action.key}
@@ -128,4 +114,3 @@ export function PageHeader({
     </View>
   );
 }
-
