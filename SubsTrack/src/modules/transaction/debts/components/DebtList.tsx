@@ -17,8 +17,9 @@ interface Props {
   loading?: boolean;
   // Message shown when there is nothing to list. Defaults to the customer-panel copy.
   emptyMessage?: string;
-  // Optional row actions. Omit all three for a read-only list (no menus) — that's
-  // how the customer-detail panel uses it; the debtor modal wires them up.
+  // Optional row actions, surfaced as each row's 3-dot menu. Both callers (the
+  // debtor modal and the customer-detail panel) wire all three up via
+  // `useDebtRowActions`; omit them for a read-only list (no menus).
   onPay?: (item: DebtItem) => void;
   onVoidItem?: (item: DebtItem) => void;
   onVoidPayment?: (payment: DebtPaymentItem) => void;
@@ -30,8 +31,8 @@ interface Props {
 // (DebtItem.createdAt / DebtPayment.paidAt) — the same interleaving as
 // DebtHistorySheet. Always `hideCustomerName`
 // (rendered on a single-customer surface). Purely presentational — the container
-// owns the title / net header. Reused by CustomerDebtsPanel (read-only) and
-// DebtorDetailSheet (interactive).
+// owns the title / net header and supplies the row actions. Reused by
+// CustomerDebtsPanel and DebtorDetailSheet, both interactive.
 export function DebtList({
   items,
   payments,

@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next";
 import type { Sale } from "@/src/core/types";
 import type { SelectionAction } from "@/src/shared/components/SelectionBar";
-import { useSendInvoice } from "@/src/modules/invoicing";
+import { useSendInvoice, WhatsAppComboIcon } from "@/src/modules/invoicing";
 
 // The "send invoice" selection action shared by the two sales lists (the
 // Transactions tab and the per-customer page): one receipt covering every
@@ -34,6 +34,7 @@ export function useSaleInvoiceAction(
   return {
     key: "send-invoice",
     icon: "receipt-outline",
+    renderIcon: (size) => <WhatsAppComboIcon variant="report" size={size} />,
     label: t("invoice.send_invoice_whatsapp"),
     onPress: () => void send(),
   };

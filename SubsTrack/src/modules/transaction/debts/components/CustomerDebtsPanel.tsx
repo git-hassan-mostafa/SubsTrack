@@ -17,6 +17,7 @@ import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import debtService from "../services/DebtService";
+import { useDebtRowActions } from "../hooks/useDebtRowActions";
 import { DebtList } from "./DebtList";
 import { CustomDebtFormSheet } from "./CustomDebtFormSheet";
 import { DebtPaymentFormSheet } from "./DebtPaymentFormSheet";
@@ -32,7 +33,9 @@ const EMPTY_SUMMARY: DebtSummary = { grossUsd: 0, paymentsUsd: 0, netUsd: 0 };
 // against them, with the net still-owed figure. Reads independently from the
 // global `debts` slice (via the service) so the customer-scoped view never
 // collides with the Transactions → Debts tab's filter/list state — same pattern
-// as CustomerSalesPanel. Read-only: mutations live in the Debts tab.
+// as CustomerSalesPanel. Rows carry the same 3-dot actions as the Debts tab
+// (pay a debt / remove a custom debt / remove a debt payment); because the data
+// is local, each action re-reads it via `refresh`.
 export function CustomerDebtsPanel({ customer }: Props) {
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
@@ -63,6 +66,10 @@ export function CustomerDebtsPanel({ customer }: Props) {
       if (tokenRef.current === token) setLoading(false);
     }
   }, [customer.id]);
+
+  const { payItem, voidItem, voidPayment } = useDebtRowActions({
+    onChanged: refresh,
+  });
 
   // Refresh on focus so debts/payments recorded in the Debts tab show on return.
   useFocusEffect(
@@ -104,7 +111,14 @@ export function CustomerDebtsPanel({ customer }: Props) {
         </View>
       </View>
 
-      <DebtList items={items} payments={payments} loading={loading} />
+      <DebtList
+        items={items}
+        payments={payments}
+        loading={loading}
+        onPay={payItem}
+        onVoidItem={voidItem}
+        onVoidPayment={voidPayment}
+      />
 
       <ActionMenu
         visible={menuOpen}

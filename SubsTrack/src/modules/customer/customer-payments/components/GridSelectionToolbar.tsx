@@ -48,11 +48,15 @@ export function GridSelectionToolbar({ count, actions, onClose }: Props) {
               action.disabled ? "opacity-40" : ""
             }`}
           >
-            <Ionicons
-              name={action.icon}
-              size={18}
-              color={action.destructive ? COLORS.danger : COLORS.primary}
-            />
+            {action.renderIcon ? (
+              action.renderIcon(18)
+            ) : (
+              <Ionicons
+                name={action.icon}
+                size={18}
+                color={action.destructive ? COLORS.danger : COLORS.primary}
+              />
+            )}
           </PressableOpacity>
         ))}
       </View>

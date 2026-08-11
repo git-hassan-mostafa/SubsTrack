@@ -56,7 +56,7 @@ The panel is a **single debtors list** (no sub-tabs). A net-total summary header
 | 1b.5 | Add debt from modal | In the modal, header **"+" menu** → Add custom debt → amount → save | Customer is pre-filled (read-only, locked to this debtor); debt appears in the modal's Debts history live; net rises |
 | 1b.6 | Add payment from modal | In the modal, header **"+" menu** → Record debt payment → amount → save | Payment appears in Debt payments history live; net drops |
 | 1b.7 | Pay a debt row from modal | In the modal, a debt row's menu → **Pay** → confirm | A debt payment is recorded; net drops; on returning to the list the debtor reflects the new net (or drops off if settled) |
-| 1b.8 | Void payment from modal | In the modal, tap a debt-payment row → confirm | Payment voided; net rises back |
+| 1b.8 | Void payment from modal | In the modal, a debt-payment row's **3-dot menu** → **Remove** → confirm | Payment voided; net rises back |
 | 1b.9 | Pay full from row menu | On a debtor row, 3-dot menu → **Pay full debt** → confirm | A single USD debt payment clears the whole net; row drops off the list |
 
 ---
@@ -79,9 +79,9 @@ The FAB add menu (Add custom debt / Record debt payment) is **picker-driven** �
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 3.1 | Void custom debt | In a debtor's detail modal, tap a Custom row → confirm | Row disappears; total drops; row still in DB (voided) |
-| 3.2 | Void debt payment | In a debtor's detail modal, tap a debt-payment row → confirm | Row disappears; net debt rises back up |
-| 3.3 | Months/sales not voidable here | Tap a Months or Sales row in the modal | No void prompt (void the underlying payment/sale in its own tab) |
+| 3.1 | Void custom debt | In a debtor's detail modal, a Custom row's 3-dot menu → **Remove** → confirm | Row disappears; total drops; row still in DB (voided) |
+| 3.2 | Void debt payment | In a debtor's detail modal, a debt-payment row's 3-dot menu → **Remove** → confirm | Row disappears; net debt rises back up |
+| 3.3 | Months/sales not voidable here | Open a Months or Sales row's 3-dot menu in the modal | Only **Pay** is offered — no Remove (void the underlying payment/sale in its own tab) |
 | 3.4 | Credit (overpayment) | Record debt payments exceeding total debt | Header shows a green **Credit** amount (net negative), not a debtor total |
 
 ---
@@ -128,6 +128,26 @@ A subscription debt is *about* a billing month but was *created* the day the sho
 | 5a.6 | Debt payment | Record a debt payment today | Appears under TODAY, in green |
 | 5a.7 | Order across categories | Mix a month debt (future billing month), a sale debt and a custom debt recorded minutes apart | Ordered by **recorded time**, newest first — the future billing month does not jump to the top |
 | 5a.8 | Debtor detail list matches | Open a debtor's detail sheet with the same mix | The same recorded-date ordering as the history sheet (both read `DebtItem.createdAt`) |
+
+---
+
+## 6. Customer detail page — Debts panel actions
+
+The Debts panel on a customer's detail page now carries the **same row actions** as the Debts tab (it shares one `useDebtRowActions` hook). Unlike the tab, the panel reads its data itself, so every action must refresh the panel too.
+
+| # | Scenario | Steps | Expected result |
+|---|----------|-------|-----------------|
+| 6.1 | Debt row menu | Customer detail → Debts panel → a debt row's **3-dot menu** | Menu opens with **Pay** (and **Remove** only on a Custom row) — identical to the debtor modal |
+| 6.2 | Pay a debt row | A debt row's menu → **Pay** → confirm | A debt payment for the row's remaining amount is recorded in the **row's own currency**; the row disappears from the panel and the panel's net drops — **without leaving the page** |
+| 6.3 | Remove a custom debt | A Custom row's menu → **Remove** → confirm | Row disappears from the panel live; net drops |
+| 6.4 | Months/sales have no Remove | Open a Months or Sales row's menu | Only **Pay** — no Remove (void the underlying payment/sale in its own tab) |
+| 6.5 | Remove a debt payment | A debt-payment row's **3-dot menu** → **Remove** → confirm | Payment disappears from the panel live; net rises back up |
+| 6.6 | Tapping a row does nothing | Tap a debt or debt-payment row's body (not the 3-dot) | Nothing happens — actions are menu-only on both surfaces (the old tap-to-void on payment rows is gone) |
+| 6.7 | Cancel leaves it alone | Open any action → cancel the confirm dialog | No debt payment recorded, nothing voided, panel unchanged |
+| 6.8 | Debts tab agrees | Do 6.2 / 6.3 / 6.5, then open Transactions → Debts | The tab's debtors list + net already reflect the change (no manual refresh) — the action goes through the shared slice |
+| 6.9 | Customer-list debt badge agrees | Pay off a customer's whole debt from the panel, then open the customer list | The **Has debts** badge/tab no longer includes that customer (`netByCustomer` was refreshed) |
+| 6.10 | Panel net after payoff | Pay every debt row from the panel | The panel's header amount reaches 0 and the list shows the "no transactions" empty message only if no payments remain |
+| 6.11 | Offline | Airplane mode → pay a debt row from the panel | Works and shows immediately; syncs on reconnect |
 
 ### 5c. One-sided groups
 

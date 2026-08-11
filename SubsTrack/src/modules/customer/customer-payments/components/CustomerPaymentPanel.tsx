@@ -59,7 +59,7 @@ import {
 } from "@/src/shared/hooks/useSelection";
 import type { SelectionAction } from "@/src/shared/components/PageHeader";
 import { UpgradePromptModal } from "@/src/modules/admin/subscription";
-import { useSendInvoice } from "@/src/modules/invoicing";
+import { useSendInvoice, WhatsAppComboIcon } from "@/src/modules/invoicing";
 import { usePaymentSlice } from "@/src/state/hooks/usePaymentSlice";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { getStore } from "@/src/state/globalStore";
@@ -545,6 +545,9 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
         key: "quick-pay-whatsapp",
         label: t("invoice.pay_and_send_whatsapp"),
         icon: "logo-whatsapp",
+        renderIcon: (size: number) => (
+          <WhatsAppComboIcon variant="pay" size={size} />
+        ),
         disabled: !sendable,
         caption: sendable ? undefined : t("invoice.no_phone"),
         onPress: () => void handleQuickPay(entry, true),
@@ -797,6 +800,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
       selectionActions.push({
         key: "pay-whatsapp",
         icon: "logo-whatsapp",
+        renderIcon: (size) => <WhatsAppComboIcon variant="pay" size={size} />,
         label: t("invoice.pay_and_send_whatsapp"),
         disabled: bulkBusy,
         onPress: () => runBulkPay(true),
@@ -827,6 +831,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
     selectionActions.push({
       key: "send-invoice",
       icon: "receipt-outline",
+      renderIcon: (size) => <WhatsAppComboIcon variant="report" size={size} />,
       label: t("invoice.send_invoice_whatsapp"),
       disabled: bulkBusy,
       onPress: () => void sendSelectedInvoice(),

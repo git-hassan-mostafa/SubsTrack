@@ -1,8 +1,13 @@
+import { useState } from "react";
 import { View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
 import { COLORS } from "@/src/shared/constants";
 import { EntityCard } from "@/src/shared/components/EntityCard";
+import {
+  ActionMenu,
+  type ActionMenuItem,
+} from "@/src/shared/components/ActionMenu";
 import type { DebtPaymentItem } from "@/src/core/types";
 import {
   findCurrency,
@@ -16,6 +21,8 @@ import { formatDate } from "@/src/core/utils/date";
 
 interface Props {
   payment: DebtPaymentItem;
+  // Offered through the row's 3-dot menu (same shape as DebtItemCard). Omit for
+  // a read-only list — the menu then disappears.
   onVoid?: (payment: DebtPaymentItem) => void;
   // On a single-customer surface the name is redundant on every row; when true
   // the notes/label becomes the primary line instead of the customer name.
@@ -28,17 +35,30 @@ export function DebtPaymentCard({ payment, onVoid, hideCustomerName }: Props) {
   const displayCurrencyId = useDisplayCurrencyId();
   const { language } = useLanguageStore();
   const locale = language === "ar" ? "ar" : "en-US";
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const source = paymentSnapshotCurrency(payment, currencies);
   const target = findCurrency(currencies, displayCurrencyId);
   const amountLabel = formatMoney(payment.amount, source, target);
 
+  const actions: ActionMenuItem[] = [];
+  if (onVoid) {
+    actions.push({
+      key: "remove",
+      label: t("debts.remove"),
+      icon: "trash-outline",
+      destructive: true,
+      onPress: () => onVoid(payment),
+    });
+  }
+
   return (
+    <>
     <EntityCard
       icon="cash-outline"
       iconColor={COLORS.success}
       iconBgClassName="bg-emerald-50"
-      onPress={onVoid ? () => onVoid(payment) : undefined}
+      onMenu={actions.length > 0 ? () => setMenuOpen(true) : undefined}
     >
       <View className="flex-1">
         <Text className="text-base font-semibold text-gray-900" numberOfLines={1}>
@@ -63,5 +83,15 @@ export function DebtPaymentCard({ payment, onVoid, hideCustomerName }: Props) {
         </Text>
       </View>
     </EntityCard>
+
+    <ActionMenu
+      visible={menuOpen}
+      title={
+        payment.notes?.trim() ? payment.notes : t("debts.debt_payment")
+      }
+      actions={actions}
+      onDismiss={() => setMenuOpen(false)}
+    />
+    </>
   );
 }

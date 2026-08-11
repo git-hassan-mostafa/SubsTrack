@@ -194,6 +194,7 @@ SubsTrack/
 │   │   │   ├── repository/DebtRepository.ts    # custom_debts + debt_payments CRUD/reads (+ .offline sibling)
 │   │   │   ├── services/DebtService.ts         # composes partial payments + partial sales + custom_debts → DebtItem[] + USD DebtSummary
 │   │   │   ├── utils/debtAggregations.ts        # client-side sumDebtNetUsd + groupDebtors (Debtor[]) over already-loaded rows
+│   │   │   ├── hooks/useDebtRowActions.ts       # the shared row actions (pay debt / remove custom debt / remove debt payment): confirm + slice call, used by BOTH the Debts tab and the customer-detail panel
 │   │   │   ├── screens/DebtsPanel.tsx           # Debts segment of the hub: Debtors / Debts / Payments sub-tabs (PillTabs)
 │   │   │   └── components/{DebtItemCard, DebtPaymentCard, DebtList, DebtorCard, DebtorDetailSheet, CustomerDebtsPanel, CustomDebtFormSheet, DebtPaymentFormSheet}.tsx  # DebtList = shared list body (Debtor modal + customer detail)
 │   │   │

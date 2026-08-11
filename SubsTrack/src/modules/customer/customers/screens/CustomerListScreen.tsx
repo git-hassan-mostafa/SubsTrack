@@ -20,7 +20,7 @@ import { useDebounce } from "@/src/shared/hooks/useDebounce";
 import { COLORS } from "@/src/shared/constants";
 import { useSubscriptionSlice } from "@/src/state/hooks/useSubscriptionSlice";
 import type { Customer, Payment } from "@/src/core/types";
-import { useSendInvoice } from "@/src/modules/invoicing";
+import { useSendInvoice, WhatsAppComboIcon } from "@/src/modules/invoicing";
 import { CustomerCard } from "../components/CustomerCard";
 import {
   customerFlags,
@@ -653,6 +653,9 @@ export function CustomerListScreen() {
           key: "quick-pay-whatsapp",
           label: t("invoice.pay_and_send_whatsapp"),
           icon: "logo-whatsapp",
+          renderIcon: (size: number) => (
+            <WhatsAppComboIcon variant="pay" size={size} />
+          ),
           disabled: !sendable,
           caption: sendable ? undefined : t("invoice.no_phone"),
           onPress: () => void handleQuickPay(customer, true),

@@ -24,12 +24,12 @@ import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { useDebtSlice } from "@/src/state/hooks/useDebtSlice";
-import type { DebtItem, DebtPaymentItem } from "@/src/core/types";
 import {
   groupDebtors,
   sumDebtNetUsd,
   type Debtor,
 } from "../utils/debtAggregations";
+import { useDebtRowActions } from "../hooks/useDebtRowActions";
 import { DebtorCard } from "../components/DebtorCard";
 import { DebtorDetailSheet } from "../components/DebtorDetailSheet";
 import { CustomDebtFormSheet } from "../components/CustomDebtFormSheet";
@@ -52,9 +52,10 @@ export function DebtsPanel() {
   const error = useDebtSlice((s) => s.error);
   const fetchDebts = useDebtSlice((s) => s.fetchDebts);
   const addDebtPayment = useDebtSlice((s) => s.addDebtPayment);
-  const voidCustomDebt = useDebtSlice((s) => s.voidCustomDebt);
-  const voidDebtPayment = useDebtSlice((s) => s.voidDebtPayment);
   const clearError = useDebtSlice((s) => s.clearError);
+
+  // The per-row actions are shared with the customer-detail panel.
+  const { payItem, voidItem, voidPayment } = useDebtRowActions();
 
   const branchFilter = useEffectiveBranchFilter();
   const [debtorSearch, setDebtorSearch] = useState("");
@@ -94,31 +95,6 @@ export function DebtsPanel() {
   const isCredit = net < -1e-9;
   const netLabel = formatMoney(Math.abs(net), null, target);
 
-  // Pay off a debt row by recording a debt payment equal to its remaining
-  // amount, in the row's own currency. This never touches the underlying
-  // payment/sale — it only offsets the customer's runtime debt total.
-  async function handlePayItem(item: DebtItem) {
-    if (!user) return;
-    const source = findCurrency(currencies, item.currencyId);
-    const ok = await confirm({
-      title: t("debts.pay_title"),
-      message: t("debts.pay_message", {
-        amount: formatMoney(item.remaining, source, target),
-        customer: item.customerName,
-      }),
-      confirmLabel: t("debts.pay"),
-    });
-    if (!ok) return;
-    await addDebtPayment({
-      customerId: item.customerId,
-      amount: item.remaining,
-      notes: null,
-      currency: source,
-      receivedByUserId: user.id,
-      tenantId: user.tenantId,
-    });
-  }
-
   // Pay off a debtor's WHOLE net in one shot: a single debt payment equal to
   // their net debt, recorded in USD (the net is USD-canonical, so this clears
   // the total exactly — the service caps at the net owed either way).
@@ -141,28 +117,6 @@ export function DebtsPanel() {
       receivedByUserId: user.id,
       tenantId: user.tenantId,
     });
-  }
-
-  async function handleVoidItem(item: DebtItem) {
-    if (!user || item.category !== "custom") return;
-    const ok = await confirm({
-      title: t("debts.void_custom_title"),
-      message: t("debts.void_custom_message"),
-      confirmLabel: t("common.delete"),
-      destructive: true,
-    });
-    if (ok) await voidCustomDebt(item.id, user.id, null);
-  }
-
-  async function handleVoidPayment(p: DebtPaymentItem) {
-    if (!user) return;
-    const ok = await confirm({
-      title: t("debts.void_payment_title"),
-      message: t("debts.void_payment_message"),
-      confirmLabel: t("common.delete"),
-      destructive: true,
-    });
-    if (ok) await voidDebtPayment(p.id, user.id, null);
   }
 
   // Re-derived from the slice each render so a pay/void/add in the modal reflects
@@ -310,9 +264,9 @@ export function DebtsPanel() {
           items={openDebtor.items}
           payments={openDebtor.payments}
           onDismiss={() => setOpenDebtorId(null)}
-          onPay={handlePayItem}
-          onVoidItem={handleVoidItem}
-          onVoidPayment={handleVoidPayment}
+          onPay={payItem}
+          onVoidItem={voidItem}
+          onVoidPayment={voidPayment}
         />
       )}
 

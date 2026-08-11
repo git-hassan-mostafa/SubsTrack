@@ -32,7 +32,7 @@ import {
 } from "@/src/shared/hooks/useSelection";
 import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
 import { CustomerPicker } from "@/src/modules/customer/customers";
-import { useSendInvoice } from "@/src/modules/invoicing";
+import { useSendInvoice, WhatsAppComboIcon } from "@/src/modules/invoicing";
 import {
   getDateMonthsAgoString,
   getTodayDateString,
@@ -196,6 +196,7 @@ export function PaymentsPanel() {
       {
         key: "send-invoice",
         icon: "receipt-outline",
+        renderIcon: (size) => <WhatsAppComboIcon variant="report" size={size} />,
         label: t("invoice.send_invoice_whatsapp"),
         onPress: () => void sendSelectionInvoice(live),
       },
