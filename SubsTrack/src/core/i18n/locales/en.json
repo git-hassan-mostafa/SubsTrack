@@ -211,6 +211,7 @@
     "overdue": "Overdue",
     "partly_paid": "Partly paid",
     "debt": "Debt",
+    "has_debts": "Has debts",
     "plans_paid_count": "{{paid}}/{{total}} plans paid",
     "regular_label": "Regular Customer",
     "regular_hint": "Regular customers are expected to pay every month",

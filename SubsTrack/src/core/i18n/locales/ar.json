@@ -211,6 +211,7 @@
     "overdue": "متأخر",
     "partly_paid": "مدفوع جزئياً",
     "debt": "دين",
+    "has_debts": "عليه ديون",
     "plans_paid_count": "مدفوع {{paid}} من {{total}} خطط",
     "regular_label": "عميل منتظم",
     "regular_hint": "العملاء المنتظمون مطلوب منهم الدفع كل شهر",

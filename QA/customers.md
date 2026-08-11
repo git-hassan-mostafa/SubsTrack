@@ -1,6 +1,6 @@
 # Customers — QA Scenarios
 
-Covers the customer list, search/filter (including the payment tabs: Unpaid / Overdue / Partly paid / Paid / Not due yet), action menu (long-press or ⋮), Quick Pay shortcut, customer detail (excluding the Monthly Grid which has its own file), and the create / edit / deactivate / reactivate / delete flows.
+Covers the customer list, search/filter (including the payment tabs: Unpaid / Overdue / Partly paid / Paid / Not due yet / Has debts), action menu (long-press or ⋮), Quick Pay shortcut, customer detail (excluding the Monthly Grid which has its own file), and the create / edit / deactivate / reactivate / delete flows.
 
 Customers can be touched by both `admin` and `user` roles for view + create + edit + payment. Deactivate and **delete** are admin-only.
 
@@ -30,7 +30,7 @@ Customers can be touched by both `admin` and `user` roles for view + create + ed
 | 1.3  | First load empty               | Tenant has zero customers                                  | EmptyState "No customers found" + "Create First Customer" CTA when not searching                                                                                 |
 | 1.4  | First load with data           | Tenant has ≥1 customer                                     | Each customer rendered as a card: avatar (initials, color from name), name, plan name (or "No plan"), status pill, current month label, ⋮ menu icon at the right |
 | 1.5  | Loading state                  | Pull-to-refresh on slow network                            | Spinner; list does not flicker. After load, list returns to scroll position                                                                                      |
-| 1.6  | Filter tabs                    | Look below search                                          | Eight tabs on ONE line that scrolls sideways, in order: Active, Unpaid, Overdue, Partly paid, Paid, Not due yet, All, Inactive                                    |
+| 1.6  | Filter tabs                    | Look below search                                          | Nine tabs on ONE line that scrolls sideways, in order: Active, Unpaid, Overdue, Partly paid, Paid, Not due yet, Has debts, All, Inactive                          |
 | 1.7  | Default tab is Active          | Open the screen                                            | "Active" tab selected by default                                                                                                                                 |
 | 1.8  | Avatar color stability         | Same customer name                                         | Avatar color deterministic (charCode of first char modulo palette)                                                                                               |
 | 1.9  | Initials computed correctly    | Customer "Mary Jane Smith"                                 | "MJ" (first letters of first two whitespace-separated parts)                                                                                                     |
@@ -74,6 +74,8 @@ Search is debounced (see [useDebounce.ts](SubsTrack/src/shared/hooks/useDebounce
 
 The five payment tabs are the card's payment pills, one tab per pill (`customerFlags`): a customer is in a tab **if and only if** their card shows that pill. All five cover **active + regular** customers only. There is deliberately no "Skipped" tab — nothing is owed, so there is nothing to work through. "Paid" means the customer owes **nothing** (every required month of every plan), so Paid and Overdue can never hold the same customer; "Partly paid" + Overdue is the one legal overlap.
 
+**"Has debts" is the sixth and is NOT a month status.** It mirrors the card's red "Debt <amount>" pill, which comes from the debt ledger (net = debts − debt payments, `hasDebtFlag`) instead of the month grid — so, exactly like that pill, it ignores active / regular: an inactive or occasional customer who still owes money belongs in this tab. It can therefore overlap any other tab (a customer can be "✓ Paid" this month and still owe an old partial payment).
+
 | #   | Scenario                               | Steps                                   | Expected result                                                                                       |
 | --- | -------------------------------------- | --------------------------------------- | ----------------------------------------------------------------------------------------------------- |
 | 3.1 | Active tab                             | Tap "Active"                            | Only active customers (irrespective of regular/non-regular)                                           |
@@ -89,6 +91,11 @@ The five payment tabs are the card's payment pills, one tab per pill (`customerF
 | 3.2i | A customer can be in two tabs          | 3-plan customer: one plan owing nothing, one with an earlier unpaid month | Listed in BOTH Partly paid and Overdue — the one pill pair that coexists |
 | 3.2j | Non-regular / inactive excluded        | Non-regular or inactive customer        | Absent from all five payment tabs (their card shows "Non-Regular" / "Inactive" instead of a payment pill) |
 | 3.2k | Status still loading                   | Open the screen on a slow network and tap a payment tab before badges appear | List is empty rather than wrongly populated — an uncomputed status is never guessed |
+| 3.2l | Has debts tab                          | Tap "Has debts"                         | Exactly the customers whose card shows the red "Debt <amount>" pill (net debt > 0) — no one else |
+| 3.2m | Has debts includes inactive / non-regular | Deactivate a customer who owes, and give a non-regular customer a partial sale | Both still listed under "Has debts" (the debt pill shows on their cards too) |
+| 3.2n | A settled customer drops out           | Pay a listed customer's full debt (menu → "Pay full debt"), return to the list | Their debt pill disappears and they leave the "Has debts" tab |
+| 3.2o | Has debts overlaps the month tabs      | Customer paid this month but carrying an old partial payment | Listed in BOTH "Paid" and "Has debts" — debt is a separate fact from month status |
+| 3.2p | Branch scoping                         | Tenant-wide admin switches the branch chip | The tab reflects only the picked branch's debts (the net map is re-fetched per branch) |
 | 3.3 | All tab                                | Tap "All"                               | All customers                                                                                         |
 | 3.4 | Inactive tab                           | Tap "Inactive"                          | Only inactive customers                                                                               |
 | 3.5 | Tab + search combine                   | On any tab, type                        | Filter applied to the tab's set                                                                       |

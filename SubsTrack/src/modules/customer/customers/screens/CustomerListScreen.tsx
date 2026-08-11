@@ -22,7 +22,11 @@ import { useSubscriptionSlice } from "@/src/state/hooks/useSubscriptionSlice";
 import type { Customer, Payment } from "@/src/core/types";
 import { useSendInvoice } from "@/src/modules/invoicing";
 import { CustomerCard } from "../components/CustomerCard";
-import { customerFlags, type CustomerFlag } from "../utils/customerFlags";
+import {
+  customerFlags,
+  hasDebtFlag,
+  type CustomerFlag,
+} from "../utils/customerFlags";
 import { CustomerHistorySheet } from "../components/CustomerHistorySheet";
 import { CustomerFormSheet } from "../components/CustomerFormSheet";
 import { CustomDebtFormSheet } from "@/src/modules/transaction/debts/components/CustomDebtFormSheet";
@@ -56,8 +60,10 @@ import { SaleFormSheet } from "@/src/modules/transaction/sales";
 // The payment tabs are exactly the card's payment flags (`CustomerFlag`), so a
 // customer is in a tab if and only if their card shows that pill. "skipped" has
 // no tab — nothing is owed, so there is nothing to work through.
+// "has_debt" is the one payment-ish tab that is NOT a month flag: it reads the
+// debt ledger, exactly like the card's debt pill.
 type StatusTab = Exclude<CustomerFlag, "skipped">;
-type FilterTab = "all" | "active" | "inactive" | StatusTab;
+type FilterTab = "all" | "active" | "inactive" | "has_debt" | StatusTab;
 
 const STATUS_TABS: StatusTab[] = [
   "unpaid",
@@ -175,6 +181,7 @@ export function CustomerListScreen() {
         key: key as FilterTab,
         label: t(STATUS_TAB_LABELS[key]),
       })),
+      { key: "has_debt" as FilterTab, label: t("customers.has_debts") },
       { key: "all" as FilterTab, label: t("customers.all") },
       { key: "inactive" as FilterTab, label: t("common.inactive") },
     ];
@@ -194,6 +201,11 @@ export function CustomerListScreen() {
     if (activeTab === "all") return customers;
     if (activeTab === "active") return customers.filter((c) => c.active);
     if (activeTab === "inactive") return customers.filter((c) => !c.active);
+    // Debt isn't a month status, so it reads the ledger the card's debt pill
+    // reads — and like that pill it ignores active / regular: a deactivated or
+    // occasional customer who still owes money is exactly who this tab is for.
+    if (activeTab === "has_debt")
+      return customers.filter((c) => hasDebtFlag(netDebtByCustomer[c.id]));
     // Payment tabs are the card's flags: same helper, so a customer shows up in
     // every tab whose pill they wear, and in none they don't.
     return customers.filter((c) => {
@@ -202,7 +214,7 @@ export function CustomerListScreen() {
       if (!status) return false; // not computed yet — don't guess either way
       return customerFlags(status).includes(activeTab);
     });
-  }, [activeTab, customers, customerStatuses]);
+  }, [activeTab, customers, customerStatuses, netDebtByCustomer]);
 
   // Resolve selected ids against the VISIBLE list, so a selected-then-filtered-out
   // customer can never be acted on invisibly.
@@ -372,11 +384,10 @@ export function CustomerListScreen() {
       // `undefined` (not yet computed) is passed through as null so the card
       // renders no payment flag instead of guessing "unpaid".
       const status = customerStatuses.get(item.id) ?? null;
-      const debtUsd = netDebtByCustomer[item.id];
-      const debtLabel =
-        debtUsd && debtUsd > 0
-          ? formatMoney(debtUsd, null, displayCurrency)
-          : null;
+      const debtUsd = netDebtByCustomer[item.id] ?? 0;
+      const debtLabel = hasDebtFlag(debtUsd)
+        ? formatMoney(debtUsd, null, displayCurrency)
+        : null;
       return (
         <CustomerCard
           customer={item}
@@ -618,7 +629,7 @@ export function CustomerListScreen() {
   function buildMenuActions(customer: Customer | null): ActionMenuItem[] {
     if (!customer) return [];
     const items: ActionMenuItem[] = [];
-    const hasDebt = (netDebtByCustomer[customer.id] ?? 0) > 0;
+    const hasDebt = hasDebtFlag(netDebtByCustomer[customer.id]);
     // A customer with 2+ plans in play this month gets the plan-aware wording
     // ("Quick pay unpaid plans" / "Void paid plans"); a single-plan customer
     // keeps the plain "Quick pay" / "Void current month" labels.

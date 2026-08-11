@@ -27,3 +27,13 @@ export function customerFlags(status: CustomerStatus | null): CustomerFlag[] {
   if (status.overdue) flags.push("overdue");
   return flags;
 }
+
+/**
+ * The debt pill's rule, in one place. Debt is NOT a month status — it comes from
+ * the debt ledger (`netByCustomer`), not from `buildMonthGrid` — so it stays out
+ * of `CustomerFlag`. Same contract though: the card's pill and the "Has debts"
+ * tab both ask this, so the tab can't disagree with the badge (gotcha #56).
+ */
+export function hasDebtFlag(netUsd: number | undefined): boolean {
+  return (netUsd ?? 0) > 0;
+}
