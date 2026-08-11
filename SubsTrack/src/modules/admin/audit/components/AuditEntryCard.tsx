@@ -7,12 +7,7 @@ import { formatDateTimeShort } from "@/src/core/utils/date";
 import { COLORS } from "@/src/shared/constants";
 import { Text } from "@/src/shared/components/Text";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
-import {
-  actionLabel,
-  fieldLabel,
-  recordLabel,
-  tableLabel,
-} from "../utils/format";
+import { actionLabel, tableLabel } from "../utils/format";
 
 // Colour + icon per action, so the list scans by shape before you read it.
 // Tailwind classes (mirrors DebtItemCard) — there are no light danger/indigo tokens.

@@ -9,7 +9,13 @@ import { COLORS } from "@/src/shared/constants";
 import { Text } from "@/src/shared/components/Text";
 import { FormSheet } from "@/src/shared/components/FormSheet";
 import { useAuditLookups } from "../hooks/useAuditLookups";
-import { actionLabel, fieldLabel, formatField, recordLabel, tableLabel } from "../utils/format";
+import {
+  actionLabel,
+  changedFieldsLabel,
+  formatField,
+  formatFieldLabel,
+  tableLabel,
+} from "../utils/format";
 import { showsColumn, type AuditFieldContext } from "../utils/valueDisplay";
 
 interface AuditEntrySheetProps {
@@ -24,11 +30,12 @@ export function AuditEntrySheet({ entry, onDismiss }: AuditEntrySheetProps) {
   // Id columns (voided_by, currency_id, …) and coded values (month_start, admin)
   // are rendered through the display registry, which needs the name lists.
   const lookups = useAuditLookups();
-  const label = recordLabel(t, entry);
   const ctx = useMemo<AuditFieldContext>(
     () => ({ t, locale: i18n.language, table: entry.table, row: entry.context, lookups }),
     [t, entry.table, entry.context, lookups],
   );
+  // Names only — the values are right below, in the diff.
+  const changedFields = changedFieldsLabel(entry, ctx);
 
   // A create/delete has no diff — it carries the whole row instead, which we show
   // as a plain field list (nothing "changed from", so no arrow).
@@ -42,11 +49,11 @@ export function AuditEntrySheet({ entry, onDismiss }: AuditEntrySheetProps) {
       title={`${actionLabel(t, entry.action)} · ${tableLabel(t, entry.table)}`}
       dismissLabel={t("common.close")}
     >
-      {/* Who + when. The record line prefers a read-time label over the frozen one. */}
+      {/* Who + when, then what moved (an edit only — a create/delete has no diff). */}
       <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden mb-4">
-        {/* The frozen customer name, so the sheet names the same person the card
-            does. Skipped on `customers`, where it IS the record line below. */}
-        {entry.subject && entry.table !== "customers" ? (
+        {/* The frozen customer name — now the only row naming WHOSE record this is,
+            so it shows on `customers` entries too (the record there IS the person). */}
+        {entry.subject ? (
           <Row label={t("audit.field.customer_id")} value={entry.subject} />
         ) : null}
         <Row
@@ -57,9 +64,11 @@ export function AuditEntrySheet({ entry, onDismiss }: AuditEntrySheetProps) {
         <Row
           label={t("audit.occurred_at")}
           value={formatDateTime(entry.occurredAt, i18n.language)}
-          last={!label}
+          last={!changedFields}
         />
-        {label ? <Row label={t("audit.record")} value={label} last /> : null}
+        {changedFields ? (
+          <Row label={t("audit.changed_fields")} value={changedFields} last />
+        ) : null}
       </View>
 
       {/* The diff: old → new, one row per changed field */}
@@ -70,7 +79,7 @@ export function AuditEntrySheet({ entry, onDismiss }: AuditEntrySheetProps) {
               key={c.field}
               className={`px-4 py-3.5 ${i < entry.changes.length - 1 ? "border-b border-gray-100" : ""}`}
             >
-              <Text className="text-xs text-gray-400">{fieldLabel(t, c.field)}</Text>
+              <Text className="text-xs text-gray-400">{formatFieldLabel(c.field, ctx)}</Text>
               <View className="flex-row items-center gap-2 mt-1">
                 <Text className="text-sm text-gray-400 line-through flex-shrink" numberOfLines={2}>
                   {formatField(c.field, c.before, ctx)}
@@ -94,7 +103,7 @@ export function AuditEntrySheet({ entry, onDismiss }: AuditEntrySheetProps) {
           {snapshotRows.map(([key, value], i) => (
             <Row
               key={key}
-              label={fieldLabel(t, key)}
+              label={formatFieldLabel(key, ctx)}
               value={formatField(key, value, ctx)}
               last={i === snapshotRows.length - 1}
             />

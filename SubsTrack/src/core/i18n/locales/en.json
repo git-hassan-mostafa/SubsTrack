@@ -940,7 +940,7 @@
     "deleted_record": "(deleted)",
     "base_currency": "USD",
     "occurred_at": "When",
-    "record": "Record",
+    "changed_fields": "Fields changed",
     "no_fields": "No field values recorded.",
     "empty_value": "(empty)",
     "structured_value": "(details)",

@@ -940,7 +940,7 @@
     "deleted_record": "(محذوف)",
     "base_currency": "USD",
     "occurred_at": "التاريخ",
-    "record": "السجل",
+    "changed_fields": "الحقول المعدَّلة",
     "no_fields": "لا توجد قيم مسجّلة.",
     "empty_value": "(فارغ)",
     "structured_value": "(تفاصيل)",

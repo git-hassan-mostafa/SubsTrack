@@ -41,7 +41,7 @@ Sign in as an **admin** and check each via Admin → Audit Log.
 
 | #   | Scenario              | Steps                                                            | Expected entry                                                              |
 | --- | --------------------- | ---------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| 1.1 | Record a payment      | Customer → tap an unpaid month → pay in full                      | **Added · Payment**, label shows the month + amount, actor = you            |
+| 1.1 | Record a payment      | Customer → tap an unpaid month → pay in full                      | **Added · Payment** naming the customer, actor = you, and the whole new row listed (month, amount, currency) |
 | 1.2 | Edit a payment amount | Payment detail → Edit → change 50 → 30 → Save                     | **Edited · Payment**, one field: `Amount paid  50 → 30`                     |
 | 1.3 | Void a payment        | Payment detail → Void                                             | **Voided · Payment**, fields `Voided at` + `Voided by` (and notes if given)  |
 | 1.4 | Record a sale         | Quick actions → Record sale (2+ products)                         | **Added · Sale** — exactly ONE entry, not one per line                       |
@@ -58,7 +58,7 @@ Sign in as an **admin** and check each via Admin → Audit Log.
 | 1.15 | Branch, currency      | Add + rename a branch; change a currency rate                      | Entries with the changed field only                                          |
 | 1.16 | Staff member          | Add a user, change their role, deactivate them                      | Added, then `Role  user → admin`, then `Active  Yes → No`                     |
 | 1.17 | Change a password     | Staff → change password                                            | **Edited · Staff member** — and the password value is **NOT** recorded        |
-| 1.18 | Tenant setting        | Admin → Tenant Settings → switch the unpaid rule                    | **Edited · Setting**, record "Unpaid months rule", one field with the two rules in words (see 6c) |
+| 1.18 | Tenant setting        | Admin → Tenant Settings → switch the unpaid rule                    | **Edited · Setting**, fields changed reads "Unpaid months rule", one diff row with the two rules in words (see 6c) |
 | 1.19 | Bulk actions          | Select 3 customers → bulk deactivate                                | **3** entries, one per customer — not one lumped entry                       |
 
 ### 1b. What must NOT be recorded
@@ -171,7 +171,7 @@ RLS only scopes a branch-**bound** user. A tenant-wide admin sees every branch, 
 
 ### 5b. The entry card (two lines, and the customer)
 
-The card is deliberately two lines: **record type + the customer it belongs to + the action pill**, then **staff · when · what moved**. The customer name comes from `audit_logs.subject`, **frozen at write time** — never resolved from `customer_id` at read time, because a deleted customer leaves the id pointing at nothing.
+The card is deliberately two lines: **record type + the customer it belongs to + the action pill**, then **staff · when**. Naming *what* moved is the detail sheet's job. The customer name comes from `audit_logs.subject`, **frozen at write time** — never resolved from `customer_id` at read time, because a deleted customer leaves the id pointing at nothing.
 
 | #    | Scenario                       | Steps                                                                       | Expected result                                                                     |
 | ---- | ------------------------------ | --------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
@@ -183,15 +183,15 @@ The card is deliberately two lines: **record type + the customer it belongs to +
 | 5.25 | A customer edit                | Edit a customer's phone                                                       | Line 1 names the customer **once** — the name is not repeated on line 2             |
 | 5.26 | Records with no owner          | Add a plan, a product, a currency, a staff member, change a setting            | Line 1 shows the type + pill only; nothing implies a customer                        |
 | 5.27 | Exactly two lines              | Any entry, any action                                                          | The card is **two lines tall** — the old field-name chip row is gone entirely        |
-| 5.28 | One changed field is named     | Edit only a payment's amount                                                   | Line 2 ends with **"Amount paid"** — the field name, not a count                    |
-| 5.29 | Several changed fields counted | Edit a customer's name AND phone AND address                                   | Line 2 ends with **"3 fields changed"**                                             |
-| 5.30 | Create / delete say nothing    | An **Added** or **Deleted** entry                                              | Line 2 has no field summary (the whole row changed) — just staff · when · the record |
+| 5.28 | No field text on the card      | Edit only a payment's amount                                                   | Line 2 is **staff · when** only — the field name lives in the sheet's "Fields changed" row |
+| 5.29 | …with several fields too       | Edit a customer's name AND phone AND address                                   | Still just staff · when — no chips, no "3 fields changed" count                     |
+| 5.30 | Create / delete the same       | An **Added** or **Deleted** entry                                              | Line 2 unchanged: staff · when                                                      |
 | 5.31 | Renamed customer keeps history | Record a payment → **rename** the customer → reopen the Audit Log               | The old entry still shows the **name at the time**, not the new one (frozen on purpose) |
 | 5.32 | Deleted customer keeps history | Record a payment → delete that customer → reopen the Audit Log                  | The entry still names them — **never** "(deleted)" or a UUID                        |
 | 5.33 | Old rows have no subject       | An entry recorded **before** `subject` shipped                                  | Renders with no customer name — no blank row, no crash                              |
 | 5.34 | Long names truncate            | A customer with a very long name                                               | Line 1 truncates on one line; the action pill stays fully visible and never wraps    |
 | 5.35 | Card and sheet agree           | Tap an entry from 5.20                                                          | The sheet's **Customer** row shows the same name the card did                        |
-| 5.36 | …but not twice on a customer   | Tap the customer edit from 5.25                                                 | The sheet shows the name on the **Record** row only — no duplicate Customer row      |
+| 5.36 | …on a customer entry too       | Tap the customer edit from 5.25                                                 | The **Customer** row names them here as well — it is now the only row saying whose record this is |
 | 5.37 | Arabic + RTL                   | Switch to Arabic → repeat 5.20 and 5.29                                        | Name follows the type on the correct side; the pill sits at the line's end; line 2 mirrors |
 | 5.38 | Same card in both views        | Compare the Audit Log screen and a per-record History sheet                     | Identical two-line card in both                                                     |
 
@@ -201,7 +201,7 @@ The card is deliberately two lines: **record type + the customer it belongs to +
 
 | #   | Scenario                | Steps                                                        | Expected result                                                             |
 | --- | ----------------------- | ------------------------------------------------------------ | --------------------------------------------------------------------------- |
-| 6.1 | Diff sheet              | Tap an **Edited** entry                                       | Who / when / record, then each changed field as `old → new`                  |
+| 6.1 | Diff sheet              | Tap an **Edited** entry                                       | Customer / staff / when / **Fields changed**, then each changed field as `old → new` |
 | 6.2 | Create sheet            | Tap an **Added** entry                                        | The whole new row's values; no arrows (nothing changed *from*)               |
 | 6.3 | Delete sheet            | Tap a **Deleted** entry                                       | The whole removed row — this is the only place it still exists               |
 | 6.4 | Readable values         | Any entry with a date, a true/false and an amount              | Date+time formatted, Yes/No not `1`/`0`, empty shown as `(empty)`            |
@@ -222,6 +222,22 @@ The card is deliberately two lines: **record type + the customer it belongs to +
 | 6.19 | …and refetches on open | Close and reopen History on A                                          | Fetches again from the server; no stale entries from the previous open       |
 | 6.20 | Close during a slow load | Open History on a slow connection and close before it finishes → open another record | No crash, no flash of the first record's entries (stale-response guard)  |
 | 6.21 | Shared list, both views | Compare the Audit Log screen and a History sheet                     | Same card layout, source note and detail sheet — one `<HistoryList>` renders both |
+
+### 6e. The "Fields changed" row
+
+The top card's last row lists the **names** of the columns that moved, comma separated — the values are in the diff right below it. It replaced a "Record" row that printed the frozen `label` as two raw values glued with ` · ` ("2026-10-01 · 600").
+
+| #    | Scenario                    | Steps                                                                | Expected result                                                              |
+| ---- | --------------------------- | -------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| 6.22 | Names, comma separated      | Edit a payment's **amount and notes** → open the entry                | Last row reads **"Amount paid, Notes"** — names only, same order as the diff below |
+| 6.23 | One field                   | Edit only the amount                                                   | Reads **"Amount paid"** — no trailing comma                                   |
+| 6.24 | Hidden on a create          | Tap an **Added** entry                                                 | **No** "Fields changed" row at all; "When" is the card's last row, with no dangling divider under it |
+| 6.25 | Hidden on a delete          | Tap a **Deleted** entry                                                | Same — the whole-row snapshot below is the answer there                       |
+| 6.26 | Many fields wrap            | Edit 5+ fields of a customer at once                                   | All names listed and wrapped, up to 3 lines, then truncated — the card never grows without limit |
+| 6.27 | Unlabelled column           | An entry touching a column with no `audit.field.*` key                 | The raw column name is listed — never blank                                  |
+| 6.28 | No frozen label anywhere    | Any entry                                                              | The old raw one-liner ("2026-10-01 · 600") appears **nowhere** in the app     |
+| 6.29 | Known trade-off: no month   | Edit only a payment's amount → open the entry                           | The sheet names the customer and the fields, but **not which month** (it only shows if `billing_month` itself changed). Accepted; the record's own History sheet gives that context |
+| 6.49 | Arabic                      | Switch to Arabic → repeat 6.22                                          | Row label and field names translated; the list reads right-to-left            |
 
 ### 6b. Customer history sheet
 
@@ -270,15 +286,15 @@ The id is frozen at write time next to the name. It is what 6b filters on, so a 
 
 ### 6c. Displayed values (the per-column display registry)
 
-Raw columns are stored, human text is shown — declared once per column in [valueDisplay.ts](../SubsTrack/src/modules/admin/audit/utils/valueDisplay.ts). An unregistered column must still render exactly as before.
+Raw columns are stored, human text is shown — declared once per column in [valueDisplay.ts](../SubsTrack/src/modules/admin/audit/utils/valueDisplay.ts): `DISPLAY` for a column's **value**, `FIELD_LABELS` for its **name** when a sibling column decides it (`tenant_settings.value` is named after the setting). An unregistered column must still render exactly as before.
 
 | #    | Scenario                     | Steps                                                                        | Expected result                                                             |
 | ---- | ---------------------------- | ---------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| 6.50 | Setting name, not its key    | Admin → Organization Settings → change **Mark unpaid** → open the entry        | Record reads **"Unpaid months rule"**, not `UnpaidStartRule · month_start`    |
+| 6.50 | Setting name, not its key    | Admin → Organization Settings → change **Mark unpaid** → open the entry        | The diff row is titled **"Unpaid months rule"** — the changed column is named after the setting, never a bare "Value" or `UnpaidStartRule · month_start` |
 | 6.51 | Setting value, not its code  | Same entry                                                                    | Value reads "On the customer's start day → On the first day of the month" — no `customer_start_day` |
-| 6.52 | Same text in the list        | The same entry in the Audit Log list                                          | The card's second line matches the sheet's Record row exactly                 |
-| 6.53 | Display currency setting     | Change the **display currency** → open the entry                              | Record "Display currency"; value shows the currency **code** (USD when cleared), never a UUID |
-| 6.54 | Old rows still readable      | An entry recorded **before** this change (no `key` carried)                    | Falls back to the frozen `key · value` label and the raw value — readable, no crash |
+| 6.52 | Same name on both rows       | The same entry's top card                                                     | "Fields changed" reads **"Unpaid months rule"** too — the same name as the diff row |
+| 6.53 | Display currency setting     | Change the **display currency** → open the entry                              | Titled "Display currency"; the value shows the currency **code** (USD when cleared), never a UUID |
+| 6.54 | Old rows still readable      | An entry recorded **before** this change (no `key` carried)                    | Falls back to the plain **"Value"** title and the raw value — readable, no crash |
 | 6.55 | Staff role                   | Change a staff member's role → open the entry                                  | "Admin" / "User", not `admin` / `user`                                       |
 | 6.56 | Branch id → name             | Move a customer to another branch → open the entry                            | Both sides show branch **names**                                            |
 | 6.57 | Null branch wording          | Move a customer to no branch; a plan/product to Shared; a staff to tenant-wide | "Unassigned" / "Shared (all branches)" / "Tenant-wide admin" — never "(empty)" |
@@ -287,7 +303,7 @@ Raw columns are stored, human text is shown — declared once per column in [val
 | 6.60 | Unregistered column          | An entry touching a column with no formatter (`notes`, `price`, `active`)      | Unchanged rendering: text, number, Yes/No, `(empty)`                        |
 | 6.61 | Unknown coded value          | (Developer) set a setting value to garbage → view the entry                    | The raw value is shown as-is; no blank row, no crash                        |
 | 6.62 | Arabic                       | Switch to Arabic → repeat 6.50, 6.55, 6.57                                    | Setting name, role and branch wording all translated                        |
-| 6.63 | Not a change row             | The setting entry from 6.50                                                    | Exactly ONE changed field (`Value`); `Setting` is context, never listed as changed |
+| 6.63 | Not a change row             | The setting entry from 6.50                                                    | Exactly ONE changed field (the setting itself); the `key` is context, never listed as changed |
 
 ---
 

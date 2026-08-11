@@ -1,5 +1,5 @@
 import type { TFunction } from 'i18next';
-import type { AuditEntry, AuditTable } from '@/src/core/types';
+import type { AuditTable } from '@/src/core/types';
 import { TENANT_SETTING_KEYS } from '@/src/modules/admin/tenant-settings/utils/constants';
 
 /**
@@ -136,13 +136,13 @@ const DISPLAY: Record<string, AuditValueFormatter> = {
 };
 
 /**
- * A read-time Record-row label, for a table whose frozen `label` reads badly. A
- * setting's frozen label is the raw `key · value` ("UnpaidStartRule · month_start");
- * its name alone reads better, and the value is in the diff already.
+ * A better NAME for a column, read from its siblings. `tenant_settings.value` IS the
+ * setting, so it is named after it ("Unpaid months rule") instead of "Value" — which
+ * would leave nothing on screen saying which setting was changed.
  */
-const LABELS: Partial<Record<AuditTable, (t: TFunction, entry: AuditEntry) => string | null>> = {
-  tenant_settings: (t, entry) => {
-    const s = setting(entry.context.key);
+const FIELD_LABELS: Record<string, (ctx: AuditFieldContext) => string | null> = {
+  'tenant_settings.value': ({ t, row }) => {
+    const s = setting(row.key);
     return s ? t(s.label) : null;
   },
 };
@@ -177,7 +177,7 @@ export function displayValue(field: string, value: unknown, ctx: AuditFieldConte
   return formatterFor(ctx.table, field)?.(value, ctx) ?? null;
 }
 
-/** A better Record-row label than the frozen one, or `null` to keep the frozen one. */
-export function displayLabel(t: TFunction, entry: AuditEntry): string | null {
-  return LABELS[entry.table]?.(t, entry) ?? null;
+/** The registry's name for one column, or `null` to use the generic field label. */
+export function displayFieldLabel(field: string, ctx: AuditFieldContext): string | null {
+  return FIELD_LABELS[`${ctx.table}.${field}`]?.(ctx) ?? null;
 }

@@ -102,21 +102,24 @@ export function CustomerSalesPanel({ customer }: Props) {
   const hasMore = sales.length > PREVIEW_LIMIT;
   // Only the rendered rows can be ticked, so the selection is read off `preview`.
   const selectedSales = preview.filter((s) => selectedIds.has(s.id));
-  // One receipt covering every selected sale — the same action the two sales
+  // One receipt covering every selected sale — the same action the full sales
   // lists carry. No "select all" here: the panel is a 5-row preview.
   const invoiceAction = useSaleInvoiceAction(selectedSales, clearSelection);
 
   return (
     <View className="px-4 mt-4">
       {/* Fixed height in both states so entering selection never shifts the
-          cards under the finger that long-pressed one. */}
+          cards under the finger that long-pressed one. `-mx-2` cancels the
+          toolbar's own padding, lining it up with the cards below. */}
       <View className="h-9 justify-center mb-3">
         {selectionActive ? (
-          <InlineSelectionToolbar
-            count={selection.count}
-            actions={invoiceAction ? [invoiceAction] : []}
-            onClose={clearSelection}
-          />
+          <View className="-mx-2">
+            <InlineSelectionToolbar
+              count={selection.count}
+              actions={invoiceAction ? [invoiceAction] : []}
+              onClose={clearSelection}
+            />
+          </View>
         ) : (
           <View className="flex-row items-center justify-between">
             <Text fontWeight="Bold" className="text-base text-gray-900">

@@ -1,7 +1,7 @@
 import type { TFunction } from 'i18next';
 import type { AuditAction, AuditEntry, AuditTable } from '@/src/core/types';
 import { formatDateTime, isValidDateString } from '@/src/core/utils/date';
-import { displayLabel, displayValue, type AuditFieldContext } from './valueDisplay';
+import { displayFieldLabel, displayValue, type AuditFieldContext } from './valueDisplay';
 
 /** Human label for a table name, falling back to the raw name for anything new. */
 export function tableLabel(t: TFunction, table: AuditTable | string): string {
@@ -31,13 +31,20 @@ export function formatField(field: string, value: unknown, ctx: AuditFieldContex
 }
 
 /**
- * The Record row's one-liner. `entry.label` is frozen at write time from raw
- * columns; a table may render it better at read time (a setting's name instead of
- * `UnpaidStartRule · month_start`). Built from the row's OWN columns only, so it
- * never needs an id lookup.
+ * A column's name as shown: the registry first (a setting's own name instead of the
+ * bare "Value"), the generic label otherwise.
  */
-export function recordLabel(t: TFunction, entry: AuditEntry): string | null {
-  return displayLabel(t, entry) ?? entry.label;
+export function formatFieldLabel(field: string, ctx: AuditFieldContext): string {
+  return displayFieldLabel(field, ctx) ?? fieldLabel(ctx.t, field);
+}
+
+/**
+ * The names of the columns this entry moved, comma separated. `null` for a
+ * create/delete: nothing "changed" there, and the sheet lists the whole row below.
+ */
+export function changedFieldsLabel(entry: AuditEntry, ctx: AuditFieldContext): string | null {
+  if (entry.changes.length === 0) return null;
+  return entry.changes.map((c) => formatFieldLabel(c.field, ctx)).join(', ');
 }
 
 /**
