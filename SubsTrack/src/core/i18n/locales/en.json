@@ -459,7 +459,7 @@
     "unpaid_rule_month_start": "On the first day of the month",
     "unpaid_rule_month_start_hint": "Every customer becomes unpaid on day 1.",
     "unpaid_rule_customer_start_day": "On the customer's start day",
-    "unpaid_rule_customer_start_day_hint": "Each customer becomes unpaid on their own start day.",
+    "unpaid_rule_customer_start_day_hint": "Each customer becomes unpaid on their own start day, and is only marked overdue for last month once that day passes.",
     "currencies_section_title": "Currencies",
     "currencies_hint": "Define non-USD currencies and their rate per USD.",
     "no_currencies": "No currencies yet",

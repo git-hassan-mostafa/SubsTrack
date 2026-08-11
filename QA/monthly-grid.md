@@ -11,7 +11,7 @@ The status logic lives in exactly one place: `PaymentService.buildMonthGrid`. Ve
 - Cell: [MonthCell.tsx](SubsTrack/src/modules/customer-payments/components/MonthCell.tsx)
 - Year navigator: [YearNavigator.tsx](SubsTrack/src/modules/customer-payments/components/YearNavigator.tsx)
 - Customer panel (host): [CustomerPaymentPanel.tsx](SubsTrack/src/modules/customer-payments/components/CustomerPaymentPanel.tsx)
-- Date utils: [date.ts](SubsTrack/src/core/utils/date.ts)
+- Date utils: [date.ts](SubsTrack/src/core/utils/date.ts) · month due/late rules: [monthDueRules.ts](SubsTrack/src/modules/customer/customer-payments/utils/monthDueRules.ts)
 
 ---
 
@@ -25,6 +25,7 @@ For year Y, month M, given today = (CY, CM), customer.startDate = SY-SM-SD:
 | A covering payment exists for Y-M AND `voided_at IS NULL` AND `amount_paid > 0` (ANY balance, incl. `balance > 0`) | `paid` (green for regular, yellow for non-regular; `isGroupSecondary = true` for months 2+ in a multi-month block) |
 | An active skip exists for (line, Y-M) — `skipped_months.skipped = true`                                    | `skipped` (slate, same for regular and non-regular) — ranks BELOW `paid`                                            |
 | Y > CY OR (Y == CY AND M > CM)                                                                             | `future`                                                                                                           |
+| `UnpaidStartRule = customer_start_day` AND Y-M is the **current month** AND today's day-of-month < the line's start day (clamped to the month's length) | `future` — "not due yet"; grey but still fully payable. A **past** month is never held back this way — there, the billing day only delays the customer's "Overdue" badge, never the red cell (gotcha #83) |
 | Otherwise                                                                                                  | `unpaid` (from day 1 of the month — there is no grace period)                                                       |
 
 Notes:

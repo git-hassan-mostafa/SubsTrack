@@ -38,7 +38,8 @@ import { useDebtSlice } from "@/src/state/hooks/useDebtSlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { useAuth } from "../../../authentication/auth/hooks/useAuth";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
-import { getCurrentYearMonth, isBeforeStartDate } from "@/src/core/utils/date";
+import { getCurrentYearMonth } from "@/src/core/utils/date";
+import { isBeforeStartDate } from "@/src/modules/customer/customer-payments/utils/monthDueRules";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
 import {
   PageHeader,
@@ -256,10 +257,10 @@ export function CustomerListScreen() {
   function eligibleFixedLines(customer: Customer): BulkPayCustomerRequest[] {
     const status = customerStatuses.get(customer.id);
     const notDue = new Set(status?.notDueLineIds);
-    // Months are settled oldest-first, so a line with an older unpaid month
+    // Months are settled oldest-first, so a line with an older uncovered month
     // can't have THIS month collected — its backlog is paid from the customer's
     // month grid instead.
-    const overdue = new Set(status?.overdueLineIds);
+    const uncovered = new Set(status?.uncoveredLineIds);
     return startedActiveLines(customer)
       .filter(
         (l) =>
@@ -267,7 +268,7 @@ export function CustomerListScreen() {
           !l.plan.isCustomPrice &&
           l.plan.price !== null &&
           !notDue.has(l.id) &&
-          !overdue.has(l.id),
+          !uncovered.has(l.id),
       )
       .map((l) => ({
         customerId: customer.id,
@@ -284,9 +285,9 @@ export function CustomerListScreen() {
   function hasUnpaidStartedLine(customer: Customer): boolean {
     const status = customerStatuses.get(customer.id);
     const notDue = new Set(status?.notDueLineIds);
-    const overdue = new Set(status?.overdueLineIds);
+    const uncovered = new Set(status?.uncoveredLineIds);
     return startedActiveLines(customer).some(
-      (l) => !notDue.has(l.id) && !overdue.has(l.id),
+      (l) => !notDue.has(l.id) && !uncovered.has(l.id),
     );
   }
 

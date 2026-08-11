@@ -12,12 +12,12 @@ import type {
   UnpaidStartRule,
 } from "@/src/core/types";
 import { MONTHS, type BranchFilter } from "@/src/core/constants";
+import { getCurrentYearMonth, toBillingMonth } from "@/src/core/utils/date";
 import {
-  getCurrentYearMonth,
   isBeforeStartDate,
   isNotDueYet,
-  toBillingMonth,
-} from "@/src/core/utils/date";
+  isNotLateYet,
+} from "../utils/monthDueRules";
 import { DEFAULT_UNPAID_START_RULE } from "@/src/modules/admin/tenant-settings/services/TenantSettingService";
 import i18n from "@/src/core/i18n";
 import repository from "../repository/PaymentRepository";
@@ -164,8 +164,8 @@ class PaymentService {
   // The pay-oldest-first guard for "collect all due", which spans MANY customers
   // the caller holds no payments for. Two tenant-wide reads (the same pair
   // getCustomerStatuses uses) instead of one round-trip per line, so the cost
-  // doesn't grow with the batch. The list's UI already hides overdue lines — this
-  // is the layer that makes it a rule rather than a filter.
+  // doesn't grow with the batch. The list's UI already hides lines with an
+  // uncovered earlier month — this is the layer that makes it a rule, not a filter.
   private async assertBulkPayableInOrder(
     inputs: BulkPayCustomerInput[],
     unpaidRule: UnpaidStartRule,
@@ -444,6 +444,11 @@ class PaymentService {
   // that resolved to "paid" or "unpaid" was ever required: before_start, future
   // (incl. a current month the billing-day rule holds back) and skipped all mean
   // "nothing expected", so they are treated as if they did not exist.
+  //
+  // One walk yields TWO different "behind" facts, and they are not the same set:
+  // `overdue` = an earlier month is LATE, while `uncoveredLineIds` = an earlier
+  // month has nothing collected. Under 'customer_start_day' last month can be the
+  // second without being the first — red, blocking, not yet overdue (#83).
   buildCustomerStatus(
     lines: CustomerPlan[],
     payments: Payment[],
@@ -452,7 +457,7 @@ class PaymentService {
   ): CustomerStatus {
     const { year: currentYear, month: currentMonth } = getCurrentYearMonth();
     const notDueLineIds: string[] = [];
-    const overdueLineIds: string[] = [];
+    const uncoveredLineIds: string[] = [];
     let overdue = false;
     let anySkipped = false;
     let dueThisMonth = 0; // lines that owe THIS month — decides the "nothing owed" reason
@@ -467,6 +472,7 @@ class PaymentService {
 
       let current: MonthEntry | null = null;
       let lineOverdue = false;
+      let lineUncovered = false;
       let lineRequired = 0;
       let lineUnpaid = 0;
       for (let year = startYear; year <= currentYear; year++) {
@@ -477,19 +483,27 @@ class PaymentService {
             lineRequired++;
             if (entry.status === "unpaid") lineUnpaid++;
           }
-          if (entry.year === currentYear && entry.month === currentMonth) {
-            current = entry;
-          } else if (entry.status === "unpaid") {
-            // Only a month strictly BEFORE this one can be overdue. Future
-            // months never resolve to "unpaid", so no upper guard is needed.
+          // This month is kept for the quick-pay decision below; it and the
+          // calendar months after it are never "behind".
+          if (entry.year === currentYear && entry.month >= currentMonth) {
+            if (entry.month === currentMonth) current = entry;
+            continue;
+          }
+          // Only a month strictly BEFORE this one can leave the line behind.
+          if (entry.status !== "unpaid") continue;
+          // Nothing was collected, so oldest-first bars THIS month from being
+          // quick-paid — whether or not the customer reads as overdue yet.
+          lineUncovered = true;
+          // Last month is not LATE until this month's billing day passes
+          // ('customer_start_day', #83). It stays red and still blocks; only the
+          // "Overdue" flag waits. Older months are late on sight.
+          if (!isNotLateYet(unpaidRule, entry.year, entry.month, line.startDate)) {
             lineOverdue = true;
           }
         }
       }
-      if (lineOverdue) {
-        overdue = true;
-        overdueLineIds.push(line.id);
-      }
+      if (lineOverdue) overdue = true;
+      if (lineUncovered) uncoveredLineIds.push(line.id);
       if (lineRequired > 0) {
         inPlay++;
         if (lineUnpaid === 0) settled++;
@@ -506,7 +520,8 @@ class PaymentService {
       }
       // "future" here can only be the 'customer_start_day' rule holding the
       // CURRENT month back — nothing owed yet. It stays quick-payable (pay
-      // early is allowed), so it is NOT added to notDueLineIds.
+      // early is allowed), so it is NOT added to notDueLineIds; a hole behind it
+      // is what uncoveredLineIds catches.
       if (current.status === "future") continue;
 
       dueThisMonth++;
@@ -534,7 +549,7 @@ class PaymentService {
       overdue,
       planCount: { paid: settled, total: inPlay },
       notDueLineIds,
-      overdueLineIds,
+      uncoveredLineIds,
     };
   }
 
@@ -742,9 +757,11 @@ class PaymentService {
       } else if (year > cy || (year === cy && month > cm)) {
         status = "future";
       } else if (isNotDueYet(unpaidRule, year, month, line.startDate)) {
-        // 'customer_start_day' rule: the current month is not overdue until the
+        // 'customer_start_day' rule: the CURRENT month is not owed until the
         // line's own billing day arrives. Reported as "future" — the month stays
         // fully payable (pay-early is allowed) but counts as nothing owed yet.
+        // Past months are always red; what waits for the billing day there is the
+        // customer's "Overdue" flag, not the cell (isNotLateYet, #83).
         status = "future";
       } else {
         // Past month, or a current month whose due day has arrived.

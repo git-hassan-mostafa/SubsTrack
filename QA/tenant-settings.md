@@ -51,12 +51,12 @@ The currency the whole ORGANIZATION sees values in. Stored in `tenant_settings` 
 
 ## 2b. Unpaid months rule (`UnpaidStartRule`)
 
-Tenant-wide setting stored in the `tenant_settings` table (key `UnpaidStartRule`), written by admins only (RLS) and read by every member. It decides **when the CURRENT month turns red**; past months are always unpaid, and it never affects paid / skipped / before-start months.
+Tenant-wide setting stored in the `tenant_settings` table (key `UnpaidStartRule`), written by admins only (RLS) and read by every member. It never affects paid / skipped / before-start months. It decides **two** things:
 
-- `month_start` (default) — every customer's current month is unpaid from day 1.
-- `customer_start_day` — each service line's current month stays **"Not due yet"** until that line's own start day-of-month arrives.
+- **When the CURRENT month turns red.** `month_start` (default) — from day 1. `customer_start_day` — the current month stays grey **"Not due yet"** until that line's own start day-of-month arrives.
+- **When the customer starts reading "Overdue".** Under `customer_start_day`, an unpaid **last month** is red on the grid and counts as owed (card shows the red "Unpaid" pill) but is **not late** until this month's start day arrives; on that day the card becomes "Overdue". **Anything older than last month is late immediately.** Past cells are never held back — only the badge waits.
 
-**Reference code:** [UnpaidRuleSection.tsx](SubsTrack/src/modules/admin/tenant-settings/components/UnpaidRuleSection.tsx) · [TenantSettingService.ts](SubsTrack/src/modules/admin/tenant-settings/services/TenantSettingService.ts) · rule helper `isNotDueYet` in [date.ts](SubsTrack/src/core/utils/date.ts) · grid in [PaymentService.ts](SubsTrack/src/modules/customer/customer-payments/services/PaymentService.ts)
+**Reference code:** [UnpaidRuleSection.tsx](SubsTrack/src/modules/admin/tenant-settings/components/UnpaidRuleSection.tsx) · [TenantSettingService.ts](SubsTrack/src/modules/admin/tenant-settings/services/TenantSettingService.ts) · rule helpers `isNotDueYet` / `isNotLateYet` in [monthDueRules.ts](SubsTrack/src/modules/customer/customer-payments/utils/monthDueRules.ts) · grid in [PaymentService.ts](SubsTrack/src/modules/customer/customer-payments/services/PaymentService.ts)
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
@@ -66,12 +66,12 @@ Tenant-wide setting stored in the `tenant_settings` table (key `UnpaidStartRule`
 | 2b.4 | On the start day | Same line, today is the 17th | Current month flips to red "unpaid"; card shows the red "Unpaid" badge |
 | 2b.5 | After the start day | Same line, today is the 20th | Still red "unpaid" |
 | 2b.6 | Pay early | Rule = start day, today is the 3rd, line starts the 17th | The current month is still **tappable and payable** — paying it turns the month green |
-| 2b.7 | Past months unaffected | Line started 3 months ago, nothing paid | All past months red regardless of the rule; only the current month is governed by it |
-| 2b.8 | Overdue is a SECOND pill, not an override | Rule = start day, an unpaid PAST month exists, today is before the start day | Card shows **both** the grey "Not due yet" pill **and** a red "Overdue" pill. The customer stays in the Unpaid tab |
+| 2b.7 | Past cells unaffected | Line started 4 months ago, nothing paid, today is before the start day | **All** past months are red — the rule never greys a past cell. Only the current month is grey, and only the "Overdue" badge waits (2b.29–2b.31) |
+| 2b.8 | Backlog outranks the quiet reason | Rule = start day, an unpaid month **older than last month** exists, today is before the start day | Card shows a red "Overdue" pill (not "Not due yet" — owing money from further back outranks it). The customer is in the Overdue tab |
 | 2b.9 | Unpaid tab filter | Rule = start day, customer's only line is not due yet, no past debt | Customer is **absent** from the Unpaid tab |
 | 2b.10 | Skip outranks not-due-yet | Line is both skipped this month and before its start day | Card shows the slate "Skipped" badge, not "Not due yet" |
-| 2b.10b | Paid this month, older month missed | Current month paid, an earlier month unpaid | Card shows green "✓ Paid" **and** red "Overdue" side by side |
-| 2b.10c | No duplicate red | Current month unpaid AND an earlier month unpaid | Only the red "Overdue" pill shows — the plain "Unpaid" pill is suppressed so the card never shows two red pills saying the same thing |
+| 2b.10b | Paid this month, older month missed | Current month paid, a month older than last month unpaid | ONE red "Overdue" pill — never green "✓ Paid" beside it, because "paid" means "owes nothing" |
+| 2b.10c | No duplicate red | Current month unpaid AND an older month unpaid | Only the red "Overdue" pill shows — the plain "Unpaid" pill is suppressed so the card never shows two red pills saying the same thing |
 | 2b.11 | Short-month clamp | Line starts on the 31st, current month is February | Due day clamps to the last day of February — the month still becomes unpaid, never skipped entirely |
 | 2b.12 | Start day = 1 | Line starts on the 1st | Both rules behave identically for that line |
 | 2b.13 | Multi-plan, mixed due days | Lines start on the 5th and the 25th (both started months ago, every earlier month paid); today is the 10th and nothing is paid this month | Amber **"1/2 plans paid"** — the 5th line owes this month, the 25th owes nothing yet, and a line that owes nothing counts as paid |
@@ -82,7 +82,7 @@ Tenant-wide setting stored in the `tenant_settings` table (key `UnpaidStartRule`
 | 2b.18 | Offline change (native) | Go offline, change the rule, reconnect | Saved to the local mirror, flagged dirty, pushed on the next sync; converges on the `(tenant_id, key)` natural key |
 | 2b.19 | Two devices change it offline | Both set a different value offline, then sync | Latest `updated_at` wins; both devices converge to one row (no duplicate-key stall) |
 | 2b.20 | Logout isolation | Logout, login as a different tenant | The previous tenant's rule does not leak (slice is reset on logout) |
-| 2b.21 | The reported case | Rule = start day, line starts **13/5/2026**, nothing paid, today is **4/8/2026** | Card shows ONE red **"Overdue"** pill — the customer owes May/June/July, which outranks "August isn't due yet". Opening the customer shows August grey and May/June/July red |
+| 2b.21 | The reported case | Rule = start day, line starts **13/5/2026**, nothing paid, today is **4/8/2026** | Card shows ONE red **"Overdue"** pill — May/June are late whatever the billing day says. Opening the customer shows May/June/**July all red** and only August grey |
 | 2b.22 | Badge must not change by itself | Same customer — open the list, wait, open a customer detail, come back | The pills are identical on the first paint and after returning. Nothing ever flips from grey to red on its own (both facts come from one query) |
 | 2b.23 | No badge before data | Watch the list on a cold start | A card may briefly show **no** payment pill while the status loads; it must never show a red "Unpaid" that later turns grey. The flags row keeps its height so nothing jumps |
 | 2b.24 | Skipped customer with old debt | Every line skipped this month, an earlier month unpaid | Card shows ONE red "Overdue" pill — no slate "Skipped": a skip excuses its own month, never a backlog |
@@ -90,6 +90,16 @@ Tenant-wide setting stored in the `tenant_settings` table (key `UnpaidStartRule`
 | 2b.26 | Badges cleared on logout | Login as tenant A, view the customer list, logout, login as tenant B | Tenant B's list shows no leftover badges from tenant A |
 | 2b.27 | Quick pay still offered | Rule = start day, customer's only line is not due yet and unpaid | "Pay now" is still offered for that line (pay early is allowed) and paying it turns the pill green |
 | 2b.28 | Mixed due days, tally | Lines start the 1st (unpaid) and the 20th (not due yet); today is the 4th | Badge is red "Unpaid" for the due line only — the not-due-yet line is excluded from the N/M tally |
+| 2b.29 | **Unpaid, not late yet** (the reported case) | Rule = start day, line starts the **15th** (months ago), everything paid except **last month**, today is the **11th** | Grid: last month **RED** (and counted in the "unpaid" chip), current month grey "THIS MONTH". Card: red **"Unpaid"** pill and **no** "Overdue" pill. The customer is in the Unpaid tab, absent from Overdue |
+| 2b.30 | The badge flips on the billing day | Same customer, today is the **15th** | Card becomes ONE red **"Overdue"** pill (the plain "Unpaid" is suppressed). The current month also turns red. Nothing changed in the grid for last month — it was already red |
+| 2b.31 | Two months back is late immediately | Rule = start day, line starts the 15th, the last **two** months unpaid, today is the 11th | Both are red; card reads **"Overdue"** — only *last* month gets the grace, never the one before it |
+| 2b.32 | Last month is collectable | Tap last month's red cell before the 15th | The payment form opens and records normally; the cell turns green and the card goes back to "Not due yet" |
+| 2b.33 | Pay order still holds | Last month unpaid (not late yet), tap the **current** month | Refused, naming last month as the one to collect first. Selecting both months together pays both |
+| 2b.34 | Quick pay skips, never errors | Customer list, a line whose last month is unpaid, today is before the 15th | "Collect all due" / "Pay now" leaves that line alone with **no** error banner — collect from the customer's grid. (An "Unpaid" card with no quick pay offered is expected here) |
+| 2b.35 | Skip beats everything | Last month is skipped on that line | Last month's cell is slate "Skipped" and never counts as owed or late |
+| 2b.36 | Start day = 1, no waiting | Line starts on the 1st, last month unpaid, today is the 4th | Card reads **"Overdue"** — this month's billing day already passed |
+| 2b.37 | month_start untouched | Same data as 2b.29 under `month_start` | Card reads "Overdue" from day 1 of the month; the grace exists only under `customer_start_day` |
+| 2b.38 | Per-line grace in a multi-plan customer | Two lines, start days 5 and 25, both unpaid for last month, today is the 10th | The 5th line is late (day passed) → card reads "Overdue". The 25th line alone would not be |
 
 ## 3. Currencies management
 

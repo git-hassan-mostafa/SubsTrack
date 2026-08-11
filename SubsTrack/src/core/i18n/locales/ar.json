@@ -459,7 +459,7 @@
     "unpaid_rule_month_start": "في أول يوم من الشهر",
     "unpaid_rule_month_start_hint": "يصبح كل عميل غير مدفوع في اليوم الأول.",
     "unpaid_rule_customer_start_day": "في يوم بداية العميل",
-    "unpaid_rule_customer_start_day_hint": "يصبح كل عميل غير مدفوع في يوم بدايته الخاص.",
+    "unpaid_rule_customer_start_day_hint": "يصبح كل عميل غير مدفوع في يوم بدايته الخاص، ولا يُعتبر متأخراً عن الشهر الماضي إلا بعد مرور ذلك اليوم.",
     "currencies_section_title": "العملات",
     "currencies_hint": "حدّد العملات الأخرى غير الدولار وسعر صرف كل منها مقابل الدولار.",
     "no_currencies": "لا توجد عملات بعد",

@@ -242,7 +242,7 @@ export interface PlanPaidCount {
 //   unpaid      no line is fully settled
 //   skipped     owes nothing, and nothing is expected this month (deliberate skip)
 //   not_due_yet owes nothing YET — no line has started or reached its billing
-//               day ('customer_start_day' rule)
+//               day for THIS month ('customer_start_day' rule)
 // The last three all mean "nothing owed", so none of them can appear with
 // `CustomerStatus.overdue`; only `mixed` can (and `unpaid`, which the Overdue
 // pill replaces).
@@ -265,10 +265,12 @@ export interface CustomerStatus {
   // Lines that must NOT be quick-paid this month: already covered by a payment,
   // or skipped. A not-due-yet line stays payable, so it is absent here.
   notDueLineIds: string[];
-  // Lines with an EARLIER month still unpaid. Months are settled oldest-first,
-  // so quick pay must skip these — their backlog is collected from the customer
-  // detail grid instead. The per-line detail behind the `overdue` flag.
-  overdueLineIds: string[];
+  // Lines with an EARLIER month not covered — overdue, or last month still
+  // inside its billing-day grace ('customer_start_day'). Months are settled
+  // oldest-first, so quick pay must skip these; their backlog is collected from
+  // the customer detail grid instead. Wider than the `overdue` flag on purpose:
+  // a grace month owes nothing yet but still blocks a later write (gotcha #81b).
+  uncoveredLineIds: string[];
 }
 
 // One point on the dashboard revenue trend — one calendar month, canonical USD.
@@ -686,5 +688,7 @@ export interface AuditFilter {
 // When an unbilled month flips to "unpaid" in the month grid.
 //   month_start        — on the 1st of the month (the original behavior)
 //   customer_start_day — on the service line's own start day-of-month; before
-//                        that day the current month reads as "future"
+//                        that day THIS month reads as "future" (nothing owed
+//                        yet). Last month stays red and owed — it is only not
+//                        "Overdue" yet. See gotcha #83.
 export type UnpaidStartRule = 'month_start' | 'customer_start_day';

@@ -65,7 +65,8 @@ SubsTrack/
 │   │   ├── constants/index.ts     # PAGE_SIZE=30, MONTHS array, EXPOSED_ROLES
 │   │   ├── utils/
 │   │   │   ├── BaseRepository.ts  # Abstract base class; holds supabase client + handleError()
-│   │   │   └── date.ts            # toBillingMonth, getCurrentYearMonth, isBeforeStartDate
+│   │   │   └── date.ts            # generic only: toBillingMonth, getCurrentYearMonth, formatDate*
+│   │   │                          #   (month due/late rules → customer-payments/utils/monthDueRules.ts)
 │   │   └── i18n/
 │   │       ├── index.ts           # i18next setup
 │   │       ├── languageStore.ts   # Zustand store for language preference
@@ -144,6 +145,8 @@ SubsTrack/
 │   │   │   ├── repository/PaymentRepository.ts   # per-customer findByCustomer + tenant-wide findAll (Payments list)
 │   │   │   ├── services/PaymentService.ts        # ← buildMonthGrid() lives here ONLY; getPayments() for the flat list
 │   │   │   ├── screens/PaymentsPanel.tsx         # Payments segment of the Transactions hub (tenant-wide filterable list)
+│   │   │   ├── utils/monthDueRules.ts            # is a month started / owed / late (isNotDueYet, isNotLateYet) — #83
+│   │   │   ├── utils/{payOrder, monthSelection, blockRangeLabel, mapper, types}.ts
 │   │   │   └── components/{MonthGrid, MonthCell, YearNavigator, PaymentFormSheet,
 │   │   │                    PaymentDetailSheet, VoidSheet, CustomerPaymentPanel,
 │   │   │                    PaymentListCard, PaymentListVoidSheet}.tsx
