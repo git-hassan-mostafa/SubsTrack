@@ -6,9 +6,15 @@ import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/src/shared/components/Text";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
 import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
+import { InlineSelectionToolbar } from "@/src/shared/components/InlineSelectionToolbar";
+import {
+  useSelection,
+  useSelectionBackHandler,
+} from "@/src/shared/hooks/useSelection";
 import { COLORS } from "@/src/shared/constants";
 import type { Customer, Sale } from "@/src/core/types";
 import saleService from "../services/SaleService";
+import { useSaleInvoiceAction } from "../hooks/useSaleInvoiceAction";
 import { SaleCard } from "./SaleCard";
 import { SaleFormSheet } from "./SaleFormSheet";
 import { SaleDetailSheet } from "./SaleDetailSheet";
@@ -37,12 +43,24 @@ export function CustomerSalesPanel({ customer }: Props) {
   const [formOpen, setFormOpen] = useState(false);
   const [activeSale, setActiveSale] = useState<Sale | null>(null);
   const [voidLoading, setVoidLoading] = useState(false);
+  const selection = useSelection();
+  const {
+    active: selectionActive,
+    selectedIds,
+    toggle: toggleSelect,
+    enterWith: enterSelection,
+    clear: clearSelection,
+  } = selection;
+  useSelectionBackHandler(selectionActive, clearSelection);
   // Discards out-of-order responses if focus fires refresh while one is in flight.
   const tokenRef = useRef(0);
 
   const refresh = useCallback(async () => {
     const token = ++tokenRef.current;
     setLoading(true);
+    // The incoming rows may not contain the ticked ones (a new sale pushes the
+    // oldest out of the preview), so the selection starts over.
+    clearSelection();
     try {
       // Fetch one past the preview limit so we know whether to show "Show all".
       const items = await saleService.getSalesForCustomer(
@@ -54,7 +72,7 @@ export function CustomerSalesPanel({ customer }: Props) {
     } finally {
       if (tokenRef.current === token) setLoading(false);
     }
-  }, [customer.id]);
+  }, [customer.id, clearSelection]);
 
   // `refresh` is already keyed on `customer.id`, so this is the same trigger.
   useEffect(() => {
@@ -82,22 +100,39 @@ export function CustomerSalesPanel({ customer }: Props) {
 
   const preview = sales.slice(0, PREVIEW_LIMIT);
   const hasMore = sales.length > PREVIEW_LIMIT;
+  // Only the rendered rows can be ticked, so the selection is read off `preview`.
+  const selectedSales = preview.filter((s) => selectedIds.has(s.id));
+  // One receipt covering every selected sale — the same action the two sales
+  // lists carry. No "select all" here: the panel is a 5-row preview.
+  const invoiceAction = useSaleInvoiceAction(selectedSales, clearSelection);
 
   return (
     <View className="px-4 mt-4">
-      <View className="flex-row items-center justify-between mb-3">
-        <Text fontWeight="Bold" className="text-base text-gray-900">
-          {t("sales.customer_panel_title")}
-        </Text>
-        <PressableOpacity
-          onPress={() => setFormOpen(true)}
-          className="flex-row items-center bg-emerald-50 rounded-full px-3 py-1.5"
-        >
-          <Ionicons name="add" size={14} color={COLORS.success} />
-          <Text className="text-xs font-semibold text-emerald-700 ms-1">
-            {t("sales.record_button")}
-          </Text>
-        </PressableOpacity>
+      {/* Fixed height in both states so entering selection never shifts the
+          cards under the finger that long-pressed one. */}
+      <View className="h-9 justify-center mb-3">
+        {selectionActive ? (
+          <InlineSelectionToolbar
+            count={selection.count}
+            actions={invoiceAction ? [invoiceAction] : []}
+            onClose={clearSelection}
+          />
+        ) : (
+          <View className="flex-row items-center justify-between">
+            <Text fontWeight="Bold" className="text-base text-gray-900">
+              {t("sales.customer_panel_title")}
+            </Text>
+            <PressableOpacity
+              onPress={() => setFormOpen(true)}
+              className="flex-row items-center bg-emerald-50 rounded-full px-3 py-1.5"
+            >
+              <Ionicons name="add" size={14} color={COLORS.success} />
+              <Text className="text-xs font-semibold text-emerald-700 ms-1">
+                {t("sales.record_button")}
+              </Text>
+            </PressableOpacity>
+          </View>
+        )}
       </View>
 
       {loading ? (
@@ -113,9 +148,17 @@ export function CustomerSalesPanel({ customer }: Props) {
       ) : (
         <>
           {preview.map((sale) => (
-            <SaleCard key={sale.id} sale={sale} onPress={setActiveSale} />
+            <SaleCard
+              key={sale.id}
+              sale={sale}
+              onPress={setActiveSale}
+              selectionMode={selectionActive}
+              selected={selectedIds.has(sale.id)}
+              onToggleSelect={(s) => toggleSelect(s.id)}
+              onEnterSelection={(s) => enterSelection(s.id)}
+            />
           ))}
-          {hasMore ? (
+          {hasMore && !selectionActive ? (
             <PressableOpacity
               onPress={openAll}
               className="flex-row items-center justify-center py-3"

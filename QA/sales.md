@@ -5,15 +5,16 @@ Covers the one-off sales ledger: recording a sale (with **one or more products**
 **A sale is a header (`sales`) + one or more product lines (`sale_items`).** One sale can hold several products (a "cart"). The header carries the single sale currency + rate snapshot, the summed `total_amount`, `amount_paid`, and a frozen `items_summary`. Each line is one product (`product_name_snapshot`, `quantity`, `unit_amount`). Partial payment / debt / wallet / dashboard are all header-level (one debt, one wallet entry, one revenue figure per sale). Revenue, wallet, and the Sales-tab month headers all read `amount_paid`; only the debt reads `total_amount − amount_paid`.
 
 **Reference code:**
-- Screen: [SalesListScreen.tsx](SubsTrack/src/modules/sales/screens/SalesListScreen.tsx)
-- Form sheet: [SaleFormSheet.tsx](SubsTrack/src/modules/sales/components/SaleFormSheet.tsx)
-- Detail sheet: [SaleDetailSheet.tsx](SubsTrack/src/modules/sales/components/SaleDetailSheet.tsx)
-- Card: [SaleCard.tsx](SubsTrack/src/modules/sales/components/SaleCard.tsx)
-- Customer panel: [CustomerSalesPanel.tsx](SubsTrack/src/modules/sales/components/CustomerSalesPanel.tsx)
-- Service: [SaleService.ts](SubsTrack/src/modules/sales/services/SaleService.ts)
-- Repository: [SaleRepository.ts](SubsTrack/src/modules/sales/repository/SaleRepository.ts)
+- Screen: [SalesPanel.tsx](SubsTrack/src/modules/transaction/sales/screens/SalesPanel.tsx) (the Sales tab of the Transactions hub)
+- Form sheet: [SaleFormSheet.tsx](SubsTrack/src/modules/transaction/sales/components/SaleFormSheet.tsx)
+- Detail sheet: [SaleDetailSheet.tsx](SubsTrack/src/modules/transaction/sales/components/SaleDetailSheet.tsx)
+- Card: [SaleCard.tsx](SubsTrack/src/modules/transaction/sales/components/SaleCard.tsx)
+- Customer panel: [CustomerSalesPanel.tsx](SubsTrack/src/modules/transaction/sales/components/CustomerSalesPanel.tsx)
+- Bulk send on WhatsApp: [useSaleInvoiceAction.tsx](SubsTrack/src/modules/transaction/sales/hooks/useSaleInvoiceAction.tsx) + [InlineSelectionToolbar.tsx](SubsTrack/src/shared/components/InlineSelectionToolbar.tsx)
+- Service: [SaleService.ts](SubsTrack/src/modules/transaction/sales/services/SaleService.ts)
+- Repository: [SaleRepository.ts](SubsTrack/src/modules/transaction/sales/repository/SaleRepository.ts)
 - Customer picker: [AsyncEntityPicker.tsx](SubsTrack/src/shared/components/AsyncEntityPicker.tsx)
-- Route: [sales/index.tsx](SubsTrack/app/(app)/(tabs)/sales/index.tsx)
+- Route: [transactions/index.tsx](SubsTrack/app/(app)/(tabs)/transactions/index.tsx)
 - Dashboard service: [DashboardService.ts](SubsTrack/src/modules/dashboard/services/DashboardService.ts)
 - Currency utils: [currency.ts](SubsTrack/src/core/utils/currency.ts)
 
@@ -221,7 +222,15 @@ Displayed at the **bottom** of the customer detail screen, below the payment gri
 | 5.9 | Preview cap = 5 | Customer with ≤5 sales | All sales shown; NO "Show all" link |
 | 5.10 | "Show all" link appears | Customer with >5 sales | Only 5 shown + "Show all" link below them |
 | 5.11 | Record from panel | Tap "Record Sale" | Form opens pre-filled with this customer; on save the preview refreshes |
-| 5.12 | Refresh on focus | Record/void a sale on the full page, navigate back | Panel reflects the change without a manual pull-to-refresh |
+| 5.12 | Refresh sources | Record/void a sale **from the panel itself** | The preview reloads. **Known gap:** the panel loads on open and after its own writes only — no focus refresh and pull-to-refresh doesn't reach it — so a sale recorded/voided on the full "Show all" page shows here only after leaving and reopening the customer |
+| 5.13 | Enter selection | Long-press a sale card in the panel | Checkboxes replace the card icons; the panel title + "Record" pill become `X · "1 selected" · [send-invoice icon]`; the row height does not jump |
+| 5.14 | Tick more / untick | Tap other cards, then untick them all | Count follows the ticks; emptying the selection exits selection mode and the title row returns |
+| 5.15 | Bulk send on WhatsApp | Select 2–3 sales → the receipt icon | ONE WhatsApp message covering every selected sale (same text as the Sales tab's bulk send); the selection clears; **no** sale is created, edited or voided |
+| 5.16 | No select-all | While selecting | No select-all checkbox in the panel toolbar (only X, count, send) — unlike the Sales tab and the full page |
+| 5.17 | No bulk void here | While selecting | Void is **not** offered in the panel; it stays on the receipt sheet / full page / Sales tab |
+| 5.18 | "Show all" hidden while selecting | Customer with >5 sales → enter selection | The "Show all" link is hidden until the selection ends |
+| 5.19 | Exit paths | X button · Android back · recording a new sale | Each leaves selection mode with nothing ticked |
+| 5.20 | No phone | Customer with no phone → select sales → send | "No phone number for this customer" dialog; nothing sent; the selection stays |
 
 ---
 

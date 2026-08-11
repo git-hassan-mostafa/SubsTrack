@@ -219,6 +219,8 @@ SubsTrack/
 │       │   ├── AsyncEntityPicker.tsx # Searchable + paginated picker for large entity lists (used for customer picker in SaleFormSheet)
 │       │   ├── SearchTextBox.tsx, EmptyState.tsx
 │       │   ├── PageHeader.tsx, LoadingScreen.tsx
+│       │   ├── SelectionBar.tsx      # Page-level selection row (X · "N selected" · icon actions + optional select-all); hosted by PageHeader or inline
+│       │   ├── InlineSelectionToolbar.tsx # Compact in-panel twin of SelectionBar (month grid year header, customer detail sales section)
 │       │   ├── ResponsiveContainer.tsx  # Caps + centers body width on wide web/desktop; no-op on phones
 │       │   ├── SegmentedTabs.tsx    # iOS-style pill segmented control (primary in-page tabs, e.g. the Transactions hub)
 │       │   ├── PillTabs.tsx         # Dark-pill toggle row (secondary tabs/filters: customer-list filters, Debts sub-tabs)

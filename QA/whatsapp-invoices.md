@@ -10,8 +10,8 @@ Covers sending a customer their receipt over WhatsApp. The whole feature is a `w
 - Button: [SendOnWhatsAppButton.tsx](../SubsTrack/src/modules/invoicing/components/SendOnWhatsAppButton.tsx)
 - Entry points: [PaymentFormSheet.tsx](../SubsTrack/src/modules/customer/customer-payments/components/PaymentFormSheet.tsx), [SaleFormSheet.tsx](../SubsTrack/src/modules/transaction/sales/components/SaleFormSheet.tsx), [CustomerPaymentPanel.tsx](../SubsTrack/src/modules/customer/customer-payments/components/CustomerPaymentPanel.tsx), [CustomerListScreen.tsx](../SubsTrack/src/modules/customer/customers/screens/CustomerListScreen.tsx), [PaymentDetailSheet.tsx](../SubsTrack/src/modules/customer/customer-payments/components/PaymentDetailSheet.tsx), [SaleDetailSheet.tsx](../SubsTrack/src/modules/transaction/sales/components/SaleDetailSheet.tsx)
 - Created-record forwarding: [paymentSlice.ts](../SubsTrack/src/state/slices/payments/paymentSlice.ts) (`createPayment`, `createPayments`, `createMultiMonthPayment`, `createMultiMonthPayments`, `bulkPayCustomers`)
-- Multi-select toolbar: [GridSelectionToolbar.tsx](../SubsTrack/src/modules/customer/customer-payments/components/GridSelectionToolbar.tsx), custom-amount sheet [BulkPaymentFormSheet.tsx](../SubsTrack/src/modules/customer/customer-payments/components/BulkPaymentFormSheet.tsx)
-- Re-send a selection: [PaymentsPanel.tsx](../SubsTrack/src/modules/customer/customer-payments/screens/PaymentsPanel.tsx), [useSaleInvoiceAction.ts](../SubsTrack/src/modules/transaction/sales/hooks/useSaleInvoiceAction.ts) (shared by [SalesPanel.tsx](../SubsTrack/src/modules/transaction/sales/screens/SalesPanel.tsx) + [CustomerSalesListScreen.tsx](../SubsTrack/src/modules/transaction/sales/screens/CustomerSalesListScreen.tsx))
+- Multi-select toolbar: [InlineSelectionToolbar.tsx](../SubsTrack/src/shared/components/InlineSelectionToolbar.tsx) (shared by the month grid + the customer sales panel), custom-amount sheet [BulkPaymentFormSheet.tsx](../SubsTrack/src/modules/customer/customer-payments/components/BulkPaymentFormSheet.tsx)
+- Re-send a selection: [PaymentsPanel.tsx](../SubsTrack/src/modules/customer/customer-payments/screens/PaymentsPanel.tsx), [useSaleInvoiceAction.tsx](../SubsTrack/src/modules/transaction/sales/hooks/useSaleInvoiceAction.tsx) (shared by [SalesPanel.tsx](../SubsTrack/src/modules/transaction/sales/screens/SalesPanel.tsx) + [CustomerSalesListScreen.tsx](../SubsTrack/src/modules/transaction/sales/screens/CustomerSalesListScreen.tsx) + [CustomerSalesPanel.tsx](../SubsTrack/src/modules/transaction/sales/components/CustomerSalesPanel.tsx))
 - Strings: the `invoice.*` namespace in `en.json` / `ar.json`
 - Related: [docs/features.md](../docs/features.md) → WhatsApp Invoices; gotchas #68, #69
 
@@ -106,7 +106,7 @@ Customer detail → long-press a month to enter selection, then tap more months.
 
 ## 3c. Multi-select records already collected — re-send them as one receipt
 
-The same toolbars that void a selection now carry a **receipt icon** action, "Send invoice on WhatsApp": the month grid (paid months), Payments history, and both sales lists. Nothing is written — this only re-sends.
+The same toolbars that void a selection now carry a **receipt icon** action, "Send invoice on WhatsApp": the month grid (paid months), Payments history, and all three sales lists (Sales tab, the customer's full sales page, and the customer detail **Sales** section). Nothing is written — this only re-sends.
 
 | #   | Scenario | Steps | Expected result |
 | --- | --- | --- | --- |
@@ -134,6 +134,16 @@ The same toolbars that void a selection now carry a **receipt icon** action, "Se
 | 3c.22 | Customer sales page | Customer → Sales → Show all → select several → Send invoice | Same behaviour as the Sales tab (both lists share one hook) |
 | 3c.23 | Two currencies in one selection | Select paid months (or sales) collected in USD **and** LBP | **One total line per currency** — never a single mixed number |
 | 3c.24 | Void actions unchanged | Repeat any selection above and press **Void** instead | Voiding behaves exactly as before, including the void-order (newest first) rule |
+| 3c.25 | **Customer detail sales section** | Customer detail → scroll to **Sales** → long-press a sale, tap 2 more → **Send invoice** | The section title + "Record" pill are replaced by `X · "N selected" · [receipt icon]`; ONE message covering the 3 sales (same text the Sales tab produces); selection clears; nothing is written |
+| 3c.26 | No select-all there | Same section, in selection mode | There is **no** select-all checkbox (unlike the full page / Sales tab) — only X, the count, and the send action |
+| 3c.27 | Single sale from the section | Long-press one sale → Send invoice | The normal **single-sale receipt** (product lines, Sold at) — same as tapping the sale and using its receipt sheet |
+| 3c.28 | No layout jump | Long-press a card and hold | The header row keeps its height when the toolbar appears — the cards must **not** shift under the finger |
+| 3c.29 | "Show all" hidden while selecting | Customer with 6+ sales → enter selection | The "Show all" link is hidden; it returns after X / Android back |
+| 3c.30 | Tap opens, long-press selects | Tap a card with no selection active | The receipt sheet opens as before (selection is entered only by long-press) |
+| 3c.31 | Section, no phone | Customer with no phone → select sales → Send invoice | Dialog: "No phone number for this customer"; nothing sent, selection stays |
+| 3c.32 | New sale clears the selection | Enter selection, then X out and record a sale from the section | The preview refreshes with the new sale on top and **nothing is left ticked** |
+| 3c.33 | Void from the section unchanged | Select nothing; tap a sale → **Void** | Void still works from the receipt sheet; the section's toolbar offers **no** bulk void (that stays on the full page / Sales tab) |
+| 3c.34 | Android back | Enter selection → hardware back | Selection exits; the app does **not** navigate away from the customer |
 
 ---
 

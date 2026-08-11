@@ -14,6 +14,7 @@ import {
   ActionMenu,
   type ActionMenuItem,
 } from "@/src/shared/components/ActionMenu";
+import { InlineSelectionToolbar } from "@/src/shared/components/InlineSelectionToolbar";
 import type {
   Customer,
   CustomerPlan,
@@ -37,7 +38,6 @@ import { PaymentDetailSheet } from "./PaymentDetailSheet";
 import { PaymentFormSheet } from "./PaymentFormSheet";
 import { SkipMonthSheet } from "./SkipMonthSheet";
 import { VoidSheet } from "./VoidSheet";
-import { GridSelectionToolbar } from "./GridSelectionToolbar";
 import {
   BulkPaymentFormSheet,
   type BulkPaymentValues,
@@ -1076,7 +1076,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
             </View>
             {selection.active ? (
               <View className="absolute inset-0 bg-white px-2 justify-center border-b border-gray-100">
-                <GridSelectionToolbar
+                <InlineSelectionToolbar
                   count={selection.count}
                   actions={selectionActions}
                   onClose={selection.clear}

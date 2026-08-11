@@ -3,8 +3,8 @@ import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
 import { COLORS } from "@/src/shared/constants";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
-import type { SelectionAction } from "@/src/shared/components/PageHeader";
+import { PressableOpacity } from "./PressableOpacity/PressableOpacity";
+import type { SelectionAction } from "./SelectionBar";
 
 interface Props {
   count: number;
@@ -12,10 +12,11 @@ interface Props {
   onClose: () => void;
 }
 
-// Selection toolbar that overlays the year-header row, directly above the month
-// grid (not the page header). Rendered inside an absolute, bg-white container by
-// the panel, so it carries no background/margins of its own.
-export function GridSelectionToolbar({ count, actions, onClose }: Props) {
+// Compact selection toolbar for a panel EMBEDDED in a screen (the month grid's
+// year header, the customer detail sales section) — the in-flow twin of the
+// page-level `SelectionBar`. Carries no background/margins of its own, so the
+// host decides whether it overlays a row or replaces one.
+export function InlineSelectionToolbar({ count, actions, onClose }: Props) {
   const { t } = useTranslation();
   return (
     <View className="flex-row items-center px-2 gap-2">
