@@ -8,6 +8,7 @@ import { Text } from "@/src/shared/components/Text";
 import { useTranslation } from "react-i18next";
 import type { MonthEntry } from "@/src/core/types";
 import { formatDate } from "@/src/core/utils/date";
+import { confirm } from "@/src/shared/lib/confirm";
 import {
   findCurrency,
   formatMoney,
@@ -90,17 +91,22 @@ export function PaymentDetailSheet({
   }
 
   function handleSaveEdit() {
-    if (
-      payment &&
-      editPaid != null &&
-      editPaid >= 0 &&
-      editPaid <= payment.amountDue &&
-      onEdit
-    ) {
-      onEdit({ amountPaid: editPaid });
-      setEditMode(false);
-      setEditPaid(null);
+    if (!payment || editPaid == null || !onEdit) return;
+    if (editPaid < 0 || editPaid > payment.amountDue) return;
+    // 0 would un-pay the month behind the void guard's back — explain, and keep
+    // edit mode open so the amount can be corrected. Same rule as the service.
+    if (editPaid === 0) {
+      void confirm({
+        title: t("common.not_available"),
+        message: t("errors.edit_amount_zero"),
+        confirmLabel: t("common.close"),
+        hideCancel: true,
+      });
+      return;
     }
+    onEdit({ amountPaid: editPaid });
+    setEditMode(false);
+    setEditPaid(null);
   }
 
   function handleDismiss() {

@@ -27,8 +27,9 @@ These are non-negotiable and should be re-verified after any release:
 6. **`rate_per_usd_snapshot > 0`.** USD payments (`currencyId === null`) store snapshot = 1.
 7. **Tenant isolation.** Payment row's `tenant_id` always equals the current tenant's id.
 8. **Voided payments are excluded** from the year fetch, from "paid this month" queries, and from multi-month coverage.
-9. **Payment with `amount_paid = 0` is unpaid.** Slot is reserved but the month grid shows it as unpaid (see [monthly-grid.md](monthly-grid.md)).
-10. **Months are paid OLDEST first and voided NEWEST first.** A month can't be paid while an earlier month of the same line is unpaid, and can't be voided while a later month of the same line is paid. Together they mean a paid month can never sit on top of an unpaid one. The third door is closed by locking a line's start date once it has a payment (§17). Independently of all three, the customer card can't show "✓ Paid" beside "Overdue" even for legacy data: "paid" means the customer owes **nothing** (see [customers.md](customers.md) §1).
+9. **Payment with `amount_paid = 0` is unpaid.** Slot is reserved but the month grid shows it as unpaid (see [monthly-grid.md](monthly-grid.md)). **An EDIT may therefore not set paid to 0** — that would un-pay a month without a void, skipping the newest-first rule below and keeping no reason (§9b). Void the payment instead.
+10b. **Paying AHEAD is allowed; paying ahead OUT OF ORDER is not.** A month can only be paid when every earlier month from the line's start is covered (paid or skipped) — including months that are merely **not due yet**, not only overdue ones. So with Jul+Aug paid in August, Dec cannot be paid until Sep+Oct+Nov are (together or one by one). See §2b.
+10. **Months are paid OLDEST first and voided NEWEST first.** A month can't be paid while an earlier month of the same line is unpaid, and can't be voided while a later month of the same line is paid. Together they mean a paid month can never sit on top of an unpaid one. The other doors are closed by locking a line's start date once it has a payment (§17) and by refusing an edit to 0 (§9b). Independently of all three, the customer card can't show "✓ Paid" beside "Overdue" even for legacy data: "paid" means the customer owes **nothing** (see [customers.md](customers.md) §1).
 
 ## 1. Tapping a month cell — entry router
 
@@ -38,12 +39,38 @@ These are non-negotiable and should be re-verified after any release:
 | 1.2 | Tap a partial-paid month | Payment exists with `balance > 0` (the grid cell is green/paid) | Receipt opens with amber accent, balance row visible, "$X added to debts" line |
 | 1.3 | Tap an unpaid current month | Active customer, no payment | `PaymentFormSheet` opens, current month highlighted in form header |
 | 1.4 | Tap an unpaid past month | Active customer, prior month with no payment | `PaymentFormSheet` opens |
-| 1.5 | Tap a future month — active customer | Active customer | `PaymentFormSheet` opens (future payment allowed) |
+| 1.5 | Tap a future month — active customer, no gap before it | Active customer, every earlier month covered | `PaymentFormSheet` opens (prepay allowed) |
+| 1.5b | Tap a future month — an earlier month is uncovered | Jul+Aug paid (today is in Aug), tap Dec with Sep–Nov empty | Popup "Not available": "September 2026 is not paid yet on this plan. Earlier months must be paid first." Form does NOT open (§2b) |
 | 1.6 | Tap a future month — inactive customer | Inactive customer | Inline amber banner in the sheet: "This customer is inactive. Future month payments cannot be recorded for inactive customers." Submit disabled |
 | 1.7 | Tap a before-start month | Month < the line`s start_date | Info popup: "This month is before the plan's start date. No payment can be recorded here." |
 | 1.8 | Tap a `isGroupSecondary` cell (multi-month included) | Tap a month covered as month 2+ in a bundle | Opens the original payment's receipt (the source `billingMonth`), not the form |
 | 1.9 | Repeated rapid taps | Tap a cell 3 times fast | Only one sheet opens (modal animation absorbs subsequent taps) |
 | 1.10 | Tap then immediately scroll | Tap a cell, scroll the grid | Sheet still opens correctly; no orphaned overlays |
+
+## 2b. Pay order — no gaps, including future months
+
+Prepaying is allowed; prepaying **out of order** is not. The gate compares against `PaymentService.uncoveredBillingMonths` (overdue months **plus** not-yet-due ones), so a prepay can't leave a hole behind it. Same two layers as before: `assertPayableInOrder` inside every slice create action, and the UI gating ahead of it.
+
+**Setup for the whole section:** today is in **August**; the line starts **1 Jul**; Jul + Aug are paid; Sep–Dec are empty.
+
+| # | Scenario | Steps | Expected result |
+|---|----------|-------|-----------------|
+| 2b.1 | The reported bug | Tap Dec | Blocked, naming **September** — not "nothing is overdue, go ahead" |
+| 2b.2 | Next month in order | Tap Sep | Form opens, payment records normally |
+| 2b.3 | Order restored | Pay Sep, Oct, Nov one by one, then tap Dec | Dec is now allowed |
+| 2b.4 | Batch a whole run | Multi-select Sep+Oct+Nov+Dec, pay | Allowed — months inside the same write never block each other |
+| 2b.5 | Batch with a hole | Multi-select Sep+Nov only, pay | Blocked, naming **October** |
+| 2b.6 | Next calendar year | Tap Jan 2027 with Sep–Dec 2026 empty | Blocked, naming September 2026 — the check is not limited to the viewed year |
+| 2b.7 | Gap inside next year | Everything through Mar 2027 paid, tap Jun 2027 | Blocked, naming **April 2027** — the walk extends past the current year to the last covered month |
+| 2b.8 | A skipped month is not a hole | Skip Sep, then tap Oct | Allowed — a skip means nothing is expected, so it never blocks |
+| 2b.9 | A partial payment is not a hole | Pay Sep partially (balance > 0), tap Oct | Allowed — the month is covered; the remainder is a debt |
+| 2b.10 | Multi-month block counts as coverage | Pay a 3-month block Sep–Nov, then tap Dec | Allowed — the block covers all three months |
+| 2b.11 | Overdue rule still works | A line with Jul unpaid (today in Aug), tap Aug | Blocked, naming July — the original behavior is unchanged |
+| 2b.12 | First ever month | A brand-new line, tap its start month | Allowed — nothing earlier exists |
+| 2b.13 | Form banner backstop | Reach the form for Dec some other way (deep link) | Amber banner naming September; submit refused by the slice |
+| 2b.14 | Service guard | Call `createPayment` for Dec directly with Sep empty | Throws `errors.earlier_month_unpaid` naming September; nothing is written |
+| 2b.15 | Quick pay unaffected | Customer-list "Collect all due" | Still collects the CURRENT month only, so it can never create a forward gap |
+| 2b.16 | Message wording | Trigger 2b.1 and read the text | Says "is not paid yet" (fits a not-yet-due month), not "is still unpaid" |
 
 ## 2. Scenario A — Fixed single-month plan (price locked)
 
@@ -192,6 +219,24 @@ Edit re-snapshots `rate_per_usd_snapshot` from the currency live rate at edit ti
 | 9.13 | Network error | Save with no internet | ErrorBanner inside detail sheet; values preserved |
 | 9.14 | Voided payment cannot be edited | Edit a voided payment via API | Repository's `updatePayment` filters `voided_at IS NULL`; update returns 0 rows / error. No UI access |
 | 9.15 | Edit multi-month payment | Edit a payment with duration_months > 1 | Amounts + currency editable; `duration_months` is NOT editable (locked). For range corrections: void + re-record |
+
+### 9b. Edit cannot un-pay a month (paid amount 0 refused)
+
+`amount_paid = 0` reads as unpaid in `buildMonthGrid` (it needs `> 0`), so editing to 0 was a back door around the void guard: it could leave a paid month sitting on an unpaid one and kept no void reason. Refused in `PaymentService.updatePayment` and pre-gated in `PaymentDetailSheet`, so **both** the customer grid receipt and the Transactions → Payments receipt are covered.
+
+| # | Scenario | Steps | Expected result |
+|---|----------|-------|-----------------|
+| 9b.1 | Edit a paid month to 0 | Open a paid month's receipt → Edit Payment → set Amount Paid to `0` → Save Changes | Popup "Not available": "Amount paid cannot be 0. To mark this month as unpaid, void the payment instead." Nothing is saved |
+| 9b.2 | Edit mode stays open | After 9b.1, close the popup | Still in edit mode with `0` in the field, so the amount can be corrected — the sheet does not close |
+| 9b.3 | Correct it after the refusal | Type a real amount, save | Saves normally |
+| 9b.4 | A PAST month too | Do 9b.1 on a past paid month (the case that could hide an unpaid gap) | Same refusal — the rule is not limited to the current month |
+| 9b.5 | Payments tab receipt | Transactions → Payments → open a paid row → Edit → `0` → Save | Same popup; `paymentsList` row unchanged |
+| 9b.6 | Service guard (bypass the UI) | Call `paymentService.updatePayment(payment, 0)` directly | Throws `errors.edit_amount_zero`; no write reaches the DB |
+| 9b.7 | Partial edit still allowed | Edit paid from `50` to `30` (due 50) | Works — only exactly 0 is refused (9.5 still holds) |
+| 9b.8 | Void is the supported route | On the same receipt tap "Void this payment" instead | Normal void flow, reason required, newest-first rule applies (§10b) |
+| 9b.9 | Arabic copy | Switch to Arabic, repeat 9b.1 | Arabic message shown, RTL layout correct |
+
+> **Doc drift:** rows 9.4 / 9.6 / 9.7 / 9.9 / 9.10 describe an editable **Amount Due** + currency. The sheet now freezes due, currency and rate once recorded (only Amount Paid is editable), so those rows need rewriting against the current UI.
 
 ## 10. Void flow
 

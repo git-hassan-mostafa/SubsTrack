@@ -109,7 +109,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
   // change, and hands every effect a dep that changes identity each time.
   const payments = usePaymentSlice((s) => s.items);
   const monthGridsByLine = usePaymentSlice((s) => s.monthGridsByLine);
-  const unpaidMonthsByLine = usePaymentSlice((s) => s.unpaidMonthsByLine);
+  const uncoveredMonthsByLine = usePaymentSlice((s) => s.uncoveredMonthsByLine);
   const paidMonthsByLine = usePaymentSlice((s) => s.paidMonthsByLine);
   const paymentsLoading = usePaymentSlice((s) => s.loading);
   const loadingUpdate = usePaymentSlice((s) => s.loadingUpdate);
@@ -189,11 +189,12 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
   const grid = selectedLine
     ? (monthGridsByLine[selectedLine.id] ?? EMPTY_GRID)
     : EMPTY_GRID;
-  // Every month this line still owes, across ALL years — a backlog from a
+  // Every month this line has NOT covered, across ALL years — a backlog from a
   // previous year blocks paying a later one even though the viewed grid can't
-  // show it. Declared here because the quick-pay effect below depends on it.
-  const lineUnpaidMonths = selectedLine
-    ? (unpaidMonthsByLine[selectedLine.id] ?? EMPTY_MONTHS)
+  // show it, and a not-yet-due gap blocks a prepay jumping over it. Declared here
+  // because the quick-pay effect below depends on it.
+  const lineUncoveredMonths = selectedLine
+    ? (uncoveredMonthsByLine[selectedLine.id] ?? EMPTY_MONTHS)
     : EMPTY_MONTHS;
   // The same, for the months this line HAS paid — voids run newest-first, and a
   // later paid month can also sit outside the viewed year.
@@ -259,7 +260,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
     }
     // Same oldest-first rule as a manual tap — the list can hand us a customer
     // whose current month is unpaid but whose backlog is older still.
-    const blocker = blockingUnpaidMonths(lineUnpaidMonths, [
+    const blocker = blockingUnpaidMonths(lineUncoveredMonths, [
       currentEntry.billingMonth,
     ])[0];
     if (blocker) {
@@ -275,7 +276,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
     }
     setSelectedEntry(currentEntry);
     setFormVisible(true);
-  }, [quickPay, paymentsLoading, grid, lineUnpaidMonths, router, t]);
+  }, [quickPay, paymentsLoading, grid, lineUncoveredMonths, router, t]);
 
   const lineActive = selectedLine?.active ?? false;
 
@@ -299,7 +300,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
   // one selection is fine while cherry-picking a later month is not.
   function payOrderBlocker(entries: MonthEntry[]): string | null {
     const blocking = blockingUnpaidMonths(
-      lineUnpaidMonths,
+      lineUncoveredMonths,
       entries.map((e) => e.billingMonth),
     );
     return blocking[0] ?? null;
@@ -1115,13 +1116,20 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
               {t("payments.amount_due")} · {daysIntoMonth} days into the month
             </Text>
           </View>
+          {/* Collects straight away — falls back to the form only when the line
+              has no fixed price to charge (handleQuickPay opens it itself). */}
           <PressableOpacity
-            onPress={() => handleCellPress(currentMonthEntry)}
+            onPress={() => void handleQuickPay(currentMonthEntry)}
+            disabled={quickPayMonth === currentMonthEntry.billingMonth}
             className="bg-red-500 rounded-xl px-3 py-2 ms-2"
           >
-            <Text className="text-white text-sm font-semibold">
-              {t("payments.collect")}
-            </Text>
+            {quickPayMonth === currentMonthEntry.billingMonth ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Text className="text-white text-sm font-semibold">
+                {t("payments.collect")}
+              </Text>
+            )}
           </PressableOpacity>
         </View>
       ) : null}

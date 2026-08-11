@@ -83,7 +83,7 @@ export function PaymentFormSheet({
   const createMultiMonthPayment = usePaymentSlice(
     (s) => s.createMultiMonthPayment,
   );
-  const unpaidMonthsByLine = usePaymentSlice((s) => s.unpaidMonthsByLine);
+  const uncoveredMonthsByLine = usePaymentSlice((s) => s.uncoveredMonthsByLine);
   const loadingCreate = usePaymentSlice((s) => s.loadingCreate);
   const error = usePaymentSlice((s) => s.error);
   const clearError = usePaymentSlice((s) => s.clearError);
@@ -119,11 +119,12 @@ export function PaymentFormSheet({
   const blockedForInactive =
     (!customer.active || !line.active) && isFutureMonth;
 
-  // Months are settled oldest-first. Every path into this form already checks,
-  // so this is the backstop for a form reached some other way — the slice
-  // refuses the write regardless.
+  // Months are settled oldest-first — including not-yet-due months, so a prepay
+  // can't jump a gap. Every path into this form already checks, so this is the
+  // backstop for a form reached some other way — the slice refuses the write
+  // regardless.
   const earlierUnpaidMonth = blockingUnpaidMonths(
-    unpaidMonthsByLine[line.id] ?? [],
+    uncoveredMonthsByLine[line.id] ?? [],
     [entry.billingMonth],
   )[0];
 

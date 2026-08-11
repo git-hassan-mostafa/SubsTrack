@@ -73,10 +73,11 @@ export interface PaymentSlice {
   skips: SkippedMonth[];
   // The viewed customer's month grids, one per service line, keyed by line id.
   monthGridsByLine: Record<string, MonthEntry[]>;
-  // Per line, the months it still owes (oldest first, ALL years — not just the
-  // viewed one). Months are settled oldest-first, so this is what every pay path
-  // checks against; the service refuses an out-of-order write regardless.
-  unpaidMonthsByLine: Record<string, string[]>;
+  // Per line, every month it has NOT covered (oldest first, ALL years — not just
+  // the viewed one): overdue months AND the not-yet-due ones a prepay would jump
+  // over. Months are settled oldest-first, so this is what every pay path checks
+  // against; the service refuses an out-of-order write regardless.
+  uncoveredMonthsByLine: Record<string, string[]>;
   // Per line, the months it currently has PAID (ALL years, a multi-month block
   // counted month by month). The mirror of the above for the void paths: voids
   // run newest-first, and a later paid month can sit in a year the grid isn't
@@ -226,7 +227,7 @@ export const createPaymentSlice: StateCreator<
   items: [],
   skips: [],
   monthGridsByLine: {},
-  unpaidMonthsByLine: {},
+  uncoveredMonthsByLine: {},
   paidMonthsByLine: {},
   customerStatuses: new Map(),
   loading: false,
@@ -267,7 +268,7 @@ export const createPaymentSlice: StateCreator<
         paymentService.getPaymentsForCustomer(customerId),
         skippedMonthService.getSkipsForCustomer(customerId),
       ]);
-      const { grids, unpaidMonths, paidMonths } = buildGridsFor(
+      const { grids, uncoveredMonths, paidMonths } = buildGridsFor(
         lines,
         items,
         skips,
@@ -278,7 +279,7 @@ export const createPaymentSlice: StateCreator<
         state.payments.items = items;
         state.payments.skips = skips;
         state.payments.monthGridsByLine = grids;
-        state.payments.unpaidMonthsByLine = unpaidMonths;
+        state.payments.uncoveredMonthsByLine = uncoveredMonths;
         state.payments.paidMonthsByLine = paidMonths;
         state.payments.loading = false;
       });
@@ -292,7 +293,7 @@ export const createPaymentSlice: StateCreator<
 
   buildGrids: (lines, year) => {
     const { items, skips } = get().payments;
-    const { grids, unpaidMonths, paidMonths } = buildGridsFor(
+    const { grids, uncoveredMonths, paidMonths } = buildGridsFor(
       lines,
       items,
       skips,
@@ -301,7 +302,7 @@ export const createPaymentSlice: StateCreator<
     );
     set((state) => {
       state.payments.monthGridsByLine = grids;
-      state.payments.unpaidMonthsByLine = unpaidMonths;
+      state.payments.uncoveredMonthsByLine = uncoveredMonths;
       state.payments.paidMonthsByLine = paidMonths;
     });
   },
@@ -331,7 +332,7 @@ export const createPaymentSlice: StateCreator<
         ...written.filter((s) => s.skipped),
       ];
       const items = get().payments.items;
-      const { grids, unpaidMonths, paidMonths } = buildGridsFor(
+      const { grids, uncoveredMonths, paidMonths } = buildGridsFor(
         lines,
         items,
         skips,
@@ -342,7 +343,7 @@ export const createPaymentSlice: StateCreator<
       set((state) => {
         state.payments.skips = skips;
         state.payments.monthGridsByLine = grids;
-        state.payments.unpaidMonthsByLine = unpaidMonths;
+        state.payments.uncoveredMonthsByLine = uncoveredMonths;
         state.payments.paidMonthsByLine = paidMonths;
         state.payments.loadingSkip = false;
         syncCustomerStatus(
@@ -384,7 +385,7 @@ export const createPaymentSlice: StateCreator<
       const [year] = data.billingMonth.split("-").map(Number);
       const items = [...get().payments.items, payment];
       const skips = get().payments.skips;
-      const { grids, unpaidMonths, paidMonths } = buildGridsFor(
+      const { grids, uncoveredMonths, paidMonths } = buildGridsFor(
         lines,
         items,
         skips,
@@ -394,7 +395,7 @@ export const createPaymentSlice: StateCreator<
       set((state) => {
         state.payments.items = items;
         state.payments.monthGridsByLine = grids;
-        state.payments.unpaidMonthsByLine = unpaidMonths;
+        state.payments.uncoveredMonthsByLine = uncoveredMonths;
         state.payments.paidMonthsByLine = paidMonths;
         state.payments.loadingCreate = false;
         syncCustomerStatus(
@@ -441,7 +442,7 @@ export const createPaymentSlice: StateCreator<
       );
       const items = [...get().payments.items, ...created];
       const skips = get().payments.skips;
-      const { grids, unpaidMonths, paidMonths } = buildGridsFor(
+      const { grids, uncoveredMonths, paidMonths } = buildGridsFor(
         lines,
         items,
         skips,
@@ -452,7 +453,7 @@ export const createPaymentSlice: StateCreator<
       set((state) => {
         state.payments.items = items;
         state.payments.monthGridsByLine = grids;
-        state.payments.unpaidMonthsByLine = unpaidMonths;
+        state.payments.uncoveredMonthsByLine = uncoveredMonths;
         state.payments.paidMonthsByLine = paidMonths;
         state.payments.loadingCreate = false;
         if (customerId)
@@ -579,7 +580,7 @@ export const createPaymentSlice: StateCreator<
         );
       const items = [...get().payments.items, payment];
       const skips = get().payments.skips;
-      const { grids, unpaidMonths, paidMonths } = buildGridsFor(
+      const { grids, uncoveredMonths, paidMonths } = buildGridsFor(
         lines,
         items,
         skips,
@@ -589,7 +590,7 @@ export const createPaymentSlice: StateCreator<
       set((state) => {
         state.payments.items = items;
         state.payments.monthGridsByLine = grids;
-        state.payments.unpaidMonthsByLine = unpaidMonths;
+        state.payments.uncoveredMonthsByLine = uncoveredMonths;
         state.payments.paidMonthsByLine = paidMonths;
         state.payments.loadingCreate = false;
         syncCustomerStatus(
@@ -674,7 +675,7 @@ export const createPaymentSlice: StateCreator<
         );
       const items = [...get().payments.items, ...payments];
       const skips = get().payments.skips;
-      const { grids, unpaidMonths, paidMonths } = buildGridsFor(
+      const { grids, uncoveredMonths, paidMonths } = buildGridsFor(
         lines,
         items,
         skips,
@@ -684,7 +685,7 @@ export const createPaymentSlice: StateCreator<
       set((state) => {
         state.payments.items = items;
         state.payments.monthGridsByLine = grids;
-        state.payments.unpaidMonthsByLine = unpaidMonths;
+        state.payments.uncoveredMonthsByLine = uncoveredMonths;
         state.payments.paidMonthsByLine = paidMonths;
         state.payments.loadingCreate = false;
         syncCustomerStatus(
@@ -731,7 +732,7 @@ export const createPaymentSlice: StateCreator<
         p.id === id ? updated : p,
       );
       const skips = get().payments.skips;
-      const { grids, unpaidMonths, paidMonths } = buildGridsFor(
+      const { grids, uncoveredMonths, paidMonths } = buildGridsFor(
         lines,
         items,
         skips,
@@ -741,7 +742,7 @@ export const createPaymentSlice: StateCreator<
       set((state) => {
         state.payments.items = items;
         state.payments.monthGridsByLine = grids;
-        state.payments.unpaidMonthsByLine = unpaidMonths;
+        state.payments.uncoveredMonthsByLine = uncoveredMonths;
         state.payments.paidMonthsByLine = paidMonths;
         state.payments.loadingUpdate = false;
         syncCustomerStatus(
@@ -772,7 +773,7 @@ export const createPaymentSlice: StateCreator<
       await paymentService.voidPayment(id, voidedBy, notes);
       const items = get().payments.items.filter((p) => p.id !== id);
       const skips = get().payments.skips;
-      const { grids, unpaidMonths, paidMonths } = buildGridsFor(
+      const { grids, uncoveredMonths, paidMonths } = buildGridsFor(
         lines,
         items,
         skips,
@@ -782,7 +783,7 @@ export const createPaymentSlice: StateCreator<
       set((state) => {
         state.payments.items = items;
         state.payments.monthGridsByLine = grids;
-        state.payments.unpaidMonthsByLine = unpaidMonths;
+        state.payments.uncoveredMonthsByLine = uncoveredMonths;
         state.payments.paidMonthsByLine = paidMonths;
         state.payments.loadingVoid = false;
         if (paymentToVoid) {
@@ -842,7 +843,7 @@ export const createPaymentSlice: StateCreator<
       await paymentService.voidPayments(ids, voidedBy, notes);
       const items = get().payments.items.filter((p) => !idSet.has(p.id));
       const skips = get().payments.skips;
-      const { grids, unpaidMonths, paidMonths } = buildGridsFor(
+      const { grids, uncoveredMonths, paidMonths } = buildGridsFor(
         lines,
         items,
         skips,
@@ -853,7 +854,7 @@ export const createPaymentSlice: StateCreator<
       set((state) => {
         state.payments.items = items;
         state.payments.monthGridsByLine = grids;
-        state.payments.unpaidMonthsByLine = unpaidMonths;
+        state.payments.uncoveredMonthsByLine = uncoveredMonths;
         state.payments.paidMonthsByLine = paidMonths;
         state.payments.loadingVoid = false;
         if (customerId)
@@ -887,7 +888,7 @@ export const createPaymentSlice: StateCreator<
       state.payments.items = [];
       state.payments.skips = [];
       state.payments.monthGridsByLine = {};
-      state.payments.unpaidMonthsByLine = {};
+      state.payments.uncoveredMonthsByLine = {};
       state.payments.paidMonthsByLine = {};
       // Tenant-scoped — or the next tenant on this device inherits stale badges.
       state.payments.customerStatuses = new Map();
@@ -902,7 +903,7 @@ export const createPaymentSlice: StateCreator<
 });
 
 // Builds one month grid per line for the given year, plus each line's full
-// still-unpaid and currently-paid month lists (all years — the two order gates
+// uncovered and currently-paid month lists (all years — the two order gates
 // need months the viewed year can't show). All three come from the same per-line
 // payment/skip slice, so one pass keeps them in step.
 function buildGridsFor(
@@ -913,11 +914,11 @@ function buildGridsFor(
   unpaidRule: UnpaidStartRule,
 ): {
   grids: Record<string, MonthEntry[]>;
-  unpaidMonths: Record<string, string[]>;
+  uncoveredMonths: Record<string, string[]>;
   paidMonths: Record<string, string[]>;
 } {
   const grids: Record<string, MonthEntry[]> = {};
-  const unpaidMonths: Record<string, string[]> = {};
+  const uncoveredMonths: Record<string, string[]> = {};
   const paidMonths: Record<string, string[]> = {};
   for (const line of lines) {
     const linePayments = items.filter((p) => p.customerPlanId === line.id);
@@ -929,7 +930,7 @@ function buildGridsFor(
       year,
       unpaidRule,
     );
-    unpaidMonths[line.id] = paymentService.unpaidBillingMonths(
+    uncoveredMonths[line.id] = paymentService.uncoveredBillingMonths(
       line,
       linePayments,
       lineSkips,
@@ -937,7 +938,7 @@ function buildGridsFor(
     );
     paidMonths[line.id] = paymentService.paidBillingMonths(linePayments);
   }
-  return { grids, unpaidMonths, paidMonths };
+  return { grids, uncoveredMonths, paidMonths };
 }
 
 // A batch create can touch several service lines, and the order rule is per

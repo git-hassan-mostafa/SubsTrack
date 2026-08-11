@@ -325,6 +325,12 @@ class PaymentService {
     if (amountPaid > payment.amountDue) {
       throw new Error(i18n.t("errors.amount_paid_exceeds_due"));
     }
+    // Editing to 0 would un-pay the month (buildMonthGrid needs amountPaid > 0),
+    // a back door around the void guard: it could leave a paid month sitting on
+    // an unpaid one, and it keeps no void reason. Void the payment instead.
+    if (amountPaid === 0) {
+      throw new Error(i18n.t("errors.edit_amount_zero"));
+    }
     const row = await repository.updatePayment(payment.id, {
       amountDue: payment.amountDue,
       amountPaid,
@@ -570,6 +576,9 @@ class PaymentService {
   // from its start to today. Derived from buildMonthGrid (rule #1) because an
   // unpaid month can sit in a year the caller isn't looking at — the panel only
   // holds the viewed year's grid.
+  //
+  // OVERDUE months only. For the pay-in-order gate use uncoveredBillingMonths,
+  // which also counts not-yet-due gaps (see #81b).
   unpaidBillingMonths(
     line: CustomerPlan,
     linePayments: Payment[],
@@ -586,6 +595,45 @@ class PaymentService {
     return months;
   }
 
+  // Every month this line has NOT covered, oldest first — "unpaid" plus the
+  // not-yet-due months a prepay would jump over. This is what the pay-in-order
+  // gate compares against: paying ahead is allowed, paying ahead out of ORDER is
+  // not, so paying December while September–November sit empty is refused even
+  // though none of those three is overdue yet (#81b).
+  //
+  // The walk runs past the current year up to the line's latest covered month,
+  // because a gap is only a gap when something later is paid — that is exactly
+  // the row a prepay leaves behind.
+  uncoveredBillingMonths(
+    line: CustomerPlan,
+    linePayments: Payment[],
+    lineSkips: SkippedMonth[],
+    unpaidRule: UnpaidStartRule = DEFAULT_UNPAID_START_RULE,
+  ): string[] {
+    const { year: currentYear } = getCurrentYearMonth();
+    const covered = this.paidBillingMonths(linePayments);
+    // Nothing is covered beyond today → no prepay to leave a hole behind, so the
+    // overdue walk already says everything there is to say.
+    const lastCovered = covered.length > 0 ? covered[covered.length - 1] : null;
+    const endYear = Math.max(
+      currentYear,
+      lastCovered ? Number(lastCovered.slice(0, 4)) : currentYear,
+    );
+
+    const months: string[] = [];
+    for (let year = new Date(line.startDate).getFullYear(); year <= endYear; year++) {
+      for (const entry of this.buildMonthGrid(line, linePayments, lineSkips, year, unpaidRule)) {
+        // "future" joins "unpaid" here — both mean nothing has been collected.
+        // before_start (line hadn't started) and skipped (nothing expected) are
+        // not holes, and paid needs nothing.
+        if (entry.status === "unpaid" || entry.status === "future") {
+          months.push(entry.billingMonth);
+        }
+      }
+    }
+    return months;
+  }
+
   // Every month this service line currently has PAID, across all years — a
   // multi-month block counted month by month. Straight from the payments (not the
   // grid), so it is not year-scoped: the void-newest-first gate must see a paid
@@ -595,9 +643,10 @@ class PaymentService {
   }
 
   // Months are settled OLDEST FIRST: a write is refused while an earlier month
-  // of the same line is still unpaid. The guard every pay path runs before it
+  // of the same line is still uncovered — overdue OR merely not due yet, so a
+  // prepay can't leave a hole behind it. The guard every pay path runs before it
   // writes; `targetMonths` is every month the write would cover, so paying a
-  // backlog in one batch is allowed.
+  // backlog (or a run of future months) in one batch is allowed.
   assertPayableInOrder(
     line: CustomerPlan,
     targetMonths: string[],
@@ -606,7 +655,8 @@ class PaymentService {
     unpaidRule: UnpaidStartRule = DEFAULT_UNPAID_START_RULE,
   ): void {
     const blocking = blockingUnpaidMonths(
-      this.unpaidBillingMonths(line, linePayments, lineSkips, unpaidRule),
+      // Uncovered, not merely overdue — a prepay must not jump a not-yet-due month.
+      this.uncoveredBillingMonths(line, linePayments, lineSkips, unpaidRule),
       targetMonths,
     );
     // Only the oldest is named — that is the one month the user must collect next.
