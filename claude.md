@@ -151,6 +151,8 @@ In-app, `useAppUpdate` + `<UpdateBanner>` (mounted once in `app/(app)/_layout.ts
 | Bottom sheets | @gorhom/bottom-sheet                        |
 | Import alias  | `@/*` → repo root (e.g. `@/src/core/types`) |
 
+> **Every tab stack under `app/(app)/(tabs)/` exports `unstable_settings = { anchor: "index" }`.** A web refresh (or any deep link) on a nested page rebuilds the navigation state from the URL alone, so without the anchor the tab's stack holds only that page — the tab icon's pop-to-top (`state.index > 0`) and `router.back()` both become no-ops. Keep it on **every** tab layout, including ones that have no sub-page yet. See gotcha #82.
+
 ---
 
 ## Architecture (MANDATORY)

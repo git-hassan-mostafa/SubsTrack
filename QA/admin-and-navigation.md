@@ -82,6 +82,23 @@ Covers role-based navigation, the Admin landing screen, tab visibility, the acti
 | 6.4 | Session expiry during admin work | Token expires while on Plans | Next API call surfaces error; on refresh user is bounced to login |
 | 6.5 | QuickPay deeplink | Navigate to `/customers/[id]?quickPay=1` | If logged in: detail screen opens + auto-fires PaymentFormSheet. If logged out: redirect to login |
 
+## 6b. Refreshed / deep-linked nested page (web) — the tab-root anchor
+
+Each tab's `_layout.tsx` exports `unstable_settings = { anchor: "index" }`, so landing directly on a nested URL still places the tab's list screen underneath it. Without it the stack held one route and both the tab icon and Back were dead. Run every row **on web after a browser refresh** (native is covered by 5.2/5.3), then repeat 6b.1 on Android to confirm nothing regressed.
+
+| # | Scenario | Steps | Expected result |
+|---|----------|-------|-----------------|
+| 6b.1 | Active tab icon returns to the list | Customers → open a customer → **refresh the browser** → tap the Customers tab icon | Navigates to the customers list; URL becomes `/customers` |
+| 6b.2 | In-screen Back after refresh | Same, but press the screen's own back arrow | Returns to the customers list, not out of the app |
+| 6b.3 | Browser Back after refresh | Same, but press the browser's Back button | Leaves the customer detail without exiting the app |
+| 6b.4 | Deeper nested page | Open a customer's Sales page → refresh → tap the Customers tab icon | Lands on the customers list (pops the whole stack, not one level) |
+| 6b.5 | Admin sub-screen | Admin → Plans → refresh → tap the Admin tab icon | Lands on the Admin hub |
+| 6b.6 | Settings sub-screen | Settings → My Wallet → refresh → tap the Settings tab icon | Lands on the Settings screen |
+| 6b.7 | Switching to another tab still works | After refresh on a customer detail, tap the Transactions tab | Opens Transactions normally |
+| 6b.8 | Returning to the tab keeps its root | After 6b.1, tap Transactions then Customers again | Customers list shown, not the old detail page |
+| 6b.9 | Already at a tab root | On the customers list, tap the Customers tab icon | Nothing happens; no error, no flicker |
+| 6b.10 | Android unchanged | Repeat 6b.1 and 6b.4 on Android (no refresh — navigate normally) | Same as before the change: tab icon returns to the list |
+
 ## 7. Action menu (cross-screen pattern)
 
 `ActionMenu` is reused on Customers, Users, Plans, Branches, Currencies cards. Opened via tap on the ⋮ icon or long-press on the card.

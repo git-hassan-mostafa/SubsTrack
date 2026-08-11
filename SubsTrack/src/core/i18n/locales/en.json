@@ -868,7 +868,7 @@
     "pay_full": "Pay full debt",
     "pay_full_title": "Pay full debt",
     "pay_full_message": "Record a debt payment of {{amount}} for {{customer}}? This clears their whole debt.",
-    "customer_panel_title": "Transactions",
+    "customer_panel_title": "Debts",
     "section_debts": "Debts",
     "no_transactions_for_customer": "No transactions for this customer yet.",
     "history_title": "Debt history",

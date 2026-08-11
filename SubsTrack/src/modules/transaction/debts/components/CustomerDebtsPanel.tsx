@@ -92,9 +92,6 @@ export function CustomerDebtsPanel({ customer }: Props) {
               >
                 {isCredit ? `- ${netLabel}` : netLabel}
               </Text>
-              <Text className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
-                {isCredit ? t("debts.credit") : t("debts.total_outstanding")}
-              </Text>
             </View>
           ) : null}
           <PressableOpacity
