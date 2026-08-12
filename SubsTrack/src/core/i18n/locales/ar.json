@@ -100,7 +100,6 @@
   },
   "dashboard": {
     "title": "لوحة التحكم",
-    "greeting": "مرحباً، {{name}}",
     "monthly_collected": "{{month}} {{year}}",
     "collected_summary": "{{paidCustomers}} من {{activeCustomers}} العملاء النشطين · {{collectedPct}}% تم تحصيلها",
     "revenue_breakdown": "الاشتراكات: {{subscriptions}} · المبيعات: {{sales}}",

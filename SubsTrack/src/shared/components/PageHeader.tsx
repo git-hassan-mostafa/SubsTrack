@@ -7,6 +7,7 @@ import { PressableOpacity } from "./PressableOpacity/PressableOpacity";
 import { BranchSelector } from "./BranchSelector";
 import { SelectionBar, type SelectionAction } from "./SelectionBar";
 import { QuickActionsMenuButton } from "./QuickActionsMenuButton";
+import { SettingsButton } from "./SettingsButton";
 
 // Re-exported so existing importers keep working after the toolbar moved out.
 export type { SelectionAction } from "./SelectionBar";
@@ -39,7 +40,7 @@ interface PageHeaderProps {
   /** Icon buttons for THIS screen, rendered before the branch chip. */
   iconActions?: PageHeaderIconAction[];
   hideBranchSelector?: boolean;
-  /** Hides the top-right quick-actions (3-dot) menu on this screen. */
+  /** Hides the top-right global shortcuts (settings + the 3-dot menu). */
   hideQuickActions?: boolean;
   /** When `selection.active`, the whole header is replaced by a selection toolbar. */
   selection?: PageHeaderSelection;
@@ -98,7 +99,14 @@ export function PageHeader({
         {/* No `self-start`: the row is `items-center`, so the chip must center
             with the title and the 3-dot button instead of hugging the top. */}
         {!hideBranchSelector && <BranchSelector className="" />}
-        {!hideQuickActions && <QuickActionsMenuButton />}
+        {/* The two global shortcuts travel together — settings sits just before
+            the 3-dot menu, since it is no longer a bottom tab. */}
+        {!hideQuickActions && (
+          <>
+            <SettingsButton />
+            <QuickActionsMenuButton />
+          </>
+        )}
       </View>
       {selection?.active ? (
         <View className="absolute inset-0">

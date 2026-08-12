@@ -1,6 +1,5 @@
 import { useMemo } from "react";
 import { View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import i18n from "@/src/core/i18n";
 import type { AuditEntry } from "@/src/core/types";
@@ -8,6 +7,7 @@ import { formatDateTime } from "@/src/core/utils/date";
 import { COLORS } from "@/src/shared/constants";
 import { Text } from "@/src/shared/components/Text";
 import { FormSheet } from "@/src/shared/components/FormSheet";
+import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
 import { useAuditLookups } from "../hooks/useAuditLookups";
 import {
   actionLabel,
@@ -31,7 +31,13 @@ export function AuditEntrySheet({ entry, onDismiss }: AuditEntrySheetProps) {
   // are rendered through the display registry, which needs the name lists.
   const lookups = useAuditLookups();
   const ctx = useMemo<AuditFieldContext>(
-    () => ({ t, locale: i18n.language, table: entry.table, row: entry.context, lookups }),
+    () => ({
+      t,
+      locale: i18n.language,
+      table: entry.table,
+      row: entry.context,
+      lookups,
+    }),
     [t, entry.table, entry.context, lookups],
   );
   // Names only — the values are right below, in the diff.
@@ -40,7 +46,9 @@ export function AuditEntrySheet({ entry, onDismiss }: AuditEntrySheetProps) {
   // A create/delete has no diff — it carries the whole row instead, which we show
   // as a plain field list (nothing "changed from", so no arrow).
   const snapshotRows = entry.snapshot
-    ? Object.entries(entry.snapshot).filter(([k]) => showsColumn(entry.table, k))
+    ? Object.entries(entry.snapshot).filter(([k]) =>
+        showsColumn(entry.table, k),
+      )
     : [];
 
   return (
@@ -79,12 +87,21 @@ export function AuditEntrySheet({ entry, onDismiss }: AuditEntrySheetProps) {
               key={c.field}
               className={`px-4 py-3.5 ${i < entry.changes.length - 1 ? "border-b border-gray-100" : ""}`}
             >
-              <Text className="text-xs text-gray-400">{formatFieldLabel(c.field, ctx)}</Text>
+              <Text className="text-xs text-gray-400">
+                {formatFieldLabel(c.field, ctx)}
+              </Text>
               <View className="flex-row items-center gap-2 mt-1">
-                <Text className="text-sm text-gray-400 line-through flex-shrink" numberOfLines={2}>
+                <Text
+                  className="text-sm text-gray-400 line-through flex-shrink"
+                  numberOfLines={2}
+                >
                   {formatField(c.field, c.before, ctx)}
                 </Text>
-                <Ionicons name="arrow-forward" size={13} color={COLORS.gray400} />
+                <DirectionalIcon
+                  name="arrow-forward"
+                  size={13}
+                  color={COLORS.gray400}
+                />
                 <Text
                   className="text-sm font-semibold text-gray-900 flex-1"
                   numberOfLines={2}
@@ -112,19 +129,32 @@ export function AuditEntrySheet({ entry, onDismiss }: AuditEntrySheetProps) {
       ) : null}
 
       {entry.changes.length === 0 && snapshotRows.length === 0 ? (
-        <Text className="text-sm text-gray-400 text-center py-4">{t("audit.no_fields")}</Text>
+        <Text className="text-sm text-gray-400 text-center py-4">
+          {t("audit.no_fields")}
+        </Text>
       ) : null}
     </FormSheet>
   );
 }
 
-function Row({ label, value, last }: { label: string; value: string; last?: boolean }) {
+function Row({
+  label,
+  value,
+  last,
+}: {
+  label: string;
+  value: string;
+  last?: boolean;
+}) {
   return (
     <View
       className={`flex-row justify-between items-center px-4 py-3.5 ${last ? "" : "border-b border-gray-100"}`}
     >
       <Text className="text-sm text-gray-400">{label}</Text>
-      <Text className="text-sm font-semibold text-gray-900 flex-1 ms-4 text-right" numberOfLines={3}>
+      <Text
+        className="text-sm font-semibold text-gray-900 flex-1 ms-4 text-right"
+        numberOfLines={3}
+      >
         {value}
       </Text>
     </View>

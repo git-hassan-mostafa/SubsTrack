@@ -20,6 +20,7 @@ import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { BranchSelector } from "@/src/shared/components/BranchSelector";
 import { QuickActionsMenuButton } from "@/src/shared/components/QuickActionsMenuButton";
+import { SettingsButton } from "@/src/shared/components/SettingsButton";
 import { COLORS } from "@/src/shared/constants";
 import { MONTHS } from "@/src/core/constants";
 import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
@@ -127,11 +128,10 @@ export function DashboardScreen() {
               className="flex-1 text-2xl text-gray-900"
               numberOfLines={1}
             >
-              {t("dashboard.greeting", {
-                name: user?.fullName ?? user?.username ?? "",
-              })}
+              {t("home.title")}
             </Text>
             <BranchSelector className="" />
+            <SettingsButton />
             <QuickActionsMenuButton />
           </View>
 

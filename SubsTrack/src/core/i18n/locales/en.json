@@ -100,7 +100,6 @@
   },
   "dashboard": {
     "title": "Dashboard",
-    "greeting": "Hello, {{name}}",
     "monthly_collected": "{{month}} {{year}}",
     "collected_summary": "{{paidCustomers}} of {{activeCustomers}} active customers · {{collectedPct}}% collected",
     "revenue_breakdown": "Subscriptions: {{subscriptions}} · Sales: {{sales}}",
