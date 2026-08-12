@@ -233,7 +233,7 @@ class PaymentService {
     if (effectiveDuration <= 0) {
       throw new Error(i18n.t("errors.all_months_paid"));
     }
-    assertNoSkippedMonths(effectiveStart, effectiveDuration, lineSkips);
+    assertNoSkippedMonths(effectiveStart, effectiveDuration, lineSkips, coveredByExisting);
 
     const row = await repository.create({
       billing_month: effectiveStart,
@@ -292,7 +292,7 @@ class PaymentService {
       const resolved = resolveMultiMonthBlock(startMonth, plan, covered);
       conflictMonths.push(...resolved.conflictMonths);
       if (resolved.effectiveDuration <= 0) continue; // whole block already covered
-      assertNoSkippedMonths(resolved.effectiveStart, resolved.effectiveDuration, lineSkips);
+      assertNoSkippedMonths(resolved.effectiveStart, resolved.effectiveDuration, lineSkips, covered);
       payloads.push({
         billing_month: resolved.effectiveStart,
         amount_due: plan.price,
@@ -430,6 +430,22 @@ class PaymentService {
           );
         }
       }
+    }
+  }
+
+  // An unskip is a void of an EXPECTATION, so it follows the void rule: it turns
+  // "nothing expected" back into an unpaid month, and may not run while a LATER
+  // month of the same line is paid — that would leave a paid month sitting on an
+  // unpaid one. Such a month can still be COLLECTED instead (a payment outranks
+  // the skip in buildMonthGrid), which is what the grid offers in place of the
+  // unskip. Months inside the same write never block each other.
+  assertUnskippableInOrder(targetMonths: string[], linePayments: Payment[]): void {
+    const blocking = blockingPaidMonths(this.paidBillingMonths(linePayments), targetMonths);
+    // Only the newest is named — that is the one month standing in the way.
+    if (blocking.length > 0) {
+      throw new Error(
+        i18n.t("errors.later_month_paid_unskip", { month: billingMonthLabel(blocking[0]) }),
+      );
     }
   }
 
@@ -855,14 +871,22 @@ function resolveMultiMonthBlock(
 
 // A block payment may not silently pay over a skipped month — the block covers
 // consecutive months and cannot leave a hole, so the whole payment is refused
-// and the user is told which months to unskip first.
+// and the user is told which months to unskip first. A skip a LATER paid month
+// has locked is exempt: its unskip is refused too (assertUnskippableInOrder), so
+// collecting it is the only way left to settle it.
 function assertNoSkippedMonths(
   startMonth: string,
   durationMonths: number,
   lineSkips: SkippedMonth[],
+  coveredMonths: Set<string>,
 ): void {
   if (lineSkips.length === 0) return;
-  const active = new Set(lineSkips.filter((s) => s.skipped).map((s) => s.billingMonth));
+  const latestCovered = [...coveredMonths].sort().pop() ?? null;
+  const active = new Set(
+    lineSkips
+      .filter((s) => s.skipped && !(latestCovered !== null && s.billingMonth < latestCovered))
+      .map((s) => s.billingMonth),
+  );
   if (active.size === 0) return;
   const [startYear, startMonthNum] = startMonth.split("-").map(Number);
   const hits: string[] = [];

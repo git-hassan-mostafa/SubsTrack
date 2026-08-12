@@ -399,7 +399,8 @@
       "unskip_message_many": "{{count}} selected months will be counted again, and can be paid.",
       "note_placeholder": "Reason (optional)",
       "note_label": "Reason",
-      "pay_blocked": "This month is skipped, so no payment is expected. Unskip it first to record a payment."
+      "pay_blocked": "This month is skipped, so no payment is expected. Unskip it first to record a payment.",
+      "locked_pay_notice": "This month is skipped, but a later month is already paid — it can no longer be unskipped. Recording a payment here settles it."
     }
   },
   "months": {
@@ -622,6 +623,7 @@
     "months_skipped": "The following months are skipped: {{months}}. Unskip them first to pay this block.",
     "earlier_month_unpaid": "{{month}} is not paid yet on this plan. Earlier months must be paid first.",
     "later_month_paid": "{{month}} is paid on this plan. Newer months must be voided first.",
+    "later_month_paid_unskip": "{{month}} is paid on this plan, so an earlier month can no longer be unskipped. Record a payment for it instead.",
     "start_date_locked_paid": "This plan already has payments recorded, so its start date can no longer be changed.",
     "product_name_required": "Product name is required",
     "product_price_required": "Price is required",

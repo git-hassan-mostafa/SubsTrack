@@ -517,12 +517,22 @@ A **skipped month** is a month one service line is **not expected to pay** — a
 
 **Grid rule (the only status change).** `buildMonthGrid(line, payments, skips, year)` inserts one step: `before_start` → `paid` → **`skipped`** → `future` → `unpaid`. So **money always wins** — a skip left on a month that later gets paid is inert (the cell reads paid), which is why the service does not need to guard against skipping an already-paid month. The cell renders slate with a "Skipped" sub-label for regular and non-regular customers alike, and `MonthEntry.skip` carries the note for the sheet.
 
-**Not payable — the user must unskip first.** There is no "pay anyway":
+**Not payable — the user must unskip first.** There is no "pay anyway" (except for a *locked* skip, below):
 
 - Tapping a skipped cell opens the **unskip** confirmation (checked *before* the inactive/cancelled gate, since unskipping is not a payment).
 - The `?quickPay=1` deep link from the customer list shows `payments.skip.pay_blocked` instead of the form.
-- Every other pay path filters on `status === 'unpaid' || 'future'`, so the new status excludes itself: `canQuickPay`, `payableEntries`, and `isPayable` in `monthSelection.ts`.
+- Every other pay path filters on `isPayableStatus` (`'unpaid' || 'future'`, plus a locked skip), so the new status excludes itself: `canQuickPay`, `payableEntries`, and `isPayable` in `monthSelection.ts`.
 - A **multi-month block** covering a skipped month is refused whole (`assertNoSkippedMonths` → `errors.months_skipped`) — the block covers consecutive months and cannot leave a hole.
+
+**Unskip follows the VOID rule, and a locked skip becomes payable instead.** An unskip turns "nothing expected" back into an **unpaid** month, so it may not run while a **later** month of the same line is paid — that is the "paid month sitting on an unpaid one" shape the pay/void order rules exist to prevent (gotcha #84, the fifth door of #79).
+
+| | Behavior |
+| --- | --- |
+| Rule | `PaymentService.assertUnskippableInOrder(months, linePayments)` — the same `blockingPaidMonths` helper the void gate uses, so a bulk unskip is judged as one write. Called from the payment slice's `setMonthsSkipped` when `skipped === false` (the slice holds the customer's full payment history; `SkippedMonthService` stays payment-ignorant on purpose). Message: `errors.later_month_paid_unskip`. |
+| Grid | **Unskip disappears** (cell menu + multi-select toolbar) and the month becomes **payable** — the cell tap opens the payment form, and Pay now / Pay & send appear for a fixed-price plan. Nothing errors: the month can still be settled, just by collecting it. |
+| Why paying works | Money outranks a skip in `buildMonthGrid`, so the payment settles the month and the skip row goes inert. The payment form shows an amber `payments.skip.locked_pay_notice` explaining it. |
+| Multi-month | A block covering a **locked** skip is allowed — `assertNoSkippedMonths` exempts any skip earlier than the line's latest covered month, since "unskip it first" is an instruction the app itself refuses. |
+| Customer list | Untouched: a skipped current month is still "nothing due", so quick pay keeps leaving those lines alone (`notDueLineIds`). Only the grid, where the user picks one month, offers the pay. |
 
 **Nothing is owed, so nothing counts it.** Two paths had to learn the rule:
 
@@ -535,7 +545,7 @@ A **skipped month** is a month one service line is **not expected to pay** — a
 
 **`coveredLineIds` was renamed `notDueLineIds`** (now `CustomerStatus.notDueLineIds`) because it means "must not be quick-paid this month" — already covered by a payment **or** skipped. `CustomerListScreen`'s `eligibleFixedLines` / `hasUnpaidStartedLine` read it per customer, so "Collect all due" leaves skipped lines alone.
 
-**UI.** `SkipMonthSheet` (a `ConfirmDialog`, like `VoidSheet`) handles both directions: skipping takes the optional note, unskipping echoes back the note it was skipped with. Entry points: the month cell's 3-dot menu (**Skip month** on unpaid/future, **Unskip month** on skipped), a tap on a skipped cell, and the grid's **multi-select** toolbar — a selection can hold both kinds, so *Skip* and *Unskip* appear together and each acts on its own subset. A skipped cell's selection unit is always just itself (never part of a payable block). The year card shows a **"N skipped"** chip next to paid/unpaid when the year has any.
+**UI.** `SkipMonthSheet` (a `ConfirmDialog`, like `VoidSheet`) handles both directions: skipping takes the optional note, unskipping echoes back the note it was skipped with. Entry points: the month cell's 3-dot menu (**Skip month** on unpaid/future, **Unskip month** on skipped **unless a later month is paid**), a tap on a skipped cell, and the grid's **multi-select** toolbar — a selection can hold both kinds, so *Skip* and *Unskip* appear together and each acts on its own subset. A skipped cell's selection unit is always just itself (never part of a payable block). The year card shows a **"N skipped"** chip next to paid/unpaid when the year has any.
 
 **Offline.** `skipped_months` is a synced tenant table (`db/tables.ts` + `SYNC_PULL_ORDER`, right after `payments`) with a local `UNIQUE (customer_plan_id, billing_month)`. Writes go through `upsertNaturalKeyDirty` — the generalization of the old `upsertPaymentDirty` — and the id is `deterministicId('skip', customer_plan_id, billing_month)`, prefixed so it can't collide with the payment id built from the same pair. Push uses the natural key as the conflict target (`conflictTarget` in `sync.ts`), so two devices skipping the same month converge.
 

@@ -248,8 +248,14 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
     if (!currentEntry) return;
     quickPayHandledRef.current = true;
     router.setParams({ quickPay: undefined });
-    // A skipped month can't be paid — explain instead of opening the form.
-    if (currentEntry.status === "skipped") {
+    // A skipped month can't be paid — explain instead of opening the form. Unless
+    // a later paid month locked its unskip: collecting it is then the only way to
+    // settle it, so the form opens as usual.
+    if (
+      currentEntry.status === "skipped" &&
+      blockingPaidMonths(linePaidMonths, [currentEntry.billingMonth]).length ===
+        0
+    ) {
       void confirm({
         title: t("common.not_available"),
         message: t("payments.skip.pay_blocked"),
@@ -276,7 +282,15 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
     }
     setSelectedEntry(currentEntry);
     setFormVisible(true);
-  }, [quickPay, paymentsLoading, grid, lineUncoveredMonths, router, t]);
+  }, [
+    quickPay,
+    paymentsLoading,
+    grid,
+    lineUncoveredMonths,
+    linePaidMonths,
+    router,
+    t,
+  ]);
 
   const lineActive = selectedLine?.active ?? false;
 
@@ -328,7 +342,10 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
       // block's start.
       entries.flatMap((e) =>
         e.payment
-          ? coveredBillingMonths(e.payment.billingMonth, e.payment.durationMonths)
+          ? coveredBillingMonths(
+              e.payment.billingMonth,
+              e.payment.durationMonths,
+            )
           : [e.billingMonth],
       ),
     );
@@ -346,6 +363,36 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
     });
   }
 
+  // An unskip is a void of an EXPECTATION, so it follows the void rule: it is
+  // locked while a LATER month is paid, since it would leave an unpaid month
+  // under a paid one. Returns that month, or null when the unskip is allowed.
+  function unskipOrderBlocker(entries: MonthEntry[]): string | null {
+    return (
+      blockingPaidMonths(
+        linePaidMonths,
+        entries.map((e) => e.billingMonth),
+      )[0] ?? null
+    );
+  }
+
+  // A skipped month whose unskip is locked can never go back to unpaid, so
+  // COLLECTING it is the only way left to settle it. It therefore joins the
+  // payable statuses (a payment outranks the skip in buildMonthGrid, leaving the
+  // skip inert) and its unskip action is hidden instead.
+  function isLockedSkipped(entry: MonthEntry): boolean {
+    return entry.status === "skipped" && unskipOrderBlocker([entry]) !== null;
+  }
+
+  // The statuses a payment can be recorded for: nothing collected yet, or a
+  // skipped month that can no longer be unskipped.
+  function isPayableStatus(entry: MonthEntry): boolean {
+    return (
+      entry.status === "unpaid" ||
+      entry.status === "future" ||
+      isLockedSkipped(entry)
+    );
+  }
+
   function handleCellPress(entry: MonthEntry) {
     if (entry.status === "before_start") {
       void confirm({
@@ -359,8 +406,9 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
 
     // A skipped month is not payable — tapping it offers the unskip instead.
     // Checked before the inactive gate: unskipping is not a payment, so it stays
-    // available on a cancelled plan / inactive customer.
-    if (entry.status === "skipped") {
+    // available on a cancelled plan / inactive customer. A locked skip has no
+    // unskip left, so it falls through to the pay path below.
+    if (entry.status === "skipped" && !isLockedSkipped(entry)) {
       setSkipRequest({ entries: [entry], mode: "unskip" });
       return;
     }
@@ -416,7 +464,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
     return (
       !isPayBlocked(entry) &&
       payOrderBlocker([entry]) === null &&
-      (entry.status === "unpaid" || entry.status === "future") &&
+      isPayableStatus(entry) &&
       plan != null &&
       !plan.isCustomPrice &&
       plan.price !== null
@@ -563,7 +611,9 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
         onPress: () => setSkipRequest({ entries: [entry], mode: "skip" }),
       });
     }
-    if (entry.status === "skipped") {
+    // Unskip is dropped once a later month is paid — the month can only be
+    // collected from here on, so the pay rows above are what's offered instead.
+    if (entry.status === "skipped" && !isLockedSkipped(entry)) {
       items.push({
         key: "unskip",
         label: t("payments.skip.unskip_action"),
@@ -595,12 +645,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
 
   async function handleEditAmount(next: { amountPaid: number }) {
     if (!selectedEntry?.payment) return;
-    await updatePayment(
-      selectedEntry.payment.id,
-      next.amountPaid,
-      lines,
-      year,
-    );
+    await updatePayment(selectedEntry.payment.id, next.amountPaid, lines, year);
     if (!getStore().getState().payments.error) setDetailVisible(false);
   }
 
@@ -609,11 +654,11 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
   const selectedEntries = grid.filter((m) =>
     selection.selectedIds.has(m.billingMonth),
   );
-  // Payable in bulk: unpaid, or a future-status (prepay) slot — but never a
-  // calendar-future month on a cancelled plan / inactive customer (isPayBlocked).
+  // Payable in bulk: unpaid, a future-status (prepay) slot, or a skipped month
+  // whose unskip is locked — but never a calendar-future month on a cancelled
+  // plan / inactive customer (isPayBlocked).
   const payableEntries = selectedEntries.filter(
-    (e) =>
-      (e.status === "unpaid" || e.status === "future") && !isPayBlocked(e),
+    (e) => isPayableStatus(e) && !isPayBlocked(e),
   );
   const voidableEntries = selectedEntries.filter(
     (e) =>
@@ -622,13 +667,18 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
   // The same rows as a receipt: one entry per PAYMENT, since a multi-month block
   // fills several cells from a single payment row and must be listed once.
   const selectedPayments = [
-    ...new Map(voidableEntries.map((e) => [e.payment!.id, e.payment!])).values(),
+    ...new Map(
+      voidableEntries.map((e) => [e.payment!.id, e.payment!]),
+    ).values(),
   ];
-  // Skippable = nothing collected yet on that month; unskippable = already skipped.
+  // Skippable = nothing collected yet on that month; unskippable = already
+  // skipped, minus the ones a later paid month locked (collect those instead).
   const skippableEntries = selectedEntries.filter(
     (e) => e.status === "unpaid" || e.status === "future",
   );
-  const skippedEntries = selectedEntries.filter((e) => e.status === "skipped");
+  const skippedEntries = selectedEntries.filter(
+    (e) => e.status === "skipped" && !isLockedSkipped(e),
+  );
 
   function handleCellToggle(entry: MonthEntry) {
     if (!selectedLine) return;
@@ -813,7 +863,8 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
       icon: "play-skip-forward-outline",
       label: t("payments.skip.skip_action"),
       disabled: bulkBusy,
-      onPress: () => setSkipRequest({ entries: skippableEntries, mode: "skip" }),
+      onPress: () =>
+        setSkipRequest({ entries: skippableEntries, mode: "skip" }),
     });
   }
   if (skippedEntries.length > 0) {
@@ -822,7 +873,8 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
       icon: "refresh-outline",
       label: t("payments.skip.unskip_action"),
       disabled: bulkBusy,
-      onPress: () => setSkipRequest({ entries: skippedEntries, mode: "unskip" }),
+      onPress: () =>
+        setSkipRequest({ entries: skippedEntries, mode: "unskip" }),
     });
   }
   // Re-send the receipt for months already collected. Hidden (not disabled)
@@ -921,10 +973,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
     <>
       {paymentsError ? (
         <View className="px-4 mt-4">
-          <ErrorBanner
-            message={paymentsError}
-            onDismiss={clearPaymentError}
-          />
+          <ErrorBanner message={paymentsError} onDismiss={clearPaymentError} />
         </View>
       ) : null}
 
@@ -1056,7 +1105,10 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
                 </View>
                 {skippedCount > 0 ? (
                   <View className="flex-row items-center bg-gray-100 rounded-full px-2 py-0.5">
-                    <Text fontWeight="SemiBold" className="text-xs text-gray-900">
+                    <Text
+                      fontWeight="SemiBold"
+                      className="text-xs text-gray-900"
+                    >
                       {skippedCount}
                     </Text>
                     <Text className="text-xs text-gray-500 ms-1">

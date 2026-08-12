@@ -314,6 +314,10 @@ export const createPaymentSlice: StateCreator<
       state.payments.error = null;
     });
     try {
+      // An unskip may not leave an unpaid month under a paid one (the void rule,
+      // reached from the other side). Such a month is collectable instead, which
+      // is what the grid offers there in place of the unskip.
+      if (!skipped) assertUnskipOrder(inputs, get().payments.items);
       const written = await skippedMonthService.setSkipped(
         inputs,
         skipped,
@@ -975,6 +979,24 @@ function assertPayOrder(
     skips.filter((s) => s.customerPlanId === customerPlanId),
     unpaidRule,
   );
+}
+
+// Refuses an unskip that would leave an unpaid month under a paid one. Like
+// assertPayOrder the decision lives in PaymentService; the slice only buckets the
+// requested months per service line and supplies that line's payments.
+function assertUnskipOrder(inputs: SetSkipInput[], items: Payment[]): void {
+  const byLine = new Map<string, string[]>();
+  for (const i of inputs) {
+    const list = byLine.get(i.customerPlanId);
+    if (list) list.push(i.billingMonth);
+    else byLine.set(i.customerPlanId, [i.billingMonth]);
+  }
+  for (const [lineId, months] of byLine) {
+    paymentService.assertUnskippableInOrder(
+      months,
+      items.filter((p) => p.customerPlanId === lineId),
+    );
+  }
 }
 
 // Recomputes ONE customer's entry in the badge map after a local mutation, so

@@ -326,6 +326,16 @@ export function PaymentFormSheet({
           </View>
         ) : null}
 
+        {/* A skipped month only reaches this form when a later paid month locked
+            its unskip — collecting it is the only way left to settle it. */}
+        {entry.status === "skipped" ? (
+          <View className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-4">
+            <Text className="text-sm text-amber-700">
+              {t("payments.skip.locked_pay_notice")}
+            </Text>
+          </View>
+        ) : null}
+
         {/* Conflict warning for multi-month plans */}
         {showConflictWarning ? (
           <View className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-4">

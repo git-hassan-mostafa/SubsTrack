@@ -47,6 +47,10 @@ export function blockingUnpaidMonths(
  * `paidMonths` is every month the line currently has covered. A month inside the
  * same write never blocks it, so voiding a whole block — or several months at
  * once — is fine. Returned NEWEST first: that is the one the user must void next.
+ *
+ * An **unskip** is judged by the same rule (it turns "nothing expected" back into
+ * an unpaid month), so it shares this helper — see
+ * `PaymentService.assertUnskippableInOrder`.
  */
 export function blockingPaidMonths(
   paidMonths: string[],
