@@ -333,6 +333,7 @@ export function PaymentDetailSheet({
         <RecordHistorySheet
           table="payments"
           recordId={payment.id}
+          subtitle={entry?.label}
           onDismiss={() => setHistoryOpen(false)}
         />
       ) : null}

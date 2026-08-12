@@ -34,6 +34,7 @@ import {
   useSelectionBackHandler,
 } from "@/src/shared/hooks/useSelection";
 import type { Product } from "@/src/core/types";
+import { useRecordHistoryAction } from "@/src/modules/admin/audit";
 import { ProductCard } from "../components/ProductCard";
 import { ProductFormSheet } from "../components/ProductFormSheet";
 import { ProductStockSheet } from "../components/ProductStockSheet";
@@ -60,6 +61,7 @@ export function ProductListScreen() {
   const [searchText, setSearchText] = useState("");
   const debouncedSearch = useDebounce(searchText);
   const branchFilter = useEffectiveBranchFilter();
+  const history = useRecordHistoryAction("products");
   const selection = useSelection();
   const {
     active: selectionActive,
@@ -118,6 +120,7 @@ export function ProductListScreen() {
         icon: "create-outline",
         onPress: () => openEdit(product),
       },
+      history.action(product.id, product.name),
     ];
     if (product.active) {
       actions.push({
@@ -354,6 +357,8 @@ export function ProductListScreen() {
         actions={buildActions(menuItem)}
         onDismiss={() => setMenuItem(null)}
       />
+
+      {history.sheet}
     </SafeAreaView>
   );
 }

@@ -19,6 +19,7 @@ import {
 import { useDebounce } from "@/src/shared/hooks/useDebounce";
 import type { AppUser } from "@/src/core/types";
 import { useAuth } from "@/src/modules/authentication/auth";
+import { useRecordHistoryAction } from "@/src/modules/admin/audit";
 import { UserCard } from "../components/UserCard";
 import { UserFormSheet } from "../components/UserFormSheet";
 import { useUserSlice } from "@/src/state/hooks/useUserSlice";
@@ -55,6 +56,7 @@ export function UserListScreen() {
   const [searchText, setSearchText] = useState("");
   const debouncedSearch = useDebounce(searchText);
   const branchFilter = useEffectiveBranchFilter();
+  const history = useRecordHistoryAction("users");
   const selection = useSelection();
   const {
     active: selectionActive,
@@ -136,6 +138,7 @@ export function UserListScreen() {
         icon: "create-outline",
         onPress: () => openEdit(user),
       },
+      history.action(user.id, user.fullName),
     ];
     if (canManage(user)) {
       items.push({
@@ -363,6 +366,8 @@ export function UserListScreen() {
         actions={buildMenuActions(menuUser)}
         onDismiss={() => setMenuUser(null)}
       />
+
+      {history.sheet}
     </SafeAreaView>
   );
 }

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import type { AuditEntry, AuditRecordTarget, AuditSource } from '@/src/core/types';
 import auditService, { type AuditEntries } from '../services/AuditService';
 
-interface RecordHistoryState {
+export interface RecordHistoryState {
   entries: AuditEntry[];
   loading: boolean;
   error: string | null;

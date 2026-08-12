@@ -26,6 +26,7 @@ import {
   useSelectionBackHandler,
 } from "@/src/shared/hooks/useSelection";
 import type { Branch } from "@/src/core/types";
+import { useRecordHistoryAction } from "@/src/modules/admin/audit";
 import { useBranchSlice } from "@/src/state/hooks/useBranchSlice";
 import { BranchCard } from "../components/BranchCard";
 import { BranchFormSheet } from "../components/BranchFormSheet";
@@ -46,6 +47,7 @@ export function BranchesScreen() {
   const [formVisible, setFormVisible] = useState(false);
   const [editing, setEditing] = useState<Branch | null>(null);
   const [menuBranch, setMenuBranch] = useState<Branch | null>(null);
+  const history = useRecordHistoryAction("branches");
   const selection = useSelection();
   const {
     active: selectionActive,
@@ -102,6 +104,7 @@ export function BranchesScreen() {
         icon: "create-outline",
         onPress: () => openEdit(branch),
       },
+      history.action(branch.id, branch.name),
     ];
     if (branch.active) {
       items.push({
@@ -295,6 +298,8 @@ export function BranchesScreen() {
         actions={buildMenuActions(menuBranch)}
         onDismiss={() => setMenuBranch(null)}
       />
+
+      {history.sheet}
     </SafeAreaView>
   );
 }

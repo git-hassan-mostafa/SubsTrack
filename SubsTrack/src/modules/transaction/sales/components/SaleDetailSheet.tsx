@@ -19,6 +19,8 @@ import { useLanguageStore } from "@/src/core/i18n/languageStore";
 import { formatDate } from "@/src/core/utils/date";
 import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
 import { SendOnWhatsAppButton, useSendInvoice } from "@/src/modules/invoicing";
+import { useAuth } from "@/src/modules/authentication/auth";
+import { RecordHistorySheet } from "@/src/modules/admin/audit";
 
 // Strips the trailing currency symbol/code that formatMoney appends, so a
 // paid/total fraction shows the currency label once instead of twice.
@@ -52,9 +54,11 @@ export function SaleDetailSheet({
   const { language } = useLanguageStore();
   const locale = language === "ar" ? "ar" : "en-US";
   const { sendSaleInvoice } = useSendInvoice();
+  const { isAdmin } = useAuth();
 
   const [voidMode, setVoidMode] = useState(false);
   const [voidReason, setVoidReason] = useState("");
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   // Only a typed reason is worth guarding — opening void mode loses nothing.
   const dirty = useDirtyForm({ voidReason });
@@ -275,6 +279,17 @@ export function SaleDetailSheet({
         />
       ) : null}
 
+      {/* Change history — admin-only, mirroring the audit_logs read policy. */}
+      {isAdmin && !voidMode ? (
+        <PressableOpacity
+          onPress={() => setHistoryOpen(true)}
+          className="border border-gray-200 rounded-xl py-3 items-center mb-4 flex-row justify-center gap-2"
+        >
+          <Ionicons name="time-outline" size={16} color={COLORS.gray600} />
+          <Text className="text-gray-600 font-medium">{t("audit.history")}</Text>
+        </PressableOpacity>
+      ) : null}
+
       {/* Void controls (active sales only) */}
       {!voided && onVoid ? (
         voidMode ? (
@@ -321,6 +336,15 @@ export function SaleDetailSheet({
             </Text>
           </PressableOpacity>
         )
+      ) : null}
+
+      {historyOpen ? (
+        <RecordHistorySheet
+          table="sales"
+          recordId={sale.id}
+          subtitle={sale.itemsSummary}
+          onDismiss={() => setHistoryOpen(false)}
+        />
       ) : null}
 
       <View className="h-8" />

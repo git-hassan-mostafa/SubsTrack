@@ -28,6 +28,7 @@ import {
   useSelectionBackHandler,
 } from "@/src/shared/hooks/useSelection";
 import type { Currency } from "@/src/core/types";
+import { useRecordHistoryAction } from "@/src/modules/admin/audit";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { CurrencyCard, UsdBaseCard } from "../components/CurrencyCard";
 import { CurrencyFormSheet } from "../components/CurrencyFormSheet";
@@ -48,6 +49,7 @@ export function CurrenciesScreen() {
   const [formVisible, setFormVisible] = useState(false);
   const [editing, setEditing] = useState<Currency | null>(null);
   const [menuCurrency, setMenuCurrency] = useState<Currency | null>(null);
+  const history = useRecordHistoryAction("currencies");
   const selection = useSelection();
   const {
     active: selectionActive,
@@ -104,6 +106,7 @@ export function CurrenciesScreen() {
         icon: "create-outline",
         onPress: () => openEdit(currency),
       },
+      history.action(currency.id, currency.code),
     ];
     if (currency.active) {
       items.push({
@@ -311,6 +314,8 @@ export function CurrenciesScreen() {
         actions={buildMenuActions(menuCurrency)}
         onDismiss={() => setMenuCurrency(null)}
       />
+
+      {history.sheet}
     </SafeAreaView>
   );
 }

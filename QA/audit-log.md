@@ -12,8 +12,9 @@ The device keeps a rolling **30-day window**; the server keeps everything.
 - Call helpers: [BaseRepository.ts](../SubsTrack/src/core/utils/BaseRepository.ts) (`audit`, `auditedUpdate`, `auditedDelete`), [OfflineBaseRepository.ts](../SubsTrack/src/core/offline/OfflineBaseRepository.ts) (`auditIn` — inside the caller's transaction)
 - Sync flags: [tables.ts](../SubsTrack/src/core/offline/db/tables.ts) (`appendOnly`, `pullDays`, `ColType: 'json'`), [sync.ts](../SubsTrack/src/core/offline/sync.ts) (`ignoreDuplicates`, window filter, `pruneWindowedTables`)
 - Read path: [AuditRepository.ts](../SubsTrack/src/modules/admin/audit/repository/AuditRepository.ts) / [.offline.ts](../SubsTrack/src/modules/admin/audit/repository/AuditRepository.offline.ts), [AuditService.ts](../SubsTrack/src/modules/admin/audit/services/AuditService.ts)
-- UI: [AuditLogScreen.tsx](../SubsTrack/src/modules/admin/audit/screens/AuditLogScreen.tsx), [AuditEntrySheet.tsx](../SubsTrack/src/modules/admin/audit/components/AuditEntrySheet.tsx), [RecordHistorySheet.tsx](../SubsTrack/src/modules/admin/audit/components/RecordHistorySheet.tsx), [CustomerHistorySheet.tsx](../SubsTrack/src/modules/customer/customers/components/CustomerHistorySheet.tsx)
+- UI: [AuditLogScreen.tsx](../SubsTrack/src/modules/admin/audit/screens/AuditLogScreen.tsx), [AuditEntrySheet.tsx](../SubsTrack/src/modules/admin/audit/components/AuditEntrySheet.tsx), [HistorySheet.tsx](../SubsTrack/src/modules/admin/audit/components/HistorySheet.tsx) (the shared shell), [RecordHistorySheet.tsx](../SubsTrack/src/modules/admin/audit/components/RecordHistorySheet.tsx), [CustomerHistorySheet.tsx](../SubsTrack/src/modules/customer/customers/components/CustomerHistorySheet.tsx)
 - Timeline hooks: [useRecordHistory.ts](../SubsTrack/src/modules/admin/audit/hooks/useRecordHistory.ts) (`useRecordHistory` + `useCustomerHistory`), table set in [constants.ts](../SubsTrack/src/modules/admin/audit/utils/constants.ts) (`CUSTOMER_HISTORY_TABLES`)
+- Per-list History action: [useRecordHistoryAction.tsx](../SubsTrack/src/modules/admin/audit/hooks/useRecordHistoryAction.tsx), wired in the products / plans / users / branches / currencies list screens and in [SaleDetailSheet.tsx](../SubsTrack/src/modules/transaction/sales/components/SaleDetailSheet.tsx)
 - Display: [valueDisplay.ts](../SubsTrack/src/modules/admin/audit/utils/valueDisplay.ts) (per-column display registry), [format.ts](../SubsTrack/src/modules/admin/audit/utils/format.ts) (generic fallback), [useAuditLookups.ts](../SubsTrack/src/modules/admin/audit/hooks/useAuditLookups.ts) (id → name)
 - Server: `sql scripts/script.sql` → `AUDIT LOGS` section + the `audit_logs_select` / `audit_logs_insert` policies
 - Strings: the `audit.*` group in `en.json` / `ar.json`
@@ -264,6 +265,32 @@ One customer's whole story: the customer row, every service line it has ever hel
 | 6.46 | Busy customer            | A customer with 100+ payments → open History (online)                     | Loads in one query; no URL-length error and no truncated list                |
 | 6.47 | Customer with no plans    | An occasional customer with zero service lines → open History             | The customer's own entries only; no crash                                    |
 | 6.48 | RTL                       | Switch to Arabic → open History                                          | Title, name, rows and chevrons mirror correctly                             |
+
+### 6f. Per-item History on every audited list
+
+Every audited entity now offers its own trail from the place it lives: the card's 3-dot menu for products / plans / staff / branches / currencies, and a button on the payment + sale receipts. All of them open the **same** `RecordHistorySheet`, so a fault here is either in the shared shell (affects all) or in one call site's wiring (affects one).
+
+| #    | Scenario                     | Steps                                                                              | Expected result                                                                    |
+| ---- | ---------------------------- | ---------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| 6.80 | Product                      | Products → card 3-dot → **History** (row sits right under Edit)                     | "Change history" with the **product name** beneath; its add/edit/delete entries only |
+| 6.81 | Plan                         | Plans → card 3-dot → **History**                                                    | Same, subtitle = plan name                                                          |
+| 6.82 | Staff member                 | Staff → card 3-dot → **History**                                                    | Subtitle = the person's **full name**; role / active / branch changes listed        |
+| 6.83 | Branch                       | Branches → card 3-dot → **History**                                                 | Subtitle = branch name                                                              |
+| 6.84 | Currency                     | Currencies → card 3-dot → **History**                                               | Subtitle = the currency **code** (not its long name); rate edits listed             |
+| 6.85 | Sale receipt                 | Sales → tap a sale → **History** (above Void)                                        | Subtitle = the frozen products summary; the sale's create/void entries              |
+| 6.86 | Payment receipt              | A paid month → **History**                                                           | Subtitle = the **month label** ("March 2026")                                       |
+| 6.87 | Only that record             | Two products both edited → open History on the first                                 | The other product's entries are **absent**                                          |
+| 6.88 | Isolation between opens      | History on product A → close → History on product **B**                              | B's timeline only; not a flash of A's (same guard as 6.18)                          |
+| 6.89 | Inactive item                | Soft-delete (deactivate) a product / branch / currency → open History from its menu    | The row still offers History and the deactivation entry is listed                   |
+| 6.90 | Empty state                  | History on a record created before the trail shipped                                  | "No changes recorded", never a blank screen                                         |
+| 6.91 | Staff sees the reason        | As a **non-admin**, open History from a product/plan card menu                        | Sheet says **"Admins only"** — not an empty list                                    |
+| 6.92 | …receipts hide it instead    | As a **non-admin**, open a payment and a sale receipt                                 | **No** History button at all (staff-facing receipts don't offer a dead end)          |
+| 6.93 | Menu closes first            | Tap **History** in a card menu                                                        | The menu closes, the history sheet opens on top; Back / drag-down returns to the list |
+| 6.94 | Nested entry sheet           | History → tap an entry → close                                                        | Back to the history list, still open (6.9 for these lists too)                      |
+| 6.95 | Selection mode unaffected    | Long-press a card to multi-select, then use the selection toolbar                      | No History action in the toolbar; the menu row is unchanged after clearing selection  |
+| 6.96 | Offline                      | Airplane mode → open History from any of the five lists                               | The 30-day window + un-pushed entries, with the "No connection" note                |
+| 6.97 | Deleted-then-recreated name  | Rename a plan → open History                                                           | The header shows the **current** name; each entry still shows the values of its time |
+| 6.98 | Arabic + RTL                 | Switch to Arabic → repeat 6.80 and 6.85                                               | Row label, title and subtitle translated/mirrored; the subtitle truncates on one line |
 
 ### 6d. `subject_id` — who an entry is about
 

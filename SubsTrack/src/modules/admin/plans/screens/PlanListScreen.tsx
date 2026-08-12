@@ -18,6 +18,7 @@ import {
 } from "@/src/shared/components/ActionMenu";
 import { useDebounce } from "@/src/shared/hooks/useDebounce";
 import type { Plan } from "@/src/core/types";
+import { useRecordHistoryAction } from "@/src/modules/admin/audit";
 import { PlanCard } from "../components/PlanCard";
 import { PlanFormSheet } from "../components/PlanFormSheet";
 import { usePlanSlice } from "@/src/state/hooks/usePlanSlice";
@@ -51,6 +52,7 @@ export function PlanListScreen() {
   const [searchText, setSearchText] = useState("");
   const debouncedSearch = useDebounce(searchText);
   const branchFilter = useEffectiveBranchFilter();
+  const history = useRecordHistoryAction("plans");
   const selection = useSelection();
   const {
     active: selectionActive,
@@ -100,6 +102,7 @@ export function PlanListScreen() {
         icon: "create-outline",
         onPress: () => openEdit(plan),
       },
+      history.action(plan.id, plan.name),
       {
         key: "delete",
         label: t("common.delete"),
@@ -276,6 +279,8 @@ export function PlanListScreen() {
         actions={buildMenuActions(menuPlan)}
         onDismiss={() => setMenuPlan(null)}
       />
+
+      {history.sheet}
     </SafeAreaView>
   );
 }
