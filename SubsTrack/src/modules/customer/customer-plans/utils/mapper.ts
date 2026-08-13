@@ -10,6 +10,9 @@ export function mapDbCustomerPlanToCustomerPlan(db: DbCustomerPlan): CustomerPla
     startDate: db.start_date,
     cancelledAt: db.cancelled_at,
     active: db.active,
+    // numeric arrives as a string from PostgREST
+    customPrice: db.custom_price != null ? Number(db.custom_price) : null,
+    customCurrencyId: db.custom_currency_id,
     tenantId: db.tenant_id,
     createdAt: db.created_at,
     updatedAt: db.updated_at,

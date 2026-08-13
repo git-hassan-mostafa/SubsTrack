@@ -70,18 +70,20 @@ export class OfflineCurrencyRepository extends OfflineBaseRepository implements 
 
   async referencedIds(ids: string[]): Promise<Set<string>> {
     if (ids.length === 0) return new Set();
-    const [plans, payments] = await Promise.all([
+    const [plans, payments, lines] = await Promise.all([
       this.referencedIdsIn('plans', 'currency_id', ids),
       this.referencedIdsIn('payments', 'currency_id', ids),
+      this.referencedIdsIn('customer_plans', 'custom_currency_id', ids),
     ]);
-    return new Set([...plans, ...payments]);
+    return new Set([...plans, ...payments, ...lines]);
   }
 
   async countReferences(id: string): Promise<number> {
-    const [plans, payments] = await Promise.all([
+    const [plans, payments, lines] = await Promise.all([
       this.count('SELECT COUNT(*) AS n FROM plans WHERE currency_id = ?', [id]),
       this.count('SELECT COUNT(*) AS n FROM payments WHERE currency_id = ?', [id]),
+      this.count('SELECT COUNT(*) AS n FROM customer_plans WHERE custom_currency_id = ?', [id]),
     ]);
-    return plans + payments;
+    return plans + payments + lines;
   }
 }

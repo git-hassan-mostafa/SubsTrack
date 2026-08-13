@@ -6,7 +6,6 @@ import type {
   CustomerStatus,
   MonthEntry,
   Payment,
-  Plan,
   SkippedMonth,
   TierPlan,
   UnpaidStartRule,
@@ -59,9 +58,14 @@ interface CreatePaymentInput {
 export interface BulkPayCustomerRequest {
   customerId: string;
   // The line itself, not just its id — the service's pay-oldest-first guard
-  // needs its start date, and the caller already holds it.
+  // needs its start date, and line.planId is the payment's plan snapshot.
   line: CustomerPlan;
-  plan: Plan;
+  // Resolved by resolveLinePrice() in the caller, since a line may carry its own
+  // special price. `currency` is only the rate source for the frozen snapshot —
+  // `currencyId` stays authoritative (findCurrency resolves a soft-deleted id to null).
+  amountDue: number;
+  durationMonths: number;
+  currencyId: string | null;
   currency: Currency | null;
   amountPaid: number;
 }
@@ -150,12 +154,17 @@ export interface PaymentSlice {
     tenantId: string,
     tier: TierPlan,
   ) => Promise<Payment[]>;
+  // The block's amount / span / currency are resolved by resolveLinePrice() in
+  // the caller (a line may carry its own special price for the bundle) — the
+  // currency object is the SAME one, since it freezes the rate snapshot.
   createMultiMonthPayment: (
     startMonth: string,
     customer: Customer,
     customerPlanId: string,
-    plan: Plan,
-    planCurrency: Currency | null,
+    planId: string | null,
+    amountDue: number,
+    durationMonths: number,
+    currency: Currency | null,
     amountPaid: number,
     receivedByUserId: string,
     notes: string | null,
@@ -171,8 +180,10 @@ export interface PaymentSlice {
     starts: string[],
     customer: Customer,
     customerPlanId: string,
-    plan: Plan,
-    planCurrency: Currency | null,
+    planId: string | null,
+    amountDue: number,
+    durationMonths: number,
+    currency: Currency | null,
     amountPaid: number,
     receivedByUserId: string,
     notes: string | null,
@@ -494,7 +505,9 @@ export const createPaymentSlice: StateCreator<
         requests.map((r) => ({
           customerId: r.customerId,
           line: r.line,
-          plan: r.plan,
+          amountDue: r.amountDue,
+          durationMonths: r.durationMonths,
+          currencyId: r.currencyId,
           billingMonth,
           amountPaid: r.amountPaid,
           ratePerUsdSnapshot: snapshotRate(r.currency),
@@ -534,8 +547,10 @@ export const createPaymentSlice: StateCreator<
     startMonth,
     customer,
     customerPlanId,
-    plan,
-    planCurrency,
+    planId,
+    amountDue,
+    durationMonths,
+    currency,
     amountPaid,
     receivedByUserId,
     notes,
@@ -561,7 +576,7 @@ export const createPaymentSlice: StateCreator<
       assertPayOrder(
         lines,
         customerPlanId,
-        coveredBillingMonths(startMonth, plan.durationMonths),
+        coveredBillingMonths(startMonth, durationMonths),
         get().payments.items,
         get().payments.skips,
         getUnpaidRule(get),
@@ -571,7 +586,10 @@ export const createPaymentSlice: StateCreator<
           startMonth,
           customer,
           customerPlanId,
-          plan,
+          planId,
+          amountDue,
+          durationMonths,
+          currency?.id ?? null,
           amountPaid,
           receivedByUserId,
           notes,
@@ -579,7 +597,7 @@ export const createPaymentSlice: StateCreator<
           linePayments,
           lineSkips,
           skipConflicts,
-          snapshotRate(planCurrency),
+          snapshotRate(currency),
           tier,
         );
       const items = [...get().payments.items, payment];
@@ -631,8 +649,10 @@ export const createPaymentSlice: StateCreator<
     starts,
     customer,
     customerPlanId,
-    plan,
-    planCurrency,
+    planId,
+    amountDue,
+    durationMonths,
+    currency,
     amountPaid,
     receivedByUserId,
     notes,
@@ -657,7 +677,7 @@ export const createPaymentSlice: StateCreator<
       assertPayOrder(
         lines,
         customerPlanId,
-        starts.flatMap((s) => coveredBillingMonths(s, plan.durationMonths)),
+        starts.flatMap((s) => coveredBillingMonths(s, durationMonths)),
         get().payments.items,
         get().payments.skips,
         getUnpaidRule(get),
@@ -667,14 +687,17 @@ export const createPaymentSlice: StateCreator<
           starts,
           customer,
           customerPlanId,
-          plan,
+          planId,
+          amountDue,
+          durationMonths,
+          currency?.id ?? null,
           amountPaid,
           receivedByUserId,
           notes,
           tenantId,
           linePayments,
           lineSkips,
-          snapshotRate(planCurrency),
+          snapshotRate(currency),
           tier,
         );
       const items = [...get().payments.items, ...payments];

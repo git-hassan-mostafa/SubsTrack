@@ -31,6 +31,8 @@ export class OfflineCustomerPlanRepository
       start_date: payload.start_date,
       cancelled_at: null,
       active: true,
+      custom_price: payload.custom_price,
+      custom_currency_id: payload.custom_currency_id,
       tenant_id: payload.tenant_id,
       created_at: now,
       updated_at: now,
@@ -83,7 +85,15 @@ export class OfflineCustomerPlanRepository
   async update(
     id: string,
     payload: Partial<
-      Pick<DbCustomerPlan, 'plan_id' | 'start_date' | 'active' | 'cancelled_at'>
+      Pick<
+        DbCustomerPlan,
+        | 'plan_id'
+        | 'start_date'
+        | 'active'
+        | 'cancelled_at'
+        | 'custom_price'
+        | 'custom_currency_id'
+      >
     >,
   ): Promise<DbCustomerPlan> {
     // Re-activating a cancelled line reads as a restore, not a plain edit.

@@ -65,7 +65,15 @@ export class CustomerPlanRepository extends BaseRepository implements ICustomerP
   async update(
     id: string,
     payload: Partial<
-      Pick<DbCustomerPlan, 'plan_id' | 'start_date' | 'active' | 'cancelled_at'>
+      Pick<
+        DbCustomerPlan,
+        | 'plan_id'
+        | 'start_date'
+        | 'active'
+        | 'cancelled_at'
+        | 'custom_price'
+        | 'custom_currency_id'
+      >
     >,
   ): Promise<DbCustomerPlan> {
     // Re-activating a cancelled line reads as a restore, not a plain edit.

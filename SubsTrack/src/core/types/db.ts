@@ -109,6 +109,10 @@ export interface DbCustomerPlan {
   start_date: string;
   cancelled_at: string | null;
   active: boolean;
+  // Special price for this line only, replacing the plan's price. NULL = use the plan's.
+  custom_price: number | null;
+  // Currency of custom_price. NULL = USD.
+  custom_currency_id: string | null;
   tenant_id: string;
   created_at: string;
   updated_at: string;

@@ -6,7 +6,6 @@ import type {
   MonthEntry,
   MonthStatus,
   Payment,
-  Plan,
   SkippedMonth,
   TierPlan,
   UnpaidStartRule,
@@ -35,15 +34,21 @@ import { CreateMultiMonthPaymentResult, FindPaymentsOptions, MultiMonthConflict,
 type CreatePaymentInput = Pick<Payment, 'billingMonth' | 'amountDue' | 'amountPaid' | 'durationMonths' | 'currencyId' | 'ratePerUsdSnapshot' | 'customerId' | 'customerPlanId' | 'planId' | 'receivedByUserId' | 'tenantId' | 'notes'>
 
 // One entry in a customer-list bulk quick pay: a single fixed-price service line
-// paid for `billingMonth` with its plan + frozen rate. Multi-month plans become
-// a block payment covering plan.durationMonths from billingMonth. A customer with
+// paid for `billingMonth` with its resolved price + frozen rate. A multi-month
+// line becomes a block payment covering `durationMonths`. A customer with
 // several lines contributes one entry per eligible line ("collect all due").
 interface BulkPayCustomerInput {
   customerId: string;
   // The whole service line, not just its id — the pay-oldest-first guard needs
-  // its start date to know how far back the line can owe.
+  // its start date to know how far back the line can owe, and line.planId is the
+  // payment's plan snapshot (a line with a special price may have no plan).
   line: CustomerPlan;
-  plan: Plan;
+  // Already resolved by resolveLinePrice() in the caller — the very figures the
+  // confirm dialog showed. NEVER re-derived from plan.price here: a line can
+  // carry its own special price, and the currency is what freezes the rate.
+  amountDue: number;
+  durationMonths: number;
+  currencyId: string | null;
   billingMonth: string;
   amountPaid: number;
   ratePerUsdSnapshot: number;
@@ -121,8 +126,8 @@ class PaymentService {
   }
 
   // Pays one billing month for many DIFFERENT customers in a single round-trip
-  // — each at its own plan price/currency. Multi-month plans create one block
-  // payment covering plan.durationMonths from billingMonth. Used by the
+  // — each at its own resolved price/currency. Multi-month lines create one block
+  // payment covering the resolved durationMonths from billingMonth. Used by the
   // customer-list bulk quick pay. All-or-nothing: an invalid row, or a tier that
   // forbids multi-month, fails the whole batch (callers gate eligibility first).
   async bulkPayCustomers(
@@ -133,28 +138,24 @@ class PaymentService {
     unpaidRule: UnpaidStartRule = DEFAULT_UNPAID_START_RULE,
   ): Promise<Payment[]> {
     if (inputs.length === 0) return [];
-    if (inputs.some((i) => i.plan.durationMonths > 1)) {
+    if (inputs.some((i) => i.durationMonths > 1)) {
       tierService.assertMultiMonth(tier);
     }
-    const paymentInputs: CreatePaymentInput[] = inputs.map((i) => {
-      if (i.plan.price === null) {
-        throw new Error(i18n.t('errors.plan_fixed_for_multimonth'));
-      }
-      return {
-        billingMonth: i.billingMonth,
-        amountDue: i.plan.price,
-        amountPaid: i.amountPaid,
-        durationMonths: i.plan.durationMonths,
-        currencyId: i.plan.currencyId,
-        ratePerUsdSnapshot: i.ratePerUsdSnapshot,
-        customerId: i.customerId,
-        customerPlanId: i.line.id,
-        planId: i.plan.id,
-        receivedByUserId,
-        tenantId,
-        notes: null,
-      };
-    });
+    // validateCreatePayment below already refuses a non-positive amount due.
+    const paymentInputs: CreatePaymentInput[] = inputs.map((i) => ({
+      billingMonth: i.billingMonth,
+      amountDue: i.amountDue,
+      amountPaid: i.amountPaid,
+      durationMonths: i.durationMonths,
+      currencyId: i.currencyId,
+      ratePerUsdSnapshot: i.ratePerUsdSnapshot,
+      customerId: i.customerId,
+      customerPlanId: i.line.id,
+      planId: i.line.planId,
+      receivedByUserId,
+      tenantId,
+      notes: null,
+    }));
     paymentInputs.forEach(validateCreatePayment);
     await this.assertBulkPayableInOrder(inputs, unpaidRule);
     const rows = await repository.createMany(paymentInputs.map(toPaymentPayload));
@@ -178,7 +179,7 @@ class PaymentService {
     for (const i of inputs) {
       this.assertPayableInOrder(
         i.line,
-        coveredBillingMonths(i.billingMonth, i.plan.durationMonths),
+        coveredBillingMonths(i.billingMonth, i.durationMonths),
         payments.filter((p) => p.customerPlanId === i.line.id),
         skips.filter((s) => s.customerPlanId === i.line.id),
         unpaidRule,
@@ -187,7 +188,11 @@ class PaymentService {
   }
 
   // Creates a multi-month payment starting at startMonth covering durationMonths months.
-  // amountPaid: what was actually collected (may be less than plan.price for partial payments).
+  // amountDue / durationMonths / currencyId are already resolved by
+  // resolveLinePrice() in the caller — a line may carry its own special price for
+  // the bundle, and the currency is what freezes the rate, so neither is ever
+  // re-derived from plan.price here.
+  // amountPaid: what was actually collected (may be less than amountDue for partial payments).
   // existingPayments: the current payments for this customer (to detect conflicts).
   // lineSkips: the line's active skips — a block covering one is refused whole.
   // skipConflicts: if true, steps over already-paid months; if false, throws on conflict.
@@ -195,7 +200,10 @@ class PaymentService {
     startMonth: string,
     customer: Customer,
     customerPlanId: string,
-    plan: Plan,
+    planId: string | null,
+    amountDue: number,
+    durationMonths: number,
+    currencyId: string | null,
     amountPaid: number,
     receivedByUserId: string,
     notes: string | null,
@@ -210,10 +218,10 @@ class PaymentService {
     if (!startMonth.endsWith("-01")) {
       throw new Error(i18n.t("errors.billing_month_format"));
     }
-    if (!plan.price || plan.price <= 0) {
+    if (!(amountDue > 0)) {
       throw new Error(i18n.t("errors.plan_fixed_for_multimonth"));
     }
-    if (amountPaid > plan.price) {
+    if (amountPaid > amountDue) {
       throw new Error(i18n.t("errors.amount_paid_exceeds_due"));
     }
     if (!(ratePerUsdSnapshot > 0)) {
@@ -222,7 +230,7 @@ class PaymentService {
 
     const coveredByExisting = buildCoverageSet(existingPayments);
     const { effectiveStart, effectiveDuration, conflictMonths } =
-      resolveMultiMonthBlock(startMonth, plan, coveredByExisting);
+      resolveMultiMonthBlock(startMonth, durationMonths, coveredByExisting);
 
     if (!skipConflicts && conflictMonths.length > 0) {
       throw new Error(
@@ -237,14 +245,14 @@ class PaymentService {
 
     const row = await repository.create({
       billing_month: effectiveStart,
-      amount_due: plan.price,
+      amount_due: amountDue,
       amount_paid: amountPaid,
       duration_months: effectiveDuration,
-      currency_id: plan.currencyId,
+      currency_id: currencyId,
       rate_per_usd_snapshot: ratePerUsdSnapshot,
       customer_id: customer.id,
       customer_plan_id: customerPlanId,
-      plan_id: plan.id,
+      plan_id: planId,
       received_by_user_id: receivedByUserId,
       tenant_id: tenantId,
       notes,
@@ -261,7 +269,10 @@ class PaymentService {
     starts: string[],
     customer: Customer,
     customerPlanId: string,
-    plan: Plan,
+    planId: string | null,
+    amountDue: number,
+    durationMonths: number,
+    currencyId: string | null,
     amountPaid: number,
     receivedByUserId: string,
     notes: string | null,
@@ -272,10 +283,10 @@ class PaymentService {
     tier: TierPlan,
   ): Promise<{ payments: Payment[]; conflictMonths: MultiMonthConflict[] }> {
     tierService.assertMultiMonth(tier);
-    if (!plan.price || plan.price <= 0) {
+    if (!(amountDue > 0)) {
       throw new Error(i18n.t("errors.plan_fixed_for_multimonth"));
     }
-    if (amountPaid > plan.price) {
+    if (amountPaid > amountDue) {
       throw new Error(i18n.t("errors.amount_paid_exceeds_due"));
     }
     if (!(ratePerUsdSnapshot > 0)) {
@@ -289,20 +300,20 @@ class PaymentService {
       if (!startMonth.endsWith("-01")) {
         throw new Error(i18n.t("errors.billing_month_format"));
       }
-      const resolved = resolveMultiMonthBlock(startMonth, plan, covered);
+      const resolved = resolveMultiMonthBlock(startMonth, durationMonths, covered);
       conflictMonths.push(...resolved.conflictMonths);
       if (resolved.effectiveDuration <= 0) continue; // whole block already covered
       assertNoSkippedMonths(resolved.effectiveStart, resolved.effectiveDuration, lineSkips, covered);
       payloads.push({
         billing_month: resolved.effectiveStart,
-        amount_due: plan.price,
+        amount_due: amountDue,
         amount_paid: amountPaid,
         duration_months: resolved.effectiveDuration,
-        currency_id: plan.currencyId,
+        currency_id: currencyId,
         rate_per_usd_snapshot: ratePerUsdSnapshot,
         customer_id: customer.id,
         customer_plan_id: customerPlanId,
-        plan_id: plan.id,
+        plan_id: planId,
         received_by_user_id: receivedByUserId,
         tenant_id: tenantId,
         notes,
@@ -842,29 +853,29 @@ function toPaymentPayload(data: CreatePaymentInput) {
 // they were already paid. effectiveDuration <= 0 means the whole block is covered.
 function resolveMultiMonthBlock(
   startMonth: string,
-  plan: Plan,
+  durationMonths: number,
   covered: Set<string>,
 ): { effectiveStart: string; effectiveDuration: number; conflictMonths: MultiMonthConflict[] } {
   const [startYear, startMonthNum] = startMonth.split("-").map(Number);
   const conflictMonths: MultiMonthConflict[] = [];
   let effectiveStart = startMonth;
-  let effectiveDuration = plan.durationMonths;
+  let effectiveDuration = durationMonths;
   let foundStart = false;
 
-  for (let d = 0; d < plan.durationMonths; d++) {
+  for (let d = 0; d < durationMonths; d++) {
     const date = new Date(startYear, startMonthNum - 1 + d, 1);
     const bm = toBillingMonth(date.getFullYear(), date.getMonth() + 1);
     if (covered.has(bm)) {
       conflictMonths.push({ billingMonth: bm, label: MONTHS[date.getMonth()] });
     } else if (!foundStart) {
       effectiveStart = bm;
-      effectiveDuration = plan.durationMonths - d;
+      effectiveDuration = durationMonths - d;
       foundStart = true;
     }
   }
 
   // Every month in the window was already covered.
-  if (conflictMonths.length === plan.durationMonths) effectiveDuration = 0;
+  if (conflictMonths.length === durationMonths) effectiveDuration = 0;
 
   return { effectiveStart, effectiveDuration, conflictMonths };
 }

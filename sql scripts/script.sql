@@ -5,36 +5,44 @@
 -- idempotent, so re-running the whole file on a live database is safe and
 -- brings it up to date. There are no separate migration files.
 --
---  * New table          → CREATE TABLE IF NOT EXISTS (+ CREATE INDEX IF NOT EXISTS).
+-- SHAPE OF A TABLE — every table is declared in two steps:
+--        CREATE TABLE IF NOT EXISTS <table> ();              -- empty shell
+--        ALTER TABLE <table> ADD COLUMN IF NOT EXISTS ...;   -- one per column
+--    So a column is declared exactly ONE way whether the table is brand new or
+--    already live: there is no CREATE TABLE column list to keep in sync with a
+--    separate list of later ALTERs, and every column self-heals on re-run.
 --
---  * New column on an EXISTING table → do NOT add it to that table's
---    CREATE TABLE block. Add one line to the "Columns added after the initial
---    schema" block placed directly under the table (create the block if the
---    table has none yet):
+--  * New table          → CREATE TABLE IF NOT EXISTS <table> (); then its
+--    column ALTERs, then its constraints / indexes (IF NOT EXISTS).
+--
+--  * New column         → append ONE line to that table's column block:
 --        ALTER TABLE <table> ADD COLUMN IF NOT EXISTS <col> <type> [DEFAULT ...];
---    A fresh database gets the column from that ALTER too, so the end state is
---    identical and the column is declared exactly once. Keeping it under its own
---    table (not in one section at the bottom) means views, policies and triggers
---    further down always see it.
+--    Keeping it under its own table (not in one section at the bottom) means
+--    views, policies and triggers further down always see it.
 --    NOT NULL requires a DEFAULT — existing rows must get a value.
 --
---  * A single-column CHECK or a REFERENCES (FK) → put it inline on the ADD COLUMN.
---    New table-level constraint (multi-column CHECK / UNIQUE / FK) → guard it:
---        DO $$ BEGIN
---            IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = '<name>')
---            THEN ALTER TABLE <table> ADD CONSTRAINT <name> ...; END IF;
---        END $$;
---    A UNIQUE rule is simpler as CREATE UNIQUE INDEX IF NOT EXISTS.
+--  * A single-column CHECK / UNIQUE / REFERENCES (FK) → put it on the ADD COLUMN
+--    line itself, prefixed with `CONSTRAINT <name>` when the name matters.
+--    A table-level constraint (multi-column CHECK / UNIQUE / FK) cannot ride on
+--    an ADD COLUMN, so add it to that table's "Table-level constraints" DO block:
+--        IF NOT EXISTS (SELECT 1 FROM pg_constraint
+--                       WHERE conrelid = '<table>'::regclass AND conname = '<name>')
+--        THEN ALTER TABLE <table> ADD CONSTRAINT <name> ...; END IF;
+--    Guarded means EDITING an existing constraint is NOT picked up on a live
+--    database — rename it, or drop the old one by hand.
 --
---  * Dropping a column → remove it from the CREATE TABLE block AND add
+--  * Dropping a column → delete its ADD COLUMN line AND add
 --        ALTER TABLE <table> DROP COLUMN IF EXISTS <col>;
---    to a "Columns removed after the initial schema" block under that table, so
---    a fresh database and a live one still end up identical. The offline mirror
---    does NOT reconcile this — an old install keeps a harmless stale column.
+--    to a "Columns removed" block under that table, so a fresh database and a
+--    live one still end up identical. The offline mirror does NOT reconcile
+--    this — an old install keeps a harmless stale column.
 --
 --  * Mirror every column change in the offline client's table descriptor
 --    (SubsTrack/src/core/offline/db/tables.ts) or the native app won't store or
 --    sync it. That side self-heals the same way (ADD COLUMN on next app start).
+--
+--  ORDER MATTERS: an inline REFERENCES needs its target table to already exist,
+--  so tables stay in dependency order (tier_plans → tenants → branches → …).
 -- ============================================================
 
 -- ============================================================
@@ -53,33 +61,43 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 -- NULL on any *max_ column means "unlimited".
 -- ============================================================
 
-CREATE TABLE IF NOT EXISTS tier_plans (
-    id                        UUID          PRIMARY KEY DEFAULT uuid_generate_v4(),
-    code                      TEXT          NOT NULL UNIQUE
-                                            CHECK (code IN ('free', 'pro', 'business')),
-    name                      TEXT          NOT NULL,
-    sort_order                INT           NOT NULL,
+CREATE TABLE IF NOT EXISTS tier_plans ();
 
-    -- Numeric limits (NULL = unlimited)
-    max_customers             INT           CHECK (max_customers IS NULL OR max_customers >= 0),
-    max_users                 INT           CHECK (max_users     IS NULL OR max_users     >= 0),
-    max_plans                 INT           CHECK (max_plans     IS NULL OR max_plans     >= 0),
-    max_branches              INT           CHECK (max_branches  IS NULL OR max_branches  >= 0),
-    max_currencies            INT           CHECK (max_currencies IS NULL OR max_currencies >= 0),
-    max_products              INT           CHECK (max_products  IS NULL OR max_products  >= 0),
+-- ---- Columns --------------------------------------------------------------
 
-    -- Feature flags
-    multi_currency_enabled    BOOLEAN       NOT NULL DEFAULT FALSE,
-    multi_month_plans_enabled BOOLEAN       NOT NULL DEFAULT FALSE,
+ALTER TABLE tier_plans ADD COLUMN IF NOT EXISTS id UUID PRIMARY KEY DEFAULT uuid_generate_v4();
+ALTER TABLE tier_plans ADD COLUMN IF NOT EXISTS code TEXT NOT NULL UNIQUE
+    CHECK (code IN ('free', 'pro', 'business'));
+ALTER TABLE tier_plans ADD COLUMN IF NOT EXISTS name TEXT NOT NULL;
+ALTER TABLE tier_plans ADD COLUMN IF NOT EXISTS sort_order INT NOT NULL;
 
-    -- Pricing (USD). Stripe price IDs can be added later as nullable columns.
-    price_monthly_usd         NUMERIC(10,2) NOT NULL DEFAULT 0 CHECK (price_monthly_usd >= 0),
-    price_yearly_usd          NUMERIC(10,2)             CHECK (price_yearly_usd IS NULL OR price_yearly_usd >= 0),
+-- Numeric limits (NULL = unlimited)
+ALTER TABLE tier_plans ADD COLUMN IF NOT EXISTS max_customers INT
+    CHECK (max_customers IS NULL OR max_customers >= 0);
+ALTER TABLE tier_plans ADD COLUMN IF NOT EXISTS max_users INT
+    CHECK (max_users IS NULL OR max_users >= 0);
+ALTER TABLE tier_plans ADD COLUMN IF NOT EXISTS max_plans INT
+    CHECK (max_plans IS NULL OR max_plans >= 0);
+ALTER TABLE tier_plans ADD COLUMN IF NOT EXISTS max_branches INT
+    CHECK (max_branches IS NULL OR max_branches >= 0);
+ALTER TABLE tier_plans ADD COLUMN IF NOT EXISTS max_currencies INT
+    CHECK (max_currencies IS NULL OR max_currencies >= 0);
+ALTER TABLE tier_plans ADD COLUMN IF NOT EXISTS max_products INT
+    CHECK (max_products IS NULL OR max_products >= 0);
 
-    active                    BOOLEAN       NOT NULL DEFAULT TRUE,
-    created_at                TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
-    updated_at                TIMESTAMPTZ   NOT NULL DEFAULT NOW()
-);
+-- Feature flags
+ALTER TABLE tier_plans ADD COLUMN IF NOT EXISTS multi_currency_enabled BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE tier_plans ADD COLUMN IF NOT EXISTS multi_month_plans_enabled BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- Pricing (USD). Stripe price IDs can be added later as nullable columns.
+ALTER TABLE tier_plans ADD COLUMN IF NOT EXISTS price_monthly_usd NUMERIC(10,2) NOT NULL DEFAULT 0
+    CHECK (price_monthly_usd >= 0);
+ALTER TABLE tier_plans ADD COLUMN IF NOT EXISTS price_yearly_usd NUMERIC(10,2)
+    CHECK (price_yearly_usd IS NULL OR price_yearly_usd >= 0);
+
+ALTER TABLE tier_plans ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE tier_plans ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE tier_plans ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 
 -- Seed the three tiers. Idempotent via ON CONFLICT — re-runs of the script
 -- preserve any limit/price tweaks made later via SuperAdmin.
@@ -107,14 +125,16 @@ ALTER TABLE tier_plans DROP COLUMN IF EXISTS grace_days;
 -- each new tenant's auto-created Lebanese Pound (LBP) currency at signup.
 -- ============================================================
 
-CREATE TABLE IF NOT EXISTS app_options (
-    id          UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
-    key         TEXT        NOT NULL UNIQUE,
-    value       TEXT,
-    description TEXT,
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
+CREATE TABLE IF NOT EXISTS app_options ();
+
+-- ---- Columns --------------------------------------------------------------
+
+ALTER TABLE app_options ADD COLUMN IF NOT EXISTS id UUID PRIMARY KEY DEFAULT uuid_generate_v4();
+ALTER TABLE app_options ADD COLUMN IF NOT EXISTS key TEXT NOT NULL UNIQUE;
+ALTER TABLE app_options ADD COLUMN IF NOT EXISTS value TEXT;
+ALTER TABLE app_options ADD COLUMN IF NOT EXISTS description TEXT;
+ALTER TABLE app_options ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE app_options ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 
 -- Seed default global options. Idempotent via ON CONFLICT — re-runs of the
 -- script preserve any value edited later via SuperAdmin. 'LiraRate' is the
@@ -144,25 +164,24 @@ AS $$
     WHERE code = 'free'
 $$;
 
-CREATE TABLE IF NOT EXISTS tenants (
-    id               UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name             TEXT        NOT NULL UNIQUE,
-    tenant_code      TEXT        NOT NULL UNIQUE
-                                 CHECK (tenant_code ~ '^[a-z0-9]+$'),
-    active           BOOLEAN     NOT NULL DEFAULT TRUE,
-    -- Subscription tier. Defaults to Free; SuperAdmin or in-app upgrade flow
-    -- swaps it. ON DELETE RESTRICT — never lose tier association silently.
-    tier_id          UUID        NOT NULL
-                                 DEFAULT get_free_tier_id(),
-    tier_upgraded_at TIMESTAMPTZ,
-    created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+CREATE TABLE IF NOT EXISTS tenants ();
 
-    CONSTRAINT fk_tenants_tier
-        FOREIGN KEY (tier_id)
-        REFERENCES tier_plans(id)
-        ON DELETE RESTRICT
-);
+-- ---- Columns --------------------------------------------------------------
+
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS id UUID PRIMARY KEY DEFAULT uuid_generate_v4();
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS name TEXT NOT NULL UNIQUE;
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS tenant_code TEXT NOT NULL UNIQUE
+    CHECK (tenant_code ~ '^[a-z0-9]+$');
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT TRUE;
+
+-- Subscription tier. Defaults to Free; SuperAdmin or in-app upgrade flow
+-- swaps it. ON DELETE RESTRICT — never lose tier association silently.
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS tier_id UUID NOT NULL DEFAULT get_free_tier_id()
+    CONSTRAINT fk_tenants_tier REFERENCES tier_plans(id) ON DELETE RESTRICT;
+
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS tier_upgraded_at TIMESTAMPTZ;
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 
 CREATE INDEX IF NOT EXISTS idx_tenants_tier_id
     ON tenants (tier_id);
@@ -176,19 +195,17 @@ CREATE INDEX IF NOT EXISTS idx_tenants_tier_id
 -- on the 1st, or 'customer_start_day' on the line's start day-of-month).
 -- ============================================================
 
-CREATE TABLE IF NOT EXISTS tenant_settings (
-    id          UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
-    tenant_id   UUID        NOT NULL,
-    key         TEXT        NOT NULL,
-    value       TEXT,
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+CREATE TABLE IF NOT EXISTS tenant_settings ();
 
-    CONSTRAINT fk_tenant_settings_tenant
-        FOREIGN KEY (tenant_id)
-        REFERENCES tenants(id)
-        ON DELETE CASCADE
-);
+-- ---- Columns --------------------------------------------------------------
+
+ALTER TABLE tenant_settings ADD COLUMN IF NOT EXISTS id UUID PRIMARY KEY DEFAULT uuid_generate_v4();
+ALTER TABLE tenant_settings ADD COLUMN IF NOT EXISTS tenant_id UUID NOT NULL
+    CONSTRAINT fk_tenant_settings_tenant REFERENCES tenants(id) ON DELETE CASCADE;
+ALTER TABLE tenant_settings ADD COLUMN IF NOT EXISTS key TEXT NOT NULL;
+ALTER TABLE tenant_settings ADD COLUMN IF NOT EXISTS value TEXT;
+ALTER TABLE tenant_settings ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE tenant_settings ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 
 -- One row per key per tenant. Also the natural key the offline mirror hashes
 -- into a deterministic id, so two devices creating the same setting converge.
@@ -205,26 +222,24 @@ CREATE INDEX IF NOT EXISTS idx_tenant_settings_tenant_id
 -- active = false hides the currency from new selections but preserves history.
 -- ============================================================
 
-CREATE TABLE IF NOT EXISTS currencies (
-    id            UUID          PRIMARY KEY DEFAULT uuid_generate_v4(),
-    tenant_id     UUID          NOT NULL,
-    code          TEXT          NOT NULL,
-    name          TEXT          NOT NULL,
-    symbol        TEXT,
-    rate_per_usd  NUMERIC(20,8) NOT NULL CHECK (rate_per_usd > 0),
-    decimals      INTEGER       NOT NULL DEFAULT 2 CHECK (decimals BETWEEN 0 AND 6),
-    active        BOOLEAN       NOT NULL DEFAULT TRUE,
-    created_at    TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
-    updated_at    TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+CREATE TABLE IF NOT EXISTS currencies ();
 
-    CONSTRAINT chk_currency_code_format
-        CHECK (code ~ '^[A-Z]{2,8}$' AND code <> 'USD'),
+-- ---- Columns --------------------------------------------------------------
 
-    CONSTRAINT fk_currencies_tenant
-        FOREIGN KEY (tenant_id)
-        REFERENCES tenants(id)
-        ON DELETE CASCADE
-);
+ALTER TABLE currencies ADD COLUMN IF NOT EXISTS id UUID PRIMARY KEY DEFAULT uuid_generate_v4();
+ALTER TABLE currencies ADD COLUMN IF NOT EXISTS tenant_id UUID NOT NULL
+    CONSTRAINT fk_currencies_tenant REFERENCES tenants(id) ON DELETE CASCADE;
+ALTER TABLE currencies ADD COLUMN IF NOT EXISTS code TEXT NOT NULL
+    CONSTRAINT chk_currency_code_format CHECK (code ~ '^[A-Z]{2,8}$' AND code <> 'USD');
+ALTER TABLE currencies ADD COLUMN IF NOT EXISTS name TEXT NOT NULL;
+ALTER TABLE currencies ADD COLUMN IF NOT EXISTS symbol TEXT;
+ALTER TABLE currencies ADD COLUMN IF NOT EXISTS rate_per_usd NUMERIC(20,8) NOT NULL
+    CHECK (rate_per_usd > 0);
+ALTER TABLE currencies ADD COLUMN IF NOT EXISTS decimals INTEGER NOT NULL DEFAULT 2
+    CHECK (decimals BETWEEN 0 AND 6);
+ALTER TABLE currencies ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE currencies ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE currencies ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_currencies_code_tenant
     ON currencies (tenant_id, code);
@@ -239,19 +254,17 @@ CREATE INDEX IF NOT EXISTS idx_currencies_tenant_id
 -- Soft-delete via active = false (records keep their branch_id references).
 -- ============================================================
 
-CREATE TABLE IF NOT EXISTS branches (
-    id          UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
-    tenant_id   UUID        NOT NULL,
-    name        TEXT        NOT NULL,
-    active      BOOLEAN     NOT NULL DEFAULT TRUE,
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+CREATE TABLE IF NOT EXISTS branches ();
 
-    CONSTRAINT fk_branches_tenant
-        FOREIGN KEY (tenant_id)
-        REFERENCES tenants(id)
-        ON DELETE CASCADE
-);
+-- ---- Columns --------------------------------------------------------------
+
+ALTER TABLE branches ADD COLUMN IF NOT EXISTS id UUID PRIMARY KEY DEFAULT uuid_generate_v4();
+ALTER TABLE branches ADD COLUMN IF NOT EXISTS tenant_id UUID NOT NULL
+    CONSTRAINT fk_branches_tenant REFERENCES tenants(id) ON DELETE CASCADE;
+ALTER TABLE branches ADD COLUMN IF NOT EXISTS name TEXT NOT NULL;
+ALTER TABLE branches ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE branches ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE branches ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_branches_name_tenant
     ON branches (tenant_id, name);
@@ -267,33 +280,30 @@ CREATE INDEX IF NOT EXISTS idx_branches_tenant_id
 -- Display currency preference is stored client-side in AsyncStorage (no DB column).
 -- ============================================================
 
-CREATE TABLE IF NOT EXISTS users (
-    id           UUID        PRIMARY KEY,
-    username     TEXT        NOT NULL,
-    full_name    TEXT        NOT NULL,
-    phone_number TEXT,
-    role         TEXT        NOT NULL DEFAULT 'user'
-                             CHECK (role IN ('superadmin', 'admin', 'user')),
-    active       BOOLEAN     NOT NULL DEFAULT TRUE,
-    tenant_id    UUID        NOT NULL,
-    -- Branch assignment. NULL = tenant-wide admin (sees all branches).
-    -- App-level rule (UserService.validate): role = 'user' requires a branch
-    -- once the tenant has >= 1 branch. Not enforced by DB CHECK because it
-    -- depends on a count from another table.
-    branch_id    UUID,
-    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+CREATE TABLE IF NOT EXISTS users ();
 
-    CONSTRAINT fk_users_tenant
-        FOREIGN KEY (tenant_id)
-        REFERENCES tenants(id)
-        ON DELETE CASCADE,
+-- ---- Columns --------------------------------------------------------------
 
-    CONSTRAINT fk_users_branch
-        FOREIGN KEY (branch_id)
-        REFERENCES branches(id)
-        ON DELETE SET NULL
-);
+-- No DEFAULT: id mirrors auth.users.id, always supplied by the caller.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS id UUID PRIMARY KEY;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS username TEXT NOT NULL;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS full_name TEXT NOT NULL;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS phone_number TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS role TEXT NOT NULL DEFAULT 'user'
+    CHECK (role IN ('superadmin', 'admin', 'user'));
+ALTER TABLE users ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS tenant_id UUID NOT NULL
+    CONSTRAINT fk_users_tenant REFERENCES tenants(id) ON DELETE CASCADE;
+
+-- Branch assignment. NULL = tenant-wide admin (sees all branches).
+-- App-level rule (UserService.validate): role = 'user' requires a branch
+-- once the tenant has >= 1 branch. Not enforced by DB CHECK because it
+-- depends on a count from another table.
+ALTER TABLE users ADD COLUMN IF NOT EXISTS branch_id UUID
+    CONSTRAINT fk_users_branch REFERENCES branches(id) ON DELETE SET NULL;
+
+ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_users_username_tenant
     ON users (username, tenant_id);
@@ -312,51 +322,62 @@ CREATE INDEX IF NOT EXISTS idx_users_tenant_id
 -- NOT the same as tier_plans (SaaS subscription tiers) — completely separate concept.
 -- ============================================================
 
-CREATE TABLE IF NOT EXISTS plans (
-    id              UUID          PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name            TEXT          NOT NULL,
-    price           NUMERIC(20,8) CHECK (price IS NULL OR price > 0),
-    is_custom_price BOOLEAN       NOT NULL DEFAULT FALSE,
-    -- Number of months this plan covers per payment (1 = monthly, 3 = quarterly, etc.)
-    -- Multi-month plans must have a fixed bundle price (is_custom_price must be FALSE).
-    duration_months INTEGER       NOT NULL DEFAULT 1 CHECK (duration_months >= 1),
-    -- Currency of the stored price. NULL = USD (the base currency).
-    -- ON DELETE RESTRICT: cannot drop a currency referenced by a plan.
-    currency_id     UUID,
-    tenant_id       UUID          NOT NULL,
-    -- Branch this plan belongs to. NULL = SHARED catalog item (available at every branch).
-    -- This is the OPPOSITE semantic of customers.branch_id (where NULL = unassigned/hidden).
-    branch_id       UUID,
-    created_at      TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
-    updated_at      TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+CREATE TABLE IF NOT EXISTS plans ();
 
+-- ---- Columns --------------------------------------------------------------
+
+ALTER TABLE plans ADD COLUMN IF NOT EXISTS id UUID PRIMARY KEY DEFAULT uuid_generate_v4();
+ALTER TABLE plans ADD COLUMN IF NOT EXISTS name TEXT NOT NULL;
+ALTER TABLE plans ADD COLUMN IF NOT EXISTS price NUMERIC(20,8)
+    CHECK (price IS NULL OR price > 0);
+ALTER TABLE plans ADD COLUMN IF NOT EXISTS is_custom_price BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- Number of months this plan covers per payment (1 = monthly, 3 = quarterly, etc.)
+-- Multi-month plans must have a fixed bundle price (is_custom_price must be FALSE).
+ALTER TABLE plans ADD COLUMN IF NOT EXISTS duration_months INTEGER NOT NULL DEFAULT 1
+    CHECK (duration_months >= 1);
+
+-- Currency of the stored price. NULL = USD (the base currency).
+-- ON DELETE RESTRICT: cannot drop a currency referenced by a plan.
+ALTER TABLE plans ADD COLUMN IF NOT EXISTS currency_id UUID
+    CONSTRAINT fk_plans_currency REFERENCES currencies(id) ON DELETE RESTRICT;
+
+ALTER TABLE plans ADD COLUMN IF NOT EXISTS tenant_id UUID NOT NULL
+    CONSTRAINT fk_plans_tenant REFERENCES tenants(id) ON DELETE CASCADE;
+
+-- Branch this plan belongs to. NULL = SHARED catalog item (available at every branch).
+-- This is the OPPOSITE semantic of customers.branch_id (where NULL = unassigned/hidden).
+ALTER TABLE plans ADD COLUMN IF NOT EXISTS branch_id UUID
+    CONSTRAINT fk_plans_branch REFERENCES branches(id) ON DELETE SET NULL;
+
+ALTER TABLE plans ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE plans ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+-- ---- Table-level constraints (multi-column — cannot ride on an ADD COLUMN) --
+
+DO $$ BEGIN
     -- A fixed plan must have a price; a custom-price plan must not.
-    CONSTRAINT chk_plan_price_consistency
-        CHECK (
-            (is_custom_price = FALSE AND price IS NOT NULL)
-            OR
-            (is_custom_price = TRUE AND price IS NULL)
-        ),
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conrelid = 'plans'::regclass AND conname = 'chk_plan_price_consistency'
+    ) THEN
+        ALTER TABLE plans ADD CONSTRAINT chk_plan_price_consistency
+            CHECK (
+                (is_custom_price = FALSE AND price IS NOT NULL)
+                OR
+                (is_custom_price = TRUE AND price IS NULL)
+            );
+    END IF;
 
     -- Multi-month plans cannot have custom pricing (bundle price must be fixed).
-    CONSTRAINT chk_multi_month_requires_fixed_price
-        CHECK (duration_months = 1 OR is_custom_price = FALSE),
-
-    CONSTRAINT fk_plans_tenant
-        FOREIGN KEY (tenant_id)
-        REFERENCES tenants(id)
-        ON DELETE CASCADE,
-
-    CONSTRAINT fk_plans_currency
-        FOREIGN KEY (currency_id)
-        REFERENCES currencies(id)
-        ON DELETE RESTRICT,
-
-    CONSTRAINT fk_plans_branch
-        FOREIGN KEY (branch_id)
-        REFERENCES branches(id)
-        ON DELETE SET NULL
-);
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conrelid = 'plans'::regclass AND conname = 'chk_multi_month_requires_fixed_price'
+    ) THEN
+        ALTER TABLE plans ADD CONSTRAINT chk_multi_month_requires_fixed_price
+            CHECK (duration_months = 1 OR is_custom_price = FALSE);
+    END IF;
+END $$;
 
 -- Uniqueness allows the same plan name across branches (NULLs compare unequal in PG unique).
 -- Example: "Basic" shared (branch_id NULL) AND "Basic" Beirut (branch_id X) coexist.
@@ -375,47 +396,55 @@ CREATE INDEX IF NOT EXISTS idx_plans_branch_id
 -- cancelled_at records when a customer was deactivated.
 -- ============================================================
 
-CREATE TABLE IF NOT EXISTS customers (
-    id           UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
-    name         TEXT        NOT NULL,
-    phone_number TEXT,
-    address      TEXT,
-    area         TEXT,
-    notes        TEXT,
-    -- Optional Google Maps share link pasted by staff. Stored raw (not parsed
-    -- into coordinates) — the collector re-opens it to get directions.
-    location_url TEXT,
-    active       BOOLEAN     NOT NULL DEFAULT TRUE,
-    is_regular   BOOLEAN     NOT NULL DEFAULT TRUE,
-    -- NOTE: a customer's plan(s) now live in the customer_plans table (one row
-    -- per service line). customers.plan_id was removed — see customer_plans below.
-    tenant_id    UUID        NOT NULL,
-    -- Branch this customer belongs to. NULL = UNASSIGNED — visible ONLY to
-    -- tenant-wide admins (users with users.branch_id IS NULL). Branch-scoped
-    -- users do not see unassigned customers.
-    branch_id    UUID,
-    cancelled_at TIMESTAMPTZ,
-    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+CREATE TABLE IF NOT EXISTS customers ();
 
+-- ---- Columns --------------------------------------------------------------
+
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS id UUID PRIMARY KEY DEFAULT uuid_generate_v4();
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS name TEXT NOT NULL;
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS phone_number TEXT;
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS address TEXT;
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS area TEXT;
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS notes TEXT;
+
+-- Optional Google Maps share link pasted by staff. Stored raw (not parsed
+-- into coordinates) — the collector re-opens it to get directions.
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS location_url TEXT;
+
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS is_regular BOOLEAN NOT NULL DEFAULT TRUE;
+
+-- NOTE: a customer's plan(s) now live in the customer_plans table (one row
+-- per service line). customers.plan_id was removed — see customer_plans below.
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS tenant_id UUID NOT NULL
+    CONSTRAINT fk_customers_tenant REFERENCES tenants(id) ON DELETE CASCADE;
+
+-- Branch this customer belongs to. NULL = UNASSIGNED — visible ONLY to
+-- tenant-wide admins (users with users.branch_id IS NULL). Branch-scoped
+-- users do not see unassigned customers.
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS branch_id UUID
+    CONSTRAINT fk_customers_branch REFERENCES branches(id) ON DELETE SET NULL;
+
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS cancelled_at TIMESTAMPTZ;
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE customers ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+-- ---- Table-level constraints (multi-column — cannot ride on an ADD COLUMN) --
+
+DO $$ BEGIN
     -- cancelled_at must be set when and only when active = false
-    CONSTRAINT chk_customer_cancelled_consistency
-        CHECK (
-            (active = TRUE  AND cancelled_at IS NULL)
-            OR
-            (active = FALSE AND cancelled_at IS NOT NULL)
-        ),
-
-    CONSTRAINT fk_customers_tenant
-        FOREIGN KEY (tenant_id)
-        REFERENCES tenants(id)
-        ON DELETE CASCADE,
-
-    CONSTRAINT fk_customers_branch
-        FOREIGN KEY (branch_id)
-        REFERENCES branches(id)
-        ON DELETE SET NULL
-);
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conrelid = 'customers'::regclass AND conname = 'chk_customer_cancelled_consistency'
+    ) THEN
+        ALTER TABLE customers ADD CONSTRAINT chk_customer_cancelled_consistency
+            CHECK (
+                (active = TRUE  AND cancelled_at IS NULL)
+                OR
+                (active = FALSE AND cancelled_at IS NOT NULL)
+            );
+    END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_customers_tenant_id
     ON customers (tenant_id);
@@ -436,42 +465,56 @@ CREATE INDEX IF NOT EXISTS idx_customers_branch_id
 -- Soft-delete only via active = false + cancelled_at.
 -- ============================================================
 
-CREATE TABLE IF NOT EXISTS customer_plans (
-    id           UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
-    customer_id  UUID        NOT NULL,
-    -- The plan this line is on. NULL = custom/occasional (ad-hoc amounts).
-    -- ON DELETE SET NULL: dropping a plan leaves the line plan-less, history intact.
-    plan_id      UUID,
-    start_date   DATE        NOT NULL,
-    cancelled_at TIMESTAMPTZ,
-    active       BOOLEAN     NOT NULL DEFAULT TRUE,
-    tenant_id    UUID        NOT NULL,
-    created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+CREATE TABLE IF NOT EXISTS customer_plans ();
 
+-- ---- Columns --------------------------------------------------------------
+
+ALTER TABLE customer_plans ADD COLUMN IF NOT EXISTS id UUID PRIMARY KEY DEFAULT uuid_generate_v4();
+ALTER TABLE customer_plans ADD COLUMN IF NOT EXISTS customer_id UUID NOT NULL
+    CONSTRAINT fk_customer_plans_customer REFERENCES customers(id) ON DELETE CASCADE;
+
+-- The plan this line is on. NULL = custom/occasional (ad-hoc amounts).
+-- ON DELETE SET NULL: dropping a plan leaves the line plan-less, history intact.
+ALTER TABLE customer_plans ADD COLUMN IF NOT EXISTS plan_id UUID
+    CONSTRAINT fk_customer_plans_plan REFERENCES plans(id) ON DELETE SET NULL;
+
+ALTER TABLE customer_plans ADD COLUMN IF NOT EXISTS start_date DATE NOT NULL;
+ALTER TABLE customer_plans ADD COLUMN IF NOT EXISTS cancelled_at TIMESTAMPTZ;
+ALTER TABLE customer_plans ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE customer_plans ADD COLUMN IF NOT EXISTS tenant_id UUID NOT NULL
+    CONSTRAINT fk_customer_plans_tenant REFERENCES tenants(id) ON DELETE CASCADE;
+ALTER TABLE customer_plans ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE customer_plans ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+-- A privately negotiated price for THIS line only, replacing the plan's price.
+-- NULL = charge the plan's price (or ask, on a custom-price / plan-less line).
+-- Single-month lines only: a multi-month plan's price is a bundle, so the
+-- override is refused in CustomerPlanService (a CHECK cannot see plans.duration_months).
+ALTER TABLE customer_plans ADD COLUMN IF NOT EXISTS custom_price NUMERIC(20,8)
+    CHECK (custom_price IS NULL OR custom_price > 0);
+
+-- Currency of custom_price. NULL = USD, as everywhere.
+-- ON DELETE RESTRICT: soft-delete a currency (active = false) instead.
+ALTER TABLE customer_plans ADD COLUMN IF NOT EXISTS custom_currency_id UUID
+    REFERENCES currencies(id) ON DELETE RESTRICT;
+
+-- ---- Table-level constraints (multi-column — cannot ride on an ADD COLUMN) --
+
+DO $$ BEGIN
     -- cancelled_at must be set when and only when active = false
-    CONSTRAINT chk_customer_plan_cancelled_consistency
-        CHECK (
-            (active = TRUE  AND cancelled_at IS NULL)
-            OR
-            (active = FALSE AND cancelled_at IS NOT NULL)
-        ),
-
-    CONSTRAINT fk_customer_plans_customer
-        FOREIGN KEY (customer_id)
-        REFERENCES customers(id)
-        ON DELETE CASCADE,
-
-    CONSTRAINT fk_customer_plans_plan
-        FOREIGN KEY (plan_id)
-        REFERENCES plans(id)
-        ON DELETE SET NULL,
-
-    CONSTRAINT fk_customer_plans_tenant
-        FOREIGN KEY (tenant_id)
-        REFERENCES tenants(id)
-        ON DELETE CASCADE
-);
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conrelid = 'customer_plans'::regclass
+          AND conname = 'chk_customer_plan_cancelled_consistency'
+    ) THEN
+        ALTER TABLE customer_plans ADD CONSTRAINT chk_customer_plan_cancelled_consistency
+            CHECK (
+                (active = TRUE  AND cancelled_at IS NULL)
+                OR
+                (active = FALSE AND cancelled_at IS NOT NULL)
+            );
+    END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_customer_plans_customer_id
     ON customer_plans (customer_id);
@@ -554,127 +597,130 @@ CREATE OR REPLACE TRIGGER trg_plans_updated_at
 -- amount is a SNAPSHOT — never recomputed from plan.price.
 -- ============================================================
 
-CREATE TABLE IF NOT EXISTS payments (
-    id                  UUID          PRIMARY KEY DEFAULT uuid_generate_v4(),
+CREATE TABLE IF NOT EXISTS payments ();
 
-    -- Always the first day of the month (YYYY-MM-01). Enforced by constraint.
-    billing_month       DATE          NOT NULL,
+-- ---- Columns --------------------------------------------------------------
 
-    -- Snapshot of what was owed at time of recording. Never changes after insert.
-    -- Stored in the CURRENCY indicated by currency_id (NULL = USD).
-    amount_due          NUMERIC(20,8) NOT NULL CHECK (amount_due > 0),
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS id UUID PRIMARY KEY DEFAULT uuid_generate_v4();
 
-    -- What was actually collected. Can be less than amount_due (partial payment).
-    -- 0 is allowed (reserves the slot but treated as unpaid in the grid).
-    -- Same currency as amount_due.
-    amount_paid         NUMERIC(20,8) NOT NULL CHECK (amount_paid >= 0 AND amount_paid <= amount_due),
+-- Always the first day of the month (YYYY-MM-01).
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS billing_month DATE NOT NULL
+    CONSTRAINT chk_billing_month_first_day CHECK (EXTRACT(DAY FROM billing_month) = 1);
 
-    -- Computed balance. Read-only — never written by the app.
-    balance             NUMERIC(20,8) GENERATED ALWAYS AS (amount_due - amount_paid) STORED,
+-- Snapshot of what was owed at time of recording. Never changes after insert.
+-- Stored in the CURRENCY indicated by currency_id (NULL = USD).
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS amount_due NUMERIC(20,8) NOT NULL
+    CHECK (amount_due > 0);
 
-    -- Number of consecutive months this payment covers (1 = single month, 3 = Jan+Feb+Mar, etc.)
-    -- billing_month is always the FIRST month of the block.
-    duration_months     INTEGER       NOT NULL DEFAULT 1 CHECK (duration_months >= 1),
+-- What was actually collected. Can be less than amount_due (partial payment).
+-- 0 is allowed (reserves the slot but treated as unpaid in the grid).
+-- Same currency as amount_due. Upper bound is payments_amount_paid_check below.
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS amount_paid NUMERIC(20,8) NOT NULL;
 
-    -- Currency the amounts above are stored in. NULL = USD.
-    -- ON DELETE RESTRICT: cannot drop a currency referenced by a payment.
-    currency_id         UUID,
+-- Computed balance. Read-only — never written by the app.
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS balance NUMERIC(20,8)
+    GENERATED ALWAYS AS (amount_due - amount_paid) STORED;
 
-    -- Exchange rate (units of currency_id per 1 USD) captured at recording time.
-    -- For USD payments (currency_id IS NULL), this is always 1.
-    -- Frozen snapshot so historical USD-equivalent values never drift when currencies.rate_per_usd is edited.
-    rate_per_usd_snapshot NUMERIC(20,8) NOT NULL CHECK (rate_per_usd_snapshot > 0),
+-- Number of consecutive months this payment covers (1 = single month, 3 = Jan+Feb+Mar, etc.)
+-- billing_month is always the FIRST month of the block.
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS duration_months INTEGER NOT NULL DEFAULT 1
+    CHECK (duration_months >= 1);
 
-    customer_id         UUID          NOT NULL,
-    -- The service line (customer_plans row) this payment settles. A customer can
-    -- hold several lines, each paid independently — uniqueness is per line+month.
-    customer_plan_id    UUID          NOT NULL,
-    -- Snapshot of which plan/price applied at recording time. NULL = custom/no plan.
-    plan_id             UUID,
-    received_by_user_id UUID,
-    tenant_id           UUID          NOT NULL,
+-- Currency the amounts above are stored in. NULL = USD.
+-- ON DELETE RESTRICT: cannot drop a currency referenced by a payment.
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS currency_id UUID
+    CONSTRAINT fk_payments_currency REFERENCES currencies(id) ON DELETE RESTRICT;
 
-    paid_at             TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
-    created_at          TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
-    updated_at          TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+-- Exchange rate (units of currency_id per 1 USD) captured at recording time.
+-- For USD payments (currency_id IS NULL), this is always 1.
+-- Frozen snapshot so historical USD-equivalent values never drift when currencies.rate_per_usd is edited.
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS rate_per_usd_snapshot NUMERIC(20,8) NOT NULL
+    CHECK (rate_per_usd_snapshot > 0);
 
-    -- Soft void fields. Set together or not at all.
-    voided_at           TIMESTAMPTZ,
-    voided_by           UUID,
-    notes               TEXT,
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS customer_id UUID NOT NULL
+    CONSTRAINT fk_payments_customer REFERENCES customers(id) ON DELETE CASCADE;
 
-    -- Collector wallet: when the cash collected here was handed over to an admin.
-    -- NULL = still in the collector's (received_by_user_id) wallet, not yet
-    -- handed over. Set together (see chk_payments_remitted_consistency). A void +
-    -- re-pay resets these to NULL — the re-recorded cash is unremitted again.
-    remitted_at         TIMESTAMPTZ,
-    remitted_by         UUID,
+-- The service line (customer_plans row) this payment settles. A customer can
+-- hold several lines, each paid independently — uniqueness is per line+month.
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS customer_plan_id UUID NOT NULL
+    CONSTRAINT fk_payments_customer_plan REFERENCES customer_plans(id) ON DELETE CASCADE;
 
-    -- Ensure billing_month is always the 1st of the month
-    CONSTRAINT chk_billing_month_first_day
-        CHECK (EXTRACT(DAY FROM billing_month) = 1),
+-- Snapshot of which plan/price applied at recording time. NULL = custom/no plan.
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS plan_id UUID
+    CONSTRAINT fk_payments_plan REFERENCES plans(id) ON DELETE SET NULL;
+
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS received_by_user_id UUID
+    CONSTRAINT fk_payments_received_by REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS tenant_id UUID NOT NULL
+    CONSTRAINT fk_payments_tenant REFERENCES tenants(id) ON DELETE CASCADE;
+
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS paid_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+-- Soft void fields. Set together or not at all (chk_void_consistency).
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS voided_at TIMESTAMPTZ;
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS voided_by UUID
+    CONSTRAINT fk_payments_voided_by REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS notes TEXT;
+
+-- Collector wallet: when the cash collected here was handed over to an admin.
+-- NULL = still in the collector's (received_by_user_id) wallet, not yet
+-- handed over. Set together (see chk_payments_remitted_consistency). A void +
+-- re-pay resets these to NULL — the re-recorded cash is unremitted again.
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS remitted_at TIMESTAMPTZ;
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS remitted_by UUID
+    CONSTRAINT fk_payments_remitted_by REFERENCES users(id) ON DELETE SET NULL;
+
+-- ---- Table-level constraints (multi-column — cannot ride on an ADD COLUMN) --
+
+DO $$ BEGIN
+    -- amount_paid can't be negative and can't exceed what was owed. The name is
+    -- the one Postgres generated for the old inline CHECK, so live DBs skip it.
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conrelid = 'payments'::regclass AND conname = 'payments_amount_paid_check'
+    ) THEN
+        ALTER TABLE payments ADD CONSTRAINT payments_amount_paid_check
+            CHECK (amount_paid >= 0 AND amount_paid <= amount_due);
+    END IF;
 
     -- voided_at and voided_by must be set together
-    CONSTRAINT chk_void_consistency
-        CHECK (
-            (voided_at IS NULL AND voided_by IS NULL)
-            OR
-            (voided_at IS NOT NULL AND voided_by IS NOT NULL)
-        ),
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conrelid = 'payments'::regclass AND conname = 'chk_void_consistency'
+    ) THEN
+        ALTER TABLE payments ADD CONSTRAINT chk_void_consistency
+            CHECK (
+                (voided_at IS NULL AND voided_by IS NULL)
+                OR
+                (voided_at IS NOT NULL AND voided_by IS NOT NULL)
+            );
+    END IF;
 
     -- remitted_at and remitted_by must be set together
-    CONSTRAINT chk_payments_remitted_consistency
-        CHECK (
-            (remitted_at IS NULL AND remitted_by IS NULL)
-            OR
-            (remitted_at IS NOT NULL AND remitted_by IS NOT NULL)
-        ),
-
-    CONSTRAINT fk_payments_customer
-        FOREIGN KEY (customer_id)
-        REFERENCES customers(id)
-        ON DELETE CASCADE,
-
-    CONSTRAINT fk_payments_customer_plan
-        FOREIGN KEY (customer_plan_id)
-        REFERENCES customer_plans(id)
-        ON DELETE CASCADE,
-
-    CONSTRAINT fk_payments_plan
-        FOREIGN KEY (plan_id)
-        REFERENCES plans(id)
-        ON DELETE SET NULL,
-
-    CONSTRAINT fk_payments_received_by
-        FOREIGN KEY (received_by_user_id)
-        REFERENCES users(id)
-        ON DELETE SET NULL,
-
-    CONSTRAINT fk_payments_voided_by
-        FOREIGN KEY (voided_by)
-        REFERENCES users(id)
-        ON DELETE SET NULL,
-
-    CONSTRAINT fk_payments_remitted_by
-        FOREIGN KEY (remitted_by)
-        REFERENCES users(id)
-        ON DELETE SET NULL,
-
-    CONSTRAINT fk_payments_tenant
-        FOREIGN KEY (tenant_id)
-        REFERENCES tenants(id)
-        ON DELETE CASCADE,
-
-    CONSTRAINT fk_payments_currency
-        FOREIGN KEY (currency_id)
-        REFERENCES currencies(id)
-        ON DELETE RESTRICT,
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conrelid = 'payments'::regclass AND conname = 'chk_payments_remitted_consistency'
+    ) THEN
+        ALTER TABLE payments ADD CONSTRAINT chk_payments_remitted_consistency
+            CHECK (
+                (remitted_at IS NULL AND remitted_by IS NULL)
+                OR
+                (remitted_at IS NOT NULL AND remitted_by IS NOT NULL)
+            );
+    END IF;
 
     -- One payment record per service line per month (void + re-pay updates the
     -- same row). A customer with several lines can pay each one for the same month.
-    CONSTRAINT uq_payments_line_month
-        UNIQUE (customer_plan_id, billing_month)
-);
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conrelid = 'payments'::regclass AND conname = 'uq_payments_line_month'
+    ) THEN
+        ALTER TABLE payments ADD CONSTRAINT uq_payments_line_month
+            UNIQUE (customer_plan_id, billing_month);
+    END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_payments_tenant_id
     ON payments (tenant_id);
@@ -705,35 +751,29 @@ CREATE INDEX IF NOT EXISTS idx_payments_wallet
 -- Branch semantics mirror plans: branch_id IS NULL = SHARED catalog item.
 -- ============================================================
 
-CREATE TABLE IF NOT EXISTS products (
-    id          UUID          PRIMARY KEY DEFAULT uuid_generate_v4(),
-    tenant_id   UUID          NOT NULL,
-    -- NULL = SHARED (visible to every branch). NOT NULL = scoped to one branch.
-    branch_id   UUID,
-    name        TEXT          NOT NULL,
-    description TEXT,
-    price       NUMERIC(20,8) NOT NULL CHECK (price > 0),
-    -- Currency the price is stored in. NULL = USD (the base).
-    currency_id UUID,
-    active      BOOLEAN       NOT NULL DEFAULT TRUE,
-    created_at  TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
-    updated_at  TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+CREATE TABLE IF NOT EXISTS products ();
 
-    CONSTRAINT fk_products_tenant
-        FOREIGN KEY (tenant_id)
-        REFERENCES tenants(id)
-        ON DELETE CASCADE,
+-- ---- Columns --------------------------------------------------------------
 
-    CONSTRAINT fk_products_branch
-        FOREIGN KEY (branch_id)
-        REFERENCES branches(id)
-        ON DELETE SET NULL,
+ALTER TABLE products ADD COLUMN IF NOT EXISTS id UUID PRIMARY KEY DEFAULT uuid_generate_v4();
+ALTER TABLE products ADD COLUMN IF NOT EXISTS tenant_id UUID NOT NULL
+    CONSTRAINT fk_products_tenant REFERENCES tenants(id) ON DELETE CASCADE;
 
-    CONSTRAINT fk_products_currency
-        FOREIGN KEY (currency_id)
-        REFERENCES currencies(id)
-        ON DELETE RESTRICT
-);
+-- NULL = SHARED (visible to every branch). NOT NULL = scoped to one branch.
+ALTER TABLE products ADD COLUMN IF NOT EXISTS branch_id UUID
+    CONSTRAINT fk_products_branch REFERENCES branches(id) ON DELETE SET NULL;
+
+ALTER TABLE products ADD COLUMN IF NOT EXISTS name TEXT NOT NULL;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS description TEXT;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS price NUMERIC(20,8) NOT NULL CHECK (price > 0);
+
+-- Currency the price is stored in. NULL = USD (the base).
+ALTER TABLE products ADD COLUMN IF NOT EXISTS currency_id UUID
+    CONSTRAINT fk_products_currency REFERENCES currencies(id) ON DELETE RESTRICT;
+
+ALTER TABLE products ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE products ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE products ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 
 -- Same-name uniqueness rules as plans: shared + branch-specific can coexist
 -- because NULLs compare unequal in a Postgres unique index.
@@ -763,94 +803,93 @@ CREATE OR REPLACE TRIGGER trg_products_updated_at
 -- One currency per sale: every line's unit_amount is in currency_id.
 -- ============================================================
 
-CREATE TABLE IF NOT EXISTS sales (
-    id                    UUID          PRIMARY KEY DEFAULT uuid_generate_v4(),
-    tenant_id             UUID          NOT NULL,
-    -- Branch where the sale was recorded. Inherited from the recording user
-    -- (or chosen by tenant-wide admins). NULL = sold by a tenant-wide admin
-    -- with no branch context (rare but legal).
-    branch_id             UUID,
-    -- Frozen human summary of the products in this sale (e.g. "Water ×2, Bread").
-    -- Powers list search + the list/debt/wallet labels WITHOUT joining sale_items.
-    items_summary         TEXT          NOT NULL,
-    -- NULL = walk-in / anonymous sale.
-    customer_id           UUID,
-    recorded_by_user_id   UUID,
-    -- Sum of every sale_items line's (unit_amount * quantity), in currency_id.
-    -- App-written at sale time (a generated column cannot sum a child table).
-    -- Snapshot — never recomputed.
-    total_amount          NUMERIC(20,8) NOT NULL CHECK (total_amount > 0),
-    -- How much of the sale was actually collected at sale time. Same currency as
-    -- the lines. A partial sale (amount_paid < total) leaves a "Sales" debt.
-    -- Legacy sales predating this column backfill to full (see migration).
-    amount_paid           NUMERIC(20,8) NOT NULL DEFAULT 0,
-    -- Currency the amounts above are stored in. NULL = USD.
-    currency_id           UUID,
-    -- Exchange rate (units of currency_id per 1 USD) frozen at recording time.
-    -- USD sales (currency_id IS NULL) always store 1. Mirrors payments.rate_per_usd_snapshot.
-    rate_per_usd_snapshot NUMERIC(20,8) NOT NULL CHECK (rate_per_usd_snapshot > 0),
-    sold_at               TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
-    created_at            TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
-    updated_at            TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
-    -- Soft-void fields. Set together or not at all. Reason required when set.
-    voided_at             TIMESTAMPTZ,
-    voided_by             UUID,
-    void_reason           TEXT,
-    notes                 TEXT,
+CREATE TABLE IF NOT EXISTS sales ();
 
-    -- Collector wallet: when the cash collected here (amount_paid) was handed
-    -- over to an admin. NULL = still in the recording user's wallet. Set together.
-    remitted_at           TIMESTAMPTZ,
-    remitted_by           UUID,
+-- ---- Columns --------------------------------------------------------------
 
+ALTER TABLE sales ADD COLUMN IF NOT EXISTS id UUID PRIMARY KEY DEFAULT uuid_generate_v4();
+ALTER TABLE sales ADD COLUMN IF NOT EXISTS tenant_id UUID NOT NULL
+    CONSTRAINT fk_sales_tenant REFERENCES tenants(id) ON DELETE CASCADE;
+
+-- Branch where the sale was recorded. Inherited from the recording user
+-- (or chosen by tenant-wide admins). NULL = sold by a tenant-wide admin
+-- with no branch context (rare but legal).
+ALTER TABLE sales ADD COLUMN IF NOT EXISTS branch_id UUID
+    CONSTRAINT fk_sales_branch REFERENCES branches(id) ON DELETE SET NULL;
+
+-- Frozen human summary of the products in this sale (e.g. "Water ×2, Bread").
+-- Powers list search + the list/debt/wallet labels WITHOUT joining sale_items.
+ALTER TABLE sales ADD COLUMN IF NOT EXISTS items_summary TEXT NOT NULL;
+
+-- NULL = walk-in / anonymous sale. Customer can be removed without orphaning it.
+ALTER TABLE sales ADD COLUMN IF NOT EXISTS customer_id UUID
+    CONSTRAINT fk_sales_customer REFERENCES customers(id) ON DELETE SET NULL;
+
+ALTER TABLE sales ADD COLUMN IF NOT EXISTS recorded_by_user_id UUID
+    CONSTRAINT fk_sales_recorded_by REFERENCES users(id) ON DELETE SET NULL;
+
+-- Sum of every sale_items line's (unit_amount * quantity), in currency_id.
+-- App-written at sale time (a generated column cannot sum a child table).
+-- Snapshot — never recomputed.
+ALTER TABLE sales ADD COLUMN IF NOT EXISTS total_amount NUMERIC(20,8) NOT NULL
+    CHECK (total_amount > 0);
+
+-- How much of the sale was actually collected at sale time. Same currency as
+-- the lines. A partial sale (amount_paid < total) leaves a "Sales" debt.
+-- Upper bound is chk_sales_amount_paid below.
+ALTER TABLE sales ADD COLUMN IF NOT EXISTS amount_paid NUMERIC(20,8) NOT NULL DEFAULT 0;
+
+-- Currency the amounts above are stored in. NULL = USD.
+ALTER TABLE sales ADD COLUMN IF NOT EXISTS currency_id UUID
+    CONSTRAINT fk_sales_currency REFERENCES currencies(id) ON DELETE RESTRICT;
+
+-- Exchange rate (units of currency_id per 1 USD) frozen at recording time.
+-- USD sales (currency_id IS NULL) always store 1. Mirrors payments.rate_per_usd_snapshot.
+ALTER TABLE sales ADD COLUMN IF NOT EXISTS rate_per_usd_snapshot NUMERIC(20,8) NOT NULL
+    CHECK (rate_per_usd_snapshot > 0);
+
+ALTER TABLE sales ADD COLUMN IF NOT EXISTS sold_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE sales ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE sales ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+-- Soft-void fields. Set together or not at all. Reason required when set.
+ALTER TABLE sales ADD COLUMN IF NOT EXISTS voided_at TIMESTAMPTZ;
+ALTER TABLE sales ADD COLUMN IF NOT EXISTS voided_by UUID
+    CONSTRAINT fk_sales_voided_by REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE sales ADD COLUMN IF NOT EXISTS void_reason TEXT;
+ALTER TABLE sales ADD COLUMN IF NOT EXISTS notes TEXT;
+
+-- Collector wallet: when the cash collected here (amount_paid) was handed
+-- over to an admin. NULL = still in the recording user's wallet. Set together.
+ALTER TABLE sales ADD COLUMN IF NOT EXISTS remitted_at TIMESTAMPTZ;
+ALTER TABLE sales ADD COLUMN IF NOT EXISTS remitted_by UUID
+    CONSTRAINT fk_sales_remitted_by REFERENCES users(id) ON DELETE SET NULL;
+
+-- ---- Table-level constraints (multi-column — cannot ride on an ADD COLUMN) --
+
+DO $$ BEGIN
     -- amount_paid can't be negative and can't exceed the summed sale total.
-    CONSTRAINT chk_sales_amount_paid
-        CHECK (amount_paid >= 0 AND amount_paid <= total_amount),
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conrelid = 'sales'::regclass AND conname = 'chk_sales_amount_paid'
+    ) THEN
+        ALTER TABLE sales ADD CONSTRAINT chk_sales_amount_paid
+            CHECK (amount_paid >= 0 AND amount_paid <= total_amount);
+    END IF;
 
     -- remitted_at and remitted_by must be set together
-    CONSTRAINT chk_sales_remitted_consistency
-        CHECK (
-            (remitted_at IS NULL AND remitted_by IS NULL)
-            OR
-            (remitted_at IS NOT NULL AND remitted_by IS NOT NULL)
-        ),
-
-    CONSTRAINT fk_sales_tenant
-        FOREIGN KEY (tenant_id)
-        REFERENCES tenants(id)
-        ON DELETE CASCADE,
-
-    CONSTRAINT fk_sales_branch
-        FOREIGN KEY (branch_id)
-        REFERENCES branches(id)
-        ON DELETE SET NULL,
-
-    -- Customer can be removed without orphaning the sale.
-    CONSTRAINT fk_sales_customer
-        FOREIGN KEY (customer_id)
-        REFERENCES customers(id)
-        ON DELETE SET NULL,
-
-    CONSTRAINT fk_sales_recorded_by
-        FOREIGN KEY (recorded_by_user_id)
-        REFERENCES users(id)
-        ON DELETE SET NULL,
-
-    CONSTRAINT fk_sales_voided_by
-        FOREIGN KEY (voided_by)
-        REFERENCES users(id)
-        ON DELETE SET NULL,
-
-    CONSTRAINT fk_sales_remitted_by
-        FOREIGN KEY (remitted_by)
-        REFERENCES users(id)
-        ON DELETE SET NULL,
-
-    CONSTRAINT fk_sales_currency
-        FOREIGN KEY (currency_id)
-        REFERENCES currencies(id)
-        ON DELETE RESTRICT
-);
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conrelid = 'sales'::regclass AND conname = 'chk_sales_remitted_consistency'
+    ) THEN
+        ALTER TABLE sales ADD CONSTRAINT chk_sales_remitted_consistency
+            CHECK (
+                (remitted_at IS NULL AND remitted_by IS NULL)
+                OR
+                (remitted_at IS NOT NULL AND remitted_by IS NOT NULL)
+            );
+    END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_sales_tenant_sold_at
     ON sales (tenant_id, sold_at DESC);
@@ -877,37 +916,36 @@ CREATE INDEX IF NOT EXISTS idx_sales_wallet
 -- sale (RLS EXISTS), exactly like payments inherit via the customer.
 -- ============================================================
 
-CREATE TABLE IF NOT EXISTS sale_items (
-    id                    UUID          PRIMARY KEY DEFAULT uuid_generate_v4(),
-    sale_id               UUID          NOT NULL,
-    tenant_id             UUID          NOT NULL,
-    product_id            UUID          NOT NULL,
-    -- Snapshot of product.name at sale time.
-    product_name_snapshot TEXT          NOT NULL,
-    quantity              INTEGER       NOT NULL DEFAULT 1 CHECK (quantity > 0),
-    -- Per-unit price at sale time, in the parent sale's currency. May differ
-    -- from product.price (discount, rounding, currency conversion). Snapshot.
-    unit_amount           NUMERIC(20,8) NOT NULL CHECK (unit_amount > 0),
-    created_at            TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
-    updated_at            TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+CREATE TABLE IF NOT EXISTS sale_items ();
 
-    -- Deleting the parent sale removes its lines.
-    CONSTRAINT fk_sale_items_sale
-        FOREIGN KEY (sale_id)
-        REFERENCES sales(id)
-        ON DELETE CASCADE,
+-- ---- Columns --------------------------------------------------------------
 
-    CONSTRAINT fk_sale_items_tenant
-        FOREIGN KEY (tenant_id)
-        REFERENCES tenants(id)
-        ON DELETE CASCADE,
+ALTER TABLE sale_items ADD COLUMN IF NOT EXISTS id UUID PRIMARY KEY DEFAULT uuid_generate_v4();
 
-    -- Products referenced by a sale line cannot be hard-deleted. Use active = false.
-    CONSTRAINT fk_sale_items_product
-        FOREIGN KEY (product_id)
-        REFERENCES products(id)
-        ON DELETE RESTRICT
-);
+-- Deleting the parent sale removes its lines.
+ALTER TABLE sale_items ADD COLUMN IF NOT EXISTS sale_id UUID NOT NULL
+    CONSTRAINT fk_sale_items_sale REFERENCES sales(id) ON DELETE CASCADE;
+
+ALTER TABLE sale_items ADD COLUMN IF NOT EXISTS tenant_id UUID NOT NULL
+    CONSTRAINT fk_sale_items_tenant REFERENCES tenants(id) ON DELETE CASCADE;
+
+-- Products referenced by a sale line cannot be hard-deleted. Use active = false.
+ALTER TABLE sale_items ADD COLUMN IF NOT EXISTS product_id UUID NOT NULL
+    CONSTRAINT fk_sale_items_product REFERENCES products(id) ON DELETE RESTRICT;
+
+-- Snapshot of product.name at sale time.
+ALTER TABLE sale_items ADD COLUMN IF NOT EXISTS product_name_snapshot TEXT NOT NULL;
+
+ALTER TABLE sale_items ADD COLUMN IF NOT EXISTS quantity INTEGER NOT NULL DEFAULT 1
+    CHECK (quantity > 0);
+
+-- Per-unit price at sale time, in the parent sale's currency. May differ
+-- from product.price (discount, rounding, currency conversion). Snapshot.
+ALTER TABLE sale_items ADD COLUMN IF NOT EXISTS unit_amount NUMERIC(20,8) NOT NULL
+    CHECK (unit_amount > 0);
+
+ALTER TABLE sale_items ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE sale_items ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 
 CREATE INDEX IF NOT EXISTS idx_sale_items_sale
     ON sale_items (sale_id);
@@ -935,69 +973,73 @@ CREATE OR REPLACE TRIGGER trg_sale_items_updated_at
 -- exactly like sale_items inherit via the parent sale.
 -- ============================================================
 
-CREATE TABLE IF NOT EXISTS stock_movements (
-    id                  UUID        PRIMARY KEY DEFAULT uuid_generate_v4(),
-    tenant_id           UUID        NOT NULL,
-    product_id          UUID        NOT NULL,
-    -- Signed, never zero: positive adds stock (restock), negative removes it (sale).
-    quantity_delta      INTEGER     NOT NULL CHECK (quantity_delta <> 0),
-    reason              TEXT        NOT NULL,
-    -- Set only for reason = 'sale', so a movement traces back to its sale.
-    sale_id             UUID,
-    note                TEXT,
-    recorded_by_user_id UUID,
-    occurred_at         TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    -- Soft-void, like every other ledger. Voiding a sale VOIDS its movements
-    -- rather than inserting opposite ones: one statement, and replaying it is
-    -- harmless, so a double void can never give the stock back twice.
-    voided_at           TIMESTAMPTZ,
-    voided_by           UUID,
+CREATE TABLE IF NOT EXISTS stock_movements ();
 
+-- ---- Columns --------------------------------------------------------------
+
+ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS id UUID PRIMARY KEY DEFAULT uuid_generate_v4();
+ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS tenant_id UUID NOT NULL
+    CONSTRAINT fk_stock_movements_tenant REFERENCES tenants(id) ON DELETE CASCADE;
+
+-- A hard-deleted product (one with no sales) takes its ledger with it.
+ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS product_id UUID NOT NULL
+    CONSTRAINT fk_stock_movements_product REFERENCES products(id) ON DELETE CASCADE;
+
+-- Signed, never zero: positive adds stock (restock), negative removes it (sale).
+ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS quantity_delta INTEGER NOT NULL
+    CHECK (quantity_delta <> 0);
+
+ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS reason TEXT NOT NULL
     CONSTRAINT chk_stock_movements_reason
-        CHECK (reason IN ('initial', 'restock', 'adjustment', 'sale')),
+    CHECK (reason IN ('initial', 'restock', 'adjustment', 'sale'));
 
-    CONSTRAINT chk_stock_movements_sale_link
-        CHECK (
-            (reason =  'sale' AND sale_id IS NOT NULL AND quantity_delta < 0)
-            OR
-            (reason <> 'sale' AND sale_id IS NULL)
-        ),
+-- Set only for reason = 'sale', so a movement traces back to its sale.
+ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS sale_id UUID
+    CONSTRAINT fk_stock_movements_sale REFERENCES sales(id) ON DELETE CASCADE;
 
-    CONSTRAINT chk_stock_movements_void_consistency
-        CHECK (
-            (voided_at IS NULL AND voided_by IS NULL)
-            OR
-            (voided_at IS NOT NULL AND voided_by IS NOT NULL)
-        ),
+ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS note TEXT;
+ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS recorded_by_user_id UUID
+    CONSTRAINT fk_stock_movements_recorded_by REFERENCES users(id) ON DELETE SET NULL;
 
-    -- A hard-deleted product (one with no sales) takes its ledger with it.
-    CONSTRAINT fk_stock_movements_product
-        FOREIGN KEY (product_id)
-        REFERENCES products(id)
-        ON DELETE CASCADE,
+ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS occurred_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 
-    CONSTRAINT fk_stock_movements_tenant
-        FOREIGN KEY (tenant_id)
-        REFERENCES tenants(id)
-        ON DELETE CASCADE,
+-- Soft-void, like every other ledger. Voiding a sale VOIDS its movements
+-- rather than inserting opposite ones: one statement, and replaying it is
+-- harmless, so a double void can never give the stock back twice.
+ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS voided_at TIMESTAMPTZ;
+ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS voided_by UUID
+    CONSTRAINT fk_stock_movements_voided_by REFERENCES users(id) ON DELETE SET NULL;
 
-    CONSTRAINT fk_stock_movements_sale
-        FOREIGN KEY (sale_id)
-        REFERENCES sales(id)
-        ON DELETE CASCADE,
+-- ---- Table-level constraints (multi-column — cannot ride on an ADD COLUMN) --
 
-    CONSTRAINT fk_stock_movements_recorded_by
-        FOREIGN KEY (recorded_by_user_id)
-        REFERENCES users(id)
-        ON DELETE SET NULL,
+DO $$ BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conrelid = 'stock_movements'::regclass AND conname = 'chk_stock_movements_sale_link'
+    ) THEN
+        ALTER TABLE stock_movements ADD CONSTRAINT chk_stock_movements_sale_link
+            CHECK (
+                (reason =  'sale' AND sale_id IS NOT NULL AND quantity_delta < 0)
+                OR
+                (reason <> 'sale' AND sale_id IS NULL)
+            );
+    END IF;
 
-    CONSTRAINT fk_stock_movements_voided_by
-        FOREIGN KEY (voided_by)
-        REFERENCES users(id)
-        ON DELETE SET NULL
-);
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conrelid = 'stock_movements'::regclass
+          AND conname = 'chk_stock_movements_void_consistency'
+    ) THEN
+        ALTER TABLE stock_movements ADD CONSTRAINT chk_stock_movements_void_consistency
+            CHECK (
+                (voided_at IS NULL AND voided_by IS NULL)
+                OR
+                (voided_at IS NOT NULL AND voided_by IS NOT NULL)
+            );
+    END IF;
+END $$;
 
 -- Deliberately NO check that the running total stays >= 0. Selling more than
 -- you hold is blocked in the app, but the DB must accept whatever an offline
@@ -1039,61 +1081,61 @@ GRANT SELECT ON product_stock TO authenticated;
 -- Soft-void only (voided_at/voided_by/void_reason) — history is kept.
 -- ============================================================
 
-CREATE TABLE IF NOT EXISTS custom_debts (
-    id                    UUID          PRIMARY KEY DEFAULT uuid_generate_v4(),
-    tenant_id             UUID          NOT NULL,
-    customer_id           UUID          NOT NULL,
-    -- What the debt is for. Free text shown as the row label.
-    description           TEXT,
-    amount                NUMERIC(20,8) NOT NULL CHECK (amount > 0),
-    -- Currency the amount is stored in. NULL = USD.
-    currency_id           UUID,
-    -- Exchange rate (units of currency_id per 1 USD) frozen at recording time.
-    -- USD debts (currency_id IS NULL) always store 1. Same drift-free principle
-    -- as payments/sales.rate_per_usd_snapshot.
-    rate_per_usd_snapshot NUMERIC(20,8) NOT NULL CHECK (rate_per_usd_snapshot > 0),
-    recorded_by_user_id   UUID,
-    incurred_at           TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
-    created_at            TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
-    updated_at            TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
-    -- Soft-void fields. Set together or not at all.
-    voided_at             TIMESTAMPTZ,
-    voided_by             UUID,
-    void_reason           TEXT,
-    notes                 TEXT,
+CREATE TABLE IF NOT EXISTS custom_debts ();
 
-    CONSTRAINT chk_custom_debts_void_consistency
-        CHECK (
-            (voided_at IS NULL AND voided_by IS NULL)
-            OR
-            (voided_at IS NOT NULL AND voided_by IS NOT NULL)
-        ),
+-- ---- Columns --------------------------------------------------------------
 
-    CONSTRAINT fk_custom_debts_tenant
-        FOREIGN KEY (tenant_id)
-        REFERENCES tenants(id)
-        ON DELETE CASCADE,
+ALTER TABLE custom_debts ADD COLUMN IF NOT EXISTS id UUID PRIMARY KEY DEFAULT uuid_generate_v4();
+ALTER TABLE custom_debts ADD COLUMN IF NOT EXISTS tenant_id UUID NOT NULL
+    CONSTRAINT fk_custom_debts_tenant REFERENCES tenants(id) ON DELETE CASCADE;
+ALTER TABLE custom_debts ADD COLUMN IF NOT EXISTS customer_id UUID NOT NULL
+    CONSTRAINT fk_custom_debts_customer REFERENCES customers(id) ON DELETE CASCADE;
 
-    CONSTRAINT fk_custom_debts_customer
-        FOREIGN KEY (customer_id)
-        REFERENCES customers(id)
-        ON DELETE CASCADE,
+-- What the debt is for. Free text shown as the row label.
+ALTER TABLE custom_debts ADD COLUMN IF NOT EXISTS description TEXT;
 
-    CONSTRAINT fk_custom_debts_currency
-        FOREIGN KEY (currency_id)
-        REFERENCES currencies(id)
-        ON DELETE RESTRICT,
+ALTER TABLE custom_debts ADD COLUMN IF NOT EXISTS amount NUMERIC(20,8) NOT NULL
+    CHECK (amount > 0);
 
-    CONSTRAINT fk_custom_debts_recorded_by
-        FOREIGN KEY (recorded_by_user_id)
-        REFERENCES users(id)
-        ON DELETE SET NULL,
+-- Currency the amount is stored in. NULL = USD.
+ALTER TABLE custom_debts ADD COLUMN IF NOT EXISTS currency_id UUID
+    CONSTRAINT fk_custom_debts_currency REFERENCES currencies(id) ON DELETE RESTRICT;
 
-    CONSTRAINT fk_custom_debts_voided_by
-        FOREIGN KEY (voided_by)
-        REFERENCES users(id)
-        ON DELETE SET NULL
-);
+-- Exchange rate (units of currency_id per 1 USD) frozen at recording time.
+-- USD debts (currency_id IS NULL) always store 1. Same drift-free principle
+-- as payments/sales.rate_per_usd_snapshot.
+ALTER TABLE custom_debts ADD COLUMN IF NOT EXISTS rate_per_usd_snapshot NUMERIC(20,8) NOT NULL
+    CHECK (rate_per_usd_snapshot > 0);
+
+ALTER TABLE custom_debts ADD COLUMN IF NOT EXISTS recorded_by_user_id UUID
+    CONSTRAINT fk_custom_debts_recorded_by REFERENCES users(id) ON DELETE SET NULL;
+
+ALTER TABLE custom_debts ADD COLUMN IF NOT EXISTS incurred_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE custom_debts ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE custom_debts ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+-- Soft-void fields. Set together or not at all.
+ALTER TABLE custom_debts ADD COLUMN IF NOT EXISTS voided_at TIMESTAMPTZ;
+ALTER TABLE custom_debts ADD COLUMN IF NOT EXISTS voided_by UUID
+    CONSTRAINT fk_custom_debts_voided_by REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE custom_debts ADD COLUMN IF NOT EXISTS void_reason TEXT;
+ALTER TABLE custom_debts ADD COLUMN IF NOT EXISTS notes TEXT;
+
+-- ---- Table-level constraints (multi-column — cannot ride on an ADD COLUMN) --
+
+DO $$ BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conrelid = 'custom_debts'::regclass AND conname = 'chk_custom_debts_void_consistency'
+    ) THEN
+        ALTER TABLE custom_debts ADD CONSTRAINT chk_custom_debts_void_consistency
+            CHECK (
+                (voided_at IS NULL AND voided_by IS NULL)
+                OR
+                (voided_at IS NOT NULL AND voided_by IS NOT NULL)
+            );
+    END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_custom_debts_tenant_id
     ON custom_debts (tenant_id);
@@ -1110,74 +1152,74 @@ CREATE INDEX IF NOT EXISTS idx_custom_debts_customer_id
 -- No branch_id: inherited via the customer. Soft-void only.
 -- ============================================================
 
-CREATE TABLE IF NOT EXISTS debt_payments (
-    id                    UUID          PRIMARY KEY DEFAULT uuid_generate_v4(),
-    tenant_id             UUID          NOT NULL,
-    customer_id           UUID          NOT NULL,
-    amount                NUMERIC(20,8) NOT NULL CHECK (amount > 0),
-    -- Currency the amount is stored in. NULL = USD.
-    currency_id           UUID,
-    -- Frozen exchange rate at recording time (units per 1 USD; 1 for USD).
-    rate_per_usd_snapshot NUMERIC(20,8) NOT NULL CHECK (rate_per_usd_snapshot > 0),
-    received_by_user_id   UUID,
-    paid_at               TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
-    created_at            TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
-    updated_at            TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
-    -- Soft-void fields. Set together or not at all.
-    voided_at             TIMESTAMPTZ,
-    voided_by             UUID,
-    void_reason           TEXT,
-    notes                 TEXT,
+CREATE TABLE IF NOT EXISTS debt_payments ();
 
-    -- Collector wallet: when this collected cash was handed over to an admin.
-    -- NULL = still in the receiving user's wallet. Set together.
-    remitted_at           TIMESTAMPTZ,
-    remitted_by           UUID,
+-- ---- Columns --------------------------------------------------------------
 
-    CONSTRAINT chk_debt_payments_void_consistency
-        CHECK (
-            (voided_at IS NULL AND voided_by IS NULL)
-            OR
-            (voided_at IS NOT NULL AND voided_by IS NOT NULL)
-        ),
+ALTER TABLE debt_payments ADD COLUMN IF NOT EXISTS id UUID PRIMARY KEY DEFAULT uuid_generate_v4();
+ALTER TABLE debt_payments ADD COLUMN IF NOT EXISTS tenant_id UUID NOT NULL
+    CONSTRAINT fk_debt_payments_tenant REFERENCES tenants(id) ON DELETE CASCADE;
+ALTER TABLE debt_payments ADD COLUMN IF NOT EXISTS customer_id UUID NOT NULL
+    CONSTRAINT fk_debt_payments_customer REFERENCES customers(id) ON DELETE CASCADE;
+ALTER TABLE debt_payments ADD COLUMN IF NOT EXISTS amount NUMERIC(20,8) NOT NULL
+    CHECK (amount > 0);
 
-    CONSTRAINT chk_debt_payments_remitted_consistency
-        CHECK (
-            (remitted_at IS NULL AND remitted_by IS NULL)
-            OR
-            (remitted_at IS NOT NULL AND remitted_by IS NOT NULL)
-        ),
+-- Currency the amount is stored in. NULL = USD.
+ALTER TABLE debt_payments ADD COLUMN IF NOT EXISTS currency_id UUID
+    CONSTRAINT fk_debt_payments_currency REFERENCES currencies(id) ON DELETE RESTRICT;
 
-    CONSTRAINT fk_debt_payments_tenant
-        FOREIGN KEY (tenant_id)
-        REFERENCES tenants(id)
-        ON DELETE CASCADE,
+-- Frozen exchange rate at recording time (units per 1 USD; 1 for USD).
+ALTER TABLE debt_payments ADD COLUMN IF NOT EXISTS rate_per_usd_snapshot NUMERIC(20,8) NOT NULL
+    CHECK (rate_per_usd_snapshot > 0);
 
-    CONSTRAINT fk_debt_payments_customer
-        FOREIGN KEY (customer_id)
-        REFERENCES customers(id)
-        ON DELETE CASCADE,
+ALTER TABLE debt_payments ADD COLUMN IF NOT EXISTS received_by_user_id UUID
+    CONSTRAINT fk_debt_payments_received_by REFERENCES users(id) ON DELETE SET NULL;
 
-    CONSTRAINT fk_debt_payments_currency
-        FOREIGN KEY (currency_id)
-        REFERENCES currencies(id)
-        ON DELETE RESTRICT,
+ALTER TABLE debt_payments ADD COLUMN IF NOT EXISTS paid_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE debt_payments ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE debt_payments ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 
-    CONSTRAINT fk_debt_payments_received_by
-        FOREIGN KEY (received_by_user_id)
-        REFERENCES users(id)
-        ON DELETE SET NULL,
+-- Soft-void fields. Set together or not at all.
+ALTER TABLE debt_payments ADD COLUMN IF NOT EXISTS voided_at TIMESTAMPTZ;
+ALTER TABLE debt_payments ADD COLUMN IF NOT EXISTS voided_by UUID
+    CONSTRAINT fk_debt_payments_voided_by REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE debt_payments ADD COLUMN IF NOT EXISTS void_reason TEXT;
+ALTER TABLE debt_payments ADD COLUMN IF NOT EXISTS notes TEXT;
 
-    CONSTRAINT fk_debt_payments_voided_by
-        FOREIGN KEY (voided_by)
-        REFERENCES users(id)
-        ON DELETE SET NULL,
+-- Collector wallet: when this collected cash was handed over to an admin.
+-- NULL = still in the receiving user's wallet. Set together.
+ALTER TABLE debt_payments ADD COLUMN IF NOT EXISTS remitted_at TIMESTAMPTZ;
+ALTER TABLE debt_payments ADD COLUMN IF NOT EXISTS remitted_by UUID
+    CONSTRAINT fk_debt_payments_remitted_by REFERENCES users(id) ON DELETE SET NULL;
 
-    CONSTRAINT fk_debt_payments_remitted_by
-        FOREIGN KEY (remitted_by)
-        REFERENCES users(id)
-        ON DELETE SET NULL
-);
+-- ---- Table-level constraints (multi-column — cannot ride on an ADD COLUMN) --
+
+DO $$ BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conrelid = 'debt_payments'::regclass AND conname = 'chk_debt_payments_void_consistency'
+    ) THEN
+        ALTER TABLE debt_payments ADD CONSTRAINT chk_debt_payments_void_consistency
+            CHECK (
+                (voided_at IS NULL AND voided_by IS NULL)
+                OR
+                (voided_at IS NOT NULL AND voided_by IS NOT NULL)
+            );
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conrelid = 'debt_payments'::regclass
+          AND conname = 'chk_debt_payments_remitted_consistency'
+    ) THEN
+        ALTER TABLE debt_payments ADD CONSTRAINT chk_debt_payments_remitted_consistency
+            CHECK (
+                (remitted_at IS NULL AND remitted_by IS NULL)
+                OR
+                (remitted_at IS NOT NULL AND remitted_by IS NOT NULL)
+            );
+    END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_debt_payments_tenant_id
     ON debt_payments (tenant_id);
@@ -1201,49 +1243,49 @@ CREATE INDEX IF NOT EXISTS idx_debt_payments_wallet
 -- No branch_id: inherited via the customer, exactly like payments.
 -- ============================================================
 
-CREATE TABLE IF NOT EXISTS skipped_months (
-    id                    UUID          PRIMARY KEY DEFAULT uuid_generate_v4(),
-    tenant_id             UUID          NOT NULL,
-    customer_id           UUID          NOT NULL,
-    -- The service line this month belongs to.
-    customer_plan_id      UUID          NOT NULL,
-    billing_month         DATE          NOT NULL,
-    -- false = the skip was removed (the row stays as history).
-    skipped               BOOLEAN       NOT NULL DEFAULT TRUE,
-    -- Optional reason shown on the month cell / skip sheet.
-    note                  TEXT,
-    skipped_by_user_id    UUID,
-    created_at            TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
-    updated_at            TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+CREATE TABLE IF NOT EXISTS skipped_months ();
 
+-- ---- Columns --------------------------------------------------------------
+
+ALTER TABLE skipped_months ADD COLUMN IF NOT EXISTS id UUID PRIMARY KEY DEFAULT uuid_generate_v4();
+ALTER TABLE skipped_months ADD COLUMN IF NOT EXISTS tenant_id UUID NOT NULL
+    CONSTRAINT fk_skipped_months_tenant REFERENCES tenants(id) ON DELETE CASCADE;
+ALTER TABLE skipped_months ADD COLUMN IF NOT EXISTS customer_id UUID NOT NULL
+    CONSTRAINT fk_skipped_months_customer REFERENCES customers(id) ON DELETE CASCADE;
+
+-- The service line this month belongs to.
+ALTER TABLE skipped_months ADD COLUMN IF NOT EXISTS customer_plan_id UUID NOT NULL
+    CONSTRAINT fk_skipped_months_customer_plan REFERENCES customer_plans(id) ON DELETE CASCADE;
+
+ALTER TABLE skipped_months ADD COLUMN IF NOT EXISTS billing_month DATE NOT NULL
+    CONSTRAINT chk_skipped_months_billing_month_first_day
+    CHECK (EXTRACT(DAY FROM billing_month) = 1);
+
+-- false = the skip was removed (the row stays as history).
+ALTER TABLE skipped_months ADD COLUMN IF NOT EXISTS skipped BOOLEAN NOT NULL DEFAULT TRUE;
+
+-- Optional reason shown on the month cell / skip sheet.
+ALTER TABLE skipped_months ADD COLUMN IF NOT EXISTS note TEXT;
+
+ALTER TABLE skipped_months ADD COLUMN IF NOT EXISTS skipped_by_user_id UUID
+    CONSTRAINT fk_skipped_months_skipped_by REFERENCES users(id) ON DELETE SET NULL;
+
+ALTER TABLE skipped_months ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE skipped_months ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+-- ---- Table-level constraints (multi-column — cannot ride on an ADD COLUMN) --
+
+DO $$ BEGIN
     -- One skip state per service line per month (mirrors payments' natural key,
     -- and lets offline derive a deterministic id so two devices converge).
-    CONSTRAINT uq_skipped_months_line_month
-        UNIQUE (customer_plan_id, billing_month),
-
-    CONSTRAINT chk_skipped_months_billing_month_first_day
-        CHECK (EXTRACT(DAY FROM billing_month) = 1),
-
-    CONSTRAINT fk_skipped_months_tenant
-        FOREIGN KEY (tenant_id)
-        REFERENCES tenants(id)
-        ON DELETE CASCADE,
-
-    CONSTRAINT fk_skipped_months_customer
-        FOREIGN KEY (customer_id)
-        REFERENCES customers(id)
-        ON DELETE CASCADE,
-
-    CONSTRAINT fk_skipped_months_customer_plan
-        FOREIGN KEY (customer_plan_id)
-        REFERENCES customer_plans(id)
-        ON DELETE CASCADE,
-
-    CONSTRAINT fk_skipped_months_skipped_by
-        FOREIGN KEY (skipped_by_user_id)
-        REFERENCES users(id)
-        ON DELETE SET NULL
-);
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conrelid = 'skipped_months'::regclass AND conname = 'uq_skipped_months_line_month'
+    ) THEN
+        ALTER TABLE skipped_months ADD CONSTRAINT uq_skipped_months_line_month
+            UNIQUE (customer_plan_id, billing_month);
+    END IF;
+END $$;
 
 CREATE INDEX IF NOT EXISTS idx_skipped_months_tenant_id
     ON skipped_months (tenant_id);
@@ -1264,33 +1306,32 @@ CREATE INDEX IF NOT EXISTS idx_skipped_months_active_month
 -- into any device's local SQLite mirror (see docs/offline.md).
 -- ============================================================
 
-CREATE TABLE IF NOT EXISTS exception_logs (
-    id            UUID          PRIMARY KEY DEFAULT uuid_generate_v4(),
-    -- Nullable: an error can occur before a tenant/user is established (e.g. login screen).
-    tenant_id     UUID,
-    user_id       UUID,
-    -- Snapshot so the log stays readable if the user row is later deleted.
-    username      TEXT,
-    -- Where the error was caught: 'boundary' | 'global_handler' | 'repository' | 'service'.
-    source        TEXT          NOT NULL,
-    message       TEXT          NOT NULL,
-    stack         TEXT,
-    -- Free-form extra info (e.g. which repository/table was involved).
-    context       TEXT,
-    occurred_at   TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
-    created_at    TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
-    updated_at    TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+CREATE TABLE IF NOT EXISTS exception_logs ();
 
-    CONSTRAINT fk_exception_logs_tenant
-        FOREIGN KEY (tenant_id)
-        REFERENCES tenants(id)
-        ON DELETE CASCADE,
+-- ---- Columns --------------------------------------------------------------
 
-    CONSTRAINT fk_exception_logs_user
-        FOREIGN KEY (user_id)
-        REFERENCES users(id)
-        ON DELETE SET NULL
-);
+ALTER TABLE exception_logs ADD COLUMN IF NOT EXISTS id UUID PRIMARY KEY DEFAULT uuid_generate_v4();
+
+-- Nullable: an error can occur before a tenant/user is established (e.g. login screen).
+ALTER TABLE exception_logs ADD COLUMN IF NOT EXISTS tenant_id UUID
+    CONSTRAINT fk_exception_logs_tenant REFERENCES tenants(id) ON DELETE CASCADE;
+ALTER TABLE exception_logs ADD COLUMN IF NOT EXISTS user_id UUID
+    CONSTRAINT fk_exception_logs_user REFERENCES users(id) ON DELETE SET NULL;
+
+-- Snapshot so the log stays readable if the user row is later deleted.
+ALTER TABLE exception_logs ADD COLUMN IF NOT EXISTS username TEXT;
+
+-- Where the error was caught: 'boundary' | 'global_handler' | 'repository' | 'service'.
+ALTER TABLE exception_logs ADD COLUMN IF NOT EXISTS source TEXT NOT NULL;
+ALTER TABLE exception_logs ADD COLUMN IF NOT EXISTS message TEXT NOT NULL;
+ALTER TABLE exception_logs ADD COLUMN IF NOT EXISTS stack TEXT;
+
+-- Free-form extra info (e.g. which repository/table was involved).
+ALTER TABLE exception_logs ADD COLUMN IF NOT EXISTS context TEXT;
+
+ALTER TABLE exception_logs ADD COLUMN IF NOT EXISTS occurred_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE exception_logs ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE exception_logs ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 
 CREATE INDEX IF NOT EXISTS idx_exception_logs_tenant_id
     ON exception_logs (tenant_id);
@@ -1314,54 +1355,54 @@ CREATE INDEX IF NOT EXISTS idx_exception_logs_occurred_at
 -- See docs/features.md → Audit Trail.
 -- ============================================================
 
-CREATE TABLE IF NOT EXISTS audit_logs (
-    id             UUID          PRIMARY KEY DEFAULT uuid_generate_v4(),
-    tenant_id      UUID          NOT NULL,
-    -- Denormalized from the changed row (or its parent) so a branch-scoped admin
-    -- filters on one column instead of an EXISTS per audited table.
-    -- NULL = a tenant-wide record (currencies, settings) → every admin sees it.
-    branch_id      UUID,
-    table_name     TEXT          NOT NULL,
-    record_id      UUID          NOT NULL,
-    action         TEXT          NOT NULL,
-    -- update/void/restore: ONLY the changed columns. delete: the whole row. create: NULL.
-    before_data    JSONB,
-    -- create: the whole new row. update/void/restore: ONLY the changed columns. delete: NULL.
-    after_data     JSONB,
-    -- update/void/restore: ["amount_paid","notes"]. Otherwise NULL.
-    changed        JSONB,
-    -- Frozen one-line description, so the entry stays readable after the row is gone.
-    label          TEXT,
-    subject        TEXT,
-    -- The same owner as an id — what a customer's whole timeline filters on.
-    -- Frozen like `subject` and never joined back, so no FK: the trail must
-    -- outlive the customer. NULL for a record that belongs to nobody.
-    subject_id     UUID,
-    actor_user_id  UUID,
-    -- Snapshot (like exception_logs.username): survives the user being deleted.
-    actor_username TEXT,
-    -- When the STAFF acted, from the device clock. NOT the sync moment — that is
-    -- exactly what makes a DB trigger unusable here. Drives the 30-day window.
-    occurred_at    TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
-    created_at     TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
-    updated_at     TIMESTAMPTZ   NOT NULL DEFAULT NOW(),
+CREATE TABLE IF NOT EXISTS audit_logs ();
 
+-- ---- Columns --------------------------------------------------------------
+
+ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS id UUID PRIMARY KEY DEFAULT uuid_generate_v4();
+ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS tenant_id UUID NOT NULL
+    CONSTRAINT fk_audit_logs_tenant REFERENCES tenants(id) ON DELETE CASCADE;
+
+-- Denormalized from the changed row (or its parent) so a branch-scoped admin
+-- filters on one column instead of an EXISTS per audited table.
+-- NULL = a tenant-wide record (currencies, settings) → every admin sees it.
+-- Deliberately NO foreign key: every other table uses ON DELETE SET NULL, which
+-- here would blank the trail when a branch is deleted. Evidence must outlive it.
+ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS branch_id UUID;
+
+ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS table_name TEXT NOT NULL;
+ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS record_id UUID NOT NULL;
+ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS action TEXT NOT NULL
     CONSTRAINT chk_audit_logs_action
-        CHECK (action IN ('create', 'update', 'delete', 'void', 'restore')),
+    CHECK (action IN ('create', 'update', 'delete', 'void', 'restore'));
 
-    CONSTRAINT fk_audit_logs_tenant
-        FOREIGN KEY (tenant_id)
-        REFERENCES tenants(id)
-        ON DELETE CASCADE,
+-- update/void/restore: ONLY the changed columns. delete: the whole row. create: NULL.
+ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS before_data JSONB;
+-- create: the whole new row. update/void/restore: ONLY the changed columns. delete: NULL.
+ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS after_data JSONB;
+-- update/void/restore: ["amount_paid","notes"]. Otherwise NULL.
+ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS changed JSONB;
 
-    CONSTRAINT fk_audit_logs_actor
-        FOREIGN KEY (actor_user_id)
-        REFERENCES users(id)
-        ON DELETE SET NULL
-    -- branch_id deliberately has NO foreign key: every other table uses
-    -- ON DELETE SET NULL, which here would blank the trail when a branch is
-    -- deleted. Evidence must outlive the branch.
-);
+-- Frozen one-line description, so the entry stays readable after the row is gone.
+ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS label TEXT;
+ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS subject TEXT;
+
+-- The same owner as an id — what a customer's whole timeline filters on.
+-- Frozen like `subject` and never joined back, so no FK: the trail must
+-- outlive the customer. NULL for a record that belongs to nobody.
+ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS subject_id UUID;
+
+ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS actor_user_id UUID
+    CONSTRAINT fk_audit_logs_actor REFERENCES users(id) ON DELETE SET NULL;
+
+-- Snapshot (like exception_logs.username): survives the user being deleted.
+ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS actor_username TEXT;
+
+-- When the STAFF acted, from the device clock. NOT the sync moment — that is
+-- exactly what makes a DB trigger unusable here. Drives the 30-day window.
+ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS occurred_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE audit_logs ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 
 CREATE INDEX IF NOT EXISTS idx_audit_logs_tenant_occurred
     ON audit_logs (tenant_id, occurred_at DESC);

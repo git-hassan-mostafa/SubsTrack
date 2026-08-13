@@ -120,6 +120,9 @@ const DISPLAY: Record<string, AuditValueFormatter> = {
   '*.recorded_by_user_id': person,
   '*.actor_user_id': person,
   '*.currency_id': currency,
+  // formatterFor matches the exact column name, so the special price's currency
+  // needs its own entry or it renders as a raw UUID (and hides in a snapshot).
+  '*.custom_currency_id': currency,
   '*.branch_id': idRef('branch', { blank: 'branches.unassigned' }),
 
   'users.role': enumLabel({ admin: 'users.admin', user: 'users.user', superadmin: 'users.super' }),

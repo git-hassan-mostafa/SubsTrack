@@ -4,31 +4,20 @@ import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
-import { DatePickerInput } from "@/src/shared/components/DatePickerInput";
-import { PlanPicker } from "@/src/shared/components/PlanPicker";
 import { COLORS } from "@/src/shared/constants";
 import type { Customer } from "@/src/core/types";
 import type {
   LineDraft,
   RemovedLine,
 } from "@/src/modules/customer/customer-plans";
+import { PlanLineCard, type PlanRow } from "./PlanLineCard";
+import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { getTodayDateString } from "@/src/core/utils/date";
 import { usePlanSlice } from "@/src/state/hooks/usePlanSlice";
 import { useCustomerPlanSlice } from "@/src/state/hooks/useCustomerPlanSlice";
 import { confirm } from "@/src/shared/lib/confirm";
 import { RemovePlanChoice } from "./RemovePlanChoice";
 import { PlanFormSheet } from "@/src/modules/admin/plans";
-
-// One row in the inline Plans editor. `id` present = an existing line being
-// kept/edited; absent = a new line to create. `status` "cancelled" = a
-// soft-cancelled line, shown read-only with a Reactivate action.
-type PlanRow = {
-  key: string;
-  id?: string;
-  planId: string | null;
-  startDate: string;
-  status: "active" | "cancelled";
-};
 
 // What the parent form reads back on submit. `lines` = the active rows as
 // drafts (created / kept / updated). `removed` = existing active lines the user
@@ -49,6 +38,8 @@ function makeRow(suffix: number, date: string): PlanRow {
     key: `new-${suffix}`,
     planId: null,
     startDate: date,
+    customPrice: null,
+    customCurrencyId: null,
     status: "active",
   };
 }
@@ -79,6 +70,7 @@ export function CustomerPlansEditor({
 }: Props) {
   const { t } = useTranslation();
   const plans = usePlanSlice((s) => s.items);
+  const currencies = useCurrencySlice((s) => s.items);
   const hasPayments = useCustomerPlanSlice((s) => s.hasPayments);
   const getPaidLineIds = useCustomerPlanSlice((s) => s.getPaidLineIds);
 
@@ -96,6 +88,8 @@ export function CustomerPlansEditor({
         id: l.id,
         planId: l.planId,
         startDate: l.startDate,
+        customPrice: l.customPrice,
+        customCurrencyId: l.customCurrencyId,
         status: l.active ? ("active" as const) : ("cancelled" as const),
       }));
     }
@@ -144,6 +138,12 @@ export function CustomerPlansEditor({
         base.key !== r.key ||
         (base.planId !== r.planId && !autoCleared.includes(r.key)) ||
         base.startDate !== r.startDate ||
+        base.customPrice !== r.customPrice ||
+        // CurrencyInput self-seeds the last-used currency after mount, but ONLY
+        // while amount + currency are both null. Comparing the currency just for
+        // rows that carry an amount keeps that seed from raising a false discard
+        // prompt, without missing a real currency-only change (gotcha #55).
+        (r.customPrice !== null && base.customCurrencyId !== r.customCurrencyId) ||
         base.status !== r.status
       );
     });
@@ -157,7 +157,18 @@ export function CustomerPlansEditor({
     getLines: () =>
       rows
         .filter((r) => r.status === "active")
-        .map((r) => ({ id: r.id, planId: r.planId, startDate: r.startDate })),
+        .map((r) => {
+          // Normalize: a currency without an amount is meaningless, so neither
+          // is stored. Any plan length may carry a special price.
+          const keep = r.customPrice !== null && r.customPrice > 0;
+          return {
+            id: r.id,
+            planId: r.planId,
+            startDate: r.startDate,
+            customPrice: keep ? r.customPrice : null,
+            customCurrencyId: keep ? r.customCurrencyId : null,
+          };
+        }),
     getRemoved: () => removed,
     getReactivated: () => reactivated,
   }));
@@ -192,9 +203,26 @@ export function CustomerPlansEditor({
   }, [branchId, plans]);
 
   function setRowPlan(key: string, planId: string | null) {
-    setRows((prev) => prev.map((r) => (r.key === key ? { ...r, planId } : r)));
+    // The special price is the customer's negotiated figure, not the plan's, so
+    // it survives a plan change. Its meaning follows the new plan's billing span
+    // (see resolveLinePrice), which the price field's caption restates.
+    setRows((prev) =>
+      prev.map((r) => (r.key === key ? { ...r, planId } : r)),
+    );
     // A deliberate pick overrides the auto-clear, so this row counts as edited again.
     setAutoCleared((prev) => prev.filter((k) => k !== key));
+  }
+
+  function setRowPrice(
+    key: string,
+    customPrice: number | null,
+    customCurrencyId: string | null,
+  ) {
+    setRows((prev) =>
+      prev.map((r) =>
+        r.key === key ? { ...r, customPrice, customCurrencyId } : r,
+      ),
+    );
   }
 
   function setRowStartDate(key: string, date: string) {
@@ -286,144 +314,51 @@ export function CustomerPlansEditor({
   const multiple = rows.length > 1;
 
   return (
-    <View className="mt-2 mb-2 border-t border-gray-100 pt-4">
-      {/* Section header */}
-      <View className="flex-row items-center mb-3">
-        <Ionicons name="layers-outline" size={18} color={COLORS.gray500} />
-        <View className="ms-2 flex-1">
-          <Text fontWeight="SemiBold" className="text-base text-gray-900">
-            {t("subscriptions.section_title")}
-          </Text>
-          <Text className="text-xs text-gray-400 mt-0.5">
+    <View className="mt-2 mb-2 border-t border-gray-100 pt-3">
+      {/* Section header — one line. The subtitle only matters once a customer
+          actually holds more than one line, so it waits until then. */}
+      <View className="flex-row items-center mb-2">
+        <Ionicons name="layers-outline" size={16} color={COLORS.gray500} />
+        <Text fontWeight="SemiBold" className="ms-2 flex-1 text-sm text-gray-900">
+          {t("subscriptions.section_title")}
+        </Text>
+        {multiple ? (
+          <Text className="text-xs text-gray-400">
             {t("subscriptions.section_subtitle")}
           </Text>
-        </View>
-        {multiple ? (
-          <View className="rounded-full bg-gray-100 px-2.5 py-1">
-            <Text fontWeight="SemiBold" className="text-xs text-gray-500">
-              {rows.length}
-            </Text>
-          </View>
         ) : null}
       </View>
 
       {/* Line cards */}
-      {rows.map((row, i) => {
-        const cancelled = row.status === "cancelled";
-        // Once a month is paid on this line, its start date is frozen: moving it
-        // would invent or hide months a payment already covers.
-        const dateLocked = row.id != null && lockedLineIds.includes(row.id);
-        return (
-          <View
-            key={row.key}
-            className={`rounded-2xl border px-3.5 pt-4 mb-3 ${
-              cancelled
-                ? "border-gray-200 bg-gray-100 opacity-70"
-                : "border-gray-200 bg-gray-50"
-            }`}
-          >
-            {/* Card header — line number + remove/reactivate. Hidden when there's
-                a single line so the common case stays uncluttered. */}
-            {multiple ? (
-              <View className="flex-row items-center justify-between mb-1">
-                <View className="flex-row items-center">
-                  <View className="w-6 h-6 rounded-full bg-indigo-50 items-center justify-center">
-                    <Text fontWeight="Bold" className="text-xs text-primary">
-                      {i + 1}
-                    </Text>
-                  </View>
-                  <Text
-                    fontWeight="SemiBold"
-                    className="ms-2 text-sm text-gray-700"
-                  >
-                    {t("subscriptions.line_label", { number: i + 1 })}
-                  </Text>
-                  {cancelled ? (
-                    <View className="ms-2 rounded-full bg-gray-200 px-2 py-0.5">
-                      <Text
-                        fontWeight="SemiBold"
-                        className="text-[10px] text-gray-500"
-                      >
-                        {t("subscriptions.cancelled_badge")}
-                      </Text>
-                    </View>
-                  ) : null}
-                </View>
-                {cancelled ? (
-                  <PressableOpacity
-                    onPress={() => reactivateRow(row.key)}
-                    accessibilityLabel={t("subscriptions.reactivate_plan")}
-                    hitSlop={8}
-                    className="flex-row items-center px-2 py-1 -me-1"
-                  >
-                    <Ionicons name="refresh" size={15} color={COLORS.primary} />
-                    <Text className="ms-1 text-xs text-primary font-medium">
-                      {t("subscriptions.reactivate_plan")}
-                    </Text>
-                  </PressableOpacity>
-                ) : (
-                  <PressableOpacity
-                    onPress={() => void removeRow(row.key)}
-                    accessibilityLabel={t("subscriptions.remove_plan")}
-                    hitSlop={8}
-                    className="flex-row items-center px-2 py-1 -me-1"
-                  >
-                    <Ionicons
-                      name="trash-outline"
-                      size={15}
-                      color={COLORS.danger}
-                    />
-                    <Text className="ms-1 text-xs text-danger font-medium">
-                      {t("subscriptions.remove_plan")}
-                    </Text>
-                  </PressableOpacity>
-                )}
-              </View>
-            ) : null}
-
-            {/* Fields — plan picker + start date on one line. Cancelled rows are
-                read-only (disabled) until reactivated. */}
-            <View className="flex-row items-end gap-2">
-              <View className="flex-1">
-                <PlanPicker
-                  branchId={branchId}
-                  value={row.planId}
-                  onChange={(v) => setRowPlan(row.key, v)}
-                  label={t("customers.plan_label")}
-                  onAddNew={() => setAddPlanOpen(true)}
-                  disabled={cancelled || branchId === null}
-                  disabledHint={t("subscriptions.select_branch_first")}
-                />
-              </View>
-              <View className="w-44">
-                <DatePickerInput
-                  label={t("subscriptions.start_label")}
-                  value={row.startDate}
-                  onChange={(v) => setRowStartDate(row.key, v)}
-                  placeholder={t("customers.start_date_placeholder")}
-                  disabled={cancelled || dateLocked}
-                />
-              </View>
-            </View>
-            {/* Says WHY the date is greyed out — a disabled field with no reason
-                reads as a bug. Not shown on a cancelled row: everything there is
-                read-only already. */}
-            {dateLocked && !cancelled ? (
-              <Text className="text-xs text-gray-400 mt-1">
-                {t("subscriptions.start_date_locked")}
-              </Text>
-            ) : null}
-          </View>
-        );
-      })}
+      {rows.map((row, i) => (
+        <PlanLineCard
+          key={row.key}
+          row={row}
+          index={i}
+          plan={plans.find((p) => p.id === row.planId) ?? null}
+          branchId={branchId}
+          currencies={currencies}
+          dateLocked={row.id != null && lockedLineIds.includes(row.id)}
+          showHeader={multiple}
+          canRemove={activeCount > 1}
+          onPlanChange={(v) => setRowPlan(row.key, v)}
+          onStartDateChange={(v) => setRowStartDate(row.key, v)}
+          onPriceChange={(amount, currencyId) =>
+            setRowPrice(row.key, amount, currencyId)
+          }
+          onRemove={() => void removeRow(row.key)}
+          onReactivate={() => reactivateRow(row.key)}
+          onAddPlan={() => setAddPlanOpen(true)}
+        />
+      ))}
 
       {/* Add line — dashed affordance */}
       <PressableOpacity
         onPress={addRow}
-        className="flex-row items-center justify-center rounded-2xl border border-dashed border-gray-300 py-3"
+        className="flex-row items-center justify-center rounded-xl border border-dashed border-gray-300 py-2"
       >
-        <Ionicons name="add" size={18} color={COLORS.primary} />
-        <Text className="text-primary text-sm font-semibold ms-1">
+        <Ionicons name="add" size={16} color={COLORS.primary} />
+        <Text className="text-primary text-xs font-semibold ms-1">
           {t("subscriptions.add_plan")}
         </Text>
       </PressableOpacity>

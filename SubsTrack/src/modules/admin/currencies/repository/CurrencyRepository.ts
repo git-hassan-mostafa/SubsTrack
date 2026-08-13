@@ -69,29 +69,37 @@ export class CurrencyRepository extends BaseRepository implements ICurrencyRepos
     }
   }
 
-  // The subset of the given currencies referenced by any plan or payment.
+  // The subset of the given currencies referenced by any plan, payment, or
+  // service line's special price. All three FKs are ON DELETE RESTRICT, so a
+  // missing one turns an intended soft-delete into a raw FK error.
   async referencedIds(ids: string[]): Promise<Set<string>> {
     if (ids.length === 0) return new Set();
-    const [plans, payments] = await Promise.all([
+    const [plans, payments, lines] = await Promise.all([
       this.referencedIdsIn('plans', 'currency_id', ids),
       this.referencedIdsIn('payments', 'currency_id', ids),
+      this.referencedIdsIn('customer_plans', 'custom_currency_id', ids),
     ]);
-    return new Set([...plans, ...payments]);
+    return new Set([...plans, ...payments, ...lines]);
   }
 
-  // Returns the total number of plans + payments referencing this currency.
-  // Used by CurrencyService to decide hard-delete vs soft-delete.
+  // Total references to this currency. Used by CurrencyService to decide
+  // hard-delete vs soft-delete.
   async countReferences(id: string): Promise<number> {
-    const [plans, payments] = await Promise.all([
+    const [plans, payments, lines] = await Promise.all([
       this.db.from('plans').select('id', { count: 'exact', head: true }).eq('currency_id', id),
       this.db
         .from('payments')
         .select('id', { count: 'exact', head: true })
         .eq('currency_id', id),
+      this.db
+        .from('customer_plans')
+        .select('id', { count: 'exact', head: true })
+        .eq('custom_currency_id', id),
     ]);
     if (plans.error) this.handleError(plans.error);
     if (payments.error) this.handleError(payments.error);
-    return (plans.count ?? 0) + (payments.count ?? 0);
+    if (lines.error) this.handleError(lines.error);
+    return (plans.count ?? 0) + (payments.count ?? 0) + (lines.count ?? 0);
   }
 }
 

@@ -306,7 +306,7 @@ The id is frozen at write time next to the name. It is what 6b filters on, so a 
 | 6.75 | Owner-less records             | Add a plan / a product / a staff member / change a setting                       | `subject_id` NULL; the main Audit Log is unaffected                         |
 | 6.76 | Offline write                  | Airplane mode → record a payment → inspect the local row                        | `subject_id` filled locally too (it comes from `customerAudit`, inside the transaction) |
 | 6.77 | Pre-existing entries           | Entries recorded **before** the column shipped                                   | `subject_id` NULL → absent from the customer History sheet, still listed in the main Audit Log. There is no backfill |
-| 6.78 | Column actually exists         | Run `sql scripts/script.sql` on an **existing** DB, then record a payment         | If `audit_logs` predates the column the push/insert fails — `subject_id` is in the `CREATE TABLE`, so a re-run does not add it. Reset the DB or `ALTER` by hand |
+| 6.78 | Column actually exists         | Run `sql scripts/script.sql` on an **existing** DB, then record a payment         | `subject_id` is added if missing — every column in `script.sql` is an `ADD COLUMN IF NOT EXISTS`. The payment records and pushes with no error |
 | 6.79 | Deleted customer               | Record a payment → delete the customer → open the main Audit Log                 | The entry still lists with its frozen name; nothing tries to resolve the id  |
 
 ---

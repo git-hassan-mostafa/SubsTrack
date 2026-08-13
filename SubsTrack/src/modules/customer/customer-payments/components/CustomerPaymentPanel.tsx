@@ -33,6 +33,7 @@ import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { useSubscriptionSlice } from "@/src/state/hooks/useSubscriptionSlice";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { getBlockRangeLabel } from "../utils/blockRangeLabel";
+import { resolveLinePrice } from "@/src/modules/customer/customer-plans/utils/linePrice";
 import { MonthGrid } from "./MonthGrid";
 import { PaymentDetailSheet } from "./PaymentDetailSheet";
 import { PaymentFormSheet } from "./PaymentFormSheet";
@@ -186,6 +187,11 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
 
   const selectedLine = lines.find((l) => l.id === selectedLineId) ?? null;
   const plan = selectedLine?.plan ?? null;
+  // What this line costs — the plan's price, or the customer's own special price.
+  // Every amount and rate-snapshot currency below comes from here, never plan.price.
+  const linePrice = resolveLinePrice(
+    selectedLine ?? { customPrice: null, customCurrencyId: null, plan: null },
+  );
   const grid = selectedLine
     ? (monthGridsByLine[selectedLine.id] ?? EMPTY_GRID)
     : EMPTY_GRID;
@@ -206,17 +212,23 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
   // plan-less line has no fixed amount, so it reads "Custom" instead. Multi-month
   // plans say so, since the price covers the whole block, not one month.
   const linePriceLabel = (() => {
-    if (!plan) return null;
-    if (plan.isCustomPrice || plan.price === null) return t("common.custom");
+    if (!selectedLine) return null;
+    if (!linePrice.isFixed) return t("common.custom");
     const amount = formatMoney(
-      plan.price,
-      findCurrency(currencies, plan.currencyId),
+      linePrice.amount!,
+      findCurrency(currencies, linePrice.currencyId),
       displayCurrency,
     );
     // `subscription.per_month` is already slash-prefixed ("/ month") in both locales.
-    return plan.durationMonths > 1
-      ? `${amount} / ${t("plans.n_months", { count: plan.durationMonths })}`
-      : `${amount} ${t("subscription.per_month")}`;
+    const withPeriod =
+      linePrice.durationMonths > 1
+        ? `${amount} / ${t("plans.n_months", { count: linePrice.durationMonths })}`
+        : `${amount} ${t("subscription.per_month")}`;
+    // Flag a privately negotiated figure so it isn't read as the catalog price —
+    // for a bundle price too, which can now also be a line's own.
+    return linePrice.kind === "special"
+      ? `${withPeriod} · ${t("subscriptions.special_badge")}`
+      : withPeriod;
   })();
 
   // Loads every line's payments once per customer; switching years/lines
@@ -465,9 +477,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
       !isPayBlocked(entry) &&
       payOrderBlocker([entry]) === null &&
       isPayableStatus(entry) &&
-      plan != null &&
-      !plan.isCustomPrice &&
-      plan.price !== null
+      linePrice.isFixed
     );
   }
 
@@ -494,28 +504,26 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
   }
 
   async function handleQuickPay(entry: MonthEntry, send = false) {
-    if (
-      !selectedLine ||
-      !plan ||
-      plan.isCustomPrice ||
-      plan.price === null ||
-      !user
-    ) {
+    // No remembered amount → the manual form. `plan` may legitimately be null
+    // here: a plan-less line can still carry a special price.
+    if (!selectedLine || !linePrice.isFixed || !user) {
       setSelectedEntry(entry);
       setFormVisible(true);
       return;
     }
-    const planCurrency = findCurrency(currencies, plan.currencyId);
+    // The line's own currency, NOT the plan's — this is what freezes
+    // rate_per_usd_snapshot on the payment (gotcha #21).
+    const planCurrency = findCurrency(currencies, linePrice.currencyId);
 
-    if (plan.durationMonths > 1) {
+    if (linePrice.durationMonths > 1) {
       if (!currentTier) return;
       const ok = await confirm({
         title: t("payments.quick_pay.confirm_multi_month_title"),
         message: t("payments.quick_pay.confirm_multi_month_message", {
-          amount: formatMoney(plan.price, planCurrency, planCurrency),
+          amount: formatMoney(linePrice.amount!, planCurrency, planCurrency),
           months: getBlockRangeLabel(
             entry.billingMonth,
-            plan.durationMonths,
+            linePrice.durationMonths,
             t,
           ),
         }),
@@ -528,9 +536,11 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
           entry.billingMonth,
           customer,
           selectedLine.id,
-          plan,
+          selectedLine.planId,
+          linePrice.amount!,
+          linePrice.durationMonths,
           planCurrency,
-          plan.price,
+          linePrice.amount!,
           user.id,
           null,
           user.tenantId,
@@ -551,13 +561,14 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
       const created = await createPayment(
         {
           billingMonth: entry.billingMonth,
-          amountDue: plan.price,
-          amountPaid: plan.price,
+          amountDue: linePrice.amount!,
+          amountPaid: linePrice.amount!,
           durationMonths: 1,
-          currencyId: plan.currencyId,
+          currencyId: linePrice.currencyId,
           customerId: customer.id,
           customerPlanId: selectedLine.id,
-          planId: plan.id,
+          // From the LINE — a line with a special price may have no plan.
+          planId: selectedLine.planId,
           receivedByUserId: user.id,
           tenantId: user.tenantId,
           notes: null,
@@ -706,12 +717,12 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
       showPayOrderBlocked(blocker);
       return;
     }
-    if (!plan || plan.isCustomPrice) {
+    if (!linePrice.isFixed) {
       // The custom-amount sheet asks for the amount first; it carries the send
       // intent to its own submit.
       setBulkPaySend(send);
       setBulkPayVisible(true);
-    } else if (plan.durationMonths > 1) {
+    } else if (linePrice.durationMonths > 1) {
       void runBulkMultiMonthPay(send);
     } else {
       void runBulkFixedPay(send);
@@ -719,23 +730,23 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
   }
 
   async function runBulkFixedPay(send: boolean) {
-    if (!user || !selectedLine || !plan || plan.price === null) return;
+    if (!user || !selectedLine || !linePrice.isFixed) return;
     const ok = await confirm({
       title: t("payments.quick_pay.pay_now"),
       message: t("payments.bulk_pay_message", { count: payableEntries.length }),
       confirmLabel: t("payments.quick_pay.pay_now"),
     });
     if (!ok) return;
-    const planCurrency = findCurrency(currencies, plan.currencyId);
+    const planCurrency = findCurrency(currencies, linePrice.currencyId);
     const inputs = payableEntries.map((e) => ({
       billingMonth: e.billingMonth,
-      amountDue: plan.price!,
-      amountPaid: plan.price!,
+      amountDue: linePrice.amount!,
+      amountPaid: linePrice.amount!,
       durationMonths: 1,
-      currencyId: plan.currencyId,
+      currencyId: linePrice.currencyId,
       customerId: customer.id,
       customerPlanId: selectedLine.id,
-      planId: plan.id,
+      planId: selectedLine.planId,
       receivedByUserId: user.id,
       tenantId: user.tenantId,
       notes: null,
@@ -752,8 +763,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
   }
 
   async function runBulkMultiMonthPay(send: boolean) {
-    if (!user || !selectedLine || !plan || plan.price === null || !currentTier)
-      return;
+    if (!user || !selectedLine || !linePrice.isFixed || !currentTier) return;
     const blocks = groupPayableBlocks(payableEntries, selectedLine);
     const ok = await confirm({
       title: t("payments.quick_pay.pay_now"),
@@ -761,7 +771,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
       confirmLabel: t("payments.quick_pay.pay_now"),
     });
     if (!ok) return;
-    const planCurrency = findCurrency(currencies, plan.currencyId);
+    const planCurrency = findCurrency(currencies, linePrice.currencyId);
     clearPaymentError();
     clearPaymentTierLimitError();
     setBulkBusy(true);
@@ -770,9 +780,11 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
         blocks.map((b) => b.startBillingMonth),
         customer,
         selectedLine.id,
-        plan,
+        selectedLine.planId,
+        linePrice.amount!,
+        linePrice.durationMonths,
         planCurrency,
-        plan.price,
+        linePrice.amount!,
         user.id,
         null,
         user.tenantId,

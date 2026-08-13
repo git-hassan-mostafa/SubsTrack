@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 // Plain RN FlatList, NOT Gorhom's: a Gorhom scrollable hijacks the content-height
 // measurement of a content-sized sheet — and with several side-by-side columns each
 // one fights the others for it, blowing the sheet up to full height (gotcha #47).
@@ -8,9 +8,9 @@ import { PressableOpacity } from "./PressableOpacity/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { COLORS } from "@/src/shared/constants";
 import { useTranslation } from "react-i18next";
-import { useState } from "react";
 import { BottomSheetScaffold } from "./BottomSheetScaffold";
 import { SheetDragArea } from "./SheetDragArea";
+import { confirm } from "@/src/shared/lib/confirm";
 
 // "default" — full-width form field with label, used inside form sheets.
 // "chip"    — compact fit-content pill, used in filter bars alongside other chips.
@@ -32,6 +32,9 @@ interface Props {
   monthOnly?: boolean;
   // When true, the trigger is read-only (muted, won't open the picker).
   disabled?: boolean;
+  // Why the field is read-only. Shown as a popup when the muted trigger is
+  // tapped, so the reason costs no vertical space in the form.
+  disabledReason?: string;
 }
 
 const ITEM_HEIGHT = 44;
@@ -174,6 +177,7 @@ export function DatePickerInput({
   clearable = false,
   monthOnly = false,
   disabled = false,
+  disabledReason,
 }: Props) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -214,7 +218,18 @@ export function DatePickerInput({
   );
 
   function handleOpen() {
-    if (disabled) return;
+    if (disabled) {
+      // A muted field with no explanation reads as a bug, so say why on tap.
+      if (disabledReason) {
+        void confirm({
+          title: t("common.not_available"),
+          message: disabledReason,
+          confirmLabel: t("common.close"),
+          hideCancel: true,
+        });
+      }
+      return;
+    }
     const p = parseValue(value);
     if (p) {
       setSelYear(p.year);
@@ -389,7 +404,9 @@ export function DatePickerInput({
       ) : null}
       <PressableOpacity
         onPress={handleOpen}
-        disabled={disabled}
+        // Stays pressable while disabled when there is a reason to show — the
+        // tap is what opens the popup.
+        disabled={disabled && !disabledReason}
         className={`border border-gray-300 rounded-lg px-4 py-3 flex-row items-center justify-between ${
           disabled ? "bg-gray-100" : "bg-white"
         }`}

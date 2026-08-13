@@ -10,6 +10,9 @@ export type CustomerPlanInput = {
   customerId: string;
   planId: string | null;
   startDate: string;
+  // A special price for this line, replacing the plan's. null = use the plan's.
+  customPrice: number | null;
+  customCurrencyId: string | null;
 };
 
 // One row in the customer form's inline Plans editor. `id` present = an existing
@@ -18,6 +21,8 @@ export type LineDraft = {
   id?: string;
   planId: string | null;
   startDate: string;
+  customPrice: number | null;
+  customCurrencyId: string | null;
 };
 
 // A line the user removed in the form. `hardDelete` = permanently delete the
@@ -34,6 +39,8 @@ class CustomerPlanService {
       customer_id: data.customerId,
       plan_id: data.planId,
       start_date: data.startDate,
+      custom_price: data.customPrice,
+      custom_currency_id: data.customCurrencyId,
       tenant_id: tenantId,
     });
     return mapDbCustomerPlanToCustomerPlan(row);
@@ -43,13 +50,22 @@ class CustomerPlanService {
   // cancelled_at) in the same write — the form's reactivate path.
   async updateLine(
     id: string,
-    data: { planId: string | null; startDate: string },
+    data: {
+      planId: string | null;
+      startDate: string;
+      customPrice: number | null;
+      customCurrencyId: string | null;
+    },
     reactivate = false,
   ): Promise<CustomerPlan> {
     this.validateDate(data.startDate);
     const row = await repository.update(id, {
       plan_id: data.planId,
       start_date: data.startDate,
+      // Always sent, never spread conditionally — otherwise turning a special
+      // price off could never clear the column.
+      custom_price: data.customPrice,
+      custom_currency_id: data.customCurrencyId,
       ...(reactivate ? { active: true, cancelled_at: null } : {}),
     });
     return mapDbCustomerPlanToCustomerPlan(row);
@@ -89,6 +105,7 @@ class CustomerPlanService {
     const existingById = new Map(existingLines.map((l) => [l.id, l]));
     const reactivatedSet = new Set(reactivated);
     await this.assertStartDatesUnlocked(customerId, lines, existingById);
+    this.assertCustomPricesAllowed(lines);
 
     const removals = Promise.all(
       removed.map((r) => this.deleteLine(r.id, r.hardDelete)),
@@ -101,7 +118,13 @@ class CustomerPlanService {
       lines.map((line) => {
         if (!line.id) {
           return this.createLine(
-            { customerId, planId: line.planId, startDate: line.startDate },
+            {
+              customerId,
+              planId: line.planId,
+              startDate: line.startDate,
+              customPrice: line.customPrice,
+              customCurrencyId: line.customCurrencyId,
+            },
             tenantId,
           );
         }
@@ -113,13 +136,20 @@ class CustomerPlanService {
           !reactivate &&
           prev &&
           prev.planId === line.planId &&
-          prev.startDate === line.startDate
+          prev.startDate === line.startDate &&
+          prev.customPrice === line.customPrice &&
+          prev.customCurrencyId === line.customCurrencyId
         ) {
           return Promise.resolve(prev);
         }
         return this.updateLine(
           line.id,
-          { planId: line.planId, startDate: line.startDate },
+          {
+            planId: line.planId,
+            startDate: line.startDate,
+            customPrice: line.customPrice,
+            customCurrencyId: line.customCurrencyId,
+          },
           reactivate,
         );
       }),
@@ -162,6 +192,15 @@ class CustomerPlanService {
     const locked = new Set(await repository.findPaidLineIds(customerId));
     if (moved.some((l) => l.id && locked.has(l.id))) {
       throw new Error(i18n.t("errors.start_date_locked_paid"));
+    }
+  }
+
+  // A special price replaces the plan's price for the plan's own billing span
+  // (one month, or a whole bundle), so any plan length is allowed — only the
+  // amount itself has to make sense.
+  private assertCustomPricesAllowed(lines: LineDraft[]): void {
+    if (lines.some((l) => l.customPrice !== null && !(l.customPrice > 0))) {
+      throw new Error(i18n.t("errors.custom_price_positive"));
     }
   }
 

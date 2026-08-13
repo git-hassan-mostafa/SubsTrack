@@ -16,6 +16,7 @@ import type {
 } from "@/src/core/types";
 import { getCurrentYearMonth, toBillingMonth } from "@/src/core/utils/date";
 import { getBlockRangeLabel } from "../utils/blockRangeLabel";
+import { resolveLinePrice } from "@/src/modules/customer/customer-plans/utils/linePrice";
 import { billingMonthLabel, blockingUnpaidMonths } from "../utils/payOrder";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { usePaymentSlice } from "@/src/state/hooks/usePaymentSlice";
@@ -106,11 +107,16 @@ export function PaymentFormSheet({
   const dirty = useDirtyForm(form, ["customCurrencyId"]);
 
   const plan = line.plan ?? null;
-  const isMultiMonth = (plan?.durationMonths ?? 1) > 1;
-  const isFixedPlan = !!plan && !plan.isCustomPrice;
-  const isCustomOrNoPlan = !plan || plan.isCustomPrice;
+  // What this line costs — the plan's price, or the customer's own special price.
+  // Never read plan.price directly (see resolveLinePrice).
+  const linePrice = resolveLinePrice(line);
+  const isMultiMonth = linePrice.durationMonths > 1;
+  // "Fixed" = an amount is remembered, so the field is read-only with an override
+  // link; otherwise staff type it.
+  const isFixedPlan = linePrice.isFixed;
+  const isCustomOrNoPlan = !linePrice.isFixed;
 
-  const planCurrency = findCurrency(currencies, plan?.currencyId ?? null);
+  const planCurrency = findCurrency(currencies, linePrice.currencyId);
   const customCurrency = findCurrency(currencies, form.customCurrencyId);
 
   const { year: cy, month: cm } = getCurrentYearMonth();
@@ -172,10 +178,10 @@ export function PaymentFormSheet({
 
   const resolvedDue: number | null = isOnCustomPath
     ? form.customAmount
-    : plan!.price!;
+    : linePrice.amount;
   const resolvedCurrencyId: string | null = isOnCustomPath
     ? form.customCurrencyId
-    : plan!.currencyId;
+    : linePrice.currencyId;
 
   const resolvedPaid: number | null =
     form.paymentMode === "full" ? resolvedDue : form.amountPaid;
@@ -234,13 +240,18 @@ export function PaymentFormSheet({
     if (!user || resolvedDue === null || resolvedPaid === null) return;
 
     let created: Payment | null;
-    if (isMultiMonth && plan) {
+    // A multi-month block charges the resolved bundle price — the plan's, or the
+    // line's own special price for that bundle. `plan` may be absent from the
+    // snapshot, but never from a multi-month line (the span comes from the plan).
+    if (isMultiMonth && resolvedDue !== null) {
       if (!currentTier) return;
       const result = await createMultiMonthPayment(
         entry.billingMonth,
         customer,
         line.id,
-        plan,
+        line.planId,
+        resolvedDue,
+        linePrice.durationMonths,
         planCurrency,
         resolvedPaid,
         user.id,
@@ -386,13 +397,19 @@ export function PaymentFormSheet({
           {isMultiMonth ? (
             <>
               <Text fontWeight="Bold" className="text-4xl text-gray-900">
-                {formatMoney(plan!.price!, planCurrency, planCurrency)}
+                {formatMoney(linePrice.amount!, planCurrency, planCurrency)}
               </Text>
               <Text className="text-sm text-gray-400 mt-1">
                 {t("payments.per_n_months", {
-                  count: plan!.durationMonths,
+                  count: linePrice.durationMonths,
                 })}
               </Text>
+              {/* Say WHY the bundle figure isn't the catalog price. */}
+              {linePrice.kind === "special" ? (
+                <Text className="text-xs text-gray-400 mt-1 text-center">
+                  {t("payments.special_price_note")}
+                </Text>
+              ) : null}
               <View className="flex-row flex-wrap justify-center gap-1.5 mt-3">
                 {coveredMonths.map(({ label, billingMonth, isConflict }) => (
                   <View
@@ -419,8 +436,14 @@ export function PaymentFormSheet({
           {!isMultiMonth && isFixedPlan && !form.isOverrideEnabled ? (
             <>
               <Text fontWeight="Bold" className="text-4xl text-gray-900">
-                {formatMoney(plan!.price!, planCurrency, planCurrency)}
+                {formatMoney(linePrice.amount!, planCurrency, planCurrency)}
               </Text>
+              {/* Say WHY the figure isn't the catalog price. */}
+              {linePrice.kind === "special" ? (
+                <Text className="text-xs text-gray-400 mt-1 text-center">
+                  {t("payments.special_price_note")}
+                </Text>
+              ) : null}
               <PressableOpacity onPress={enableOverride} className="mt-3">
                 <Text className="text-primary text-sm font-semibold">
                   {t("payments.override_amount")}
@@ -448,13 +471,18 @@ export function PaymentFormSheet({
                     </View>
                     <Text className="text-sm text-gray-700">
                       {mode === "plan"
-                        ? t("payments.plan_price", {
-                            price: formatMoney(
-                              plan!.price!,
-                              planCurrency,
-                              planCurrency,
-                            ),
-                          })
+                        ? t(
+                            linePrice.kind === "special"
+                              ? "payments.special_price"
+                              : "payments.plan_price",
+                            {
+                              price: formatMoney(
+                                linePrice.amount!,
+                                planCurrency,
+                                planCurrency,
+                              ),
+                            },
+                          )
                         : t("payments.custom_amount")}
                     </Text>
                   </PressableOpacity>

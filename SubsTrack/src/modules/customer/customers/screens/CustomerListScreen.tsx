@@ -40,6 +40,7 @@ import { useAuth } from "../../../authentication/auth/hooks/useAuth";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { getCurrentYearMonth } from "@/src/core/utils/date";
 import { isBeforeStartDate } from "@/src/modules/customer/customer-payments/utils/monthDueRules";
+import { resolveLinePrice } from "@/src/modules/customer/customer-plans/utils/linePrice";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
 import {
   PageHeader,
@@ -264,19 +265,37 @@ export function CustomerListScreen() {
     return startedActiveLines(customer)
       .filter(
         (l) =>
-          l.plan != null &&
-          !l.plan.isCustomPrice &&
-          l.plan.price !== null &&
-          !notDue.has(l.id) &&
-          !uncovered.has(l.id),
+          resolveLinePrice(l).isFixed && !notDue.has(l.id) && !uncovered.has(l.id),
       )
-      .map((l) => ({
-        customerId: customer.id,
-        line: l,
-        plan: l.plan!,
-        currency: findCurrency(currencies, l.plan!.currencyId),
-        amountPaid: l.plan!.price!,
-      }));
+      .map((l) => {
+        // One resolution per line, feeding BOTH the amount and the rate snapshot
+        // — separating them is how an LBP amount ends up frozen at a USD rate.
+        const price = resolveLinePrice(l);
+        return {
+          customerId: customer.id,
+          line: l,
+          amountDue: price.amount!,
+          durationMonths: price.durationMonths,
+          currencyId: price.currencyId,
+          currency: findCurrency(currencies, price.currencyId),
+          amountPaid: price.amount!,
+        };
+      });
+  }
+
+  // Lines due this month that quick pay can't collect because no amount is
+  // remembered (custom-price / plan-less with no special price) — they need the
+  // manual form. Counted per LINE, not per customer: a customer with one
+  // collectable and one typed line is partly skipped, and saying "0 skipped"
+  // there is what made the old customer-based count misleading.
+  function typedLinesDueCount(customer: Customer): number {
+    const status = customerStatuses.get(customer.id);
+    const notDue = new Set(status?.notDueLineIds);
+    const uncovered = new Set(status?.uncoveredLineIds);
+    return startedActiveLines(customer).filter(
+      (l) =>
+        !resolveLinePrice(l).isFixed && !notDue.has(l.id) && !uncovered.has(l.id),
+    ).length;
   }
 
   // True when the customer has any started active line still unpaid this month —
@@ -329,7 +348,7 @@ export function CustomerListScreen() {
       });
       return;
     }
-    const multiCount = requests.filter((r) => r.plan.durationMonths > 1).length;
+    const multiCount = requests.filter((r) => r.durationMonths > 1).length;
     // Confirm when paying several lines or a multi-month block; a single
     // single-month line pays instantly (matches the old snappy quick pay).
     if (requests.length > 1 || multiCount > 0) {
@@ -356,8 +375,8 @@ export function CustomerListScreen() {
           rows: created.map((p) => ({
             payment: p,
             planName:
-              requests.find((r) => r.line.id === p.customerPlanId)?.plan.name ??
-              null,
+              requests.find((r) => r.line.id === p.customerPlanId)?.line.plan
+                ?.name ?? null,
           })),
         });
       }
@@ -484,9 +503,11 @@ export function CustomerListScreen() {
     if (bulkBusy || selected.length === 0 || !user) return;
     const eligible = selected.filter(shouldShowQuickPay);
     const requests = eligible.flatMap(eligibleFixedLines);
-    const customerCount = new Set(requests.map((r) => r.customerId)).size;
-    const customCount = eligible.length - customerCount;
-    const multiCount = requests.filter((r) => r.plan.durationMonths > 1).length;
+    const customCount = eligible.reduce(
+      (n, c) => n + typedLinesDueCount(c),
+      0,
+    );
+    const multiCount = requests.filter((r) => r.durationMonths > 1).length;
 
     if (requests.length === 0) {
       await confirm({

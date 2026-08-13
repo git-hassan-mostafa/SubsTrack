@@ -160,6 +160,12 @@ export interface CustomerPlan {
   startDate: string;
   cancelledAt: string | null;
   active: boolean;
+  // A privately negotiated price for THIS line, replacing the plan's price.
+  // null = charge the plan's price. Single-month lines only — resolved by
+  // resolveLinePrice(), never read directly.
+  customPrice: number | null;
+  // Currency of customPrice. null = USD.
+  customCurrencyId: string | null;
   tenantId: string;
   createdAt: string;
   updatedAt: string;
