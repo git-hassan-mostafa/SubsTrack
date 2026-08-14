@@ -29,7 +29,7 @@ import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { useLanguageStore } from "@/src/core/i18n/languageStore";
 import type {
-  CollectorWalletDetail,
+  UserWalletDetail,
   WalletItem,
   WalletSource,
 } from "@/src/core/types";
@@ -75,32 +75,40 @@ function localDay(iso: string): string {
   return `${d.getFullYear()}-${m}-${day}`;
 }
 
+/**
+ * What the viewer may do with this wallet's cash:
+ *   'view'      — look only (someone else's wallet they can't take, or their own
+ *                 when they're not allowed to settle it)
+ *   'receive'   — take it from the holder into their own wallet
+ *   'close_out' — their own cash, settled out of the system (banked)
+ * Decided by WalletService from utils/custody.ts — never re-derived here.
+ */
+export type WalletActionMode = "view" | "receive" | "close_out";
+
 interface Props {
-  detail: CollectorWalletDetail | null;
+  detail: UserWalletDetail | null;
   loading: boolean;
-  // Read-only (the collector viewing their own wallet) — hides all receive
-  // actions and multi-select. Filters still work.
-  readOnly?: boolean;
-  // Whether a receive action is currently running (disables the buttons).
+  mode?: WalletActionMode;
+  // Whether an action is currently running (disables the buttons).
   busy?: boolean;
-  // Hand over the given transactions. Resolves true when it went through (so the
-  // caller's confirm was accepted) — used to clear the selection afterward.
-  onReceiveItems?: (items: WalletItem[]) => Promise<boolean>;
-  onReceiveAll?: () => void;
+  // Act on the given transactions — receive or close out, per `mode`. Resolves
+  // true when it went through (so the caller's confirm was accepted) — used to
+  // clear the selection afterward.
+  onActItems?: (items: WalletItem[]) => Promise<boolean>;
+  onActAll?: () => void;
 }
 
-// The body of a collector's wallet: the per-currency cash breakdown, an optional
-// "receive all" action, filters, and the list of individual transactions still
-// held. Each transaction can be received on its own, or several selected and
-// received at once. Used by the admin detail sheet (interactive) and the
-// collector self-view (read-only).
+// The body of a wallet: the per-currency cash breakdown, an optional bulk
+// action, filters, and the list of individual transactions held. Each
+// transaction can be acted on its own, or several selected at once. Used by the
+// admin detail sheet and the self-view; `mode` is the only difference.
 export function WalletDetailView({
   detail,
   loading,
-  readOnly = false,
+  mode = "view",
   busy = false,
-  onReceiveItems,
-  onReceiveAll,
+  onActItems,
+  onActAll,
 }: Props) {
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
@@ -112,8 +120,14 @@ export function WalletDetailView({
   // standalone My-Wallet screen (see useSheetScrollView).
   const Scroll = useSheetScrollView();
 
+  // One flag for "the viewer can act here", one label for what the action says.
+  const canAct = mode !== "view";
+  const actionLabel = mode === "close_out" ? t("wallet.close_out") : t("wallet.receive");
+  const actionAllLabel =
+    mode === "close_out" ? t("wallet.close_out_all") : t("wallet.receive_all");
+
   const selection = useSelection();
-  const selecting = !readOnly && selection.active;
+  const selecting = canAct && selection.active;
 
   // While selecting, back (Android hardware / browser Back) exits selection
   // instead of closing the parent sheet — like every other list screen. This
@@ -130,14 +144,14 @@ export function WalletDetailView({
   const [toDate, setToDate] = useState<string | null>(null);
 
   const allItems = detail?.items ?? [];
-  const collectorId = detail?.collectorUserId ?? null;
+  const holderId = detail?.holderUserId ?? null;
 
   // `selection.clear` (not `selection`) — the hook returns a fresh object each
   // render, so depending on it would loop.
   const clearItemSelection = selection.clear;
 
-  // Switching to a different collector resets the view. Refetches for the SAME
-  // collector (e.g. after receiving) keep the id, so filters/selection persist.
+  // Switching to a different holder resets the view. Refetches for the SAME
+  // holder (e.g. after receiving) keep the id, so filters/selection persist.
   useEffect(() => {
     setFiltersOpen(false);
     setCustomerFilter(null);
@@ -145,7 +159,7 @@ export function WalletDetailView({
     setFromDate(null);
     setToDate(null);
     clearItemSelection();
-  }, [collectorId, clearItemSelection]);
+  }, [holderId, clearItemSelection]);
 
   // Raw cash amount formatted in its own currency (source === target, so the
   // live rate is irrelevant — this shows the physical cash count).
@@ -195,20 +209,20 @@ export function WalletDetailView({
     setToDate(null);
   }
 
-  async function receive(items: WalletItem[]) {
+  async function act(items: WalletItem[]) {
     if (items.length === 0) return;
-    const ok = await onReceiveItems?.(items);
+    const ok = await onActItems?.(items);
     if (ok) selection.clear();
   }
 
   const selectionActions: SelectionAction[] = [
     {
-      key: "receive",
+      key: "act",
       icon: "checkmark-done-outline",
-      label: t("wallet.receive"),
+      label: actionLabel,
       disabled: busy,
       onPress: () =>
-        void receive(allItems.filter((it) => selection.isSelected(keyOf(it)))),
+        void act(allItems.filter((it) => selection.isSelected(keyOf(it)))),
     },
   ];
 
@@ -274,10 +288,10 @@ export function WalletDetailView({
           </View>
         ) : null}
 
-        {/* Receive all — hidden while selecting or read-only. */}
-        {!readOnly && !selecting && !isEmpty ? (
+        {/* Bulk action — hidden while selecting or when the viewer can't act. */}
+        {canAct && !selecting && !isEmpty ? (
           <PressableOpacity
-            onPress={onReceiveAll}
+            onPress={onActAll}
             disabled={busy}
             className={`flex-row items-center justify-center gap-2 rounded-xl py-3 mb-5 ${
               busy ? "bg-primary/60" : "bg-primary"
@@ -285,7 +299,7 @@ export function WalletDetailView({
           >
             <Ionicons name="checkmark-done-outline" size={18} color="#fff" />
             <Text className="text-sm font-semibold text-white">
-              {t("wallet.receive_all")}
+              {actionAllLabel}
             </Text>
           </PressableOpacity>
         ) : null}
@@ -387,16 +401,21 @@ export function WalletDetailView({
                   t(meta.labelKey),
                   item.label,
                   formatDate(item.date, locale),
+                  // Only set once the cash has moved up the chain — on an
+                  // untouched wallet the holder IS the collector.
+                  item.collectorName
+                    ? t("wallet.collected_by", { name: item.collectorName })
+                    : null,
                 ]
                   .filter(Boolean)
                   .join(" · ");
                 return (
                   <PressableOpacity
                     key={k}
-                    disabled={readOnly}
+                    disabled={!canAct}
                     onPress={selecting ? () => selection.toggle(k) : undefined}
                     onLongPress={
-                      !readOnly && !selecting
+                      canAct && !selecting
                         ? () => selection.enterWith(k)
                         : undefined
                     }
@@ -435,15 +454,15 @@ export function WalletDetailView({
                       <Text className="text-sm font-semibold text-gray-900">
                         {inOwnCurrency(item.amount, item.currencyId)}
                       </Text>
-                      {!readOnly && !selecting ? (
+                      {canAct && !selecting ? (
                         <PressableOpacity
-                          onPress={() => void receive([item])}
+                          onPress={() => void act([item])}
                           disabled={busy}
                           hitSlop={6}
                           className="mt-1"
                         >
                           <Text className="text-xs font-semibold text-primary">
-                            {t("wallet.receive")}
+                            {actionLabel}
                           </Text>
                         </PressableOpacity>
                       ) : null}

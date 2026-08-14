@@ -2,6 +2,7 @@ import { Platform } from 'react-native';
 import { BaseRepository } from '@/src/core/utils/BaseRepository';
 import { PAGE_SIZE, type BranchFilter } from '@/src/core/constants';
 import type { DbPayment } from '@/src/core/types/db';
+import { custodyValues } from '@/src/modules/wallet/utils/custodyValues';
 import type { FindPaymentsOptions } from '../utils/types';
 import type { CreatePaymentPayload, IPaymentRepository } from './IPaymentRepository';
 import { OfflinePaymentRepository } from './PaymentRepository.offline';
@@ -92,7 +93,9 @@ export class PaymentRepository extends BaseRepository implements IPaymentReposit
           paid_at: new Date().toISOString(),
           voided_at: null,
           voided_by: null,
-          // Re-recording a voided month is fresh, unremitted cash.
+          // Re-recording a voided month is fresh cash back in its collector's
+          // wallet — the row is reused, so any old custody must be cleared.
+          held_by_user_id: payload.received_by_user_id,
           remitted_at: null,
           remitted_by: null,
         },
@@ -123,6 +126,7 @@ export class PaymentRepository extends BaseRepository implements IPaymentReposit
       paid_at: now,
       voided_at: null,
       voided_by: null,
+      held_by_user_id: p.received_by_user_id,
       remitted_at: null,
       remitted_by: null,
     }));
@@ -343,44 +347,51 @@ export class PaymentRepository extends BaseRepository implements IPaymentReposit
     return (data ?? []) as DbPayment[];
   }
 
-  async unremittedForWallet(
+  async heldForWallet(
     branchFilter: BranchFilter = null,
-    collectorUserId: string | null = null,
+    holderUserId: string | null = null,
   ): Promise<DbPayment[]> {
     let query = this.db
       .from('payments')
       .select(PAYMENT_LIST_SELECT)
       .gt('amount_paid', 0)
       .is('voided_at', null)
-      .is('remitted_at', null)
+      .not('held_by_user_id', 'is', null)
       .order('paid_at', { ascending: false });
-    if (collectorUserId) query = query.eq('received_by_user_id', collectorUserId);
+    if (holderUserId) query = query.eq('held_by_user_id', holderUserId);
     query = this.applyBranchFilter(query, branchFilter, this.BRANCH_SCOPES.payments);
     const { data, error } = await query;
     if (error) this.handleError(error);
     return (data ?? []) as DbPayment[];
   }
 
-  async markRemitted(ids: string[], remittedBy: string): Promise<void> {
+  async transferCustody(
+    ids: string[],
+    fromUserId: string,
+    toUserId: string | null,
+    actorUserId: string,
+  ): Promise<void> {
     if (ids.length === 0) return;
-    const remittedAt = new Date().toISOString();
+    const values = custodyValues(toUserId, actorUserId);
     const { error, data } = await this.db
       .from('payments')
-      .update({ remitted_at: remittedAt, remitted_by: remittedBy })
+      .update(values)
       .in('id', ids)
-      .is('remitted_at', null)
+      // Guarded on the current holder: a row already taken by someone else is
+      // left alone instead of being moved twice.
+      .eq('held_by_user_id', fromUserId)
       .is('voided_at', null)
       // Returned so the trail records only the rows the conditional UPDATE
       // actually moved, not every id the caller passed.
       .select();
     if (error) this.handleError(error);
-    const remitted = (data ?? []) as DbPayment[];
-    for (const p of remitted) {
+    const moved = (data ?? []) as DbPayment[];
+    for (const p of moved) {
       this.audit({
         table: 'payments',
         recordId: p.id,
         action: 'update',
-        before: { ...p, remitted_at: null, remitted_by: null },
+        before: { ...p, held_by_user_id: fromUserId, remitted_at: null, remitted_by: null },
         after: p,
         customerId: p.customer_id,
       });

@@ -110,6 +110,7 @@ class DebtService {
         paidAt: p.paid_at,
         notes: p.notes,
         receivedByUserId: p.received_by_user_id,
+        heldByUserId: p.held_by_user_id,
       }));
 
     const grossUsd = sumUsd(items.map((i) => ({ amount: i.remaining, ratePerUsdSnapshot: i.ratePerUsdSnapshot })));
@@ -177,13 +178,13 @@ class DebtService {
     return mapDbDebtPaymentToDebtPayment(row);
   }
 
-  // Collector wallet: non-voided, still-in-wallet (unremitted) debt payments.
-  // Each item carries its customer name + the collector. Optionally scoped.
-  async getUnremittedDebtPayments(
+  // Collector wallet: non-voided debt payments someone is holding. Each item
+  // carries its customer name, the collector and the holder. Optionally scoped.
+  async getHeldDebtPayments(
     branchFilter: BranchFilter = null,
-    collectorUserId: string | null = null,
+    holderUserId: string | null = null,
   ): Promise<DebtPaymentItem[]> {
-    const rows = await repository.unremittedDebtPayments(branchFilter, collectorUserId);
+    const rows = await repository.heldDebtPayments(branchFilter, holderUserId);
     return rows.map((p) => ({
       id: p.id,
       customerId: p.customer_id,
@@ -194,12 +195,19 @@ class DebtService {
       paidAt: p.paid_at,
       notes: p.notes,
       receivedByUserId: p.received_by_user_id,
+      heldByUserId: p.held_by_user_id,
     }));
   }
 
-  // Mark debt payments as handed over (remitted) by an admin.
-  async markDebtPaymentsRemitted(ids: string[], remittedBy: string): Promise<void> {
-    await repository.markDebtPaymentsRemitted(ids, remittedBy);
+  // Move these debt payments' cash to the next holder (or out of the system when
+  // toUserId is null). WalletService decides who may do this.
+  async transferDebtPaymentCustody(
+    ids: string[],
+    fromUserId: string,
+    toUserId: string | null,
+    actorUserId: string,
+  ): Promise<void> {
+    await repository.transferDebtPaymentCustody(ids, fromUserId, toUserId, actorUserId);
   }
 
   // Sums all debt (across categories) minus all debt payments, in USD, for the

@@ -147,7 +147,7 @@ export const TABLES: TableSpec[] = [
       duration_months: 'int', currency_id: 'text', rate_per_usd_snapshot: 'num',
       customer_id: 'text', customer_plan_id: 'text', plan_id: 'text', received_by_user_id: 'text',
       tenant_id: 'text', paid_at: 'text', voided_at: 'text', voided_by: 'text', notes: 'text',
-      remitted_at: 'text', remitted_by: 'text',
+      held_by_user_id: 'text', remitted_at: 'text', remitted_by: 'text',
       created_at: 'text', updated_at: 'text',
     },
     // Mirrors the server upsert conflict target — enforces one payment per
@@ -187,7 +187,8 @@ export const TABLES: TableSpec[] = [
       total_amount: 'num', amount_paid: 'num',
       currency_id: 'text', rate_per_usd_snapshot: 'num', sold_at: 'text',
       voided_at: 'text', voided_by: 'text',
-      void_reason: 'text', notes: 'text', remitted_at: 'text', remitted_by: 'text',
+      void_reason: 'text', notes: 'text',
+      held_by_user_id: 'text', remitted_at: 'text', remitted_by: 'text',
       created_at: 'text', updated_at: 'text',
     },
     // total_amount is app-written (sum of sale_items line totals) — NOT generated.
@@ -236,7 +237,7 @@ export const TABLES: TableSpec[] = [
       amount: 'num', currency_id: 'text', rate_per_usd_snapshot: 'num',
       received_by_user_id: 'text', paid_at: 'text',
       voided_at: 'text', voided_by: 'text', void_reason: 'text', notes: 'text',
-      remitted_at: 'text', remitted_by: 'text',
+      held_by_user_id: 'text', remitted_at: 'text', remitted_by: 'text',
       created_at: 'text', updated_at: 'text',
     },
   },

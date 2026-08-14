@@ -89,19 +89,25 @@ class SaleService {
     return rows.map(mapDbSaleToSale);
   }
 
-  // Collector wallet: non-voided, still-in-wallet (unremitted) sales with cash
-  // collected (amountPaid > 0). Optionally scoped to one recorder.
-  async getUnremittedForWallet(
+  // Collector wallet: non-voided sales someone is holding, with cash collected
+  // (amountPaid > 0). Optionally scoped to one holder.
+  async getHeldForWallet(
     branchFilter: BranchFilter = null,
-    collectorUserId: string | null = null,
+    holderUserId: string | null = null,
   ): Promise<Sale[]> {
-    const rows = await repository.unremittedForWallet(branchFilter, collectorUserId);
+    const rows = await repository.heldForWallet(branchFilter, holderUserId);
     return rows.map(mapDbSaleToSale);
   }
 
-  // Mark sales as handed over (remitted) by an admin.
-  async markRemitted(ids: string[], remittedBy: string): Promise<void> {
-    await repository.markRemitted(ids, remittedBy);
+  // Move these sales' cash to the next holder (or out of the system when
+  // toUserId is null). WalletService decides who may do this.
+  async transferCustody(
+    ids: string[],
+    fromUserId: string,
+    toUserId: string | null,
+    actorUserId: string,
+  ): Promise<void> {
+    await repository.transferCustody(ids, fromUserId, toUserId, actorUserId);
   }
 
   async voidSale(id: string, voidedBy: string, reason: string): Promise<Sale> {

@@ -92,21 +92,26 @@ class PaymentService {
     return rows.map(mapDbPaymentRowToListItem);
   }
 
-  // Collector wallet: non-voided, still-in-wallet (unremitted) payments with cash
+  // Collector wallet: non-voided payments someone is holding, with cash
   // collected. Each item carries its customer + plan name. Optionally scoped to
-  // one collector (received_by_user_id).
-  async getUnremittedForWallet(
+  // one holder.
+  async getHeldForWallet(
     branchFilter: BranchFilter = null,
-    collectorUserId: string | null = null,
+    holderUserId: string | null = null,
   ): Promise<PaymentListItem[]> {
-    const rows = await repository.unremittedForWallet(branchFilter, collectorUserId);
+    const rows = await repository.heldForWallet(branchFilter, holderUserId);
     return rows.map(mapDbPaymentRowToListItem);
   }
 
-  // Mark payments as handed over (remitted) by an admin — removes them from the
-  // collector's wallet.
-  async markRemitted(ids: string[], remittedBy: string): Promise<void> {
-    await repository.markRemitted(ids, remittedBy);
+  // Move these payments' cash to the next holder (or out of the system when
+  // toUserId is null). WalletService decides who may do this.
+  async transferCustody(
+    ids: string[],
+    fromUserId: string,
+    toUserId: string | null,
+    actorUserId: string,
+  ): Promise<void> {
+    await repository.transferCustody(ids, fromUserId, toUserId, actorUserId);
   }
 
   async createPayment(data: CreatePaymentInput): Promise<Payment> {

@@ -53,6 +53,7 @@ export function mapDbPaymentToPayment(db: DbPayment): Payment {
         voidedAt: db.voided_at,
         voidedBy: db.voided_by,
         notes: db.notes,
+        heldByUserId: db.held_by_user_id,
         remittedAt: db.remitted_at,
         remittedBy: db.remitted_by,
         createdAt: db.created_at,

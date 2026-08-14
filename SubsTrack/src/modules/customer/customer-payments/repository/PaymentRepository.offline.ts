@@ -3,6 +3,7 @@ import type { DbCustomer, DbPayment, DbPlan } from '@/src/core/types/db';
 import { OfflineBaseRepository } from '@/src/core/offline/OfflineBaseRepository';
 import { upsertNaturalKeyDirty } from '@/src/core/offline/db/dml';
 import { deterministicId, nowIso } from '@/src/core/offline/ids';
+import { custodyValues } from '@/src/modules/wallet/utils/custodyValues';
 import type { FindPaymentsOptions } from '../utils/types';
 import type {
   AmountRow,
@@ -37,8 +38,10 @@ export class OfflinePaymentRepository extends OfflineBaseRepository implements I
       paid_at: now,
       voided_at: null,
       voided_by: null,
-      // Re-recording a voided month is fresh, unremitted cash. Explicit nulls so
-      // the ON CONFLICT upsert resets any prior remittance on the reused row.
+      // Re-recording a voided month is fresh cash back in its collector's wallet.
+      // Written explicitly so the ON CONFLICT upsert resets any custody the
+      // reused row had picked up.
+      held_by_user_id: payload.received_by_user_id,
       remitted_at: null,
       remitted_by: null,
       created_at: now,
@@ -327,17 +330,16 @@ export class OfflinePaymentRepository extends OfflineBaseRepository implements I
     return this.hydrateListJoins(this.decodeAll<DbPayment>('payments', rows));
   }
 
-  async unremittedForWallet(
+  async heldForWallet(
     branchFilter: BranchFilter = null,
-    collectorUserId: string | null = null,
+    holderUserId: string | null = null,
   ): Promise<DbPayment[]> {
     const parts: { clause: string; params: unknown[] }[] = [
       { clause: 'CAST(p.amount_paid AS REAL) > 0', params: [] },
       { clause: 'p.voided_at IS NULL', params: [] },
-      { clause: 'p.remitted_at IS NULL', params: [] },
+      { clause: 'p.held_by_user_id IS NOT NULL', params: [] },
     ];
-    if (collectorUserId)
-      parts.push({ clause: 'p.received_by_user_id = ?', params: [collectorUserId] });
+    if (holderUserId) parts.push({ clause: 'p.held_by_user_id = ?', params: [holderUserId] });
     parts.push(this.branchWhere(branchFilter, this.BRANCH_SCOPES.payments, 'c'));
     const { sql, params } = this.combineWhere(parts);
     const rows = await this.all(
@@ -348,24 +350,39 @@ export class OfflinePaymentRepository extends OfflineBaseRepository implements I
     return this.hydrateListJoins(this.decodeAll<DbPayment>('payments', rows));
   }
 
-  async markRemitted(ids: string[], remittedBy: string): Promise<void> {
+  async transferCustody(
+    ids: string[],
+    fromUserId: string,
+    toUserId: string | null,
+    actorUserId: string,
+  ): Promise<void> {
     if (ids.length === 0) return;
     const now = nowIso();
+    const values = custodyValues(toUserId, actorUserId, now);
     const ph = ids.map(() => '?').join(', ');
     await this.write(async (db) => {
       // Snapshot first: the UPDATE is conditional, so only the rows it actually
-      // moved (still unremitted, not voided) should appear in the trail.
+      // moved (still held by `fromUserId`, not voided) belong in the trail.
       const before = this.decodeAll<DbPayment>(
         'payments',
         await this.all(
-          `SELECT * FROM payments WHERE id IN (${ph}) AND remitted_at IS NULL AND voided_at IS NULL`,
-          ids,
+          `SELECT * FROM payments
+            WHERE id IN (${ph}) AND held_by_user_id = ? AND voided_at IS NULL`,
+          [...ids, fromUserId],
         ),
       );
       await db.runAsync(
-        `UPDATE payments SET remitted_at = ?, remitted_by = ?, updated_at = ?, _dirty = 1
-         WHERE id IN (${ph}) AND remitted_at IS NULL AND voided_at IS NULL`,
-        [now, remittedBy, now, ...ids] as never[],
+        `UPDATE payments
+            SET held_by_user_id = ?, remitted_at = ?, remitted_by = ?, updated_at = ?, _dirty = 1
+          WHERE id IN (${ph}) AND held_by_user_id = ? AND voided_at IS NULL`,
+        [
+          values.held_by_user_id,
+          values.remitted_at,
+          values.remitted_by,
+          now,
+          ...ids,
+          fromUserId,
+        ] as never[],
       );
       for (const row of before) {
         await this.auditIn(db, {
@@ -373,7 +390,7 @@ export class OfflinePaymentRepository extends OfflineBaseRepository implements I
           recordId: row.id,
           action: 'update',
           before: row,
-          after: { ...row, remitted_at: now, remitted_by: remittedBy },
+          after: { ...row, ...values },
           ...(await this.customerAudit(row.customer_id)),
         });
       }

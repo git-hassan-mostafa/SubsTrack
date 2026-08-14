@@ -58,12 +58,20 @@ export class OfflineUserRepository extends OfflineBaseRepository implements IUse
   }
 
   async countPayments(id: string): Promise<number> {
-    return this.count('SELECT COUNT(*) AS n FROM payments WHERE received_by_user_id = ?', [id]);
+    // Cash they collected OR are holding — see IUserRepository.
+    return this.count(
+      'SELECT COUNT(*) AS n FROM payments WHERE received_by_user_id = ? OR held_by_user_id = ?',
+      [id, id],
+    );
   }
 
-  // The subset of the given users who have recorded payments — one query.
+  // The subset of the given users who have recorded payments or hold cash.
   async usersWithPayments(ids: string[]): Promise<Set<string>> {
-    return this.referencedIdsIn('payments', 'received_by_user_id', ids);
+    const [recorded, held] = await Promise.all([
+      this.referencedIdsIn('payments', 'received_by_user_id', ids),
+      this.referencedIdsIn('payments', 'held_by_user_id', ids),
+    ]);
+    return new Set([...recorded, ...held]);
   }
 
   // Soft-delete many users — one offline write each.

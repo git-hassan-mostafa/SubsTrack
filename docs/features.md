@@ -309,7 +309,7 @@ Components read `currentTier` and `usage` from `useSubscriptionSlice` and forwar
 
 **One currency per sale, auto-convert.** A sale freezes exactly one currency + one rate (the debt / wallet / dashboard math depends on it). The `SaleFormSheet` has a single sale-currency selector; when a product is added, its catalog price is **converted into the sale currency** at the live rate (`convert()` in `src/core/utils/currency.ts`) as the editable per-line prefill. The first product picked adopts its own currency as the sale default (until the user changes it); changing the sale currency re-prices every line from its product's catalog price. The `SaleItemsEditor` (`src/modules/transaction/sales/components/`) owns the cart rows + sale currency and reports a `SaleCartDraft` (`lines` / `total` / `currency` / `ready`) up to the form — mirroring `CustomerPlansEditor`'s add/remove-row pattern.
 
-**Create is header-then-lines.** `SaleService.createSale` computes the summed `total_amount` + `items_summary`, then `SaleRepository.create` inserts the header, then the lines (web: sequential insert like the customer + `customer_plans` path; offline: header + all lines in one SQLite transaction, pushed parents-before-children via `SYNC_PULL_ORDER`). List/detail reads join `sale_items(*, products(*))`; the lean aggregate/label reads (`partialSales`, `unremittedForWallet`, dashboard totals) read only header columns.
+**Create is header-then-lines.** `SaleService.createSale` computes the summed `total_amount` + `items_summary`, then `SaleRepository.create` inserts the header, then the lines (web: sequential insert like the customer + `customer_plans` path; offline: header + all lines in one SQLite transaction, pushed parents-before-children via `SYNC_PULL_ORDER`). List/detail reads join `sale_items(*, products(*))`; the lean aggregate/label reads (`partialSales`, `heldForWallet`, dashboard totals) read only header columns.
 
 **Receipt (`SaleDetailSheet`).** The product lines get their **own card**, separate from the customer / sold-at / receipt-ID rows: a "Products" header (cart icon + line count when >1), then one row per line — numbered bubble, `product_name_snapshot`, a `qty × unit price` sub-line, and the line total on the right. A totals footer (Total, plus Paid / Remaining when the sale is partial) renders only when it adds information (multi-line or partial sale). The hero's caption swaps the frozen `items_summary` for a "{{count}} products" count once there is more than one line, since the summary gets long. Lean reads (empty `items`) simply skip the card.
 
@@ -826,36 +826,91 @@ Offline specifics (the `appendOnly` + `pullDays` table flags, the `json` column 
 
 ## Collector Wallet
 
-A **collector wallet** is the cash a user (any role) has collected but **not yet handed over** to an admin. Like Debts, it is **computed at runtime — never stored as a balance**. The only new persistence is two columns on the three cash tables (`payments`, `sales`, `debt_payments`): `remitted_at` / `remitted_by` (set together; NULL = still in the collector's wallet). No new table.
+A **wallet** is the cash a user is **physically holding right now**. Like Debts, it is **computed at runtime — never stored as a balance**. The only persistence is three columns on the three cash tables (`payments`, `sales`, `debt_payments`):
 
-**What counts as a collector's cash** — every non-voided, **unremitted** (`remitted_at IS NULL`) row they recorded, across the three cash sources:
+| column | meaning |
+| --- | --- |
+| `held_by_user_id` | who has the cash **now**. NULL = nobody: never attributed, or settled out of the system |
+| `remitted_at` / `remitted_by` | the **final settlement** — when the cash left the chain for good, and who took it out. Only ever written together with `held_by_user_id = NULL` (`chk_*_custody`) |
 
-- `payments.amount_paid` (subscription), collector = `received_by_user_id`
-- `sales.amount_paid` (one-off sale — the **cash collected**, not `total_amount`), collector = `recorded_by_user_id`
-- `debt_payments.amount` (money against a customer's debt), collector = `received_by_user_id`
+`received_by_user_id` / `recorded_by_user_id` still name whoever **collected** it, and never change — that is what lets a received wallet still say "Collected by Ali".
 
-`custom_debts` are **excluded** — a custom debt is money *owed to the business*, not cash a collector holds.
+No new table. A ledger keyed by payment id would go stale, because re-paying a voided month reuses the same row (gotcha #43); a column resets cleanly.
 
-**Per-currency + USD.** A collector may hold several currencies at once. `WalletService` groups a collector's items by currency (`WalletCurrencyTotal` = the raw physical cash in that currency **plus** its USD value) and sums everything in USD via each row's frozen `rate_per_usd_snapshot` (drift-free, the same principle as `DebtService`/`DashboardService`). The admin list shows one USD headline per collector (formatted into the display currency); the detail shows the per-currency breakdown when more than one currency is involved.
+### The chain
 
-**Per-transaction settle, multi-select, + "receive all".** An admin opens a collector and either:
+Cash moves **up**, one rung at a time, and never sideways:
 
-- taps **Receive** on a single transaction (`WalletService.receiveItems([one])`), or
-- **long-presses to multi-select** several transactions, then taps **Receive** in the selection bar to hand them over together (`WalletService.receiveItems([…])`), or
-- taps **Receive all** to empty the whole wallet at once (`WalletService.receiveAllFromCollector`, which re-reads the collector's current unremitted set first so it never acts on a stale list).
+```
+collector (user)  →  branch admin  →  tenant-wide admin  →  owner (superadmin)
+   rank 0              rank 1             rank 2                 rank 3
+                                             │                      │
+                                       "Close out"            receiving
+                                             └──── out of the system ────┘
+```
 
-Both stamp `remitted_at`/`remitted_by` on the source rows — the cash leaves the wallet. Marking is **admin-only**, enforced in `WalletService.assertAdmin` (app-layer, matching the codebase convention that RLS only does tenant/branch isolation).
+A branch admin and a tenant-wide admin share `role = 'admin'` — only `branch_id` separates them (`NULL` = tenant-wide). **Role alone was never enough to decide a handover**, which is exactly the bug this replaced: `assertAdmin(role)` let a branch admin receive their **own** wallet and erase their accountability.
 
-**Detail-view transaction list.** `WalletDetailView` (shared by the admin detail sheet and the read-only self-view) shows each transaction as a card with the **customer** as the primary line (walk-in sales show "Walk-in"), a secondary `type · descriptor · date` line (date via the app's standard `formatDate`), and the cash amount. It carries client-side **filters** — customer (the distinct customers present in this wallet), payment type (subscription / sale / debt payment), and a from/to **date range** — that narrow only the list, never the headline total. Multi-select + the receive actions are hidden in the read-only self-view; filters remain available there. `WalletItem` now carries `customerId` / `customerName`, and its `label` is the secondary descriptor (plan for a subscription, product for a sale, `null` for a debt payment). The sale's customer name comes free from the existing `customers(*)` join (`sale.customer`, hydrated on web + offline).
+The rules are one pure file, [`wallet/utils/custody.ts`](../SubsTrack/src/modules/wallet/utils/custody.ts):
 
-**Self-correcting.** Because the wallet is derived, voiding or editing a source payment/sale/debt-payment flows straight through on the next fetch. A void + re-pay of a month **resets** `remitted_at` to NULL (the re-recorded cash is fresh, unremitted) — handled in the payment upsert's reset block. If money was already handed over and the source row is later voided, the collector's total can go **negative** (the business now owes them) — this is correct and simply shows as a negative USD figure.
+- `walletRank(u)` → 0–3 from `role` + `branchId`.
+- `receiveBlock(receiver, holder)` → `'self'` | `'rank'` | `'branch'` | `null`, checked in that order so the caption names the first real reason.
+  - **`self`** — nobody clears their own cash.
+  - **`rank`** — strictly lower only, so two branch admins (or two tenant-wide admins) can never take from each other.
+  - **`branch`** — a branch admin reaches only their own branch. An **unassigned** collector (`branchId` null) is therefore reachable only from rank 2 up.
+- `canCloseOut(u)` → rank ≥ 2. The top of the chain has nobody above them, so they need their own exit or their wallet (and the dashboard cash tile) would only ever grow.
+- `custodyTargetFor(receiver)` → where the cash lands: the receiver's id, or `null` for the owner, who has no wallet.
 
-**Where it lives.**
+Enforced in **two layers**: `WalletService` asserts before every write, and the UI reads the same helper to disable an action with a caption. This is **service-layer** enforcement — `payments_all` / `sales_all` / `debt_payments_all` are `FOR ALL` with tenant+branch predicates only, matching how the app already enforces the user-management ladder (`UserService.checkToggleActivePermission`).
 
-- Admin: **Admin → Wallets** (`app/(app)/(tabs)/admin/wallets.tsx` → `WalletsScreen`) — list of collectors holding cash, tap → detail sheet with the transactions + receive actions.
-- Every user: **Settings → My Wallet** (`app/(app)/(tabs)/settings/my-wallet.tsx` → `MyWalletScreen`) — a read-only view of their own cash-on-hand (no receive actions).
-- Dashboard (**admin-only**): a **Cash in Wallets** tile summarises the branch's uncollected cash — the net USD total (formatted into the display currency) with a `{collectors} · {transactions}` sub-line. Shown only when the total is > 0. `DashboardService.getMetrics(branchFilter, includeWallet)` folds `walletService.getWalletsView(branchFilter)` into `walletCash` / `walletCollectors` / `walletTransactions` on `DashboardMetrics`; the dashboard slice passes `includeWallet = isAdmin`, so a non-admin's dashboard neither computes nor surfaces it.
+> **One asymmetry worth knowing.** Cash the owner *receives* leaves the system (they have no wallet). Cash the owner *collects themselves* starts in their own wallet like anybody's, visible only in their **My Wallet**, where "Close out" produces the identical end state. Nothing is lost; it just needs one tap.
 
-**Code map.** `src/modules/wallet/` (`services/WalletService.ts`, `screens/`, `components/WalletDetailView.tsx` + `CollectorWalletCard.tsx`), slice `src/state/slices/wallet/walletSlice.ts` (hook `useWalletSlice`). The three cash services each gained `getUnremittedForWallet(...)` + a mark method (`PaymentService.markRemitted`, `SaleService.markRemitted`, `DebtService.markDebtPaymentsRemitted`), backed by `unremittedForWallet` / `markRemitted` on their repositories (web + offline). Types (`WalletItem` / `WalletCurrencyTotal` / `CollectorWallet` / `CollectorWalletDetail` / `WalletSource`) live in `src/core/types`.
+### What counts as held cash
 
-**Historical data.** On launch, existing collected rows all have `remitted_at = NULL`, so **every past transaction counts** toward wallets immediately (the chosen behavior — no start-date cutoff, no opening handover). Admins clear the historical backlog with a one-time "receive all" per collector.
+Every non-voided row with `held_by_user_id = <the user>`, across the three cash sources:
+
+- `payments.amount_paid` (subscription)
+- `sales.amount_paid` (one-off sale — the **cash collected**, not `total_amount`)
+- `debt_payments.amount` (money against a customer's debt)
+
+`custom_debts` are **excluded** — a custom debt is money *owed to the business*, not cash anyone holds.
+
+**Per-currency + USD.** A holder may carry several currencies at once. `WalletService` groups their items by currency (`WalletCurrencyTotal` = the raw physical cash **plus** its USD value) and sums everything in USD via each row's frozen `rate_per_usd_snapshot` (drift-free, the same principle as `DebtService`/`DashboardService`). The list shows one USD headline per wallet (formatted into the display currency); the detail shows the per-currency breakdown when more than one currency is involved.
+
+### Acting on a wallet
+
+Whatever the viewer may do resolves to one of three **modes**, decided once (`modeFor` in `WalletsScreen`, from the flags the service baked into each `UserWallet`) so the card menu and the detail sheet can never disagree:
+
+| mode | when | what it does |
+| --- | --- | --- |
+| `receive` | `receiveBlock === null` | moves the cash into the **viewer's** wallet (or out, for the owner) |
+| `close_out` | it's the viewer's own wallet and `canCloseOut` | marks it banked — out of the system |
+| `view` | neither | look only; the menu says **why** instead of showing nothing |
+
+Each mode offers the same three shapes: a single row's action, a **long-press multi-select** + the selection bar, and the bulk button ("Receive all" / "Close out all", which re-reads the wallet's current set first so it never acts on a stale list).
+
+The write is one method, `transferCustody(ids, fromUserId, toUserId, actorUserId)` on each cash repository (`toUserId` null = settle out, which also stamps `remitted_at`/`remitted_by`). Its UPDATE is **guarded on `fromUserId`**, so a row somebody else already took is skipped rather than moved twice — two admins racing on the same rows can't double-count. `custodyValues()` builds the column set in one shared place, so the two exits can never drift apart.
+
+### Detail-view transaction list
+
+`WalletDetailView` (shared by the admin detail sheet and the self-view, differing only by `mode`) shows each transaction as a card with the **customer** as the primary line (walk-in sales show "Walk-in"), a secondary `type · descriptor · date · Collected by <name>` line, and the cash amount. **"Collected by" appears only once the cash has moved** — on an untouched wallet the holder *is* the collector, and the line would be noise. It carries client-side **filters** — customer, payment type, and a from/to **date range** — that narrow only the list, never the headline total.
+
+### Self-correcting
+
+Because the wallet is derived, voiding or editing a source row flows straight through on the next fetch. A void + re-pay of a month **resets** custody to the collector (the re-recorded cash is fresh) — handled in the payment upsert's reset block, alongside the remittance nulls. If cash was already settled and the source row is later voided, the holder's total can go **negative** (the business now owes them) — correct, and simply shown as a negative USD figure.
+
+A holder is **not always a collector**: an admin who only ever *received* cash recorded none of it. `UserService`'s hard-vs-soft delete split therefore counts rows they **hold** as well as rows they recorded — otherwise `ON DELETE SET NULL` would silently empty their wallet.
+
+### Where it lives
+
+- Admin: **Admin → Wallets** (`app/(app)/(tabs)/admin/wallets.tsx` → `WalletsScreen`) — every wallet in the branch scope, **including the viewer's own**, marked with a "You" chip and no receive action. A holder the viewer cannot even see (users are branch-scoped by RLS, so a branch admin cannot read a tenant-wide admin's row) is **dropped from the list** — an un-nameable wallet they can't act on is worse than nothing.
+- Every user: **Settings → My Wallet** (`app/(app)/(tabs)/settings/my-wallet.tsx` → `MyWalletScreen`) — their own cash. Read-only below rank 2; a tenant-wide admin or the owner gets "Close out" here.
+- Dashboard (**admin-only**): a **Cash on hand** tile summarises the branch's un-settled cash — the net USD total with a `{holders} · {transactions}` sub-line, shown only when > 0. `DashboardService.getMetrics(branchFilter, viewer)` folds `walletService.getWalletsView(viewer, branchFilter)` into `walletCash` / `walletCollectors` / `walletTransactions`; the dashboard slice passes `viewer = null` for a non-admin, so their dashboard neither computes nor surfaces it.
+
+### Code map
+
+`src/modules/wallet/` — `utils/custody.ts` (the rules), `utils/custodyValues.ts` (the columns a move writes), `services/WalletService.ts`, `screens/`, `components/WalletDetailView.tsx` + `WalletCard.tsx`; slice `src/state/slices/wallet/walletSlice.ts` (hook `useWalletSlice`). The three cash services each expose `getHeldForWallet(...)` / `getHeldDebtPayments(...)` and `transferCustody(...)` / `transferDebtPaymentCustody(...)`, backed by `heldForWallet` / `transferCustody` on their repositories (web + offline). Types (`WalletItem` / `WalletCurrencyTotal` / `UserWallet` / `UserWalletDetail` / `WalletSource` / `ReceiveBlock`) live in `src/core/types`.
+
+### Historical data
+
+Running `script.sql` backfills `held_by_user_id = <the collector>` for every row that was **never handed over**, so those wallets look exactly as they did. Rows that had already been remitted stay `NULL` — **out of the system** — so no admin's wallet fills up retroactively. The backfill is idempotent (re-running moves nothing), and because the `updated_at` trigger fires on it, every touched row reaches the offline mirrors on the next incremental pull.

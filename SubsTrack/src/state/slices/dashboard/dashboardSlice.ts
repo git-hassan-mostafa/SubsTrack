@@ -42,9 +42,12 @@ export const createDashboardSlice: StateCreator<
     try {
       const user = get().auth.user;
       const branchFilter = resolveBranchFilter(user);
-      // Only admins get the collector-wallet aggregate (admin overview).
+      // Only admins get the collector-wallet aggregate (admin overview). The
+      // viewer decides which wallets they may see, so it goes in as one value.
       const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
-      const metrics = await dashboardService.getMetrics(branchFilter, isAdmin);
+      const viewer =
+        isAdmin && user ? { id: user.id, role: user.role, branchId: user.branchId } : null;
+      const metrics = await dashboardService.getMetrics(branchFilter, viewer);
       const { year, month } = getCurrentYearMonth();
       set((state) => {
         state.dashboard.metrics = metrics;

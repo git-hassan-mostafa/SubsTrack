@@ -3,6 +3,7 @@ import type { DbCustomDebt, DbCustomer, DbDebtPayment } from '@/src/core/types/d
 import { OfflineBaseRepository } from '@/src/core/offline/OfflineBaseRepository';
 import { insertDirty } from '@/src/core/offline/db/dml';
 import { newId, nowIso } from '@/src/core/offline/ids';
+import { custodyValues } from '@/src/modules/wallet/utils/custodyValues';
 import type {
   CreateCustomDebtPayload,
   CreateDebtPaymentPayload,
@@ -92,6 +93,8 @@ export class OfflineDebtRepository extends OfflineBaseRepository implements IDeb
       voided_at: null,
       voided_by: null,
       void_reason: null,
+      // The cash starts in the receiving user's wallet.
+      held_by_user_id: payload.received_by_user_id,
       remitted_at: null,
       remitted_by: null,
     };
@@ -137,16 +140,15 @@ export class OfflineDebtRepository extends OfflineBaseRepository implements IDeb
     }));
   }
 
-  async unremittedDebtPayments(
+  async heldDebtPayments(
     branchFilter: BranchFilter = null,
-    collectorUserId: string | null = null,
+    holderUserId: string | null = null,
   ): Promise<DbDebtPayment[]> {
     const parts: { clause: string; params: unknown[] }[] = [
       { clause: 'd.voided_at IS NULL', params: [] },
-      { clause: 'd.remitted_at IS NULL', params: [] },
+      { clause: 'd.held_by_user_id IS NOT NULL', params: [] },
     ];
-    if (collectorUserId)
-      parts.push({ clause: 'd.received_by_user_id = ?', params: [collectorUserId] });
+    if (holderUserId) parts.push({ clause: 'd.held_by_user_id = ?', params: [holderUserId] });
     parts.push(this.branchWhere(branchFilter, this.BRANCH_SCOPES.debt_payments, 'c'));
     const { sql, params } = this.combineWhere(parts);
     const rows = await this.all(
@@ -157,15 +159,29 @@ export class OfflineDebtRepository extends OfflineBaseRepository implements IDeb
     return this.attachCustomers(this.decodeAll<DbDebtPayment>('debt_payments', rows));
   }
 
-  async markDebtPaymentsRemitted(ids: string[], remittedBy: string): Promise<void> {
+  async transferDebtPaymentCustody(
+    ids: string[],
+    fromUserId: string,
+    toUserId: string | null,
+    actorUserId: string,
+  ): Promise<void> {
     if (ids.length === 0) return;
     const now = nowIso();
+    const values = custodyValues(toUserId, actorUserId, now);
     const ph = ids.map(() => '?').join(', ');
     await this.write(async (db) => {
       await db.runAsync(
-        `UPDATE debt_payments SET remitted_at = ?, remitted_by = ?, updated_at = ?, _dirty = 1
-         WHERE id IN (${ph}) AND remitted_at IS NULL AND voided_at IS NULL`,
-        [now, remittedBy, now, ...ids] as never[],
+        `UPDATE debt_payments
+            SET held_by_user_id = ?, remitted_at = ?, remitted_by = ?, updated_at = ?, _dirty = 1
+          WHERE id IN (${ph}) AND held_by_user_id = ? AND voided_at IS NULL`,
+        [
+          values.held_by_user_id,
+          values.remitted_at,
+          values.remitted_by,
+          now,
+          ...ids,
+          fromUserId,
+        ] as never[],
       );
     });
   }

@@ -23,6 +23,9 @@ export type CreateSalePayload = Omit<
   | 'voided_at'
   | 'voided_by'
   | 'void_reason'
+  // Custody columns: the repository seeds held_by_user_id from
+  // recorded_by_user_id, so a caller never supplies them.
+  | 'held_by_user_id'
   | 'remitted_at'
   | 'remitted_by'
   | 'sale_items'
@@ -63,13 +66,16 @@ export interface ISaleRepository {
   // (total_amount > amount_paid), across all time — the "Sales" debt category.
   // Joined with the customer for display.
   partialSales(branchFilter?: BranchFilter): Promise<DbSale[]>;
-  // Collector wallet: non-voided sales still in a wallet (remitted_at IS NULL)
-  // with cash collected (amount_paid > 0). Optionally scoped to one recorder.
-  unremittedForWallet(
-    branchFilter?: BranchFilter,
-    collectorUserId?: string | null,
-  ): Promise<DbSale[]>;
-  // Stamp the given sales as handed over (remitted) by an admin. Ignores rows
-  // already remitted or voided.
-  markRemitted(ids: string[], remittedBy: string): Promise<void>;
+  // Collector wallet: non-voided sales someone is holding (held_by_user_id IS
+  // NOT NULL) with cash collected (amount_paid > 0). Optionally scoped to one
+  // holder.
+  heldForWallet(branchFilter?: BranchFilter, holderUserId?: string | null): Promise<DbSale[]>;
+  // Move the given sales' cash to the next holder. See
+  // IPaymentRepository.transferCustody — same contract.
+  transferCustody(
+    ids: string[],
+    fromUserId: string,
+    toUserId: string | null,
+    actorUserId: string,
+  ): Promise<void>;
 }

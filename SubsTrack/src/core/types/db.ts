@@ -138,7 +138,9 @@ export interface DbPayment {
   voided_at: string | null;
   voided_by: string | null;
   notes: string | null;
-  // Collector wallet: when this cash was handed over to an admin. null = still held.
+  // Collector wallet: who holds this cash now. null = nobody (settled/unattributed).
+  held_by_user_id: string | null;
+  // Final settlement: when the cash left the wallet chain, and who took it out.
   remitted_at: string | null;
   remitted_by: string | null;
   created_at: string;
@@ -194,7 +196,9 @@ export interface DbSale {
   voided_by: string | null;
   void_reason: string | null;
   notes: string | null;
-  // Collector wallet: when the collected cash (amount_paid) was handed over. null = still held.
+  // Collector wallet: who holds this cash (amount_paid) now. null = nobody.
+  held_by_user_id: string | null;
+  // Final settlement: when the cash left the wallet chain, and who took it out.
   remitted_at: string | null;
   remitted_by: string | null;
   created_at: string;
@@ -281,7 +285,9 @@ export interface DbDebtPayment {
   voided_by: string | null;
   void_reason: string | null;
   notes: string | null;
-  // Collector wallet: when this cash was handed over to an admin. null = still held.
+  // Collector wallet: who holds this cash now. null = nobody (settled/unattributed).
+  held_by_user_id: string | null;
+  // Final settlement: when the cash left the wallet chain, and who took it out.
   remitted_at: string | null;
   remitted_by: string | null;
   // joined relation — present when .select('*, customers(*)')

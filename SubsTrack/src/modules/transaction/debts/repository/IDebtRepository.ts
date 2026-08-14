@@ -44,13 +44,19 @@ export interface IDebtRepository {
     rangeEndExclusiveIso: string,
     branchFilter?: BranchFilter,
   ): Promise<{ paidAt: string; amount: number; ratePerUsdSnapshot: number }[]>;
-  // Collector wallet: non-voided debt payments still in a wallet (remitted_at IS
-  // NULL), joined with the customer. Optionally scoped to one collector.
-  unremittedDebtPayments(
+  // Collector wallet: non-voided debt payments someone is holding
+  // (held_by_user_id IS NOT NULL), joined with the customer. Optionally scoped
+  // to one holder.
+  heldDebtPayments(
     branchFilter?: BranchFilter,
-    collectorUserId?: string | null,
+    holderUserId?: string | null,
   ): Promise<DbDebtPayment[]>;
-  // Stamp the given debt payments as handed over (remitted) by an admin. Ignores
-  // rows already remitted or voided.
-  markDebtPaymentsRemitted(ids: string[], remittedBy: string): Promise<void>;
+  // Move the given debt payments' cash to the next holder. See
+  // IPaymentRepository.transferCustody — same contract.
+  transferDebtPaymentCustody(
+    ids: string[],
+    fromUserId: string,
+    toUserId: string | null,
+    actorUserId: string,
+  ): Promise<void>;
 }

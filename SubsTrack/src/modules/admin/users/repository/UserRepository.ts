@@ -47,18 +47,27 @@ export class UserRepository extends BaseRepository implements IUserRepository {
   }
 
   async countPayments(id: string): Promise<number> {
-    const { count, error } = await this.db
-      .from('payments')
-      .select('id', { count: 'exact', head: true })
-      .eq('received_by_user_id', id);
-    if (error) this.handleError(error);
-    return count ?? 0;
+    const [recorded, held] = await Promise.all([
+      this.db.from('payments').select('id', { count: 'exact', head: true })
+        .eq('received_by_user_id', id),
+      // Cash they are holding but did not collect (received up the chain) —
+      // deleting them would blank held_by_user_id and lose it.
+      this.db.from('payments').select('id', { count: 'exact', head: true })
+        .eq('held_by_user_id', id),
+    ]);
+    if (recorded.error) this.handleError(recorded.error);
+    if (held.error) this.handleError(held.error);
+    return (recorded.count ?? 0) + (held.count ?? 0);
   }
 
-  // The subset of the given users who have recorded payments — one query.
-  // Drives the soft-delete vs hard-delete split in bulk delete.
+  // The subset of the given users who have recorded payments or are holding
+  // cash — one query each. Drives the soft-vs-hard delete split in bulk delete.
   async usersWithPayments(ids: string[]): Promise<Set<string>> {
-    return this.referencedIdsIn('payments', 'received_by_user_id', ids);
+    const [recorded, held] = await Promise.all([
+      this.referencedIdsIn('payments', 'received_by_user_id', ids),
+      this.referencedIdsIn('payments', 'held_by_user_id', ids),
+    ]);
+    return new Set([...recorded, ...held]);
   }
 
   // Soft-delete many users in one statement.

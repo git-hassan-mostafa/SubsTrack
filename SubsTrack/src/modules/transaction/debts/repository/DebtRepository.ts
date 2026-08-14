@@ -2,6 +2,7 @@ import { Platform } from 'react-native';
 import { BaseRepository } from '@/src/core/utils/BaseRepository';
 import { type BranchFilter } from '@/src/core/constants';
 import type { DbCustomDebt, DbDebtPayment } from '@/src/core/types/db';
+import { custodyValues } from '@/src/modules/wallet/utils/custodyValues';
 import type {
   CreateCustomDebtPayload,
   CreateDebtPaymentPayload,
@@ -65,7 +66,14 @@ export class DebtRepository extends BaseRepository implements IDebtRepository {
   async createDebtPayment(payload: CreateDebtPaymentPayload): Promise<DbDebtPayment> {
     const { data, error } = await this.db
       .from('debt_payments')
-      .insert({ ...payload, voided_at: null, voided_by: null, void_reason: null })
+      .insert({
+        ...payload,
+        voided_at: null,
+        voided_by: null,
+        void_reason: null,
+        // The cash starts in the receiving user's wallet.
+        held_by_user_id: payload.received_by_user_id,
+      })
       .select(DEBT_PAYMENT_SELECT)
       .single();
     if (error) this.handleError(error);
@@ -107,31 +115,36 @@ export class DebtRepository extends BaseRepository implements IDebtRepository {
     );
   }
 
-  async unremittedDebtPayments(
+  async heldDebtPayments(
     branchFilter: BranchFilter = null,
-    collectorUserId: string | null = null,
+    holderUserId: string | null = null,
   ): Promise<DbDebtPayment[]> {
     let query = this.db
       .from('debt_payments')
       .select(DEBT_PAYMENT_SELECT)
       .is('voided_at', null)
-      .is('remitted_at', null)
+      .not('held_by_user_id', 'is', null)
       .order('paid_at', { ascending: false });
-    if (collectorUserId) query = query.eq('received_by_user_id', collectorUserId);
+    if (holderUserId) query = query.eq('held_by_user_id', holderUserId);
     query = this.applyBranchFilter(query, branchFilter, this.BRANCH_SCOPES.debt_payments);
     const { data, error } = await query;
     if (error) this.handleError(error);
     return (data ?? []) as DbDebtPayment[];
   }
 
-  async markDebtPaymentsRemitted(ids: string[], remittedBy: string): Promise<void> {
+  async transferDebtPaymentCustody(
+    ids: string[],
+    fromUserId: string,
+    toUserId: string | null,
+    actorUserId: string,
+  ): Promise<void> {
     if (ids.length === 0) return;
-    const remittedAt = new Date().toISOString();
     const { error } = await this.db
       .from('debt_payments')
-      .update({ remitted_at: remittedAt, remitted_by: remittedBy })
+      .update(custodyValues(toUserId, actorUserId))
       .in('id', ids)
-      .is('remitted_at', null)
+      // Guarded on the current holder — see PaymentRepository.transferCustody.
+      .eq('held_by_user_id', fromUserId)
       .is('voided_at', null);
     if (error) this.handleError(error);
   }

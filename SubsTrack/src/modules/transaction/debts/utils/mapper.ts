@@ -37,6 +37,7 @@ export function mapDbDebtPaymentToDebtPayment(db: DbDebtPayment): DebtPayment {
     voidedBy: db.voided_by,
     voidReason: db.void_reason,
     notes: db.notes,
+    heldByUserId: db.held_by_user_id,
     remittedAt: db.remitted_at,
     remittedBy: db.remitted_by,
   };

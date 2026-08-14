@@ -23,13 +23,32 @@ import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
 import { useAfterFirstFrame } from "@/src/shared/hooks/useAfterFirstFrame";
 import { useWalletSlice } from "@/src/state/hooks/useWalletSlice";
-import type { CollectorWallet, WalletItem } from "@/src/core/types";
-import { CollectorWalletCard } from "../components/CollectorWalletCard";
-import { WalletDetailView } from "../components/WalletDetailView";
+import type { ReceiveBlock, UserWallet, WalletItem } from "@/src/core/types";
+import { WalletCard } from "../components/WalletCard";
+import {
+  WalletDetailView,
+  type WalletActionMode,
+} from "../components/WalletDetailView";
 
-// Admin screen: every collector who is holding cash not yet handed over, with
-// the total each owes the business. Tap a collector to see the transactions and
-// mark them received (per transaction, or all at once).
+// Why a wallet's cash can't be taken, in the words the holder's colleague needs.
+const BLOCK_LABEL: Record<Exclude<ReceiveBlock, null>, string> = {
+  self: "wallet.cannot_receive_self",
+  rank: "wallet.cannot_receive_rank",
+  branch: "wallet.cannot_receive_branch",
+};
+
+// What the viewer may do with a given wallet. One place, so the card menu and
+// the detail sheet can never offer different actions for the same wallet.
+function modeFor(wallet: UserWallet): WalletActionMode {
+  if (wallet.receiveBlock === null) return "receive";
+  if (wallet.canCloseOut) return "close_out";
+  return "view";
+}
+
+// Admin screen: everyone holding cash that has not yet left the system, with the
+// total each is carrying. Tap to see the transactions behind it. Receiving moves
+// the cash into YOUR wallet; you can never receive your own, and a branch admin
+// only reaches their own branch's collectors (see utils/custody.ts).
 export function WalletsScreen() {
   const { t } = useTranslation();
   const router = useRouter();
@@ -42,10 +61,10 @@ export function WalletsScreen() {
   const fetchWallets = useWalletSlice((s) => s.fetchWallets);
   const fetchDetail = useWalletSlice((s) => s.fetchDetail);
   const clearDetail = useWalletSlice((s) => s.clearDetail);
-  const receiveItems = useWalletSlice((s) => s.receiveItems);
-  const receiveAllFromCollector = useWalletSlice(
-    (s) => s.receiveAllFromCollector,
-  );
+  const receiveFrom = useWalletSlice((s) => s.receiveFrom);
+  const receiveAllFrom = useWalletSlice((s) => s.receiveAllFrom);
+  const closeOutItems = useWalletSlice((s) => s.closeOutItems);
+  const closeOutAll = useWalletSlice((s) => s.closeOutAll);
   const clearError = useWalletSlice((s) => s.clearError);
 
   const currencies = useCurrencySlice((s) => s.items);
@@ -53,14 +72,14 @@ export function WalletsScreen() {
   const target = findCurrency(currencies, displayCurrencyId);
 
   const branchFilter = useEffectiveBranchFilter();
-  const [openWallet, setOpenWallet] = useState<CollectorWallet | null>(null);
+  const [openWallet, setOpenWallet] = useState<UserWallet | null>(null);
   // Sheet is always mounted, so gate on its visibility — see useAfterFirstFrame.
   const detailReady = useAfterFirstFrame(!!openWallet);
-  const [menuWallet, setMenuWallet] = useState<CollectorWallet | null>(null);
+  const [menuWallet, setMenuWallet] = useState<UserWallet | null>(null);
   const [busy, setBusy] = useState(false);
-  // Collector whose "receive all" is currently running from the list card (its
-  // card shows a spinner). Separate from `busy`, which drives the detail sheet.
-  const [receivingId, setReceivingId] = useState<string | null>(null);
+  // Wallet whose bulk action is running from the list card (its card shows a
+  // spinner). Separate from `busy`, which drives the detail sheet.
+  const [actingId, setActingId] = useState<string | null>(null);
 
   // Refresh on focus + whenever the effective branch changes.
   useFocusEffect(
@@ -74,77 +93,101 @@ export function WalletsScreen() {
     [items],
   );
 
-  function openCollector(wallet: CollectorWallet) {
+  function openHolder(wallet: UserWallet) {
     setOpenWallet(wallet);
     clearDetail();
-    void fetchDetail(wallet.collectorUserId);
+    void fetchDetail(wallet.holderUserId);
   }
 
-  function closeCollector() {
+  function closeHolder() {
     setOpenWallet(null);
     clearDetail();
   }
 
-  // Receive one or several selected transactions. Returns whether it went
+  // Act on one or several selected transactions. Returns whether it went
   // through, so the detail view can clear its selection on success.
-  async function handleReceiveItems(items: WalletItem[]): Promise<boolean> {
-    if (items.length === 0) return false;
+  async function handleActItems(
+    wallet: UserWallet,
+    selected: WalletItem[],
+  ): Promise<boolean> {
+    if (selected.length === 0) return false;
+    const closing = modeFor(wallet) === "close_out";
     const ok = await confirm({
-      title: t("wallet.receive_confirm_title"),
-      message:
-        items.length === 1
+      title: closing
+        ? t("wallet.close_out_confirm_title")
+        : t("wallet.receive_confirm_title"),
+      message: closing
+        ? t("wallet.close_out_confirm_message", { count: selected.length })
+        : selected.length === 1
           ? t("wallet.receive_confirm_message")
           : t("wallet.receive_selected_confirm_message", {
-              count: items.length,
+              count: selected.length,
             }),
-      confirmLabel: t("wallet.receive"),
+      confirmLabel: closing ? t("wallet.close_out") : t("wallet.receive"),
     });
     if (!ok) return false;
+    const payload = selected.map((i) => ({ source: i.source, id: i.id }));
     setBusy(true);
     try {
-      await receiveItems(items.map((i) => ({ source: i.source, id: i.id })));
+      if (closing) await closeOutItems(payload);
+      else await receiveFrom(wallet.holderUserId, payload);
       return true;
     } finally {
       setBusy(false);
     }
   }
 
-  // Shared "receive everything from this collector" flow — used by both the
-  // detail sheet's button and the list card's menu. When invoked from the sheet
-  // it also closes it (the collector drops off the list afterward).
-  async function receiveAllFor(wallet: CollectorWallet, fromSheet: boolean) {
+  // Shared "empty this whole wallet" flow — used by both the detail sheet's
+  // button and the list card's menu. From the sheet it also closes it (the
+  // wallet drops off the list afterward).
+  async function actAllFor(wallet: UserWallet, fromSheet: boolean) {
+    const closing = modeFor(wallet) === "close_out";
     const ok = await confirm({
-      title: t("wallet.receive_all_confirm_title"),
-      message: t("wallet.receive_all_confirm_message", {
-        name: wallet.collectorName,
-      }),
-      confirmLabel: t("wallet.receive_all"),
+      title: closing
+        ? t("wallet.close_out_all_confirm_title")
+        : t("wallet.receive_all_confirm_title"),
+      message: closing
+        ? t("wallet.close_out_all_confirm_message")
+        : t("wallet.receive_all_confirm_message", { name: wallet.holderName }),
+      confirmLabel: closing ? t("wallet.close_out_all") : t("wallet.receive_all"),
     });
     if (!ok) return;
     if (fromSheet) setBusy(true);
-    else setReceivingId(wallet.collectorUserId);
+    else setActingId(wallet.holderUserId);
     try {
-      await receiveAllFromCollector(wallet.collectorUserId);
-      if (fromSheet) closeCollector();
+      if (closing) await closeOutAll();
+      else await receiveAllFrom(wallet.holderUserId);
+      if (fromSheet) closeHolder();
     } finally {
       if (fromSheet) setBusy(false);
-      else setReceivingId(null);
+      else setActingId(null);
     }
   }
 
-  function handleReceiveAll() {
-    if (!openWallet) return;
-    void receiveAllFor(openWallet, true);
-  }
-
-  function buildMenuActions(wallet: CollectorWallet | null): ActionMenuItem[] {
+  function buildMenuActions(wallet: UserWallet | null): ActionMenuItem[] {
     if (!wallet) return [];
+    const mode = modeFor(wallet);
+    if (mode === "view") {
+      // Nothing to do here — say why rather than showing an empty menu.
+      return [
+        {
+          key: "blocked",
+          label: t(BLOCK_LABEL[wallet.receiveBlock ?? "rank"]),
+          icon: "lock-closed-outline",
+          disabled: true,
+          onPress: () => {},
+        },
+      ];
+    }
     return [
       {
-        key: "receive-all",
-        label: t("wallet.receive_all"),
+        key: "act-all",
+        label:
+          mode === "close_out"
+            ? t("wallet.close_out_all")
+            : t("wallet.receive_all"),
         icon: "checkmark-done-outline",
-        onPress: () => void receiveAllFor(wallet, false),
+        onPress: () => void actAllFor(wallet, false),
       },
     ];
   }
@@ -160,7 +203,7 @@ export function WalletsScreen() {
       <ResponsiveContainer className="flex-1">
         <View className="px-5 py-4">
           <Text className="text-xs text-gray-400 uppercase tracking-wide">
-            {t("wallet.unremitted_total")}
+            {t("wallet.cash_on_hand")}
           </Text>
           <Text fontWeight="Bold" className="text-2xl text-gray-900 mt-1">
             {formatMoney(grandTotalUsd, null, target)}
@@ -169,13 +212,13 @@ export function WalletsScreen() {
 
         <FlatList
           data={items}
-          keyExtractor={(w) => w.collectorUserId}
+          keyExtractor={(w) => w.holderUserId}
           renderItem={({ item }) => (
-            <CollectorWalletCard
+            <WalletCard
               wallet={item}
-              onPress={() => openCollector(item)}
+              onPress={() => openHolder(item)}
               onMenu={() => setMenuWallet(item)}
-              menuLoading={receivingId === item.collectorUserId}
+              menuLoading={actingId === item.holderUserId}
             />
           )}
           contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 32 }}
@@ -199,7 +242,7 @@ export function WalletsScreen() {
 
       <AppBottomSheet
         visible={!!openWallet}
-        onDismiss={closeCollector}
+        onDismiss={closeHolder}
         variant="full"
       >
         <ResponsiveContainer className="flex-1">
@@ -209,21 +252,22 @@ export function WalletsScreen() {
               className="text-lg text-gray-900 flex-1 pe-2"
               numberOfLines={1}
             >
-              {openWallet?.collectorName ?? ""}
+              {openWallet?.holderName ?? ""}
             </Text>
-            <PressableOpacity onPress={closeCollector}>
+            <PressableOpacity onPress={closeHolder}>
               <Text className="text-base text-primary font-medium">
                 {t("common.close")}
               </Text>
             </PressableOpacity>
           </SheetDragArea>
-          {detailReady ? (
+          {detailReady && openWallet ? (
             <WalletDetailView
               detail={detail}
               loading={detailLoading}
+              mode={modeFor(openWallet)}
               busy={busy}
-              onReceiveItems={handleReceiveItems}
-              onReceiveAll={handleReceiveAll}
+              onActItems={(selected) => handleActItems(openWallet, selected)}
+              onActAll={() => void actAllFor(openWallet, true)}
             />
           ) : null}
         </ResponsiveContainer>
@@ -231,7 +275,7 @@ export function WalletsScreen() {
 
       <ActionMenu
         visible={menuWallet !== null}
-        title={menuWallet?.collectorName}
+        title={menuWallet?.holderName}
         actions={buildMenuActions(menuWallet)}
         onDismiss={() => setMenuWallet(null)}
       />

@@ -1,8 +1,7 @@
 import type { BranchFilter } from '@/src/core/constants';
 import type {
-  CollectorWallet,
-  CollectorWalletDetail,
-  UserRole,
+  UserWallet,
+  UserWalletDetail,
   WalletCurrencyTotal,
   WalletItem,
   WalletSource,
@@ -12,106 +11,168 @@ import { paymentService } from '@/src/modules/customer/customer-payments';
 import { saleService } from '@/src/modules/transaction/sales';
 import { debtService } from '@/src/modules/transaction/debts';
 import { userService } from '@/src/modules/admin/users';
+import {
+  canCloseOut,
+  canReceiveFrom,
+  custodyTargetFor,
+  receiveBlock,
+  type WalletActor,
+} from '../utils/custody';
 
-// A collector wallet is DERIVED, never stored. It composes the three cash
-// sources — subscription payments, sales, and debt payments — filtered to the
-// rows a user recorded that are not voided and not yet handed over (remitted).
-// Marking a row "received" stamps remitted_at/remitted_by, dropping it from the
-// wallet. Multi-currency: each row is summed in its own currency (physical cash)
-// AND in USD via its frozen snapshot rate (drift-free, same as DebtService).
+// A wallet is DERIVED, never stored. It composes the three cash sources —
+// subscription payments, sales, and debt payments — filtered to the rows a user
+// is currently HOLDING (held_by_user_id), not the rows they collected: cash
+// moves up the chain (collector → branch admin → tenant-wide admin) and each
+// handover re-points that column. Multi-currency: each row is summed in its own
+// currency (physical cash) AND in USD via its frozen snapshot rate (drift-free,
+// same as DebtService). Who may take cash from whom lives in utils/custody.ts.
+
+/** One holder, resolved from the user list — what the chain rules need. */
+type HolderInfo = WalletActor & { fullName: string; active: boolean };
+
 class WalletService {
-  // Every collector's wallet for the branch scope, folded per collector +
-  // per currency. Sorted most-cash-first (by USD value).
-  async getWalletsView(branchFilter: BranchFilter = null): Promise<CollectorWallet[]> {
-    const [items, users] = await Promise.all([
+  // Every wallet in the branch scope, folded per holder + per currency, with the
+  // viewer's own permissions baked into each one. Sorted most-cash-first.
+  async getWalletsView(
+    viewer: WalletActor,
+    branchFilter: BranchFilter = null,
+  ): Promise<UserWallet[]> {
+    const [items, holders] = await Promise.all([
       this.collectItems(branchFilter, null),
-      this.userMap(),
+      this.holderMap(),
     ]);
-    const byCollector = new Map<string, WalletItem[]>();
+    this.nameCollectors(items, holders);
+    const byHolder = new Map<string, WalletItem[]>();
     for (const it of items) {
-      const arr = byCollector.get(it.collectorUserId);
+      const arr = byHolder.get(it.holderUserId);
       if (arr) arr.push(it);
-      else byCollector.set(it.collectorUserId, [it]);
+      else byHolder.set(it.holderUserId, [it]);
     }
-    const wallets = [...byCollector.entries()].map(([id, its]) =>
-      this.foldWallet(id, users.get(id), its),
-    );
+    const wallets: UserWallet[] = [];
+    for (const [id, its] of byHolder) {
+      const holder = holders.get(id);
+      // A holder the viewer can't even see (users are branch-scoped by RLS) has
+      // no name and no place in the chain, so there is nothing to show or act on.
+      if (!holder) continue;
+      wallets.push(this.foldWallet(holder, viewer, its));
+    }
     wallets.sort((a, b) => b.totalUsd - a.totalUsd);
     return wallets;
   }
 
-  // One collector's wallet plus the individual transactions behind it
-  // (newest first). Used by the collector detail sheet and the self-view.
+  // One wallet plus the individual transactions behind it (newest first). Used
+  // by the holder detail sheet and the self-view.
   async getWalletDetail(
-    collectorUserId: string,
+    holderUserId: string,
+    viewer: WalletActor,
     branchFilter: BranchFilter = null,
-  ): Promise<CollectorWalletDetail> {
-    const [items, users] = await Promise.all([
-      this.collectItems(branchFilter, collectorUserId),
-      this.userMap(),
+  ): Promise<UserWalletDetail> {
+    const [items, holders] = await Promise.all([
+      this.collectItems(branchFilter, holderUserId),
+      this.holderMap(),
     ]);
-    const wallet = this.foldWallet(collectorUserId, users.get(collectorUserId), items);
+    this.nameCollectors(items, holders);
+    const holder = holders.get(holderUserId) ?? this.unknownHolder(holderUserId);
+    const wallet = this.foldWallet(holder, viewer, items);
     const sorted = [...items].sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
     return { ...wallet, items: sorted };
   }
 
-  // Hand over specific transactions (per-transaction settle). Grouped by source
-  // and marked remitted in one round-trip each. Admin-only.
-  async receiveItems(
+  // Take specific transactions off a holder (per-transaction settle). The cash
+  // moves into the viewer's wallet — or straight out of the system when the
+  // viewer is the owner, who has no wallet.
+  async receiveFrom(
+    holderUserId: string,
     items: { source: WalletSource; id: string }[],
-    remittedBy: string,
-    callerRole: UserRole,
+    viewer: WalletActor,
   ): Promise<void> {
-    this.assertAdmin(callerRole);
-    const bySource: Record<WalletSource, string[]> = { payment: [], sale: [], debt_payment: [] };
-    for (const it of items) bySource[it.source].push(it.id);
-    await Promise.all([
-      paymentService.markRemitted(bySource.payment, remittedBy),
-      saleService.markRemitted(bySource.sale, remittedBy),
-      debtService.markDebtPaymentsRemitted(bySource.debt_payment, remittedBy),
-    ]);
+    await this.assertCanReceive(holderUserId, viewer);
+    await this.moveCustody(items, holderUserId, custodyTargetFor(viewer), viewer.id);
   }
 
-  // Receive EVERYTHING a collector currently holds — the "receive all" button.
-  // Re-reads the collector's current unremitted set first (fresh, avoids acting
-  // on a stale list) then marks it all remitted. Admin-only.
-  async receiveAllFromCollector(
-    collectorUserId: string,
-    remittedBy: string,
-    callerRole: UserRole,
+  // Take EVERYTHING a holder is carrying — the "receive all" button. Re-reads
+  // their current set first (fresh, avoids acting on a stale list).
+  async receiveAllFrom(
+    holderUserId: string,
+    viewer: WalletActor,
     branchFilter: BranchFilter = null,
   ): Promise<void> {
-    this.assertAdmin(callerRole);
-    const items = await this.collectItems(branchFilter, collectorUserId);
-    await this.receiveItems(
+    await this.assertCanReceive(holderUserId, viewer);
+    const items = await this.collectItems(branchFilter, holderUserId);
+    await this.moveCustody(
       items.map((i) => ({ source: i.source, id: i.id })),
-      remittedBy,
-      callerRole,
+      holderUserId,
+      custodyTargetFor(viewer),
+      viewer.id,
+    );
+  }
+
+  // Settle the viewer's OWN cash: banked, out of the system. The top of the
+  // chain needs this exit — nobody above them can take it.
+  async closeOut(
+    items: { source: WalletSource; id: string }[],
+    viewer: WalletActor,
+  ): Promise<void> {
+    this.assertCanCloseOut(viewer);
+    await this.moveCustody(items, viewer.id, null, viewer.id);
+  }
+
+  async closeOutAll(viewer: WalletActor, branchFilter: BranchFilter = null): Promise<void> {
+    this.assertCanCloseOut(viewer);
+    const items = await this.collectItems(branchFilter, viewer.id);
+    await this.moveCustody(
+      items.map((i) => ({ source: i.source, id: i.id })),
+      viewer.id,
+      null,
+      viewer.id,
     );
   }
 
   // ── internals ────────────────────────────────────────────────────────────
 
+  // The one write. Groups by source and moves each set in one round-trip.
+  private async moveCustody(
+    items: { source: WalletSource; id: string }[],
+    fromUserId: string,
+    toUserId: string | null,
+    actorUserId: string,
+  ): Promise<void> {
+    const bySource: Record<WalletSource, string[]> = { payment: [], sale: [], debt_payment: [] };
+    for (const it of items) bySource[it.source].push(it.id);
+    await Promise.all([
+      paymentService.transferCustody(bySource.payment, fromUserId, toUserId, actorUserId),
+      saleService.transferCustody(bySource.sale, fromUserId, toUserId, actorUserId),
+      debtService.transferDebtPaymentCustody(
+        bySource.debt_payment,
+        fromUserId,
+        toUserId,
+        actorUserId,
+      ),
+    ]);
+  }
+
   // Fan out over the three cash sources and normalise each into a WalletItem.
-  // Rows with no collector (received_by/recorded_by NULL) can't belong to a
-  // wallet and are skipped.
+  // Rows nobody holds are already excluded by the queries; rows with no
+  // collector still resolve (the holder is what a wallet groups on).
   private async collectItems(
     branchFilter: BranchFilter,
-    collectorUserId: string | null,
+    holderUserId: string | null,
   ): Promise<WalletItem[]> {
     const [payments, sales, debtPayments] = await Promise.all([
-      paymentService.getUnremittedForWallet(branchFilter, collectorUserId),
-      saleService.getUnremittedForWallet(branchFilter, collectorUserId),
-      debtService.getUnremittedDebtPayments(branchFilter, collectorUserId),
+      paymentService.getHeldForWallet(branchFilter, holderUserId),
+      saleService.getHeldForWallet(branchFilter, holderUserId),
+      debtService.getHeldDebtPayments(branchFilter, holderUserId),
     ]);
 
     const items: WalletItem[] = [];
     for (const p of payments) {
-      if (!p.receivedByUserId) continue;
+      if (!p.heldByUserId) continue;
       items.push({
         id: p.id,
         source: 'payment',
-        collectorUserId: p.receivedByUserId,
+        collectorUserId: p.receivedByUserId ?? p.heldByUserId,
+        collectorName: null, // filled by nameCollectors once the holders are known
+        holderUserId: p.heldByUserId,
         customerId: p.customerId,
         customerName: p.customerName || null,
         label: p.planName,
@@ -122,11 +183,13 @@ class WalletService {
       });
     }
     for (const s of sales) {
-      if (!s.recordedByUserId) continue;
+      if (!s.heldByUserId) continue;
       items.push({
         id: s.id,
         source: 'sale',
-        collectorUserId: s.recordedByUserId,
+        collectorUserId: s.recordedByUserId ?? s.heldByUserId,
+        collectorName: null,
+        holderUserId: s.heldByUserId,
         customerId: s.customerId,
         customerName: s.customer?.name ?? null,
         label: s.itemsSummary,
@@ -137,11 +200,13 @@ class WalletService {
       });
     }
     for (const d of debtPayments) {
-      if (!d.receivedByUserId) continue;
+      if (!d.heldByUserId) continue;
       items.push({
         id: d.id,
         source: 'debt_payment',
-        collectorUserId: d.receivedByUserId,
+        collectorUserId: d.receivedByUserId ?? d.heldByUserId,
+        collectorName: null,
+        holderUserId: d.heldByUserId,
         customerId: d.customerId,
         customerName: d.customerName || null,
         label: null,
@@ -154,11 +219,16 @@ class WalletService {
     return items;
   }
 
-  private foldWallet(
-    collectorUserId: string,
-    user: { fullName: string; active: boolean } | undefined,
-    items: WalletItem[],
-  ): CollectorWallet {
+  // Name the original collector, but only on cash that has already moved — on
+  // an untouched wallet the holder IS the collector and the line is noise.
+  private nameCollectors(items: WalletItem[], holders: Map<string, HolderInfo>): void {
+    for (const it of items) {
+      if (it.collectorUserId === it.holderUserId) continue;
+      it.collectorName = holders.get(it.collectorUserId)?.fullName ?? null;
+    }
+  }
+
+  private foldWallet(holder: HolderInfo, viewer: WalletActor, items: WalletItem[]): UserWallet {
     const byCurrency = new Map<string, WalletCurrencyTotal>();
     let totalUsd = 0;
     for (const it of items) {
@@ -173,29 +243,58 @@ class WalletService {
         byCurrency.set(key, { currencyId: it.currencyId, amount: it.amount, usd });
       }
     }
+    const isSelf = holder.id === viewer.id;
     return {
-      collectorUserId,
-      collectorName: user?.fullName ?? i18n.t('wallet.unknown_collector'),
-      active: user?.active ?? false,
+      holderUserId: holder.id,
+      holderName: holder.fullName,
+      active: holder.active,
       byCurrency: [...byCurrency.values()].sort((a, b) => b.usd - a.usd),
       itemCount: items.length,
       totalUsd,
+      isSelf,
+      receiveBlock: receiveBlock(viewer, holder),
+      canCloseOut: isSelf && canCloseOut(viewer),
     };
   }
 
-  // id → { fullName, active } for every user visible to the caller (RLS-scoped),
-  // so deactivated collectors who still hold cash still resolve to a name.
-  private async userMap(): Promise<Map<string, { fullName: string; active: boolean }>> {
+  // id → the holder facts the chain rules need, for every user visible to the
+  // caller (RLS-scoped), so a deactivated holder still resolves to a name.
+  private async holderMap(): Promise<Map<string, HolderInfo>> {
     const users = await userService.getUsers(null);
-    const map = new Map<string, { fullName: string; active: boolean }>();
-    for (const u of users) map.set(u.id, { fullName: u.fullName, active: u.active });
+    const map = new Map<string, HolderInfo>();
+    for (const u of users) {
+      map.set(u.id, {
+        id: u.id,
+        role: u.role,
+        branchId: u.branchId,
+        fullName: u.fullName,
+        active: u.active,
+      });
+    }
     return map;
   }
 
-  private assertAdmin(role: UserRole): void {
-    if (role !== 'admin' && role !== 'superadmin') {
+  // A holder the viewer can't resolve: named "Unknown" and, being rank-less,
+  // never receivable. Only reachable from the detail view (the list drops them).
+  private unknownHolder(id: string): HolderInfo {
+    return {
+      id,
+      role: 'superadmin', // the top rank — nobody outranks it, so nobody can receive
+      branchId: null,
+      fullName: i18n.t('wallet.unknown_collector'),
+      active: false,
+    };
+  }
+
+  private async assertCanReceive(holderUserId: string, viewer: WalletActor): Promise<void> {
+    const holder = (await this.holderMap()).get(holderUserId);
+    if (!holder || !canReceiveFrom(viewer, holder)) {
       throw new Error(i18n.t('errors.forbidden'));
     }
+  }
+
+  private assertCanCloseOut(viewer: WalletActor): void {
+    if (!canCloseOut(viewer)) throw new Error(i18n.t('errors.forbidden'));
   }
 }
 

@@ -2,6 +2,7 @@ import { Platform } from 'react-native';
 import { BaseRepository } from '@/src/core/utils/BaseRepository';
 import { PAGE_SIZE, type BranchFilter } from '@/src/core/constants';
 import type { DbSale, DbSaleItem } from '@/src/core/types/db';
+import { custodyValues } from '@/src/modules/wallet/utils/custodyValues';
 import { FindSalesOptions } from '../utils/types';
 import type { CreateSalePayload, ISaleRepository } from './ISaleRepository';
 import { OfflineSaleRepository } from './SaleRepository.offline';
@@ -102,7 +103,8 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
     // It returns its own joined customer so no read-back is needed afterwards.
     const { data: sale, error } = await this.db
       .from('sales')
-      .insert(header)
+      // The cash starts in the recording user's wallet.
+      .insert({ ...header, held_by_user_id: header.recorded_by_user_id })
       .select(SALE_SELECT_LEAN)
       .single();
     if (error) this.handleError(error);
@@ -272,9 +274,9 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
     ) as DbSale[];
   }
 
-  async unremittedForWallet(
+  async heldForWallet(
     branchFilter: BranchFilter = null,
-    collectorUserId: string | null = null,
+    holderUserId: string | null = null,
   ): Promise<DbSale[]> {
     // Lean select — the wallet label reads the header items_summary.
     let query = this.db
@@ -282,37 +284,43 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
       .select(SALE_SELECT_LEAN)
       .gt('amount_paid', 0)
       .is('voided_at', null)
-      .is('remitted_at', null)
+      .not('held_by_user_id', 'is', null)
       .order('sold_at', { ascending: false });
-    if (collectorUserId) query = query.eq('recorded_by_user_id', collectorUserId);
+    if (holderUserId) query = query.eq('held_by_user_id', holderUserId);
     query = this.applyBranchFilter(query, branchFilter, this.BRANCH_SCOPES.sales);
     const { data, error } = await query;
     if (error) this.handleError(error);
     return (data ?? []) as DbSale[];
   }
 
-  async markRemitted(ids: string[], remittedBy: string): Promise<void> {
+  async transferCustody(
+    ids: string[],
+    fromUserId: string,
+    toUserId: string | null,
+    actorUserId: string,
+  ): Promise<void> {
     if (ids.length === 0) return;
-    const remittedAt = new Date().toISOString();
+    const values = custodyValues(toUserId, actorUserId);
     const { error, data } = await this.db
       .from('sales')
-      .update({ remitted_at: remittedAt, remitted_by: remittedBy })
+      .update(values)
       .in('id', ids)
-      .is('remitted_at', null)
+      // Guarded on the current holder — see PaymentRepository.transferCustody.
+      .eq('held_by_user_id', fromUserId)
       .is('voided_at', null)
       // Returned so the trail records only the rows the conditional UPDATE
       // actually moved, not every id the caller passed.
       .select();
     if (error) this.handleError(error);
-    const remitted = (data ?? []) as DbSale[];
-    for (const s of remitted) {
+    const moved = (data ?? []) as DbSale[];
+    for (const s of moved) {
       // A sale owns its branch_id, so the passed one wins; only the customer name
       // is looked up, in the background, and never for a walk-in sale.
       this.audit({
         table: 'sales',
         recordId: s.id,
         action: 'update',
-        before: { ...s, remitted_at: null, remitted_by: null },
+        before: { ...s, held_by_user_id: fromUserId, remitted_at: null, remitted_by: null },
         after: s,
         branchId: s.branch_id,
         customerId: s.customer_id,

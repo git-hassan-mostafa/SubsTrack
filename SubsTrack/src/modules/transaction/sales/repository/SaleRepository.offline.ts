@@ -3,6 +3,7 @@ import type { DbCustomer, DbProduct, DbSale, DbSaleItem, DbStockMovement } from 
 import { OfflineBaseRepository } from '@/src/core/offline/OfflineBaseRepository';
 import { insertDirty } from '@/src/core/offline/db/dml';
 import { newId, nowIso } from '@/src/core/offline/ids';
+import { custodyValues } from '@/src/modules/wallet/utils/custodyValues';
 import type { FindSalesOptions } from '../utils/types';
 import type { CreateSalePayload, ISaleRepository } from './ISaleRepository';
 
@@ -102,6 +103,8 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
       voided_at: null,
       voided_by: null,
       void_reason: null,
+      // The cash starts in the recording user's wallet.
+      held_by_user_id: header.recorded_by_user_id,
       remitted_at: null,
       remitted_by: null,
     };
@@ -276,41 +279,55 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
     return this.hydrate(this.decodeAll<DbSale>('sales', rows));
   }
 
-  async unremittedForWallet(
+  async heldForWallet(
     branchFilter: BranchFilter = null,
-    collectorUserId: string | null = null,
+    holderUserId: string | null = null,
   ): Promise<DbSale[]> {
     const parts: { clause: string; params: unknown[] }[] = [
       { clause: 'CAST(s.amount_paid AS REAL) > 0', params: [] },
       { clause: 's.voided_at IS NULL', params: [] },
-      { clause: 's.remitted_at IS NULL', params: [] },
+      { clause: 's.held_by_user_id IS NOT NULL', params: [] },
     ];
-    if (collectorUserId)
-      parts.push({ clause: 's.recorded_by_user_id = ?', params: [collectorUserId] });
+    if (holderUserId) parts.push({ clause: 's.held_by_user_id = ?', params: [holderUserId] });
     parts.push(this.branchWhere(branchFilter, this.BRANCH_SCOPES.sales, 's'));
     const { sql, params } = this.combineWhere(parts);
     const rows = await this.all(`SELECT s.* FROM sales s ${sql} ORDER BY s.sold_at DESC`, params);
     return this.hydrate(this.decodeAll<DbSale>('sales', rows));
   }
 
-  async markRemitted(ids: string[], remittedBy: string): Promise<void> {
+  async transferCustody(
+    ids: string[],
+    fromUserId: string,
+    toUserId: string | null,
+    actorUserId: string,
+  ): Promise<void> {
     if (ids.length === 0) return;
     const now = nowIso();
+    const values = custodyValues(toUserId, actorUserId, now);
     const ph = ids.map(() => '?').join(', ');
     await this.write(async (db) => {
       // Snapshot first: the UPDATE is conditional, so only the rows it actually
-      // moved (still unremitted, not voided) belong in the trail.
+      // moved (still held by `fromUserId`, not voided) belong in the trail.
       const before = this.decodeAll<DbSale>(
         'sales',
         await this.all(
-          `SELECT * FROM sales WHERE id IN (${ph}) AND remitted_at IS NULL AND voided_at IS NULL`,
-          ids,
+          `SELECT * FROM sales
+            WHERE id IN (${ph}) AND held_by_user_id = ? AND voided_at IS NULL`,
+          [...ids, fromUserId],
         ),
       );
       await db.runAsync(
-        `UPDATE sales SET remitted_at = ?, remitted_by = ?, updated_at = ?, _dirty = 1
-         WHERE id IN (${ph}) AND remitted_at IS NULL AND voided_at IS NULL`,
-        [now, remittedBy, now, ...ids] as never[],
+        `UPDATE sales
+            SET held_by_user_id = ?, remitted_at = ?, remitted_by = ?, updated_at = ?, _dirty = 1
+          WHERE id IN (${ph}) AND held_by_user_id = ? AND voided_at IS NULL`,
+        [
+          values.held_by_user_id,
+          values.remitted_at,
+          values.remitted_by,
+          now,
+          ...ids,
+          fromUserId,
+        ] as never[],
       );
       for (const row of before) {
         await this.auditIn(db, {
@@ -318,7 +335,7 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
           recordId: row.id,
           action: 'update',
           before: row,
-          after: { ...row, remitted_at: now, remitted_by: remittedBy },
+          after: { ...row, ...values },
           branchId: row.branch_id,
           subject: await this.customerSubject(row.customer_id),
         });

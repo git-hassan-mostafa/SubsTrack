@@ -8,6 +8,7 @@ import { userRepository as userRepo } from "@/src/modules/admin/users";
 import { saleRepository as saleRepo } from "@/src/modules/transaction/sales";
 import { debtRepository as debtRepo, debtService } from "@/src/modules/transaction/debts";
 import walletService from "@/src/modules/wallet/services/WalletService";
+import type { WalletActor } from "@/src/modules/wallet/utils/custody";
 
 // The revenue trend spans last 6 months.
 const MONTHS_IN_YEAR = 6;
@@ -106,10 +107,10 @@ class DashboardService {
 
   async getMetrics(
     branchFilter: BranchFilter = null,
-    // The collector-wallet aggregate is an admin overview. Skipped for
-    // non-admins so their dashboard load stays lean and never surfaces the
+    // The collector-wallet aggregate is an admin overview. Skipped (viewer null)
+    // for non-admins so their dashboard load stays lean and never surfaces the
     // cross-collector cash totals.
-    includeWallet = false,
+    viewer: WalletActor | null = null,
   ): Promise<DashboardMetrics> {
     const { year, month } = getCurrentYearMonth();
     const billingMonth = toBillingMonth(year, month);
@@ -151,14 +152,15 @@ class DashboardService {
         branchFilter,
       ),
       this.getRevenueTrend(year, month, branchFilter),
-      includeWallet ? walletService.getWalletsView(branchFilter) : Promise.resolve([]),
+      viewer ? walletService.getWalletsView(viewer, branchFilter) : Promise.resolve([]),
     ]);
 
     const subscriptionRevenue = sumInUsd(paidRows);
     const salesRevenue = sumInUsd(saleRows);
     const debtRevenue = sumInUsd(debtPaidRows);
 
-    // Collector wallets: net cash in the field, and who/how-many rows hold it.
+    // Collector wallets: net cash on hand anywhere in the chain (the viewer's
+    // own wallet included), and who/how-many rows hold it.
     const walletCash = wallets.reduce((sum, w) => sum + w.totalUsd, 0);
     const walletCollectors = wallets.length;
     const walletTransactions = wallets.reduce((sum, w) => sum + w.itemCount, 0);

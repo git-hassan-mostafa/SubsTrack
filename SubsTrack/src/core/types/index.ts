@@ -196,7 +196,9 @@ export interface Payment {
   voidedAt: string | null;
   voidedBy: string | null;
   notes: string | null;
-  // Collector wallet: when this cash was handed over to an admin. null = still held.
+  // Collector wallet: who holds this cash now. null = nobody (settled/unattributed).
+  heldByUserId: string | null;
+  // Final settlement: when the cash left the wallet chain, and who took it out.
   remittedAt: string | null;
   remittedBy: string | null;
   createdAt: string;
@@ -309,11 +311,12 @@ export interface DashboardMetrics {
   totalDebt: number;         // net debt still owed across all customers/categories
   monthsDebt: number;        // gross portion from partial subscription payments
   salesDebt: number;         // gross portion from partial sales
-  // Collector wallets — cash collected but not yet handed over to an admin.
+  // Collector wallets — cash on hand: collected and not yet settled out of the
+  // system, wherever it sits in the chain (the viewer's own wallet included).
   // Admin-only: 0 when the caller isn't an admin (not computed then). USD.
-  walletCash: number;        // total unremitted cash across all collectors (net, USD)
-  walletCollectors: number;  // # of collectors currently holding cash
-  walletTransactions: number;// # of unremitted transactions behind that cash
+  walletCash: number;        // total cash held across every wallet in scope (net, USD)
+  walletCollectors: number;  // # of users currently holding cash
+  walletTransactions: number;// # of held transactions behind that cash
   // Growth this month
   newCustomersThisMonth: number;
   cancelledThisMonth: number;
@@ -412,7 +415,9 @@ export interface Sale {
   voidedBy: string | null;
   voidReason: string | null;
   notes: string | null;
-  // Collector wallet: when the collected cash (amountPaid) was handed over. null = still held.
+  // Collector wallet: who holds this cash (amountPaid) now. null = nobody.
+  heldByUserId: string | null;
+  // Final settlement: when the cash left the wallet chain, and who took it out.
   remittedAt: string | null;
   remittedBy: string | null;
   createdAt: string;
@@ -469,7 +474,9 @@ export interface DebtPayment {
   voidedBy: string | null;
   voidReason: string | null;
   notes: string | null;
-  // Collector wallet: when this cash was handed over to an admin. null = still held.
+  // Collector wallet: who holds this cash now. null = nobody (settled/unattributed).
+  heldByUserId: string | null;
+  // Final settlement: when the cash left the wallet chain, and who took it out.
   remittedAt: string | null;
   remittedBy: string | null;
 }
@@ -511,6 +518,8 @@ export interface DebtPaymentItem {
   notes: string | null;
   // Who collected it — used by the collector wallet.
   receivedByUserId: string | null;
+  // Who holds the cash now (null = nobody). The wallet groups on this.
+  heldByUserId: string | null;
 }
 
 // Net summary for the current Debts filter scope. All values in USD (the screen
@@ -522,21 +531,37 @@ export interface DebtSummary {
 }
 
 // ── Collector Wallet ─────────────────────────────────────────────────────────
-// Cash a user (any role) collected but has not yet handed over to an admin.
-// DERIVED at runtime — never stored as a balance. A collector's wallet =
-// every non-voided, non-remitted cash row they recorded:
-//   payments.amount_paid + sales.amount_paid + debt_payments.amount
-// Marking a row "received" stamps remitted_at/remitted_by, removing it from the
-// wallet. Nothing else is stored. Void / edit of a source row self-corrects.
+// Cash a user is physically holding right now. DERIVED at runtime — never stored
+// as a balance. A wallet = every non-voided cash row whose held_by_user_id is
+// that user: payments.amount_paid + sales.amount_paid + debt_payments.amount.
+// Receiving moves the cash UP the chain (collector → branch admin → tenant-wide
+// admin) by re-pointing held_by_user_id; it never destroys it. The cash leaves
+// the system only when it is settled (held_by_user_id = NULL + remitted_at/by):
+// a superadmin receiving it, or a tenant-wide admin closing out their own wallet.
+// Who may receive from whom lives in modules/wallet/utils/custody.ts.
+// Void / edit of a source row self-corrects.
 
 export type WalletSource = 'payment' | 'sale' | 'debt_payment';
 
-// One unremitted collected transaction sitting in a collector's wallet.
+// Why the viewer cannot receive a given wallet. null = they can.
+export type ReceiveBlock =
+  | 'self'   // it's their own cash
+  | 'rank'   // the holder is not below them in the chain
+  | 'branch' // a branch admin, and the holder isn't in their branch
+  | null;
+
+// One held transaction sitting in someone's wallet.
 // `amount` is the cash collected, in the row's own currency.
 export interface WalletItem {
   id: string;
   source: WalletSource;
+  // Who collected it originally — unchanged by handovers, so a received wallet
+  // can still show "Collected by <name>". The name is null when the holder IS
+  // the collector (nothing to say) or when that user can't be resolved.
   collectorUserId: string;
+  collectorName: string | null;
+  // Who holds it now. Equals collectorUserId until the first handover.
+  holderUserId: string;
   // The customer this cash came from. null = a walk-in sale (no customer).
   customerId: string | null;
   customerName: string | null;
@@ -549,7 +574,7 @@ export interface WalletItem {
   date: string; // paid_at / sold_at — for sorting + display
 }
 
-// Physical cash a collector holds in ONE currency: the raw sum (what you'd count
+// Physical cash a holder has in ONE currency: the raw sum (what you'd count
 // in notes/bills) plus its canonical USD value (Σ amount/rate — drift-free).
 export interface WalletCurrencyTotal {
   currencyId: string | null;
@@ -557,18 +582,23 @@ export interface WalletCurrencyTotal {
   usd: number;    // canonical USD value
 }
 
-// One collector's wallet: cash collected but not yet handed over.
-export interface CollectorWallet {
-  collectorUserId: string;
-  collectorName: string;
+// One user's wallet: the cash they are holding. The three viewer-dependent
+// flags are filled by WalletService from custody.ts, so the UI never re-decides
+// who may act on it.
+export interface UserWallet {
+  holderUserId: string;
+  holderName: string;
   active: boolean; // false = deactivated user who still holds cash
   byCurrency: WalletCurrencyTotal[];
   itemCount: number;
   totalUsd: number;
+  isSelf: boolean;             // the viewer's own wallet
+  receiveBlock: ReceiveBlock;  // null = the viewer may receive this cash
+  canCloseOut: boolean;        // the viewer may settle it out of the system
 }
 
-// One collector's wallet plus the individual transactions that make it up.
-export interface CollectorWalletDetail extends CollectorWallet {
+// One wallet plus the individual transactions that make it up.
+export interface UserWalletDetail extends UserWallet {
   items: WalletItem[];
 }
 

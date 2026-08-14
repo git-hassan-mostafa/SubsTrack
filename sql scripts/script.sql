@@ -664,10 +664,18 @@ ALTER TABLE payments ADD COLUMN IF NOT EXISTS voided_by UUID
     CONSTRAINT fk_payments_voided_by REFERENCES users(id) ON DELETE SET NULL;
 ALTER TABLE payments ADD COLUMN IF NOT EXISTS notes TEXT;
 
--- Collector wallet: when the cash collected here was handed over to an admin.
--- NULL = still in the collector's (received_by_user_id) wallet, not yet
--- handed over. Set together (see chk_payments_remitted_consistency). A void +
--- re-pay resets these to NULL — the re-recorded cash is unremitted again.
+-- Collector wallet: who physically holds this cash RIGHT NOW. Starts as the
+-- collector (received_by_user_id) and moves up the chain on each handover
+-- (collector → branch admin → tenant-wide admin). NULL = in nobody's wallet:
+-- either never attributed, or settled out of the system (remitted_at below).
+ALTER TABLE payments ADD COLUMN IF NOT EXISTS held_by_user_id UUID
+    CONSTRAINT fk_payments_held_by REFERENCES users(id) ON DELETE SET NULL;
+
+-- Final settlement: when the cash left the wallet chain for good (a superadmin
+-- received it, or a tenant-wide admin closed out) and who took it out. Set
+-- together (chk_payments_remitted_consistency) and only ever alongside
+-- held_by_user_id = NULL (chk_payments_custody). A void + re-pay resets these
+-- to NULL — the re-recorded cash is fresh in its collector's wallet again.
 ALTER TABLE payments ADD COLUMN IF NOT EXISTS remitted_at TIMESTAMPTZ;
 ALTER TABLE payments ADD COLUMN IF NOT EXISTS remitted_by UUID
     CONSTRAINT fk_payments_remitted_by REFERENCES users(id) ON DELETE SET NULL;
@@ -711,6 +719,15 @@ DO $$ BEGIN
             );
     END IF;
 
+    -- Settled cash is in nobody's wallet
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conrelid = 'payments'::regclass AND conname = 'chk_payments_custody'
+    ) THEN
+        ALTER TABLE payments ADD CONSTRAINT chk_payments_custody
+            CHECK (remitted_at IS NULL OR held_by_user_id IS NULL);
+    END IF;
+
     -- One payment record per service line per month (void + re-pay updates the
     -- same row). A customer with several lines can pay each one for the same month.
     IF NOT EXISTS (
@@ -737,11 +754,11 @@ CREATE INDEX IF NOT EXISTS idx_payments_customer_month
 CREATE INDEX IF NOT EXISTS idx_payments_customer_plan_id
     ON payments (customer_plan_id);
 
--- Collector wallet: fast lookup of cash still held by a collector (not remitted,
--- not voided). Partial index keeps it tiny once most cash is handed over.
-CREATE INDEX IF NOT EXISTS idx_payments_wallet
-    ON payments (received_by_user_id)
-    WHERE remitted_at IS NULL AND voided_at IS NULL;
+-- Collector wallet: fast lookup of the cash a user is holding (not settled, not
+-- voided). Partial index keeps it tiny once most cash is settled. Replaces the
+CREATE INDEX IF NOT EXISTS idx_payments_holder
+    ON payments (held_by_user_id)
+    WHERE held_by_user_id IS NOT NULL AND voided_at IS NULL;
 
 -- ============================================================
 -- PRODUCTS
@@ -859,8 +876,14 @@ ALTER TABLE sales ADD COLUMN IF NOT EXISTS voided_by UUID
 ALTER TABLE sales ADD COLUMN IF NOT EXISTS void_reason TEXT;
 ALTER TABLE sales ADD COLUMN IF NOT EXISTS notes TEXT;
 
--- Collector wallet: when the cash collected here (amount_paid) was handed
--- over to an admin. NULL = still in the recording user's wallet. Set together.
+-- Collector wallet: who physically holds this cash (amount_paid) right now.
+-- Starts as the recording user and moves up the chain on each handover.
+-- NULL = in nobody's wallet. Same shape as payments.held_by_user_id.
+ALTER TABLE sales ADD COLUMN IF NOT EXISTS held_by_user_id UUID
+    CONSTRAINT fk_sales_held_by REFERENCES users(id) ON DELETE SET NULL;
+
+-- Final settlement: when the cash left the wallet chain and who took it out.
+-- Set together, and only alongside held_by_user_id = NULL (chk_sales_custody).
 ALTER TABLE sales ADD COLUMN IF NOT EXISTS remitted_at TIMESTAMPTZ;
 ALTER TABLE sales ADD COLUMN IF NOT EXISTS remitted_by UUID
     CONSTRAINT fk_sales_remitted_by REFERENCES users(id) ON DELETE SET NULL;
@@ -889,6 +912,15 @@ DO $$ BEGIN
                 (remitted_at IS NOT NULL AND remitted_by IS NOT NULL)
             );
     END IF;
+
+    -- Settled cash is in nobody's wallet
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conrelid = 'sales'::regclass AND conname = 'chk_sales_custody'
+    ) THEN
+        ALTER TABLE sales ADD CONSTRAINT chk_sales_custody
+            CHECK (remitted_at IS NULL OR held_by_user_id IS NULL);
+    END IF;
 END $$;
 
 CREATE INDEX IF NOT EXISTS idx_sales_tenant_sold_at
@@ -901,10 +933,17 @@ CREATE INDEX IF NOT EXISTS idx_sales_customer
 CREATE INDEX IF NOT EXISTS idx_sales_branch
     ON sales (branch_id);
 
--- Collector wallet: cash still held by a recording user (not remitted, not voided).
-CREATE INDEX IF NOT EXISTS idx_sales_wallet
-    ON sales (recorded_by_user_id)
-    WHERE remitted_at IS NULL AND voided_at IS NULL;
+-- Collector wallet: the cash a user is holding (not settled, not voided).
+DROP INDEX IF EXISTS idx_sales_wallet;
+CREATE INDEX IF NOT EXISTS idx_sales_holder
+    ON sales (held_by_user_id)
+    WHERE held_by_user_id IS NOT NULL AND voided_at IS NULL;
+
+-- Backfill, idempotent — see the payments equivalent.
+UPDATE sales SET held_by_user_id = recorded_by_user_id
+    WHERE held_by_user_id IS NULL
+      AND remitted_at IS NULL
+      AND recorded_by_user_id IS NOT NULL;
 
 -- ============================================================
 -- SALE ITEMS (lines)
@@ -1186,8 +1225,14 @@ ALTER TABLE debt_payments ADD COLUMN IF NOT EXISTS voided_by UUID
 ALTER TABLE debt_payments ADD COLUMN IF NOT EXISTS void_reason TEXT;
 ALTER TABLE debt_payments ADD COLUMN IF NOT EXISTS notes TEXT;
 
--- Collector wallet: when this collected cash was handed over to an admin.
--- NULL = still in the receiving user's wallet. Set together.
+-- Collector wallet: who physically holds this cash right now. Starts as the
+-- receiving user and moves up the chain on each handover. NULL = in nobody's
+-- wallet. Same shape as payments.held_by_user_id.
+ALTER TABLE debt_payments ADD COLUMN IF NOT EXISTS held_by_user_id UUID
+    CONSTRAINT fk_debt_payments_held_by REFERENCES users(id) ON DELETE SET NULL;
+
+-- Final settlement: when the cash left the wallet chain and who took it out.
+-- Set together, and only alongside held_by_user_id = NULL.
 ALTER TABLE debt_payments ADD COLUMN IF NOT EXISTS remitted_at TIMESTAMPTZ;
 ALTER TABLE debt_payments ADD COLUMN IF NOT EXISTS remitted_by UUID
     CONSTRAINT fk_debt_payments_remitted_by REFERENCES users(id) ON DELETE SET NULL;
@@ -1219,6 +1264,15 @@ DO $$ BEGIN
                 (remitted_at IS NOT NULL AND remitted_by IS NOT NULL)
             );
     END IF;
+
+    -- Settled cash is in nobody's wallet
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conrelid = 'debt_payments'::regclass AND conname = 'chk_debt_payments_custody'
+    ) THEN
+        ALTER TABLE debt_payments ADD CONSTRAINT chk_debt_payments_custody
+            CHECK (remitted_at IS NULL OR held_by_user_id IS NULL);
+    END IF;
 END $$;
 
 CREATE INDEX IF NOT EXISTS idx_debt_payments_tenant_id
@@ -1227,10 +1281,10 @@ CREATE INDEX IF NOT EXISTS idx_debt_payments_tenant_id
 CREATE INDEX IF NOT EXISTS idx_debt_payments_customer_id
     ON debt_payments (customer_id);
 
--- Collector wallet: cash still held by a receiving user (not remitted, not voided).
-CREATE INDEX IF NOT EXISTS idx_debt_payments_wallet
-    ON debt_payments (received_by_user_id)
-    WHERE remitted_at IS NULL AND voided_at IS NULL;
+-- Collector wallet: the cash a user is holding (not settled, not voided).
+CREATE INDEX IF NOT EXISTS idx_debt_payments_holder
+    ON debt_payments (held_by_user_id)
+    WHERE held_by_user_id IS NOT NULL AND voided_at IS NULL;
 
 -- ============================================================
 -- SKIPPED MONTHS

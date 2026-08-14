@@ -48,7 +48,8 @@ Sign in as an **admin** and check each via Admin → Audit Log.
 | 1.4 | Record a sale         | Quick actions → Record sale (2+ products)                         | **Added · Sale** — exactly ONE entry, not one per line                       |
 | 1.5 | Void a sale           | Sale detail → Void                                                | **Voided · Sale**. No separate `stock_movements` entries                     |
 | 1.6 | Custom debt + payment | Add a custom debt, then record a debt payment                      | **Added · Custom debt**, then **Added · Debt payment**                       |
-| 1.7 | Receive cash (remit)  | Admin → Wallets → receive one transaction                          | **Edited**, fields `Handed over at` + `Received by admin`                    |
+| 1.7 | Receive cash          | Admin → Wallets → receive one transaction                          | **Edited**, field `Held by  <collector> → <you>` (no `Settled at` — it stayed in the chain) |
+| 1.7b | Close out cash       | My Wallet (tenant-wide admin) → Close out                          | **Edited**, fields `Held by  <you> → (empty)` + `Settled at` + `Settled by`  |
 | 1.8 | Add a customer        | Customers → + Add                                                  | **Added · Customer**, whole new row listed in the detail sheet               |
 | 1.9 | Edit a customer       | Change only the phone number → Save                                | **Edited · Customer**, ONE field: `Phone  old → new`                         |
 | 1.10 | Deactivate a customer | Customer → deactivate                                             | **Edited · Customer**, `Active  Yes → No` + `Cancelled`                      |

@@ -115,6 +115,8 @@ function setting(key: unknown) {
 const DISPLAY: Record<string, AuditValueFormatter> = {
   '*.voided_by': person,
   '*.remitted_by': person,
+  // Who is carrying the cash. Blank = nobody, i.e. it left the wallet chain.
+  '*.held_by_user_id': person,
   '*.received_by_user_id': person,
   '*.skipped_by_user_id': person,
   '*.recorded_by_user_id': person,
