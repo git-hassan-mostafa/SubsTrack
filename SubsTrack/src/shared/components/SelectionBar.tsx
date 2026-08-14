@@ -1,4 +1,4 @@
-import { useWindowDimensions, View } from "react-native";
+import { View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
@@ -32,16 +32,12 @@ interface SelectionBarProps {
   onToggleAll?: () => void;
 }
 
-// Width (px) at/above which the bar stays on a single line. Matches the
-// "wide viewport" cap used by ResponsiveContainer (max-w-3xl = 768px).
-const WIDE_BREAKPOINT = 768;
-
-// The selection row shown on every list/panel while selecting: a leading
-// "select all" checkbox, the close (X) button, the selected count, then a row
-// of icon actions. On wide viewports it all sits on one line; on small
-// devices the leading cluster (checkbox / X / count) takes the first line and
-// the actions wrap to a second line. Shared by PageHeader (overlaid on the
-// header) and the Transactions panels (rendered inline).
+// The selection row shown on every list/panel while selecting, always on ONE
+// line: a "select all" checkbox, the close (X) button, the bare selected count,
+// then the icon actions. The count is a number only (no "selected" word) —
+// spelling it out is what used to push the actions onto a second line on a
+// phone. Shared by PageHeader (overlaid on the header) and the Transactions
+// panels (rendered inline).
 export function SelectionBar({
   count,
   actions,
@@ -50,8 +46,6 @@ export function SelectionBar({
   onToggleAll,
 }: SelectionBarProps) {
   const { t } = useTranslation();
-  const { width } = useWindowDimensions();
-  const isWide = width >= WIDE_BREAKPOINT;
 
   const leading = (
     <>
@@ -59,25 +53,30 @@ export function SelectionBar({
         <PressableOpacity
           onPress={onToggleAll}
           hitSlop={8}
-          className="p-1 me-1"
+          className="p-1"
           accessibilityLabel={t("common.select_all")}
         >
           <Checkbox checked={!!allSelected} size={22} />
         </PressableOpacity>
       ) : null}
-      <PressableOpacity onPress={onClose} className="p-1 me-1" hitSlop={8}>
+      <PressableOpacity onPress={onClose} className="p-1" hitSlop={8}>
         <Ionicons name="close" size={24} color={COLORS.gray700} />
       </PressableOpacity>
-      <View className="flex-1 min-w-0">
-        <Text fontWeight="Bold" className="text-lg text-gray-900">
-          {t("common.selected_count", { count })}
-        </Text>
-      </View>
+      <Text
+        fontWeight="Bold"
+        className="text-lg text-gray-900"
+        numberOfLines={1}
+        accessibilityLabel={t("common.selected_count", { count })}
+      >
+        {count}
+      </Text>
     </>
   );
 
+  // `shrink-0` so a long action row never squeezes itself; the leading cluster
+  // is fixed-width anyway, so the whole bar fits.
   const actionRow = (
-    <View className="flex-row items-center justify-end gap-1">
+    <View className="flex-1 flex-row items-center justify-end gap-1 shrink-0">
       {actions.map((action) => (
         <PressableOpacity
           key={action.key}
@@ -103,19 +102,10 @@ export function SelectionBar({
     </View>
   );
 
-  if (isWide) {
-    return (
-      <View className="flex-row items-center px-4 pt-4 pb-4 bg-white border-b border-gray-100 gap-2">
-        {leading}
-        {actionRow}
-      </View>
-    );
-  }
-
   return (
-    <View className="px-4 pt-4 pb-4 bg-white border-b border-gray-100">
-      <View className="flex-row items-center gap-2">{leading}</View>
-      <View className="mt-3">{actionRow}</View>
+    <View className="flex-row items-center px-4 pt-2 pb-2 bg-white border-b border-gray-100 gap-1">
+      {leading}
+      {actionRow}
     </View>
   );
 }
