@@ -1,5 +1,5 @@
 import type { StateCreator } from 'zustand';
-import type { Product, TierPlan, TenantUsage } from '@/src/core/types';
+import type { Currency, Product, TierPlan, TenantUsage } from '@/src/core/types';
 import {
   productService,
   type ProductInput,
@@ -24,7 +24,15 @@ export interface ProductSlice {
   tierLimitError: TierLimitErrorPayload | null;
   getProducts: () => Promise<void>;
   fetchProducts: () => Promise<void>;
-  createProduct: (data: ProductInput, tenantId: string, tier: TierPlan, usage: TenantUsage) => Promise<void>;
+  createProduct: (
+    data: ProductInput,
+    tenantId: string,
+    tier: TierPlan,
+    usage: TenantUsage,
+    userId?: string | null,
+    // Carries the live rate the opening stock's cost is frozen at.
+    costCurrency?: Currency | null,
+  ) => Promise<void>;
   updateProduct: (id: string, data: ProductInput) => Promise<void>;
   adjustStock: (
     id: string,
@@ -33,12 +41,16 @@ export interface ProductSlice {
     reason: StockAdjustReason,
     note?: string | null,
     userId?: string | null,
+    // Restock only — what the stock cost, which becomes an expense.
+    cost?: { unitCost: number | null; currency: Currency | null } | null,
   ) => Promise<boolean>;
   batchRestock: (
     entries: RestockEntry[],
     tenantId: string,
     note?: string | null,
     userId?: string | null,
+    // One delivery, one currency — shared by every entry's unitCost.
+    currency?: Currency | null,
   ) => Promise<boolean>;
   deleteProduct: (id: string) => Promise<'hard' | 'soft' | null>;
   bulkDeleteProducts: (ids: string[]) => Promise<boolean>;
@@ -87,7 +99,7 @@ export const createProductSlice: StateCreator<
     }
   },
 
-  createProduct: async (data, tenantId, tier, usage) => {
+  createProduct: async (data, tenantId, tier, usage, userId, costCurrency = null) => {
     set((state) => {
       state.products.loading = true;
       state.products.error = null;
@@ -99,7 +111,8 @@ export const createProductSlice: StateCreator<
         tenantId,
         tier,
         usage,
-        get().auth.user?.id ?? null,
+        userId ?? get().auth.user?.id ?? null,
+        costCurrency,
       );
       set((state) => {
         state.products.items.unshift(product);
@@ -145,13 +158,21 @@ export const createProductSlice: StateCreator<
     }
   },
 
-  adjustStock: async (id, tenantId, delta, reason, note = null, userId = null) => {
+  adjustStock: async (id, tenantId, delta, reason, note = null, userId = null, cost = null) => {
     set((state) => {
       state.products.loading = true;
       state.products.error = null;
     });
     try {
-      const onHand = await productService.adjustStock(id, tenantId, delta, reason, note, userId);
+      const onHand = await productService.adjustStock(
+        id,
+        tenantId,
+        delta,
+        reason,
+        note,
+        userId,
+        cost,
+      );
       set((state) => {
         const i = state.products.items.findIndex((p) => p.id === id);
         if (i !== -1) state.products.items[i].stockOnHand = onHand;
@@ -167,14 +188,20 @@ export const createProductSlice: StateCreator<
     }
   },
 
-  batchRestock: async (entries, tenantId, note = null, userId = null) => {
+  batchRestock: async (entries, tenantId, note = null, userId = null, currency = null) => {
     if (entries.length === 0) return true;
     set((state) => {
       state.products.loading = true;
       state.products.error = null;
     });
     try {
-      const onHand = await productService.restockMany(entries, tenantId, note, userId);
+      const onHand = await productService.restockMany(
+        entries,
+        tenantId,
+        note,
+        userId,
+        currency,
+      );
       set((state) => {
         for (const p of state.products.items) {
           if (p.id in onHand) p.stockOnHand = onHand[p.id];

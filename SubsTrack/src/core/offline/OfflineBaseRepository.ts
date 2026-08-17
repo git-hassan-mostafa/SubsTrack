@@ -141,6 +141,10 @@ export abstract class OfflineBaseRepository {
     sales: { kind: 'owned' },
     custom_debts: { kind: 'inherited', joinedTable: 'customers' },
     debt_payments: { kind: 'inherited', joinedTable: 'customers' },
+    expenses: { kind: 'owned' },
+    // Money, not stock: a SHARED product's purchase is a company expense, so it
+    // must NOT be 'shared' here or every branch would count the same spend.
+    stock_movements: { kind: 'inherited', joinedTable: 'products' },
   } satisfies Record<string, OfflineBranchScope>;
 
   /**

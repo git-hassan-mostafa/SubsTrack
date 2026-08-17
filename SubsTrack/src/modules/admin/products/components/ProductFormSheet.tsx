@@ -31,6 +31,11 @@ type FormState = {
   description: string;
   price: number | null;
   currencyId: string | null;
+  // What the product costs to BUY (vs `price`, what it sells for). Optional —
+  // it only pre-fills the restock sheet, where the real per-delivery cost is
+  // typed. Its own currency, since the selling currency can differ.
+  costPrice: number | null;
+  costCurrencyId: string | null;
   branchId: string | null;
   // Create only — becomes the first ledger movement. Editing never touches
   // stock; that goes through ProductStockSheet so every change is recorded.
@@ -84,13 +89,15 @@ export function ProductFormSheet({
     description: product?.description ?? "",
     price: product?.price ?? null,
     currencyId: product?.currencyId ?? null,
+    costPrice: product?.costPrice ?? null,
+    costCurrencyId: product?.costCurrencyId ?? null,
     branchId: defaultBranchId,
     initialStock: "",
   });
 
   // CurrencyInput self-seeds `currencyId` from the last-used currency after
   // mount, so it changes with no user action — ignore it in the dirty check.
-  const dirty = useDirtyForm(form, ["currencyId"]);
+  const dirty = useDirtyForm(form, ["currencyId", "costCurrencyId"]);
 
   useEffect(() => {
     clearError();
@@ -103,16 +110,22 @@ export function ProductFormSheet({
       description: form.description.trim() || null,
       price: form.price ?? 0,
       currencyId: form.currencyId,
+      costPrice: form.costPrice,
+      costCurrencyId: form.costCurrencyId,
       branchId: form.branchId,
     };
     if (product) {
       await updateProduct(product.id, payload);
     } else {
+      // The opening stock is bought too: its cost (the product's cost price)
+      // rides along and becomes an expense today.
       await createProduct(
         { ...payload, initialStock: Number(form.initialStock) || 0 },
         user.tenantId,
         currentTier,
         usage,
+        user.id,
+        currencies.find((c) => c.id === form.costCurrencyId) ?? null,
       );
     }
     const { error: nextError, tierLimitError: nextTier } =
@@ -164,6 +177,20 @@ export function ProductFormSheet({
           currencyId={form.currencyId}
           onChange={({ amount, currencyId }) =>
             setForm((p) => ({ ...p, price: amount, currencyId }))
+          }
+          currencies={currencies}
+          placeholder="0.00"
+          onFocus={clearError}
+        />
+
+        {/* What it costs to buy — optional. It pre-fills the restock sheet, and
+            on create it prices the opening stock into Expenses. */}
+        <CurrencyInput
+          label={t("products.cost_price_label")}
+          amount={form.costPrice}
+          currencyId={form.costCurrencyId}
+          onChange={({ amount, currencyId }) =>
+            setForm((p) => ({ ...p, costPrice: amount, costCurrencyId: currencyId }))
           }
           currencies={currencies}
           placeholder="0.00"

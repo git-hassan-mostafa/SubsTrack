@@ -17,7 +17,7 @@ import { buildAuditRow, type AuditInput } from "../audit";
  *
  *   'owned'     — row has its OWN branch_id column. NULL means UNASSIGNED
  *                 (visible only to tenant-wide admins).
- *                 Used by: customers, users, (future) expenses.
+ *                 Used by: customers, users, expenses.
  *
  *   'shared'    — row has its own branch_id column. NULL means SHARED across
  *                 every branch (visible to all). When filtering to a specific
@@ -240,6 +240,11 @@ export abstract class BaseRepository {
     sales: { kind: "owned" },
     custom_debts: { kind: "inherited", joinedTable: "customers" },
     debt_payments: { kind: "inherited", joinedTable: "customers" },
+    expenses: { kind: "owned" },
+    // Money, not stock: a SHARED product's purchase is a company expense, so it
+    // must NOT be 'shared' here or every branch would count the same spend.
+    // (The RLS policy is deliberately wider — see gotcha #88.)
+    stock_movements: { kind: "inherited", joinedTable: "products" },
   } satisfies Record<string, BranchScope>;
 
   /**

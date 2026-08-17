@@ -16,6 +16,7 @@ export type QuickActionSheet =
   | 'sale'
   | 'customDebt'
   | 'debtPayment'
+  | 'expense'
   | 'paymentsHistory'
   | 'batchRestock';
 

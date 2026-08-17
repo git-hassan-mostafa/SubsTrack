@@ -1,8 +1,8 @@
-import type { Product, StockMovement, TierPlan, TenantUsage } from '@/src/core/types';
+import type { Currency, Product, StockMovement, TierPlan, TenantUsage } from '@/src/core/types';
 import type { BranchFilter } from '@/src/core/constants';
 import i18n from '@/src/core/i18n';
 import repository from '../repository/ProductRepository';
-import type { CreateStockMovementPayload } from '../repository/IProductRepository';
+import type { CreateStockMovementPayload, StockCostRow } from '../repository/IProductRepository';
 import { tierService } from '@/src/modules/admin/subscription';
 import { mapDbProductToProduct, mapDbStockMovementToStockMovement } from '../utils/mapper';
 import { ProductInput, RestockEntry, StockAdjustReason } from '../utils/types';
@@ -25,6 +25,9 @@ class ProductService {
     tier: TierPlan,
     usage: TenantUsage,
     userId: string | null = null,
+    // Resolved from data.costCurrencyId by the caller — it carries the live rate
+    // the opening stock's cost is frozen at.
+    costCurrency: Currency | null = null,
   ): Promise<Product> {
     this.validate(data);
     tierService.assertCanCreate(tier, usage, 'products');
@@ -36,13 +39,19 @@ class ProductService {
         description: data.description?.trim() || null,
         price: data.price,
         currency_id: data.currencyId,
+        cost_price: data.costPrice ?? null,
+        cost_currency_id: data.costCurrencyId,
         active: true,
       });
       // Opening balance becomes the first ledger entry (0 writes no row).
       const initial = data.initialStock ?? 0;
       if (initial > 0) {
         await repository.addMovements([
-          this.movement(tenantId, row.id, initial, 'initial', { userId }),
+          this.movement(tenantId, row.id, initial, 'initial', {
+            userId,
+            unitCost: data.initialStockUnitCost ?? data.costPrice ?? null,
+            currency: costCurrency,
+          }),
         ]);
       }
       return mapDbProductToProduct(row, initial);
@@ -60,6 +69,8 @@ class ProductService {
         description: data.description?.trim() || null,
         price: data.price,
         currency_id: data.currencyId,
+        cost_price: data.costPrice ?? null,
+        cost_currency_id: data.costCurrencyId,
         branch_id: data.branchId,
       });
       const stock = await repository.stockOnHand([id]);
@@ -115,12 +126,21 @@ class ProductService {
     reason: StockAdjustReason,
     note: string | null = null,
     userId: string | null = null,
+    // Only a restock spends money; a negative 'adjustment' (damage, miscount) is
+    // stock lost, not cash out, so it never carries a cost.
+    cost: { unitCost: number | null; currency: Currency | null } | null = null,
   ): Promise<number> {
     if (!Number.isInteger(delta) || delta === 0) {
       throw new Error(i18n.t('errors.stock_delta_invalid'));
     }
+    const costed = reason === 'restock' ? cost : null;
     await repository.addMovements([
-      this.movement(tenantId, productId, delta, reason, { note, userId }),
+      this.movement(tenantId, productId, delta, reason, {
+        note,
+        userId,
+        unitCost: costed?.unitCost ?? null,
+        currency: costed?.currency ?? null,
+      }),
     ]);
     const stock = await repository.stockOnHand([productId]);
     return stock[productId] ?? 0;
@@ -129,17 +149,25 @@ class ProductService {
   // Batch counterpart to adjustStock: one 'restock' row per product, appended in
   // a single write so a whole delivery lands together. Returns the new on-hand
   // per product so the store can refresh its list without a refetch.
+  // One delivery = one currency, so `currency` is shared by every line and each
+  // entry only carries its own unit cost.
   async restockMany(
     entries: RestockEntry[],
     tenantId: string,
     note: string | null = null,
     userId: string | null = null,
+    currency: Currency | null = null,
   ): Promise<Record<string, number>> {
     const valid = entries.filter((e) => Number.isInteger(e.quantity) && e.quantity > 0);
     if (valid.length === 0) throw new Error(i18n.t('errors.stock_delta_invalid'));
     await repository.addMovements(
       valid.map((e) =>
-        this.movement(tenantId, e.productId, e.quantity, 'restock', { note, userId }),
+        this.movement(tenantId, e.productId, e.quantity, 'restock', {
+          note,
+          userId,
+          unitCost: e.unitCost ?? null,
+          currency,
+        }),
       ),
     );
     return repository.stockOnHand(valid.map((e) => e.productId));
@@ -157,23 +185,47 @@ class ProductService {
   // One place that fills the ledger row's shape, so every writer stays in sync.
   // Public because SaleService builds its own 'sale' rows to hand to the sale
   // repository (they must be written in the same transaction as the sale).
+  //
+  // `unitCost` + `currency` are what make a purchase an expense; they are
+  // written together with a frozen rate, or all three stay null. 'sale' rows
+  // never carry one — stock leaving is not money leaving.
   movement(
     tenantId: string,
     productId: string,
     quantityDelta: number,
     reason: CreateStockMovementPayload['reason'],
-    extra: { saleId?: string | null; note?: string | null; userId?: string | null; occurredAt?: string } = {},
+    extra: {
+      saleId?: string | null;
+      note?: string | null;
+      userId?: string | null;
+      occurredAt?: string;
+      unitCost?: number | null;
+      currency?: Currency | null;
+    } = {},
   ): CreateStockMovementPayload {
+    const costed = reason !== 'sale' && typeof extra.unitCost === 'number' && extra.unitCost > 0;
     return {
       tenant_id: tenantId,
       product_id: productId,
       quantity_delta: quantityDelta,
       reason,
       sale_id: extra.saleId ?? null,
+      unit_cost: costed ? extra.unitCost! : null,
+      currency_id: costed ? (extra.currency?.id ?? null) : null,
+      rate_per_usd_snapshot: costed ? (extra.currency?.ratePerUsd ?? 1) : null,
       note: extra.note?.trim() || null,
       recorded_by_user_id: extra.userId ?? null,
       occurred_at: extra.occurredAt ?? new Date().toISOString(),
     };
+  }
+
+  // The derived half of the Expenses view — stock bought in a date range.
+  async getStockCostsInRange(
+    startIso: string,
+    endExclusiveIso: string,
+    branchFilter: BranchFilter = null,
+  ): Promise<StockCostRow[]> {
+    return repository.stockCostsInRange(startIso, endExclusiveIso, branchFilter);
   }
 
   private validate(data: ProductInput): void {
@@ -182,6 +234,10 @@ class ProductService {
       throw new Error(i18n.t('errors.product_price_required'));
     }
     if (data.price <= 0) throw new Error(i18n.t('errors.product_price_positive'));
+    // Cost is optional, but a typed one must be a real amount.
+    if (data.costPrice != null && !(data.costPrice > 0)) {
+      throw new Error(i18n.t('errors.product_cost_positive'));
+    }
     const initial = data.initialStock ?? 0;
     if (!Number.isInteger(initial) || initial < 0) {
       throw new Error(i18n.t('errors.product_stock_invalid'));

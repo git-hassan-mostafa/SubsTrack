@@ -12,6 +12,9 @@ import { planRepository as planRepo } from "@/src/modules/admin/plans";
 import { userRepository as userRepo } from "@/src/modules/admin/users";
 import { saleRepository as saleRepo } from "@/src/modules/transaction/sales";
 import { debtRepository as debtRepo, debtService } from "@/src/modules/transaction/debts";
+// Deep import (not the module barrel) — the barrel re-exports ExpensesPanel,
+// which would drag the whole screen graph back into this service.
+import expenseService from "@/src/modules/transaction/expenses/services/ExpenseService";
 import walletService from "@/src/modules/wallet/services/WalletService";
 import type { WalletActor } from "@/src/modules/wallet/utils/custody";
 
@@ -40,10 +43,14 @@ class DashboardService {
   // 6 months ending at (anchorYear, anchorMonth) inclusive. Used both for the
   // initial dashboard load (anchored on the current month) and for navigating
   // the revenue chart to earlier/later windows.
+  //
+  // `includeExpenses` is the admin gate: expenses are admin-only end to end, so
+  // a collector's chart neither fetches nor shows them (every point reads 0).
   async getRevenueTrend(
     anchorYear: number,
     anchorMonth: number,
     branchFilter: BranchFilter = null,
+    includeExpenses = false,
   ): Promise<RevenuePoint[]> {
     // Build each point from an absolute month index so year rollovers (e.g.
     // anchoring on Jan/Feb/.../Jun, where month - MONTHS_IN_YEAR + i + 1 goes
@@ -68,11 +75,17 @@ class DashboardService {
       1,
     ).toISOString();
 
-    const [trendPaidRows, trendSaleRows, trendDebtRows] = await Promise.all([
-      paymentRepo.paidAmountsInRange(trendStartIso, trendEndIso, branchFilter),
-      saleRepo.totalsInRange(trendStartIso, trendEndIso, branchFilter),
-      debtRepo.paidAmountsInRange(trendStartIso, trendEndIso, branchFilter),
-    ]);
+    const [trendPaidRows, trendSaleRows, trendDebtRows, expenseByMonth] =
+      await Promise.all([
+        paymentRepo.paidAmountsInRange(trendStartIso, trendEndIso, branchFilter),
+        saleRepo.totalsInRange(trendStartIso, trendEndIso, branchFilter),
+        debtRepo.paidAmountsInRange(trendStartIso, trendEndIso, branchFilter),
+        // Already bucketed per month in USD — the expense stream has two sources
+        // (stored rows + derived stock costs), so the service owns the merge.
+        includeExpenses
+          ? expenseService.getMonthlyTotalsInRange(trendStartIso, trendEndIso, branchFilter)
+          : Promise.resolve<Record<string, number>>({}),
+      ]);
 
     // Bucket the trend rows by month into canonical USD.
     const buckets = new Map<
@@ -97,15 +110,22 @@ class DashboardService {
       if (b) b.debt += r.amount / r.ratePerUsdSnapshot;
     }
     return trendPoints.map((p) => {
-      const b = buckets.get(monthKey(p.year, p.month))!;
+      const key = monthKey(p.year, p.month);
+      const b = buckets.get(key)!;
+      // `total` stays GROSS money-in: the chart scale, prevMonthRevenue and the
+      // vs-last-month pill all read it. `net` is the subtraction.
+      const total = b.subscription + b.sales + b.debt;
+      const expenses = expenseByMonth[key] ?? 0;
       return {
-        month: monthKey(p.year, p.month),
+        month: key,
         monthIndex: p.month - 1,
         year: p.year,
         subscription: b.subscription,
         sales: b.sales,
         debt: b.debt,
-        total: b.subscription + b.sales + b.debt,
+        total,
+        expenses,
+        net: total - expenses,
       };
     });
   }
@@ -139,6 +159,7 @@ class DashboardService {
       cancelledThisMonth,
       revenueTrend,
       wallets,
+      expenses,
     ] = await Promise.all([
       customerRepo.countAll(branchFilter),
       customerRepo.countActive(branchFilter),
@@ -159,8 +180,13 @@ class DashboardService {
         monthEndExclusive,
         branchFilter,
       ),
-      this.getRevenueTrend(year, month, branchFilter),
+      this.getRevenueTrend(year, month, branchFilter, viewer !== null),
       viewer ? walletService.getWalletsView(viewer, branchFilter) : Promise.resolve([]),
+      // Money out. Same admin gate as the wallet aggregate: `viewer` is non-null
+      // only for admins, and expenses are admin-only end to end.
+      viewer
+        ? expenseService.getTotalsInRange(monthStart, monthEndExclusive, branchFilter)
+        : Promise.resolve({ totalUsd: 0, customUsd: 0, stockUsd: 0 }),
     ]);
 
     const subscriptionRevenue = sumInUsd(paidRows);
@@ -190,13 +216,19 @@ class DashboardService {
     const prevPoint = revenueTrend[revenueTrend.length - 2];
     const prevMonthRevenue = prevPoint ? prevPoint.total : 0;
 
+    const monthlyRevenue = subscriptionRevenue + salesRevenue + debtRevenue;
+
     return {
       totalCustomers,
       activeCustomers,
-      monthlyRevenue: subscriptionRevenue + salesRevenue + debtRevenue,
+      monthlyRevenue,
       subscriptionRevenue,
       salesRevenue,
       debtRevenue,
+      monthlyExpenses: expenses.totalUsd,
+      stockExpenses: expenses.stockUsd,
+      customExpenses: expenses.customUsd,
+      netIncome: monthlyRevenue - expenses.totalUsd,
       unpaidThisMonth: monthCounts.unpaid,
       dueThisMonth: monthCounts.due,
       totalUsers,

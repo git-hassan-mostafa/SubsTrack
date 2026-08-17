@@ -7,6 +7,7 @@ import {
   CustomDebtFormSheet,
   DebtPaymentFormSheet,
 } from "@/src/modules/transaction/debts";
+import { ExpenseFormSheet } from "@/src/modules/transaction/expenses";
 
 /**
  * Hosts the global "quick add" form sheets once, high in the app tree, so the
@@ -29,6 +30,8 @@ export function QuickActionSheets() {
       return <CustomDebtFormSheet onDismiss={close} />;
     case "debtPayment":
       return <DebtPaymentFormSheet onDismiss={close} />;
+    case "expense":
+      return <ExpenseFormSheet onDismiss={close} />;
     case "paymentsHistory":
       return <PaymentsHistorySheet onDismiss={close} />;
     case "batchRestock":

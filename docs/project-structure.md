@@ -93,6 +93,7 @@ SubsTrack/
 │   │       ├── products/productSlice.ts
 │   │       ├── sales/saleSlice.ts
 │   │       ├── debts/debtSlice.ts
+│   │       ├── expenses/expenseSlice.ts
 │   │       └── options/optionSlice.ts
 │   │
 │   ├── modules/                   # Feature modules (state moved out — see src/state/)
@@ -174,8 +175,8 @@ SubsTrack/
 │   │   │   ├── screens/ProductListScreen.tsx   # admin-only at app/(app)/(tabs)/admin/products.tsx
 │   │   │   └── components/{ProductCard, ProductFormSheet}.tsx
 │   │   │
-│   │   ├── transactions/                        # Transactions hub — parent of the Sales/Payments/Services segments
-│   │   │   └── screens/{TransactionsScreen, ServicesPanel}.tsx  # TransactionsScreen owns chrome + SegmentedTabs; Services is a placeholder
+│   │   ├── transactions/                        # Transactions hub — parent of the Debts/Sales/Expenses/Services segments
+│   │   │   └── screens/{TransactionsScreen, ServicesPanel}.tsx  # TransactionsScreen owns chrome + SegmentedTabs (Expenses admin-only); Services is a placeholder
 │   │   │
 │   │   ├── sales/                               # One-off sale ledger (separate from subscription payments)
 │   │   │   ├── repository/SaleRepository.ts    # paginated findAll w/ search, findByCustomer, voidSale, totalsForMonth (drift-free USD)
@@ -197,6 +198,13 @@ SubsTrack/
 │   │   │   ├── hooks/useDebtRowActions.ts       # the shared row actions (pay debt / remove custom debt / remove debt payment): confirm + slice call, used by BOTH the Debts tab and the customer-detail panel
 │   │   │   ├── screens/DebtsPanel.tsx           # Debts segment of the hub: Debtors / Debts / Payments sub-tabs (PillTabs)
 │   │   │   └── components/{DebtItemCard, DebtPaymentCard, DebtList, DebtorCard, DebtorDetailSheet, CustomerDebtsPanel, CustomDebtFormSheet, DebtPaymentFormSheet}.tsx  # DebtList = shared list body (Debtor modal + customer detail)
+│   │   │
+│   │   ├── expenses/                            # Money OUT — admin-only (Transactions → Expenses)
+│   │   │   ├── repository/ExpenseRepository.ts # the STORED expenses table only (+ .offline sibling); branch scope 'owned'
+│   │   │   ├── services/ExpenseService.ts       # composes stored rows + DERIVED stock costs (stock_movements.unit_cost) → ExpenseItem[] + USD summary
+│   │   │   ├── utils/expenseCategories.ts       # the one code list → i18n key + Ionicons glyph (dropdown, card, future report)
+│   │   │   ├── screens/ExpensesPanel.tsx        # Expenses segment of the hub: date window (this month), category/search chips, month sections
+│   │   │   └── components/{ExpenseCard, ExpenseFormSheet}.tsx
 │   │   │
 │   │   ├── options/                             # Read-only global app config (key/value)
 │   │   │   ├── repository/OptionRepository.ts  # findAll + findByKey (authenticated SELECT only)

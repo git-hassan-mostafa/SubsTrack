@@ -4,7 +4,12 @@ import type { DbProduct, DbStockMovement } from '@/src/core/types/db';
 import { OfflineBaseRepository } from '@/src/core/offline/OfflineBaseRepository';
 import { insertDirty, updateDirty, markDeleted } from '@/src/core/offline/db/dml';
 import { newId, nowIso } from '@/src/core/offline/ids';
-import type { CreateStockMovementPayload, IProductRepository } from './IProductRepository';
+import { toStockCostRow } from '../utils/mapper';
+import type {
+  CreateStockMovementPayload,
+  IProductRepository,
+  StockCostRow,
+} from './IProductRepository';
 
 /**
  * SQLite-backed Product repository. Reads from the local mirror; writes mutate
@@ -43,7 +48,11 @@ export class OfflineProductRepository extends OfflineBaseRepository implements I
   async update(
     id: string,
     payload: Partial<
-      Pick<DbProduct, 'name' | 'description' | 'price' | 'currency_id' | 'branch_id' | 'active'>
+      Pick<
+        DbProduct,
+        | 'name' | 'description' | 'price' | 'currency_id'
+        | 'cost_price' | 'cost_currency_id' | 'branch_id' | 'active'
+      >
     >,
   ): Promise<DbProduct> {
     const row = await this.auditedUpdate<DbProduct>(
@@ -161,5 +170,44 @@ export class OfflineProductRepository extends OfflineBaseRepository implements I
       [productId, limit],
     );
     return this.decodeAll<DbStockMovement>('stock_movements', rows);
+  }
+
+  // Twin of the online stockCostsInRange. Money columns are TEXT in the mirror,
+  // so toStockCostRow does the Number() conversion (no SQL arithmetic here).
+  async stockCostsInRange(
+    startIso: string,
+    endExclusiveIso: string,
+    branchFilter: BranchFilter = null,
+  ): Promise<StockCostRow[]> {
+    const where = this.combineWhere([
+      { clause: 'm.quantity_delta > 0', params: [] },
+      { clause: 'm.unit_cost IS NOT NULL', params: [] },
+      { clause: 'm.voided_at IS NULL', params: [] },
+      { clause: 'm.occurred_at >= ? AND m.occurred_at < ?', params: [startIso, endExclusiveIso] },
+      this.branchWhere(branchFilter, this.BRANCH_SCOPES.stock_movements, 'p'),
+    ]);
+    const rows = await this.all<{
+      id: string;
+      product_id: string;
+      quantity_delta: number;
+      unit_cost: string;
+      currency_id: string | null;
+      rate_per_usd_snapshot: string | null;
+      occurred_at: string;
+      recorded_by_user_id: string | null;
+      product_name: string;
+      product_branch_id: string | null;
+    }>(
+      `SELECT m.id, m.product_id, m.quantity_delta, m.unit_cost, m.currency_id,
+              m.rate_per_usd_snapshot, m.occurred_at, m.recorded_by_user_id,
+              p.name AS product_name, p.branch_id AS product_branch_id
+       FROM stock_movements m JOIN products p ON m.product_id = p.id
+       ${where.sql}
+       ORDER BY m.occurred_at DESC`,
+      where.params,
+    );
+    return rows.map((r) =>
+      toStockCostRow(r, { name: r.product_name, branch_id: r.product_branch_id }),
+    );
   }
 }

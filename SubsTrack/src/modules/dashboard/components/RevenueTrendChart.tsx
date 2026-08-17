@@ -27,6 +27,11 @@ interface Props {
 // payments (red-500 = COLORS.danger, same red the Debts tab uses) — so the mix
 // reads at a glance. Prev/next arrows — or a horizontal swipe on the card — page
 // the window 6 months at a time; the current month is emphasized when visible.
+//
+// Money OUT hangs BELOW the baseline as an orange bar, on the same scale as the
+// bars above it, so income vs spending reads in one glance. It renders only when
+// the window has an expense (a tenant that records none sees the old chart
+// unchanged), and the area is only as tall as the biggest expense needs.
 export function RevenueTrendChart({
   data,
   format,
@@ -36,7 +41,16 @@ export function RevenueTrendChart({
   loading,
 }: Props) {
   const { t } = useTranslation();
-  const max = Math.max(1, ...data.map((d) => d.total));
+  const hasExpenses = data.some((d) => d.expenses > 0);
+  // ONE scale for both halves — a separate expense scale would make a small
+  // spend look as big as a big month's income.
+  const max = Math.max(1, ...data.map((d) => Math.max(d.total, d.expenses)));
+  const expenseHeight = hasExpenses
+    ? Math.max(
+        MIN_BAR,
+        Math.round((Math.max(...data.map((d) => d.expenses)) / max) * CHART_HEIGHT),
+      )
+    : 0;
 
   const now = new Date();
   const currentIndex = data.findIndex(
@@ -45,7 +59,7 @@ export function RevenueTrendChart({
   const hasSales = data.some((d) => d.sales > 0);
   const hasDebt = data.some((d) => d.debt > 0);
   // The legend only earns its space once a bar is actually split.
-  const showLegend = hasSales || hasDebt;
+  const showLegend = hasSales || hasDebt || hasExpenses;
   // Disambiguate with the year whenever a bar isn't in the current calendar
   // year — a window entirely within one past year (e.g. Feb'25-Jul'25) is
   // just as ambiguous as one spanning two years, so this can't be limited to
@@ -123,6 +137,14 @@ export function RevenueTrendChart({
                 <View className="w-3 h-3 rounded-sm bg-red-500" />
                 <Text className="text-xs text-gray-500">
                   {t("dashboard.debts_label")}
+                </Text>
+              </View>
+            ) : null}
+            {hasExpenses ? (
+              <View className="flex-row items-center gap-1.5">
+                <View className="w-3 h-3 rounded-sm bg-orange-500" />
+                <Text className="text-xs text-gray-500">
+                  {t("dashboard.expenses_label")}
                 </Text>
               </View>
             ) : null}
@@ -204,8 +226,31 @@ export function RevenueTrendChart({
           </View>
         </View>
 
-        {/* Baseline */}
-        <View className="h-px bg-gray-100 mt-1.5 mb-2" />
+        {/* Baseline — the zero line: income above, spending below. */}
+        <View
+          className={`h-px mt-1.5 ${hasExpenses ? "bg-gray-300" : "bg-gray-100 mb-2"}`}
+        />
+
+        {/* Money out — hangs down from the baseline, same scale as above it. */}
+        {hasExpenses ? (
+          <View style={{ height: expenseHeight }} className="flex-row items-start mb-2">
+            {data.map((point) => (
+              <View key={point.month} className="flex-1 items-center px-[2px]">
+                {point.expenses > 0 ? (
+                  <View
+                    style={{
+                      height: Math.max(
+                        MIN_BAR,
+                        Math.round((point.expenses / max) * CHART_HEIGHT),
+                      ),
+                    }}
+                    className="w-full rounded-b-md bg-orange-500"
+                  />
+                ) : null}
+              </View>
+            ))}
+          </View>
+        ) : null}
 
         {/* Month labels — short names; they shrink to fit so all 6 stay on one row */}
         <View className="flex-row">

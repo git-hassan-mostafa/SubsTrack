@@ -788,6 +788,18 @@ ALTER TABLE products ADD COLUMN IF NOT EXISTS price NUMERIC(20,8) NOT NULL CHECK
 ALTER TABLE products ADD COLUMN IF NOT EXISTS currency_id UUID
     CONSTRAINT fk_products_currency REFERENCES currencies(id) ON DELETE RESTRICT;
 
+-- What the product COSTS to buy (the default that pre-fills a restock), as
+-- opposed to `price` above, which is what it sells for. NULL = unknown, and a
+-- restock then simply records no cost. Live like `price`, never frozen — each
+-- restock freezes its own cost onto the stock_movements row.
+ALTER TABLE products ADD COLUMN IF NOT EXISTS cost_price NUMERIC(20,8)
+    CHECK (cost_price IS NULL OR cost_price > 0);
+
+-- Currency of cost_price. NULL = USD. (`currency_id` above is the SELLING
+-- currency, so the cost needs its own.)
+ALTER TABLE products ADD COLUMN IF NOT EXISTS cost_currency_id UUID
+    CONSTRAINT fk_products_cost_currency REFERENCES currencies(id) ON DELETE RESTRICT;
+
 ALTER TABLE products ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT TRUE;
 ALTER TABLE products ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 ALTER TABLE products ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
@@ -1036,6 +1048,24 @@ ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS reason TEXT NOT NULL
 ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS sale_id UUID
     CONSTRAINT fk_stock_movements_sale REFERENCES sales(id) ON DELETE CASCADE;
 
+-- What one unit cost to BUY, on a positive movement ('initial' / 'restock').
+-- This is the only money on the ledger, and it is what makes a stock purchase
+-- an expense: the Expenses view derives one row per costed positive movement
+-- (amount = quantity_delta * unit_cost). NULL = no cost recorded, so the
+-- movement contributes nothing — true for every legacy row and every 'sale'.
+-- The three columns are always written together.
+ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS unit_cost NUMERIC(20,8)
+    CHECK (unit_cost IS NULL OR unit_cost >= 0);
+
+-- Currency unit_cost is stored in. NULL = USD.
+ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS currency_id UUID
+    CONSTRAINT fk_stock_movements_currency REFERENCES currencies(id) ON DELETE RESTRICT;
+
+-- Rate frozen when the stock was bought, same drift-free principle as
+-- payments/sales.rate_per_usd_snapshot. 1 for USD.
+ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS rate_per_usd_snapshot NUMERIC(20,8)
+    CHECK (rate_per_usd_snapshot IS NULL OR rate_per_usd_snapshot > 0);
+
 ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS note TEXT;
 ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS recorded_by_user_id UUID
     CONSTRAINT fk_stock_movements_recorded_by REFERENCES users(id) ON DELETE SET NULL;
@@ -1093,6 +1123,11 @@ CREATE INDEX IF NOT EXISTS idx_stock_movements_tenant
 
 CREATE INDEX IF NOT EXISTS idx_stock_movements_sale
     ON stock_movements (sale_id) WHERE sale_id IS NOT NULL;
+
+-- The Expenses view: stock bought in a date range (positive, costed, live).
+CREATE INDEX IF NOT EXISTS idx_stock_movements_cost
+    ON stock_movements (occurred_at)
+    WHERE unit_cost IS NOT NULL AND quantity_delta > 0 AND voided_at IS NULL;
 
 CREATE OR REPLACE TRIGGER trg_stock_movements_updated_at
     BEFORE UPDATE ON stock_movements
@@ -1285,6 +1320,86 @@ CREATE INDEX IF NOT EXISTS idx_debt_payments_customer_id
 CREATE INDEX IF NOT EXISTS idx_debt_payments_holder
     ON debt_payments (held_by_user_id)
     WHERE held_by_user_id IS NOT NULL AND voided_at IS NULL;
+
+-- ============================================================
+-- EXPENSES
+-- Money the business SPENT — the counterweight to the three cash-in ledgers
+-- (payments, sales, debt_payments), so the dashboard can show a real net.
+-- Only HAND-TYPED expenses are stored here (rent, salaries, fuel…). The cost of
+-- buying stock is NOT a row in this table: it is DERIVED at runtime from
+-- stock_movements.unit_cost, so correcting stock corrects the expense too.
+-- Owns its branch_id (NULL = a company-wide expense), unlike debts which
+-- inherit via the customer. ADMIN-ONLY (RLS) — salaries and rent are not staff
+-- business. Soft-void only; there is no edit.
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS expenses ();
+
+-- ---- Columns --------------------------------------------------------------
+
+ALTER TABLE expenses ADD COLUMN IF NOT EXISTS id UUID PRIMARY KEY DEFAULT uuid_generate_v4();
+ALTER TABLE expenses ADD COLUMN IF NOT EXISTS tenant_id UUID NOT NULL
+    CONSTRAINT fk_expenses_tenant REFERENCES tenants(id) ON DELETE CASCADE;
+
+-- NULL = a company-wide expense (not charged to any one branch).
+ALTER TABLE expenses ADD COLUMN IF NOT EXISTS branch_id UUID
+    CONSTRAINT fk_expenses_branch REFERENCES branches(id) ON DELETE SET NULL;
+
+-- What kind of expense. Free text at the DB level (the app owns the code list
+-- in expenseCategories.ts) so a new category never needs a migration.
+ALTER TABLE expenses ADD COLUMN IF NOT EXISTS category TEXT NOT NULL DEFAULT 'other';
+
+-- What the money went on. Shown as the row label.
+ALTER TABLE expenses ADD COLUMN IF NOT EXISTS description TEXT;
+
+ALTER TABLE expenses ADD COLUMN IF NOT EXISTS amount NUMERIC(20,8) NOT NULL
+    CHECK (amount > 0);
+
+-- Currency the amount is stored in. NULL = USD.
+ALTER TABLE expenses ADD COLUMN IF NOT EXISTS currency_id UUID
+    CONSTRAINT fk_expenses_currency REFERENCES currencies(id) ON DELETE RESTRICT;
+
+-- Rate frozen at recording time (units per 1 USD; 1 for USD).
+ALTER TABLE expenses ADD COLUMN IF NOT EXISTS rate_per_usd_snapshot NUMERIC(20,8) NOT NULL
+    CHECK (rate_per_usd_snapshot > 0);
+
+ALTER TABLE expenses ADD COLUMN IF NOT EXISTS recorded_by_user_id UUID
+    CONSTRAINT fk_expenses_recorded_by REFERENCES users(id) ON DELETE SET NULL;
+
+-- When the money actually went out — user-picked, and what every month bucket
+-- keys off. NOT created_at: last month's rent can be entered today.
+ALTER TABLE expenses ADD COLUMN IF NOT EXISTS incurred_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE expenses ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE expenses ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+-- Soft-void fields. Set together or not at all.
+ALTER TABLE expenses ADD COLUMN IF NOT EXISTS voided_at TIMESTAMPTZ;
+ALTER TABLE expenses ADD COLUMN IF NOT EXISTS voided_by UUID
+    CONSTRAINT fk_expenses_voided_by REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE expenses ADD COLUMN IF NOT EXISTS void_reason TEXT;
+ALTER TABLE expenses ADD COLUMN IF NOT EXISTS notes TEXT;
+
+-- ---- Table-level constraints (multi-column — cannot ride on an ADD COLUMN) --
+
+DO $$ BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conrelid = 'expenses'::regclass AND conname = 'chk_expenses_void_consistency'
+    ) THEN
+        ALTER TABLE expenses ADD CONSTRAINT chk_expenses_void_consistency
+            CHECK (
+                (voided_at IS NULL AND voided_by IS NULL)
+                OR
+                (voided_at IS NOT NULL AND voided_by IS NOT NULL)
+            );
+    END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_expenses_tenant_incurred
+    ON expenses (tenant_id, incurred_at);
+
+CREATE INDEX IF NOT EXISTS idx_expenses_branch_id
+    ON expenses (branch_id);
 
 -- ============================================================
 -- SKIPPED MONTHS
@@ -1497,6 +1612,7 @@ ALTER TABLE sale_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE stock_movements ENABLE ROW LEVEL SECURITY;
 ALTER TABLE custom_debts  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE debt_payments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE expenses   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE skipped_months ENABLE ROW LEVEL SECURITY;
 ALTER TABLE exception_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
@@ -2101,6 +2217,46 @@ DO $$ BEGIN
             );
     END IF;
 
+    -- ── EXPENSES ─────────────────────────────────────────────
+    -- ADMINS ONLY, read and write: rent and salaries are not staff business.
+    -- Owns its branch_id (the `sales` shape, not the customer-inherited one),
+    -- and a NULL branch is a company-wide expense every admin can see.
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE tablename = 'expenses' AND policyname = 'expenses_all'
+    ) THEN
+        CREATE POLICY expenses_all ON expenses
+            FOR ALL
+            USING (
+                tenant_id = current_tenant_id()
+                AND EXISTS (
+                    SELECT 1 FROM public.users u
+                    WHERE u.id = auth.uid()
+                      AND u.role IN ('admin', 'superadmin')
+                      AND u.active = true
+                )
+                AND (
+                    branch_id IS NULL
+                    OR current_branch_id() IS NULL
+                    OR branch_id = current_branch_id()
+                )
+            )
+            WITH CHECK (
+                tenant_id = current_tenant_id()
+                AND EXISTS (
+                    SELECT 1 FROM public.users u
+                    WHERE u.id = auth.uid()
+                      AND u.role IN ('admin', 'superadmin')
+                      AND u.active = true
+                )
+                AND (
+                    branch_id IS NULL
+                    OR current_branch_id() IS NULL
+                    OR branch_id = current_branch_id()
+                )
+            );
+    END IF;
+
     -- ── SKIPPED MONTHS ───────────────────────────────────────
     -- Same branch-via-customer inheritance as payments / custom_debts.
     IF NOT EXISTS (
@@ -2296,6 +2452,11 @@ CREATE OR REPLACE TRIGGER trg_custom_debts_updated_at
 
 CREATE OR REPLACE TRIGGER trg_debt_payments_updated_at
     BEFORE UPDATE ON debt_payments
+    FOR EACH ROW
+    EXECUTE FUNCTION set_updated_at();
+
+CREATE OR REPLACE TRIGGER trg_expenses_updated_at
+    BEFORE UPDATE ON expenses
     FOR EACH ROW
     EXECUTE FUNCTION set_updated_at();
 

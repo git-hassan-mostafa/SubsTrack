@@ -14,6 +14,7 @@
 - [Tenant Settings (Per-Tenant Config)](#tenant-settings-per-tenant-config)
 - [Subscription Tiers](#subscription-tiers)
 - [Products & One-Off Sales](#products--one-off-sales)
+- [Expenses](#expenses)
 - [WhatsApp Invoices](#whatsapp-invoices)
 - [Transactions Hub](#transactions-hub)
 - [Debts](#debts)
@@ -349,7 +350,7 @@ Presentation: the screen uses a shared `StatTile` (label / big value / sub-line 
 
 Every product carries a stock quantity and can be **out of stock**. Stock on hand is **computed at runtime** — `Product.stockOnHand = SUM(stock_movements.quantity_delta)` over the non-voided rows — exactly like Debts and the Collector Wallet. There is deliberately **no counter column on `products`**: the offline sync pushes whole rows with latest-`updated_at`-wins, so two devices each selling one unit offline would both write the same decremented number and one sale would vanish. Additive ledger rows merge with no conflict.
 
-**`stock_movements`** — `product_id`, signed `quantity_delta` (never 0), `reason`, `sale_id` (only for `'sale'`), `note`, `recorded_by_user_id`, `occurred_at`, plus soft-void fields. Reasons:
+**`stock_movements`** — `product_id`, signed `quantity_delta` (never 0), `reason`, `sale_id` (only for `'sale'`), `unit_cost` + `currency_id` + `rate_per_usd_snapshot` (what the stock cost to BUY — see below), `note`, `recorded_by_user_id`, `occurred_at`, plus soft-void fields. Reasons:
 
 | Reason | Written by | Sign |
 | --- | --- | --- |
@@ -375,7 +376,36 @@ Every product carries a stock quantity and can be **out of stock**. Stock on han
 
 `ProductBatchRestockSheet` is the many-products counterpart: a search box, then every **active** product as one compact row — name, current on-hand, and a `[−] qty [+]` stepper. A row with a quantity turns indigo and previews the result (`3 → 8`), so what's included is visible without reordering the list while the user types. One shared note applies to every row, and a summary line ("N products selected · +40") sits above the save button. Quantities are held per product id, so filtering the list never loses what was already typed. Two entry points, one component: the **Restock** button beside the search box on the products screen, and **Batch Restock** in the PageHeader quick-actions menu (admin-only there, since products live in the admin tab that non-admins never see).
 
-See gotchas #35, #36, #37, #48.
+**Cost — the money side of the ledger.** A positive movement can carry what one unit cost to buy: `unit_cost` + `currency_id` + `rate_per_usd_snapshot`, written together by `ProductService.movement()` or all three null. That is the **only** money on `stock_movements`, and it is what makes buying stock an expense (see [Expenses](#expenses)). `products` also gained `cost_price` + `cost_currency_id` — a *default* that pre-fills the restock forms, live like `price` and never frozen; each delivery freezes its own cost on its own movement. Everything is optional: a restock with no cost still records the stock and simply adds no expense, which is also what every legacy row does. A `'sale'` movement never carries a cost (stock leaving is not money leaving) and neither does a negative `'adjustment'` (damage is stock lost, not cash out) — `movement()` enforces both. Cost is typed in three places: the product form's **Cost price** field (the default, plus the opening stock's cost on create), the stock sheet's **Cost per unit** in Add mode (with a live "Total cost" line), and the **batch restock** sheet, where one **delivery currency** is picked for the whole save and each picked row opens a cost line seeded from its product's cost price, converted at the live rate (the `SaleItemsEditor` rule — changing the delivery currency re-prices every row).
+
+See gotchas #35, #36, #37, #48, #88, #89.
+
+---
+
+## Expenses
+
+The app counted only money **in** — three cash streams summed into `monthlyRevenue`. Expenses are the other half, so the dashboard can answer "did I actually make money?". **Admin-only end to end** (RLS on the table, and the UI drops the segment, the quick action and the dashboard tiles for anyone else): rent and salaries are not staff business.
+
+**Two sources, one view.** `ExpenseService.getExpensesView({ startIso, endExclusiveIso, branchFilter })` composes them into a uniform `ExpenseItem[]` + a USD `ExpenseSummary` — the same shape `DebtService` uses (stored rows + a derived stream from another service):
+
+| Source | Where it comes from |
+| --- | --- |
+| `manual` | Hand-typed rows in the `expenses` table (rent, salaries, fuel, …) |
+| `stock` | **Derived** at read time from `stock_movements` — positive, costed, non-voided rows; `amount = quantity_delta × unit_cost` |
+
+**A restock never writes an expense row.** Deriving it means correcting the stock corrects the expense, with no second insert inside the offline restock transaction, no drift on a void, and no orphan when a hard-deleted product takes its ledger with it. The cost of that choice is that a derived row **cannot be voided** (`ExpenseItem.canVoid` is false; its 3-dot offers "Open product") — a wrong cost is fixed the way every stock mistake is, with another movement. Row ids are prefixed (`exp:` / `stock:`) so the two sources can never collide.
+
+**Cash basis, exactly like revenue.** A purchase counts in the month it was **paid for**, never the month the goods sell — no FIFO, no cost layering, and unsold stock is inventory rather than a loss. Manual rows key off `incurred_at`, a **user-picked date** (last month's rent entered today belongs to last month), not `created_at`.
+
+**`expenses` table** — `branch_id` (its **own**, `NULL` = a company-wide expense), `category` (free text at the DB level; the app owns the code list, so a new category needs no migration), `description`, `amount` + `currency_id` + `rate_per_usd_snapshot` (the standard frozen-rate trio), `recorded_by_user_id`, `incurred_at`, soft-void fields. **Void-only, no edit** — a typo is voided and re-entered, so the row is its own history and the table is deliberately **not audited** (the same call as the debt tables). No tier gating.
+
+**Branch semantics: one rule, and it is `owned` on both halves.** `expenses.branch_id` is `owned`, and NULL means **the company bought it, no branch did** — so a company-wide expense shows in the **All branches** view only (the "Unassigned" chip reaches it on its own). The *derived* half follows the same rule via the parent **product**: `stock_movements: { kind: 'inherited', joinedTable: 'products' }`, deliberately narrower than the stock RLS policy. Both exist for the same reason — **branch views must sum to the tenant total**. Making either one `shared` puts head-office rent, or a shared product's delivery, into every branch's expenses at once, and two branch admins each read the same money as theirs. The RLS policy is wider than the app filter on purpose: visibility and aggregation are different questions. Gotcha #88.
+
+**UI.** An **Expenses** segment in the Transactions hub (admin-only) plus an "Add expense" quick action. `ExpensesPanel` reads a **date window** (the current calendar month by default) rather than paginating, so section totals are always the local sum: a total-spent headline with a stock/other split, search + category + From/To chips, then a month-grouped `SectionList` via the shared `groupByMonth` / `MonthSectionHeader`. Every amount carries a leading `−`. `ExpenseFormSheet` is the `CustomDebtFormSheet` shape (category `Dropdown`, `CurrencyInput`, `DatePickerInput` capped at today, branch picker, description).
+
+**Dashboard.** `DashboardMetrics` gains `monthlyExpenses` / `stockExpenses` / `customExpenses` / `netIncome`, and `RevenuePoint` gains `expenses` / `net`. **`monthlyRevenue` and `RevenuePoint.total` stay GROSS** — `netIncome` is the subtraction, so `prevMonthRevenue`, the vs-last-month pill and the chart scale all keep their meaning. The hero card gains an orange `Expenses −$X` chip beside the red "Owed by customers" one (orange vs red because they mean different things — money already spent vs money not yet collected) and a `Net this month` line, red when negative; two full-width tiles follow. `RevenueTrendChart` hangs an orange bar **below the baseline** on the same scale as the income bars, rendering only when the window has an expense — a tenant that records none sees the chart exactly as before. Admin-only throughout: `getMetrics` reuses the wallet's `viewer` gate, and `getRevenueTrend` takes an explicit `includeExpenses` because `navigateTrend` calls it directly.
+
+**Code map:** `src/modules/transaction/expenses/` (repository + service + `expenseCategories.ts` + panel/card/form), the `expenses` slice + `useExpenseSlice`, `stockCostsInRange` on `IProductRepository`. See gotchas #88 and #89; QA [expenses.md](../QA/expenses.md).
 
 ---
 
@@ -432,6 +462,7 @@ The bottom **Transactions** tab (`app/(app)/(tabs)/transactions`) is a hub hosti
 
 - **Debts** → `DebtsPanel` (see the [Debts](#debts) section — `debts` slice).
 - **Sales** → `SalesPanel` (the former `SalesListScreen` body, behavior unchanged — `sales` slice).
+- **Expenses** → `ExpensesPanel` (see [Expenses](#expenses) — `expenses` slice). **Admin-only**: the segment is dropped from the array entirely for a non-admin, matching the RLS on the table.
 - **Services** → `ServicesPanel` ("coming soon" `EmptyState`).
 
 > **Payments history is no longer a Transactions tab.** The `PaymentsPanel` body was moved into a full-height bottom sheet (`PaymentsHistorySheet`, in `customer-payments/components/`) launched from the **PageHeader 3-dot quick-actions menu** ("Payments history", first item) on any screen. It rides the same `ui`-slice / `QuickActionSheets` seam as the other quick-add sheets (`QuickActionSheet` gained `'paymentsHistory'`). The panel itself, its `paymentsList` slice, filters, and multi-select are unchanged — only where it's hosted moved.

@@ -58,8 +58,16 @@ export function QuickActionsMenuButton() {
   ];
 
   // Products are managed from the admin tab, which non-admins never see — so the
-  // restock shortcut stays admin-only too.
+  // restock shortcut stays admin-only too. Expenses are admin-only for a
+  // stronger reason: rent and salaries are not staff business (RLS enforces it).
   if (isAdmin) {
+    actions.push({
+      key: "expense",
+      label: t("expenses.add_title"),
+      icon: "trending-down-outline",
+      iconBadge: "add",
+      onPress: () => openQuickAction("expense"),
+    });
     actions.push({
       key: "batchRestock",
       label: t("products.batch_restock_title"),

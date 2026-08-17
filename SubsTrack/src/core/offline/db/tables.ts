@@ -174,7 +174,10 @@ export const TABLES: TableSpec[] = [
     scope: 'tenant',
     columns: {
       id: 'text', tenant_id: 'text', branch_id: 'text', name: 'text', description: 'text',
-      price: 'num', currency_id: 'text', active: 'bool', created_at: 'text', updated_at: 'text',
+      price: 'num', currency_id: 'text',
+      // What it costs to buy — pre-fills a restock. Separate from the selling currency.
+      cost_price: 'num', cost_currency_id: 'text',
+      active: 'bool', created_at: 'text', updated_at: 'text',
     },
   },
   {
@@ -213,7 +216,10 @@ export const TABLES: TableSpec[] = [
     scope: 'tenant',
     columns: {
       id: 'text', tenant_id: 'text', product_id: 'text', quantity_delta: 'int',
-      reason: 'text', sale_id: 'text', note: 'text', recorded_by_user_id: 'text',
+      reason: 'text', sale_id: 'text',
+      // What the stock cost to buy — the source of the derived stock expenses.
+      unit_cost: 'num', currency_id: 'text', rate_per_usd_snapshot: 'num',
+      note: 'text', recorded_by_user_id: 'text',
       occurred_at: 'text', voided_at: 'text', voided_by: 'text',
       created_at: 'text', updated_at: 'text',
     },
@@ -238,6 +244,21 @@ export const TABLES: TableSpec[] = [
       received_by_user_id: 'text', paid_at: 'text',
       voided_at: 'text', voided_by: 'text', void_reason: 'text', notes: 'text',
       held_by_user_id: 'text', remitted_at: 'text', remitted_by: 'text',
+      created_at: 'text', updated_at: 'text',
+    },
+  },
+  {
+    // Hand-typed expenses only — stock purchase costs are derived from
+    // stock_movements.unit_cost and never stored here. Owns its branch_id.
+    // Admin-only on the server, so a collector's mirror simply stays empty.
+    name: 'expenses',
+    scope: 'tenant',
+    columns: {
+      id: 'text', tenant_id: 'text', branch_id: 'text',
+      category: 'text', description: 'text',
+      amount: 'num', currency_id: 'text', rate_per_usd_snapshot: 'num',
+      recorded_by_user_id: 'text', incurred_at: 'text',
+      voided_at: 'text', voided_by: 'text', void_reason: 'text', notes: 'text',
       created_at: 'text', updated_at: 'text',
     },
   },
@@ -300,5 +321,5 @@ export const SYNC_PULL_ORDER = [
   'tenants', 'tier_plans', 'app_options', 'tenant_settings', 'currencies', 'branches', 'users',
   'plans', 'customers', 'customer_plans', 'payments', 'skipped_months',
   'products', 'sales', 'sale_items', 'stock_movements', 'custom_debts',
-  'debt_payments', 'exception_logs', 'audit_logs',
+  'debt_payments', 'expenses', 'exception_logs', 'audit_logs',
 ] as const;

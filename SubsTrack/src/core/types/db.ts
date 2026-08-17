@@ -171,6 +171,10 @@ export interface DbProduct {
   description: string | null;
   price: number;
   currency_id: string | null;
+  // What the product costs to BUY — the default that pre-fills a restock.
+  // null = unknown, and a restock then records no cost. cost_currency_id null = USD.
+  cost_price: number | null;
+  cost_currency_id: string | null;
   active: boolean;
   created_at: string;
   updated_at: string;
@@ -219,6 +223,13 @@ export interface DbStockMovement {
   reason: DbStockReason;
   // Set only for reason = 'sale'.
   sale_id: string | null;
+  // What one unit cost to buy, on a positive movement. The Expenses view derives
+  // one row per costed movement (quantity_delta * unit_cost). null = no cost
+  // recorded, so it contributes nothing — every legacy and every 'sale' row.
+  // The three always travel together; rate is frozen at buy time (1 for USD).
+  unit_cost: number | null;
+  currency_id: string | null;
+  rate_per_usd_snapshot: number | null;
   note: string | null;
   recorded_by_user_id: string | null;
   occurred_at: string;
@@ -292,6 +303,29 @@ export interface DbDebtPayment {
   remitted_by: string | null;
   // joined relation — present when .select('*, customers(*)')
   customers?: DbCustomer | null;
+}
+
+// One hand-typed business expense (rent, salaries, fuel…). The cost of buying
+// stock is NOT stored here — it is derived from stock_movements.unit_cost.
+// Owns its branch_id (null = a company-wide expense). Soft-void only, no edit.
+export interface DbExpense {
+  id: string;
+  tenant_id: string;
+  branch_id: string | null;
+  category: string;
+  description: string | null;
+  amount: number;
+  currency_id: string | null;
+  rate_per_usd_snapshot: number;
+  recorded_by_user_id: string | null;
+  // When the money went out (user-picked) — what every month bucket keys off.
+  incurred_at: string;
+  created_at: string;
+  updated_at: string;
+  voided_at: string | null;
+  voided_by: string | null;
+  void_reason: string | null;
+  notes: string | null;
 }
 
 export interface DbAppOption {

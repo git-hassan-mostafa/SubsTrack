@@ -8,6 +8,22 @@ export type CreateStockMovementPayload = Omit<
   'id' | 'created_at' | 'updated_at' | 'voided_at' | 'voided_by'
 >;
 
+/** One stock purchase, for the Expenses view. Only positive, costed, live
+ *  movements produce one; `amount` is quantity * unit_cost in the row's own
+ *  currency, with the rate frozen when the stock was bought. */
+export interface StockCostRow {
+  movementId: string;
+  productId: string;
+  productName: string;
+  quantity: number;
+  amount: number;
+  currencyId: string | null;
+  ratePerUsdSnapshot: number;
+  occurredAt: string;
+  branchId: string | null;
+  recordedByUserId: string | null;
+}
+
 /**
  * The Product repository contract. Both the Supabase (online/web) class and the
  * offline SQLite class implement this — the compiler keeps the two in lockstep.
@@ -18,7 +34,11 @@ export interface IProductRepository {
   update(
     id: string,
     payload: Partial<
-      Pick<DbProduct, 'name' | 'description' | 'price' | 'currency_id' | 'branch_id' | 'active'>
+      Pick<
+        DbProduct,
+        | 'name' | 'description' | 'price' | 'currency_id'
+        | 'cost_price' | 'cost_currency_id' | 'branch_id' | 'active'
+      >
     >,
   ): Promise<DbProduct>;
   delete(id: string): Promise<void>;
@@ -36,4 +56,12 @@ export interface IProductRepository {
   addMovements(payloads: CreateStockMovementPayload[]): Promise<void>;
   /** Newest first, voided rows included so the history shows corrections. */
   movementsForProduct(productId: string, limit?: number): Promise<DbStockMovement[]>;
+  /** Stock bought in [start, endExclusive) — the derived half of the Expenses
+   *  view. Branch comes from the parent product with OWNED semantics, so a
+   *  shared product's purchase is a company expense, not every branch's. */
+  stockCostsInRange(
+    startIso: string,
+    endExclusiveIso: string,
+    branchFilter?: BranchFilter,
+  ): Promise<StockCostRow[]>;
 }

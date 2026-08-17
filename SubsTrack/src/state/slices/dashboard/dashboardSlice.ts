@@ -88,11 +88,16 @@ export const createDashboardSlice: StateCreator<
       state.dashboard.trendLoading = true;
     });
     try {
-      const branchFilter = resolveBranchFilter(get().auth.user);
+      const user = get().auth.user;
+      const branchFilter = resolveBranchFilter(user);
+      // Same admin gate as the initial load — without it, paging the chart would
+      // silently drop the expense bars for an admin.
+      const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
       const trend = await dashboardService.getRevenueTrend(
         nextAnchor.year,
         nextAnchor.month,
         branchFilter,
+        isAdmin,
       );
       set((state) => {
         state.dashboard.trend = trend;

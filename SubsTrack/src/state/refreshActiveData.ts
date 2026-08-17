@@ -38,6 +38,7 @@ export function refreshActiveData(): void {
   if (s.paymentsList.items.length) void s.paymentsList.fetchPayments();
   if (s.wallet.items.length) void s.wallet.fetchWallets();
   if (s.debts.items.length) void s.debts.fetchDebts();
+  if (s.expenses.items.length) void s.expenses.fetchExpenses();
   // A pull brings other devices' audit entries into the local window.
   if (s.audit.items.length) void s.audit.fetchEntries();
 

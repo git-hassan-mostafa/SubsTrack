@@ -91,6 +91,14 @@ export function DashboardScreen() {
   const walletCash = metrics?.walletCash ?? 0;
   const hasWalletCash = isAdmin && walletCash > 0;
 
+  // Money out this month. Admin-only (the service returns 0 for anyone else), so
+  // a collector's hero card and stat grid look exactly as they did before.
+  const monthlyExpenses = metrics?.monthlyExpenses ?? 0;
+  const netIncome = metrics?.netIncome ?? 0;
+  // With nothing spent, Net is just Revenue again — so the whole money-out
+  // section stays hidden rather than repeating the number next to a $0.00.
+  const showExpenses = isAdmin && monthlyExpenses > 0;
+
   // Month-over-month revenue change (null when there's no prior month to compare).
   const monthlyRevenue = metrics?.monthlyRevenue ?? 0;
   const prevMonthRevenue = metrics?.prevMonthRevenue ?? 0;
@@ -251,26 +259,57 @@ export function DashboardScreen() {
                   </View>
                 ) : null}
 
-                {/* Debt customers still owe — money OUT, not part of the collected
-                    total above, so it carries a red tint and a leading minus. */}
-                {hasDebt ? (
-                  <View className="flex-row mt-3">
-                    <View className="flex-row items-baseline gap-2 rounded-lg bg-red-400/20 px-2.5 py-1.5">
-                      <Text className="text-xs text-red-200">
-                        {t("dashboard.owed_by_customers")}
-                      </Text>
-                      <Text
-                        fontWeight="SemiBold"
-                        className="text-sm text-red-100"
-                      >
-                        {`−${fmt(metrics?.totalDebt ?? 0)}`}
-                      </Text>
-                    </View>
+                {/* Two money-OUT chips, both tinted and prefixed with a minus so
+                    they can never read as part of the collected total above.
+                    Expenses are ORANGE and debt RED — the same colours they wear
+                    in the trend chart, and they mean different things: money
+                    already spent vs money not yet collected. */}
+                {showExpenses || hasDebt ? (
+                  <View className="flex-row flex-wrap gap-2 mt-3">
+                    {showExpenses ? (
+                      <View className="flex-row items-baseline gap-2 rounded-lg bg-orange-400/20 px-2.5 py-1.5">
+                        <Text className="text-xs text-orange-200">
+                          {t("dashboard.expenses_label")}
+                        </Text>
+                        <Text fontWeight="SemiBold" className="text-sm text-orange-100">
+                          {`−${fmt(monthlyExpenses)}`}
+                        </Text>
+                      </View>
+                    ) : null}
+                    {hasDebt ? (
+                      <View className="flex-row items-baseline gap-2 rounded-lg bg-red-400/20 px-2.5 py-1.5">
+                        <Text className="text-xs text-red-200">
+                          {t("dashboard.owed_by_customers")}
+                        </Text>
+                        <Text
+                          fontWeight="SemiBold"
+                          className="text-sm text-red-100"
+                        >
+                          {`−${fmt(metrics?.totalDebt ?? 0)}`}
+                        </Text>
+                      </View>
+                    ) : null}
                   </View>
                 ) : null}
 
                 {/* Divider */}
                 <View className="h-px bg-indigo-500 mt-4 mb-4" />
+
+                {/* Net — collected minus spent. The only figure on the card that
+                    can go negative, so it says so in red. */}
+                {showExpenses ? (
+                  <View className="flex-row items-center justify-between mb-4">
+                    <Text className="text-xs text-indigo-300 uppercase tracking-widest">
+                      {t("dashboard.net_income")}
+                    </Text>
+                    <Text
+                      fontWeight="Bold"
+                      className={`text-xl ${netIncome < 0 ? "text-red-200" : "text-white"}`}
+                    >
+                      {netIncome < 0 ? `−${fmt(Math.abs(netIncome))}` : fmt(netIncome)}
+                    </Text>
+                  </View>
+                ) : null}
 
                 {/* Collection progress */}
                 <View className="flex-row justify-between items-center mb-2">
@@ -373,6 +412,42 @@ export function DashboardScreen() {
                   />
                 </View>
               </View>
+
+              {/* Money out this month, and what's left after it — admin-only.
+                  Full-width like the other money tiles: a formatted amount at
+                  text-3xl doesn't fit half a phone screen. */}
+              {showExpenses ? (
+                <>
+                  <View className="flex-row mx-4 mb-3">
+                    <StatTile
+                      label={t("dashboard.expenses_label")}
+                      value={fmt(monthlyExpenses)}
+                      sub={t("dashboard.expense_breakdown", {
+                        stock: fmt(metrics?.stockExpenses ?? 0),
+                        other: fmt(metrics?.customExpenses ?? 0),
+                      })}
+                      tone="warning"
+                      icon="trending-down-outline"
+                    />
+                  </View>
+                  <View className="flex-row mx-4 mb-3">
+                    <StatTile
+                      label={t("dashboard.net_income")}
+                      value={
+                        netIncome < 0
+                          ? `−${fmt(Math.abs(netIncome))}`
+                          : fmt(netIncome)
+                      }
+                      sub={t("dashboard.net_sub", {
+                        income: fmt(monthlyRevenue),
+                        expenses: fmt(monthlyExpenses),
+                      })}
+                      tone={netIncome < 0 ? "danger" : "success"}
+                      icon="stats-chart-outline"
+                    />
+                  </View>
+                </>
+              ) : null}
 
               {/* Cash collectors hold but haven't handed over yet — admin-only, when > 0 */}
               {hasWalletCash ? (

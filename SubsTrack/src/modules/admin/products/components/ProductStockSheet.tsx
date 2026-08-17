@@ -8,12 +8,15 @@ import { Text } from "@/src/shared/components/Text";
 import { Button } from "@/src/shared/components/Button";
 import { Input } from "@/src/shared/components/Input";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
+import { CurrencyInput } from "@/src/shared/components/CurrencyInput";
 import { COLORS } from "@/src/shared/constants";
 import { formatDateTime } from "@/src/core/utils/date";
 import { useLanguageStore } from "@/src/core/i18n/languageStore";
 import type { Product, StockMovement, StockReason } from "@/src/core/types";
+import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { useProductSlice } from "@/src/state/hooks/useProductSlice";
+import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useUserSlice } from "@/src/state/hooks/useUserSlice";
 import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
 import productService from "../services/ProductService";
@@ -55,13 +58,23 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
     (s) => s.items.find((p) => p.id === product.id)?.stockOnHand ?? product.stockOnHand,
   );
 
+  const currencies = useCurrencySlice((s) => s.items);
+
   const [mode, setMode] = useState<Mode>("add");
   const [quantity, setQuantity] = useState("");
   const [note, setNote] = useState("");
+  // Buying stock spends money — the cost is what turns a restock into an
+  // expense. Pre-filled from the product's default cost, and optional: leaving
+  // it empty records the stock with no cost and adds no expense.
+  const [unitCost, setUnitCost] = useState<number | null>(product.costPrice);
+  const [costCurrencyId, setCostCurrencyId] = useState<string | null>(
+    product.costCurrencyId,
+  );
   const [history, setHistory] = useState<StockMovement[]>([]);
 
-  // `history` is background-loaded, so it stays out of the dirty check.
-  const dirty = useDirtyForm({ mode, quantity, note });
+  // `history` is background-loaded, so it stays out of the dirty check, and so
+  // is `costCurrencyId` (CurrencyInput self-seeds it after mount).
+  const dirty = useDirtyForm({ mode, quantity, note, unitCost });
 
   // Stable across renders so the mount effect below can depend on it.
   const loadHistory = useCallback(async () => {
@@ -85,6 +98,12 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
 
   const parsed = Number(quantity);
   const validQuantity = Number.isInteger(parsed) && parsed > 0;
+  const costCurrency = findCurrency(currencies, costCurrencyId);
+  // What this delivery costs in total — the amount that lands in Expenses.
+  const totalCost =
+    mode === "add" && validQuantity && unitCost != null && unitCost > 0
+      ? parsed * unitCost
+      : null;
 
   async function handleSubmit() {
     if (!user || !validQuantity) return;
@@ -95,6 +114,8 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
       mode === "add" ? "restock" : "adjustment",
       note,
       user.id,
+      // Only a restock carries a cost; removing stock is a loss, not a purchase.
+      mode === "add" ? { unitCost, currency: costCurrency } : null,
     );
     if (!ok) return;
     onDismiss();
@@ -159,6 +180,34 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
         placeholder="0"
         onFocus={clearError}
       />
+
+      {/* Cost — restock only. It becomes an expense in the month of the buy. */}
+      {mode === "add" ? (
+        <>
+          <CurrencyInput
+            label={t("products.cost_per_unit_label")}
+            amount={unitCost}
+            currencyId={costCurrencyId}
+            onChange={({ amount, currencyId }) => {
+              setUnitCost(amount);
+              setCostCurrencyId(currencyId);
+            }}
+            currencies={currencies}
+            placeholder="0.00"
+            onFocus={clearError}
+          />
+          {totalCost != null ? (
+            <View className="-mt-2 mb-4 flex-row items-center justify-between rounded-xl bg-amber-50 px-3 py-2">
+              <Text className="text-xs text-amber-700">
+                {t("products.total_cost_label")}
+              </Text>
+              <Text fontWeight="SemiBold" className="text-sm text-amber-800">
+                {formatMoney(totalCost, costCurrency, costCurrency)}
+              </Text>
+            </View>
+          ) : null}
+        </>
+      ) : null}
 
       <Input
         label={t("products.stock_note_label")}

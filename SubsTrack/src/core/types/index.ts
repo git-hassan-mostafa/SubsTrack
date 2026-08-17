@@ -289,7 +289,13 @@ export interface RevenuePoint {
   subscription: number; // USD collected from subscription payments
   sales: number;        // USD collected on one-off sales
   debt: number;         // USD collected as debt payments
+  // GROSS — money in only. Expenses are NOT subtracted here: the chart scale,
+  // prevMonthRevenue and the vs-last-month pill all read `total`.
   total: number;        // subscription + sales + debt
+  // USD spent that month (stock purchases + hand-typed expenses). Always 0 for
+  // a non-admin viewer, who never fetches them.
+  expenses: number;
+  net: number;          // total − expenses
 }
 
 export interface DashboardMetrics {
@@ -302,6 +308,14 @@ export interface DashboardMetrics {
   subscriptionRevenue: number;
   salesRevenue: number;
   debtRevenue: number;       // debt payments collected this month
+  // Money OUT this month, on the same cash basis: a stock purchase counts when
+  // it was PAID FOR, not when the goods sell. monthlyRevenue above stays GROSS —
+  // netIncome is the subtraction, so no existing number changes meaning.
+  // Admin-only: all four are 0 when the caller isn't an admin (not computed).
+  monthlyExpenses: number;   // stockExpenses + customExpenses
+  stockExpenses: number;     // derived from stock_movements.unit_cost
+  customExpenses: number;    // hand-typed rows in the expenses table
+  netIncome: number;         // monthlyRevenue − monthlyExpenses (can be negative)
   // This month's collection population, from one pass (see UnpaidMonthCount):
   // dueThisMonth counts only customers the month actually asks money from, so a
   // not-yet-due, skipped, not-yet-started or non-regular customer is in neither.
@@ -344,6 +358,10 @@ export interface Product {
   price: number;
   // Currency the stored price is in. null = USD.
   currencyId: string | null;
+  // What the product costs to BUY — the default that pre-fills a restock.
+  // null = unknown. `currencyId` above is the SELLING currency, hence its own.
+  costPrice: number | null;
+  costCurrencyId: string | null;
   active: boolean;
   createdAt: string;
   updatedAt: string;
@@ -367,6 +385,12 @@ export interface StockMovement {
   quantityDelta: number;
   reason: StockReason;
   saleId: string | null;
+  // What one unit cost to buy, on a positive movement — the only money on the
+  // ledger, and what makes a stock purchase an expense. null = no cost recorded
+  // (every legacy row, every 'sale'). All three are written together.
+  unitCost: number | null;
+  currencyId: string | null;
+  ratePerUsdSnapshot: number | null;
   note: string | null;
   recordedByUserId: string | null;
   occurredAt: string;
@@ -532,6 +556,91 @@ export interface DebtSummary {
   grossUsd: number;
   paymentsUsd: number;
   netUsd: number;
+}
+
+// ── Expenses ─────────────────────────────────────────────────────────────────
+// Money the business SPENT — the counterweight to the three cash-in streams, so
+// the dashboard can show a real net. Two sources, one view:
+//   • stored  — hand-typed rows in the `expenses` table (rent, salaries, fuel…)
+//   • derived — the cost of buying stock, computed at runtime from
+//               stock_movements.unit_cost (never a written row, so correcting
+//               stock corrects the expense too — the DebtService precedent).
+// CASH BASIS, like revenue: a purchase counts in the month it was PAID FOR, not
+// the month the goods are sold. Admin-only end to end.
+
+// The stored categories. 'stock' is never hand-picked — it labels the derived
+// rows. Labels + icons live in modules/transaction/expenses/utils/expenseCategories.ts.
+export type ExpenseCategory =
+  | 'stock'
+  | 'rent'
+  | 'salaries'
+  | 'utilities'
+  | 'fuel'
+  | 'transport'
+  | 'maintenance'
+  | 'equipment'
+  | 'internet'
+  | 'taxes'
+  | 'marketing'
+  | 'other';
+
+// A stored expense row. (Derived stock costs are ExpenseItems only.)
+export interface Expense {
+  id: string;
+  tenantId: string;
+  // null = a company-wide expense, not charged to one branch.
+  branchId: string | null;
+  category: ExpenseCategory;
+  description: string | null;
+  amount: number;
+  // Currency the amount is stored in. null = USD.
+  currencyId: string | null;
+  ratePerUsdSnapshot: number;
+  recordedByUserId: string | null;
+  // When the money went out (user-picked) — what every month bucket keys off.
+  incurredAt: string;
+  createdAt: string;
+  updatedAt: string;
+  voidedAt: string | null;
+  voidedBy: string | null;
+  voidReason: string | null;
+  notes: string | null;
+}
+
+// One row in the Expenses list: a stored expense OR a derived stock cost,
+// unified for display. `amount` is in the row's own currency.
+export interface ExpenseItem {
+  // Prefixed ('exp:…' / 'stock:…') so the two sources can never collide.
+  id: string;
+  source: 'manual' | 'stock';
+  category: ExpenseCategory;
+  // The description, or "Water ×100" for a stock purchase.
+  label: string;
+  amount: number;
+  currencyId: string | null;
+  ratePerUsdSnapshot: number;
+  // incurred_at / occurred_at — when the money went out.
+  date: string;
+  branchId: string | null;
+  recordedByUserId: string | null;
+  // Stock rows only — lets the card open the product.
+  productId: string | null;
+  // false for derived rows: fix a wrong stock cost with a stock adjustment,
+  // there is no expense row to void.
+  canVoid: boolean;
+}
+
+// Totals for the current Expenses scope, in USD (the screen formats into the
+// user's display currency).
+export interface ExpenseSummary {
+  totalUsd: number;
+  manualUsd: number;
+  stockUsd: number;
+}
+
+export interface ExpensesView {
+  items: ExpenseItem[];
+  summary: ExpenseSummary;
 }
 
 // ── Collector Wallet ─────────────────────────────────────────────────────────

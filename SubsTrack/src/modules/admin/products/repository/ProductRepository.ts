@@ -2,7 +2,12 @@ import { Platform } from 'react-native';
 import { BaseRepository } from '@/src/core/utils/BaseRepository';
 import type { BranchFilter } from '@/src/core/constants';
 import type { DbProduct, DbStockMovement } from '@/src/core/types/db';
-import type { CreateStockMovementPayload, IProductRepository } from './IProductRepository';
+import type {
+  CreateStockMovementPayload,
+  IProductRepository,
+  StockCostRow,
+} from './IProductRepository';
+import { toStockCostRow } from '../utils/mapper';
 import { OfflineProductRepository } from './ProductRepository.offline';
 
 export class ProductRepository extends BaseRepository implements IProductRepository {
@@ -41,7 +46,11 @@ export class ProductRepository extends BaseRepository implements IProductReposit
   async update(
     id: string,
     payload: Partial<
-      Pick<DbProduct, 'name' | 'description' | 'price' | 'currency_id' | 'branch_id' | 'active'>
+      Pick<
+        DbProduct,
+        | 'name' | 'description' | 'price' | 'currency_id'
+        | 'cost_price' | 'cost_currency_id' | 'branch_id' | 'active'
+      >
     >,
   ): Promise<DbProduct> {
     return this.auditedUpdate<DbProduct>('products', id, payload, {
@@ -123,6 +132,33 @@ export class ProductRepository extends BaseRepository implements IProductReposit
       .limit(limit);
     if (error) this.handleError(error);
     return (data ?? []) as DbStockMovement[];
+  }
+
+  // The derived half of the Expenses view. `products!inner` both supplies the
+  // name and lets applyBranchFilter scope on the parent's branch.
+  async stockCostsInRange(
+    startIso: string,
+    endExclusiveIso: string,
+    branchFilter: BranchFilter = null,
+  ): Promise<StockCostRow[]> {
+    let query = this.db
+      .from('stock_movements')
+      .select(
+        'id, product_id, quantity_delta, unit_cost, currency_id, rate_per_usd_snapshot, occurred_at, recorded_by_user_id, products!inner(name, branch_id)',
+      )
+      .gt('quantity_delta', 0)
+      .not('unit_cost', 'is', null)
+      .is('voided_at', null)
+      .gte('occurred_at', startIso)
+      .lt('occurred_at', endExclusiveIso)
+      .order('occurred_at', { ascending: false });
+    query = this.applyBranchFilter(query, branchFilter, this.BRANCH_SCOPES.stock_movements);
+    const { data, error } = await query;
+    if (error) this.handleError(error);
+    type Row = Parameters<typeof toStockCostRow>[0] & {
+      products: { name: string; branch_id: string | null } | null;
+    };
+    return ((data ?? []) as unknown as Row[]).map((r) => toStockCostRow(r, r.products));
   }
 }
 
