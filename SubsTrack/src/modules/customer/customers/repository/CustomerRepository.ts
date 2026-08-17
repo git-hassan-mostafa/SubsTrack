@@ -1,11 +1,14 @@
 import { Platform } from 'react-native';
 import { BaseRepository } from '@/src/core/utils/BaseRepository';
 import { PAGE_SIZE, type BranchFilter } from '@/src/core/constants';
+import type { UnpaidStartRule } from '@/src/core/types';
 import type { DbCustomer } from '@/src/core/types/db';
+import { isNotDueYet } from '@/src/modules/customer/customer-payments/utils/monthDueRules';
 import type {
   CreateCustomerPayload,
   CustomerWithLines,
   ICustomerRepository,
+  UnpaidMonthCount,
 } from './ICustomerRepository';
 import { OfflineCustomerRepository } from './CustomerRepository.offline';
 
@@ -228,11 +231,13 @@ export class CustomerRepository extends BaseRepository implements ICustomerRepos
   async countUnpaidForMonth(
     billingMonth: string,
     branchFilter: BranchFilter = null,
-  ): Promise<number> {
-    // Count active regular customers with at least one active service line that
-    // has NO payment covering the given month. Lines (and the payments below)
-    // inherit the customer's branch via the inner join, so the branch filter
-    // scopes both. Includes multi-month payments that still cover this month.
+    unpaidRule: UnpaidStartRule = 'month_start',
+  ): Promise<UnpaidMonthCount> {
+    // Counts, over active regular customers with at least one active service
+    // line: how many are asked for money this month (`due`) and how many of
+    // those have NO payment covering it (`unpaid`). Lines (and the payments
+    // below) inherit the customer's branch via the inner join, so the branch
+    // filter scopes both. Includes multi-month payments still covering it.
     const [year, monthStr] = billingMonth.split('-').map(Number);
     const cutoffDate = new Date(year, monthStr - 1 - 12, 1);
     const cutoff = `${cutoffDate.getFullYear()}-${String(cutoffDate.getMonth() + 1).padStart(2, '0')}-01`;
@@ -284,13 +289,17 @@ export class CustomerRepository extends BaseRepository implements ICustomerRepos
     if (lErr) this.handleError(lErr);
 
     const unpaidCustomers = new Set<string>();
+    const dueCustomers = new Set<string>();
     for (const l of ((lines as { id: string; customer_id: string; start_date: string }[] | null) ?? [])) {
       const [sy, sm] = l.start_date.split('-').map(Number);
       if (new Date(`${sy}-${String(sm).padStart(2, '0')}-01`) > target) continue; // not started yet
       if (skippedLineIds.has(l.id)) continue; // skipped month — not owed
+      // Billing day not reached yet — owes nothing this month, same as the grid.
+      if (isNotDueYet(unpaidRule, year, monthStr, l.start_date)) continue;
+      dueCustomers.add(l.customer_id);
       if (!coveredLineIds.has(l.id)) unpaidCustomers.add(l.customer_id);
     }
-    return unpaidCustomers.size;
+    return { unpaid: unpaidCustomers.size, due: dueCustomers.size };
   }
 }
 

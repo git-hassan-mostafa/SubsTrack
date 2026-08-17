@@ -1,4 +1,9 @@
-import type { DashboardMetrics, DebtCategory, RevenuePoint } from "@/src/core/types";
+import type {
+  DashboardMetrics,
+  DebtCategory,
+  RevenuePoint,
+  UnpaidStartRule,
+} from "@/src/core/types";
 import type { BranchFilter } from "@/src/core/constants";
 import { getCurrentYearMonth, toBillingMonth } from "@/src/core/utils/date";
 import { customerRepository as customerRepo } from "@/src/modules/customer/customers";
@@ -111,6 +116,9 @@ class DashboardService {
     // for non-admins so their dashboard load stays lean and never surfaces the
     // cross-collector cash totals.
     viewer: WalletActor | null = null,
+    // Decides whether a line whose billing day hasn't arrived counts as unpaid
+    // this month — same rule the month grid and the customer badges use.
+    unpaidRule: UnpaidStartRule = 'month_start',
   ): Promise<DashboardMetrics> {
     const { year, month } = getCurrentYearMonth();
     const billingMonth = toBillingMonth(year, month);
@@ -121,7 +129,7 @@ class DashboardService {
       totalCustomers,
       activeCustomers,
       paidRows,
-      unpaidThisMonth,
+      monthCounts,
       totalUsers,
       totalPlans,
       debtsView,
@@ -135,7 +143,7 @@ class DashboardService {
       customerRepo.countAll(branchFilter),
       customerRepo.countActive(branchFilter),
       paymentRepo.paidAmountsForMonth(monthStart, monthEndExclusive, branchFilter),
-      customerRepo.countUnpaidForMonth(billingMonth, branchFilter),
+      customerRepo.countUnpaidForMonth(billingMonth, branchFilter, unpaidRule),
       userRepo.countAll(branchFilter),
       planRepo.countAll(branchFilter),
       debtService.getDebtsView({ branchFilter }),
@@ -189,7 +197,8 @@ class DashboardService {
       subscriptionRevenue,
       salesRevenue,
       debtRevenue,
-      unpaidThisMonth,
+      unpaidThisMonth: monthCounts.unpaid,
+      dueThisMonth: monthCounts.due,
       totalUsers,
       totalPlans,
       totalDebt: debtsView.summary.netUsd,

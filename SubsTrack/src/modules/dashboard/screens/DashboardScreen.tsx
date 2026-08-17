@@ -55,19 +55,18 @@ export function DashboardScreen() {
   }, [branchFilter, fetchMetrics]);
 
   const now = new Date();
-  const locale = getDateLocale(i18n.language);
   const monthLabel = t(`months.${MONTHS[now.getMonth()]}`);
   const year = now.getFullYear();
 
-  const paidCustomers = Math.max(
-    0,
-    (metrics?.activeCustomers ?? 0) - (metrics?.unpaidThisMonth ?? 0),
-  );
   const activeCustomers = metrics?.activeCustomers ?? 0;
+  // Progress is measured against the customers this month actually bills
+  // (dueThisMonth) — never every active customer. A not-due-yet, skipped or
+  // occasional customer owes nothing, so counting it would cap the bar below
+  // 100% with nothing left to collect. Nothing due reads as fully collected.
+  const dueCustomers = metrics?.dueThisMonth ?? 0;
+  const paidCustomers = Math.max(0, dueCustomers - (metrics?.unpaidThisMonth ?? 0));
   const collectedPct =
-    activeCustomers > 0
-      ? Math.round((paidCustomers / activeCustomers) * 100)
-      : 0;
+    dueCustomers > 0 ? Math.round((paidCustomers / dueCustomers) * 100) : 100;
   // Revenue mix, keeping only the streams that earned something. A single stream
   // needs no breakdown (it just repeats the total). Collected debts are
   // deliberately NOT listed: the only debt figure the card shows is what
@@ -291,7 +290,7 @@ export function DashboardScreen() {
                 <Text className="text-xs text-indigo-300">
                   {t("dashboard.paid_of_active", {
                     paid: paidCustomers,
-                    total: activeCustomers,
+                    total: dueCustomers,
                   })}
                 </Text>
               </View>

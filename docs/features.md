@@ -539,7 +539,7 @@ A **skipped month** is a month one service line is **not expected to pay** — a
 | Path | Behavior |
 | --- | --- |
 | `PaymentService.buildCustomerStatus` | Everything the customer list shows comes from here, off `buildMonthGrid` — so a skipped month simply never resolves to `unpaid` and cannot make a customer overdue. A skipped month is **not a required month**, so it never counts in the "N/M plans paid" tally and never blocks "paid": a line paid through February with March skipped is settled. `status` is `"skipped"` when the customer owes nothing **and** no line owes this month because of a skip. |
-| `CustomerRepository.countUnpaidForMonth` (web + offline) | The dashboard's `unpaidThisMonth` skips those lines. |
+| `CustomerRepository.countUnpaidForMonth` (web + offline) | The dashboard's `unpaidThisMonth` skips those lines — and so does its `dueThisMonth` sibling, so a skipped customer is in neither half of the collection-progress bar. |
 
 **Customer-list badge.** `status === "skipped"` means the customer owes nothing at all **and** the reason no line owes this month is a skip on **every** started active line. The card shows a slate **"Skipped"** pill and the list's **Unpaid** tab leaves them out. A customer with one skipped and one unpaid line is still `"unpaid"` — only *all* lines skipped counts. An older unpaid month outranks the slate pill entirely: the customer owes money, so the card reads **"Overdue"** instead — a skip excuses its own month, never a backlog.
 

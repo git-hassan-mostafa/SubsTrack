@@ -61,7 +61,7 @@ The home greeting is one row, matching `PageHeader` on every other screen: name 
 | 2.1 | Month label | Top-left of hero | Uppercase three-letter month + year (e.g. "MAY 2026 COLLECTED") |
 | 2.2 | Amount | Big number | Cash collected this calendar month across the three streams, each row `/ rate_per_usd_snapshot`, formatted in the user's display currency |
 | 2.3 | Mixed currency totals | Pay $50 (USD) + 50,000 LBP (snapshot rate 50,000) | Both → 1 USD each → $2.00 (or LBP equivalent if display=LBP) |
-| 2.4 | Sub-text | Below amount | "<paidCustomers> of <activeCustomers> active customers · <pct>% collected" |
+| 2.4 | Sub-text | Below amount | "<paidCustomers> of <dueThisMonth> customers paid" + `<pct>%` — the population **billed this month**, not every active customer (see §3b) |
 | 2.4a | Breakdown sub-line — visible | Month has both subscription and sales revenue | Secondary line beneath the amount: Subscriptions and Sales with their amounts in display currency, a thin divider between them |
 | 2.4b | Breakdown sub-line — hidden | Only one of the two earned (e.g. subscriptions only) | Sub-line NOT rendered — it would just repeat the hero total |
 | 2.4c | **Collected debts never listed** | Month has debt collections | The breakdown shows **only** Subscriptions and Sales — no "Debts collected" column, by design. The collected amount is still inside the big number |
@@ -104,6 +104,27 @@ The old two-card row was replaced by a 3×2 grid of shared `StatTile`s. Each til
 | 3.3 | Non-regular excluded | Tenant has active non-regular customers with no current-month payment | Unpaid count does NOT include them |
 | 3.4 | Empty tenant | Zero customers | Every tile shows 0 |
 | 3.5 | Zero unpaid | All active regulars paid | Unpaid = 0 |
+| 3.6 | Not-due-yet excluded | `customer_start_day` rule; a line whose start day-of-month hasn't arrived yet, unpaid | Unpaid does NOT count them — the tile agrees with the grid's grey "not due yet" cell and the card's "Not due yet" badge |
+| 3.7 | Skipped excluded | A line with this month skipped | Unpaid does NOT count them |
+| 3.8 | Rule respected | Same unpaid line under `month_start` | Unpaid DOES count them (the rule only spares the current month under `customer_start_day`) |
+
+## 3b. Collection progress (the % bar)
+
+Measured against **`dueThisMonth`** — the customers this month actually bills — never `activeCustomers`. `dueThisMonth` already drops non-regular, not-yet-started, skipped, and not-due-yet customers, so the bar can reach 100% whenever there is nothing left to collect. Same one pass as the Unpaid tile, so the two can never disagree.
+
+| # | Scenario | Steps | Expected result |
+|---|----------|-------|-----------------|
+| 3b.1 | Not-due-yet reaches 100% | 30 active regulars: 29 paid, 1 not due yet (`customer_start_day`, billing day not arrived) | **100%**, caption "29 of 29 customers paid" — the not-due-yet customer is in neither number |
+| 3b.2 | Skipped reaches 100% | All due customers paid, one has this month skipped | 100%; the skipped customer is not in the denominator |
+| 3b.3 | Occasional customers ignored | Tenant has active non-regular customers, every regular paid | 100% (they never owe a month) |
+| 3b.4 | Not-yet-started ignored | A line starting next month, unpaid | Not in the denominator; bar unaffected |
+| 3b.5 | Genuine unpaid still shows | 30 due, 29 paid, 1 truly unpaid this month | 97%, caption "29 of 30 customers paid" |
+| 3b.6 | Nothing due | Every customer is skipped / not due yet / occasional | 100% (not 0%) — nothing to collect reads as fully collected |
+| 3b.7 | Billing day arrives | Not-due-yet customer's start day passes, refresh | They enter both the denominator and Unpaid; bar drops accordingly |
+| 3b.8 | Agrees with the Unpaid tile | Any state | `due − paid` shown in the caption always equals the Unpaid tile's count |
+| 3b.9 | Rule change applies at once | Admin switches the rule in Tenant Settings, refresh dashboard | Bar and Unpaid tile recompute under the new rule (read at call time, never cached) |
+| 3b.10 | Branch-scoped | Pick a branch | Both numbers scope to that branch |
+| 3b.11 | Offline parity (native) | Go offline, open dashboard | Same percentage and caption as online for synced data (both repositories run the same rule) |
 
 ## 4. Loading and refresh
 

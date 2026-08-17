@@ -1,6 +1,8 @@
 import type { BranchFilter } from '@/src/core/constants';
 import { OFFLINE_PAGE_SIZE } from '@/src/core/constants';
+import type { UnpaidStartRule } from '@/src/core/types';
 import type { DbCustomer, DbCustomerPlan, DbPlan } from '@/src/core/types/db';
+import { isNotDueYet } from '@/src/modules/customer/customer-payments/utils/monthDueRules';
 import { OfflineBaseRepository } from '@/src/core/offline/OfflineBaseRepository';
 import { insertDirty, updateDirty, markDeleted } from '@/src/core/offline/db/dml';
 import { newId, nowIso } from '@/src/core/offline/ids';
@@ -8,6 +10,7 @@ import type {
   CreateCustomerPayload,
   CustomerWithLines,
   ICustomerRepository,
+  UnpaidMonthCount,
 } from './ICustomerRepository';
 
 /** SQLite-backed customers repository. Reproduces `'*, customer_plans(*, plans(*))'`. */
@@ -250,7 +253,8 @@ export class OfflineCustomerRepository
   async countUnpaidForMonth(
     billingMonth: string,
     branchFilter: BranchFilter = null,
-  ): Promise<number> {
+    unpaidRule: UnpaidStartRule = 'month_start',
+  ): Promise<UnpaidMonthCount> {
     const [year, monthStr] = billingMonth.split('-').map(Number);
     const cutoffDate = new Date(year, monthStr - 1 - 12, 1);
     const cutoff = `${cutoffDate.getFullYear()}-${String(cutoffDate.getMonth() + 1).padStart(2, '0')}-01`;
@@ -300,12 +304,16 @@ export class OfflineCustomerRepository
     );
 
     const unpaidCustomers = new Set<string>();
+    const dueCustomers = new Set<string>();
     for (const l of lines) {
       const [sy, sm] = l.start_date.split('-').map(Number);
       if (new Date(`${sy}-${String(sm).padStart(2, '0')}-01`) > target) continue; // not started yet
       if (skippedLineIds.has(l.id)) continue; // skipped month — not owed
+      // Billing day not reached yet — owes nothing this month, same as the grid.
+      if (isNotDueYet(unpaidRule, year, monthStr, l.start_date)) continue;
+      dueCustomers.add(l.customer_id);
       if (!coveredLineIds.has(l.id)) unpaidCustomers.add(l.customer_id);
     }
-    return unpaidCustomers.size;
+    return { unpaid: unpaidCustomers.size, due: dueCustomers.size };
   }
 }

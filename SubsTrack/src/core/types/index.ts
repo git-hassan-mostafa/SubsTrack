@@ -302,7 +302,11 @@ export interface DashboardMetrics {
   subscriptionRevenue: number;
   salesRevenue: number;
   debtRevenue: number;       // debt payments collected this month
+  // This month's collection population, from one pass (see UnpaidMonthCount):
+  // dueThisMonth counts only customers the month actually asks money from, so a
+  // not-yet-due, skipped, not-yet-started or non-regular customer is in neither.
   unpaidThisMonth: number;
+  dueThisMonth: number;
   totalUsers: number;
   totalPlans: number;
   // Debt is all-time, never month-scoped. totalDebt is NET (after debt payments)

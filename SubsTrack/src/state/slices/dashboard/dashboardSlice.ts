@@ -3,6 +3,9 @@ import type { DashboardMetrics, RevenuePoint } from '@/src/core/types';
 import { dashboardService } from '@/src/modules/dashboard';
 import { resolveBranchFilter } from '@/src/shared/lib/branchFilter';
 import { getCurrentYearMonth } from '@/src/core/utils/date';
+// Deep imports (not the module barrel) — the barrel re-exports screens.
+import tenantSettingService from '@/src/modules/admin/tenant-settings/services/TenantSettingService';
+import { TENANT_SETTING_KEYS } from '@/src/modules/admin/tenant-settings/utils/constants';
 import type { GlobalState } from '@/src/state/globalStore';
 
 export interface DashboardSlice {
@@ -47,7 +50,14 @@ export const createDashboardSlice: StateCreator<
       const isAdmin = user?.role === 'admin' || user?.role === 'superadmin';
       const viewer =
         isAdmin && user ? { id: user.id, role: user.role, branchId: user.branchId } : null;
-      const metrics = await dashboardService.getMetrics(branchFilter, viewer);
+      // Read at call time (never cached) so a change in Tenant Settings applies
+      // to the very next refresh — same as the payment slice's month rules.
+      const unpaidRule = tenantSettingService.parseUnpaidStartRule(
+        get().tenantSettings.items.find(
+          (s) => s.key === TENANT_SETTING_KEYS.unpaidStartRule,
+        )?.value,
+      );
+      const metrics = await dashboardService.getMetrics(branchFilter, viewer, unpaidRule);
       const { year, month } = getCurrentYearMonth();
       set((state) => {
         state.dashboard.metrics = metrics;
