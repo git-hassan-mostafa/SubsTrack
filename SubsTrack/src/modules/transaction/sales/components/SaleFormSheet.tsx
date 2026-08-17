@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { View } from "react-native";
 import { FormSheet } from "@/src/shared/components/FormSheet";
 import { useTranslation } from "react-i18next";
@@ -12,12 +12,16 @@ import {
 } from "@/src/modules/customer/customers";
 import { PaymentAmountPaidSection } from "@/src/modules/customer/customer-payments";
 import { SendOnWhatsAppButton, useSendInvoice } from "@/src/modules/invoicing";
-import type { Customer } from "@/src/core/types";
+import type { Customer, Sale } from "@/src/core/types";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { useSaleSlice } from "@/src/state/hooks/useSaleSlice";
 import { formatMoney } from "@/src/core/utils/currency";
 import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
-import { SaleItemsEditor, type SaleCartDraft } from "./SaleItemsEditor";
+import {
+  SaleItemsEditor,
+  type SaleCartDraft,
+  type SaleEditorInitial,
+} from "./SaleItemsEditor";
 
 const EMPTY_CART: SaleCartDraft = {
   lines: [],
@@ -25,27 +29,42 @@ const EMPTY_CART: SaleCartDraft = {
   currency: null,
   currencyId: null,
   ready: false,
+  dirty: false,
 };
+
+// How a saved sale's collected amount maps onto the form's three modes.
+function modeOf(sale: Sale): "full" | "partial" | "debt" {
+  if (sale.amountPaid >= sale.totalAmount) return "full";
+  return sale.amountPaid > 0 ? "partial" : "debt";
+}
 
 interface Props {
   // Optional pre-selected customer (used when launched from CustomerDetailScreen).
   // Walk-in flow leaves this null.
   initialCustomer?: Customer | null;
+  // Edit mode: the saved sale being corrected. Everything the form owns can
+  // change; a voided sale is never passed here.
+  sale?: Sale | null;
   onDismiss: () => void;
   onCreated?: () => void;
+  onUpdated?: () => void;
 }
 
 export function SaleFormSheet({
   initialCustomer,
+  sale = null,
   onDismiss,
   onCreated,
+  onUpdated,
 }: Props) {
   const { t } = useTranslation();
   const { user } = useAuth();
   const createSale = useSaleSlice((s) => s.createSale);
+  const updateSale = useSaleSlice((s) => s.updateSale);
   const error = useSaleSlice((s) => s.error);
   const clearError = useSaleSlice((s) => s.clearError);
   const { sendSaleInvoice } = useSendInvoice();
+  const editing = sale != null;
 
   const [cart, setCart] = useState<SaleCartDraft>(EMPTY_CART);
   // Which button is mid-submit — set before the write, so the spinner stays on
@@ -53,23 +72,39 @@ export function SaleFormSheet({
   const [busyOn, setBusyOn] = useState<"save" | "send" | null>(null);
   const busy = busyOn !== null;
   const [customer, setCustomer] = useState<Customer | null>(
-    initialCustomer ?? null,
+    sale?.customer ?? initialCustomer ?? null,
   );
   const [paymentMode, setPaymentMode] = useState<"full" | "partial" | "debt">(
-    "full",
+    sale ? modeOf(sale) : "full",
   );
-  const [amountPaid, setAmountPaid] = useState<number | null>(null);
-  const [notes, setNotes] = useState("");
+  const [amountPaid, setAmountPaid] = useState<number | null>(
+    sale && modeOf(sale) === "partial" ? sale.amountPaid : null,
+  );
+  const [notes, setNotes] = useState(sale?.notes ?? "");
   const [addCustomerOpen, setAddCustomerOpen] = useState(false);
 
-  // Cart VALUES, not the `cart` object: SaleItemsEditor re-reports the draft from
-  // an effect (on mount, and again when the products list loads), so the object
-  // identity changes with no user action and would mark the form dirty on open.
-  // Its currency is excluded for the same reason — it self-seeds from the
-  // last-used one; only actual cart lines mean the user built something.
+  // Seeds the cart in edit mode. Memoized: SaleItemsEditor derives its stock
+  // credit from it, and that feeds an effect's dependencies.
+  const initialCart: SaleEditorInitial | null = useMemo(
+    () =>
+      sale
+        ? {
+            items: sale.items.map((it) => ({
+              productId: it.productId,
+              quantity: it.quantity,
+              unitAmount: it.unitAmount,
+            })),
+            currencyId: sale.currencyId,
+          }
+        : null,
+    [sale],
+  );
+
+  // The cart reports its OWN dirtiness (it re-reports the draft from an effect,
+  // so its values arrive a render after this baseline is taken — see
+  // SaleCartDraft.dirty). Everything else here is plain user input.
   const dirty = useDirtyForm({
-    cartLines: cart.lines.length,
-    cartTotal: cart.total,
+    cartDirty: cart.dirty,
     customerId: customer?.id ?? null,
     paymentMode,
     amountPaid,
@@ -104,28 +139,39 @@ export function SaleFormSheet({
 
   async function submit(send: boolean) {
     if (!user) return;
-    const branchId = customer?.branchId ?? user.branchId ?? null;
-    const sale = await createSale({
+    // A customer-bound sale sits in the customer's branch. Otherwise an EDIT
+    // keeps the branch the sale already had — falling back to the editor's own
+    // branch would move a collector's walk-in sale out of its branch the moment
+    // a tenant-wide admin (branchId null) corrected a typo in it.
+    const branchId =
+      customer?.branchId ?? (sale ? sale.branchId : (user.branchId ?? null));
+    const common = {
       items: cart.lines,
       customerId: customer?.id ?? null,
       branchId,
       amountPaid: resolvedAmountPaid,
       currency: cart.currency,
-      recordedByUserId: user.id,
-      tenantId: user.tenantId,
       notes: notes.trim() || null,
-    });
-    if (sale) {
-      // The form's own `customer` is the recipient, not `sale.customer` — the
+    };
+    const saved = sale
+      ? await updateSale(sale, { ...common, actorUserId: user.id })
+      : await createSale({
+          ...common,
+          recordedByUserId: user.id,
+          tenantId: user.tenantId,
+        });
+    if (saved) {
+      // The form's own `customer` is the recipient, not `saved.customer` — the
       // send must not depend on the write's join.
       if (send && customer) {
         await sendSaleInvoice({
           phone: customer.phoneNumber,
           customerName: customer.name,
-          sale,
+          sale: saved,
         });
       }
-      onCreated?.();
+      if (sale) onUpdated?.();
+      else onCreated?.();
       onDismiss();
     }
   }
@@ -143,11 +189,13 @@ export function SaleFormSheet({
       <FormSheet
         onDismiss={onDismiss}
         dirty={dirty}
-        title={t("sales.record_title")}
+        title={editing ? t("sales.edit_title") : t("sales.record_title")}
       >
         {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}
 
-        {!initialCustomer ? (
+        {/* The read-only line is for the customer screens, which record a sale
+            FOR one customer. Correcting a sale may move it to another. */}
+        {editing || !initialCustomer ? (
           <CustomerPicker
             label={t("sales.customer_label")}
             placeholder={t("sales.walk_in")}
@@ -169,7 +217,11 @@ export function SaleFormSheet({
         )}
 
         {/* Multi-product cart (one currency, per-line qty + unit price). */}
-        <SaleItemsEditor onChange={setCart} onFocusClearError={clearError} />
+        <SaleItemsEditor
+          onChange={setCart}
+          onFocusClearError={clearError}
+          initial={initialCart}
+        />
 
         {/* Sale total */}
         {total > 0 ? (
@@ -210,7 +262,7 @@ export function SaleFormSheet({
         />
 
         <Button
-          label={t("sales.record_button")}
+          label={editing ? t("common.save_changes") : t("sales.record_button")}
           onPress={() => void handleSubmit(false)}
           loading={busyOn === "save"}
           disabled={submitDisabled || busyOn === "send"}

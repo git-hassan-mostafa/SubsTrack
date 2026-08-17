@@ -38,3 +38,18 @@ export interface CreateSaleInput {
     tenantId: string;
     notes: string | null;
 }
+
+// Input shape for correcting an existing sale. Everything the form owns can
+// change; what identifies the sale cannot — id, tenant, `sold_at` and the
+// original `recorded_by_user_id` all stay as recorded. `actorUserId` is who is
+// making the correction (the audit actor, and the recorder of any replacement
+// stock movements).
+export interface UpdateSaleInput {
+    items: CreateSaleItemInput[];
+    customerId: string | null;
+    branchId: string | null;
+    amountPaid: number;
+    currency: Currency | null;
+    notes: string | null;
+    actorUserId: string | null;
+}

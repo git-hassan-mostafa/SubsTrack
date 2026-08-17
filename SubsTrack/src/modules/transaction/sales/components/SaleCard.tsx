@@ -30,6 +30,8 @@ function stripCurrencyLabel(
 interface Props {
   sale: Sale;
   onPress: (sale: Sale) => void;
+  // Opens the row's 3-dot menu (every action the sale offers). Omit to hide it.
+  onMenu?: (sale: Sale) => void;
   selectionMode?: boolean;
   selected?: boolean;
   onToggleSelect?: (sale: Sale) => void;
@@ -39,6 +41,7 @@ interface Props {
 export function SaleCard({
   sale,
   onPress,
+  onMenu,
   selectionMode = false,
   selected = false,
   onToggleSelect,
@@ -67,6 +70,7 @@ export function SaleCard({
       iconColor={COLORS.success}
       iconBgClassName="bg-emerald-50"
       onPress={() => onPress(sale)}
+      onMenu={onMenu ? () => onMenu(sale) : undefined}
       selectionMode={selectionMode}
       selected={selected}
       onToggleSelect={() => onToggleSelect?.(sale)}

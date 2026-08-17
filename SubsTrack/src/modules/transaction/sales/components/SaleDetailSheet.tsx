@@ -39,6 +39,9 @@ interface Props {
   sale: Sale | null;
   onDismiss: () => void;
   onVoid?: (reason: string) => void;
+  // Opens the sale form on this sale. Omitted where correcting one makes no
+  // sense; never offered for a voided sale.
+  onEdit?: (sale: Sale) => void;
   voidLoading?: boolean;
 }
 
@@ -46,6 +49,7 @@ export function SaleDetailSheet({
   sale,
   onDismiss,
   onVoid,
+  onEdit,
   voidLoading,
 }: Props) {
   const { t } = useTranslation();
@@ -277,6 +281,20 @@ export function SaleDetailSheet({
           }
           className="mb-4"
         />
+      ) : null}
+
+      {/* Correct the sale. A voided sale is a closed record — void is final, so
+          the only way back is a new sale. */}
+      {!voided && !voidMode && onEdit ? (
+        <PressableOpacity
+          onPress={() => onEdit(sale)}
+          className="border border-gray-200 rounded-xl py-3 items-center mb-4 flex-row justify-center gap-2"
+        >
+          <Ionicons name="create-outline" size={16} color={COLORS.primary} />
+          <Text className="text-primary font-medium">
+            {t("sales.edit_sale")}
+          </Text>
+        </PressableOpacity>
       ) : null}
 
       {/* Change history — admin-only, mirroring the audit_logs read policy. */}

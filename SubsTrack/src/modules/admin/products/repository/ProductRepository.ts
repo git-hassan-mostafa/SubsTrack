@@ -92,7 +92,9 @@ export class ProductRepository extends BaseRepository implements IProductReposit
     return count ?? 0;
   }
 
-  // Sale lines referencing this product. Drives soft-delete vs hard-delete in ProductService.
+  // Sale lines referencing this product. Drives soft-delete vs hard-delete in
+  // ProductService. Counts lines an edit dropped too — `product_id` is
+  // ON DELETE RESTRICT, so a voided line would still block the hard delete.
   async countReferences(id: string): Promise<number> {
     const { count, error } = await this.db
       .from('sale_items')

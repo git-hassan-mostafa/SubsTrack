@@ -1,11 +1,16 @@
-import type { Sale } from '@/src/core/types';
+import type { Sale, SaleItem } from '@/src/core/types';
 import type { BranchFilter } from '@/src/core/constants';
 import i18n from '@/src/core/i18n';
 import repository from '../repository/SaleRepository';
 // Direct path, not the products barrel: the barrel pulls in components → the
 // global store → saleSlice → back here.
 import productService from '@/src/modules/admin/products/services/ProductService';
-import { CreateSaleInput, CreateSaleItemInput, type FindSalesOptions } from '../utils/types'
+import {
+  CreateSaleInput,
+  CreateSaleItemInput,
+  UpdateSaleInput,
+  type FindSalesOptions,
+} from '../utils/types'
 import { mapDbSaleToSale } from '../utils/mapper';
 
 // Frozen human summary of a sale's products, e.g. "Water ×2, Bread". Contains
@@ -14,6 +19,18 @@ function buildItemsSummary(items: CreateSaleItemInput[]): string {
   return items
     .map((it) => (it.quantity > 1 ? `${it.product.name} ×${it.quantity}` : it.product.name))
     .join(', ');
+}
+
+function totalOf(items: CreateSaleItemInput[]): number {
+  return items.reduce((sum, it) => sum + it.unitAmount * it.quantity, 0);
+}
+
+// Units per product, which is the granularity stock cares about — the same
+// product can sit on several lines and only their sum has to be covered.
+function unitsByProduct(items: { productId: string; quantity: number }[]): Map<string, number> {
+  const map = new Map<string, number>();
+  for (const it of items) map.set(it.productId, (map.get(it.productId) ?? 0) + it.quantity);
+  return map;
 }
 
 class SaleService {
@@ -37,7 +54,7 @@ class SaleService {
     if (!(ratePerUsdSnapshot > 0)) {
       throw new Error(i18n.t('errors.rate_snapshot_positive'));
     }
-    const total = input.items.reduce((sum, it) => sum + it.unitAmount * it.quantity, 0);
+    const total = totalOf(input.items);
     const row = await repository.create({
       tenant_id: input.tenantId,
       branch_id: input.branchId,
@@ -65,6 +82,55 @@ class SaleService {
           userId: input.recordedByUserId,
         }),
       ),
+    });
+    return mapDbSaleToSale(row);
+  }
+
+  // Corrects an existing sale in place: products, quantities, unit prices, the
+  // sale currency (which RE-FREEZES rate_per_usd_snapshot, so the corrected row
+  // is what history reports), customer, amount collected and notes. Only the
+  // facts that identify the sale are fixed — id, tenant, sold_at, and who
+  // originally recorded it. A voided sale is a closed record and stays locked.
+  async updateSale(sale: Sale, input: UpdateSaleInput): Promise<Sale> {
+    if (sale.voidedAt !== null) {
+      throw new Error(i18n.t('errors.sale_voided_not_editable'));
+    }
+    this.validate(input);
+    // The units this sale is holding come back to the pool as part of the same
+    // edit, so they count as available — without the credit, merely re-pricing a
+    // sale that took the last unit would fail its own stock check.
+    await this.assertStockAvailable(input.items, unitsByProduct(sale.items));
+    const ratePerUsdSnapshot = input.currency?.ratePerUsd ?? 1;
+    if (!(ratePerUsdSnapshot > 0)) {
+      throw new Error(i18n.t('errors.rate_snapshot_positive'));
+    }
+    const row = await repository.update(sale.id, {
+      branch_id: input.branchId,
+      items_summary: buildItemsSummary(input.items),
+      customer_id: input.customerId,
+      total_amount: totalOf(input.items),
+      amount_paid: input.amountPaid,
+      currency_id: input.currency?.id ?? null,
+      rate_per_usd_snapshot: ratePerUsdSnapshot,
+      notes: input.notes?.trim() || null,
+      items: input.items.map((it) => ({
+        tenant_id: sale.tenantId,
+        product_id: it.product.id,
+        product_name_snapshot: it.product.name,
+        quantity: it.quantity,
+        unit_amount: it.unitAmount,
+      })),
+      // Only a change in what left the shelf touches the ledger. A price, notes
+      // or amount-paid fix leaves it alone, so correcting a sale doesn't litter
+      // every product's stock history with a void + re-add pair.
+      movements: this.sameStockFootprint(sale.items, input.items)
+        ? null
+        : input.items.map((it) =>
+          productService.movement(sale.tenantId, it.product.id, -it.quantity, 'sale', {
+            userId: input.actorUserId,
+          }),
+        ),
+      actorUserId: input.actorUserId,
     });
     return mapDbSaleToSale(row);
   }
@@ -125,11 +191,29 @@ class SaleService {
     return rows.reduce((acc, r) => acc + r.amount / r.ratePerUsdSnapshot, 0);
   }
 
+  // True when the edited cart takes exactly the same units off the shelf as the
+  // saved one. Compared per PRODUCT, not per line: splitting one line of 3 into
+  // 1 + 2 moves no stock, so the ledger has nothing to correct.
+  private sameStockFootprint(before: SaleItem[], after: CreateSaleItemInput[]): boolean {
+    const was = unitsByProduct(before);
+    const now = unitsByProduct(
+      after.map((it) => ({ productId: it.product.id, quantity: it.quantity })),
+    );
+    if (was.size !== now.size) return false;
+    for (const [id, quantity] of was) if (now.get(id) !== quantity) return false;
+    return true;
+  }
+
   // Blocks a sale that would oversell. The same product can sit on several cart
   // lines, so the check compares the SUM per product, not each line on its own.
+  // `credited` is stock the same write gives back (an edit releases the units the
+  // sale is currently holding), so it counts as available.
   // Advisory only: two devices selling the last unit offline can still both
   // succeed — the DB must accept whatever they replay (see gotchas).
-  private async assertStockAvailable(items: CreateSaleItemInput[]): Promise<void> {
+  private async assertStockAvailable(
+    items: CreateSaleItemInput[],
+    credited: Map<string, number> = new Map(),
+  ): Promise<void> {
     const needed = new Map<string, { name: string; quantity: number }>();
     for (const it of items) {
       const prev = needed.get(it.product.id);
@@ -140,7 +224,7 @@ class SaleService {
     }
     const onHand = await productService.getStockOnHand([...needed.keys()]);
     for (const [id, { name, quantity }] of needed) {
-      const available = onHand[id] ?? 0;
+      const available = (onHand[id] ?? 0) + (credited.get(id) ?? 0);
       if (available <= 0) {
         throw new Error(i18n.t('errors.sale_out_of_stock', { product: name }));
       }
@@ -150,7 +234,8 @@ class SaleService {
     }
   }
 
-  private validate(input: CreateSaleInput): void {
+  // Shape-based on purpose — the same rules hold for a new sale and an edited one.
+  private validate(input: { items: CreateSaleItemInput[]; amountPaid: number }): void {
     if (!Array.isArray(input.items) || input.items.length === 0) {
       throw new Error(i18n.t('errors.sale_items_required'));
     }
@@ -163,7 +248,7 @@ class SaleService {
         throw new Error(i18n.t('errors.sale_amount_positive'));
       }
     }
-    const total = input.items.reduce((sum, it) => sum + it.unitAmount * it.quantity, 0);
+    const total = totalOf(input.items);
     if (
       typeof input.amountPaid !== 'number' ||
       Number.isNaN(input.amountPaid) ||

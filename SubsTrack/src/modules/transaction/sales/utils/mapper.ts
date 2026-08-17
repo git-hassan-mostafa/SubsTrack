@@ -40,7 +40,12 @@ export function mapDbSaleToSale(db: DbSale): Sale {
         remittedAt: db.remitted_at,
         remittedBy: db.remitted_by,
         createdAt: db.created_at,
-        items: (db.sale_items ?? []).map(mapDbSaleItemToSaleItem),
+        // Lines an edit dropped are soft-voided rather than deleted (the sync
+        // engine has no tombstones), so they are filtered out here — the one
+        // place both the web and the offline reads pass through.
+        items: (db.sale_items ?? [])
+            .filter((it) => it.voided_at === null)
+            .map(mapDbSaleItemToSaleItem),
         customer: db.customers ? mapDbCustomerToCustomer(db.customers) : null,
     };
 }

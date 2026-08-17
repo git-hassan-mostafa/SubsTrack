@@ -14,6 +14,7 @@ import {
 import { COLORS } from "@/src/shared/constants";
 import type { Customer, Sale } from "@/src/core/types";
 import saleService from "../services/SaleService";
+import { useSaleActions } from "../hooks/useSaleActions";
 import { useSaleInvoiceAction } from "../hooks/useSaleInvoiceAction";
 import { SaleCard } from "./SaleCard";
 import { SaleFormSheet } from "./SaleFormSheet";
@@ -42,6 +43,8 @@ export function CustomerSalesPanel({ customer }: Props) {
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
   const [activeSale, setActiveSale] = useState<Sale | null>(null);
+  // The sale the form is correcting (see openEdit).
+  const [editingSale, setEditingSale] = useState<Sale | null>(null);
   const [voidLoading, setVoidLoading] = useState(false);
   const selection = useSelection();
   const {
@@ -91,6 +94,12 @@ export function CustomerSalesPanel({ customer }: Props) {
     }
   }
 
+  // The receipt closes as the form opens — two stacked full sheets are a maze.
+  function openEdit(sale: Sale) {
+    setActiveSale(null);
+    setEditingSale(sale);
+  }
+
   function openAll() {
     // Cast: the nested /customers/[id]/sales route is not yet in the (stale)
     // generated router types; Expo regenerates them on the next dev-server run.
@@ -105,6 +114,13 @@ export function CustomerSalesPanel({ customer }: Props) {
   // One receipt covering every selected sale — the same action the full sales
   // lists carry. No "select all" here: the panel is a 5-row preview.
   const invoiceAction = useSaleInvoiceAction(selectedSales, clearSelection);
+  // Every per-sale action (receipt / edit / send / history / void) — the same
+  // menu the two full sales lists offer.
+  const saleActions = useSaleActions({
+    onView: setActiveSale,
+    onEdit: openEdit,
+    onVoided: () => void refresh(),
+  });
 
   return (
     <View className="px-4 mt-4">
@@ -155,6 +171,7 @@ export function CustomerSalesPanel({ customer }: Props) {
               key={sale.id}
               sale={sale}
               onPress={setActiveSale}
+              onMenu={saleActions.openMenu}
               selectionMode={selectionActive}
               selected={selectedIds.has(sale.id)}
               onToggleSelect={(s) => toggleSelect(s.id)}
@@ -187,12 +204,23 @@ export function CustomerSalesPanel({ customer }: Props) {
         />
       )}
 
+      {editingSale && (
+        <SaleFormSheet
+          sale={editingSale}
+          onDismiss={() => setEditingSale(null)}
+          onUpdated={refresh}
+        />
+      )}
+
       <SaleDetailSheet
         sale={activeSale}
         onDismiss={() => setActiveSale(null)}
         onVoid={handleVoid}
+        onEdit={openEdit}
         voidLoading={voidLoading}
       />
+
+      {saleActions.sheets}
     </View>
   );
 }

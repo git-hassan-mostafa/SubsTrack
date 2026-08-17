@@ -3,10 +3,11 @@ import type { DbSale, DbSaleItem } from '@/src/core/types/db';
 import type { CreateStockMovementPayload } from '@/src/modules/admin/products';
 import type { FindSalesOptions } from '../utils/types';
 
-// One line of the sale to create. `sale_id` is filled in by the repository.
+// One line of the sale to create. `sale_id` is filled in by the repository, and
+// a line is never born voided.
 export type CreateSaleItemPayload = Omit<
   DbSaleItem,
-  'id' | 'sale_id' | 'created_at' | 'updated_at' | 'products'
+  'id' | 'sale_id' | 'voided_at' | 'created_at' | 'updated_at' | 'products'
 >;
 
 // Sale header to create + its product lines + the stock decrements they cause.
@@ -35,11 +36,39 @@ export type CreateSalePayload = Omit<
   movements: Omit<CreateStockMovementPayload, 'sale_id'>[];
 };
 
+// Correction of an existing, non-voided sale: the header's editable columns plus
+// the COMPLETE new line set (`items` replaces what is there — lines are matched
+// to the existing rows by position, so an id survives an edit wherever it can and
+// only a dropped line is soft-voided).
+//
+// `movements` is the complete replacement stock ledger for the sale, or **null**
+// meaning "the products and quantities did not change, leave the ledger alone" —
+// without that, fixing a typo in the notes would litter every product's stock
+// history with a void + re-add pair.
+export type UpdateSalePayload = Pick<
+  DbSale,
+  | 'branch_id'
+  | 'items_summary'
+  | 'customer_id'
+  | 'total_amount'
+  | 'amount_paid'
+  | 'currency_id'
+  | 'rate_per_usd_snapshot'
+  | 'notes'
+> & {
+  items: CreateSaleItemPayload[];
+  movements: Omit<CreateStockMovementPayload, 'sale_id'>[] | null;
+  // Who is correcting the sale — stamped on the movements this edit voids.
+  actorUserId: string | null;
+};
+
 export interface ISaleRepository {
   findAll(opts?: FindSalesOptions): Promise<DbSale[]>;
   findByCustomer(customerId: string, limit?: number): Promise<DbSale[]>;
   findById(id: string): Promise<DbSale | null>;
   create(payload: CreateSalePayload): Promise<DbSale>;
+  // Voided sales stay locked — both impls filter on `voided_at IS NULL`.
+  update(id: string, payload: UpdateSalePayload): Promise<DbSale>;
   voidSale(id: string, voidedBy: string, reason: string): Promise<DbSale>;
   // Revenue is CASH: every total below sums `amount_paid`, never `total_amount`.
   // The unpaid part of a partial sale is a debt, and it enters revenue only when

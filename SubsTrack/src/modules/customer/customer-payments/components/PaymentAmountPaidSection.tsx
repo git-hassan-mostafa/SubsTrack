@@ -103,6 +103,16 @@ export function PaymentAmountPaidSection({
           {amountDue != null && amountPaid != null
             ? (() => {
                 const balance = amountDue - amountPaid;
+                // Reachable when the total shrinks under an already-typed amount
+                // — editing a sale's cart can do that. Saving is blocked, so say
+                // so instead of leaving a dead button.
+                if (balance < 0) {
+                  return (
+                    <Text className="text-sm font-semibold mt-1 text-danger">
+                      {t("errors.amount_paid_exceeds_due")}
+                    </Text>
+                  );
+                }
                 if (balance <= 0) {
                   return (
                     <Text className="text-sm font-semibold mt-1 text-green-600">

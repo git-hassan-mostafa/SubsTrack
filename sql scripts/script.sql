@@ -995,6 +995,11 @@ ALTER TABLE sale_items ADD COLUMN IF NOT EXISTS quantity INTEGER NOT NULL DEFAUL
 ALTER TABLE sale_items ADD COLUMN IF NOT EXISTS unit_amount NUMERIC(20,8) NOT NULL
     CHECK (unit_amount > 0);
 
+-- A line dropped by an EDIT is soft-voided, never deleted: the offline sync has
+-- no tombstones for sale_items, so a deleted row would live on forever in every
+-- other device's mirror. Readers filter it out in the mapper.
+ALTER TABLE sale_items ADD COLUMN IF NOT EXISTS voided_at TIMESTAMPTZ;
+
 ALTER TABLE sale_items ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 ALTER TABLE sale_items ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 

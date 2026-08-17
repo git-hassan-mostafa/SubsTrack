@@ -42,7 +42,7 @@ import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { SaleCard } from "../components/SaleCard";
 import { SaleFormSheet } from "../components/SaleFormSheet";
 import { SaleDetailSheet } from "../components/SaleDetailSheet";
-import { SaleBulkVoidSheet } from "../components/SaleBulkVoidSheet";
+import { useSaleActions } from "../hooks/useSaleActions";
 import { useSaleInvoiceAction } from "../hooks/useSaleInvoiceAction";
 import { useSaleSlice } from "@/src/state/hooks/useSaleSlice";
 import { useProductSlice } from "@/src/state/hooks/useProductSlice";
@@ -86,6 +86,8 @@ export function SalesPanel() {
   const branchFilter = useEffectiveBranchFilter();
   const [formOpen, setFormOpen] = useState(false);
   const [activeSale, setActiveSale] = useState<Sale | null>(null);
+  // The sale the form is correcting (see openEdit).
+  const [editingSale, setEditingSale] = useState<Sale | null>(null);
   const [voidLoading, setVoidLoading] = useState(false);
   const selection = useSelection();
   const {
@@ -97,8 +99,15 @@ export function SalesPanel() {
     clear: clearSelection,
   } = selection;
   useSelectionBackHandler(selectionActive, clearSelection);
-  const [bulkVoidOpen, setBulkVoidOpen] = useState(false);
   const [bulkNotice, setBulkNotice] = useState<string | null>(null);
+
+  // Every per-sale action (receipt / edit / send / history / void) lives in one
+  // hook, so all three sales surfaces offer the same menu.
+  const saleActions = useSaleActions({
+    onView: setActiveSale,
+    onEdit: openEdit,
+    onVoided: handleVoided,
+  });
 
   useEffect(() => {
     clearSelection();
@@ -151,6 +160,12 @@ export function SalesPanel() {
     }
   }
 
+  // The receipt closes as the form opens — two stacked full sheets are a maze.
+  function openEdit(sale: Sale) {
+    setActiveSale(null);
+    setEditingSale(sale);
+  }
+
   const selectedSales = sales.filter((s) => selectedIds.has(s.id));
   const invoiceAction = useSaleInvoiceAction(selectedSales, clearSelection);
 
@@ -165,13 +180,12 @@ export function SalesPanel() {
         icon: "close-circle-outline",
         label: t("sales.void_sale"),
         destructive: true,
-        onPress: () => setBulkVoidOpen(true),
+        onPress: () => saleActions.requestVoid(selected),
       },
     ];
   }
 
-  function handleBulkVoided(result: { ok: number; failed: number }) {
-    setBulkVoidOpen(false);
+  function handleVoided(result: { ok: number; failed: number }) {
     clearSelection();
     if (result.failed > 0) {
       setBulkNotice(
@@ -339,6 +353,7 @@ export function SalesPanel() {
               <SaleCard
                 sale={item}
                 onPress={setActiveSale}
+                onMenu={saleActions.openMenu}
                 selectionMode={selectionActive}
                 selected={selectedIds.has(item.id)}
                 onToggleSelect={(s) => toggleSelect(s.id)}
@@ -379,20 +394,25 @@ export function SalesPanel() {
         />
       )}
 
+      {editingSale && (
+        <SaleFormSheet
+          sale={editingSale}
+          onDismiss={() => setEditingSale(null)}
+          // Refetch, not just the slice's in-place swap: the edit can change the
+          // amount collected, and the month section totals are a separate query.
+          onUpdated={fetchSales}
+        />
+      )}
+
       <SaleDetailSheet
         sale={activeSale}
         onDismiss={() => setActiveSale(null)}
         onVoid={handleVoid}
+        onEdit={openEdit}
         voidLoading={voidLoading}
       />
 
-      {bulkVoidOpen && (
-        <SaleBulkVoidSheet
-          saleIds={selectedSales.map((s) => s.id)}
-          onVoided={handleBulkVoided}
-          onDismiss={() => setBulkVoidOpen(false)}
-        />
-      )}
+      {saleActions.sheets}
     </View>
   );
 }

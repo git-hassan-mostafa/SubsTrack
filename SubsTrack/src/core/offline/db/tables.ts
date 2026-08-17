@@ -198,13 +198,15 @@ export const TABLES: TableSpec[] = [
     // amount_paid is also client-written.
   },
   {
-    // One product line per sale.
+    // One product line per sale. A line an edit drops is soft-voided, not
+    // deleted — the engine has no tombstones, so a delete would never reach the
+    // other devices' mirrors.
     name: 'sale_items',
     scope: 'tenant',
     columns: {
       id: 'text', sale_id: 'text', tenant_id: 'text', product_id: 'text',
       product_name_snapshot: 'text', quantity: 'int', unit_amount: 'num',
-      created_at: 'text', updated_at: 'text',
+      voided_at: 'text', created_at: 'text', updated_at: 'text',
     },
   },
   {

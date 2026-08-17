@@ -1,7 +1,11 @@
 import type { StateCreator } from 'zustand';
 import type { Customer, Product, Sale } from '@/src/core/types';
 import { PAGE_SIZE } from '@/src/core/constants';
-import { saleService, type CreateSaleInput } from '@/src/modules/transaction/sales';
+import {
+  saleService,
+  type CreateSaleInput,
+  type UpdateSaleInput,
+} from '@/src/modules/transaction/sales';
 import { resolveBranchFilter } from '@/src/shared/lib/branchFilter';
 import type { GlobalState } from '@/src/state/globalStore';
 
@@ -30,6 +34,7 @@ export interface SaleSlice {
   setDateRange: (fromDate: string | null, toDate: string | null) => Promise<void>;
   clearFilters: () => Promise<void>;
   createSale: (input: CreateSaleInput) => Promise<Sale | null>;
+  updateSale: (sale: Sale, input: UpdateSaleInput) => Promise<Sale | null>;
   voidSale: (id: string, voidedBy: string, reason: string) => Promise<void>;
   voidSales: (
     ids: string[],
@@ -241,6 +246,32 @@ export const createSaleSlice: StateCreator<
       // list show the new on-hand instead of the pre-sale figure.
       void get().products.fetchProducts();
       return sale;
+    } catch (e) {
+      set((state) => {
+        state.sales.error = (e as Error).message;
+        state.sales.loading = false;
+      });
+      return null;
+    }
+  },
+
+  updateSale: async (sale, input) => {
+    set((state) => {
+      state.sales.loading = true;
+      state.sales.error = null;
+    });
+    try {
+      const updated = await saleService.updateSale(sale, input);
+      set((state) => {
+        const i = state.sales.items.findIndex((s) => s.id === updated.id);
+        if (i !== -1) state.sales.items[i] = updated;
+        state.sales.loading = false;
+      });
+      // The edit may have changed what left the shelf, and the section totals
+      // key off amount_paid — the screen refetches, this keeps the card honest
+      // in the meantime.
+      void get().products.fetchProducts();
+      return updated;
     } catch (e) {
       set((state) => {
         state.sales.error = (e as Error).message;

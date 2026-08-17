@@ -20,7 +20,7 @@ Covers the Products catalog: a list of one-off sellable items (not subscriptions
 3. **Tier-gated creation.** `ProductService.createProduct()` calls `tierService.assertCanCreate(tier, usage, 'products')` after validation. Free tier: max 5 products. Pro / Business: unlimited.
 4. **`null currency_id` means USD** throughout — same rule as payments and plans.
 5. **Admin-only.** The Products screen and all mutations are inaccessible to the `user` role.
-6. **Stock is a ledger sum, never a stored counter.** `Product.stockOnHand = SUM(stock_movements.quantity_delta)` over non-voided rows. Movement rows are never edited or deleted — a mistake is corrected with another movement, and voiding a sale soft-voids the sale's movements.
+6. **Stock is a ledger sum, never a stored counter.** `Product.stockOnHand = SUM(stock_movements.quantity_delta)` over non-voided rows. Movement rows are never edited or deleted — a mistake is corrected with another movement, and voiding a sale soft-voids the sale's movements. **Editing** a sale does the same swap: its live `'sale'` movements are soft-voided and new ones inserted (never opposite correction rows), and only when the sale's per-product unit count actually changed — see [sales.md](sales.md) §2C.
 7. **A SHARED product has one stock pool** across every branch (RLS inherits the product's shared branch semantics, not the sale's owned ones).
 8. **Negative stock is legal.** There is no DB constraint stopping it — two offline devices can each sell the last unit. It renders as "Short by N".
 

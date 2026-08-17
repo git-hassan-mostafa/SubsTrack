@@ -1,11 +1,11 @@
 import { OFFLINE_PAGE_SIZE, type BranchFilter } from '@/src/core/constants';
 import type { DbCustomer, DbProduct, DbSale, DbSaleItem, DbStockMovement } from '@/src/core/types/db';
 import { OfflineBaseRepository } from '@/src/core/offline/OfflineBaseRepository';
-import { insertDirty } from '@/src/core/offline/db/dml';
+import { insertDirty, updateDirty } from '@/src/core/offline/db/dml';
 import { newId, nowIso } from '@/src/core/offline/ids';
 import { custodyValues } from '@/src/modules/wallet/utils/custodyValues';
 import type { FindSalesOptions } from '../utils/types';
-import type { CreateSalePayload, ISaleRepository } from './ISaleRepository';
+import type { CreateSalePayload, ISaleRepository, UpdateSalePayload } from './ISaleRepository';
 
 function dayStartIso(day: string): string {
   const [y, m, d] = day.split('-').map(Number);
@@ -52,7 +52,8 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
       parts.push({ clause: 's.customer_id = ?', params: [opts.customerId] });
     if (opts.productId)
       parts.push({
-        clause: 'EXISTS (SELECT 1 FROM sale_items si WHERE si.sale_id = s.id AND si.product_id = ?)',
+        clause:
+          'EXISTS (SELECT 1 FROM sale_items si WHERE si.sale_id = s.id AND si.product_id = ? AND si.voided_at IS NULL)',
         params: [opts.productId],
       });
     if (opts.fromDate) parts.push({ clause: 's.sold_at >= ?', params: [dayStartIso(opts.fromDate)] });
@@ -112,6 +113,7 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
       ...it,
       id: newId(),
       sale_id: saleId,
+      voided_at: null,
       created_at: now,
       updated_at: now,
     }));
@@ -145,6 +147,92 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
     });
     const created = await this.findById(saleId);
     return created as DbSale;
+  }
+
+  async update(id: string, payload: UpdateSalePayload): Promise<DbSale> {
+    const { items, movements, actorUserId, ...header } = payload;
+    const now = nowIso();
+    const before = this.decodeOne<DbSale>(
+      'sales',
+      await this.first('SELECT * FROM sales WHERE id = ? AND voided_at IS NULL', [id]),
+    );
+    // A voided sale is a closed record; the web path's `voided_at IS NULL` filter
+    // says the same thing by returning no row.
+    if (!before) this.handleError(new Error('Sale not found'));
+    // Read before write() — the transaction must stay as short as possible.
+    const subject = await this.customerSubject(header.customer_id);
+    const existing = await this.all<{ id: string }>(
+      'SELECT id FROM sale_items WHERE sale_id = ? AND voided_at IS NULL ORDER BY created_at',
+      [id],
+    );
+
+    // Header + lines + the replacement stock decrements in one local transaction,
+    // exactly like create.
+    await this.write(async (db) => {
+      await updateDirty(db, 'sales', id, { ...header, updated_at: now });
+
+      // Lines are matched to the existing rows by position, so an edited line
+      // keeps its id; only a dropped line is soft-voided (a delete would never
+      // reach another device — the engine has no tombstones for sale_items).
+      for (let i = 0; i < items.length; i++) {
+        if (i < existing.length) {
+          await updateDirty(db, 'sale_items', existing[i].id, { ...items[i], updated_at: now });
+        } else {
+          await insertDirty(db, 'sale_items', {
+            ...items[i],
+            id: newId(),
+            sale_id: id,
+            voided_at: null,
+            created_at: now,
+            updated_at: now,
+          } satisfies DbSaleItem);
+        }
+      }
+      for (const row of existing.slice(items.length)) {
+        await updateDirty(db, 'sale_items', row.id, { voided_at: now, updated_at: now });
+      }
+
+      // null = the products and quantities are unchanged, so the ledger is left
+      // exactly as it is — a notes fix must not churn every product's history.
+      if (movements) {
+        // Soft-void, never opposite rows — same reasoning as voidSale.
+        await db.runAsync(
+          `UPDATE stock_movements SET voided_at = ?, voided_by = ?, updated_at = ?, _dirty = 1
+           WHERE sale_id = ? AND voided_at IS NULL`,
+          [now, actorUserId, now, id] as never[],
+        );
+        for (const m of movements) {
+          await insertDirty(db, 'stock_movements', {
+            ...m,
+            id: newId(),
+            sale_id: id,
+            voided_at: null,
+            voided_by: null,
+            created_at: now,
+            updated_at: now,
+          } satisfies DbStockMovement);
+        }
+      }
+
+      const after = this.decodeOne<DbSale>(
+        'sales',
+        await this.first('SELECT * FROM sales WHERE id = ?', [id]),
+      );
+      if (after) {
+        await this.auditIn(db, {
+          table: 'sales',
+          recordId: id,
+          action: 'update',
+          before,
+          after,
+          branchId: after.branch_id,
+          subject,
+        });
+      }
+    });
+
+    const updated = await this.findById(id);
+    return updated as DbSale;
   }
 
   async voidSale(id: string, voidedBy: string, reason: string): Promise<DbSale> {
@@ -237,7 +325,8 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
       parts.push({ clause: 's.customer_id = ?', params: [opts.customerId] });
     if (opts.productId)
       parts.push({
-        clause: 'EXISTS (SELECT 1 FROM sale_items si WHERE si.sale_id = s.id AND si.product_id = ?)',
+        clause:
+          'EXISTS (SELECT 1 FROM sale_items si WHERE si.sale_id = s.id AND si.product_id = ? AND si.voided_at IS NULL)',
         params: [opts.productId],
       });
     if (opts.fromDate) parts.push({ clause: 's.sold_at >= ?', params: [dayStartIso(opts.fromDate)] });

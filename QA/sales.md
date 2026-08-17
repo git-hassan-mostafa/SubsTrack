@@ -1,6 +1,6 @@
 # Sales — QA Scenarios
 
-Covers the one-off sales ledger: recording a sale (with **one or more products**) against an optional customer, viewing the sales list, the sale receipt, voiding a sale, and the per-customer sales panel. Sales are a completely separate ledger from subscription payments — they share no schema or service code beyond the snapshot-rate principle. Sending the sale receipt to the customer over WhatsApp (the form's second button and the receipt sheet's Send button) is covered in [whatsapp-invoices.md](whatsapp-invoices.md).
+Covers the one-off sales ledger: recording a sale (with **one or more products**) against an optional customer, viewing the sales list, the sale receipt, the row's 3-dot action menu, editing a recorded sale, voiding a sale, and the per-customer sales panel. Sales are a completely separate ledger from subscription payments — they share no schema or service code beyond the snapshot-rate principle. Sending the sale receipt to the customer over WhatsApp (the form's second button and the receipt sheet's Send button) is covered in [whatsapp-invoices.md](whatsapp-invoices.md).
 
 **A sale is a header (`sales`) + one or more product lines (`sale_items`).** One sale can hold several products (a "cart"). The header carries the single sale currency + rate snapshot, the summed `total_amount`, `amount_paid`, and a frozen `items_summary`. Each line is one product (`product_name_snapshot`, `quantity`, `unit_amount`). Partial payment / debt / wallet / dashboard are all header-level (one debt, one wallet entry, one revenue figure per sale). Revenue, wallet, and the Sales-tab month headers all read `amount_paid`; only the debt reads `total_amount − amount_paid`.
 
@@ -9,6 +9,7 @@ Covers the one-off sales ledger: recording a sale (with **one or more products**
 - Form sheet: [SaleFormSheet.tsx](SubsTrack/src/modules/transaction/sales/components/SaleFormSheet.tsx)
 - Detail sheet: [SaleDetailSheet.tsx](SubsTrack/src/modules/transaction/sales/components/SaleDetailSheet.tsx)
 - Card: [SaleCard.tsx](SubsTrack/src/modules/transaction/sales/components/SaleCard.tsx)
+- Row action menu (every per-sale action, shared by all three surfaces): [useSaleActions.tsx](SubsTrack/src/modules/transaction/sales/hooks/useSaleActions.tsx)
 - Customer panel: [CustomerSalesPanel.tsx](SubsTrack/src/modules/transaction/sales/components/CustomerSalesPanel.tsx)
 - Bulk send on WhatsApp: [useSaleInvoiceAction.tsx](SubsTrack/src/modules/transaction/sales/hooks/useSaleInvoiceAction.tsx) + [InlineSelectionToolbar.tsx](SubsTrack/src/shared/components/InlineSelectionToolbar.tsx)
 - Service: [SaleService.ts](SubsTrack/src/modules/transaction/sales/services/SaleService.ts)
@@ -32,6 +33,7 @@ Covers the one-off sales ledger: recording a sale (with **one or more products**
 3. **One currency per sale.** Every line's `unit_amount` is in the sale's `currency_id`. Products priced in another currency are auto-converted into the sale currency (live rate) as the editable prefill.
 4. **`customer_id` (header) is nullable.** Walk-in (anonymous) sales have `customer_id = NULL`.
 5. **No hard delete.** Void via `voided_at` / `voided_by` / `void_reason` on the header. Voided sales drop from the active list but stay in DB; lines cascade only on hard delete.
+5b. **A non-voided sale is EDITABLE in place** (§2C) — every snapshot in rule 2 is re-taken by the edit, including `rate_per_usd_snapshot` when the currency changes. A line the edit drops is **soft-voided** (`sale_items.voided_at`), never deleted, and the sale's stock movements are **swapped** (old soft-voided, new inserted) only when the per-product unit count actually changed. A voided sale can never be edited.
 6. **Dashboard revenue includes sales, as CASH.** `DashboardService.getMetrics()` sums `rate_per_usd_snapshot`-converted sale **`amount_paid`** (not `total_amount`) alongside payment and debt-payment totals — a partial sale contributes only its collected part, and the remainder arrives later via `debtRevenue`. `salesCount` counts sales (headers), not products, paid or not.
 7. **Product delete-reference counts key off `sale_items.product_id`.** A product used by any sale line soft-deletes (kept), else hard-deletes.
 8. **Tenant isolation via RLS.** `sale_items` inherits its branch from the parent sale.
@@ -161,6 +163,107 @@ Covers the one-off sales ledger: recording a sale (with **one or more products**
 | 2B.12 | Void restores | Void that sale | Product returns to 5; the movement is struck through in the stock history |
 | 2B.13 | Bulk void restores each | Bulk-void 3 sales of the same product | Every one of their movements is voided; stock returns to the pre-sale total |
 | 2B.14 | Offline oversell is allowed | Two devices offline each sell the last unit, then sync | Both sales survive; stock goes to −1 and the card reads "Short by 1" |
+
+---
+
+## 2C. Edit an existing sale (SaleFormSheet in edit mode)
+
+> One sale = header + lines + stock movements, and each has its own correction rule (gotcha #90). Any staff member may edit; a **voided** sale never can be.
+
+**Entry & prefill**
+
+| # | Scenario | Steps | Expected result |
+|---|----------|-------|-----------------|
+| 2C.1 | Two ways in | Open a non-voided sale's 3-dot menu, and its receipt | Both offer "Edit sale" (on the receipt it sits above Change history / Void) |
+| 2C.2 | Voided sale has no edit | Open a voided sale's menu and receipt | No "Edit sale" in either (void is final — record a new sale) |
+| 2C.3 | Receipt closes behind the form | Tap "Edit sale" on the receipt | The receipt dismisses and the form opens — never two stacked full sheets |
+| 2C.4 | All three surfaces | Repeat 2C.1 from the Sales tab, the customer detail panel, and the per-customer sales page | Same action, same form, on all three |
+| 2C.5 | Title + button | Form is open in edit mode | Title "Edit Sale"; primary button "Save Changes" (not "Record Sale") |
+| 2C.6 | Cart prefill | Sale had Water ×2 @ 3 and Bread ×1 @ 2 | Two line cards, correct products, quantities and unit prices; the sale's currency is selected |
+| 2C.7 | Customer prefill + editable | Sale belongs to Ali | Customer picker shows Ali and **is editable** (even when opened from Ali's own screen) |
+| 2C.8 | Walk-in prefill | Sale has no customer | Picker is empty ("Walk-in"); the paid/partial/debt section is hidden |
+| 2C.9 | Amount mode prefill | Fully paid / partial (100 of 130) / debt (0 paid) | Mode reads Full / Partial with 100 filled in / Debt respectively |
+| 2C.10 | Notes prefill | Sale has notes | Notes field carries them |
+| 2C.11 | No false "discard changes" | Open the edit form, wait for products to load, close it | Closes straight away — **no** discard prompt (`SaleCartDraft.dirty`) |
+| 2C.12 | Real change prompts | Change a quantity, then close | "Discard changes?" prompt appears; "Keep editing" preserves the change |
+| 2C.13 | Untouched save writes no audit | Open the form and save with nothing changed | Save succeeds; **no** new entry in the sale's Change history |
+
+**Stock, the ledger, and the credit**
+
+| # | Scenario | Steps | Expected result |
+|---|----------|-------|-----------------|
+| 2C.14 | Own units are credited | Product has 0 left because this sale took the last 2; open the edit form | The line shows "2 left", the product is pickable, and the cart is not "oversold" |
+| 2C.15 | Re-price only | Change only the unit price and save | Saves. Product stock is **unchanged**, and its stock history gains **no** new rows (footprint unchanged) |
+| 2C.16 | Notes / amount-paid only | Change only the notes, or only the collected amount | Same as 2C.15 — stock history untouched |
+| 2C.17 | Line split, same units | Replace one line of ×3 with two lines of ×1 and ×2 (same product) | Saves; stock unchanged; **no** new movements (compared per product, not per line) |
+| 2C.18 | Quantity up | Sale had ×2, stock 5 (so 7 in the pool); change to ×3 | Stock becomes 4. The old `-2` movement is struck through and a new `-3` appears |
+| 2C.19 | Quantity down | Change ×3 back to ×2 | Stock returns to 5; the `-3` is struck through and a new `-2` appears — never a `+1` correction row |
+| 2C.20 | Swap the product | Replace product A with product B | A's units come back, B's go out; A's old movement is voided and only B has a live one |
+| 2C.21 | Add a line | Add a second product | New line saved; a new movement for it |
+| 2C.22 | Remove a line | Delete one of two lines and save | Receipt now shows one line, its total matches; the removed product's stock is returned |
+| 2C.23 | Oversell is still blocked | Raise a quantity past pool (on-hand + this sale's units) | Submit disabled; if forced (stock changed elsewhere), save fails with "Only N left of «product»" and **nothing** is written |
+| 2C.24 | Deactivated product keeps its line | Soft-delete a product that is on the sale, then edit the sale | Its line still resolves and can be re-saved; the product is greyed out / unpickable for a **new** line |
+| 2C.25 | Repeat void is still safe | Edit a sale (movements swapped), then void the sale | Only the live movements are struck; stock returns exactly once |
+
+**Money, currency, and what flows on**
+
+| # | Scenario | Steps | Expected result |
+|---|----------|-------|-----------------|
+| 2C.26 | Currency change re-freezes the rate | Sale in USD; switch to LBP and save | Lines re-price into LBP; `rate_per_usd_snapshot` is the **current** LBP rate, and the receipt's ≈ USD value follows it |
+| 2C.27 | Total shrinks under amount paid | Partial sale 100 of 130; cut the cart to 90 | Save disabled and the amount field shows "Amount paid cannot exceed amount due" — not a silent dead button |
+| 2C.28 | Full stays full | Fully paid sale; raise a quantity | `amount_paid` follows the new total (still fully paid) |
+| 2C.29 | Debt follows | Partial sale; raise the total | Transactions → Debts shows the larger Sales debt for that customer |
+| 2C.30 | Debt cleared by an edit | Partial sale; switch the mode to Full and save | The customer's Sales debt for it disappears |
+| 2C.31 | Dashboard follows | Edit `amount_paid` on a sale in the current month | Revenue (sales stream) and the month section total both move by the difference |
+| 2C.32 | Wallet follows | Edit `amount_paid` on a sale still held by a collector | That collector's wallet total moves by the difference |
+| 2C.33 | No custody lock (accepted) | Edit a sale whose cash was already handed to an admin | Edit is allowed; the changed amount sits with the **current** holder |
+| 2C.34 | Move to another customer | Change the customer and save | The sale (and any debt it carries) moves to the new customer |
+| 2C.35 | Section totals refresh | Edit a sale's collected amount from the Sales tab | The month section header total is recalculated (the list refetches, not just the card) |
+| 2C.36 | Save & send | Press "Save & send on WhatsApp" on an edit | Sale saves, then WhatsApp opens with the **corrected** receipt |
+
+**Branch, audit, offline**
+
+| # | Scenario | Steps | Expected result |
+|---|----------|-------|-----------------|
+| 2C.37 | Walk-in keeps its branch | Tenant-wide admin edits a **walk-in** sale recorded by a Branch A collector | The sale stays in Branch A — it does **not** become unassigned |
+| 2C.38 | Customer sale takes the customer's branch | Change the customer to one in Branch B | The sale moves to Branch B |
+| 2C.39 | Audit entry | Admin → the sale's Change history after an edit | One "Edited" entry listing only the changed columns (e.g. Total / Items summary / Amount paid), with the editing staff member as actor |
+| 2C.40 | Original recorder is kept | Edit someone else's sale | `recorded_by_user_id` is unchanged; only the audit names the editor |
+| 2C.41 | Offline edit | Go offline, edit a sale, reconnect | Header, lines and movements all push; totals and stock match on the server |
+| 2C.42 | Removed line syncs | Device A removes a line and syncs; open the sale on device B | Device B shows the reduced line set — **no** phantom line (lines are soft-voided, not deleted) |
+| 2C.43 | Product filter follows | Sale contained product A; edit it to remove A; filter the Sales tab by A | The sale no longer matches |
+| 2C.44 | Product still undeletable | After 2C.43, try to delete product A | Still soft-deletes (the voided line keeps the reference) |
+
+---
+
+## 2D. Sale row action menu (3-dot)
+
+> Every action one sale offers, in one menu, defined once in `useSaleActions` and shared by all three sales surfaces.
+
+| # | Scenario | Steps | Expected result |
+|---|----------|-------|-----------------|
+| 2D.1 | Menu button is on every row | Look at a sale card | A 3-dot button on the trailing edge; tapping it opens the menu (it does **not** open the receipt) |
+| 2D.2 | Menu title | Open the menu | Title is the sale's frozen `items_summary` — the same text the card shows |
+| 2D.3 | Full action set | Open the menu on a non-voided sale | Exactly: View receipt · Edit sale · Send invoice on WhatsApp · History · Void sale |
+| 2D.4 | Voided sale is cut down | Open the menu on a voided sale | Only View receipt · History. No edit, no send, no void |
+| 2D.5 | View receipt | Tap "View receipt" | The menu closes and the receipt sheet opens — same sheet a card tap gives |
+| 2D.6 | Edit sale | Tap "Edit sale" | The sale form opens in edit mode, prefilled (see § 2C) |
+| 2D.7 | Send invoice | Tap "Send invoice on WhatsApp" on a sale for a customer with a phone | WhatsApp opens with that one sale's receipt text |
+| 2D.8 | Walk-in cannot send | Open the menu on a walk-in sale | The WhatsApp row is **visible but greyed**, captioned "Walk-in sale — no customer to send to"; tapping does nothing |
+| 2D.9 | No phone cannot send | Customer has no phone (or only non-digits like "-") | Row greyed, captioned "No phone number for this customer" |
+| 2D.10 | History | Tap "History" as an admin | The sale's change history sheet opens (same content as the receipt's Change history) |
+| 2D.11 | History as staff | Tap "History" as a `user` | The sheet opens and says "Admins only" — never an empty (untrue) timeline |
+| 2D.12 | Void from the menu | Tap "Void sale" | The reason dialog opens titled **"Void this sale"** (singular — never "Void 1 sales") |
+| 2D.13 | Void completes | Type a reason and confirm | The sale is voided, drops out of the list, and its stock is returned |
+| 2D.14 | Void cancelled | Open the void dialog and cancel | Nothing is written; the sale is untouched |
+| 2D.15 | Void failure keeps the dialog | Force a failing void (e.g. offline-only error) | The dialog stays open with the error; it does not close silently |
+| 2D.16 | Bulk void still reads plural | Select 3 sales → Void from the selection toolbar | Same dialog, titled "Void 3 sales" — one dialog serves both paths |
+| 2D.17 | Menu hidden while selecting | Long-press a card to enter multi-select | The 3-dot button is replaced by the checkbox on every row |
+| 2D.18 | Long-press still selects | Long-press a card (not in selection mode) | Enters multi-select — the menu does **not** open |
+| 2D.19 | Same menu everywhere | Repeat 2D.3 from the Sales tab, the customer panel, and the per-customer page | Identical rows in identical order |
+| 2D.20 | List refreshes after a menu void | Void from the menu on the customer panel / per-customer page | The local list refreshes and the row disappears without a manual pull-to-refresh |
+| 2D.21 | Arabic / RTL | Switch to Arabic and open the menu | All five labels translated; rows and icons mirror; the WhatsApp badge does **not** mirror |
+| 2D.22 | Menu closes on Back | Open the menu and press Android Back (or browser Back) | The menu closes; the screen behind it does **not** change |
 
 ---
 
@@ -312,5 +415,9 @@ Reached via the panel's "Show all" link. Route: `customers/[id]/sales`. Mirrors 
 | View sales list | ✓ | ✓ (own branch) | ✓ (own branch) |
 | Record sale | ✓ | ✓ | ✓ |
 | View sale receipt | ✓ | ✓ | ✓ |
+| Edit sale (non-voided) | ✓ | ✓ | ✓ |
+| Edit a **voided** sale | ✗ | ✗ | ✗ |
 | Void sale | ✓ | ✓ | ⚠ Verify gate |
+| Open the row 3-dot menu | ✓ | ✓ | ✓ |
+| Read a sale's History from the menu | ✓ | ✓ | ✗ ("Admins only" — the row is offered, the read returns nothing) |
 | View customer sales panel | ✓ | ✓ | ✓ |

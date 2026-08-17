@@ -1,6 +1,6 @@
 export { default as saleService } from './services/SaleService';
 export { mapDbSaleToSale } from './utils/mapper'
-export type { CreateSaleInput } from './utils/types';
+export type { CreateSaleInput, UpdateSaleInput } from './utils/types';
 export { default as saleRepository } from './repository/SaleRepository';
 export { CustomerSalesPanel } from './components/CustomerSalesPanel';
 export { SaleCard } from './components/SaleCard';

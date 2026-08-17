@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
@@ -33,12 +33,26 @@ export interface SaleCartDraft {
   currencyId: string | null;
   // true when there is ≥1 line and no half-filled row.
   ready: boolean;
+  // Whether the cart differs from what it was seeded with. The editor answers
+  // this itself because it owns the baseline: it re-reports the draft from an
+  // effect one render after mount, so the parent's `useDirtyForm` would read an
+  // empty cart as the baseline and call an untouched edit form dirty.
+  dirty: boolean;
+}
+
+// The saved sale an edit starts from. Its units are still on this sale, so they
+// count as available while it is being re-cut.
+export interface SaleEditorInitial {
+  items: { productId: string; quantity: number; unitAmount: number }[];
+  currencyId: string | null;
 }
 
 interface Props {
   // Called whenever the cart changes. Pass a stable setter (React setState).
   onChange: (draft: SaleCartDraft) => void;
   onFocusClearError?: () => void;
+  // Edit mode: seed the cart from a saved sale. Pass a stable object.
+  initial?: SaleEditorInitial | null;
 }
 
 type Row = {
@@ -47,6 +61,25 @@ type Row = {
   quantity: number;
   unitAmount: number | null;
 };
+
+// What the cart holds, ignoring rows the user hasn't filled in yet — so adding
+// and then removing a blank row is not an edit.
+function signatureOf(rows: Row[], currencyId: string | null): string {
+  return `${currencyId ?? ""}#${rows
+    .filter((r) => r.productId)
+    .map((r) => `${r.productId}:${r.quantity}:${r.unitAmount ?? ""}`)
+    .join("|")}`;
+}
+
+function buildInitialRows(initial?: SaleEditorInitial | null): Row[] {
+  if (!initial || initial.items.length === 0) return [makeRow(0)];
+  return initial.items.map((it, i) => ({
+    key: `row-${i}`,
+    productId: it.productId,
+    quantity: it.quantity,
+    unitAmount: it.unitAmount,
+  }));
+}
 
 // Round a converted price to the target currency's decimals for a clean prefill.
 function roundTo(value: number, decimals: number): number {
@@ -64,26 +97,32 @@ function makeRow(suffix: number): Row {
 // reports the resolved draft up via onChange. One currency per sale: each
 // product's catalog price is auto-converted into the sale currency (editable).
 // Mirrors CustomerPlansEditor's add / remove-row pattern.
-export function SaleItemsEditor({ onChange, onFocusClearError }: Props) {
+export function SaleItemsEditor({
+  onChange,
+  onFocusClearError,
+  initial = null,
+}: Props) {
   const { t } = useTranslation();
   const products = useProductSlice((s) => s.items);
   const getProducts = useProductSlice((s) => s.getProducts);
   const currencies = useCurrencySlice((s) => s.items);
   const { lastUsedCurrencyId } = useUiPrefStore();
 
+  const [rows, setRows] = useState<Row[]>(() => buildInitialRows(initial));
   // Suffix of the last row added in this session. Only ever touched from an event
   // handler — never during render.
-  const rowKey = useRef(0);
-
-  const [rows, setRows] = useState<Row[]>(() => [makeRow(0)]);
-  // The single currency for the whole sale. Defaults to last-used until the
-  // first product is picked (which adopts its currency, unless the user has
-  // already changed it manually).
+  const rowKey = useRef(rows.length - 1);
+  // The single currency for the whole sale. In edit mode it is the sale's own;
+  // otherwise last-used, until the first product is picked (which adopts its
+  // currency, unless the user has already changed it manually).
   const [currencyId, setCurrencyId] = useState<string | null>(
-    lastUsedCurrencyId ?? null,
+    initial ? initial.currencyId : (lastUsedCurrencyId ?? null),
   );
-  const [currencyTouched, setCurrencyTouched] = useState(false);
+  // An edited sale already has its currency — nothing may hijack it.
+  const [currencyTouched, setCurrencyTouched] = useState(initial != null);
   const [addProductOpen, setAddProductOpen] = useState(false);
+  // Frozen on the first render, so "dirty" means the user changed something.
+  const [baseline] = useState(() => signatureOf(rows, currencyId));
 
   // `getProducts` self-guards on the slice's `loaded` flag — no length check, and
   // no re-query on every sale-form open for a tenant with no products yet.
@@ -91,9 +130,29 @@ export function SaleItemsEditor({ onChange, onFocusClearError }: Props) {
     void getProducts();
   }, [getProducts]);
 
-  const activeProducts = useMemo(
-    () => products.filter((p) => p.active),
-    [products],
+  // Units the sale being edited is holding. They come back to the pool as part
+  // of the same save, so they count as available here — otherwise re-pricing a
+  // sale that took the last unit would read as out of stock.
+  const stockCredit = useMemo(() => {
+    const credit = new Map<string, number>();
+    for (const it of initial?.items ?? []) {
+      credit.set(it.productId, (credit.get(it.productId) ?? 0) + it.quantity);
+    }
+    return credit;
+  }, [initial]);
+
+  // Products this cart may hold: the catalog's active ones, plus any product
+  // already on the sale that has been deactivated since (or the edit could not
+  // even re-save the line it is standing on).
+  const sellableProducts = useMemo(
+    () => products.filter((p) => p.active || stockCredit.has(p.id)),
+    [products, stockCredit],
+  );
+
+  // On-hand plus what this sale is giving back — the real ceiling for the cart.
+  const poolFor = useCallback(
+    (product: Product) => product.stockOnHand + (stockCredit.get(product.id) ?? 0),
+    [stockCredit],
   );
   const currencyOptions: DropdownOption<string>[] = currencies
     .filter((c) => c.active || c.id === currencyId)
@@ -105,25 +164,30 @@ export function SaleItemsEditor({ onChange, onFocusClearError }: Props) {
   // stay comparable — and match the unit amount the pick will prefill.
   // Out-of-stock products stay listed but greyed out, so the user can see why
   // they can't be sold. SaleService re-checks on submit — this is only a hint.
-  const productOptions: DropdownOption<string>[] = activeProducts.map((p) => ({
-    label: p.name,
-    sublabel:
-      p.stockOnHand > 0
-        ? `${formatMoney(p.price, findCurrency(currencies, p.currencyId), saleCurrency)} · ${t("sales.stock_left", { quantity: p.stockOnHand })}`
-        : t("products.out_of_stock"),
-    value: p.id,
-    disabled: p.stockOnHand <= 0,
-  }));
+  const productOptions: DropdownOption<string>[] = sellableProducts.map((p) => {
+    const pool = poolFor(p);
+    return {
+      label: p.name,
+      sublabel:
+        pool > 0
+          ? `${formatMoney(p.price, findCurrency(currencies, p.currencyId), saleCurrency)} · ${t("sales.stock_left", { quantity: pool })}`
+          : t("products.out_of_stock"),
+      value: p.id,
+      // A product retired since the sale was recorded can stay on its line but
+      // must not be picked for a new one.
+      disabled: pool <= 0 || !p.active,
+    };
+  });
 
-  // What's still sellable for a row: on-hand minus what the OTHER rows already
+  // What's still sellable for a row: the pool minus what the OTHER rows already
   // took of the same product (the same product can sit on several lines).
   function availableIn(list: Row[], key: string, productId: string | null): number {
-    const product = activeProducts.find((p) => p.id === productId);
+    const product = sellableProducts.find((p) => p.id === productId);
     if (!product) return 0;
     const takenElsewhere = list
       .filter((r) => r.key !== key && r.productId === productId)
       .reduce((sum, r) => sum + r.quantity, 0);
-    return product.stockOnHand - takenElsewhere;
+    return poolFor(product) - takenElsewhere;
   }
 
   // Convert a product's catalog price into the given sale currency (rounded).
@@ -136,7 +200,7 @@ export function SaleItemsEditor({ onChange, onFocusClearError }: Props) {
   }
 
   function selectProduct(key: string, productId: string | null) {
-    const product = activeProducts.find((p) => p.id === productId) ?? null;
+    const product = sellableProducts.find((p) => p.id === productId) ?? null;
     const firstProduct =
       product != null && !rows.some((r) => r.productId && r.key !== key);
     // The first product picked adopts its own currency as the sale currency,
@@ -173,7 +237,7 @@ export function SaleItemsEditor({ onChange, onFocusClearError }: Props) {
     // Re-price every line from its product's catalog price into the new currency.
     setRows((prev) =>
       prev.map((r) => {
-        const p = activeProducts.find((pp) => pp.id === r.productId);
+        const p = sellableProducts.find((pp) => pp.id === r.productId);
         return p ? { ...r, unitAmount: priceInCurrency(p, target) } : r;
       }),
     );
@@ -213,7 +277,7 @@ export function SaleItemsEditor({ onChange, onFocusClearError }: Props) {
     const lines: SaleLineDraft[] = [];
     let incomplete = false;
     for (const r of rows) {
-      const product = activeProducts.find((p) => p.id === r.productId) ?? null;
+      const product = sellableProducts.find((p) => p.id === r.productId) ?? null;
       const validAmount = r.unitAmount != null && r.unitAmount > 0;
       if (product && validAmount && r.quantity > 0) {
         lines.push({
@@ -232,8 +296,8 @@ export function SaleItemsEditor({ onChange, onFocusClearError }: Props) {
       perProduct.set(l.product.id, (perProduct.get(l.product.id) ?? 0) + l.quantity);
     }
     const oversold = [...perProduct].some(([id, qty]) => {
-      const product = activeProducts.find((p) => p.id === id);
-      return !product || product.stockOnHand < qty;
+      const product = sellableProducts.find((p) => p.id === id);
+      return !product || poolFor(product) < qty;
     });
     const total = lines.reduce((sum, l) => sum + l.unitAmount * l.quantity, 0);
     onChange({
@@ -242,8 +306,17 @@ export function SaleItemsEditor({ onChange, onFocusClearError }: Props) {
       currency: saleCurrency,
       currencyId,
       ready: lines.length > 0 && !incomplete && !oversold,
+      dirty: signatureOf(rows, currencyId) !== baseline,
     });
-  }, [rows, currencyId, activeProducts, saleCurrency, onChange]);
+  }, [
+    rows,
+    currencyId,
+    sellableProducts,
+    saleCurrency,
+    poolFor,
+    baseline,
+    onChange,
+  ]);
 
   const multiple = rows.length > 1;
 

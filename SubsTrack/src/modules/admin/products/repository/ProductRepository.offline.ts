@@ -126,6 +126,8 @@ export class OfflineProductRepository extends OfflineBaseRepository implements I
     return this.count(`SELECT COUNT(*) AS n FROM products ${where.sql}`, where.params);
   }
 
+  // Counts lines an edit dropped too — the server's `product_id` FK is
+  // ON DELETE RESTRICT, so a voided line would still block the hard delete.
   async countReferences(id: string): Promise<number> {
     return this.count('SELECT COUNT(*) AS n FROM sale_items WHERE product_id = ?', [id]);
   }

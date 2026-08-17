@@ -3,8 +3,14 @@ import { BaseRepository } from '@/src/core/utils/BaseRepository';
 import { PAGE_SIZE, type BranchFilter } from '@/src/core/constants';
 import type { DbSale, DbSaleItem } from '@/src/core/types/db';
 import { custodyValues } from '@/src/modules/wallet/utils/custodyValues';
+import type { CreateStockMovementPayload } from '@/src/modules/admin/products';
 import { FindSalesOptions } from '../utils/types';
-import type { CreateSalePayload, ISaleRepository } from './ISaleRepository';
+import type {
+  CreateSaleItemPayload,
+  CreateSalePayload,
+  ISaleRepository,
+  UpdateSalePayload,
+} from './ISaleRepository';
 import { OfflineSaleRepository } from './SaleRepository.offline';
 
 // Header + its lines (each line with its product) + the customer.
@@ -35,7 +41,9 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
     const { data, error } = await this.db
       .from('sale_items')
       .select('sale_id')
-      .eq('product_id', productId);
+      .eq('product_id', productId)
+      // A line an edit dropped no longer puts this product in the sale.
+      .is('voided_at', null);
     if (error) this.handleError(error);
     return Array.from(new Set((data ?? []).map((r: { sale_id: string }) => r.sale_id)));
   }
@@ -141,6 +149,116 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
 
     // Same shape SALE_SELECT would have returned, assembled from the writes.
     return { ...created, sale_items: (itemsResult.data ?? []) as DbSaleItem[] };
+  }
+
+  async update(id: string, payload: UpdateSalePayload): Promise<DbSale> {
+    const { items, movements, actorUserId, ...header } = payload;
+    // One extra read so the trail can say what the sale WAS. PostgREST cannot
+    // return old values from an UPDATE.
+    const { data: prior } = await this.db.from('sales').select('*').eq('id', id).maybeSingle();
+    const { data, error } = await this.db
+      .from('sales')
+      .update(header)
+      .eq('id', id)
+      // A voided sale is a closed record — this filter is what locks it.
+      .is('voided_at', null)
+      .select(SALE_SELECT_LEAN)
+      .single();
+    if (error) this.handleError(error);
+    const updated = data as DbSale;
+
+    const lines = await this.replaceItems(id, items);
+    if (movements) await this.replaceSaleMovements(id, movements, actorUserId);
+
+    // One entry for the sale as a whole, like create/void — the changed header
+    // columns (items_summary, total_amount, amount_paid, …) say what moved, and
+    // sale_items / stock_movements are deliberately not audited themselves.
+    this.audit({
+      table: 'sales',
+      recordId: id,
+      action: 'update',
+      before: prior,
+      after: updated,
+      branchId: updated.branch_id,
+      subject: updated.customers?.name ?? null,
+    });
+
+    return { ...updated, sale_items: lines };
+  }
+
+  // Writes the new line set over the old one, matching by position so a line
+  // that merely changed quantity or price keeps its id (a delete would never
+  // reach another device's mirror — the sync engine has no tombstones, which is
+  // also why the surplus is soft-voided instead of removed).
+  private async replaceItems(
+    saleId: string,
+    items: CreateSaleItemPayload[],
+  ): Promise<DbSaleItem[]> {
+    const { data: current, error: readError } = await this.db
+      .from('sale_items')
+      .select('id')
+      .eq('sale_id', saleId)
+      .is('voided_at', null)
+      .order('created_at');
+    if (readError) this.handleError(readError);
+    const existing = (current ?? []) as { id: string }[];
+
+    const reused = items.slice(0, existing.length);
+    const added = items.slice(existing.length);
+    const dropped = existing.slice(items.length);
+
+    // Disjoint id sets, so the three go out together — one network wave.
+    const [reusedRows, insertResult, dropResult] = await Promise.all([
+      Promise.all(
+        reused.map(async (it, i) => {
+          const { data, error } = await this.db
+            .from('sale_items')
+            .update(it)
+            .eq('id', existing[i].id)
+            .select('*, products(*)')
+            .single();
+          if (error) this.handleError(error);
+          return data as DbSaleItem;
+        }),
+      ),
+      added.length > 0
+        ? this.db
+          .from('sale_items')
+          .insert(added.map((it) => ({ ...it, sale_id: saleId })))
+          .select('*, products(*)')
+        : null,
+      dropped.length > 0
+        ? this.db
+          .from('sale_items')
+          .update({ voided_at: new Date().toISOString() })
+          .in('id', dropped.map((r) => r.id))
+        : null,
+    ]);
+    if (insertResult?.error) this.handleError(insertResult.error);
+    if (dropResult?.error) this.handleError(dropResult.error);
+
+    return [...reusedRows, ...((insertResult?.data ?? []) as DbSaleItem[])];
+  }
+
+  // Swaps the sale's stock decrements for the edited ones. The old rows are
+  // soft-voided rather than reversed with opposite rows, exactly like voidSale —
+  // `IS NULL` keeps a repeated run from crediting the stock twice.
+  private async replaceSaleMovements(
+    saleId: string,
+    movements: Omit<CreateStockMovementPayload, 'sale_id'>[],
+    voidedBy: string | null,
+  ): Promise<void> {
+    const { error: voidError } = await this.db
+      .from('stock_movements')
+      .update({ voided_at: new Date().toISOString(), voided_by: voidedBy })
+      .eq('sale_id', saleId)
+      .is('voided_at', null);
+    if (voidError) this.handleError(voidError);
+    if (movements.length === 0) return;
+    const { error } = await this.db
+      .from('stock_movements')
+      .insert(movements.map((m) => ({ ...m, sale_id: saleId })));
+    if (error) this.handleError(error);
   }
 
   async voidSale(id: string, voidedBy: string, reason: string): Promise<DbSale> {

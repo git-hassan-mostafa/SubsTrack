@@ -251,6 +251,9 @@ export interface DbSaleItem {
   product_name_snapshot: string;
   quantity: number;
   unit_amount: number;
+  // Set when an EDIT dropped this line. Soft, not deleted — the offline sync has
+  // no tombstones for sale_items. The mapper filters these out.
+  voided_at: string | null;
   created_at: string;
   updated_at: string;
   // joined relation — present when .select('*, products(*)')
