@@ -181,16 +181,6 @@ class SaleService {
     return mapDbSaleToSale(row);
   }
 
-  // Sums all non-voided sales for the given calendar month, converted to USD
-  // via each sale's frozen rate_per_usd_snapshot. Drift-free — mirrors the
-  // pattern documented in CLAUDE.md gotcha #22 for payments.
-  async sumForMonthUsd(year: number, month: number, branchFilter: BranchFilter = null): Promise<number> {
-    const monthStart = new Date(year, month - 1, 1).toISOString();
-    const monthEndExclusive = new Date(year, month, 1).toISOString();
-    const rows = await repository.totalsForMonth(monthStart, monthEndExclusive, branchFilter);
-    return rows.reduce((acc, r) => acc + r.amount / r.ratePerUsdSnapshot, 0);
-  }
-
   // True when the edited cart takes exactly the same units off the shelf as the
   // saved one. Compared per PRODUCT, not per line: splitting one line of 3 into
   // 1 + 2 moves no stock, so the ledger has nothing to correct.

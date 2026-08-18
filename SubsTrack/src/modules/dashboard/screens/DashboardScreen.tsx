@@ -12,7 +12,6 @@ import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
 import { Ionicons } from "@expo/vector-icons";
-import { getDateLocale } from "@/src/core/utils/date";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { useDashboardSlice } from "@/src/state/hooks/useDashboardSlice";
@@ -27,19 +26,14 @@ import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchF
 import { CustomerFormSheet } from "@/src/modules/customer/customers/components/CustomerFormSheet";
 import { SaleFormSheet } from "@/src/modules/transaction/sales/components/SaleFormSheet";
 import { StatTile } from "@/src/modules/dashboard/components/StatTile";
-import { RevenueTrendChart } from "@/src/modules/dashboard/components/RevenueTrendChart";
 
 export function DashboardScreen() {
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { user } = useAuth();
   const metrics = useDashboardSlice((s) => s.metrics);
   const loading = useDashboardSlice((s) => s.loading);
   const error = useDashboardSlice((s) => s.error);
-  const trend = useDashboardSlice((s) => s.trend);
-  const trendAnchor = useDashboardSlice((s) => s.trendAnchor);
-  const trendLoading = useDashboardSlice((s) => s.trendLoading);
   const fetchMetrics = useDashboardSlice((s) => s.fetchMetrics);
-  const navigateTrend = useDashboardSlice((s) => s.navigateTrend);
   const clearError = useDashboardSlice((s) => s.clearError);
   const currencies = useCurrencySlice((s) => s.items);
   const displayCurrencyId = useDisplayCurrencyId();
@@ -333,22 +327,6 @@ export function DashboardScreen() {
                   })}
                 </Text>
               </View>
-
-              {/* Revenue trend — navigable 6-month window */}
-              {trend ? (
-                <RevenueTrendChart
-                  data={trend}
-                  format={fmt}
-                  loading={trendLoading}
-                  onPrev={() => navigateTrend("prev")}
-                  onNext={() => navigateTrend("next")}
-                  nextDisabled={
-                    !!trendAnchor &&
-                    trendAnchor.year * 12 + trendAnchor.month >=
-                      now.getFullYear() * 12 + (now.getMonth() + 1)
-                  }
-                />
-              ) : null}
 
               {/* This-month section heading */}
               <Text className="text-xs text-gray-400 uppercase tracking-wide mx-5 mt-2 mb-2">

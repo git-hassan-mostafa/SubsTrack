@@ -30,7 +30,7 @@ export interface AmountRow {
   ratePerUsdSnapshot: number;
 }
 
-// AmountRow tagged with the payment's recorded date — for the revenue trend.
+// AmountRow tagged with the payment's recorded date — for per-month totals.
 export interface MonthlyAmountRow extends AmountRow {
   paidAt: string; // ISO timestamp
 }
@@ -57,14 +57,6 @@ export interface IPaymentRepository {
     monthEndExclusiveIso: string,
     branchFilter?: BranchFilter,
   ): Promise<AmountRow[]>;
-  // Paid amounts per payment across a paid_at range (end exclusive), each tagged
-  // with its recorded date — the dashboard buckets these into the revenue trend.
-  // Scoped by paid_at so the trend's current-month bar matches paidAmountsForMonth.
-  paidAmountsInRange(
-    rangeStartIso: string,
-    rangeEndExclusiveIso: string,
-    branchFilter?: BranchFilter,
-  ): Promise<MonthlyAmountRow[]>;
   // Same filters as findAll but unpaginated + a lean projection — computes the
   // true per-month total for the Payments tab's section headers even when a
   // month holds more rows than one findAll page.

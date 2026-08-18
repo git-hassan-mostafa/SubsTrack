@@ -6,6 +6,7 @@ import type {
 } from '@/src/core/types';
 import type { BranchFilter } from '@/src/core/constants';
 import i18n from '@/src/core/i18n';
+import { sumUsd } from '@/src/core/utils/currency';
 import { paymentService } from '@/src/modules/customer/customer-payments';
 import { saleService } from '@/src/modules/transaction/sales';
 import repository from '../repository/DebtRepository';
@@ -16,12 +17,6 @@ import type {
   DebtsFilter,
   DebtsView,
 } from '../utils/types';
-
-// Sums money rows in USD via each row's frozen snapshot rate (drift-free) —
-// same principle as DashboardService.sumInUsd.
-function sumUsd(rows: { amount: number; ratePerUsdSnapshot: number }[]): number {
-  return rows.reduce((s, r) => s + r.amount / r.ratePerUsdSnapshot, 0);
-}
 
 class DebtService {
   // Everything the Debts panel needs in one fetch: debt items (months + sales +

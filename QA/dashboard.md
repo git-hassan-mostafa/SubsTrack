@@ -1,15 +1,15 @@
 # Dashboard — QA Scenarios
 
-Covers the admin dashboard metrics: monthly revenue (USD-converted via payment snapshots, formatted in the user's display currency), active customer count, paid/unpaid this month, total customers/users/plans. It also covers the expanded home analytics: month-over-month revenue pill, 6-month revenue trend chart, this-month growth (new / cancelled customers), this-month activity (payments recorded + avg, sales recorded), and the outstanding-balance tile. Admin-only, reached from Admin tab → Dashboard.
+Covers the admin dashboard metrics: monthly revenue (USD-converted via payment snapshots, formatted in the user's display currency), active customer count, paid/unpaid this month, total customers/users/plans. It also covers the expanded home analytics: month-over-month revenue pill, this-month growth (new / cancelled customers), this-month activity (payments recorded + avg, sales recorded), and the outstanding-balance tile. Admin-only, reached from Admin tab → Dashboard.
 
 The compact stats card on the Admin landing screen also surfaces a subset of these metrics.
 
 **Reference code:**
 - Screen: [DashboardScreen.tsx](SubsTrack/src/modules/dashboard/screens/DashboardScreen.tsx)
 - Service: [DashboardService.ts](SubsTrack/src/modules/dashboard/services/DashboardService.ts)
-- Components: [StatTile.tsx](SubsTrack/src/modules/dashboard/components/StatTile.tsx), [RevenueTrendChart.tsx](SubsTrack/src/modules/dashboard/components/RevenueTrendChart.tsx)
+- Components: [StatTile.tsx](SubsTrack/src/modules/dashboard/components/StatTile.tsx)
 - Slice: [dashboardSlice.ts](SubsTrack/src/state/slices/dashboard/dashboardSlice.ts)
-- Range queries: `paidAmountsInRange` (payment repo), `totalsInRange` (sale repo), `countCreatedInRange` / `countCancelledInRange` (customer repo) — each with a Supabase + Offline SQLite impl
+- Range queries: `paidAmountsForMonth` (payment repo), `totalsForMonth` (sale repo), `paidAmountsInRange` (debt repo), `countCreatedInRange` / `countCancelledInRange` (customer repo) — each with a Supabase + Offline SQLite impl
 - Admin home (compact stats card): [admin/index.tsx](SubsTrack/app/(app)/(tabs)/admin/index.tsx)
 - Currency conversion: [currency.ts](SubsTrack/src/core/utils/currency.ts)
 - Display currency setting: [useTenantSettingSlice.ts](SubsTrack/src/state/hooks/useTenantSettingSlice.ts) (`useDisplayCurrencyId`)
@@ -203,60 +203,36 @@ The Admin tab landing screen has its own compact summary that shares the dashboa
 | 9.3 | No prior revenue | Previous month had $0 (or brand-new tenant) | Pill NOT rendered (avoids divide-by-zero / infinite %) |
 | 9.4 | Flat | This month = last month | ▲ 0% (treated as non-negative) |
 | 9.5 | Branch-scoped | Pick a branch | prevMonthRevenue is scoped to that branch too; pill reflects branch history |
+| 9.6 | Same three streams | Last month had payments, a sale and a collected debt | prevMonthRevenue sums all three (`DashboardService.getMonthRevenue`), so the pill compares like with like |
 
-## 10. Revenue trend chart
-
-`RevenueTrendChart` renders the **6 months ending on the current month** as a row of 6 stacked vertical bars; each bar splits subscription (indigo, bottom) / sales (emerald) / debt payments (red, top — matching the Debts tab's `COLORS.danger`). The current month is emphasized (primary color + value label above it). Prev/next chevrons — or a horizontal swipe anywhere on the card (`useHorizontalSwipe`) — page the window 6 months at a time, capped at the current month.
-
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 10.1 | Six bars | Open dashboard | Exactly 6 bars ending on the current month, month labels below (localized short names, shrunk to fit one row); bars fill their columns with a small gap between |
-| 10.2 | Current highlighted | Current month's bar | Its subscription segment is primary color + its total shown above it; other months' subscription segments muted (indigo-200) |
-| 10.3 | Stacked mix | Month has payments, sales, and a collected debt | Bar splits three ways: indigo subscription (bottom) + emerald sales + red debt (top); total height = combined USD; the segments sum exactly to the bar height (subscriptions absorb rounding) |
-| 10.3a | Debt color matches Debts tab | Compare the debt segment / legend swatch to a Debts-tab row | Same red (`COLORS.danger`, `#ef4444`) |
-| 10.4 | Legend | Window has any sales or any debt payments | Legend shows above the plot listing only the streams present (Subscriptions always, plus Sales and/or Debts); hidden entirely when the window is subscriptions-only |
-| 10.4a | Chart total matches hero | Compare the current-month bar's label to the hero amount | Identical — both are the same three cash streams over the same calendar month |
-| 10.5 | Bar heights | Months with different revenue | Tallest bar = the max month; others scaled proportionally |
-| 10.6 | Empty / future month | A month with zero revenue (incl. months later than the current one) | Bar renders a minimal sliver (not invisible), not a divide-by-zero |
-| 10.7 | All-zero tenant | No revenue in any month | All bars at min height; no crash; no value labels |
-| 10.8 | Every revenue month labeled | Several months have revenue | Each month with `total > 0` shows its amount above the bar (current month in primary, others in gray); zero months show no label |
-| 10.9 | Snapshot immunity | Old month paid in LBP; admin later edits LBP rate | That month's bar keeps its original USD height (per-row `rate_per_usd_snapshot`) |
-| 10.10 | Display currency | Switch USD → LBP | Value labels reformat to display currency |
-| 10.11 | Voided excluded | Void a payment / sale / debt payment from a prior month | That month's bar shrinks accordingly on refresh |
-| 10.12 | Branch-scoped | Pick a branch | All 6 bars scope to that branch |
-| 10.13 | Year rollover | Open in January | The window spans Aug–Jan across two calendar years; month labels add a 2-digit year suffix for the months outside the current year |
-| 10.14 | Swipe paging | Swipe the card right→left, then left→right | First flick pages to the newer window, second back to the older one — same result as the chevrons; a vertical drag still scrolls the dashboard |
-| 10.15 | Swipe capped | Swipe toward newer while already on the current month | Nothing happens (same cap as the disabled next chevron) |
-| 10.16 | RTL chevrons | Switch to Arabic | The back chevron (now on the right) points right and the forward chevron points left; both still page the same way, and a swipe matches the on-screen arrows |
-
-## 11. Growth tiles — New / Cancelled this month
+## 10. Growth tiles — New / Cancelled this month
 
 `countCreatedInRange` (by `created_at`) and `countCancelledInRange` (by `cancelled_at`), both `[monthStart, monthEndExclusive)`.
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 11.1 | New customers | Add 2 customers this month | "NEW CUSTOMERS" tile = 2 (success color), sub "joined this month" |
-| 11.2 | Cancelled | Deactivate 1 customer this month | "CANCELLED" tile = 1, sub "left this month" |
-| 11.3 | Prior-month create excluded | Customer created last month | Not counted in this month's New tile |
-| 11.4 | Reactivate then no double count | Deactivate then reactivate this month | Cancelled reflects the last `cancelled_at` state; active customer (cancelled_at null) not counted as cancelled |
-| 11.5 | Branch-scoped | Pick a branch | New/Cancelled counts scope to that branch (customers are branch-owned) |
-| 11.6 | Includes non-regular | Add an occasional (non-regular) customer | Still counted in New (growth counts all customers, unlike unpaid) |
+| 10.1 | New customers | Add 2 customers this month | "NEW CUSTOMERS" tile = 2 (success color), sub "joined this month" |
+| 10.2 | Cancelled | Deactivate 1 customer this month | "CANCELLED" tile = 1, sub "left this month" |
+| 10.3 | Prior-month create excluded | Customer created last month | Not counted in this month's New tile |
+| 10.4 | Reactivate then no double count | Deactivate then reactivate this month | Cancelled reflects the last `cancelled_at` state; active customer (cancelled_at null) not counted as cancelled |
+| 10.5 | Branch-scoped | Pick a branch | New/Cancelled counts scope to that branch (customers are branch-owned) |
+| 10.6 | Includes non-regular | Add an occasional (non-regular) customer | Still counted in New (growth counts all customers, unlike unpaid) |
 
-## 12. Activity tiles — Payments / Sales recorded + avg
+## 11. Activity tiles — Payments / Sales recorded + avg
 
 `paymentsCollectedCount` = positive-amount non-voided payments this month; `salesCount` = non-voided sales this month; avg payment = `subscriptionRevenue / paymentsCollectedCount`.
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 12.1 | Payments count | Record 3 subscription payments this month | "PAYMENTS" tile = 3, sub "avg <amount> each" |
-| 12.2 | Zero-amount slot not counted | An unpaid month slot (amount_paid = 0) | Not counted in paymentsCollectedCount; avg sub falls back to "This Month" |
-| 12.3 | Avg calculation | Collect $30 + $50 + $100 over 3 payments | Avg = $60.00 each (display-currency formatted) |
-| 12.4 | Voided payment | Void one of the payments | Count drops by 1; avg recomputes on refresh |
-| 12.5 | Sales count | Record 2 sales this month | "SALES" tile = 2, sub "This Month" |
-| 12.6 | Sales count excludes voided | Void one sale | Count drops by 1 |
-| 12.7 | Branch-scoped | Pick a branch | Both counts + avg scope to that branch |
+| 11.1 | Payments count | Record 3 subscription payments this month | "PAYMENTS" tile = 3, sub "avg <amount> each" |
+| 11.2 | Zero-amount slot not counted | An unpaid month slot (amount_paid = 0) | Not counted in paymentsCollectedCount; avg sub falls back to "This Month" |
+| 11.3 | Avg calculation | Collect $30 + $50 + $100 over 3 payments | Avg = $60.00 each (display-currency formatted) |
+| 11.4 | Voided payment | Void one of the payments | Count drops by 1; avg recomputes on refresh |
+| 11.5 | Sales count | Record 2 sales this month | "SALES" tile = 2, sub "This Month" |
+| 11.6 | Sales count excludes voided | Void one sale | Count drops by 1 |
+| 11.7 | Branch-scoped | Pick a branch | Both counts + avg scope to that branch |
 
-## 13. Total debt tile
+## 12. Total debt tile
 
 Only rendered when `totalDebt > 0`. The headline is the **net** debt still owed across **all** customers and categories, all-time — **the only figure on the dashboard that is not month-scoped**. Same underlying number as the Debts tab header (`DebtService.getDebtsView().summary.netUsd`).
 
@@ -270,43 +246,43 @@ The same `totalDebt` figure also appears as the hero card's red "Owed by custome
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 13.1 | Hidden when zero | No debt in any category, any month | Tile NOT rendered |
-| 13.2 | Shown with balance | Customer paid 50/100 this month | Tile shows the net owed (warning color), sub "Months $X · Sales $Y" |
-| 13.2a | Parts exceed the headline | Tenant with past debt payments | Months + Sales > headline. **Expected** — gross parts vs a net total |
-| 13.3 | Snapshot immunity | Partial payment in LBP; admin edits LBP rate | Balance keeps original USD equivalent |
-| 13.4 | Display currency | Switch display currency | Tile and both sub-line parts reformat |
-| 13.5 | Full-width | Any state where shown | Tile spans the row (single StatTile in a flex-row) |
-| 13.6 | Not month-scoped | Partial payment from a prior month, none this month | Tile still shows that older debt |
-| 13.7 | Sales debt included | Record a partially-paid sale | Sub's "Sales" figure increases; headline increases too |
-| 13.8 | Debt payment reduces total | Record a debt payment for a debtor | Headline (net) drops; the months/sales sub-line (gross) is unchanged |
-| 13.9 | Custom debt raises total only | Add a custom debt | Headline increases; the sub-line does not mention it (custom is not one of the two parts shown) |
-| 13.10 | Matches the Debts tab | Compare tile headline to Transactions → Debts header | Identical |
-| 13.11 | Credit customer | A customer whose payments exceed their debt (net credit) | The tenant headline nets that credit in, exactly as the Debts tab does |
-| 13.12 | Branch-scoped | Pick a branch | Headline and both parts scope to that branch |
+| 12.1 | Hidden when zero | No debt in any category, any month | Tile NOT rendered |
+| 12.2 | Shown with balance | Customer paid 50/100 this month | Tile shows the net owed (warning color), sub "Months $X · Sales $Y" |
+| 12.2a | Parts exceed the headline | Tenant with past debt payments | Months + Sales > headline. **Expected** — gross parts vs a net total |
+| 12.3 | Snapshot immunity | Partial payment in LBP; admin edits LBP rate | Balance keeps original USD equivalent |
+| 12.4 | Display currency | Switch display currency | Tile and both sub-line parts reformat |
+| 12.5 | Full-width | Any state where shown | Tile spans the row (single StatTile in a flex-row) |
+| 12.6 | Not month-scoped | Partial payment from a prior month, none this month | Tile still shows that older debt |
+| 12.7 | Sales debt included | Record a partially-paid sale | Sub's "Sales" figure increases; headline increases too |
+| 12.8 | Debt payment reduces total | Record a debt payment for a debtor | Headline (net) drops; the months/sales sub-line (gross) is unchanged |
+| 12.9 | Custom debt raises total only | Add a custom debt | Headline increases; the sub-line does not mention it (custom is not one of the two parts shown) |
+| 12.10 | Matches the Debts tab | Compare tile headline to Transactions → Debts header | Identical |
+| 12.11 | Credit customer | A customer whose payments exceed their debt (net credit) | The tenant headline nets that credit in, exactly as the Debts tab does |
+| 12.12 | Branch-scoped | Pick a branch | Headline and both parts scope to that branch |
 
-## 14. Offline parity (native)
+## 13. Offline parity (native)
 
-The three new range queries run against the local SQLite mirror when offline.
+The dashboard's range queries run against the local SQLite mirror when offline.
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 14.1 | Offline trend | Go offline (native), open dashboard | Current-year (Jan–Dec) trend, growth, and activity tiles render from the local mirror (same numbers as online for synced data) |
-| 14.2 | Offline then sync | Record payments offline, reconnect | After sync, dashboard on another device shows the same trend/counts |
-| 14.3 | Parity | Compare the same tenant/branch on web vs native | Trend buckets, new/cancelled counts, payments/sales counts match |
-| 14.4 | Offline wallet tile | Go offline (native), open dashboard as admin | Cash in Wallets tile computes from the local mirror (matches online for synced data) |
+| 13.1 | Offline metrics | Go offline (native), open dashboard | Hero, growth, and activity tiles render from the local mirror (same numbers as online for synced data) |
+| 13.2 | Offline then sync | Record payments offline, reconnect | After sync, dashboard on another device shows the same totals/counts |
+| 13.3 | Parity | Compare the same tenant/branch on web vs native | This-month and last-month revenue, new/cancelled counts, payments/sales counts match |
+| 13.4 | Offline wallet tile | Go offline (native), open dashboard as admin | Cash in Wallets tile computes from the local mirror (matches online for synced data) |
 
-## 15. Cash in Wallets tile (collector wallets)
+## 14. Cash in Wallets tile (collector wallets)
 
 Only rendered for **admins** and only when `walletCash > 0` — the net USD total of cash collectors have collected but not yet handed over (`walletService.getWalletsView`, summed). Sub-line reads "{collectors} collectors · {transactions} transactions". Placed just above the Total debt tile. Note this is a **third** distinct money meaning on the same screen: collected-and-still-in-a-pocket, versus the revenue card (collected, period) and the debt tile (never collected).
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 15.1 | Hidden when empty | Every collector has handed over their cash (or none collected) | Tile NOT rendered |
-| 15.2 | Shown with cash | A collector holds unremitted cash | Tile shows the net USD total (primary color, wallet icon), sub "N collectors · M transactions" |
-| 15.3 | Non-admin never sees it | Login as a `user` role | Tile absent; the aggregate is not even computed (`includeWallet = false`) |
-| 15.4 | Matches Wallets screen | Compare tile total with Admin → Wallets grand total | Same figure (both from `getWalletsView`, same branch scope) |
-| 15.5 | Drops after receive | Admin receives all cash from a collector, then refresh dashboard | Tile total and counts drop by that collector's amount; tile disappears when total hits 0 |
-| 15.6 | Snapshot immunity | Cash collected in LBP; admin later edits LBP rate | Tile keeps the original USD equivalent (per-row `rate_per_usd_snapshot`) |
-| 15.7 | Display currency | Switch display USD → LBP | Tile reformats to display currency |
-| 15.8 | Branch-scoped | Tenant-wide admin picks a branch | Tile scopes to that branch's collectors/cash |
-| 15.9 | Void after handover (negative) | A received payment is voided so a collector's wallet goes negative | Net total can drop; if the branch net is ≤ 0 the tile hides (only shows when `walletCash > 0`) |
+| 14.1 | Hidden when empty | Every collector has handed over their cash (or none collected) | Tile NOT rendered |
+| 14.2 | Shown with cash | A collector holds unremitted cash | Tile shows the net USD total (primary color, wallet icon), sub "N collectors · M transactions" |
+| 14.3 | Non-admin never sees it | Login as a `user` role | Tile absent; the aggregate is not even computed (`includeWallet = false`) |
+| 14.4 | Matches Wallets screen | Compare tile total with Admin → Wallets grand total | Same figure (both from `getWalletsView`, same branch scope) |
+| 14.5 | Drops after receive | Admin receives all cash from a collector, then refresh dashboard | Tile total and counts drop by that collector's amount; tile disappears when total hits 0 |
+| 14.6 | Snapshot immunity | Cash collected in LBP; admin later edits LBP rate | Tile keeps the original USD equivalent (per-row `rate_per_usd_snapshot`) |
+| 14.7 | Display currency | Switch display USD → LBP | Tile reformats to display currency |
+| 14.8 | Branch-scoped | Tenant-wide admin picks a branch | Tile scopes to that branch's collectors/cash |
+| 14.9 | Void after handover (negative) | A received payment is voided so a collector's wallet goes negative | Net total can drop; if the branch net is ≤ 0 the tile hides (only shows when `walletCash > 0`) |

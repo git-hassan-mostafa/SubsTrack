@@ -318,29 +318,6 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
     }));
   }
 
-  async totalsInRange(
-    rangeStart: string,
-    rangeEndExclusive: string,
-    branchFilter: BranchFilter = null,
-  ): Promise<{ soldAt: string; amount: number; ratePerUsdSnapshot: number }[]> {
-    let query = this.db
-      .from('sales')
-      .select('sold_at, amount_paid, rate_per_usd_snapshot')
-      .gte('sold_at', rangeStart)
-      .lt('sold_at', rangeEndExclusive)
-      .is('voided_at', null);
-    query = this.applyBranchFilter(query, branchFilter, this.BRANCH_SCOPES.sales);
-    const { data, error } = await query;
-    if (error) this.handleError(error);
-    return (data ?? []).map(
-      (r: { sold_at: string; amount_paid: number; rate_per_usd_snapshot: number }) => ({
-        soldAt: r.sold_at,
-        amount: Number(r.amount_paid),
-        ratePerUsdSnapshot: Number(r.rate_per_usd_snapshot),
-      }),
-    );
-  }
-
   // Same filters as findAll but unpaginated + a lean projection — used to
   // compute the true per-month total when a month holds more rows than one
   // findAll page (PAGE_SIZE). `customers(name)` stays in the select only

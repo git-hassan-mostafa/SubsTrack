@@ -9,7 +9,7 @@ Covers money OUT: hand-typed expenses, the cost of buying stock, and the net-inc
 - Panel: [ExpensesPanel.tsx](../SubsTrack/src/modules/transaction/expenses/screens/ExpensesPanel.tsx)
 - Form: [ExpenseFormSheet.tsx](../SubsTrack/src/modules/transaction/expenses/components/ExpenseFormSheet.tsx)
 - Cost entry: [ProductStockSheet.tsx](../SubsTrack/src/modules/admin/products/components/ProductStockSheet.tsx) · [ProductBatchRestockSheet.tsx](../SubsTrack/src/modules/admin/products/components/ProductBatchRestockSheet.tsx) · [ProductFormSheet.tsx](../SubsTrack/src/modules/admin/products/components/ProductFormSheet.tsx)
-- Dashboard: [DashboardService.ts](../SubsTrack/src/modules/dashboard/services/DashboardService.ts) · [DashboardScreen.tsx](../SubsTrack/src/modules/dashboard/screens/DashboardScreen.tsx) · [RevenueTrendChart.tsx](../SubsTrack/src/modules/dashboard/components/RevenueTrendChart.tsx)
+- Dashboard: [DashboardService.ts](../SubsTrack/src/modules/dashboard/services/DashboardService.ts) · [DashboardScreen.tsx](../SubsTrack/src/modules/dashboard/screens/DashboardScreen.tsx)
 
 **Core rules under test:**
 - Expenses are **admin-only**, read and write (RLS + UI).
@@ -85,7 +85,7 @@ Covers money OUT: hand-typed expenses, the cost of buying stock, and the net-inc
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 6.1 | No expenses at all | Tenant that has never recorded one | Hero shows no Expenses chip and no Net line; no Expenses/Net tiles; chart identical to before |
+| 6.1 | No expenses at all | Tenant that has never recorded one | Hero shows no Expenses chip and no Net line; no Expenses/Net tiles |
 | 6.2 | Expenses chip | Record $1,240 of expenses this month | Orange `Expenses −$1,240.00` chip sits beside the red "Owed by customers" chip |
 | 6.3 | Net line | Revenue $4,820, expenses $1,240 | Hero shows Net $3,580.00 |
 | 6.4 | Negative net | Expenses greater than revenue | Net renders in red with a leading minus |
@@ -93,10 +93,6 @@ Covers money OUT: hand-typed expenses, the cost of buying stock, and the net-inc
 | 6.6 | vs-last-month pill | Add an expense | The ▲/▼ pill still compares **revenue**, not net |
 | 6.7 | Expenses tile breakdown | Mix of stock and custom expenses | Sub-line reads "Stock $X · Other $Y", and the two sum to the tile value |
 | 6.8 | Net tile sub-line | Look at the Net tile | Reads "In {revenue} · Out {expenses}" |
-| 6.9 | Chart expense bars | Expenses in 3 of the 6 months | Orange bars hang below the baseline for those months only |
-| 6.10 | Shared chart scale | A month with $100 income and a month with $100 expense | The two bars are the same length in opposite directions |
-| 6.11 | Chart legend | Expenses present | Legend gains an orange "Expenses" swatch |
-| 6.12 | Paging keeps expenses | Page the chart back 6 months with the chevrons **and** by swiping | Expense bars appear for the older window too (not silently dropped) |
 
 ## 7. Permissions
 
@@ -104,7 +100,7 @@ Covers money OUT: hand-typed expenses, the cost of buying stock, and the net-inc
 |---|----------|-------|-----------------|
 | 7.1 | Collector sees no segment | Login as `role: 'user'` → Transactions | Segments are Debts / Sales / Services — no Expenses |
 | 7.2 | Collector quick action | Open the 3-dot menu | No "Add expense" item |
-| 7.3 | Collector dashboard | Look at home | No Expenses chip, no Net line, no Expenses/Net tiles, no orange chart bars |
+| 7.3 | Collector dashboard | Look at home | No Expenses chip, no Net line, no Expenses/Net tiles |
 | 7.4 | RLS holds | With a collector's session, query `expenses` directly | Zero rows returned, insert rejected |
 | 7.5 | Branch admin | Login as an admin with a branch | Sees the segment; only their branch's expenses plus company-wide ones |
 

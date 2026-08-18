@@ -78,13 +78,6 @@ export interface ISaleRepository {
     monthEndExclusive: string,
     branchFilter?: BranchFilter,
   ): Promise<{ amount: number; ratePerUsdSnapshot: number }[]>;
-  // Cash collected on sales across a date range, each tagged with sold_at — the
-  // dashboard buckets these by month into the revenue trend.
-  totalsInRange(
-    rangeStart: string,
-    rangeEndExclusive: string,
-    branchFilter?: BranchFilter,
-  ): Promise<{ soldAt: string; amount: number; ratePerUsdSnapshot: number }[]>;
   // Same filters as findAll but unpaginated + a lean projection (no product/
   // customer joins) — computes the true per-month total for the Sales tab's
   // section headers even when a month holds more rows than one findAll page.

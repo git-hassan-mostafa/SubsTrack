@@ -1,11 +1,11 @@
 import type {
   DashboardMetrics,
   DebtCategory,
-  RevenuePoint,
   UnpaidStartRule,
 } from "@/src/core/types";
 import type { BranchFilter } from "@/src/core/constants";
 import { getCurrentYearMonth, toBillingMonth } from "@/src/core/utils/date";
+import { sumUsd } from "@/src/core/utils/currency";
 import { customerRepository as customerRepo } from "@/src/modules/customer/customers";
 import { paymentRepository as paymentRepo } from "@/src/modules/customer/customer-payments";
 import { planRepository as planRepo } from "@/src/modules/admin/plans";
@@ -18,116 +18,56 @@ import expenseService from "@/src/modules/transaction/expenses/services/ExpenseS
 import walletService from "@/src/modules/wallet/services/WalletService";
 import type { WalletActor } from "@/src/modules/wallet/utils/custody";
 
-// The revenue trend spans last 6 months.
-const MONTHS_IN_YEAR = 6;
-
 // Revenue on this dashboard is CASH COLLECTED, not billed. All three streams
 // (subscription payments, sales, debt payments) sum only what was received, so
 // a partial payment or partial sale contributes just its paid part and the
 // remainder shows up later, in the month its debt is collected.
 //
-// Sums money rows in USD using each row's frozen snapshot rate.
-// monthlyRevenue and totalDebt are canonical USD so the screen can
-// re-format into the user's display currency at render.
-function sumInUsd(
-  rows: { amount: number; ratePerUsdSnapshot: number }[],
-): number {
-  return rows.reduce((sum, r) => sum + r.amount / r.ratePerUsdSnapshot, 0);
-}
+// Amounts are summed in USD via each row's frozen snapshot rate (sumUsd), and
+// monthlyRevenue / totalDebt stay canonical USD so the screen can re-format
+// into the user's display currency at render.
 
-function monthKey(year: number, month: number): string {
-  return `${year}-${String(month).padStart(2, "0")}`;
+// One calendar month of collected cash, split by stream.
+interface MonthCollections {
+  subscription: number;
+  sales: number;
+  debt: number;
+  total: number;
+  paymentsCollectedCount: number;
+  salesCount: number;
 }
 
 class DashboardService {
-  // 6 months ending at (anchorYear, anchorMonth) inclusive. Used both for the
-  // initial dashboard load (anchored on the current month) and for navigating
-  // the revenue chart to earlier/later windows.
-  //
-  // `includeExpenses` is the admin gate: expenses are admin-only end to end, so
-  // a collector's chart neither fetches nor shows them (every point reads 0).
-  async getRevenueTrend(
-    anchorYear: number,
-    anchorMonth: number,
-    branchFilter: BranchFilter = null,
-    includeExpenses = false,
-  ): Promise<RevenuePoint[]> {
-    // Build each point from an absolute month index so year rollovers (e.g.
-    // anchoring on Jan/Feb/.../Jun, where month - MONTHS_IN_YEAR + i + 1 goes
-    // <= 0) normalize into the correct prior year instead of leaving an
-    // invalid month number paired with the anchor's year.
-    const trendPoints = Array.from({ length: MONTHS_IN_YEAR }, (_, i) => {
-      const absoluteMonth = anchorYear * 12 + (anchorMonth - 1) - MONTHS_IN_YEAR + i + 1;
-      return {
-        year: Math.floor(absoluteMonth / 12),
-        month: (((absoluteMonth % 12) + 12) % 12) + 1,
-      };
-    });
+  // The ONE fetch behind every revenue figure: this month's breakdown and last
+  // month's comparison total both come from here, so the two can never drift
+  // apart. `month` may be 0 (or 13): Date normalizes it into the neighbouring
+  // year, so January needs no special case.
+  private async getMonthCollections(
+    year: number,
+    month: number,
+    branchFilter: BranchFilter,
+  ): Promise<MonthCollections> {
+    const start = new Date(year, month - 1, 1).toISOString();
+    const endExclusive = new Date(year, month, 1).toISOString();
     // Payments and debt payments key off paid_at, sales off sold_at — all ISO.
-    const trendStartIso = new Date(
-      trendPoints[0].year,
-      trendPoints[0].month - 1,
-      1,
-    ).toISOString();
-    const trendEndIso = new Date(
-      trendPoints[MONTHS_IN_YEAR - 1].year,
-      trendPoints[MONTHS_IN_YEAR - 1].month,
-      1,
-    ).toISOString();
-
-    const [trendPaidRows, trendSaleRows, trendDebtRows, expenseByMonth] =
-      await Promise.all([
-        paymentRepo.paidAmountsInRange(trendStartIso, trendEndIso, branchFilter),
-        saleRepo.totalsInRange(trendStartIso, trendEndIso, branchFilter),
-        debtRepo.paidAmountsInRange(trendStartIso, trendEndIso, branchFilter),
-        // Already bucketed per month in USD — the expense stream has two sources
-        // (stored rows + derived stock costs), so the service owns the merge.
-        includeExpenses
-          ? expenseService.getMonthlyTotalsInRange(trendStartIso, trendEndIso, branchFilter)
-          : Promise.resolve<Record<string, number>>({}),
-      ]);
-
-    // Bucket the trend rows by month into canonical USD.
-    const buckets = new Map<
-      string,
-      { subscription: number; sales: number; debt: number }
-    >();
-    for (const p of trendPoints)
-      buckets.set(monthKey(p.year, p.month), { subscription: 0, sales: 0, debt: 0 });
-    for (const r of trendPaidRows) {
-      const d = new Date(r.paidAt);
-      const b = buckets.get(monthKey(d.getFullYear(), d.getMonth() + 1));
-      if (b) b.subscription += r.amount / r.ratePerUsdSnapshot;
-    }
-    for (const r of trendSaleRows) {
-      const d = new Date(r.soldAt);
-      const b = buckets.get(monthKey(d.getFullYear(), d.getMonth() + 1));
-      if (b) b.sales += r.amount / r.ratePerUsdSnapshot;
-    }
-    for (const r of trendDebtRows) {
-      const d = new Date(r.paidAt);
-      const b = buckets.get(monthKey(d.getFullYear(), d.getMonth() + 1));
-      if (b) b.debt += r.amount / r.ratePerUsdSnapshot;
-    }
-    return trendPoints.map((p) => {
-      const key = monthKey(p.year, p.month);
-      const b = buckets.get(key)!;
-      // `total` stays GROSS money-in: the chart scale, prevMonthRevenue and the
-      // vs-last-month pill all read it. `net` is the subtraction.
-      const total = b.subscription + b.sales + b.debt;
-      const expenses = expenseByMonth[key] ?? 0;
-      return {
-        month: key,
-        monthIndex: p.month - 1,
-        year: p.year,
-        subscription: b.subscription,
-        sales: b.sales,
-        debt: b.debt,
-        total,
-        expenses,
-        net: total - expenses,
-      };
-    });
+    const [paidRows, saleRows, debtRows] = await Promise.all([
+      paymentRepo.paidAmountsForMonth(start, endExclusive, branchFilter),
+      saleRepo.totalsForMonth(start, endExclusive, branchFilter),
+      debtRepo.paidAmountsInRange(start, endExclusive, branchFilter),
+    ]);
+    const subscription = sumUsd(paidRows);
+    const sales = sumUsd(saleRows);
+    const debt = sumUsd(debtRows);
+    return {
+      subscription,
+      sales,
+      debt,
+      total: subscription + sales + debt,
+      // paidRows carries one row per non-voided payment for the month; a 0
+      // amount is an unpaid slot, so real collections are the positive ones.
+      paymentsCollectedCount: paidRows.filter((r) => r.amount > 0).length,
+      salesCount: saleRows.length,
+    };
   }
 
   async getMetrics(
@@ -148,28 +88,24 @@ class DashboardService {
     const [
       totalCustomers,
       activeCustomers,
-      paidRows,
+      collected,
       monthCounts,
       totalUsers,
       totalPlans,
       debtsView,
-      saleRows,
-      debtPaidRows,
       newCustomersThisMonth,
       cancelledThisMonth,
-      revenueTrend,
+      prevMonth,
       wallets,
       expenses,
     ] = await Promise.all([
       customerRepo.countAll(branchFilter),
       customerRepo.countActive(branchFilter),
-      paymentRepo.paidAmountsForMonth(monthStart, monthEndExclusive, branchFilter),
+      this.getMonthCollections(year, month, branchFilter),
       customerRepo.countUnpaidForMonth(billingMonth, branchFilter, unpaidRule),
       userRepo.countAll(branchFilter),
       planRepo.countAll(branchFilter),
       debtService.getDebtsView({ branchFilter }),
-      saleRepo.totalsForMonth(monthStart, monthEndExclusive, branchFilter),
-      debtRepo.paidAmountsInRange(monthStart, monthEndExclusive, branchFilter),
       customerRepo.countCreatedInRange(
         monthStart,
         monthEndExclusive,
@@ -180,7 +116,8 @@ class DashboardService {
         monthEndExclusive,
         branchFilter,
       ),
-      this.getRevenueTrend(year, month, branchFilter, viewer !== null),
+      // Last month's total, for the hero card's vs-last-month pill.
+      this.getMonthCollections(year, month - 1, branchFilter),
       viewer ? walletService.getWalletsView(viewer, branchFilter) : Promise.resolve([]),
       // Money out. Same admin gate as the wallet aggregate: `viewer` is non-null
       // only for admins, and expenses are admin-only end to end.
@@ -188,10 +125,6 @@ class DashboardService {
         ? expenseService.getTotalsInRange(monthStart, monthEndExclusive, branchFilter)
         : Promise.resolve({ totalUsd: 0, customUsd: 0, stockUsd: 0 }),
     ]);
-
-    const subscriptionRevenue = sumInUsd(paidRows);
-    const salesRevenue = sumInUsd(saleRows);
-    const debtRevenue = sumInUsd(debtPaidRows);
 
     // Collector wallets: net cash on hand anywhere in the chain (the viewer's
     // own wallet included), and who/how-many rows hold it.
@@ -204,31 +137,23 @@ class DashboardService {
     // below is the net (gross − debt payments) — they don't add up to it, and the
     // 'custom' category isn't surfaced at all.
     const grossDebt = (category: DebtCategory) =>
-      sumInUsd(
+      sumUsd(
         debtsView.items
           .filter((i) => i.category === category)
           .map((i) => ({ amount: i.remaining, ratePerUsdSnapshot: i.ratePerUsdSnapshot })),
       );
 
-    // Previous calendar month's total, for the hero card's month-over-month delta.
-    // The trend spans the 6 months ending on the current month, so the previous
-    // month is always its second-to-last point.
-    const prevPoint = revenueTrend[revenueTrend.length - 2];
-    const prevMonthRevenue = prevPoint ? prevPoint.total : 0;
-
-    const monthlyRevenue = subscriptionRevenue + salesRevenue + debtRevenue;
-
     return {
       totalCustomers,
       activeCustomers,
-      monthlyRevenue,
-      subscriptionRevenue,
-      salesRevenue,
-      debtRevenue,
+      monthlyRevenue: collected.total,
+      subscriptionRevenue: collected.subscription,
+      salesRevenue: collected.sales,
+      debtRevenue: collected.debt,
       monthlyExpenses: expenses.totalUsd,
       stockExpenses: expenses.stockUsd,
       customExpenses: expenses.customUsd,
-      netIncome: monthlyRevenue - expenses.totalUsd,
+      netIncome: collected.total - expenses.totalUsd,
       unpaidThisMonth: monthCounts.unpaid,
       dueThisMonth: monthCounts.due,
       totalUsers,
@@ -241,12 +166,9 @@ class DashboardService {
       walletTransactions,
       newCustomersThisMonth,
       cancelledThisMonth,
-      // paidRows carries one row per non-voided payment for the month; a 0 amount
-      // is an unpaid slot, so real collections are the positive ones.
-      paymentsCollectedCount: paidRows.filter((r) => r.amount > 0).length,
-      salesCount: saleRows.length,
-      prevMonthRevenue,
-      revenueTrend,
+      paymentsCollectedCount: collected.paymentsCollectedCount,
+      salesCount: collected.salesCount,
+      prevMonthRevenue: prevMonth.total,
     };
   }
 }

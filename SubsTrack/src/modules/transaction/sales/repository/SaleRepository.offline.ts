@@ -294,25 +294,6 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
     }));
   }
 
-  async totalsInRange(
-    rangeStart: string,
-    rangeEndExclusive: string,
-    branchFilter: BranchFilter = null,
-  ): Promise<{ soldAt: string; amount: number; ratePerUsdSnapshot: number }[]> {
-    const branch = this.branchWhere(branchFilter, this.BRANCH_SCOPES.sales, 's');
-    const rows = await this.all<{ sold_at: string; amount_paid: string; rate_per_usd_snapshot: string }>(
-      `SELECT s.sold_at, COALESCE(s.amount_paid, 0) AS amount_paid, s.rate_per_usd_snapshot FROM sales s
-       WHERE s.sold_at >= ? AND s.sold_at < ? AND s.voided_at IS NULL
-         ${branch.clause ? `AND ${branch.clause}` : ''}`,
-      [rangeStart, rangeEndExclusive, ...branch.params],
-    );
-    return rows.map((r) => ({
-      soldAt: r.sold_at,
-      amount: Number(r.amount_paid),
-      ratePerUsdSnapshot: Number(r.rate_per_usd_snapshot),
-    }));
-  }
-
   // Same filters as findAll but unpaginated + a lean projection — used to
   // compute the true per-month total when a month holds more rows than one
   // findAll page.

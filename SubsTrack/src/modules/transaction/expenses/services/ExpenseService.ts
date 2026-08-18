@@ -1,6 +1,7 @@
 import type { Expense, ExpenseItem, ExpensesView } from '@/src/core/types';
 import type { BranchFilter } from '@/src/core/constants';
 import i18n from '@/src/core/i18n';
+import { sumUsd } from '@/src/core/utils/currency';
 // Deep import (not the module barrel) — the barrel re-exports product screens,
 // and a service must not drag UI into its graph.
 import productService from '@/src/modules/admin/products/services/ProductService';
@@ -8,12 +9,6 @@ import repository from '../repository/ExpenseRepository';
 import { mapDbExpenseToExpense } from '../utils/mapper';
 import { expenseCategoryLabelKey } from '../utils/expenseCategories';
 import type { CreateExpenseInput, ExpensesFilter } from '../utils/types';
-
-// Sums money rows in USD via each row's frozen snapshot rate (drift-free) —
-// same principle as DashboardService.sumInUsd / DebtService.sumUsd.
-function sumUsd(rows: { amount: number; ratePerUsdSnapshot: number }[]): number {
-  return rows.reduce((s, r) => s + r.amount / r.ratePerUsdSnapshot, 0);
-}
 
 /**
  * Money out. Composes the two sources into one uniform view — the same shape as
@@ -99,31 +94,6 @@ class ExpenseService {
     const customUsd = sumUsd(stored);
     const stockUsd = sumUsd(stockCosts);
     return { totalUsd: customUsd + stockUsd, customUsd, stockUsd };
-  }
-
-  /**
-   * Per-month USD totals for the revenue trend, keyed 'YYYY-MM'. One pass over
-   * both sources, bucketed by when the money went out (incurred_at/occurred_at)
-   * — the mirror of how the three cash-in streams bucket by paid_at/sold_at.
-   */
-  async getMonthlyTotalsInRange(
-    startIso: string,
-    endExclusiveIso: string,
-    branchFilter: BranchFilter = null,
-  ): Promise<Record<string, number>> {
-    const [stored, stockCosts] = await Promise.all([
-      repository.totalsInRange(startIso, endExclusiveIso, branchFilter),
-      productService.getStockCostsInRange(startIso, endExclusiveIso, branchFilter),
-    ]);
-    const buckets: Record<string, number> = {};
-    const add = (iso: string, amount: number, rate: number) => {
-      const d = new Date(iso);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      buckets[key] = (buckets[key] ?? 0) + amount / rate;
-    };
-    for (const r of stored) add(r.incurredAt, r.amount, r.ratePerUsdSnapshot);
-    for (const r of stockCosts) add(r.occurredAt, r.amount, r.ratePerUsdSnapshot);
-    return buckets;
   }
 
   async addExpense(input: CreateExpenseInput): Promise<Expense> {
