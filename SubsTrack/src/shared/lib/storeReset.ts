@@ -20,4 +20,5 @@ export function resetAllDomainStores() {
   state.tenantSettings.reset();
   // Holds another tenant's staff names and changed values — never leak it.
   state.audit.reset();
+  state.reports.reset();
 }

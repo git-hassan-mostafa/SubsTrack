@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 // Plain RN FlatList, NOT Gorhom's: a Gorhom scrollable hijacks the content-height
 // measurement of a content-sized sheet and clips the last rows (gotcha #47).
-import { FlatList, View } from "react-native";
+import { FlatList, TextInput, View } from "react-native";
 import { PressableOpacity } from "./PressableOpacity/PressableOpacity";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
@@ -11,7 +11,6 @@ import type { Currency } from "@/src/core/types";
 import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
 import { BottomSheetScaffold } from "./BottomSheetScaffold";
 import { SheetDragArea } from "./SheetDragArea";
-import { useSheetTextInput } from "./bottomSheetInputContext";
 
 interface CurrencyInputProps {
   label?: string;
@@ -55,8 +54,6 @@ export function CurrencyInput({
   const { t } = useTranslation();
   const { lastUsedCurrencyId, setLastUsedCurrencyId } = useUiPrefStore();
   const initialDefaultApplied = useRef(false);
-  // Becomes BottomSheetTextInput when this field lives inside a form sheet.
-  const TextInput = useSheetTextInput();
 
   // On first mount, if the caller didn't preselect a currency and didn't pass
   // an amount, apply the user's last-used currency as the default.

@@ -1,4 +1,5 @@
 import type { BranchFilter } from '@/src/core/constants';
+import type { CollectedRow } from '@/src/core/types';
 import type { DbPayment } from '@/src/core/types/db';
 import type { FindPaymentsOptions } from '../utils/types';
 
@@ -57,6 +58,15 @@ export interface IPaymentRepository {
     monthEndExclusiveIso: string,
     branchFilter?: BranchFilter,
   ): Promise<AmountRow[]>;
+  // Subscription cash collected in a date range, in the shape every report
+  // reads (CollectedRow). Deliberately separate from paidAmountsForMonth: that
+  // one stays a lean projection for the dashboard's hot path, this one carries
+  // the staff / customer / plan columns the reports group by.
+  collectedInRange(
+    startIso: string,
+    endExclusiveIso: string,
+    branchFilter?: BranchFilter,
+  ): Promise<CollectedRow[]>;
   // Same filters as findAll but unpaginated + a lean projection — computes the
   // true per-month total for the Payments tab's section headers even when a
   // month holds more rows than one findAll page.

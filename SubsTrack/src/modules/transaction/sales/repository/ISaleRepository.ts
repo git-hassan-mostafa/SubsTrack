@@ -1,4 +1,5 @@
 import type { BranchFilter } from '@/src/core/constants';
+import type { CollectedRow } from '@/src/core/types';
 import type { DbSale, DbSaleItem } from '@/src/core/types/db';
 import type { CreateStockMovementPayload } from '@/src/modules/admin/products';
 import type { FindSalesOptions } from '../utils/types';
@@ -78,6 +79,13 @@ export interface ISaleRepository {
     monthEndExclusive: string,
     branchFilter?: BranchFilter,
   ): Promise<{ amount: number; ratePerUsdSnapshot: number }[]>;
+  // Sale cash collected in a date range, in the shape every report reads.
+  // Separate from totalsForMonth, which stays lean for the dashboard.
+  collectedInRange(
+    startIso: string,
+    endExclusiveIso: string,
+    branchFilter?: BranchFilter,
+  ): Promise<CollectedRow[]>;
   // Same filters as findAll but unpaginated + a lean projection (no product/
   // customer joins) — computes the true per-month total for the Sales tab's
   // section headers even when a month holds more rows than one findAll page.

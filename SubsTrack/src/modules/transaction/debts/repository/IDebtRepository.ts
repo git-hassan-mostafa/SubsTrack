@@ -1,4 +1,5 @@
 import type { BranchFilter } from '@/src/core/constants';
+import type { CollectedRow } from '@/src/core/types';
 import type { DbCustomDebt, DbDebtPayment } from '@/src/core/types/db';
 
 export type CreateCustomDebtPayload = Pick<
@@ -44,6 +45,13 @@ export interface IDebtRepository {
     rangeEndExclusiveIso: string,
     branchFilter?: BranchFilter,
   ): Promise<{ paidAt: string; amount: number; ratePerUsdSnapshot: number }[]>;
+  // Debt cash collected in a date range, in the shape every report reads.
+  // Separate from paidAmountsInRange, which stays lean for the dashboard.
+  collectedInRange(
+    startIso: string,
+    endExclusiveIso: string,
+    branchFilter?: BranchFilter,
+  ): Promise<CollectedRow[]>;
   // Collector wallet: non-voided debt payments someone is holding
   // (held_by_user_id IS NOT NULL), joined with the customer. Optionally scoped
   // to one holder.

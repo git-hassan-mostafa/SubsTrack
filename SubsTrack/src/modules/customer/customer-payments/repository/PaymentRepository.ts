@@ -1,31 +1,19 @@
 import { Platform } from 'react-native';
 import { BaseRepository } from '@/src/core/utils/BaseRepository';
 import { PAGE_SIZE, type BranchFilter } from '@/src/core/constants';
+import type { CollectedRow } from '@/src/core/types';
 import type { DbPayment } from '@/src/core/types/db';
 import { custodyValues } from '@/src/modules/wallet/utils/custodyValues';
 import type { FindPaymentsOptions } from '../utils/types';
 import type { CreatePaymentPayload, IPaymentRepository } from './IPaymentRepository';
 import { OfflinePaymentRepository } from './PaymentRepository.offline';
+import { dayStartIso, nextDayStartIso } from '@/src/core/utils/dateRange';
 
 // Joins the customer name (and branch_id, needed by the inherited branch filter)
 // for the flat Payments list.
 // phone_number rides along so a receipt opened from the tenant-wide list can be
 // sent to the customer without a second query.
 const PAYMENT_LIST_SELECT = '*, customers!inner(name, phone_number, branch_id), plans(name)';
-
-// Start of a YYYY-MM-DD day as a local-time ISO timestamp (matches the
-// day-bound helpers in SaleRepository — same local→UTC conversion).
-function dayStartIso(date: string): string {
-  const [y, m, d] = date.split('-').map(Number);
-  return new Date(y, m - 1, d).toISOString();
-}
-
-// Start of the day AFTER the given YYYY-MM-DD — exclusive upper bound so a
-// paid-date filter covers the whole calendar day (day+1 rolls over correctly).
-function nextDayStartIso(date: string): string {
-  const [y, m, d] = date.split('-').map(Number);
-  return new Date(y, m - 1, d + 1).toISOString();
-}
 
 export class PaymentRepository extends BaseRepository implements IPaymentRepository {
   // Tenant-wide, paginated payment list for the Transactions → Payments tab. Only
@@ -276,6 +264,41 @@ export class PaymentRepository extends BaseRepository implements IPaymentReposit
     return (data ?? []).map((r: { amount_paid: number; rate_per_usd_snapshot: number }) => ({
       amount: Number(r.amount_paid),
       ratePerUsdSnapshot: Number(r.rate_per_usd_snapshot),
+    }));
+  }
+
+  // Subscription cash collected in a range, as CollectedRow. One query for the
+  // whole window — the reports bucket it into months client-side, so N months
+  // cost one round trip, not N.
+  async collectedInRange(
+    startIso: string,
+    endExclusiveIso: string,
+    branchFilter: BranchFilter = null,
+  ): Promise<CollectedRow[]> {
+    let query = this.db
+      .from('payments')
+      .select(
+        'id, paid_at, amount_paid, currency_id, rate_per_usd_snapshot, received_by_user_id, customer_id, plan_id, customers!inner(name, branch_id), plans(name)',
+      )
+      .gte('paid_at', startIso)
+      .lt('paid_at', endExclusiveIso)
+      .gt('amount_paid', 0)
+      .is('voided_at', null);
+    query = this.applyBranchFilter(query, branchFilter, this.BRANCH_SCOPES.payments);
+    const { data, error } = await query;
+    if (error) this.handleError(error);
+    return (data ?? []).map((r: any) => ({
+      id: r.id,
+      date: r.paid_at,
+      amount: Number(r.amount_paid),
+      currencyId: r.currency_id,
+      ratePerUsdSnapshot: Number(r.rate_per_usd_snapshot),
+      branchId: r.customers?.branch_id ?? null,
+      receivedByUserId: r.received_by_user_id,
+      customerId: r.customer_id,
+      customerName: r.customers?.name ?? null,
+      planId: r.plan_id,
+      label: r.plans?.name ?? null,
     }));
   }
 

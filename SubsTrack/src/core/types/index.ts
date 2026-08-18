@@ -823,3 +823,32 @@ export interface AuditFilter {
 //                        yet). Last month stays red and owed — it is only not
 //                        "Overdue" yet. See gotcha #83.
 export type UnpaidStartRule = 'month_start' | 'customer_start_day';
+
+// ---------------------------------------------------------------- reporting
+
+// One row of cash that ARRIVED. The three money-in sources (subscription
+// payments, sales, debt payments) each return this exact shape, so every report
+// aggregation is one pass over one array and never branches on the source.
+// USD is always `amount / ratePerUsdSnapshot` — the row's FROZEN rate, so a
+// later rate edit cannot drift a historical figure.
+export interface CollectedRow {
+  id: string;              // the source row's id — the drill-down key
+  date: string;            // ISO instant the money arrived (paid_at / sold_at)
+  amount: number;          // as collected, in its own currency
+  currencyId: string | null;
+  ratePerUsdSnapshot: number;
+  branchId: string | null;
+  receivedByUserId: string | null;
+  customerId: string | null;
+  customerName: string | null; // joined, for the drill-down list
+  planId: string | null;       // subscriptions only — feeds per-plan revenue
+  label: string | null;        // what the money was for (plan / items / note)
+}
+
+export type CashStream = 'subscription' | 'sale' | 'debt';
+
+// A CollectedRow tagged with which stream it came from. What ReportsService
+// hands the aggregators and the drill-down sheet.
+export interface CashRow extends CollectedRow {
+  stream: CashStream;
+}

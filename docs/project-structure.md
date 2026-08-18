@@ -94,6 +94,7 @@ SubsTrack/
 │   │       ├── sales/saleSlice.ts
 │   │       ├── debts/debtSlice.ts
 │   │       ├── expenses/expenseSlice.ts
+│   │       ├── reports/reportsSlice.ts             # period + section filter session, one report at a time
 │   │       └── options/optionSlice.ts
 │   │
 │   ├── modules/                   # Feature modules (state moved out — see src/state/)
@@ -168,6 +169,14 @@ SubsTrack/
 │   │   │   ├── services/DashboardService.ts    # Promise.all() for metrics including monthly sales sum (USD)
 │   │   │   ├── screens/DashboardScreen.tsx     # Revenue card now combines subscriptions + sales with sub-breakdown
 │   │   │   └── components/MetricCard.tsx
+│   │   │
+│   │   ├── reports/                             # Reports tab (admin-only) — app/(app)/(tabs)/reports/
+│   │   │   ├── services/ReportsService.ts      # composes existing services/repos; one query per stream per window
+│   │   │   ├── screens/ReportsScreen.tsx       # chrome: PeriodPicker + SegmentedTabs + CSV export
+│   │   │   ├── screens/sections/{MoneyReport, DebtsReport}.tsx   # phase 1 (Customers + Staff/Products = phase 2)
+│   │   │   ├── hooks/useReportExport.ts        # section → CSV → share sheet
+│   │   │   ├── components/{ReportSection, ReportCard, KpiRow, ComparisonPill, BreakdownList, RankedList, CurrencySplit, RecordsSheet}.tsx
+│   │   │   └── utils/{types, aggregate, csvRows, reportColors}.ts  # pure aggregation over CashRow[] / ExpenseItem[] (no charts — see features.md)
 │   │   │
 │   │   ├── products/                            # One-off sellable items catalog
 │   │   │   ├── repository/ProductRepository.ts # CRUD + countAll + countReferences (sales)

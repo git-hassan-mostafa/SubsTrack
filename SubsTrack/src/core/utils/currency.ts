@@ -73,3 +73,25 @@ export function formatMoney(
   }).format(value);
   return target.symbol ? `${formatted} ${target.symbol}` : `${formatted} ${target.code}`;
 }
+
+// Folds money rows into one entry per physical currency (+ its USD value via
+// the row's frozen rate), largest first. What "physically collected" means on
+// the wallets and in the reports currency split — the two must agree, so this
+// lives here rather than inside either one.
+export function groupByCurrency(
+  rows: { amount: number; ratePerUsdSnapshot: number; currencyId: string | null }[],
+): { currencyId: string | null; amount: number; usd: number }[] {
+  const byCurrency = new Map<string, { currencyId: string | null; amount: number; usd: number }>();
+  for (const r of rows) {
+    const key = r.currencyId ?? 'USD';
+    const usd = r.amount / r.ratePerUsdSnapshot;
+    const cur = byCurrency.get(key);
+    if (cur) {
+      cur.amount += r.amount;
+      cur.usd += usd;
+    } else {
+      byCurrency.set(key, { currencyId: r.currencyId, amount: r.amount, usd });
+    }
+  }
+  return [...byCurrency.values()].sort((a, b) => b.usd - a.usd);
+}

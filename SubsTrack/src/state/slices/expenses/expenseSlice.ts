@@ -5,20 +5,10 @@ import {
   type CreateExpenseInput,
 } from '@/src/modules/transaction/expenses';
 import { resolveBranchFilter } from '@/src/shared/lib/branchFilter';
+import { currentMonthDays, rangeFromDays } from '@/src/core/utils/dateRange';
 import type { GlobalState } from '@/src/state/globalStore';
 
 const EMPTY_SUMMARY: ExpenseSummary = { totalUsd: 0, manualUsd: 0, stockUsd: 0 };
-
-// Start of the current month → start of the next, as ISO. Expenses are read a
-// month at a time by default: that is the grain the owner thinks in, and it
-// keeps the derived stock half cheap.
-function currentMonthRange(): { startIso: string; endExclusiveIso: string } {
-  const now = new Date();
-  return {
-    startIso: new Date(now.getFullYear(), now.getMonth(), 1).toISOString(),
-    endExclusiveIso: new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString(),
-  };
-}
 
 export interface ExpenseSlice {
   // Both sources merged (stored expenses + derived stock purchases), newest first.
@@ -45,29 +35,6 @@ export interface ExpenseSlice {
   reset: () => void;
 }
 
-function defaultDates(): { fromDate: string; toDate: string } {
-  const now = new Date();
-  const first = new Date(now.getFullYear(), now.getMonth(), 1);
-  const last = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-  return { fromDate: toDay(first), toDate: toDay(last) };
-}
-
-function toDay(d: Date): string {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-// 'YYYY-MM-DD' day bounds → the ISO instants the service wants (end exclusive =
-// the start of the following day, so the last day is included).
-function rangeFromDays(from: string, to: string): { startIso: string; endExclusiveIso: string } {
-  const [fy, fm, fd] = from.split('-').map(Number);
-  const [ty, tm, td] = to.split('-').map(Number);
-  if (!fy || !ty) return currentMonthRange();
-  return {
-    startIso: new Date(fy, fm - 1, fd).toISOString(),
-    endExclusiveIso: new Date(ty, tm - 1, td + 1).toISOString(),
-  };
-}
-
 export const createExpenseSlice: StateCreator<
   GlobalState,
   [['zustand/immer', never]],
@@ -79,7 +46,7 @@ export const createExpenseSlice: StateCreator<
   loading: false,
   error: null,
   searchToken: 0,
-  ...defaultDates(),
+  ...currentMonthDays(),
   search: '',
   categoryFilter: 'all',
 
@@ -134,7 +101,7 @@ export const createExpenseSlice: StateCreator<
     }),
 
   clearFilters: async () => {
-    const { fromDate, toDate } = defaultDates();
+    const { fromDate, toDate } = currentMonthDays();
     set((state) => {
       state.expenses.search = '';
       state.expenses.categoryFilter = 'all';
@@ -185,7 +152,7 @@ export const createExpenseSlice: StateCreator<
 
   reset: () =>
     set((state) => {
-      const { fromDate, toDate } = defaultDates();
+      const { fromDate, toDate } = currentMonthDays();
       state.expenses.items = [];
       state.expenses.summary = EMPTY_SUMMARY;
       state.expenses.loading = false;

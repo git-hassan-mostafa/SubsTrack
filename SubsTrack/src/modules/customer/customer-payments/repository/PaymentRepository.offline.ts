@@ -1,4 +1,5 @@
 import { OFFLINE_PAGE_SIZE, type BranchFilter } from '@/src/core/constants';
+import type { CollectedRow } from '@/src/core/types';
 import type { DbCustomer, DbPayment, DbPlan } from '@/src/core/types/db';
 import { OfflineBaseRepository } from '@/src/core/offline/OfflineBaseRepository';
 import { upsertNaturalKeyDirty } from '@/src/core/offline/db/dml';
@@ -12,15 +13,7 @@ import type {
   MonthlyAmountRow,
   UpdatePaymentPayload,
 } from './IPaymentRepository';
-
-function dayStartIso(date: string): string {
-  const [y, m, d] = date.split('-').map(Number);
-  return new Date(y, m - 1, d).toISOString();
-}
-function nextDayStartIso(date: string): string {
-  const [y, m, d] = date.split('-').map(Number);
-  return new Date(y, m - 1, d + 1).toISOString();
-}
+import { dayStartIso, nextDayStartIso } from '@/src/core/utils/dateRange';
 
 /**
  * SQLite-backed payments repository. Writes upsert on the natural key
@@ -263,6 +256,54 @@ export class OfflinePaymentRepository extends OfflineBaseRepository implements I
     return rows.map((r) => ({
       amount: Number(r.amount_paid),
       ratePerUsdSnapshot: Number(r.rate_per_usd_snapshot),
+    }));
+  }
+
+  // Mirror of the Supabase collectedInRange. LEFT JOIN on plans — a line whose
+  // plan was deleted still collected money, and an INNER JOIN would silently
+  // drop it from every revenue total.
+  async collectedInRange(
+    startIso: string,
+    endExclusiveIso: string,
+    branchFilter: BranchFilter = null,
+  ): Promise<CollectedRow[]> {
+    const branch = this.branchWhere(branchFilter, this.BRANCH_SCOPES.payments, 'c');
+    const rows = await this.all<{
+      id: string;
+      paid_at: string;
+      amount_paid: string;
+      currency_id: string | null;
+      rate_per_usd_snapshot: string;
+      received_by_user_id: string | null;
+      customer_id: string;
+      plan_id: string | null;
+      customer_name: string | null;
+      branch_id: string | null;
+      plan_name: string | null;
+    }>(
+      `SELECT p.id, p.paid_at, p.amount_paid, p.currency_id, p.rate_per_usd_snapshot,
+              p.received_by_user_id, p.customer_id, p.plan_id,
+              c.name AS customer_name, c.branch_id AS branch_id, pl.name AS plan_name
+       FROM payments p
+       JOIN customers c ON p.customer_id = c.id
+       LEFT JOIN plans pl ON p.plan_id = pl.id
+       WHERE p.paid_at >= ? AND p.paid_at < ? AND p.voided_at IS NULL
+         AND CAST(p.amount_paid AS REAL) > 0
+         ${branch.clause ? `AND ${branch.clause}` : ''}`,
+      [startIso, endExclusiveIso, ...branch.params],
+    );
+    return rows.map((r) => ({
+      id: r.id,
+      date: r.paid_at,
+      amount: Number(r.amount_paid),
+      currencyId: r.currency_id,
+      ratePerUsdSnapshot: Number(r.rate_per_usd_snapshot),
+      branchId: r.branch_id,
+      receivedByUserId: r.received_by_user_id,
+      customerId: r.customer_id,
+      customerName: r.customer_name,
+      planId: r.plan_id,
+      label: r.plan_name,
     }));
   }
 

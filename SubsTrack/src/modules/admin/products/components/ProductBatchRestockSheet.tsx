@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { View } from "react-native";
+import { TextInput, View } from "react-native";
 import { BottomSheetFlatList } from "@gorhom/bottom-sheet";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -15,7 +15,6 @@ import { Input } from "@/src/shared/components/Input";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { Dropdown } from "@/src/shared/components/Dropdown";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
-import { useSheetTextInput } from "@/src/shared/components/bottomSheetInputContext";
 import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
 import { COLORS } from "@/src/shared/constants";
 import type { Currency, Product } from "@/src/core/types";
@@ -365,7 +364,6 @@ function RestockRow({
   onChange,
   onCostChange,
 }: RowProps) {
-  const TextInput = useSheetTextInput();
   const { t } = useTranslation();
   const picked = quantity > 0;
 

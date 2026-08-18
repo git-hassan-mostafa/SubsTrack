@@ -1,4 +1,5 @@
 import { OFFLINE_PAGE_SIZE, type BranchFilter } from '@/src/core/constants';
+import type { CollectedRow } from '@/src/core/types';
 import type { DbCustomer, DbProduct, DbSale, DbSaleItem, DbStockMovement } from '@/src/core/types/db';
 import { OfflineBaseRepository } from '@/src/core/offline/OfflineBaseRepository';
 import { insertDirty, updateDirty } from '@/src/core/offline/db/dml';
@@ -6,15 +7,7 @@ import { newId, nowIso } from '@/src/core/offline/ids';
 import { custodyValues } from '@/src/modules/wallet/utils/custodyValues';
 import type { FindSalesOptions } from '../utils/types';
 import type { CreateSalePayload, ISaleRepository, UpdateSalePayload } from './ISaleRepository';
-
-function dayStartIso(day: string): string {
-  const [y, m, d] = day.split('-').map(Number);
-  return new Date(y, m - 1, d).toISOString();
-}
-function nextDayStartIso(day: string): string {
-  const [y, m, d] = day.split('-').map(Number);
-  return new Date(y, m - 1, d + 1).toISOString();
-}
+import { dayStartIso, nextDayStartIso } from '@/src/core/utils/dateRange';
 
 /** SQLite-backed sales repository. Reproduces
  *  `'*, sale_items(*, products(*)), customers(*)'`. */
@@ -291,6 +284,51 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
     return rows.map((r) => ({
       amount: Number(r.amount_paid),
       ratePerUsdSnapshot: Number(r.rate_per_usd_snapshot),
+    }));
+  }
+
+  // Mirror of the Supabase collectedInRange. LEFT JOIN on customers — a
+  // walk-in sale has no customer row and must still count.
+  async collectedInRange(
+    startIso: string,
+    endExclusiveIso: string,
+    branchFilter: BranchFilter = null,
+  ): Promise<CollectedRow[]> {
+    const branch = this.branchWhere(branchFilter, this.BRANCH_SCOPES.sales, 's');
+    const rows = await this.all<{
+      id: string;
+      sold_at: string;
+      amount_paid: string;
+      currency_id: string | null;
+      rate_per_usd_snapshot: string;
+      recorded_by_user_id: string | null;
+      customer_id: string | null;
+      branch_id: string | null;
+      items_summary: string | null;
+      customer_name: string | null;
+    }>(
+      `SELECT s.id, s.sold_at, COALESCE(s.amount_paid, 0) AS amount_paid, s.currency_id,
+              s.rate_per_usd_snapshot, s.recorded_by_user_id, s.customer_id, s.branch_id,
+              s.items_summary, c.name AS customer_name
+       FROM sales s
+       LEFT JOIN customers c ON s.customer_id = c.id
+       WHERE s.sold_at >= ? AND s.sold_at < ? AND s.voided_at IS NULL
+         AND CAST(COALESCE(s.amount_paid, 0) AS REAL) > 0
+         ${branch.clause ? `AND ${branch.clause}` : ''}`,
+      [startIso, endExclusiveIso, ...branch.params],
+    );
+    return rows.map((r) => ({
+      id: r.id,
+      date: r.sold_at,
+      amount: Number(r.amount_paid),
+      currencyId: r.currency_id,
+      ratePerUsdSnapshot: Number(r.rate_per_usd_snapshot),
+      branchId: r.branch_id,
+      receivedByUserId: r.recorded_by_user_id,
+      customerId: r.customer_id,
+      customerName: r.customer_name,
+      planId: null,
+      label: r.items_summary,
     }));
   }
 

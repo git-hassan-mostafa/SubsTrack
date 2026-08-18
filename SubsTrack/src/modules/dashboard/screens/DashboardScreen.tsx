@@ -25,7 +25,7 @@ import { MONTHS } from "@/src/core/constants";
 import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
 import { CustomerFormSheet } from "@/src/modules/customer/customers/components/CustomerFormSheet";
 import { SaleFormSheet } from "@/src/modules/transaction/sales/components/SaleFormSheet";
-import { StatTile } from "@/src/modules/dashboard/components/StatTile";
+import { StatTile } from "@/src/shared/components/StatTile";
 
 export function DashboardScreen() {
   const { t } = useTranslation();

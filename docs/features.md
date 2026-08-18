@@ -14,6 +14,7 @@
 - [Tenant Settings (Per-Tenant Config)](#tenant-settings-per-tenant-config)
 - [Subscription Tiers](#subscription-tiers)
 - [Products & One-Off Sales](#products--one-off-sales)
+- [Reports](#reports)
 - [Expenses](#expenses)
 - [WhatsApp Invoices](#whatsapp-invoices)
 - [Transactions Hub](#transactions-hub)
@@ -397,6 +398,79 @@ Every product carries a stock quantity and can be **out of stock**. Stock on han
 **Cost — the money side of the ledger.** A positive movement can carry what one unit cost to buy: `unit_cost` + `currency_id` + `rate_per_usd_snapshot`, written together by `ProductService.movement()` or all three null. That is the **only** money on `stock_movements`, and it is what makes buying stock an expense (see [Expenses](#expenses)). `products` also gained `cost_price` + `cost_currency_id` — a *default* that pre-fills the restock forms, live like `price` and never frozen; each delivery freezes its own cost on its own movement. Everything is optional: a restock with no cost still records the stock and simply adds no expense, which is also what every legacy row does. A `'sale'` movement never carries a cost (stock leaving is not money leaving) and neither does a negative `'adjustment'` (damage is stock lost, not cash out) — `movement()` enforces both. Cost is typed in three places: the product form's **Cost price** field (the default, plus the opening stock's cost on create), the stock sheet's **Cost per unit** in Add mode (with a live "Total cost" line), and the **batch restock** sheet, where one **delivery currency** is picked for the whole save and each picked row opens a cost line seeded from its product's cost price, converted at the live rate (the `SaleItemsEditor` rule — changing the delivery currency re-prices every row).
 
 See gotchas #35, #36, #37, #48, #88, #89.
+
+---
+
+## Reports
+
+The Home dashboard answers one question — "how is **this month** going?" — with fixed tiles for one fixed period. The Reports tab answers "how is the business going, over any period I choose". It is a small number of curated sections, not a query builder: an ISP owner reads them, not a data analyst.
+
+**Admin-only**, the same gate as Expenses and the dashboard — the tab is hidden with `href: isAdmin ? undefined : null`, so the route is not even in the tab bar for a collector.
+
+### The page
+
+`PageHeader` (with the branch chip and a CSV export button) → `PeriodPicker` → a `SegmentedTabs` section switcher → the section's cards. Phase 1 ships **Money** and **Debts**; Customers and Staff/Products are phase 2 and drop into the same shells.
+
+**Period** (`src/core/utils/dateRange.ts`) is one primitive: `ReportPeriod { preset, fromDate, toDate }` with presets *This month · Last month · Last 3 / 6 / 12 months · This year · Custom*. Every preset is **whole calendar months** — it always ends on the last day of its final month — so its buckets and its comparison window are the same shape. `previousPeriod()` shifts a month-aligned period by whole months and anything custom by its own day count. The file also holds the app's `dayStartIso` / `nextDayStartIso` / `rangeFromDays` helpers, which four repositories and the expense slice used to carry privately.
+
+### Money
+
+| Block | What it shows |
+| --- | --- |
+| KPIs | Collected · Spent · Net · Margin, each with a ▲/▼ pill vs the previous period of the same length |
+| Money in | Breakdown by stream, with an inline share bar |
+| Money out | Breakdown by expense category (including the derived `stock` half) |
+| Collected by currency | What was **physically** collected in each currency, each printed in its own currency with a `≈` display-currency value beside it |
+
+### Debts
+
+| Block | What it shows |
+| --- | --- |
+| KPIs | Still owed (**all time**) · Collected on debts (**this period**) · Customers owing · Behind on payments (**counted to today**, so this one does not move with the period) |
+| Who owes the most | Top 10 debtors, each with how many months they are behind, tappable through to the customer |
+| What is owed for | Gross by debt category (months / sales / custom) |
+
+Only one figure here is period-scoped. See gotcha #91 — outstanding debt is all-time by design, and the two are labelled apart on purpose.
+
+### How the data is built
+
+Two arrays feed almost everything, and both come from code that already existed.
+
+**Money out needs no new query at all**: `ExpenseService.getExpensesView` already returns `ExpenseItem[]` carrying date, amount, currency, frozen rate, branch, staff, category and product — with the derived stock half merged and the branch semantics of gotcha #88 applied.
+
+**Money in** is three new reads, one per stream, all returning the same `CollectedRow` shape:
+
+| Repository | Method |
+| --- | --- |
+| `IPaymentRepository` | `collectedInRange(startIso, endExclusiveIso, branchFilter)` |
+| `ISaleRepository` | `collectedInRange(…)` |
+| `IDebtRepository` | `collectedInRange(…)` |
+
+Each lives on the repository that owns its table (never a cross-table `ReportsRepository`, which would have to re-derive the branch scoping `BRANCH_SCOPES` already encodes), and each has a Supabase impl and an offline SQLite twin. `ReportsService` tags them with their `stream` and merges them into one `CashRow[]`.
+
+Everything else — by stream, by category, by currency, the comparison, and every drill-down — is **pure client-side aggregation** in `reports/utils/aggregate.ts` (`sumByKey`, `topN`, `shareOfTotal`, `delta`). **One query per stream per window**, so a 12-month report costs the same round trips as a 1-month one.
+
+Revenue is **cash collected**, exactly as on the dashboard: `payments.amount_paid` + `sales.amount_paid` + `debt_payments.amount`, each summed in USD via the row's own frozen `rate_per_usd_snapshot`. Reports and dashboard must reconcile to the cent for a single month — that is the acceptance test.
+
+### Drill-down
+
+Tapping a breakdown row or the debts card opens `RecordsSheet` with the records behind that number. It is always a **filter over rows already in memory** — never a second query — which is also what guarantees the rows add up to exactly the figure that was tapped.
+
+### Export
+
+The header's download button writes the section as CSV and hands it to the system share sheet (`expo-file-system` + `expo-sharing`); on web, where `expo-sharing` is a no-op, it falls back to a plain browser download. `src/shared/lib/csv.ts` does the RFC-4180 quoting and writes a UTF-8 BOM, so a customer name with a comma does not split a cell and Arabic opens correctly in Excel. The money sheet writes spending as **negative** rows, so its Amount column sums to the report's Net.
+
+### Reusable pieces
+
+A phase-2 report is a config object plus a data hook, because the presentation is already built: `ReportSection` (loading / error / empty / pull-to-refresh), `KpiRow`, `ReportCard`, `BreakdownList`, `RankedList`, `ComparisonPill`, `CurrencySplit` and `RecordsSheet`, with one palette in `reports/utils/reportColors.ts` so a stream keeps its colour on every card.
+
+**There are no charts.** A charting library (`react-native-svg` + `react-native-gifted-charts`) was fitted and then taken back out — the numbers, the share bars and the drill-downs carry the reports on their own, and the library cost a native rebuild for decoration. Do not reintroduce one without a figure that genuinely cannot be read as a list.
+
+Three things moved out of single-use homes on the way, and the reports then reuse them rather than re-writing: `StatTile` → `src/shared/components/`, the date-range helpers → `src/core/utils/dateRange.ts`, and the wallet's per-currency fold → `groupByCurrency` in `src/core/utils/currency.ts`.
+
+### Release
+
+This is **not** an OTA release. `expo-file-system` and `expo-sharing` (the CSV export) change the native fingerprint, so the installed build can never receive it — `npm run build-prod` plus a reinstall is required. Two additive Postgres indexes come with it (`payments (tenant_id, paid_at)` and `debt_payments (tenant_id, paid_at)`; the two tables every range report scans and the only two that had none), plus three matching mirror indexes. No table or column changes — the whole feature is read-only.
 
 ---
 

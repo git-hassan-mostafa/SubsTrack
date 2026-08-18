@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 import { BaseRepository } from '@/src/core/utils/BaseRepository';
 import { PAGE_SIZE, type BranchFilter } from '@/src/core/constants';
+import type { CollectedRow } from '@/src/core/types';
 import type { DbSale, DbSaleItem } from '@/src/core/types/db';
 import { custodyValues } from '@/src/modules/wallet/utils/custodyValues';
 import type { CreateStockMovementPayload } from '@/src/modules/admin/products';
@@ -12,26 +13,13 @@ import type {
   UpdateSalePayload,
 } from './ISaleRepository';
 import { OfflineSaleRepository } from './SaleRepository.offline';
+import { dayStartIso, nextDayStartIso } from '@/src/core/utils/dateRange';
 
 // Header + its lines (each line with its product) + the customer.
 const SALE_SELECT = '*, sale_items(*, products(*)), customers(*)';
 // Header only. Enough for aggregates/labels (items_summary carries the product
 // names) and for create, which gets its lines back from their own insert.
 const SALE_SELECT_LEAN = '*, customers(*)';
-
-// Convert a calendar day (YYYY-MM-DD) to the start of that local day as ISO.
-function dayStartIso(day: string): string {
-  const [y, m, d] = day.split('-').map(Number);
-  return new Date(y, m - 1, d).toISOString();
-}
-
-// Start of the day AFTER the given calendar day — used as an exclusive upper
-// bound so a `toDate` filter covers the whole selected day. `d + 1` rolls over
-// month/year boundaries correctly via the Date constructor.
-function nextDayStartIso(day: string): string {
-  const [y, m, d] = day.split('-').map(Number);
-  return new Date(y, m - 1, d + 1).toISOString();
-}
 
 export class SaleRepository extends BaseRepository implements ISaleRepository {
   // Sales that contain a given product — resolved from sale_items, so the
@@ -315,6 +303,40 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
     return (data ?? []).map((r: { amount_paid: number; rate_per_usd_snapshot: number }) => ({
       amount: Number(r.amount_paid),
       ratePerUsdSnapshot: Number(r.rate_per_usd_snapshot),
+    }));
+  }
+
+  // Sale cash collected in a range, as CollectedRow. `customers` is a LEFT
+  // join (not !inner) — a walk-in sale has no customer and must still count.
+  async collectedInRange(
+    startIso: string,
+    endExclusiveIso: string,
+    branchFilter: BranchFilter = null,
+  ): Promise<CollectedRow[]> {
+    let query = this.db
+      .from('sales')
+      .select(
+        'id, sold_at, amount_paid, currency_id, rate_per_usd_snapshot, recorded_by_user_id, customer_id, branch_id, items_summary, customers(name)',
+      )
+      .gte('sold_at', startIso)
+      .lt('sold_at', endExclusiveIso)
+      .gt('amount_paid', 0)
+      .is('voided_at', null);
+    query = this.applyBranchFilter(query, branchFilter, this.BRANCH_SCOPES.sales);
+    const { data, error } = await query;
+    if (error) this.handleError(error);
+    return (data ?? []).map((r: any) => ({
+      id: r.id,
+      date: r.sold_at,
+      amount: Number(r.amount_paid),
+      currencyId: r.currency_id,
+      ratePerUsdSnapshot: Number(r.rate_per_usd_snapshot),
+      branchId: r.branch_id,
+      receivedByUserId: r.recorded_by_user_id,
+      customerId: r.customer_id,
+      customerName: r.customers?.name ?? null,
+      planId: null,
+      label: r.items_summary ?? null,
     }));
   }
 

@@ -30,17 +30,21 @@ const iconColor: Record<Tone, string> = {
 };
 
 // One compact metric: label, big value, optional sub-line and leading icon.
-// The shared building block for the dashboard stat grid.
+// The shared building block for every stat grid (dashboard + reports).
 export function StatTile({ label, value, sub, tone = "default", icon }: Props) {
   return (
     <View className="flex-1 bg-white border border-gray-100 rounded-2xl p-4">
       <View className="flex-row items-center gap-1.5 mb-3">
-        {icon ? <Ionicons name={icon} size={13} color={iconColor[tone]} /> : null}
-        <Text className="text-xs text-gray-400 uppercase tracking-wide">{label}</Text>
+        {icon ? (
+          <Ionicons name={icon} size={13} color={iconColor[tone]} />
+        ) : null}
+        <Text className="text-xs text-gray-400 uppercase tracking-wide">
+          {label}
+        </Text>
       </View>
       <Text
         fontWeight="Bold"
-        className={`text-3xl leading-none mb-1 ${valueColor[tone]}`}
+        className={`text-2xl leading-none mb-1 ${valueColor[tone]}`}
       >
         {value}
       </Text>

@@ -754,6 +754,11 @@ CREATE INDEX IF NOT EXISTS idx_payments_customer_month
 CREATE INDEX IF NOT EXISTS idx_payments_customer_plan_id
     ON payments (customer_plan_id);
 
+-- Every date-ranged revenue read (dashboard month, reports period) scans
+-- payments by when the cash arrived. Without this it is a full tenant scan.
+CREATE INDEX IF NOT EXISTS idx_payments_tenant_paid_at
+    ON payments (tenant_id, paid_at DESC);
+
 -- Collector wallet: fast lookup of the cash a user is holding (not settled, not
 -- voided). Partial index keeps it tiny once most cash is settled. Replaces the
 CREATE INDEX IF NOT EXISTS idx_payments_holder
@@ -1320,6 +1325,11 @@ CREATE INDEX IF NOT EXISTS idx_debt_payments_tenant_id
 
 CREATE INDEX IF NOT EXISTS idx_debt_payments_customer_id
     ON debt_payments (customer_id);
+
+-- Same as payments: debt collections are the third revenue stream and are
+-- always read by paid_at over a range.
+CREATE INDEX IF NOT EXISTS idx_debt_payments_tenant_paid_at
+    ON debt_payments (tenant_id, paid_at DESC);
 
 -- Collector wallet: the cash a user is holding (not settled, not voided).
 CREATE INDEX IF NOT EXISTS idx_debt_payments_holder

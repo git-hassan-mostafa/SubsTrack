@@ -56,6 +56,18 @@ export class OfflineCustomerRepository
     return this.hydrateLines(this.decodeAll<DbCustomer>('customers', rows));
   }
 
+  async findAllForStatus(branchFilter: BranchFilter = null): Promise<CustomerWithLines[]> {
+    const branch = this.branchWhere(branchFilter, this.BRANCH_SCOPES.customers, 'customers');
+    const rows = await this.all(
+      `SELECT * FROM customers
+       WHERE active = 1 AND is_regular = 1
+         ${branch.clause ? `AND ${branch.clause}` : ''}
+       ORDER BY name`,
+      branch.params,
+    );
+    return this.hydrateLines(this.decodeAll<DbCustomer>('customers', rows));
+  }
+
   async findById(id: string): Promise<CustomerWithLines> {
     const row = await this.first('SELECT * FROM customers WHERE id = ?', [id]);
     if (!row) this.handleError(new Error('Customer not found'));

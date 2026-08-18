@@ -64,6 +64,17 @@ export default function TabsLayout() {
           ),
         }}
       />
+      {/* Admin-only, like home — reports expose tenant-wide money and debt. */}
+      <Tabs.Screen
+        name="reports"
+        options={{
+          title: t("reports.title"),
+          href: isAdmin ? undefined : null,
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="stats-chart-outline" size={size} color={color} />
+          ),
+        }}
+      />
       <Tabs.Screen
         name="admin"
         options={{

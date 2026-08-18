@@ -71,6 +71,11 @@ export const CREATE_INDEX_STATEMENTS: string[] = [
   `CREATE INDEX IF NOT EXISTS idx_sales_customer ON sales(customer_id);`,
   `CREATE INDEX IF NOT EXISTS idx_custom_debts_customer ON custom_debts(customer_id);`,
   `CREATE INDEX IF NOT EXISTS idx_debt_payments_customer ON debt_payments(customer_id);`,
+  // Date-ranged reads: the reports scan a whole period per money stream, and
+  // the derived stock-cost half of expenses scans occurred_at.
+  `CREATE INDEX IF NOT EXISTS idx_debt_payments_paidat ON debt_payments(paid_at);`,
+  `CREATE INDEX IF NOT EXISTS idx_expenses_incurred ON expenses(incurred_at);`,
+  `CREATE INDEX IF NOT EXISTS idx_stock_movements_occurred ON stock_movements(occurred_at);`,
   `CREATE INDEX IF NOT EXISTS idx_stock_movements_product ON stock_movements(product_id);`,
   `CREATE INDEX IF NOT EXISTS idx_stock_movements_sale ON stock_movements(sale_id);`,
   // Audit trail: the list is ordered by occurred_at, the History sheet filters

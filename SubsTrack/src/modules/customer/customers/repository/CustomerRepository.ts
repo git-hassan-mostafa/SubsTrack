@@ -40,6 +40,19 @@ export class CustomerRepository extends BaseRepository implements ICustomerRepos
     return (data ?? []) as CustomerWithLines[];
   }
 
+  async findAllForStatus(branchFilter: BranchFilter = null): Promise<CustomerWithLines[]> {
+    let query = this.db
+      .from('customers')
+      .select(SELECT)
+      .eq('active', true)
+      .eq('is_regular', true)
+      .order('name');
+    query = this.applyBranchFilter(query, branchFilter, this.BRANCH_SCOPES.customers);
+    const { data, error } = await query;
+    if (error) this.handleError(error);
+    return (data ?? []) as CustomerWithLines[];
+  }
+
   async findById(id: string): Promise<CustomerWithLines> {
     const { data, error } = await this.db
       .from('customers')

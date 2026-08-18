@@ -1,6 +1,7 @@
 import { Platform } from 'react-native';
 import { BaseRepository } from '@/src/core/utils/BaseRepository';
 import { type BranchFilter } from '@/src/core/constants';
+import type { CollectedRow } from '@/src/core/types';
 import type { DbCustomDebt, DbDebtPayment } from '@/src/core/types/db';
 import { custodyValues } from '@/src/modules/wallet/utils/custodyValues';
 import type {
@@ -113,6 +114,38 @@ export class DebtRepository extends BaseRepository implements IDebtRepository {
         ratePerUsdSnapshot: Number(r.rate_per_usd_snapshot),
       }),
     );
+  }
+
+  // Debt cash collected in a range, as CollectedRow.
+  async collectedInRange(
+    startIso: string,
+    endExclusiveIso: string,
+    branchFilter: BranchFilter = null,
+  ): Promise<CollectedRow[]> {
+    let query = this.db
+      .from('debt_payments')
+      .select(
+        'id, paid_at, amount, currency_id, rate_per_usd_snapshot, received_by_user_id, customer_id, notes, customers!inner(name, branch_id)',
+      )
+      .gte('paid_at', startIso)
+      .lt('paid_at', endExclusiveIso)
+      .is('voided_at', null);
+    query = this.applyBranchFilter(query, branchFilter, this.BRANCH_SCOPES.debt_payments);
+    const { data, error } = await query;
+    if (error) this.handleError(error);
+    return (data ?? []).map((r: any) => ({
+      id: r.id,
+      date: r.paid_at,
+      amount: Number(r.amount),
+      currencyId: r.currency_id,
+      ratePerUsdSnapshot: Number(r.rate_per_usd_snapshot),
+      branchId: r.customers?.branch_id ?? null,
+      receivedByUserId: r.received_by_user_id,
+      customerId: r.customer_id,
+      customerName: r.customers?.name ?? null,
+      planId: null,
+      label: r.notes ?? null,
+    }));
   }
 
   async heldDebtPayments(

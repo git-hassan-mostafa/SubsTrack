@@ -619,6 +619,48 @@ class PaymentService {
     return statuses;
   }
 
+  // How many DISTINCT months each customer is behind — the reports' overdue
+  // ageing (1 / 2 / 3+ months), which is what decides who gets cut off. Same
+  // one-fetch shape as getCustomerStatuses and derived from the same month grid
+  // (rule #1), so the buckets can never disagree with the list badges.
+  //
+  // Distinct months, not a per-line sum: a customer holding three plans that are
+  // all one month behind is one month behind, not three.
+  //
+  // OVERDUE months only (unpaidBillingMonths) — a prepay gap is not a debt.
+  async getOverdueMonthCounts(
+    customers: Customer[],
+    unpaidRule: UnpaidStartRule = DEFAULT_UNPAID_START_RULE,
+  ): Promise<Map<string, number>> {
+    const [rows, skips] = await Promise.all([
+      repository.findActivePayments(),
+      skippedMonthService.getActiveSkips(),
+    ]);
+    const paymentsByCustomer = groupBy(rows.map(mapDbPaymentToPayment), (p) => p.customerId);
+    const skipsByCustomer = groupBy(skips, (s) => s.customerId);
+
+    const counts = new Map<string, number>();
+    for (const customer of customers) {
+      if (!customer.active || !customer.isRegular) continue;
+      const payments = paymentsByCustomer.get(customer.id) ?? [];
+      const skipRows = skipsByCustomer.get(customer.id) ?? [];
+      const months = new Set<string>();
+      for (const line of customer.customerPlans ?? []) {
+        if (!line.active || line.cancelledAt) continue;
+        for (const m of this.unpaidBillingMonths(
+          line,
+          payments.filter((p) => p.customerPlanId === line.id),
+          skipRows.filter((sk) => sk.customerPlanId === line.id),
+          unpaidRule,
+        )) {
+          months.add(m);
+        }
+      }
+      if (months.size > 0) counts.set(customer.id, months.size);
+    }
+    return counts;
+  }
+
   // Every month this service line still owes, oldest first, across ALL years
   // from its start to today. Derived from buildMonthGrid (rule #1) because an
   // unpaid month can sit in a year the caller isn't looking at — the panel only

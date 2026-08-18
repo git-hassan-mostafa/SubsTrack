@@ -165,15 +165,9 @@ expenses:  + branch_id  UUID REFERENCES branches(id)  -- nullable
 
 ---
 
-### 3.2 Debt Aging Report
+### 3.2 Debt Aging Report ✅
 
-**Priority:** 🔴 High
-
-**Purpose:** List of regular customers sorted by how long they have been unpaid — 1 month overdue, 2 months, 3+ months. ISPs use this to decide who to cut off.
-
-**Schema:** No new columns — derived from existing payments + `buildMonthGrid()` logic.
-
-**Implementation:** New query in `DashboardService` or a dedicated `ReportsService`.
+Shipped as the **How far behind** card on Reports → Debts. Derived from `PaymentService.getOverdueMonthCounts` (`findActivePayments` → `buildMonthGrid` → `unpaidBillingMonths`), so it needs no new query and agrees with the customer-list badges by construction. Counts **distinct months per customer**, not a per-line sum. See [docs/features.md](docs/features.md) → Reports.
 
 ---
 
@@ -378,13 +372,9 @@ CREATE TABLE plan_price_snapshots (
 
 ---
 
-### 6.3 Revenue Reports (Exportable)
+### 6.3 Revenue Reports (Exportable) ✅ *(partly — phase 1)*
 
-**Priority:** 🔴 High
-
-**Purpose:** Monthly revenue summary: total collected, per plan, per branch, per staff member. Exportable to PDF or CSV. This is the "proof of value" that justifies the subscription fee.
-
-**Schema:** No new tables. New `ReportsService` with aggregate queries on existing data.
+Shipped as the **Reports** tab (admin-only): any period, collected vs spent vs net, per stream, per expense category, per currency, with drill-downs and CSV export. **Per plan and per staff are phase 2** — `CashRow` already carries `planId` and `receivedByUserId`, so both are aggregation only, with no new query. Per branch is already there through the header branch chip. PDF was dropped in favour of CSV. See [docs/features.md](docs/features.md) → Reports.
 
 ---
 
@@ -530,15 +520,9 @@ CREATE TABLE audit_logs (  -- append-only; the app writes it, no triggers
 
 ---
 
-### 9.3 Data Export (Excel / CSV)
+### 9.3 Data Export (Excel / CSV) ✅ *(partly — reports only)*
 
-**Priority:** 🟡 Medium
-
-**Purpose:** Full export of customers and payment history to Excel or CSV. Removes lock-in anxiety — owners want to know they can get their data out at any time.
-
-**Implementation:** Client-side CSV generation or an edge function returning a file stream.
-
-**Schema:** No changes.
+`src/shared/lib/csv.ts` does client-side CSV generation + the system share sheet (a plain download on web), and Reports exports its money and debts sheets through it. **A full customer + payment-history export is still open** — it is now one more `CsvTable` builder plus a call site, not new plumbing.
 
 ---
 

@@ -2,7 +2,6 @@ import type { BranchFilter } from '@/src/core/constants';
 import type {
   UserWallet,
   UserWalletDetail,
-  WalletCurrencyTotal,
   WalletItem,
   WalletSource,
 } from '@/src/core/types';
@@ -18,6 +17,7 @@ import {
   receiveBlock,
   type WalletActor,
 } from '../utils/custody';
+import { groupByCurrency, sumUsd } from '@/src/core/utils/currency';
 
 // A wallet is DERIVED, never stored. It composes the three cash sources —
 // subscription payments, sales, and debt payments — filtered to the rows a user
@@ -229,26 +229,14 @@ class WalletService {
   }
 
   private foldWallet(holder: HolderInfo, viewer: WalletActor, items: WalletItem[]): UserWallet {
-    const byCurrency = new Map<string, WalletCurrencyTotal>();
-    let totalUsd = 0;
-    for (const it of items) {
-      const key = it.currencyId ?? 'USD';
-      const usd = it.amount / it.ratePerUsdSnapshot;
-      totalUsd += usd;
-      const cur = byCurrency.get(key);
-      if (cur) {
-        cur.amount += it.amount;
-        cur.usd += usd;
-      } else {
-        byCurrency.set(key, { currencyId: it.currencyId, amount: it.amount, usd });
-      }
-    }
+    const byCurrency = groupByCurrency(items);
+    const totalUsd = sumUsd(items);
     const isSelf = holder.id === viewer.id;
     return {
       holderUserId: holder.id,
       holderName: holder.fullName,
       active: holder.active,
-      byCurrency: [...byCurrency.values()].sort((a, b) => b.usd - a.usd),
+      byCurrency,
       itemCount: items.length,
       totalUsd,
       isSelf,

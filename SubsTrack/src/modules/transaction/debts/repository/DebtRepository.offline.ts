@@ -1,4 +1,5 @@
 import { type BranchFilter } from '@/src/core/constants';
+import type { CollectedRow } from '@/src/core/types';
 import type { DbCustomDebt, DbCustomer, DbDebtPayment } from '@/src/core/types/db';
 import { OfflineBaseRepository } from '@/src/core/offline/OfflineBaseRepository';
 import { insertDirty } from '@/src/core/offline/db/dml';
@@ -137,6 +138,49 @@ export class OfflineDebtRepository extends OfflineBaseRepository implements IDeb
       paidAt: r.paid_at,
       amount: Number(r.amount),
       ratePerUsdSnapshot: Number(r.rate_per_usd_snapshot),
+    }));
+  }
+
+  // Mirror of the Supabase collectedInRange.
+  async collectedInRange(
+    startIso: string,
+    endExclusiveIso: string,
+    branchFilter: BranchFilter = null,
+  ): Promise<CollectedRow[]> {
+    const branch = this.branchWhere(branchFilter, this.BRANCH_SCOPES.debt_payments, 'c');
+    const rows = await this.all<{
+      id: string;
+      paid_at: string;
+      amount: string;
+      currency_id: string | null;
+      rate_per_usd_snapshot: string;
+      received_by_user_id: string | null;
+      customer_id: string;
+      notes: string | null;
+      customer_name: string | null;
+      branch_id: string | null;
+    }>(
+      `SELECT d.id, d.paid_at, d.amount, d.currency_id, d.rate_per_usd_snapshot,
+              d.received_by_user_id, d.customer_id, d.notes,
+              c.name AS customer_name, c.branch_id AS branch_id
+       FROM debt_payments d
+       JOIN customers c ON d.customer_id = c.id
+       WHERE d.paid_at >= ? AND d.paid_at < ? AND d.voided_at IS NULL
+         ${branch.clause ? `AND ${branch.clause}` : ''}`,
+      [startIso, endExclusiveIso, ...branch.params],
+    );
+    return rows.map((r) => ({
+      id: r.id,
+      date: r.paid_at,
+      amount: Number(r.amount),
+      currencyId: r.currency_id,
+      ratePerUsdSnapshot: Number(r.rate_per_usd_snapshot),
+      branchId: r.branch_id,
+      receivedByUserId: r.received_by_user_id,
+      customerId: r.customer_id,
+      customerName: r.customer_name,
+      planId: null,
+      label: r.notes,
     }));
   }
 
