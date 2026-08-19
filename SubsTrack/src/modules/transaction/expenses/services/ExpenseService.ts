@@ -15,7 +15,8 @@ import type { CreateExpenseInput, ExpensesFilter } from '../utils/types';
  * DebtService (stored rows + a derived stream from another service):
  *
  *   • stored  — hand-typed rows in the `expenses` table
- *   • derived — stock purchases, from stock_movements.unit_cost
+ *   • derived — stock purchases, from stock_movements.unit_cost (a costed
+ *               REMOVAL is negative here — money coming back, gotcha #94)
  *
  * CASH BASIS: a purchase counts in the month it was PAID FOR. Everything is
  * summed in USD via each row's frozen rate; the screen formats for display.
@@ -56,7 +57,15 @@ class ExpenseService {
       id: `stock:${s.movementId}`,
       source: 'stock',
       category: 'stock',
-      label: `${s.productName} ×${s.quantity}`,
+      // A negative row is stock taken back out (wrong entry / returned), so it
+      // says so instead of printing "×-2".
+      label:
+        s.quantity < 0
+          ? i18n.t('expenses.stock_returned_label', {
+              product: s.productName,
+              count: -s.quantity,
+            })
+          : `${s.productName} ×${s.quantity}`,
       amount: s.amount,
       currencyId: s.currencyId,
       ratePerUsdSnapshot: s.ratePerUsdSnapshot,

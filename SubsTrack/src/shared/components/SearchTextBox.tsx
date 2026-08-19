@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
-import { TextInput, View } from "react-native";
+import { View } from "react-native";
 import { COLORS } from "@/src/shared/constants";
+import { useSheetTextInput } from "./bottomSheetInputContext";
 
 interface Props {
   searchText: string;
@@ -14,6 +15,9 @@ export default function SearchTextBox({
   setSearchText,
   placeholder = null,
 }: Props) {
+  // Becomes BottomSheetTextInput inside a sheet, so the sheet lifts for the keyboard.
+  const TextInput = useSheetTextInput();
+
   const { t } = useTranslation();
   return (
     <View className="flex-row items-center bg-gray-100 rounded-xl px-3 py-1">

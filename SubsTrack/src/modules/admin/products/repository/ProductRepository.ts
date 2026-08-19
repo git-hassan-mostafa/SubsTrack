@@ -6,6 +6,7 @@ import type {
   CreateStockMovementPayload,
   IProductRepository,
   StockCostRow,
+  UpdateStockMovementPayload,
 } from './IProductRepository';
 import { toStockCostRow } from '../utils/mapper';
 import { OfflineProductRepository } from './ProductRepository.offline';
@@ -136,6 +137,52 @@ export class ProductRepository extends BaseRepository implements IProductReposit
     return (data ?? []) as DbStockMovement[];
   }
 
+  async findMovement(id: string): Promise<DbStockMovement | null> {
+    const { data, error } = await this.db
+      .from('stock_movements')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
+    if (error) this.handleError(error);
+    return (data as DbStockMovement | null) ?? null;
+  }
+
+  async updateMovement(
+    id: string,
+    payload: UpdateStockMovementPayload,
+  ): Promise<DbStockMovement> {
+    return this.auditedUpdate<DbStockMovement>('stock_movements', id, payload, {
+      // A movement has no branch and no name of its own — both come from the
+      // product, so the entry files itself where the product lives.
+      branchColumn: null,
+      audit: await this.movementAudit(id),
+    });
+  }
+
+  async voidMovement(id: string, voidedBy: string | null): Promise<DbStockMovement> {
+    return this.auditedUpdate<DbStockMovement>(
+      'stock_movements',
+      id,
+      { voided_at: new Date().toISOString(), voided_by: voidedBy },
+      { action: 'void', branchColumn: null, audit: await this.movementAudit(id) },
+    );
+  }
+
+  // The parent product's branch + name, frozen into the audit entry. One query,
+  // same shape and reason as BaseRepository.customerAudit.
+  private async movementAudit(
+    movementId: string,
+  ): Promise<{ branchId: string | null; subject: string | null }> {
+    const { data } = await this.db
+      .from('stock_movements')
+      .select('products(branch_id, name)')
+      .eq('id', movementId)
+      .maybeSingle();
+    const product = (data as { products: { branch_id: string | null; name: string } | null } | null)
+      ?.products;
+    return { branchId: product?.branch_id ?? null, subject: product?.name ?? null };
+  }
+
   // The derived half of the Expenses view. `products!inner` both supplies the
   // name and lets applyBranchFilter scope on the parent's branch.
   async stockCostsInRange(
@@ -148,7 +195,10 @@ export class ProductRepository extends BaseRepository implements IProductReposit
       .select(
         'id, product_id, quantity_delta, unit_cost, currency_id, rate_per_usd_snapshot, occurred_at, recorded_by_user_id, products!inner(name, branch_id)',
       )
-      .gt('quantity_delta', 0)
+      // Every costed row, either direction — a negative one is money coming
+      // back. 'sale' rows can never be costed, but exclude them explicitly so a
+      // legacy or hand-written row can't leak into the expenses.
+      .neq('reason', 'sale')
       .not('unit_cost', 'is', null)
       .is('voided_at', null)
       .gte('occurred_at', startIso)

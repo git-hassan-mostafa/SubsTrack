@@ -132,12 +132,21 @@ export abstract class BaseRepository {
    * `branchColumn: null` marks a table with no branch dimension at all
    * (currencies, tenant_settings) — the entry gets `branch_id = null`, meaning
    * "tenant-wide", so every admin can see it.
+   *
+   * `audit` supplies the facts that don't live on the row itself, for a child row
+   * whose PARENT owns them (a stock movement's branch and product name). Its
+   * `branchId` wins over `branchColumn`.
    */
   protected async auditedUpdate<T extends { id: string }>(
     table: AuditInput["table"],
     id: string,
     values: object,
-    opts: { action?: AuditInput["action"]; select?: string; branchColumn?: keyof T | null } = {},
+    opts: {
+      action?: AuditInput["action"];
+      select?: string;
+      branchColumn?: keyof T | null;
+      audit?: { branchId?: string | null; subject?: string | null };
+    } = {},
   ): Promise<T> {
     const {
       action = "update",
@@ -161,7 +170,11 @@ export abstract class BaseRepository {
       action,
       before: prior,
       after,
-      branchId: branchColumn ? ((after[branchColumn] as string | null) ?? null) : null,
+      branchId:
+        opts.audit?.branchId ??
+        (branchColumn ? ((after[branchColumn] as string | null) ?? null) : null),
+      // undefined, not null, when unset — buildAuditRow's own fallback must still run.
+      subject: opts.audit?.subject,
     });
     return after;
   }

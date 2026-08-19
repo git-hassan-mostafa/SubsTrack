@@ -77,9 +77,12 @@ export function AuditEntryCard({ entry, onPress }: AuditEntryCardProps) {
   const style = ACTION_STYLE[entry.action];
 
   const type = tableLabel(t, entry.table);
-  // Whose record it is (a customer), frozen at write time. Absent on records that
-  // belong to nobody (a plan, a setting) and on entries written before it existed.
+  // Whose record it is, frozen at write time. Absent on records that belong to
+  // nobody (a plan, a setting) and on entries written before it existed.
   const subject = entry.subject;
+  // Almost always a customer; a stock movement's parent is its product.
+  const subjectIcon =
+    entry.table === "stock_movements" ? "cube-outline" : "person-outline";
 
   return (
     <PressableOpacity
@@ -110,7 +113,7 @@ export function AuditEntryCard({ entry, onPress }: AuditEntryCardProps) {
               className={`flex-row items-center rounded-full px-2 py-0.5 ms-2 bg-indigo-50`}
             >
               <Ionicons
-                name="person-outline"
+                name={subjectIcon}
                 className="mr-1.5"
                 size={11}
                 color={COLORS.gray400}

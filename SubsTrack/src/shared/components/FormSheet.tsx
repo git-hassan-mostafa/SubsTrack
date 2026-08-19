@@ -1,9 +1,13 @@
-import type { ReactNode } from "react";
-import { BottomSheetScrollView } from "@gorhom/bottom-sheet";
+import { useCallback, useRef, type ReactNode } from "react";
+import {
+  BottomSheetScrollView,
+  type BottomSheetScrollViewMethods,
+} from "@gorhom/bottom-sheet";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { AppBottomSheet } from "./AppBottomSheet";
 import { useSheetDismiss } from "./sheetDismissContext";
+import { SheetScrollContext } from "./sheetScrollContext";
 import { ResponsiveContainer } from "./ResponsiveContainer";
 import { SheetDragArea } from "./SheetDragArea";
 import { PressableOpacity } from "./PressableOpacity/PressableOpacity";
@@ -96,6 +100,13 @@ function FormSheetBody({
   const bodyReady = useAfterFirstFrame(visible);
   const dismiss = useSheetDismiss(onDismiss);
 
+  const scrollRef = useRef<BottomSheetScrollViewMethods>(null);
+  // Published to the body so a control low in the form can bring a part of it
+  // back into view; see {@link SheetScrollContext}.
+  const scrollTo = useCallback((y: number) => {
+    scrollRef.current?.scrollTo({ y, animated: true });
+  }, []);
+
   return (
     <ResponsiveContainer className="flex-1">
       <SheetDragArea className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
@@ -110,6 +121,7 @@ function FormSheetBody({
       </SheetDragArea>
 
       <BottomSheetScrollView
+        ref={scrollRef}
         style={{ flex: 1 }}
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={{
@@ -118,7 +130,9 @@ function FormSheetBody({
           paddingBottom: 48 + insets.bottom,
         }}
       >
-        {bodyReady ? children : null}
+        <SheetScrollContext.Provider value={scrollTo}>
+          {bodyReady ? children : null}
+        </SheetScrollContext.Provider>
       </BottomSheetScrollView>
     </ResponsiveContainer>
   );

@@ -20,7 +20,7 @@ Covers the Products catalog: a list of one-off sellable items (not subscriptions
 3. **Tier-gated creation.** `ProductService.createProduct()` calls `tierService.assertCanCreate(tier, usage, 'products')` after validation. Free tier: max 5 products. Pro / Business: unlimited.
 4. **`null currency_id` means USD** throughout — same rule as payments and plans.
 5. **Admin-only.** The Products screen and all mutations are inaccessible to the `user` role.
-6. **Stock is a ledger sum, never a stored counter.** `Product.stockOnHand = SUM(stock_movements.quantity_delta)` over non-voided rows. Movement rows are never edited or deleted — a mistake is corrected with another movement, and voiding a sale soft-voids the sale's movements. **Editing** a sale does the same swap: its live `'sale'` movements are soft-voided and new ones inserted (never opposite correction rows), and only when the sale's per-product unit count actually changed — see [sales.md](sales.md) §2C.
+6. **Stock is a ledger sum, never a stored counter.** `Product.stockOnHand = SUM(stock_movements.quantity_delta)` over non-voided rows. Rows are never deleted, and voiding a sale soft-voids the sale's movements. **Editing** a sale does the same swap: its live `'sale'` movements are soft-voided and new ones inserted (never opposite correction rows), and only when the sale's per-product unit count actually changed — see [sales.md](sales.md) §2C. A **manual** row (`initial` / `restock` / `adjustment`) can be **corrected in place** — quantity, cost and note only, audited — for a wrongly *written* entry; something that really happened later is a new movement instead (§6C).
 7. **A SHARED product has one stock pool** across every branch (RLS inherits the product's shared branch semantics, not the sale's owned ones).
 8. **Negative stock is legal.** There is no DB constraint stopping it — two offline devices can each sell the last unit. It renders as "Short by N".
 
@@ -130,6 +130,8 @@ Covers the Products catalog: a list of one-off sellable items (not subscriptions
 | 6A.5 | Restock | Product menu → Adjust Stock → Add → 10 → Save | The stock sheet **closes on save**; on-hand rises by 10 immediately, and reopening it shows a green `Stock added` `+10` row stamped with today's date **and time** |
 | 6A.6 | Restock with a note | Add 3 with note "new delivery", then reopen the stock sheet | The note shows on its own line under the date/time and who recorded it |
 | 6A.7 | Remove / correction | Adjust Stock → Remove → 2 → Save | Sheet closes; on-hand drops by 2 and a red `Correction` `-2` row is in the history |
+| 6A.7b | Remove with a cost (money back) | Adjust Stock → Remove → 2, cost/unit 0.35 → Save | A green "Takes $0.70 off Expenses" line before saving; the history row adds "Money back: $0.70" and Expenses drops by $0.70 (see [expenses.md](expenses.md) §3b) |
+| 6A.7c | Remove without a cost | Same, cost field left empty | Stock still drops by 2 and Expenses is unchanged — damaged stock is a loss, not money back |
 | 6A.7a | Failed save keeps the sheet open | Force the save to fail (e.g. offline write error) | The sheet stays open with the typed values and shows the error banner — it only closes on success |
 | 6A.8 | Zero / empty quantity | Leave quantity empty or type 0 | Save button stays disabled |
 | 6A.9 | Sale decrements | Sell 2 of a product with 5 in stock | Card shows "3 in stock"; history holds a red `Sold` `-2` row |
@@ -153,6 +155,16 @@ Covers the Products catalog: a list of one-off sellable items (not subscriptions
 | 6A.27 | Reason icon + direction color | Compare a `Starting stock`, `Stock added`, `Correction` (remove) and `Sold` row | Each has its own icon (flag / plus / pencil / cart); the tile and amount are green when the change adds stock and red when it removes |
 | 6A.28 | Voided row is marked | Void a sale, then open the product's stock sheet | The `Sold` row is greyed out with the amount struck through and carries a "Reversed" chip |
 | 6A.29 | Empty history | Open the stock sheet of a product with no movements | A dashed placeholder box with a clock icon and "No stock changes yet." — no bare text, no crash |
+| 6A.30 | Total fills from the unit cost | Add → quantity 10, cost/unit 4.50 | "Total cost" reads 45 and an amber line says "Adds $45.00 to Expenses" |
+| 6A.31 | Unit cost fills from the total | Add → quantity 10, then type 45 in "Total cost" | Cost per unit becomes 4.5 |
+| 6A.32 | The typed field wins when the quantity changes | Type total 45 for 10 units, then change the quantity to 12 | Total stays 45 and cost/unit becomes 3.75 — the other way round when the **unit** was typed last (4.50 stays, total becomes 54) |
+| 6A.33 | Total typed before the quantity | Leave the quantity empty, type total 45, then type quantity 10 | Cost per unit becomes 4.5 — the total waits for a quantity instead of being cleared |
+| 6A.34 | Uneven division keeps its precision | Quantity 3, total 100 | Cost per unit reads 33.33333333, and that movement still prints $100.00 in Expenses — not $99.99 |
+| 6A.35 | One currency for both | Change the currency on "Cost per unit" | "Total cost" shows the same code and has **no picker of its own**; neither amount is converted |
+| 6A.36 | Remove mode | Remove → 2 units, then type either 0.35 per unit or 0.70 total | The other field fills in and a green line reads "Takes $0.70 off Expenses" |
+| 6A.37 | Switching direction resets both | Add (unit pre-filled from the product) → switch to Remove | Both fields clear; switching back to Add restores the cost price and recomputes the total from the quantity |
+| 6A.38 | Edit fills both fields | Row menu → Edit entry on a row of 12 @ 0.50 | Cost per unit 0.5 and Total cost 6; changing either one still updates the other |
+| 6A.39 | Only the total was typed | Type a total, nothing else, then close the sheet | "Discard changes?" is asked — the total counts as an edit |
 
 ---
 
@@ -178,6 +190,66 @@ Covers the Products catalog: a list of one-off sellable items (not subscriptions
 | 6B.16 | Branch scoping | As a branch-scoped admin, open the sheet | Only the products that user can see are listed (their branch + SHARED), and restocking a SHARED one moves the single shared pool |
 | 6B.17 | Keyboard + sheet | Tap the search box, then a quantity box, on a phone | The sheet lifts so the focused field stays visible; the sheet still drags closed from its header |
 | 6B.18 | Back closes the sheet | Press Back (Android) / browser Back (web) with the sheet open | Only the sheet closes; the route does not change |
+
+---
+
+## 6C. Editing a stock entry
+
+An edit fixes an entry that was **written** wrong, in the entry's own month. Something that really happened later (stock returned) is a new movement — see §6A.7b. Both live in the same sheet.
+
+| # | Scenario | Steps | Expected result |
+|---|----------|-------|-----------------|
+| 6C.1 | Menu only on correctable rows | Open the stock sheet of a product with a `Stock added`, a `Sold` and a voided row | The 3-dot menu shows on the `Stock added` row only — a `'sale'` row and a reversed row have none |
+| 6C.2 | Edit a quantity | Restock +12, then row menu → Edit entry → change 12 to 10 → Save Changes | On-hand drops by 2; the history row now reads `+10`; **no** second row is added |
+| 6C.3 | The month does not move | Do 6C.2 on a movement recorded last month | Last month's Expenses figure changes (12 × cost → 10 × cost); this month gains **nothing** — unlike a costed removal (§6A.7b), which credits the current month |
+| 6C.4 | Edit fills the form | Tap Edit entry on a row with quantity 12, cost 0.50, note "delivery" | Quantity, cost, currency and note are pre-filled from the row; the Add/Remove toggle is replaced by an "Editing this entry" banner naming the reason, delta and date |
+| 6C.4b | The message scrolls into view | Scroll far down the history, then tap a row menu → Edit entry | The body scrolls to the “Editing this entry” banner, so the message and the pre-filled form are on screen — without it the tap looks like it did nothing |
+| 6C.4c | Switching edits scrolls again | While editing row A, scroll down and tap Edit entry on row B | The banner updates to row B and the body scrolls to it again |
+| 6C.5 | Direction is locked | While editing a `+12` row, look for a way to make it `−12` | There is none — no toggle while editing, and the quantity box takes digits only |
+| 6C.6 | Cancel an edit | Tap Edit entry, change the quantity, then tap the ✕ on the banner | The form returns to a blank "Add" state, the row is untouched, and closing the sheet does **not** prompt "discard changes?" |
+| 6C.7 | Sheet stays open after saving | Save an edit | The sheet stays open, the history reloads with the new value, the form clears, and closing it prompts nothing |
+| 6C.8 | Edit a cost | Edit entry → change cost/unit 0.50 → 0.45 (quantity untouched) | Expenses for that movement's month drops by quantity × 0.05; the history row's money line updates |
+| 6C.9 | Cost currency re-freezes the rate | Edit entry → switch the cost currency USD → LBP | The row's `rate_per_usd_snapshot` is re-taken at today's rate (same rule as editing a payment) |
+| 6C.10 | Quantity-only edit keeps the old rate | On an LBP-costed movement from months ago, change only the quantity | The USD value moves in proportion only — the frozen rate is **not** refreshed to today's |
+| 6C.11 | Remove the cost | Edit entry → clear the cost field → Save | The movement keeps its stock but records no cost; that month's stock Expenses drop by the whole amount |
+| 6C.12 | Add a cost to a costless row | Edit an old restock that never had a cost → type a cost → Save | Expenses for **that movement's month** rise by quantity × cost |
+| 6C.13 | Negative-stock warning | Product with 12 in, 11 sold; edit the delivery down to 10 | An amber line reads "Stock will go to −1. You can still save." — the save is **allowed**, and the card then shows "Short by 1" |
+| 6C.14 | Zero / empty quantity | While editing, clear the quantity or type 0 | Save stays disabled (the same rule as a new change) |
+| 6C.15 | A sale's row is refused by the service | Try to edit a `'sale'` movement through any path | "A stock entry from a sale can't be changed here — edit or void the sale instead" |
+| 6C.16 | A reverted row is refused | Try to edit a reversed movement | "This stock entry is already reversed" |
+| 6C.17 | The edit is audited | Do 6C.2, then row menu → History | One `update` entry: staff, time, **Product** = the product's name, and "Quantity 12 → 10" |
+| 6C.18 | Creating stock is NOT audited | Restock a product, then open that row's History | Empty ("no changes recorded") — the ledger row itself is the create record; only an edit or a revert is audited |
+| 6C.19 | The audit log names the product | Admin → Audit Log → filter Record type = "Stock entry" | The edit is listed with the product's name in the subject pill (a cube icon, not a person), and the detail sheet's top row reads **Product** |
+| 6C.20 | Audit survives a rename | Edit a movement, rename the product, then reopen the audit entry | The entry still names the product as it was called when the edit happened (the name is frozen) |
+| 6C.21 | Branch filing | As a tenant-wide admin, edit a movement on a **branch** product, then filter the audit log to that branch | The entry appears under that branch; an edit on a **shared** product files as tenant-wide (visible in every branch view) |
+| 6C.22 | Offline edit syncs | Airplane mode → edit a movement → reconnect | The corrected row and its audit entry both push; a second device shows the new quantity after its pull |
+| 6C.23 | Two devices, latest wins | Edit the same movement on two offline devices, then sync both | The later `updated_at` wins (no duplicate row, no lost movement); both audit entries survive — they are append-only |
+| 6C.24 | Non-admin | Log in as a `user` | The whole products area is unreachable, so the edit path is too; the History sheet would say "Admins only" |
+
+---
+
+## 6D. Reverting a stock entry
+
+The entry should never have existed. It stops counting, but the row is **kept** (marked "Reversed") — reverting is a soft-void, not a row deletion.
+
+| # | Scenario | Steps | Expected result |
+|---|----------|-------|-----------------|
+| 6D.1 | Revert an entry | Restock +12, then row menu → Revert entry → confirm | On-hand drops by 12; the row stays in the history greyed out with the "Reversed" chip; **no** opposite row is added |
+| 6D.2 | Confirm names the entry | Open Revert entry | The dialog reads "Stock added +12 will stop counting…" and explains that stock and expenses are corrected and the row stays marked "Reversed" |
+| 6D.3 | Cancel does nothing | Open Revert entry → Cancel | The entry is untouched and the stock total is unchanged |
+| 6D.4 | The expense goes with it | Revert a costed restock (12 @ 0.50) | That movement's month loses the whole $6.00 — see [expenses.md](expenses.md) |
+| 6D.5 | The month does not move | Revert a movement recorded **last** month | Last month's Expenses drop; this month gains nothing — the edit's rule, not a costed removal's (§6A.7b) |
+| 6D.6 | A costless entry | Revert a restock that carried no cost | Stock drops; Expenses are unchanged (there was nothing to take off) |
+| 6D.7 | Not offered on a sale's row | Open the menu on a `Sold` row | There is no menu at all — a sale's stock rows belong to the sale (void or edit the sale instead) |
+| 6D.8 | A sale's row is refused by the service | Try to revert a `'sale'` movement through any path | "A stock entry from a sale can't be changed here — edit or void the sale instead" |
+| 6D.9 | Already reverted | Revert the same entry twice (e.g. from a second device after a sync) | The second attempt is refused with "This stock entry is already reversed" — the stock is **not** credited twice |
+| 6D.10 | A reverted row keeps its History | Revert an entry, then open that row's menu | Only **History** is left (no Edit, no Revert), and it holds the `void` entry naming who reverted it |
+| 6D.11 | Reverting the row being edited | Tap Edit entry on a row, then revert that same row | The form resets to a blank "Add" state (it can no longer point at an entry that does not count), and closing the sheet prompts nothing |
+| 6D.12 | Sheet stays open | Revert an entry | The sheet stays open, the history reloads with the "Reversed" row, and the stock card at the top shows the new total |
+| 6D.13 | The revert is audited | Revert an entry, then row menu → History | One `void` entry: staff, time, **Product** = the product's name, and the changed fields read "Voided at, Voided by" |
+| 6D.14 | Any staff member may revert | As a non-admin with access to the stock sheet, revert an entry | It is allowed (the same rule as editing); only the History read is admin-only |
+| 6D.15 | Failed revert keeps the sheet open | Force the write to fail | The error banner shows, the entry is untouched, and the sheet stays open |
+| 6D.16 | Offline revert syncs | Airplane mode → revert an entry → reconnect | The voided row and its audit entry both push; a second device shows the same on-hand after its pull |
 
 ---
 

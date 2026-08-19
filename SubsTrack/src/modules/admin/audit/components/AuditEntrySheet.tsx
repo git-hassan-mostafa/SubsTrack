@@ -14,6 +14,7 @@ import {
   changedFieldsLabel,
   formatField,
   formatFieldLabel,
+  subjectLabel,
   tableLabel,
 } from "../utils/format";
 import { showsColumn, type AuditFieldContext } from "../utils/valueDisplay";
@@ -59,10 +60,11 @@ export function AuditEntrySheet({ entry, onDismiss }: AuditEntrySheetProps) {
     >
       {/* Who + when, then what moved (an edit only — a create/delete has no diff). */}
       <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden mb-4">
-        {/* The frozen customer name — now the only row naming WHOSE record this is,
-            so it shows on `customers` entries too (the record there IS the person). */}
+        {/* The frozen parent name — now the only row naming WHOSE record this is,
+            so it shows on `customers` entries too (the record there IS the person).
+            Usually a customer; a stock movement's parent is its product. */}
         {entry.subject ? (
-          <Row label={t("audit.field.customer_id")} value={entry.subject} />
+          <Row label={subjectLabel(t, entry.table)} value={entry.subject} />
         ) : null}
         <Row
           label={t("audit.filter_by_actor")}

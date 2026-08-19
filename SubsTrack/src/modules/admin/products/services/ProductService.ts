@@ -1,4 +1,5 @@
 import type { Currency, Product, StockMovement, TierPlan, TenantUsage } from '@/src/core/types';
+import type { DbStockMovement } from '@/src/core/types/db';
 import type { BranchFilter } from '@/src/core/constants';
 import i18n from '@/src/core/i18n';
 import repository from '../repository/ProductRepository';
@@ -126,24 +127,109 @@ class ProductService {
     reason: StockAdjustReason,
     note: string | null = null,
     userId: string | null = null,
-    // Only a restock spends money; a negative 'adjustment' (damage, miscount) is
-    // stock lost, not cash out, so it never carries a cost.
+    // Money follows the cost, not the sign: a restock spends it, and a costed
+    // REMOVAL gives it back (wrong entry, returned to the supplier) — that
+    // negative row is the only way to bring an over-stated stock expense down.
+    // A removal with no cost is stock lost, not cash out. See gotcha #94.
     cost: { unitCost: number | null; currency: Currency | null } | null = null,
   ): Promise<number> {
     if (!Number.isInteger(delta) || delta === 0) {
       throw new Error(i18n.t('errors.stock_delta_invalid'));
     }
-    const costed = reason === 'restock' ? cost : null;
     await repository.addMovements([
       this.movement(tenantId, productId, delta, reason, {
         note,
         userId,
-        unitCost: costed?.unitCost ?? null,
-        currency: costed?.currency ?? null,
+        unitCost: cost?.unitCost ?? null,
+        currency: cost?.currency ?? null,
       }),
     ]);
     const stock = await repository.stockOnHand([productId]);
     return stock[productId] ?? 0;
+  }
+
+  /**
+   * Correct one MANUAL ledger row in place — the record itself was wrong (12 typed
+   * for a 10-unit delivery, a unit cost of 0.50 that the invoice says was 0.45).
+   *
+   * This is not the same door as a costed removal, and they are not
+   * interchangeable: fixing the row fixes the month the row belongs to, while a
+   * removal is a real later event and lands in the month it happens. See gotcha #96.
+   *
+   * `quantity` is a MAGNITUDE, never signed — the direction comes from the row, so
+   * a correction can never turn stock added into stock removed (that is a new
+   * movement). Oversell is NOT blocked here: the DB accepts negative stock on
+   * purpose (offline replay), so the sheet warns instead.
+   */
+  async updateMovement(
+    movementId: string,
+    input: {
+      quantity: number;
+      note?: string | null;
+      cost?: { unitCost: number | null; currency: Currency | null } | null;
+    },
+  ): Promise<{ movement: StockMovement; onHand: number }> {
+    const existing = await this.liveManualMovement(movementId);
+    if (!Number.isInteger(input.quantity) || input.quantity <= 0) {
+      throw new Error(i18n.t('errors.stock_delta_invalid'));
+    }
+    const cost = this.costFields(
+      existing.reason,
+      input.cost?.unitCost ?? null,
+      input.cost?.currency ?? null,
+    );
+    // Only a CHANGED cost re-freezes the rate: editing the quantity alone must not
+    // silently re-value an old purchase at today's exchange rate.
+    if (
+      cost.unit_cost != null &&
+      Number(existing.unit_cost) === cost.unit_cost &&
+      existing.currency_id === cost.currency_id
+    ) {
+      cost.rate_per_usd_snapshot = existing.rate_per_usd_snapshot;
+    }
+    const row = await repository.updateMovement(movementId, {
+      quantity_delta: existing.quantity_delta > 0 ? input.quantity : -input.quantity,
+      note: input.note?.trim() || null,
+      ...cost,
+    });
+    const stock = await repository.stockOnHand([row.product_id]);
+    return {
+      movement: mapDbStockMovementToStockMovement(row),
+      onHand: stock[row.product_id] ?? 0,
+    };
+  }
+
+  /**
+   * Reverse one MANUAL ledger row — the entry should never have existed at all
+   * (a delivery logged against the wrong product, a duplicate save). It stops
+   * counting in the stock sum and, if it carried a cost, in Expenses for its own
+   * month — the edit door's rule, not the costed-removal one (gotcha #96).
+   *
+   * A soft-void, not a delete: the row stays in the history marked reversed, so
+   * "where did the other 12 bottles go" still has an answer.
+   */
+  async revertMovement(
+    movementId: string,
+    userId: string | null = null,
+  ): Promise<{ productId: string; onHand: number }> {
+    const existing = await this.liveManualMovement(movementId);
+    const row = await repository.voidMovement(existing.id, userId);
+    const stock = await repository.stockOnHand([row.product_id]);
+    return { productId: row.product_id, onHand: stock[row.product_id] ?? 0 };
+  }
+
+  // What both correction doors agree on: the row must exist, must not belong to a
+  // sale (SaleService swaps those when the sale is edited, so changing one here
+  // would leave the sale and the ledger disagreeing), and must still be live.
+  // In the SERVICE, not just hidden in the sheet's menu — see gotcha #96.
+  private async liveManualMovement(movementId: string): Promise<DbStockMovement> {
+    const existing = await repository.findMovement(movementId);
+    if (!existing) throw new Error(i18n.t('errors.stock_movement_missing'));
+    if (existing.reason === 'sale') {
+      throw new Error(i18n.t('errors.stock_movement_sale_locked'));
+    }
+    if (existing.voided_at) throw new Error(i18n.t('errors.stock_movement_voided_locked'));
+    return existing;
   }
 
   // Batch counterpart to adjustStock: one 'restock' row per product, appended in
@@ -188,7 +274,8 @@ class ProductService {
   //
   // `unitCost` + `currency` are what make a purchase an expense; they are
   // written together with a frozen rate, or all three stay null. 'sale' rows
-  // never carry one — stock leaving is not money leaving.
+  // never carry one — stock leaving is not money leaving. A NEGATIVE costed row
+  // is allowed and reads as a credit (amount = delta * cost, so it subtracts).
   movement(
     tenantId: string,
     productId: string,
@@ -203,23 +290,40 @@ class ProductService {
       currency?: Currency | null;
     } = {},
   ): CreateStockMovementPayload {
-    const costed = reason !== 'sale' && typeof extra.unitCost === 'number' && extra.unitCost > 0;
     return {
       tenant_id: tenantId,
       product_id: productId,
       quantity_delta: quantityDelta,
       reason,
       sale_id: extra.saleId ?? null,
-      unit_cost: costed ? extra.unitCost! : null,
-      currency_id: costed ? (extra.currency?.id ?? null) : null,
-      rate_per_usd_snapshot: costed ? (extra.currency?.ratePerUsd ?? 1) : null,
+      ...this.costFields(reason, extra.unitCost ?? null, extra.currency ?? null),
       note: extra.note?.trim() || null,
       recorded_by_user_id: extra.userId ?? null,
       occurred_at: extra.occurredAt ?? new Date().toISOString(),
     };
   }
 
-  // The derived half of the Expenses view — stock bought in a date range.
+  // The cost trio, in the one place that decides it — written together with a
+  // frozen rate or all three null, and never on a 'sale' row (stock leaving is
+  // not money leaving). A correction re-uses this, so the two can't drift.
+  private costFields(
+    reason: CreateStockMovementPayload['reason'],
+    unitCost: number | null,
+    currency: Currency | null,
+  ): Pick<
+    CreateStockMovementPayload,
+    'unit_cost' | 'currency_id' | 'rate_per_usd_snapshot'
+  > {
+    const costed = reason !== 'sale' && typeof unitCost === 'number' && unitCost > 0;
+    return {
+      unit_cost: costed ? unitCost : null,
+      currency_id: costed ? (currency?.id ?? null) : null,
+      rate_per_usd_snapshot: costed ? (currency?.ratePerUsd ?? 1) : null,
+    };
+  }
+
+  // The derived half of the Expenses view — stock bought in a date range, plus
+  // the costed removals that give money back (negative amounts).
   async getStockCostsInRange(
     startIso: string,
     endExclusiveIso: string,

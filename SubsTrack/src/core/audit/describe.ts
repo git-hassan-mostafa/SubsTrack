@@ -33,6 +33,8 @@ export function describeAudit(table: AuditTable, row: Record<string, unknown> | 
       return s('name') ?? s('username');
     case 'currencies':
       return join(s('code'), s('name'));
+    case 'stock_movements':
+      return join(s('reason'), s('quantity_delta'));
     case 'customer_plans':
       return s('start_date');
     case 'skipped_months':

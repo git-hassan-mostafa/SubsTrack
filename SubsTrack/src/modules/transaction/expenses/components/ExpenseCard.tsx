@@ -6,11 +6,8 @@ import { COLORS } from "@/src/shared/constants";
 import { EntityCard } from "@/src/shared/components/EntityCard";
 import { ActionMenu, type ActionMenuItem } from "@/src/shared/components/ActionMenu";
 import type { ExpenseItem } from "@/src/core/types";
-import {
-  findCurrency,
-  formatMoney,
-  paymentSnapshotCurrency,
-} from "@/src/core/utils/currency";
+import { findCurrency, paymentSnapshotCurrency } from "@/src/core/utils/currency";
+import { outflowLabel } from "../utils/outflow";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { useLanguageStore } from "@/src/core/i18n/languageStore";
@@ -37,8 +34,11 @@ export function ExpenseCard({ item, onVoid, onOpenProduct }: Props) {
   const source = paymentSnapshotCurrency(item, currencies);
   const target = findCurrency(currencies, displayCurrencyId);
   // A leading minus, like the dashboard's money-out chip: every figure on this
-  // screen is cash leaving, and it must never read like income at a glance.
-  const amountLabel = `−${formatMoney(item.amount, source, target)}`;
+  // screen is cash leaving, and it must never read like income at a glance. A
+  // credit (returned / wrongly-entered stock) is negative, so it prints `+` in
+  // green — it lowers what was spent.
+  const isCredit = item.amount < 0;
+  const amountLabel = outflowLabel(item.amount, source, target);
   const isStock = item.source === "stock";
 
   const actions: ActionMenuItem[] = [];
@@ -78,7 +78,10 @@ export function ExpenseCard({ item, onVoid, onOpenProduct }: Props) {
         </View>
 
         <View className="items-end ms-2">
-          <Text fontWeight="Bold" className="text-base text-gray-900">
+          <Text
+            fontWeight="Bold"
+            className={`text-base ${isCredit ? "text-success" : "text-gray-900"}`}
+          >
             {amountLabel}
           </Text>
           <Text

@@ -41,9 +41,26 @@ export interface ProductSlice {
     reason: StockAdjustReason,
     note?: string | null,
     userId?: string | null,
-    // Restock only — what the stock cost, which becomes an expense.
+    // What the stock cost — an expense when adding, money back when removing.
     cost?: { unitCost: number | null; currency: Currency | null } | null,
   ) => Promise<boolean>;
+  /**
+   * Correct one manual ledger row (the record was wrong). `quantity` is the
+   * magnitude — the direction stays whatever the row already was.
+   */
+  updateStockMovement: (
+    movementId: string,
+    input: {
+      quantity: number;
+      note?: string | null;
+      cost?: { unitCost: number | null; currency: Currency | null } | null;
+    },
+  ) => Promise<boolean>;
+  /**
+   * Reverse one manual ledger row — the entry should never have existed. It stops
+   * counting in stock and in Expenses; the row stays, marked reversed.
+   */
+  revertStockMovement: (movementId: string, userId?: string | null) => Promise<boolean>;
   batchRestock: (
     entries: RestockEntry[],
     tenantId: string,
@@ -175,6 +192,50 @@ export const createProductSlice: StateCreator<
       );
       set((state) => {
         const i = state.products.items.findIndex((p) => p.id === id);
+        if (i !== -1) state.products.items[i].stockOnHand = onHand;
+        state.products.loading = false;
+      });
+      return true;
+    } catch (e) {
+      set((state) => {
+        state.products.error = (e as Error).message;
+        state.products.loading = false;
+      });
+      return false;
+    }
+  },
+
+  updateStockMovement: async (movementId, input) => {
+    set((state) => {
+      state.products.loading = true;
+      state.products.error = null;
+    });
+    try {
+      const { movement, onHand } = await productService.updateMovement(movementId, input);
+      set((state) => {
+        const i = state.products.items.findIndex((p) => p.id === movement.productId);
+        if (i !== -1) state.products.items[i].stockOnHand = onHand;
+        state.products.loading = false;
+      });
+      return true;
+    } catch (e) {
+      set((state) => {
+        state.products.error = (e as Error).message;
+        state.products.loading = false;
+      });
+      return false;
+    }
+  },
+
+  revertStockMovement: async (movementId, userId = null) => {
+    set((state) => {
+      state.products.loading = true;
+      state.products.error = null;
+    });
+    try {
+      const { productId, onHand } = await productService.revertMovement(movementId, userId);
+      set((state) => {
+        const i = state.products.items.findIndex((p) => p.id === productId);
         if (i !== -1) state.products.items[i].stockOnHand = onHand;
         state.products.loading = false;
       });

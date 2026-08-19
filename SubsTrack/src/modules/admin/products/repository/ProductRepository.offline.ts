@@ -2,13 +2,14 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 import type { BranchFilter } from '@/src/core/constants';
 import type { DbProduct, DbStockMovement } from '@/src/core/types/db';
 import { OfflineBaseRepository } from '@/src/core/offline/OfflineBaseRepository';
-import { insertDirty, updateDirty, markDeleted } from '@/src/core/offline/db/dml';
+import { insertDirty, markDeleted } from '@/src/core/offline/db/dml';
 import { newId, nowIso } from '@/src/core/offline/ids';
 import { toStockCostRow } from '../utils/mapper';
 import type {
   CreateStockMovementPayload,
   IProductRepository,
   StockCostRow,
+  UpdateStockMovementPayload,
 } from './IProductRepository';
 
 /**
@@ -174,6 +175,58 @@ export class OfflineProductRepository extends OfflineBaseRepository implements I
     return this.decodeAll<DbStockMovement>('stock_movements', rows);
   }
 
+  async findMovement(id: string): Promise<DbStockMovement | null> {
+    return this.decodeOne<DbStockMovement>(
+      'stock_movements',
+      await this.first('SELECT * FROM stock_movements WHERE id = ?', [id]),
+    );
+  }
+
+  async updateMovement(
+    id: string,
+    payload: UpdateStockMovementPayload,
+  ): Promise<DbStockMovement> {
+    const row = await this.auditedUpdate<DbStockMovement>(
+      'stock_movements',
+      id,
+      { ...payload, updated_at: nowIso() },
+      {
+        // A movement has no branch and no name of its own — both come from the
+        // product, so the entry files itself where the product lives.
+        branchColumn: null,
+        audit: await this.movementAudit(id),
+      },
+    );
+    if (!row) this.handleError(new Error('Stock movement not found'));
+    return row;
+  }
+
+  async voidMovement(id: string, voidedBy: string | null): Promise<DbStockMovement> {
+    const now = nowIso();
+    const row = await this.auditedUpdate<DbStockMovement>(
+      'stock_movements',
+      id,
+      { voided_at: now, voided_by: voidedBy, updated_at: now },
+      { action: 'void', branchColumn: null, audit: await this.movementAudit(id) },
+    );
+    if (!row) this.handleError(new Error('Stock movement not found'));
+    return row;
+  }
+
+  // The parent product's branch + name, frozen into the audit entry. Mirrors the
+  // online twin; both columns are TEXT, so no decode is needed.
+  private async movementAudit(
+    movementId: string,
+  ): Promise<{ branchId: string | null; subject: string | null }> {
+    const row = await this.first<{ branch_id: string | null; name: string | null }>(
+      `SELECT p.branch_id AS branch_id, p.name AS name
+       FROM stock_movements m JOIN products p ON m.product_id = p.id
+       WHERE m.id = ?`,
+      [movementId],
+    );
+    return { branchId: row?.branch_id ?? null, subject: row?.name ?? null };
+  }
+
   // Twin of the online stockCostsInRange. Money columns are TEXT in the mirror,
   // so toStockCostRow does the Number() conversion (no SQL arithmetic here).
   async stockCostsInRange(
@@ -182,7 +235,8 @@ export class OfflineProductRepository extends OfflineBaseRepository implements I
     branchFilter: BranchFilter = null,
   ): Promise<StockCostRow[]> {
     const where = this.combineWhere([
-      { clause: 'm.quantity_delta > 0', params: [] },
+      // Costed rows in either direction — a negative one is money coming back.
+      { clause: "m.reason <> 'sale'", params: [] },
       { clause: 'm.unit_cost IS NOT NULL', params: [] },
       { clause: 'm.voided_at IS NULL', params: [] },
       { clause: 'm.occurred_at >= ? AND m.occurred_at < ?', params: [startIso, endExclusiveIso] },

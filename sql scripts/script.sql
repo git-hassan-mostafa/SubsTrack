@@ -1058,11 +1058,14 @@ ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS reason TEXT NOT NULL
 ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS sale_id UUID
     CONSTRAINT fk_stock_movements_sale REFERENCES sales(id) ON DELETE CASCADE;
 
--- What one unit cost to BUY, on a positive movement ('initial' / 'restock').
--- This is the only money on the ledger, and it is what makes a stock purchase
--- an expense: the Expenses view derives one row per costed positive movement
--- (amount = quantity_delta * unit_cost). NULL = no cost recorded, so the
--- movement contributes nothing — true for every legacy row and every 'sale'.
+-- What one unit cost to BUY ('initial' / 'restock', and a NEGATIVE 'adjustment'
+-- that hands the money back — a wrong entry or stock returned to the supplier).
+-- This is the only money on the ledger, and it is what makes a stock purchase an
+-- expense: the Expenses view derives one row per costed non-sale movement
+-- (amount = quantity_delta * unit_cost, so a negative row is a credit and is the
+-- only way a stock expense comes back down). NULL = no cost recorded, so the
+-- movement contributes nothing — true for every legacy row, every 'sale', and a
+-- removal for damage or loss (the money was spent; only the goods are gone).
 -- The three columns are always written together.
 ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS unit_cost NUMERIC(20,8)
     CHECK (unit_cost IS NULL OR unit_cost >= 0);
@@ -1134,10 +1137,13 @@ CREATE INDEX IF NOT EXISTS idx_stock_movements_tenant
 CREATE INDEX IF NOT EXISTS idx_stock_movements_sale
     ON stock_movements (sale_id) WHERE sale_id IS NOT NULL;
 
--- The Expenses view: stock bought in a date range (positive, costed, live).
-CREATE INDEX IF NOT EXISTS idx_stock_movements_cost
+-- The Expenses view: costed, live, non-sale rows in a date range. Both signs —
+-- a negative one is a credit (wrong entry / stock returned), which is the only
+-- way to bring a stock expense back down. Renamed from idx_stock_movements_cost
+-- because CREATE INDEX IF NOT EXISTS never updates an existing predicate.
+CREATE INDEX IF NOT EXISTS idx_stock_movements_cost_live
     ON stock_movements (occurred_at)
-    WHERE unit_cost IS NOT NULL AND quantity_delta > 0 AND voided_at IS NULL;
+    WHERE unit_cost IS NOT NULL AND reason <> 'sale' AND voided_at IS NULL;
 
 CREATE OR REPLACE TRIGGER trg_stock_movements_updated_at
     BEFORE UPDATE ON stock_movements
@@ -1342,7 +1348,8 @@ CREATE INDEX IF NOT EXISTS idx_debt_payments_holder
 -- (payments, sales, debt_payments), so the dashboard can show a real net.
 -- Only HAND-TYPED expenses are stored here (rent, salaries, fuel…). The cost of
 -- buying stock is NOT a row in this table: it is DERIVED at runtime from
--- stock_movements.unit_cost, so correcting stock corrects the expense too.
+-- stock_movements.unit_cost, so correcting stock corrects the expense too — a
+-- costed negative movement is how an over-stated stock expense comes back down.
 -- Owns its branch_id (NULL = a company-wide expense), unlike debts which
 -- inherit via the customer. ADMIN-ONLY (RLS) — salaries and rent are not staff
 -- business. Soft-void only; there is no edit.

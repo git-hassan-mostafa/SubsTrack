@@ -76,6 +76,8 @@ Covers the **Reports** bottom tab (admin-only): the period picker, the Money and
 | 4.7 | Breakdown shares | Check Money in / Money out | Percentages sum to 100%; a tiny non-zero row still shows a visible sliver |
 | 4.8 | Expense categories | Have both a hand-typed expense and a costed restock | Both appear; the derived one under "Stock" |
 | 4.9 | Empty period | Pick a period with no activity | "Nothing in this period" with a hint — no zeroed cards, no crash |
+| 4.10 | Tile grid height (**Android**) | Open Money and Debts on a **real Android build**, then again on web | Two tiles per row, each card only as tall as its own label + value (never half the screen); the comparison pill sits right under its card. Both platforms look the same (gotcha #95) |
+| 4.11 | Odd number of KPIs | (Dev) render a section with 3 KPIs | The lone third tile stays **half** width, left-aligned — it does not stretch across the row |
 
 ## 5. Money — currency
 

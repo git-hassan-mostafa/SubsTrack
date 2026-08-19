@@ -22,6 +22,19 @@ export function actionLabel(t: TFunction, action: AuditAction): string {
 }
 
 /**
+ * What the frozen `subject` NAMES on a given table — the parent record the entry
+ * belongs to. A customer for the money tables, the product for a stock movement.
+ * Defaults to the customer, which is what almost every subject is.
+ */
+const SUBJECT_LABEL: Partial<Record<AuditTable, string>> = {
+  stock_movements: 'audit.field.product_id',
+};
+
+export function subjectLabel(t: TFunction, table: AuditTable | string): string {
+  return t(SUBJECT_LABEL[table as AuditTable] ?? 'audit.field.customer_id');
+}
+
+/**
  * Render one field's value: the per-column display registry first (enum labels,
  * ids resolved to names — see valueDisplay.ts), the generic rendering otherwise.
  * A column with no registered display therefore still renders, unchanged.

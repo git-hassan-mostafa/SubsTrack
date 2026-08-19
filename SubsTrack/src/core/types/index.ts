@@ -356,9 +356,11 @@ export interface Product {
 // flow; the rest come from the product's stock sheet.
 export type StockReason = 'initial' | 'restock' | 'adjustment' | 'sale';
 
-// One entry in a product's stock ledger. Rows are never edited or deleted:
-// a mistake is corrected with a new 'adjustment', and voiding a sale soft-voids
-// the sale's movements.
+// One entry in a product's stock ledger. Never deleted, and a 'sale' row is only
+// ever soft-voided (voiding a sale voids its movements). A MANUAL row can be
+// corrected in place — quantity, cost and note only, audited — for a wrong
+// record; something that really happened afterwards is a new movement instead.
+// See docs/features.md → Products & One-Off Sales → Editing a stock entry.
 export interface StockMovement {
   id: string;
   tenantId: string;
@@ -728,9 +730,10 @@ export interface TenantSetting {
 export type AuditAction = 'create' | 'update' | 'delete' | 'void' | 'restore';
 
 // Tables the app records a trail for. sale_items is covered by its parent sale,
-// and stock_movements is already an append-only ledger with its own history UI —
-// auditing either would just duplicate itself. custom_debts / debt_payments are
-// out too: both are append-only + voidable, so the Debts view is their own history.
+// and custom_debts / debt_payments are append-only + voidable, so the Debts view
+// is their own history. stock_movements records EDITS ONLY — the ledger row is
+// its own create entry, so auditing the insert would duplicate the stock history;
+// what nothing else remembers is a quantity or cost changed after the fact.
 // See docs/features.md → Audit Trail.
 export type AuditTable =
   | 'payments'
@@ -740,6 +743,7 @@ export type AuditTable =
   | 'skipped_months'
   | 'plans'
   | 'products'
+  | 'stock_movements'
   | 'branches'
   | 'currencies'
   | 'users'

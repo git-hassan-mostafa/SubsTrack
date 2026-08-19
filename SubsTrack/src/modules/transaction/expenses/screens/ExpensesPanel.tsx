@@ -28,6 +28,7 @@ import { useAuth } from "@/src/modules/authentication/auth";
 import { confirm } from "@/src/shared/lib/confirm";
 import type { ExpenseCategory, ExpenseItem } from "@/src/core/types";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
+import { outflowLabel } from "../utils/outflow";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { useExpenseSlice } from "@/src/state/hooks/useExpenseSlice";
@@ -138,9 +139,11 @@ export function ExpensesPanel() {
             className="text-2xl text-gray-900"
             numberOfLines={1}
           >
-            {`−${formatMoney(filtered ? visibleTotalUsd : summary.totalUsd, null, target)}`}
+            {outflowLabel(filtered ? visibleTotalUsd : summary.totalUsd, null, target)}
           </Text>
-          {!filtered && summary.stockUsd > 0 && summary.manualUsd > 0 ? (
+          {/* `!== 0` rather than `> 0`: a month of stock credits nets negative
+              and must still show its split. */}
+          {!filtered && summary.stockUsd !== 0 && summary.manualUsd !== 0 ? (
             <Text className="text-xs text-gray-500 mt-0.5">
               {t("expenses.breakdown", {
                 stock: formatMoney(summary.stockUsd, null, target),
@@ -237,7 +240,7 @@ export function ExpensesPanel() {
                 title={section.title}
                 count={section.data.length}
                 first={section.key === sections[0]?.key}
-                total={`−${formatMoney(section.totalUsd ?? 0, null, target)}`}
+                total={outflowLabel(section.totalUsd ?? 0, null, target)}
               />
             )}
             renderItem={({ item }) => (
