@@ -153,6 +153,8 @@ In-app, `useAppUpdate` + `<UpdateBanner>` (mounted once in `app/(app)/_layout.ts
 | Import alias  | `@/*` → repo root (e.g. `@/src/core/types`) |
 
 > **Every tab stack under `app/(app)/(tabs)/` exports `unstable_settings = { anchor: "index" }`.** A web refresh (or any deep link) on a nested page rebuilds the navigation state from the URL alone, so without the anchor the tab's stack holds only that page — the tab icon's pop-to-top (`state.index > 0`) and `router.back()` both become no-ops. Keep it on **every** tab layout, including ones that have no sub-page yet. See gotcha #82.
+>
+> **The tab navigator sets `backBehavior="history"`.** React Navigation defaults to `firstRoute`, which sent Back from any tab root to the FIRST tab (Home) instead of the previously visited one — most visibly from Settings, which is still a tab (`href: null`) pushed from every screen's gear icon, and which under the default dropped a **non-admin** onto the admin-only dashboard (`href: null` hides a tab button, it does not remove the route). Stack pops still win, so Admin → Plans → Back is unchanged. See gotcha #93.
 
 ---
 

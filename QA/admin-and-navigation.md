@@ -99,6 +99,25 @@ Each tab's `_layout.tsx` exports `unstable_settings = { anchor: "index" }`, so l
 | 6b.9 | Already at a tab root | On the customers list, tap the Customers tab icon | Nothing happens; no error, no flicker |
 | 6b.10 | Android unchanged | Repeat 6b.1 and 6b.4 on Android (no refresh — navigate normally) | Same as before the change: tab icon returns to the list |
 
+## 6c. Back follows the visit history, not the tab order
+
+`app/(app)/(tabs)/_layout.tsx` sets `backBehavior="history"`. React Navigation's default (`firstRoute`) sent Back from **any** tab to the first tab (Home), no matter where the user came from. Run each row on Android with the hardware/gesture Back, then repeat with the screen's own back arrow where one exists.
+
+| # | Scenario | Steps | Expected result |
+|---|----------|-------|-----------------|
+| 6c.1 | Back returns to the previous tab | Home → Customers tab → Transactions tab → Back | Customers tab (was: Home) |
+| 6c.2 | Three tabs deep | Home → Customers → Transactions → Reports → Back, Back | Transactions, then Customers |
+| 6c.3 | Settings from a non-Home tab | Customers → gear icon → Back | Customers list (was: Home) |
+| 6c.4 | Settings keeps the tab's stack position | Customers → open a customer → gear icon → Back | The same customer detail page, not the customers list |
+| 6c.5 | Settings sub-page | Transactions → gear → My Wallet → Back, Back | Settings, then Transactions |
+| 6c.6 | Stack pop still wins over tab history | Admin → Plans → Back | Admin hub (unchanged — the stack pops first) |
+| 6c.7 | Cross-tab jump into a nested page | Transactions → Expenses → a stock row → "Open product" → Back, Back | Products' parent (Admin hub), then Transactions |
+| 6c.8 | Non-admin never lands on the dashboard | Log in as `user` (Home/Reports/Admin tabs hidden) → Customers → gear → Back | Customers list — the admin-only dashboard must never appear |
+| 6c.9 | Revisiting a tab does not stack up | Home → Customers → Home → Customers → Back | Home once, then Back exits the app (duplicates are collapsed) |
+| 6c.10 | Back at the entry tab exits | Fresh login → Back immediately | App exits (Android) — no navigation loop |
+| 6c.11 | Web browser Back | Repeat 6c.1 and 6c.3 on web with the browser's Back button | Same destinations as native |
+| 6c.12 | Anchor behaviour unchanged | Re-run every row of §6b | Unchanged |
+
 ## 7. Action menu (cross-screen pattern)
 
 `ActionMenu` is reused on Customers, Users, Plans, Branches, Currencies cards. Opened via tap on the ⋮ icon or long-press on the card.

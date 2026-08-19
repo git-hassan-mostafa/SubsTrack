@@ -17,6 +17,10 @@ export default function TabsLayout() {
 
   return (
     <Tabs
+      // Back follows the pages actually visited, not the tab order. React
+      // Navigation defaults to `firstRoute`, so Back from ANY tab jumped to Home
+      // (and, for a non-admin, to the admin-only dashboard). See gotcha #93.
+      backBehavior="history"
       screenOptions={{
         headerShown: false,
         tabBarStyle: {
