@@ -150,6 +150,7 @@ export abstract class OfflineBaseRepository {
     payments: { kind: 'inherited', joinedTable: 'customers' },
     customer_plans: { kind: 'inherited', joinedTable: 'customers' },
     products: { kind: 'shared' },
+    services: { kind: 'shared' },
     sales: { kind: 'owned' },
     custom_debts: { kind: 'inherited', joinedTable: 'customers' },
     debt_payments: { kind: 'inherited', joinedTable: 'customers' },

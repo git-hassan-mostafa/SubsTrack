@@ -90,7 +90,11 @@ export function SaleFormSheet({
       sale
         ? {
             items: sale.items.map((it) => ({
+              lineType: it.lineType,
               productId: it.productId,
+              serviceId: it.serviceId,
+              // The frozen name — the only record of a one-off service line.
+              name: it.itemNameSnapshot,
               quantity: it.quantity,
               unitAmount: it.unitAmount,
             })),
@@ -216,7 +220,7 @@ export function SaleFormSheet({
           </View>
         )}
 
-        {/* Multi-product cart (one currency, per-line qty + unit price). */}
+        {/* Items cart: product and/or service lines, one sale currency. */}
         <SaleItemsEditor
           onChange={setCart}
           onFocusClearError={clearError}

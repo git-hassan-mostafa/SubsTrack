@@ -15,10 +15,14 @@ import type {
 import { OfflineSaleRepository } from './SaleRepository.offline';
 import { dayStartIso, nextDayStartIso } from '@/src/core/utils/dateRange';
 
-// Header + its lines (each line with its product) + the customer.
-const SALE_SELECT = '*, sale_items(*, products(*)), customers(*)';
-// Header only. Enough for aggregates/labels (items_summary carries the product
-// names) and for create, which gets its lines back from their own insert.
+// Header + its lines (each with whichever of product/service it sells) + the
+// customer. Both joins are LEFT — a line sets only one of the two id columns, and
+// a one-off service sets neither.
+const SALE_SELECT = '*, sale_items(*, products(*), services(*)), customers(*)';
+// One line, with both catalog joins — what a line write reads back.
+const SALE_ITEM_SELECT = '*, products(*), services(*)';
+// Header only. Enough for aggregates/labels (items_summary carries every line's
+// name) and for create, which gets its lines back from their own insert.
 const SALE_SELECT_LEAN = '*, customers(*)';
 
 export class SaleRepository extends BaseRepository implements ISaleRepository {
@@ -112,7 +116,7 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
       this.db
         .from('sale_items')
         .insert(items.map((it) => ({ ...it, sale_id: created.id })))
-        .select('*, products(*)'),
+        .select(SALE_ITEM_SELECT),
       movements.length > 0
         ? this.db
           .from('stock_movements')
@@ -203,7 +207,7 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
             .from('sale_items')
             .update(it)
             .eq('id', existing[i].id)
-            .select('*, products(*)')
+            .select(SALE_ITEM_SELECT)
             .single();
           if (error) this.handleError(error);
           return data as DbSaleItem;
@@ -213,7 +217,7 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
         ? this.db
           .from('sale_items')
           .insert(added.map((it) => ({ ...it, sale_id: saleId })))
-          .select('*, products(*)')
+          .select(SALE_ITEM_SELECT)
         : null,
       dropped.length > 0
         ? this.db

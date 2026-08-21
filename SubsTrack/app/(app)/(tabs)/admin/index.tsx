@@ -59,6 +59,15 @@ const MENU_ITEMS: MenuItem[] = [
     countKey: "products",
   },
   {
+    // No countKey: services are uncapped, so TenantUsage has no figure for them.
+    labelKey: "services.title",
+    subtitleKey: "admin.services_sub",
+    icon: "construct-outline",
+    iconBg: COLORS.primaryLight,
+    iconColor: COLORS.primary,
+    route: "/(app)/(tabs)/admin/services",
+  },
+  {
     labelKey: "tenant_settings.currencies_section_title",
     subtitleKey: "admin.currencies_sub",
     icon: "cash-outline",

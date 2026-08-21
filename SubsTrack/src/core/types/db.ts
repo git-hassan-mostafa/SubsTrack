@@ -180,12 +180,27 @@ export interface DbProduct {
   updated_at: string;
 }
 
-// Sale header. Products live in DbSaleItem rows (the sale_items child table).
+// The price list of LABOUR sold — products' twin for work instead of goods, so
+// no stock and no cost columns (nothing is bought, so nothing is an expense).
+export interface DbService {
+  id: string;
+  tenant_id: string;
+  branch_id: string | null;
+  name: string;
+  description: string | null;
+  price: number;
+  currency_id: string | null;
+  active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+// Sale header. Its products AND services live in DbSaleItem rows (sale_items).
 export interface DbSale {
   id: string;
   tenant_id: string;
   branch_id: string | null;
-  // Frozen product summary — search + labels (no sale_items join needed).
+  // Frozen summary of every line — search + labels (no sale_items join needed).
   items_summary: string;
   customer_id: string | null;
   recorded_by_user_id: string | null;
@@ -207,7 +222,8 @@ export interface DbSale {
   remitted_by: string | null;
   created_at: string;
   updated_at: string;
-  // joined relations — present when .select('*, sale_items(*, products(*)), customers(*)')
+  // joined relations — present when
+  // .select('*, sale_items(*, products(*), services(*)), customers(*)')
   sale_items?: DbSaleItem[];
   customers?: DbCustomer | null;
 }
@@ -242,13 +258,21 @@ export interface DbStockMovement {
 
 export type DbStockReason = 'initial' | 'restock' | 'adjustment' | 'sale';
 
-// One product line of a sale (sale_items table).
+export type DbSaleLineType = 'product' | 'service';
+
+// One line of a sale (sale_items table) — a product or a service.
 export interface DbSaleItem {
   id: string;
   sale_id: string;
   tenant_id: string;
-  product_id: string;
-  product_name_snapshot: string;
+  // Which of the two id columns below is set. Enforced by chk_sale_items_line_ref.
+  line_type: DbSaleLineType;
+  // Exactly one of these is set on a catalog line; a ONE-OFF typed service has
+  // neither, and item_name_snapshot is then the whole record of what was sold.
+  product_id: string | null;
+  service_id: string | null;
+  // The product's / service's name at sale time, or the typed one-off name.
+  item_name_snapshot: string;
   quantity: number;
   unit_amount: number;
   // Set when an EDIT dropped this line. Soft, not deleted — the offline sync has
@@ -256,8 +280,9 @@ export interface DbSaleItem {
   voided_at: string | null;
   created_at: string;
   updated_at: string;
-  // joined relation — present when .select('*, products(*)')
+  // joined relations — present when .select('*, products(*), services(*)')
   products?: DbProduct | null;
+  services?: DbService | null;
 }
 
 // A hand-typed debt with no source transaction (months/sales debts are derived

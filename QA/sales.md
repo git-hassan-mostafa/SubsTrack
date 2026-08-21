@@ -1,8 +1,8 @@
 # Sales — QA Scenarios
 
-Covers the one-off sales ledger: recording a sale (with **one or more products**) against an optional customer, viewing the sales list, the sale receipt, the row's 3-dot action menu, editing a recorded sale, voiding a sale, and the per-customer sales panel. Sales are a completely separate ledger from subscription payments — they share no schema or service code beyond the snapshot-rate principle. Sending the sale receipt to the customer over WhatsApp (the form's second button and the receipt sheet's Send button) is covered in [whatsapp-invoices.md](whatsapp-invoices.md).
+Covers the one-off sales ledger: recording a sale (with **one or more products and/or services**) against an optional customer, viewing the sales list, the sale receipt, the row's 3-dot action menu, editing a recorded sale, voiding a sale, and the per-customer sales panel. Sales are a completely separate ledger from subscription payments — they share no schema or service code beyond the snapshot-rate principle. Sending the sale receipt to the customer over WhatsApp (the form's second button and the receipt sheet's Send button) is covered in [whatsapp-invoices.md](whatsapp-invoices.md). The service **price list** itself (Admin → Services) is covered in [services.md](services.md).
 
-**A sale is a header (`sales`) + one or more product lines (`sale_items`).** One sale can hold several products (a "cart"). The header carries the single sale currency + rate snapshot, the summed `total_amount`, `amount_paid`, and a frozen `items_summary`. Each line is one product (`product_name_snapshot`, `quantity`, `unit_amount`). Partial payment / debt / wallet / dashboard are all header-level (one debt, one wallet entry, one revenue figure per sale). Revenue, wallet, and the Sales-tab month headers all read `amount_paid`; only the debt reads `total_amount − amount_paid`.
+**A sale is a header (`sales`) + one or more lines (`sale_items`), and a line sells a PRODUCT or a SERVICE.** One sale can hold several lines in any mix — products only, services only, or both. The header carries the single sale currency + rate snapshot, the summed `total_amount`, `amount_paid`, and a frozen `items_summary`. Each line carries `line_type`, a nullable `product_id` / `service_id`, `item_name_snapshot`, `quantity` (**always 1 on a service line** — labour has no count, so the row shows only a Price field), `unit_amount`. Partial payment / debt / wallet / dashboard are all header-level (one debt, one wallet entry, one revenue figure per sale). Revenue, wallet, and the Sales-tab month headers all read `amount_paid`; only the debt reads `total_amount − amount_paid`.
 
 **Reference code:**
 - Screen: [SalesPanel.tsx](SubsTrack/src/modules/transaction/sales/screens/SalesPanel.tsx) (the Sales tab of the Transactions hub)
@@ -25,18 +25,22 @@ Covers the one-off sales ledger: recording a sale (with **one or more products**
 
 1. **Sales and subscription payments are completely separate.** Different tables, different services, different slices. The only shared concept is the snapshot-rate principle.
 2. **Snapshots are frozen at sale time.**
-   - `sale_items.product_name_snapshot` — frozen product name per line, survives renames and soft-deletes.
+   - `sale_items.item_name_snapshot` — frozen name per line (a product's, a catalog service's, or the typed one-off), survives renames and soft-deletes. Renamed from `product_name_snapshot`.
    - `sale_items.unit_amount` — frozen per-line price at sale time (defaults to the product's price converted into the sale currency, but is editable — discounts).
    - `sales.total_amount` — **app-written** sum of every line's `unit_amount * quantity` (no longer a generated column). Snapshot, read-only after create.
-   - `sales.items_summary` — frozen product summary (e.g. `"Water ×2, Bread"`); powers search + list/debt/wallet labels.
+   - `sales.items_summary` — frozen summary of every line (e.g. `"Water ×2, Installation"`); powers search + list/debt/wallet labels.
    - `sales.rate_per_usd_snapshot` — frozen currency rate at sale time. Use `paymentSnapshotCurrency(sale, currencies)` for display.
 3. **One currency per sale.** Every line's `unit_amount` is in the sale's `currency_id`. Products priced in another currency are auto-converted into the sale currency (live rate) as the editable prefill.
 4. **`customer_id` (header) is nullable.** Walk-in (anonymous) sales have `customer_id = NULL`.
 5. **No hard delete.** Void via `voided_at` / `voided_by` / `void_reason` on the header. Voided sales drop from the active list but stay in DB; lines cascade only on hard delete.
 5b. **A non-voided sale is EDITABLE in place** (§2C) — every snapshot in rule 2 is re-taken by the edit, including `rate_per_usd_snapshot` when the currency changes. A line the edit drops is **soft-voided** (`sale_items.voided_at`), never deleted, and the sale's stock movements are **swapped** (old soft-voided, new inserted) only when the per-product unit count actually changed. A voided sale can never be edited.
 6. **Dashboard revenue includes sales, as CASH.** `DashboardService.getMetrics()` sums `rate_per_usd_snapshot`-converted sale **`amount_paid`** (not `total_amount`) alongside payment and debt-payment totals — a partial sale contributes only its collected part, and the remainder arrives later via `debtRevenue`. `salesCount` counts sales (headers), not products, paid or not.
-7. **Product delete-reference counts key off `sale_items.product_id`.** A product used by any sale line soft-deletes (kept), else hard-deletes.
+7. **Product delete-reference counts key off `sale_items.product_id`.** A product used by any sale line soft-deletes (kept), else hard-deletes. Services follow the same rule off `sale_items.service_id`.
 8. **Tenant isolation via RLS.** `sale_items` inherits its branch from the parent sale.
+9. **A SERVICE line moves no stock, costs nothing, and has NO quantity.** No `stock_movements` row, no oversell check, no Expenses entry, and no stepper — just a **Price**, which is the whole line total (`quantity` stores 1). That absence is the whole difference from a product line. Two jobs are two lines. A sale must still hold **at least one** line of some kind.
+9b. **A line's KIND is chosen when the line is added** — **+ Add product** / **+ Add service** in the cart footer — and the card only labels it. There is no per-row switch to change it (that shape read as a page tab bar and wiped the line, gotcha #101); removing the row and adding the other kind is the way. A new sale therefore opens with **zero** rows and any row, including the last, is removable.
+10. **A one-off service has no catalog row.** `line_type = 'service'` with `service_id IS NULL`; `item_name_snapshot` is the entire record of what was sold. `chk_sale_items_line_ref` allows exactly this gap and nothing looser.
+11. **Services are not a separate money stream.** A partly-paid sale files under the **`sales`** debt category whatever it holds, and Reports keeps one "Sales" stream — a mixed sale's `amount_paid` cannot be split between goods and labour.
 
 ---
 
@@ -127,10 +131,11 @@ Covers the one-off sales ledger: recording a sale (with **one or more products**
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 2A.1 | Single product (default) | Open form | One product row shown; no line-number header (looks like the old single-product form) |
-| 2A.2 | Add a product | Tap "Add product" | A second product row appears; both rows now show a line number + Remove |
+| 2A.1 | Empty cart is the start | Open form | **No** line rows. Two dashed buttons — **+ Add product** and **+ Add service** — sit under the sale-currency picker; Save is disabled |
+| 2A.1a | Add the first line | Tap **+ Add product** | One row appears, headed by a cube icon + "Product" and a Remove action; no `#1` (a single line is not numbered) |
+| 2A.2 | Add a second line | Tap **+ Add product** again | A second row appears; both rows now show `#1` / `#2` after their kind label |
 | 2A.3 | Remove a product | Tap Remove on a row (with ≥2 rows) | That row disappears; total recomputes |
-| 2A.4 | Cannot remove last row | Try to remove the only row | Blocked — a sale always keeps ≥1 line |
+| 2A.4 | The last row can be removed | Remove the only row | The cart empties back to the two add buttons; Save is disabled. (This is how a line's kind is changed — see 2Ab.2) |
 | 2A.5 | Per-line quantity + price | Set line 1 = product A ×2, line 2 = product B ×1 | Total = A.unit×2 + B.unit×1; the emerald "Total" reflects the sum |
 | 2A.6 | Summed total | Two lines totalling 30 | "Total" shows 30 in the sale currency |
 | 2A.7 | items_summary saved | Submit a 2-product sale, inspect the card/receipt | Card title + receipt hero show a summary like "A ×2, B"; DB `items_summary` matches |
@@ -142,6 +147,41 @@ Covers the one-off sales ledger: recording a sale (with **one or more products**
 | 2A.13 | Add product inline | Tap "+" on the product dropdown | ProductFormSheet opens; created product becomes selectable |
 | 2A.14 | One rate snapshot | Submit a mixed-currency-source sale in USD | Header stores one `currency_id = null` + `rate_per_usd_snapshot = 1`; each line's `unit_amount` is the converted USD value |
 | 2A.15 | Search finds any product | Record a sale with products A + B, search "B" on the Sales tab | The sale appears (matched via `items_summary`) |
+
+---
+
+## 2A-b. Service lines (SaleItemsEditor, Service mode)
+
+> A line may sell labour instead of goods. Everything here is the *absence* of stock **and of quantity**, plus the one-off escape hatch. The price list itself is [services.md](services.md).
+
+| # | Scenario | Steps | Expected result |
+|---|----------|-------|-----------------|
+| 2Ab.1 | Add a service line | Tap **+ Add service** | A row appears headed by a tool icon + "Service": a service dropdown, **no quantity stepper**, and no "N left" caption anywhere on it |
+| 2Ab.1a | There is NO per-row kind switch | Look at any line card | The card **labels** its kind (icon + word) — it is not tappable. There is no `Product | Service` segmented control (it read as a page tab bar and wiped the line — gotcha #101) |
+| 2Ab.1b | A picked product survives adding a service | Pick product A, then tap **+ Add service** | Row 1 keeps product A, its quantity and its price untouched; the service arrives as row 2. **This is the bug this design fixes** |
+| 2Ab.2 | Changing a line's kind | Row holds product A; you wanted a service | Remove the row, then tap **+ Add service**. Nothing is silently discarded — the removal is the explicit step |
+| 2Ab.3 | Mixed cart, any order | Add service, then product, then service | Three rows in that order, each with its own controls; the total sums all three |
+| 2Ab.4 | Pick a catalog service | On a service row, pick "Installation" ($25) | Unit price prefills 25 in the sale currency; `line_type='service'`, `service_id` set |
+| 2Ab.5 | Service price auto-converts | Sale currency LBP (rate 89000), pick a service priced $25 | Unit price prefills ≈ 2,225,000 LBP; editable |
+| 2Ab.6 | First service sets sale currency | Fresh form, first pick is a service priced in LBP | Sale currency defaults to LBP (same rule as a product) |
+| 2Ab.7 | A service has NO quantity | Look at a service row | There is **no** quantity stepper at all — only one field labelled **Price**, which takes the full row width. Labour is one job at one price |
+| 2Ab.7a | The price IS the line total | Service priced 25, save | No "1 ×" appears anywhere in the form; `sale_items.quantity = 1`, `unit_amount = 25`, the line total reads 25 |
+| 2Ab.7b | Two jobs are two lines | Two installations at 25 each | Add a **second** service line — total 50. There is no way to enter "×2" |
+| 2Ab.7c | Mixed row types keep their own controls | Row 1 = product, row 2 = service | Row 1 shows the stepper + "N left"; row 2 shows only Price. Changing row 1's quantity leaves row 2 alone |
+| 2Ab.8 | One-off: "Other" reveals a name field | On a service row, pick **Other — type a name** | A "What was done" input appears; unit price is cleared |
+| 2Ab.9 | One-off saves with no catalog row | Type "Emergency call-out", price 40, save | Sale saves; `service_id IS NULL`, `item_name_snapshot = 'Emergency call-out'`; **no** new row in Admin → Services |
+| 2Ab.10 | Blank one-off name blocks submit | "Other" selected, name left empty | Submit disabled; forcing it raises "Pick a service, or type what was done" |
+| 2Ab.11 | Add a service inline | Tap "+" on the service dropdown, create "Router setup" $15, save | Sheet closes, the row is now **selected on "Router setup" with 15 prefilled** (not blank) |
+| 2Ab.12 | Service-only sale | One service line only, save | Sale saves; **zero** `stock_movements` rows written; no product's stock changes; Transactions → Expenses unchanged |
+| 2Ab.13 | Mixed sale | Product A ×2 + Installation, save | Total = both lines; only A's stock drops by 2; `items_summary` reads `"A ×2, Installation"` — the service carries **no** count |
+| 2Ab.14 | Search finds a service name | Record the 2Ab.13 sale, search "Installation" | The sale appears (matched via `items_summary`) |
+| 2Ab.15 | Retired service stays on its own line | Soft-delete a service that a sale uses, then edit that sale | The line keeps it selected; the dropdown will not offer it for a **new** line |
+| 2Ab.16 | Partial service-only sale → Sales debt | Service-only sale for a customer, collect part | Debts shows ONE row under the **Sales** category (not "Services") for the remainder |
+| 2Ab.17 | Void a service-only sale | Void it | Revenue drops by the collected amount; **no** stock movement is touched anywhere |
+| 2Ab.18 | Receipt marks the service | Open the receipt of the 2Ab.13 sale | Both lines listed under "Items"; the service line carries a small tool icon, the product line does not |
+| 2Ab.19 | Receipt drops the "1 ×" | Same receipt | The product line reads `2 × $x`; the service line shows **only its name and total** — no `1 × $25` sub-line |
+| 2Ab.20 | WhatsApp invoice drops it too | Send the 2Ab.13 sale on WhatsApp | The product bullet reads `2 × … = …`; the service bullet is `• Installation  $25` |
+| 2Ab.21 | Legacy quantity re-reads as 1 | (Dev data only) a service line saved with quantity 3, then **Edit sale** | The row opens with no stepper and the form total counts the line **once**; the shown total is what saving writes — confirm the total on screen before saving |
 
 ---
 
@@ -204,6 +244,12 @@ Covers the one-off sales ledger: recording a sale (with **one or more products**
 | 2C.23 | Oversell is still blocked | Raise a quantity past pool (on-hand + this sale's units) | Submit disabled; if forced (stock changed elsewhere), save fails with "Only N left of «product»" and **nothing** is written |
 | 2C.24 | Deactivated product keeps its line | Soft-delete a product that is on the sale, then edit the sale | Its line still resolves and can be re-saved; the product is greyed out / unpickable for a **new** line |
 | 2C.25 | Repeat void is still safe | Edit a sale (movements swapped), then void the sale | Only the live movements are struck; stock returns exactly once |
+| 2C.25a | Service line prefills correctly | Edit a mixed sale (product + catalog service) | The service row is headed "Service" with the right service and price selected |
+| 2C.25b | One-off line prefills from its frozen name | Edit a sale holding a one-off service | The row is headed "Service" and sits on "Other", with the typed name and price restored from `item_name_snapshot` |
+| 2C.25c | Service-only edit leaves the ledger alone | Edit a service-only sale (change price or notes) | Saves; **no** stock movement is created or voided anywhere (two empty footprints — gotcha #97) |
+| 2C.25d | Add a service to a product sale | Existing product sale; add a service line and save | Total grows; the product's stock history gains **no** new rows (its unit count did not change) |
+| 2C.25e | Replace the last product with a service | Sale = product A ×2; remove that line and add a service line | A's 2 units come back **exactly once**; A's movement is struck through and no new movement exists |
+| 2C.25f | Replace a service with a product | Sale = one service; remove that line and add product B ×1 | B's stock drops by 1; one live movement for B |
 
 **Money, currency, and what flows on**
 

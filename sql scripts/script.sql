@@ -826,10 +826,63 @@ CREATE OR REPLACE TRIGGER trg_products_updated_at
     EXECUTE FUNCTION set_updated_at();
 
 -- ============================================================
+-- SERVICES
+-- The price list of LABOUR a tenant sells: installation, a repair visit, a
+-- router setup. The twin of `products` for work instead of goods, so it carries
+-- NO stock ledger and NO cost columns — nothing is bought, so nothing is an
+-- expense (staff pay is typed by hand under the `salaries` expense category).
+-- A service is sold as a LINE ON A SALE (sale_items.line_type = 'service'), so
+-- every money figure in the app counts it through the sale header already.
+-- A one-off job that is not worth listing here needs no row at all — the sale
+-- form can type its name straight onto the line.
+-- Soft-delete via active = false; branch_id IS NULL = SHARED, like products.
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS services ();
+
+-- ---- Columns --------------------------------------------------------------
+
+ALTER TABLE services ADD COLUMN IF NOT EXISTS id UUID PRIMARY KEY DEFAULT uuid_generate_v4();
+ALTER TABLE services ADD COLUMN IF NOT EXISTS tenant_id UUID NOT NULL
+    CONSTRAINT fk_services_tenant REFERENCES tenants(id) ON DELETE CASCADE;
+
+-- NULL = SHARED (visible to every branch). NOT NULL = scoped to one branch.
+ALTER TABLE services ADD COLUMN IF NOT EXISTS branch_id UUID
+    CONSTRAINT fk_services_branch REFERENCES branches(id) ON DELETE SET NULL;
+
+ALTER TABLE services ADD COLUMN IF NOT EXISTS name TEXT NOT NULL;
+ALTER TABLE services ADD COLUMN IF NOT EXISTS description TEXT;
+ALTER TABLE services ADD COLUMN IF NOT EXISTS price NUMERIC(20,8) NOT NULL CHECK (price > 0);
+
+-- Currency the price is stored in. NULL = USD (the base).
+ALTER TABLE services ADD COLUMN IF NOT EXISTS currency_id UUID
+    CONSTRAINT fk_services_currency REFERENCES currencies(id) ON DELETE RESTRICT;
+
+ALTER TABLE services ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE services ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE services ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+-- Same-name uniqueness rules as products: shared + branch-specific can coexist
+-- because NULLs compare unequal in a Postgres unique index.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_services_name_tenant_branch
+    ON services (tenant_id, branch_id, name);
+
+CREATE INDEX IF NOT EXISTS idx_services_tenant_id
+    ON services (tenant_id);
+
+CREATE INDEX IF NOT EXISTS idx_services_branch_id
+    ON services (branch_id);
+
+CREATE OR REPLACE TRIGGER trg_services_updated_at
+    BEFORE UPDATE ON services
+    FOR EACH ROW
+    EXECUTE FUNCTION set_updated_at();
+
+-- ============================================================
 -- SALES (header)
 -- Ledger of one-off product sales — the HEADER of a sale. Customer is OPTIONAL
--- (walk-in supported). A sale holds one OR MORE products; the individual
--- products live in the sale_items child table (one row per product). The header
+-- (walk-in supported). A sale holds one OR MORE items — products, services, or
+-- both — each a row in the sale_items child table. The header
 -- carries the single sale-wide currency + frozen rate, the summed total, and
 -- how much was collected. Mirrors the snapshot principle from payments:
 -- items_summary, total_amount, and rate_per_usd_snapshot are frozen at write
@@ -851,7 +904,7 @@ ALTER TABLE sales ADD COLUMN IF NOT EXISTS tenant_id UUID NOT NULL
 ALTER TABLE sales ADD COLUMN IF NOT EXISTS branch_id UUID
     CONSTRAINT fk_sales_branch REFERENCES branches(id) ON DELETE SET NULL;
 
--- Frozen human summary of the products in this sale (e.g. "Water ×2, Bread").
+-- Frozen human summary of everything in this sale (e.g. "Water ×2, Installation").
 -- Powers list search + the list/debt/wallet labels WITHOUT joining sale_items.
 ALTER TABLE sales ADD COLUMN IF NOT EXISTS items_summary TEXT NOT NULL;
 
@@ -964,12 +1017,14 @@ UPDATE sales SET held_by_user_id = recorded_by_user_id
 
 -- ============================================================
 -- SALE ITEMS (lines)
--- One row per product within a sale. A sale (header) has one or more of these.
--- product_name_snapshot + unit_amount are frozen at sale time (survive product
--- renames / soft-deletes). unit_amount is in the parent sale's currency — every
--- line shares one currency. line total = unit_amount * quantity is derived in
--- the app (no stored column). No branch_id: branch is inherited via the parent
--- sale (RLS EXISTS), exactly like payments inherit via the customer.
+-- One row per thing sold within a sale — a PRODUCT (goods, moves stock) or a
+-- SERVICE (labour, moves nothing). A sale (header) has one or more of these, in
+-- any mix — products only, services only, or both.
+-- item_name_snapshot + unit_amount are frozen at sale time (survive product /
+-- service renames and soft-deletes). unit_amount is in the parent sale's
+-- currency — every line shares one currency. line total = unit_amount * quantity
+-- is derived in the app (no stored column). No branch_id: branch is inherited
+-- via the parent sale (RLS EXISTS), exactly like payments inherit via the customer.
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS sale_items ();
@@ -985,12 +1040,28 @@ ALTER TABLE sale_items ADD COLUMN IF NOT EXISTS sale_id UUID NOT NULL
 ALTER TABLE sale_items ADD COLUMN IF NOT EXISTS tenant_id UUID NOT NULL
     CONSTRAINT fk_sale_items_tenant REFERENCES tenants(id) ON DELETE CASCADE;
 
+-- What this line sells. Defaulted so every pre-services row reads correctly.
+ALTER TABLE sale_items ADD COLUMN IF NOT EXISTS line_type TEXT NOT NULL DEFAULT 'product'
+    CONSTRAINT chk_sale_items_line_type CHECK (line_type IN ('product', 'service'));
+
 -- Products referenced by a sale line cannot be hard-deleted. Use active = false.
-ALTER TABLE sale_items ADD COLUMN IF NOT EXISTS product_id UUID NOT NULL
+-- NULL on a service line — see chk_sale_items_line_ref below.
+ALTER TABLE sale_items ADD COLUMN IF NOT EXISTS product_id UUID
     CONSTRAINT fk_sale_items_product REFERENCES products(id) ON DELETE RESTRICT;
 
--- Snapshot of product.name at sale time.
-ALTER TABLE sale_items ADD COLUMN IF NOT EXISTS product_name_snapshot TEXT NOT NULL;
+-- Only ever NOT NULL before services existed, so this loosens the live column.
+-- Idempotent: DROP NOT NULL on an already-nullable column is a no-op.
+ALTER TABLE sale_items ALTER COLUMN product_id DROP NOT NULL;
+
+-- Set only on a service line, and only when it came from the catalog. NULL on a
+-- ONE-OFF typed service, whose name in item_name_snapshot is the whole record of
+-- what was sold. Like products, a referenced service cannot be hard-deleted.
+ALTER TABLE sale_items ADD COLUMN IF NOT EXISTS service_id UUID
+    CONSTRAINT fk_sale_items_service REFERENCES services(id) ON DELETE RESTRICT;
+
+-- Snapshot of the product's or service's name at sale time — for a one-off
+-- service it is the name itself, typed on the form.
+ALTER TABLE sale_items ADD COLUMN IF NOT EXISTS item_name_snapshot TEXT NOT NULL;
 
 ALTER TABLE sale_items ADD COLUMN IF NOT EXISTS quantity INTEGER NOT NULL DEFAULT 1
     CHECK (quantity > 0);
@@ -1017,6 +1088,30 @@ CREATE INDEX IF NOT EXISTS idx_sale_items_tenant
 -- Drives the product reference count (soft-vs-hard delete of a product).
 CREATE INDEX IF NOT EXISTS idx_sale_items_product
     ON sale_items (product_id);
+
+-- Same job for services.
+CREATE INDEX IF NOT EXISTS idx_sale_items_service
+    ON sale_items (service_id);
+
+-- ---- Table-level constraints ----------------------------------------------
+-- Multi-column, so it cannot ride on a column's ALTER line. NOTE: this block is
+-- guarded, so EDITING the rule is not picked up on a live DB — rename it or drop
+-- the old constraint by hand.
+
+DO $$
+BEGIN
+    -- A line points at exactly the one thing its type says it sells. A service
+    -- line may still have a NULL service_id: that is the one-off typed service,
+    -- whose name in item_name_snapshot is the whole record.
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'chk_sale_items_line_ref'
+    ) THEN
+        ALTER TABLE sale_items ADD CONSTRAINT chk_sale_items_line_ref CHECK (
+            (line_type = 'product' AND product_id IS NOT NULL AND service_id IS NULL)
+            OR (line_type = 'service' AND product_id IS NULL)
+        );
+    END IF;
+END $$;
 
 CREATE OR REPLACE TRIGGER trg_sale_items_updated_at
     BEFORE UPDATE ON sale_items
@@ -1629,6 +1724,7 @@ ALTER TABLE customers  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE customer_plans ENABLE ROW LEVEL SECURITY;
 ALTER TABLE payments   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE products   ENABLE ROW LEVEL SECURITY;
+ALTER TABLE services   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sales      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sale_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE stock_movements ENABLE ROW LEVEL SECURITY;
@@ -2061,6 +2157,48 @@ DO $$ BEGIN
         WHERE tablename = 'products' AND policyname = 'products_modify'
     ) THEN
         CREATE POLICY products_modify ON products
+            FOR ALL
+            USING (
+                tenant_id = current_tenant_id()
+                AND (
+                    current_branch_id() IS NULL
+                    OR branch_id = current_branch_id()
+                )
+            )
+            WITH CHECK (
+                tenant_id = current_tenant_id()
+                AND (
+                    current_branch_id() IS NULL
+                    OR branch_id = current_branch_id()
+                )
+            );
+    END IF;
+
+    -- ── SERVICES ─────────────────────────────────────────────
+    -- Identical semantics to products: shared price list (branch_id IS NULL)
+    -- visible to everyone in the tenant; branch-specific visible to that
+    -- branch + tenant-wide admins. Not admin-only on purpose — a collector
+    -- adds a service from the sale form the same way they add a product.
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE tablename = 'services' AND policyname = 'services_select'
+    ) THEN
+        CREATE POLICY services_select ON services
+            FOR SELECT USING (
+                tenant_id = current_tenant_id()
+                AND (
+                    current_branch_id() IS NULL
+                    OR branch_id IS NULL
+                    OR branch_id = current_branch_id()
+                )
+            );
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE tablename = 'services' AND policyname = 'services_modify'
+    ) THEN
+        CREATE POLICY services_modify ON services
             FOR ALL
             USING (
                 tenant_id = current_tenant_id()

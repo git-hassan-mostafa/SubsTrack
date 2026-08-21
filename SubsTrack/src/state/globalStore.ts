@@ -15,6 +15,7 @@ import { createCurrencySlice, type CurrencySlice } from './slices/currencies/cur
 import { createSignupSlice, type SignupSlice } from './slices/signup/signupSlice';
 import { createConfirmSlice, type ConfirmSlice } from './slices/confirm/confirmSlice';
 import { createProductSlice, type ProductSlice } from './slices/products/productSlice';
+import { createServiceSlice, type ServiceSlice } from './slices/services/serviceSlice';
 import { createSaleSlice, type SaleSlice } from './slices/sales/saleSlice';
 import { createDebtSlice, type DebtSlice } from './slices/debts/debtSlice';
 import { createExpenseSlice, type ExpenseSlice } from './slices/expenses/expenseSlice';
@@ -40,6 +41,7 @@ export interface GlobalState {
   signup: SignupSlice;
   confirm: ConfirmSlice;
   products: ProductSlice;
+  services: ServiceSlice;
   sales: SaleSlice;
   debts: DebtSlice;
   expenses: ExpenseSlice;
@@ -70,6 +72,7 @@ const initStore = (): StoreApi<GlobalState> =>
       signup: createSignupSlice(set, get, store),
       confirm: createConfirmSlice(set, get, store),
       products: createProductSlice(set, get, store),
+      services: createServiceSlice(set, get, store),
       sales: createSaleSlice(set, get, store),
       debts: createDebtSlice(set, get, store),
       expenses: createExpenseSlice(set, get, store),

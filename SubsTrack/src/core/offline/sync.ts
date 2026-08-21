@@ -280,6 +280,7 @@ const DELETE_RECONCILE_TABLES = [
   "branches",
   "currencies",
   "products",
+  "services",
 ];
 
 /**

@@ -28,6 +28,7 @@ export function describeAudit(table: AuditTable, row: Record<string, unknown> | 
     case 'customers':
     case 'plans':
     case 'products':
+    case 'services':
     case 'branches':
     case 'users':
       return s('name') ?? s('username');

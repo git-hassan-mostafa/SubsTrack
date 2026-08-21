@@ -181,7 +181,19 @@ export const TABLES: TableSpec[] = [
     },
   },
   {
-    // Sale header. Products live in the sale_items child table.
+    // The price list of LABOUR sold (installation, repair visit) — products'
+    // twin for work instead of goods, so NO stock and NO cost columns. Sold as
+    // a line on a sale (sale_items.line_type = 'service').
+    name: 'services',
+    scope: 'tenant',
+    columns: {
+      id: 'text', tenant_id: 'text', branch_id: 'text', name: 'text', description: 'text',
+      price: 'num', currency_id: 'text',
+      active: 'bool', created_at: 'text', updated_at: 'text',
+    },
+  },
+  {
+    // Sale header. Products AND services live in the sale_items child table.
     name: 'sales',
     scope: 'tenant',
     columns: {
@@ -198,14 +210,17 @@ export const TABLES: TableSpec[] = [
     // amount_paid is also client-written.
   },
   {
-    // One product line per sale. A line an edit drops is soft-voided, not
-    // deleted — the engine has no tombstones, so a delete would never reach the
-    // other devices' mirrors.
+    // One line per sale — a PRODUCT (moves stock) or a SERVICE (moves nothing);
+    // `line_type` says which, and only that one's id column is set (a one-off
+    // typed service has neither, only its name). A line an edit drops is
+    // soft-voided, not deleted — the engine has no tombstones, so a delete would
+    // never reach the other devices' mirrors.
     name: 'sale_items',
     scope: 'tenant',
     columns: {
-      id: 'text', sale_id: 'text', tenant_id: 'text', product_id: 'text',
-      product_name_snapshot: 'text', quantity: 'int', unit_amount: 'num',
+      id: 'text', sale_id: 'text', tenant_id: 'text',
+      line_type: 'text', product_id: 'text', service_id: 'text',
+      item_name_snapshot: 'text', quantity: 'int', unit_amount: 'num',
       voided_at: 'text', created_at: 'text', updated_at: 'text',
     },
   },
@@ -322,6 +337,6 @@ export const TABLE_BY_NAME: Record<string, TableSpec> = Object.fromEntries(
 export const SYNC_PULL_ORDER = [
   'tenants', 'tier_plans', 'app_options', 'tenant_settings', 'currencies', 'branches', 'users',
   'plans', 'customers', 'customer_plans', 'payments', 'skipped_months',
-  'products', 'sales', 'sale_items', 'stock_movements', 'custom_debts',
+  'products', 'services', 'sales', 'sale_items', 'stock_movements', 'custom_debts',
   'debt_payments', 'expenses', 'exception_logs', 'audit_logs',
 ] as const;

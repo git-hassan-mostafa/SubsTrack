@@ -1,6 +1,10 @@
 import { Sale, SaleItem } from "@/src/core/types";
 import { DbSale, DbSaleItem } from "@/src/core/types/db";
 import { mapDbProductToProduct } from "@/src/modules/admin/products";
+// Direct path, not the service-catalog barrel: the barrel pulls in components →
+// the global store → saleSlice → back here. (The products import above predates
+// this and still goes through its barrel.)
+import { mapDbServiceToService } from "@/src/modules/admin/service-catalog/utils/mapper";
 import { mapDbCustomerToCustomer } from "@/src/modules/customer/customers";
 
 export function mapDbSaleItemToSaleItem(db: DbSaleItem): SaleItem {
@@ -9,13 +13,17 @@ export function mapDbSaleItemToSaleItem(db: DbSaleItem): SaleItem {
         id: db.id,
         saleId: db.sale_id,
         tenantId: db.tenant_id,
+        // Defaulted, so a row written before services existed still reads as goods.
+        lineType: db.line_type ?? 'product',
         productId: db.product_id,
-        productNameSnapshot: db.product_name_snapshot,
+        serviceId: db.service_id,
+        itemNameSnapshot: db.item_name_snapshot,
         quantity: db.quantity,
         unitAmount,
         lineTotal: unitAmount * db.quantity,
         createdAt: db.created_at,
         product: db.products ? mapDbProductToProduct(db.products) : null,
+        service: db.services ? mapDbServiceToService(db.services) : null,
     };
 }
 

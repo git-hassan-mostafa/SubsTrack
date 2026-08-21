@@ -4,25 +4,32 @@ import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
+import { Input } from "@/src/shared/components/Input";
 import { CurrencyInput } from "@/src/shared/components/CurrencyInput";
 import {
   Dropdown,
   type DropdownOption,
 } from "@/src/shared/components/Dropdown";
 import { COLORS } from "@/src/shared/constants";
-import type { Currency, Product } from "@/src/core/types";
+import type {
+  Currency,
+  Product,
+  SaleLineType,
+  Service,
+} from "@/src/core/types";
 import { convert, findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { useProductSlice } from "@/src/state/hooks/useProductSlice";
+import { useServiceSlice } from "@/src/state/hooks/useServiceSlice";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
 import { ProductFormSheet } from "@/src/modules/admin/products";
+import { ServiceFormSheet } from "@/src/modules/admin/service-catalog";
+import { lineQuantity } from "../utils/saleLines";
+import type { CreateSaleItemInput } from "../utils/types";
 
-// One resolved product line ready for CreateSaleInput.
-export interface SaleLineDraft {
-  product: Product;
-  quantity: number;
-  unitAmount: number;
-}
+// One resolved line ready for CreateSaleInput. Same discriminated shape the
+// service consumes, so the cart hands its lines straight through.
+export type SaleLineDraft = CreateSaleItemInput;
 
 // The live cart state the parent form needs: the resolved lines, the summed
 // total, the single sale currency, and whether the cart is submittable.
@@ -40,10 +47,18 @@ export interface SaleCartDraft {
   dirty: boolean;
 }
 
-// The saved sale an edit starts from. Its units are still on this sale, so they
-// count as available while it is being re-cut.
+// The saved sale an edit starts from. Its product units are still on this sale,
+// so they count as available while it is being re-cut. `name` is the frozen line
+// name — the only record of a one-off service, which has no catalog row.
 export interface SaleEditorInitial {
-  items: { productId: string; quantity: number; unitAmount: number }[];
+  items: {
+    lineType: SaleLineType;
+    productId: string | null;
+    serviceId: string | null;
+    name: string;
+    quantity: number;
+    unitAmount: number;
+  }[];
   currencyId: string | null;
 }
 
@@ -57,26 +72,54 @@ interface Props {
 
 type Row = {
   key: string;
+  lineType: SaleLineType;
   productId: string | null;
+  // null on a service row means the ONE-OFF: `customName` is then what is sold.
+  serviceId: string | null;
+  customName: string;
+  // Product rows only. A service is one job at one price, so a service row is
+  // pinned to 1 and shows no stepper.
   quantity: number;
   unitAmount: number | null;
 };
 
-// What the cart holds, ignoring rows the user hasn't filled in yet — so adding
-// and then removing a blank row is not an edit.
+// True once the row identifies something sellable. A product row needs its
+// catalog row; a service row takes either a catalog pick or a typed name.
+function rowIsNamed(r: Row): boolean {
+  return r.lineType === "product"
+    ? r.productId != null
+    : r.serviceId != null || r.customName.trim().length > 0;
+}
+
+// What the cart holds, ignoring rows the user hasn't identified yet — so adding
+// and then removing a blank row is not an edit. Every field a row can be
+// switched on is in here, or flipping a row to a service would read as untouched.
 function signatureOf(rows: Row[], currencyId: string | null): string {
   return `${currencyId ?? ""}#${rows
-    .filter((r) => r.productId)
-    .map((r) => `${r.productId}:${r.quantity}:${r.unitAmount ?? ""}`)
+    .filter(rowIsNamed)
+    .map(
+      (r) =>
+        `${r.lineType}:${r.productId ?? ""}:${r.serviceId ?? ""}:${r.customName.trim()}:${r.quantity}:${r.unitAmount ?? ""}`,
+    )
     .join("|")}`;
 }
 
+// A new sale starts with NO rows: the two add buttons are how the first line's
+// kind is chosen, so there is never a blank row of the wrong kind to undo.
 function buildInitialRows(initial?: SaleEditorInitial | null): Row[] {
-  if (!initial || initial.items.length === 0) return [makeRow(0)];
+  if (!initial || initial.items.length === 0) return [];
   return initial.items.map((it, i) => ({
     key: `row-${i}`,
+    lineType: it.lineType,
     productId: it.productId,
-    quantity: it.quantity,
+    serviceId: it.serviceId,
+    // Only a one-off service keeps its name in the row; otherwise the catalog
+    // pick supplies it, and holding a copy here would fight a later rename.
+    customName:
+      it.lineType === "service" && it.serviceId === null ? it.name : "",
+    // A service line carries no count. Any stored value above 1 is legacy data,
+    // and the form's total re-reads it as 1 so what is shown is what will save.
+    quantity: it.lineType === "service" ? 1 : it.quantity,
     unitAmount: it.unitAmount,
   }));
 }
@@ -89,13 +132,27 @@ function roundTo(value: number, decimals: number): number {
 
 // Row keys only need to be unique within one editor, so the suffix is handed in
 // by the caller. Pure on purpose — see the note on CustomerPlansEditor.makeRow.
-function makeRow(suffix: number): Row {
-  return { key: `row-${suffix}`, productId: null, quantity: 1, unitAmount: null };
+// The kind is fixed at creation: a line sells goods or labour, and there is no
+// switch that could silently throw away what the user already picked.
+function makeRow(suffix: number, lineType: SaleLineType): Row {
+  return {
+    key: `row-${suffix}`,
+    lineType,
+    productId: null,
+    serviceId: null,
+    customName: "",
+    quantity: 1,
+    unitAmount: null,
+  };
 }
 
-// Multi-product "cart" editor for a sale. Owns the row + sale-currency state and
-// reports the resolved draft up via onChange. One currency per sale: each
-// product's catalog price is auto-converted into the sale currency (editable).
+// Multi-line "cart" editor for a sale. Each row sells EITHER a product (moves
+// stock, quantity capped by what's left) OR a service (labour — no stock and no
+// quantity at all, just a price), picked from the catalog or typed as a one-off.
+// A row's kind comes from which add button made it — a sale holding both is two
+// rows, never one row toggled twice (see gotcha #101).
+// Owns the row + sale-currency state and reports the resolved draft up. One
+// currency per sale: each catalog price is auto-converted into it (editable).
 // Mirrors CustomerPlansEditor's add / remove-row pattern.
 export function SaleItemsEditor({
   onChange,
@@ -105,6 +162,8 @@ export function SaleItemsEditor({
   const { t } = useTranslation();
   const products = useProductSlice((s) => s.items);
   const getProducts = useProductSlice((s) => s.getProducts);
+  const services = useServiceSlice((s) => s.items);
+  const getServices = useServiceSlice((s) => s.getServices);
   const currencies = useCurrencySlice((s) => s.items);
   const { lastUsedCurrencyId } = useUiPrefStore();
 
@@ -113,7 +172,7 @@ export function SaleItemsEditor({
   // handler — never during render.
   const rowKey = useRef(rows.length - 1);
   // The single currency for the whole sale. In edit mode it is the sale's own;
-  // otherwise last-used, until the first product is picked (which adopts its
+  // otherwise last-used, until the first catalog item is picked (which adopts its
   // currency, unless the user has already changed it manually).
   const [currencyId, setCurrencyId] = useState<string | null>(
     initial ? initial.currencyId : (lastUsedCurrencyId ?? null),
@@ -121,21 +180,25 @@ export function SaleItemsEditor({
   // An edited sale already has its currency — nothing may hijack it.
   const [currencyTouched, setCurrencyTouched] = useState(initial != null);
   const [addProductOpen, setAddProductOpen] = useState(false);
+  // Which row asked for a new service, so the created one can be selected there.
+  const [addServiceFor, setAddServiceFor] = useState<string | null>(null);
   // Frozen on the first render, so "dirty" means the user changed something.
   const [baseline] = useState(() => signatureOf(rows, currencyId));
 
-  // `getProducts` self-guards on the slice's `loaded` flag — no length check, and
-  // no re-query on every sale-form open for a tenant with no products yet.
+  // Both self-guard on their slice's `loaded` flag — no length check, and no
+  // re-query on every sale-form open for a tenant with no rows yet.
   useEffect(() => {
     void getProducts();
-  }, [getProducts]);
+    void getServices();
+  }, [getProducts, getServices]);
 
   // Units the sale being edited is holding. They come back to the pool as part
   // of the same save, so they count as available here — otherwise re-pricing a
-  // sale that took the last unit would read as out of stock.
+  // sale that took the last unit would read as out of stock. Product lines only.
   const stockCredit = useMemo(() => {
     const credit = new Map<string, number>();
     for (const it of initial?.items ?? []) {
+      if (it.lineType !== "product" || !it.productId) continue;
       credit.set(it.productId, (credit.get(it.productId) ?? 0) + it.quantity);
     }
     return credit;
@@ -149,6 +212,22 @@ export function SaleItemsEditor({
     [products, stockCredit],
   );
 
+  // Same rule for services: a retired one stays selectable on the line that
+  // already carries it.
+  const usedServiceIds = useMemo(
+    () =>
+      new Set(
+        (initial?.items ?? [])
+          .map((it) => it.serviceId)
+          .filter((id): id is string => id != null),
+      ),
+    [initial],
+  );
+  const sellableServices = useMemo(
+    () => services.filter((s) => s.active || usedServiceIds.has(s.id)),
+    [services, usedServiceIds],
+  );
+
   // On-hand plus what this sale is giving back — the real ceiling for the cart.
   const poolFor = useCallback(
     (product: Product) => product.stockOnHand + (stockCredit.get(product.id) ?? 0),
@@ -160,7 +239,7 @@ export function SaleItemsEditor({
 
   const saleCurrency = findCurrency(currencies, currencyId);
 
-  // Prices show in the sale currency so products priced in different currencies
+  // Prices show in the sale currency so items priced in different currencies
   // stay comparable — and match the unit amount the pick will prefill.
   // Out-of-stock products stay listed but greyed out, so the user can see why
   // they can't be sold. SaleService re-checks on submit — this is only a hint.
@@ -179,6 +258,18 @@ export function SaleItemsEditor({
     };
   });
 
+  // No stock line and nothing to disable — labour never runs out.
+  const serviceOptions: DropdownOption<string>[] = sellableServices.map((s) => ({
+    label: s.name,
+    sublabel: formatMoney(
+      s.price,
+      findCurrency(currencies, s.currencyId),
+      saleCurrency,
+    ),
+    value: s.id,
+    disabled: !s.active,
+  }));
+
   // What's still sellable for a row: the pool minus what the OTHER rows already
   // took of the same product (the same product can sit on several lines).
   function availableIn(list: Row[], key: string, productId: string | null): number {
@@ -190,27 +281,31 @@ export function SaleItemsEditor({
     return poolFor(product) - takenElsewhere;
   }
 
-  // Convert a product's catalog price into the given sale currency (rounded).
-  function priceInCurrency(product: Product, target: Currency | null): number {
-    const source = findCurrency(currencies, product.currencyId);
-    return roundTo(
-      convert(product.price, source, target),
-      target?.decimals ?? 2,
-    );
+  // Convert a catalog price into the given sale currency (rounded).
+  function priceInCurrency(
+    item: { price: number; currencyId: string | null },
+    target: Currency | null,
+  ): number {
+    const source = findCurrency(currencies, item.currencyId);
+    return roundTo(convert(item.price, source, target), target?.decimals ?? 2);
+  }
+
+  // Adopt the first picked catalog item's currency as the sale currency, unless
+  // the user already chose one. Returns the currency the caller should price in.
+  // A one-off typed service has no currency of its own, so it never gets here.
+  function adoptCurrency(key: string, itemCurrencyId: string | null): Currency | null {
+    const isFirstPick = !rows.some((r) => r.key !== key && rowIsNamed(r));
+    let targetId = currencyId;
+    if (isFirstPick && !currencyTouched) {
+      targetId = itemCurrencyId;
+      setCurrencyId(itemCurrencyId);
+    }
+    return findCurrency(currencies, targetId);
   }
 
   function selectProduct(key: string, productId: string | null) {
     const product = sellableProducts.find((p) => p.id === productId) ?? null;
-    const firstProduct =
-      product != null && !rows.some((r) => r.productId && r.key !== key);
-    // The first product picked adopts its own currency as the sale currency,
-    // unless the user has already chosen one manually.
-    let targetId = currencyId;
-    if (firstProduct && !currencyTouched) {
-      targetId = product.currencyId;
-      setCurrencyId(product.currencyId);
-    }
-    const target = findCurrency(currencies, targetId);
+    const target = product ? adoptCurrency(key, product.currencyId) : saleCurrency;
     setRows((prev) =>
       prev.map((r) =>
         r.key === key
@@ -230,25 +325,62 @@ export function SaleItemsEditor({
     );
   }
 
+  // Takes the resolved row, not an id: a service created from this form is not in
+  // `services` yet on this render, so a lookup would miss it and the line would
+  // open with no price.
+  function applyService(key: string, service: Service | null) {
+    const target = service ? adoptCurrency(key, service.currencyId) : saleCurrency;
+    setRows((prev) =>
+      prev.map((r) =>
+        r.key === key
+          ? {
+              ...r,
+              serviceId: service?.id ?? null,
+              // Back to "Other": the typed name takes over, so drop the price the
+              // catalog pick filled in and let the user set it.
+              customName: service ? "" : r.customName,
+              unitAmount: service ? priceInCurrency(service, target) : null,
+            }
+          : r,
+      ),
+    );
+  }
+
+  function selectService(key: string, serviceId: string | null) {
+    applyService(key, sellableServices.find((s) => s.id === serviceId) ?? null);
+  }
+
+  function setCustomName(key: string, customName: string) {
+    setRows((prev) =>
+      prev.map((r) => (r.key === key ? { ...r, customName } : r)),
+    );
+  }
+
   function changeSaleCurrency(nextId: string | null) {
     setCurrencyTouched(true);
     setCurrencyId(nextId);
     const target = findCurrency(currencies, nextId);
-    // Re-price every line from its product's catalog price into the new currency.
+    // Re-price every catalog line from its own price into the new currency. A
+    // one-off service has no catalog price, so its typed amount is left alone.
     setRows((prev) =>
       prev.map((r) => {
-        const p = sellableProducts.find((pp) => pp.id === r.productId);
-        return p ? { ...r, unitAmount: priceInCurrency(p, target) } : r;
+        const catalogItem =
+          r.lineType === "product"
+            ? sellableProducts.find((p) => p.id === r.productId)
+            : sellableServices.find((s) => s.id === r.serviceId);
+        return catalogItem
+          ? { ...r, unitAmount: priceInCurrency(catalogItem, target) }
+          : r;
       }),
     );
   }
 
-  // Capped at what's left in stock so the form can't build a sale the service
-  // would reject.
+  // Product rows only — a service row has no stepper. Capped at what's left in
+  // stock so the form can't build a sale the service layer would reject.
   function setQuantity(key: string, quantity: number) {
     setRows((prev) =>
       prev.map((r) => {
-        if (r.key !== key) return r;
+        if (r.key !== key || r.lineType !== "product") return r;
         const max = Math.max(1, availableIn(prev, key, r.productId));
         return { ...r, quantity: Math.min(max, Math.max(1, quantity)) };
       }),
@@ -261,15 +393,22 @@ export function SaleItemsEditor({
     );
   }
 
-  function addRow() {
+  function addRow(lineType: SaleLineType) {
     rowKey.current += 1;
-    setRows((prev) => [...prev, makeRow(rowKey.current)]);
+    setRows((prev) => [...prev, makeRow(rowKey.current, lineType)]);
   }
 
+  // The last row may go too: an empty cart is a valid state (the add buttons are
+  // still there), and it is the only way to change a line's kind.
   function removeRow(key: string) {
-    setRows((prev) =>
-      prev.length <= 1 ? prev : prev.filter((r) => r.key !== key),
-    );
+    setRows((prev) => prev.filter((r) => r.key !== key));
+  }
+
+  // A service created from a row's "add new" is selected on that row right away,
+  // priced from the object the form just saved.
+  function handleServiceCreated(service: Service) {
+    if (!addServiceFor) return;
+    applyService(addServiceFor, service);
   }
 
   // Resolve the cart draft and report it to the parent whenever it changes.
@@ -277,29 +416,45 @@ export function SaleItemsEditor({
     const lines: SaleLineDraft[] = [];
     let incomplete = false;
     for (const r of rows) {
-      const product = sellableProducts.find((p) => p.id === r.productId) ?? null;
       const validAmount = r.unitAmount != null && r.unitAmount > 0;
-      if (product && validAmount && r.quantity > 0) {
-        lines.push({
-          product,
-          quantity: r.quantity,
-          unitAmount: r.unitAmount as number,
-        });
+      const amount = r.unitAmount as number;
+      if (!validAmount || r.quantity <= 0) {
+        incomplete = true;
+        continue;
+      }
+      if (r.lineType === "product") {
+        const product = sellableProducts.find((p) => p.id === r.productId) ?? null;
+        if (product) {
+          lines.push({ kind: "product", product, quantity: r.quantity, unitAmount: amount });
+        } else {
+          incomplete = true;
+        }
+        continue;
+      }
+      const service = sellableServices.find((s) => s.id === r.serviceId) ?? null;
+      const name = service?.name ?? r.customName.trim();
+      if (name) {
+        lines.push({ kind: "service", service, name, unitAmount: amount });
       } else {
         incomplete = true;
       }
     }
     // Sum per product, not per line — the same product can sit on two rows and
-    // only their total is what stock has to cover. Mirrors SaleService's check.
+    // only their total is what stock has to cover. Mirrors SaleService's check;
+    // service lines take no stock, so they are absent here.
     const perProduct = new Map<string, number>();
     for (const l of lines) {
+      if (l.kind !== "product") continue;
       perProduct.set(l.product.id, (perProduct.get(l.product.id) ?? 0) + l.quantity);
     }
     const oversold = [...perProduct].some(([id, qty]) => {
       const product = sellableProducts.find((p) => p.id === id);
       return !product || poolFor(product) < qty;
     });
-    const total = lines.reduce((sum, l) => sum + l.unitAmount * l.quantity, 0);
+    const total = lines.reduce(
+      (sum, l) => sum + l.unitAmount * lineQuantity(l),
+      0,
+    );
     onChange({
       lines,
       total,
@@ -312,6 +467,7 @@ export function SaleItemsEditor({
     rows,
     currencyId,
     sellableProducts,
+    sellableServices,
     saleCurrency,
     poolFor,
     baseline,
@@ -360,77 +516,124 @@ export function SaleItemsEditor({
           key={row.key}
           className="rounded-2xl border border-gray-200 bg-gray-50 px-3.5 pt-4 pb-1 mb-3"
         >
-          {multiple ? (
-            <View className="flex-row items-center justify-between mb-1">
-              <View className="flex-row items-center">
-                <View className="w-6 h-6 rounded-full bg-emerald-50 items-center justify-center">
-                  <Text fontWeight="Bold" className="text-xs text-success">
-                    {i + 1}
-                  </Text>
-                </View>
-                <Text
-                  fontWeight="SemiBold"
-                  className="ms-2 text-sm text-gray-700"
-                >
-                  {t("sales.item_label", { number: i + 1 })}
-                </Text>
-              </View>
-              <PressableOpacity
-                onPress={() => removeRow(row.key)}
-                accessibilityLabel={t("sales.remove_product")}
-                hitSlop={8}
-                className="flex-row items-center px-2 py-1 -me-1"
+          {/* What this line sells — a label, not a switch. To change it, remove
+              the line and add the other kind. */}
+          <View className="flex-row items-center justify-between mb-2">
+            <View className="flex-row items-center flex-1">
+              <View
+                className={`w-6 h-6 rounded-full items-center justify-center ${
+                  row.lineType === "product" ? "bg-emerald-50" : "bg-indigo-50"
+                }`}
               >
                 <Ionicons
-                  name="trash-outline"
-                  size={15}
-                  color={COLORS.danger}
+                  name={
+                    row.lineType === "product"
+                      ? "cube-outline"
+                      : "construct-outline"
+                  }
+                  size={13}
+                  color={
+                    row.lineType === "product" ? COLORS.success : COLORS.primary
+                  }
                 />
-                <Text className="ms-1 text-xs text-danger font-medium">
-                  {t("sales.remove_product")}
+              </View>
+              <Text
+                fontWeight="SemiBold"
+                className="ms-2 text-sm text-gray-700"
+              >
+                {row.lineType === "product"
+                  ? t("sales.line_type_product")
+                  : t("sales.line_type_service")}
+              </Text>
+              {multiple ? (
+                <Text className="ms-1.5 text-xs text-gray-400">
+                  {`#${i + 1}`}
                 </Text>
-              </PressableOpacity>
+              ) : null}
             </View>
-          ) : null}
+            <PressableOpacity
+              onPress={() => removeRow(row.key)}
+              accessibilityLabel={t("sales.remove_item")}
+              hitSlop={8}
+              className="flex-row items-center px-2 py-1 -me-1"
+            >
+              <Ionicons name="trash-outline" size={15} color={COLORS.danger} />
+              <Text className="ms-1 text-xs text-danger font-medium">
+                {t("sales.remove_item")}
+              </Text>
+            </PressableOpacity>
+          </View>
 
-          <Dropdown<string>
-            label={t("sales.product_label") + " *"}
-            placeholder={t("sales.product_placeholder")}
-            options={productOptions}
-            value={row.productId}
-            onChange={(v) => selectProduct(row.key, v)}
-            onAddNew={() => setAddProductOpen(true)}
-          />
+          {row.lineType === "product" ? (
+            <Dropdown<string>
+              label={t("sales.product_label") + " *"}
+              placeholder={t("sales.product_placeholder")}
+              options={productOptions}
+              value={row.productId}
+              onChange={(v) => selectProduct(row.key, v)}
+              onAddNew={() => setAddProductOpen(true)}
+            />
+          ) : (
+            <>
+              {/* "Other" (null) is the one-off: the name below IS the record. */}
+              <Dropdown<string>
+                label={t("sales.service_label") + " *"}
+                placeholder={t("sales.service_placeholder")}
+                options={serviceOptions}
+                value={row.serviceId}
+                onChange={(v) => selectService(row.key, v)}
+                nullable
+                nullLabel={t("sales.service_other")}
+                nullSublabel={t("sales.service_other_hint")}
+                onAddNew={() => setAddServiceFor(row.key)}
+              />
+              {row.serviceId === null ? (
+                <Input
+                  label={t("sales.service_name_label") + " *"}
+                  value={row.customName}
+                  onChangeText={(v) => setCustomName(row.key, v)}
+                  placeholder={t("sales.service_name_placeholder")}
+                  onFocus={onFocusClearError}
+                />
+              ) : null}
+            </>
+          )}
 
           <View className="flex-row items-start gap-2">
-            {/* Quantity stepper — capped at what stock is left for this row */}
-            <View className="mb-4">
-              <Text className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
-                {t("sales.quantity_label")}
-              </Text>
-              <View className="flex-row items-center border border-gray-200 rounded-xl bg-white px-2 py-1.5">
-                <PressableOpacity
-                  onPress={() => setQuantity(row.key, row.quantity - 1)}
-                  className="w-8 h-8 rounded-lg bg-gray-100 items-center justify-center"
-                >
-                  <Ionicons name="remove" size={16} color={COLORS.gray700} />
-                </PressableOpacity>
-                <Text className="text-base font-semibold text-gray-900 w-9 text-center">
-                  {row.quantity}
+            {/* Quantity stepper — products only; labour is one job, one price */}
+            {row.lineType === "product" ? (
+              <View className="mb-4">
+                <Text className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                  {t("sales.quantity_label")}
                 </Text>
-                <PressableOpacity
-                  onPress={() => setQuantity(row.key, row.quantity + 1)}
-                  className="w-8 h-8 rounded-lg bg-gray-100 items-center justify-center"
-                >
-                  <Ionicons name="add" size={16} color={COLORS.gray700} />
-                </PressableOpacity>
+                <View className="flex-row items-center border border-gray-200 rounded-xl bg-white px-2 py-1.5">
+                  <PressableOpacity
+                    onPress={() => setQuantity(row.key, row.quantity - 1)}
+                    className="w-8 h-8 rounded-lg bg-gray-100 items-center justify-center"
+                  >
+                    <Ionicons name="remove" size={16} color={COLORS.gray700} />
+                  </PressableOpacity>
+                  <Text className="text-base font-semibold text-gray-900 w-9 text-center">
+                    {row.quantity}
+                  </Text>
+                  <PressableOpacity
+                    onPress={() => setQuantity(row.key, row.quantity + 1)}
+                    className="w-8 h-8 rounded-lg bg-gray-100 items-center justify-center"
+                  >
+                    <Ionicons name="add" size={16} color={COLORS.gray700} />
+                  </PressableOpacity>
+                </View>
               </View>
-            </View>
+            ) : null}
 
-            {/* Unit amount, locked to the sale currency */}
+            {/* The line's money: a product's unit price, a service's whole fee */}
             <View className="flex-1">
               <CurrencyInput
-                label={t("sales.unit_amount_label") + " *"}
+                label={
+                  (row.lineType === "product"
+                    ? t("sales.unit_amount_label")
+                    : t("sales.service_price_label")) + " *"
+                }
                 amount={row.unitAmount}
                 currencyId={currencyId}
                 onChange={({ amount }) => setUnitAmount(row.key, amount)}
@@ -442,8 +645,8 @@ export function SaleItemsEditor({
             </View>
           </View>
 
-          {/* Remaining stock for this row */}
-          {row.productId ? (
+          {/* Remaining stock for this row — products only */}
+          {row.lineType === "product" && row.productId ? (
             <View className="-mt-2 mb-2">
               <Text className="text-xs text-gray-400">
                 {t("sales.stock_left", {
@@ -468,20 +671,59 @@ export function SaleItemsEditor({
         </View>
       ))}
 
-      {/* Add product — dashed affordance */}
-      <PressableOpacity
-        onPress={addRow}
-        className="flex-row items-center justify-center rounded-2xl border border-dashed border-gray-300 py-3"
-      >
-        <Ionicons name="add" size={18} color={COLORS.primary} />
-        <Text className="text-primary text-sm font-semibold ms-1">
-          {t("sales.add_product")}
-        </Text>
-      </PressableOpacity>
+      {/* Add a line — one button per kind, so the choice is made here and never
+          has to be undone on a row that already holds something. */}
+      <View className="flex-row gap-3">
+        <AddLineButton
+          icon="cube-outline"
+          label={t("sales.add_product")}
+          onPress={() => addRow("product")}
+        />
+        <AddLineButton
+          icon="construct-outline"
+          label={t("sales.add_service")}
+          onPress={() => addRow("service")}
+        />
+      </View>
 
       {addProductOpen && (
         <ProductFormSheet onDismiss={() => setAddProductOpen(false)} />
       )}
+
+      {addServiceFor && (
+        <ServiceFormSheet
+          onDismiss={() => setAddServiceFor(null)}
+          onSaved={handleServiceCreated}
+        />
+      )}
     </View>
+  );
+}
+
+// Half-width dashed affordance — one per line kind. Also the editor's empty
+// state, which is why it must stay readable with no rows above it.
+function AddLineButton({
+  icon,
+  label,
+  onPress,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <PressableOpacity
+      onPress={onPress}
+      className="flex-1 flex-row items-center justify-center rounded-2xl border border-dashed border-gray-300 py-3 px-2"
+    >
+      <Ionicons name={icon} size={16} color={COLORS.primary} />
+      <Text
+        fontWeight="SemiBold"
+        className="text-primary text-[13px] ms-1.5"
+        numberOfLines={1}
+      >
+        {label}
+      </Text>
+    </PressableOpacity>
   );
 }

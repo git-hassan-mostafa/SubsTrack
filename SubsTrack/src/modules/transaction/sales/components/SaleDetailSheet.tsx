@@ -370,7 +370,9 @@ export function SaleDetailSheet({
   );
 }
 
-// One product line: name + "qty × unit price" on the left, line total on the right.
+// One line: name + "qty × unit price" on the left, line total on the right. A
+// service line is marked with a small icon, so a receipt shows at a glance which
+// part of the bill was labour rather than goods.
 function ItemRow({
   item,
   index,
@@ -384,6 +386,7 @@ function ItemRow({
   format: (v: number) => string;
   divider: boolean;
 }) {
+  const isService = item.lineType === "service";
   return (
     <View
       className={`flex-row items-center px-4 py-3 ${divider ? "border-b border-gray-100" : ""}`}
@@ -396,12 +399,29 @@ function ItemRow({
         </View>
       ) : null}
       <View className="flex-1 pe-3">
-        <Text fontWeight="SemiBold" className="text-sm text-gray-900">
-          {item.productNameSnapshot}
-        </Text>
-        <Text className="text-xs text-gray-400 mt-0.5">
-          {item.quantity} × {format(item.unitAmount)}
-        </Text>
+        <View className="flex-row items-center">
+          {isService ? (
+            <Ionicons
+              name="construct-outline"
+              size={13}
+              color={COLORS.primary}
+              style={{ marginEnd: 5 }}
+            />
+          ) : null}
+          <Text
+            fontWeight="SemiBold"
+            className="flex-1 text-sm text-gray-900"
+            numberOfLines={2}
+          >
+            {item.itemNameSnapshot}
+          </Text>
+        </View>
+        {/* A service has no count — "1 × $25" next to a $25 total reads as noise */}
+        {isService ? null : (
+          <Text className="text-xs text-gray-400 mt-0.5">
+            {item.quantity} × {format(item.unitAmount)}
+          </Text>
+        )}
       </View>
       <Text fontWeight="SemiBold" className="text-sm text-gray-900">
         {format(item.lineTotal)}

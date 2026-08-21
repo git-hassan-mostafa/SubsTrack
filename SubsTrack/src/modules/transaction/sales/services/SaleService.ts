@@ -12,17 +12,31 @@ import {
   type FindSalesOptions,
 } from '../utils/types'
 import { mapDbSaleToSale } from '../utils/mapper';
+import {
+  lineName,
+  lineQuantity,
+  productLines,
+  savedProductLines,
+  toItemPayload,
+  type ProductLineInput,
+} from '../utils/saleLines';
 
-// Frozen human summary of a sale's products, e.g. "Water ×2, Bread". Contains
-// every product name so the Sales-tab search can match any of them.
+// Frozen human summary of everything in a sale, e.g. "Water ×2, Installation".
+// Contains every line's name — products and services alike — so the Sales-tab
+// search, the debt label and the wallet label can all match on it. A service
+// never shows a count (it is always one job), so it prints as a bare name.
 function buildItemsSummary(items: CreateSaleItemInput[]): string {
   return items
-    .map((it) => (it.quantity > 1 ? `${it.product.name} ×${it.quantity}` : it.product.name))
+    .map((it) => {
+      const name = lineName(it);
+      const qty = lineQuantity(it);
+      return qty > 1 ? `${name} ×${qty}` : name;
+    })
     .join(', ');
 }
 
 function totalOf(items: CreateSaleItemInput[]): number {
-  return items.reduce((sum, it) => sum + it.unitAmount * it.quantity, 0);
+  return items.reduce((sum, it) => sum + it.unitAmount * lineQuantity(it), 0);
 }
 
 // Units per product, which is the granularity stock cares about — the same
@@ -48,8 +62,9 @@ class SaleService {
     this.validate(input);
     // Fresh read, not the cached product list — the store can be minutes stale.
     // Every entry point (sale form, quick actions, customer screens) goes
-    // through here, so this is the one place stock can be enforced.
-    await this.assertStockAvailable(input.items);
+    // through here, so this is the one place stock can be enforced. Service
+    // lines are absent from `productLines`, so a service-only sale skips it.
+    await this.assertStockAvailable(productLines(input.items));
     const ratePerUsdSnapshot = input.currency?.ratePerUsd ?? 1;
     if (!(ratePerUsdSnapshot > 0)) {
       throw new Error(i18n.t('errors.rate_snapshot_positive'));
@@ -67,17 +82,13 @@ class SaleService {
       rate_per_usd_snapshot: ratePerUsdSnapshot,
       sold_at: new Date().toISOString(),
       notes: input.notes?.trim() || null,
-      items: input.items.map((it) => ({
-        tenant_id: input.tenantId,
-        product_id: it.product.id,
-        product_name_snapshot: it.product.name,
-        quantity: it.quantity,
-        unit_amount: it.unitAmount,
-      })),
-      // Stock leaving with the sale. Written by the repository alongside the
-      // header + lines (offline: same transaction), so a sale can never exist
-      // without the stock it consumed. sale_id is filled in there.
-      movements: input.items.map((it) =>
+      items: input.items.map((it) => toItemPayload(it, input.tenantId)),
+      // Stock leaving with the sale — PRODUCT lines only, since labour comes off
+      // no shelf. Written by the repository alongside the header + lines
+      // (offline: same transaction), so a sale can never exist without the stock
+      // it consumed. An empty array is the normal case for a service-only sale.
+      // sale_id is filled in there.
+      movements: productLines(input.items).map((it) =>
         productService.movement(input.tenantId, it.product.id, -it.quantity, 'sale', {
           userId: input.recordedByUserId,
         }),
@@ -99,7 +110,10 @@ class SaleService {
     // The units this sale is holding come back to the pool as part of the same
     // edit, so they count as available — without the credit, merely re-pricing a
     // sale that took the last unit would fail its own stock check.
-    await this.assertStockAvailable(input.items, unitsByProduct(sale.items));
+    await this.assertStockAvailable(
+      productLines(input.items),
+      unitsByProduct(savedProductLines(sale.items)),
+    );
     const ratePerUsdSnapshot = input.currency?.ratePerUsd ?? 1;
     if (!(ratePerUsdSnapshot > 0)) {
       throw new Error(i18n.t('errors.rate_snapshot_positive'));
@@ -113,19 +127,17 @@ class SaleService {
       currency_id: input.currency?.id ?? null,
       rate_per_usd_snapshot: ratePerUsdSnapshot,
       notes: input.notes?.trim() || null,
-      items: input.items.map((it) => ({
-        tenant_id: sale.tenantId,
-        product_id: it.product.id,
-        product_name_snapshot: it.product.name,
-        quantity: it.quantity,
-        unit_amount: it.unitAmount,
-      })),
+      items: input.items.map((it) => toItemPayload(it, sale.tenantId)),
       // Only a change in what left the shelf touches the ledger. A price, notes
       // or amount-paid fix leaves it alone, so correcting a sale doesn't litter
-      // every product's stock history with a void + re-add pair.
+      // every product's stock history with a void + re-add pair. Two consequences
+      // of a line being able to be a service: a service-only sale compares two
+      // empty footprints and correctly leaves the ledger alone, and replacing the
+      // last product line with a service yields `[]`, which voids the old
+      // movements and inserts none — giving the stock back exactly once.
       movements: this.sameStockFootprint(sale.items, input.items)
         ? null
-        : input.items.map((it) =>
+        : productLines(input.items).map((it) =>
           productService.movement(sale.tenantId, it.product.id, -it.quantity, 'sale', {
             userId: input.actorUserId,
           }),
@@ -183,11 +195,12 @@ class SaleService {
 
   // True when the edited cart takes exactly the same units off the shelf as the
   // saved one. Compared per PRODUCT, not per line: splitting one line of 3 into
-  // 1 + 2 moves no stock, so the ledger has nothing to correct.
+  // 1 + 2 moves no stock, so the ledger has nothing to correct. Service lines are
+  // invisible here on both sides — adding or re-pricing labour moves no stock.
   private sameStockFootprint(before: SaleItem[], after: CreateSaleItemInput[]): boolean {
-    const was = unitsByProduct(before);
+    const was = unitsByProduct(savedProductLines(before));
     const now = unitsByProduct(
-      after.map((it) => ({ productId: it.product.id, quantity: it.quantity })),
+      productLines(after).map((it) => ({ productId: it.product.id, quantity: it.quantity })),
     );
     if (was.size !== now.size) return false;
     for (const [id, quantity] of was) if (now.get(id) !== quantity) return false;
@@ -198,12 +211,15 @@ class SaleService {
   // lines, so the check compares the SUM per product, not each line on its own.
   // `credited` is stock the same write gives back (an edit releases the units the
   // sale is currently holding), so it counts as available.
+  // Takes PRODUCT lines only — labour has no stock to run out of, and an empty
+  // array short-circuits to a no-op with no round trip.
   // Advisory only: two devices selling the last unit offline can still both
   // succeed — the DB must accept whatever they replay (see gotchas).
   private async assertStockAvailable(
-    items: CreateSaleItemInput[],
+    items: ProductLineInput[],
     credited: Map<string, number> = new Map(),
   ): Promise<void> {
+    if (items.length === 0) return;
     const needed = new Map<string, { name: string; quantity: number }>();
     for (const it of items) {
       const prev = needed.get(it.product.id);
@@ -230,9 +246,16 @@ class SaleService {
       throw new Error(i18n.t('errors.sale_items_required'));
     }
     for (const it of input.items) {
-      if (!it.product?.id) throw new Error(i18n.t('errors.sale_product_required'));
-      if (!Number.isInteger(it.quantity) || it.quantity <= 0) {
-        throw new Error(i18n.t('errors.sale_quantity_invalid'));
+      // What identifies the line differs by kind: a product line needs a real
+      // catalog row, a service line only needs a name (a one-off has no row).
+      // Quantity is a product-only rule — a service line has none to check.
+      if (it.kind === 'product') {
+        if (!it.product?.id) throw new Error(i18n.t('errors.sale_product_required'));
+        if (!Number.isInteger(it.quantity) || it.quantity <= 0) {
+          throw new Error(i18n.t('errors.sale_quantity_invalid'));
+        }
+      } else if (!lineName(it)) {
+        throw new Error(i18n.t('errors.sale_service_required'));
       }
       if (typeof it.unitAmount !== 'number' || Number.isNaN(it.unitAmount) || it.unitAmount <= 0) {
         throw new Error(i18n.t('errors.sale_amount_positive'));

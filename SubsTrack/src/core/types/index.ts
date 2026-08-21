@@ -383,15 +383,45 @@ export interface StockMovement {
   createdAt: string;
 }
 
-// One product line within a sale. A sale (header) holds one or more of these.
-// productNameSnapshot + unitAmount are FROZEN at create time. unitAmount is in the
-// parent sale's currency (one currency per sale). lineTotal is derived, not stored.
+// A SERVICE the tenant sells: labour, not goods — installation, a repair visit.
+// Products' twin, minus stock and cost: nothing is bought, so a service is never
+// an expense (staff pay is typed by hand under the `salaries` expense category).
+// Sold as a line on a Sale, so every money figure counts it via the sale header.
+// branchId: null = SHARED price-list entry. active = false is a soft-delete.
+export interface Service {
+  id: string;
+  tenantId: string;
+  branchId: string | null;
+  name: string;
+  description: string | null;
+  price: number;
+  // Currency the stored price is in. null = USD.
+  currencyId: string | null;
+  active: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// What a sale line sells. A 'service' line may have no serviceId at all — that is
+// the ONE-OFF typed service, whose itemNameSnapshot is the whole record of the job.
+export type SaleLineType = 'product' | 'service';
+
+// One line within a sale — a product or a service. A sale (header) holds one or
+// more, in any mix. itemNameSnapshot + unitAmount are FROZEN at create time.
+// unitAmount is in the parent sale's currency (one currency per sale). lineTotal
+// is derived, not stored.
 export interface SaleItem {
   id: string;
   saleId: string;
   tenantId: string;
-  productId: string;
-  productNameSnapshot: string;
+  lineType: SaleLineType;
+  // Only the one matching lineType is set — and BOTH are null on a one-off
+  // typed service. Anything reading stock must narrow on productId first.
+  productId: string | null;
+  serviceId: string | null;
+  itemNameSnapshot: string;
+  // Always 1 on a service line — labour is one job at one price, so the form
+  // shows no stepper and unitAmount IS the whole fee.
   quantity: number;
   unitAmount: number;
   // Derived: unitAmount * quantity (no DB column).
@@ -399,12 +429,14 @@ export interface SaleItem {
   createdAt: string;
   // Joined for display in the receipt.
   product?: Product | null;
+  service?: Service | null;
 }
 
-// A sale (header). Holds ONE OR MORE products via `items`. customerId is OPTIONAL
-// (walk-in supported). itemsSummary, totalAmount, and ratePerUsdSnapshot are FROZEN
-// at create time — receipts and historical totals never drift when the catalog or
-// FX rates change. One currency per sale (all items share `currencyId`).
+// A sale (header). Holds ONE OR MORE items via `items` — products, services, or
+// both. customerId is OPTIONAL (walk-in supported). itemsSummary, totalAmount, and
+// ratePerUsdSnapshot are FROZEN at create time — receipts and historical totals
+// never drift when the catalog or FX rates change. One currency per sale (all
+// items share `currencyId`).
 export interface Sale {
   id: string;
   tenantId: string;
@@ -743,6 +775,7 @@ export type AuditTable =
   | 'skipped_months'
   | 'plans'
   | 'products'
+  | 'services'
   | 'stock_movements'
   | 'branches'
   | 'currencies'

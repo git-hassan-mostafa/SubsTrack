@@ -199,11 +199,13 @@ export function buildSaleInvoiceText(
   const remaining = sale.totalAmount - sale.amountPaid;
 
   // sale.items is empty on lean reads — the frozen summary is the fallback.
+  // A service line prints as a flat fee: it has no unit count to multiply.
   const itemLines =
     sale.items.length > 0
-      ? sale.items.map(
-          (it) =>
-            `${BULLET} ${it.productNameSnapshot}  ${it.quantity} × ${money(it.unitAmount, source)} = ${money(it.lineTotal, source)}`,
+      ? sale.items.map((it) =>
+          it.lineType === "service"
+            ? `${BULLET} ${it.itemNameSnapshot}  ${money(it.lineTotal, source)}`
+            : `${BULLET} ${it.itemNameSnapshot}  ${it.quantity} × ${money(it.unitAmount, source)} = ${money(it.lineTotal, source)}`,
         )
       : [`${BULLET} ${sale.itemsSummary}`];
 

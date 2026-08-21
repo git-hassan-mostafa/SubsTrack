@@ -44,6 +44,7 @@ SubsTrack/
 │           ├── admin/
 │           │   ├── plans.tsx          # Plans list route
 │           │   ├── products.tsx       # Products catalog route (admin-only)
+│           │   ├── services.tsx       # Service price list route
 │           │   ├── users.tsx          # Users list route
 │           │   ├── subscription.tsx   # Tier comparison + usage + upgrade route
 │           │   └── index.tsx          # Admin menu (manage section)
@@ -91,6 +92,7 @@ SubsTrack/
 │   │       ├── currencies/currencySlice.ts
 │   │       ├── signup/signupSlice.ts
 │   │       ├── products/productSlice.ts
+│   │       ├── services/serviceSlice.ts
 │   │       ├── sales/saleSlice.ts
 │   │       ├── debts/debtSlice.ts
 │   │       ├── expenses/expenseSlice.ts
@@ -184,16 +186,23 @@ SubsTrack/
 │   │   │   ├── screens/ProductListScreen.tsx   # admin-only at app/(app)/(tabs)/admin/products.tsx
 │   │   │   └── components/{ProductCard, ProductFormSheet}.tsx
 │   │   │
-│   │   ├── transactions/                        # Transactions hub — parent of the Debts/Sales/Expenses/Services segments
-│   │   │   └── screens/{TransactionsScreen, ServicesPanel}.tsx  # TransactionsScreen owns chrome + SegmentedTabs (Expenses admin-only); Services is a placeholder
+│   │   ├── service-catalog/                     # The LABOUR price list — products' twin, no stock and no cost
+│   │   │   ├── repository/ServiceRepository.ts # CRUD + countAll + countReferences (sale_items.service_id) (+ .offline)
+│   │   │   ├── services/ServiceCatalogService.ts # validate, create/update, deleteService (soft if referenced). NOT tier-gated
+│   │   │   ├── screens/ServiceListScreen.tsx   # at app/(app)/(tabs)/admin/services.tsx
+│   │   │   └── components/{ServiceCard, ServiceFormSheet}.tsx  # ServiceFormSheet is also opened inline from a sale line
+│   │   │
+│   │   ├── transactions/                        # Transactions hub — parent of the Debts/Sales/Expenses segments
+│   │   │   └── screens/TransactionsScreen.tsx  # owns chrome + SegmentedTabs (Expenses admin-only). No Services segment: a service is a sale LINE
 │   │   │
 │   │   ├── sales/                               # One-off sale ledger (separate from subscription payments)
 │   │   │   ├── repository/SaleRepository.ts    # paginated findAll w/ search, findByCustomer, voidSale, totalsForMonth (drift-free USD)
-│   │   │   ├── services/SaleService.ts         # createSale snapshots productName + unitAmount + ratePerUsd; voidSale; sumForMonthUsd
+│   │   │   ├── services/SaleService.ts         # createSale snapshots the line name + unitAmount + ratePerUsd; voidSale; sumForMonthUsd
+│   │   │   ├── utils/saleLines.ts               # PURE: lineName / productLines / savedProductLines / toItemPayload — the ONE narrowing from "a line" to "a line that moves stock"
 │   │   │   ├── hooks/useCustomerSalesList.ts    # paginated customer-scoped sales-list state, independent of saleSlice (avoids Sales-tab collision)
 │   │   │   ├── screens/SalesPanel.tsx               # Sales segment of the Transactions hub (body only — no page chrome)
 │   │   │   ├── screens/CustomerSalesListScreen.tsx  # full per-customer sales list at customers/[id]/sales
-│   │   │   └── components/{SaleCard, SaleFormSheet, SaleDetailSheet, CustomerSalesPanel}.tsx
+│   │   │   └── components/{SaleCard, SaleFormSheet, SaleItemsEditor, SaleDetailSheet, CustomerSalesPanel}.tsx  # SaleItemsEditor: one row = Product | Service (catalog or one-off)
 │   │   │
 │   │   ├── invoicing/                           # WhatsApp receipt/invoice — a wa.me deep link, no native module
 │   │   │   ├── utils/invoiceText.ts             # PURE builders (t arrives in InvoiceContext); owns the whole message format

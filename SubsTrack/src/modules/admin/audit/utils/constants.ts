@@ -33,6 +33,7 @@ export const AUDITED_TABLES: AuditTable[] = [
   'customer_plans',
   'skipped_months',
   'products',
+  'services',
   'stock_movements',
   'plans',
   'users',

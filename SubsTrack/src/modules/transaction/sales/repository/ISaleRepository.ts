@@ -4,19 +4,22 @@ import type { DbSale, DbSaleItem } from '@/src/core/types/db';
 import type { CreateStockMovementPayload } from '@/src/modules/admin/products';
 import type { FindSalesOptions } from '../utils/types';
 
-// One line of the sale to create. `sale_id` is filled in by the repository, and
-// a line is never born voided.
+// One line of the sale to create — product or service. `sale_id` is filled in by
+// the repository, and a line is never born voided. Built by
+// `utils/saleLines.toItemPayload`, the one place that decides which id column a
+// line sets.
 export type CreateSaleItemPayload = Omit<
   DbSaleItem,
-  'id' | 'sale_id' | 'voided_at' | 'created_at' | 'updated_at' | 'products'
+  'id' | 'sale_id' | 'voided_at' | 'created_at' | 'updated_at' | 'products' | 'services'
 >;
 
-// Sale header to create + its product lines + the stock decrements they cause.
+// Sale header to create + its lines + the stock decrements they cause.
 // `total_amount` and `items_summary` are computed by the service (total_amount
 // is app-written, not generated). `movements` travels with the sale so that
 // offline the whole thing lands in ONE transaction — a sale can never exist
 // without the stock it consumed. `sale_id` on each movement is filled by the
-// repository, like `sale_id` on each item.
+// repository, like `sale_id` on each item. It is EMPTY for a service-only sale:
+// labour comes off no shelf.
 export type CreateSalePayload = Omit<
   DbSale,
   | 'id'
@@ -93,8 +96,9 @@ export interface ISaleRepository {
     opts?: FindSalesOptions,
   ): Promise<{ soldAt: string; amount: number; ratePerUsdSnapshot: number }[]>;
   // Non-voided sales tied to a customer that still owe money
-  // (total_amount > amount_paid), across all time — the "Sales" debt category.
-  // Joined with the customer for display.
+  // (total_amount > amount_paid), across all time — the "Sales" debt category,
+  // whatever mix of products and services the sale holds. Joined with the
+  // customer for display.
   partialSales(branchFilter?: BranchFilter): Promise<DbSale[]>;
   // Collector wallet: non-voided sales someone is holding (held_by_user_id IS
   // NOT NULL) with cash collected (amount_paid > 0). Optionally scoped to one

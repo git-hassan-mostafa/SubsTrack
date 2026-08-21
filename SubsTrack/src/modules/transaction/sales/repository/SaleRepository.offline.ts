@@ -1,6 +1,13 @@
 import { OFFLINE_PAGE_SIZE, type BranchFilter } from '@/src/core/constants';
 import type { CollectedRow } from '@/src/core/types';
-import type { DbCustomer, DbProduct, DbSale, DbSaleItem, DbStockMovement } from '@/src/core/types/db';
+import type {
+  DbCustomer,
+  DbProduct,
+  DbSale,
+  DbSaleItem,
+  DbService,
+  DbStockMovement,
+} from '@/src/core/types/db';
 import { OfflineBaseRepository } from '@/src/core/offline/OfflineBaseRepository';
 import { insertDirty, updateDirty } from '@/src/core/offline/db/dml';
 import { newId, nowIso } from '@/src/core/offline/ids';
@@ -10,7 +17,7 @@ import type { CreateSalePayload, ISaleRepository, UpdateSalePayload } from './IS
 import { dayStartIso, nextDayStartIso } from '@/src/core/utils/dateRange';
 
 /** SQLite-backed sales repository. Reproduces
- *  `'*, sale_items(*, products(*)), customers(*)'`. */
+ *  `'*, sale_items(*, products(*), services(*)), customers(*)'`. */
 export class OfflineSaleRepository extends OfflineBaseRepository implements ISaleRepository {
   private async hydrate(sales: DbSale[]): Promise<DbSale[]> {
     if (sales.length === 0) return sales;
@@ -20,9 +27,18 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
       sales.map((s) => s.id),
       'created_at',
     );
+    // A line sets only one of the two id columns — and a one-off typed service
+    // sets neither — so both lists are collected with a null guard.
     const productIds: string[] = [];
-    for (const arr of itemsByParent.values()) for (const it of arr) productIds.push(it.product_id);
+    const serviceIds: string[] = [];
+    for (const arr of itemsByParent.values()) {
+      for (const it of arr) {
+        if (it.product_id) productIds.push(it.product_id);
+        if (it.service_id) serviceIds.push(it.service_id);
+      }
+    }
     const products = await this.rowsById<DbProduct>('products', productIds);
+    const services = await this.rowsById<DbService>('services', serviceIds);
     const customers = await this.rowsById<DbCustomer>(
       'customers',
       sales.map((s) => s.customer_id).filter((c): c is string => !!c),
@@ -31,7 +47,8 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
       ...s,
       sale_items: (itemsByParent.get(s.id) ?? []).map((it) => ({
         ...it,
-        products: products.get(it.product_id) ?? null,
+        products: it.product_id ? products.get(it.product_id) ?? null : null,
+        services: it.service_id ? services.get(it.service_id) ?? null : null,
       })),
       customers: s.customer_id ? customers.get(s.customer_id) ?? null : null,
     }));

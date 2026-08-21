@@ -33,6 +33,7 @@ export function refreshActiveData(): void {
   if (s.currencies.loaded) void s.currencies.fetchCurrencies();
   if (s.branches.loaded) void s.branches.fetchBranches();
   if (s.products.loaded) void s.products.fetchProducts();
+  if (s.services.loaded) void s.services.fetchServices();
   if (s.users.loaded) void s.users.fetchUsers();
   if (s.sales.items.length) void s.sales.fetchSales();
   if (s.paymentsList.items.length) void s.paymentsList.fetchPayments();

@@ -17,6 +17,7 @@ export default function AdminLayout() {
       <Stack.Screen name="wallets" options={{ headerShown: false }} />
       <Stack.Screen name="plans" options={{ headerShown: false }} />
       <Stack.Screen name="products" options={{ headerShown: false }} />
+      <Stack.Screen name="services" options={{ headerShown: false }} />
       <Stack.Screen name="tenant-settings" options={{ headerShown: false }} />
       <Stack.Screen name="audit" options={{ headerShown: false }} />
       <Stack.Screen name="currencies" options={{ headerShown: false }} />

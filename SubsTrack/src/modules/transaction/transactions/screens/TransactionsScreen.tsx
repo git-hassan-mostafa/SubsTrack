@@ -12,16 +12,16 @@ import {
 import { SalesPanel } from "@/src/modules/transaction/sales";
 import { DebtsPanel } from "@/src/modules/transaction/debts";
 import { ExpensesPanel } from "@/src/modules/transaction/expenses";
-import { ServicesPanel } from "./ServicesPanel";
 import { PageHeader } from "@/src/shared/components/PageHeader";
 import { useAuth } from "@/src/modules/authentication/auth";
 
-type TransactionsTab = "sales" | "debts" | "expenses" | "services";
+type TransactionsTab = "sales" | "debts" | "expenses";
 
-// The Transactions hub: a single bottom tab hosting Sales, Debts, Expenses and
-// (future) Services as in-page segments. Owns the page chrome; each panel owns
-// its body. (Payments history moved out to a quick-actions sheet —
-// PaymentsHistorySheet.)
+// The Transactions hub: a single bottom tab hosting Sales, Debts and Expenses as
+// in-page segments. Owns the page chrome; each panel owns its body.
+// (Payments history moved out to a quick-actions sheet — PaymentsHistorySheet.
+// Services are not a segment: a service is a LINE ON A SALE, so the Sales tab
+// already lists it, and its price list lives at Admin → Services.)
 export function TransactionsScreen() {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -38,7 +38,6 @@ export function TransactionsScreen() {
       ...(isAdmin
         ? [{ key: "expenses" as const, label: t("transactions.tab_expenses") }]
         : []),
-      { key: "services", label: t("transactions.tab_services") },
     ],
     [t, isAdmin],
   );
@@ -78,7 +77,6 @@ export function TransactionsScreen() {
           {tab === "sales" ? <SalesPanel /> : null}
           {tab === "debts" ? <DebtsPanel /> : null}
           {tab === "expenses" && isAdmin ? <ExpensesPanel /> : null}
-          {tab === "services" ? <ServicesPanel /> : null}
         </View>
       </GestureDetector>
     </SafeAreaView>
