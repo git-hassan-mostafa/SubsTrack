@@ -58,7 +58,10 @@ export function DashboardScreen() {
   // occasional customer owes nothing, so counting it would cap the bar below
   // 100% with nothing left to collect. Nothing due reads as fully collected.
   const dueCustomers = metrics?.dueThisMonth ?? 0;
-  const paidCustomers = Math.max(0, dueCustomers - (metrics?.unpaidThisMonth ?? 0));
+  const paidCustomers = Math.max(
+    0,
+    dueCustomers - (metrics?.unpaidThisMonth ?? 0),
+  );
   const collectedPct =
     dueCustomers > 0 ? Math.round((paidCustomers / dueCustomers) * 100) : 100;
   // Revenue mix, keeping only the streams that earned something. A single stream
@@ -75,6 +78,16 @@ export function DashboardScreen() {
       key: "sales",
       label: t("dashboard.sales_label"),
       value: metrics?.salesRevenue ?? 0,
+    },
+    {
+      key: "expenses",
+      label: t("dashboard.expenses_label"),
+      value: metrics?.totalDebt ?? 0,
+    },
+    {
+      key: "debts",
+      label: t("dashboard.owed_by_customers"),
+      value: metrics?.totalDebt ?? 0,
     },
   ].filter((s) => s.value > 0);
   const showRevenueMix = revenueMix.length > 1;
@@ -105,8 +118,6 @@ export function DashboardScreen() {
 
   // Average subscription payment collected this month.
   const paymentsCount = metrics?.paymentsCollectedCount ?? 0;
-  const avgPayment =
-    paymentsCount > 0 ? (metrics?.subscriptionRevenue ?? 0) / paymentsCount : 0;
 
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
@@ -195,53 +206,55 @@ export function DashboardScreen() {
                     year,
                   })}
                 </Text>
-
-                {/* Total revenue */}
-                <Text fontWeight="Bold" className="text-4xl text-white">
-                  {fmt(metrics?.monthlyRevenue ?? 0)}
-                </Text>
-
-                {/* Month-over-month change — only when a prior month exists */}
-                {momPct !== null ? (
-                  <View className="flex-row items-center mt-2">
-                    <View
-                      className={`flex-row items-center gap-1 rounded-full px-2 py-0.5 ${
-                        momPct >= 0 ? "bg-emerald-400/20" : "bg-red-400/20"
-                      }`}
-                    >
-                      <Ionicons
-                        name={momPct >= 0 ? "arrow-up" : "arrow-down"}
-                        size={12}
-                        color={momPct >= 0 ? "#6ee7b7" : "#fca5a5"}
-                      />
-                      <Text
-                        fontWeight="SemiBold"
-                        className={`text-xs ${momPct >= 0 ? "text-emerald-200" : "text-red-200"}`}
-                      >
-                        {Math.abs(momPct)}%
-                      </Text>
-                    </View>
-                    <Text className="text-xs text-indigo-300 ml-2">
-                      {t("dashboard.vs_last_month")}
+                <View className="flex flex-row items-center gap-5">
+                  <View>
+                    {/* Total revenue */}
+                    <Text fontWeight="Bold" className="text-4xl text-white">
+                      {fmt(metrics?.monthlyRevenue ?? 0)}
                     </Text>
                   </View>
-                ) : null}
-
+                  {/* Month-over-month change — only when a prior month exists */}
+                  {momPct !== null ? (
+                    <View className="flex-row items-center">
+                      <View
+                        className={`flex-row items-center gap-1 rounded-full px-2 py-0.5 ${
+                          momPct >= 0 ? "bg-emerald-400/20" : "bg-red-400/20"
+                        }`}
+                      >
+                        <Ionicons
+                          name={momPct >= 0 ? "arrow-up" : "arrow-down"}
+                          size={12}
+                          color={momPct >= 0 ? "#6ee7b7" : "#fca5a5"}
+                        />
+                        <Text
+                          fontWeight="SemiBold"
+                          className={`text-xs ${momPct >= 0 ? "text-emerald-200" : "text-red-200"}`}
+                        >
+                          {Math.abs(momPct)}%
+                        </Text>
+                      </View>
+                      <Text className="text-xs text-indigo-300 ml-2">
+                        {t("dashboard.vs_last_month")}
+                      </Text>
+                    </View>
+                  ) : null}
+                </View>
                 {/* Revenue breakdown — only when more than one stream earned */}
                 {showRevenueMix ? (
-                  <View className="flex-row mt-3 gap-3">
+                  <View className="flex-row mt-3 justify-between">
                     {revenueMix.map((stream, i) => (
                       <Fragment key={stream.key}>
                         {i > 0 ? <View className="w-px bg-indigo-500" /> : null}
-                        <View className="flex-1">
+                        <View>
                           <Text
+                            fontWeight="SemiBold"
                             numberOfLines={1}
                             className="text-xs text-indigo-300 mb-0.5"
                           >
                             {stream.label}
                           </Text>
                           <Text
-                            fontWeight="SemiBold"
+                            fontWeight="Bold"
                             numberOfLines={1}
                             className="text-sm text-white"
                           >
@@ -253,54 +266,26 @@ export function DashboardScreen() {
                   </View>
                 ) : null}
 
-                {/* Two money-OUT chips, both tinted and prefixed with a minus so
-                    they can never read as part of the collected total above.
-                    Expenses are ORANGE and debt RED — the same colours they wear
-                    in the trend chart, and they mean different things: money
-                    already spent vs money not yet collected. */}
-                {showExpenses || hasDebt ? (
-                  <View className="flex-row flex-wrap gap-2 mt-3">
-                    {showExpenses ? (
-                      <View className="flex-row items-baseline gap-2 rounded-lg bg-orange-400/20 px-2.5 py-1.5">
-                        <Text className="text-xs text-orange-200">
-                          {t("dashboard.expenses_label")}
-                        </Text>
-                        <Text fontWeight="SemiBold" className="text-sm text-orange-100">
-                          {`−${fmt(monthlyExpenses)}`}
-                        </Text>
-                      </View>
-                    ) : null}
-                    {hasDebt ? (
-                      <View className="flex-row items-baseline gap-2 rounded-lg bg-red-400/20 px-2.5 py-1.5">
-                        <Text className="text-xs text-red-200">
-                          {t("dashboard.owed_by_customers")}
-                        </Text>
-                        <Text
-                          fontWeight="SemiBold"
-                          className="text-sm text-red-100"
-                        >
-                          {`−${fmt(metrics?.totalDebt ?? 0)}`}
-                        </Text>
-                      </View>
-                    ) : null}
-                  </View>
-                ) : null}
-
                 {/* Divider */}
-                <View className="h-px bg-indigo-500 mt-4 mb-4" />
+                <View className="h-px bg-indigo-500 mt-1 mb-4" />
 
                 {/* Net — collected minus spent. The only figure on the card that
                     can go negative, so it says so in red. */}
                 {showExpenses ? (
                   <View className="flex-row items-center justify-between mb-4">
-                    <Text className="text-xs text-indigo-300 uppercase tracking-widest">
+                    <Text
+                      fontWeight="Bold"
+                      className="text-sm text-indigo-300 uppercase tracking-widest"
+                    >
                       {t("dashboard.net_income")}
                     </Text>
                     <Text
                       fontWeight="Bold"
                       className={`text-xl ${netIncome < 0 ? "text-red-200" : "text-white"}`}
                     >
-                      {netIncome < 0 ? `−${fmt(Math.abs(netIncome))}` : fmt(netIncome)}
+                      {netIncome < 0
+                        ? `−${fmt(Math.abs(netIncome))}`
+                        : fmt(netIncome)}
                     </Text>
                   </View>
                 ) : null}
@@ -373,11 +358,7 @@ export function DashboardScreen() {
                   <StatTile
                     label={t("dashboard.payments_recorded")}
                     value={paymentsCount}
-                    sub={
-                      paymentsCount > 0
-                        ? t("dashboard.avg_each", { amount: fmt(avgPayment) })
-                        : t("dashboard.this_month")
-                    }
+                    sub={t("dashboard.this_month")}
                     tone="primary"
                     icon="card-outline"
                   />

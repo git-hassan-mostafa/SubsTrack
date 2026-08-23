@@ -125,7 +125,6 @@
     "left": "left this month",
     "payments_recorded": "Payments",
     "sales_recorded": "Sales",
-    "avg_each": "avg {{amount}} each",
     "total_debt": "Total Debt",
     "debt_breakdown": "Months {{months}} · Sales {{sales}}",
     "cash_in_wallets": "Cash in Wallets",
