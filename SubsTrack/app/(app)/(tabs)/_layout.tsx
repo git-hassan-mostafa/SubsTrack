@@ -43,16 +43,17 @@ export default function TabsLayout() {
         // which is what keeps all five icons on the same line.
         tabBarLabel: ({ focused, color, children }) => (
           <Text
-            fontWeight="Medium"
+            fontWeight="Bold"
             numberOfLines={1}
             style={{
-              fontSize: 12,
+              fontSize: 14,
               lineHeight: TAB_LABEL_HEIGHT,
               marginBottom: TAB_LABEL_MARGIN,
               textAlign: "center",
               color,
               opacity: focused ? 1 : 0,
               overflow: "visible",
+              width: 100,
             }}
           >
             {children}
