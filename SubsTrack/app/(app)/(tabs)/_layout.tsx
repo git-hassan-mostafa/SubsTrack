@@ -4,13 +4,22 @@ import { useTranslation } from "react-i18next";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { Feather, Ionicons } from "@expo/vector-icons";
 import { COLORS } from "@/src/shared/constants";
+import { Text } from "@/src/shared/components/Text";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-// Labels are off, so the icon carries the whole tab — bigger than the 24 default.
+// The icon carries the tab, so it is bigger than the 24 default.
 const TAB_ICON_SIZE = 28;
-// Equal breathing room above and below the icon: the bar height is the icon plus
-// twice this, and the icon centres itself in it (see tabBarIconStyle).
-const TAB_ICON_GAP = 14;
+// Only the SELECTED tab is named, but the label slot is reserved on every tab
+// (an unselected one renders it invisible) — otherwise the selected icon would
+// jump up while its neighbours stayed centred. A fixed line height keeps the bar
+// height predictable instead of following the font metrics.
+const TAB_LABEL_HEIGHT = 15;
+// Equal space above the icon and below the label.
+const TAB_ICON_GAP = 8;
+// React Navigation's own padding on the tab item — the gap already includes it.
+const TAB_ITEM_PADDING = 5;
+// What we add on top of that padding: also the icon-to-label gap.
+const TAB_LABEL_MARGIN = TAB_ICON_GAP - TAB_ITEM_PADDING;
 
 export default function TabsLayout() {
   const { isAdmin } = useAuth();
@@ -29,17 +38,41 @@ export default function TabsLayout() {
       backBehavior="history"
       screenOptions={{
         headerShown: false,
-        // Icon-only bar. `title` is kept on every screen for the accessibility
-        // label and the header, it just isn't painted under the icon.
-        tabBarShowLabel: false,
+        // Only the selected tab is named. `children` is the screen title, so one
+        // renderer covers every tab; an unselected label is laid out but not painted,
+        // which is what keeps all five icons on the same line.
+        tabBarLabel: ({ focused, color, children }) => (
+          <Text
+            fontWeight="Medium"
+            numberOfLines={1}
+            style={{
+              fontSize: 12,
+              lineHeight: TAB_LABEL_HEIGHT,
+              marginBottom: TAB_LABEL_MARGIN,
+              textAlign: "center",
+              color,
+              opacity: focused ? 1 : 0,
+              overflow: "visible",
+            }}
+          >
+            {children}
+          </Text>
+        ),
         tabBarStyle: {
           backgroundColor: COLORS.white,
           borderTopColor: COLORS.gray200,
           paddingBottom: bottom,
-          height: TAB_ICON_SIZE + TAB_ICON_GAP * 2 + bottom,
+          // GAP + icon + GAP-to-label + label + GAP, the padding above included.
+          height:
+            TAB_ICON_GAP * 2 +
+            TAB_ICON_SIZE +
+            TAB_LABEL_MARGIN +
+            TAB_LABEL_HEIGHT +
+            bottom,
         },
-        // `auto` margins swallow the free space evenly, so the icon is exactly
-        // centred. React Navigation pins it to the top otherwise (its tab item is
+        // `auto` margins swallow the free space evenly, so the icon sits exactly
+        // TAB_ICON_GAP below the top edge and TAB_LABEL_MARGIN above the label.
+        // React Navigation pins it to the top otherwise (its tab item is
         // `justifyContent: flex-start`), and that pressable is not reachable from
         // `tabBarItemStyle` — which styles the item WRAPPER, not the icon.
         tabBarIconStyle: { marginVertical: "auto" },
@@ -62,7 +95,11 @@ export default function TabsLayout() {
         options={{
           title: t("customers.title"),
           tabBarIcon: ({ color }) => (
-            <Ionicons name="people-outline" size={TAB_ICON_SIZE} color={color} />
+            <Ionicons
+              name="people-outline"
+              size={TAB_ICON_SIZE}
+              color={color}
+            />
           ),
         }}
       />
@@ -100,7 +137,11 @@ export default function TabsLayout() {
           title: t("admin.title"),
           href: isAdmin ? undefined : null,
           tabBarIcon: ({ color }) => (
-            <Ionicons name="shield-outline" size={TAB_ICON_SIZE} color={color} />
+            <Ionicons
+              name="shield-outline"
+              size={TAB_ICON_SIZE}
+              color={color}
+            />
           ),
         }}
       />
