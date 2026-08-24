@@ -4,20 +4,29 @@ import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
 import { COLORS } from "@/src/shared/constants";
 import { EntityCard } from "@/src/shared/components/EntityCard";
-import { ActionMenu, type ActionMenuItem } from "@/src/shared/components/ActionMenu";
+import {
+  ActionMenu,
+  type ActionMenuItem,
+} from "@/src/shared/components/ActionMenu";
 import type { ExpenseItem } from "@/src/core/types";
-import { findCurrency, paymentSnapshotCurrency } from "@/src/core/utils/currency";
+import {
+  findCurrency,
+  paymentSnapshotCurrency,
+} from "@/src/core/utils/currency";
 import { outflowLabel } from "../utils/outflow";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { useLanguageStore } from "@/src/core/i18n/languageStore";
 import { formatDate } from "@/src/core/utils/date";
-import { expenseCategoryIcon, expenseCategoryLabelKey } from "../utils/expenseCategories";
+import {
+  expenseCategoryIcon,
+  expenseCategoryLabelKey,
+} from "../utils/expenseCategories";
 
 interface Props {
   item: ExpenseItem;
   // Manual rows only (item.canVoid). A derived stock cost has no row to void —
-  // it is corrected with a stock adjustment.
+  // it is corrected on the stock entry itself (edit / revert).
   onVoid?: (item: ExpenseItem) => void;
   // Opens the product behind a derived stock row.
   onOpenProduct?: (productId: string) => void;
@@ -33,11 +42,7 @@ export function ExpenseCard({ item, onVoid, onOpenProduct }: Props) {
 
   const source = paymentSnapshotCurrency(item, currencies);
   const target = findCurrency(currencies, displayCurrencyId);
-  // A leading minus, like the dashboard's money-out chip: every figure on this
-  // screen is cash leaving, and it must never read like income at a glance. A
-  // credit (returned / wrongly-entered stock) is negative, so it prints `+` in
-  // green — it lowers what was spent.
-  const isCredit = item.amount < 0;
+
   const amountLabel = outflowLabel(item.amount, source, target);
   const isStock = item.source === "stock";
 
@@ -69,7 +74,10 @@ export function ExpenseCard({ item, onVoid, onOpenProduct }: Props) {
         onMenu={actions.length > 0 ? () => setMenuOpen(true) : undefined}
       >
         <View className="flex-1">
-          <Text className="text-base font-semibold text-gray-900" numberOfLines={1}>
+          <Text
+            className="text-base font-semibold text-gray-900"
+            numberOfLines={1}
+          >
             {item.label}
           </Text>
           <Text className="text-xs text-gray-500 mt-0.5" numberOfLines={1}>
@@ -78,15 +86,14 @@ export function ExpenseCard({ item, onVoid, onOpenProduct }: Props) {
         </View>
 
         <View className="items-end ms-2">
-          <Text
-            fontWeight="Bold"
-            className={`text-base ${isCredit ? "text-success" : "text-gray-900"}`}
-          >
+          <Text fontWeight="Bold" className={"text-base text-gray-900"}>
             {amountLabel}
           </Text>
           <Text
             className={`text-[10px] font-semibold uppercase tracking-wide mt-1 px-1.5 py-0.5 rounded ${
-              isStock ? "bg-indigo-50 text-indigo-700" : "bg-amber-50 text-amber-700"
+              isStock
+                ? "bg-indigo-50 text-indigo-700"
+                : "bg-amber-50 text-amber-700"
             }`}
           >
             {t(expenseCategoryLabelKey(item.category))}

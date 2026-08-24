@@ -33,10 +33,8 @@ interface Props {
   onDismiss: () => void;
 }
 
-type Mode = "add" | "remove";
-
-// Icon per ledger reason; the tint comes from the direction, not the reason,
-// because an 'adjustment' can go either way.
+// Icon per ledger reason; the tint comes from the direction, not the reason —
+// older 'adjustment' rows (and every sale) go the other way.
 const REASON_ICON: Record<StockReason, keyof typeof Ionicons.glyphMap> = {
   initial: "flag-outline",
   restock: "add-circle-outline",
@@ -52,9 +50,11 @@ const round8 = (n: number) => Number(n.toFixed(8));
 type CostChange = { amount: number | null; currencyId: string | null };
 
 /**
- * Adds or removes stock for one product, and shows the recent history. Stock is
- * never typed as a total — each save appends one ledger movement, so who
- * changed what stays on the record.
+ * Adds stock to one product, and shows the recent history. Stock is never typed
+ * as a total — each save appends one ledger movement, so who changed what stays
+ * on the record. A manual change can only ADD: stock that never arrived, or went
+ * back, is corrected on the entry itself (Edit / Revert in the history menu), so
+ * the fix lands in the month the mistake was made.
  */
 export function ProductStockSheet({ product, onDismiss }: Props) {
   const { t } = useTranslation();
@@ -63,7 +63,7 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
   const locale = language === "ar" ? "ar" : "en-US";
   const users = useUserSlice((s) => s.items);
   const getUsers = useUserSlice((s) => s.getUsers);
-  const adjustStock = useProductSlice((s) => s.adjustStock);
+  const addStock = useProductSlice((s) => s.addStock);
   const updateStockMovement = useProductSlice((s) => s.updateStockMovement);
   const revertStockMovement = useProductSlice((s) => s.revertStockMovement);
   const loading = useProductSlice((s) => s.loading);
@@ -71,12 +71,13 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
   const clearError = useProductSlice((s) => s.clearError);
   // Read the live value from the list so it reflects the save without a refetch.
   const onHand = useProductSlice(
-    (s) => s.items.find((p) => p.id === product.id)?.stockOnHand ?? product.stockOnHand,
+    (s) =>
+      s.items.find((p) => p.id === product.id)?.stockOnHand ??
+      product.stockOnHand,
   );
 
   const currencies = useCurrencySlice((s) => s.items);
 
-  const [mode, setMode] = useState<Mode>("add");
   const [quantity, setQuantity] = useState("");
   const [note, setNote] = useState("");
   // Buying stock spends money — the cost is what turns a restock into an
@@ -108,7 +109,7 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
 
   // `history` is background-loaded, so it stays out of the dirty check, and so
   // is `costCurrencyId` (CurrencyInput self-seeds it after mount).
-  const dirty = useDirtyForm({ mode, quantity, note, unitCost, totalCost });
+  const dirty = useDirtyForm({ quantity, note, unitCost, totalCost });
 
   // Stable across renders so the mount effect below can depend on it.
   const loadHistory = useCallback(async () => {
@@ -133,18 +134,22 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
   const parsed = Number(quantity);
   const validQuantity = Number.isInteger(parsed) && parsed > 0;
   const costCurrency = findCurrency(currencies, costCurrencyId);
-  // Which way the stock moves. While correcting a row the direction is the row's
-  // own — an edit fixes a wrong record, it never turns an add into a removal.
-  const adding = editing ? editing.quantityDelta > 0 : mode === "add";
+  // Which way the stock moves. A new manual change only ever ADDS — stock that
+  // went out is corrected on the entry itself (edit / revert), never by a second
+  // row. While correcting, the direction is the row's own, so an older negative
+  // entry still reads as one.
+  const adding = editing ? editing.quantityDelta > 0 : true;
   // What this change is worth in money — added to Expenses when adding, taken
-  // back off when removing. Only real once there is a quantity to price.
+  // back off when the edited row was a removal. Only real once there is a
+  // quantity to price.
   const costEffect =
     validQuantity && totalCost != null && totalCost > 0 ? totalCost : null;
   // Where the stock lands. Correcting a row swaps its old units for the new ones;
   // a new change just adds them. Negative stock is allowed (two offline devices
   // can both sell the last unit), so this only ever warns.
   const projected = validQuantity
-    ? (editing ? onHand - editing.quantityDelta : onHand) + (adding ? parsed : -parsed)
+    ? (editing ? onHand - editing.quantityDelta : onHand) +
+      (adding ? parsed : -parsed)
     : null;
 
   // Both cost fields always move together: the per-unit amount is what gets
@@ -181,14 +186,8 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
     if (amount === totalCost) return;
     costAnchor.current = "total";
     setTotalCost(amount);
-    if (parsed > 0) setUnitCost(amount == null ? null : round8(amount / parsed));
-  }
-
-  // A removal is a LOSS by default, so its cost starts empty — money only comes
-  // back when staff type it. Add mode pre-fills the product's cost price.
-  function changeMode(next: Mode) {
-    setMode(next);
-    applyUnitCost(next === "add" ? product.costPrice : null, parsed);
+    if (parsed > 0)
+      setUnitCost(amount == null ? null : round8(amount / parsed));
   }
 
   // Back to "record a new change", which is also the sheet's first-render state —
@@ -200,7 +199,7 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
     // The cost and its currency travel together — the pre-filled amount is the
     // product's, so leaving the edited row's currency behind would re-price it.
     // Quantity 0: with nothing to price there is no total either.
-    applyUnitCost(mode === "add" ? product.costPrice : null, 0);
+    applyUnitCost(product.costPrice, 0);
     setCostCurrencyId(product.costCurrencyId);
   }
 
@@ -284,15 +283,13 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
       await loadHistory();
       return;
     }
-    const ok = await adjustStock(
+    const ok = await addStock(
       product.id,
       user.tenantId,
-      mode === "add" ? parsed : -parsed,
-      mode === "add" ? "restock" : "adjustment",
+      parsed,
       note,
       user.id,
-      // Both directions may carry a cost: a restock spends money, a costed
-      // removal gives it back (wrong entry / returned to the supplier).
+      // Buying the stock is what makes it an expense — no cost, no expense.
       { unitCost, currency: costCurrency },
     );
     if (!ok) return;
@@ -322,8 +319,8 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
         </Text>
       </View>
 
-      {/* Correcting a row, or recording a new change — never both. The direction
-          is locked while correcting, so the toggle steps aside for the banner. */}
+      {/* The banner only shows while a row is being corrected; a new change needs
+          no chrome, since adding is the only thing it can do. */}
       {editing ? (
         <View
           // Keyed on the row so switching from one edit to another re-mounts it
@@ -350,34 +347,7 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
             <Ionicons name="close" size={18} color={COLORS.gray500} />
           </PressableOpacity>
         </View>
-      ) : (
-        <View className="flex-row gap-2 mb-4">
-          {(["add", "remove"] as Mode[]).map((m) => {
-            const selected = mode === m;
-            return (
-              <PressableOpacity
-                key={m}
-                onPress={() => changeMode(m)}
-                className={`flex-1 flex-row items-center justify-center rounded-xl border py-3 ${
-                  selected ? "border-primary bg-indigo-50" : "border-gray-200 bg-white"
-                }`}
-              >
-                <Ionicons
-                  name={m === "add" ? "add" : "remove"}
-                  size={16}
-                  color={selected ? COLORS.primary : COLORS.gray500}
-                />
-                <Text
-                  fontWeight="SemiBold"
-                  className={`ms-1 text-sm ${selected ? "text-primary" : "text-gray-500"}`}
-                >
-                  {t(m === "add" ? "products.add_stock" : "products.remove_stock")}
-                </Text>
-              </PressableOpacity>
-            );
-          })}
-        </View>
-      )}
+      ) : null}
 
       <Input
         label={t("products.stock_quantity_label") + " *"}
@@ -388,11 +358,9 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
         onFocus={clearError}
       />
 
-      {/* Cost, both directions. Add: an expense in the month of the buy. Remove:
-          the same money taken back OFF Expenses — for a wrong entry or stock
-          returned to the supplier. Left empty on a removal, the stock is a loss
-          and the expense stays as it was. Per unit or per delivery, whichever
-          the invoice says — each fills the other from the quantity. */}
+      {/* What the stock cost: an expense in the month of the buy, or none at all
+          when left empty. Per unit or per delivery, whichever the invoice says —
+          each fills the other from the quantity. */}
       <View className="flex-row items-end gap-3">
         <View className="flex-1">
           <CurrencyInput
@@ -419,16 +387,11 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
           />
         </View>
       </View>
-      {!adding ? (
-        <Text className="-mt-2 mb-3 text-xs text-gray-500">
-          {t("products.cost_per_unit_back_hint")}
-        </Text>
-      ) : null}
       {/* Names what the money does, since the amount is already in the field
-          above — green for a credit, or a removal reads as another expense. */}
+          above — green for the credit an edited removal gives back. */}
       {costEffect != null ? (
         <Text
-          className={`mb-4 text-xs ${adding ? "-mt-2 text-amber-700" : "text-green-700"}`}
+          className={`-mt-2 mb-4 text-xs ${adding ? "text-amber-700" : "text-green-700"}`}
         >
           {t(
             adding
@@ -450,7 +413,11 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
           what the correction does and decide. */}
       {projected != null && projected < 0 ? (
         <View className="mb-4 flex-row rounded-xl bg-amber-50 px-3 py-2">
-          <Ionicons name="alert-circle-outline" size={15} color={COLORS.warning} />
+          <Ionicons
+            name="alert-circle-outline"
+            size={15}
+            color={COLORS.warning}
+          />
           <Text className="flex-1 ms-2 text-xs text-amber-800">
             {/* `value`, not `count` — a negative count would go through i18next's
                 plural rules and pick a form that doesn't exist. */}
@@ -460,7 +427,9 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
       ) : null}
 
       <Button
-        label={t(editing ? "products.save_stock_changes" : "products.save_stock")}
+        label={t(
+          editing ? "products.save_stock_changes" : "products.save_stock",
+        )}
         onPress={handleSubmit}
         loading={loading}
         disabled={!validQuantity || loading}
@@ -637,7 +606,9 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
           position in the tree costs nothing. */}
       <ActionMenu
         visible={menuFor !== null}
-        title={menuFor ? t(`products.stock_reason_${menuFor.reason}`) : undefined}
+        title={
+          menuFor ? t(`products.stock_reason_${menuFor.reason}`) : undefined
+        }
         actions={buildMenuActions(menuFor)}
         onDismiss={() => setMenuFor(null)}
       />

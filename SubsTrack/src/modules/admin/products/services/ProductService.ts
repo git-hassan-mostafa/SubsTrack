@@ -6,7 +6,7 @@ import repository from '../repository/ProductRepository';
 import type { CreateStockMovementPayload, StockCostRow } from '../repository/IProductRepository';
 import { tierService } from '@/src/modules/admin/subscription';
 import { mapDbProductToProduct, mapDbStockMovementToStockMovement } from '../utils/mapper';
-import { ProductInput, RestockEntry, StockAdjustReason } from '../utils/types';
+import { ProductInput, RestockEntry } from '../utils/types';
 
 
 class ProductService {
@@ -61,7 +61,7 @@ class ProductService {
     }
   }
 
-  // Editing a product never touches stock — adjustStock owns that.
+  // Editing a product never touches stock — addStock owns that.
   async updateProduct(id: string, data: ProductInput): Promise<Product> {
     this.validate(data);
     try {
@@ -118,26 +118,26 @@ class ProductService {
   }
 
   // ── Stock ────────────────────────────────────────────────────────────────
-  // Stock on hand is the ledger sum, so a manual change is just one more row:
-  // positive delta = restock, negative = a correction (damaged / miscounted).
-  async adjustStock(
+  /**
+   * Add stock to one product — the ledger's only manual entry door, so a hand-made
+   * row is always positive ('restock'). Stock that never arrived, or went back, is
+   * corrected on the offending entry (updateMovement / revertMovement), which puts
+   * the fix in the month the mistake was made instead of today. See gotcha #94.
+   */
+  async addStock(
     productId: string,
     tenantId: string,
-    delta: number,
-    reason: StockAdjustReason,
+    quantity: number,
     note: string | null = null,
     userId: string | null = null,
-    // Money follows the cost, not the sign: a restock spends it, and a costed
-    // REMOVAL gives it back (wrong entry, returned to the supplier) — that
-    // negative row is the only way to bring an over-stated stock expense down.
-    // A removal with no cost is stock lost, not cash out. See gotcha #94.
+    // What the stock cost to buy — that, and only that, makes it an expense.
     cost: { unitCost: number | null; currency: Currency | null } | null = null,
   ): Promise<number> {
-    if (!Number.isInteger(delta) || delta === 0) {
+    if (!Number.isInteger(quantity) || quantity <= 0) {
       throw new Error(i18n.t('errors.stock_delta_invalid'));
     }
     await repository.addMovements([
-      this.movement(tenantId, productId, delta, reason, {
+      this.movement(tenantId, productId, quantity, 'restock', {
         note,
         userId,
         unitCost: cost?.unitCost ?? null,
@@ -152,9 +152,9 @@ class ProductService {
    * Correct one MANUAL ledger row in place — the record itself was wrong (12 typed
    * for a 10-unit delivery, a unit cost of 0.50 that the invoice says was 0.45).
    *
-   * This is not the same door as a costed removal, and they are not
-   * interchangeable: fixing the row fixes the month the row belongs to, while a
-   * removal is a real later event and lands in the month it happens. See gotcha #96.
+   * This is the door for a mistyped entry, and `revertMovement` the door for one
+   * that should not exist at all — both fix the month the entry belongs to, which
+   * is why a manual entry can no longer remove stock instead. See gotcha #96.
    *
    * `quantity` is a MAGNITUDE, never signed — the direction comes from the row, so
    * a correction can never turn stock added into stock removed (that is a new
@@ -232,7 +232,7 @@ class ProductService {
     return existing;
   }
 
-  // Batch counterpart to adjustStock: one 'restock' row per product, appended in
+  // Batch counterpart to addStock: one 'restock' row per product, appended in
   // a single write so a whole delivery lands together. Returns the new on-hand
   // per product so the store can refresh its list without a refetch.
   // One delivery = one currency, so `currency` is shared by every line and each
@@ -275,7 +275,8 @@ class ProductService {
   // `unitCost` + `currency` are what make a purchase an expense; they are
   // written together with a frozen rate, or all three stay null. 'sale' rows
   // never carry one — stock leaving is not money leaving. A NEGATIVE costed row
-  // is allowed and reads as a credit (amount = delta * cost, so it subtracts).
+  // (only older data now, since a manual entry can no longer remove stock) reads
+  // as a credit: amount = delta * cost, so it subtracts.
   movement(
     tenantId: string,
     productId: string,
@@ -323,7 +324,7 @@ class ProductService {
   }
 
   // The derived half of the Expenses view — stock bought in a date range, plus
-  // the costed removals that give money back (negative amounts).
+  // any older costed removals, which give money back (negative amounts).
   async getStockCostsInRange(
     startIso: string,
     endExclusiveIso: string,

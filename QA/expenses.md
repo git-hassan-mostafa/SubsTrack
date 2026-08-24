@@ -15,7 +15,7 @@ Covers money OUT: hand-typed expenses, the cost of buying stock, and the net-inc
 - Expenses are **admin-only**, read and write (RLS + UI).
 - A stock purchase is an expense in the month it was **paid for** (cash basis), never the month the goods sell.
 - A restock cost is **derived** from `stock_movements.unit_cost` — there is no expense row to void.
-- **A costed REMOVAL is a credit** (negative amount) and is the only way a stock expense comes back down; a removal with no cost leaves the expense alone.
+- A stock expense comes back down through the **entry** — Edit entry or Revert entry, both landing in that entry's own month. There is no remove-from-stock form, so no new negative (credit) row can be written; older data may still hold one.
 - `monthlyRevenue` stays **gross**; `netIncome` is the subtraction.
 
 ---
@@ -53,28 +53,28 @@ Covers money OUT: hand-typed expenses, the cost of buying stock, and the net-inc
 | 3.1 | Restock with a cost | Product stock sheet → Add 100, cost/unit 0.35 → save | "Total cost $35.00" preview shows before saving; Expenses gains a `Water ×100` row of $35 |
 | 3.2 | Cost pre-fills | Set the product's cost price to 0.35, then open the stock sheet | Cost/unit is pre-filled with 0.35 |
 | 3.3 | Restock with no cost | Clear the cost field and save | Stock still increases; **no** expense row is created |
-| 3.4 | Remove mode offers a cost, empty | Switch the stock sheet to Remove | The cost field stays but is **cleared** (not pre-filled) and carries the "fill only if…" hint |
+| 3.4 | No remove door | Open the stock sheet | There is no Add/Remove toggle — the form only adds, and the cost stays pre-filled from the product's cost price |
 | 3.5 | Opening stock is costed | Create a product with cost price 0.35 and starting stock 20 | An `initial` movement is written and Expenses shows $7.00 today |
 | 3.6 | A sale never costs | Record a sale of 5 units | Expenses is unchanged (only positive movements carry a cost) |
 | 3.7 | Voiding a sale | Void that sale | Expenses still unchanged |
 | 3.8 | Legacy movements | Restocks recorded before this feature | Contribute $0 and never appear in Expenses |
-| 3.9 | Correcting a wrong cost | Restock 100 @ 0.35, realise it was 0.30 | The fix is a stock adjustment / a new movement — the old row cannot be edited or voided from Expenses |
+| 3.9 | Correcting a wrong cost | Restock 100 @ 0.35, realise it was 0.30 | The fix is **Edit entry** on that movement (that month's figure changes); Expenses itself still offers no void on a derived row |
 | 3.10 | Reverting the entry drops the expense | Restock 12 @ 0.50, then stock sheet → row menu → Revert entry | The whole $6.00 leaves **that movement's own month** (not the current one), and the derived row disappears from Expenses — see [products.md](products.md) §6D |
 
-## 3b. Removing stock → money back (the credit)
+## 3b. Credits — negative costed rows (older data only)
 
-A costed removal is the **only** way a stock expense comes back down. No cost = the goods are gone but the money was still spent.
+A stock expense now comes down through the **entry**: Edit entry or Revert entry, both in the entry's own month (see [products.md](products.md) §6C / §6D). The stock sheet has no Remove mode, so **no new credit row can be written** — but older data holds them and every reader must still print them correctly.
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 3b.1 | Wrong quantity entered | Restock 12 @ 0.35 ($4.20), then Remove 2 with cost/unit 0.35 | A green line reads "Takes $0.70 off Expenses"; Expenses shows a `+$0.70` green row labelled "Water ×2 returned"; the total drops to $3.50 |
-| 3b.2 | Damaged / lost stock | Remove 2 with the cost field **empty** | Stock drops by 2; Expenses is **unchanged** (money was spent, only the goods are gone) |
-| 3b.3 | No pre-fill, no accident | Open the sheet in Add mode (cost pre-filled), switch to Remove | The cost clears — a removal never lowers the expense unless staff type the cost |
-| 3b.4 | Switching back | Switch Remove → Add again | The product's cost price is pre-filled again |
-| 3b.5 | Never a double minus | Remove 5 @ 1.00 in a month with no other expense | Header reads `+$5.00`, not `−-$5.00`; the month section total does the same |
+| 3b.1 | The credit can no longer be created | Look for a way to record "2 units went back to the supplier" | There is none — no Remove mode anywhere; the only corrections are Edit entry and Revert entry |
+| 3b.2 | Wrong quantity, fixed on the entry | Restock 12 @ 0.35 ($4.20), then Edit entry → 10 | Expenses for **that movement's month** drops to $3.50; the current month gains nothing and no second row appears |
+| 3b.3 | An older credit still reads right | On data holding a `Correction` `−2` @ 0.35 | Expenses shows a green `+$0.70` row in that movement's month and the total is netted |
+| 3b.4 | Editing an older credit | Edit that `−2` row's cost to 0.30 | It stays a credit; the amount becomes $0.60 and the direction never flips |
+| 3b.5 | Never a double minus | An older credit of 5 @ 1.00 in a month with no purchase | Header reads `+$5.00`, not `−-$5.00`; the month section total does the same |
 | 3b.6 | Credit can't be voided | Open the credit row's 3-dot in Expenses | Only "Open product" (it is derived, like every stock row) |
-| 3b.7 | Cash basis holds | Restock in July, correct it in August | July keeps its full cost; the credit lands in **August** (the month the money came back) |
-| 3b.8 | Stock history shows the money | Open the product's stock sheet | The removal row reads "Money back: $0.70" in green; a restock reads "Cost: $4.20" |
+| 3b.7 | Reverting an older credit | Revert a `−2` costed row | The credit leaves its own month — that month's expense goes back **up** by $0.70 |
+| 3b.8 | Stock history shows the money | Open the product's stock sheet | An older negative row reads "Money back: $0.70" in green; a restock reads "Cost: $4.20" |
 | 3b.9 | A sale still never credits | Sell 5 units | No cost is written on the `sale` movement and Expenses does not move |
 | 3b.10 | Net-negative month | Only a credit and no purchase in the month | Expenses total shows `+$X`; the dashboard expense chip/tiles hide (same as a zero-expense month) |
 | 3b.11 | Reports follow | Pick a period covering both rows in Reports → Money | "Spent" is the net figure; the Stock category drill-down lists the purchase and the credit, and they add up to the row tapped |

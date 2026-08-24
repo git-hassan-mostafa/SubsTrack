@@ -641,7 +641,7 @@ export interface ExpenseItem {
   recordedByUserId: string | null;
   // Stock rows only — lets the card open the product.
   productId: string | null;
-  // false for derived rows: fix a wrong stock cost with a stock adjustment,
+  // false for derived rows: fix a wrong stock cost on the stock entry itself,
   // there is no expense row to void.
   canVoid: boolean;
 }

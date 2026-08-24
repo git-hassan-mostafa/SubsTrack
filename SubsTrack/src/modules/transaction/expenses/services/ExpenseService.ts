@@ -73,7 +73,7 @@ class ExpenseService {
       branchId: s.branchId,
       recordedByUserId: s.recordedByUserId,
       productId: s.productId,
-      // There is no expense row to void — correct it with a stock adjustment.
+      // There is no expense row to void — correct the stock entry itself.
       canVoid: false,
     }));
 

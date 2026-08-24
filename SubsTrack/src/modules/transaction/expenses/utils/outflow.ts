@@ -13,6 +13,5 @@ export function outflowLabel(
   source: Currency | null = null,
   target: Currency | null = null,
 ): string {
-  const sign = amount < 0 ? '+' : '−';
-  return `${sign}${formatMoney(Math.abs(amount), source, target)}`;
+  return `${formatMoney(Math.abs(amount), source, target)}`;
 }

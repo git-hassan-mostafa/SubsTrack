@@ -4,7 +4,6 @@ import {
   productService,
   type ProductInput,
   type RestockEntry,
-  type StockAdjustReason,
 } from '@/src/modules/admin/products';
 import { resolveBranchFilter } from '@/src/shared/lib/branchFilter';
 import { TierLimitError } from '@/src/modules/admin/subscription';
@@ -34,14 +33,13 @@ export interface ProductSlice {
     costCurrency?: Currency | null,
   ) => Promise<void>;
   updateProduct: (id: string, data: ProductInput) => Promise<void>;
-  adjustStock: (
+  addStock: (
     id: string,
     tenantId: string,
-    delta: number,
-    reason: StockAdjustReason,
+    quantity: number,
     note?: string | null,
     userId?: string | null,
-    // What the stock cost — an expense when adding, money back when removing.
+    // What the stock cost to buy — that is what makes it an expense.
     cost?: { unitCost: number | null; currency: Currency | null } | null,
   ) => Promise<boolean>;
   /**
@@ -175,17 +173,16 @@ export const createProductSlice: StateCreator<
     }
   },
 
-  adjustStock: async (id, tenantId, delta, reason, note = null, userId = null, cost = null) => {
+  addStock: async (id, tenantId, quantity, note = null, userId = null, cost = null) => {
     set((state) => {
       state.products.loading = true;
       state.products.error = null;
     });
     try {
-      const onHand = await productService.adjustStock(
+      const onHand = await productService.addStock(
         id,
         tenantId,
-        delta,
-        reason,
+        quantity,
         note,
         userId,
         cost,
