@@ -6,6 +6,12 @@ import { Feather, Ionicons } from "@expo/vector-icons";
 import { COLORS } from "@/src/shared/constants";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+// Labels are off, so the icon carries the whole tab — bigger than the 24 default.
+const TAB_ICON_SIZE = 28;
+// Equal breathing room above and below the icon: the bar height is the icon plus
+// twice this, and the icon centres itself in it (see tabBarIconStyle).
+const TAB_ICON_GAP = 14;
+
 export default function TabsLayout() {
   const { isAdmin } = useAuth();
   const { t } = useTranslation();
@@ -23,20 +29,22 @@ export default function TabsLayout() {
       backBehavior="history"
       screenOptions={{
         headerShown: false,
+        // Icon-only bar. `title` is kept on every screen for the accessibility
+        // label and the header, it just isn't painted under the icon.
+        tabBarShowLabel: false,
         tabBarStyle: {
           backgroundColor: COLORS.white,
           borderTopColor: COLORS.gray200,
           paddingBottom: bottom,
-          height: 57 + bottom,
+          height: TAB_ICON_SIZE + TAB_ICON_GAP * 2 + bottom,
         },
+        // `auto` margins swallow the free space evenly, so the icon is exactly
+        // centred. React Navigation pins it to the top otherwise (its tab item is
+        // `justifyContent: flex-start`), and that pressable is not reachable from
+        // `tabBarItemStyle` — which styles the item WRAPPER, not the icon.
+        tabBarIconStyle: { marginVertical: "auto" },
         tabBarActiveTintColor: COLORS.primary,
         tabBarInactiveTintColor: COLORS.gray500,
-        tabBarLabelStyle: {
-          fontSize: 10,
-          fontWeight: "500",
-          fontFamily: "Cairo",
-          marginBottom: 2,
-        },
       }}
     >
       <Tabs.Screen
@@ -44,8 +52,8 @@ export default function TabsLayout() {
         options={{
           title: t("home.title"),
           href: isAdmin ? undefined : null,
-          tabBarIcon: ({ color, size }) => (
-            <Feather name="home" size={size} color={color} />
+          tabBarIcon: ({ color }) => (
+            <Feather name="home" size={TAB_ICON_SIZE} color={color} />
           ),
         }}
       />
@@ -53,8 +61,8 @@ export default function TabsLayout() {
         name="customers"
         options={{
           title: t("customers.title"),
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="people-outline" size={size} color={color} />
+          tabBarIcon: ({ color }) => (
+            <Ionicons name="people-outline" size={TAB_ICON_SIZE} color={color} />
           ),
         }}
       />
@@ -62,8 +70,12 @@ export default function TabsLayout() {
         name="transactions"
         options={{
           title: t("transactions.title"),
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="receipt-outline" size={size} color={color} />
+          tabBarIcon: ({ color }) => (
+            <Ionicons
+              name="swap-horizontal-outline"
+              size={TAB_ICON_SIZE}
+              color={color}
+            />
           ),
         }}
       />
@@ -73,8 +85,12 @@ export default function TabsLayout() {
         options={{
           title: t("reports.title"),
           href: isAdmin ? undefined : null,
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="stats-chart-outline" size={size} color={color} />
+          tabBarIcon: ({ color }) => (
+            <Ionicons
+              name="stats-chart-outline"
+              size={TAB_ICON_SIZE}
+              color={color}
+            />
           ),
         }}
       />
@@ -83,8 +99,8 @@ export default function TabsLayout() {
         options={{
           title: t("admin.title"),
           href: isAdmin ? undefined : null,
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="shield-outline" size={size} color={color} />
+          tabBarIcon: ({ color }) => (
+            <Ionicons name="shield-outline" size={TAB_ICON_SIZE} color={color} />
           ),
         }}
       />
