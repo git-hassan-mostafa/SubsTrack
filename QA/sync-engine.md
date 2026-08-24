@@ -4,9 +4,10 @@ Covers the native offline-first sync engine: local writes, push, pull, delete re
 
 **Reference code:**
 
-- Engine: [sync.ts](../SubsTrack/src/core/offline/sync.ts) (`pushDirty`, `pullChanges`, `reconcileDeletes`, `pruneWindowedTables`, `runSync`, `syncNow`, `flushPendingWrites`, `resyncFromScratch`, `startSync`)
-- Write helpers: [db/dml.ts](../SubsTrack/src/core/offline/db/dml.ts) (`insertDirty`, `updateDirty`, `upsertNaturalKeyDirty`, `clearNaturalKeyDuplicate`, `upsertFromServer`, `markDeleted`)
-- Schema mirror: [db/tables.ts](../SubsTrack/src/core/offline/db/tables.ts) (`TABLES`, `SYNC_PULL_ORDER`, `generated`, `pushOnly`, `appendOnly`, `pullDays`), [db/schema.ts](../SubsTrack/src/core/offline/db/schema.ts), [db/applySchema.ts](../SubsTrack/src/core/offline/db/applySchema.ts)
+- Engine: [src/core/offline/sync/](../SubsTrack/src/core/offline/sync/) — [push.ts](../SubsTrack/src/core/offline/sync/push.ts) (`pushDirty`), [pull.ts](../SubsTrack/src/core/offline/sync/pull.ts) (`pullChanges`, `reconcileDeletes`, `pruneWindowedTables`), [engine.ts](../SubsTrack/src/core/offline/sync/engine.ts) (`runSync`, `runSyncIfDue`, `syncNow`, `flushPendingWrites`, `resyncFromScratch`, `startSync`), [parallel.ts](../SubsTrack/src/core/offline/sync/parallel.ts) (`mapWithLimit`, `withDbLock`)
+- Write helpers: [db/dml.ts](../SubsTrack/src/core/offline/db/dml.ts) (`insertDirty`, `updateDirty`, `upsertNaturalKeyDirty`, `markDeleted`, `upsertFromServer`, and the pull's batched trio `dirtyIdSet` / `clearNaturalKeyDuplicates` / `upsertManyFromServer`)
+- The DB lock: [dbLock.ts](../SubsTrack/src/core/offline/dbLock.ts) (`withDbLock` — shared by every repository write AND the sync; one connection, one queue)
+- Schema mirror: [db/tables.ts](../SubsTrack/src/core/offline/db/tables.ts) (`TABLES`, `PUSH_WAVES`, `generated`, `pushOnly`, `appendOnly`, `pullDays`), [db/schema.ts](../SubsTrack/src/core/offline/db/schema.ts), [db/applySchema.ts](../SubsTrack/src/core/offline/db/applySchema.ts)
 - Ids: [ids.ts](../SubsTrack/src/core/offline/ids.ts) (`newId`, `deterministicId`)
 - Scoping: [bootstrap/tenant.ts](../SubsTrack/src/core/offline/bootstrap/tenant.ts) (`ensureTenantScope`, `hasUnsyncedWrites`), [db/sqlite.ts](../SubsTrack/src/core/offline/db/sqlite.ts) (`wipeOfflineData`)
 - Write transaction + queue: [OfflineBaseRepository.ts](../SubsTrack/src/core/offline/OfflineBaseRepository.ts) (`write`, `auditIn`, `writeQueue`)
@@ -42,7 +43,7 @@ Covers the native offline-first sync engine: local writes, push, pull, delete re
 | 1.6 | Void offline | Void a payment offline | `voided_at` set, `_dirty = 1` | ✅ |
 | 1.7 | Same month re-paid after void | Void then re-pay the same (line, month) | `upsertNaturalKeyDirty` replaces the row, no duplicate | ✅ |
 | 1.8 | Local `updated_at` | Any offline edit | Set from the device clock, but stripped on push; the server value comes back on pull | ✅ |
-| 1.9 | Save during a running pull | Start a big pull (post-login) → save a payment | Save succeeds | ❌ **[B3]** — the sync opens transactions outside `writeQueue`; overlapping `BEGIN` on the one shared connection throws |
+| 1.9 | Save during a running pull | Start a big pull (post-login) → save a payment | Save succeeds (it queues behind the pull's current page) | ✅ (was **[B3]**) — repository writes and every sync merge now share the ONE `withDbLock` queue |
 
 ---
 
@@ -53,16 +54,17 @@ Covers the native offline-first sync engine: local writes, push, pull, delete re
 | 2.1 | Happy path | 1 dirty payment → sync | Upserted, `_dirty = 0`, `lastSyncAt` stamped | ✅ |
 | 2.2 | `updated_at` stripped | 2.1 | Server stamps its own via `set_updated_at()`; client value never sent | ✅ |
 | 2.3 | Generated column stripped | Push a payment | `balance` removed (server `GENERATED ALWAYS`); no 428C9 error | ✅ |
-| 2.4 | `sales.total_amount` sent | Record a sale offline → sync | Value **is** pushed (it is app-written, not generated) — server total correct | ✅ (sync.ts's comment naming it "generated" is stale — **[B19]**) |
-| 2.5 | Parent-before-child | New customer + line + payment offline → sync | Pushed in `SYNC_PULL_ORDER`; no FK error | ✅ |
+| 2.4 | `sales.total_amount` sent | Record a sale offline → sync | Value **is** pushed (it is app-written, not generated) — server total correct | ✅ (sync/push.ts's comment naming it "generated" is stale — **[B19]**) |
+| 2.5 | Parent-before-child | New customer + line + payment offline → sync | Pushed in `PUSH_WAVES`; no FK error | ✅ |
 | 2.6 | Network dies mid-push | Kill the network during the upsert | Rows stay `_dirty`, retried next cycle | ✅ |
 | 2.7 | Committed but reply lost | Server commits, response dropped | Next cycle re-sends; upsert by id is idempotent | ✅ |
 | 2.8 | Re-sent audit batch | Same as 2.7 for `audit_logs` | `ignoreDuplicates: true` → `DO NOTHING`; insert-only RLS not violated | ✅ |
 | 2.9 | Edit during the network call | Save row X → while the upsert is in flight, edit X again | The second edit must still push | ❌ **[B2]** — `_dirty` is cleared for every id in the batch, so the second edit is marked clean and never sent; the next pull then overwrites it |
 | 2.10 | Duplicate name, two devices | Two devices offline each create product "Cable" in the same branch → both sync | Both converge or one is reported | ❌ **[B5]** — `uq_products_name_tenant_branch` fails the whole batch; retried identically forever, blocking every other product row |
 | 2.11 | Payment for a server-deleted line | Line deleted on web; device collects on it offline → sync | Row rejected but isolated | ❌ **[B5]**+**[B6]** — FK violation wedges the entire `payments` queue |
-| 2.12 | Big backlog | Offline 1 month, ~3000 dirty rows → sync | Pushed in chunks | ❌ **[B10]** — one unbounded request per table; a size/timeout failure repeats every cycle |
-| 2.13 | Hard delete replay | Delete a product offline → sync | Server `DELETE`, `pending_deletes` entry dropped | ✅ |
+| 2.12 | Big backlog | Offline 1 month, ~3000 dirty rows → sync | Pushed in chunks of 250; `_dirty` clears per chunk, so a later failure keeps the delivered ones clean | ✅ (was **[B10]**) |
+| 2.13 | Hard delete replay | Delete a product offline → sync | One `delete().in('id', …)` per table per batch; `pending_deletes` entries dropped | ✅ |
+| 2.13b | One undeletable row in a delete batch | Queue 5 product deletes offline; one is still referenced by a `sale_items` row (`ON DELETE RESTRICT`) → sync | The other 4 are deleted; only the referenced one stays logged | ✅ — the batch fails, then falls back to one request per row |
 | 2.14 | Hard delete refused by RLS | Non-admin's queued delete → sync | Entry kept and surfaced | ❌ **[B12]** — an RLS-filtered delete returns success/0 rows; the entry is dropped and the row silently survives on the server |
 | 2.15 | Delete of a never-pushed row | Create then delete offline → sync | Delete affects 0 rows, entry dropped, no error | ✅ |
 | 2.16 | Global tables not pushed | Any sync | `tier_plans` / `app_options` skipped (`scope: 'global'`) | ✅ |
@@ -96,7 +98,7 @@ Covers the native offline-first sync engine: local writes, push, pull, delete re
 | --- | --- | --- | --- | --- |
 | 4.1 | Product deleted on web | Delete on web → sync | Local row removed | ✅ |
 | 4.2 | Small tenant | <1000 customers | Correct reconcile | ✅ |
-| 4.3 | **Large tenant** | 1500 customers → sync | No local row deleted | ❌ **[B1]** — the id list is paged **without `ORDER BY`**, so pages can overlap/skip and present customers are deleted locally |
+| 4.3 | **Large tenant** | 1500 customers → sync | No local row deleted | ✅ (was **[B1]**) — the id list pages with `.order('id')`, so the pages are a stable total order |
 | 4.4 | Empty server list | Session gone / RLS returns nothing | Reconcile skipped, mirror intact | ✅ |
 | 4.5 | Un-pushed local create | Create a product offline → sync where the push failed | Not deleted (`_dirty = 0` guard) | ✅ |
 | 4.6 | Ledger tables skipped | Void a payment on web | Not id-compared (voids arrive via `updated_at`) | ✅ |
@@ -136,20 +138,54 @@ Covers the native offline-first sync engine: local writes, push, pull, delete re
 
 ---
 
+## 6b. Parallelism & throughput
+
+A cycle is **network-parallel and DB-sequential**: the pull fetches every table at once (≤ `NETWORK_CONCURRENCY` in flight), the push goes up in `PUSH_WAVES`, and every local statement queues behind the one `withDbLock`. These scenarios exist to prove the parallelism changed only the *speed*, never the outcome.
+
+| #   | Scenario | Steps | Expected | Verdict |
+| --- | --- | --- | --- | --- |
+| 6b.1 | Quiet cycle is fast | Nothing changed anywhere → Settings → Sync now, watch the network log | Table fetches overlap, at most 6 in flight; wall time ≈ a few round trips, not ~27 | ✅ |
+| 6b.2 | Pull order is irrelevant | Create a customer + line + payment on web → sync on the phone | All three merge whatever order they arrive in (the mirror has no FKs; `PRAGMA foreign_keys` off) | ✅ |
+| 6b.3 | Push wave ordering holds | Offline: new branch → new user in it → new customer → line → payment → sync | No 23503; parent tables land in an earlier wave than their children | ✅ |
+| 6b.4 | One table fails mid-fan-out | Break `payments` only → sync | Other tables still merge; cursor pinned; `sync_incomplete` (same as 3.7, now with the fetches concurrent) | ✅ |
+| 6b.5 | Save during a running pull | 1.9 | Queues behind the current page instead of throwing | ✅ |
+| 6b.6 | Two sheets saving during a sync | `Promise.all` of three remits while a pull runs | All serialise on one queue; no "transaction within a transaction" | ✅ |
+| 6b.7 | Batched merge = per-row merge | Page containing (a) a locally `_dirty` row, (b) a natural-key duplicate held clean under another id, (c) plain rows | (a) skipped, (b) stale local row deleted then merged, (c) merged — identical to the old per-row loop | ✅ |
+| 6b.8 | Colliding row in a batch | Force a row that still violates a UNIQUE index after the pre-clear | The whole batch fails → table reported failed → cursor pinned → retried. **Never** a half-applied page | ✅ by design |
+| 6b.9 | First full sync memory | Fresh install, large tenant (>10k rows across tables) → login | Completes; at most 6 pages held at once (the concurrency cap is what bounds it) | ✅ |
+| 6b.10 | `_dirty` partial index present | Upgrade an existing install → open → inspect `PRAGMA index_list(payments)` | `idx_payments_dirty` exists (created by `applySchema` on start) | ✅ |
+| 6b.11 | Push makes no request for clean tables | One dirty payment only → sync | Exactly one upsert request; the other 20 tables make none | ✅ |
+| 6b.12 | Delete-reconcile runs concurrently | Sync with 6 reconcile tables | Six id-list fetches overlap; each table's local delete takes the lock | ✅ |
+
+> **Cost note.** The delete reconcile is the one part of a cycle whose cost grows with tenant size — it downloads every id of six tables on **every** cycle. It is parallel and batched now, but not throttled; a `last_delete_reconcile_at` gate is the obvious next step if it starts to hurt.
+
+---
+
 ## 7. Triggers, status & recovery
 
 | #   | Scenario | Steps | Expected | Verdict |
 | --- | --- | --- | --- | --- |
-| 7.1 | Cold start | Open the app online | One cycle runs, then `refreshActiveData()` | ✅ |
+| 7.1 | Cold start | Open the app online, last sync > 24h ago | One cycle runs, then `refreshActiveData()` | ✅ |
 | 7.2 | Manual sync | Settings → Sync now | Cycle runs; offline reported distinctly | ✅ |
 | 7.3 | Serialised cycles | Tap "Sync now" twice fast | Second call awaits the first (`running` guard) | ✅ |
 | 7.4 | Signed out | Log out → force a cycle | No-op; mirror untouched | ✅ |
 | 7.5 | **Reconnect** | Offline collect → signal returns, app stays open | Sync fires automatically | ❌ **[B9]** — no NetInfo listener |
-| 7.6 | **Foreground / periodic** | App open all day, no manual tap | Sync fires periodically | ❌ **[B9]** — no interval, no AppState listener; `AppState` is imported and unused. Doc comments claim both exist |
+| 7.6 | **Foreground / periodic** | App open all day, no manual tap | Sync fires periodically | ❌ **[B9]** — still no interval and no AppState listener (the unused `AppState` import and the doc comments claiming both are now gone, so the gap is at least honest) |
+| 7.11 | Staleness gate | Reopen the app twice within an hour | Only the first restore syncs; the second returns immediately (`runSyncIfDue`, 24h) | ✅ |
+| 7.12 | Gate survives a restart | Sync → kill the app → reopen | Still within the window; no cycle (the stamp is `sync_meta.last_sync_at`, not in-memory) | ✅ |
+| 7.13 | Partial cycle doesn't arm the gate | One table fails → reopen the app | A cycle runs again (only a **complete** cycle writes `last_sync_at`) | ✅ |
+| 7.14 | Gate cleared by a wipe | Different-tenant login (wipe) → the mirror is empty | `last_sync_at` cleared with `last_pulled_at`; the full pull runs instead of the new tenant waiting a day | ✅ |
+| 7.15 | Cold start obeys the gate | Sync → kill the app → reopen within 24h | **No** cycle at cold start either (`startSync` → `runSyncIfDue`); the app opens on the mirror, no pull traffic | |
+| 7.16 | Manual sync ignores the gate | Reopen within 24h (no cycle) → Settings → Sync now | Full cycle runs and re-arms the stamp; same for Developer → Full re-pull | |
+| 7.17 | Not due still PUSHES | Record a payment offline → go online → reopen the app within 24h | No pull, but the payment reaches the server (`flushPendingWrites`) and shows on a second device | |
+| 7.18 | Not due, nothing dirty | Reopen within 24h with a clean mirror | No network traffic beyond the connectivity probe (every `pushTable` returns on an empty `_dirty` select) | |
+| 7.19 | Push failure doesn't break the open | Not due + dirty rows + server rejects the push | App opens normally; rows stay `_dirty` and retry next time (the flush is `try/catch`ed, callers fire and forget) | |
+| 7.20 | Stamp shown after a restart | Sync → kill → reopen | `SyncStatus.lastSyncAt` is the real earlier time, not `null` (seeded from `sync_meta` in `startSync`) | |
+| 7.21 | First ever launch | Fresh install → log in | No stamp on record → the gate reads "due"; the empty-mirror path blocks on the full pull | |
 | 7.7 | Partial cycle status | One table fails | `lastError = 'sync_incomplete'`, `lastSyncAt` not advanced | ✅ |
 | 7.8 | Resync from scratch | Developer → Resync | Push first, then re-pull everything; `_dirty` rows still win | ✅ |
 | 7.9 | Import replaces data | Developer → Import JSON | Tables replaced | ⚠️ **[B18]** — `pending_deletes` and `sync_meta` are not cleared, so stale deletes replay and the old cursor is kept |
-| 7.10 | UI refresh after pull | Pull brings new rows | Visited screens re-fetch | ✅ (comment naming `setSyncRefreshHandler` / 5-minute ticks is stale — **[B19]**) |
+| 7.10 | UI refresh after pull | Pull brings new rows | Visited screens re-fetch (the caller fires `refreshActiveData`, not the engine) | ✅ (the stale `setSyncRefreshHandler` / 5-minute-tick wording is fixed in docs/offline.md — **[B19]** partly closed) |
 
 ---
 
@@ -157,9 +193,9 @@ Covers the native offline-first sync engine: local writes, push, pull, delete re
 
 | #   | Scenario | Check | Verdict |
 | --- | --- | --- | --- |
-| 8.1 | Every synced table has `updated_at` | 21/21 in `SYNC_PULL_ORDER` | ✅ |
+| 8.1 | Every synced table has `updated_at` | 21/21 in `PUSH_WAVES` | ✅ |
 | 8.2 | Every synced table has a BEFORE UPDATE trigger | 21 `trg_*_updated_at` present | ✅ |
-| 8.3 | `TABLES` ⇔ `SYNC_PULL_ORDER` | Identical sets | ✅ |
+| 8.3 | `TABLES` ⇔ `PUSH_WAVES` | Identical sets | ✅ |
 | 8.4 | `ON CONFLICT` targets are real, non-partial | `uq_payments_line_month`, `uq_skipped_months_line_month`, `uq_tenant_settings_key` | ✅ |
 | 8.5 | `generated` matches Postgres | Only `payments.balance` | ✅ |
 | 8.6 | New column self-heals | Add to `tables.ts` → restart | `ALTER TABLE ADD COLUMN` applied | ✅ |
@@ -186,29 +222,31 @@ Severity: **C** = can lose or corrupt data / lock the user out · **H** = breaks
 
 | ID | Sev | Finding | Fix |
 | --- | --- | --- | --- |
-| **B1** | C | `reconcileDeletes` pages the server id list with **no `ORDER BY`** → unstable paging → present rows judged missing and **deleted locally** on any table over 1000 rows | Add `.order('id', { ascending: true })` to the id-list query |
+| ~~**B1**~~ | C | **FIXED** — `reconcileDeletes` paged the server id list with **no `ORDER BY`** → unstable paging → present rows judged missing and **deleted locally** on any table over 1000 rows | `.order('id', { ascending: true })` on the id-list query (`sync/pull.ts` `fetchServerIds`) |
 | **B2** | C | Push clears `_dirty` for every id in the batch, so an edit made **during** the network call is marked clean and never sent (the comment claims the opposite); the next pull then overwrites it | Two-phase flag: set `_dirty = 2` before the request, clear only `WHERE _dirty = 2`; read `_dirty >= 1` in the pull skip, `hasUnsyncedWrites`, and the push SELECT |
-| **B3** | C | The sync engine calls `db.withTransactionAsync` directly, bypassing `writeQueue`; on the single shared connection an overlapping user save throws "cannot start a transaction within a transaction" | Export the queue and route the pull's page transactions through it (or `withExclusiveTransactionAsync`) |
+| ~~**B3**~~ | C | **FIXED** — the sync engine called `db.withTransactionAsync` directly, bypassing `writeQueue`; on the single shared connection an overlapping user save threw "cannot start a transaction within a transaction" | The queue moved to `src/core/offline/dbLock.ts` as `withDbLock`, and **both** `OfflineBaseRepository.write` and every sync merge / local statement now go through it — one connection, one queue |
 | **B4** | C | Reassigning a user's branch while they hold un-pushed writes **permanently locks them out**: the scope change blocks login, and the pending rows belong to a branch RLS no longer grants | Try `flushPendingWrites()` before blocking; for a same-tenant branch change don't block; add a login-time "discard local data" escape |
 | **B5** | H | One `upsert` per table per cycle: a single rejected row (unique or FK violation) fails the whole batch and is retried identically **forever**, blocking every other row in that table | On batch failure, retry row-by-row; quarantine a row that keeps failing and surface it |
 | **B6** | H | `customer_plans` and `users` are hard-deletable but missing from `DELETE_RECONCILE_TABLES` → phantom rows forever; a phantom line can be collected against, which then wedges the payments push (B5) | Add both to `DELETE_RECONCILE_TABLES` |
 | **B7** | H | Local deletes don't mirror the server cascade (`skipped_months`, `custom_debts`, `debt_payments`, `stock_movements` survive) → orphan rows in reads, and a `_dirty` orphan wedges its table on push | Delete every cascaded child locally; derive the child list from one place |
 | **B8** | H | Deleting a customer / line destroys **un-pushed** payments — the only copy in existence — with no error and no audit of the money | Refuse the delete while `_dirty` children exist (or force a flush first) |
 | **B9** | H | No reconnect and no periodic sync trigger; `AppState` is imported and unused. A collector with the app open all day never syncs unless they tap "Sync now" | Add an AppState foreground trigger, a NetInfo reconnect listener, and an interval — the behavior the comments already claim |
-| **B10** | M | Push is unbounded (one request per table, all dirty rows; `WHERE id IN (…)` with one placeholder per row) — a large backlog fails on size/timeout and repeats every cycle | Chunk at ~250–500 rows, clearing `_dirty` per chunk |
+| ~~**B10**~~ | M | **FIXED** — push was unbounded (one request per table, all dirty rows; `WHERE id IN (…)` with one placeholder per row) — a large backlog failed on size/timeout and repeated every cycle | Chunked at `PUSH_ROWS = 250`, `_dirty` cleared per chunk, so a later chunk's failure keeps the delivered ones clean. Hard deletes are chunked at 100 ids per request |
 | **B11** | M | Offset paging over a set that is being written to can skip one row per page boundary, and the cursor then advances past it | Keyset-page on the composite `(updated_at, id)` tuple — also keeps the tie-safety the current comment is protecting |
 | **B12** | M | An RLS-refused hard delete returns success with 0 rows; the queue entry is dropped and the row silently survives on the server while gone locally | Request the affected rows (`.select()`) and keep the entry when nothing was deleted |
 | **B13** | M | `signOut` gates `flushPendingWrites()` on `hasUnsyncedWrites()`, which excludes appendOnly tables — so un-pushed audit rows are never flushed and a later wipe destroys them | Use "any dirty row" for the flush gate; keep the narrow predicate only for the block decision |
 | **B14** | M | `startSync()` runs at bootstrap without awaiting `restoreSession()`, so a pull can merge another tenant's rows before `ensureTenantScope` runs | Compare the session's tenant to `META_ACTIVE_TENANT` inside `runSync` and bail on mismatch |
 | **B15** | L | Local table-level constraints apply at CREATE only, so older installs lack `UNIQUE(customer_plan_id, billing_month)`; two local rows for one (line, month) can coexist | Express natural keys as `CREATE UNIQUE INDEX IF NOT EXISTS` in `CREATE_INDEX_STATEMENTS` — SQLite reconciles those |
 | **B16** | L | The cursor max is chosen by JS **string** comparison; correct only while PostgREST returns one fixed UTC offset | Compare with `Date.parse` |
-| **B17** | L | No index on `_dirty`; every push full-scans 21 tables | Index `_dirty` on the high-volume tables |
+| ~~**B17**~~ | L | **FIXED** — no index on `_dirty`; every push full-scanned 21 tables | A **partial** index per tenant table (`… ON t(_dirty) WHERE _dirty = 1`), generated in `CREATE_INDEX_STATEMENTS` — it holds only the dirty rows, so a clean table reads an empty index |
 | **B18** | L | Developer import clears the tables but not `pending_deletes` / `sync_meta` | Clear both inside the import transaction |
-| **B19** | L | Stale comments in the most safety-critical file: `sales.total_amount` called generated (it isn't — the code is right), `startSync`'s trigger list, `refreshActiveData`'s `setSyncRefreshHandler` and "5-minute ticks" | Correct the comments together with B9 |
+| ~~**B19**~~ | L | **FIXED** — stale comments in the most safety-critical file: `sales.total_amount` called generated (it isn't — the code was right), `startSync`'s trigger list, `refreshActiveData`'s `setSyncRefreshHandler` and "5-minute ticks" | Corrected in the split `sync/` files and in docs/offline.md. The engine's real triggers (cold start · session restore via `runSyncIfDue` · manual) are now written down as such |
 
 ### Suggested order
 
-1. **B1, B2, B3, B4** — data loss and lockout. Nothing else matters until these are closed.
+1. ~~B1~~, **B2**, ~~B3~~, **B4** — data loss and lockout. Nothing else matters until these are closed.
 2. **B5, B6, B7, B8** — the wedge-and-orphan family; B5 is the shared safety net for B6/B7.
-3. **B9** — without it the whole engine only runs when someone remembers to tap a button.
-4. **B10–B14**, then the L items.
+3. **B9** — without it the whole engine only runs at cold start, at a session restore that is past the 24h gate, or when someone taps a button.
+4. ~~B10~~, **B11–B14**, then the remaining L items (**B15, B16, B18**).
+
+**Closed by the parallel-sync change:** B1, B3, B10, B17, B19. The parallelism itself is covered by §6b.

@@ -4,6 +4,7 @@ import { BRANCH_FILTER_UNASSIGNED, type BranchFilter } from '@/src/core/constant
 import { getDb } from './db/sqlite';
 import { decodeRow, decodeRows } from './db/codec';
 import { insertDirty, markDeleted, updateDirty } from './db/dml';
+import { withDbLock } from './dbLock';
 import { logException } from '../errorLog/errorLogger';
 import { buildAuditRow, type AuditInput } from '../audit';
 
@@ -12,14 +13,6 @@ export type OfflineBranchScope =
   | { kind: 'owned'; column?: string }
   | { kind: 'shared'; column?: string }
   | { kind: 'inherited'; joinedTable: string; column?: string };
-
-// The whole native app shares ONE SQLite connection (getDb()), and SQLite allows
-// only one open transaction on it at a time. Concurrent write() calls — e.g.
-// WalletService remitting payments + sales + debt_payments via Promise.all — would
-// otherwise each BEGIN on the same handle and throw "cannot start a transaction
-// within a transaction". This module-level chain serialises every write so
-// overlapping calls queue and run one after another.
-let writeQueue: Promise<unknown> = Promise.resolve();
 
 /**
  * The offline counterpart to BaseRepository. Holds the SQLite handle, an
@@ -316,21 +309,14 @@ export abstract class OfflineBaseRepository {
    * No outbox — the `_dirty` flag + `pending_deletes` are the whole write intent.
    */
   protected write<T>(fn: (db: SQLiteDatabase) => Promise<T>): Promise<T> {
-    const run = async (): Promise<T> => {
+    // `withDbLock` is shared with the sync engine — one connection, one queue, so
+    // a save during a running pull waits instead of throwing (see dbLock.ts).
+    return withDbLock(async () => {
       let result!: T;
       await this.db.withTransactionAsync(async () => {
         result = await fn(this.db);
       });
       return result;
-    };
-    // Chain onto the queue regardless of whether the previous write succeeded,
-    // then keep the queue alive by swallowing this write's result/rejection —
-    // the real result/rejection is still returned to the caller via `next`.
-    const next = writeQueue.then(run, run);
-    writeQueue = next.then(
-      () => undefined,
-      () => undefined,
-    );
-    return next;
+    });
   }
 }

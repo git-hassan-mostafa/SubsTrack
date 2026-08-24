@@ -30,7 +30,7 @@ export interface TableSpec {
    * Columns the SERVER computes (Postgres `GENERATED ALWAYS`). Stored/computed
    * locally like any `num` column, but MUST be stripped from push payloads —
    * Postgres rejects a value for a generated column (SQLSTATE 428C9). See
-   * `stripForPush` in sync.ts.
+   * `stripForPush` in sync/push.ts.
    */
   generated?: string[];
   /**
@@ -44,7 +44,7 @@ export interface TableSpec {
    * True for a write-mostly debug/audit log (currently only exception_logs):
    * pushed like any other tenant table, but never pulled back down — pulling
    * it would just fill every device's mirror with every other device's log
-   * rows for no benefit. See sync.ts's pullChanges().
+   * rows for no benefit. See sync/pull.ts's pullChanges().
    */
   pushOnly?: boolean;
   /**
@@ -59,7 +59,7 @@ export interface TableSpec {
   appendOnly?: boolean;
   /**
    * Keep only a rolling window locally: pull rows whose `occurred_at` is within
-   * N days and prune older local rows (pruneWindowedTables in sync.ts). The
+   * N days and prune older local rows (pruneWindowedTables in sync/pull.ts). The
    * server keeps everything; older history is read online on demand.
    */
   pullDays?: number;
@@ -330,13 +330,30 @@ export const TABLE_BY_NAME: Record<string, TableSpec> = Object.fromEntries(
 );
 
 /**
- * Every table the sync engine touches, ordered parents-before-children (matters
- * for FK-ish merges). The PUSH loop iterates this array too, so a table missing
- * from here is neither pushed nor pulled.
+ * The push order, as DEPENDENCY LEVELS: every table in a wave is free of the
+ * others in the same wave, so a wave is pushed in parallel and the waves run one
+ * after another. Derived from the server's foreign keys (`sql scripts/script.sql`)
+ * — a child upsert reaching Supabase before its parent is a 23503, so a table
+ * MUST sit below every table it references.
+ *
+ * The PULL needs no order at all: the local mirror declares no foreign keys and
+ * `PRAGMA foreign_keys` stays off (see schema.ts), so rows may land in any order.
+ *
+ * `tier_plans` / `app_options` are `scope: 'global'` — read-only caches the push
+ * skips; they ride in wave 0 only so `SYNC_TABLES` below stays complete.
  */
-export const SYNC_PULL_ORDER = [
-  'tenants', 'tier_plans', 'app_options', 'tenant_settings', 'currencies', 'branches', 'users',
-  'plans', 'customers', 'customer_plans', 'payments', 'skipped_months',
-  'products', 'services', 'sales', 'sale_items', 'stock_movements', 'custom_debts',
-  'debt_payments', 'expenses', 'exception_logs', 'audit_logs',
-] as const;
+export const PUSH_WAVES: readonly (readonly string[])[] = [
+  ['tenants', 'tier_plans', 'app_options'],
+  ['tenant_settings', 'currencies', 'branches'],
+  ['users', 'plans', 'customers', 'products', 'services'],
+  ['customer_plans', 'sales', 'expenses', 'custom_debts', 'debt_payments',
+    'exception_logs', 'audit_logs'],
+  ['payments', 'skipped_months', 'sale_items', 'stock_movements'],
+];
+
+/**
+ * Every table the sync engine touches. DERIVED from `PUSH_WAVES` on purpose — a
+ * table added to one list and forgotten in the other would be silently never
+ * pushed (or never pulled), so there is only ever one list to edit.
+ */
+export const SYNC_TABLES: readonly string[] = PUSH_WAVES.flat();

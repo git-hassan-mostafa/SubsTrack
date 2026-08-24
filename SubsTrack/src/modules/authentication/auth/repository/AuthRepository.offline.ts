@@ -6,7 +6,7 @@ import { upsertFromServer } from '@/src/core/offline/db/dml';
 import { isOnline } from '@/src/core/offline/net/connectivity';
 import { RequiresConnectionError, OrganizationSwitchBlockedError } from '@/src/core/offline/errors';
 import { ensureTenantScope, hasUnsyncedWrites } from '@/src/core/offline/bootstrap/tenant';
-import { runSync, flushPendingWrites } from '@/src/core/offline/sync';
+import { runSync, runSyncIfDue, flushPendingWrites } from '@/src/core/offline/sync';
 import type { IAuthRepository } from './IAuthRepository';
 import { AuthRepository } from './AuthRepository';
 
@@ -67,9 +67,10 @@ export class OfflineAuthRepository extends OfflineBaseRepository implements IAut
       const branch = (profile as { branches?: DbBranch | null }).branches;
       if (branch) await upsertFromServer(this.db, 'branches', branch);
       // Empty mirror (first login or just-wiped switch) → block on the initial pull;
-      // otherwise refresh in the background.
+      // otherwise refresh in the background, and only if the mirror is a day stale
+      // (this runs on every session restore, i.e. every app open).
       if (wasEmpty) await runSync();
-      else void runSync();
+      else void runSyncIfDue();
       return profile;
     }
     // Offline: serve the cached profile + hydrate its branch.

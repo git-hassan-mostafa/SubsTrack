@@ -82,3 +82,28 @@ export function encodeRow(
   }
   return { columns, values };
 }
+
+/**
+ * Encode many rows against ONE shared column list — what a multi-row INSERT
+ * needs. The columns come from the FIRST row (intersected with the spec), not
+ * from the union of all rows: every row of a pulled page is one `select *` from
+ * the same table, so they all carry the same keys, and taking the spec's full
+ * list instead would bind NULL over a local value whenever the server has not
+ * grown a column yet.
+ */
+export function encodeRowsUniform(
+  table: string,
+  rows: object[],
+): { columns: string[]; values: unknown[][] } {
+  const spec = TABLE_BY_NAME[table];
+  if (!spec) throw new Error(`[offline] unknown table: ${table}`);
+  const first = rows[0] as Record<string, unknown>;
+  const cols = Object.entries(spec.columns).filter(([col]) => col in first);
+  return {
+    columns: cols.map(([col]) => col),
+    values: rows.map((row) => {
+      const r = row as Record<string, unknown>;
+      return cols.map(([col, type]) => encodeValue(r[col], type));
+    }),
+  };
+}

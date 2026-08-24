@@ -6,6 +6,7 @@ export { initOffline } from './bootstrap/offlineBootstrap';
 export { ensureTenantScope } from './bootstrap/tenant';
 export {
   runSync,
+  runSyncIfDue,
   syncNow,
   resyncFromScratch,
   getSyncStatus,

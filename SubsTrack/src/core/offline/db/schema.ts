@@ -83,4 +83,13 @@ export const CREATE_INDEX_STATEMENTS: string[] = [
   `CREATE INDEX IF NOT EXISTS idx_audit_logs_occurred ON audit_logs(occurred_at);`,
   `CREATE INDEX IF NOT EXISTS idx_audit_logs_record ON audit_logs(table_name, record_id);`,
   `CREATE INDEX IF NOT EXISTS idx_audit_logs_actor ON audit_logs(actor_user_id);`,
+
+  // The push scans EVERY tenant table for un-pushed rows on every cycle, and
+  // hasUnsyncedWrites counts them again on login. A PARTIAL index holds only the
+  // dirty rows, so a clean table answers from an (almost always empty) index
+  // instead of a full scan of every payment ever recorded.
+  ...TABLES.filter((t) => t.scope === "tenant").map(
+    (t) =>
+      `CREATE INDEX IF NOT EXISTS idx_${t.name}_dirty ON ${t.name}(_dirty) WHERE _dirty = 1;`,
+  ),
 ];

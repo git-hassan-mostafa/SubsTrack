@@ -1,10 +1,19 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
-import { encodeRow } from './codec';
+import { encodeRow, encodeRowsUniform } from './codec';
+import { inBatches } from '../batch';
 import { newId } from '../ids';
 
 function placeholders(n: number): string {
   return Array.from({ length: n }, () => '?').join(', ');
 }
+
+/**
+ * Rows per batched statement. Every SQLite call crosses the JS↔native bridge, so
+ * the pull merges a 1000-row page in a handful of statements instead of a few
+ * thousand. Small enough that rows × columns stays far under SQLite's bound-
+ * parameter limit even for the widest table.
+ */
+const BATCH_ROWS = 200;
 
 /**
  * Tables that converge on a natural key ON TOP OF their id — the mirror's only
@@ -85,34 +94,83 @@ export async function upsertNaturalKeyDirty(
 }
 
 /**
- * Clear the way for a pulled row on a `NATURAL_KEYS` table: a local row holding
- * this server row's key under a DIFFERENT id makes the merge fail on that UNIQUE
- * index — which would stall the table's whole pull, every cycle. The server is the
- * authority, so the stale duplicate is dropped; if it still has an un-pushed local
- * edit we skip the server row instead and let the next push converge the two ids
- * (the server upsert targets the same natural key). Returns false = skip this row.
+ * The natural key of a row as one comparable string, for matching in JS. The
+ * separator is a NUL so it can never appear inside a value and merge two keys.
  */
-export async function clearNaturalKeyDuplicate(
-  db: SQLiteDatabase,
-  table: string,
-  row: Record<string, unknown>,
-): Promise<boolean> {
-  const key = NATURAL_KEYS[table];
-  if (!key) return true;
-  const where = key.map((c) => `${c} = ?`).join(' AND ');
-  const dup = await db.getFirstAsync<{ id: string; _dirty: number }>(
-    `SELECT id, _dirty FROM ${table} WHERE ${where} AND id <> ?`,
-    [...key.map((c) => row[c]), row.id] as never[],
-  );
-  if (!dup) return true;
-  if (dup._dirty === 1) return false;
-  await db.runAsync(`DELETE FROM ${table} WHERE id = ?`, [dup.id] as never[]);
-  return true;
+function naturalKeyOf(key: string[], row: Record<string, unknown>): string {
+  return key.map((c) => String(row[c])).join('\u0000');
 }
 
 /**
- * Merge a server row into the local mirror during pull. Marks it clean
- * (`_dirty = 0`) so the next push won't re-send it. Used by the sync engine.
+ * Which of `ids` still hold an un-pushed local edit — one query per batch instead
+ * of a SELECT per row. Such a row wins over the server's copy until it's pushed.
+ */
+export async function dirtyIdSet(
+  db: SQLiteDatabase,
+  table: string,
+  ids: readonly string[],
+): Promise<Set<string>> {
+  const out = new Set<string>();
+  for (const batch of inBatches(ids, BATCH_ROWS)) {
+    const rows = await db.getAllAsync<{ id: string }>(
+      `SELECT id FROM ${table} WHERE _dirty = 1 AND id IN (${placeholders(batch.length)})`,
+      batch as never[],
+    );
+    for (const r of rows) out.add(r.id);
+  }
+  return out;
+}
+
+/**
+ * Clear the way for a whole pulled page on a `NATURAL_KEYS` table: a local row
+ * holding an incoming row's key under a DIFFERENT id makes the merge fail on that
+ * UNIQUE index — which would stall the table's whole pull, every cycle. The server
+ * is the authority, so a clean duplicate is dropped; one that still has an
+ * un-pushed local edit wins instead and its incoming row is SKIPPED, letting the
+ * next push converge the two ids (the server upsert targets the same natural key).
+ * Returns the incoming ids to skip — always empty for a table with no natural key.
+ */
+export async function clearNaturalKeyDuplicates(
+  db: SQLiteDatabase,
+  table: string,
+  rows: readonly Record<string, unknown>[],
+): Promise<Set<string>> {
+  const skip = new Set<string>();
+  const key = NATURAL_KEYS[table];
+  if (!key) return skip;
+
+  const cols = key.join(', ');
+  const tuple = `(${placeholders(key.length)})`;
+  const stale: string[] = [];
+  for (const batch of inBatches(rows, BATCH_ROWS)) {
+    // Row-value IN — SQLite answers it straight from the natural-key UNIQUE index.
+    // Every natural-key column is TEXT, so the server's raw value binds as-is.
+    const dups = await db.getAllAsync<Record<string, unknown>>(
+      `SELECT id, _dirty, ${cols} FROM ${table}
+       WHERE (${cols}) IN (VALUES ${batch.map(() => tuple).join(', ')})`,
+      batch.flatMap((r) => key.map((c) => r[c])) as never[],
+    );
+    const byKey = new Map(dups.map((d) => [naturalKeyOf(key, d), d]));
+    for (const row of batch) {
+      const dup = byKey.get(naturalKeyOf(key, row));
+      if (!dup || dup.id === row.id) continue;
+      if (dup._dirty === 1) skip.add(row.id as string);
+      else stale.push(dup.id as string);
+    }
+  }
+  for (const batch of inBatches(stale, BATCH_ROWS)) {
+    await db.runAsync(
+      `DELETE FROM ${table} WHERE id IN (${placeholders(batch.length)})`,
+      batch as never[],
+    );
+  }
+  return skip;
+}
+
+/**
+ * Merge ONE server row into the local mirror, marked clean (`_dirty = 0`) so the
+ * next push won't re-send it. Used by the read-through caches (auth, tenant);
+ * the sync engine pulls pages, so it uses `upsertManyFromServer` below.
  */
 export async function upsertFromServer(
   db: SQLiteDatabase,
@@ -131,6 +189,34 @@ export async function upsertFromServer(
      ON CONFLICT (id) DO UPDATE SET ${updates}`,
     vals as never[],
   );
+}
+
+/**
+ * The pull's hot path: merge a whole page of server rows with ONE statement per
+ * batch instead of one per row. Same rules as `upsertFromServer`. Callers must
+ * already have dropped the rows to skip (`dirtyIdSet`, `clearNaturalKeyDuplicates`)
+ * — a single row that still collides fails its whole batch, which leaves the table
+ * un-merged and retried next cycle rather than silently half-applied.
+ */
+export async function upsertManyFromServer(
+  db: SQLiteDatabase,
+  table: string,
+  rows: readonly Record<string, unknown>[],
+): Promise<void> {
+  for (const batch of inBatches(rows, BATCH_ROWS)) {
+    const { columns, values } = encodeRowsUniform(table, batch);
+    const cols = [...columns, '_dirty'];
+    const updates = cols
+      .filter((c) => c !== 'id')
+      .map((c) => `${c} = excluded.${c}`)
+      .join(', ');
+    const tuple = `(${placeholders(cols.length)})`;
+    await db.runAsync(
+      `INSERT INTO ${table} (${cols.join(', ')}) VALUES ${batch.map(() => tuple).join(', ')}
+       ON CONFLICT (id) DO UPDATE SET ${updates}`,
+      values.flatMap((v) => [...v, 0]) as never[],
+    );
+  }
 }
 
 /**
