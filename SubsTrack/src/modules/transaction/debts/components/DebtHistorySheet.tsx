@@ -26,6 +26,12 @@ interface Props {
   items: DebtItem[];
   payments: DebtPaymentItem[];
   onDismiss: () => void;
+  // Optional row actions — the Debts tab wires these to the same
+  // `useDebtRowActions` handlers the debtor modal and the customer panel use.
+  // Omit them for a read-only list (the 3-dot menus then disappear).
+  onPay?: (item: DebtItem) => void;
+  onVoidItem?: (item: DebtItem) => void;
+  onVoidPayment?: (payment: DebtPaymentItem) => void;
 }
 
 // The date every row is filed under: when it was RECORDED, never what it is
@@ -35,13 +41,23 @@ function rowDate(row: Row): string {
   return row.kind === "item" ? row.item.createdAt : row.payment.paidAt;
 }
 
-// A read-only, branch-wide activity log: debts and debt payments merged into one
+// A branch-wide activity log: debts and debt payments merged into one
 // newest-first list, bucketed into date sections (Today / This Week / This
 // Month / <Month> <Year>) exactly like the Payments and Sales tabs. Each header
 // shows the two sums side by side — debts added (red) and payments collected
 // (green) — rather than one net figure that hides both.
-// Opened from the clock icon on the Debts total card.
-export function DebtHistorySheet({ items, payments, onDismiss }: Props) {
+// Opened from the clock icon on the Debts total card. Rows carry the same 3-dot
+// actions as every other debt surface (pay a debt / remove a custom debt /
+// remove a debt payment); the list is derived from the slice, so a mutation
+// flows straight back into the open sheet.
+export function DebtHistorySheet({
+  items,
+  payments,
+  onDismiss,
+  onPay,
+  onVoidItem,
+  onVoidPayment,
+}: Props) {
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
   const displayCurrencyId = useDisplayCurrencyId();
@@ -141,9 +157,9 @@ export function DebtHistorySheet({ items, payments, onDismiss }: Props) {
           )}
           renderItem={({ item: row }) =>
             row.kind === "payment" ? (
-              <DebtPaymentCard payment={row.payment} />
+              <DebtPaymentCard payment={row.payment} onVoid={onVoidPayment} />
             ) : (
-              <DebtItemCard item={row.item} />
+              <DebtItemCard item={row.item} onPay={onPay} onVoid={onVoidItem} />
             )
           }
           ListEmptyComponent={

@@ -101,7 +101,7 @@ The FAB add menu (Add custom debt / Record debt payment) is **picker-driven** �
 
 ## 5. Debt history (clock icon)
 
-The clock icon on the net-total summary card opens a **read-only, branch-wide** log of debts + payments together, grouped by **when each was recorded**.
+The clock icon on the net-total summary card opens a **branch-wide** log of debts + payments together, grouped by **when each was recorded**. Its rows carry the same 3-dot actions as every other debt surface — see **5d**.
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
@@ -109,7 +109,7 @@ The clock icon on the net-total summary card opens a **read-only, branch-wide** 
 | 5.2 | Merged + ordered | With both debts and debt payments present | Debts and payments appear in one list, newest first, mixed by recorded date (not two separate sections) |
 | 5.3 | Grouped by recorded date | Rows across several days/months | Rows sit under date headers (Today / This Week / This Month / `<Month> <Year>`), like the Payments/Sales tabs |
 | 5.4 | Debts + payments totals side by side | A group holding both a new debt and a debt payment | The header shows **two** amounts: the debts total in **red** with a leading `+`, and the payments total in **green** with a leading `−`. They are NOT subtracted into one net figure |
-| 5.5 | Read-only | Tap a debt or payment row in the history | Nothing happens — no menu, no pay/void (use the debtor detail modal for actions) |
+| 5.5 | Rows are actionable | Tap a debt or payment row's **3-dot menu** | A menu opens — the history is no longer read-only; full coverage in **5d** |
 | 5.6 | Customer names shown | Multiple debtors | Each row shows the customer name (this is a cross-customer view) |
 | 5.7 | Empty state | A branch with no debts or payments | "No history yet" empty message |
 | 5.8 | Branch scope | Branch-scoped user / switched branch | History shows only the current branch's debts + payments |
@@ -171,3 +171,24 @@ The Debts panel on a customer's detail page now carries the **same row actions**
 | 5b.4 | Day/week buckets included | Rows in Today + This Week + older months | Rules appear between Today→This Week→month groups too, not only between months |
 | 5b.5 | Pagination | Scroll to load more pages (Payments / Sales) | Newly appended groups get their separators; the first group keeps none |
 | 5b.6 | All three lists match | Compare Payments tab, Sales tab, Debt history | Identical separator spacing and colour in all three |
+
+### 5d. Row actions in the history (same hook as every other debt surface)
+
+The history sheet gets its row actions from `DebtsPanel`, which passes the very same `useDebtRowActions` handlers the debtor modal uses — so a menu here must behave identically to the same row in the debtor modal or the customer panel. The sheet renders the slice's own data, so every change must show **without closing the sheet**.
+
+| # | Scenario | Steps | Expected result |
+|---|----------|-------|-----------------|
+| 5d.1 | Debt row menu | History → a debt row's **3-dot menu** | Menu opens with **Pay** (and **Remove** only on a Custom row) — identical to the debtor modal |
+| 5d.2 | Months/sales have no Remove | Open a Months or Sales row's menu | Only **Pay** — no Remove (void the underlying payment/sale in its own tab) |
+| 5d.3 | Pay a debt from the history | A debt row's menu → **Pay** → confirm | A debt payment for the row's remaining amount is recorded in the **row's own currency**; the debt row leaves the list and a green payment row appears under **TODAY** — the sheet stays open |
+| 5d.4 | Remove a custom debt | A Custom row's menu → **Remove** → confirm | Row disappears live |
+| 5d.5 | Remove a debt payment | A debt-payment row's menu → **Remove** → confirm | Row disappears live |
+| 5d.6 | Section totals re-sum | Do 5d.3, then read the date headers | The row's old group loses it from the red `+` side; TODAY gains it on the green `−` side. No stale totals |
+| 5d.7 | Net behind the sheet | Close the sheet after any of 5d.3–5d.5 | The Debts tab total + debtors list already reflect the change (the actions go through the shared slice) |
+| 5d.8 | Menu title names the customer | Open a **debt** row's menu and a **debt-payment** row's menu | Both are titled with the **customer name** — this is a cross-customer list. (On the customer panel / debtor modal, a payment row's menu keeps its label title) |
+| 5d.9 | Tapping the row body does nothing | Tap a row's body (not the 3-dot) | Nothing happens — actions are menu-only on every debt surface |
+| 5d.10 | Cancel leaves it alone | Open any action → cancel the confirm dialog | Nothing recorded, nothing voided, the list is unchanged |
+| 5d.11 | Scrolled-down row | Scroll deep into a long history, open a row's menu | The menu opens over the correct row and its action hits that row (the list is virtualized — the menu must not act on a recycled row) |
+| 5d.12 | Pay the last debt | Pay off the only outstanding debt from the history | The debt row goes, the payment row stays, and the sheet does **not** fall back to the empty state |
+| 5d.13 | Offline | Airplane mode → pay a debt row from the history | Works and shows immediately; syncs on reconnect |
+| 5d.14 | RTL | Arabic → open a row menu | Title, icons and labels mirror correctly; the confirm dialog reads right-to-left |

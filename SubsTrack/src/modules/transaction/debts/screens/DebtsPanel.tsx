@@ -282,6 +282,9 @@ export function DebtsPanel() {
           items={items}
           payments={payments}
           onDismiss={() => setHistoryOpen(false)}
+          onPay={payItem}
+          onVoidItem={voidItem}
+          onVoidPayment={voidPayment}
         />
       )}
     </View>

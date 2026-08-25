@@ -86,8 +86,14 @@ export function DebtPaymentCard({ payment, onVoid, hideCustomerName }: Props) {
 
     <ActionMenu
       visible={menuOpen}
+      // On the cross-customer history the customer name is what identifies
+      // the row; on a single-customer surface it would only be noise.
       title={
-        payment.notes?.trim() ? payment.notes : t("debts.debt_payment")
+        hideCustomerName
+          ? payment.notes?.trim()
+            ? payment.notes
+            : t("debts.debt_payment")
+          : payment.customerName
       }
       actions={actions}
       onDismiss={() => setMenuOpen(false)}
