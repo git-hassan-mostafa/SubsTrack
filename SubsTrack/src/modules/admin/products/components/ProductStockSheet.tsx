@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { View, type LayoutChangeEvent } from "react-native";
+import { View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
-import { FormSheet } from "@/src/shared/components/FormSheet";
-import { useSheetScrollTo } from "@/src/shared/components/sheetScrollContext";
+import {
+  FormSheet,
+  type SheetScrollTo,
+} from "@/src/shared/components/FormSheet";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { Button } from "@/src/shared/components/Button";
@@ -97,11 +99,9 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
   const [editing, setEditing] = useState<StockMovement | null>(null);
   const [menuFor, setMenuFor] = useState<StockMovement | null>(null);
   const recordHistory = useRecordHistoryAction("stock_movements");
-  const scrollTo = useSheetScrollTo();
-  // An edit was just picked — bring the "Editing this entry" banner into view as
-  // soon as it lands. Its position is only known after it is laid out, which is
-  // why this waits for the banner instead of scrolling in `startEdit`.
-  const showBanner = useRef(false);
+  // The sheet's own scroll, so picking Edit on a history row far down the body
+  // can bring the form it fills back into view.
+  const scrollBody = useRef<SheetScrollTo | null>(null);
   // Which cost field was typed last. It stays as typed when the quantity
   // changes and the other one is recomputed — re-deriving the number staff just
   // entered would fight them.
@@ -211,17 +211,10 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
     setCostCurrencyId(m.currencyId);
     setNote(m.note ?? "");
     clearError();
-    // The tapped row is far below the form, so the banner explaining what now
-    // happens must be scrolled to — otherwise the edit looks like it did nothing.
-    showBanner.current = true;
-  }
-
-  // Fires when the banner mounts (it is keyed on the row, so every edit gets a
-  // fresh layout). A little above it, so it isn't flush under the sheet header.
-  function handleBannerLayout(e: LayoutChangeEvent) {
-    if (!showBanner.current) return;
-    showBanner.current = false;
-    scrollTo(Math.max(0, e.nativeEvent.layout.y - 12));
+    // The tapped row is far below the form, so go back to the top of the body —
+    // otherwise the filled fields and the "Editing this entry" banner stay
+    // off-screen and the action looks like it did nothing.
+    scrollBody.current?.(0);
   }
 
   // The other correction door: the entry should never have existed. It stops
@@ -302,6 +295,7 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
       dirty={dirty}
       title={t("products.adjust_stock_title")}
       dismissLabel={t("common.close")}
+      scrollRef={scrollBody}
     >
       {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}
 
@@ -322,13 +316,7 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
       {/* The banner only shows while a row is being corrected; a new change needs
           no chrome, since adding is the only thing it can do. */}
       {editing ? (
-        <View
-          // Keyed on the row so switching from one edit to another re-mounts it
-          // and re-fires the layout that scrolls it into view.
-          key={editing.id}
-          onLayout={handleBannerLayout}
-          className="mb-4 flex-row rounded-2xl border border-indigo-200 bg-indigo-50 px-4 py-3"
-        >
+        <View className="mb-4 flex-row rounded-2xl border border-indigo-200 bg-indigo-50 px-4 py-3">
           <Ionicons name="create-outline" size={16} color={COLORS.primary} />
           <View className="flex-1 ms-2">
             <Text fontWeight="SemiBold" className="text-sm text-primary">

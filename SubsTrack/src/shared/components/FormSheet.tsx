@@ -1,4 +1,10 @@
-import { useCallback, useRef, type ReactNode } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import {
   BottomSheetScrollView,
   type BottomSheetScrollViewMethods,
@@ -7,12 +13,14 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { AppBottomSheet } from "./AppBottomSheet";
 import { useSheetDismiss } from "./sheetDismissContext";
-import { SheetScrollContext } from "./sheetScrollContext";
 import { ResponsiveContainer } from "./ResponsiveContainer";
 import { SheetDragArea } from "./SheetDragArea";
 import { PressableOpacity } from "./PressableOpacity/PressableOpacity";
 import { Text } from "./Text";
 import { useAfterFirstFrame } from "@/src/shared/hooks/useAfterFirstFrame";
+
+/** Scrolls the sheet body to a content offset; `0` is the top of the form. */
+export type SheetScrollTo = (y: number) => void;
 
 interface FormSheetProps {
   /** Defaults to `true` — most form sheets are mounted only while open. */
@@ -28,6 +36,15 @@ interface FormSheetProps {
    * {@link useDirtyForm}.
    */
   dirty?: boolean;
+  /**
+   * Filled with the body's scroll function while the sheet is mounted — for a tap
+   * LOW in the form that changes something far UP it (the stock sheet's "Edit
+   * entry", filled from a history row far below the fields it fills). A ref and
+   * not a context, because the component that renders this sheet is its PARENT:
+   * a context published in here can only be read further down the body, so the
+   * caller would silently get a no-op.
+   */
+  scrollRef?: RefObject<SheetScrollTo | null>;
   children: ReactNode;
 }
 
@@ -56,6 +73,7 @@ export function FormSheet({
   title,
   dismissLabel,
   dirty = false,
+  scrollRef,
   children,
 }: FormSheetProps) {
   return (
@@ -70,6 +88,7 @@ export function FormSheet({
         title={title}
         dismissLabel={dismissLabel}
         onDismiss={onDismiss}
+        scrollRef={scrollRef}
       >
         {children}
       </FormSheetBody>
@@ -87,12 +106,14 @@ function FormSheetBody({
   title,
   dismissLabel,
   onDismiss,
+  scrollRef,
   children,
 }: {
   visible: boolean;
   title: string;
   dismissLabel?: string;
   onDismiss: () => void;
+  scrollRef?: RefObject<SheetScrollTo | null>;
   children: ReactNode;
 }) {
   const { t } = useTranslation();
@@ -100,12 +121,19 @@ function FormSheetBody({
   const bodyReady = useAfterFirstFrame(visible);
   const dismiss = useSheetDismiss(onDismiss);
 
-  const scrollRef = useRef<BottomSheetScrollViewMethods>(null);
-  // Published to the body so a control low in the form can bring a part of it
-  // back into view; see {@link SheetScrollContext}.
-  const scrollTo = useCallback((y: number) => {
-    scrollRef.current?.scrollTo({ y, animated: true });
+  const bodyRef = useRef<BottomSheetScrollViewMethods>(null);
+  const scrollTo = useCallback<SheetScrollTo>((y) => {
+    bodyRef.current?.scrollTo({ y, animated: true });
   }, []);
+
+  // Hand the scroll to the caller, which is our parent — see `scrollRef`.
+  useEffect(() => {
+    if (!scrollRef) return;
+    scrollRef.current = scrollTo;
+    return () => {
+      scrollRef.current = null;
+    };
+  }, [scrollRef, scrollTo]);
 
   return (
     <ResponsiveContainer className="flex-1">
@@ -121,7 +149,7 @@ function FormSheetBody({
       </SheetDragArea>
 
       <BottomSheetScrollView
-        ref={scrollRef}
+        ref={bodyRef}
         style={{ flex: 1 }}
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={{
@@ -130,9 +158,7 @@ function FormSheetBody({
           paddingBottom: 48 + insets.bottom,
         }}
       >
-        <SheetScrollContext.Provider value={scrollTo}>
-          {bodyReady ? children : null}
-        </SheetScrollContext.Provider>
+        {bodyReady ? children : null}
       </BottomSheetScrollView>
     </ResponsiveContainer>
   );
