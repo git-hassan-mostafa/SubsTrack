@@ -95,3 +95,23 @@ export function groupByCurrency(
   }
   return [...byCurrency.values()].sort((a, b) => b.usd - a.usd);
 }
+
+
+// Drops the currency symbol/code formatMoney appends, leaving the bare number.
+function stripCurrencyLabel(formatted: string, target: Currency | null): string {
+  if (!target) return formatted.replace(/^\$/, '');
+  const suffix = ` ${target.symbol || target.code}`;
+  return formatted.endsWith(suffix) ? formatted.slice(0, -suffix.length) : formatted;
+}
+
+// "20/50 $" — collected out of owed, as one amount. The currency label rides on
+// the second half only; printing it twice reads as two separate figures.
+export function formatPaidFraction(
+  paid: number,
+  due: number,
+  source: Currency | null,
+  target: Currency | null,
+): string {
+  const paidLabel = stripCurrencyLabel(formatMoney(paid, source, target), target);
+  return `${paidLabel}/${formatMoney(due, source, target)}`;
+}

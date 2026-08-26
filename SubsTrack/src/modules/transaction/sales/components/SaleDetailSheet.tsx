@@ -7,10 +7,11 @@ import { PressableOpacity } from "@/src/shared/components/PressableOpacity/Press
 import { Text } from "@/src/shared/components/Text";
 import { Input } from "@/src/shared/components/Input";
 import { COLORS } from "@/src/shared/constants";
-import type { Currency, Sale, SaleItem } from "@/src/core/types";
+import type { Sale, SaleItem } from "@/src/core/types";
 import {
   findCurrency,
   formatMoney,
+  formatPaidFraction,
   paymentSnapshotCurrency,
 } from "@/src/core/utils/currency";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
@@ -21,19 +22,6 @@ import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
 import { SendOnWhatsAppButton, useSendInvoice } from "@/src/modules/invoicing";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { RecordHistorySheet } from "@/src/modules/admin/audit";
-
-// Strips the trailing currency symbol/code that formatMoney appends, so a
-// paid/total fraction shows the currency label once instead of twice.
-function stripCurrencyLabel(
-  formatted: string,
-  target: Currency | null,
-): string {
-  if (!target) return formatted.replace(/^\$/, "");
-  const suffix = ` ${target.symbol || target.code}`;
-  return formatted.endsWith(suffix)
-    ? formatted.slice(0, -suffix.length)
-    : formatted;
-}
 
 interface Props {
   sale: Sale | null;
@@ -92,7 +80,7 @@ export function SaleDetailSheet({
   const partiallyPaid = !voided && sale.amountPaid < sale.totalAmount;
   const totalSourceLabel = fmtSource(sale.totalAmount);
   const heroSourceLabel = partiallyPaid
-    ? `${stripCurrencyLabel(fmtSource(sale.amountPaid), source)}/${totalSourceLabel}`
+    ? formatPaidFraction(sale.amountPaid, sale.totalAmount, source, source)
     : totalSourceLabel;
   const receiptId = sale.id.slice(-6).toUpperCase();
   const items = sale.items;

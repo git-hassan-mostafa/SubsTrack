@@ -16,6 +16,7 @@ import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { useAfterFirstFrame } from "@/src/shared/hooks/useAfterFirstFrame";
 import { sumDebtNetUsd } from "../utils/debtAggregations";
+import { useDebtSourceSheet } from "../hooks/useDebtSourceSheet";
 import { DebtList } from "./DebtList";
 import { CustomDebtFormSheet } from "./CustomDebtFormSheet";
 import { DebtPaymentFormSheet } from "./DebtPaymentFormSheet";
@@ -54,6 +55,13 @@ export function DebtorDetailSheet({
   const currencies = useCurrencySlice((s) => s.items);
   const displayCurrencyId = useDisplayCurrencyId();
   const target = findCurrency(currencies, displayCurrencyId);
+
+  // Tapping a month / sale row opens the record behind it (read-only receipt).
+  const {
+    open: openSource,
+    sheet: sourceSheet,
+    loadingId,
+  } = useDebtSourceSheet();
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [customDebtOpen, setCustomDebtOpen] = useState(false);
@@ -120,6 +128,8 @@ export function DebtorDetailSheet({
                 onComplete={onComplete}
                 onVoidItem={onVoidItem}
                 onVoidPayment={onVoidPayment}
+                onOpenItem={openSource}
+                openingItemId={loadingId}
               />
             ) : null}
           </BottomSheetScrollView>
@@ -160,6 +170,8 @@ export function DebtorDetailSheet({
           onDismiss={() => setPaymentOpen(false)}
         />
       )}
+
+      {sourceSheet}
     </>
   );
 }

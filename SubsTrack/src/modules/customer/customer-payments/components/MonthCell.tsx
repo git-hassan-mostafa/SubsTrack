@@ -83,13 +83,26 @@ export const MonthCell = memo(function MonthCell({
   // before_start cells are never selectable; everything else can be picked.
   const selectable = entry.status !== "before_start";
 
+  // A partial payment still resolves to "paid" (rule #1), so only the ring and
+  // the label can tell a settled month from one that still owes. A multi-month
+  // block is marked on its FIRST cell only — ringing every segment would draw
+  // seams through the joined pill.
+  const isPartial = entry.status === "paid" && entry.balance > 0;
+  const showPartialRing = isPartial && !entry.isGroupSecondary;
+
   const bgColor = isRegular ? regularBgColor : nonRegularBgColor;
   const textColor = isRegular ? regularTextColor : nonRegularTextColor;
 
+  // A partial month wears its status colour under an amber ring — the same amber
+  // every other partial surface uses. A ring rather than a fill because a
+  // non-regular customer's "paid" is already yellow, so an amber fill would be
+  // invisible there.
   const containerBg =
     isRegular && isCurrentMonth && entry.status === "unpaid"
       ? "bg-red-100 border-2 border-red-500"
-      : bgColor[entry.status];
+      : showPartialRing
+        ? `${bgColor.paid} border-2 border-amber-500`
+        : bgColor[entry.status];
 
   const labelColor =
     isRegular && isCurrentMonth && entry.status === "unpaid"
@@ -118,6 +131,7 @@ export const MonthCell = memo(function MonthCell({
   const sublabel = (() => {
     if (entry.status === "paid" && entry.isGroupSecondary)
       return t("payments.included_label");
+    if (isPartial) return t("payments.partial_badge");
     if (entry.status === "paid") return t("common.paid");
     if (entry.status === "skipped") return t("payments.skip.skipped_label");
     if (isCurrentMonth) return t("payments.this_month").toUpperCase();

@@ -24,6 +24,11 @@ interface Props {
   onComplete?: (item: DebtItem) => void;
   onVoidItem?: (item: DebtItem) => void;
   onVoidPayment?: (payment: DebtPaymentItem) => void;
+  // Tapping a derived row opens the record behind it (month receipt / sale
+  // receipt). Omit for a read-only list.
+  onOpenItem?: (item: DebtItem) => void;
+  // Id of the row whose record is being fetched, so that card shows a spinner.
+  openingItemId?: string | null;
 }
 
 // The shared debt-list body: a customer's outstanding debts (partial months,
@@ -43,6 +48,8 @@ export function DebtList({
   onComplete,
   onVoidItem,
   onVoidPayment,
+  onOpenItem,
+  openingItemId,
 }: Props) {
   const { t } = useTranslation();
   const isEmpty = items.length === 0 && payments.length === 0;
@@ -90,6 +97,8 @@ export function DebtList({
             onPay={onPay}
             onComplete={onComplete}
             onVoid={onVoidItem}
+            onOpen={onOpenItem}
+            loading={openingItemId === row.item.id}
           />
         ) : (
           <DebtPaymentCard

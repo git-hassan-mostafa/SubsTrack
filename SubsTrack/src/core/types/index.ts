@@ -548,6 +548,21 @@ export interface DebtItem {
    */
   createdAt: string;
   sourceType: 'payment' | 'sale' | 'custom_debt';
+  /**
+   * What was collected out of what was owed on the record behind this debt, in
+   * the row's own currency (so remaining = due − paid). Both null for a custom
+   * debt, which has no record behind it — its amount IS the debt.
+   */
+  amountPaid: number | null;
+  amountDue: number | null;
+  /**
+   * The payment behind a `months` row, carried whole because the query that
+   * builds these rows already selects it in full — opening its receipt must not
+   * re-fetch what the app is holding. Null on every other category: a `sales`
+   * row's query is deliberately lean (no `sale_items`), so that receipt is
+   * loaded on demand, and a custom debt has no record at all.
+   */
+  payment: Payment | null;
 }
 
 // A debt-payment row for the "Payments" view of the Debts list.

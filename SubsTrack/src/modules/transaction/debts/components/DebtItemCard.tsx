@@ -10,6 +10,7 @@ import type { DebtCategory, DebtItem } from "@/src/core/types";
 import {
   findCurrency,
   formatMoney,
+  formatPaidFraction,
   paymentSnapshotCurrency,
 } from "@/src/core/utils/currency";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
@@ -32,6 +33,12 @@ interface Props {
   // On a single-customer surface the name is redundant on every row; when true
   // the label becomes the primary line instead of the customer name.
   hideCustomerName?: boolean;
+  // Opens the record behind a DERIVED row — the month receipt for a partial
+  // payment, the sale receipt for a partial sale. A custom debt has no such
+  // record, so tapping it does nothing.
+  onOpen?: (item: DebtItem) => void;
+  // True while this row's record is being fetched (the card shows a spinner).
+  loading?: boolean;
 }
 
 const CATEGORY_STYLE: Record<
@@ -50,6 +57,8 @@ export function DebtItemCard({
   onComplete,
   onVoid,
   hideCustomerName,
+  onOpen,
+  loading = false,
 }: Props) {
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
@@ -61,6 +70,12 @@ export function DebtItemCard({
   const source = paymentSnapshotCurrency(item, currencies);
   const target = findCurrency(currencies, displayCurrencyId);
   const amountLabel = formatMoney(item.remaining, source, target);
+  // "20/50 $" — what was collected out of what was owed. Only a derived row has
+  // a record behind it to report; a custom debt's amount IS the debt.
+  const paidFraction =
+    item.amountPaid != null && item.amountDue != null
+      ? formatPaidFraction(item.amountPaid, item.amountDue, source, source)
+      : null;
   const style = CATEGORY_STYLE[item.category];
   const canVoid = item.category === "custom" && !!onVoid;
   // Only a derived row has a record to correct; a custom debt is the record.
@@ -100,7 +115,13 @@ export function DebtItemCard({
       icon={style.icon}
       iconColor={style.color}
       iconBgClassName={style.bg}
+      onPress={
+        onOpen && item.sourceType !== "custom_debt"
+          ? () => onOpen(item)
+          : undefined
+      }
       onMenu={actions.length > 0 ? () => setMenuOpen(true) : undefined}
+      menuLoading={loading}
     >
       <View className="flex-1">
         <Text className="text-base font-semibold text-gray-900" numberOfLines={1}>
@@ -109,6 +130,9 @@ export function DebtItemCard({
         <Text className="text-xs text-gray-500 mt-0.5" numberOfLines={1}>
           {hideCustomerName ? "" : `${item.label} · `}
           {formatDate(item.date, locale)}
+          {/* Collected out of owed — says WHY the row owes what it owes. Sits
+              here, not under the amount, so the card keeps its two-line height. */}
+          {paidFraction ? ` · ${paidFraction}` : ""}
         </Text>
       </View>
 

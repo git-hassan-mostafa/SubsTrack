@@ -23,3 +23,4 @@ export { PaymentsPanel } from './screens/PaymentsPanel';
 export { VoidSheet } from './components/VoidSheet';
 export { YearNavigator } from './components/YearNavigator';
 export { getBlockRangeLabel } from './utils/blockRangeLabel';
+export { paymentToMonthEntry } from './utils/paymentEntry';

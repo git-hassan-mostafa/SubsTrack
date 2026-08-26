@@ -8,7 +8,6 @@ import {
 } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
-import { MONTHS } from "@/src/core/constants";
 import { COLORS } from "@/src/shared/constants";
 import { EmptyState } from "@/src/shared/components/EmptyState";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
@@ -37,7 +36,6 @@ import {
   getDateMonthsAgoString,
   getTodayDateString,
 } from "@/src/core/utils/date";
-import type { MonthEntry } from "@/src/core/types";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { usePaymentsListSlice } from "@/src/state/hooks/usePaymentsListSlice";
 import { useUserSlice } from "@/src/state/hooks/useUserSlice";
@@ -45,26 +43,10 @@ import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { getStore } from "@/src/state/globalStore";
 import type { PaymentListItem, PaymentStatusFilter } from "../utils/types";
+import { paymentToMonthEntry } from "../utils/paymentEntry";
 import { PaymentListCard } from "../components/PaymentListCard";
 import { PaymentDetailSheet } from "../components/PaymentDetailSheet";
 import { PaymentListVoidSheet } from "../components/PaymentListVoidSheet";
-
-function toEntry(p: PaymentListItem): MonthEntry {
-  const [year, month] = p.billingMonth.split("-").map(Number);
-  return {
-    year,
-    month,
-    label: MONTHS[month - 1],
-    billingMonth: p.billingMonth,
-    // Any recorded payment is "paid" — the detail sheet reads `balance` directly
-    // to show a partial payment's remaining amount (now a debt).
-    status: "paid",
-    payment: p,
-    isGroupSecondary: false,
-    balance: p.balance,
-    skip: null,
-  };
-}
 
 export function PaymentsPanel() {
   const { t } = useTranslation();
@@ -382,7 +364,7 @@ export function PaymentsPanel() {
 
       {activePayment ? (
         <PaymentDetailSheet
-          entry={toEntry(activePayment)}
+          entry={paymentToMonthEntry(activePayment)}
           customerName={activePayment.customerName}
           recipient={{
             name: activePayment.customerName,

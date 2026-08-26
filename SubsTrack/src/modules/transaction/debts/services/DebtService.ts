@@ -45,6 +45,8 @@ class DebtService {
         customerName: p.customerName,
         label: p.planName ?? i18n.t('debts.subscription'),
         remaining: p.balance,
+        amountPaid: p.amountPaid,
+        amountDue: p.amountDue,
         currencyId: p.currencyId,
         ratePerUsdSnapshot: p.ratePerUsdSnapshot,
         date: p.billingMonth,
@@ -52,6 +54,9 @@ class DebtService {
         // month it covers (which may be years out).
         createdAt: p.paidAt,
         sourceType: 'payment',
+        // `partialPayments` selects the payment in full, so the receipt opens
+        // straight from here — no second read for what is already loaded.
+        payment: p,
       }));
 
     // "Sales" — each partial sale owes total − amount paid.
@@ -64,11 +69,16 @@ class DebtService {
         customerName: s.customer?.name ?? '',
         label: s.itemsSummary,
         remaining: s.totalAmount - s.amountPaid,
+        amountPaid: s.amountPaid,
+        amountDue: s.totalAmount,
         currencyId: s.currencyId,
         ratePerUsdSnapshot: s.ratePerUsdSnapshot,
         date: s.soldAt,
         createdAt: s.soldAt,
         sourceType: 'sale',
+        // `partialSales` is deliberately lean (no `sale_items`), so the receipt
+        // has to load the lines itself.
+        payment: null,
       }));
 
     // "Custom" — hand-typed debts.
@@ -81,11 +91,15 @@ class DebtService {
         customerName: d.customers?.name ?? '',
         label: d.description ?? i18n.t('debts.custom_debt'),
         remaining: Number(d.amount),
+        // A custom debt is the record — there is no paid-out-of-due behind it.
+        amountPaid: null,
+        amountDue: null,
         currencyId: d.currency_id,
         ratePerUsdSnapshot: Number(d.rate_per_usd_snapshot),
         date: d.incurred_at,
         createdAt: d.created_at,
         sourceType: 'custom_debt',
+        payment: null,
       }));
 
     // Newest first across categories — by when the debt was RECORDED.

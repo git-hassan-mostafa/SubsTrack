@@ -12,6 +12,7 @@ import { confirm } from "@/src/shared/lib/confirm";
 import {
   findCurrency,
   formatMoney,
+  formatPaidFraction,
   paymentSnapshotCurrency,
 } from "@/src/core/utils/currency";
 import { getBlockRangeLabel } from "../utils/blockRangeLabel";
@@ -152,8 +153,14 @@ export function PaymentDetailSheet({
               !
             </Text>
           </View>
+          {/* Paid out of due — the fraction is what makes "partial" concrete. */}
           <Text fontWeight="Bold" className="text-3xl text-amber-600">
-            {fmtSource(payment.amountPaid)}
+            {formatPaidFraction(
+              payment.amountPaid,
+              payment.amountDue,
+              source,
+              source,
+            )}
           </Text>
           {showEquivalent ? (
             <Text className="text-xs text-gray-400 mt-0.5">

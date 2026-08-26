@@ -20,3 +20,4 @@ export {
   type Debtor,
 } from './utils/debtAggregations';
 export { useDebtRowActions } from './hooks/useDebtRowActions';
+export { useDebtSourceSheet } from './hooks/useDebtSourceSheet';

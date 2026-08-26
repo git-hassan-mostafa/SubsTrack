@@ -58,6 +58,13 @@ class SaleService {
     return rows.map(mapDbSaleToSale);
   }
 
+  // One sale WITH its lines — for surfaces that hold only an id (a debt row
+  // comes from the lean partialSales select, which carries no lines).
+  async getSaleById(id: string): Promise<Sale | null> {
+    const row = await repository.findById(id);
+    return row ? mapDbSaleToSale(row) : null;
+  }
+
   async createSale(input: CreateSaleInput): Promise<Sale> {
     this.validate(input);
     // Fresh read, not the cached product list — the store can be minutes stale.
