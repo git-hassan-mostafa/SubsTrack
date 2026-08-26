@@ -232,6 +232,33 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
     return [...reusedRows, ...((insertResult?.data ?? []) as DbSaleItem[])];
   }
 
+  async updateAmountPaid(id: string, amountPaid: number): Promise<DbSale> {
+    // One extra read so the trail can say what the sale WAS — same reason as update().
+    const { data: prior } = await this.db.from('sales').select('*').eq('id', id).maybeSingle();
+    const { data, error } = await this.db
+      .from('sales')
+      .update({ amount_paid: amountPaid })
+      .eq('id', id)
+      // A voided sale is a closed record — this filter is what locks it.
+      .is('voided_at', null)
+      .select(SALE_SELECT)
+      .single();
+    if (error) this.handleError(error);
+    const updated = data as DbSale;
+
+    this.audit({
+      table: 'sales',
+      recordId: id,
+      action: 'update',
+      before: prior,
+      after: updated,
+      branchId: updated.branch_id,
+      subject: updated.customers?.name ?? null,
+    });
+
+    return updated;
+  }
+
   // Swaps the sale's stock decrements for the edited ones. The old rows are
   // soft-voided rather than reversed with opposite rows, exactly like voidSale —
   // `IS NULL` keeps a repeated run from crediting the stock twice.

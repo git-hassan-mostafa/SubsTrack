@@ -132,6 +132,23 @@ class DebtService {
     return mapDbCustomDebtToCustomDebt(row);
   }
 
+  // "Complete" a derived debt: the record behind it (a month payment or a sale)
+  // was written down short, so its amount paid is corrected to the full amount and
+  // the debt disappears with it. Deliberately NOT a debt payment — nothing new is
+  // collected, an existing record is fixed. A custom debt has no such record, so
+  // it is not completable (it is removed, or a debt payment is recorded against it).
+  async completeDebt(item: DebtItem): Promise<void> {
+    if (item.sourceType === 'payment') {
+      await paymentService.completePayment(item.id);
+      return;
+    }
+    if (item.sourceType === 'sale') {
+      await saleService.completeSale(item.id);
+      return;
+    }
+    throw new Error(i18n.t('errors.debt_not_completable'));
+  }
+
   async voidCustomDebt(id: string, voidedBy: string, reason: string | null): Promise<CustomDebt> {
     const row = await repository.voidCustomDebt(id, voidedBy, reason?.trim() || null);
     return mapDbCustomDebtToCustomDebt(row);
@@ -212,23 +229,24 @@ class DebtService {
     return summary.netUsd;
   }
 
-  // Net debt (Σ debts − Σ payments, in USD) per customer for the branch scope.
-  // Used by the customer list to flag which customers still owe money. Only
-  // customers with a positive net are included; a zero/credit net is omitted.
-  async getNetUsdByCustomer(branchFilter: BranchFilter = null): Promise<Map<string, number>> {
+  // Net debt in USD per customer for the branch scope (Σ debts − Σ payments),
+  // keeping only real debtors. Feeds the customer-list debt badge.
+  async getNetUsdByCustomer(
+    branchFilter: BranchFilter = null,
+  ): Promise<Map<string, number>> {
     const { items, payments } = await this.getDebtsView({ branchFilter });
-    const net = new Map<string, number>();
+    const netUsd = new Map<string, number>();
     for (const i of items) {
-      net.set(i.customerId, (net.get(i.customerId) ?? 0) + i.remaining / i.ratePerUsdSnapshot);
+      netUsd.set(i.customerId, (netUsd.get(i.customerId) ?? 0) + i.remaining / i.ratePerUsdSnapshot);
     }
     for (const p of payments) {
-      net.set(p.customerId, (net.get(p.customerId) ?? 0) - p.amount / p.ratePerUsdSnapshot);
+      netUsd.set(p.customerId, (netUsd.get(p.customerId) ?? 0) - p.amount / p.ratePerUsdSnapshot);
     }
     // Keep only real debtors (net > a cent to avoid float noise).
-    for (const [id, usd] of net) {
-      if (usd <= 0.005) net.delete(id);
+    for (const [id, usd] of netUsd) {
+      if (usd <= 0.005) netUsd.delete(id);
     }
-    return net;
+    return netUsd;
   }
 
   private validateCustomer(customerId: string): void {

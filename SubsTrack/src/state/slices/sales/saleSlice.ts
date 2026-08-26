@@ -35,6 +35,9 @@ export interface SaleSlice {
   clearFilters: () => Promise<void>;
   createSale: (input: CreateSaleInput) => Promise<Sale | null>;
   updateSale: (sale: Sale, input: UpdateSaleInput) => Promise<Sale | null>;
+  // "Complete": raises a partly-paid sale's amount collected to its total — a
+  // correction, not a debt payment. Lines, prices and stock stay as they are.
+  completeSale: (id: string) => Promise<Sale | null>;
   voidSale: (id: string, voidedBy: string, reason: string) => Promise<void>;
   voidSales: (
     ids: string[],
@@ -271,6 +274,30 @@ export const createSaleSlice: StateCreator<
       // key off amount_paid — the screen refetches, this keeps the card honest
       // in the meantime.
       void get().products.fetchProducts();
+      return updated;
+    } catch (e) {
+      set((state) => {
+        state.sales.error = (e as Error).message;
+        state.sales.loading = false;
+      });
+      return null;
+    }
+  },
+
+  completeSale: async (id) => {
+    set((state) => {
+      state.sales.loading = true;
+      state.sales.error = null;
+    });
+    try {
+      const updated = await saleService.completeSale(id);
+      set((state) => {
+        const i = state.sales.items.findIndex((s) => s.id === updated.id);
+        if (i !== -1) state.sales.items[i] = updated;
+        state.sales.loading = false;
+      });
+      // No stock refresh: nothing left the shelf. The section totals key off
+      // amount_paid, so the screen refetches — this keeps the card honest first.
       return updated;
     } catch (e) {
       set((state) => {

@@ -15,8 +15,9 @@ interface Options {
   onChanged?: () => void;
 }
 
-// The debt row actions (pay a debt / remove a custom debt / remove a debt
-// payment), shared by every surface that lists debt rows: the Debts tab, the
+// The debt row actions (pay a debt / complete the record behind it / remove a
+// custom debt / remove a debt payment), shared by every surface that lists debt
+// rows: the Debts tab, the
 // debtor modal, and the customer-detail panel. Each confirms first, then goes
 // through the debts slice so the branch-wide list and the customer-list debt
 // flag stay correct.
@@ -26,6 +27,7 @@ export function useDebtRowActions({ onChanged }: Options = {}) {
   const currencies = useCurrencySlice((s) => s.items);
   const displayCurrencyId = useDisplayCurrencyId();
   const addDebtPayment = useDebtSlice((s) => s.addDebtPayment);
+  const completeDebt = useDebtSlice((s) => s.completeDebt);
   const voidCustomDebt = useDebtSlice((s) => s.voidCustomDebt);
   const voidDebtPayment = useDebtSlice((s) => s.voidDebtPayment);
 
@@ -60,6 +62,28 @@ export function useDebtRowActions({ onChanged }: Options = {}) {
     [user, currencies, target, t, addDebtPayment, onChanged],
   );
 
+  // "Complete" the record behind a months/sales row instead of collecting
+  // against it: its amount paid is raised to the full amount, so the debt is gone
+  // because nothing is owed any more. No debt payment, no new cash — a fix for a
+  // short-recorded amount. A custom debt has no such record behind it.
+  const completeItem = useCallback(
+    async (item: DebtItem) => {
+      if (item.sourceType === "custom_debt") return;
+      const source = findCurrency(currencies, item.currencyId);
+      const ok = await confirm({
+        title: t("common.complete_title"),
+        message: t("common.complete_message", {
+          amount: formatMoney(item.remaining, source, target),
+        }),
+        confirmLabel: t("common.complete"),
+      });
+      if (!ok) return;
+      await completeDebt(item);
+      onChanged?.();
+    },
+    [currencies, target, t, completeDebt, onChanged],
+  );
+
   const voidItem = useCallback(
     async (item: DebtItem) => {
       if (!user || item.category !== "custom") return;
@@ -92,5 +116,5 @@ export function useDebtRowActions({ onChanged }: Options = {}) {
     [user, t, voidDebtPayment, onChanged],
   );
 
-  return { payItem, voidItem, voidPayment };
+  return { payItem, completeItem, voidItem, voidPayment };
 }

@@ -73,6 +73,10 @@ export interface ISaleRepository {
   create(payload: CreateSalePayload): Promise<DbSale>;
   // Voided sales stay locked — both impls filter on `voided_at IS NULL`.
   update(id: string, payload: UpdateSalePayload): Promise<DbSale>;
+  // Header-only write of `amount_paid` — the lines and the stock ledger are left
+  // untouched, because correcting how much was collected is not a re-priced sale.
+  // Backs the "complete" action. Voided sales stay locked, like update().
+  updateAmountPaid(id: string, amountPaid: number): Promise<DbSale>;
   voidSale(id: string, voidedBy: string, reason: string): Promise<DbSale>;
   // Revenue is CASH: every total below sums `amount_paid`, never `total_amount`.
   // The unpaid part of a partial sale is a debt, and it enters revenue only when

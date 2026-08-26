@@ -30,6 +30,7 @@ interface Props {
   onDismiss: () => void;
   // Optional row actions — the debtor modal wires these to the Debts-tab handlers.
   onPay?: (item: DebtItem) => void;
+  onComplete?: (item: DebtItem) => void;
   onVoidItem?: (item: DebtItem) => void;
   onVoidPayment?: (payment: DebtPaymentItem) => void;
 }
@@ -45,6 +46,7 @@ export function DebtorDetailSheet({
   payments,
   onDismiss,
   onPay,
+  onComplete,
   onVoidItem,
   onVoidPayment,
 }: Props) {
@@ -115,6 +117,7 @@ export function DebtorDetailSheet({
                 items={items}
                 payments={payments}
                 onPay={onPay}
+                onComplete={onComplete}
                 onVoidItem={onVoidItem}
                 onVoidPayment={onVoidPayment}
               />

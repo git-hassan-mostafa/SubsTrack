@@ -356,6 +356,23 @@ class PaymentService {
     return mapDbPaymentToPayment(row);
   }
 
+  // "Complete" a partly-paid month: the customer really paid in full, the amount
+  // collected was just written down short. A CORRECTION — it raises the payment's
+  // own amount_paid to the frozen amount_due instead of recording a debt payment,
+  // so the debt disappears because the month no longer owes anything. The month
+  // was already "paid" in the grid (a partial reads as paid), so no status moves;
+  // the extra cash counts on the original paid_at, and custody is untouched.
+  async completePayment(id: string): Promise<Payment> {
+    const [row] = await repository.findByIds([id]);
+    if (!row) throw new Error(i18n.t("errors.payment_missing"));
+    const payment = mapDbPaymentToPayment(row);
+    if (payment.voidedAt !== null) {
+      throw new Error(i18n.t("errors.payment_voided_not_editable"));
+    }
+    if (payment.amountPaid >= payment.amountDue) return payment;
+    return this.updatePayment(payment, payment.amountDue);
+  }
+
   async voidPayment(
     id: string,
     voidedBy: string,

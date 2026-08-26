@@ -245,6 +245,40 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
     return updated as DbSale;
   }
 
+  async updateAmountPaid(id: string, amountPaid: number): Promise<DbSale> {
+    const now = nowIso();
+    const before = this.decodeOne<DbSale>(
+      'sales',
+      await this.first('SELECT * FROM sales WHERE id = ? AND voided_at IS NULL', [id]),
+    );
+    // A voided sale is a closed record; the web path says the same thing by
+    // returning no row from its `voided_at IS NULL` filter.
+    if (!before) this.handleError(new Error('Sale not found'));
+    // Read before write() — the transaction must stay as short as possible.
+    const subject = await this.customerSubject(before.customer_id);
+
+    await this.write(async (db) => {
+      await updateDirty(db, 'sales', id, { amount_paid: amountPaid, updated_at: now });
+      const after = this.decodeOne<DbSale>(
+        'sales',
+        await this.first('SELECT * FROM sales WHERE id = ?', [id]),
+      );
+      if (after) {
+        await this.auditIn(db, {
+          table: 'sales',
+          recordId: id,
+          action: 'update',
+          before,
+          after,
+          branchId: after.branch_id,
+          subject,
+        });
+      }
+    });
+
+    return (await this.findById(id)) as DbSale;
+  }
+
   async voidSale(id: string, voidedBy: string, reason: string): Promise<DbSale> {
     const now = nowIso();
     await this.write(async (db) => {

@@ -55,7 +55,7 @@ export function DebtsPanel() {
   const clearError = useDebtSlice((s) => s.clearError);
 
   // The per-row actions are shared with the customer-detail panel.
-  const { payItem, voidItem, voidPayment } = useDebtRowActions();
+  const { payItem, completeItem, voidItem, voidPayment } = useDebtRowActions();
 
   const branchFilter = useEffectiveBranchFilter();
   const [debtorSearch, setDebtorSearch] = useState("");
@@ -248,11 +248,8 @@ export function DebtsPanel() {
           {
             key: "pay_full",
             label: t("debts.pay_full"),
-            icon: "cash-outline",
-            onPress: () => {
-              const d = menuDebtor;
-              if (d) void handlePayDebtor(d);
-            },
+            icon: "checkmark-done-outline",
+            onPress: () => menuDebtor && void handlePayDebtor(menuDebtor),
           },
         ]}
       />
@@ -265,6 +262,7 @@ export function DebtsPanel() {
           payments={openDebtor.payments}
           onDismiss={() => setOpenDebtorId(null)}
           onPay={payItem}
+          onComplete={completeItem}
           onVoidItem={voidItem}
           onVoidPayment={voidPayment}
         />
@@ -283,6 +281,7 @@ export function DebtsPanel() {
           payments={payments}
           onDismiss={() => setHistoryOpen(false)}
           onPay={payItem}
+          onComplete={completeItem}
           onVoidItem={voidItem}
           onVoidPayment={voidPayment}
         />

@@ -22,6 +22,10 @@ interface Props {
   // Records a debt payment equal to this row's remaining amount, paying it off.
   // Available for every category (a debt payment is tied only to the customer).
   onPay?: (item: DebtItem) => void;
+  // Corrects the record behind a DERIVED row (a month payment or a sale) so it
+  // owes nothing — no debt payment is recorded. A custom debt has no such record,
+  // so the action is hidden there.
+  onComplete?: (item: DebtItem) => void;
   // Only custom debts can be voided from here (months/sales are derived — void
   // the underlying payment/sale in their own tab). Omit for non-custom rows.
   onVoid?: (item: DebtItem) => void;
@@ -40,7 +44,13 @@ const CATEGORY_STYLE: Record<
   custom: { icon: "document-text-outline", color: COLORS.danger, bg: "bg-red-50", badge: "bg-red-50 text-red-700" },
 };
 
-export function DebtItemCard({ item, onPay, onVoid, hideCustomerName }: Props) {
+export function DebtItemCard({
+  item,
+  onPay,
+  onComplete,
+  onVoid,
+  hideCustomerName,
+}: Props) {
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
   const displayCurrencyId = useDisplayCurrencyId();
@@ -53,6 +63,8 @@ export function DebtItemCard({ item, onPay, onVoid, hideCustomerName }: Props) {
   const amountLabel = formatMoney(item.remaining, source, target);
   const style = CATEGORY_STYLE[item.category];
   const canVoid = item.category === "custom" && !!onVoid;
+  // Only a derived row has a record to correct; a custom debt is the record.
+  const canComplete = item.sourceType !== "custom_debt" && !!onComplete;
 
   const actions: ActionMenuItem[] = [];
   if (onPay) {
@@ -61,6 +73,15 @@ export function DebtItemCard({ item, onPay, onVoid, hideCustomerName }: Props) {
       label: t("debts.pay"),
       icon: "cash-outline",
       onPress: () => onPay(item),
+    });
+  }
+  if (canComplete) {
+    actions.push({
+      key: "complete",
+      label: t("common.complete"),
+      icon: "checkmark-done-outline",
+      caption: t("common.complete_caption"),
+      onPress: () => onComplete?.(item),
     });
   }
   if (canVoid) {

@@ -290,8 +290,9 @@ Covers the one-off sales ledger: recording a sale (with **one or more products a
 |---|----------|-------|-----------------|
 | 2D.1 | Menu button is on every row | Look at a sale card | A 3-dot button on the trailing edge; tapping it opens the menu (it does **not** open the receipt) |
 | 2D.2 | Menu title | Open the menu | Title is the sale's frozen `items_summary` — the same text the card shows |
-| 2D.3 | Full action set | Open the menu on a non-voided sale | Exactly: View receipt · Edit sale · Send invoice on WhatsApp · History · Void sale |
-| 2D.4 | Voided sale is cut down | Open the menu on a voided sale | Only View receipt · History. No edit, no send, no void |
+| 2D.3 | Full action set | Open the menu on a **partly-paid** non-voided sale | Exactly: View receipt · Edit sale · Complete · Send invoice on WhatsApp · History · Void sale |
+| 2D.3b | Fully-paid sale has no Complete | Open the menu on a fully-paid sale | Same list **minus Complete** — there is nothing left to complete |
+| 2D.4 | Voided sale is cut down | Open the menu on a voided sale | Only View receipt · History. No edit, no complete, no send, no void |
 | 2D.5 | View receipt | Tap "View receipt" | The menu closes and the receipt sheet opens — same sheet a card tap gives |
 | 2D.6 | Edit sale | Tap "Edit sale" | The sale form opens in edit mode, prefilled (see § 2C) |
 | 2D.7 | Send invoice | Tap "Send invoice on WhatsApp" on a sale for a customer with a phone | WhatsApp opens with that one sale's receipt text |
@@ -308,8 +309,25 @@ Covers the one-off sales ledger: recording a sale (with **one or more products a
 | 2D.18 | Long-press still selects | Long-press a card (not in selection mode) | Enters multi-select — the menu does **not** open |
 | 2D.19 | Same menu everywhere | Repeat 2D.3 from the Sales tab, the customer panel, and the per-customer page | Identical rows in identical order |
 | 2D.20 | List refreshes after a menu void | Void from the menu on the customer panel / per-customer page | The local list refreshes and the row disappears without a manual pull-to-refresh |
-| 2D.21 | Arabic / RTL | Switch to Arabic and open the menu | All five labels translated; rows and icons mirror; the WhatsApp badge does **not** mirror |
+| 2D.21 | Arabic / RTL | Switch to Arabic and open the menu | All labels translated; rows and icons mirror; the WhatsApp badge does **not** mirror |
 | 2D.22 | Menu closes on Back | Open the menu and press Android Back (or browser Back) | The menu closes; the screen behind it does **not** change |
+
+### 2D-b. Complete (mark a partly-paid sale fully paid)
+
+> The correction door: the customer really paid in full, the amount collected was written down short. It raises `amount_paid` to `total_amount` — **not** a debt payment. The full rule set (incl. audit, custody, offline) is in [QA/debts.md](debts.md) § 7, which this action shares; the cases below are the sale-surface ones.
+
+| # | Scenario | Steps | Expected result |
+|---|----------|-------|-----------------|
+| 2D-b.1 | Caption explains it | Open the menu on a partly-paid sale | The **Complete** row carries a second line: "Marks it fully paid by fixing the record — no debt payment is added" |
+| 2D-b.2 | Confirm names the remainder | Tap **Complete** | Dialog "Mark as fully paid" naming the amount **still owed** in the sale's own currency (`≈` display currency) |
+| 2D-b.3 | Completes | Confirm | The card's Paid figure becomes the sale total; the "partly paid" indication is gone |
+| 2D-b.4 | Section total re-sums | Read the month section header before and after | The header total rises by the completed remainder — the screen refetched (the totals are a separate query, not the loaded page) |
+| 2D-b.5 | Debt is gone, no payment added | Open Transactions → Debts | The sale no longer appears as a debt, and **no** debt-payment row was created |
+| 2D-b.6 | Receipt agrees | Open the receipt after completing | Same lines / total; Paid = total, Remaining = 0 |
+| 2D-b.7 | Stock untouched | Open a sold product's stock sheet | No new movement, no void — nothing left the shelf |
+| 2D-b.8 | Every sale surface | Repeat from the Sales tab, the customer panel, and the per-customer page | Identical row, identical result; each surface's own list refreshes without a manual pull |
+| 2D-b.9 | Walk-in | Open the menu on a walk-in sale | No Complete — the form never lets a walk-in be partly paid, so it is already full. (Legacy/odd data with a short walk-in still completes: the correction is about the record, not about who owes) |
+| 2D-b.10 | Failure surfaces | Force a failing complete | The sales error banner shows the message; the card is unchanged |
 
 ---
 

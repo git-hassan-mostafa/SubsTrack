@@ -2,7 +2,7 @@
   "common": {
     "cancel": "Cancel",
     "save_changes": "Save Changes",
-    "add":"+ Add",
+    "add": "+ Add",
     "add_new": "Add new",
     "edit": "Edit",
     "open": "Open",
@@ -24,8 +24,8 @@
     "cannot_change_own_role": "Cannot change your own role",
     "not_available": "Not Available",
     "close_label": "Close",
-    "tap":"Tap",
-    "input_search":"Search...",
+    "tap": "Tap",
+    "input_search": "Search...",
     "no_actions_available": "No actions available",
     "selected_count": "{{count}} selected",
     "select_all": "Select all",
@@ -45,7 +45,11 @@
     "discard_changes_title": "Discard changes?",
     "discard_changes_message": "You have unsaved changes. If you close now, they will be lost.",
     "discard": "Discard",
-    "keep_editing": "Keep Editing"
+    "keep_editing": "Keep Editing",
+    "complete": "Complete",
+    "complete_caption": "Marks it fully paid by fixing the record — no debt payment is added.",
+    "complete_title": "Mark as fully paid",
+    "complete_message": "Mark this as fully paid? The {{amount}} still owed is added to the amount paid. No debt payment is recorded."
   },
   "auth": {
     "title": "SubsTrack",
@@ -263,9 +267,9 @@
   },
   "users": {
     "title": "Staff",
-    "admin":"Admin",
-    "user":"User",
-    "staff":"Staff",
+    "admin": "Admin",
+    "user": "User",
+    "staff": "Staff",
     "super": "Super Admin",
     "inactive": "Inactive",
     "activate": "Activate",
@@ -303,7 +307,7 @@
   },
   "payments": {
     "history": "Payments history",
-    "this_month":"This Month",
+    "this_month": "This Month",
     "paid_by": "Paid by {{name}}",
     "for_month": "for {{month}}",
     "filter_by_user": "Collected by",
@@ -577,12 +581,12 @@
     "message": "Your organization's account has been deactivated. Please contact the service owner to resolve this.",
     "contact_hint": "If you believe this is a mistake, reach out to your SubsTrack administrator."
   },
-  "date_picker":{
-    "day":"Day",
-    "month":"Month",
-    "year":"Year",
-    "hour":"Hour",
-    "minute":"Minute"
+  "date_picker": {
+    "day": "Day",
+    "month": "Month",
+    "year": "Year",
+    "hour": "Hour",
+    "minute": "Minute"
   },
   "errors": {
     "unexpected": "An unexpected error occurred",
@@ -668,7 +672,11 @@
     "debt_payment_exceeds_debt": "Amount is more than the customer owes",
     "tier_limit_reached": "You've reached the {{resource}} limit ({{limit}}) for your current plan",
     "tier_multi_currency_locked": "Multiple currencies are not available on your current plan",
-    "tier_multi_month_locked": "Multi-month plans are not available on your current plan"
+    "tier_multi_month_locked": "Multi-month plans are not available on your current plan",
+    "sale_missing": "This sale no longer exists",
+    "payment_missing": "This payment no longer exists",
+    "payment_voided_not_editable": "A voided payment cannot be changed. Record a new payment instead.",
+    "debt_not_completable": "This debt has no record behind it to complete. Record a debt payment instead."
   },
   "subscription": {
     "title": "Subscription",

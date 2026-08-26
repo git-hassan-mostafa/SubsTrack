@@ -2,7 +2,7 @@
   "common": {
     "cancel": "إلغاء",
     "save_changes": "حفظ التغييرات",
-    "add":"+ إضافة",
+    "add": "+ إضافة",
     "add_new": "إضافة جديد",
     "edit": "تعديل",
     "open": "فتح",
@@ -24,8 +24,8 @@
     "cannot_change_own_role": "لا يمكنك تغيير دورك الخاص",
     "not_available": "غير متاح",
     "close_label": "إغلاق",
-    "tap":"اضغط",
-    "input_search":"بحث...",
+    "tap": "اضغط",
+    "input_search": "بحث...",
     "no_actions_available": "لا توجد إجراءات متاحة",
     "selected_count": "تم تحديد {{count}}",
     "select_all": "تحديد الكل",
@@ -45,7 +45,11 @@
     "discard_changes_title": "تجاهل التغييرات؟",
     "discard_changes_message": "لديك تغييرات غير محفوظة. إذا أغلقت الآن سيتم فقدانها.",
     "discard": "تجاهل",
-    "keep_editing": "متابعة التعديل"
+    "keep_editing": "متابعة التعديل",
+    "complete": "إكمال",
+    "complete_caption": "يجعله مدفوعاً بالكامل عن طريق تصحيح السجل — لا تُضاف دفعة دين.",
+    "complete_title": "اعتباره مدفوعاً بالكامل",
+    "complete_message": "هل تريد اعتباره مدفوعاً بالكامل؟ سيُضاف المبلغ المتبقي {{amount}} إلى المبلغ المدفوع. لا تُسجَّل دفعة دين."
   },
   "auth": {
     "title": "SubsTrack",
@@ -263,9 +267,9 @@
   },
   "users": {
     "title": "الموظفون",
-    "admin":"مسؤول",
-    "staff":"موظف",
-    "user":"موظف",
+    "admin": "مسؤول",
+    "staff": "موظف",
+    "user": "موظف",
     "super": "المسؤول الأعلى",
     "inactive": "غير نشط",
     "activate": "تفعيل",
@@ -303,7 +307,7 @@
   },
   "payments": {
     "history": "سجل الدفعات",
-    "this_month":"الشهر الحالي",
+    "this_month": "الشهر الحالي",
     "paid_by": "حصّلها {{name}}",
     "for_month": "عن {{month}}",
     "filter_by_user": "حصّلها",
@@ -577,12 +581,12 @@
     "message": "تم تعطيل حساب مؤسستك. يرجى التواصل مع مالك الخدمة لحل هذه المشكلة.",
     "contact_hint": "إذا كنت تعتقد أن هذا خطأ، تواصل مع مسؤول SubsTrack."
   },
-    "date_picker":{
-    "day":"يوم",
-    "month":"شهر",
-    "year":"سنة",
-    "hour":"ساعة",
-    "minute":"دقيقة"
+  "date_picker": {
+    "day": "يوم",
+    "month": "شهر",
+    "year": "سنة",
+    "hour": "ساعة",
+    "minute": "دقيقة"
   },
   "errors": {
     "unexpected": "حدث خطأ غير متوقع",
@@ -668,7 +672,11 @@
     "debt_payment_exceeds_debt": "المبلغ أكبر مما يدين به العميل",
     "tier_limit_reached": "لقد وصلت إلى الحد الأقصى لـ {{resource}} ({{limit}}) في باقتك الحالية",
     "tier_multi_currency_locked": "العملات المتعددة غير متاحة في باقتك الحالية",
-    "tier_multi_month_locked": "الخطط متعددة الأشهر غير متاحة في باقتك الحالية"
+    "tier_multi_month_locked": "الخطط متعددة الأشهر غير متاحة في باقتك الحالية",
+    "sale_missing": "عملية البيع هذه لم تعد موجودة",
+    "payment_missing": "هذه الدفعة لم تعد موجودة",
+    "payment_voided_not_editable": "لا يمكن تعديل دفعة ملغاة. سجّل دفعة جديدة بدلاً من ذلك.",
+    "debt_not_completable": "لا يوجد سجل خلف هذا الدين لإكماله. سجّل دفعة دين بدلاً من ذلك."
   },
   "subscription": {
     "title": "الاشتراك",

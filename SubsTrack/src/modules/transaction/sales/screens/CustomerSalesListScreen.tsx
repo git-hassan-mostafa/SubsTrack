@@ -89,6 +89,7 @@ export function CustomerSalesListScreen() {
     onView: setActiveSale,
     onEdit: openEdit,
     onVoided: handleVoided,
+    onCompleted: refresh,
   });
 
   // Ensure the customer is loaded for the header + record-sale prefill when the

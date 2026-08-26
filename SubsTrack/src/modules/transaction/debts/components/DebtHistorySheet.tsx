@@ -30,6 +30,7 @@ interface Props {
   // `useDebtRowActions` handlers the debtor modal and the customer panel use.
   // Omit them for a read-only list (the 3-dot menus then disappear).
   onPay?: (item: DebtItem) => void;
+  onComplete?: (item: DebtItem) => void;
   onVoidItem?: (item: DebtItem) => void;
   onVoidPayment?: (payment: DebtPaymentItem) => void;
 }
@@ -55,6 +56,7 @@ export function DebtHistorySheet({
   payments,
   onDismiss,
   onPay,
+  onComplete,
   onVoidItem,
   onVoidPayment,
 }: Props) {
@@ -159,7 +161,12 @@ export function DebtHistorySheet({
             row.kind === "payment" ? (
               <DebtPaymentCard payment={row.payment} onVoid={onVoidPayment} />
             ) : (
-              <DebtItemCard item={row.item} onPay={onPay} onVoid={onVoidItem} />
+              <DebtItemCard
+                item={row.item}
+                onPay={onPay}
+                onComplete={onComplete}
+                onVoid={onVoidItem}
+              />
             )
           }
           ListEmptyComponent={

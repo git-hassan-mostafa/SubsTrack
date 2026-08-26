@@ -21,6 +21,7 @@ interface Props {
   // debtor modal and the customer-detail panel) wire all three up via
   // `useDebtRowActions`; omit them for a read-only list (no menus).
   onPay?: (item: DebtItem) => void;
+  onComplete?: (item: DebtItem) => void;
   onVoidItem?: (item: DebtItem) => void;
   onVoidPayment?: (payment: DebtPaymentItem) => void;
 }
@@ -39,6 +40,7 @@ export function DebtList({
   loading = false,
   emptyMessage,
   onPay,
+  onComplete,
   onVoidItem,
   onVoidPayment,
 }: Props) {
@@ -86,6 +88,7 @@ export function DebtList({
             item={row.item}
             hideCustomerName
             onPay={onPay}
+            onComplete={onComplete}
             onVoid={onVoidItem}
           />
         ) : (

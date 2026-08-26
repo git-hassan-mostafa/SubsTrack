@@ -107,6 +107,8 @@ export function SalesPanel() {
     onView: setActiveSale,
     onEdit: openEdit,
     onVoided: handleVoided,
+    // The amount collected moved — refetch so the month section totals agree.
+    onCompleted: fetchSales,
   });
 
   useEffect(() => {

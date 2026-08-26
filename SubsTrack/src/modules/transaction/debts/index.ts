@@ -14,5 +14,9 @@ export { DebtList } from './components/DebtList';
 export { CustomerDebtsPanel } from './components/CustomerDebtsPanel';
 export { CustomDebtFormSheet } from './components/CustomDebtFormSheet';
 export { DebtPaymentFormSheet } from './components/DebtPaymentFormSheet';
-export { sumDebtNetUsd, groupDebtors, type Debtor } from './utils/debtAggregations';
+export {
+  sumDebtNetUsd,
+  groupDebtors,
+  type Debtor,
+} from './utils/debtAggregations';
 export { useDebtRowActions } from './hooks/useDebtRowActions';

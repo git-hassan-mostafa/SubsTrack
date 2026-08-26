@@ -32,13 +32,16 @@ export interface DebtSlice {
   // Client-side view chip (no re-fetch).
   categoryFilter: DebtViewFilter;
   fetchDebts: () => Promise<void>;
-  // Refreshes the customer-list net-debt map for the current branch scope.
+  // Refreshes the customer-list per-customer net debt map for the branch scope.
   fetchNetByCustomer: () => Promise<void>;
   setCustomerFilter: (customer: Customer | null) => void;
   setCategoryFilter: (category: DebtViewFilter) => void;
   clearFilters: () => void;
   addCustomDebt: (input: CreateCustomDebtInput) => Promise<boolean>;
   addDebtPayment: (input: CreateDebtPaymentInput) => Promise<boolean>;
+  // Corrects the record a derived debt came from (month payment / sale) so it
+  // owes nothing — no debt payment is written. Custom debts are not completable.
+  completeDebt: (item: DebtItem) => Promise<void>;
   voidCustomDebt: (id: string, voidedBy: string, reason: string | null) => Promise<void>;
   voidDebtPayment: (id: string, voidedBy: string, reason: string | null) => Promise<void>;
   clearError: () => void;
@@ -91,9 +94,9 @@ export const createDebtSlice: StateCreator<
   fetchNetByCustomer: async () => {
     const branchFilter = resolveBranchFilter(get().auth.user);
     try {
-      const net = await debtService.getNetUsdByCustomer(branchFilter);
+      const map = await debtService.getNetUsdByCustomer(branchFilter);
       set((state) => {
-        state.debts.netByCustomer = Object.fromEntries(net);
+        state.debts.netByCustomer = Object.fromEntries(map);
       });
     } catch {
       // A failed debt-flag refresh must never break the customer list — leave
@@ -153,6 +156,23 @@ export const createDebtSlice: StateCreator<
         state.debts.loading = false;
       });
       return false;
+    }
+  },
+
+  completeDebt: async (item) => {
+    set((state) => {
+      state.debts.loading = true;
+      state.debts.error = null;
+    });
+    try {
+      await debtService.completeDebt(item);
+      await get().debts.fetchDebts();
+      void get().debts.fetchNetByCustomer();
+    } catch (e) {
+      set((state) => {
+        state.debts.error = (e as Error).message;
+        state.debts.loading = false;
+      });
     }
   },
 

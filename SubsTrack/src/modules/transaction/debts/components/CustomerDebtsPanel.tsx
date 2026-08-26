@@ -67,7 +67,7 @@ export function CustomerDebtsPanel({ customer }: Props) {
     }
   }, [customer.id]);
 
-  const { payItem, voidItem, voidPayment } = useDebtRowActions({
+  const { payItem, completeItem, voidItem, voidPayment } = useDebtRowActions({
     onChanged: refresh,
   });
 
@@ -116,6 +116,7 @@ export function CustomerDebtsPanel({ customer }: Props) {
         payments={payments}
         loading={loading}
         onPay={payItem}
+        onComplete={completeItem}
         onVoidItem={voidItem}
         onVoidPayment={voidPayment}
       />

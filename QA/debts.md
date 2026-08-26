@@ -192,3 +192,40 @@ The history sheet gets its row actions from `DebtsPanel`, which passes the very 
 | 5d.12 | Pay the last debt | Pay off the only outstanding debt from the history | The debt row goes, the payment row stays, and the sheet does **not** fall back to the empty state |
 | 5d.13 | Offline | Airplane mode → pay a debt row from the history | Works and shows immediately; syncs on reconnect |
 | 5d.14 | RTL | Arabic → open a row menu | Title, icons and labels mirror correctly; the confirm dialog reads right-to-left |
+
+---
+
+## 7. Complete a derived debt (months / sales)
+
+**Complete** is the opposite of **Pay**. Pay collects new money and writes a `debt_payments` row; Complete says the record *behind* the debt was written down **short** and raises **that record's** `amount_paid` to the full amount. So the debt disappears because nothing is owed — no debt payment exists, and no new cash entered the business.
+
+Available on `months` and `sales` rows on **every** debt surface (debtor modal, debt history, customer Debts panel) and on the **sale card's own 3-dot menu**. Never on a `custom` row.
+
+| # | Scenario | Steps | Expected result |
+|---|----------|-------|-----------------|
+| 7.1 | Action is offered | A **Months** row's 3-dot menu | Rows: **Pay**, **Complete**; Complete carries a caption reading "Marks it fully paid by fixing the record — no debt payment is added" |
+| 7.2 | Sales row too | A **Sales** row's 3-dot menu | Same two actions + the caption |
+| 7.3 | Custom row has none | A **Custom** row's 3-dot menu | **Pay** and **Remove** only — no Complete (a custom debt *is* the record) |
+| 7.4 | Confirm names the remainder | Menu → **Complete** | Dialog titled "Mark as fully paid", naming the amount **still owed** (the row's own currency, `≈` display currency), and saying no debt payment is recorded |
+| 7.5 | Cancel changes nothing | Open the dialog → cancel | No write at all; the row and the net are unchanged |
+| 7.6 | Complete a months debt | Confirm on a Months row | `payments.amount_paid` becomes `amount_due`, `balance` → 0; the debt row leaves the list and the net drops by exactly its remaining |
+| 7.7 | No debt payment appears | After 7.6, read the same list / the debt history | **No** green debt-payment row was added anywhere — the debt simply vanished |
+| 7.8 | Complete a sales debt | Confirm on a Sales row | `sales.amount_paid` becomes `total_amount`; the row leaves the list and the net drops by its remaining |
+| 7.9 | Sale lines untouched | After 7.8, open the sale's receipt | Same lines, same quantities, same unit prices, same total — only "Paid" changed to the full amount |
+| 7.10 | Stock untouched | After 7.8, open each sold product's stock sheet | The ledger is unchanged — no void, no new `'sale'` row (nothing left the shelf) |
+| 7.11 | Month grid does not move | After 7.6, open the customer's grid | The month was already **paid** (a partial reads as paid) and still is — no cell colour changed |
+| 7.12 | Money keeps its original date | Complete a payment/sale from a **previous** month, then read the dashboard + Reports | The extra cash counts in the month of the record's `paid_at` / `sold_at`, **not** today — it is a correction, not a collection |
+| 7.13 | Custody untouched | Complete a record a collector is still holding, then open Wallets | The row stays in the **same** wallet; its amount rises by what was completed. Nothing was remitted |
+| 7.14 | Wallet total rises | Read that collector's wallet total before and after 7.13 | Up by exactly the completed remainder, in the row's own currency |
+| 7.15 | Voided payment refused | Void a partial payment, then try to complete its (now gone) debt row | The row is already gone from the list; forcing the action surfaces "A voided payment cannot be changed" rather than writing |
+| 7.16 | Voided sale refused | Same with a voided sale | "A voided sale cannot be edited. Record a new sale instead." |
+| 7.17 | Already full is a no-op | Complete a row twice quickly (double-tap through the confirm) | The second run changes nothing — no over-payment, `amount_paid` never exceeds `amount_due` / `total_amount` |
+| 7.18 | Audit trail | Admin → Audit Log after 7.6 and 7.8 | One **update** entry per record, on `payments` / `sales`, subject = the customer, "Fields changed" naming `amount_paid` (and `balance` is **not** listed — it is a generated restatement) |
+| 7.19 | History from the record | Open the sale receipt → **History** | The same update entry is there, with the old amount paid → the new one |
+| 7.20 | Net and badge agree | Complete a customer's only debt, then open the customer list | The **Has debts** pill and tab no longer include them (`netByCustomer` refreshed) |
+| 7.21 | Every debt surface | Repeat 7.1 from the debtor modal, the debt history sheet, and the customer Debts panel | Identical rows, identical caption, identical result — one `useDebtRowActions` hook |
+| 7.22 | Panel refresh | Complete from the **customer Debts panel** | The row disappears and the panel's net drops without leaving the page |
+| 7.23 | Offline | Airplane mode → complete a months debt and a sales debt | Both apply immediately from the local mirror; on reconnect the corrected `amount_paid` and both audit entries reach the server |
+| 7.24 | Offline conflict | Complete on device A while device B pays the same debt, then sync both | Latest `updated_at` wins on the record; the debt payment device B wrote survives and shows as a **credit** — no crash, no negative debt hidden |
+| 7.25 | Arabic / RTL | Switch to Arabic → open the menu and the dialog | Label, caption and dialog translated and mirrored; the amount stays readable |
+| 7.26 | No customer-level Complete | Open the debtor card menu (Debts tab) and the customer-list card menu | Only **Pay full debt** — there is no "Complete all"; a correction is confirmed one row at a time |

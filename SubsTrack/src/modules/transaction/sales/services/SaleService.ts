@@ -147,6 +147,22 @@ class SaleService {
     return mapDbSaleToSale(row);
   }
 
+  // "Complete" a partly-paid sale: the customer really paid in full, the amount
+  // collected was just written down short. A CORRECTION, so it raises the sale's
+  // own `amount_paid` to the total instead of recording a debt payment — the debt
+  // disappears because the sale no longer owes anything. Lines, prices and the
+  // stock ledger are untouched; the money still counts on the original `sold_at`.
+  async completeSale(id: string): Promise<Sale> {
+    const row = await repository.findById(id);
+    if (!row) throw new Error(i18n.t('errors.sale_missing'));
+    const sale = mapDbSaleToSale(row);
+    if (sale.voidedAt !== null) {
+      throw new Error(i18n.t('errors.sale_voided_not_editable'));
+    }
+    if (sale.amountPaid >= sale.totalAmount) return sale;
+    return mapDbSaleToSale(await repository.updateAmountPaid(id, sale.totalAmount));
+  }
+
   // Buckets monthlyTotals() rows into per-calendar-month USD sums ("YYYY-MM"
   // keys, by sold_at) — the authoritative total for a Sales tab section
   // header, independent of how many of that month's rows are paginated in.

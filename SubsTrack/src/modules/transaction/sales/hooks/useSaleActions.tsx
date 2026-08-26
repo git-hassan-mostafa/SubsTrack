@@ -5,6 +5,11 @@ import {
   ActionMenu,
   type ActionMenuItem,
 } from "@/src/shared/components/ActionMenu";
+import { confirm } from "@/src/shared/lib/confirm";
+import { findCurrency, formatMoney } from "@/src/core/utils/currency";
+import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
+import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
+import { useSaleSlice } from "@/src/state/hooks/useSaleSlice";
 import { useRecordHistoryAction } from "@/src/modules/admin/audit";
 import { useSendInvoice, WhatsAppComboIcon } from "@/src/modules/invoicing";
 import { SaleBulkVoidSheet } from "../components/SaleBulkVoidSheet";
@@ -16,6 +21,12 @@ interface Options {
   onEdit: (sale: Sale) => void;
   /** After a void — the screen refreshes its own list and reports failures. */
   onVoided?: (result: { ok: number; failed: number }) => void;
+  /**
+   * After a "complete" — the amount collected moved, and the Sales tab's month
+   * section totals are a separate query, so the screen refetches (same reason
+   * the sale form's `onUpdated` does).
+   */
+  onCompleted?: () => void;
 }
 
 export interface SaleActions {
@@ -30,7 +41,8 @@ export interface SaleActions {
 /**
  * Everything a single sale can do, defined once for all three sales surfaces
  * (the Transactions tab, the customer panel, the customer's full list): open the
- * receipt, correct it, re-send it on WhatsApp, read its history, void it.
+ * receipt, correct it, mark it fully paid, re-send it on WhatsApp, read its
+ * history, void it.
  *
  * The screens keep the receipt sheet and the sale form — they own the refresh
  * callbacks — so this only holds the menu, the void dialog and the history sheet.
@@ -41,12 +53,35 @@ export function useSaleActions({
   onView,
   onEdit,
   onVoided,
+  onCompleted,
 }: Options): SaleActions {
   const { t } = useTranslation();
   const { canSend, sendSaleInvoice } = useSendInvoice();
   const history = useRecordHistoryAction("sales");
+  const currencies = useCurrencySlice((s) => s.items);
+  const displayCurrencyId = useDisplayCurrencyId();
+  const completeSale = useSaleSlice((s) => s.completeSale);
   const [menuSale, setMenuSale] = useState<Sale | null>(null);
   const [voidIds, setVoidIds] = useState<string[] | null>(null);
+
+  // "Complete": the sale was paid in full, the amount collected was just written
+  // down short. Raises amount_paid to the total — a correction, so no debt
+  // payment is recorded and the sale's debt row simply disappears.
+  async function handleComplete(sale: Sale) {
+    const remaining = sale.totalAmount - sale.amountPaid;
+    const source = findCurrency(currencies, sale.currencyId);
+    const target = findCurrency(currencies, displayCurrencyId);
+    const ok = await confirm({
+      title: t("common.complete_title"),
+      message: t("common.complete_message", {
+        amount: formatMoney(remaining, source, target),
+      }),
+      confirmLabel: t("common.complete"),
+    });
+    if (!ok) return;
+    const updated = await completeSale(sale.id);
+    if (updated) onCompleted?.();
+  }
 
   function buildActions(sale: Sale | null): ActionMenuItem[] {
     if (!sale) return [];
@@ -69,6 +104,17 @@ export function useSaleActions({
         icon: "create-outline",
         onPress: () => onEdit(sale),
       });
+
+      // Only a sale that still owes something has anything to complete.
+      if (sale.amountPaid < sale.totalAmount) {
+        actions.push({
+          key: "complete",
+          label: t("common.complete"),
+          icon: "checkmark-done-outline",
+          caption: t("common.complete_caption"),
+          onPress: () => void handleComplete(sale),
+        });
+      }
 
       const phone = sale.customer?.phoneNumber ?? null;
       const sendable = canSend(phone);
