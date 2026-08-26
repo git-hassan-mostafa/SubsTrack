@@ -7,7 +7,8 @@ The compact stats card on the Admin landing screen also surfaces a subset of the
 **Reference code:**
 - Screen: [DashboardScreen.tsx](SubsTrack/src/modules/dashboard/screens/DashboardScreen.tsx)
 - Service: [DashboardService.ts](SubsTrack/src/modules/dashboard/services/DashboardService.ts)
-- Components: [StatTile.tsx](SubsTrack/src/modules/dashboard/components/StatTile.tsx)
+- Hero card: [RevenueHeroCard.tsx](SubsTrack/src/modules/dashboard/components/RevenueHeroCard.tsx) — the whole purple card, extracted from the screen; the screen only passes `metrics`, `fmt`, `showExpenses` and the press handler
+- Components: [StatTile.tsx](SubsTrack/src/shared/components/StatTile.tsx) (shared, re-exported from the dashboard module)
 - Slice: [dashboardSlice.ts](SubsTrack/src/state/slices/dashboard/dashboardSlice.ts)
 - Range queries: `paidAmountsForMonth` (payment repo), `totalsForMonth` (sale repo), `paidAmountsInRange` (debt repo), `countCreatedInRange` / `countCancelledInRange` (customer repo) — each with a Supabase + Offline SQLite impl
 - Admin home (compact stats card): [admin/index.tsx](SubsTrack/app/(app)/(tabs)/admin/index.tsx)
@@ -75,6 +76,14 @@ The home greeting is one row, matching `PageHeader` on every other screen: name 
 | 2.4i | Collecting a debt moves both | Record a debt payment | The headline total goes up and the red chip goes down, by the same amount |
 | 2.4j | Chip matches the tile + Debts tab | Compare chip amount to the total-debt tile and Transactions → Debts header | All three identical (`totalDebt`) |
 | 2.4k | Chip RTL | Switch to Arabic | Chip mirrors; label "مطلوب من العملاء", minus stays attached to the amount |
+| 2.4l | Spent chip visible | Admin, month has expenses (`monthlyExpenses > 0`) | Orange chip (`bg-amber-400/20`) next to the red one: "Expenses" + the amount, **no minus**. Orange vs red is load-bearing — money already spent vs money not yet collected |
+| 2.4l2 | Spent chip sign matches the Expenses tab | Compare the chip to Transactions → Expenses headline for the same month + branch | Same number, same sign — both print unsigned (`outflowLabel()`). Only the red owed chip carries a `−` |
+| 2.4m | Spent chip hidden for a collector | Log in as `role='user'` | No orange chip and no Net line (the service returns 0 for a non-admin) |
+| 2.4n | Both chips wrap | Narrow phone, both chips shown | They wrap onto a second line rather than squeezing or clipping |
+| 2.4o | "Reports" affordance | Top-right of the hero | A rounded pill: "Reports" + a chevron. Present whenever the card is tappable |
+| 2.4p | Tap opens Reports | Tap anywhere on the hero card | Navigates to the Reports tab. The card dims briefly on press |
+| 2.4q | Affordance RTL | Switch to Arabic | The pill mirrors to the top-left and the chevron points **left** (`DirectionalIcon`) |
+| 2.4r | Tapping the card never fires a quick action | Tap the hero, then Back | Returns to the dashboard with no sheet opened and no data changed (the card is read-only) |
 | 2.5 | Paid customers calc | Paid = activeCustomers − unpaidThisMonth (regular only) | Cannot go negative |
 | 2.6 | Progress bar — full | All active regulars paid | Bar at 100% width |
 | 2.7 | Progress bar — empty | No active customers | Bar at 0%; division-by-zero handled |

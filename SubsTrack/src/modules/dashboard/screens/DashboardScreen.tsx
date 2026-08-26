@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
   RefreshControl,
@@ -12,6 +12,7 @@ import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
 import { Ionicons } from "@expo/vector-icons";
+import { router, type Href } from "expo-router";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { useDashboardSlice } from "@/src/state/hooks/useDashboardSlice";
@@ -21,11 +22,11 @@ import { BranchSelector } from "@/src/shared/components/BranchSelector";
 import { QuickActionsMenuButton } from "@/src/shared/components/QuickActionsMenuButton";
 import { SettingsButton } from "@/src/shared/components/SettingsButton";
 import { COLORS } from "@/src/shared/constants";
-import { MONTHS } from "@/src/core/constants";
 import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
 import { CustomerFormSheet } from "@/src/modules/customer/customers/components/CustomerFormSheet";
 import { SaleFormSheet } from "@/src/modules/transaction/sales/components/SaleFormSheet";
 import { StatTile } from "@/src/shared/components/StatTile";
+import { RevenueHeroCard } from "../components/RevenueHeroCard";
 
 export function DashboardScreen() {
   const { t } = useTranslation();
@@ -48,49 +49,7 @@ export function DashboardScreen() {
     fetchMetrics();
   }, [branchFilter, fetchMetrics]);
 
-  const now = new Date();
-  const monthLabel = t(`months.${MONTHS[now.getMonth()]}`);
-  const year = now.getFullYear();
-
   const activeCustomers = metrics?.activeCustomers ?? 0;
-  // Progress is measured against the customers this month actually bills
-  // (dueThisMonth) — never every active customer. A not-due-yet, skipped or
-  // occasional customer owes nothing, so counting it would cap the bar below
-  // 100% with nothing left to collect. Nothing due reads as fully collected.
-  const dueCustomers = metrics?.dueThisMonth ?? 0;
-  const paidCustomers = Math.max(
-    0,
-    dueCustomers - (metrics?.unpaidThisMonth ?? 0),
-  );
-  const collectedPct =
-    dueCustomers > 0 ? Math.round((paidCustomers / dueCustomers) * 100) : 100;
-  // Revenue mix, keeping only the streams that earned something. A single stream
-  // needs no breakdown (it just repeats the total). Collected debts are
-  // deliberately NOT listed: the only debt figure the card shows is what
-  // customers still owe (the red chip below). They still count in the total.
-  const revenueMix = [
-    {
-      key: "subscriptions",
-      label: t("dashboard.subscriptions"),
-      value: metrics?.subscriptionRevenue ?? 0,
-    },
-    {
-      key: "sales",
-      label: t("dashboard.sales_label"),
-      value: metrics?.salesRevenue ?? 0,
-    },
-    {
-      key: "expenses",
-      label: t("dashboard.expenses_label"),
-      value: metrics?.totalDebt ?? 0,
-    },
-    {
-      key: "debts",
-      label: t("dashboard.owed_by_customers"),
-      value: metrics?.totalDebt ?? 0,
-    },
-  ].filter((s) => s.value > 0);
-  const showRevenueMix = revenueMix.length > 1;
   const hasDebt = (metrics?.totalDebt ?? 0) > 0;
 
   // Collector wallets — admin overview of cash collected but not yet handed over.
@@ -106,17 +65,9 @@ export function DashboardScreen() {
   // section stays hidden rather than repeating the number next to a $0.00.
   const showExpenses = isAdmin && monthlyExpenses > 0;
 
-  // Month-over-month revenue change (null when there's no prior month to compare).
   const monthlyRevenue = metrics?.monthlyRevenue ?? 0;
-  const prevMonthRevenue = metrics?.prevMonthRevenue ?? 0;
-  const momPct =
-    prevMonthRevenue > 0
-      ? Math.round(
-          ((monthlyRevenue - prevMonthRevenue) / prevMonthRevenue) * 100,
-        )
-      : null;
 
-  // Average subscription payment collected this month.
+  // Subscription payments collected this month.
   const paymentsCount = metrics?.paymentsCollectedCount ?? 0;
 
   return (
@@ -197,121 +148,15 @@ export function DashboardScreen() {
             </View>
           ) : (
             <>
-              {/* Hero card — revenue + collection progress */}
-              <View className="mx-4 mb-3 bg-primary rounded-2xl p-5">
-                {/* Month label */}
-                <Text className="text-xs text-indigo-300 uppercase tracking-widest mb-3">
-                  {t("dashboard.monthly_collected", {
-                    month: monthLabel,
-                    year,
-                  })}
-                </Text>
-                <View className="flex flex-row items-center gap-5">
-                  <View>
-                    {/* Total revenue */}
-                    <Text fontWeight="Bold" className="text-4xl text-white">
-                      {fmt(metrics?.monthlyRevenue ?? 0)}
-                    </Text>
-                  </View>
-                  {/* Month-over-month change — only when a prior month exists */}
-                  {momPct !== null ? (
-                    <View className="flex-row items-center">
-                      <View
-                        className={`flex-row items-center gap-1 rounded-full px-2 py-0.5 ${
-                          momPct >= 0 ? "bg-emerald-400/20" : "bg-red-400/20"
-                        }`}
-                      >
-                        <Ionicons
-                          name={momPct >= 0 ? "arrow-up" : "arrow-down"}
-                          size={12}
-                          color={momPct >= 0 ? "#6ee7b7" : "#fca5a5"}
-                        />
-                        <Text
-                          fontWeight="SemiBold"
-                          className={`text-xs ${momPct >= 0 ? "text-emerald-200" : "text-red-200"}`}
-                        >
-                          {Math.abs(momPct)}%
-                        </Text>
-                      </View>
-                      <Text className="text-xs text-indigo-300 ml-2">
-                        {t("dashboard.vs_last_month")}
-                      </Text>
-                    </View>
-                  ) : null}
-                </View>
-                {/* Revenue breakdown — only when more than one stream earned */}
-                {showRevenueMix ? (
-                  <View className="flex-row mt-3 justify-between">
-                    {revenueMix.map((stream, i) => (
-                      <Fragment key={stream.key}>
-                        {i > 0 ? <View className="w-px bg-indigo-500" /> : null}
-                        <View>
-                          <Text
-                            fontWeight="SemiBold"
-                            numberOfLines={1}
-                            className="text-xs text-indigo-300 mb-0.5"
-                          >
-                            {stream.label}
-                          </Text>
-                          <Text
-                            fontWeight="Bold"
-                            numberOfLines={1}
-                            className="text-sm text-white"
-                          >
-                            {fmt(stream.value)}
-                          </Text>
-                        </View>
-                      </Fragment>
-                    ))}
-                  </View>
-                ) : null}
-
-                {/* Divider */}
-                <View className="h-px bg-indigo-500 mt-1 mb-4" />
-
-                {/* Net — collected minus spent. The only figure on the card that
-                    can go negative, so it says so in red. */}
-                {showExpenses ? (
-                  <View className="flex-row items-center justify-between mb-4">
-                    <Text
-                      fontWeight="Bold"
-                      className="text-sm text-indigo-300 uppercase tracking-widest"
-                    >
-                      {t("dashboard.net_income")}
-                    </Text>
-                    <Text
-                      fontWeight="Bold"
-                      className={`text-xl ${netIncome < 0 ? "text-red-200" : "text-white"}`}
-                    >
-                      {netIncome < 0
-                        ? `−${fmt(Math.abs(netIncome))}`
-                        : fmt(netIncome)}
-                    </Text>
-                  </View>
-                ) : null}
-
-                {/* Collection progress */}
-                <View className="flex-row justify-between items-center mb-2">
-                  <Text className="text-xs text-indigo-300 uppercase tracking-widest">
-                    {t("dashboard.collection_progress")}
-                  </Text>
-                  <Text fontWeight="SemiBold" className="text-sm text-white">
-                    {collectedPct}%
-                  </Text>
-                </View>
-                <View className="bg-white/25 rounded-full h-2 mb-2">
-                  <View
-                    className="bg-white rounded-full h-2"
-                    style={{ width: `${collectedPct}%` }}
-                  />
-                </View>
-                <Text className="text-xs text-indigo-300">
-                  {t("dashboard.paid_of_active", {
-                    paid: paidCustomers,
-                    total: dueCustomers,
-                  })}
-                </Text>
-              </View>
+              {/* Hero card — this month's money, tapping through to the
+                  full report. Both the dashboard and Reports are admin-only
+                  tabs, so anyone seeing this card can open it. */}
+              <RevenueHeroCard
+                metrics={metrics}
+                fmt={fmt}
+                showExpenses={showExpenses}
+                onPress={() => router.push("/(app)/(tabs)/reports" as Href)}
+              />
 
               {/* This-month section heading */}
               <Text className="text-xs text-gray-400 uppercase tracking-wide mx-5 mt-2 mb-2">
