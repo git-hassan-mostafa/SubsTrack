@@ -15,6 +15,7 @@
 // the screens the user has visited. The dashboard always refreshes because home
 // is the landing screen. List fetches reset to page 1 (fresh, from the top).
 
+import { resolveBranchFilter } from '@/src/shared/lib/branchFilter';
 import { getStore } from './globalStore';
 
 /** Re-fetch the dashboard plus every list store that already holds data. */
@@ -36,9 +37,9 @@ export function refreshActiveData(): void {
   if (s.services.loaded) void s.services.fetchServices();
   if (s.users.loaded) void s.users.fetchUsers();
   if (s.sales.items.length) void s.sales.fetchSales();
-  if (s.paymentsList.items.length) void s.paymentsList.fetchPayments();
+  if (s.collections.items.length) void s.collections.fetchCollections();
   if (s.wallet.items.length) void s.wallet.fetchWallets();
-  if (s.debts.items.length) void s.debts.fetchDebts();
+  if (s.ledger.debts) void s.ledger.fetchDebts(resolveBranchFilter(s.auth.user));
   if (s.expenses.items.length) void s.expenses.fetchExpenses();
   // A pull brings other devices' audit entries into the local window.
   if (s.audit.items.length) void s.audit.fetchEntries();
@@ -49,7 +50,7 @@ export function refreshActiveData(): void {
   // screen rebuilds it again on focus once its own fetch lands.
   if (s.customers.loaded) {
     void s.payments.fetchCustomerStatuses(s.customers.items);
-    void s.debts.fetchNetByCustomer();
+    void s.ledger.fetchNetByCustomer(resolveBranchFilter(s.auth.user));
   }
 
   // Tier usage counts (drives limit gating) — cheap and always relevant.

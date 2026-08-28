@@ -1,8 +1,15 @@
-import type { BranchFilter } from '@/src/core/constants';
-import type { CollectedRow } from '@/src/core/types';
 import type { DbSale, DbSaleItem } from '@/src/core/types/db';
 import type { CreateStockMovementPayload } from '@/src/modules/admin/products';
+import type {
+  CreateChargePayload,
+  UpdateChargePayload,
+} from '@/src/modules/ledger/repository/IChargeRepository';
 import type { FindSalesOptions } from '../utils/types';
+
+// The bill a sale raises, minus the one column the repository fills in — the
+// sale's id, which does not exist until the header is inserted. Exactly the
+// same contract as `sale_id` on an item or a movement.
+export type SaleChargePayload = Omit<CreateChargePayload, 'sale_id'>;
 
 // One line of the sale to create — product or service. `sale_id` is filled in by
 // the repository, and a line is never born voided. Built by
@@ -28,16 +35,16 @@ export type CreateSalePayload = Omit<
   | 'voided_at'
   | 'voided_by'
   | 'void_reason'
-  // Custody columns: the repository seeds held_by_user_id from
-  // recorded_by_user_id, so a caller never supplies them.
-  | 'held_by_user_id'
-  | 'remitted_at'
-  | 'remitted_by'
   | 'sale_items'
   | 'customers'
 > & {
   items: CreateSaleItemPayload[];
   movements: Omit<CreateStockMovementPayload, 'sale_id'>[];
+  // What the sale OWES. It travels with the header for the same reason the
+  // movements do — offline the whole thing is one transaction, so a sale can
+  // never exist without the bill that makes it collectable. Money received is
+  // NOT here: that is a `collections` row, written by the normal collect path.
+  charge: SaleChargePayload;
 };
 
 // Correction of an existing, non-voided sale: the header's editable columns plus
@@ -55,13 +62,15 @@ export type UpdateSalePayload = Pick<
   | 'items_summary'
   | 'customer_id'
   | 'total_amount'
-  | 'amount_paid'
   | 'currency_id'
   | 'rate_per_usd_snapshot'
   | 'notes'
 > & {
   items: CreateSaleItemPayload[];
   movements: Omit<CreateStockMovementPayload, 'sale_id'>[] | null;
+  // The bill follows the sale: re-pricing a sale re-prices what is owed for it,
+  // in the same write. Money already collected against it is untouched.
+  charge: UpdateChargePayload;
   // Who is correcting the sale — stamped on the movements this edit voids.
   actorUserId: string | null;
 };
@@ -73,47 +82,16 @@ export interface ISaleRepository {
   create(payload: CreateSalePayload): Promise<DbSale>;
   // Voided sales stay locked — both impls filter on `voided_at IS NULL`.
   update(id: string, payload: UpdateSalePayload): Promise<DbSale>;
-  // Header-only write of `amount_paid` — the lines and the stock ledger are left
-  // untouched, because correcting how much was collected is not a re-priced sale.
-  // Backs the "complete" action. Voided sales stay locked, like update().
-  updateAmountPaid(id: string, amountPaid: number): Promise<DbSale>;
+  // Voids the sale AND the bill it raised — nothing may still be owed for a
+  // sale that never happened. The service refuses this once money has been
+  // collected against that bill (void the collection first).
   voidSale(id: string, voidedBy: string, reason: string): Promise<DbSale>;
-  // Revenue is CASH: every total below sums `amount_paid`, never `total_amount`.
-  // The unpaid part of a partial sale is a debt, and it enters revenue only when
-  // it's collected as a debt payment. Row count is still every sale (salesCount).
-  totalsForMonth(
-    monthStart: string,
-    monthEndExclusive: string,
-    branchFilter?: BranchFilter,
-  ): Promise<{ amount: number; ratePerUsdSnapshot: number }[]>;
-  // Sale cash collected in a date range, in the shape every report reads.
-  // Separate from totalsForMonth, which stays lean for the dashboard.
-  collectedInRange(
-    startIso: string,
-    endExclusiveIso: string,
-    branchFilter?: BranchFilter,
-  ): Promise<CollectedRow[]>;
   // Same filters as findAll but unpaginated + a lean projection (no product/
   // customer joins) — computes the true per-month total for the Sales tab's
   // section headers even when a month holds more rows than one findAll page.
+  // This is VALUE SOLD (total_amount), not cash: the sale document no longer
+  // holds money — what was collected is a `collections` row.
   monthlyTotals(
     opts?: FindSalesOptions,
   ): Promise<{ soldAt: string; amount: number; ratePerUsdSnapshot: number }[]>;
-  // Non-voided sales tied to a customer that still owe money
-  // (total_amount > amount_paid), across all time — the "Sales" debt category,
-  // whatever mix of products and services the sale holds. Joined with the
-  // customer for display.
-  partialSales(branchFilter?: BranchFilter): Promise<DbSale[]>;
-  // Collector wallet: non-voided sales someone is holding (held_by_user_id IS
-  // NOT NULL) with cash collected (amount_paid > 0). Optionally scoped to one
-  // holder.
-  heldForWallet(branchFilter?: BranchFilter, holderUserId?: string | null): Promise<DbSale[]>;
-  // Move the given sales' cash to the next holder. See
-  // IPaymentRepository.transferCustody — same contract.
-  transferCustody(
-    ids: string[],
-    fromUserId: string,
-    toUserId: string | null,
-    actorUserId: string,
-  ): Promise<void>;
 }

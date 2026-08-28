@@ -44,6 +44,8 @@ export interface IChargeRepository {
   /** Every non-voided month bill for a customer, all years. */
   findMonthChargesForCustomer(customerId: string): Promise<DbCharge[]>;
   findBySaleId(saleId: string): Promise<DbCharge | null>;
+  /** The bills of a page of sales — one read instead of one per row. */
+  findBySaleIds(saleIds: string[]): Promise<DbCharge[]>;
   find(opts: FindChargesOptions): Promise<DbCharge[]>;
 
   /**

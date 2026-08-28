@@ -44,12 +44,16 @@ export interface LedgerSlice {
   owed: OpenItem[];
   /** The money-in history (all customers, one customer, or one wallet). */
   collections: CollectionListItem[];
+  /** customerId → USD still owed. Feeds the customer list's "Has debts" tab. */
+  netByCustomer: Record<string, number>;
   loading: boolean;
   loadingOwed: boolean;
   loadingCollect: boolean;
   error: string | null;
 
   fetchDebts: (branchFilter: BranchFilter) => Promise<void>;
+  /** The debt map alone, for surfaces that show a badge but not the screen. */
+  fetchNetByCustomer: (branchFilter?: BranchFilter) => Promise<void>;
   /** Loads what one customer owes, ready for the waterfall. */
   fetchOwed: (
     customer: Customer,
@@ -73,6 +77,7 @@ export interface LedgerSlice {
    */
   collect: (input: CollectInput) => Promise<Collection | null>;
   voidCollection: (id: string, voidedBy: string, reason: string | null) => Promise<boolean>;
+  voidCollections: (ids: string[], voidedBy: string, reason: string | null) => Promise<boolean>;
 
   addManualCharge: (input: CreateManualChargeInput) => Promise<Charge | null>;
   updateManualCharge: (
@@ -121,6 +126,7 @@ export const createLedgerSlice: StateCreator<
     debts: null,
     owed: [],
     collections: [],
+    netByCustomer: {},
     loading: false,
     loadingOwed: false,
     loadingCollect: false,
@@ -135,6 +141,7 @@ export const createLedgerSlice: StateCreator<
         const debts = await ledgerService.getDebtsView(branchFilter);
         set((state) => {
           state.ledger.debts = debts;
+          state.ledger.netByCustomer = netMap(debts);
           state.ledger.loading = false;
         });
       } catch (e) {
@@ -142,6 +149,17 @@ export const createLedgerSlice: StateCreator<
           state.ledger.error = e instanceof Error ? e.message : String(e);
           state.ledger.loading = false;
         });
+      }
+    },
+
+    fetchNetByCustomer: async (branchFilter = null) => {
+      try {
+        const debts = await ledgerService.getDebtsView(branchFilter);
+        set((state) => {
+          state.ledger.netByCustomer = netMap(debts);
+        });
+      } catch {
+        // A badge is not worth an error banner — the screen itself reports.
       }
     },
 
@@ -211,6 +229,13 @@ export const createLedgerSlice: StateCreator<
       return result !== null;
     },
 
+    voidCollections: async (ids, voidedBy, reason) => {
+      const result = await run("loading", () =>
+        collectionService.voidCollections(ids, voidedBy, reason),
+      );
+      return result !== null;
+    },
+
     addManualCharge: (input) => run("loading", () => chargeService.addManualCharge(input)),
 
     updateManualCharge: (id, values) =>
@@ -239,6 +264,7 @@ export const createLedgerSlice: StateCreator<
         state.ledger.debts = null;
         state.ledger.owed = [];
         state.ledger.collections = [];
+        state.ledger.netByCustomer = {};
         state.ledger.loading = false;
         state.ledger.loadingOwed = false;
         state.ledger.loadingCollect = false;
@@ -247,6 +273,13 @@ export const createLedgerSlice: StateCreator<
     },
   };
 };
+
+/** Only DEBT counts toward the badge — a plain unpaid month is the grid's job. */
+function netMap(view: DebtsView): Record<string, number> {
+  const map: Record<string, number> = {};
+  for (const c of view.customers) map[c.customerId] = c.debtUsd;
+  return map;
+}
 
 /** Re-exported for the collect sheet's live split preview. */
 export type { AllocationLine };

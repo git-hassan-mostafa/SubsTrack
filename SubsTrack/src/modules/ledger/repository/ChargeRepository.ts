@@ -59,6 +59,16 @@ export class ChargeRepository extends BaseRepository implements IChargeRepositor
     return (data ?? []) as DbCharge[];
   }
 
+  async findBySaleIds(saleIds: string[]): Promise<DbCharge[]> {
+    if (saleIds.length === 0) return [];
+    const { data, error } = await this.db
+      .from('charges')
+      .select(CHARGE_SELECT_LEAN)
+      .in('sale_id', saleIds);
+    if (error) this.handleError(error);
+    return (data ?? []) as DbCharge[];
+  }
+
   async findBySaleId(saleId: string): Promise<DbCharge | null> {
     const { data, error } = await this.db
       .from('charges')

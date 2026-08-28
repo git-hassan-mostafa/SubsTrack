@@ -272,23 +272,28 @@ export class OfflineCustomerRepository
     const cutoff = `${cutoffDate.getFullYear()}-${String(cutoffDate.getMonth() + 1).padStart(2, '0')}-01`;
     const target = new Date(billingMonth);
 
-    // (a) Covering payments — join customers for the inherited branch filter.
-    const pBranch = this.branchWhere(branchFilter, this.BRANCH_SCOPES.payments, 'c');
-    const payments = await this.all<{
+    // (a) Months MONEY actually reached — read from the item side, so a bill
+    // left empty by a void reads like a month never touched. Join customers for
+    // the inherited branch filter.
+    const pBranch = this.branchWhere(branchFilter, this.BRANCH_SCOPES.charges, 'c');
+    const covered = await this.all<{
       customer_plan_id: string;
       billing_month: string;
       duration_months: number;
     }>(
-      `SELECT p.customer_plan_id, p.billing_month, p.duration_months
-       FROM payments p JOIN customers c ON p.customer_id = c.id
-       WHERE p.billing_month <= ? AND p.billing_month >= ? AND p.voided_at IS NULL
-         AND CAST(p.amount_paid AS REAL) > 0
+      `SELECT DISTINCT ch.customer_plan_id, ch.billing_month, ch.duration_months
+       FROM collection_items ci
+       JOIN charges ch ON ci.charge_id = ch.id
+       JOIN collections co ON ci.collection_id = co.id
+       JOIN customers c ON ch.customer_id = c.id
+       WHERE ch.kind = 'month' AND ch.billing_month <= ? AND ch.billing_month >= ?
+         AND ch.voided_at IS NULL AND co.voided_at IS NULL
          ${pBranch.clause ? `AND ${pBranch.clause}` : ''}`,
       [billingMonth, cutoff, ...pBranch.params],
     );
 
     const coveredLineIds = new Set(
-      payments
+      covered
         .filter((r) => {
           const start = new Date(r.billing_month);
           const end = new Date(start);

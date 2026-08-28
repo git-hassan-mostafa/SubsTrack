@@ -248,35 +248,48 @@ export class CustomerRepository extends BaseRepository implements ICustomerRepos
   ): Promise<UnpaidMonthCount> {
     // Counts, over active regular customers with at least one active service
     // line: how many are asked for money this month (`due`) and how many of
-    // those have NO payment covering it (`unpaid`). Lines (and the payments
+    // those have had NO money reach it (`unpaid`). Lines (and the charges
     // below) inherit the customer's branch via the inner join, so the branch
-    // filter scopes both. Includes multi-month payments still covering it.
+    // filter scopes both. Includes multi-month bills still covering it.
     const [year, monthStr] = billingMonth.split('-').map(Number);
     const cutoffDate = new Date(year, monthStr - 1 - 12, 1);
     const cutoff = `${cutoffDate.getFullYear()}-${String(cutoffDate.getMonth() + 1).padStart(2, '0')}-01`;
     const target = new Date(billingMonth);
 
-    // amount_paid = 0 is excluded — a zero-paid partial is treated as unpaid.
-    let paymentsQuery = this.db
-      .from('payments')
-      .select('customer_plan_id, billing_month, duration_months, amount_paid, customers!inner(branch_id)')
-      .lte('billing_month', billingMonth)
-      .gte('billing_month', cutoff)
-      .is('voided_at', null)
-      .gt('amount_paid', 0);
-    paymentsQuery = this.applyBranchFilter(paymentsQuery, branchFilter, this.BRANCH_SCOPES.payments);
-    const { data: payments, error: pErr } = await paymentsQuery;
+    // Coverage is decided by MONEY, never by a bill existing: a charge sitting
+    // at 0 collected (a void emptied it) must read exactly like a month that was
+    // never touched. Reading from the ITEM side makes that automatic — every
+    // collection_item is > 0 by constraint, so one returned row IS the coverage.
+    let coverQuery = this.db
+      .from('collection_items')
+      .select(
+        'charges!inner(customer_plan_id, billing_month, duration_months, kind, voided_at, customers!inner(branch_id)), collections!inner(voided_at)',
+      )
+      .eq('charges.kind', 'month')
+      .lte('charges.billing_month', billingMonth)
+      .gte('charges.billing_month', cutoff)
+      .is('charges.voided_at', null)
+      .is('collections.voided_at', null);
+    coverQuery = this.applyBranchFilter(coverQuery, branchFilter, {
+      kind: 'inherited',
+      joinedTable: 'charges.customers',
+    });
+    const { data: coverRows, error: pErr } = await coverQuery;
     if (pErr) this.handleError(pErr);
 
+    type CoverRow = {
+      charges: { customer_plan_id: string; billing_month: string; duration_months: number };
+    };
     const coveredLineIds = new Set(
-      ((payments as { customer_plan_id: string; billing_month: string; duration_months: number }[] | null) ?? [])
-        .filter((r) => {
-          const start = new Date(r.billing_month);
+      ((coverRows as unknown as CoverRow[] | null) ?? [])
+        .map((r) => r.charges)
+        .filter((c) => {
+          const start = new Date(c.billing_month);
           const end = new Date(start);
-          end.setMonth(end.getMonth() + r.duration_months - 1);
+          end.setMonth(end.getMonth() + c.duration_months - 1);
           return end >= target;
         })
-        .map((r) => r.customer_plan_id),
+        .map((c) => c.customer_plan_id),
     );
 
     // Lines whose month is skipped — nothing is owed, so they never count.

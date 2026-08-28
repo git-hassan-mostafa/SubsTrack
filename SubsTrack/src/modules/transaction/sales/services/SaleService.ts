@@ -1,7 +1,13 @@
-import type { Sale, SaleItem } from '@/src/core/types';
-import type { BranchFilter } from '@/src/core/constants';
+import type { Charge, Sale, SaleItem } from '@/src/core/types';
 import i18n from '@/src/core/i18n';
+import { newId, nowIso } from '@/src/core/offline/ids';
 import repository from '../repository/SaleRepository';
+// Direct paths, not the ledger barrel: the barrel reaches components → the
+// global store → saleSlice → back here.
+import chargeRepository from '@/src/modules/ledger/repository/ChargeRepository';
+import { collectionService } from '@/src/modules/ledger/services/CollectionService';
+import { mapDbChargeToCharge } from '@/src/modules/ledger/utils/mapper';
+import { openItemFromCharge } from '@/src/modules/ledger/utils/openItems';
 // Direct path, not the products barrel: the barrel pulls in components → the
 // global store → saleSlice → back here.
 import productService from '@/src/modules/admin/products/services/ProductService';
@@ -47,22 +53,102 @@ function unitsByProduct(items: { productId: string; quantity: number }[]): Map<s
   return map;
 }
 
+// The bill a brand-new sale just raised, as the collect path wants it. Built
+// from what was written rather than read back, so recording a paid sale costs
+// no extra round trip.
+function saleOpenItem(args: {
+  chargeId: string;
+  customerId: string | null;
+  label: string;
+  amount: number;
+  currencyId: string | null;
+  ratePerUsdSnapshot: number;
+  dueDate: string;
+  issuedAt: string;
+}) {
+  return openItemFromCharge(
+    {
+      id: args.chargeId,
+      tenantId: '',
+      branchId: null,
+      customerId: args.customerId,
+      kind: 'sale' as const,
+      customerPlanId: null,
+      billingMonth: null,
+      durationMonths: 1,
+      planId: null,
+      saleId: null,
+      description: null,
+      amount: args.amount,
+      currencyId: args.currencyId,
+      ratePerUsdSnapshot: args.ratePerUsdSnapshot,
+      issuedAt: args.issuedAt,
+      dueDate: args.dueDate,
+      recordedByUserId: null,
+      notes: null,
+      createdAt: args.issuedAt,
+      updatedAt: args.issuedAt,
+      voidedAt: null,
+      voidedBy: null,
+      voidReason: null,
+      writtenOffAt: null,
+      writtenOffBy: null,
+      writeOffReason: null,
+    },
+    0,
+    args.label,
+  );
+}
+
 class SaleService {
   async getSales(opts: FindSalesOptions = {}): Promise<Sale[]> {
     const rows = await repository.findAll(opts);
-    return rows.map(mapDbSaleToSale);
+    return this.withMoney(rows.map(mapDbSaleToSale));
   }
 
   async getSalesForCustomer(customerId: string, limit = 20): Promise<Sale[]> {
     const rows = await repository.findByCustomer(customerId, limit);
-    return rows.map(mapDbSaleToSale);
+    return this.withMoney(rows.map(mapDbSaleToSale));
   }
 
   // One sale WITH its lines — for surfaces that hold only an id (a debt row
-  // comes from the lean partialSales select, which carries no lines).
+  // carries no lines).
   async getSaleById(id: string): Promise<Sale | null> {
     const row = await repository.findById(id);
-    return row ? mapDbSaleToSale(row) : null;
+    if (!row) return null;
+    const [sale] = await this.withMoney([mapDbSaleToSale(row)]);
+    return sale;
+  }
+
+  /**
+   * Fills in each sale's DERIVED money from its bill.
+   *
+   * The sale document holds none: what is owed is its `charges` row and what was
+   * collected is a sum over `collection_items`. Two extra reads per page, which
+   * is what buys a sale the ability to take several payments over time.
+   */
+  private async withMoney(sales: Sale[]): Promise<Sale[]> {
+    if (sales.length === 0) return sales;
+    const charges = await chargeRepository.findBySaleIds(sales.map((s) => s.id));
+    if (charges.length === 0) return sales;
+    const bySale = new Map(charges.map((c) => [c.sale_id!, c]));
+    const paid = await this.paidByCharge(charges.map((c) => c.id));
+    return sales.map((s) => {
+      const charge = bySale.get(s.id);
+      if (!charge) return s;
+      return { ...s, chargeId: charge.id, amountPaid: paid.get(charge.id) ?? 0 };
+    });
+  }
+
+  private async paidByCharge(chargeIds: string[]): Promise<Map<string, number>> {
+    const balances = await chargeRepository.balances(chargeIds);
+    return new Map(balances.map((b) => [b.id, b.paid]));
+  }
+
+  /** The bill one sale raised — the receipt lists the payments against it. */
+  async getChargeForSale(saleId: string): Promise<Charge | null> {
+    const row = await chargeRepository.findBySaleId(saleId);
+    return row ? mapDbChargeToCharge(row) : null;
   }
 
   async createSale(input: CreateSaleInput): Promise<Sale> {
@@ -77,18 +163,47 @@ class SaleService {
       throw new Error(i18n.t('errors.rate_snapshot_positive'));
     }
     const total = totalOf(input.items);
+    // A walk-in sale is anonymous, so a debt on it could never be chased. It is
+    // paid in full at the till or it is not recorded.
+    if (!input.customerId && input.amountPaid + 1e-9 < total) {
+      throw new Error(i18n.t('errors.sale_walkin_must_be_paid'));
+    }
+    const soldAt = nowIso();
+    const chargeId = newId();
+    const itemsSummary = buildItemsSummary(input.items);
     const row = await repository.create({
       tenant_id: input.tenantId,
       branch_id: input.branchId,
-      items_summary: buildItemsSummary(input.items),
+      items_summary: itemsSummary,
       customer_id: input.customerId,
       recorded_by_user_id: input.recordedByUserId,
       total_amount: total,
-      amount_paid: input.amountPaid,
       currency_id: input.currency?.id ?? null,
       rate_per_usd_snapshot: ratePerUsdSnapshot,
-      sold_at: new Date().toISOString(),
+      sold_at: soldAt,
       notes: input.notes?.trim() || null,
+      // The bill the sale raises. Written in the same transaction offline, so a
+      // sale can never exist without the thing that makes it collectable.
+      charge: {
+        id: chargeId,
+        tenant_id: input.tenantId,
+        branch_id: input.branchId,
+        customer_id: input.customerId,
+        kind: 'sale',
+        customer_plan_id: null,
+        billing_month: null,
+        duration_months: 1,
+        plan_id: null,
+        description: null,
+        amount: total,
+        currency_id: input.currency?.id ?? null,
+        rate_per_usd_snapshot: ratePerUsdSnapshot,
+        issued_at: soldAt,
+        // Owed the day it was sold — ageing on a pay-later sale starts now.
+        due_date: soldAt.slice(0, 10),
+        recorded_by_user_id: input.recordedByUserId,
+        notes: null,
+      },
       items: input.items.map((it) => toItemPayload(it, input.tenantId)),
       // Stock leaving with the sale — PRODUCT lines only, since labour comes off
       // no shelf. Written by the repository alongside the header + lines
@@ -101,7 +216,43 @@ class SaleService {
         }),
       ),
     });
-    return mapDbSaleToSale(row);
+
+    // Cash taken at the till goes through the SAME collect path as any later
+    // installment — money is recorded in exactly one place, so custody, the
+    // audit entry and the currency rules are written once. Should it fail, the
+    // sale simply stands fully owed, which is the safe way round.
+    if (input.amountPaid > 0) {
+      await collectionService.collect({
+        tenantId: input.tenantId,
+        customerId: input.customerId,
+        branchId: input.branchId,
+        amount: input.amountPaid,
+        currencyId: input.currency?.id ?? null,
+        ratePerUsdSnapshot,
+        receivedAt: soldAt,
+        receivedByUserId: input.recordedByUserId,
+        notes: null,
+        lines: [
+          {
+            item: saleOpenItem({
+              chargeId,
+              customerId: input.customerId,
+              label: itemsSummary,
+              amount: total,
+              currencyId: input.currency?.id ?? null,
+              ratePerUsdSnapshot,
+              dueDate: soldAt.slice(0, 10),
+              issuedAt: soldAt,
+            }),
+            amount: input.amountPaid,
+            settles: input.amountPaid >= total - 1e-9,
+          },
+        ],
+      });
+    }
+
+    const [sale] = await this.withMoney([mapDbSaleToSale(row)]);
+    return sale;
   }
 
   // Corrects an existing sale in place: products, quantities, unit prices, the
@@ -125,15 +276,26 @@ class SaleService {
     if (!(ratePerUsdSnapshot > 0)) {
       throw new Error(i18n.t('errors.rate_snapshot_positive'));
     }
+    const total = totalOf(input.items);
+    // Re-pricing may not drop the total below what has already been collected —
+    // a balance must never go negative, and money already taken is a fact.
+    if (total + 1e-9 < sale.amountPaid) {
+      throw new Error(i18n.t('errors.sale_total_below_collected'));
+    }
     const row = await repository.update(sale.id, {
       branch_id: input.branchId,
       items_summary: buildItemsSummary(input.items),
       customer_id: input.customerId,
-      total_amount: totalOf(input.items),
-      amount_paid: input.amountPaid,
+      total_amount: total,
       currency_id: input.currency?.id ?? null,
       rate_per_usd_snapshot: ratePerUsdSnapshot,
       notes: input.notes?.trim() || null,
+      // What is OWED follows the sale; what was COLLECTED is its own row.
+      charge: {
+        amount: total,
+        currency_id: input.currency?.id ?? null,
+        rate_per_usd_snapshot: ratePerUsdSnapshot,
+      },
       items: input.items.map((it) => toItemPayload(it, sale.tenantId)),
       // Only a change in what left the shelf touches the ledger. A price, notes
       // or amount-paid fix leaves it alone, so correcting a sale doesn't litter
@@ -151,23 +313,8 @@ class SaleService {
         ),
       actorUserId: input.actorUserId,
     });
-    return mapDbSaleToSale(row);
-  }
-
-  // "Complete" a partly-paid sale: the customer really paid in full, the amount
-  // collected was just written down short. A CORRECTION, so it raises the sale's
-  // own `amount_paid` to the total instead of recording a debt payment — the debt
-  // disappears because the sale no longer owes anything. Lines, prices and the
-  // stock ledger are untouched; the money still counts on the original `sold_at`.
-  async completeSale(id: string): Promise<Sale> {
-    const row = await repository.findById(id);
-    if (!row) throw new Error(i18n.t('errors.sale_missing'));
-    const sale = mapDbSaleToSale(row);
-    if (sale.voidedAt !== null) {
-      throw new Error(i18n.t('errors.sale_voided_not_editable'));
-    }
-    if (sale.amountPaid >= sale.totalAmount) return sale;
-    return mapDbSaleToSale(await repository.updateAmountPaid(id, sale.totalAmount));
+    const [updated] = await this.withMoney([mapDbSaleToSale(row)]);
+    return updated;
   }
 
   // Buckets monthlyTotals() rows into per-calendar-month USD sums ("YYYY-MM"
@@ -184,34 +331,20 @@ class SaleService {
     return totals;
   }
 
-  // Non-voided sales that still owe money (partial sales), for the Debts feature.
-  async getPartialSales(branchFilter: BranchFilter = null): Promise<Sale[]> {
-    const rows = await repository.partialSales(branchFilter);
-    return rows.map(mapDbSaleToSale);
-  }
-
-  // Collector wallet: non-voided sales someone is holding, with cash collected
-  // (amountPaid > 0). Optionally scoped to one holder.
-  async getHeldForWallet(
-    branchFilter: BranchFilter = null,
-    holderUserId: string | null = null,
-  ): Promise<Sale[]> {
-    const rows = await repository.heldForWallet(branchFilter, holderUserId);
-    return rows.map(mapDbSaleToSale);
-  }
-
-  // Move these sales' cash to the next holder (or out of the system when
-  // toUserId is null). WalletService decides who may do this.
-  async transferCustody(
-    ids: string[],
-    fromUserId: string,
-    toUserId: string | null,
-    actorUserId: string,
-  ): Promise<void> {
-    await repository.transferCustody(ids, fromUserId, toUserId, actorUserId);
-  }
-
+  /**
+   * The sale never happened: the header, its stock movements and its bill are
+   * all voided together.
+   *
+   * Refused once money has been collected against the bill — that cash is real
+   * and points at this sale, so the collection has to be voided first. Same
+   * rule, and the same reason, as ChargeService.voidCharge.
+   */
   async voidSale(id: string, voidedBy: string, reason: string): Promise<Sale> {
+    const charge = await chargeRepository.findBySaleId(id);
+    if (charge) {
+      const paid = (await this.paidByCharge([charge.id])).get(charge.id) ?? 0;
+      if (paid > 0) throw new Error(i18n.t('errors.sale_void_has_money'));
+    }
     const row = await repository.voidSale(id, voidedBy, reason.trim());
     return mapDbSaleToSale(row);
   }
@@ -264,7 +397,7 @@ class SaleService {
   }
 
   // Shape-based on purpose — the same rules hold for a new sale and an edited one.
-  private validate(input: { items: CreateSaleItemInput[]; amountPaid: number }): void {
+  private validate(input: { items: CreateSaleItemInput[]; amountPaid?: number }): void {
     if (!Array.isArray(input.items) || input.items.length === 0) {
       throw new Error(i18n.t('errors.sale_items_required'));
     }
@@ -284,6 +417,9 @@ class SaleService {
         throw new Error(i18n.t('errors.sale_amount_positive'));
       }
     }
+    // Only a NEW sale takes cash at the till; an edit re-prices the bill and
+    // leaves every collection alone, so it passes no amount at all.
+    if (input.amountPaid === undefined) return;
     const total = totalOf(input.items);
     if (
       typeof input.amountPaid !== 'number' ||

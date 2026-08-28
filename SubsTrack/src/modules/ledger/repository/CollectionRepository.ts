@@ -11,6 +11,7 @@ import type {
   UpdateCollectionPayload,
 } from './ICollectionRepository';
 import { OfflineCollectionRepository } from './CollectionRepository.offline';
+import { sumByMonth } from '../utils/monthTotals';
 
 // A hand-over with its split and the bill each line paid — everything a receipt
 // or a history row needs in one read.
@@ -40,16 +41,42 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
     if (!opts.includeVoided) query = query.is('voided_at', null);
     if (opts.customerId) query = query.eq('customer_id', opts.customerId);
     if (opts.heldByUserId) query = query.eq('held_by_user_id', opts.heldByUserId);
+    if (opts.receivedByUserId) query = query.eq('received_by_user_id', opts.receivedByUserId);
     if (opts.startIso) query = query.gte('received_at', opts.startIso);
     if (opts.endExclusiveIso) query = query.lt('received_at', opts.endExclusiveIso);
     if (opts.searchTerm?.trim()) {
-      query = query.or(`customers.name.ilike.%${opts.searchTerm.trim()}%`);
+      query = query.ilike('customers.name', `%${opts.searchTerm.trim()}%`);
     }
     query = this.applyBranchFilter(query, opts.branchFilter ?? null, this.BRANCH_SCOPES.collections);
 
     const { data, error } = await query;
     if (error) this.handleError(error);
     return (data ?? []) as DbCollection[];
+  }
+
+  async monthlyTotals(opts: FindCollectionsOptions): Promise<Record<string, number>> {
+    // Three numeric columns, unpaginated — cheap, and the only way a section
+    // header can show the month's real total rather than the loaded page's.
+    let query = this.db
+      .from('collections')
+      .select('received_at, amount, rate_per_usd_snapshot, customers!inner(name, branch_id)')
+      .is('voided_at', null);
+
+    if (opts.customerId) query = query.eq('customer_id', opts.customerId);
+    if (opts.heldByUserId) query = query.eq('held_by_user_id', opts.heldByUserId);
+    if (opts.receivedByUserId) query = query.eq('received_by_user_id', opts.receivedByUserId);
+    if (opts.startIso) query = query.gte('received_at', opts.startIso);
+    if (opts.endExclusiveIso) query = query.lt('received_at', opts.endExclusiveIso);
+    if (opts.searchTerm?.trim()) {
+      query = query.ilike('customers.name', `%${opts.searchTerm.trim()}%`);
+    }
+    query = this.applyBranchFilter(query, opts.branchFilter ?? null, this.BRANCH_SCOPES.collections);
+
+    const { data, error } = await query;
+    if (error) this.handleError(error);
+    return sumByMonth(
+      (data as unknown as { received_at: string; amount: number; rate_per_usd_snapshot: number }[] | null) ?? [],
+    );
   }
 
   async findItemsForCharges(chargeIds: string[]): Promise<DbCollectionItem[]> {

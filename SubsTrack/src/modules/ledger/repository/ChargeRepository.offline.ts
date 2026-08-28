@@ -88,6 +88,13 @@ export class OfflineChargeRepository extends OfflineBaseRepository implements IC
     return this.decodeAll<DbCharge>('charges', rows);
   }
 
+  async findBySaleIds(saleIds: string[]): Promise<DbCharge[]> {
+    if (saleIds.length === 0) return [];
+    const ph = saleIds.map(() => '?').join(', ');
+    const rows = await this.all(`SELECT * FROM charges WHERE sale_id IN (${ph})`, saleIds);
+    return this.hydrate(this.decodeAll<DbCharge>('charges', rows));
+  }
+
   async findBySaleId(saleId: string): Promise<DbCharge | null> {
     const row = await this.first<Record<string, unknown>>(
       'SELECT * FROM charges WHERE sale_id = ?',

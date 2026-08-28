@@ -98,21 +98,20 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
   }
 
   async create(payload: CreateSalePayload): Promise<DbSale> {
-    const { items, movements, ...header } = payload;
-    // The header must land first — the lines and the stock ledger both FK to it.
-    // It returns its own joined customer so no read-back is needed afterwards.
+    const { items, movements, charge, ...header } = payload;
+    // The header must land first — the lines, the stock ledger and the bill all
+    // FK to it. It returns its own joined customer so no read-back is needed.
     const { data: sale, error } = await this.db
       .from('sales')
-      // The cash starts in the recording user's wallet.
-      .insert({ ...header, held_by_user_id: header.recorded_by_user_id })
+      .insert(header)
       .select(SALE_SELECT_LEAN)
       .single();
     if (error) this.handleError(error);
     const created = sale as DbSale;
 
-    // Lines and their stock decrements only depend on the header, so they go out
-    // together — one network wave instead of two.
-    const [itemsResult, stockResult] = await Promise.all([
+    // Lines, their stock decrements and the bill only depend on the header, so
+    // they go out together — one network wave instead of three.
+    const [itemsResult, stockResult, chargeResult] = await Promise.all([
       this.db
         .from('sale_items')
         .insert(items.map((it) => ({ ...it, sale_id: created.id })))
@@ -122,9 +121,11 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
           .from('stock_movements')
           .insert(movements.map((m) => ({ ...m, sale_id: created.id })))
         : null,
+      this.db.from('charges').insert({ ...charge, sale_id: created.id }),
     ]);
     if (itemsResult.error) this.handleError(itemsResult.error);
     if (stockResult?.error) this.handleError(stockResult.error);
+    if (chargeResult.error) this.handleError(chargeResult.error);
 
     // One entry for the sale as a whole: the lines are already summarized on the
     // header (items_summary) and the movements are their own ledger.
@@ -144,7 +145,7 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
   }
 
   async update(id: string, payload: UpdateSalePayload): Promise<DbSale> {
-    const { items, movements, actorUserId, ...header } = payload;
+    const { items, movements, actorUserId, charge, ...header } = payload;
     // One extra read so the trail can say what the sale WAS. PostgREST cannot
     // return old values from an UPDATE.
     const { data: prior } = await this.db.from('sales').select('*').eq('id', id).maybeSingle();
@@ -161,6 +162,14 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
 
     const lines = await this.replaceItems(id, items);
     if (movements) await this.replaceSaleMovements(id, movements, actorUserId);
+    // The bill follows the sale. Money already collected against it is a
+    // separate row and is untouched — only what is OWED can be re-priced.
+    const { error: chargeError } = await this.db
+      .from('charges')
+      .update(charge)
+      .eq('sale_id', id)
+      .is('voided_at', null);
+    if (chargeError) this.handleError(chargeError);
 
     // One entry for the sale as a whole, like create/void — the changed header
     // columns (items_summary, total_amount, amount_paid, …) say what moved, and
@@ -232,36 +241,6 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
     return [...reusedRows, ...((insertResult?.data ?? []) as DbSaleItem[])];
   }
 
-  async updateAmountPaid(id: string, amountPaid: number): Promise<DbSale> {
-    // One extra read so the trail can say what the sale WAS — same reason as update().
-    const { data: prior } = await this.db.from('sales').select('*').eq('id', id).maybeSingle();
-    const { data, error } = await this.db
-      .from('sales')
-      .update({ amount_paid: amountPaid })
-      .eq('id', id)
-      // A voided sale is a closed record — this filter is what locks it.
-      .is('voided_at', null)
-      .select(SALE_SELECT)
-      .single();
-    if (error) this.handleError(error);
-    const updated = data as DbSale;
-
-    this.audit({
-      table: 'sales',
-      recordId: id,
-      action: 'update',
-      before: prior,
-      after: updated,
-      branchId: updated.branch_id,
-      subject: updated.customers?.name ?? null,
-    });
-
-    return updated;
-  }
-
-  // Swaps the sale's stock decrements for the edited ones. The old rows are
-  // soft-voided rather than reversed with opposite rows, exactly like voidSale —
-  // `IS NULL` keeps a repeated run from crediting the stock twice.
   private async replaceSaleMovements(
     saleId: string,
     movements: Omit<CreateStockMovementPayload, 'sale_id'>[],
@@ -302,6 +281,15 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
       .is('voided_at', null);
     if (stockError) this.handleError(stockError);
 
+    // Nothing may still be owed for a sale that never happened. The service has
+    // already refused this if money was collected against the bill.
+    const { error: chargeError } = await this.db
+      .from('charges')
+      .update({ voided_at: now, voided_by: voidedBy, void_reason: reason })
+      .eq('sale_id', id)
+      .is('voided_at', null);
+    if (chargeError) this.handleError(chargeError);
+
     const voided = data as DbSale;
     this.audit({
       table: 'sales',
@@ -315,62 +303,6 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
     return voided;
   }
 
-  // Returns raw totals + their snapshot rate so the service can convert to USD
-  // using the frozen rate (drift-free aggregation). Mirrors PaymentRepository.paidAmountsForMonth.
-  async totalsForMonth(
-    monthStart: string,
-    monthEndExclusive: string,
-    branchFilter: BranchFilter = null,
-  ): Promise<{ amount: number; ratePerUsdSnapshot: number }[]> {
-    let query = this.db
-      .from('sales')
-      .select('amount_paid, rate_per_usd_snapshot')
-      .gte('sold_at', monthStart)
-      .lt('sold_at', monthEndExclusive)
-      .is('voided_at', null);
-    query = this.applyBranchFilter(query, branchFilter, this.BRANCH_SCOPES.sales);
-    const { data, error } = await query;
-    if (error) this.handleError(error);
-    return (data ?? []).map((r: { amount_paid: number; rate_per_usd_snapshot: number }) => ({
-      amount: Number(r.amount_paid),
-      ratePerUsdSnapshot: Number(r.rate_per_usd_snapshot),
-    }));
-  }
-
-  // Sale cash collected in a range, as CollectedRow. `customers` is a LEFT
-  // join (not !inner) — a walk-in sale has no customer and must still count.
-  async collectedInRange(
-    startIso: string,
-    endExclusiveIso: string,
-    branchFilter: BranchFilter = null,
-  ): Promise<CollectedRow[]> {
-    let query = this.db
-      .from('sales')
-      .select(
-        'id, sold_at, amount_paid, currency_id, rate_per_usd_snapshot, recorded_by_user_id, customer_id, branch_id, items_summary, customers(name)',
-      )
-      .gte('sold_at', startIso)
-      .lt('sold_at', endExclusiveIso)
-      .gt('amount_paid', 0)
-      .is('voided_at', null);
-    query = this.applyBranchFilter(query, branchFilter, this.BRANCH_SCOPES.sales);
-    const { data, error } = await query;
-    if (error) this.handleError(error);
-    return (data ?? []).map((r: any) => ({
-      id: r.id,
-      date: r.sold_at,
-      amount: Number(r.amount_paid),
-      currencyId: r.currency_id,
-      ratePerUsdSnapshot: Number(r.rate_per_usd_snapshot),
-      branchId: r.branch_id,
-      receivedByUserId: r.recorded_by_user_id,
-      customerId: r.customer_id,
-      customerName: r.customers?.name ?? null,
-      planId: null,
-      label: r.items_summary ?? null,
-    }));
-  }
-
   // Same filters as findAll but unpaginated + a lean projection — used to
   // compute the true per-month total when a month holds more rows than one
   // findAll page (PAGE_SIZE). `customers(name)` stays in the select only
@@ -380,7 +312,7 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
   ): Promise<{ soldAt: string; amount: number; ratePerUsdSnapshot: number }[]> {
     let query = this.db
       .from('sales')
-      .select('sold_at, amount_paid, rate_per_usd_snapshot, customers(name)');
+      .select('sold_at, total_amount, rate_per_usd_snapshot, customers(name)');
 
     if (!opts.includeVoided) query = query.is('voided_at', null);
     if (opts.customerId !== undefined && opts.customerId !== null) {
@@ -397,84 +329,13 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
 
     const { data, error } = await query;
     if (error) this.handleError(error);
-    return (data ?? []).map((r: { sold_at: string; amount_paid: number; rate_per_usd_snapshot: number }) => ({
+    return (data ?? []).map((r: { sold_at: string; total_amount: number; rate_per_usd_snapshot: number }) => ({
       soldAt: r.sold_at,
-      amount: Number(r.amount_paid),
+      amount: Number(r.total_amount),
       ratePerUsdSnapshot: Number(r.rate_per_usd_snapshot),
     }));
   }
 
-  async partialSales(branchFilter: BranchFilter = null): Promise<DbSale[]> {
-    // Lean select — the debt label reads the header items_summary, no lines needed.
-    let query = this.db
-      .from('sales')
-      .select(SALE_SELECT_LEAN)
-      .is('voided_at', null)
-      .not('customer_id', 'is', null)
-      .order('sold_at', { ascending: false });
-    query = this.applyBranchFilter(query, branchFilter, this.BRANCH_SCOPES.sales);
-    const { data, error } = await query;
-    if (error) this.handleError(error);
-    // PostgREST can't compare two columns (total_amount vs amount_paid) in a
-    // filter — keep the still-owed rows here (bounded, branch-scoped set).
-    return (data ?? []).filter(
-      (s: DbSale) => Number(s.total_amount) - Number(s.amount_paid) > 1e-9,
-    ) as DbSale[];
-  }
-
-  async heldForWallet(
-    branchFilter: BranchFilter = null,
-    holderUserId: string | null = null,
-  ): Promise<DbSale[]> {
-    // Lean select — the wallet label reads the header items_summary.
-    let query = this.db
-      .from('sales')
-      .select(SALE_SELECT_LEAN)
-      .gt('amount_paid', 0)
-      .is('voided_at', null)
-      .not('held_by_user_id', 'is', null)
-      .order('sold_at', { ascending: false });
-    if (holderUserId) query = query.eq('held_by_user_id', holderUserId);
-    query = this.applyBranchFilter(query, branchFilter, this.BRANCH_SCOPES.sales);
-    const { data, error } = await query;
-    if (error) this.handleError(error);
-    return (data ?? []) as DbSale[];
-  }
-
-  async transferCustody(
-    ids: string[],
-    fromUserId: string,
-    toUserId: string | null,
-    actorUserId: string,
-  ): Promise<void> {
-    if (ids.length === 0) return;
-    const values = custodyValues(toUserId, actorUserId);
-    const { error, data } = await this.db
-      .from('sales')
-      .update(values)
-      .in('id', ids)
-      // Guarded on the current holder — see PaymentRepository.transferCustody.
-      .eq('held_by_user_id', fromUserId)
-      .is('voided_at', null)
-      // Returned so the trail records only the rows the conditional UPDATE
-      // actually moved, not every id the caller passed.
-      .select();
-    if (error) this.handleError(error);
-    const moved = (data ?? []) as DbSale[];
-    for (const s of moved) {
-      // A sale owns its branch_id, so the passed one wins; only the customer name
-      // is looked up, in the background, and never for a walk-in sale.
-      this.audit({
-        table: 'sales',
-        recordId: s.id,
-        action: 'update',
-        before: { ...s, held_by_user_id: fromUserId, remitted_at: null, remitted_by: null },
-        after: s,
-        branchId: s.branch_id,
-        customerId: s.customer_id,
-      });
-    }
-  }
 }
 
 // Platform seam: web → Supabase directly (unchanged); native → offline SQLite.

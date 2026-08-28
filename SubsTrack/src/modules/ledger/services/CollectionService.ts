@@ -11,8 +11,12 @@ import { nowIso } from '@/src/core/offline/ids';
 import { chargeService } from './ChargeService';
 import repository from '../repository/CollectionRepository';
 import type { CreateChargePayload } from '../repository/IChargeRepository';
-import type { CreateCollectionItemPayload } from '../repository/ICollectionRepository';
+import type {
+  CreateCollectionItemPayload,
+  FindCollectionsOptions,
+} from '../repository/ICollectionRepository';
 import { mapDbCollectionToCollection } from '../utils/mapper';
+import { chargeLabel } from '../utils/openItems';
 import { allocate, keyOf, totalOwed } from '../utils/waterfall';
 
 export interface CollectInput {
@@ -162,19 +166,12 @@ class CollectionService {
    * replaces both the payments history and the old debt-payments history —
    * there is no such thing as a "debt payment" any more.
    */
-  async getHistory(opts: {
-    customerId?: string;
-    heldByUserId?: string;
-    branchFilter?: BranchFilter;
-    limit?: number;
-    offset?: number;
-    searchTerm?: string;
-    includeVoided?: boolean;
-  }): Promise<CollectionListItem[]> {
+  async getHistory(opts: FindCollectionsOptions): Promise<CollectionListItem[]> {
     const rows = await repository.find({ ...opts, includeVoided: opts.includeVoided ?? true });
     return rows.map((row) => {
       const c = mapDbCollectionToCollection(row);
       const items = c.items ?? [];
+      const dbItems = row.collection_items ?? [];
       return {
         id: c.id,
         customerId: c.customerId,
@@ -190,10 +187,17 @@ class CollectionService {
         voidedAt: c.voidedAt,
         voidReason: c.voidReason,
         itemCount: items.length,
-        itemLabels: items.map((it) => it.charge?.description ?? ''),
+        // Labelled here, from the DB row, so the list never re-derives what a
+        // charge is called — chargeLabel is the one answer for every kind.
+        itemLabels: dbItems.map((it) => (it.charges ? chargeLabel(it.charges) : '')),
         items,
       };
     });
+  }
+
+  /** The history's section headers: "YYYY-MM" → USD, over ALL matching rows. */
+  getMonthlyTotals(opts: FindCollectionsOptions): Promise<Record<string, number>> {
+    return repository.monthlyTotals(opts);
   }
 
   /** Every payment made against one bill — the bill sheet's payments list. */
@@ -225,6 +229,17 @@ class CollectionService {
     if (existing.voided_at) throw new Error(i18n.t('errors.collection_already_voided'));
     const row = await repository.void(id, voidedBy, reason);
     return mapDbCollectionToCollection(row);
+  }
+
+  /** Undo several hand-overs under one reason — the history's multi-select. */
+  async voidCollections(
+    ids: string[],
+    voidedBy: string,
+    reason: string | null,
+  ): Promise<Collection[]> {
+    const out: Collection[] = [];
+    for (const id of ids) out.push(await this.voidCollection(id, voidedBy, reason));
+    return out;
   }
 
   // ── Money in ──────────────────────────────────────────────────────────────

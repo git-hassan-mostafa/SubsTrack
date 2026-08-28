@@ -1,6 +1,6 @@
 import { OFFLINE_PAGE_SIZE, type BranchFilter } from '@/src/core/constants';
-import type { CollectedRow } from '@/src/core/types';
 import type {
+  DbCharge,
   DbCustomer,
   DbProduct,
   DbSale,
@@ -103,7 +103,7 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
   }
 
   async create(payload: CreateSalePayload): Promise<DbSale> {
-    const { items, movements, ...header } = payload;
+    const { items, movements, charge, ...header } = payload;
     const now = nowIso();
     const saleId = newId();
     const saleRow: DbSale = {
@@ -114,10 +114,6 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
       voided_at: null,
       voided_by: null,
       void_reason: null,
-      // The cash starts in the recording user's wallet.
-      held_by_user_id: header.recorded_by_user_id,
-      remitted_at: null,
-      remitted_by: null,
     };
     const itemRows: DbSaleItem[] = items.map((it) => ({
       ...it,
@@ -136,14 +132,30 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
       created_at: now,
       updated_at: now,
     }));
+    const chargeRow: DbCharge = {
+      ...charge,
+      sale_id: saleId,
+      created_at: now,
+      updated_at: now,
+      voided_at: null,
+      voided_by: null,
+      void_reason: null,
+      written_off_at: null,
+      written_off_by: null,
+      write_off_reason: null,
+    };
     // Read before write() — the transaction must stay as short as possible.
     const subject = await this.customerSubject(saleRow.customer_id);
-    // Header + all lines + the stock decrements in one local transaction (atomic
-    // offline; the generic sync pushes them separately, parents-before-children).
+    // Header + all lines + the stock decrements + the bill in one local
+    // transaction (atomic offline; the generic sync pushes them separately,
+    // parents-before-children).
     await this.write(async (db) => {
       await insertDirty(db, 'sales', saleRow);
       for (const it of itemRows) await insertDirty(db, 'sale_items', it);
       for (const m of movementRows) await insertDirty(db, 'stock_movements', m);
+      // The bill lands in the SAME transaction as the sale — a sale that exists
+      // but owes nothing would be invisible to every debt surface.
+      await insertDirty(db, 'charges', chargeRow);
       // One entry for the sale as a whole: the lines are already summarized on the
       // header (items_summary) and the movements are their own ledger.
       await this.auditIn(db, {
@@ -160,7 +172,7 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
   }
 
   async update(id: string, payload: UpdateSalePayload): Promise<DbSale> {
-    const { items, movements, actorUserId, ...header } = payload;
+    const { items, movements, actorUserId, charge, ...header } = payload;
     const now = nowIso();
     const before = this.decodeOne<DbSale>(
       'sales',
@@ -224,6 +236,14 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
         }
       }
 
+      // The bill follows the sale. Money already collected against it lives in
+      // its own rows and is untouched — only what is OWED can be re-priced.
+      const bill = await this.first<{ id: string }>(
+        'SELECT id FROM charges WHERE sale_id = ? AND voided_at IS NULL',
+        [id],
+      );
+      if (bill) await updateDirty(db, 'charges', bill.id, { ...charge, updated_at: now });
+
       const after = this.decodeOne<DbSale>(
         'sales',
         await this.first('SELECT * FROM sales WHERE id = ?', [id]),
@@ -245,40 +265,6 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
     return updated as DbSale;
   }
 
-  async updateAmountPaid(id: string, amountPaid: number): Promise<DbSale> {
-    const now = nowIso();
-    const before = this.decodeOne<DbSale>(
-      'sales',
-      await this.first('SELECT * FROM sales WHERE id = ? AND voided_at IS NULL', [id]),
-    );
-    // A voided sale is a closed record; the web path says the same thing by
-    // returning no row from its `voided_at IS NULL` filter.
-    if (!before) this.handleError(new Error('Sale not found'));
-    // Read before write() — the transaction must stay as short as possible.
-    const subject = await this.customerSubject(before.customer_id);
-
-    await this.write(async (db) => {
-      await updateDirty(db, 'sales', id, { amount_paid: amountPaid, updated_at: now });
-      const after = this.decodeOne<DbSale>(
-        'sales',
-        await this.first('SELECT * FROM sales WHERE id = ?', [id]),
-      );
-      if (after) {
-        await this.auditIn(db, {
-          table: 'sales',
-          recordId: id,
-          action: 'update',
-          before,
-          after,
-          branchId: after.branch_id,
-          subject,
-        });
-      }
-    });
-
-    return (await this.findById(id)) as DbSale;
-  }
-
   async voidSale(id: string, voidedBy: string, reason: string): Promise<DbSale> {
     const now = nowIso();
     await this.write(async (db) => {
@@ -297,6 +283,13 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
         `UPDATE stock_movements SET voided_at = ?, voided_by = ?, updated_at = ?, _dirty = 1
          WHERE sale_id = ? AND voided_at IS NULL`,
         [now, voidedBy, now, id] as never[],
+      );
+      // Nothing may still be owed for a sale that never happened. The service
+      // has already refused this if money was collected against the bill.
+      await db.runAsync(
+        `UPDATE charges SET voided_at = ?, voided_by = ?, void_reason = ?, updated_at = ?, _dirty = 1
+         WHERE sale_id = ? AND voided_at IS NULL`,
+        [now, voidedBy, reason, now, id] as never[],
       );
       const after = this.decodeOne<DbSale>(
         'sales',
@@ -318,69 +311,6 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
     if (!row) this.handleError(new Error('Sale not found'));
     const [hydrated] = await this.hydrate([this.decodeOne<DbSale>('sales', row)!]);
     return hydrated;
-  }
-
-  async totalsForMonth(
-    monthStart: string,
-    monthEndExclusive: string,
-    branchFilter: BranchFilter = null,
-  ): Promise<{ amount: number; ratePerUsdSnapshot: number }[]> {
-    const branch = this.branchWhere(branchFilter, this.BRANCH_SCOPES.sales, 's');
-    const rows = await this.all<{ amount_paid: string; rate_per_usd_snapshot: string }>(
-      `SELECT COALESCE(s.amount_paid, 0) AS amount_paid, s.rate_per_usd_snapshot FROM sales s
-       WHERE s.sold_at >= ? AND s.sold_at < ? AND s.voided_at IS NULL
-         ${branch.clause ? `AND ${branch.clause}` : ''}`,
-      [monthStart, monthEndExclusive, ...branch.params],
-    );
-    return rows.map((r) => ({
-      amount: Number(r.amount_paid),
-      ratePerUsdSnapshot: Number(r.rate_per_usd_snapshot),
-    }));
-  }
-
-  // Mirror of the Supabase collectedInRange. LEFT JOIN on customers — a
-  // walk-in sale has no customer row and must still count.
-  async collectedInRange(
-    startIso: string,
-    endExclusiveIso: string,
-    branchFilter: BranchFilter = null,
-  ): Promise<CollectedRow[]> {
-    const branch = this.branchWhere(branchFilter, this.BRANCH_SCOPES.sales, 's');
-    const rows = await this.all<{
-      id: string;
-      sold_at: string;
-      amount_paid: string;
-      currency_id: string | null;
-      rate_per_usd_snapshot: string;
-      recorded_by_user_id: string | null;
-      customer_id: string | null;
-      branch_id: string | null;
-      items_summary: string | null;
-      customer_name: string | null;
-    }>(
-      `SELECT s.id, s.sold_at, COALESCE(s.amount_paid, 0) AS amount_paid, s.currency_id,
-              s.rate_per_usd_snapshot, s.recorded_by_user_id, s.customer_id, s.branch_id,
-              s.items_summary, c.name AS customer_name
-       FROM sales s
-       LEFT JOIN customers c ON s.customer_id = c.id
-       WHERE s.sold_at >= ? AND s.sold_at < ? AND s.voided_at IS NULL
-         AND CAST(COALESCE(s.amount_paid, 0) AS REAL) > 0
-         ${branch.clause ? `AND ${branch.clause}` : ''}`,
-      [startIso, endExclusiveIso, ...branch.params],
-    );
-    return rows.map((r) => ({
-      id: r.id,
-      date: r.sold_at,
-      amount: Number(r.amount_paid),
-      currencyId: r.currency_id,
-      ratePerUsdSnapshot: Number(r.rate_per_usd_snapshot),
-      branchId: r.branch_id,
-      receivedByUserId: r.recorded_by_user_id,
-      customerId: r.customer_id,
-      customerName: r.customer_name,
-      planId: null,
-      label: r.items_summary,
-    }));
   }
 
   // Same filters as findAll but unpaginated + a lean projection — used to
@@ -412,93 +342,17 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
     parts.push(this.branchWhere(opts.branchFilter ?? null, this.BRANCH_SCOPES.sales, 's'));
 
     const { sql, params } = this.combineWhere(parts);
-    const rows = await this.all<{ sold_at: string; amount_paid: string; rate_per_usd_snapshot: string }>(
-      `SELECT s.sold_at, COALESCE(s.amount_paid, 0) AS amount_paid, s.rate_per_usd_snapshot FROM sales s
+    const rows = await this.all<{ sold_at: string; total_amount: string; rate_per_usd_snapshot: string }>(
+      `SELECT s.sold_at, s.total_amount, s.rate_per_usd_snapshot FROM sales s
        LEFT JOIN customers c ON s.customer_id = c.id
        ${sql}`,
       params,
     );
+    // VALUE SOLD, not cash — the sale document holds no money any more.
     return rows.map((r) => ({
       soldAt: r.sold_at,
-      amount: Number(r.amount_paid),
+      amount: Number(r.total_amount),
       ratePerUsdSnapshot: Number(r.rate_per_usd_snapshot),
     }));
-  }
-
-  async partialSales(branchFilter: BranchFilter = null): Promise<DbSale[]> {
-    const branch = this.branchWhere(branchFilter, this.BRANCH_SCOPES.sales, 's');
-    const rows = await this.all(
-      `SELECT s.* FROM sales s LEFT JOIN customers c ON s.customer_id = c.id
-       WHERE s.voided_at IS NULL AND s.customer_id IS NOT NULL
-         AND (CAST(s.total_amount AS REAL) - COALESCE(CAST(s.amount_paid AS REAL), 0)) > 0
-         ${branch.clause ? `AND ${branch.clause}` : ''}
-       ORDER BY s.sold_at DESC`,
-      [...branch.params],
-    );
-    return this.hydrate(this.decodeAll<DbSale>('sales', rows));
-  }
-
-  async heldForWallet(
-    branchFilter: BranchFilter = null,
-    holderUserId: string | null = null,
-  ): Promise<DbSale[]> {
-    const parts: { clause: string; params: unknown[] }[] = [
-      { clause: 'CAST(s.amount_paid AS REAL) > 0', params: [] },
-      { clause: 's.voided_at IS NULL', params: [] },
-      { clause: 's.held_by_user_id IS NOT NULL', params: [] },
-    ];
-    if (holderUserId) parts.push({ clause: 's.held_by_user_id = ?', params: [holderUserId] });
-    parts.push(this.branchWhere(branchFilter, this.BRANCH_SCOPES.sales, 's'));
-    const { sql, params } = this.combineWhere(parts);
-    const rows = await this.all(`SELECT s.* FROM sales s ${sql} ORDER BY s.sold_at DESC`, params);
-    return this.hydrate(this.decodeAll<DbSale>('sales', rows));
-  }
-
-  async transferCustody(
-    ids: string[],
-    fromUserId: string,
-    toUserId: string | null,
-    actorUserId: string,
-  ): Promise<void> {
-    if (ids.length === 0) return;
-    const now = nowIso();
-    const values = custodyValues(toUserId, actorUserId, now);
-    const ph = ids.map(() => '?').join(', ');
-    await this.write(async (db) => {
-      // Snapshot first: the UPDATE is conditional, so only the rows it actually
-      // moved (still held by `fromUserId`, not voided) belong in the trail.
-      const before = this.decodeAll<DbSale>(
-        'sales',
-        await this.all(
-          `SELECT * FROM sales
-            WHERE id IN (${ph}) AND held_by_user_id = ? AND voided_at IS NULL`,
-          [...ids, fromUserId],
-        ),
-      );
-      await db.runAsync(
-        `UPDATE sales
-            SET held_by_user_id = ?, remitted_at = ?, remitted_by = ?, updated_at = ?, _dirty = 1
-          WHERE id IN (${ph}) AND held_by_user_id = ? AND voided_at IS NULL`,
-        [
-          values.held_by_user_id,
-          values.remitted_at,
-          values.remitted_by,
-          now,
-          ...ids,
-          fromUserId,
-        ] as never[],
-      );
-      for (const row of before) {
-        await this.auditIn(db, {
-          table: 'sales',
-          recordId: row.id,
-          action: 'update',
-          before: row,
-          after: { ...row, ...values },
-          branchId: row.branch_id,
-          subject: await this.customerSubject(row.customer_id),
-        });
-      }
-    });
   }
 }

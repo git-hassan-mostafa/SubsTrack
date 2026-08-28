@@ -22,12 +22,14 @@ import type { AuditTable } from '@/src/core/types';
 export const CUSTOMER_HISTORY_TABLES: AuditTable[] = [
   'customers',
   'customer_plans',
-  'payments',
+  'charges',
+  'collections',
   'skipped_months',
 ];
 
 export const AUDITED_TABLES: AuditTable[] = [
-  'payments',
+  'charges',
+  'collections',
   'sales',
   'customers',
   'customer_plans',

@@ -11,6 +11,7 @@ import type {
   ICollectionRepository,
   UpdateCollectionPayload,
 } from './ICollectionRepository';
+import { sumByMonth } from '../utils/monthTotals';
 
 /** SQLite-backed hand-overs. Reproduces
  *  `'*, collection_items(*, charges(*)), customers(*)'`. */
@@ -61,6 +62,8 @@ export class OfflineCollectionRepository
     if (opts.customerId) parts.push({ clause: 'c.customer_id = ?', params: [opts.customerId] });
     if (opts.heldByUserId)
       parts.push({ clause: 'c.held_by_user_id = ?', params: [opts.heldByUserId] });
+    if (opts.receivedByUserId)
+      parts.push({ clause: 'c.received_by_user_id = ?', params: [opts.receivedByUserId] });
     if (opts.startIso) parts.push({ clause: 'c.received_at >= ?', params: [opts.startIso] });
     if (opts.endExclusiveIso)
       parts.push({ clause: 'c.received_at < ?', params: [opts.endExclusiveIso] });
@@ -78,6 +81,37 @@ export class OfflineCollectionRepository
       [...where.params, limit, offset],
     );
     return this.hydrate(this.decodeAll<DbCollection>('collections', rows));
+  }
+
+  async monthlyTotals(opts: FindCollectionsOptions): Promise<Record<string, number>> {
+    const parts: { clause: string; params: unknown[] }[] = [
+      { clause: 'c.voided_at IS NULL', params: [] },
+    ];
+    if (opts.customerId) parts.push({ clause: 'c.customer_id = ?', params: [opts.customerId] });
+    if (opts.heldByUserId)
+      parts.push({ clause: 'c.held_by_user_id = ?', params: [opts.heldByUserId] });
+    if (opts.receivedByUserId)
+      parts.push({ clause: 'c.received_by_user_id = ?', params: [opts.receivedByUserId] });
+    if (opts.startIso) parts.push({ clause: 'c.received_at >= ?', params: [opts.startIso] });
+    if (opts.endExclusiveIso)
+      parts.push({ clause: 'c.received_at < ?', params: [opts.endExclusiveIso] });
+    if (opts.searchTerm?.trim())
+      parts.push({ clause: 'cu.name LIKE ?', params: [`%${opts.searchTerm.trim()}%`] });
+    parts.push(this.branchWhere(opts.branchFilter ?? null, this.BRANCH_SCOPES.collections, 'cu'));
+
+    const where = this.combineWhere(parts);
+    const rows = await this.all<{
+      received_at: string;
+      amount: number;
+      rate_per_usd_snapshot: number;
+    }>(
+      `SELECT c.received_at, c.amount, c.rate_per_usd_snapshot
+         FROM collections c
+         LEFT JOIN customers cu ON cu.id = c.customer_id
+        ${where.sql}`,
+      where.params,
+    );
+    return sumByMonth(rows);
   }
 
   async findItemsForCharges(chargeIds: string[]): Promise<DbCollectionItem[]> {

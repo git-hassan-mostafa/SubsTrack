@@ -6,7 +6,7 @@ import { createSubscriptionSlice, type SubscriptionSlice } from './slices/subscr
 import { createCustomerSlice, type CustomerSlice } from './slices/customers/customerSlice';
 import { createCustomerPlanSlice, type CustomerPlanSlice } from './slices/customer-plans/customerPlanSlice';
 import { createPaymentSlice, type PaymentSlice } from './slices/payments/paymentSlice';
-import { createPaymentsListSlice, type PaymentsListSlice } from './slices/payments-list/paymentsListSlice';
+import { createCollectionsListSlice, type CollectionsListSlice } from './slices/collections/collectionsListSlice';
 import { createPlanSlice, type PlanSlice } from './slices/plans/planSlice';
 import { createUserSlice, type UserSlice } from './slices/users/userSlice';
 import { createDashboardSlice, type DashboardSlice } from './slices/dashboard/dashboardSlice';
@@ -32,7 +32,7 @@ export interface GlobalState {
   customers: CustomerSlice;
   customerPlans: CustomerPlanSlice;
   payments: PaymentSlice;
-  paymentsList: PaymentsListSlice;
+  collections: CollectionsListSlice;
   plans: PlanSlice;
   users: UserSlice;
   dashboard: DashboardSlice;
@@ -63,7 +63,7 @@ const initStore = (): StoreApi<GlobalState> =>
       customers: createCustomerSlice(set, get, store),
       customerPlans: createCustomerPlanSlice(set, get, store),
       payments: createPaymentSlice(set, get, store),
-      paymentsList: createPaymentsListSlice(set, get, store),
+      collections: createCollectionsListSlice(set, get, store),
       plans: createPlanSlice(set, get, store),
       users: createUserSlice(set, get, store),
       dashboard: createDashboardSlice(set, get, store),

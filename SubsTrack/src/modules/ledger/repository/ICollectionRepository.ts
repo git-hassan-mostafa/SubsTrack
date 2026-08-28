@@ -55,6 +55,7 @@ export interface FindCollectionsOptions {
   customerId?: string;
   branchFilter?: BranchFilter;
   heldByUserId?: string;
+  receivedByUserId?: string;
   startIso?: string;
   endExclusiveIso?: string;
   limit?: number;
@@ -68,6 +69,12 @@ export interface ICollectionRepository {
   find(opts: FindCollectionsOptions): Promise<DbCollection[]>;
   /** The items settling these bills — powers a bill's own payments list. */
   findItemsForCharges(chargeIds: string[]): Promise<DbCollectionItem[]>;
+  /**
+   * "YYYY-MM" → USD, over EVERY row matching the filters (not just the loaded
+   * page), so the history's section headers show a true month total. Voided
+   * rows are excluded — they are shown in the list but count for nothing.
+   */
+  monthlyTotals(opts: FindCollectionsOptions): Promise<Record<string, number>>;
 
   create(payload: CreateCollectionPayload): Promise<DbCollection>;
   update(id: string, payload: UpdateCollectionPayload): Promise<DbCollection>;
