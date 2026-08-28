@@ -630,6 +630,12 @@ export interface OpenItem {
   createdAt: string;
   // False for a plain unpaid month — it is owed, but the Debts screen omits it.
   isDebt: boolean;
+  // A month on a line with NO set price (a custom-price plan, or no plan at
+  // all). There is nothing to owe until staff type an amount, so `amount` /
+  // `balance` are 0 and the money handed over IS the bill. Single-item collect
+  // only: the waterfall has no ceiling to fill, so it never enters a split, and
+  // the currency is the one picked on the hand-over rather than the item's.
+  openAmount?: boolean;
 }
 
 // One proposed line of a collection, before it is saved. The collect sheet
@@ -788,8 +794,8 @@ export interface ExpensesView {
 
 // ── Collector Wallet ─────────────────────────────────────────────────────────
 // Cash a user is physically holding right now. DERIVED at runtime — never stored
-// as a balance. A wallet = every non-voided cash row whose held_by_user_id is
-// that user: payments.amount_paid + sales.amount_paid + debt_payments.amount.
+// as a balance. A wallet = every non-voided `collections` row whose
+// held_by_user_id is that user — ONE source, whatever the money paid for.
 // Receiving moves the cash UP the chain (collector → branch admin → tenant-wide
 // admin) by re-pointing held_by_user_id; it never destroys it. The cash leaves
 // the system only when it is settled (held_by_user_id = NULL + remitted_at/by):
@@ -892,8 +898,8 @@ export interface TenantSetting {
 export type AuditAction = 'create' | 'update' | 'delete' | 'void' | 'restore';
 
 // Tables the app records a trail for. sale_items is covered by its parent sale,
-// and custom_debts / debt_payments are append-only + voidable, so the Debts view
-// is their own history. stock_movements records EDITS ONLY — the ledger row is
+// and collection_items have no life apart from their hand-over — a collection's
+// after_data carries the whole split. stock_movements records EDITS ONLY — the ledger row is
 // its own create entry, so auditing the insert would duplicate the stock history;
 // what nothing else remembers is a quantity or cost changed after the fact.
 // See docs/features.md → Audit Trail.

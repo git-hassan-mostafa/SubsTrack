@@ -151,8 +151,13 @@ export class OfflineCustomerRepository
     );
   }
 
+  // A bill raised OR cash taken — see the web twin.
   async countPayments(id: string): Promise<number> {
-    return this.count('SELECT COUNT(*) AS n FROM payments WHERE customer_id = ?', [id]);
+    const [charges, collections] = await Promise.all([
+      this.count('SELECT COUNT(*) AS n FROM charges WHERE customer_id = ?', [id]),
+      this.count('SELECT COUNT(*) AS n FROM collections WHERE customer_id = ?', [id]),
+    ]);
+    return charges + collections;
   }
 
   async delete(id: string): Promise<void> {
@@ -172,7 +177,14 @@ export class OfflineCustomerRepository
         );
         // Children cascade server-side; delete locally for immediate consistency.
         // Only the customer id is logged — the server FK cascade removes children.
-        await db.runAsync('DELETE FROM payments WHERE customer_id = ?', [id] as never[]);
+        await db.runAsync(
+          `DELETE FROM collection_items
+            WHERE collection_id IN (SELECT id FROM collections WHERE customer_id = ?)
+               OR charge_id IN (SELECT id FROM charges WHERE customer_id = ?)`,
+          [id, id] as never[],
+        );
+        await db.runAsync('DELETE FROM collections WHERE customer_id = ?', [id] as never[]);
+        await db.runAsync('DELETE FROM charges WHERE customer_id = ?', [id] as never[]);
         await db.runAsync('DELETE FROM customer_plans WHERE customer_id = ?', [id] as never[]);
         await db.runAsync('DELETE FROM customers WHERE id = ?', [id] as never[]);
         await markDeleted(db, 'customers', id);
@@ -218,7 +230,11 @@ export class OfflineCustomerRepository
   }
 
   async customersWithPayments(ids: string[]): Promise<Set<string>> {
-    return this.referencedIdsIn('payments', 'customer_id', ids);
+    const [charges, collections] = await Promise.all([
+      this.referencedIdsIn('charges', 'customer_id', ids),
+      this.referencedIdsIn('collections', 'customer_id', ids),
+    ]);
+    return new Set([...charges, ...collections]);
   }
 
   async countAll(branchFilter: BranchFilter = null): Promise<number> {

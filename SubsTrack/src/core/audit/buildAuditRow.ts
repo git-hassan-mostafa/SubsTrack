@@ -45,8 +45,8 @@ export interface AuditInput {
  * Columns that carry no information about what a person changed:
  *  - `updated_at` moves on every write, so including it would make every edit
  *    look like a change even when nothing else moved.
- *  - `balance` is a Postgres GENERATED column (amount_due - amount_paid) — it is
- *    a restatement of two fields already in the diff.
+ *  - `balance` is never a stored column, but a legacy row may still carry one —
+ *    it is a restatement of fields already in the diff either way.
  */
 const IGNORED_FIELDS = new Set(['updated_at', 'balance']);
 

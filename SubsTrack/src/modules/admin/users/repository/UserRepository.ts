@@ -48,11 +48,11 @@ export class UserRepository extends BaseRepository implements IUserRepository {
 
   async countPayments(id: string): Promise<number> {
     const [recorded, held] = await Promise.all([
-      this.db.from('payments').select('id', { count: 'exact', head: true })
+      this.db.from('collections').select('id', { count: 'exact', head: true })
         .eq('received_by_user_id', id),
       // Cash they are holding but did not collect (received up the chain) —
       // deleting them would blank held_by_user_id and lose it.
-      this.db.from('payments').select('id', { count: 'exact', head: true })
+      this.db.from('collections').select('id', { count: 'exact', head: true })
         .eq('held_by_user_id', id),
     ]);
     if (recorded.error) this.handleError(recorded.error);
@@ -64,8 +64,8 @@ export class UserRepository extends BaseRepository implements IUserRepository {
   // cash — one query each. Drives the soft-vs-hard delete split in bulk delete.
   async usersWithPayments(ids: string[]): Promise<Set<string>> {
     const [recorded, held] = await Promise.all([
-      this.referencedIdsIn('payments', 'received_by_user_id', ids),
-      this.referencedIdsIn('payments', 'held_by_user_id', ids),
+      this.referencedIdsIn('collections', 'received_by_user_id', ids),
+      this.referencedIdsIn('collections', 'held_by_user_id', ids),
     ]);
     return new Set([...recorded, ...held]);
   }

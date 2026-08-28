@@ -70,20 +70,24 @@ export class OfflineCurrencyRepository extends OfflineBaseRepository implements 
 
   async referencedIds(ids: string[]): Promise<Set<string>> {
     if (ids.length === 0) return new Set();
-    const [plans, payments, lines] = await Promise.all([
+    // The bill and the hand-over that paid it each carry a currency — see the
+    // web twin.
+    const [plans, charges, collections, lines] = await Promise.all([
       this.referencedIdsIn('plans', 'currency_id', ids),
-      this.referencedIdsIn('payments', 'currency_id', ids),
+      this.referencedIdsIn('charges', 'currency_id', ids),
+      this.referencedIdsIn('collections', 'currency_id', ids),
       this.referencedIdsIn('customer_plans', 'custom_currency_id', ids),
     ]);
-    return new Set([...plans, ...payments, ...lines]);
+    return new Set([...plans, ...charges, ...collections, ...lines]);
   }
 
   async countReferences(id: string): Promise<number> {
-    const [plans, payments, lines] = await Promise.all([
+    const [plans, charges, collections, lines] = await Promise.all([
       this.count('SELECT COUNT(*) AS n FROM plans WHERE currency_id = ?', [id]),
-      this.count('SELECT COUNT(*) AS n FROM payments WHERE currency_id = ?', [id]),
+      this.count('SELECT COUNT(*) AS n FROM charges WHERE currency_id = ?', [id]),
+      this.count('SELECT COUNT(*) AS n FROM collections WHERE currency_id = ?', [id]),
       this.count('SELECT COUNT(*) AS n FROM customer_plans WHERE custom_currency_id = ?', [id]),
     ]);
-    return plans + payments + lines;
+    return plans + charges + collections + lines;
   }
 }

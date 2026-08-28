@@ -74,21 +74,25 @@ export class CurrencyRepository extends BaseRepository implements ICurrencyRepos
   // missing one turns an intended soft-delete into a raw FK error.
   async referencedIds(ids: string[]): Promise<Set<string>> {
     if (ids.length === 0) return new Set();
-    const [plans, payments, lines] = await Promise.all([
+    // Money references a currency twice over: on the bill and on the hand-over
+    // that paid it, each with its own frozen rate.
+    const [plans, charges, collections, lines] = await Promise.all([
       this.referencedIdsIn('plans', 'currency_id', ids),
-      this.referencedIdsIn('payments', 'currency_id', ids),
+      this.referencedIdsIn('charges', 'currency_id', ids),
+      this.referencedIdsIn('collections', 'currency_id', ids),
       this.referencedIdsIn('customer_plans', 'custom_currency_id', ids),
     ]);
-    return new Set([...plans, ...payments, ...lines]);
+    return new Set([...plans, ...charges, ...collections, ...lines]);
   }
 
   // Total references to this currency. Used by CurrencyService to decide
   // hard-delete vs soft-delete.
   async countReferences(id: string): Promise<number> {
-    const [plans, payments, lines] = await Promise.all([
+    const [plans, charges, collections, lines] = await Promise.all([
       this.db.from('plans').select('id', { count: 'exact', head: true }).eq('currency_id', id),
+      this.db.from('charges').select('id', { count: 'exact', head: true }).eq('currency_id', id),
       this.db
-        .from('payments')
+        .from('collections')
         .select('id', { count: 'exact', head: true })
         .eq('currency_id', id),
       this.db
@@ -97,9 +101,10 @@ export class CurrencyRepository extends BaseRepository implements ICurrencyRepos
         .eq('custom_currency_id', id),
     ]);
     if (plans.error) this.handleError(plans.error);
-    if (payments.error) this.handleError(payments.error);
+    if (charges.error) this.handleError(charges.error);
+    if (collections.error) this.handleError(collections.error);
     if (lines.error) this.handleError(lines.error);
-    return (plans.count ?? 0) + (payments.count ?? 0) + (lines.count ?? 0);
+    return (plans.count ?? 0) + (charges.count ?? 0) + (collections.count ?? 0) + (lines.count ?? 0);
   }
 }
 

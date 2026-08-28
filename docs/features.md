@@ -752,6 +752,30 @@ materializes it in the same write, with an id from
 the same month offline converge on ONE row instead of billing the customer
 twice.
 
+### A line with no set price
+
+A custom-price plan — or a customer with no plan at all — has no figure to bill,
+so `resolveLinePrice` returns `kind: 'typed'` and **`getOwed` skips the line
+entirely**: nothing can be poured over a bill whose amount nobody has typed. The
+month cell still collects. It builds an **open item** (`OpenItem.openAmount`,
+amount / balance / currency all empty) and the collect sheet grows one extra
+field, **Amount for this month** — that field IS the bill, and it also decides
+the currency, since an open item has none of its own.
+
+Three rules:
+
+- **Single item only.** Two open months in one write are two different unknown
+  amounts, so a grid multi-select containing one is refused with a message.
+- **Once the amount is typed the item becomes an ordinary bill**
+  (`billedOpenItem` in `CollectSheet`), so a part payment, the "leaves N owing"
+  hint and the overpay refusal are the existing code, not a second
+  implementation. "Owed 50, paid 20" works exactly as it does for a priced line.
+- **The bill is raised at what was typed**, in the hand-over's currency:
+  `CollectionService.materialize` uses `item.amount > 0 ? item.amount : line.amount`.
+
+Once that first bill exists the line behaves like any other — the remainder is a
+debt, and the Debts screen and the waterfall both see it. See gotcha #112.
+
 ### Owed vs debt
 
 | | includes | consumed by |

@@ -5,8 +5,8 @@ import type { AuditTable } from '@/src/core/types';
  * (money first — that's what disputes are about).
  *
  * Deliberately NOT every table: `sale_items` is covered by its parent sale, and
- * `custom_debts` / `debt_payments` are append-only + voidable, so the Debts view is
- * their own history. `stock_movements` is here for its EDITS only — the ledger row
+ * `collection_items` have no life apart from their hand-over — the collection's
+ * `after_data` carries the whole split. `stock_movements` is here for its EDITS only — the ledger row
  * already shows who added the stock, so the insert writes nothing; a quantity or
  * cost changed after the fact is what nothing else would remember.
  * See docs/features.md → Audit Trail.

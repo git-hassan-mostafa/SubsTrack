@@ -65,6 +65,10 @@ export function CollectSheet({
 
   const pool = useMemo(() => (singleItem ? [singleItem] : owed), [singleItem, owed]);
 
+  // A month on a line with no set price: nothing is owed yet, so there is no
+  // ceiling, no split and no locked currency — what is typed becomes the bill.
+  const openItem = singleItem?.openAmount ? singleItem : null;
+
   // A hand-over is ONE currency, and it must match the bills it pays — that is
   // what lets a balance close at exactly zero. When a customer owes in two
   // currencies he is collected from twice, so the picker only appears then.
@@ -75,31 +79,64 @@ export function CollectSheet({
   const [currencyId, setCurrencyId] = useState<string | null>(
     () => dominantCurrency(pool),
   );
+  // Open mode only: what this month costs. Typing it is what raises the bill.
+  const [openBill, setOpenBill] = useState<number | null>(null);
   const scoped = useMemo(
     () => pool.filter((i) => i.currencyId === currencyId),
     [pool, currencyId],
   );
 
-  const maxAmount = useMemo(() => totalOwed(scoped), [scoped]);
+  const maxAmount = useMemo(
+    () => (openItem ? (openBill ?? 0) : totalOwed(scoped)),
+    [openItem, openBill, scoped],
+  );
   const [amount, setAmount] = useState<number | null>(() => maxAmount || null);
   const [excluded, setExcluded] = useState<ReadonlySet<string>>(new Set());
   const [receivedAt, setReceivedAt] = useState(getTodayDateString);
   const [notes, setNotes] = useState("");
 
-  const dirty = useDirtyForm({ amount, receivedAt, notes });
+  const dirty = useDirtyForm({ amount, openBill, receivedAt, notes });
+
+  const currency = findCurrency(currencies, currencyId);
+  const display = findCurrency(currencies, displayCurrencyId);
+  const money = (value: number) => formatMoney(value, currency, display);
+
+  // The typed month amount turns the open item into an ordinary bill, so
+  // partial collection, the "leaves owing" hint and the overpay refusal below
+  // all work exactly as they do for a priced line.
+  const billedOpenItem = useMemo(
+    () =>
+      openItem
+        ? {
+            ...openItem,
+            amount: openBill ?? 0,
+            balance: openBill ?? 0,
+            currencyId,
+            ratePerUsdSnapshot: currency?.ratePerUsd ?? 1,
+          }
+        : null,
+    [openItem, openBill, currencyId, currency],
+  );
 
   const included = useMemo(
     () => scoped.filter((i) => !excluded.has(keyOf(i))),
     [scoped, excluded],
   );
-  const { lines, leftover } = useMemo(
-    () => allocate(amount ?? 0, included),
-    [amount, included],
-  );
-
-  const currency = findCurrency(currencies, currencyId);
-  const display = findCurrency(currencies, displayCurrencyId);
-  const money = (value: number) => formatMoney(value, currency, display);
+  const { lines, leftover } = useMemo(() => {
+    // One line, no split: the month amount is its ceiling.
+    if (billedOpenItem) {
+      const value = amount ?? 0;
+      const bill = billedOpenItem.balance;
+      if (value <= 0 || bill <= 0) return { lines: [], leftover: 0 };
+      return {
+        lines: [
+          { item: billedOpenItem, amount: Math.min(value, bill), settles: value >= bill },
+        ],
+        leftover: Math.max(0, value - bill),
+      };
+    }
+    return allocate(amount ?? 0, included);
+  }, [billedOpenItem, amount, included]);
 
   const paidByKey = new Map(lines.map((l) => [keyOf(l.item), l]));
   const remainingAfter = maxAmount - (amount ?? 0);
@@ -141,21 +178,45 @@ export function CollectSheet({
       }
     >
       <View className="gap-4 px-4 pb-8">
-        {/* What is owed, and the one tap that collects all of it. */}
-        <View className="flex-row items-center justify-between rounded-xl bg-slate-50 px-4 py-3">
-          <Text className="text-slate-600">{t("ledger.owed")}</Text>
-          <View className="flex-row items-center gap-3">
-            <Text className="text-lg font-semibold text-slate-900">{money(maxAmount)}</Text>
-            <PressableOpacity
-              onPress={() => setAmount(maxAmount)}
-              className="rounded-lg bg-white px-3 py-1.5"
-            >
-              <Text className="text-xs font-medium text-primary">{t("ledger.collect_all")}</Text>
-            </PressableOpacity>
+        {/* What is owed, and the one tap that collects all of it. Not for an
+            open month: there is no figure yet, the amount typed becomes it. */}
+        {openItem ? (
+          <Text className="rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
+            {t("ledger.open_amount_hint")}
+          </Text>
+        ) : (
+          <View className="flex-row items-center justify-between rounded-xl bg-slate-50 px-4 py-3">
+            <Text className="text-slate-600">{t("ledger.owed")}</Text>
+            <View className="flex-row items-center gap-3">
+              <Text className="text-lg font-semibold text-slate-900">{money(maxAmount)}</Text>
+              <PressableOpacity
+                onPress={() => setAmount(maxAmount)}
+                className="rounded-lg bg-white px-3 py-1.5"
+              >
+                <Text className="text-xs font-medium text-primary">{t("ledger.collect_all")}</Text>
+              </PressableOpacity>
+            </View>
           </View>
-        </View>
+        )}
 
-        {currencyIds.length > 1 && (
+        {/* What this month costs. It is the bill, so it also decides the
+            currency and the ceiling on what can be collected. */}
+        {openItem && (
+          <CurrencyInput
+            label={t("ledger.month_amount")}
+            amount={openBill}
+            currencyId={currencyId}
+            currencies={currencies}
+            onChange={(next) => {
+              setOpenBill(next.amount);
+              setCurrencyId(next.currencyId);
+              // Paid in full is the norm; staff lower it for a part payment.
+              setAmount(next.amount);
+            }}
+          />
+        )}
+
+        {currencyIds.length > 1 && !openItem && (
           <View className="gap-1">
             <Dropdown
               label={t("ledger.currency")}
@@ -180,7 +241,8 @@ export function CollectSheet({
           currencyId={currencyId}
           currencies={currencies}
           // The currency is decided by the bills being paid, never typed here —
-          // a hand-over must match what it settles.
+          // a hand-over must match what it settles. In open mode the month
+          // amount above is that bill, so the currency follows it.
           lockCurrency
           onChange={(next) => setAmount(next.amount)}
         />
@@ -245,7 +307,7 @@ export function CollectSheet({
           </View>
         )}
 
-        {singleItem && (amount ?? 0) > 0 && (amount ?? 0) < singleItem.balance && (
+        {singleItem && (amount ?? 0) > 0 && (amount ?? 0) < maxAmount && (
           <Text className="text-xs text-amber-700">{t("ledger.partial_leaves_debt")}</Text>
         )}
 

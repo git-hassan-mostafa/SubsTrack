@@ -4,8 +4,8 @@
  * The whole native app shares ONE handle (`getDb()`), and SQLite allows only one
  * open transaction on it at a time — two overlapping `BEGIN`s throw "cannot start
  * a transaction within a transaction". So every local write queues here: a
- * repository `write()` (e.g. WalletService remitting payments + sales +
- * debt_payments via `Promise.all`) and every sync merge alike.
+ * repository `write()` (e.g. WalletService moving several collections at once
+ * via `Promise.all`) and every sync merge alike.
  *
  * **One queue for the whole process is the point.** Two separate locks would each
  * be internally consistent and still collide with each other — which is exactly

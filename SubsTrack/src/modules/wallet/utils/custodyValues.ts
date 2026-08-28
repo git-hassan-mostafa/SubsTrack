@@ -1,6 +1,6 @@
-// The columns a custody move writes, identical on payments / sales /
-// debt_payments and on both platforms. Kept in one place so the two exits from
-// the chain can never drift: handing cash to the next holder clears any old
+// The columns a custody move writes on `collections` — the one table that
+// carries custody — identical on both platforms. Kept in one place so the two
+// exits from the chain can never drift: handing cash to the next holder clears any old
 // settlement, and settling it (toUserId null) empties the wallet and records
 // who took it out. chk_*_custody enforces the pairing server-side.
 export interface CustodyValues {

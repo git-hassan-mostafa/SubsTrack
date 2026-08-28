@@ -24,8 +24,8 @@ const ID_BATCH = 100;
  * Remove columns the server owns from a push payload:
  *  - `updated_at` is set by a Postgres trigger (and is null for locally-created
  *    plans), so we never send it — the pull reads back the server's value.
- *  - `generated` columns (payments.balance) are rejected by Postgres if a value
- *    is provided.
+ *  - `generated` columns are rejected by Postgres if a value is provided (no
+ *    mirrored table has one today — a bill's balance is a view, never a column).
  */
 function stripForPush(
   table: string,
@@ -38,16 +38,25 @@ function stripForPush(
 }
 
 /**
- * The upsert conflict key. Tables with a natural-key UNIQUE index converge on
- * that key — the local row may exist on the server under a different id (created
- * on the web or another device), and an id-targeted upsert would insert a
- * duplicate and fail on the index forever. Everything else converges on its
- * primary key. Keep in sync with NATURAL_KEYS in db/dml.ts.
+ * The upsert conflict key for ONE row. Tables with a natural-key UNIQUE index
+ * converge on that key — the local row may exist on the server under a different
+ * id (created on the web or another device), and an id-targeted upsert would
+ * insert a duplicate and fail on the index forever. Everything else converges on
+ * its primary key. Keep in sync with NATURAL_KEYS in db/dml.ts.
+ *
+ * `charges` is decided per ROW, not per table: only a month bill carries the
+ * natural key. A sale or manual bill leaves both columns NULL, and Postgres
+ * treats NULLs as distinct — so ON CONFLICT on that key can never match, and a
+ * re-sent row would hit the primary key instead and wedge the whole queue.
  */
-function conflictTarget(table: string): string {
-  if (table === "payments" || table === "skipped_months") {
-    return "customer_plan_id,billing_month";
+function conflictTarget(table: string, row: Record<string, unknown>): string {
+  if (table === "charges") {
+    return row.customer_plan_id != null && row.billing_month != null
+      ? "customer_plan_id,billing_month"
+      : "id";
   }
+  if (table === "skipped_months") return "customer_plan_id,billing_month";
+  if (table === "collection_items") return "collection_id,charge_id";
   if (table === "tenant_settings") return "tenant_id,key";
   return "id";
 }
@@ -65,29 +74,43 @@ async function pushTable(db: SQLiteDatabase, table: string): Promise<void> {
   );
   if (raw.length === 0) return;
 
-  for (const chunk of inBatches(raw, PUSH_ROWS)) {
-    const rows = chunk.map((r) => stripForPush(table, decodeRow(table, r)));
-    // appendOnly → ON CONFLICT DO NOTHING. `_dirty` clears only on a successful
-    // reply, so a push that committed but lost its response is re-sent; the
-    // DO UPDATE path of a plain upsert would then be refused forever by an
-    // insert-only RLS table (audit_logs) and wedge its queue. See TableSpec.
-    const { error } = await supabase.from(table).upsert(rows, {
-      onConflict: conflictTarget(table),
-      ignoreDuplicates: spec?.appendOnly === true,
-    });
-    if (error) {
-      console.warn(`[sync] push ${table} failed:`, error.message); // stays dirty → retried next sync
-      continue; // a later chunk may still get through
-    }
+  // One request can carry one conflict target, so rows are grouped by theirs
+  // before batching — `charges` is the only table where that is not the whole
+  // table at once.
+  const groups = new Map<string, { id: string; row: Record<string, unknown> }[]>();
+  for (const r of raw) {
+    const row = stripForPush(table, decodeRow(table, r));
+    const entry = { id: r.id as string, row };
+    const target = conflictTarget(table, row);
+    const group = groups.get(target);
+    if (group) group.push(entry);
+    else groups.set(target, [entry]);
+  }
 
-    // Clear the flag only for the rows this chunk actually delivered.
-    const ids = chunk.map((r) => r.id as string);
-    await withDbLock(() =>
-      db.runAsync(
-        `UPDATE ${table} SET _dirty = 0 WHERE id IN (${ids.map(() => "?").join(", ")})`,
-        ids as never[],
-      ),
-    );
+  for (const [target, group] of groups) {
+    for (const chunk of inBatches(group, PUSH_ROWS)) {
+      // appendOnly → ON CONFLICT DO NOTHING. `_dirty` clears only on a successful
+      // reply, so a push that committed but lost its response is re-sent; the
+      // DO UPDATE path of a plain upsert would then be refused forever by an
+      // insert-only RLS table (audit_logs) and wedge its queue. See TableSpec.
+      const { error } = await supabase.from(table).upsert(
+        chunk.map((c) => c.row),
+        { onConflict: target, ignoreDuplicates: spec?.appendOnly === true },
+      );
+      if (error) {
+        console.warn(`[sync] push ${table} failed:`, error.message); // stays dirty → retried next sync
+        continue; // a later chunk may still get through
+      }
+
+      // Clear the flag only for the rows this chunk actually delivered.
+      const ids = chunk.map((c) => c.id);
+      await withDbLock(() =>
+        db.runAsync(
+          `UPDATE ${table} SET _dirty = 0 WHERE id IN (${ids.map(() => "?").join(", ")})`,
+          ids as never[],
+        ),
+      );
+    }
   }
 }
 

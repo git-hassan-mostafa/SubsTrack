@@ -72,7 +72,12 @@ export function useSaleActions({
     if (!charge) return;
     collectSheet.openOne(
       sale.customer?.name ?? "",
-      openItemFromCharge(charge, sale.amountPaid, sale.itemsSummary),
+      openItemFromCharge(
+        charge,
+        sale.amountPaid,
+        sale.itemsSummary,
+        sale.customer?.name ?? "",
+      ),
     );
   }
 

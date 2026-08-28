@@ -116,9 +116,14 @@ export class OfflineCustomerPlanRepository
         'customer_plans',
         await this.first('SELECT * FROM customer_plans WHERE id = ?', [id]),
       );
-      // Payments on this line cascade server-side; remove locally for consistency.
-      // Only the line id is logged — the server FK cascade removes its payments.
-      await db.runAsync('DELETE FROM payments WHERE customer_plan_id = ?', [id] as never[]);
+      // Bills on this line cascade server-side; remove locally for consistency.
+      // Only the line id is logged — the server FK cascade removes its bills.
+      await db.runAsync(
+        `DELETE FROM collection_items
+          WHERE charge_id IN (SELECT id FROM charges WHERE customer_plan_id = ?)`,
+        [id] as never[],
+      );
+      await db.runAsync('DELETE FROM charges WHERE customer_plan_id = ?', [id] as never[]);
       await db.runAsync('DELETE FROM customer_plans WHERE id = ?', [id] as never[]);
       await markDeleted(db, 'customer_plans', id);
       if (before) {
@@ -134,13 +139,17 @@ export class OfflineCustomerPlanRepository
   }
 
   async countPayments(id: string): Promise<number> {
-    return this.count('SELECT COUNT(*) AS n FROM payments WHERE customer_plan_id = ?', [id]);
+    return this.count('SELECT COUNT(*) AS n FROM charges WHERE customer_plan_id = ?', [id]);
   }
 
   async findPaidLineIds(customerId: string): Promise<string[]> {
+    // One collection_item row IS money standing on that line — see the web twin.
     const rows = await this.all<{ customer_plan_id: string }>(
-      `SELECT DISTINCT customer_plan_id FROM payments
-       WHERE customer_id = ? AND voided_at IS NULL AND CAST(amount_paid AS REAL) > 0`,
+      `SELECT DISTINCT c.customer_plan_id AS customer_plan_id
+         FROM charges c
+         JOIN collection_items i ON i.charge_id = c.id
+         JOIN collections p ON p.id = i.collection_id AND p.voided_at IS NULL
+        WHERE c.customer_id = ? AND c.customer_plan_id IS NOT NULL`,
       [customerId],
     );
     return rows.map((r) => r.customer_plan_id);

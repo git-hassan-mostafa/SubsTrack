@@ -305,9 +305,9 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
     return plan?.name ? `${base} · ${plan.name}` : base;
   }, [linePrice.durationMonths, plan?.name, t]);
 
-  // A cell as something money can be put against. Null when the line has no
-  // fixed price and the month has no bill — there is nothing to collect until
-  // someone types an amount, which the collect sheet cannot invent.
+  // A cell as something money can be put against. Null only when no line is
+  // selected — a line with no set price still opens, with the amount left for
+  // staff to type (see `openAmount` on OpenItem).
   const itemFor = useCallback((entry: MonthEntry): OpenItem | null => {
     if (!selectedLine) return null;
     return monthItemFromEntry({
@@ -354,10 +354,13 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
 
   const openCollect = useCallback((entries: MonthEntry[], send = false) => {
     const items = itemsForEntries(entries);
-    if (items.length === 0) {
+    if (items.length === 0) return;
+    // A line with no set price has no amount to split, so each month needs its
+    // own typed figure — one at a time.
+    if (items.length > 1 && items.some((i) => i.openAmount)) {
       void confirm({
         title: t("common.not_available"),
-        message: t("ledger.no_price_to_collect"),
+        message: t("ledger.open_amount_one_at_a_time"),
         confirmLabel: t("common.close"),
         hideCancel: true,
       });
@@ -417,6 +420,12 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
 
     openCollect([entry]);
   }
+
+  // Re-arm once the param is cleared, so arriving here a second time on the
+  // same mounted screen still opens the sheet instead of doing nothing.
+  useEffect(() => {
+    if (quickPay !== "1") quickPayHandledRef.current = false;
+  }, [quickPay]);
 
   // ?quickPay=1 handshake from the customer list: collect the current month of
   // the (first) selected line once its grid is ready. Fires at most once.

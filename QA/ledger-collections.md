@@ -104,6 +104,22 @@ Set up ONE customer owing exactly this:
 8.4 Collect that too. **Two** `collections` rows, each single-currency, each closing its bill at exactly **0** (no rounding residue).
 8.5 "Collect all due" from the customer card does the same automatically: two hand-overs, two receipts.
 
+## 8b. A line with no set price (typed amount)
+
+Set-up: a customer whose only service line is **"No plan"** (or a plan marked
+*custom price*), so `resolveLinePrice` returns `kind: 'typed'`.
+
+8b.1 Tap the current month's cell. The collect sheet opens — **not** a "no set price" dead-end popup.
+8b.2 It shows a hint, then **Amount for this month**, then **Amount**. The currency picker on the first field is *unlocked*; the second follows it.
+8b.3 Type `50` in the month amount. The collected amount auto-fills to `50`. Save → one `charges` row of 50 and one `collections` row of 50; the cell turns green.
+8b.4 Repeat on another month, but lower the collected amount to `20`. Save → the bill is **50**, the hand-over **20**, the cell is green with the amber **PARTIAL** ring, and the bill sheet reads `20/50`.
+8b.5 That remaining 30 now appears on the **Debts** screen and in the waterfall — from this point the line behaves like any priced one.
+8b.6 Type a collected amount **above** the month amount → the overpay banner appears and Save is disabled.
+8b.7 Pick **LBP** on the month-amount field. The bill and the hand-over are both written in LBP with the live LBP rate frozen on each.
+8b.8 **Quick pay** from the customer card (a customer with only such a line) navigates to the detail page and opens this same sheet. Go back and quick pay the same customer again — it opens again (the handshake re-arms).
+8b.9 Multi-select **two** months on that line and collect → refused with "each month needs its own amount", because two unknown figures cannot share one field.
+8b.10 The **Collect money** quick action for a customer whose only line is price-less says "owes nothing" — correct: nothing is owed until an amount is typed, and the month grid is where it is typed.
+
 ## 9. Offline
 
 9.1 Airplane mode. Collect a month, partly collect another, void one. All succeed locally and the grid updates.

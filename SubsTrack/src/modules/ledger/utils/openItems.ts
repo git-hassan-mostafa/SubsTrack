@@ -21,13 +21,23 @@ export function isDebtItem(kind: Charge['kind'], paid: number): boolean {
   return kind !== 'month' || paid > 0;
 }
 
-/** A stored bill as an OpenItem. `paid` comes from the balance view. */
-export function openItemFromCharge(charge: Charge, paid: number, label: string): OpenItem {
+/**
+ * A stored bill as an OpenItem. `paid` comes from the balance view.
+ *
+ * `customerName` is passed in rather than read off the charge: a debts list is
+ * grouped and titled by it, and the joined customer is not always loaded.
+ */
+export function openItemFromCharge(
+  charge: Charge,
+  paid: number,
+  label: string,
+  customerName = '',
+): OpenItem {
   return {
     chargeId: charge.id,
     kind: charge.kind,
     customerId: charge.customerId ?? '',
-    customerName: '',
+    customerName,
     branchId: charge.branchId,
     customerPlanId: charge.customerPlanId,
     billingMonth: charge.billingMonth,
@@ -68,6 +78,8 @@ export function virtualMonthItem(args: {
   currencyId: string | null;
   ratePerUsdSnapshot: number;
   dueDate: string;
+  /** No set price: `amount` is 0 and whatever is handed over becomes the bill. */
+  openAmount?: boolean;
 }): OpenItem {
   return {
     chargeId: null,
@@ -91,6 +103,7 @@ export function virtualMonthItem(args: {
     createdAt: args.dueDate,
     // Nothing collected on a month → owed, but not a debt.
     isDebt: false,
+    openAmount: args.openAmount ?? false,
   };
 }
 
@@ -114,13 +127,12 @@ export function chargeLabel(row: DbCharge): string {
 /**
  * One month CELL as something money can be put against.
  *
- * The two cases are the whole model in miniature: a month money has already
+ * The three cases are the whole model in miniature: a month money has already
  * touched has a bill, so the item is that bill's remaining balance; a month
  * nothing has touched has no row at all, so the item is derived from the line's
- * price and its charge is raised at the moment the money lands.
- *
- * Returns null when the line has no fixed price — there is nothing to collect
- * until someone types an amount.
+ * price and its charge is raised at the moment the money lands; and a line with
+ * NO set price has no amount to derive, so the item is left open and whatever
+ * staff type becomes the bill.
  */
 export function monthItemFromEntry(args: {
   entry: Pick<MonthEntry, 'charge' | 'collected' | 'billingMonth'>;
@@ -137,9 +149,9 @@ export function monthItemFromEntry(args: {
 }): OpenItem | null {
   const { entry } = args;
   if (entry.charge) {
-    return openItemFromCharge(entry.charge, entry.collected, args.label);
+    return openItemFromCharge(entry.charge, entry.collected, args.label, args.customerName);
   }
-  if (args.price.amount === null || args.price.amount <= 0) return null;
+  const priced = args.price.amount !== null && args.price.amount > 0;
   return virtualMonthItem({
     customerId: args.customerId,
     customerName: args.customerName,
@@ -149,11 +161,13 @@ export function monthItemFromEntry(args: {
     durationMonths: args.price.durationMonths,
     planId: args.planId,
     label: args.label,
-    amount: args.price.amount,
-    currencyId: args.price.currencyId,
+    amount: priced ? args.price.amount! : 0,
+    // An open month has no currency of its own either — the hand-over picks one.
+    currencyId: priced ? args.price.currencyId : null,
     // No frozen rate yet — it freezes for good when money lands on it.
     ratePerUsdSnapshot: args.ratePerUsd,
     dueDate: entry.billingMonth,
+    openAmount: !priced,
   });
 }
 

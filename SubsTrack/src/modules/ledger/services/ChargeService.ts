@@ -101,7 +101,15 @@ class ChargeService {
     for (const row of charges) {
       const bal = byId.get(row.id);
       if (!bal || bal.balance <= 0) continue;
-      items.push(openItemFromCharge(mapDbChargeToCharge(row), bal.paid, chargeLabel(row)));
+      items.push(
+        openItemFromCharge(
+          mapDbChargeToCharge(row),
+          bal.paid,
+          chargeLabel(row),
+          // The debts list groups and titles by this — a walk-in sale has none.
+          row.customers?.name ?? '',
+        ),
+      );
     }
     return items;
   }

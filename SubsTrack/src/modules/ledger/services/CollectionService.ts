@@ -20,7 +20,7 @@ import type {
 } from '../repository/ICollectionRepository';
 import { mapDbCollectionToCollection } from '../utils/mapper';
 import { chargeLabel } from '../utils/openItems';
-import { allocate, keyOf, totalOwed } from '../utils/waterfall';
+import { allocate, keyOf } from '../utils/waterfall';
 
 export interface CollectInput {
   tenantId: string;
@@ -75,13 +75,15 @@ class CollectionService {
     if (!(input.ratePerUsdSnapshot > 0)) throw new Error(i18n.t('errors.rate_snapshot_positive'));
 
     // One currency per hand-over. Without this a balance could only be closed
-    // through a rate conversion, and it would never land on exactly zero.
+    // through a rate conversion, and it would never land on exactly zero. An
+    // OPEN month is the one exception: it has no bill and no currency yet, so
+    // the hand-over's currency is what its bill will be raised in.
     for (const line of lines) {
-      if (line.item.currencyId !== input.currencyId) {
+      if (!line.item.openAmount && line.item.currencyId !== input.currencyId) {
         throw new Error(i18n.t('errors.collect_currency_mismatch'));
       }
       if (line.amount <= 0) throw new Error(i18n.t('errors.collect_amount_positive'));
-      if (line.amount > line.item.balance + EPSILON) {
+      if (line.amount > ceilingOf(line) + EPSILON) {
         throw new Error(i18n.t('errors.collect_exceeds_balance'));
       }
     }
@@ -92,7 +94,7 @@ class CollectionService {
     if (Math.abs(allocated - input.amount) > EPSILON) {
       throw new Error(i18n.t('errors.collect_split_mismatch'));
     }
-    if (input.amount > totalOwed(lines.map((l) => l.item)) + EPSILON) {
+    if (input.amount > lines.reduce((sum, l) => sum + ceilingOf(l), 0) + EPSILON) {
       throw new Error(i18n.t('errors.collect_exceeds_owed'));
     }
 
@@ -144,9 +146,14 @@ class CollectionService {
       plan_id: item.planId,
       sale_id: null,
       description: null,
-      amount: item.amount,
-      currency_id: item.currencyId,
-      rate_per_usd_snapshot: item.ratePerUsdSnapshot,
+      // An OPEN month with no typed amount is billed for exactly what arrived —
+      // there was no price to bill before this. Its currency is the hand-over's,
+      // since it had none of its own either.
+      amount: item.amount > 0 ? item.amount : line.amount,
+      currency_id: item.openAmount ? input.currencyId : item.currencyId,
+      rate_per_usd_snapshot: item.openAmount
+        ? input.ratePerUsdSnapshot
+        : item.ratePerUsdSnapshot,
       // Raised now, but OWED since its billing day — ageing reads due_date, so
       // a January month collected in March is still 60+ days late.
       issued_at: nowIso(),
@@ -286,6 +293,15 @@ class CollectionService {
   transferCustody(ids: string[], fromUserId: string, toUserId: string | null, actorUserId: string) {
     return repository.transferCustody(ids, fromUserId, toUserId, actorUserId);
   }
+}
+
+/**
+ * The most one line may take. Normally the bill's remaining balance — but an
+ * OPEN month (a line with no set price) whose amount was never typed has no
+ * bill to cap it: whatever is handed over becomes the bill.
+ */
+function ceilingOf(line: AllocationLine): number {
+  return line.item.openAmount && line.item.balance <= 0 ? line.amount : line.item.balance;
 }
 
 /** The one kind every line shares, or 'mixed' when they disagree. */

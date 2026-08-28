@@ -126,13 +126,19 @@ export class CustomerRepository extends BaseRepository implements ICustomerRepos
     return this.patch(id, { active: true, cancelled_at: null }, 'restore');
   }
 
+  // Any money history at all — a bill raised OR cash taken. Either one makes a
+  // hard delete lose a record the business needs.
   async countPayments(id: string): Promise<number> {
-    const { count, error } = await this.db
-      .from('payments')
-      .select('id', { count: 'exact', head: true })
-      .eq('customer_id', id);
-    if (error) this.handleError(error);
-    return count ?? 0;
+    const [charges, collections] = await Promise.all([
+      this.db.from('charges').select('id', { count: 'exact', head: true }).eq('customer_id', id),
+      this.db
+        .from('collections')
+        .select('id', { count: 'exact', head: true })
+        .eq('customer_id', id),
+    ]);
+    if (charges.error) this.handleError(charges.error);
+    if (collections.error) this.handleError(collections.error);
+    return (charges.count ?? 0) + (collections.count ?? 0);
   }
 
   async delete(id: string): Promise<void> {
@@ -183,9 +189,14 @@ export class CustomerRepository extends BaseRepository implements ICustomerRepos
     }
   }
 
-  // The subset of the given customers that have any payment — one query.
+  // The subset of the given customers with any money history — a bill raised or
+  // cash taken.
   async customersWithPayments(ids: string[]): Promise<Set<string>> {
-    return this.referencedIdsIn('payments', 'customer_id', ids);
+    const [charges, collections] = await Promise.all([
+      this.referencedIdsIn('charges', 'customer_id', ids),
+      this.referencedIdsIn('collections', 'customer_id', ids),
+    ]);
+    return new Set([...charges, ...collections]);
   }
 
   async countAll(branchFilter: BranchFilter = null): Promise<number> {

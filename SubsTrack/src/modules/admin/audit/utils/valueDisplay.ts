@@ -154,8 +154,8 @@ const FIELD_LABELS: Record<string, (ctx: AuditFieldContext) => string | null> = 
 
 /**
  * Columns never worth showing: tenant/branch scoping the viewer already knows, the
- * row's own id, timestamps the entry itself carries, and the generated `balance` (a
- * restatement of amount_due - amount_paid, both already in the diff).
+ * row's own id, timestamps the entry itself carries, and `balance` — never a
+ * stored column now, and a restatement of the diff wherever a legacy row has one.
  */
 const HIDDEN_COLUMNS = new Set(['id', 'tenant_id', 'created_at', 'updated_at', 'balance']);
 

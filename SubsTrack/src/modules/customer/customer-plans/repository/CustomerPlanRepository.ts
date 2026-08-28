@@ -113,7 +113,7 @@ export class CustomerPlanRepository extends BaseRepository implements ICustomerP
 
   async countPayments(id: string): Promise<number> {
     const { count, error } = await this.db
-      .from('payments')
+      .from('charges')
       .select('id', { count: 'exact', head: true })
       .eq('customer_plan_id', id);
     if (error) this.handleError(error);
@@ -121,14 +121,19 @@ export class CustomerPlanRepository extends BaseRepository implements ICustomerP
   }
 
   async findPaidLineIds(customerId: string): Promise<string[]> {
+    // Read from the ITEM side: every collection_item is > 0 by constraint, so
+    // one returned row IS money standing on that line — no amount test needed.
     const { data, error } = await this.db
-      .from('payments')
-      .select('customer_plan_id')
-      .eq('customer_id', customerId)
-      .is('voided_at', null)
-      .gt('amount_paid', 0);
+      .from('collection_items')
+      .select('charges!inner(customer_plan_id, customer_id), collections!inner(voided_at)')
+      .eq('charges.customer_id', customerId)
+      .not('charges.customer_plan_id', 'is', null)
+      .is('collections.voided_at', null);
     if (error) this.handleError(error);
-    const ids = (data ?? []).map((r) => (r as { customer_plan_id: string }).customer_plan_id);
+    type Row = { charges: { customer_plan_id: string | null } };
+    const ids = ((data as unknown as Row[] | null) ?? [])
+      .map((r) => r.charges?.customer_plan_id)
+      .filter((v): v is string => !!v);
     return [...new Set(ids)];
   }
 }

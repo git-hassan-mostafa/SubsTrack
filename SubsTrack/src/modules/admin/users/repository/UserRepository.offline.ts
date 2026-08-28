@@ -1,7 +1,7 @@
 import type { BranchFilter } from '@/src/core/constants';
 import type { DbUser } from '@/src/core/types/db';
 import { OfflineBaseRepository } from '@/src/core/offline/OfflineBaseRepository';
-import { updateDirty, upsertFromServer } from '@/src/core/offline/db/dml';
+import { upsertFromServer } from '@/src/core/offline/db/dml';
 import { nowIso } from '@/src/core/offline/ids';
 import { isOnline } from '@/src/core/offline/net/connectivity';
 import { RequiresConnectionError } from '@/src/core/offline/errors';
@@ -60,7 +60,7 @@ export class OfflineUserRepository extends OfflineBaseRepository implements IUse
   async countPayments(id: string): Promise<number> {
     // Cash they collected OR are holding — see IUserRepository.
     return this.count(
-      'SELECT COUNT(*) AS n FROM payments WHERE received_by_user_id = ? OR held_by_user_id = ?',
+      'SELECT COUNT(*) AS n FROM collections WHERE received_by_user_id = ? OR held_by_user_id = ?',
       [id, id],
     );
   }
@@ -68,8 +68,8 @@ export class OfflineUserRepository extends OfflineBaseRepository implements IUse
   // The subset of the given users who have recorded payments or hold cash.
   async usersWithPayments(ids: string[]): Promise<Set<string>> {
     const [recorded, held] = await Promise.all([
-      this.referencedIdsIn('payments', 'received_by_user_id', ids),
-      this.referencedIdsIn('payments', 'held_by_user_id', ids),
+      this.referencedIdsIn('collections', 'received_by_user_id', ids),
+      this.referencedIdsIn('collections', 'held_by_user_id', ids),
     ]);
     return new Set([...recorded, ...held]);
   }
