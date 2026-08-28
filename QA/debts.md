@@ -1,257 +1,115 @@
 # Debts — QA Scenarios
 
-Covers the per-customer debt ledger (Transactions → **Debts** tab — a **single debtors list**, no sub-tabs): the runtime-computed net debt, the four debt categories (months / sales / services / custom), the debtors overview + detail modal (with add/pay/void inside), adding a custom debt, recording a debt payment, and voiding either. A customer's net debt is **computed at runtime** (`net = Σ category debts − Σ debt payments`) — nothing is stored except `custom_debts` and `debt_payments`.
+Covers the **Debts** screen (Transactions → Debts — a single debtors list, no sub-tabs): who owes money, how far behind they are, and the two corrections a bill can take. The money model underneath is in [ledger-collections.md](ledger-collections.md) — **run that file first**; this one covers only the screen.
 
 **Reference code:**
-- Panel: [DebtsPanel.tsx](SubsTrack/src/modules/debts/screens/DebtsPanel.tsx) (single debtors list)
-- Cards: [DebtItemCard.tsx](SubsTrack/src/modules/debts/components/DebtItemCard.tsx), [DebtPaymentCard.tsx](SubsTrack/src/modules/debts/components/DebtPaymentCard.tsx), [DebtorCard.tsx](SubsTrack/src/modules/debts/components/DebtorCard.tsx)
-- Shared list: [DebtList.tsx](SubsTrack/src/modules/debts/components/DebtList.tsx) (Debtor modal + customer-detail panel), Debtor modal: [DebtorDetailSheet.tsx](SubsTrack/src/modules/debts/components/DebtorDetailSheet.tsx)
-- Form sheets: [CustomDebtFormSheet.tsx](SubsTrack/src/modules/debts/components/CustomDebtFormSheet.tsx), [DebtPaymentFormSheet.tsx](SubsTrack/src/modules/debts/components/DebtPaymentFormSheet.tsx)
-- Service: [DebtService.ts](SubsTrack/src/modules/debts/services/DebtService.ts); client-side aggregation: [debtAggregations.ts](SubsTrack/src/modules/debts/utils/debtAggregations.ts) (`sumDebtNetUsd`, `groupDebtors`)
-- Repository: [DebtRepository.ts](SubsTrack/src/modules/debts/repository/DebtRepository.ts) (+ `.offline`)
-- Slice: [debtSlice.ts](SubsTrack/src/state/slices/debts/debtSlice.ts) (holds the full branch set; debtors grouping + summary are client-side)
-- Partial reads: `PaymentService.getPartialPayments`, `SaleService.getPartialSales`
-- Hub: [TransactionsScreen.tsx](SubsTrack/src/modules/transactions/screens/TransactionsScreen.tsx)
+- Panel: [DebtsPanel.tsx](../SubsTrack/src/modules/transaction/debts/screens/DebtsPanel.tsx)
+- Cards: [DebtorCard.tsx](../SubsTrack/src/modules/transaction/debts/components/DebtorCard.tsx), [DebtItemCard.tsx](../SubsTrack/src/modules/transaction/debts/components/DebtItemCard.tsx)
+- Shared list: [DebtList.tsx](../SubsTrack/src/modules/transaction/debts/components/DebtList.tsx) (debtor sheet + customer-detail panel), debtor sheet: [DebtorDetailSheet.tsx](../SubsTrack/src/modules/transaction/debts/components/DebtorDetailSheet.tsx)
+- Form: [CustomDebtFormSheet.tsx](../SubsTrack/src/modules/transaction/debts/components/CustomDebtFormSheet.tsx) (writes a `manual` charge)
+- Row actions: [useDebtRowActions.ts](../SubsTrack/src/modules/transaction/debts/hooks/useDebtRowActions.ts) (void / write off)
+- Collecting: [useCollectSheet.tsx](../SubsTrack/src/modules/ledger/hooks/useCollectSheet.tsx) + `CollectSheet`
+- Service: [ChargeService.buildDebtsView](../SubsTrack/src/modules/ledger/services/ChargeService.ts), [LedgerService.getDebtsView](../SubsTrack/src/modules/ledger/services/LedgerService.ts)
+- Slice: [ledgerSlice.ts](../SubsTrack/src/state/slices/ledger/ledgerSlice.ts)
 
 ---
 
 ## 0. Critical invariants
 
-1. **Net debt is computed at runtime**, never stored: `net = Σ(category debts) − Σ(debt payments)`.
-2. **Debt payments are tied only to the customer** — recording one does NOT change any payment/sale row. A partially-paid month shows as **paid (green)** in the month grid (never "partial" — there is no partial cell state); paying off its debt only lowers the Debts total, and the month/grid stay unchanged.
-3. **Categories:** months = partial `payments` (`balance > 0`, non-voided); sales = partial `sales` (`total_amount − amount_paid > 0`, non-voided, has a customer); services = reserved (always 0 today); custom = `custom_debts` rows.
-4. **Currency:** every custom debt + debt payment freezes `rate_per_usd_snapshot`. Totals are summed in USD via each row's snapshot, then formatted into the display currency — never drift when the live rate changes.
-5. **No hard delete.** Custom debts + debt payments void via `voided_at`/`voided_by`/`void_reason`; voided rows drop from the totals but stay in DB.
-6. **Branch scoping via the customer** (RLS `EXISTS`; offline joins `customers`). Walk-in sales (no customer) never appear as debts.
-7. **Tenant isolation via RLS.** No tier gating — recording debts/payments is unlimited.
-8. **A debt payment is revenue.** Dashboard revenue counts cash, so collecting a debt adds to `debtRevenue` (and `monthlyRevenue`) in the calendar month of its `paid_at` — this is where the unpaid part of a partial payment/sale finally lands. It never retroactively changes the source row's month. Voiding a debt payment removes it from revenue and restores the debt.
+1. **Every figure comes from ONE query over `charges`** joined to what has been collected. No category merging, no `gross − payments` subtraction.
+2. **The parts ADD UP.** `monthsDebt + salesDebt + manualDebt = totalDebt`, exactly. If they don't, something is reading the wrong source.
+3. **A fully unpaid month is OWED but is NOT a debt** — it belongs to the month grid. It appears on this screen only as the muted **"+N unpaid months"** hint on the card and as its own section inside the debtor sheet.
+4. **A debt row is:** a partly-paid month, an open or partly-paid sale, or a hand-typed fee.
+5. **Kinds:** `month` / `sale` / `manual`. A sale made of **service** lines files under `sale` — the debt belongs to the sale as a whole.
+6. **Currency:** every bill freezes `rate_per_usd_snapshot` when it is raised. Totals are summed in USD via each row's own snapshot, then formatted into the display currency — they never drift when the live rate changes.
+7. **No hard delete.** A bill is voided (a mistake) or written off (a loss); either way the row stays.
+8. **Branch scoping is the bill's own `branch_id`** (gotcha #103), always stamped from the customer.
+9. **No tier gating** — raising and collecting bills is unlimited.
 
 ---
 
-## 1. Debtors list + summary
-
-The panel is a **single debtors list** (no sub-tabs). A net-total summary header sits on top, then a name search, then one row per customer who still owes money. The FAB opens the add menu.
+## 1. The debtors list
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 1.1 | Open Debts tab | Transactions → Debts | The debtors list shows; summary header shows total outstanding for the current branch scope |
-| 1.2 | Empty state | Tenant with no debts | "No debtors" empty state; FAB visible |
-| 1.3 | Months debt appears | Record a partial subscription payment (paid < due) | The customer appears / their net rises by the remaining balance (Months category, seen in their detail modal) |
-| 1.4 | Sales debt appears | Record a sale, choose **Partial**, pay less than total | The customer's net rises by `total − paid` (Sales category in their detail modal) |
-| 1.5 | Full sale = no debt | Record a sale as **Full** | No debt for that sale |
-| 1.6 | Custom debt appears | FAB → Add custom debt | The customer's net rises; a Custom row shows in their detail modal |
-| 1.7 | Summary math | Note total; add a custom debt of X | Total outstanding increases by X (converted to display currency) |
-| 1.8 | Search debtors | Type part of a customer name in the search box | List filters to matching debtors (client-side, by name); no re-fetch/spinner |
+| 1.1 | Open the screen | Transactions → Debts | Total outstanding on top, with "owed by N customers" under it; then a name search; then one row per debtor |
+| 1.2 | Empty state | Tenant with no debts | "No debtors" empty state; the FAB (add custom debt) is still visible |
+| 1.3 | **Sorted by how far behind** | Several debtors with different oldest due dates | Worst-behind first, then by amount — not alphabetical, not by amount alone |
+| 1.4 | Days behind | A debtor whose oldest bill is 12 days past due | Card sub-line reads "12 days behind" |
+| 1.5 | Not late yet | A debtor whose only bill is not yet due | Sub-line reads "Not late yet" |
+| 1.6 | Unpaid-months hint | A debtor who also has 2 plain unpaid months | Sub-line ends with a muted "+2 unpaid months · $40" — and that amount is **not** in the bold debt figure |
+| 1.7 | A partly-paid month appears | Collect 10 of a 20 month | The customer appears; their debt rises by 10 |
+| 1.8 | A pay-later sale appears | Record a sale with **No payment** | The customer's debt rises by the whole total, dated from `sold_at` |
+| 1.9 | A fully paid sale does not | Record a sale as **Full** | No debt for it |
+| 1.10 | A hand-typed fee appears | FAB → Add custom debt | Debt rises by the amount |
+| 1.11 | Search | Type part of a name | Client-side filter, no spinner and no re-fetch |
+| 1.12 | Totals reconcile | Note the header; add a fee of X | The header rises by exactly X (converted to the display currency) |
+| 1.13 | **A fully unpaid month never becomes a row** | A customer with nothing collected all year | They do NOT appear in the list at all (the grid is where that lives) |
 
 ---
 
-## 1b. Debtor detail modal (with add / pay / void)
+## 2. The debtor sheet
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 1b.1 | Debtor list | List with several partial/custom debts | One row per customer with a positive net, sorted **highest owed first**; each row shows the net in the display currency |
-| 1b.2 | Credit customers excluded | A customer whose debt payments ≥ their debts | That customer does NOT appear in the Debtors list (consistent with the customer-list debt badge) |
-| 1b.3 | Open detail modal | Tap a debtor row | A `pageSheet` modal opens: customer name + net (or **Credit**), a **Debts history** section above a **Debt payments history** section |
-| 1b.4 | Modal = customer-detail list | Compare the modal to the same customer's detail-page **Transactions** panel | Same rows (both use the shared `DebtList`) |
-| 1b.5 | Add debt from modal | In the modal, header **"+" menu** → Add custom debt → amount → save | Customer is pre-filled (read-only, locked to this debtor); debt appears in the modal's Debts history live; net rises |
-| 1b.6 | Add payment from modal | In the modal, header **"+" menu** → Record debt payment → amount → save | Payment appears in Debt payments history live; net drops |
-| 1b.7 | Pay a debt row from modal | In the modal, a debt row's menu → **Pay** → confirm | A debt payment is recorded; net drops; on returning to the list the debtor reflects the new net (or drops off if settled) |
-| 1b.8 | Void payment from modal | In the modal, a debt-payment row's **3-dot menu** → **Remove** → confirm | Payment voided; net rises back |
-| 1b.9 | Pay full from row menu | On a debtor row, 3-dot menu → **Pay full debt** → confirm | A single USD debt payment clears the whole net; row drops off the list |
+| 2.1 | Open | Tap a debtor row | A full-height sheet: name, total outstanding, then a **Collect** button, then the debts, then a muted **Unpaid months** section |
+| 2.2 | The two sections are different things | Compare | The bold total on the card counts only the debts; the sheet's button covers **both** sections, which is why its figure can be larger |
+| 2.3 | Collect everything | Tap **Collect $N** | The collect sheet opens with the whole pool and the waterfall preview (see ledger-collections.md §3) |
+| 2.4 | Collect one bill | A row's 3-dot → **Collect** | The collect sheet opens with that bill alone, no split preview |
+| 2.5 | Live refresh | Collect part of a bill from inside the sheet | The row's amount drops and the header follows, without closing the sheet |
+| 2.6 | Add a fee here | Header **+** → amount, description, due date → save | Pre-filled to this customer (read-only); the row appears and the total rises |
+| 2.7 | Rows show the fraction | A month with 10 of 20 collected | The date line reads "… · 10/20 $" — collected out of owed, in the collected currency |
+| 2.8 | Rows show how late | A bill 40 days past due | The date line includes "40 days late" |
+| 2.9 | Settled customer | Collect everything | The sheet empties and the customer leaves the list |
 
 ---
 
-## 2. Recording (FAB, picker-driven)
-
-The FAB add menu (Add custom debt / Record debt payment) is **picker-driven** — no customer is pre-scoped, so you pick the customer in the form.
+## 3. Correcting a bill (the two doors)
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 2.1 | Add custom debt | FAB → Add custom debt → pick customer, amount, description → save | Debt recorded; the debtor's net rises |
-| 2.2 | Custom debt requires customer + amount | Leave customer or amount empty | Submit disabled |
-| 2.3 | Record debt payment | FAB → Record debt payment → pick customer, amount → save | Net debt drops by the amount |
-| 2.5 | Currency snapshot | Record a debt payment in LBP, then edit the tenant LBP rate | The payment's contribution to the net (in USD/display) does NOT change |
-| 2.6 | Underlying row untouched | Partial month (balance 50) → record a 50 debt payment | Net for that customer drops to 0; the month grid still shows the month as **paid (green)** — the underlying payment row (and its `balance`) is untouched |
+| 3.1 | **Write off** is offered on any real bill | A row's 3-dot | "Write off" with the caption "He will not pay — record it as a loss" |
+| 3.2 | Write off | Confirm the dialog (which names the amount and the customer) | The row leaves the list; the total drops; Reports → Debts counts it under **Written off** |
+| 3.3 | Only the uncollected part is the loss | Write off a 50 bill that had 20 collected | Reports shows 30, not 50 |
+| 3.4 | **Remove** only on a hand-typed fee | Compare a `manual` row with a `month` / `sale` row | "Remove" appears only on the fee. A month is undone by voiding its payment; a sale by voiding the sale |
+| 3.5 | Remove a fee | Confirm | Voided; it leaves the list; the row stays in the DB |
+| 3.6 | A bill with money cannot be removed | Try to remove a fee that has been partly collected | Refused, telling you to void the payment first or write it off |
+| 3.7 | Void and write-off are exclusive | Try both on one bill | The second is refused (DB constraint) |
+| 3.8 | **There is no "Complete"** | Check every menu | The action is gone — collecting the rest is the real action, and it is one tap away |
 
 ---
 
-## 3. Voiding + credit
+## 4. The customer-detail panel
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 3.1 | Void custom debt | In a debtor's detail modal, a Custom row's 3-dot menu → **Remove** → confirm | Row disappears; total drops; row still in DB (voided) |
-| 3.2 | Void debt payment | In a debtor's detail modal, a debt-payment row's 3-dot menu → **Remove** → confirm | Row disappears; net debt rises back up |
-| 3.3 | Months/sales not voidable here | Open a Months or Sales row's 3-dot menu in the modal | Only **Pay** is offered — no Remove (void the underlying payment/sale in its own tab) |
-| 3.4 | Credit (overpayment) | Record debt payments exceeding total debt | Header shows a green **Credit** amount (net negative), not a debtor total |
+| 4.1 | Where | Customer detail → below the sales panel | A "Transactions" section listing this customer's open bills with the total |
+| 4.2 | Not branch-scoped | As a branch admin, open a customer of another branch (if reachable) | All of that customer's bills show, regardless of the header chip — same rule as the sales panel |
+| 4.3 | **Unpaid months are NOT listed here** | A customer with unpaid months | Only debts appear — the month grid is right above, so listing them twice is noise |
+| 4.4 | Same actions | A row's 3-dot | Collect / Write off / (Remove on a fee) — the same set as the Debts screen |
+| 4.5 | Refresh on focus | Raise a bill elsewhere, come back | The panel re-reads and shows it |
+| 4.6 | Add a fee | Header **+** | Pre-scoped to this customer; the panel refreshes on save |
 
 ---
 
-## 4. Branch + offline
+## 5. Adding a hand-typed fee
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 4.1 | Branch scoping | As a branch-scoped user | Only debts of customers in that branch appear |
-| 4.2 | Branch switch (tenant-wide admin) | Switch the BranchSelector | List + summary re-scope to the selected branch |
-| 4.3 | Offline add | Airplane mode → add a custom debt + a debt payment | Both persist and show immediately; net updates |
-| 4.4 | Sync on reconnect | Reconnect | Sync pill runs; the rows land in Supabase |
-| 4.5 | Fresh install pull | Wipe local data → log in | Custom debts + debt payments pull down and totals match |
-| 4.6 | Legacy sales | Sales recorded before this feature | Show as fully paid (no phantom debt) |
+| 5.1 | Required fields | Leave the customer, the amount **or the description** empty | Submit stays disabled — a fee with no description is a row that says nothing |
+| 5.2 | Due date | Default is today; change it to last month | The bill sorts **ahead** of newer ones in the waterfall, and its "days late" counts from that date |
+| 5.3 | Back-dating is deliberate | Set the due date to 2020 | It jumps to the front of the queue. This is the intended meaning of back-dating (see gotcha #74's reasoning) |
+| 5.4 | Currency | Record in LBP, then change the tenant LBP rate | The bill's contribution to the USD total does NOT change |
+| 5.5 | Branch | Recorded for a branch customer | The bill carries that customer's branch |
+| 5.6 | Quick action | PageHeader 3-dot → Add custom debt | Opens standalone with its own customer picker |
 
 ---
 
-## 5. Debt history (clock icon)
-
-The clock icon on the net-total summary card opens a **branch-wide** log of debts + payments together, grouped by **when each was recorded**. Its rows carry the same 3-dot actions as every other debt surface — see **5d**.
+## 6. Branch + offline
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 5.1 | Open history | Tap the clock icon on the total card | A sheet opens titled "Debt history" |
-| 5.2 | Merged + ordered | With both debts and debt payments present | Debts and payments appear in one list, newest first, mixed by recorded date (not two separate sections) |
-| 5.3 | Grouped by recorded date | Rows across several days/months | Rows sit under date headers (Today / This Week / This Month / `<Month> <Year>`), like the Payments/Sales tabs |
-| 5.4 | Debts + payments totals side by side | A group holding both a new debt and a debt payment | The header shows **two** amounts: the debts total in **red** with a leading `+`, and the payments total in **green** with a leading `−`. They are NOT subtracted into one net figure |
-| 5.5 | Rows are actionable | Tap a debt or payment row's **3-dot menu** | A menu opens — the history is no longer read-only; full coverage in **5d** |
-| 5.6 | Customer names shown | Multiple debtors | Each row shows the customer name (this is a cross-customer view) |
-| 5.7 | Empty state | A branch with no debts or payments | "No history yet" empty message |
-| 5.8 | Branch scope | Branch-scoped user / switched branch | History shows only the current branch's debts + payments |
-
-### 5a. Grouping uses the recorded date, never the billing month
-
-A subscription debt is *about* a billing month but was *created* the day the short payment was recorded. These two dates can be years apart — grouping must always use the second.
-
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 5a.1 | Future billing month | Today, record a **partial** payment for a billing month far in the future (e.g. Nov 2027) → open Debt history | The row appears under **TODAY**, not under "November 2027". No future-dated group is created |
-| 5a.2 | Past billing month | Record a partial payment today for a **past** month (e.g. Sep 2026 while it is Aug 2026… or any earlier month) | The row appears under **TODAY**, not under that past month |
-| 5a.3 | Card still shows the billing month | The same row from 5a.1 | The card's own subtitle still reads the plan + the **billing month** date — only the grouping changed |
-| 5a.4 | Sales debt | Record a partial sale today | Appears under TODAY (sold-at = recorded date, so this was always correct) |
-| 5a.5 | Custom debt | Add a custom debt today | Appears under TODAY |
-| 5a.6 | Debt payment | Record a debt payment today | Appears under TODAY, in green |
-| 5a.7 | Order across categories | Mix a month debt (future billing month), a sale debt and a custom debt recorded minutes apart | Ordered by **recorded time**, newest first — the future billing month does not jump to the top |
-| 5a.8 | Debtor detail list matches | Open a debtor's detail sheet with the same mix | The same recorded-date ordering as the history sheet (both read `DebtItem.createdAt`) |
-
----
-
-## 6. Customer detail page — Debts panel actions
-
-The Debts panel on a customer's detail page now carries the **same row actions** as the Debts tab (it shares one `useDebtRowActions` hook). Unlike the tab, the panel reads its data itself, so every action must refresh the panel too.
-
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 6.1 | Debt row menu | Customer detail → Debts panel → a debt row's **3-dot menu** | Menu opens with **Pay** (and **Remove** only on a Custom row) — identical to the debtor modal |
-| 6.2 | Pay a debt row | A debt row's menu → **Pay** → confirm | A debt payment for the row's remaining amount is recorded in the **row's own currency**; the row disappears from the panel and the panel's net drops — **without leaving the page** |
-| 6.3 | Remove a custom debt | A Custom row's menu → **Remove** → confirm | Row disappears from the panel live; net drops |
-| 6.4 | Months/sales have no Remove | Open a Months or Sales row's menu | Only **Pay** — no Remove (void the underlying payment/sale in its own tab) |
-| 6.5 | Remove a debt payment | A debt-payment row's **3-dot menu** → **Remove** → confirm | Payment disappears from the panel live; net rises back up |
-| 6.6 | Tapping a row does nothing | Tap a debt or debt-payment row's body (not the 3-dot) | Nothing happens — actions are menu-only on both surfaces (the old tap-to-void on payment rows is gone) |
-| 6.7 | Cancel leaves it alone | Open any action → cancel the confirm dialog | No debt payment recorded, nothing voided, panel unchanged |
-| 6.8 | Debts tab agrees | Do 6.2 / 6.3 / 6.5, then open Transactions → Debts | The tab's debtors list + net already reflect the change (no manual refresh) — the action goes through the shared slice |
-| 6.9 | Customer-list debt badge agrees | Pay off a customer's whole debt from the panel, then open the customer list | The **Has debts** badge/tab no longer includes that customer (`netByCustomer` was refreshed) |
-| 6.10 | Panel net after payoff | Pay every debt row from the panel | The panel's header amount reaches 0 and the list shows the "no transactions" empty message only if no payments remain |
-| 6.11 | Offline | Airplane mode → pay a debt row from the panel | Works and shows immediately; syncs on reconnect |
-
-### 5c. One-sided groups
-
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 5c.1 | Debts only | A group holding only new debts | Only the red `+` total is shown; no green `−$0.00` |
-| 5c.2 | Payments only | A group holding only debt payments | Only the green `−` total is shown; no red `+$0.00` |
-| 5c.3 | Display currency | Set a non-USD display currency | Both totals are converted and formatted in that currency |
-| 5c.4 | Mixed currencies in one group | Debts recorded in two different currencies | Each side sums in USD via its own frozen snapshot rate, then formats once |
-| 5c.5 | RTL | Switch to Arabic | The two totals stay in the same reading order and do not overlap the title |
-
-### 5b. Group separators (shared by Payments / Sales / Debt history)
-
-`MonthSectionHeader` is one shared component, so every grouped list must behave identically here.
-
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 5b.1 | Separator between groups | A list with 2+ month groups | A short **centered** bar (~64px wide, 3px thick, rounded) + extra space sits above every group header except the first — never a full-width rule |
-| 5b.2 | No bar above the first group | Same list, scrolled to top | The topmost header has **no** bar above it (nothing floating under the list padding) |
-| 5b.3 | Single group only | A list whose rows all fall in one bucket | No separator anywhere |
-| 5b.4 | Day/week buckets included | Rows in Today + This Week + older months | Rules appear between Today→This Week→month groups too, not only between months |
-| 5b.5 | Pagination | Scroll to load more pages (Payments / Sales) | Newly appended groups get their separators; the first group keeps none |
-| 5b.6 | All three lists match | Compare Payments tab, Sales tab, Debt history | Identical separator spacing and colour in all three |
-
-### 5d. Row actions in the history (same hook as every other debt surface)
-
-The history sheet gets its row actions from `DebtsPanel`, which passes the very same `useDebtRowActions` handlers the debtor modal uses — so a menu here must behave identically to the same row in the debtor modal or the customer panel. The sheet renders the slice's own data, so every change must show **without closing the sheet**.
-
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 5d.1 | Debt row menu | History → a debt row's **3-dot menu** | Menu opens with **Pay** (and **Remove** only on a Custom row) — identical to the debtor modal |
-| 5d.2 | Months/sales have no Remove | Open a Months or Sales row's menu | Only **Pay** — no Remove (void the underlying payment/sale in its own tab) |
-| 5d.3 | Pay a debt from the history | A debt row's menu → **Pay** → confirm | A debt payment for the row's remaining amount is recorded in the **row's own currency**; the debt row leaves the list and a green payment row appears under **TODAY** — the sheet stays open |
-| 5d.4 | Remove a custom debt | A Custom row's menu → **Remove** → confirm | Row disappears live |
-| 5d.5 | Remove a debt payment | A debt-payment row's menu → **Remove** → confirm | Row disappears live |
-| 5d.6 | Section totals re-sum | Do 5d.3, then read the date headers | The row's old group loses it from the red `+` side; TODAY gains it on the green `−` side. No stale totals |
-| 5d.7 | Net behind the sheet | Close the sheet after any of 5d.3–5d.5 | The Debts tab total + debtors list already reflect the change (the actions go through the shared slice) |
-| 5d.8 | Menu title names the customer | Open a **debt** row's menu and a **debt-payment** row's menu | Both are titled with the **customer name** — this is a cross-customer list. (On the customer panel / debtor modal, a payment row's menu keeps its label title) |
-| 5d.9 | Tapping the row body does nothing | Tap a row's body (not the 3-dot) | Nothing happens — actions are menu-only on every debt surface |
-| 5d.10 | Cancel leaves it alone | Open any action → cancel the confirm dialog | Nothing recorded, nothing voided, the list is unchanged |
-| 5d.11 | Scrolled-down row | Scroll deep into a long history, open a row's menu | The menu opens over the correct row and its action hits that row (the list is virtualized — the menu must not act on a recycled row) |
-| 5d.12 | Pay the last debt | Pay off the only outstanding debt from the history | The debt row goes, the payment row stays, and the sheet does **not** fall back to the empty state |
-| 5d.13 | Offline | Airplane mode → pay a debt row from the history | Works and shows immediately; syncs on reconnect |
-| 5d.14 | RTL | Arabic → open a row menu | Title, icons and labels mirror correctly; the confirm dialog reads right-to-left |
-
----
-
-## 7. Complete a derived debt (months / sales)
-
-**Complete** is the opposite of **Pay**. Pay collects new money and writes a `debt_payments` row; Complete says the record *behind* the debt was written down **short** and raises **that record's** `amount_paid` to the full amount. So the debt disappears because nothing is owed — no debt payment exists, and no new cash entered the business.
-
-Available on `months` and `sales` rows on **every** debt surface (debtor modal, debt history, customer Debts panel) and on the **sale card's own 3-dot menu**. Never on a `custom` row.
-
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 7.1 | Action is offered | A **Months** row's 3-dot menu | Rows: **Pay**, **Complete**; Complete carries a caption reading "Marks it fully paid by fixing the record — no debt payment is added" |
-| 7.2 | Sales row too | A **Sales** row's 3-dot menu | Same two actions + the caption |
-| 7.3 | Custom row has none | A **Custom** row's 3-dot menu | **Pay** and **Remove** only — no Complete (a custom debt *is* the record) |
-| 7.4 | Confirm names the remainder | Menu → **Complete** | Dialog titled "Mark as fully paid", naming the amount **still owed** (the row's own currency, `≈` display currency), and saying no debt payment is recorded |
-| 7.5 | Cancel changes nothing | Open the dialog → cancel | No write at all; the row and the net are unchanged |
-| 7.6 | Complete a months debt | Confirm on a Months row | `payments.amount_paid` becomes `amount_due`, `balance` → 0; the debt row leaves the list and the net drops by exactly its remaining |
-| 7.7 | No debt payment appears | After 7.6, read the same list / the debt history | **No** green debt-payment row was added anywhere — the debt simply vanished |
-| 7.8 | Complete a sales debt | Confirm on a Sales row | `sales.amount_paid` becomes `total_amount`; the row leaves the list and the net drops by its remaining |
-| 7.9 | Sale lines untouched | After 7.8, open the sale's receipt | Same lines, same quantities, same unit prices, same total — only "Paid" changed to the full amount |
-| 7.10 | Stock untouched | After 7.8, open each sold product's stock sheet | The ledger is unchanged — no void, no new `'sale'` row (nothing left the shelf) |
-| 7.11 | Month grid does not move | After 7.6, open the customer's grid | The month was already **paid** (a partial reads as paid) and still is — no cell colour changed |
-| 7.12 | Money keeps its original date | Complete a payment/sale from a **previous** month, then read the dashboard + Reports | The extra cash counts in the month of the record's `paid_at` / `sold_at`, **not** today — it is a correction, not a collection |
-| 7.13 | Custody untouched | Complete a record a collector is still holding, then open Wallets | The row stays in the **same** wallet; its amount rises by what was completed. Nothing was remitted |
-| 7.14 | Wallet total rises | Read that collector's wallet total before and after 7.13 | Up by exactly the completed remainder, in the row's own currency |
-| 7.15 | Voided payment refused | Void a partial payment, then try to complete its (now gone) debt row | The row is already gone from the list; forcing the action surfaces "A voided payment cannot be changed" rather than writing |
-| 7.16 | Voided sale refused | Same with a voided sale | "A voided sale cannot be edited. Record a new sale instead." |
-| 7.17 | Already full is a no-op | Complete a row twice quickly (double-tap through the confirm) | The second run changes nothing — no over-payment, `amount_paid` never exceeds `amount_due` / `total_amount` |
-| 7.18 | Audit trail | Admin → Audit Log after 7.6 and 7.8 | One **update** entry per record, on `payments` / `sales`, subject = the customer, "Fields changed" naming `amount_paid` (and `balance` is **not** listed — it is a generated restatement) |
-| 7.19 | History from the record | Open the sale receipt → **History** | The same update entry is there, with the old amount paid → the new one |
-| 7.20 | Net and badge agree | Complete a customer's only debt, then open the customer list | The **Has debts** pill and tab no longer include them (`netByCustomer` refreshed) |
-| 7.21 | Every debt surface | Repeat 7.1 from the debtor modal, the debt history sheet, and the customer Debts panel | Identical rows, identical caption, identical result — one `useDebtRowActions` hook |
-| 7.22 | Panel refresh | Complete from the **customer Debts panel** | The row disappears and the panel's net drops without leaving the page |
-| 7.23 | Offline | Airplane mode → complete a months debt and a sales debt | Both apply immediately from the local mirror; on reconnect the corrected `amount_paid` and both audit entries reach the server |
-| 7.24 | Offline conflict | Complete on device A while device B pays the same debt, then sync both | Latest `updated_at` wins on the record; the debt payment device B wrote survives and shows as a **credit** — no crash, no negative debt hidden |
-| 7.25 | Arabic / RTL | Switch to Arabic → open the menu and the dialog | Label, caption and dialog translated and mirrored; the amount stays readable |
-| 7.26 | No customer-level Complete | Open the debtor card menu (Debts tab) and the customer-list card menu | Only **Pay full debt** — there is no "Complete all"; a correction is confirmed one row at a time |
-
-## 8. Debt row shows collected-out-of-owed, and opens the record behind it
-
-A **derived** row (`months` / `sales`) has a record behind it; a `custom` row *is* the record. That difference decides both the extra figure and whether the row opens.
-
-| #    | Scenario                              | Steps                                                                       | Expected result                                                                                                                              |
-| ---- | ------------------------------------- | --------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| 8.1  | Months row shows the fraction         | Debts tab → open a debtor with a partial month                              | The row's second line reads `<month/plan date> · 20/50 $` — collected out of owed, small and grey. The bold **remaining** on the right is unchanged |
-| 8.2  | Sales row shows the fraction          | Same debtor with a partial sale                                             | Same second line, using the sale's `amount_paid` / `total_amount`                                                                             |
-| 8.3  | Custom row shows none                 | A custom debt row                                                           | No fraction — there is no paid-out-of-due behind it. The row keeps its previous two-line shape                                                |
-| 8.4  | Card height is unchanged              | Compare a debtor sheet before/after                                         | Still two lines on the left and amount + category badge on the right — the fraction rides on the existing date line, nothing got taller       |
-| 8.5  | Currency printed once                 | Partial month collected in LBP                                              | `20/50 LL`, not `20 LL/50 LL`                                                                                                                 |
-| 8.6  | Fraction is the collected currency    | Row in LBP, display currency USD                                            | The fraction stays in **LBP** (the row's frozen snapshot rate); only the bold remaining converts to the display currency                      |
-| 8.7  | Tap a months row                      | Debtor sheet → tap a **Months** row (not the 3-dot)                         | The **month receipt sheet** opens **immediately, with no spinner** — the payment rides on the row — showing the amber `20/50 $` hero and the Amount Due / Paid / Balance rows |
-| 8.8  | Tap a sales row                       | Tap a **Sales** row                                                         | The **sale receipt sheet** opens on that sale with its full line list; the lines are fetched on demand, because that row's query is lean       |
-| 8.9  | Tap a custom row                      | Tap a **Custom** row                                                        | Nothing opens — there is no record behind it. The 3-dot menu still offers Pay / Remove                                                        |
-| 8.10 | Spinner is sales-only                 | On a slow connection tap a **Sales** row, then a **Months** row             | The sales row's 3-dot becomes a spinner until its sheet opens (other rows stay tappable); the months row shows **no** spinner at all — matching the payments history, which is instant for the same reason |
-| 8.11 | Receipts are read-only here           | Open either sheet from a debt row                                           | **No** Void and **no** Edit buttons — collecting or correcting is the row's own Pay / Complete. Close returns to the debtor sheet, still open |
-| 8.12 | History still available               | As an admin, open a month receipt from a debt row → **History**             | The record's audit trail loads normally                                                                                                      |
-| 8.13 | 3-dot still wins over tap             | Tap the 3-dot on a months row                                               | The action menu opens; the receipt does **not**                                                                                              |
-| 8.14 | Sale deleted meanwhile                | Tap a **Sales** row whose sale was removed on another device                | "Not Available" dialog ("This sale no longer exists"); no crash, the debtor sheet stays open. A months row cannot hit this — it opens what it already holds, and a stale row simply leaves the list on the next refresh |
-| 8.15 | Sheet stacks correctly                | Open a receipt from the debtor sheet → Android Back                         | Only the receipt closes; the debtor sheet is still there. A second Back closes the debtor sheet                                               |
-| 8.16 | Offline                               | Airplane mode → tap a months row and a sales row                            | Both open — the months row from the row itself, the sales row from the local mirror with its lines hydrated                                   |
-| 8.17 | Fraction survives a partial collection| Record a debt payment against a partial month, then reopen the debtor sheet | The bold **remaining** drops (a credit row was added); the row's own fraction is **unchanged** — a debt payment never edits the payment record |
-| 8.18 | Complete clears the row               | Use **Complete** on the same row                                            | The row leaves the list entirely — nothing is owed, so there is no fraction left to show                                                      |
-| 8.19 | Arabic / RTL                          | Switch to Arabic → open the debtor sheet                                    | The `20/50` fraction stays left-to-right and readable inside the mirrored row; both receipts open mirrored                                    |
+| 6.1 | Branch scope | As a branch admin | Only that branch's debtors; the sum of all branches equals the all-branches view |
+| 6.2 | Offline read | Airplane mode | The list renders from the mirror with the same totals |
+| 6.3 | Offline write | Add a fee, write one off, offline | Both apply locally; both sync on reconnect |
+| 6.4 | Customer-list badge | The "Has debts" tab and the card's debt pill | Both ask `hasDebtFlag(netUsd)` over `ledger.netByCustomer`, so they always agree; unlike the month tabs it is **not** restricted to active + regular |

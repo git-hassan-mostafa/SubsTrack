@@ -1,387 +1,184 @@
-# Payments — QA Scenarios
+# Payments (collecting a month) — QA Scenarios
 
-Covers everything that happens when a user taps a month cell or uses Quick Pay: recording a payment (Scenarios A / B / C / D), partial payments, multi-month bundles, currency selection, the receipt sheet (with edit + void), and the void flow. Voids are soft (audit-preserved). The month-grid status logic is documented separately in [monthly-grid.md](monthly-grid.md). Currency CRUD and the display-currency preference are in [currencies.md](currencies.md). Sending the receipt to the customer over WhatsApp (the form's second button, the "Pay & send" quick-pay row, and the receipt sheet's Send button) is covered in [whatsapp-invoices.md](whatsapp-invoices.md).
+Covers everything that happens when a user taps a month cell or uses Quick Pay: collecting a month in full or in part, installments, multi-month bundles, currency selection, the bill sheet (which lists every payment that reached a month) and undoing one.
+
+The money model underneath — bills, hand-overs, the waterfall, void vs write-off — is in [ledger-collections.md](ledger-collections.md); **run that first**. The month-grid status logic is in [monthly-grid.md](monthly-grid.md). Currency CRUD and the display-currency preference are in [currencies.md](currencies.md). Sending the receipt over WhatsApp is in [whatsapp-invoices.md](whatsapp-invoices.md).
 
 **Reference code:**
-- Form sheet: [PaymentFormSheet.tsx](SubsTrack/src/modules/customer-payments/components/PaymentFormSheet.tsx)
-- Partial / full selector: [PaymentAmountPaidSection.tsx](SubsTrack/src/modules/customer-payments/components/PaymentAmountPaidSection.tsx)
-- Detail sheet (receipt): [PaymentDetailSheet.tsx](SubsTrack/src/modules/customer-payments/components/PaymentDetailSheet.tsx)
-- Void sheet: [VoidSheet.tsx](SubsTrack/src/modules/customer-payments/components/VoidSheet.tsx)
-- Customer-list quick-pay logic: [CustomerListScreen.tsx](SubsTrack/src/modules/customers/screens/CustomerListScreen.tsx)
-- Service: [PaymentService.ts](SubsTrack/src/modules/customer-payments/services/PaymentService.ts)
-- Store: [paymentStore.ts](SubsTrack/src/modules/customer-payments/store/paymentStore.ts)
-- Repository: [PaymentRepository.ts](SubsTrack/src/modules/customer-payments/repository/PaymentRepository.ts)
-- Currency utils: [currency.ts](SubsTrack/src/core/utils/currency.ts)
+- The one collect form: [CollectSheet.tsx](../SubsTrack/src/modules/ledger/components/CollectSheet.tsx)
+- One bill + its payments: [BillSheet.tsx](../SubsTrack/src/modules/ledger/components/BillSheet.tsx)
+- Undo one hand-over: [VoidCollectionDialog.tsx](../SubsTrack/src/modules/ledger/components/VoidCollectionDialog.tsx)
+- The grid panel: [CustomerPaymentPanel.tsx](../SubsTrack/src/modules/customer/customer-payments/components/CustomerPaymentPanel.tsx)
+- Customer-list quick pay: [CustomerListScreen.tsx](../SubsTrack/src/modules/customer/customers/screens/CustomerListScreen.tsx)
+- The month rules: [PaymentService.ts](../SubsTrack/src/modules/customer/customer-payments/services/PaymentService.ts) (`buildMonthGrid` — no CRUD)
+- The money: [CollectionService.ts](../SubsTrack/src/modules/ledger/services/CollectionService.ts)
+- Slices: `payments` (grid state only), `ledger` (the money)
 
 ---
 
 ## 0. Critical invariants
 
-These are non-negotiable and should be re-verified after any release:
+Re-verify these after any release:
 
-1. **Amounts are snapshots.** Editing a plan's price NEVER recomputes existing payments. Editing a currency's `rate_per_usd` NEVER shifts the USD equivalent of historical payments — they convert via `rate_per_usd_snapshot` frozen at record time.
-2. **Hard delete is forbidden for payments.** A bad payment is voided via `voided_at` + `voided_by` + `notes`.
-3. **One non-voided payment per (customer, billing_month).** Enforced by service AND DB unique index. Multi-month payments cover several months from a single row.
-4. **billing_month must be `YYYY-MM-01`.** Validated in service.
-5. **`amount_due > 0`, `amount_paid >= 0`, `amount_paid <= amount_due`.** Always.
-6. **`rate_per_usd_snapshot > 0`.** USD payments (`currencyId === null`) store snapshot = 1.
-7. **Tenant isolation.** Payment row's `tenant_id` always equals the current tenant's id.
-8. **Voided payments are excluded** from the year fetch, from "paid this month" queries, and from multi-month coverage.
-9. **Payment with `amount_paid = 0` is unpaid.** Slot is reserved but the month grid shows it as unpaid (see [monthly-grid.md](monthly-grid.md)). **An EDIT may therefore not set paid to 0** — that would un-pay a month without a void, skipping the newest-first rule below and keeping no reason (§9b). Void the payment instead.
-10b. **Paying AHEAD is allowed; paying ahead OUT OF ORDER is not.** A month can only be paid when every earlier month from the line's start is covered (paid or skipped) — including months that are merely **not due yet**, not only overdue ones. So with Jul+Aug paid in August, Dec cannot be paid until Sep+Oct+Nov are (together or one by one). See §2b.
-10. **Months are paid OLDEST first and voided NEWEST first.** A month can't be paid while an earlier month of the same line is unpaid, and can't be voided while a later month of the same line is paid. Together they mean a paid month can never sit on top of an unpaid one. The other doors are closed by locking a line's start date once it has a payment (§17) and by refusing an edit to 0 (§9b). Independently of all three, the customer card can't show "✓ Paid" beside "Overdue" even for legacy data: "paid" means the customer owes **nothing** (see [customers.md](customers.md) §1).
+1. **Collecting a month writes a `collections` row, and the month's bill is raised in the same write** if it did not exist. There is no "payment" table.
+2. **A month has no bill until money reaches it.** An unpaid month is an absence, not a zero row.
+3. **A partial payment resolves to `"paid"`** — there is no `"partial"` month status. Only the amber ring, the `PARTIAL` sublabel and the `20/50 $` fraction distinguish it.
+4. **A month can take several payments.** The bill sheet lists each with its own date and collector.
+5. **The amount of a recorded hand-over can never be edited** — undoing one is a void.
+6. **Months are settled OLDEST FIRST**, where "earlier" means uncovered, not merely overdue.
+7. **Every amount freezes its currency's rate** at the moment it is written; a later rate change never moves a past figure.
 
-## 1. Tapping a month cell — entry router
+---
+
+## 1. Tapping a month cell — the router
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 1.1 | Tap a paid month | Customer has a non-voided payment for that month | `PaymentDetailSheet` opens (read-only receipt) |
-| 1.2 | Tap a partial-paid month | Payment exists with `balance > 0` (the grid cell is green/paid) | Receipt opens with amber accent, balance row visible, "$X added to debts" line |
-| 1.3 | Tap an unpaid current month | Active customer, no payment | `PaymentFormSheet` opens, current month highlighted in form header |
-| 1.4 | Tap an unpaid past month | Active customer, prior month with no payment | `PaymentFormSheet` opens |
-| 1.5 | Tap a future month — active customer, no gap before it | Active customer, every earlier month covered | `PaymentFormSheet` opens (prepay allowed) |
-| 1.5b | Tap a future month — an earlier month is uncovered | Jul+Aug paid (today is in Aug), tap Dec with Sep–Nov empty | Popup "Not available": "September 2026 is not paid yet on this plan. Earlier months must be paid first." Form does NOT open (§2b) |
-| 1.6 | Tap a future month — inactive customer | Inactive customer | Inline amber banner in the sheet: "This customer is inactive. Future month payments cannot be recorded for inactive customers." Submit disabled |
-| 1.7 | Tap a before-start month | Month < the line`s start_date | Info popup: "This month is before the plan's start date. No payment can be recorded here." |
-| 1.8 | Tap a `isGroupSecondary` cell (multi-month included) | Tap a month covered as month 2+ in a bundle | Opens the original payment's receipt (the source `billingMonth`), not the form |
-| 1.9 | Repeated rapid taps | Tap a cell 3 times fast | Only one sheet opens (modal animation absorbs subsequent taps) |
-| 1.10 | Tap then immediately scroll | Tap a cell, scroll the grid | Sheet still opens correctly; no orphaned overlays |
+| 1.1 | Unpaid month | Tap a red cell | The collect sheet opens with that month as its single item, amount pre-filled to the line's price |
+| 1.2 | Paid month | Tap a green cell | **BillSheet** opens: the amount, the meta, and every payment that reached it |
+| 1.3 | Partly-paid month | Tap an amber-ringed cell | BillSheet, with a `12/20 $` hero and a **Collect $8** button at the bottom |
+| 1.4 | Future month | Tap a grey future cell | The collect sheet opens (prepay is allowed) — unless the customer or line is inactive, which blocks calendar-future months with a dialog |
+| 1.5 | Before start | Tap a cell before the line's start date | "Not available" dialog; nothing opens |
+| 1.6 | Skipped month | Tap a slate cell | The unskip sheet opens — not the collect sheet |
+| 1.7 | Blocked by an older month | Tap March with January uncovered | "Not available", naming January |
+| 1.8 | No price to collect | A custom-price line with no special price | The menu offers no quick pay, and tapping explains there is no set price |
 
-## 2b. Pay order — no gaps, including future months
+---
 
-Prepaying is allowed; prepaying **out of order** is not. The gate compares against `PaymentService.uncoveredBillingMonths` (overdue months **plus** not-yet-due ones), so a prepay can't leave a hole behind it. Same two layers as before: `assertPayableInOrder` inside every slice create action, and the UI gating ahead of it.
-
-**Setup for the whole section:** today is in **August**; the line starts **1 Jul**; Jul + Aug are paid; Sep–Dec are empty.
+## 2. Pay order — no gaps, including future months
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 2b.1 | The reported bug | Tap Dec | Blocked, naming **September** — not "nothing is overdue, go ahead" |
-| 2b.2 | Next month in order | Tap Sep | Form opens, payment records normally |
-| 2b.3 | Order restored | Pay Sep, Oct, Nov one by one, then tap Dec | Dec is now allowed |
-| 2b.4 | Batch a whole run | Multi-select Sep+Oct+Nov+Dec, pay | Allowed — months inside the same write never block each other |
-| 2b.5 | Batch with a hole | Multi-select Sep+Nov only, pay | Blocked, naming **October** |
-| 2b.6 | Next calendar year | Tap Jan 2027 with Sep–Dec 2026 empty | Blocked, naming September 2026 — the check is not limited to the viewed year |
-| 2b.7 | Gap inside next year | Everything through Mar 2027 paid, tap Jun 2027 | Blocked, naming **April 2027** — the walk extends past the current year to the last covered month |
-| 2b.8 | A skipped month is not a hole | Skip Sep, then tap Oct | Allowed — a skip means nothing is expected, so it never blocks |
-| 2b.9 | A partial payment is not a hole | Pay Sep partially (balance > 0), tap Oct | Allowed — the month is covered; the remainder is a debt |
-| 2b.10 | Multi-month block counts as coverage | Pay a 3-month block Sep–Nov, then tap Dec | Allowed — the block covers all three months |
-| 2b.11 | Overdue rule still works | A line with Jul unpaid (today in Aug), tap Aug | Blocked, naming July — the original behavior is unchanged |
-| 2b.12 | First ever month | A brand-new line, tap its start month | Allowed — nothing earlier exists |
-| 2b.13 | Form banner backstop | Reach the form for Dec some other way (deep link) | Amber banner naming September; submit refused by the slice |
-| 2b.14 | Service guard | Call `createPayment` for Dec directly with Sep empty | Throws `errors.earlier_month_unpaid` naming September; nothing is written |
-| 2b.15 | Quick pay unaffected | Customer-list "Collect all due" | Still collects the CURRENT month only, so it can never create a forward gap |
-| 2b.16 | Message wording | Trigger 2b.1 and read the text | Says "is not paid yet" (fits a not-yet-due month), not "is still unpaid" |
+| 2.1 | Older unpaid month blocks | Jan unpaid, tap Mar | Refused, naming January |
+| 2.2 | Prepay in order is fine | Everything up to today paid, tap next month | Allowed |
+| 2.3 | Prepay OUT of order is not | Jul+Aug paid in August, tap December | Refused, naming September |
+| 2.4 | The whole selection is judged at once | Multi-select Jan+Feb+Mar and collect | Allowed. Selecting only Mar is refused |
+| 2.5 | A previous year still blocks | A backlog in the previous year, viewing this year | Refused, naming the old month — even though the viewed grid cannot show it |
+| 2.6 | Skipped / partly-paid / before-start are not holes | Any of the three sitting behind the target | Never blocks |
+| 2.7 | Per service line | Line B's January while line A holds a paid February | Line B collects freely |
 
-## 2. Scenario A — Fixed single-month plan (price locked)
+---
 
-Triggered when `customer.plan` exists, `plan.isCustomPrice = false`, and `plan.durationMonths === 1`.
+## 3. Collecting the full price (the common case)
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 2.1 | Default amount display | Open form for a fixed-plan customer | "Amount" card shows `plan.price` formatted in `plan.currency` (e.g. "$50.00" or "50,000 LBP"). No editable input. "Override amount" link below |
-| 2.2 | Customer mini-header | Look at the form | Avatar + customer name + "<MonthLabel> <Year> · <PlanName>" |
-| 2.3 | Notes optional | Leave Notes blank, submit | Payment created with notes = null |
-| 2.4 | Notes filled | Type "Cash collected", submit | Payment.notes = "Cash collected" (trimmed) |
-| 2.5 | Submit Full payment | Tap "Mark as paid" with Full selected (default) | `amount_due = amount_paid = plan.price`, `currency_id = plan.currencyId`, `rate_per_usd_snapshot = plan.currency.ratePerUsd` (or 1 for USD), cell turns green |
-| 2.6 | Submit Partial payment | Toggle "Partial", enter amount lower than plan price, submit | `amount_due = plan.price`, `amount_paid = typed`, `balance = due - paid`, cell turns **green ("PAID")** exactly like a full payment (no amber/"PARTIAL" cell); the remaining `balance` appears on the Debts tab |
-| 2.6b | Partial debt notice | Toggle "Partial", enter an amount below due | An inline amber notice appears under the Amount Paid input: "The remaining {amount} will be added to this customer's debts. You can see it on the Debts page." |
-| 2.7 | Partial amount equals due | Enter Partial value equal to plan.price | Treated as full payment (balance = 0), notice shows "Fully paid" instead |
-| 2.8 | Partial amount exceeds due | Enter Partial value > plan.price | Submit button disabled (validation: `amount_paid <= amount_due`) |
-| 2.9 | Partial amount = 0 | Enter Partial = 0 | Submit disabled (validation: `amount_paid > 0` for grid to show paid) — verify exact rule (service allows `>= 0` but month shows unpaid) |
-| 2.10 | Form resets between opens | Save, reopen for a different month | All state cleared: notes, override, partial mode |
+| 3.1 | Quick pay | Cell menu → **Pay now** | Collects the full price in one tap, no sheet. Cell turns green |
+| 3.2 | From the card | Customer list → 3-dot → Quick pay | Collects every eligible line's current month |
+| 3.3 | Multi-plan, one currency | A customer with two USD lines due | **ONE** hand-over covering both, and **one** receipt |
+| 3.4 | Multi-plan, two currencies | One USD line and one LBP line | **TWO** hand-overs, one per currency, and two receipts (gotcha #108) |
+| 3.5 | Unpaid banner | The current month unpaid on an active regular customer | The red banner's **Collect** button does the same thing |
+| 3.6 | Custom-price line | Quick pay on a line with no remembered amount | Routes to the collect sheet / the detail screen instead of collecting silently |
 
-## 3. Scenario B — Override on a fixed single-month plan
+---
 
-Triggered when the user taps "Override amount" inside Scenario A. Adds a "Plan price" vs "Custom amount" radio plus a `CurrencyInput` for the custom branch.
+## 4. Collecting part of it
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 3.1 | Open override mode | Tap "Override amount" | Two radios appear: "Plan price ($X)" (selected by default) and "Custom amount" |
-| 3.2 | Plan-price radio | Submit with "Plan price" selected | Same as Scenario A — `amount_due = plan.price` in plan's currency |
-| 3.3 | Custom radio reveals CurrencyInput | Tap "Custom amount" | `CurrencyInput` appears below (amount field + currency dropdown listing USD + active tenant currencies) |
-| 3.4 | Custom amount input | Enter `42.50`, leave currency = USD, submit | `amount_due = amount_paid = 42.50`, `currency_id = null`, snapshot = 1 |
-| 3.5 | Custom amount in tenant currency | Enter `100000` and pick LBP | `currency_id = LBP_id`, `rate_per_usd_snapshot = LBP.ratePerUsd at submit time` |
-| 3.6 | Custom amount = 0 | Enter `0` | Submit stays disabled (amount must be > 0) |
-| 3.7 | Custom amount negative | Type a negative number | Submit disabled / DecimalPad blocks `-` |
-| 3.8 | Empty after switching to Custom | Tap Custom, leave amount blank | Submit disabled |
-| 3.9 | Switch back to Plan radio | After typing a custom amount, switch back | Submit uses plan price; typed custom value ignored. Switching also resets paymentMode back to "full" |
-| 3.10 | Decimal precision | Enter `12.345` | parseFloat keeps `12.345`; DB rounds to currency `decimals` |
-| 3.11 | Switching currency does NOT convert | Type `100`, switch dropdown from USD to LBP | Field still shows `100` (now interpreted as 100 LBP) — switching = "I meant the same number in the new unit" |
-| 3.12 | Currency change clears partial paid | After typing partial, switch currency | Amount Paid in the lower section is cleared (was in the old unit) |
-| 3.13 | Partial in custom currency | Custom amount = `100 LBP`, partial = `60 LBP` | `amount_due = 100, amount_paid = 60, currency_id = LBP, snapshot = LBP.ratePerUsd` |
+| 4.1 | Type less | Cell menu → **Collect part** → 12 of 20 | The sheet shows "leaves 8 owing" under the row |
+| 4.2 | Save | Confirm | Cell shows the paid fill under an amber ring, sublabel `PARTIAL` |
+| 4.3 | It becomes a debt | Debts screen | The customer appears with a `month` row of 8, printed `12/20 $` |
+| 4.4 | Collect the rest | Cell menu → **Collect the rest** | Pre-filled with 8; saving clears the ring |
+| 4.5 | Three installments | 10, then 5, then 5 on a 20 month | Each is its own hand-over on its own date; the bill sheet lists all three |
+| 4.6 | Cannot overpay one month | Type 25 on a 20 month | Refused with the maximum named |
+| 4.7 | Zero is not a payment | Type 0 | Save stays disabled — a month nothing was collected for is simply left unpaid |
 
-## 4. Scenario C — Fully custom (no plan or custom-price plan)
+---
 
-Triggered when `customer.plan` is null OR `plan.isCustomPrice = true`. Same `CurrencyInput` shown without the override toggle.
+## 5. Multi-month bundles
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 4.1 | No plan | Open form for a customer with no plan | Single `CurrencyInput` for amount; no plan-price radio |
-| 4.2 | Custom-price plan | Open form for a customer on a custom-price plan | Same as 4.1; plan name still shown in header |
-| 4.3 | Submit valid USD amount | Enter `25`, submit | Payment created, `amount_due = amount_paid = 25`, currency_id = null |
-| 4.4 | Submit in non-USD | Pick LBP, enter `50000`, submit | currency_id = LBP_id, snapshot = LBP.ratePerUsd |
-| 4.5 | Empty amount | Leave blank | Submit disabled |
-| 4.6 | Zero amount | Enter `0` | Submit disabled |
-| 4.7 | Negative amount | Enter `-1` | Submit disabled |
-| 4.8 | Letters in amount | Type `abc` | Field accepts (decimal-pad may filter); parseFloat = NaN; submit disabled |
-| 4.9 | Last-used currency persists | Submit in LBP, reopen form for another customer | CurrencyInput defaults to LBP (last-used in `uiPrefStore`) |
-| 4.10 | Partial payment Scenario C | Enter `100`, toggle Partial, enter `40` | `amount_due = 100, amount_paid = 40, balance = 60` |
-| 4.11 | Quick Pay handshake (Scenario C) | From customer list, tap menu → Pay Now on a no-plan / custom-price customer | Route `/(app)/(tabs)/customers/[id]?quickPay=1`. Detail screen auto-opens PaymentFormSheet for current month |
-| 4.12 | Quick Pay param cleared after open | After 4.11, refresh / navigate back | `?quickPay=1` is removed from the URL so it doesn't re-fire |
+| 5.1 | Quick pay a 3-month plan | Cell menu → Pay now | A confirm names the range and the bundle price; saving fills **three** cells |
+| 5.2 | One bill, not three | Check the DB | ONE `charges` row with `duration_months = 3` |
+| 5.3 | The block reads as one | The grid | Cells join into one pill; months 2–3 read `Included` |
+| 5.4 | Partial bundle | Collect part of the bundle | All three cells still show as paid; only the first carries the amber ring |
+| 5.5 | Multi-select collapses to blocks | Select 6 months of a 3-month plan and collect | **Two** items in the sheet, one per block, each billed from the block's first month — never six |
+| 5.6 | Cross-year | A block spanning December→January | December shows a wrap chevron; January of the next year reads `Included` |
 
-## 5. Scenario D — Multi-month bundle (fixed plan, durationMonths > 1)
+---
 
-Triggered when `customer.plan` exists, `plan.isCustomPrice = false`, `plan.durationMonths > 1`. Amount card shows the locked bundle price + a row of month chips for each month in the range.
+## 6. Multi-select in the grid
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 5.1 | Multi-month card displays | Open form for a customer on a 3-month plan | Amount card shows `plan.price` with subtitle "/ 3 months". Below it: 3 chips labelled Jan, Feb, Mar (or whatever month range starts at tap) |
-| 5.2 | Submit Full multi-month | Tap "Mark as paid" with Full | 1 payment row created with `duration_months = 3, amount_due = plan.price, amount_paid = plan.price`. Grid shows 3 consecutive paid cells (month 2 + 3 have `isGroupSecondary = true`, "Included" sublabel) |
-| 5.3 | Multi-month receipt | Tap any of the 3 covered cells | Receipt opens with title "Payment block receipt" and a green badge "Covers 3 months" |
-| 5.4 | Submit Partial multi-month | Toggle Partial, enter amount < plan.price | One payment row created with the partial amount; `balance > 0`. Source cell turns **green ("PAID")**; secondary cells (isGroupSecondary) are green with "Included" sublabel — same as a full bundle. The receipt shows the remaining amount ("added to debts"); the balance appears once on the Debts tab |
-| 5.5 | Conflict detection | Tap a multi-month start where one or more of the covered months is already paid | Amber warning banner: "Some months already paid: <list>. Proceed and skip them?" Submit disabled until user taps "Proceed anyway" |
-| 5.6 | Proceed past conflicts | Tap "Proceed anyway", submit | Skipped months are skipped; the recorded payment starts at the first uncovered month and covers only the remaining range. Conflict month chips show line-through and gray |
-| 5.7 | All months covered | Try to multi-month into a range where every month is paid | Either button stays disabled, or service throws "All months already paid" — verify the surface |
-| 5.8 | Quick Pay multi-month confirmation | From customer list, menu → Pay Now on a multi-month plan customer | `ConfirmDialog` opens: "Pay <amount> covering <Jan–Mar 2026>? Confirm/Cancel". On Confirm, runs `createMultiMonthPayment` directly without opening the form |
-| 5.9 | Quick Pay multi-month cancel | Tap Cancel on the dialog | No payment recorded, list unchanged |
-| 5.10 | Multi-month void | Open receipt on any of the 3 cells, tap "Void this block" | All 3 cells revert to unpaid in a single operation |
-| 5.11 | Multi-month with custom-price plan | Plan has `isCustomPrice = true` AND `durationMonths > 1` | Should be impossible by validation — multi-month plans require fixed price. Verify [PlanService.validate](SubsTrack/src/modules/plans/services/PlanService.ts) enforces this |
-| 5.12 | Multi-month currency | Plan has `currency_id = LBP` | Bundle price displayed in LBP; payment row stored with `currency_id = LBP, rate_per_usd_snapshot = LBP.ratePerUsd at submit` |
-| 5.13 | Multi-month spanning year boundary | Open multi-month for Dec on a 3-month plan | Payment row stored with `billing_month = YYYY-12-01, duration_months = 3`. Grid in year Y shows Dec paid; navigating to year Y+1 shows Jan + Feb paid with `isGroupSecondary = true` |
+| 6.1 | Enter selection | Long-press a cell | The toolbar replaces the year summary |
+| 6.2 | Collect a selection | Select 3 unpaid months → **Collect** | The collect sheet opens with all three and the waterfall preview |
+| 6.3 | The split is honest | Type less than the total | The preview shows exactly which months it settles and which it does not |
+| 6.4 | Pay & send | The WhatsApp action | One receipt for the hand-over, listing every month it settled |
+| 6.5 | Skip / unskip | The skip actions | Unchanged |
+| 6.6 | **There is no bulk Void** | Select paid months | No void action — undoing is per hand-over, in the bill sheet (gotcha #109) |
 
-## 6. Amount Paid section (Full vs Partial)
+---
 
-Lives just above the submit button in `PaymentFormSheet` via `PaymentAmountPaidSection`. Default mode = Full.
+## 7. The bill sheet
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 6.1 | Default Full | Open any form | "Full" radio selected, no Amount Paid input shown |
-| 6.2 | Switch to Partial | Tap "Partial" | Amount Paid `CurrencyInput` appears, currency LOCKED to the resolved due currency (cannot be switched) |
-| 6.3 | Switch back to Full | After typing partial, tap Full | Amount Paid cleared, button label flips to "Mark as paid" |
-| 6.4 | Partial when due not set | Open a Scenario C form, no amount typed yet, try to switch to Partial | Partial option disabled until Amount Due > 0 |
-| 6.5 | Submit button label | Partial with `amount_paid < amount_due` | Button label = "Record payment" (not "Mark as paid"), to reflect the balance remaining |
-| 6.6 | Partial debt notice | Partial with `amount_paid < amount_due` | Inline amber notice under the input: remaining amount "will be added to this customer's debts … on the Debts page" (`payments.partial_debt_notice`) |
+| 7.1 | Open | Tap a paid cell, or the menu's **View bill** | Hero, due/issued dates, then the payments list |
+| 7.2 | Settled | A fully paid month | Hero shows the amount and a green **Settled** chip |
+| 7.3 | Partial | A partly-paid month | Hero shows `12/20 $`, "Remaining $8", an amber **Part paid** chip, and a Collect button |
+| 7.4 | Each payment | Several installments | One row each: amount put against **this** bill, its date, and who collected it |
+| 7.5 | A payment that covered more | A month settled by a waterfall hand-over | Its row says "also paid other bills" |
+| 7.6 | Void one | The row's 3-dot → Void payment | A reason box; the warning names how many bills it will un-settle |
+| 7.7 | After voiding | Confirm | The sheet re-reads; the month goes back to unpaid; a voided row stays visible, dimmed |
+| 7.8 | Send | The row's 3-dot → Send on WhatsApp | Re-sends that hand-over's receipt |
+| 7.9 | No edit | Look for one | There is none — by design |
 
-## 7. Submission, persistence and grid update
+---
 
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 7.1 | After successful save | Submit any payment | Sheet closes, MonthCell turns green (a partial payment looks identical to a full one), year card counts/totals update |
-| 7.2 | In-flight guard | Double-tap "Mark as paid" | `loadingCreate` flag blocks duplicate submission |
-| 7.3 | DB unique violation | Two devices submit for same (customer, month) | Service catches the unique-index error, surfaces a friendly message |
-| 7.4 | Network error | Disable network, submit | ErrorBanner inside the sheet; sheet stays open with values |
-| 7.5 | Receipt ID format | After save, open the just-paid month | Receipt ID = last 6 chars of payment.id, uppercased |
-| 7.6 | Persistence across refresh | Save, pull-to-refresh detail screen | Payment still present |
-| 7.7 | tenant_id stamped automatically | Inspect the new row | `tenant_id` matches the logged-in user's tenant |
-| 7.8 | received_by_user_id | Inspect the new row | Equals the current user's id |
-| 7.9 | plan_id snapshot | Customer has plan A, save, change customer's plan to B | The saved payment still has plan_id = A's id |
-| 7.10 | currency_id + snapshot stamped | Submit in LBP at rate 90000 | `currency_id = LBP_id, rate_per_usd_snapshot = 90000`. Later editing LBP.ratePerUsd to 100000 does NOT change snapshot |
-
-## 8. Receipt sheet (paid-month detail)
-
-Tapping a green cell (or any `isGroupSecondary` cell) opens this sheet. Theme = green for full, amber for partial.
+## 8. Void order — newest first
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 8.1 | Header — single-month | Open a single-month payment | Title "Payment receipt", "Close" link |
-| 8.2 | Header — multi-month | Open a multi-month payment | Title "Payment block receipt", "Close" link |
-| 8.3 | Hero amount full | Payment with balance = 0 | Green card, big amount in stored currency, subtitle "<Month/Range> paid in full" |
-| 8.4 | Hero amount partial | Payment with balance > 0 | Amber card, big amount = `amount_paid`, partial-payment subtitle, "<X> added to debts" line (drill-in only — the grid cell itself is green/paid) |
-| 8.5 | Displays in stored currency primarily | Payment in LBP, user's display currency is USD | Primary line shows LBP amount; secondary "≈ $X.XX" line appears below |
-| 8.6 | Equivalent uses snapshot rate | Edit LBP live rate on Settings after recording | Receipt USD equivalent does NOT change (uses `rate_per_usd_snapshot`) |
-| 8.7 | Multi-month badge | Multi-month payment | Pill at the bottom of the hero card: "Covers N months" |
-| 8.8 | Detail rows visible | Always | Paid on / Receipt ID / Amount Due / Amount Paid rows shown |
-| 8.9 | Balance row | Payment with balance > 0 | Row "Balance: <X>" in amber color |
-| 8.10 | Notes row visibility | Payment has notes | Row visible with note text |
-| 8.11 | Notes row hidden | Payment has no notes | Row not rendered |
-| 8.12 | Edit Payment button | Always visible when `onEdit` is wired (now visible for fixed plans too — currency may have been wrong) | "Edit Payment" button visible. Multi-month payments also editable (amounts + currency) |
-| 8.13 | Void button | Always visible while admin permission permits | "Void this payment" / "Void this block" depending on duration |
-| 8.14 | Voided payment | Trying to open a voided payment | Voided payments are filtered out of the year fetch; they don't appear as receipt entry points. Verify |
+| 8.1 | A newer paid month blocks | Jan and Feb both paid; try to void January's payment | Refused, naming February |
+| 8.2 | Newest first works | Void February, then January | Both succeed |
+| 8.3 | A partly-paid later month blocks too | Feb has 5 of 20 | It still blocks January (it is real money) |
+| 8.4 | An empty bill does not block | Feb's only payment was already voided | January voids freely |
+| 8.5 | All years are checked | Dec 2026 blocked by a paid Jan 2027 | Refused |
 
-## 9. Edit payment
+---
 
-Edit re-snapshots `rate_per_usd_snapshot` from the currency live rate at edit time ("user fixing the record" semantic).
+## 9. Currency and snapshots
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 9.1 | Open edit | Tap "Edit Payment" on receipt | Inline: Amount Due `CurrencyInput` (currency unlocked) + Amount Paid `CurrencyInput` (currency locked to Due's) + Cancel + Save Changes |
-| 9.2 | Cancel | Tap Cancel | Returns to read-only mode, no change |
-| 9.3 | Save same values | Save unchanged | Payment row updated; UI no-op |
-| 9.4 | Edit amount due | Change Due from `50` to `60` (Paid auto-stays = 60 if was full) | `amount_due = 60`. Receipt updates; year-total updates |
-| 9.5 | Edit amount paid | Change Paid from `50` to `30` | `amount_paid = 30, balance = 30`. Receipt shows the amber "added to debts" line. The grid cell **stays green/yellow (paid)** — it never turns amber; the new balance shows on the Debts tab |
-| 9.6 | Edit currency | Switch the Amount Due CurrencyInput from USD to LBP | Amount Paid is cleared (was in USD). User must re-enter Paid in LBP |
-| 9.7 | Save after currency change | Switch to LBP, enter new amounts, save | `currency_id = LBP_id, rate_per_usd_snapshot = LBP.ratePerUsd at THIS save's moment` (re-snapshot) |
-| 9.8 | Save with paid > due | Try to save with paid > due | Save Changes button disabled (validation) |
-| 9.9 | Save with due = 0 | Try | Disabled |
-| 9.10 | Save with due empty | Try | Disabled |
-| 9.11 | Save with paid empty | Try | Disabled |
-| 9.12 | Loading state | Slow network on save | Save button shows "..." while in-flight |
-| 9.13 | Network error | Save with no internet | ErrorBanner inside detail sheet; values preserved |
-| 9.14 | Voided payment cannot be edited | Edit a voided payment via API | Repository's `updatePayment` filters `voided_at IS NULL`; update returns 0 rows / error. No UI access |
-| 9.15 | Edit multi-month payment | Edit a payment with duration_months > 1 | Amounts + currency editable; `duration_months` is NOT editable (locked). For range corrections: void + re-record |
+| 9.1 | The line's currency wins | An LBP-priced line | The bill and the hand-over both freeze the LBP rate — never USD's 1 |
+| 9.2 | Immune to a rate change | Collect in LBP, then edit the tenant LBP rate | The year total, the dashboard and the receipt all keep the original USD value |
+| 9.3 | Two rates, two meanings | A bill raised last month, collected today, with the rate changed between | The **debt** converts at the bill's rate; the **revenue** at the hand-over's. Both are correct and they may differ |
+| 9.4 | Display currency | Change it in Tenant Settings | Every read-only figure re-renders; nothing stored changes |
+| 9.5 | One currency per hand-over | A pool with two currencies | The picker appears; the pool narrows to the selected currency |
 
-### 9b. Edit cannot un-pay a month (paid amount 0 refused)
+---
 
-`amount_paid = 0` reads as unpaid in `buildMonthGrid` (it needs `> 0`), so editing to 0 was a back door around the void guard: it could leave a paid month sitting on an unpaid one and kept no void reason. Refused in `PaymentService.updatePayment` and pre-gated in `PaymentDetailSheet`, so **both** the customer grid receipt and the Transactions → Payments receipt are covered.
+## 10. Inactive customer / cancelled plan
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 9b.1 | Edit a paid month to 0 | Open a paid month's receipt → Edit Payment → set Amount Paid to `0` → Save Changes | Popup "Not available": "Amount paid cannot be 0. To mark this month as unpaid, void the payment instead." Nothing is saved |
-| 9b.2 | Edit mode stays open | After 9b.1, close the popup | Still in edit mode with `0` in the field, so the amount can be corrected — the sheet does not close |
-| 9b.3 | Correct it after the refusal | Type a real amount, save | Saves normally |
-| 9b.4 | A PAST month too | Do 9b.1 on a past paid month (the case that could hide an unpaid gap) | Same refusal — the rule is not limited to the current month |
-| 9b.5 | Payments tab receipt | Transactions → Payments → open a paid row → Edit → `0` → Save | Same popup; `paymentsList` row unchanged |
-| 9b.6 | Service guard (bypass the UI) | Call `paymentService.updatePayment(payment, 0)` directly | Throws `errors.edit_amount_zero`; no write reaches the DB |
-| 9b.7 | Partial edit still allowed | Edit paid from `50` to `30` (due 50) | Works — only exactly 0 is refused (9.5 still holds) |
-| 9b.8 | Void is the supported route | On the same receipt tap "Void this payment" instead | Normal void flow, reason required, newest-first rule applies (§10b) |
-| 9b.9 | Arabic copy | Switch to Arabic, repeat 9b.1 | Arabic message shown, RTL layout correct |
+| 10.1 | Past + current months stay collectable | An inactive customer | Tapping a past month opens the collect sheet normally |
+| 10.2 | Future months are blocked | The same customer, a future month | "Not available", naming the customer (inactive takes priority over a cancelled plan) |
+| 10.3 | Cancelled plan | An active customer with a cancelled line | Same rule, with the cancelled-plan wording |
+| 10.4 | Unskipping still works | Either case | Unskip is not a payment, so it is never blocked by this gate |
 
-> **Doc drift:** rows 9.4 / 9.6 / 9.7 / 9.9 / 9.10 describe an editable **Amount Due** + currency. The sheet now freezes due, currency and rate once recorded (only Amount Paid is editable), so those rows need rewriting against the current UI.
+---
 
-## 10. Void flow
+## 11. Permissions
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 10.1 | Open void sheet | On receipt, tap "Void this payment" / "Void this block" | Receipt closes, Void sheet opens with red header |
-| 10.2 | Warning banner | Look at the banner | Lists `<Month/Range> will be marked unpaid... voids cannot be undone.` For multi-month, lists all covered months |
-| 10.3 | Reason required | Leave reason empty | Void button disabled |
-| 10.4 | Whitespace-only reason | Type `"   "` | Service rejects: "A reason is required to void a payment" |
-| 10.5 | Confirm dialog | Type a reason, tap Void | `ConfirmDialog`: "Void Payment?" destructive style |
-| 10.6 | Cancel confirm | Tap Cancel | Returns to Void sheet, reason still typed |
-| 10.7 | Confirm void single-month | Tap Void | Sets `voided_at, voided_by, notes`. Grid cell reverts to UNPAID / FUTURE |
-| 10.8 | Confirm void multi-month | Void a 3-month block | All 3 covered cells revert in a single operation (one row voided) |
-| 10.9 | Audit trail preserved | Inspect DB after void | Row still exists with voided_at, voided_by, notes. Customer's balance no longer counts it |
-| 10.10 | Same month re-payable | After voiding, tap the same month | Form opens — previous payment invisible; new payment can be recorded |
-| 10.11 | Loading state | Slow network | "..." shown on the Void button |
-| 10.12 | Network error | Disable network, confirm | ErrorBanner inside sheet; payment NOT voided |
-| 10.13 | Permission gating | Logged in as user role | Void path may still be exposed; per spec, void is admin-only — verify gate at service or UI level (file as a finding if user role can void) |
+| 11.1 | A collector can collect | Log in as `user` | Full access to collecting and to the bill sheet |
+| 11.2 | A collector can void a hand-over | The bill sheet | Allowed — the same as before |
+| 11.3 | History is admin-only | The record-history action | Hidden / empty for a non-admin (RLS) |
+| 11.4 | Branch scoping | A branch admin | Only that branch's customers and money |
 
-### 10b. Void order — newest first
+---
 
-The mirror of the pay-oldest-first rule. One pure helper (`blockingPaidMonths`) + one service guard (`assertVoidableInOrder`, inside `voidPayment` / `voidPayments` / `voidCurrentMonth`), so every void path obeys it.
+## 12. Things that must NOT be possible
 
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 10b.1 | Void an older month with a newer one paid | Jan + Feb paid on a line. Open Jan's receipt, tap Void | Popup "Not available": "February 2026 is paid on this plan. Newer months must be voided first." Nothing is voided |
-| 10b.2 | Void the newest month | Same data, void Feb | Works normally |
-| 10b.3 | Void backwards | After 10b.2, void Jan | Works — nothing later is paid any more |
-| 10b.4 | Cell menu says why | Long-press Jan's cell → "Void payment" | The row is VISIBLE (not hidden); pressing it shows the same popup naming February |
-| 10b.5 | Multi-select void of the whole tail | Select Jan + Feb together, void | Allowed — months inside the same void never block each other |
-| 10b.6 | Multi-select skipping a paid month | Jan + Feb + Mar paid. Select Jan + Mar only, void | Blocked, naming February |
-| 10b.7 | Multi-month block | A 3-month block (Jan–Mar) paid, plus Apr paid separately. Void the block | Blocked, naming April. Void Apr first, then the block voids whole |
-| 10b.8 | Later month in the NEXT year | Dec 2026 + Jan 2027 paid. Viewing 2026, void Dec | Blocked, naming January 2027 — the check spans all years, not the viewed one |
-| 10b.9 | Partial payment blocks too | Feb partially paid (balance > 0), void Jan | Blocked, naming February — a partial payment is still money on a later month |
-| 10b.10 | Skipped month between | Jan paid, Feb skipped, Mar paid. Void Jan | Blocked, naming March |
-| 10b.11 | Per line, not per customer | Line A: Jan + Feb paid. Line B: Jan paid only. Void line B's Jan | Allowed — the rule is per service line |
-| 10b.12 | Transactions → Payments tab | Void an old payment from the flat payments list | Refused with the same message in the ErrorBanner (the service guard covers the list, which loads no grid) |
-| 10b.13 | Customer-list "void current month" | Customer has this month AND next month paid (prepay). Use the card menu | Refused with the message in the list's ErrorBanner; nothing voided |
-| 10b.14 | Offline | Go offline, repeat 10b.1 and 10b.2 | Same behavior — the guard reads the local mirror |
-
-## 11. Cross-year and cross-month interactions
-
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 11.1 | Pay then navigate years | Pay May, navigate to last year, back | New payment still rendered; year totals correct |
-| 11.2 | Void then navigate | Void June 2025, navigate to 2025 | June 2025 cell shows UNPAID |
-| 11.3 | Future-year navigation | Navigate to year 2030 | All cells show FUTURE; payments still recordable for active customers |
-| 11.4 | Year fetch caching | Repeatedly switch between two years | Each switch re-fetches that year's payments (no stale rows) |
-| 11.5 | Multi-month payment visible from both years | Pay Nov–Jan multi-month | Year Y shows Nov + Dec paid. Year Y+1 shows Jan paid (isGroupSecondary). Receipt accessible from any of the 3 cells |
-| 11.6 | Concurrent payment from two devices | Both try to pay same (customer, month) | Only one succeeds — the second sees the unique-violation error |
-
-## 12. No grace period
-
-`PaymentService.buildMonthGrid` takes no grace value — the tier `grace_days` setting was removed from the product (DB column dropped). An unpaid month is UNPAID from its first day, on every tier.
-
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 12.1 | Day 1, no payment | First day of month | Cell is UNPAID immediately, with the current-month highlight |
-| 12.2 | Mid-month, no payment | Day 10, still unpaid | Cell is UNPAID (no state change during the month) |
-| 12.3 | Card / grid consistency | Day 1, no payment | Customer card pill red "Unpaid" AND grid cell red — the two always match |
-| 12.4 | Tier makes no difference | Repeat on Free, Pro, Business | Same result on every tier |
-| 12.5 | No grace field in SuperAdmin | Open the tier-plans editor | No "Grace days" input; tier rows show limits, flags and price only |
-
-## 13. Currency and snapshot semantics
-
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 13.1 | USD payment stores null currency_id | Submit a USD payment | `currency_id = NULL, rate_per_usd_snapshot = 1` |
-| 13.2 | Tenant currency payment | Submit a LBP payment at rate 90000 | `currency_id = LBP_id, rate_per_usd_snapshot = 90000` |
-| 13.3 | Live rate edit does not shift history | Submit at rate 90000, then admin edits LBP.ratePerUsd to 100000 | Old payment's USD equivalent on receipt still uses 90000 |
-| 13.4 | Edited payment re-snapshots | Edit an old LBP payment after rate change | New `rate_per_usd_snapshot = 100000` (or whatever is live at edit time) |
-| 13.5 | Display currency conversion | User's display currency = EUR | Receipts show stored amount first, then `≈ EUR equivalent` via snapshot rate |
-| 13.6 | Year totals use snapshot | Open `CustomerPaymentPanel` for a customer with mixed-currency payments | Year total shows the USD-converted sum (via each payment's snapshot), formatted in user's display currency |
-
-## 14. Edge cases
-
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 14.1 | Customer's plan changes between payments | Save May with plan A, change plan to B in June, save June | Each payment retains its `plan_id` snapshot |
-| 14.2 | Plan deleted after payment | Save payment, admin deletes the plan | DB sets `plan_id = NULL` on payment; receipt still shows amount; header falls back to "No plan" |
-| 14.3 | Currency deleted while in use | Try to delete a currency referenced by any plan/payment | `CurrencyService.deleteCurrency()` soft-deletes (sets `active = false`); FK `ON DELETE RESTRICT` would block hard-delete attempts |
-| 14.4 | Time zone boundaries | Pay on the last second of a day in a non-UTC timezone | billing_month is the chosen month's first day (no off-by-one). Verify by checking the grid cell renders in the right month |
-| 14.5 | Decimal precision rounding | Save 12.345 in USD | DB stores 12.35 (2 dp). UI shows 12.35 |
-| 14.6 | LBP (0 decimals) | Save 50000.7 in LBP | Stored as 50001 (LBP.decimals = 0) |
-| 14.7 | Very large amount | Enter near-max bigint | Saved correctly; receipt formats |
-| 14.8 | Notes max length | Enter 5000-char notes | Backend column likely permits; verify no client crash |
-| 14.9 | Notes with newlines | Multiline notes | Persisted; receipt row displays them (may wrap) |
-| 14.10 | Voided payment in legacy data | Customer with a voided payment for current month | "Paid this month?" badge returns false |
-| 14.11 | Open grid right after creating customer | New customer, immediately tap an unpaid month | Form loads with correct customer name and current plan info |
-| 14.12 | Form sheet auto-dismiss | After saving, sheet calls `onDismiss` | Keyboard hides cleanly, no flicker |
-| 14.13 | amount_paid = 0 means unpaid | Save with `amount_paid = 0` (if allowed) | Cell renders UNPAID in the grid — the slot is reserved but not paid |
-| 14.14 | Quick Pay on inactive customer | Try to Quick Pay an inactive customer | Quick Pay action hidden from the menu (`shouldShowQuickPay` returns false) |
-| 14.15 | Quick Pay before the line's start date | every line start_date > today | Quick Pay action hidden |
-| 14.16 | Quick Pay on already-paid current month | Already paid | Quick Pay action hidden |
-| 14.17 | Quick Pay on non-regular customer | `isRegular = false` | Quick Pay action hidden |
-
-## 15. Permissions matrix
-
-| Operation | Admin | User |
-|-----------|-------|------|
-| Open paid receipt | ✓ | ✓ |
-| Record payment | ✓ | ✓ |
-| Edit payment (amount + currency) | ✓ | ✓ (gated only at UI level — verify role gate) |
-| Void payment | ✓ | ⚠ Verify enforcement — UI may not hide |
-| Quick Pay | ✓ | ✓ |
-
-(File any role-leak as a release blocker.)
-
-## 16. Voided payments in the payments-history list
-
-The payments history (PageHeader 3-dot → **Payments history**) is a record of what happened, so voided rows stay visible and are marked. The **month grid is unaffected** — it still treats a voided payment as non-existent.
-
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 16.1 | Voided row stays listed | Void a payment from the history list → stay on the list | The row does **not** disappear. It stays in place, now marked |
-| 16.2 | Voided marking | Look at the voided row | Grey icon (`close-circle-outline`) instead of the green cash icon, the whole card dimmed, the amount struck through in grey, and a grey **VOIDED** badge |
-| 16.3 | Partial badge replaced | Void a **partial** payment | The card shows **VOIDED** only — never VOIDED and PARTIAL together |
-| 16.4 | Section total excludes it | Note a group's header total → void a payment in that group | The header total **drops** by that payment's amount. A voided payment contributes nothing |
-| 16.5 | Total after reload | Pull-to-refresh / reopen the sheet after 16.4 | The total stays the reduced value (the server-side totals query also skips voided rows) |
-| 16.6 | Voided row is read-only | Tap the voided row | The detail sheet opens, but **no Edit** and **no Void** button is offered |
-| 16.7 | No WhatsApp receipt | Same sheet as 16.6 | The "Send on WhatsApp" button is absent (a void is not a receipt) |
-| 16.8 | Cannot re-void via selection | Long-press a voided row to select it, alone | The selection toolbar offers **no** void action |
-| 16.9 | Mixed selection | Select one voided + two live payments → Void | Only the **two live** ones are voided; the already-voided one is untouched (no error) |
-| 16.10 | Month grid unchanged | After 16.1, open that customer's month grid | The month reads UNPAID / FUTURE — the grid still ignores voided payments entirely |
-| 16.11 | Debts unaffected | Void a partial payment that created a "months" debt | That debt disappears from the Debts tab (the underlying row is voided) |
-| 16.12 | Dashboard revenue unaffected | After 16.1, refresh the dashboard | Collected revenue drops by the voided amount — revenue never counts a void |
-| 16.13 | Wallet unaffected | Void an unremitted payment | It leaves the collector's wallet |
-| 16.14 | Status filter | Set the status filter to Paid / Partial | Voided rows still obey the filter's balance rule; they remain marked |
-| 16.15 | Offline parity (native) | Repeat 16.1–16.4 offline | Same behaviour; the row stays listed and marked, totals exclude it |
-| 16.16 | Arabic | Switch to Arabic | The VOIDED badge reads "ملغية"; the card mirrors correctly in RTL |
-
-## 17. Start date locked once a plan has payments
-
-A service line's start date is frozen as soon as it holds standing money. Moving it earlier would invent unpaid months behind the paid ones; moving it later would hide months a payment already covers. Guarded in `CustomerPlanService.syncLines` and pre-gated in the form's Plans editor.
-
-| # | Scenario | Steps | Expected result |
-|---|----------|-------|-----------------|
-| 17.1 | Locked input | Customer with one paid month → Edit customer → Plans section | The line's **Start date** field is greyed out and not tappable, with the note "Start date is locked — this plan already has payments." |
-| 17.2 | Plan still changeable | Same row | The **Plan** picker is still editable — only the date is frozen |
-| 17.3 | Unpaid line stays free | A line with no payments (or a brand-new row) | Its start date is fully editable, no note |
-| 17.4 | Voided-only line stays free | Record a payment on a line, then void it → reopen the form | The date is editable again — a voided payment is not standing money |
-| 17.5 | Zero-amount slot stays free | A line whose only payment row has `amount_paid = 0` | Editable — that slot is not a payment |
-| 17.6 | Service refuses anyway | Force a changed start date on a paid line (e.g. stale form) → Save | ErrorBanner: "This plan already has payments recorded, so its start date can no longer be changed." No line is written |
-| 17.7 | Same date is not a change | Open the form on a paid line and save without touching the date | Saves normally — only a CHANGED date is checked, and the extra query is skipped |
-| 17.8 | Per line | Multi-plan customer: line A paid, line B not | Only line A's date is locked |
-| 17.9 | Other fields still save | On a paid line, edit the customer's name and save | Name saves; nothing is blocked |
-| 17.10 | Offline | Repeat 17.1 and 17.6 offline | Same behavior — the lookup reads the local mirror |
-| 17.11 | Arabic | Switch to Arabic | The note reads "تاريخ البداية مقفل — هذه الخطة لديها مدفوعات مسجّلة." |
+12.1 Editing the amount of a recorded hand-over — there is no such control anywhere.
+12.2 A "void this month" action on a cell.
+12.3 A "Complete" action.
+12.4 Collecting 0.
+12.5 Collecting more than is owed.
+12.6 Two bills for the same month of the same service line (even from two offline devices).
