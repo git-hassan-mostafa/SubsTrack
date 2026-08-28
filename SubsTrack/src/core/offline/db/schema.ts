@@ -63,17 +63,22 @@ export const CREATE_INDEX_STATEMENTS: string[] = [
   `CREATE INDEX IF NOT EXISTS idx_customers_branch ON customers(branch_id);`,
   `CREATE INDEX IF NOT EXISTS idx_customer_plans_customer ON customer_plans(customer_id);`,
   `CREATE INDEX IF NOT EXISTS idx_customer_plans_active ON customer_plans(active);`,
-  `CREATE INDEX IF NOT EXISTS idx_payments_customer ON payments(customer_id);`,
-  `CREATE INDEX IF NOT EXISTS idx_payments_line ON payments(customer_plan_id);`,
-  `CREATE INDEX IF NOT EXISTS idx_payments_month ON payments(billing_month);`,
-  `CREATE INDEX IF NOT EXISTS idx_payments_paidat ON payments(paid_at);`,
+  `CREATE INDEX IF NOT EXISTS idx_charges_customer ON charges(customer_id);`,
+  `CREATE INDEX IF NOT EXISTS idx_charges_line ON charges(customer_plan_id);`,
+  `CREATE INDEX IF NOT EXISTS idx_charges_month ON charges(billing_month);`,
+  `CREATE INDEX IF NOT EXISTS idx_charges_due ON charges(due_date);`,
+  `CREATE INDEX IF NOT EXISTS idx_charges_sale ON charges(sale_id);`,
   `CREATE INDEX IF NOT EXISTS idx_sales_soldat ON sales(sold_at);`,
   `CREATE INDEX IF NOT EXISTS idx_sales_customer ON sales(customer_id);`,
-  `CREATE INDEX IF NOT EXISTS idx_custom_debts_customer ON custom_debts(customer_id);`,
-  `CREATE INDEX IF NOT EXISTS idx_debt_payments_customer ON debt_payments(customer_id);`,
-  // Date-ranged reads: the reports scan a whole period per money stream, and
-  // the derived stock-cost half of expenses scans occurred_at.
-  `CREATE INDEX IF NOT EXISTS idx_debt_payments_paidat ON debt_payments(paid_at);`,
+  `CREATE INDEX IF NOT EXISTS idx_collections_customer ON collections(customer_id);`,
+  `CREATE INDEX IF NOT EXISTS idx_collections_holder ON collections(held_by_user_id);`,
+  // Every balance read sums the items of one bill, so this one carries the
+  // whole ledger: the grid, the debts view and the waterfall all go through it.
+  `CREATE INDEX IF NOT EXISTS idx_collection_items_charge ON collection_items(charge_id);`,
+  `CREATE INDEX IF NOT EXISTS idx_collection_items_collection ON collection_items(collection_id);`,
+  // Date-ranged reads: the reports scan a whole period of cash in, and the
+  // derived stock-cost half of expenses scans occurred_at.
+  `CREATE INDEX IF NOT EXISTS idx_collections_received ON collections(received_at);`,
   `CREATE INDEX IF NOT EXISTS idx_expenses_incurred ON expenses(incurred_at);`,
   `CREATE INDEX IF NOT EXISTS idx_stock_movements_occurred ON stock_movements(occurred_at);`,
   `CREATE INDEX IF NOT EXISTS idx_stock_movements_product ON stock_movements(product_id);`,
