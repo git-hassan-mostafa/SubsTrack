@@ -2,14 +2,13 @@ import { OFFLINE_PAGE_SIZE, type BranchFilter } from '@/src/core/constants';
 import type { CashRow, CashStream } from '@/src/core/types';
 import type { DbCharge, DbCollection, DbCollectionItem, DbCustomer } from '@/src/core/types/db';
 import { OfflineBaseRepository } from '@/src/core/offline/OfflineBaseRepository';
-import { insertDirty, markDeleted, updateDirty } from '@/src/core/offline/db/dml';
+import { insertDirty, updateDirty } from '@/src/core/offline/db/dml';
 import { newId, nowIso } from '@/src/core/offline/ids';
 import { custodyValues } from '@/src/modules/wallet/utils/custodyValues';
 import type {
   CreateCollectionPayload,
   FindCollectionsOptions,
   ICollectionRepository,
-  UpdateCollectionPayload,
 } from './ICollectionRepository';
 import { sumByMonth } from '../utils/monthTotals';
 
@@ -149,6 +148,9 @@ export class OfflineCollectionRepository
       remitted_by: null,
     };
 
+    // intended charge id -> the id the row really has, once find-or-create ran.
+    const chargeIdMap = new Map<string, string>();
+
     await this.write(async (db) => {
       for (const charge of charges) {
         // Find-or-create on the natural key: an existing bill keeps its frozen
@@ -161,7 +163,10 @@ export class OfflineCollectionRepository
           : await db.getFirstAsync<{ id: string }>('SELECT id FROM charges WHERE id = ?', [
               charge.id,
             ] as never[]);
-        if (existing) continue;
+        if (existing) {
+          chargeIdMap.set(charge.id, existing.id);
+          continue;
+        }
         const chargeRow: DbCharge = {
           ...charge,
           created_at: now,
@@ -189,6 +194,10 @@ export class OfflineCollectionRepository
       for (const it of items) {
         await insertDirty(db, 'collection_items', {
           ...it,
+          // Cash must point at the bill that really exists — the ids agree today
+          // (a month bill is hashed from its natural key), but an item aimed at a
+          // missing row is money pointing at nothing.
+          charge_id: chargeIdMap.get(it.charge_id) ?? it.charge_id,
           id: newId(),
           collection_id: id,
           created_at: now,
@@ -204,72 +213,6 @@ export class OfflineCollectionRepository
         ...(row.customer_id
           ? await this.customerAudit(row.customer_id)
           : { branchId: row.branch_id }),
-      });
-    });
-
-    return (await this.findById(id))!;
-  }
-
-  async update(id: string, payload: UpdateCollectionPayload): Promise<DbCollection> {
-    const { items, charges, ...header } = payload;
-    const prior = await this.findById(id);
-    const now = nowIso();
-
-    await this.write(async (db) => {
-      for (const charge of charges) {
-        const existing = charge.customer_plan_id
-          ? await db.getFirstAsync<{ id: string }>(
-              'SELECT id FROM charges WHERE customer_plan_id = ? AND billing_month = ?',
-              [charge.customer_plan_id, charge.billing_month] as never[],
-            )
-          : await db.getFirstAsync<{ id: string }>('SELECT id FROM charges WHERE id = ?', [
-              charge.id,
-            ] as never[]);
-        if (existing) continue;
-        await insertDirty(db, 'charges', {
-          ...charge,
-          created_at: now,
-          updated_at: now,
-          voided_at: null,
-          voided_by: null,
-          void_reason: null,
-          written_off_at: null,
-          written_off_by: null,
-          write_off_reason: null,
-        });
-      }
-
-      await updateDirty(db, 'collections', id, { ...header, updated_at: now });
-
-      // The split is replaced wholesale. An item carries no history of its own
-      // (the collection does), so a hard delete loses nothing — but it MUST be
-      // logged, or the row would live on in every other device's mirror.
-      const old = await db.getAllAsync<{ id: string }>(
-        'SELECT id FROM collection_items WHERE collection_id = ?',
-        [id] as never[],
-      );
-      for (const o of old) {
-        await db.runAsync('DELETE FROM collection_items WHERE id = ?', [o.id] as never[]);
-        await markDeleted(db, 'collection_items', o.id);
-      }
-      for (const it of items) {
-        await insertDirty(db, 'collection_items', {
-          ...it,
-          id: newId(),
-          collection_id: id,
-          created_at: now,
-          updated_at: now,
-        });
-      }
-
-      await this.auditIn(db, {
-        table: 'collections',
-        recordId: id,
-        action: 'update',
-        before: prior,
-        after: { ...prior, ...header, collection_items: items },
-        branchId: prior?.branch_id ?? null,
-        subject: prior?.customers?.name ?? null,
       });
     });
 

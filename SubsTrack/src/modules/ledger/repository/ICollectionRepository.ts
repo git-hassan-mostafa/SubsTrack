@@ -37,20 +37,6 @@ export type CreateCollectionPayload = Omit<
   charges: CreateChargePayload[];
 };
 
-/**
- * Correcting a hand-over: the header's editable columns plus the COMPLETE new
- * split. Items are replaced wholesale — unlike sale_items there is no soft-void
- * here, because an item carries no history of its own (the collection does) and
- * `uq_collection_items_pair` makes a re-insert idempotent.
- */
-export type UpdateCollectionPayload = Pick<
-  DbCollection,
-  'amount' | 'currency_id' | 'rate_per_usd_snapshot' | 'received_at' | 'notes'
-> & {
-  items: CreateCollectionItemPayload[];
-  charges: CreateChargePayload[];
-};
-
 export interface FindCollectionsOptions {
   customerId?: string;
   branchFilter?: BranchFilter;
@@ -77,7 +63,6 @@ export interface ICollectionRepository {
   monthlyTotals(opts: FindCollectionsOptions): Promise<Record<string, number>>;
 
   create(payload: CreateCollectionPayload): Promise<DbCollection>;
-  update(id: string, payload: UpdateCollectionPayload): Promise<DbCollection>;
   /** Un-applies every item at once, so all the balances it touched come back. */
   void(id: string, voidedBy: string, reason: string | null): Promise<DbCollection>;
 

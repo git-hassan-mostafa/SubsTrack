@@ -1418,12 +1418,17 @@ CREATE INDEX IF NOT EXISTS idx_collection_items_collection_id
 -- neither is owed any more.
 -- ============================================================
 
+-- The CASE is load-bearing: `p.voided_at IS NULL` sits in the LEFT JOIN's ON
+-- clause, so a voided collection does not remove its items from the result — it
+-- only leaves `p` all-NULL. A bare SUM(i.amount) would keep counting voided
+-- cash, and voiding a payment would never give the balance back.
 CREATE OR REPLACE VIEW charge_balances WITH (security_invoker = true) AS
     SELECT c.id,
            c.tenant_id,
            c.amount,
-           COALESCE(SUM(i.amount), 0)            AS paid,
-           c.amount - COALESCE(SUM(i.amount), 0) AS balance
+           COALESCE(SUM(CASE WHEN p.id IS NULL THEN 0 ELSE i.amount END), 0) AS paid,
+           c.amount
+             - COALESCE(SUM(CASE WHEN p.id IS NULL THEN 0 ELSE i.amount END), 0) AS balance
     FROM charges c
     LEFT JOIN collection_items i ON i.charge_id = c.id
     LEFT JOIN collections p ON p.id = i.collection_id AND p.voided_at IS NULL

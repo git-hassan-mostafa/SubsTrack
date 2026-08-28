@@ -2,13 +2,12 @@ import { Platform } from 'react-native';
 import { BaseRepository } from '@/src/core/utils/BaseRepository';
 import { PAGE_SIZE, type BranchFilter } from '@/src/core/constants';
 import type { CashRow, CashStream } from '@/src/core/types';
-import type { DbCollection, DbCollectionItem } from '@/src/core/types/db';
+import type { DbCharge, DbCollection, DbCollectionItem } from '@/src/core/types/db';
 import { custodyValues } from '@/src/modules/wallet/utils/custodyValues';
 import type {
   CreateCollectionPayload,
   FindCollectionsOptions,
   ICollectionRepository,
-  UpdateCollectionPayload,
 } from './ICollectionRepository';
 import { OfflineCollectionRepository } from './CollectionRepository.offline';
 import { sumByMonth } from '../utils/monthTotals';
@@ -143,10 +142,24 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
     // deterministic id, so a month another device already billed is reused
     // rather than duplicated — and keeps ITS frozen price.
     if (charges.length > 0) {
-      const { error } = await this.db
+      const { data: inserted, error } = await this.db
         .from('charges')
-        .upsert(charges, { onConflict: 'id', ignoreDuplicates: true });
+        .upsert(charges, { onConflict: 'id', ignoreDuplicates: true })
+        .select();
       if (error) this.handleError(error);
+      // Only the rows this device actually raised — `ignoreDuplicates` returns
+      // nothing for a bill another device had already billed, which is exactly
+      // the set that should NOT get a second create entry.
+      for (const row of (inserted ?? []) as DbCharge[]) {
+        this.audit({
+          table: 'charges',
+          recordId: row.id,
+          action: 'create',
+          after: row,
+          branchId: row.branch_id,
+          customerId: row.customer_id ?? undefined,
+        });
+      }
     }
 
     const { data, error } = await this.db
@@ -178,49 +191,6 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
     return (await this.findById(created.id)) ?? created;
   }
 
-  async update(id: string, payload: UpdateCollectionPayload): Promise<DbCollection> {
-    const { items, charges, ...header } = payload;
-    const prior = await this.findById(id);
-
-    if (charges.length > 0) {
-      const { error } = await this.db
-        .from('charges')
-        .upsert(charges, { onConflict: 'id', ignoreDuplicates: true });
-      if (error) this.handleError(error);
-    }
-
-    const { error } = await this.db.from('collections').update(header).eq('id', id);
-    if (error) this.handleError(error);
-
-    // The split is replaced wholesale. Unlike sale_items there is no soft-void:
-    // an item carries no history of its own (the collection does), so a delete
-    // loses nothing — and the sync engine has no tombstones for it either, which
-    // is why the delete is logged through the normal repository path.
-    const { error: delError } = await this.db.from('collection_items').delete().eq('collection_id', id);
-    if (delError) this.handleError(delError);
-    const { error: insError } = await this.db
-      .from('collection_items')
-      .insert(items.map((it) => ({ ...it, collection_id: id })));
-    if (insError) this.handleError(insError);
-
-    const after = await this.findById(id);
-    this.audit({
-      table: 'collections',
-      recordId: id,
-      action: 'update',
-      before: prior,
-      after,
-      branchId: after?.branch_id ?? null,
-      subject: after?.customers?.name ?? null,
-    });
-    return after!;
-  }
-
-  /**
-   * Voiding the header un-applies every item at once, so all the balances it
-   * touched come back with nothing to recompute. The items themselves are left
-   * alone — they are the record of what the money HAD paid.
-   */
   async void(id: string, voidedBy: string, reason: string | null): Promise<DbCollection> {
     const prior = await this.findById(id);
     const { data, error } = await this.db
