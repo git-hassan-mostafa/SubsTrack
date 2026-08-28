@@ -35,7 +35,7 @@ export function CollectQuickActionSheet({ onDismiss }: Props) {
   const clearError = useLedgerSlice((s) => s.clearError);
 
   const [customer, setCustomer] = useState<Customer | null>(null);
-  const collectSheet = useCollectSheet({ onCollected: onDismiss });
+  const { open: openCollect, sheet } = useCollectSheet({ onCollected: onDismiss });
 
   useEffect(() => {
     if (!customer) {
@@ -47,11 +47,12 @@ export function CollectQuickActionSheet({ onDismiss }: Props) {
 
   // The pool is ready → hand straight over to the collect sheet. There is no
   // second step to confirm: the sheet IS the confirmation, split and all.
+  // `openCollect` is the stable callback, NOT the hook's object — see its doc.
   useEffect(() => {
     if (customer && !loading && owed.length > 0) {
-      collectSheet.open(customer.id, customer.name, owed);
+      openCollect(customer.id, customer.name, owed);
     }
-  }, [customer, loading, owed, collectSheet]);
+  }, [customer, loading, owed, openCollect]);
 
   const nothingOwed = customer && !loading && owed.length === 0;
 
@@ -80,7 +81,7 @@ export function CollectQuickActionSheet({ onDismiss }: Props) {
         </View>
       </FormSheet>
 
-      {collectSheet.sheet}
+      {sheet}
     </>
   );
 }

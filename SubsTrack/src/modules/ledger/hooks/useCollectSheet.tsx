@@ -24,9 +24,14 @@ interface Options {
  * from the list the user is looking at. The branch comes off the items for the
  * same reason — a debts list never loads the whole customer.
  *
- * Returns `{ open, openOne, sheet }`: render `sheet`, call `open` with a
+ * Returns `{ open, openOne, close, sheet }`: render `sheet`, call `open` with a
  * customer's whole pool (waterfall + split preview) or `openOne` with a single
  * bill.
+ *
+ * `open` / `openOne` / `close` are STABLE; the returned object is not (it holds
+ * `sheet`, a fresh element every render). An effect that opens the sheet must
+ * depend on the callback, never on the object — depending on the object makes
+ * open → setState → re-render → open an infinite loop.
  */
 export function useCollectSheet({ onCollected }: Options = {}) {
   const { user } = useAuth();

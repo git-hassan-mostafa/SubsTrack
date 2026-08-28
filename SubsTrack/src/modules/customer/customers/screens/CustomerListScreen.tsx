@@ -421,7 +421,7 @@ export function CustomerListScreen() {
     return hasUnpaidStartedLine(customer);
   }
 
-  const collectSheet = useCollectSheet({
+  const { open: openCollectSheet, sheet: collectSheet } = useCollectSheet({
     onCollected: () => {
       setCollectCustomer(null);
       void fetchCustomerStatuses(customers);
@@ -429,13 +429,15 @@ export function CustomerListScreen() {
     },
   });
 
-  // The pool is a round trip; open the sheet the moment it lands. Cleared
-  // straight away so re-picking the same customer opens it again.
+  // The pool is a round trip; open the sheet the moment it lands. The target is
+  // cleared straight away — both so re-picking the same customer opens it
+  // again, and so this can never re-fire. Depends on the STABLE callback, not
+  // on the hook's object (see useCollectSheet's doc).
   useEffect(() => {
     if (!collectCustomer || owed.length === 0) return;
-    collectSheet.open(collectCustomer.id, collectCustomer.name, owed);
+    openCollectSheet(collectCustomer.id, collectCustomer.name, owed);
     setCollectCustomer(null);
-  }, [collectCustomer, owed, collectSheet]);
+  }, [collectCustomer, owed, openCollectSheet]);
 
   const openMenu = useCallback((customer: Customer) => {
     setMenuCustomer(customer);
@@ -927,7 +929,7 @@ export function CustomerListScreen() {
           onDismiss={() => setCustomDebtCustomer(null)}
         />
       )}
-      {collectSheet.sheet}
+      {collectSheet}
     </SafeAreaView>
   );
 }
