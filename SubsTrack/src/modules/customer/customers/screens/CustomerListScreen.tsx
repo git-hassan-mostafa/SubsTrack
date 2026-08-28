@@ -240,31 +240,32 @@ export function CustomerListScreen() {
     );
   }
 
-  // Active, started, fixed-price service lines eligible for one-tap current-month
-  // pay. Custom-price / plan-less lines need the manual form and are excluded.
-  // Lines not due this month (already covered by a payment, or skipped) are left
-  // out so a mixed multi-plan customer pays only the plans still owed.
-  function eligibleFixedLines(customer: Customer): OpenItem[] {
+  /**
+   * The current month of every active, started line quick pay may touch.
+   *
+   * Lines not due this month (already covered, or skipped) are left out so a
+   * mixed multi-plan customer pays only the plans still owed, and so are lines
+   * with an OLDER uncovered month — months are settled oldest-first, so their
+   * backlog is paid from the customer's month grid instead.
+   *
+   * A line with no set price yields an **open** item (`amount` 0): nothing can
+   * be charged automatically, but the collect sheet still takes a typed amount
+   * for it. Every line here has had no money this month, so no month has a bill
+   * yet — the charge is raised by the collect that pays it.
+   */
+  function currentMonthItems(customer: Customer): OpenItem[] {
     const status = customerStatuses.get(customer.id);
     const notDue = new Set(status?.notDueLineIds);
-    // Months are settled oldest-first, so a line with an older uncovered month
-    // can't have THIS month collected — its backlog is paid from the customer's
-    // month grid instead.
     const uncovered = new Set(status?.uncoveredLineIds);
     const { year, month } = getCurrentYearMonth();
     const billingMonth = toBillingMonth(year, month);
     return startedActiveLines(customer)
-      .filter(
-        (l) =>
-          resolveLinePrice(l).isFixed && !notDue.has(l.id) && !uncovered.has(l.id),
-      )
+      .filter((l) => !notDue.has(l.id) && !uncovered.has(l.id))
       .map((l) => {
         // One resolution per line, feeding BOTH the amount and the rate snapshot
         // — separating them is how an LBP amount ends up frozen at a USD rate.
         const price = resolveLinePrice(l);
-        // A line reaching here has had NO money this month (that is exactly what
-        // `notDueLineIds` excludes), so the month has no bill yet and the item is
-        // virtual — its charge is raised by the collect that pays it.
+        const priced = price.isFixed && price.amount !== null && price.amount > 0;
         return virtualMonthItem({
           customerId: customer.id,
           customerName: customer.name,
@@ -274,13 +275,21 @@ export function CustomerListScreen() {
           durationMonths: price.durationMonths,
           planId: l.planId,
           label: planLabel(l, billingMonth),
-          amount: price.amount!,
-          currencyId: price.currencyId,
-          ratePerUsdSnapshot:
-            findCurrency(currencies, price.currencyId)?.ratePerUsd ?? 1,
+          amount: priced ? price.amount! : 0,
+          // An open month has no currency of its own — the hand-over picks one.
+          currencyId: priced ? price.currencyId : null,
+          ratePerUsdSnapshot: priced
+            ? (findCurrency(currencies, price.currencyId)?.ratePerUsd ?? 1)
+            : 1,
           dueDate: billingMonth,
+          openAmount: !priced,
         });
       });
+  }
+
+  /** The subset quick pay can charge without asking — everything else is typed. */
+  function eligibleFixedLines(customer: Customer): OpenItem[] {
+    return currentMonthItems(customer).filter((i) => !i.openAmount);
   }
 
   /** "Jan 2026 · Internet" — what the receipt and the split preview show. */
@@ -367,11 +376,20 @@ export function CustomerListScreen() {
   }
 
   // Single-customer quick pay from the card / menu. Pays all eligible fixed-price
-  // lines; custom-price / plan-less customers open the detail form instead.
-  // `send` also WhatsApps one invoice covering every line just paid.
+  // lines; a line with no set price opens the collect sheet so the amount can be
+  // typed. `send` also WhatsApps one invoice covering every line just paid.
   async function handleQuickPay(customer: Customer, send = false) {
-    const requests = eligibleFixedLines(customer);
+    const items = currentMonthItems(customer);
+    const requests = items.filter((i) => !i.openAmount);
     if (requests.length === 0) {
+      // Nothing can be charged without a figure. ONE price-less line is asked
+      // for right here — two would need two different amounts, and none at all
+      // means the month grid is the only place left to say what is wrong.
+      const open = items.filter((i) => i.openAmount);
+      if (open.length === 1) {
+        openOneCollect(customer.name, open[0]);
+        return;
+      }
       router.push({
         pathname: "/(app)/(tabs)/customers/[id]",
         params: { id: customer.id, quickPay: "1" },
@@ -421,7 +439,11 @@ export function CustomerListScreen() {
     return hasUnpaidStartedLine(customer);
   }
 
-  const { open: openCollectSheet, sheet: collectSheet } = useCollectSheet({
+  const {
+    open: openCollectSheet,
+    openOne: openOneCollect,
+    sheet: collectSheet,
+  } = useCollectSheet({
     onCollected: () => {
       setCollectCustomer(null);
       void fetchCustomerStatuses(customers);

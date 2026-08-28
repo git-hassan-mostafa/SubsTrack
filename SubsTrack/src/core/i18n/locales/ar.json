@@ -874,6 +874,7 @@
     "service_name_placeholder": "مثال: زيارة طارئة",
     "service_price_label": "السعر",
     "paid_label": "المدفوع",
+    "collect_now_label": "تحصيل الآن — المتبقي {{amount}}",
     "remaining_label": "المتبقي",
     "add_product": "إضافة منتج",
     "add_service": "إضافة خدمة",

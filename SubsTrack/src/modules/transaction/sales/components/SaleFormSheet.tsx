@@ -72,7 +72,11 @@ export function SaleFormSheet({
   const [customer, setCustomer] = useState<Customer | null>(
     sale?.customer ?? initialCustomer ?? null,
   );
-  const [paymentMode, setPaymentMode] = useState<"full" | "partial" | "debt">("full");
+  // On an EDIT this is about extra cash handed over now, so it starts at
+  // "nothing" — most edits only fix the cart or a typo.
+  const [paymentMode, setPaymentMode] = useState<"full" | "partial" | "debt">(
+    sale ? "debt" : "full",
+  );
   const [amountPaid, setAmountPaid] = useState<number | null>(null);
   const [notes, setNotes] = useState(sale?.notes ?? "");
   const [addCustomerOpen, setAddCustomerOpen] = useState(false);
@@ -116,17 +120,26 @@ export function SaleFormSheet({
   const total = cart.total;
   const hasCustomer = customer != null;
 
-  // Resolve the collected amount: full = the whole total; partial = what was
-  // typed. Only a sale with a customer can be partial (a debt needs a debtor).
-  const resolvedAmountPaid =
-    hasCustomer && paymentMode === "debt"
-      ? 0
-      : paymentMode === "partial" && hasCustomer
-        ? (amountPaid ?? 0)
-        : total;
-  // What is still owed on the sale being edited — shown read-only, since the
-  // form can re-price the bill but never rewrite a payment.
+  // Already collected on the sale being edited. Read-only: a recorded hand-over
+  // is a physical event with its own date and collector, so the form can only
+  // ADD to it — undoing one is a void, in the sheet that owns it.
   const collectedOnSale = sale?.amountPaid ?? 0;
+  // What the customer still owes after any re-pricing — the ceiling on both the
+  // "collect now" field and the till amount.
+  const owing = Math.max(0, total - collectedOnSale);
+
+  // How much cash is being taken by THIS save: on a new sale the whole total,
+  // part of it, or nothing; on an edit the same three, against what is still
+  // owed. Only a sale with a customer can be left owing (a debt needs a debtor).
+  const resolvedAmountPaid = !hasCustomer
+    ? // A walk-in has nobody to chase, so it is always paid in full — which on
+      // an edit means only the gap a re-pricing just opened.
+      owing
+    : paymentMode === "debt"
+      ? 0
+      : paymentMode === "partial"
+        ? (amountPaid ?? 0)
+        : owing;
 
   async function handleSubmit(send = false) {
     if (!user || !cart.ready || busy) return;
@@ -154,9 +167,14 @@ export function SaleFormSheet({
       notes: notes.trim() || null,
     };
     const saved = sale
-      ? // An edit carries NO amount: it re-prices the bill and leaves every
-        // collection against it untouched.
-        await updateSale(sale, { ...common, actorUserId: user.id })
+      ? // An edit re-prices the BILL. Its only money field is additive: cash
+        // handed over right now becomes a new payment, dated today, and every
+        // payment already recorded is left exactly as it was.
+        await updateSale(sale, {
+          ...common,
+          actorUserId: user.id,
+          collectNow: resolvedAmountPaid,
+        })
       : await createSale({
           ...common,
           amountPaid: resolvedAmountPaid,
@@ -186,10 +204,11 @@ export function SaleFormSheet({
     // Re-pricing may not drop the total below what has already been collected —
     // the service refuses it, so say so before the button is pressed.
     (editing && total + 1e-9 < collectedOnSale) ||
-    (!editing &&
-      paymentMode === "partial" &&
+    // A typed amount must fit inside what is still owed (on a new sale that is
+    // the whole total).
+    (paymentMode === "partial" &&
       hasCustomer &&
-      (amountPaid == null || amountPaid < 0 || amountPaid > total));
+      (amountPaid == null || amountPaid < 0 || amountPaid > owing));
 
   return (
     <>
@@ -242,31 +261,44 @@ export function SaleFormSheet({
           </View>
         ) : null}
 
-        {/* Full / partial / debt collection. Partial and debt both leave a
-            "Sales" debt on the customer, so they're only offered when a
-            customer is selected. */}
-        {editing ? (
-          // Read-only on an edit: what was collected lives in its own rows and
-          // is corrected by voiding a payment, never by re-typing it here.
+        {/* Already collected — read-only, because a hand-over is a physical
+            event with its own date and collector. Undoing one is a void, in the
+            bill sheet that owns it. */}
+        {editing && collectedOnSale > 0 ? (
           <View className="mb-4 px-4 py-2.5 rounded-xl bg-gray-50 flex-row items-center justify-between">
             <Text className="text-sm text-gray-500">{t("sales.paid_label")}</Text>
             <Text className="text-sm text-gray-900 font-medium">
               {formatMoney(collectedOnSale, cart.currency, cart.currency)}
             </Text>
           </View>
-        ) : hasCustomer ? (
-          <AmountCollectedSection
-            paymentMode={paymentMode}
-            onPaymentModeChange={setPaymentMode}
-            amountPaid={amountPaid}
-            onAmountPaidChange={setAmountPaid}
-            currencyId={cart.currencyId}
-            amountDue={total > 0 ? total : null}
-            formatAmount={(a: number) => formatMoney(a, cart.currency, cart.currency)}
-            onFocusClearError={clearError}
-            partialDisabled={total <= 0}
-            allowDebt
-          />
+        ) : null}
+
+        {/* Cash taken by THIS save: all of what is owed, part of it, or nothing.
+            Partial and "pay later" both leave a "Sales" debt on the customer, so
+            they're only offered when a customer is selected. On an edit the
+            money is strictly additive and the heading says so. */}
+        {hasCustomer && (!editing || owing > 0) ? (
+          <>
+            {editing ? (
+              <Text className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                {t("sales.collect_now_label", {
+                  amount: formatMoney(owing, cart.currency, cart.currency),
+                })}
+              </Text>
+            ) : null}
+            <AmountCollectedSection
+              paymentMode={paymentMode}
+              onPaymentModeChange={setPaymentMode}
+              amountPaid={amountPaid}
+              onAmountPaidChange={setAmountPaid}
+              currencyId={cart.currencyId}
+              amountDue={owing > 0 ? owing : null}
+              formatAmount={(a: number) => formatMoney(a, cart.currency, cart.currency)}
+              onFocusClearError={clearError}
+              partialDisabled={owing <= 0}
+              allowDebt
+            />
+          </>
         ) : null}
 
         <Input

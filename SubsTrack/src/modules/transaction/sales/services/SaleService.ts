@@ -67,6 +67,8 @@ function saleOpenItem(args: {
   ratePerUsdSnapshot: number;
   dueDate: string;
   issuedAt: string;
+  /** Already collected against this bill — 0 for a brand-new sale. */
+  paid?: number;
 }) {
   return openItemFromCharge(
     {
@@ -97,7 +99,7 @@ function saleOpenItem(args: {
       writtenOffBy: null,
       writeOffReason: null,
     },
-    0,
+    args.paid ?? 0,
     args.label,
   );
 }
@@ -260,9 +262,13 @@ class SaleService {
 
   // Corrects an existing sale in place: products, quantities, unit prices, the
   // sale currency (which RE-FREEZES rate_per_usd_snapshot, so the corrected row
-  // is what history reports), customer, amount collected and notes. Only the
-  // facts that identify the sale are fixed — id, tenant, sold_at, and who
-  // originally recorded it. A voided sale is a closed record and stays locked.
+  // is what history reports), customer and notes. Only the facts that identify
+  // the sale are fixed — id, tenant, sold_at, and who originally recorded it.
+  // A voided sale is a closed record and stays locked.
+  //
+  // `input.collectNow` is the one money field, and it never rewrites a payment:
+  // it is a NEW hand-over dated now, taken after the bill has been re-priced so
+  // it is capped against the corrected total.
   async updateSale(sale: Sale, input: UpdateSaleInput): Promise<Sale> {
     if (sale.voidedAt !== null) {
       throw new Error(i18n.t('errors.sale_voided_not_editable'));
@@ -284,6 +290,12 @@ class SaleService {
     // a balance must never go negative, and money already taken is a fact.
     if (total + 1e-9 < sale.amountPaid) {
       throw new Error(i18n.t('errors.sale_total_below_collected'));
+    }
+    const collectNow = input.collectNow ?? 0;
+    // Same rule as a new sale, reachable here by clearing the customer or by
+    // raising the price of a walk-in: an anonymous debt could never be chased.
+    if (!input.customerId && sale.amountPaid + collectNow + 1e-9 < total) {
+      throw new Error(i18n.t('errors.sale_walkin_must_be_paid'));
     }
     const row = await repository.update(sale.id, {
       branch_id: input.branchId,
@@ -316,6 +328,49 @@ class SaleService {
         ),
       actorUserId: input.actorUserId,
     });
+
+    // Cash taken while correcting the sale — the same collect path as the till
+    // and as any later installment, so custody, the audit entry, the currency
+    // rule and the overpay check stay written in exactly one place. Additive by
+    // construction: it can only ever create a hand-over, never edit one.
+    if (collectNow > 0) {
+      const charge = await chargeRepository.findBySaleId(sale.id);
+      if (!charge) throw new Error(i18n.t('errors.collect_unknown_item'));
+      const owing = total - sale.amountPaid;
+      if (collectNow > owing + 1e-9) {
+        throw new Error(i18n.t('errors.collect_exceeds_balance'));
+      }
+      await collectionService.collect({
+        tenantId: sale.tenantId,
+        customerId: input.customerId,
+        branchId: input.branchId,
+        amount: collectNow,
+        currencyId: input.currency?.id ?? null,
+        ratePerUsdSnapshot,
+        receivedAt: nowIso(),
+        receivedByUserId: input.actorUserId,
+        notes: null,
+        lines: [
+          {
+            item: saleOpenItem({
+              chargeId: charge.id,
+              customerId: input.customerId,
+              branchId: input.branchId,
+              label: buildItemsSummary(input.items),
+              amount: total,
+              currencyId: input.currency?.id ?? null,
+              ratePerUsdSnapshot,
+              dueDate: charge.due_date,
+              issuedAt: charge.issued_at,
+              paid: sale.amountPaid,
+            }),
+            amount: collectNow,
+            settles: collectNow >= owing - 1e-9,
+          },
+        ],
+      });
+    }
+
     const [updated] = await this.withMoney([mapDbSaleToSale(row)]);
     return updated;
   }

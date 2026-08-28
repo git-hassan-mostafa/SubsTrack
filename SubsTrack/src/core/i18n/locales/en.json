@@ -874,6 +874,7 @@
     "service_name_placeholder": "e.g. Emergency call-out",
     "service_price_label": "Price",
     "paid_label": "Paid",
+    "collect_now_label": "Collect now — {{amount}} still owed",
     "remaining_label": "Remaining",
     "add_product": "Add product",
     "add_service": "Add service",

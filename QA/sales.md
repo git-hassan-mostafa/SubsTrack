@@ -221,8 +221,9 @@ Covers the one-off sales ledger: recording a sale (with **one or more products a
 | 2C.5 | Title + button | Form is open in edit mode | Title "Edit Sale"; primary button "Save Changes" (not "Record Sale") |
 | 2C.6 | Cart prefill | Sale had Water ×2 @ 3 and Bread ×1 @ 2 | Two line cards, correct products, quantities and unit prices; the sale's currency is selected |
 | 2C.7 | Customer prefill + editable | Sale belongs to Ali | Customer picker shows Ali and **is editable** (even when opened from Ali's own screen) |
-| 2C.8 | Walk-in prefill | Sale has no customer | Picker is empty ("Walk-in"); the paid/partial/debt section is hidden |
-| 2C.9 | Amount mode prefill | Fully paid / partial (100 of 130) / debt (0 paid) | Mode reads Full / Partial with 100 filled in / Debt respectively |
+| 2C.8 | Walk-in prefill | Sale has no customer | Picker is empty ("Walk-in"); the collect-now section is hidden — a walk-in is always paid in full |
+| 2C.9 | Collect-now starts at nothing | Open the form on a partly-paid sale (100 of 130) | A read-only **Paid 100** line, then **"Collect now — 30 still owed"** with **Pay later** selected. Most edits only fix the cart, so no money moves unless asked |
+| 2C.9a | Fully paid sale offers no collection | Open the form on a fully paid sale | Only the read-only Paid line — nothing is owed, so there is nothing to collect |
 | 2C.10 | Notes prefill | Sale has notes | Notes field carries them |
 | 2C.11 | No false "discard changes" | Open the edit form, wait for products to load, close it | Closes straight away — **no** discard prompt (`SaleCartDraft.dirty`) |
 | 2C.12 | Real change prompts | Change a quantity, then close | "Discard changes?" prompt appears; "Keep editing" preserves the change |
@@ -234,7 +235,7 @@ Covers the one-off sales ledger: recording a sale (with **one or more products a
 |---|----------|-------|-----------------|
 | 2C.14 | Own units are credited | Product has 0 left because this sale took the last 2; open the edit form | The line shows "2 left", the product is pickable, and the cart is not "oversold" |
 | 2C.15 | Re-price only | Change only the unit price and save | Saves. Product stock is **unchanged**, and its stock history gains **no** new rows (footprint unchanged) |
-| 2C.16 | Notes / amount-paid only | Change only the notes, or only the collected amount | Same as 2C.15 — stock history untouched |
+| 2C.16 | Notes only | Change only the notes | Same as 2C.15 — stock history untouched |
 | 2C.17 | Line split, same units | Replace one line of ×3 with two lines of ×1 and ×2 (same product) | Saves; stock unchanged; **no** new movements (compared per product, not per line) |
 | 2C.18 | Quantity up | Sale had ×2, stock 5 (so 7 in the pool); change to ×3 | Stock becomes 4. The old `-2` movement is struck through and a new `-3` appears |
 | 2C.19 | Quantity down | Change ×3 back to ×2 | Stock returns to 5; the `-3` is struck through and a new `-2` appears — never a `+1` correction row |
@@ -256,27 +257,32 @@ Covers the one-off sales ledger: recording a sale (with **one or more products a
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
 | 2C.26 | Currency change re-freezes the rate | Sale in USD; switch to LBP and save | Lines re-price into LBP; `rate_per_usd_snapshot` is the **current** LBP rate, and the receipt's ≈ USD value follows it |
-| 2C.27 | Total shrinks under amount paid | Partial sale 100 of 130; cut the cart to 90 | Save disabled and the amount field shows "Amount paid cannot exceed amount due" — not a silent dead button |
+| 2C.27 | Collect-now cannot exceed what is owed | Partial sale 100 of 130; pick Partial and type 40 | Save disabled with "Amount paid cannot exceed amount due" — the ceiling is the **30** still owed, not the 130 total |
 | 2C.28 | Re-pricing above what was collected | Fully paid sale; raise a quantity | The BILL rises, so the sale now owes the difference and appears in Debts. The payment is untouched |
 | 2C.29 | Debt follows | Partial sale; raise the total | Transactions → Debts shows the larger Sales debt for that customer |
-| 2C.30 | Debt cleared by an edit | Partial sale; switch the mode to Full and save | The customer's Sales debt for it disappears |
-| 2C.31 | **The collected amount is read-only on an edit** | Open the form on a partly-paid sale | The Paid figure shows but cannot be changed — money is a hand-over with its own date and collector |
+| 2C.30 | Debt cleared by collecting the rest | Partial sale; pick **Full payment** under Collect now and save | The Sales debt disappears — and a **new** `collections` row dated today, by the editing staff member, is what cleared it (the original payment keeps its own date) |
+| 2C.30a | Part of the rest | Partial sale 100 of 130; pick Partial, type 20 | Two payments now sit on the bill (100 and 20); 10 still owed; the bill sheet lists both |
+| 2C.30b | Collecting seeds the editor's wallet | Do 2C.30 as a collector | The new hand-over appears in **that collector's** wallet, not the original recorder's |
+| 2C.31 | **What was already collected is read-only** | Open the form on a partly-paid sale | The Paid figure shows and cannot be edited — undoing a hand-over is a **void**, in the bill sheet that owns it. The form can only ADD to it |
 | 2C.32 | Re-pricing below what was collected is refused | Cut the cart under the collected amount | Save is disabled, and the service refuses it (`errors.sale_total_below_collected`) |
 | 2C.33 | Revenue does not move on an edit | Edit a sale in the current month | Revenue is unchanged — only the bill moved. The DEBT moves |
 | 2C.33 | No custody lock (accepted) | Edit a sale whose cash was already handed to an admin | Edit is allowed; the changed amount sits with the **current** holder |
 | 2C.34 | Move to another customer | Change the customer and save | The sale (and any debt it carries) moves to the new customer |
-| 2C.35 | Section totals refresh | Edit a sale's collected amount from the Sales tab | The month section header total is recalculated (the list refetches, not just the card) |
+| 2C.35 | Section totals refresh | Edit a sale's total from the Sales tab | The month section header total is recalculated (the list refetches, not just the card) |
 | 2C.36 | Save & send | Press "Save & send on WhatsApp" on an edit | Sale saves, then WhatsApp opens with the **corrected** receipt |
 
 **Branch, audit, offline**
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
+| 2C.36a | A walk-in must stay fully paid | Edit a walk-in sale and raise its total | The extra is collected automatically at save — a walk-in can never be left owing (`errors.sale_walkin_must_be_paid`) |
+| 2C.36b | Clearing the customer off an owing sale is refused | Partly-paid sale; remove the customer and save | Refused — an anonymous debt could never be chased |
 | 2C.37 | Walk-in keeps its branch | Tenant-wide admin edits a **walk-in** sale recorded by a Branch A collector | The sale stays in Branch A — it does **not** become unassigned |
 | 2C.38 | Customer sale takes the customer's branch | Change the customer to one in Branch B | The sale moves to Branch B |
-| 2C.39 | Audit entry | Admin → the sale's Change history after an edit | One "Edited" entry listing only the changed columns (e.g. Total / Items summary / Amount paid), with the editing staff member as actor |
+| 2C.39 | Audit entry | Admin → the sale's Change history after an edit | One "Edited" entry listing only the changed columns (e.g. Total / Items summary), with the editing staff member as actor. Money taken by the edit is a separate **Payment** entry, never a column on the sale |
 | 2C.40 | Original recorder is kept | Edit someone else's sale | `recorded_by_user_id` is unchanged; only the audit names the editor |
 | 2C.41 | Offline edit | Go offline, edit a sale, reconnect | Header, lines and movements all push; totals and stock match on the server |
+| 2C.41a | Offline edit that also collects | Offline, edit a pay-later sale and collect it in full | The sale, its bill and the new hand-over commit together locally, and all push on reconnect |
 | 2C.42 | Removed line syncs | Device A removes a line and syncs; open the sale on device B | Device B shows the reduced line set — **no** phantom line (lines are soft-voided, not deleted) |
 | 2C.43 | Product filter follows | Sale contained product A; edit it to remove A; filter the Sales tab by A | The sale no longer matches |
 | 2C.44 | Product still undeletable | After 2C.43, try to delete product A | Still soft-deletes (the voided line keeps the reference) |

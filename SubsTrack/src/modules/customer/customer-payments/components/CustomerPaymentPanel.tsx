@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, ScrollView, View } from "react-native";
+import { ActivityIndicator, InteractionManager, ScrollView, View } from "react-native";
 import { GestureDetector } from "react-native-gesture-handler";
 import { Ionicons } from "@expo/vector-icons";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
@@ -461,7 +461,13 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
       showPayOrderBlocked(blocker);
       return;
     }
-    openCollect([currentEntry]);
+    // Wait for the push animation to finish before presenting the sheet: a
+    // bottom sheet presented mid-transition can end up never opening, which is
+    // why the plain-modal dialogs above always showed and this did not.
+    const task = InteractionManager.runAfterInteractions(() =>
+      openCollect([currentEntry]),
+    );
+    return () => task.cancel();
     // The ref guard is what keeps this to a single firing; the deps are listed
     // in full because React Compiler memoises the callbacks (never disable the
     // hooks lint — it switches the compiler off for the whole file).

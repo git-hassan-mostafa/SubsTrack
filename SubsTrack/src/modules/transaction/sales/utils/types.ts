@@ -46,14 +46,17 @@ export interface CreateSaleInput {
     notes: string | null;
 }
 
-// Input shape for correcting an existing sale. NO amount: an edit re-prices the
-// bill and leaves every collection against it exactly as recorded — correcting
-// money means voiding a payment, in the place that owns it.
+// Input shape for correcting an existing sale. An edit re-prices the BILL and
+// never rewrites a payment already recorded — correcting money means voiding
+// that hand-over, in the place that owns it. `collectNow` is the one money field
+// and it is strictly ADDITIVE: cash taken at the moment of the edit, recorded as
+// a new hand-over dated today, capped at what is still owed.
 // Everything else the form owns can
 // change (including swapping a product line for a service one); what identifies
 // the sale cannot — id, tenant, `sold_at` and the original `recorded_by_user_id`
 // all stay as recorded. `actorUserId` is who is making the correction (the audit
-// actor, and the recorder of any replacement stock movements).
+// actor, the recorder of any replacement stock movements, and whoever takes
+// `collectNow`).
 export interface UpdateSaleInput {
     items: CreateSaleItemInput[];
     customerId: string | null;
@@ -61,4 +64,7 @@ export interface UpdateSaleInput {
     currency: Currency | null;
     notes: string | null;
     actorUserId: string | null;
+    // Extra cash handed over right now, on top of whatever was already
+    // collected. 0 / omitted for an edit that only corrects the sale.
+    collectNow?: number;
 }

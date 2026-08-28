@@ -766,6 +766,8 @@ Three rules:
 
 - **Single item only.** Two open months in one write are two different unknown
   amounts, so a grid multi-select containing one is refused with a message.
+  Quick pay follows the same rule: one price-less line opens the sheet on the
+  customer list itself, two send you to the month grid.
 - **Once the amount is typed the item becomes an ordinary bill**
   (`billedOpenItem` in `CollectSheet`), so a part payment, the "leaves N owing"
   hint and the overpay refusal are the existing code, not a second
