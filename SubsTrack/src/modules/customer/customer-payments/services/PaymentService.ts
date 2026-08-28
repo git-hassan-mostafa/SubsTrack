@@ -781,7 +781,7 @@ class PaymentService {
   // month (see the status ladder below).
   buildMonthGrid(
     line: CustomerPlan,
-    payments: Payment[],
+    bills: MonthBill[],
     skips: SkippedMonth[],
     year: number,
     unpaidRule: UnpaidStartRule = DEFAULT_UNPAID_START_RULE,
@@ -793,18 +793,20 @@ class PaymentService {
       if (skip.skipped) skipByMonth.set(skip.billingMonth, skip);
     }
 
-    // Build coverage map: billingMonth → { payment, isSecondary }
-    // Multi-month payments cover consecutive months; each covered month points back to the payment.
-    const coverageMap = new Map<string, { payment: Payment; isGroupSecondary: boolean }>();
-    for (const payment of payments) {
-      const [pYear, pMonthNum] = payment.billingMonth.split("-").map(Number);
-      for (let d = 0; d < payment.durationMonths; d++) {
+    // Build coverage map: billingMonth → { bill, isSecondary }
+    // A multi-month bill covers consecutive months; each covered month points back to it.
+    const coverageMap = new Map<string, { bill: MonthBill; isGroupSecondary: boolean }>();
+    for (const bill of bills) {
+      const { charge } = bill;
+      if (!charge.billingMonth) continue;
+      const [pYear, pMonthNum] = charge.billingMonth.split("-").map(Number);
+      for (let d = 0; d < charge.durationMonths; d++) {
         const date = new Date(pYear, pMonthNum - 1 + d, 1);
         const covYear = date.getFullYear();
         const covMonth = date.getMonth() + 1;
         if (covYear !== year) continue; // only populate months in the requested year
         const bm = toBillingMonth(covYear, covMonth);
-        coverageMap.set(bm, { payment, isGroupSecondary: d > 0 });
+        coverageMap.set(bm, { bill, isGroupSecondary: d > 0 });
       }
     }
 
@@ -813,7 +815,7 @@ class PaymentService {
       const billingMonth = toBillingMonth(year, month);
       const label = MONTHS[i];
       const coverage = coverageMap.get(billingMonth) ?? null;
-      const payment = coverage?.payment ?? null;
+      const bill = coverage?.bill ?? null;
       const isGroupSecondary = coverage?.isGroupSecondary ?? false;
 
       if (isBeforeStartDate(year, month, line.startDate)) {
@@ -823,15 +825,19 @@ class PaymentService {
           label,
           billingMonth,
           status: "before_start" as MonthStatus,
-          payment: null,
+          charge: null,
+          collected: 0,
           isGroupSecondary: false,
           balance: 0,
           skip: null,
         };
       }
 
-      // A payment with amountPaid = 0 is treated as no payment (slot reserved but unpaid).
-      const isEffectivelyPaid = payment !== null && payment.voidedAt === null && payment.amountPaid > 0;
+      // MONEY decides, never the existence of a bill: an empty charge row left
+      // behind by a voided collection must read exactly like a month that was
+      // never touched at all.
+      const collected = bill?.collected ?? 0;
+      const isEffectivelyPaid = collected > 0;
       const skip = skipByMonth.get(billingMonth) ?? null;
 
       let status: MonthStatus;
@@ -859,7 +865,7 @@ class PaymentService {
         status = "unpaid";
       }
 
-      const balance = isEffectivelyPaid ? (payment?.balance ?? 0) : 0;
+      const balance = isEffectivelyPaid ? (bill!.charge.amount - collected) : 0;
 
       return {
         year,
@@ -867,7 +873,8 @@ class PaymentService {
         label,
         billingMonth,
         status,
-        payment,
+        charge: bill?.charge ?? null,
+        collected,
         isGroupSecondary,
         balance,
         skip: status === "skipped" ? skip : null,
