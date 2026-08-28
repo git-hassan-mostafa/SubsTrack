@@ -587,183 +587,8 @@ CREATE OR REPLACE TRIGGER trg_plans_updated_at
     FOR EACH ROW
     EXECUTE FUNCTION set_updated_at();
 
--- payments + sales updated_at triggers are defined at the end of this file,
--- after those tables exist.
-
--- ============================================================
--- PAYMENTS
--- Append-only audit log. Hard deletes are NEVER performed.
--- Corrections are made by voiding (voided_at) then re-inserting.
--- amount is a SNAPSHOT — never recomputed from plan.price.
--- ============================================================
-
-CREATE TABLE IF NOT EXISTS payments ();
-
--- ---- Columns --------------------------------------------------------------
-
-ALTER TABLE payments ADD COLUMN IF NOT EXISTS id UUID PRIMARY KEY DEFAULT uuid_generate_v4();
-
--- Always the first day of the month (YYYY-MM-01).
-ALTER TABLE payments ADD COLUMN IF NOT EXISTS billing_month DATE NOT NULL
-    CONSTRAINT chk_billing_month_first_day CHECK (EXTRACT(DAY FROM billing_month) = 1);
-
--- Snapshot of what was owed at time of recording. Never changes after insert.
--- Stored in the CURRENCY indicated by currency_id (NULL = USD).
-ALTER TABLE payments ADD COLUMN IF NOT EXISTS amount_due NUMERIC(20,8) NOT NULL
-    CHECK (amount_due > 0);
-
--- What was actually collected. Can be less than amount_due (partial payment).
--- 0 is allowed (reserves the slot but treated as unpaid in the grid).
--- Same currency as amount_due. Upper bound is payments_amount_paid_check below.
-ALTER TABLE payments ADD COLUMN IF NOT EXISTS amount_paid NUMERIC(20,8) NOT NULL;
-
--- Computed balance. Read-only — never written by the app.
-ALTER TABLE payments ADD COLUMN IF NOT EXISTS balance NUMERIC(20,8)
-    GENERATED ALWAYS AS (amount_due - amount_paid) STORED;
-
--- Number of consecutive months this payment covers (1 = single month, 3 = Jan+Feb+Mar, etc.)
--- billing_month is always the FIRST month of the block.
-ALTER TABLE payments ADD COLUMN IF NOT EXISTS duration_months INTEGER NOT NULL DEFAULT 1
-    CHECK (duration_months >= 1);
-
--- Currency the amounts above are stored in. NULL = USD.
--- ON DELETE RESTRICT: cannot drop a currency referenced by a payment.
-ALTER TABLE payments ADD COLUMN IF NOT EXISTS currency_id UUID
-    CONSTRAINT fk_payments_currency REFERENCES currencies(id) ON DELETE RESTRICT;
-
--- Exchange rate (units of currency_id per 1 USD) captured at recording time.
--- For USD payments (currency_id IS NULL), this is always 1.
--- Frozen snapshot so historical USD-equivalent values never drift when currencies.rate_per_usd is edited.
-ALTER TABLE payments ADD COLUMN IF NOT EXISTS rate_per_usd_snapshot NUMERIC(20,8) NOT NULL
-    CHECK (rate_per_usd_snapshot > 0);
-
-ALTER TABLE payments ADD COLUMN IF NOT EXISTS customer_id UUID NOT NULL
-    CONSTRAINT fk_payments_customer REFERENCES customers(id) ON DELETE CASCADE;
-
--- The service line (customer_plans row) this payment settles. A customer can
--- hold several lines, each paid independently — uniqueness is per line+month.
-ALTER TABLE payments ADD COLUMN IF NOT EXISTS customer_plan_id UUID NOT NULL
-    CONSTRAINT fk_payments_customer_plan REFERENCES customer_plans(id) ON DELETE CASCADE;
-
--- Snapshot of which plan/price applied at recording time. NULL = custom/no plan.
-ALTER TABLE payments ADD COLUMN IF NOT EXISTS plan_id UUID
-    CONSTRAINT fk_payments_plan REFERENCES plans(id) ON DELETE SET NULL;
-
-ALTER TABLE payments ADD COLUMN IF NOT EXISTS received_by_user_id UUID
-    CONSTRAINT fk_payments_received_by REFERENCES users(id) ON DELETE SET NULL;
-ALTER TABLE payments ADD COLUMN IF NOT EXISTS tenant_id UUID NOT NULL
-    CONSTRAINT fk_payments_tenant REFERENCES tenants(id) ON DELETE CASCADE;
-
-ALTER TABLE payments ADD COLUMN IF NOT EXISTS paid_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
-ALTER TABLE payments ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
-ALTER TABLE payments ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
-
--- Soft void fields. Set together or not at all (chk_void_consistency).
-ALTER TABLE payments ADD COLUMN IF NOT EXISTS voided_at TIMESTAMPTZ;
-ALTER TABLE payments ADD COLUMN IF NOT EXISTS voided_by UUID
-    CONSTRAINT fk_payments_voided_by REFERENCES users(id) ON DELETE SET NULL;
-ALTER TABLE payments ADD COLUMN IF NOT EXISTS notes TEXT;
-
--- Collector wallet: who physically holds this cash RIGHT NOW. Starts as the
--- collector (received_by_user_id) and moves up the chain on each handover
--- (collector → branch admin → tenant-wide admin). NULL = in nobody's wallet:
--- either never attributed, or settled out of the system (remitted_at below).
-ALTER TABLE payments ADD COLUMN IF NOT EXISTS held_by_user_id UUID
-    CONSTRAINT fk_payments_held_by REFERENCES users(id) ON DELETE SET NULL;
-
--- Final settlement: when the cash left the wallet chain for good (a superadmin
--- received it, or a tenant-wide admin closed out) and who took it out. Set
--- together (chk_payments_remitted_consistency) and only ever alongside
--- held_by_user_id = NULL (chk_payments_custody). A void + re-pay resets these
--- to NULL — the re-recorded cash is fresh in its collector's wallet again.
-ALTER TABLE payments ADD COLUMN IF NOT EXISTS remitted_at TIMESTAMPTZ;
-ALTER TABLE payments ADD COLUMN IF NOT EXISTS remitted_by UUID
-    CONSTRAINT fk_payments_remitted_by REFERENCES users(id) ON DELETE SET NULL;
-
--- ---- Table-level constraints (multi-column — cannot ride on an ADD COLUMN) --
-
-DO $$ BEGIN
-    -- amount_paid can't be negative and can't exceed what was owed. The name is
-    -- the one Postgres generated for the old inline CHECK, so live DBs skip it.
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint
-        WHERE conrelid = 'payments'::regclass AND conname = 'payments_amount_paid_check'
-    ) THEN
-        ALTER TABLE payments ADD CONSTRAINT payments_amount_paid_check
-            CHECK (amount_paid >= 0 AND amount_paid <= amount_due);
-    END IF;
-
-    -- voided_at and voided_by must be set together
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint
-        WHERE conrelid = 'payments'::regclass AND conname = 'chk_void_consistency'
-    ) THEN
-        ALTER TABLE payments ADD CONSTRAINT chk_void_consistency
-            CHECK (
-                (voided_at IS NULL AND voided_by IS NULL)
-                OR
-                (voided_at IS NOT NULL AND voided_by IS NOT NULL)
-            );
-    END IF;
-
-    -- remitted_at and remitted_by must be set together
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint
-        WHERE conrelid = 'payments'::regclass AND conname = 'chk_payments_remitted_consistency'
-    ) THEN
-        ALTER TABLE payments ADD CONSTRAINT chk_payments_remitted_consistency
-            CHECK (
-                (remitted_at IS NULL AND remitted_by IS NULL)
-                OR
-                (remitted_at IS NOT NULL AND remitted_by IS NOT NULL)
-            );
-    END IF;
-
-    -- Settled cash is in nobody's wallet
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint
-        WHERE conrelid = 'payments'::regclass AND conname = 'chk_payments_custody'
-    ) THEN
-        ALTER TABLE payments ADD CONSTRAINT chk_payments_custody
-            CHECK (remitted_at IS NULL OR held_by_user_id IS NULL);
-    END IF;
-
-    -- One payment record per service line per month (void + re-pay updates the
-    -- same row). A customer with several lines can pay each one for the same month.
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint
-        WHERE conrelid = 'payments'::regclass AND conname = 'uq_payments_line_month'
-    ) THEN
-        ALTER TABLE payments ADD CONSTRAINT uq_payments_line_month
-            UNIQUE (customer_plan_id, billing_month);
-    END IF;
-END $$;
-
-CREATE INDEX IF NOT EXISTS idx_payments_tenant_id
-    ON payments (tenant_id);
-
-CREATE INDEX IF NOT EXISTS idx_payments_customer_id
-    ON payments (customer_id);
-
-CREATE INDEX IF NOT EXISTS idx_payments_billing_month
-    ON payments (billing_month);
-
-CREATE INDEX IF NOT EXISTS idx_payments_customer_month
-    ON payments (customer_id, billing_month);
-
-CREATE INDEX IF NOT EXISTS idx_payments_customer_plan_id
-    ON payments (customer_plan_id);
-
--- Every date-ranged revenue read (dashboard month, reports period) scans
--- payments by when the cash arrived. Without this it is a full tenant scan.
-CREATE INDEX IF NOT EXISTS idx_payments_tenant_paid_at
-    ON payments (tenant_id, paid_at DESC);
-
--- Collector wallet: fast lookup of the cash a user is holding (not settled, not
--- voided). Partial index keeps it tiny once most cash is settled. Replaces the
-CREATE INDEX IF NOT EXISTS idx_payments_holder
-    ON payments (held_by_user_id)
-    WHERE held_by_user_id IS NOT NULL AND voided_at IS NULL;
+-- sales / charges / collections updated_at triggers are defined at the end of
+-- this file, after those tables exist.
 
 -- ============================================================
 -- PRODUCTS
@@ -883,10 +708,12 @@ CREATE OR REPLACE TRIGGER trg_services_updated_at
 -- Ledger of one-off product sales — the HEADER of a sale. Customer is OPTIONAL
 -- (walk-in supported). A sale holds one OR MORE items — products, services, or
 -- both — each a row in the sale_items child table. The header
--- carries the single sale-wide currency + frozen rate, the summed total, and
--- how much was collected. Mirrors the snapshot principle from payments:
--- items_summary, total_amount, and rate_per_usd_snapshot are frozen at write
--- time and never recomputed. Soft-void only — historical totals stay accurate.
+-- carries the single sale-wide currency + frozen rate and the summed total.
+-- It holds NO money received and NO custody: what is OWED for a sale is its
+-- charges row and what was COLLECTED is a collections row, so the sale document
+-- only ever says what was sold. items_summary, total_amount and
+-- rate_per_usd_snapshot are frozen at write time and never recomputed.
+-- Soft-void only — historical totals stay accurate.
 -- One currency per sale: every line's unit_amount is in currency_id.
 -- ============================================================
 
@@ -921,17 +748,12 @@ ALTER TABLE sales ADD COLUMN IF NOT EXISTS recorded_by_user_id UUID
 ALTER TABLE sales ADD COLUMN IF NOT EXISTS total_amount NUMERIC(20,8) NOT NULL
     CHECK (total_amount > 0);
 
--- How much of the sale was actually collected at sale time. Same currency as
--- the lines. A partial sale (amount_paid < total) leaves a "Sales" debt.
--- Upper bound is chk_sales_amount_paid below.
-ALTER TABLE sales ADD COLUMN IF NOT EXISTS amount_paid NUMERIC(20,8) NOT NULL DEFAULT 0;
-
 -- Currency the amounts above are stored in. NULL = USD.
 ALTER TABLE sales ADD COLUMN IF NOT EXISTS currency_id UUID
     CONSTRAINT fk_sales_currency REFERENCES currencies(id) ON DELETE RESTRICT;
 
 -- Exchange rate (units of currency_id per 1 USD) frozen at recording time.
--- USD sales (currency_id IS NULL) always store 1. Mirrors payments.rate_per_usd_snapshot.
+-- USD sales (currency_id IS NULL) always store 1. Mirrors charges.rate_per_usd_snapshot.
 ALTER TABLE sales ADD COLUMN IF NOT EXISTS rate_per_usd_snapshot NUMERIC(20,8) NOT NULL
     CHECK (rate_per_usd_snapshot > 0);
 
@@ -946,52 +768,8 @@ ALTER TABLE sales ADD COLUMN IF NOT EXISTS voided_by UUID
 ALTER TABLE sales ADD COLUMN IF NOT EXISTS void_reason TEXT;
 ALTER TABLE sales ADD COLUMN IF NOT EXISTS notes TEXT;
 
--- Collector wallet: who physically holds this cash (amount_paid) right now.
--- Starts as the recording user and moves up the chain on each handover.
--- NULL = in nobody's wallet. Same shape as payments.held_by_user_id.
-ALTER TABLE sales ADD COLUMN IF NOT EXISTS held_by_user_id UUID
-    CONSTRAINT fk_sales_held_by REFERENCES users(id) ON DELETE SET NULL;
-
--- Final settlement: when the cash left the wallet chain and who took it out.
--- Set together, and only alongside held_by_user_id = NULL (chk_sales_custody).
-ALTER TABLE sales ADD COLUMN IF NOT EXISTS remitted_at TIMESTAMPTZ;
-ALTER TABLE sales ADD COLUMN IF NOT EXISTS remitted_by UUID
-    CONSTRAINT fk_sales_remitted_by REFERENCES users(id) ON DELETE SET NULL;
-
--- ---- Table-level constraints (multi-column — cannot ride on an ADD COLUMN) --
-
-DO $$ BEGIN
-    -- amount_paid can't be negative and can't exceed the summed sale total.
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint
-        WHERE conrelid = 'sales'::regclass AND conname = 'chk_sales_amount_paid'
-    ) THEN
-        ALTER TABLE sales ADD CONSTRAINT chk_sales_amount_paid
-            CHECK (amount_paid >= 0 AND amount_paid <= total_amount);
-    END IF;
-
-    -- remitted_at and remitted_by must be set together
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint
-        WHERE conrelid = 'sales'::regclass AND conname = 'chk_sales_remitted_consistency'
-    ) THEN
-        ALTER TABLE sales ADD CONSTRAINT chk_sales_remitted_consistency
-            CHECK (
-                (remitted_at IS NULL AND remitted_by IS NULL)
-                OR
-                (remitted_at IS NOT NULL AND remitted_by IS NOT NULL)
-            );
-    END IF;
-
-    -- Settled cash is in nobody's wallet
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_constraint
-        WHERE conrelid = 'sales'::regclass AND conname = 'chk_sales_custody'
-    ) THEN
-        ALTER TABLE sales ADD CONSTRAINT chk_sales_custody
-            CHECK (remitted_at IS NULL OR held_by_user_id IS NULL);
-    END IF;
-END $$;
+-- No table-level constraints: the money that used to need them (amount_paid,
+-- custody) now lives on charges + collections.
 
 CREATE INDEX IF NOT EXISTS idx_sales_tenant_sold_at
     ON sales (tenant_id, sold_at DESC);
@@ -1003,18 +781,6 @@ CREATE INDEX IF NOT EXISTS idx_sales_customer
 CREATE INDEX IF NOT EXISTS idx_sales_branch
     ON sales (branch_id);
 
--- Collector wallet: the cash a user is holding (not settled, not voided).
-DROP INDEX IF EXISTS idx_sales_wallet;
-CREATE INDEX IF NOT EXISTS idx_sales_holder
-    ON sales (held_by_user_id)
-    WHERE held_by_user_id IS NOT NULL AND voided_at IS NULL;
-
--- Backfill, idempotent — see the payments equivalent.
-UPDATE sales SET held_by_user_id = recorded_by_user_id
-    WHERE held_by_user_id IS NULL
-      AND remitted_at IS NULL
-      AND recorded_by_user_id IS NOT NULL;
-
 -- ============================================================
 -- SALE ITEMS (lines)
 -- One row per thing sold within a sale — a PRODUCT (goods, moves stock) or a
@@ -1024,7 +790,8 @@ UPDATE sales SET held_by_user_id = recorded_by_user_id
 -- service renames and soft-deletes). unit_amount is in the parent sale's
 -- currency — every line shares one currency. line total = unit_amount * quantity
 -- is derived in the app (no stored column). No branch_id: branch is inherited
--- via the parent sale (RLS EXISTS), exactly like payments inherit via the customer.
+-- via the parent sale (RLS EXISTS), exactly like collection_items inherit via
+-- the parent collection.
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS sale_items ();
@@ -1170,7 +937,7 @@ ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS currency_id UUID
     CONSTRAINT fk_stock_movements_currency REFERENCES currencies(id) ON DELETE RESTRICT;
 
 -- Rate frozen when the stock was bought, same drift-free principle as
--- payments/sales.rate_per_usd_snapshot. 1 for USD.
+-- charges/collections.rate_per_usd_snapshot. 1 for USD.
 ALTER TABLE stock_movements ADD COLUMN IF NOT EXISTS rate_per_usd_snapshot NUMERIC(20,8)
     CHECK (rate_per_usd_snapshot IS NULL OR rate_per_usd_snapshot > 0);
 
@@ -1258,139 +1025,300 @@ CREATE OR REPLACE VIEW product_stock WITH (security_invoker = true) AS
 GRANT SELECT ON product_stock TO authenticated;
 
 -- ============================================================
--- CUSTOM DEBTS
--- Hand-typed debts a customer owes that have no source transaction
--- (months come from partial payments, sales from partial sales — those are
--- DERIVED at runtime and never stored here). One row = one custom debt.
--- No branch_id: branch is inherited via the customer, exactly like payments.
--- Soft-void only (voided_at/voided_by/void_reason) — history is kept.
+-- CHARGES  (what a customer OWES — the bill)
+-- One row per thing owed:
+--   kind='month'  a subscription month for ONE service line. Created LAZILY —
+--                 only when money first touches the month (or an admin bills
+--                 it). An untouched unpaid month has NO row; it is computed by
+--                 PaymentService.buildMonthGrid, exactly as before.
+--   kind='sale'   the money side of a sales row. The sale document keeps what
+--                 was sold; the charge owns what is owed.
+--   kind='manual' a hand-typed debt (installation fee, penalty…).
+-- amount is a SNAPSHOT, frozen with its currency + rate. What has been paid is
+-- NEVER a column here — it is SUM(collection_items) (see the charge_balances
+-- view). Two devices can therefore both collect offline without clobbering.
+-- Two ways a charge stops being owed, and they mean different things:
+--   voided_at      the bill was a MISTAKE — it never existed.
+--   written_off_at the bill is REAL but will never be paid — a recorded LOSS.
+-- Branch: inherited from the customer (like payments used to). branch_id is its
+-- own column used ONLY for a customer-less walk-in sale charge, which has no
+-- customer to inherit from.
 -- ============================================================
 
-CREATE TABLE IF NOT EXISTS custom_debts ();
+CREATE TABLE IF NOT EXISTS charges ();
 
 -- ---- Columns --------------------------------------------------------------
 
-ALTER TABLE custom_debts ADD COLUMN IF NOT EXISTS id UUID PRIMARY KEY DEFAULT uuid_generate_v4();
-ALTER TABLE custom_debts ADD COLUMN IF NOT EXISTS tenant_id UUID NOT NULL
-    CONSTRAINT fk_custom_debts_tenant REFERENCES tenants(id) ON DELETE CASCADE;
-ALTER TABLE custom_debts ADD COLUMN IF NOT EXISTS customer_id UUID NOT NULL
-    CONSTRAINT fk_custom_debts_customer REFERENCES customers(id) ON DELETE CASCADE;
+ALTER TABLE charges ADD COLUMN IF NOT EXISTS id UUID PRIMARY KEY DEFAULT uuid_generate_v4();
+ALTER TABLE charges ADD COLUMN IF NOT EXISTS tenant_id UUID NOT NULL
+    CONSTRAINT fk_charges_tenant REFERENCES tenants(id) ON DELETE CASCADE;
 
--- What the debt is for. Free text shown as the row label.
-ALTER TABLE custom_debts ADD COLUMN IF NOT EXISTS description TEXT;
+-- Only consulted when customer_id IS NULL (walk-in sale). Otherwise the branch
+-- is the customer's, so a customer moving branch takes their debts with them.
+ALTER TABLE charges ADD COLUMN IF NOT EXISTS branch_id UUID
+    CONSTRAINT fk_charges_branch REFERENCES branches(id) ON DELETE SET NULL;
 
-ALTER TABLE custom_debts ADD COLUMN IF NOT EXISTS amount NUMERIC(20,8) NOT NULL
+-- NULL only for a walk-in sale charge. A month or manual charge always has one.
+ALTER TABLE charges ADD COLUMN IF NOT EXISTS customer_id UUID
+    CONSTRAINT fk_charges_customer REFERENCES customers(id) ON DELETE CASCADE;
+
+-- 'month' | 'sale' | 'manual'. Free text in the DB — the app owns the code list,
+-- so a new kind needs no migration. chk_charges_kind_ref below keeps the
+-- kind-specific columns honest.
+ALTER TABLE charges ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL;
+
+-- ---- kind = 'month' -------------------------------------------------------
+-- The service line this month belongs to. Uniqueness is per line + month, so a
+-- customer with several lines gets one charge per line for the same month.
+ALTER TABLE charges ADD COLUMN IF NOT EXISTS customer_plan_id UUID
+    CONSTRAINT fk_charges_customer_plan REFERENCES customer_plans(id) ON DELETE CASCADE;
+
+-- Always the first day of the month (YYYY-MM-01).
+ALTER TABLE charges ADD COLUMN IF NOT EXISTS billing_month DATE
+    CONSTRAINT chk_charges_billing_month_first_day
+    CHECK (billing_month IS NULL OR EXTRACT(DAY FROM billing_month) = 1);
+
+-- Consecutive months this ONE bill covers (1 = single, 3 = a quarter bundle).
+-- billing_month is the FIRST month of the block. A multi-month payment stays a
+-- single charge so the coverage map / "Included" cells are unchanged.
+ALTER TABLE charges ADD COLUMN IF NOT EXISTS duration_months INTEGER NOT NULL DEFAULT 1
+    CHECK (duration_months >= 1);
+
+-- Snapshot of which plan/price applied when the bill was raised. NULL = custom.
+ALTER TABLE charges ADD COLUMN IF NOT EXISTS plan_id UUID
+    CONSTRAINT fk_charges_plan REFERENCES plans(id) ON DELETE SET NULL;
+
+-- ---- kind = 'sale' --------------------------------------------------------
+ALTER TABLE charges ADD COLUMN IF NOT EXISTS sale_id UUID
+    CONSTRAINT fk_charges_sale REFERENCES sales(id) ON DELETE CASCADE;
+
+-- ---- kind = 'manual' ------------------------------------------------------
+ALTER TABLE charges ADD COLUMN IF NOT EXISTS description TEXT;
+
+-- ---- Money ----------------------------------------------------------------
+-- What is owed, in currency_id (NULL = USD). Frozen — never recomputed from a
+-- plan or a product price.
+ALTER TABLE charges ADD COLUMN IF NOT EXISTS amount NUMERIC(20,8) NOT NULL
     CHECK (amount > 0);
+ALTER TABLE charges ADD COLUMN IF NOT EXISTS currency_id UUID
+    CONSTRAINT fk_charges_currency REFERENCES currencies(id) ON DELETE RESTRICT;
 
--- Currency the amount is stored in. NULL = USD.
-ALTER TABLE custom_debts ADD COLUMN IF NOT EXISTS currency_id UUID
-    CONSTRAINT fk_custom_debts_currency REFERENCES currencies(id) ON DELETE RESTRICT;
-
--- Exchange rate (units of currency_id per 1 USD) frozen at recording time.
--- USD debts (currency_id IS NULL) always store 1. Same drift-free principle
--- as payments/sales.rate_per_usd_snapshot.
-ALTER TABLE custom_debts ADD COLUMN IF NOT EXISTS rate_per_usd_snapshot NUMERIC(20,8) NOT NULL
+-- Units of currency_id per 1 USD, frozen when the bill was raised. USD = 1.
+-- This is what converts the OUTSTANDING balance to USD (what he was billed);
+-- collections carry their own rate for what was actually collected.
+ALTER TABLE charges ADD COLUMN IF NOT EXISTS rate_per_usd_snapshot NUMERIC(20,8) NOT NULL
     CHECK (rate_per_usd_snapshot > 0);
 
-ALTER TABLE custom_debts ADD COLUMN IF NOT EXISTS recorded_by_user_id UUID
-    CONSTRAINT fk_custom_debts_recorded_by REFERENCES users(id) ON DELETE SET NULL;
+-- ---- Dates ----------------------------------------------------------------
+-- When the bill was raised (may be long after due_date — a January month billed
+-- in March when the collector finally came).
+ALTER TABLE charges ADD COLUMN IF NOT EXISTS issued_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 
-ALTER TABLE custom_debts ADD COLUMN IF NOT EXISTS incurred_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
-ALTER TABLE custom_debts ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
-ALTER TABLE custom_debts ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+-- When it must be paid. THE sort key for the oldest-first waterfall and the
+-- only source of ageing. month → the billing day; sale → sold_at, or later for
+-- a pay-later sale; manual → picked by staff.
+ALTER TABLE charges ADD COLUMN IF NOT EXISTS due_date DATE NOT NULL DEFAULT CURRENT_DATE;
 
--- Soft-void fields. Set together or not at all.
-ALTER TABLE custom_debts ADD COLUMN IF NOT EXISTS voided_at TIMESTAMPTZ;
-ALTER TABLE custom_debts ADD COLUMN IF NOT EXISTS voided_by UUID
-    CONSTRAINT fk_custom_debts_voided_by REFERENCES users(id) ON DELETE SET NULL;
-ALTER TABLE custom_debts ADD COLUMN IF NOT EXISTS void_reason TEXT;
-ALTER TABLE custom_debts ADD COLUMN IF NOT EXISTS notes TEXT;
+ALTER TABLE charges ADD COLUMN IF NOT EXISTS recorded_by_user_id UUID
+    CONSTRAINT fk_charges_recorded_by REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE charges ADD COLUMN IF NOT EXISTS notes TEXT;
+ALTER TABLE charges ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE charges ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+-- ---- Void: the bill was a mistake, it never existed ------------------------
+ALTER TABLE charges ADD COLUMN IF NOT EXISTS voided_at TIMESTAMPTZ;
+ALTER TABLE charges ADD COLUMN IF NOT EXISTS voided_by UUID
+    CONSTRAINT fk_charges_voided_by REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE charges ADD COLUMN IF NOT EXISTS void_reason TEXT;
+
+-- ---- Write-off: the bill is real but will never be paid (a LOSS) -----------
+ALTER TABLE charges ADD COLUMN IF NOT EXISTS written_off_at TIMESTAMPTZ;
+ALTER TABLE charges ADD COLUMN IF NOT EXISTS written_off_by UUID
+    CONSTRAINT fk_charges_written_off_by REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE charges ADD COLUMN IF NOT EXISTS write_off_reason TEXT;
 
 -- ---- Table-level constraints (multi-column — cannot ride on an ADD COLUMN) --
 
 DO $$ BEGIN
+    -- Each kind fills its own columns and no other's. Same shape as
+    -- chk_sale_items_line_ref. A 'sale' charge may have no customer (walk-in).
     IF NOT EXISTS (
         SELECT 1 FROM pg_constraint
-        WHERE conrelid = 'custom_debts'::regclass AND conname = 'chk_custom_debts_void_consistency'
+        WHERE conrelid = 'charges'::regclass AND conname = 'chk_charges_kind_ref'
     ) THEN
-        ALTER TABLE custom_debts ADD CONSTRAINT chk_custom_debts_void_consistency
+        ALTER TABLE charges ADD CONSTRAINT chk_charges_kind_ref
+            CHECK (
+                (kind = 'month'
+                    AND customer_id IS NOT NULL
+                    AND customer_plan_id IS NOT NULL AND billing_month IS NOT NULL
+                    AND sale_id IS NULL)
+                OR
+                (kind = 'sale'
+                    AND sale_id IS NOT NULL
+                    AND customer_plan_id IS NULL AND billing_month IS NULL)
+                OR
+                (kind = 'manual'
+                    AND customer_id IS NOT NULL
+                    AND description IS NOT NULL
+                    AND customer_plan_id IS NULL AND billing_month IS NULL
+                    AND sale_id IS NULL)
+            );
+    END IF;
+
+    -- voided_at and voided_by must be set together
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conrelid = 'charges'::regclass AND conname = 'chk_charges_void_consistency'
+    ) THEN
+        ALTER TABLE charges ADD CONSTRAINT chk_charges_void_consistency
             CHECK (
                 (voided_at IS NULL AND voided_by IS NULL)
                 OR
                 (voided_at IS NOT NULL AND voided_by IS NOT NULL)
             );
+    END IF;
+
+    -- written_off_at and written_off_by must be set together
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conrelid = 'charges'::regclass AND conname = 'chk_charges_write_off_consistency'
+    ) THEN
+        ALTER TABLE charges ADD CONSTRAINT chk_charges_write_off_consistency
+            CHECK (
+                (written_off_at IS NULL AND written_off_by IS NULL)
+                OR
+                (written_off_at IS NOT NULL AND written_off_by IS NOT NULL)
+            );
+    END IF;
+
+    -- A mistake and a loss are mutually exclusive statements about one bill.
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conrelid = 'charges'::regclass AND conname = 'chk_charges_void_xor_write_off'
+    ) THEN
+        ALTER TABLE charges ADD CONSTRAINT chk_charges_void_xor_write_off
+            CHECK (voided_at IS NULL OR written_off_at IS NULL);
+    END IF;
+
+    -- One bill per service line per month. The natural key the offline mirror
+    -- hashes into a deterministic id, so two devices collecting the same month
+    -- converge on ONE row instead of colliding here (gotcha #1).
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conrelid = 'charges'::regclass AND conname = 'uq_charges_line_month'
+    ) THEN
+        ALTER TABLE charges ADD CONSTRAINT uq_charges_line_month
+            UNIQUE (customer_plan_id, billing_month);
+    END IF;
+
+    -- One bill per sale.
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conrelid = 'charges'::regclass AND conname = 'uq_charges_sale'
+    ) THEN
+        ALTER TABLE charges ADD CONSTRAINT uq_charges_sale UNIQUE (sale_id);
     END IF;
 END $$;
 
-CREATE INDEX IF NOT EXISTS idx_custom_debts_tenant_id
-    ON custom_debts (tenant_id);
+-- NOTE: there is deliberately NO check that SUM(collection_items) <= amount.
+-- The server must accept whatever an offline device replays — the same reason
+-- stock_movements has no on_hand >= 0 check. Overpay is refused in the service.
 
-CREATE INDEX IF NOT EXISTS idx_custom_debts_customer_id
-    ON custom_debts (customer_id);
+CREATE INDEX IF NOT EXISTS idx_charges_tenant_id
+    ON charges (tenant_id);
+
+CREATE INDEX IF NOT EXISTS idx_charges_customer_id
+    ON charges (customer_id);
+
+CREATE INDEX IF NOT EXISTS idx_charges_customer_plan_id
+    ON charges (customer_plan_id);
+
+-- The debts list and the waterfall both walk a tenant's bills by due date.
+CREATE INDEX IF NOT EXISTS idx_charges_tenant_due_date
+    ON charges (tenant_id, due_date);
+
+CREATE INDEX IF NOT EXISTS idx_charges_sale_id
+    ON charges (sale_id)
+    WHERE sale_id IS NOT NULL;
 
 -- ============================================================
--- DEBT PAYMENTS
--- Money a customer paid AGAINST their total debt. Tied ONLY to the customer —
--- NOT to any specific payment/sale/custom_debt. It never changes an underlying
--- row; a customer's net debt is computed at runtime:
---   net = SUM(category debts) - SUM(debt payments)
--- No branch_id: inherited via the customer. Soft-void only.
+-- COLLECTIONS  (money physically handed over — the header)
+-- One row = ONE hand-over of cash: "$55, 20 Mar, taken by Sami". Where it went
+-- is the collection_items child table — one hand-over can settle several bills
+-- (the oldest-first waterfall), and one bill can receive several hand-overs
+-- (installments). That many-to-many is the whole reason this table exists
+-- separately from charges.
+-- ONE CURRENCY PER COLLECTION, and it must equal the currency of every charge
+-- it pays — which is why collection_items carries no currency of its own. A
+-- customer owing in two currencies is collected from twice.
+-- This is now the ONLY table in the schema carrying wallet custody.
 -- ============================================================
 
-CREATE TABLE IF NOT EXISTS debt_payments ();
+CREATE TABLE IF NOT EXISTS collections ();
 
 -- ---- Columns --------------------------------------------------------------
 
-ALTER TABLE debt_payments ADD COLUMN IF NOT EXISTS id UUID PRIMARY KEY DEFAULT uuid_generate_v4();
-ALTER TABLE debt_payments ADD COLUMN IF NOT EXISTS tenant_id UUID NOT NULL
-    CONSTRAINT fk_debt_payments_tenant REFERENCES tenants(id) ON DELETE CASCADE;
-ALTER TABLE debt_payments ADD COLUMN IF NOT EXISTS customer_id UUID NOT NULL
-    CONSTRAINT fk_debt_payments_customer REFERENCES customers(id) ON DELETE CASCADE;
-ALTER TABLE debt_payments ADD COLUMN IF NOT EXISTS amount NUMERIC(20,8) NOT NULL
+ALTER TABLE collections ADD COLUMN IF NOT EXISTS id UUID PRIMARY KEY DEFAULT uuid_generate_v4();
+ALTER TABLE collections ADD COLUMN IF NOT EXISTS tenant_id UUID NOT NULL
+    CONSTRAINT fk_collections_tenant REFERENCES tenants(id) ON DELETE CASCADE;
+
+-- Only consulted when customer_id IS NULL (walk-in sale), like charges.
+ALTER TABLE collections ADD COLUMN IF NOT EXISTS branch_id UUID
+    CONSTRAINT fk_collections_branch REFERENCES branches(id) ON DELETE SET NULL;
+
+-- NULL only for a walk-in sale's cash.
+ALTER TABLE collections ADD COLUMN IF NOT EXISTS customer_id UUID
+    CONSTRAINT fk_collections_customer REFERENCES customers(id) ON DELETE CASCADE;
+
+-- The physical cash handed over, in currency_id (NULL = USD). Equals the sum of
+-- its items — enforced in the service, not here, because an offline replay must
+-- always be accepted.
+ALTER TABLE collections ADD COLUMN IF NOT EXISTS amount NUMERIC(20,8) NOT NULL
     CHECK (amount > 0);
+ALTER TABLE collections ADD COLUMN IF NOT EXISTS currency_id UUID
+    CONSTRAINT fk_collections_currency REFERENCES currencies(id) ON DELETE RESTRICT;
 
--- Currency the amount is stored in. NULL = USD.
-ALTER TABLE debt_payments ADD COLUMN IF NOT EXISTS currency_id UUID
-    CONSTRAINT fk_debt_payments_currency REFERENCES currencies(id) ON DELETE RESTRICT;
-
--- Frozen exchange rate at recording time (units per 1 USD; 1 for USD).
-ALTER TABLE debt_payments ADD COLUMN IF NOT EXISTS rate_per_usd_snapshot NUMERIC(20,8) NOT NULL
+-- Units of currency_id per 1 USD, frozen when the money arrived. USD = 1.
+-- THIS is the rate every revenue and wallet figure uses (cash basis).
+ALTER TABLE collections ADD COLUMN IF NOT EXISTS rate_per_usd_snapshot NUMERIC(20,8) NOT NULL
     CHECK (rate_per_usd_snapshot > 0);
 
-ALTER TABLE debt_payments ADD COLUMN IF NOT EXISTS received_by_user_id UUID
-    CONSTRAINT fk_debt_payments_received_by REFERENCES users(id) ON DELETE SET NULL;
+-- When the money arrived. The revenue date — never a billing month.
+ALTER TABLE collections ADD COLUMN IF NOT EXISTS received_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE collections ADD COLUMN IF NOT EXISTS received_by_user_id UUID
+    CONSTRAINT fk_collections_received_by REFERENCES users(id) ON DELETE SET NULL;
 
-ALTER TABLE debt_payments ADD COLUMN IF NOT EXISTS paid_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
-ALTER TABLE debt_payments ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
-ALTER TABLE debt_payments ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE collections ADD COLUMN IF NOT EXISTS notes TEXT;
+ALTER TABLE collections ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE collections ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 
--- Soft-void fields. Set together or not at all.
-ALTER TABLE debt_payments ADD COLUMN IF NOT EXISTS voided_at TIMESTAMPTZ;
-ALTER TABLE debt_payments ADD COLUMN IF NOT EXISTS voided_by UUID
-    CONSTRAINT fk_debt_payments_voided_by REFERENCES users(id) ON DELETE SET NULL;
-ALTER TABLE debt_payments ADD COLUMN IF NOT EXISTS void_reason TEXT;
-ALTER TABLE debt_payments ADD COLUMN IF NOT EXISTS notes TEXT;
+-- Soft void. Voiding the header un-applies every one of its items at once, so
+-- all the balances it touched come back — one action, one reason, one audit row.
+ALTER TABLE collections ADD COLUMN IF NOT EXISTS voided_at TIMESTAMPTZ;
+ALTER TABLE collections ADD COLUMN IF NOT EXISTS voided_by UUID
+    CONSTRAINT fk_collections_voided_by REFERENCES users(id) ON DELETE SET NULL;
+ALTER TABLE collections ADD COLUMN IF NOT EXISTS void_reason TEXT;
 
--- Collector wallet: who physically holds this cash right now. Starts as the
--- receiving user and moves up the chain on each handover. NULL = in nobody's
--- wallet. Same shape as payments.held_by_user_id.
-ALTER TABLE debt_payments ADD COLUMN IF NOT EXISTS held_by_user_id UUID
-    CONSTRAINT fk_debt_payments_held_by REFERENCES users(id) ON DELETE SET NULL;
+-- Collector wallet: who physically holds this cash RIGHT NOW. Starts as the
+-- receiving user and moves up the chain on each handover (collector → branch
+-- admin → tenant-wide admin). NULL = in nobody's wallet.
+ALTER TABLE collections ADD COLUMN IF NOT EXISTS held_by_user_id UUID
+    CONSTRAINT fk_collections_held_by REFERENCES users(id) ON DELETE SET NULL;
 
 -- Final settlement: when the cash left the wallet chain and who took it out.
--- Set together, and only alongside held_by_user_id = NULL.
-ALTER TABLE debt_payments ADD COLUMN IF NOT EXISTS remitted_at TIMESTAMPTZ;
-ALTER TABLE debt_payments ADD COLUMN IF NOT EXISTS remitted_by UUID
-    CONSTRAINT fk_debt_payments_remitted_by REFERENCES users(id) ON DELETE SET NULL;
+-- Set together, and only alongside held_by_user_id = NULL (chk_collections_custody).
+ALTER TABLE collections ADD COLUMN IF NOT EXISTS remitted_at TIMESTAMPTZ;
+ALTER TABLE collections ADD COLUMN IF NOT EXISTS remitted_by UUID
+    CONSTRAINT fk_collections_remitted_by REFERENCES users(id) ON DELETE SET NULL;
 
 -- ---- Table-level constraints (multi-column — cannot ride on an ADD COLUMN) --
 
 DO $$ BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM pg_constraint
-        WHERE conrelid = 'debt_payments'::regclass AND conname = 'chk_debt_payments_void_consistency'
+        WHERE conrelid = 'collections'::regclass AND conname = 'chk_collections_void_consistency'
     ) THEN
-        ALTER TABLE debt_payments ADD CONSTRAINT chk_debt_payments_void_consistency
+        ALTER TABLE collections ADD CONSTRAINT chk_collections_void_consistency
             CHECK (
                 (voided_at IS NULL AND voided_by IS NULL)
                 OR
@@ -1400,10 +1328,9 @@ DO $$ BEGIN
 
     IF NOT EXISTS (
         SELECT 1 FROM pg_constraint
-        WHERE conrelid = 'debt_payments'::regclass
-          AND conname = 'chk_debt_payments_remitted_consistency'
+        WHERE conrelid = 'collections'::regclass AND conname = 'chk_collections_remitted_consistency'
     ) THEN
-        ALTER TABLE debt_payments ADD CONSTRAINT chk_debt_payments_remitted_consistency
+        ALTER TABLE collections ADD CONSTRAINT chk_collections_remitted_consistency
             CHECK (
                 (remitted_at IS NULL AND remitted_by IS NULL)
                 OR
@@ -1414,33 +1341,102 @@ DO $$ BEGIN
     -- Settled cash is in nobody's wallet
     IF NOT EXISTS (
         SELECT 1 FROM pg_constraint
-        WHERE conrelid = 'debt_payments'::regclass AND conname = 'chk_debt_payments_custody'
+        WHERE conrelid = 'collections'::regclass AND conname = 'chk_collections_custody'
     ) THEN
-        ALTER TABLE debt_payments ADD CONSTRAINT chk_debt_payments_custody
+        ALTER TABLE collections ADD CONSTRAINT chk_collections_custody
             CHECK (remitted_at IS NULL OR held_by_user_id IS NULL);
     END IF;
 END $$;
 
-CREATE INDEX IF NOT EXISTS idx_debt_payments_tenant_id
-    ON debt_payments (tenant_id);
+CREATE INDEX IF NOT EXISTS idx_collections_tenant_received_at
+    ON collections (tenant_id, received_at DESC);
 
-CREATE INDEX IF NOT EXISTS idx_debt_payments_customer_id
-    ON debt_payments (customer_id);
-
--- Same as payments: debt collections are the third revenue stream and are
--- always read by paid_at over a range.
-CREATE INDEX IF NOT EXISTS idx_debt_payments_tenant_paid_at
-    ON debt_payments (tenant_id, paid_at DESC);
+CREATE INDEX IF NOT EXISTS idx_collections_customer_id
+    ON collections (customer_id);
 
 -- Collector wallet: the cash a user is holding (not settled, not voided).
-CREATE INDEX IF NOT EXISTS idx_debt_payments_holder
-    ON debt_payments (held_by_user_id)
+CREATE INDEX IF NOT EXISTS idx_collections_holder
+    ON collections (held_by_user_id)
     WHERE held_by_user_id IS NOT NULL AND voided_at IS NULL;
+
+-- ============================================================
+-- COLLECTION ITEMS  (which bill the money paid — the lines)
+-- One row per charge a collection settles. amount is in the PARENT
+-- COLLECTION's currency, which the service guarantees equals the charge's — so
+-- this table needs no currency or rate of its own and a balance always closes
+-- at exactly zero (no rate drift, no leftover 3 LBP).
+-- No branch_id: inherited via the parent collection (RLS EXISTS), exactly like
+-- sale_items inherit via the parent sale.
+-- Never soft-voided on its own — voiding the parent collection un-applies the
+-- whole hand-over, which is the only truthful unit to undo.
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS collection_items ();
+
+-- ---- Columns --------------------------------------------------------------
+
+ALTER TABLE collection_items ADD COLUMN IF NOT EXISTS id UUID PRIMARY KEY DEFAULT uuid_generate_v4();
+ALTER TABLE collection_items ADD COLUMN IF NOT EXISTS tenant_id UUID NOT NULL
+    CONSTRAINT fk_collection_items_tenant REFERENCES tenants(id) ON DELETE CASCADE;
+ALTER TABLE collection_items ADD COLUMN IF NOT EXISTS collection_id UUID NOT NULL
+    CONSTRAINT fk_collection_items_collection REFERENCES collections(id) ON DELETE CASCADE;
+ALTER TABLE collection_items ADD COLUMN IF NOT EXISTS charge_id UUID NOT NULL
+    CONSTRAINT fk_collection_items_charge REFERENCES charges(id) ON DELETE CASCADE;
+
+ALTER TABLE collection_items ADD COLUMN IF NOT EXISTS amount NUMERIC(20,8) NOT NULL
+    CHECK (amount > 0);
+
+ALTER TABLE collection_items ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE collection_items ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+-- ---- Table-level constraints (multi-column — cannot ride on an ADD COLUMN) --
+
+DO $$ BEGIN
+    -- A collection pays a given bill at most once — an edit updates the line.
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+        WHERE conrelid = 'collection_items'::regclass AND conname = 'uq_collection_items_pair'
+    ) THEN
+        ALTER TABLE collection_items ADD CONSTRAINT uq_collection_items_pair
+            UNIQUE (collection_id, charge_id);
+    END IF;
+END $$;
+
+CREATE INDEX IF NOT EXISTS idx_collection_items_charge_id
+    ON collection_items (charge_id);
+
+CREATE INDEX IF NOT EXISTS idx_collection_items_collection_id
+    ON collection_items (collection_id);
+
+-- ============================================================
+-- CHARGE BALANCES (view)
+-- What is still owed on every live bill. Balance is NEVER a stored column —
+-- same rule as product_stock: an offline device must be able to add money
+-- without clobbering a counter. Voiding a collection makes its items vanish
+-- from here and the balance comes back on its own, with nothing to recompute.
+-- Excludes voided bills (a mistake) and written-off bills (a recorded loss) —
+-- neither is owed any more.
+-- ============================================================
+
+CREATE OR REPLACE VIEW charge_balances WITH (security_invoker = true) AS
+    SELECT c.id,
+           c.tenant_id,
+           c.amount,
+           COALESCE(SUM(i.amount), 0)            AS paid,
+           c.amount - COALESCE(SUM(i.amount), 0) AS balance
+    FROM charges c
+    LEFT JOIN collection_items i ON i.charge_id = c.id
+    LEFT JOIN collections p ON p.id = i.collection_id AND p.voided_at IS NULL
+    WHERE c.voided_at IS NULL AND c.written_off_at IS NULL
+    GROUP BY c.id;
+
+GRANT SELECT ON charge_balances TO authenticated;
+
 
 -- ============================================================
 -- EXPENSES
 -- Money the business SPENT — the counterweight to the three cash-in ledgers
--- (payments, sales, debt_payments), so the dashboard can show a real net.
+-- (the collections ledger), so the dashboard can show a real net.
 -- Only HAND-TYPED expenses are stored here (rent, salaries, fuel…). The cost of
 -- buying stock is NOT a row in this table: it is DERIVED at runtime from
 -- stock_movements.unit_cost, so correcting stock corrects the expense too — a
@@ -1521,12 +1517,12 @@ CREATE INDEX IF NOT EXISTS idx_expenses_branch_id
 -- ============================================================
 -- SKIPPED MONTHS
 -- A month a service line is NOT expected to pay (vacation, free month, …).
--- One row per (service line, month) — the same grain as payments — and the
+-- One row per (service line, month) — the same grain as a month charge — and the
 -- state is a BOOLEAN toggle: skip = true, unskip = false. The row is kept
 -- either way so `updated_at` carries the change to other devices (offline
 -- sync is latest-updated_at-wins; a deleted row would carry nothing).
 -- Carries NO money: skipping never creates or clears a debt.
--- No branch_id: inherited via the customer, exactly like payments.
+-- No branch_id: inherited via the customer, exactly like charges.
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS skipped_months ();
@@ -1562,7 +1558,7 @@ ALTER TABLE skipped_months ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT N
 -- ---- Table-level constraints (multi-column — cannot ride on an ADD COLUMN) --
 
 DO $$ BEGIN
-    -- One skip state per service line per month (mirrors payments' natural key,
+    -- One skip state per service line per month (mirrors the charges natural key,
     -- and lets offline derive a deterministic id so two devices converge).
     IF NOT EXISTS (
         SELECT 1 FROM pg_constraint
@@ -1722,14 +1718,14 @@ ALTER TABLE users      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE plans      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE customers  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE customer_plans ENABLE ROW LEVEL SECURITY;
-ALTER TABLE payments   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE products   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE services   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sales      ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sale_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE stock_movements ENABLE ROW LEVEL SECURITY;
-ALTER TABLE custom_debts  ENABLE ROW LEVEL SECURITY;
-ALTER TABLE debt_payments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE charges    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE collections ENABLE ROW LEVEL SECURITY;
+ALTER TABLE collection_items ENABLE ROW LEVEL SECURITY;
 ALTER TABLE expenses   ENABLE ROW LEVEL SECURITY;
 ALTER TABLE skipped_months ENABLE ROW LEVEL SECURITY;
 ALTER TABLE exception_logs ENABLE ROW LEVEL SECURITY;
@@ -1813,7 +1809,6 @@ REVOKE EXECUTE ON FUNCTION public.custom_access_token_hook FROM authenticated, a
 DROP POLICY IF EXISTS customers_all ON customers;
 DROP POLICY IF EXISTS customer_plans_all ON customer_plans;
 DROP POLICY IF EXISTS plans_all     ON plans;
-DROP POLICY IF EXISTS payments_all  ON payments;
 DROP POLICY IF EXISTS users_select  ON users;
 DROP POLICY IF EXISTS users_insert  ON users;
 DROP POLICY IF EXISTS users_update  ON users;
@@ -2066,7 +2061,7 @@ DO $$ BEGIN
 
     -- ── CUSTOMER PLANS (service lines) ───────────────────────
     -- No own branch_id; inherit from the owning customer, exactly like
-    -- payments. Tenant-wide users see all; branch-scoped users only see
+    -- charges. Tenant-wide users see all; branch-scoped users only see
     -- lines whose customer.branch_id matches theirs.
     IF NOT EXISTS (
         SELECT 1 FROM pg_policies
@@ -2098,15 +2093,16 @@ DO $$ BEGIN
             );
     END IF;
 
-    -- ── PAYMENTS ─────────────────────────────────────────────
-    -- Payments don't have their own branch_id; they inherit from the
-    -- customer. Tenant-wide users see all; branch-scoped see only
-    -- payments whose customer.branch_id matches theirs.
+    -- ── CHARGES ──────────────────────────────────────────────
+    -- A charge inherits its branch from the owning customer, the way payments
+    -- and custom_debts did — so a customer moved to another branch takes their
+    -- bills with them. Its own branch_id is consulted ONLY for a walk-in sale
+    -- charge, which has no customer to inherit from.
     IF NOT EXISTS (
         SELECT 1 FROM pg_policies
-        WHERE tablename = 'payments' AND policyname = 'payments_all'
+        WHERE tablename = 'charges' AND policyname = 'charges_all'
     ) THEN
-        CREATE POLICY payments_all ON payments
+        CREATE POLICY charges_all ON charges
             FOR ALL
             USING (
                 tenant_id = current_tenant_id()
@@ -2114,9 +2110,11 @@ DO $$ BEGIN
                     current_branch_id() IS NULL
                     OR EXISTS (
                         SELECT 1 FROM customers c
-                        WHERE c.id = payments.customer_id
+                        WHERE c.id = charges.customer_id
                           AND c.branch_id = current_branch_id()
                     )
+                    OR (charges.customer_id IS NULL
+                        AND charges.branch_id = current_branch_id())
                 )
             )
             WITH CHECK (
@@ -2125,9 +2123,73 @@ DO $$ BEGIN
                     current_branch_id() IS NULL
                     OR EXISTS (
                         SELECT 1 FROM customers c
-                        WHERE c.id = payments.customer_id
+                        WHERE c.id = charges.customer_id
                           AND c.branch_id = current_branch_id()
                     )
+                    OR (charges.customer_id IS NULL
+                        AND charges.branch_id = current_branch_id())
+                )
+            );
+    END IF;
+
+    -- ── COLLECTIONS ──────────────────────────────────────────
+    -- Same branch rule as charges: via the customer, own branch_id only for a
+    -- walk-in sale's cash.
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE tablename = 'collections' AND policyname = 'collections_all'
+    ) THEN
+        CREATE POLICY collections_all ON collections
+            FOR ALL
+            USING (
+                tenant_id = current_tenant_id()
+                AND (
+                    current_branch_id() IS NULL
+                    OR EXISTS (
+                        SELECT 1 FROM customers c
+                        WHERE c.id = collections.customer_id
+                          AND c.branch_id = current_branch_id()
+                    )
+                    OR (collections.customer_id IS NULL
+                        AND collections.branch_id = current_branch_id())
+                )
+            )
+            WITH CHECK (
+                tenant_id = current_tenant_id()
+                AND (
+                    current_branch_id() IS NULL
+                    OR EXISTS (
+                        SELECT 1 FROM customers c
+                        WHERE c.id = collections.customer_id
+                          AND c.branch_id = current_branch_id()
+                    )
+                    OR (collections.customer_id IS NULL
+                        AND collections.branch_id = current_branch_id())
+                )
+            );
+    END IF;
+
+    -- ── COLLECTION ITEMS ─────────────────────────────────────
+    -- No own branch_id: inherited via the parent collection, exactly like
+    -- sale_items inherit via the parent sale.
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE tablename = 'collection_items' AND policyname = 'collection_items_all'
+    ) THEN
+        CREATE POLICY collection_items_all ON collection_items
+            FOR ALL
+            USING (
+                tenant_id = current_tenant_id()
+                AND EXISTS (
+                    SELECT 1 FROM collections co
+                    WHERE co.id = collection_items.collection_id
+                )
+            )
+            WITH CHECK (
+                tenant_id = current_tenant_id()
+                AND EXISTS (
+                    SELECT 1 FROM collections co
+                    WHERE co.id = collection_items.collection_id
                 )
             );
     END IF;
@@ -2243,7 +2305,7 @@ DO $$ BEGIN
     END IF;
 
     -- ── SALE ITEMS ───────────────────────────────────────────
-    -- No own branch_id; inherit from the parent sale, exactly like custom_debts
+    -- No own branch_id; inherit from the parent sale, exactly like collection_items
     -- inherit from the customer. Tenant-wide users see all; branch-scoped users
     -- only see lines whose parent sale.branch_id matches theirs.
     IF NOT EXISTS (
@@ -2311,71 +2373,6 @@ DO $$ BEGIN
             );
     END IF;
 
-    -- ── CUSTOM DEBTS ─────────────────────────────────────────
-    -- No own branch_id; inherit from the owning customer, exactly like
-    -- payments. Tenant-wide users see all; branch-scoped users only see
-    -- debts whose customer.branch_id matches theirs.
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_policies
-        WHERE tablename = 'custom_debts' AND policyname = 'custom_debts_all'
-    ) THEN
-        CREATE POLICY custom_debts_all ON custom_debts
-            FOR ALL
-            USING (
-                tenant_id = current_tenant_id()
-                AND (
-                    current_branch_id() IS NULL
-                    OR EXISTS (
-                        SELECT 1 FROM customers c
-                        WHERE c.id = custom_debts.customer_id
-                          AND c.branch_id = current_branch_id()
-                    )
-                )
-            )
-            WITH CHECK (
-                tenant_id = current_tenant_id()
-                AND (
-                    current_branch_id() IS NULL
-                    OR EXISTS (
-                        SELECT 1 FROM customers c
-                        WHERE c.id = custom_debts.customer_id
-                          AND c.branch_id = current_branch_id()
-                    )
-                )
-            );
-    END IF;
-
-    -- ── DEBT PAYMENTS ────────────────────────────────────────
-    -- Same branch-via-customer inheritance as custom_debts / payments.
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_policies
-        WHERE tablename = 'debt_payments' AND policyname = 'debt_payments_all'
-    ) THEN
-        CREATE POLICY debt_payments_all ON debt_payments
-            FOR ALL
-            USING (
-                tenant_id = current_tenant_id()
-                AND (
-                    current_branch_id() IS NULL
-                    OR EXISTS (
-                        SELECT 1 FROM customers c
-                        WHERE c.id = debt_payments.customer_id
-                          AND c.branch_id = current_branch_id()
-                    )
-                )
-            )
-            WITH CHECK (
-                tenant_id = current_tenant_id()
-                AND (
-                    current_branch_id() IS NULL
-                    OR EXISTS (
-                        SELECT 1 FROM customers c
-                        WHERE c.id = debt_payments.customer_id
-                          AND c.branch_id = current_branch_id()
-                    )
-                )
-            );
-    END IF;
 
     -- ── EXPENSES ─────────────────────────────────────────────
     -- ADMINS ONLY, read and write: rent and salaries are not staff business.
@@ -2418,7 +2415,7 @@ DO $$ BEGIN
     END IF;
 
     -- ── SKIPPED MONTHS ───────────────────────────────────────
-    -- Same branch-via-customer inheritance as payments / custom_debts.
+    -- Same branch-via-customer inheritance as charges / collections.
     IF NOT EXISTS (
         SELECT 1 FROM pg_policies
         WHERE tablename = 'skipped_months' AND policyname = 'skipped_months_all'
@@ -2552,15 +2549,23 @@ GRANT EXECUTE ON FUNCTION public.is_tenant_code_available(TEXT) TO anon, authent
 --    plans      = customer subscription packages (tenant's staff manage this).
 --    These are entirely different concepts. Do not confuse them.
 
--- 3. PAYMENT INTEGRITY
---    billing_month MUST be YYYY-MM-01. The chk_billing_month_first_day constraint
---    enforces this at the DB level. The app must also normalize before inserting.
---    amount_due and amount_paid are SNAPSHOTS. Never recompute from plan.price.
---    amount_paid < amount_due = partial payment; balance holds the outstanding debt.
---    amount_paid = 0 is treated as unpaid in the app (reserves the row slot).
---    voided payments are retained forever. uq_payments_line_month is per SERVICE
---    LINE (customer_plan_id, billing_month) — a customer with several lines pays
---    each independently; re-paying a voided month upserts the same row.
+-- 3. LEDGER INTEGRITY (charges + collections + collection_items)
+--    A CHARGE is what is owed; a COLLECTION is money handed over; a
+--    COLLECTION_ITEM says which charge that money paid. What has been paid is
+--    NEVER a column — it is SUM(collection_items), exposed by charge_balances.
+--    One bill can take many collections (installments) and one collection can
+--    settle many bills (the oldest-first waterfall) — that many-to-many is why
+--    the middle table exists.
+--    charges.amount is a SNAPSHOT with its own frozen currency + rate. Never
+--    recompute it from plan.price or a product price.
+--    billing_month MUST be YYYY-MM-01 (chk_charges_billing_month_first_day), and
+--    uq_charges_line_month is per SERVICE LINE — a customer with several lines
+--    is billed for each independently.
+--    A month charge is created LAZILY, only when money first touches the month;
+--    an untouched unpaid month has no row and is computed by buildMonthGrid.
+--    Voiding a COLLECTION un-applies all its items at once and every balance it
+--    touched comes back on its own. Voiding a CHARGE says the bill was a
+--    mistake; writing one off says it is real but lost. Nothing is ever deleted.
 
 -- 4. CUSTOMER DEACTIVATION
 --    Never DELETE a customer. Set active = false and cancelled_at = NOW().
@@ -2582,7 +2587,9 @@ GRANT EXECUTE ON FUNCTION public.is_tenant_code_available(TEXT) TO anon, authent
 --                          NOT NULL = belongs to that branch (visible to that branch's staff)
 --    plans.branch_id       NULL = SHARED (visible to everyone in the tenant)
 --                          NOT NULL = branch-specific (only that branch sees it)
---    payments              No branch_id; inherits from customers.branch_id via JOIN.
+--    charges / collections Inherit from customers.branch_id via JOIN. Their own
+--                          branch_id is read ONLY for a customer-less walk-in
+--                          sale row, which has nothing to inherit from.
 --
 --    Single-branch tenants leave branch_id NULL on every row — the feature is invisible.
 --    Branch-scoped admins cannot create shared plans (WITH CHECK enforces branch match).
@@ -2594,24 +2601,24 @@ GRANT EXECUTE ON FUNCTION public.is_tenant_code_available(TEXT) TO anon, authent
 -- Placed at the end so every referenced table already exists.
 -- ============================================================
 
--- Server-authoritative updated_at for payments + sales (tables defined above).
-CREATE OR REPLACE TRIGGER trg_payments_updated_at
-    BEFORE UPDATE ON payments
-    FOR EACH ROW
-    EXECUTE FUNCTION set_updated_at();
-
+-- Server-authoritative updated_at for the tables defined above.
 CREATE OR REPLACE TRIGGER trg_sales_updated_at
     BEFORE UPDATE ON sales
     FOR EACH ROW
     EXECUTE FUNCTION set_updated_at();
 
-CREATE OR REPLACE TRIGGER trg_custom_debts_updated_at
-    BEFORE UPDATE ON custom_debts
+CREATE OR REPLACE TRIGGER trg_charges_updated_at
+    BEFORE UPDATE ON charges
     FOR EACH ROW
     EXECUTE FUNCTION set_updated_at();
 
-CREATE OR REPLACE TRIGGER trg_debt_payments_updated_at
-    BEFORE UPDATE ON debt_payments
+CREATE OR REPLACE TRIGGER trg_collections_updated_at
+    BEFORE UPDATE ON collections
+    FOR EACH ROW
+    EXECUTE FUNCTION set_updated_at();
+
+CREATE OR REPLACE TRIGGER trg_collection_items_updated_at
+    BEFORE UPDATE ON collection_items
     FOR EACH ROW
     EXECUTE FUNCTION set_updated_at();
 

@@ -151,8 +151,8 @@ export interface Customer {
 
 // A single service line: one plan a customer is subscribed to, with its own
 // start/cancel lifecycle. planId null = custom/occasional line (ad-hoc amounts,
-// no fixed plan). Payments attach to a line, and each line builds its own month
-// grid via PaymentService.buildMonthGrid().
+// no fixed plan). Month charges attach to a line, and each line builds its own
+// month grid via PaymentService.buildMonthGrid().
 export interface CustomerPlan {
   id: string;
   customerId: string;
@@ -170,38 +170,6 @@ export interface CustomerPlan {
   createdAt: string;
   updatedAt: string;
   plan?: Plan | null;
-}
-
-export interface Payment {
-  id: string;
-  billingMonth: string;
-  amountDue: number;
-  amountPaid: number;
-  balance: number;
-  durationMonths: number;
-  // Currency the amounts above are stored in. null = USD.
-  currencyId: string | null;
-  // Exchange rate (units of currencyId per 1 USD) captured at recording time.
-  // USD payments (currencyId === null) always store 1. Frozen — receipt and aggregate
-  // USD values use this instead of the live currencies.rate_per_usd.
-  ratePerUsdSnapshot: number;
-  customerId: string;
-  // The service line (customer_plans row) this payment settles.
-  customerPlanId: string;
-  // Snapshot of which plan applied at recording time. null = custom/no plan.
-  planId: string | null;
-  receivedByUserId: string | null;
-  tenantId: string;
-  paidAt: string;
-  voidedAt: string | null;
-  voidedBy: string | null;
-  notes: string | null;
-  // Collector wallet: who holds this cash now. null = nobody (settled/unattributed).
-  heldByUserId: string | null;
-  // Final settlement: when the cash left the wallet chain, and who took it out.
-  remittedAt: string | null;
-  remittedBy: string | null;
-  createdAt: string;
 }
 
 // A month marked as "not expected to pay" on ONE service line. Toggled by
@@ -225,8 +193,15 @@ export interface MonthEntry {
   label: string;
   billingMonth: string;
   status: MonthStatus;
-  payment: Payment | null;
+  // The bill for this month. null when nothing has ever touched it — an unpaid
+  // month writes no row, exactly as before.
+  charge: Charge | null;
+  // Money received against that bill. 0 whether the charge is missing or merely
+  // empty (e.g. after a void), which is why nothing here asks "does a row
+  // exist?" — the two states must read identically.
+  collected: number;
   isGroupSecondary: boolean;
+  // What is still owed on this month: charge.amount - collected.
   balance: number;
   // The active skip covering this month, when status === 'skipped'.
   skip: SkippedMonth | null;
@@ -284,13 +259,15 @@ export interface CustomerStatus {
 export interface DashboardMetrics {
   totalCustomers: number;
   activeCustomers: number;
-  // Revenue is CASH COLLECTED, not billed: every stream sums what was actually
-  // received. An unpaid remainder is a debt and enters revenue only later, as a
-  // debt payment — so a partial payment/sale never inflates the month.
-  monthlyRevenue: number;    // subscriptionRevenue + salesRevenue + debtRevenue
-  subscriptionRevenue: number;
-  salesRevenue: number;
-  debtRevenue: number;       // debt payments collected this month
+  // Revenue is CASH COLLECTED, not billed — one pass over `collections`, by
+  // receivedAt. An unpaid remainder stays a debt and enters revenue only in the
+  // month it is actually collected, so nothing is ever counted twice.
+  // The breakdown splits the SAME money by what each collection_item paid for
+  // (charges.kind), so a partly-paid sale now lands in the right bucket.
+  monthlyRevenue: number;    // subscriptionRevenue + salesRevenue + manualRevenue
+  subscriptionRevenue: number; // items against 'month' charges
+  salesRevenue: number;        // items against 'sale' charges
+  manualRevenue: number;       // items against 'manual' charges (custom debts)
   // Money OUT this month, on the same cash basis: a stock purchase counts when
   // it was PAID FOR, not when the goods sell. monthlyRevenue above stays GROSS —
   // netIncome is the subtraction, so no existing number changes meaning.
@@ -306,12 +283,14 @@ export interface DashboardMetrics {
   dueThisMonth: number;
   totalUsers: number;
   totalPlans: number;
-  // Debt is all-time, never month-scoped. totalDebt is NET (after debt payments)
-  // while the two category fields are GROSS, so the parts read larger than the
-  // total — the tile shows them side by side anyway, by the owner's choice.
-  totalDebt: number;         // net debt still owed across all customers/categories
-  monthsDebt: number;        // gross portion from partial subscription payments
-  salesDebt: number;         // gross portion from partial sales
+  // Debt is all-time, never month-scoped, and every part is a real balance —
+  // so unlike before, the three categories SUM to totalDebt exactly.
+  // A fully unpaid month is NOT debt (it is unpaidThisMonth above); only a
+  // PARTLY paid one is.
+  totalDebt: number;         // still owed across all customers/categories
+  monthsDebt: number;        // partly-paid subscription months
+  salesDebt: number;         // open or partly-paid sales
+  manualDebt: number;        // hand-typed custom debts
   // Collector wallets — cash on hand: collected and not yet settled out of the
   // system, wherever it sits in the chain (the viewer's own wallet included).
   // Admin-only: 0 when the caller isn't an admin (not computed then). USD.
@@ -447,24 +426,19 @@ export interface Sale {
   recordedByUserId: string | null;
   // Sum of every line's lineTotal, frozen. In `currencyId`.
   totalAmount: number;
-  // How much was collected at sale time. A partial sale (amountPaid < totalAmount)
-  // leaves a "Sales" debt (remaining = totalAmount - amountPaid).
-  amountPaid: number;
   // Currency the amounts are stored in. null = USD.
   currencyId: string | null;
-  // USD sales store 1. Mirrors Payment.ratePerUsdSnapshot.
+  // USD sales store 1. Mirrors Charge.ratePerUsdSnapshot.
   ratePerUsdSnapshot: number;
   soldAt: string;
   voidedAt: string | null;
   voidedBy: string | null;
   voidReason: string | null;
   notes: string | null;
-  // Collector wallet: who holds this cash (amountPaid) now. null = nobody.
-  heldByUserId: string | null;
-  // Final settlement: when the cash left the wallet chain, and who took it out.
-  remittedAt: string | null;
-  remittedBy: string | null;
   createdAt: string;
+  // The sale document holds NO money and NO custody: what is owed for it is its
+  // `charges` row (kind 'sale') and what was collected is a `collections` row.
+  // A sale can therefore take several payments over time without this row moving.
   // The product lines. Present on list/detail reads; empty on lean reads (debt/wallet
   // use itemsSummary instead).
   items: SaleItem[];
@@ -472,121 +446,246 @@ export interface Sale {
   customer?: Customer | null;
 }
 
-// ── Debts ───────────────────────────────────────────────────────────────────
-// A customer's total debt is DERIVED at runtime, never stored:
-//   net = sum(all category debts) - sum(debt payments)
-// Only the two sources without a source transaction are stored: CustomDebt
-// (hand-typed) and DebtPayment. "months"/"sales" debts come from partial
-// payments / partial sales.
+// ── Ledger: charges + collections ───────────────────────────────────────────
+// Two facts, deliberately kept apart:
+//   CHARGE      what the customer owes — a month, a sale, or a hand-typed fee.
+//   COLLECTION  money physically handed over, with COLLECTION_ITEMS saying
+//               which charges it paid.
+// One bill can take many collections (installments) and one collection can
+// settle many bills (the oldest-first waterfall) — a many-to-many that a single
+// `amountPaid` column can never record. What has been paid is therefore NEVER a
+// field on Charge; it is the sum of its items (see ChargeBalance).
 
-export type DebtCategory = 'months' | 'sales' | 'services' | 'custom';
+export type ChargeKind = 'month' | 'sale' | 'manual';
 
-// A hand-typed debt with no source transaction.
-export interface CustomDebt {
+// Derived, never stored. 'void' = the bill was a mistake; 'written_off' = it is
+// real but will never be paid (a recorded loss).
+export type ChargeStatus = 'open' | 'partial' | 'settled' | 'void' | 'written_off';
+
+export interface Charge {
   id: string;
   tenantId: string;
-  customerId: string;
+  // Read ONLY when customerId is null (a walk-in sale). Otherwise the branch is
+  // the customer's, so a customer moved to another branch takes their bills.
+  branchId: string | null;
+  // null only for a walk-in sale charge.
+  customerId: string | null;
+  kind: ChargeKind;
+
+  // kind === 'month'
+  customerPlanId: string | null;
+  billingMonth: string | null;
+  // Consecutive months this ONE bill covers. billingMonth is the first of them.
+  durationMonths: number;
+  // Snapshot of which plan applied when the bill was raised. null = custom.
+  planId: string | null;
+
+  // kind === 'sale'
+  saleId: string | null;
+
+  // kind === 'manual'
   description: string | null;
+
+  // What is owed, in currencyId (null = USD). Frozen — never recomputed.
   amount: number;
-  // Currency the amount is stored in. null = USD.
   currencyId: string | null;
+  // Units of currencyId per 1 USD, frozen when the bill was raised. USD = 1.
+  // Converts the OUTSTANDING balance to USD (what he was billed); a collection
+  // carries its own rate for what was actually collected.
   ratePerUsdSnapshot: number;
+
+  // When the bill was raised — may be long after dueDate (a January month
+  // billed in March, when the collector finally came).
+  issuedAt: string;
+  // When it must be paid. THE sort key for the waterfall and the only source of
+  // ageing. month → the billing day; sale → soldAt or a later agreed date;
+  // manual → picked by staff.
+  dueDate: string;
+
   recordedByUserId: string | null;
-  incurredAt: string;
+  notes: string | null;
   createdAt: string;
   updatedAt: string;
+
+  // The bill was a MISTAKE — it never existed.
   voidedAt: string | null;
   voidedBy: string | null;
   voidReason: string | null;
-  notes: string | null;
+  // The bill is REAL but will never be paid — a recorded LOSS. Mutually
+  // exclusive with a void: they are different statements about the same row.
+  writtenOffAt: string | null;
+  writtenOffBy: string | null;
+  writeOffReason: string | null;
 }
 
-// Money paid against a customer's total debt. Tied only to the customer.
-export interface DebtPayment {
+// One physical hand-over of cash. This is the ONLY carrier of wallet custody in
+// the whole schema, and `receivedAt` is the one revenue date.
+export interface Collection {
   id: string;
   tenantId: string;
-  customerId: string;
+  branchId: string | null;
+  customerId: string | null;
+  // The cash handed over, in currencyId (null = USD). Always equals the sum of
+  // its items — the service guarantees it.
   amount: number;
-  // Currency the amount is stored in. null = USD.
   currencyId: string | null;
+  // Frozen when the money arrived. THIS is the rate every revenue and wallet
+  // figure uses (cash basis).
   ratePerUsdSnapshot: number;
+  receivedAt: string;
   receivedByUserId: string | null;
-  paidAt: string;
+  notes: string | null;
   createdAt: string;
   updatedAt: string;
   voidedAt: string | null;
   voidedBy: string | null;
   voidReason: string | null;
-  notes: string | null;
-  // Collector wallet: who holds this cash now. null = nobody (settled/unattributed).
+  // Collector wallet: who holds this cash now. null = nobody (settled).
   heldByUserId: string | null;
-  // Final settlement: when the cash left the wallet chain, and who took it out.
   remittedAt: string | null;
   remittedBy: string | null;
+  // Loaded by the reads that need the split (a receipt, the history sheet).
+  items?: CollectionItem[];
 }
 
-// One row in the Debts flat list (a partial month, a partial sale, or a custom
-// debt), unified for display. `remaining` is in the row's own currency.
-export interface DebtItem {
+// Where one slice of a collection went. `amount` is in the PARENT COLLECTION's
+// currency, which the service guarantees equals the charge's — so a balance
+// always closes at exactly zero, with no rate drift and no currency of its own.
+export interface CollectionItem {
   id: string;
-  category: DebtCategory;
+  tenantId: string;
+  collectionId: string;
+  chargeId: string;
+  amount: number;
+  createdAt: string;
+  updatedAt: string;
+  // Loaded when the row must be labelled ("Jan 2026 · Internet").
+  charge?: Charge | null;
+}
+
+// One month's bill and the money that has reached it. The ONLY shape
+// buildMonthGrid accepts, so the grid never learns that collections exist and
+// stays the pure function it has always been.
+//
+// `collected` is 0 both when the bill has no money and when there is no bill at
+// all — which is exactly why nothing in the app asks "does a charge row exist?".
+// An untouched January and one whose collection was voided must read the same.
+export interface MonthBill {
+  charge: Charge;
+  collected: number;
+}
+
+// A live bill plus what has been collected against it. Comes from the
+// `charge_balances` view on the server and the equivalent GROUP BY offline, so
+// one mapper serves both. Voided and written-off charges are excluded at source.
+export interface ChargeBalance {
+  chargeId: string;
+  amount: number;
+  paid: number;
+  balance: number;
+}
+
+// ── Owed vs debt ────────────────────────────────────────────────────────────
+// OWED  everything with a balance, INCLUDING plain unpaid months. Only the
+//       waterfall consumes this.
+// DEBT  the subset shown on the Debts screen: partial months, open/partial
+//       sales, custom fees. A fully unpaid month is NOT a debt — it is
+//       `unpaid`/`overdue` in the month grid, which is its own workflow.
+//       isDebt(item) = balance > 0 && (kind !== 'month' || paid > 0)
+
+// One line of what a customer owes, whatever its source. A month that has never
+// been touched has NO charge row, so `chargeId` is null and the row was derived
+// from buildMonthGrid — collecting money is what turns it into a real bill.
+export interface OpenItem {
+  // null = a virtual month; the waterfall materializes its charge on payment.
+  chargeId: string | null;
+  kind: ChargeKind;
   customerId: string;
   customerName: string;
-  // e.g. "Jan 2026 · Internet", the product name snapshot, or a custom description.
+  // month rows only — the natural key a virtual row is deduped and hashed on.
+  customerPlanId: string | null;
+  billingMonth: string | null;
+  durationMonths: number;
+  planId: string | null;
+  saleId: string | null;
+  // "Jan 2026 · Internet" | "Sale #12 · Router" | "Installation fee"
   label: string;
-  remaining: number;
+  amount: number;
+  paid: number;
+  balance: number;
   currencyId: string | null;
   ratePerUsdSnapshot: number;
-  // What the debt is ABOUT: billing_month / sold_at / incurred_at. Display only —
-  // a month debt's billing month can be far in the future, so it must never
-  // order or group the list.
-  date: string;
-  /**
-   * When the debt was actually recorded (created_at / paid_at / sold_at /
-   * incurred_at). This is what sorts and groups every debt view — a November
-   * 2027 subscription paid today belongs under "Today", not under 2027.
-   */
+  dueDate: string;
+  issuedAt: string;
   createdAt: string;
-  sourceType: 'payment' | 'sale' | 'custom_debt';
-  /**
-   * What was collected out of what was owed on the record behind this debt, in
-   * the row's own currency (so remaining = due − paid). Both null for a custom
-   * debt, which has no record behind it — its amount IS the debt.
-   */
-  amountPaid: number | null;
-  amountDue: number | null;
-  /**
-   * The payment behind a `months` row, carried whole because the query that
-   * builds these rows already selects it in full — opening its receipt must not
-   * re-fetch what the app is holding. Null on every other category: a `sales`
-   * row's query is deliberately lean (no `sale_items`), so that receipt is
-   * loaded on demand, and a custom debt has no record at all.
-   */
-  payment: Payment | null;
+  // False for a plain unpaid month — it is owed, but the Debts screen omits it.
+  isDebt: boolean;
 }
 
-// A debt-payment row for the "Payments" view of the Debts list.
-export interface DebtPaymentItem {
-  id: string;
+// One proposed line of a collection, before it is saved. The collect sheet
+// renders these as its split preview and lets staff untick one to steer the
+// money to the next item.
+export interface AllocationLine {
+  item: OpenItem;
+  amount: number;
+  // True when this line closes the bill outright.
+  settles: boolean;
+}
+
+// What a customer owes, split the way the Debts screen shows it.
+export interface CustomerDebts {
   customerId: string;
   customerName: string;
+  // The debt rows — never plain unpaid months.
+  items: OpenItem[];
+  // Plain unpaid months, shown as the muted "+2 unpaid months" hint and as
+  // their own section in the customer sheet. The waterfall reaches these too.
+  unpaidMonths: OpenItem[];
+  debtUsd: number;
+  unpaidMonthsUsd: number;
+  // Days past due on the oldest debt row. 0 when nothing is late yet.
+  oldestDaysLate: number;
+}
+
+// Totals for the current Debts filter scope, in USD (the screen formats into
+// the display currency). These ADD UP now — there is no net-vs-gross split,
+// because every row carries its own balance.
+export interface DebtSummary {
+  totalUsd: number;
+  monthsUsd: number;
+  salesUsd: number;
+  manualUsd: number;
+  customerCount: number;
+  // Money given up on in the period — reported, never counted as owed.
+  writtenOffUsd: number;
+}
+
+export interface DebtsView {
+  customers: CustomerDebts[];
+  summary: DebtSummary;
+}
+
+// A collection row for the money-in history (all customers, one customer, or
+// one wallet). `itemCount` decides whether the card shows its single line
+// inline or a "3 items" expander.
+export interface CollectionListItem {
+  id: string;
+  customerId: string | null;
+  customerName: string | null;
   amount: number;
   currencyId: string | null;
   ratePerUsdSnapshot: number;
-  paidAt: string;
-  notes: string | null;
-  // Who collected it — used by the collector wallet.
+  receivedAt: string;
   receivedByUserId: string | null;
-  // Who holds the cash now (null = nobody). The wallet groups on this.
   heldByUserId: string | null;
-}
-
-// Net summary for the current Debts filter scope. All values in USD (the screen
-// formats into the user's display currency).
-export interface DebtSummary {
-  grossUsd: number;
-  paymentsUsd: number;
-  netUsd: number;
+  branchId: string | null;
+  notes: string | null;
+  voidedAt: string | null;
+  voidReason: string | null;
+  itemCount: number;
+  // Frozen-at-read labels of what this hand-over paid, in allocation order.
+  itemLabels: string[];
+  items: CollectionItem[];
 }
 
 // ── Expenses ─────────────────────────────────────────────────────────────────
@@ -783,7 +882,8 @@ export type AuditAction = 'create' | 'update' | 'delete' | 'void' | 'restore';
 // what nothing else remembers is a quantity or cost changed after the fact.
 // See docs/features.md → Audit Trail.
 export type AuditTable =
-  | 'payments'
+  | 'charges'
+  | 'collections'
   | 'sales'
   | 'customers'
   | 'customer_plans'

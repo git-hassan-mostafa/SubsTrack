@@ -22,9 +22,13 @@ const BATCH_ROWS = 200;
  * both writers below check the key themselves.
  */
 const NATURAL_KEYS: Record<string, string[]> = {
-  payments: ['customer_plan_id', 'billing_month'],
+  // A month bill: two devices collecting the same month must converge on ONE
+  // row, or the same month would be billed twice.
+  charges: ['customer_plan_id', 'billing_month'],
   skipped_months: ['customer_plan_id', 'billing_month'],
   tenant_settings: ['tenant_id', 'key'],
+  // One line per (hand-over, bill), so replaying a collection is idempotent.
+  collection_items: ['collection_id', 'charge_id'],
 };
 
 /** INSERT a fully-formed local row (id + timestamps already set) and mark it dirty. */

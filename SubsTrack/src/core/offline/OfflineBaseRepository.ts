@@ -140,13 +140,12 @@ export abstract class OfflineBaseRepository {
     customers: { kind: 'owned' },
     users: { kind: 'owned' },
     plans: { kind: 'shared' },
-    payments: { kind: 'inherited', joinedTable: 'customers' },
+    charges: { kind: 'inherited', joinedTable: 'customers' },
+    collections: { kind: 'inherited', joinedTable: 'customers' },
     customer_plans: { kind: 'inherited', joinedTable: 'customers' },
     products: { kind: 'shared' },
     services: { kind: 'shared' },
     sales: { kind: 'owned' },
-    custom_debts: { kind: 'inherited', joinedTable: 'customers' },
-    debt_payments: { kind: 'inherited', joinedTable: 'customers' },
     expenses: { kind: 'owned' },
     // Money, not stock: a SHARED product's purchase is a company expense, so it
     // must NOT be 'shared' here or every branch would count the same spend.

@@ -27,7 +27,7 @@ import { buildAuditRow, type AuditInput } from "../audit";
  *   'inherited' — row has no branch_id of its own; the branch is read from a
  *                 joined parent table. Always use `.select('..., parent!inner(branch_id)')`
  *                 in the query so PostgREST can apply the filter on the join.
- *                 Used by: payments (inherits from customers).
+ *                 Used by: charges, collections (inherit from customers).
  */
 export type BranchScope =
   | { kind: "owned"; column?: string }
@@ -247,13 +247,12 @@ export abstract class BaseRepository {
     customers: { kind: "owned" },
     users: { kind: "owned" },
     plans: { kind: "shared" },
-    payments: { kind: "inherited", joinedTable: "customers" },
+    charges: { kind: "inherited", joinedTable: "customers" },
+    collections: { kind: "inherited", joinedTable: "customers" },
     customer_plans: { kind: "inherited", joinedTable: "customers" },
     products: { kind: "shared" },
     services: { kind: "shared" },
     sales: { kind: "owned" },
-    custom_debts: { kind: "inherited", joinedTable: "customers" },
-    debt_payments: { kind: "inherited", joinedTable: "customers" },
     expenses: { kind: "owned" },
     // Money, not stock: a SHARED product's purchase is a company expense, so it
     // must NOT be 'shared' here or every branch would count the same spend.

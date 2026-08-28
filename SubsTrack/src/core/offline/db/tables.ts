@@ -140,22 +140,6 @@ export const TABLES: TableSpec[] = [
     },
   },
   {
-    name: 'payments',
-    scope: 'tenant',
-    columns: {
-      id: 'text', billing_month: 'text', amount_due: 'num', amount_paid: 'num', balance: 'num',
-      duration_months: 'int', currency_id: 'text', rate_per_usd_snapshot: 'num',
-      customer_id: 'text', customer_plan_id: 'text', plan_id: 'text', received_by_user_id: 'text',
-      tenant_id: 'text', paid_at: 'text', voided_at: 'text', voided_by: 'text', notes: 'text',
-      held_by_user_id: 'text', remitted_at: 'text', remitted_by: 'text',
-      created_at: 'text', updated_at: 'text',
-    },
-    // Mirrors the server upsert conflict target — enforces one payment per
-    // service line per month locally, so replay is idempotent (gotcha #1).
-    constraints: ['UNIQUE (customer_plan_id, billing_month)'],
-    generated: ['balance'], // server: GENERATED ALWAYS AS (amount_due - amount_paid)
-  },
-  {
     // Months a service line is not expected to pay. `skipped` toggles; the row
     // is kept when unskipped so the change syncs like any other update.
     name: 'skipped_months',
@@ -199,15 +183,14 @@ export const TABLES: TableSpec[] = [
     columns: {
       id: 'text', tenant_id: 'text', branch_id: 'text', items_summary: 'text',
       customer_id: 'text', recorded_by_user_id: 'text',
-      total_amount: 'num', amount_paid: 'num',
+      total_amount: 'num',
       currency_id: 'text', rate_per_usd_snapshot: 'num', sold_at: 'text',
       voided_at: 'text', voided_by: 'text',
       void_reason: 'text', notes: 'text',
-      held_by_user_id: 'text', remitted_at: 'text', remitted_by: 'text',
       created_at: 'text', updated_at: 'text',
     },
     // total_amount is app-written (sum of sale_items line totals) — NOT generated.
-    // amount_paid is also client-written.
+    // No money received and no custody: those are charges + collections.
   },
   {
     // One line per sale — a PRODUCT (moves stock) or a SERVICE (moves nothing);
@@ -242,27 +225,56 @@ export const TABLES: TableSpec[] = [
     },
   },
   {
-    name: 'custom_debts',
+    // What a customer OWES — a month, a sale, or a hand-typed fee. What has been
+    // PAID is deliberately not a column: it is SUM(collection_items), computed
+    // by the same GROUP BY the server exposes as the charge_balances view. Two
+    // devices can therefore both collect offline without clobbering a counter,
+    // exactly like stock_movements vs a stock column.
+    name: 'charges',
     scope: 'tenant',
     columns: {
-      id: 'text', tenant_id: 'text', customer_id: 'text', description: 'text',
+      id: 'text', tenant_id: 'text', branch_id: 'text', customer_id: 'text',
+      kind: 'text',
+      customer_plan_id: 'text', billing_month: 'text', duration_months: 'int',
+      plan_id: 'text',
+      sale_id: 'text',
+      description: 'text',
       amount: 'num', currency_id: 'text', rate_per_usd_snapshot: 'num',
-      recorded_by_user_id: 'text', incurred_at: 'text',
-      voided_at: 'text', voided_by: 'text', void_reason: 'text', notes: 'text',
+      issued_at: 'text', due_date: 'text',
+      recorded_by_user_id: 'text', notes: 'text',
+      voided_at: 'text', voided_by: 'text', void_reason: 'text',
+      written_off_at: 'text', written_off_by: 'text', write_off_reason: 'text',
+      created_at: 'text', updated_at: 'text',
+    },
+    // Mirrors the server's natural key, so the deterministic id keeps two
+    // devices collecting the same month converging on ONE bill (gotcha #1).
+    constraints: ['UNIQUE (customer_plan_id, billing_month)'],
+  },
+  {
+    // One physical hand-over of cash. The ONLY table carrying wallet custody,
+    // and received_at is the one revenue date.
+    name: 'collections',
+    scope: 'tenant',
+    columns: {
+      id: 'text', tenant_id: 'text', branch_id: 'text', customer_id: 'text',
+      amount: 'num', currency_id: 'text', rate_per_usd_snapshot: 'num',
+      received_at: 'text', received_by_user_id: 'text', notes: 'text',
+      voided_at: 'text', voided_by: 'text', void_reason: 'text',
+      held_by_user_id: 'text', remitted_at: 'text', remitted_by: 'text',
       created_at: 'text', updated_at: 'text',
     },
   },
   {
-    name: 'debt_payments',
+    // Which bill each slice of a collection paid. amount is in the PARENT
+    // COLLECTION's currency, so there is no currency or rate here.
+    name: 'collection_items',
     scope: 'tenant',
     columns: {
-      id: 'text', tenant_id: 'text', customer_id: 'text',
-      amount: 'num', currency_id: 'text', rate_per_usd_snapshot: 'num',
-      received_by_user_id: 'text', paid_at: 'text',
-      voided_at: 'text', voided_by: 'text', void_reason: 'text', notes: 'text',
-      held_by_user_id: 'text', remitted_at: 'text', remitted_by: 'text',
+      id: 'text', tenant_id: 'text', collection_id: 'text', charge_id: 'text',
+      amount: 'num',
       created_at: 'text', updated_at: 'text',
     },
+    constraints: ['UNIQUE (collection_id, charge_id)'],
   },
   {
     // Hand-typed expenses only — stock purchase costs are derived from
@@ -346,9 +358,10 @@ export const PUSH_WAVES: readonly (readonly string[])[] = [
   ['tenants', 'tier_plans', 'app_options'],
   ['tenant_settings', 'currencies', 'branches'],
   ['users', 'plans', 'customers', 'products', 'services'],
-  ['customer_plans', 'sales', 'expenses', 'custom_debts', 'debt_payments',
+  ['customer_plans', 'sales', 'expenses', 'collections',
     'exception_logs', 'audit_logs'],
-  ['payments', 'skipped_months', 'sale_items', 'stock_movements'],
+  ['charges', 'skipped_months', 'sale_items', 'stock_movements'],
+  ['collection_items'],
 ];
 
 /**

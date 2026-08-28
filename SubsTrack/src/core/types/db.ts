@@ -120,33 +120,6 @@ export interface DbCustomerPlan {
   plans?: DbPlan | null;
 }
 
-export interface DbPayment {
-  id: string;
-  billing_month: string;
-  amount_due: number;
-  amount_paid: number;
-  balance: number;
-  duration_months: number;
-  currency_id: string | null;
-  rate_per_usd_snapshot: number;
-  customer_id: string;
-  customer_plan_id: string;
-  plan_id: string | null;
-  received_by_user_id: string | null;
-  tenant_id: string;
-  paid_at: string;
-  voided_at: string | null;
-  voided_by: string | null;
-  notes: string | null;
-  // Collector wallet: who holds this cash now. null = nobody (settled/unattributed).
-  held_by_user_id: string | null;
-  // Final settlement: when the cash left the wallet chain, and who took it out.
-  remitted_at: string | null;
-  remitted_by: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
 // A month one service line is not expected to pay. `skipped` is a toggle: the
 // row stays when the skip is removed so `updated_at` carries the change to
 // other devices. Carries no money.
@@ -206,8 +179,6 @@ export interface DbSale {
   recorded_by_user_id: string | null;
   // Sum of every line's (unit_amount * quantity). App-written (not generated).
   total_amount: number;
-  // How much of the sale was collected. Partial (< total) leaves a "Sales" debt.
-  amount_paid: number;
   currency_id: string | null;
   rate_per_usd_snapshot: number;
   sold_at: string;
@@ -215,13 +186,10 @@ export interface DbSale {
   voided_by: string | null;
   void_reason: string | null;
   notes: string | null;
-  // Collector wallet: who holds this cash (amount_paid) now. null = nobody.
-  held_by_user_id: string | null;
-  // Final settlement: when the cash left the wallet chain, and who took it out.
-  remitted_at: string | null;
-  remitted_by: string | null;
   created_at: string;
   updated_at: string;
+  // No money and no custody here: what is OWED for the sale is its charges row
+  // and what was COLLECTED is a collections row.
   // joined relations — present when
   // .select('*, sale_items(*, products(*), services(*)), customers(*)')
   sale_items?: DbSaleItem[];
@@ -285,52 +253,102 @@ export interface DbSaleItem {
   services?: DbService | null;
 }
 
-// A hand-typed debt with no source transaction (months/sales debts are derived
-// at runtime and never stored here). Soft-void only.
-export interface DbCustomDebt {
+// ── Ledger rows ─────────────────────────────────────────────────────────────
+// charges = what is owed, collections = money handed over, collection_items =
+// which bill that money paid. What has been PAID is never a column on a charge;
+// it is SUM(collection_items), which is what DbChargeBalance carries.
+
+// One bill: a subscription month, a sale, or a hand-typed fee.
+export interface DbCharge {
   id: string;
   tenant_id: string;
-  customer_id: string;
+  // Read ONLY when customer_id is null (walk-in sale); otherwise the branch is
+  // the customer's.
+  branch_id: string | null;
+  customer_id: string | null;
+  kind: 'month' | 'sale' | 'manual';
+  // kind = 'month'
+  customer_plan_id: string | null;
+  billing_month: string | null;
+  duration_months: number;
+  plan_id: string | null;
+  // kind = 'sale'
+  sale_id: string | null;
+  // kind = 'manual'
   description: string | null;
   amount: number;
   currency_id: string | null;
   rate_per_usd_snapshot: number;
+  issued_at: string;
+  // The waterfall sort key and the only source of ageing.
+  due_date: string;
   recorded_by_user_id: string | null;
-  incurred_at: string;
+  notes: string | null;
   created_at: string;
   updated_at: string;
+  // The bill was a mistake — it never existed.
   voided_at: string | null;
   voided_by: string | null;
   void_reason: string | null;
-  notes: string | null;
-  // joined relation — present when .select('*, customers(*)')
+  // The bill is real but will never be paid — a recorded loss.
+  written_off_at: string | null;
+  written_off_by: string | null;
+  write_off_reason: string | null;
+  // joined relations — present when .select('*, customers(*), customer_plans(*), sales(*)')
   customers?: DbCustomer | null;
+  customer_plans?: DbCustomerPlan | null;
+  sales?: DbSale | null;
 }
 
-// Money a customer paid against their total debt. Tied only to the customer;
-// never modifies an underlying payment/sale row. Soft-void only.
-export interface DbDebtPayment {
+// One physical hand-over of cash. The ONLY carrier of wallet custody, and
+// received_at is the one revenue date.
+export interface DbCollection {
   id: string;
   tenant_id: string;
-  customer_id: string;
+  branch_id: string | null;
+  customer_id: string | null;
   amount: number;
   currency_id: string | null;
   rate_per_usd_snapshot: number;
+  received_at: string;
   received_by_user_id: string | null;
-  paid_at: string;
+  notes: string | null;
   created_at: string;
   updated_at: string;
   voided_at: string | null;
   voided_by: string | null;
   void_reason: string | null;
-  notes: string | null;
-  // Collector wallet: who holds this cash now. null = nobody (settled/unattributed).
   held_by_user_id: string | null;
-  // Final settlement: when the cash left the wallet chain, and who took it out.
   remitted_at: string | null;
   remitted_by: string | null;
-  // joined relation — present when .select('*, customers(*)')
+  // joined relations — present when .select('*, collection_items(*, charges(*)), customers(*)')
+  collection_items?: DbCollectionItem[];
   customers?: DbCustomer | null;
+}
+
+// Which bill one slice of a collection paid. amount is in the PARENT
+// COLLECTION's currency (guaranteed equal to the charge's), so this row needs
+// no currency or rate of its own and a balance closes at exactly zero.
+export interface DbCollectionItem {
+  id: string;
+  tenant_id: string;
+  collection_id: string;
+  charge_id: string;
+  amount: number;
+  created_at: string;
+  updated_at: string;
+  // joined relation — present when .select('*, charges(*)')
+  charges?: DbCharge | null;
+}
+
+// The charge_balances view on the server; the equivalent GROUP BY over the
+// mirror offline. Voided and written-off charges are excluded at source.
+export interface DbChargeBalance {
+  id: string;
+  tenant_id: string;
+  amount: number;
+  paid: number;
+  balance: number;
 }
 
 // One hand-typed business expense (rent, salaries, fuel…). The cost of buying
