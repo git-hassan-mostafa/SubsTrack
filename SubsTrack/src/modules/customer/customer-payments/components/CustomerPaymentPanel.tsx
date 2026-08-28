@@ -25,7 +25,7 @@ import { getCurrentYearMonth, getDateLocale } from "@/src/core/utils/date";
 import {
   findCurrency,
   formatMoney,
-  paymentSnapshotCurrency,
+  snapshotCurrency,
   toUsd,
 } from "@/src/core/utils/currency";
 import { COLORS } from "@/src/shared/constants";
@@ -933,7 +933,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
     )
     .reduce(
       (sum, p) =>
-        sum + toUsd(p.amountPaid, paymentSnapshotCurrency(p, currencies)),
+        sum + toUsd(p.amountPaid, snapshotCurrency(p, currencies)),
       0,
     );
   const collectedTotalLabel = formatMoney(

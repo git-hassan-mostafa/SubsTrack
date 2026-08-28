@@ -11,7 +11,7 @@ import {
   findCurrency,
   formatMoney,
   formatPaidFraction,
-  paymentSnapshotCurrency,
+  snapshotCurrency,
 } from "@/src/core/utils/currency";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
@@ -67,7 +67,7 @@ export function DebtItemCard({
   const locale = language === "ar" ? "ar" : "en-US";
   const [menuOpen, setMenuOpen] = useState(false);
 
-  const source = paymentSnapshotCurrency(item, currencies);
+  const source = snapshotCurrency(item, currencies);
   const target = findCurrency(currencies, displayCurrencyId);
   const amountLabel = formatMoney(item.remaining, source, target);
   // "20/50 $" — what was collected out of what was owed. Only a derived row has

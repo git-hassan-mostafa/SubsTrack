@@ -11,7 +11,7 @@ import {
 import type { ExpenseItem } from "@/src/core/types";
 import {
   findCurrency,
-  paymentSnapshotCurrency,
+  snapshotCurrency,
 } from "@/src/core/utils/currency";
 import { outflowLabel } from "../utils/outflow";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
@@ -40,7 +40,7 @@ export function ExpenseCard({ item, onVoid, onOpenProduct }: Props) {
   const locale = language === "ar" ? "ar" : "en-US";
   const [menuOpen, setMenuOpen] = useState(false);
 
-  const source = paymentSnapshotCurrency(item, currencies);
+  const source = snapshotCurrency(item, currencies);
   const target = findCurrency(currencies, displayCurrencyId);
 
   const amountLabel = outflowLabel(item.amount, source, target);

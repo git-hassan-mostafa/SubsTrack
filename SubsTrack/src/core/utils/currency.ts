@@ -5,7 +5,7 @@
 //   - Stored amounts are literal numbers in their source currency (no canonical unit).
 //   - Conversion goes via USD: toUsd then fromUsd.
 
-import type { Currency, Payment } from '@/src/core/types';
+import type { Currency } from '@/src/core/types';
 
 export function toUsd(amount: number, source: Currency | null): number {
   if (source === null) return amount;
@@ -41,16 +41,18 @@ export function findCurrency(currencies: Currency[], id: string | null): Currenc
 }
 
 // Currency to use when displaying a historical payment amount.
-// Clones the current Currency but pins ratePerUsd to the payment's snapshot,
-// so USD equivalents don't drift when the live rate is later edited.
-export function paymentSnapshotCurrency(
-  payment: Pick<Payment, 'currencyId' | 'ratePerUsdSnapshot'>,
+// Clones the current Currency but pins ratePerUsd to the row's frozen
+// snapshot, so USD equivalents don't drift when the live rate is later edited.
+// Structural on purpose: a charge froze the rate it was BILLED at, a collection
+// the rate the money ARRIVED at, and both are read the same way.
+export function snapshotCurrency(
+  row: { currencyId: string | null; ratePerUsdSnapshot: number },
   currencies: Currency[],
 ): Currency | null {
-  if (!payment.currencyId) return null;
-  const base = findCurrency(currencies, payment.currencyId);
+  if (!row.currencyId) return null;
+  const base = findCurrency(currencies, row.currencyId);
   if (!base) return null;
-  return { ...base, ratePerUsd: payment.ratePerUsdSnapshot };
+  return { ...base, ratePerUsd: row.ratePerUsdSnapshot };
 }
 
 export function formatMoney(

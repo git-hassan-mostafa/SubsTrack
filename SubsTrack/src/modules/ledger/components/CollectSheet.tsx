@@ -1,0 +1,287 @@
+import { useMemo, useState } from "react";
+import { View } from "react-native";
+import { useTranslation } from "react-i18next";
+import { Ionicons } from "@expo/vector-icons";
+import { Text } from "@/src/shared/components/Text";
+import { FormSheet } from "@/src/shared/components/FormSheet";
+import { Button } from "@/src/shared/components/Button";
+import { CurrencyInput } from "@/src/shared/components/CurrencyInput";
+import { DatePickerInput } from "@/src/shared/components/DatePickerInput";
+import { Input } from "@/src/shared/components/Input";
+import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
+import { Dropdown } from "@/src/shared/components/Dropdown";
+import { COLORS } from "@/src/shared/constants";
+import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
+import type { Currency, Customer, OpenItem } from "@/src/core/types";
+import { findCurrency, formatMoney } from "@/src/core/utils/currency";
+import { getTodayDateString } from "@/src/core/utils/date";
+import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
+import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
+import { allocate, keyOf, totalOwed } from "../utils/waterfall";
+
+interface Props {
+  visible: boolean;
+  onDismiss: () => void;
+  customer: Customer | null;
+  /** Everything the customer owes — debts AND plain unpaid months. */
+  owed: OpenItem[];
+  loading: boolean;
+  onSubmit: (args: {
+    amount: number;
+    currencyId: string | null;
+    ratePerUsdSnapshot: number;
+    receivedAt: string;
+    notes: string | null;
+    lines: { item: OpenItem; amount: number }[];
+  }) => void;
+  /** Single-item mode: only this bill is collectable, no split preview. */
+  singleItem?: OpenItem | null;
+}
+
+/**
+ * The one door money comes in through.
+ *
+ * Two modes, one write: a WHOLE CUSTOMER (type an amount, the waterfall splits
+ * it oldest-first across everything owed) or a SINGLE BILL. Both produce the
+ * same rows, so there is one code path and one audit shape.
+ *
+ * The split preview is the heart of it — staff sees exactly what the money will
+ * do BEFORE saving, which is what makes an automatic allocation trustworthy
+ * instead of magic. Any row can be unticked to steer the cash to the next one.
+ */
+export function CollectSheet({
+  visible,
+  onDismiss,
+  customer,
+  owed,
+  loading,
+  onSubmit,
+  singleItem = null,
+}: Props) {
+  const { t } = useTranslation();
+  const currencies = useCurrencySlice((s) => s.items);
+  const displayCurrencyId = useDisplayCurrencyId();
+
+  const pool = useMemo(() => (singleItem ? [singleItem] : owed), [singleItem, owed]);
+
+  // A hand-over is ONE currency, and it must match the bills it pays — that is
+  // what lets a balance close at exactly zero. When a customer owes in two
+  // currencies he is collected from twice, so the picker only appears then.
+  const currencyIds = useMemo(
+    () => Array.from(new Set(pool.map((i) => i.currencyId))),
+    [pool],
+  );
+  const [currencyId, setCurrencyId] = useState<string | null>(
+    () => dominantCurrency(pool),
+  );
+  const scoped = useMemo(
+    () => pool.filter((i) => i.currencyId === currencyId),
+    [pool, currencyId],
+  );
+
+  const maxAmount = useMemo(() => totalOwed(scoped), [scoped]);
+  const [amount, setAmount] = useState<number | null>(() => maxAmount || null);
+  const [excluded, setExcluded] = useState<ReadonlySet<string>>(new Set());
+  const [receivedAt, setReceivedAt] = useState(getTodayDateString);
+  const [notes, setNotes] = useState("");
+
+  const dirty = useDirtyForm({ amount, receivedAt, notes });
+
+  const included = useMemo(
+    () => scoped.filter((i) => !excluded.has(keyOf(i))),
+    [scoped, excluded],
+  );
+  const { lines, leftover } = useMemo(
+    () => allocate(amount ?? 0, included),
+    [amount, included],
+  );
+
+  const currency = findCurrency(currencies, currencyId);
+  const display = findCurrency(currencies, displayCurrencyId);
+  const money = (value: number) => formatMoney(value, currency, display);
+
+  const paidByKey = new Map(lines.map((l) => [keyOf(l.item), l]));
+  const remainingAfter = maxAmount - (amount ?? 0);
+  // Overpay is refused: there is nowhere for unapplied cash to live.
+  const overpaying = leftover > 0;
+  const canSubmit = !loading && (amount ?? 0) > 0 && lines.length > 0 && !overpaying;
+
+  const submit = () => {
+    if (!canSubmit) return;
+    onSubmit({
+      amount: amount!,
+      currencyId,
+      ratePerUsdSnapshot: currency?.ratePerUsd ?? 1,
+      receivedAt: new Date(`${receivedAt}T12:00:00`).toISOString(),
+      notes: notes.trim() || null,
+      lines: lines.map((l) => ({ item: l.item, amount: l.amount })),
+    });
+  };
+
+  const toggle = (item: OpenItem) => {
+    const key = keyOf(item);
+    setExcluded((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  return (
+    <FormSheet
+      visible={visible}
+      onDismiss={onDismiss}
+      dirty={dirty}
+      title={
+        singleItem
+          ? t("ledger.collect_item_title", { item: singleItem.label })
+          : t("ledger.collect_from", { name: customer?.name ?? "" })
+      }
+    >
+      <View className="gap-4 px-4 pb-8">
+        {/* What is owed, and the one tap that collects all of it. */}
+        <View className="flex-row items-center justify-between rounded-xl bg-slate-50 px-4 py-3">
+          <Text className="text-slate-600">{t("ledger.owed")}</Text>
+          <View className="flex-row items-center gap-3">
+            <Text className="text-lg font-semibold text-slate-900">{money(maxAmount)}</Text>
+            <PressableOpacity
+              onPress={() => setAmount(maxAmount)}
+              className="rounded-lg bg-white px-3 py-1.5"
+            >
+              <Text className="text-xs font-medium text-primary">{t("ledger.collect_all")}</Text>
+            </PressableOpacity>
+          </View>
+        </View>
+
+        {currencyIds.length > 1 && (
+          <View className="gap-1">
+            <Dropdown
+              label={t("ledger.currency")}
+              value={currencyId ?? ""}
+              onChange={(next) => {
+                setCurrencyId(next || null);
+                setExcluded(new Set());
+                setAmount(null);
+              }}
+              options={currencyIds.map((id) => ({
+                value: id ?? "",
+                label: findCurrency(currencies, id)?.code ?? "USD",
+              }))}
+            />
+            <Text className="text-xs text-amber-700">{t("ledger.other_currency_hint")}</Text>
+          </View>
+        )}
+
+        <CurrencyInput
+          label={t("ledger.amount")}
+          amount={amount}
+          currencyId={currencyId}
+          currencies={currencies}
+          // The currency is decided by the bills being paid, never typed here —
+          // a hand-over must match what it settles.
+          lockCurrency
+          onChange={(next) => setAmount(next.amount)}
+        />
+
+        <DatePickerInput
+          label={t("ledger.received_at")}
+          value={receivedAt}
+          onChange={setReceivedAt}
+        />
+
+        {/* The split preview: what this money will actually do. */}
+        {!singleItem && (
+          <View className="gap-2">
+            <Text className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              {t("ledger.this_pays")}
+            </Text>
+            {scoped.map((item) => {
+              const line = paidByKey.get(keyOf(item));
+              const isExcluded = excluded.has(keyOf(item));
+              return (
+                <PressableOpacity
+                  key={keyOf(item)}
+                  onPress={() => toggle(item)}
+                  className="flex-row items-center gap-3 rounded-xl border border-slate-200 px-3 py-2.5"
+                >
+                  <Ionicons
+                    name={isExcluded ? "square-outline" : "checkbox"}
+                    size={20}
+                    color={isExcluded ? COLORS.gray500 : COLORS.primary}
+                  />
+                  <View className="flex-1">
+                    <Text className="text-sm text-slate-900" numberOfLines={1}>
+                      {item.label}
+                    </Text>
+                    <Text className="text-xs text-slate-500">
+                      {line?.settles
+                        ? t("ledger.pays_in_full")
+                        : line
+                          ? t("ledger.leaves_owing", {
+                              amount: money(item.balance - line.amount),
+                            })
+                          : t("ledger.not_covered")}
+                    </Text>
+                  </View>
+                  <Text
+                    className={
+                      line ? "text-sm font-semibold text-slate-900" : "text-sm text-slate-400"
+                    }
+                  >
+                    {line ? money(line.amount) : "—"}
+                  </Text>
+                </PressableOpacity>
+              );
+            })}
+
+            <View className="flex-row items-center justify-between border-t border-slate-200 pt-2">
+              <Text className="text-sm text-slate-600">{t("ledger.still_owed_after")}</Text>
+              <Text className="text-sm font-semibold text-slate-900">
+                {money(Math.max(0, remainingAfter))}
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {singleItem && (amount ?? 0) > 0 && (amount ?? 0) < singleItem.balance && (
+          <Text className="text-xs text-amber-700">{t("ledger.partial_leaves_debt")}</Text>
+        )}
+
+        {overpaying && (
+          <ErrorBanner
+            message={t("ledger.cannot_exceed", { amount: money(maxAmount) })}
+            onDismiss={() => setAmount(maxAmount)}
+          />
+        )}
+
+        <Input
+          label={t("ledger.notes")}
+          value={notes}
+          onChangeText={setNotes}
+          multiline
+        />
+
+        <Button label={t("common.save")} onPress={submit} disabled={!canSubmit} loading={loading} />
+      </View>
+    </FormSheet>
+  );
+}
+
+/** The currency the customer owes the most in — the sensible default. */
+function dominantCurrency(items: OpenItem[]): string | null {
+  const byCurrency = new Map<string | null, number>();
+  for (const i of items) {
+    byCurrency.set(i.currencyId, (byCurrency.get(i.currencyId) ?? 0) + i.balance / i.ratePerUsdSnapshot);
+  }
+  let best: string | null = null;
+  let bestUsd = -1;
+  for (const [id, usd] of byCurrency) {
+    if (usd > bestUsd) {
+      best = id;
+      bestUsd = usd;
+    }
+  }
+  return best;
+}

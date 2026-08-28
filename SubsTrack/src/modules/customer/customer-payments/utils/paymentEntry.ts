@@ -1,23 +1,25 @@
 import { MONTHS } from '@/src/core/constants';
-import type { MonthEntry, Payment } from '@/src/core/types';
+import type { Charge, MonthEntry } from '@/src/core/types';
 
 /**
- * Wraps a recorded payment in the MonthEntry shape PaymentDetailSheet reads, for
- * surfaces that hold a payment but no month grid (the Payments tab, a debt row).
- * Status is always "paid" — any recorded payment is, partial included; the sheet
- * reads `balance` itself to show what is still owed.
+ * Wraps a month bill in the MonthEntry shape the grid sheets read, for surfaces
+ * that hold a bill but no month grid (a debt row, a collection's split).
+ * Status is always "paid" — the caller only reaches here for a bill money has
+ * touched, partial included; the sheet reads `balance` for what is still owed.
  */
-export function paymentToMonthEntry(payment: Payment): MonthEntry {
-  const [year, month] = payment.billingMonth.split('-').map(Number);
+export function chargeToMonthEntry(charge: Charge, collected: number): MonthEntry {
+  const billingMonth = charge.billingMonth ?? '';
+  const [year, month] = billingMonth.split('-').map(Number);
   return {
     year,
     month,
     label: MONTHS[month - 1],
-    billingMonth: payment.billingMonth,
+    billingMonth,
     status: 'paid',
-    payment,
+    charge,
+    collected,
     isGroupSecondary: false,
-    balance: payment.balance,
+    balance: charge.amount - collected,
     skip: null,
   };
 }

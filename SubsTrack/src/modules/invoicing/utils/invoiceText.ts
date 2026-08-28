@@ -14,7 +14,7 @@ import { formatDate } from "@/src/core/utils/date";
 import {
   findCurrency,
   formatMoney,
-  paymentSnapshotCurrency,
+  snapshotCurrency,
 } from "@/src/core/utils/currency";
 // Deep import on purpose: the customer-payments barrel re-exports screens, and
 // pulling UI into a pure util would defeat the point.
@@ -101,7 +101,7 @@ function totalsByCurrency(
   return sumByCurrency(
     rows,
     (r) => r.payment.amountPaid,
-    (r) => paymentSnapshotCurrency(r.payment, ctx.currencies),
+    (r) => snapshotCurrency(r.payment, ctx.currencies),
   ).map(({ source, sum }) =>
     row(ctx.t("invoice.total_paid"), money(sum, source)),
   );
@@ -127,7 +127,7 @@ export function buildPaymentInvoiceText(
 
   if (rows.length === 1) {
     const { payment } = rows[0];
-    const source = paymentSnapshotCurrency(payment, ctx.currencies);
+    const source = snapshotCurrency(payment, ctx.currencies);
     const lines = [
       row(ctx.t("sales.customer_label"), customerName),
       row(ctx.t("payments.month_label"), periodLabel(ctx, rows[0])),
@@ -165,7 +165,7 @@ export function buildPaymentInvoiceText(
   const oneDate = dates.every((d) => d === dates[0]);
 
   const bullets = ordered.map((r, i) => {
-    const source = paymentSnapshotCurrency(r.payment, ctx.currencies);
+    const source = snapshotCurrency(r.payment, ctx.currencies);
     const remaining =
       r.payment.balance > 0
         ? ` (${ctx.t("sales.remaining_label")}: ${money(r.payment.balance, source)})`
@@ -195,7 +195,7 @@ export function buildSaleInvoiceText(
   sale: Sale,
   customerName: string | null,
 ): string {
-  const source = paymentSnapshotCurrency(sale, ctx.currencies);
+  const source = snapshotCurrency(sale, ctx.currencies);
   const remaining = sale.totalAmount - sale.amountPaid;
 
   // sale.items is empty on lean reads — the frozen summary is the fallback.
@@ -248,7 +248,7 @@ export function buildSalesInvoiceText(
 
   // Oldest sale first — the list hands us newest-first.
   const sales = [...rows].sort((a, b) => a.soldAt.localeCompare(b.soldAt));
-  const currencyOf = (s: Sale) => paymentSnapshotCurrency(s, ctx.currencies);
+  const currencyOf = (s: Sale) => snapshotCurrency(s, ctx.currencies);
   const remainingOf = (s: Sale) => s.totalAmount - s.amountPaid;
 
   const bullets = sales.map((sale) => {

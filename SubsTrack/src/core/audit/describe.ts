@@ -21,8 +21,10 @@ export function describeAudit(table: AuditTable, row: Record<string, unknown> | 
   };
 
   switch (table) {
-    case 'payments':
-      return join(s('billing_month'), s('amount_paid'));
+    case 'charges':
+      return join(s('billing_month'), s('description'), s('amount'));
+    case 'collections':
+      return join(s('received_at'), s('amount'));
     case 'sales':
       return join(s('items_summary'), s('total_amount'));
     case 'customers':

@@ -12,7 +12,7 @@ import {
   findCurrency,
   formatMoney,
   formatPaidFraction,
-  paymentSnapshotCurrency,
+  snapshotCurrency,
 } from "@/src/core/utils/currency";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
@@ -70,7 +70,7 @@ export function SaleDetailSheet({
 
   if (!sale) return null;
 
-  const source = paymentSnapshotCurrency(sale, currencies);
+  const source = snapshotCurrency(sale, currencies);
   const target = findCurrency(currencies, displayCurrencyId);
   const fmtSource = (v: number) => formatMoney(v, source, source);
   const fmtTarget = (v: number) => formatMoney(v, source, target);

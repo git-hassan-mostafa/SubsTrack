@@ -8,7 +8,7 @@ import { COLORS } from "@/src/shared/constants";
 import {
   findCurrency,
   formatMoney,
-  paymentSnapshotCurrency,
+  snapshotCurrency,
 } from "@/src/core/utils/currency";
 import { formatDate } from "@/src/core/utils/date";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
@@ -42,7 +42,7 @@ export function PaymentListCard({
   const { language } = useLanguageStore();
   const locale = language === "ar" ? "ar" : "en-US";
 
-  const source = paymentSnapshotCurrency(payment, currencies);
+  const source = snapshotCurrency(payment, currencies);
   const target = findCurrency(currencies, displayCurrencyId);
   const amountLabel = formatMoney(payment.amountPaid, source, target);
 

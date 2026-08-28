@@ -6,7 +6,7 @@ import type { Currency, Sale } from "@/src/core/types";
 import {
   findCurrency,
   formatMoney,
-  paymentSnapshotCurrency,
+  snapshotCurrency,
 } from "@/src/core/utils/currency";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
@@ -53,10 +53,10 @@ export function SaleCard({
   const { language } = useLanguageStore();
   const locale = language === "ar" ? "ar" : "en-US";
 
-  // paymentSnapshotCurrency works for any row carrying a `currencyId` +
+  // snapshotCurrency works for any row carrying a `currencyId` +
   // `ratePerUsdSnapshot` pair (it's not payment-specific despite the name).
   // The Sale shape matches that contract.
-  const source = paymentSnapshotCurrency(sale, currencies);
+  const source = snapshotCurrency(sale, currencies);
   const target = findCurrency(currencies, displayCurrencyId);
   const fullyPaid = sale.amountPaid >= sale.totalAmount;
   const totalFormatted = formatMoney(sale.totalAmount, source, target);
