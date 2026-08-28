@@ -2,7 +2,7 @@
 
 Covers the one-off sales ledger: recording a sale (with **one or more products and/or services**) against an optional customer, viewing the sales list, the sale receipt, the row's 3-dot action menu, editing a recorded sale, voiding a sale, and the per-customer sales panel. Sales are a completely separate ledger from subscription payments — they share no schema or service code beyond the snapshot-rate principle. Sending the sale receipt to the customer over WhatsApp (the form's second button and the receipt sheet's Send button) is covered in [whatsapp-invoices.md](whatsapp-invoices.md). The service **price list** itself (Admin → Services) is covered in [services.md](services.md).
 
-**A sale is a header (`sales`) + one or more lines (`sale_items`), and a line sells a PRODUCT or a SERVICE.** One sale can hold several lines in any mix — products only, services only, or both. The header carries the single sale currency + rate snapshot, the summed `total_amount`, `amount_paid`, and a frozen `items_summary`. Each line carries `line_type`, a nullable `product_id` / `service_id`, `item_name_snapshot`, `quantity` (**always 1 on a service line** — labour has no count, so the row shows only a Price field), `unit_amount`. Partial payment / debt / wallet / dashboard are all header-level (one debt, one wallet entry, one revenue figure per sale). Revenue, wallet, and the Sales-tab month headers all read `amount_paid`; only the debt reads `total_amount − amount_paid`.
+**A sale is a header (`sales`) + one or more lines (`sale_items`), and a line sells a PRODUCT or a SERVICE.** One sale can hold several lines in any mix — products only, services only, or both. The header carries the single sale currency + rate snapshot, the summed `total_amount` and a frozen `items_summary`. It holds **no money**: what the sale owes is its `charges` row (written in the same transaction) and what was collected is a `collections` row — which is what lets one sale take installments. Each line carries `line_type`, a nullable `product_id` / `service_id`, `item_name_snapshot`, `quantity` (**always 1 on a service line** — labour has no count, so the row shows only a Price field), `unit_amount`. Debt, wallet and revenue are all **bill-level**: one bill per sale whatever its lines sell. `Sale.amountPaid` is DERIVED from that bill's balance (filled by `SaleService.withMoney`), never a stored column. The Sales-tab month headers show **value sold** (`total_amount`); revenue and the wallet read the hand-overs.
 
 **Reference code:**
 - Screen: [SalesPanel.tsx](SubsTrack/src/modules/transaction/sales/screens/SalesPanel.tsx) (the Sales tab of the Transactions hub)
@@ -34,13 +34,13 @@ Covers the one-off sales ledger: recording a sale (with **one or more products a
 4. **`customer_id` (header) is nullable.** Walk-in (anonymous) sales have `customer_id = NULL`.
 5. **No hard delete.** Void via `voided_at` / `voided_by` / `void_reason` on the header. Voided sales drop from the active list but stay in DB; lines cascade only on hard delete.
 5b. **A non-voided sale is EDITABLE in place** (§2C) — every snapshot in rule 2 is re-taken by the edit, including `rate_per_usd_snapshot` when the currency changes. A line the edit drops is **soft-voided** (`sale_items.voided_at`), never deleted, and the sale's stock movements are **swapped** (old soft-voided, new inserted) only when the per-product unit count actually changed. A voided sale can never be edited.
-6. **Dashboard revenue includes sales, as CASH.** `DashboardService.getMetrics()` sums `rate_per_usd_snapshot`-converted sale **`amount_paid`** (not `total_amount`) alongside payment and debt-payment totals — a partial sale contributes only its collected part, and the remainder arrives later via `debtRevenue`. `salesCount` counts sales (headers), not products, paid or not.
+6. **Dashboard revenue includes sales, as CASH.** There is ONE cash read (`collectedInRange`), and each row is tagged with the bill it settled — so cash against a sale counts as **sales** revenue whether it arrived at the till or three months later. A partial sale contributes only what was collected. `salesCount` counts sale headers, paid or not.
 7. **Product delete-reference counts key off `sale_items.product_id`.** A product used by any sale line soft-deletes (kept), else hard-deletes. Services follow the same rule off `sale_items.service_id`.
 8. **Tenant isolation via RLS.** `sale_items` inherits its branch from the parent sale.
 9. **A SERVICE line moves no stock, costs nothing, and has NO quantity.** No `stock_movements` row, no oversell check, no Expenses entry, and no stepper — just a **Price**, which is the whole line total (`quantity` stores 1). That absence is the whole difference from a product line. Two jobs are two lines. A sale must still hold **at least one** line of some kind.
 9b. **A line's KIND is chosen when the line is added** — **+ Add product** / **+ Add service** in the cart footer — and the card only labels it. There is no per-row switch to change it (that shape read as a page tab bar and wiped the line, gotcha #101); removing the row and adding the other kind is the way. A new sale therefore opens with **zero** rows and any row, including the last, is removable.
 10. **A one-off service has no catalog row.** `line_type = 'service'` with `service_id IS NULL`; `item_name_snapshot` is the entire record of what was sold. `chk_sale_items_line_ref` allows exactly this gap and nothing looser.
-11. **Services are not a separate money stream.** A partly-paid sale files under the **`sales`** debt category whatever it holds, and Reports keeps one "Sales" stream — a mixed sale's `amount_paid` cannot be split between goods and labour.
+11. **Services are not a separate money stream.** A sale raises ONE bill whatever its lines sell, so Reports keeps one "Sales" stream — a mixed sale's cash cannot be split between goods and labour without inventing an allocation.
 
 ---
 
@@ -257,11 +257,12 @@ Covers the one-off sales ledger: recording a sale (with **one or more products a
 |---|----------|-------|-----------------|
 | 2C.26 | Currency change re-freezes the rate | Sale in USD; switch to LBP and save | Lines re-price into LBP; `rate_per_usd_snapshot` is the **current** LBP rate, and the receipt's ≈ USD value follows it |
 | 2C.27 | Total shrinks under amount paid | Partial sale 100 of 130; cut the cart to 90 | Save disabled and the amount field shows "Amount paid cannot exceed amount due" — not a silent dead button |
-| 2C.28 | Full stays full | Fully paid sale; raise a quantity | `amount_paid` follows the new total (still fully paid) |
+| 2C.28 | Re-pricing above what was collected | Fully paid sale; raise a quantity | The BILL rises, so the sale now owes the difference and appears in Debts. The payment is untouched |
 | 2C.29 | Debt follows | Partial sale; raise the total | Transactions → Debts shows the larger Sales debt for that customer |
 | 2C.30 | Debt cleared by an edit | Partial sale; switch the mode to Full and save | The customer's Sales debt for it disappears |
-| 2C.31 | Dashboard follows | Edit `amount_paid` on a sale in the current month | Revenue (sales stream) and the month section total both move by the difference |
-| 2C.32 | Wallet follows | Edit `amount_paid` on a sale still held by a collector | That collector's wallet total moves by the difference |
+| 2C.31 | **The collected amount is read-only on an edit** | Open the form on a partly-paid sale | The Paid figure shows but cannot be changed — money is a hand-over with its own date and collector |
+| 2C.32 | Re-pricing below what was collected is refused | Cut the cart under the collected amount | Save is disabled, and the service refuses it (`errors.sale_total_below_collected`) |
+| 2C.33 | Revenue does not move on an edit | Edit a sale in the current month | Revenue is unchanged — only the bill moved. The DEBT moves |
 | 2C.33 | No custody lock (accepted) | Edit a sale whose cash was already handed to an admin | Edit is allowed; the changed amount sits with the **current** holder |
 | 2C.34 | Move to another customer | Change the customer and save | The sale (and any debt it carries) moves to the new customer |
 | 2C.35 | Section totals refresh | Edit a sale's collected amount from the Sales tab | The month section header total is recalculated (the list refetches, not just the card) |
@@ -290,8 +291,9 @@ Covers the one-off sales ledger: recording a sale (with **one or more products a
 |---|----------|-------|-----------------|
 | 2D.1 | Menu button is on every row | Look at a sale card | A 3-dot button on the trailing edge; tapping it opens the menu (it does **not** open the receipt) |
 | 2D.2 | Menu title | Open the menu | Title is the sale's frozen `items_summary` — the same text the card shows |
-| 2D.3 | Full action set | Open the menu on a **partly-paid** non-voided sale | Exactly: View receipt · Edit sale · Complete · Send invoice on WhatsApp · History · Void sale |
-| 2D.3b | Fully-paid sale has no Complete | Open the menu on a fully-paid sale | Same list **minus Complete** — there is nothing left to complete |
+| 2D.3 | Full action set | Open the menu on a **partly-paid** non-voided sale with a customer | Exactly: View receipt · Edit sale · **Collect $N** · Send invoice on WhatsApp · History · Void sale |
+| 2D.3b | Fully-paid sale has no Collect | Open the menu on a fully-paid sale | Same list **minus Collect** — nothing is owed |
+| 2D.3c | Walk-in has no Collect | Open the menu on a walk-in sale | No Collect — a walk-in must be paid in full at the till, so it can never owe |
 | 2D.4 | Voided sale is cut down | Open the menu on a voided sale | Only View receipt · History. No edit, no complete, no send, no void |
 | 2D.5 | View receipt | Tap "View receipt" | The menu closes and the receipt sheet opens — same sheet a card tap gives |
 | 2D.6 | Edit sale | Tap "Edit sale" | The sale form opens in edit mode, prefilled (see § 2C) |
@@ -312,22 +314,22 @@ Covers the one-off sales ledger: recording a sale (with **one or more products a
 | 2D.21 | Arabic / RTL | Switch to Arabic and open the menu | All labels translated; rows and icons mirror; the WhatsApp badge does **not** mirror |
 | 2D.22 | Menu closes on Back | Open the menu and press Android Back (or browser Back) | The menu closes; the screen behind it does **not** change |
 
-### 2D-b. Complete (mark a partly-paid sale fully paid)
+### 2D-b. Collect what a sale still owes
 
-> The correction door: the customer really paid in full, the amount collected was written down short. It raises `amount_paid` to `total_amount` — **not** a debt payment. The full rule set (incl. audit, custody, offline) is in [QA/debts.md](debts.md) § 7, which this action shares; the cases below are the sale-surface ones.
+> A pay-later or partly-paid sale is collected through the **same sheet** as every other bill. The old **Complete** action is gone: it existed only because `amount_paid` had no date of its own, so "he really paid in full" could only be said by rewriting a number. Now the second payment is recorded on the day it happened.
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 2D-b.1 | Caption explains it | Open the menu on a partly-paid sale | The **Complete** row carries a second line: "Marks it fully paid by fixing the record — no debt payment is added" |
-| 2D-b.2 | Confirm names the remainder | Tap **Complete** | Dialog "Mark as fully paid" naming the amount **still owed** in the sale's own currency (`≈` display currency) |
-| 2D-b.3 | Completes | Confirm | The card's Paid figure becomes the sale total; the "partly paid" indication is gone |
-| 2D-b.4 | Section total re-sums | Read the month section header before and after | The header total rises by the completed remainder — the screen refetched (the totals are a separate query, not the loaded page) |
-| 2D-b.5 | Debt is gone, no payment added | Open Transactions → Debts | The sale no longer appears as a debt, and **no** debt-payment row was created |
-| 2D-b.6 | Receipt agrees | Open the receipt after completing | Same lines / total; Paid = total, Remaining = 0 |
-| 2D-b.7 | Stock untouched | Open a sold product's stock sheet | No new movement, no void — nothing left the shelf |
-| 2D-b.8 | Every sale surface | Repeat from the Sales tab, the customer panel, and the per-customer page | Identical row, identical result; each surface's own list refreshes without a manual pull |
-| 2D-b.9 | Walk-in | Open the menu on a walk-in sale | No Complete — the form never lets a walk-in be partly paid, so it is already full. (Legacy/odd data with a short walk-in still completes: the correction is about the record, not about who owes) |
-| 2D-b.10 | Failure surfaces | Force a failing complete | The sales error banner shows the message; the card is unchanged |
+| 2D-b.1 | The label names the amount | Open the menu on a sale owing 25 | The row reads **Collect $25** |
+| 2D-b.2 | It opens the collect sheet | Tap it | Single-item mode, pre-filled with 25, no split preview |
+| 2D-b.3 | Collect it all | Save | The card's fraction disappears; the sale leaves the Debts screen |
+| 2D-b.4 | Collect part | Type 10 | The sheet says "leaves 15 owing"; the sale stays in Debts at 15 |
+| 2D-b.5 | Installments | Collect 10, then 10, then 5 | Three hand-overs, three rows in the money-in history, one settled sale |
+| 2D-b.6 | Cannot overpay | Type 30 on a 25 balance | Refused |
+| 2D-b.7 | Revenue lands on the collection date | Collect next month | The money counts in **next** month, not in the sale's month |
+| 2D-b.8 | Wallet | Collect as a collector | The cash appears in that collector's wallet |
+| 2D-b.9 | Voiding it | Void that hand-over | The sale owes again; revenue and the wallet both drop |
+
 
 ---
 
@@ -345,7 +347,7 @@ Covers the one-off sales ledger: recording a sale (with **one or more products a
 | 3.8 | Multi-product layout | 3-product sale | Products header shows a "3" count badge; each row is numbered 1–3; a Total footer row shows `total_amount` |
 | 3.8a | Single-product layout | 1-product sale, fully paid | No count badge, no line numbers, no Total footer (the hero already shows the amount); the one row still shows `1 × price` |
 | 3.8b | Hero caption | 3-product sale | Hero shows "3 products" instead of the long frozen `items_summary`; a 1-product sale still shows the summary |
-| 3.8c | Partial sale totals | Sale with `amount_paid < total_amount` | Footer shows Total, Paid, and Remaining (amber); Remaining = `total_amount − amount_paid` |
+| 3.8c | Partial sale totals | A sale that still owes | Footer shows Total, Paid, and Remaining (amber) — Paid comes from the bill's balance, not from a column |
 | 3.8d | Lean read (no lines) | Sale loaded without `sale_items` | Products card not rendered; rest of the receipt unaffected |
 | 3.9 | Notes row visible | Sale has notes | Notes row shown |
 | 3.10 | Notes row hidden | Sale has no notes | Notes row not rendered |
@@ -366,7 +368,7 @@ Covers the one-off sales ledger: recording a sale (with **one or more products a
 | 4.5 | Cancel | Tap Cancel | Returns to receipt, sale unchanged |
 | 4.6 | Confirm void | Tap confirm | `voided_at`, `voided_by`, `void_reason` set on row. Sale disappears from active list |
 | 4.7 | Audit trail | Inspect DB after void | Row still exists with all void fields populated |
-| 4.8 | Dashboard impact | Void a current-month sale | Dashboard `salesRevenue` drops by the sale's **collected** USD equivalent (`amount_paid`, so a partial sale drops only that part); `monthlyRevenue` updates |
+| 4.8 | Dashboard impact | Void a current-month sale | Voiding is **refused** while money has been collected against the sale — void the payment first. With nothing collected, the sale and its bill are voided together and the debt disappears |
 | 4.9 | Network error during void | Disable network, confirm | ErrorBanner; sale NOT voided |
 | 4.10 | Permission gating | User role | Void available (or admin-only — verify gate; file as finding if unexpected) |
 
@@ -426,14 +428,14 @@ Reached via the panel's "Show all" link. Route: `customers/[id]/sales`. Mirrors 
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-**Revenue counts CASH, not the invoice.** `salesRevenue` sums `amount_paid`, never `total_amount` — so a partial sale adds only what was collected, and the remainder enters revenue later as a debt payment (`debtRevenue`). `salesCount` still counts every sale header.
+**Revenue counts CASH, not the invoice.** `salesRevenue` sums the cash that settled **sale bills**, never `total_amount` — so a partial sale adds only what was collected, and the remainder enters revenue in the month it is collected, still as **sales** revenue. `salesCount` still counts every sale header.
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
 | 6.1 | Fully-paid sale included in revenue | Record a $50 sale, collect $50, open Dashboard | Hero card `monthlyRevenue` increases by $50 |
 | 6.1a | Partial sale adds only the cash | Record a $100 sale, collect $30 | `salesRevenue` +$30 (NOT +$100). The $70 appears in Debts. `salesCount` +1 |
 | 6.1b | Fully-unpaid sale adds nothing | Record a $100 sale, collect $0 | `salesRevenue` unchanged; `salesCount` +1; $100 shows as a Sales debt |
-| 6.1c | Collecting the remainder | Then record a $70 debt payment for that customer | `monthlyRevenue` +$70 through `debtRevenue`; the sale row is untouched; total counted across both months = exactly $100 |
+| 6.1c | Collecting the remainder | Then collect the sale's remaining $70 | `monthlyRevenue` +$70, counted under **Sales**; the sale row is untouched; total across both months = exactly $100 |
 | 6.2 | Breakdown sub-line visible | Two or more streams non-zero this month | Sub-line lists each non-zero stream (Subscriptions / Sales / Debts) with its amount |
 | 6.3 | Breakdown sub-line hidden | Only one stream earned this month | Sub-line not rendered |
 | 6.4 | Snapshot conversion | Record a fully-paid 50,000 LBP sale (rate 50,000 → $1), open Dashboard | Dashboard shows +$1 from that sale |
@@ -441,7 +443,7 @@ Reached via the panel's "Show all" link. Route: `customers/[id]/sales`. Mirrors 
 | 6.6 | Walk-in included | Walk-in (no customer) sale | Included in salesRevenue |
 | 6.7 | Branch filter | Tenant-wide admin filters to branch A | Only branch A sales in revenue |
 | 6.8 | Previous-month sale | Sale recorded in last month | NOT in current month's salesRevenue |
-| 6.9 | Sales tab month header agrees | Compare a month's section-header total in the Sales tab to that month's `salesRevenue` | Identical — both sum `amount_paid` for the month |
+| 6.9 | Sales tab header is VALUE SOLD | Compare a month's section-header total to that month's `salesRevenue` | They differ when a sale was not paid in full that month — the header sums `total_amount` (what was sold), revenue sums the cash |
 
 ---
 

@@ -80,7 +80,7 @@ Covers role-based navigation, the Admin landing screen, tab visibility, the acti
 | 6.2 | Logout during admin route | While on Plans, logout from Settings | Redirected to login; admin stack discarded |
 | 6.3 | Re-open after backgrounding on Plans | App in background, return | Plans screen still rendered with cached data |
 | 6.4 | Session expiry during admin work | Token expires while on Plans | Next API call surfaces error; on refresh user is bounced to login |
-| 6.5 | QuickPay deeplink | Navigate to `/customers/[id]?quickPay=1` | If logged in: detail screen opens + auto-fires PaymentFormSheet. If logged out: redirect to login |
+| 6.5 | QuickPay deeplink | Navigate to `/customers/[id]?quickPay=1` | If logged in: detail screen opens + auto-fires the collect sheet. If logged out: redirect to login |
 
 ## 6b. Refreshed / deep-linked nested page (web) — the tab-root anchor
 

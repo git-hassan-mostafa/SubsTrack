@@ -209,11 +209,11 @@ Available from the action menu. Hidden if customer is inactive, non-regular, alr
 | 8.3  | Quick Pay hidden — non-regular                 | `isRegular = false`                                                  | Hidden                                                                                                              |
 | 8.4  | Quick Pay hidden — already paid                | Paid this month                                                      | Hidden                                                                                                              |
 | 8.5  | Quick Pay hidden — before start date           | Every plan line starts after today                                   | Hidden                                                                                                              |
-| 8.6  | Quick Pay Scenario A (fixed single-month plan) | Customer on fixed 1-month plan, tap Pay Now                          | Payment created directly: `amount_due = amount_paid = plan.price`. Cell turns green. Card pill switches to "✓ Paid" |
+| 8.6  | Quick Pay Scenario A (fixed single-month plan) | Customer on fixed 1-month plan, tap Pay Now                          | One hand-over for the full price, and the month bill it settles, written together. Cell turns green; the card pill switches to "✓ Paid" |
 | 8.7  | Quick Pay Scenario D (multi-month plan)        | Customer on a 3-month plan                                           | `ConfirmDialog`: "Pay <amount> covering <Jan–Mar 2026>?"                                                            |
 | 8.8  | Confirm multi-month Quick Pay                  | Tap Confirm                                                          | createMultiMonthPayment runs. All 3 cells become paid in one operation                                              |
 | 8.9  | Cancel multi-month Quick Pay                   | Tap Cancel                                                           | No payment recorded                                                                                                 |
-| 8.10 | Quick Pay Scenario C (custom/no plan)          | Customer has no plan or custom-price plan                            | Navigates to `customers/[id]?quickPay=1`; detail screen auto-opens PaymentFormSheet for current month               |
+| 8.10 | Quick Pay Scenario C (custom/no plan)          | Customer has no plan or custom-price plan                            | Navigates to `customers/[id]?quickPay=1`; detail screen auto-opens the collect sheet for current month               |
 | 8.11 | Quick Pay loading state                        | Slow network                                                         | Menu icon on the card shows spinner; double-tap guarded                                                             |
 | 8.12 | Quick Pay error                                | Disable network, Quick Pay                                           | ErrorBanner; menu closes; no payment created                                                                        |
 
@@ -252,7 +252,7 @@ Available from the action menu. Hidden if customer is inactive, non-regular, alr
 | 10.2  | Counts                              | Look at the subtitle              | "<paid> paid · <unpaid> unpaid · <collected> collected"                                                 |
 | 10.3  | Collected sum in display currency   | Mixed-currency payments           | Total = sum of USD equivalents (via each payment's snapshot rate), formatted in user's display currency |
 | 10.4  | Collected ignores voids             | A payment is voided               | Collected drops accordingly                                                                             |
-| 10.5  | Collected ignores `amount_paid = 0` | A payment with amount_paid = 0    | Excluded from collected total                                                                           |
+| 10.5  | Collected ignores an emptied bill | A bill whose only hand-over was voided | Excluded from the collected total, and the month reads unpaid again                                      |
 | 10.6  | Year navigator — back               | Tap "<"                           | Year decrements, grid refetches                                                                         |
 | 10.7  | Back disabled at start year         | Year = customer's start_date year | Disabled at 30% opacity                                                                                 |
 | 10.8  | Forward                             | Tap "›"                           | Year increments freely                                                                                  |
@@ -270,7 +270,7 @@ Banner is shown only when current month is unpaid AND user is on the current yea
 | 11.3 | Banner hidden on past year    | Navigate back                                               | Banner disappears                                                    |
 | 11.4 | Banner hidden on future year  | Navigate forward                                            | Banner not rendered                                                  |
 | 11.5 | Banner hidden for non-regular | Non-regular customer                                        | Banner NEVER shown                                                   |
-| 11.6 | "Collect" CTA                 | Tap Collect                                                 | Opens PaymentFormSheet for current month                             |
+| 11.6 | "Collect" CTA                 | Tap Collect                                                 | Opens the collect sheet for current month                             |
 | 11.7 | Banner with no plan           | Subtitle reads "Amount due" (no specific amount)            |
 | 11.8 | Banner with custom-price plan | Same as no-plan                                             |
 
@@ -284,7 +284,7 @@ Reachable from the action menu and from the status row in the details card.
 | 12.2 | Deactivate confirmed                          | Tap Confirm              | active → false, cancelled_at = now(). Pill switches to gray "Inactive"                              |
 | 12.3 | Deactivate cancel                             | Tap Cancel               | No change                                                                                           |
 | 12.4 | Reactivate                                    | Tap toggle on inactive   | ConfirmDialog non-destructive, "Reactivate <name>?". On Confirm: active → true, cancelled_at = null |
-| 12.5 | Inactive — payment recording for past/current | Tap an unpaid past month | PaymentFormSheet opens normally (catch-up allowed)                                                  |
+| 12.5 | Inactive — payment recording for past/current | Tap an unpaid past month | the collect sheet opens normally (catch-up allowed)                                                  |
 | 12.6 | Inactive — payment recording for future       | Tap a future month       | Form opens but submit blocked with amber banner "Customer is inactive..."                           |
 | 12.7 | Inactive does not delete payment history      | Deactivate               | Prior payments still visible                                                                        |
 | 12.8 | Network failure                               | Disable network, confirm | ErrorBanner; status not toggled                                                                     |

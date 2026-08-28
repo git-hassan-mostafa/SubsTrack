@@ -4,9 +4,9 @@ End-to-end coverage of the multi-currency layer as it runs through plans, paymen
 
 **Reference code:**
 - Conversion helpers: [currency.ts](SubsTrack/src/core/utils/currency.ts)
-- Payment form: [PaymentFormSheet.tsx](SubsTrack/src/modules/customer-payments/components/PaymentFormSheet.tsx)
+- Collect form: [CollectSheet.tsx](../SubsTrack/src/modules/ledger/components/CollectSheet.tsx)
 - Amount-paid section: [PaymentAmountPaidSection.tsx](SubsTrack/src/modules/customer-payments/components/PaymentAmountPaidSection.tsx)
-- Receipt: [PaymentDetailSheet.tsx](SubsTrack/src/modules/customer-payments/components/PaymentDetailSheet.tsx)
+- The bill and its payments: [BillSheet.tsx](../SubsTrack/src/modules/ledger/components/BillSheet.tsx)
 - Payment service: [PaymentService.ts](SubsTrack/src/modules/customer-payments/services/PaymentService.ts)
 - Payment store: [paymentStore.ts](SubsTrack/src/modules/customer-payments/store/paymentStore.ts)
 - Plan form: [PlanFormSheet.tsx](SubsTrack/src/modules/plans/components/PlanFormSheet.tsx)
@@ -23,11 +23,11 @@ End-to-end coverage of the multi-currency layer as it runs through plans, paymen
 These are non-negotiable and must be re-verified after any release touching payments, currencies, or plans.
 
 1. **`currency_id = NULL` means USD everywhere** — USD is never stored as a `currencies` row; null is the sentinel value throughout plans, payments, and the display-currency preference.
-2. **Payment amounts are snapshots** — `amount_due`, `amount_paid`, and `rate_per_usd_snapshot` are frozen at record time. Editing a currency's `rate_per_usd` NEVER retroactively changes the USD equivalent of any existing payment.
+2. **Amounts are snapshots, and there are now TWO of them.** A **bill** (`charges.amount` + its `rate_per_usd_snapshot`) freezes what the customer was BILLED and at what rate; a **hand-over** (`collections.amount` + its own snapshot) freezes what physically ARRIVED and at what rate. Editing a currency's `rate_per_usd` never retroactively changes either. The two can legitimately differ — a debt total converts at the bill's rate, revenue at the hand-over's.
 3. **Plan prices use the live rate** — plan.price is forward-looking; its USD equivalent updates whenever the currency's `rate_per_usd` is edited. No snapshot is stored on the plan row.
 4. **`rate_per_usd_snapshot = 1` for USD payments** — USD payments (`currency_id = NULL`) must store exactly `1`, not null or any other value.
 5. **Editing a payment re-snapshots** — `PaymentService.updatePayment()` re-reads the live `ratePerUsd` of the (possibly changed) currency and writes a new `rate_per_usd_snapshot`. This is the "correcting the record" semantic.
-6. **Amount Paid currency is locked to Amount Due currency** — within one payment, `amount_due` and `amount_paid` are always in the same currency (one `currency_id`).
+6. **A hand-over is single-currency, and it must match every bill it pays** — which is why `collection_items` carries no currency of its own, and why a balance closes at exactly zero with no conversion. A customer owing in two currencies is collected from twice.
 7. **Soft-deleted currencies are preserved on historical rows** — plans and payments that reference an inactive currency must continue to display correctly. Pickers exclude inactive currencies for new entries only.
 8. **Display currency is per-tenant** — one `tenant_settings` row (key `DisplayCurrencyId`), admin-writable, applied to every user. No `display_currency_id` column on `users` or `tenants`.
 
@@ -58,7 +58,7 @@ All payment recording scenarios that involve currency selection go through `Curr
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 2.1 | Default currency | Open PaymentFormSheet on a fresh session | CurrencyInput defaults to USD (`lastUsedCurrencyId` not yet set) |
+| 2.1 | Default currency | Open the collect sheet on a fresh session | CurrencyInput defaults to USD (`lastUsedCurrencyId` not yet set) |
 | 2.2 | Last-used currency persists | Record a payment in LBP, open the form again | CurrencyInput pre-selects LBP (from `uiPrefStore.lastUsedCurrencyId`) |
 | 2.3 | Last-used currency persists across customers | Record LBP for customer A, open form for customer B | Still defaults to LBP |
 | 2.4 | Dropdown contents | Open dropdown in CurrencyInput | USD first, then each active tenant currency alphabetically. Inactive currencies absent |
@@ -80,12 +80,12 @@ All payment recording scenarios that involve currency selection go through `Curr
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
 | 3.1 | Amount card displays plan currency | Customer on LBP plan (price = 90000) | Amount card shows `ل.ل 90,000` read-only. No CurrencyInput visible |
-| 3.2 | Submit Full — snapshot captured | Tap "Mark as paid" | Payment row: `amount_due = amount_paid = 90000`, `currency_id = LBP_id`, `rate_per_usd_snapshot = LBP.ratePerUsd at submit time` |
+| 3.2 | Collect in full — snapshots captured | Save | A `charges` row (`amount = 90000`, `currency_id = LBP_id`, its own frozen rate) **and** a `collections` row (`amount = 90000`, same currency, its own frozen rate), plus one `collection_items` row |
 | 3.3 | USD plan | Customer on USD plan (price = 50) | Amount card shows `$50.00`. On submit: `currency_id = NULL, rate_per_usd_snapshot = 1` |
 | 3.4 | Plan currency changed before recording | Edit plan LBP → USD, then open payment form | Amount card now reflects USD price. The old currency is no longer in play |
 | 3.5 | Plan rate changed before recording | LBP rate was 90000 at plan creation; changed to 100000; open form | Amount card still shows the stored LBP `price` value. USD equivalent on PlanCard updated, but the plan `price` column (LBP amount) is unchanged — form shows the LBP amount as-typed |
-| 3.6 | Partial payment inherits plan currency | Scenario A, toggle Partial, enter LBP `40000` | `amount_due = 90000, amount_paid = 40000, currency_id = LBP_id`. Snapshot = live LBP rate at submit |
-| 3.7 | Partial exceeds due | Enter `amount_paid > 90000` | Submit disabled |
+| 3.6 | Partial collection inherits the line's currency | Collect LBP `40000` of a 90000 month | The bill is 90000 LBP; the hand-over is 40000 LBP; `charge_balances.balance = 50000` |
+| 3.7 | Overpay refused | Enter more than 90000 | The banner names the maximum and Save is disabled |
 
 ---
 
@@ -95,10 +95,10 @@ All payment recording scenarios that involve currency selection go through `Curr
 |---|----------|-------|-----------------|
 | 4.1 | Plan-price radio retains plan currency | Tap "Override amount" → stay on Plan price radio | On submit, plan's currency used — same as Scenario A |
 | 4.2 | Custom radio shows CurrencyInput | Tap "Custom amount" | CurrencyInput appears; defaults to `lastUsedCurrencyId` (NOT plan currency) |
-| 4.3 | Custom in same currency as plan | Plan = LBP; override = LBP 80000 | Payment: `amount_due = 80000, currency_id = LBP_id, snapshot = live LBP rate` |
-| 4.4 | Custom in different currency from plan | Plan = LBP; override = USD 50 | Payment: `amount_due = 50, currency_id = NULL, snapshot = 1`. Original plan currency irrelevant after override |
+| 4.3 | A special price in the plan's currency | Plan = LBP; the line's special price = LBP 80000 | The bill is raised at 80000 LBP with the live LBP rate frozen |
+| 4.4 | A special price in a different currency | Plan = LBP; the line's special price = USD 50 | The bill is 50 USD (`currency_id = NULL`, snapshot 1) — the plan's currency is irrelevant once the line has its own |
 | 4.5 | Switch back to Plan radio after custom | Type custom amount in EUR, switch back to Plan radio | Submit uses plan's LBP price; EUR amount discarded |
-| 4.6 | Partial in custom currency | Custom = LBP 80000, toggle Partial, enter 40000 | `amount_paid = 40000, currency_id = LBP_id` |
+| 4.6 | Partial against a special price | Special price LBP 80000, collect 40000 | The hand-over is 40000 LBP; the balance is 40000 LBP |
 | 4.7 | Switching currency clears partial | Custom = LBP, type partial 40000, switch to USD | Partial amount cleared |
 | 4.8 | lastUsedCurrencyId updated | Submit custom in EUR | Next form open defaults to EUR |
 
@@ -109,10 +109,10 @@ All payment recording scenarios that involve currency selection go through `Curr
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
 | 5.1 | CurrencyInput visible by default | Open form for customer with no plan | CurrencyInput shown immediately; no plan-price section |
-| 5.2 | Submit in USD | Enter `25`, leave currency = USD | `currency_id = NULL, amount_due = amount_paid = 25, snapshot = 1` |
-| 5.3 | Submit in LBP | Pick LBP, enter `50000` | `currency_id = LBP_id, amount_due = amount_paid = 50000, snapshot = live LBP rate` |
+| 5.2 | Collect in USD | Enter `25`, leave currency = USD | Bill and hand-over both `currency_id = NULL`, amount 25, snapshot 1 |
+| 5.3 | Submit in LBP | Pick LBP, enter `50000` | bill + hand-over both `currency_id = LBP_id`, amount 50000, each with the live LBP rate frozen |
 | 5.4 | Submit in EUR | Pick EUR (if configured), enter `100` | `currency_id = EUR_id, snapshot = live EUR rate` |
-| 5.5 | Partial in non-USD | Enter `100000 LBP`, toggle Partial, enter `60000` | `amount_due = 100000, amount_paid = 60000, currency_id = LBP_id` |
+| 5.5 | Partial in non-USD | A 100000 LBP month, collect 60000 | Bill 100000 LBP, hand-over 60000 LBP, balance 40000 LBP |
 | 5.6 | Rate snapshot independence | Submit LBP 50000 at rate 90000. Immediately edit LBP rate to 100000. Open receipt | Receipt still shows `rate_per_usd_snapshot = 90000`; USD equivalent on receipt = `50000 / 90000 ≈ $0.56`, not `$0.50` |
 | 5.7 | Quick Pay (Scenario C) preserves lastUsedCurrency | Quick Pay opens form with lastUsedCurrencyId | CurrencyInput defaults to last used, same as regular open |
 
@@ -123,8 +123,8 @@ All payment recording scenarios that involve currency selection go through `Curr
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
 | 6.1 | Bundle price in LBP | 3-month plan, price = 270000 LBP | Amount card: `ل.ل 270,000 / 3 months`. Month chips shown |
-| 6.2 | Submit Full multi-month LBP | Tap "Mark as paid" | Single payment row: `amount_due = amount_paid = 270000, currency_id = LBP_id, duration_months = 3, snapshot = live LBP rate at submit` |
-| 6.3 | Partial multi-month LBP | Toggle Partial, enter `150000 LBP` | `amount_paid = 150000, balance = 120000, currency_id = LBP_id` |
+| 6.2 | Collect a full multi-month LBP bundle | Save | ONE bill: 270000 LBP, `duration_months = 3`, live LBP rate frozen — plus one hand-over of 270000 |
+| 6.3 | Partial multi-month LBP | Collect 150000 of the bundle | Balance 120000 LBP; all three cells still read paid, only the first carries the ring |
 | 6.4 | Multi-month USD bundle | 3-month plan in USD | `currency_id = NULL, snapshot = 1` |
 | 6.5 | Quick Pay multi-month LBP | From customer list, menu → Pay Now on 3-month LBP plan | ConfirmDialog: "Pay ل.ل 270,000 covering Jan–Mar 2026? Confirm/Cancel" |
 | 6.6 | Conflict detection in non-USD plan | One month of a 3-month LBP bundle already paid | Same conflict flow; currency does not affect conflict logic |
@@ -164,7 +164,7 @@ Receipts show the stored/recorded currency as primary and the user's display cur
 | 8.5 | EUR payment, LBP display | Payment in EUR at snapshot 1.08, display = LBP | Hero shows EUR amount; secondary shows LBP equivalent |
 | 8.6 | Secondary line absent when same | Payment in LBP, display also = LBP | No secondary "≈" line — already in display currency |
 | 8.7 | Voided payment display | Open voided payment (if accessible) | Voided payments filtered from year fetch; not reachable via UI receipt entry points |
-| 8.8 | Partial receipt currency | Partial LBP payment, display = USD | Hero amber card shows `amount_paid` in LBP; secondary ≈ USD. Balance row also in LBP |
+| 8.8 | Partial bill sheet currency | A partly-paid LBP month, display = USD | The hero shows the collected/owed fraction in LBP; the ≈ USD equivalent is secondary. Remaining is in LBP too |
 | 8.9 | Multi-month receipt currency | Multi-month LBP bundle | Hero shows bundle total in LBP; secondary ≈ USD. "Covers N months" badge present |
 
 ---
@@ -213,7 +213,7 @@ The tenant-wide `DisplayCurrencyId` setting (read via `useDisplayCurrencyId()`) 
 
 ## 11. Dashboard revenue aggregation across currencies
 
-`DashboardService.getMetrics()` fetches `{amount_paid, rate_per_usd_snapshot}` for each payment of the month and converts to USD via snapshot before summing.
+`DashboardService.getMetrics()` reads each settled bill of the month and divides its amount by the HAND-OVER's frozen rate before summing.
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
@@ -222,7 +222,7 @@ The tenant-wide `DisplayCurrencyId` setting (read via `useDisplayCurrencyId()`) 
 | 11.3 | Mixed currencies | USD $50, LBP 90000 (snapshot 90000 = $1.00) | USD sum = $51.00 |
 | 11.4 | Rate changed after payments | LBP rate was 90000 at payment time; now 100000 | Dashboard still shows $1.00 for that LBP payment (snapshot = 90000). Total unaffected by live rate change |
 | 11.5 | Voided payments excluded | Void a LBP payment | Dashboard recalculates; voided payment's amount removed from "Collected" |
-| 11.6 | Partial payments included | Partial LBP payment: `amount_paid = 45000, snapshot = 90000` | Counts $0.50 (amount_paid / snapshot), not $1.00 (amount_due) |
+| 11.6 | Partial collections included | 45000 LBP collected at a snapshot of 90000 | Counts $0.50 — what arrived, not what was billed |
 | 11.7 | Multi-month payments — current month | Customer paid a 3-month LBP bundle covering current month | The single payment row (for the start month) is counted once in the month it was recorded (payment.billing_month). Verify the query window |
 | 11.8 | Display currency formatting | USD total = $100.00; display = LBP (rate 90000) | Dashboard shows `ل.ل 9,000,000` |
 | 11.9 | Zero payments | No payments recorded for current month | "Collected" = $0 (or equivalent in display currency) |
@@ -236,12 +236,12 @@ The panel shows per-year totals below the payment grid, aggregated from all non-
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 12.1 | Single-currency year | All payments in USD | Year total = sum of `amount_paid` displayed in user's display currency |
+| 12.1 | Single-currency year | All money in USD | Year total = the sum collected, in the display currency |
 | 12.2 | Mixed-currency year | Jan = USD $50, Feb = LBP 90000 (snapshot 90000) | USD sum = $51. Year total = $51 formatted in display currency |
 | 12.3 | Rate changed during year | Jan LBP payment at snapshot 90000; Feb LBP at snapshot 100000 (rate edited in between) | Jan contributes `amount/90000`, Feb `amount/100000`. Totals are historically correct |
 | 12.4 | Multi-month bundle | Jan entry covers Jan–Mar (duration_months = 3). Navigate to Feb | Feb shows `isGroupSecondary = true`. Year total still counts the single payment row once (not 3 times). Verify |
-| 12.5 | Voided payment excluded | Void a payment | Year total decreases by voided `amount_paid` |
-| 12.6 | Partial payment in year total | LBP 90000 partial: paid 45000, due 90000 | Year total uses `amount_paid = 45000`, not `amount_due`. Total = 45000/snapshot |
+| 12.5 | Voided hand-over excluded | Void one | The year total drops by exactly what it had contributed |
+| 12.6 | Partial in the year total | 45000 collected of a 90000 LBP month | The total counts 45000/snapshot, not the 90000 billed |
 | 12.7 | Year navigation | Navigate to prior year | Year total recalculates from freshly fetched prior-year payments |
 | 12.8 | Display currency changed | Change display mid-session | Year total updates to new display currency without re-fetching payments |
 
@@ -264,11 +264,11 @@ The panel shows per-year totals below the payment grid, aggregated from all non-
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
 | 14.1 | Partial in non-USD, receipt amber | LBP partial: due = 90000, paid = 45000 | Receipt hero amber, `balance = 45000`, balance displayed in LBP. Secondary ≈ USD via snapshot |
-| 14.2 | Balance row currency | Receipt shows balance | Balance formatted in same currency as `amount_due` and `amount_paid` |
+| 14.2 | Remaining row currency | The bill sheet shows what is left | Formatted in the bill's own currency, never converted |
 | 14.3 | Grid cell for a partial payment | Partial LBP payment | Month cell is a plain **green/paid** cell (no partial marker) regardless of currency; the remaining `balance` shows only on the Debts tab |
-| 14.4 | Edit partial to full | Edit partial LBP payment: raise `amount_paid` to = `amount_due` | Balance → 0; receipt drops the "added to debts" line (shows fully paid); the grid cell was already green and stays green |
-| 14.5 | Edit partial — change currency | Partial USD, edit to LBP | Old USD partial voided? No — edit in-place: new `currency_id = LBP, rate_per_usd_snapshot = live LBP rate`. Both `amount_due` and `amount_paid` re-entered in LBP |
-| 14.6 | Partial amount = 0 | Submit with `amount_paid = 0` | Service/UI blocks: amount paid must be > 0 (0 = unpaid slot, not partial) |
+| 14.4 | Collect the rest | Collect the remaining LBP on a partly-paid month | Balance → 0; the ring disappears; the bill sheet now lists TWO payments |
+| 14.5 | **A hand-over's currency cannot be changed** | Look for an edit | There is none — void it and collect again. A hand-over is a physical event, not a form value |
+| 14.6 | Zero is not a collection | Type 0 | Save disabled — a month nothing was collected for is simply left unpaid, with no row at all |
 
 ---
 

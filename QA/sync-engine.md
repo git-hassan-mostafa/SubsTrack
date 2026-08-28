@@ -38,7 +38,7 @@ Covers the native offline-first sync engine: local writes, push, pull, delete re
 | 1.1 | Payment offline | Airplane mode → collect a payment | Row in SQLite, `_dirty = 1`, grid turns green, no error | ✅ |
 | 1.2 | Audit written atomically | 1.1 | `audit_logs` row also `_dirty = 1`, same transaction, `occurred_at` = the real (device) moment | ✅ |
 | 1.3 | Rollback on failure | Force an error inside `write()` | Neither the row nor its audit entry exists | ✅ |
-| 1.4 | Concurrent repository writes | Remit payments + sales + debt_payments via `Promise.all` | All succeed; `writeQueue` serialises them | ✅ |
+| 1.4 | Concurrent repository writes | Remit several wallets via `Promise.all` | All succeed; `writeQueue` serialises them | ✅ |
 | 1.5 | App killed after save | Save → kill the app → reopen | Row still there, still `_dirty` | ✅ |
 | 1.6 | Void offline | Void a payment offline | `voided_at` set, `_dirty = 1` | ✅ |
 | 1.7 | Same month re-paid after void | Void then re-pay the same (line, month) | `upsertNaturalKeyDirty` replaces the row, no duplicate | ✅ |
@@ -61,7 +61,7 @@ Covers the native offline-first sync engine: local writes, push, pull, delete re
 | 2.8 | Re-sent audit batch | Same as 2.7 for `audit_logs` | `ignoreDuplicates: true` → `DO NOTHING`; insert-only RLS not violated | ✅ |
 | 2.9 | Edit during the network call | Save row X → while the upsert is in flight, edit X again | The second edit must still push | ❌ **[B2]** — `_dirty` is cleared for every id in the batch, so the second edit is marked clean and never sent; the next pull then overwrites it |
 | 2.10 | Duplicate name, two devices | Two devices offline each create product "Cable" in the same branch → both sync | Both converge or one is reported | ❌ **[B5]** — `uq_products_name_tenant_branch` fails the whole batch; retried identically forever, blocking every other product row |
-| 2.11 | Payment for a server-deleted line | Line deleted on web; device collects on it offline → sync | Row rejected but isolated | ❌ **[B5]**+**[B6]** — FK violation wedges the entire `payments` queue |
+| 2.11 | Payment for a server-deleted line | Line deleted on web; device collects on it offline → sync | Row rejected but isolated | ❌ **[B5]**+**[B6]** — FK violation wedges the entire `charges` queue |
 | 2.12 | Big backlog | Offline 1 month, ~3000 dirty rows → sync | Pushed in chunks of 250; `_dirty` clears per chunk, so a later failure keeps the delivered ones clean | ✅ (was **[B10]**) |
 | 2.13 | Hard delete replay | Delete a product offline → sync | One `delete().in('id', …)` per table per batch; `pending_deletes` entries dropped | ✅ |
 | 2.13b | One undeletable row in a delete batch | Queue 5 product deletes offline; one is still referenced by a `sale_items` row (`ON DELETE RESTRICT`) → sync | The other 4 are deleted; only the referenced one stays logged | ✅ — the batch fails, then falls back to one request per row |
@@ -82,7 +82,7 @@ Covers the native offline-first sync engine: local writes, push, pull, delete re
 | 3.4 | Own row round-trip | 2.1 then pull | Own row comes back with the server `updated_at`; `_dirty` already 0 so it applies | ✅ |
 | 3.5 | Ties beyond one page | >1000 rows share one `updated_at` (migration backfill) | `(updated_at, id)` ordering keeps paging correct | ✅ |
 | 3.6 | Concurrent write during paging | >1000 changed rows; another device updates one mid-paging | No row skipped | ❌ **[B11]** — offset paging over a shifting set skips one row at the page boundary, and the cursor advances past it |
-| 3.7 | One table fails | Break `payments` only | Cursor pinned; `lastError = 'sync_incomplete'`; `lastSyncAt` unchanged; next cycle re-reaches the stranded rows | ✅ |
+| 3.7 | One table fails | Break `charges` only | Cursor pinned; `lastError = 'sync_incomplete'`; `lastSyncAt` unchanged; next cycle re-reaches the stranded rows | ✅ |
 | 3.8 | Natural-key duplicate, clean | Server payment for (line, month) held locally under another id, `_dirty = 0` | Stale local row deleted, server row merged | ✅ |
 | 3.9 | Natural-key duplicate, dirty | Same but local row `_dirty = 1` | Server row skipped; next push converges on the natural key | ✅ |
 | 3.10 | Audit window | Sync | Only the last 30 days of `audit_logs` pulled | ✅ |
@@ -104,7 +104,7 @@ Covers the native offline-first sync engine: local writes, push, pull, delete re
 | 4.6 | Ledger tables skipped | Void a payment on web | Not id-compared (voids arrive via `updated_at`) | ✅ |
 | 4.7 | **Service line deleted on web** | Delete a `customer_plans` row on web → sync on the phone | Local line removed | ❌ **[B6]** — `customer_plans` is hard-deletable but absent from `DELETE_RECONCILE_TABLES`: a phantom line lives forever, shows as unpaid, and can be collected against (→ 2.11) |
 | 4.8 | Staff deleted | Admin deletes a user (delete-user edge fn hard-deletes the row) | Local row removed | ❌ **[B6]** — `users` also missing from the list; the deleted person keeps appearing in pickers |
-| 4.9 | Customer deleted on web | Delete on web → sync | Customer **and its children** gone locally | ❌ **[B7]** — only the customer row is removed; local `payments`, `customer_plans`, `skipped_months`, `custom_debts`, `debt_payments` become orphans |
+| 4.9 | Customer deleted on web | Delete on web → sync | Customer **and its children** gone locally | ❌ **[B7]** — only the customer row is removed; local `charges`, `collections`, `collection_items`, `customer_plans`, `skipped_months` become orphans |
 | 4.10 | Reconcile id-fetch fails | Network flaky | Cycle reported incomplete, nothing deleted | ✅ |
 
 ---
@@ -130,7 +130,7 @@ Covers the native offline-first sync engine: local writes, push, pull, delete re
 | 6.2 | Different tenant, clean | Logout (flushes) → login as another tenant | Wipe + full re-pull, blocking | ✅ |
 | 6.3 | Different tenant, pending | Un-pushed writes → login as another tenant | Refused with `OrganizationSwitchBlockedError`; old data kept | ✅ |
 | 6.4 | Branch-scope change, clean | Tenant-wide admin's device → branch user logs in | Wipe + re-pull (RLS row set differs) | ✅ |
-| 6.5 | **Branch reassigned with pending writes** | Admin moves a collector from branch A to B on web; collector has un-pushed payments; collector restarts the app | Collector can sign in and their money syncs | ❌ **[B4]** — scope change ⇒ `blockedByPending` ⇒ login throws. The pending rows belong to branch A, which RLS no longer grants, so they can never push. Settings is unreachable, so no resync/import. **Only escape is a reinstall, destroying the money.** |
+| 6.5 | **Branch reassigned with pending writes** | Admin moves a collector from branch A to B on web; collector has un-pushed hand-overs; collector restarts the app | Collector can sign in and their money syncs | ❌ **[B4]** — scope change ⇒ `blockedByPending` ⇒ login throws. The pending rows belong to branch A, which RLS no longer grants, so they can never push. Settings is unreachable, so no resync/import. **Only escape is a reinstall, destroying the money.** |
 | 6.6 | Wipe forgets the cursor | 6.2 | `last_pulled_at` cleared so the new tenant pulls in full | ✅ |
 | 6.7 | Un-pushed audit at logout | Only `audit_logs` dirty → logout → different-tenant login | Audit rows pushed before the wipe | ❌ **[B13]** — `signOut` gates the flush on `hasUnsyncedWrites()`, which **excludes** appendOnly tables, so no flush runs and the wipe destroys them |
 | 6.8 | Cold-start ordering | App killed mid-switch; persisted session ≠ mirror tenant | Sync refuses until scoping settles | ❌ **[B14]** — `startSync()` is fired at bootstrap without awaiting `restoreSession()`; the pull can merge another tenant's rows before `ensureTenantScope` runs |
@@ -147,13 +147,13 @@ A cycle is **network-parallel and DB-sequential**: the pull fetches every table 
 | 6b.1 | Quiet cycle is fast | Nothing changed anywhere → Settings → Sync now, watch the network log | Table fetches overlap, at most 6 in flight; wall time ≈ a few round trips, not ~27 | ✅ |
 | 6b.2 | Pull order is irrelevant | Create a customer + line + payment on web → sync on the phone | All three merge whatever order they arrive in (the mirror has no FKs; `PRAGMA foreign_keys` off) | ✅ |
 | 6b.3 | Push wave ordering holds | Offline: new branch → new user in it → new customer → line → payment → sync | No 23503; parent tables land in an earlier wave than their children | ✅ |
-| 6b.4 | One table fails mid-fan-out | Break `payments` only → sync | Other tables still merge; cursor pinned; `sync_incomplete` (same as 3.7, now with the fetches concurrent) | ✅ |
+| 6b.4 | One table fails mid-fan-out | Break `charges` only → sync | Other tables still merge; cursor pinned; `sync_incomplete` (same as 3.7, now with the fetches concurrent) | ✅ |
 | 6b.5 | Save during a running pull | 1.9 | Queues behind the current page instead of throwing | ✅ |
 | 6b.6 | Two sheets saving during a sync | `Promise.all` of three remits while a pull runs | All serialise on one queue; no "transaction within a transaction" | ✅ |
 | 6b.7 | Batched merge = per-row merge | Page containing (a) a locally `_dirty` row, (b) a natural-key duplicate held clean under another id, (c) plain rows | (a) skipped, (b) stale local row deleted then merged, (c) merged — identical to the old per-row loop | ✅ |
 | 6b.8 | Colliding row in a batch | Force a row that still violates a UNIQUE index after the pre-clear | The whole batch fails → table reported failed → cursor pinned → retried. **Never** a half-applied page | ✅ by design |
 | 6b.9 | First full sync memory | Fresh install, large tenant (>10k rows across tables) → login | Completes; at most 6 pages held at once (the concurrency cap is what bounds it) | ✅ |
-| 6b.10 | `_dirty` partial index present | Upgrade an existing install → open → inspect `PRAGMA index_list(payments)` | `idx_payments_dirty` exists (created by `applySchema` on start) | ✅ |
+| 6b.10 | `_dirty` partial index present | Upgrade an existing install → open → inspect `PRAGMA index_list(charges)` | `idx_charges_dirty` exists (created by `applySchema` on start) | ✅ |
 | 6b.11 | Push makes no request for clean tables | One dirty payment only → sync | Exactly one upsert request; the other 20 tables make none | ✅ |
 | 6b.12 | Delete-reconcile runs concurrently | Sync with 6 reconcile tables | Six id-list fetches overlap; each table's local delete takes the lock | ✅ |
 
@@ -197,7 +197,7 @@ A cycle is **network-parallel and DB-sequential**: the pull fetches every table 
 | 8.2 | Every synced table has a BEFORE UPDATE trigger | 21 `trg_*_updated_at` present | ✅ |
 | 8.3 | `TABLES` ⇔ `PUSH_WAVES` | Identical sets | ✅ |
 | 8.4 | `ON CONFLICT` targets are real, non-partial | `uq_payments_line_month`, `uq_skipped_months_line_month`, `uq_tenant_settings_key` | ✅ |
-| 8.5 | `generated` matches Postgres | Only `payments.balance` | ✅ |
+| 8.5 | `generated` matches Postgres | **Empty** — no mirrored column is server-generated any more (a bill's balance is a view, not a column) | ✅ |
 | 8.6 | New column self-heals | Add to `tables.ts` → restart | `ALTER TABLE ADD COLUMN` applied | ✅ |
 | 8.7 | New table-level constraint self-heals | Add to `constraints` → restart | Applied on existing installs | ❌ **[B15]** — CREATE-time only; installs predating `UNIQUE(customer_plan_id, billing_month)` still lack it locally |
 | 8.8 | No local foreign keys | `PRAGMA foreign_keys` off | ✅ by design (rows arrive out of order) |
@@ -209,9 +209,9 @@ A cycle is **network-parallel and DB-sequential**: the pull fetches every table 
 
 | #   | Scenario | Steps | Expected | Verdict |
 | --- | --- | --- | --- | --- |
-| 9.1 | **Delete a customer with un-pushed payments** | Collect offline → delete that customer before syncing | Refused, or the payments push first | ❌ **[B8]** — `DELETE FROM payments WHERE customer_id = ?` destroys `_dirty` rows that exist nowhere else. Money gone, no trace |
-| 9.2 | Delete a line with un-pushed payments | Same via the Plans editor | Refused | ❌ **[B8]** — same in `CustomerPlanRepository.offline.delete` |
-| 9.3 | Local cascade completeness | Delete a customer offline | All server-cascaded children removed locally | ❌ **[B7]** — `skipped_months`, `custom_debts`, `debt_payments` left behind; if any is `_dirty` its push hits an FK violation and wedges that table |
+| 9.1 | **Delete a customer with un-pushed hand-overs** | Collect offline → delete that customer before syncing | Refused, or the money pushes first | ❌ **[B8]** — `DELETE FROM charges WHERE customer_id = ?` (and the collections beside it) destroys `_dirty` rows that exist nowhere else. Money gone, no trace |
+| 9.2 | Delete a line with un-pushed hand-overs | Same via the Plans editor | Refused | ❌ **[B8]** — same in `CustomerPlanRepository.offline.delete` |
+| 9.3 | Local cascade completeness | Delete a customer offline | All server-cascaded children removed locally | ❌ **[B7]** — `skipped_months`, `charges`, `collections`, `collection_items` left behind; if any is `_dirty` its push hits an FK violation and wedges that table |
 | 9.4 | Orphan stock movements | Product deleted on web → sync | Local `stock_movements` for it removed | ⚠️ **[B7]** — orphans linger (mirror bloat; excluded from joined reads) |
 
 ---
@@ -228,7 +228,7 @@ Severity: **C** = can lose or corrupt data / lock the user out · **H** = breaks
 | **B4** | C | Reassigning a user's branch while they hold un-pushed writes **permanently locks them out**: the scope change blocks login, and the pending rows belong to a branch RLS no longer grants | Try `flushPendingWrites()` before blocking; for a same-tenant branch change don't block; add a login-time "discard local data" escape |
 | **B5** | H | One `upsert` per table per cycle: a single rejected row (unique or FK violation) fails the whole batch and is retried identically **forever**, blocking every other row in that table | On batch failure, retry row-by-row; quarantine a row that keeps failing and surface it |
 | **B6** | H | `customer_plans` and `users` are hard-deletable but missing from `DELETE_RECONCILE_TABLES` → phantom rows forever; a phantom line can be collected against, which then wedges the payments push (B5) | Add both to `DELETE_RECONCILE_TABLES` |
-| **B7** | H | Local deletes don't mirror the server cascade (`skipped_months`, `custom_debts`, `debt_payments`, `stock_movements` survive) → orphan rows in reads, and a `_dirty` orphan wedges its table on push | Delete every cascaded child locally; derive the child list from one place |
+| **B7** | H | Local deletes don't mirror the server cascade (`skipped_months`, `charges`, `collections`, `collection_items`, `stock_movements` survive) → orphan rows in reads, and a `_dirty` orphan wedges its table on push | Delete every cascaded child locally; derive the child list from one place |
 | **B8** | H | Deleting a customer / line destroys **un-pushed** payments — the only copy in existence — with no error and no audit of the money | Refuse the delete while `_dirty` children exist (or force a flush first) |
 | **B9** | H | No reconnect and no periodic sync trigger; `AppState` is imported and unused. A collector with the app open all day never syncs unless they tap "Sync now" | Add an AppState foreground trigger, a NetInfo reconnect listener, and an interval — the behavior the comments already claim |
 | ~~**B10**~~ | M | **FIXED** — push was unbounded (one request per table, all dirty rows; `WHERE id IN (…)` with one placeholder per row) — a large backlog failed on size/timeout and repeated every cycle | Chunked at `PUSH_ROWS = 250`, `_dirty` cleared per chunk, so a later chunk's failure keeps the delivered ones clean. Hard deletes are chunked at 100 ids per request |

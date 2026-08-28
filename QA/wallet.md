@@ -1,6 +1,6 @@
 # Collector Wallet — QA Test Plan
 
-The cash each user is **physically holding right now**. Runtime-computed (never a stored balance) from the three cash sources; the only stored state is `held_by_user_id` + `remitted_at` / `remitted_by` on `payments`, `sales`, `debt_payments`.
+The cash each user is **physically holding right now**. Runtime-computed (never a stored balance) from the one cash source; the only stored state is `held_by_user_id` + `remitted_at` / `remitted_by` on `payments`, `sales`, `collections`.
 
 Receiving moves cash **up a chain** and never destroys it:
 
@@ -37,8 +37,8 @@ collector (user)  →  branch admin  →  tenant-wide admin  →  owner (superad
 ## 1. Wallet accrual
 
 1.1 As a collector, record a subscription payment (full) → **Settings → My Wallet** → the payment appears; total equals its amount.
-1.2 Record a **partial** payment → wallet shows the collected `amount_paid`, not the full due.
-1.3 Record a sale paid in full → appears at `amount_paid`.
+1.2 Collect **part** of a month → the wallet shows what was handed over, not what was billed.
+1.3 Record a sale paid in full → its hand-over appears at the collected amount.
 1.4 Record a **partial** sale → only the collected part (not `total_amount`); the remainder shows in Debts, not the wallet.
 1.5 Record a debt payment → appears in the wallet.
 1.6 Add a **custom debt** → does NOT appear in any wallet (money owed to the business, not collected cash).

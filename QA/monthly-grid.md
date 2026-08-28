@@ -1,6 +1,6 @@
 # Monthly Grid — QA Scenarios
 
-The 12-cell grid is the core of the customer detail screen. Each cell encodes a month's status: PAID (green for regular / yellow for non-regular), SKIPPED (slate, both kinds), UNPAID (red for regular / light gray for non-regular), FUTURE (gray), or BEFORE_START (gray, slightly dimmer). **Multi-month payments** visually merge consecutive cells with a "Included" sublabel for months 2+. **Partial payments** (`amount_paid < amount_due`) render as a distinct `"partial"` status — amber cells, NOT an orange dot on a green cell.
+The 12-cell grid is the core of the customer detail screen. Each cell encodes a month's status: PAID (green for regular / yellow for non-regular), SKIPPED (slate, both kinds), UNPAID (red for regular / light gray for non-regular), FUTURE (gray), or BEFORE_START (gray, slightly dimmer). **Multi-month bills** visually merge consecutive cells with an "Included" sublabel for months 2+. **A partly-paid month** (`collected < charge.amount`) is still `paid` — the paid fill under an **amber ring**, sublabel `PARTIAL`. There is no `"partial"` status.
 
 The status logic lives in exactly one place: `PaymentService.buildMonthGrid`. Verify nothing else re-implements it.
 
@@ -22,7 +22,7 @@ For year Y, month M, given today = (CY, CM), customer.startDate = SY-SM-SD:
 | Condition                                                                                                  | Status                                                                                                             |
 | ---------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
 | Y < SY OR (Y == SY AND M < SM)                                                                             | `before_start`                                                                                                     |
-| A covering payment exists for Y-M AND `voided_at IS NULL` AND `amount_paid > 0` (ANY balance, incl. `balance > 0`) | `paid` (green for regular, yellow for non-regular; `isGroupSecondary = true` for months 2+ in a multi-month block) |
+| MONEY has reached Y-M — a covering bill with `collected > 0` (ANY balance, incl. `balance > 0`) | `paid` (green for regular, yellow for non-regular; `isGroupSecondary = true` for months 2+ in a multi-month block) |
 | An active skip exists for (line, Y-M) — `skipped_months.skipped = true`                                    | `skipped` (slate, same for regular and non-regular) — ranks BELOW `paid`                                            |
 | Y > CY OR (Y == CY AND M > CM)                                                                             | `future`                                                                                                           |
 | `UnpaidStartRule = customer_start_day` AND Y-M is the **current month** AND today's day-of-month < the line's start day (clamped to the month's length) | `future` — "not due yet"; grey but still fully payable. A **past** month is never held back this way — there, the billing day only delays the customer's "Overdue" badge, never the red cell (gotcha #83) |
@@ -30,8 +30,8 @@ For year Y, month M, given today = (CY, CM), customer.startDate = SY-SM-SD:
 
 Notes:
 
-- A payment with `amount_paid = 0` is treated as "no payment" — cell shows unpaid (slot reserved but not paid). This lets staff reserve a row without recording a collection.
-- A **partial** payment (`0 < amount_paid < amount_due`, `balance > 0`) renders exactly like a full `paid` cell (green/yellow) — there is **no** separate `partial` status. The remaining `balance` is tracked only as a **debt** (Debts tab → "months" category); it is not shown as a distinct cell state. Tapping opens the receipt sheet, where the remaining amount is shown (amber accent, "added to debts").
+- **A bill with nothing collected reads exactly like no bill at all** — the cell is UNPAID. That state is reachable: voiding the only hand-over that reached a month leaves its bill behind (it holds the frozen price). Everything keys off money, never off a row existing (gotcha #106).
+- A **partly-paid** month (`0 < collected < charge.amount`) resolves to `paid` — there is **no** separate `partial` status, and no guard, filter or aggregation treats it differently. Only the presentation does: an amber **ring** (not a fill — a non-regular paid cell is already yellow) and the `PARTIAL` sublabel, on the **first** cell of a block only. The remaining balance is a **debt**, and tapping opens the bill sheet, which shows `12/20 $` and a Collect button.
 - A **skipped** month means "nothing is expected here". It is never unpaid, never overdue, never counted in the dashboard's `unpaidThisMonth`, and **never payable** — the user must unskip first, **unless a later month is already paid**: then the unskip is locked (it would leave an unpaid month under a paid one) and the month becomes payable instead. Money wins: if a skipped month also holds an active payment, the cell reads `paid`.
 
 ## 2. Cell rendering — regular customer (default)
@@ -90,15 +90,15 @@ Notes:
 | 4.2.5 | Tap a single-month paid cell     | Tap                                       | Receipt sheet opens (read-only)                                             |
 | 4.2.6 | Tap a multi-month secondary cell | Tap a Feb cell that is `isGroupSecondary` | Opens the source payment's receipt (the Jan record)                         |
 | 4.2.7 | Partial paid cell                | Tap a green cell whose payment has balance > 0 | Cell itself is green ("PAID") like any paid month; receipt opens with amber accent + "{amount} added to debts" row |
-| 4.2.8 | amount_paid = 0 payment exists   | Inspect the cell                          | Cell is UNPAID (slot exists in DB but treated as unpaid)                    |
+| 4.2.8 | An emptied bill (its collection was voided) | Inspect the cell                     | Cell is UNPAID, identical to a month never touched — and it is NOT a debt   |
 
 ### 4.3 FUTURE
 
 | #     | Scenario                        | Steps                                                 | Expected result                                                    |
 | ----- | ------------------------------- | ----------------------------------------------------- | ------------------------------------------------------------------ |
 | 4.3.1 | Today is 2026-05-08, view 2026  | Look at Jun–Dec                                       | Future (gray)                                                      |
-| 4.3.2 | Future cell — active customer   | Tap                                                   | PaymentFormSheet opens (allowed)                                   |
-| 4.3.3 | Future cell — inactive customer | Tap                                                   | PaymentFormSheet opens but submit blocked with inline amber banner |
+| 4.3.2 | Future cell — active customer   | Tap                                                   | The collect sheet opens (prepay is allowed)                        |
+| 4.3.3 | Future cell — inactive customer | Tap                                                   | Blocked with a "Not available" dialog before anything opens        |
 | 4.3.4 | Navigate to future year         | All cells future (unless future-dated payments exist) |
 | 4.3.5 | Future-dated payment            | Customer pre-paid for next year                       | That cell renders PAID instead of future                           |
 
@@ -228,7 +228,7 @@ There is no grace setting anywhere — no tier, no tenant option. The current mo
 | 10.9  | Partial payment then voided                | Pay 50/100 in May, then void                     | May reverts to UNPAID                                                                                                 |
 | 10.10 | Multi-month with mid-block void            | Pay Jan–Mar bundle, then void                    | All 3 months revert in a single op                                                                                    |
 | 10.11 | Voided payment in legacy data              | Customer with voided payment for current month   | Cell renders UNPAID (voided row filtered out)                                                                         |
-| 10.12 | amount_paid = 0 "reserved" row             | Save with `amount_paid = 0` (if allowed via API) | Cell shows UNPAID; row exists but is invisible to coverage logic                                                      |
+| 10.12 | An emptied bill                            | Void the only hand-over that reached a month     | Cell shows UNPAID; the bill row survives (frozen price) but is invisible to coverage, to Debts and to every count      |
 | 10.13 | RTL multi-month chevrons                   | Arabic                                           | Chevrons reverse direction via `DirectionalIcon`                                                                      |
 
 ## 11. Cell action menu (3-dot)
@@ -238,16 +238,16 @@ Each actionable cell shows a small 3-dot button in its top-end corner. Tapping i
 | #     | Scenario                          | Steps                                          | Expected result                                                                                          |
 | ----- | --------------------------------- | ---------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
 | 11.1  | Button visibility                 | Inspect cells of each status                   | 3-dot shown on unpaid/paid/future (a partial payment is a paid cell); NOT on before_start. Icon color contrasts with the cell |
-| 11.2  | Open action — unpaid              | 3-dot → Open on an unpaid month                | PaymentFormSheet opens (same as tapping the cell)                                                        |
-| 11.3  | Open action — paid                | 3-dot → Open on a paid month (incl. a partial payment) | PaymentDetailSheet (receipt) opens                                                              |
+| 11.2  | Open action — unpaid              | 3-dot → Open on an unpaid month                | The collect sheet opens (same as tapping the cell)                                                       |
+| 11.3  | Open action — paid                | 3-dot → Open on a paid month (incl. a partial)  | **BillSheet** opens, listing every payment that reached that month                             |
 | 11.4  | Quick Pay — fixed single-month    | 3-dot → Pay on unpaid month, 1-month plan      | Full plan price recorded immediately for that month; cell spinner then turns paid. No form shown          |
 | 11.5  | Quick Pay — multi-month plan      | 3-dot → Pay on unpaid month, plan duration > 1 | Confirm dialog with bundle amount + month range; on confirm records the block starting at that month      |
 | 11.5b | Quick Pay — future month (prepay) | 3-dot → Pay on a future month, fixed plan      | Records a prepayment for that future month; cell turns paid. Multi-month confirms first as in 11.5         |
 | 11.6  | Quick Pay — custom-price/no plan  | 3-dot → Pay where plan is custom or absent     | Quick Pay NOT offered; Open falls back to the form for manual amount entry                                |
 | 11.7  | Quick Pay hidden on paid           | 3-dot on a paid month (incl. a partial payment) | Quick Pay action NOT listed (a payment already exists)                                                  |
 | 11.8  | Quick Pay hidden — inactive       | Inactive customer, unpaid month                | Quick Pay NOT offered                                                                                     |
-| 11.9  | Void action — active payment      | 3-dot → Void on a paid month (incl. a partial payment) | VoidSheet opens; confirming voids the payment and reverts the cell                               |
-| 11.10 | Void on multi-month secondary     | 3-dot → Void on an "Included" cell             | VoidSheet voids the whole block (uses block warning copy)                                                |
+| 11.9  | **No Void on the cell**           | 3-dot on a paid month                          | There is no void row. The menu offers **View bill**; voiding a hand-over happens there, because one payment can cover several bills (gotcha #109) |
+| 11.10 | Collect the rest                  | 3-dot on a partly-paid month                   | **Collect the rest** appears, pre-filled with the balance                                                |
 | 11.11 | Void hidden on unpaid             | 3-dot on an unpaid month                       | Void action NOT listed (no payment to void)                                                              |
 | 11.12 | Dots tap vs cell tap             | Tap the 3-dot only                             | Opens the menu; does NOT trigger the cell-body open action                                               |
 | 11.13 | Quick Pay error                   | Force a create failure (e.g. month conflict)   | Error surfaces in the panel ErrorBanner; spinner clears                                                  |
@@ -265,7 +265,7 @@ Long-press a non-`before_start` cell to enter selection mode: selected cells gai
 | 12.3  | before_start inert                        | Long-press / tap a before_start cell                            | No selection, no badge, no toggle                                                                                  |
 | 12.4  | Exit paths                                | Use toolbar X, Android back, change year, leave screen          | Each clears the selection and hides the toolbar                                                                   |
 | 12.5  | Fixed single-month bulk pay               | Select several unpaid months (1-month fixed plan) → Pay         | Confirm with count → all become PAID at full plan price in **one** operation; year summary updates                |
-| 12.6  | Custom / no-plan bulk pay                 | Select several months (custom plan) → Pay                       | BulkPaymentFormSheet opens; one amount (full/partial + currency) entered → applied to every selected month        |
+| 12.6  | Custom / no-plan bulk collect             | Select several months (custom plan) → Collect                   | The collect sheet opens with those months; typing an amount splits it oldest-first, and the preview shows the split |
 | 12.7  | Multi-month bulk pay (blocks)             | Multi-month plan: tap an unpaid month                           | Its whole start-aligned N-month window auto-selects; selecting a 2nd window adds another block                    |
 | 12.8  | Multi-month bulk pay creates per block    | Select 2 windows → Pay                                          | Confirm with block count → one payment per block (full price); already-paid months inside a window are skipped     |
 | 12.9  | Bulk void                                 | Select several paid months (incl. partial payments) → Void      | ConfirmDialog (+ optional reason) → each unique payment voided once; cells revert                                 |
@@ -307,7 +307,7 @@ A month cannot be paid while an **earlier** month of the same service line is st
 | 13.16 | Customer-list quick pay hidden                 | Customer list, a customer with an older unpaid month                        | Quick pay row absent from the card menu; the red "Overdue" pill still shows                                               |
 | 13.17 | Bulk quick pay skips overdue lines             | Select several customers, some overdue → Quick pay                          | Overdue lines are excluded from the batch; the confirm counts only collectable lines (all-overdue selection → "none" info) |
 | 13.18 | Multi-plan: only the overdue line is blocked   | Customer with plan A (up to date) + plan B (backlog) → list quick pay        | Plan A's current month is collected; plan B is left for the detail grid                                                   |
-| 13.19 | Form banner backstop                           | Reach `PaymentFormSheet` for a blocked month (deep link / stale sheet)      | Amber banner with the same message; both submit buttons disabled                                                          |
+| 13.19 | Deep-link backstop                             | `?quickPay=1` for a customer whose backlog is older                        | The "Not available" dialog names the oldest month; nothing opens                                                          |
 | 13.20 | Service-level refusal                          | Force a blocked write past the UI                                           | Store `error` banner: "<Month> is still unpaid on this plan…"; nothing written                                            |
 | 13.21 | Void reopens the order                         | Pay Jan + Feb, then void January                                            | January is unpaid again → March becomes blocked until January is re-paid                                                  |
 | 13.22 | Voiding / skipping / editing unaffected        | On a blocked month use Skip; on a paid month use Void and Edit amount        | All work — the rule only gates recording NEW money                                                                        |

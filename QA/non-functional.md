@@ -99,7 +99,7 @@ Cross-cutting concerns that don't fit a single feature: performance, error handl
 | 8.4 | Voiding twice | Void a payment, void it again from another device | Second succeeds idempotently or no-ops; verify; no data corruption |
 | 8.5 | Clock skew on device | Set device clock 1 day ahead | Status logic uses device clock for current month; verify acceptable behavior at month boundary |
 | 8.6 | DB unique constraint failure | Force a duplicate insert | Service translates to user-friendly message |
-| 8.7 | Payment amount/balance snapshot integrity | Edit a plan's price after payments exist | Existing payment `amount_due / amount_paid / balance` unchanged |
+| 8.7 | Snapshot integrity | Edit a plan's price after bills exist | Every existing bill keeps its own frozen amount and rate; only the next month billed uses the new price |
 | 8.8 | Payment FX snapshot integrity | Edit a currency's `rate_per_usd` after payments exist | Existing payments' USD equivalents (via `rate_per_usd_snapshot`) unchanged on Dashboard, Receipt, Year totals |
 | 8.9 | Multi-month coverage integrity | Pay a Jan–Mar bundle, then void | Single row voided, all 3 months revert in one atomic operation |
 | 8.10 | Multi-month conflict atomicity | Two devices submit overlapping multi-month bundles | First succeeds; second's conflict detection adjusts effectiveStart/effectiveDuration, OR rejects depending on `skipConflicts` flag |

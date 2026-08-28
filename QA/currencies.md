@@ -109,7 +109,7 @@ USD is always displayed at the top of the list as a non-editable reference row.
 
 ## 6. Delete currency (smart soft/hard)
 
-`CurrencyService.deleteCurrency()` counts references in `plans` + `payments`. Reference count > 0 → soft-delete (`active = false`). Zero references → hard-delete the row.
+`CurrencyService.deleteCurrency()` counts references in `plans` + `charges` / `collections`. Reference count > 0 → soft-delete (`active = false`). Zero references → hard-delete the row.
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
@@ -125,7 +125,7 @@ USD is always displayed at the top of the list as a non-editable reference row.
 
 ## 7. CurrencyInput component
 
-The reusable input with embedded currency dropdown. Used in PlanFormSheet (price), PaymentFormSheet (custom amounts), and PaymentDetailSheet (edit).
+The reusable input with embedded currency dropdown. Used in PlanFormSheet (price), the collect sheet (custom amounts), and BillSheet (edit).
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
@@ -137,7 +137,7 @@ The reusable input with embedded currency dropdown. Used in PlanFormSheet (price
 | 7.6 | Tenant with no custom currencies | Open form on a tenant with zero `currencies` rows | Dropdown shows USD only |
 | 7.7 | Decimal-pad keyboard | Tap the amount input | Numeric keyboard with decimal separator |
 | 7.8 | Localized number formatting | Switch app to Arabic | Numbers formatted per active locale; LBP formatted with grouping |
-| 7.9 | Currency change clears partial state | In PaymentFormSheet, type custom + Partial, switch currency | Partial Amount Paid is cleared (old unit value invalid) |
+| 7.9 | Currency change clears partial state | In the collect sheet, type custom + Partial, switch currency | Partial Amount Paid is cleared (old unit value invalid) |
 | 7.10 | Negative input | Try to type `-` | Decimal-pad blocks; if forced, parseFloat rejects |
 
 ## 8. Display currency (tenant-wide setting)

@@ -19,8 +19,8 @@ The compact stats card on the Admin landing screen also surfaces a subset of the
 
 ## 0. Critical invariants
 
-1. **Aggregates are USD-converted via snapshots.** `DashboardService.getMetrics()` fetches `{amount_paid, rate_per_usd_snapshot}` rows for the current billing month and divides each by its snapshot before summing. The total is then formatted in the user's display currency.
-2. **Revenue is CASH COLLECTED, not billed.** `monthlyRevenue = subscriptionRevenue + salesRevenue + debtRevenue` — `payments.amount_paid` + `sales.amount_paid` + `debt_payments.amount`, each scoped by when the money arrived (`paid_at` / `sold_at`), summed in USD via `rate_per_usd_snapshot` and formatted in the display currency. A partial payment/sale contributes **only its paid part**; the remainder is a debt that enters revenue in the month it's collected. Every collected amount counts exactly once. The hero's breakdown sub-line lists **only Subscriptions and Sales** — `debtRevenue` counts in the headline but is intentionally not shown, because the card's one debt figure is the owed chip.
+1. **Aggregates are USD-converted via snapshots.** Each cash row is divided by its own frozen `rate_per_usd_snapshot` before summing, then formatted in the display currency.
+2. **Revenue is CASH COLLECTED, not billed, and comes from ONE read.** `monthlyRevenue = subscriptionRevenue + salesRevenue + manualRevenue`, all from `collection_items` scoped by `collections.received_at`, each split by **what the money paid for**. A partial payment or sale contributes only its paid part; the remainder is a debt that enters revenue in the month it is collected. **The three parts SUM to the headline exactly** — that is the acceptance test, and it is what the old three-query version could not do.
 3. **Voided payments, sales, and debt payments are excluded** from monthly_revenue and from the "paid customers" count.
 4. **Non-regular customers are excluded** from `unpaidThisMonth` and the unpaid customer count on the hero.
 5. **Branch-aware metrics.** When BranchSelector is set to a specific branch, all metrics scope to that branch (plans include shared).
@@ -60,13 +60,13 @@ The home greeting is one row, matching `PageHeader` on every other screen: name 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
 | 2.1 | Month label | Top-left of hero | Uppercase three-letter month + year (e.g. "MAY 2026 COLLECTED") |
-| 2.2 | Amount | Big number | Cash collected this calendar month across the three streams, each row `/ rate_per_usd_snapshot`, formatted in the user's display currency |
+| 2.2 | Amount | Big number | Cash collected this calendar month, each row `/ rate_per_usd_snapshot`, formatted in the display currency |
 | 2.3 | Mixed currency totals | Pay $50 (USD) + 50,000 LBP (snapshot rate 50,000) | Both → 1 USD each → $2.00 (or LBP equivalent if display=LBP) |
 | 2.4 | Sub-text | Below amount | "<paidCustomers> of <dueThisMonth> customers paid" + `<pct>%` — the population **billed this month**, not every active customer (see §3b) |
 | 2.4a | Breakdown sub-line — visible | Month has both subscription and sales revenue | Secondary line beneath the amount: Subscriptions and Sales with their amounts in display currency, a thin divider between them |
 | 2.4b | Breakdown sub-line — hidden | Only one of the two earned (e.g. subscriptions only) | Sub-line NOT rendered — it would just repeat the hero total |
 | 2.4c | **Collected debts never listed** | Month has debt collections | The breakdown shows **only** Subscriptions and Sales — no "Debts collected" column, by design. The collected amount is still inside the big number |
-| 2.4c2 | Breakdown may not equal the headline | Month has payments + sales + debt collections | `Subscriptions + Sales < headline`; the gap equals `debtRevenue`. **This is intended, not a bug** — the card shows owed debt instead of collected debt |
+| 2.4c2 | **The breakdown MUST equal the headline** | A month mixing month payments, sale payments and fee payments | `Subscriptions + Sales + Custom = headline`, to the cent. Any gap is a bug |
 | 2.4d | Sales-only revenue | Tenant records a paid sale, no subscription payment | Hero shows the sale's paid amount; sub-line NOT rendered (one stream) |
 | 2.4d2 | Debt-collection-only month | Only a debt payment this month, no payments or sales | Headline = the collected amount; sub-line NOT rendered (neither listed stream earned) |
 | 2.4e | Owed-debt chip visible | Any customer still owes money (`totalDebt > 0`) | Red-tinted chip (`bg-red-400/20`) below the breakdown, above the divider: "Owed by customers" + the amount with a leading minus, e.g. `−$383.00`. Chip hugs its content, does NOT stretch full width |
@@ -90,13 +90,13 @@ The home greeting is one row, matching `PageHeader` on every other screen: name 
 | 2.8 | Progress bar — partial | 4 of 10 paid | 40% |
 | 2.9 | Voided payment excluded | Pay $100 subscription then void | monthly_revenue drops by $100; collected % drops accordingly |
 | 2.9a | Voided sale excluded | Record $50 sale (fully paid) then void it | monthly_revenue drops by $50; salesRevenue in sub-line drops |
-| 2.9b | Voided debt payment excluded | Record a $30 debt payment then void it | monthly_revenue drops by $30; debtRevenue drops; the customer's debt goes back up |
+| 2.9b | A voided hand-over is excluded | Collect $30 against a debt, then void it | monthly_revenue drops by $30 and the debt comes back |
 | 2.14 | Partial sale counts only cash | Sell $100, collect $30 | salesRevenue = **$30** (not $100); the remaining $70 appears under Debts, not revenue |
-| 2.15 | Collecting that debt raises revenue | Then record a $70 debt payment | monthly_revenue +$70 via debtRevenue; the sale's own row is untouched; the $100 has now been counted exactly once across the two months |
-| 2.16 | Partial payment counts only cash | $100 due, collect $40 | subscriptionRevenue = $40; the $60 sits in Debts; collecting it later adds $60 to debtRevenue |
+| 2.15 | Collecting the rest raises revenue | Then collect the sale's remaining $70 | monthly_revenue +$70, counted under **Sales**; the sale row is untouched; the $100 has been counted exactly once across the two months |
+| 2.16 | Partial payment counts only cash | $100 due, collect $40 | subscriptionRevenue = $40; the $60 sits in Debts; collecting it later adds $60 to **subscriptionRevenue**, in that month |
 | 2.17 | Fully unpaid sale adds no revenue | Sell $100, collect $0 | salesRevenue unchanged ($0 added); salesCount still +1; the $100 shows as a Sales debt |
 | 2.18 | Debt collected in a later month | Partial sale in May, debt paid in June | May revenue holds only the May cash; June revenue holds the collected debt. Neither month double-counts |
-| 2.19 | Revenue vs wallet agree | Compare a collector's day of work to their wallet | The same three sources (payments / sales / debt payments) and the same `amount_paid` figures feed both, so unremitted cash is always a subset of the collected revenue |
+| 2.19 | Revenue vs wallet agree | Compare a collector's day of work to their wallet | Both read the same `collections` rows, so unremitted cash is always a subset of the collected revenue |
 | 2.10 | Live currency rate change does NOT shift hero | Pay 50000 LBP at rate 50000 (= $1). Admin then edits LBP rate to 100000 | Hero still shows $1 from that payment (uses snapshot, not live rate) |
 | 2.11 | Display currency change | Switch display from USD to LBP | Hero immediately reformats (re-renders), still based on USD-aggregated total |
 | 2.12 | Inactive customer with current-month payment | Inactive customer paid this month (arrears) | Their amount is INCLUDED in monthly_revenue (revenue is collection-based). But they are NOT counted in active/paid customers (which uses `active = true`) |
@@ -193,8 +193,8 @@ The Admin tab landing screen has its own compact summary that shares the dashboa
 | 8.14 | Sales snapshot immunity | Record $50 walk-in sale in LBP at rate 90000 (≈ $0.56). Admin edits LBP rate to 100000. Open dashboard | Hero still shows the original USD equivalent (uses `rate_per_usd_snapshot` on the sale row) |
 | 8.15 | Walk-in sale (no customer) | Record fully-paid sale with customer = null | The collected amount is included in salesRevenue and monthly_revenue. A walk-in sale cannot be partial (no customer to owe the debt) |
 | 8.16 | Sales from this month vs last month | Record sale in previous billing month | Previous month's sale does NOT appear in current month's salesRevenue |
-| 8.8 | Partial payment effect | Customer paid 50/100 for current month | Customer counted as PAID (their `paid_at` exists, not voided, `amount_paid > 0`). monthly_revenue includes the 50 — **not** the 100 |
-| 8.17 | Debt payment with no source row edit | Collect a $70 debt | debtRevenue +$70. The original partial payment/sale row is NOT modified, so its month's revenue never changes retroactively |
+| 8.8 | Partial payment effect | Customer paid 50/100 for the current month | Counted as PAID (money reached the month). monthly_revenue includes the 50 — **not** the 100 |
+| 8.17 | Collecting a debt never rewrites history | Collect $70 against an old bill | The bill row is NOT modified, so its month's revenue never changes retroactively — the cash lands in the month it arrived |
 | 8.9 | Multi-month payment effect | Customer pays Jan–Mar in Jan | Only the source month (Jan) is in monthly_revenue. Feb and Mar dashboards (when viewed in Feb/Mar) will NOT show that payment in their monthly_revenue — but the customer is counted as PAID via the coverage map |
 | 8.10 | "Paid this month" via multi-month coverage | Look at Feb dashboard, customer is covered by a Jan–Mar bundle | Verify customer is counted as paid this month. Edge case: the `findPaidCustomerIdsForMonth` query may only check `billing_month = this month`. **File a finding if multi-month customers appear unpaid in months 2/3** |
 | 8.11 | Non-regular excluded from unpaid | Tenant has 100 non-regular customers with no current-month payment | unpaidThisMonth ignores them. Hero `paidCustomers` calc still subtracts only regular unpaids — confirm formula matches spec |
@@ -212,7 +212,7 @@ The Admin tab landing screen has its own compact summary that shares the dashboa
 | 9.3 | No prior revenue | Previous month had $0 (or brand-new tenant) | Pill NOT rendered (avoids divide-by-zero / infinite %) |
 | 9.4 | Flat | This month = last month | ▲ 0% (treated as non-negative) |
 | 9.5 | Branch-scoped | Pick a branch | prevMonthRevenue is scoped to that branch too; pill reflects branch history |
-| 9.6 | Same three streams | Last month had payments, a sale and a collected debt | prevMonthRevenue sums all three (`DashboardService.getMonthRevenue`), so the pill compares like with like |
+| 9.6 | Same read both months | Last month had month payments, a sale and a collected debt | `prevMonthRevenue` comes from the same `getMonthCollections` helper, so the pill compares like with like by construction |
 
 ## 10. Growth tiles — New / Cancelled this month
 
@@ -234,7 +234,7 @@ The Admin tab landing screen has its own compact summary that shares the dashboa
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
 | 11.1 | Payments count | Record 3 subscription payments this month | "PAYMENTS" tile = 3, sub "avg <amount> each" |
-| 11.2 | Zero-amount slot not counted | An unpaid month slot (amount_paid = 0) | Not counted in paymentsCollectedCount; avg sub falls back to "This Month" |
+| 11.2 | An emptied bill is not counted | Void the only hand-over that reached a month | Not counted in paymentsCollectedCount; the month reads unpaid again |
 | 11.3 | Avg calculation | Collect $30 + $50 + $100 over 3 payments | Avg = $60.00 each (display-currency formatted) |
 | 11.4 | Voided payment | Void one of the payments | Count drops by 1; avg recomputes on refresh |
 | 11.5 | Sales count | Record 2 sales this month | "SALES" tile = 2, sub "This Month" |

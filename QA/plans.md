@@ -102,7 +102,7 @@ Plans CRUD is admin-only.
 | 5.4 | Duration = 0 | Enter 0 | Rejected (`BETWEEN 1 AND 12`) |
 | 5.5 | Duration = 13 | Enter 13 | Rejected |
 | 5.6 | Duration with custom price | Try Duration = 3 + Custom Pricing on | Service throws "Multi-month plans must have a fixed price" |
-| 5.7 | Use multi-month plan in payments | Customer assigned plan, tap unpaid month | Scenario D in PaymentFormSheet; Quick Pay shows confirm dialog |
+| 5.7 | Use multi-month plan in payments | Customer assigned plan, tap unpaid month | Scenario D in the collect sheet; Quick Pay shows confirm dialog |
 
 ## 6. Branch scoping (multi-branch tenants)
 

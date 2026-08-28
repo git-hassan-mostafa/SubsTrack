@@ -37,7 +37,7 @@ The currency the whole ORGANIZATION sees values in. Stored in `tenant_settings` 
 | 2.6 | Persistence across logout | Logout, log back in as same user | Still LBP — the slice resets on logout and `primePostAuth` re-fetches it |
 | 2.7 | Effect on Plan cards | Open Plans screen | USD plans show "$X" + "≈ LBP equivalent (via live rate)" |
 | 2.8 | Effect on Dashboard | Open Dashboard | "Collected" hero formatted in LBP |
-| 2.9 | Effect on PaymentDetailSheet | Open a receipt | Primary line = stored currency; secondary line = LBP equivalent (via snapshot) |
+| 2.9 | Effect on BillSheet | Open a receipt | Primary line = stored currency; secondary line = LBP equivalent (via snapshot) |
 | 2.10 | Effect on Customer year totals | Open customer detail | "X collected" total formatted in LBP |
 | 2.11 | Inactive currency selected | Display currency was X, then admin soft-deletes X | UI falls back to USD without crashing |
 | 2.12 | Empty tenant currencies | Tenant has zero `currencies` | Dropdown shows USD only |
