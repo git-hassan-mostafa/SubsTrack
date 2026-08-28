@@ -3,14 +3,13 @@ import type {
   CustomerMonthStatus,
   CustomerPlan,
   CustomerStatus,
+  MonthBill,
   MonthEntry,
   MonthStatus,
-  Payment,
   SkippedMonth,
-  TierPlan,
   UnpaidStartRule,
 } from "@/src/core/types";
-import { MONTHS, type BranchFilter } from "@/src/core/constants";
+import { MONTHS } from "@/src/core/constants";
 import { getCurrentYearMonth, toBillingMonth } from "@/src/core/utils/date";
 import {
   isBeforeStartDate,
@@ -19,461 +18,23 @@ import {
 } from "../utils/monthDueRules";
 import { DEFAULT_UNPAID_START_RULE } from "@/src/modules/admin/tenant-settings/services/TenantSettingService";
 import i18n from "@/src/core/i18n";
-import repository from "../repository/PaymentRepository";
-import skippedMonthService from "./SkippedMonthService";
-import { tierService } from "@/src/modules/admin/subscription";
-import { mapDbPaymentToPayment, mapDbPaymentRowToListItem } from "../utils/mapper";
 import {
   billingMonthLabel,
   blockingPaidMonths,
   blockingUnpaidMonths,
   coveredBillingMonths,
 } from "../utils/payOrder";
-import { CreateMultiMonthPaymentResult, FindPaymentsOptions, MultiMonthConflict, PaymentListItem } from "../utils/types";
-
-type CreatePaymentInput = Pick<Payment, 'billingMonth' | 'amountDue' | 'amountPaid' | 'durationMonths' | 'currencyId' | 'ratePerUsdSnapshot' | 'customerId' | 'customerPlanId' | 'planId' | 'receivedByUserId' | 'tenantId' | 'notes'>
-
-// One entry in a customer-list bulk quick pay: a single fixed-price service line
-// paid for `billingMonth` with its resolved price + frozen rate. A multi-month
-// line becomes a block payment covering `durationMonths`. A customer with
-// several lines contributes one entry per eligible line ("collect all due").
-interface BulkPayCustomerInput {
-  customerId: string;
-  // The whole service line, not just its id — the pay-oldest-first guard needs
-  // its start date to know how far back the line can owe, and line.planId is the
-  // payment's plan snapshot (a line with a special price may have no plan).
-  line: CustomerPlan;
-  // Already resolved by resolveLinePrice() in the caller — the very figures the
-  // confirm dialog showed. NEVER re-derived from plan.price here: a line can
-  // carry its own special price, and the currency is what freezes the rate.
-  amountDue: number;
-  durationMonths: number;
-  currencyId: string | null;
-  billingMonth: string;
-  amountPaid: number;
-  ratePerUsdSnapshot: number;
-}
+import type { MultiMonthConflict } from "../utils/types";
 
 class PaymentService {
-  // Returns every non-voided payment for a customer (all years). The panel
-  // loads this once and rebuilds each year's grid client-side.
-  async getPaymentsForCustomer(customerId: string): Promise<Payment[]> {
-    const rows = await repository.findByCustomer(customerId);
-    return rows.map(mapDbPaymentToPayment);
-  }
-
-  // Tenant-wide, paginated, filterable payment list for the Transactions → Payments
-  // tab. Each item carries its customer name for display.
-  async getPayments(opts: FindPaymentsOptions = {}): Promise<PaymentListItem[]> {
-    const rows = await repository.findAll(opts);
-    return rows.map(mapDbPaymentRowToListItem);
-  }
-
-  // Buckets monthlyTotals() rows into per-calendar-month USD sums ("YYYY-MM"
-  // keys, by paid_at) — the authoritative total for a Payments tab section
-  // header, independent of how many of that month's rows are paginated in.
-  async getMonthlyTotals(opts: FindPaymentsOptions = {}): Promise<Record<string, number>> {
-    // A total is money actually collected, so voided rows never count — even
-    // when the LIST asks for them (history shows the reversal, the sum doesn't).
-    const rows = await repository.monthlyTotals({ ...opts, includeVoided: false });
-    const totals: Record<string, number> = {};
-    for (const r of rows) {
-      const d = new Date(r.paidAt);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      totals[key] = (totals[key] ?? 0) + r.amount / r.ratePerUsdSnapshot;
-    }
-    return totals;
-  }
-
-  // Non-voided payments that still owe money (partial payments) — the "Months"
-  // debt category. Each item carries its customer + plan name for display.
-  async getPartialPayments(branchFilter: BranchFilter = null): Promise<PaymentListItem[]> {
-    const rows = await repository.partialPayments(branchFilter);
-    return rows.map(mapDbPaymentRowToListItem);
-  }
-
-  // Collector wallet: non-voided payments someone is holding, with cash
-  // collected. Each item carries its customer + plan name. Optionally scoped to
-  // one holder.
-  async getHeldForWallet(
-    branchFilter: BranchFilter = null,
-    holderUserId: string | null = null,
-  ): Promise<PaymentListItem[]> {
-    const rows = await repository.heldForWallet(branchFilter, holderUserId);
-    return rows.map(mapDbPaymentRowToListItem);
-  }
-
-  // Move these payments' cash to the next holder (or out of the system when
-  // toUserId is null). WalletService decides who may do this.
-  async transferCustody(
-    ids: string[],
-    fromUserId: string,
-    toUserId: string | null,
-    actorUserId: string,
-  ): Promise<void> {
-    await repository.transferCustody(ids, fromUserId, toUserId, actorUserId);
-  }
-
-  async createPayment(data: CreatePaymentInput): Promise<Payment> {
-    validateCreatePayment(data);
-    const row = await repository.create(toPaymentPayload(data));
-    return mapDbPaymentToPayment(row);
-  }
-
-  // Creates several single-month payments in one round-trip. Used by the
-  // month-grid bulk pay (fixed and custom-price). Every input is validated
-  // before any write so a bad row fails the whole batch up front.
-  async createPayments(inputs: CreatePaymentInput[]): Promise<Payment[]> {
-    if (inputs.length === 0) return [];
-    inputs.forEach(validateCreatePayment);
-    const rows = await repository.createMany(inputs.map(toPaymentPayload));
-    return rows.map(mapDbPaymentToPayment);
-  }
-
-  // Pays one billing month for many DIFFERENT customers in a single round-trip
-  // — each at its own resolved price/currency. Multi-month lines create one block
-  // payment covering the resolved durationMonths from billingMonth. Used by the
-  // customer-list bulk quick pay. All-or-nothing: an invalid row, or a tier that
-  // forbids multi-month, fails the whole batch (callers gate eligibility first).
-  async bulkPayCustomers(
-    inputs: BulkPayCustomerInput[],
-    receivedByUserId: string,
-    tenantId: string,
-    tier: TierPlan,
-    unpaidRule: UnpaidStartRule = DEFAULT_UNPAID_START_RULE,
-  ): Promise<Payment[]> {
-    if (inputs.length === 0) return [];
-    if (inputs.some((i) => i.durationMonths > 1)) {
-      tierService.assertMultiMonth(tier);
-    }
-    // validateCreatePayment below already refuses a non-positive amount due.
-    const paymentInputs: CreatePaymentInput[] = inputs.map((i) => ({
-      billingMonth: i.billingMonth,
-      amountDue: i.amountDue,
-      amountPaid: i.amountPaid,
-      durationMonths: i.durationMonths,
-      currencyId: i.currencyId,
-      ratePerUsdSnapshot: i.ratePerUsdSnapshot,
-      customerId: i.customerId,
-      customerPlanId: i.line.id,
-      planId: i.line.planId,
-      receivedByUserId,
-      tenantId,
-      notes: null,
-    }));
-    paymentInputs.forEach(validateCreatePayment);
-    await this.assertBulkPayableInOrder(inputs, unpaidRule);
-    const rows = await repository.createMany(paymentInputs.map(toPaymentPayload));
-    return rows.map(mapDbPaymentToPayment);
-  }
-
-  // The pay-oldest-first guard for "collect all due", which spans MANY customers
-  // the caller holds no payments for. Two tenant-wide reads (the same pair
-  // getCustomerStatuses uses) instead of one round-trip per line, so the cost
-  // doesn't grow with the batch. The list's UI already hides lines with an
-  // uncovered earlier month — this is the layer that makes it a rule, not a filter.
-  private async assertBulkPayableInOrder(
-    inputs: BulkPayCustomerInput[],
-    unpaidRule: UnpaidStartRule,
-  ): Promise<void> {
-    const [rows, skips] = await Promise.all([
-      repository.findActivePayments(),
-      skippedMonthService.getActiveSkips(),
-    ]);
-    const payments = rows.map(mapDbPaymentToPayment);
-    for (const i of inputs) {
-      this.assertPayableInOrder(
-        i.line,
-        coveredBillingMonths(i.billingMonth, i.durationMonths),
-        payments.filter((p) => p.customerPlanId === i.line.id),
-        skips.filter((s) => s.customerPlanId === i.line.id),
-        unpaidRule,
-      );
-    }
-  }
-
-  // Creates a multi-month payment starting at startMonth covering durationMonths months.
-  // amountDue / durationMonths / currencyId are already resolved by
-  // resolveLinePrice() in the caller — a line may carry its own special price for
-  // the bundle, and the currency is what freezes the rate, so neither is ever
-  // re-derived from plan.price here.
-  // amountPaid: what was actually collected (may be less than amountDue for partial payments).
-  // existingPayments: the current payments for this customer (to detect conflicts).
-  // lineSkips: the line's active skips — a block covering one is refused whole.
-  // skipConflicts: if true, steps over already-paid months; if false, throws on conflict.
-  async createMultiMonthPayment(
-    startMonth: string,
-    customer: Customer,
-    customerPlanId: string,
-    planId: string | null,
-    amountDue: number,
-    durationMonths: number,
-    currencyId: string | null,
-    amountPaid: number,
-    receivedByUserId: string,
-    notes: string | null,
-    tenantId: string,
-    existingPayments: Payment[],
-    lineSkips: SkippedMonth[],
-    skipConflicts: boolean,
-    ratePerUsdSnapshot: number,
-    tier: TierPlan,
-  ): Promise<CreateMultiMonthPaymentResult> {
-    tierService.assertMultiMonth(tier);
-    if (!startMonth.endsWith("-01")) {
-      throw new Error(i18n.t("errors.billing_month_format"));
-    }
-    if (!(amountDue > 0)) {
-      throw new Error(i18n.t("errors.plan_fixed_for_multimonth"));
-    }
-    if (amountPaid > amountDue) {
-      throw new Error(i18n.t("errors.amount_paid_exceeds_due"));
-    }
-    if (!(ratePerUsdSnapshot > 0)) {
-      throw new Error(i18n.t("errors.rate_snapshot_positive"));
-    }
-
-    const coveredByExisting = buildCoverageSet(existingPayments);
-    const { effectiveStart, effectiveDuration, conflictMonths } =
-      resolveMultiMonthBlock(startMonth, durationMonths, coveredByExisting);
-
-    if (!skipConflicts && conflictMonths.length > 0) {
-      throw new Error(
-        i18n.t("errors.months_already_paid", { months: conflictMonths.map((m) => m.label).join(", ") }),
-      );
-    }
-    // If all months are covered, nothing to create.
-    if (effectiveDuration <= 0) {
-      throw new Error(i18n.t("errors.all_months_paid"));
-    }
-    assertNoSkippedMonths(effectiveStart, effectiveDuration, lineSkips, coveredByExisting);
-
-    const row = await repository.create({
-      billing_month: effectiveStart,
-      amount_due: amountDue,
-      amount_paid: amountPaid,
-      duration_months: effectiveDuration,
-      currency_id: currencyId,
-      rate_per_usd_snapshot: ratePerUsdSnapshot,
-      customer_id: customer.id,
-      customer_plan_id: customerPlanId,
-      plan_id: planId,
-      received_by_user_id: receivedByUserId,
-      tenant_id: tenantId,
-      notes,
-    });
-
-    return { payment: mapDbPaymentToPayment(row), conflictMonths };
-  }
-
-  // Creates one multi-month block payment per start month in a single
-  // round-trip. The starts come from the grid's start-aligned windows and are
-  // non-overlapping, so each block is resolved against the same pre-existing
-  // coverage; fully-covered blocks are dropped and surfaced via conflictMonths.
-  async createMultiMonthPayments(
-    starts: string[],
-    customer: Customer,
-    customerPlanId: string,
-    planId: string | null,
-    amountDue: number,
-    durationMonths: number,
-    currencyId: string | null,
-    amountPaid: number,
-    receivedByUserId: string,
-    notes: string | null,
-    tenantId: string,
-    existingPayments: Payment[],
-    lineSkips: SkippedMonth[],
-    ratePerUsdSnapshot: number,
-    tier: TierPlan,
-  ): Promise<{ payments: Payment[]; conflictMonths: MultiMonthConflict[] }> {
-    tierService.assertMultiMonth(tier);
-    if (!(amountDue > 0)) {
-      throw new Error(i18n.t("errors.plan_fixed_for_multimonth"));
-    }
-    if (amountPaid > amountDue) {
-      throw new Error(i18n.t("errors.amount_paid_exceeds_due"));
-    }
-    if (!(ratePerUsdSnapshot > 0)) {
-      throw new Error(i18n.t("errors.rate_snapshot_positive"));
-    }
-
-    const covered = buildCoverageSet(existingPayments);
-    const payloads = [];
-    const conflictMonths: MultiMonthConflict[] = [];
-    for (const startMonth of starts) {
-      if (!startMonth.endsWith("-01")) {
-        throw new Error(i18n.t("errors.billing_month_format"));
-      }
-      const resolved = resolveMultiMonthBlock(startMonth, durationMonths, covered);
-      conflictMonths.push(...resolved.conflictMonths);
-      if (resolved.effectiveDuration <= 0) continue; // whole block already covered
-      assertNoSkippedMonths(resolved.effectiveStart, resolved.effectiveDuration, lineSkips, covered);
-      payloads.push({
-        billing_month: resolved.effectiveStart,
-        amount_due: amountDue,
-        amount_paid: amountPaid,
-        duration_months: resolved.effectiveDuration,
-        currency_id: currencyId,
-        rate_per_usd_snapshot: ratePerUsdSnapshot,
-        customer_id: customer.id,
-        customer_plan_id: customerPlanId,
-        plan_id: planId,
-        received_by_user_id: receivedByUserId,
-        tenant_id: tenantId,
-        notes,
-      });
-    }
-    if (payloads.length === 0) {
-      throw new Error(i18n.t("errors.all_months_paid"));
-    }
-    const rows = await repository.createMany(payloads);
-    return { payments: rows.map(mapDbPaymentToPayment), conflictMonths };
-  }
-
-  // Updates an existing (non-voided) payment's amount_paid in place. Amount
-  // due (and its currency/rate snapshot) is frozen once a payment is recorded —
-  // callers pass the existing Payment so due/currency/rate are always echoed
-  // back unchanged, never re-derived from caller input. Voided payments stay
-  // locked via the repository's voided_at IS NULL filter.
-  async updatePayment(payment: Payment, amountPaid: number): Promise<Payment> {
-    if (amountPaid < 0) throw new Error(i18n.t("errors.amount_paid_negative"));
-    if (amountPaid > payment.amountDue) {
-      throw new Error(i18n.t("errors.amount_paid_exceeds_due"));
-    }
-    // Editing to 0 would un-pay the month (buildMonthGrid needs amountPaid > 0),
-    // a back door around the void guard: it could leave a paid month sitting on
-    // an unpaid one, and it keeps no void reason. Void the payment instead.
-    if (amountPaid === 0) {
-      throw new Error(i18n.t("errors.edit_amount_zero"));
-    }
-    const row = await repository.updatePayment(payment.id, {
-      amountDue: payment.amountDue,
-      amountPaid,
-      currencyId: payment.currencyId,
-      ratePerUsdSnapshot: payment.ratePerUsdSnapshot,
-    });
-    return mapDbPaymentToPayment(row);
-  }
-
-  // "Complete" a partly-paid month: the customer really paid in full, the amount
-  // collected was just written down short. A CORRECTION — it raises the payment's
-  // own amount_paid to the frozen amount_due instead of recording a debt payment,
-  // so the debt disappears because the month no longer owes anything. The month
-  // was already "paid" in the grid (a partial reads as paid), so no status moves;
-  // the extra cash counts on the original paid_at, and custody is untouched.
-  async completePayment(id: string): Promise<Payment> {
-    const [row] = await repository.findByIds([id]);
-    if (!row) throw new Error(i18n.t("errors.payment_missing"));
-    const payment = mapDbPaymentToPayment(row);
-    if (payment.voidedAt !== null) {
-      throw new Error(i18n.t("errors.payment_voided_not_editable"));
-    }
-    if (payment.amountPaid >= payment.amountDue) return payment;
-    return this.updatePayment(payment, payment.amountDue);
-  }
-
-  async voidPayment(
-    id: string,
-    voidedBy: string,
-    notes: string,
-  ): Promise<Payment> {
-    await this.assertVoidableInOrder([id]);
-    // Reason is optional — store the trimmed note, or null when left blank.
-    const trimmed = notes.trim();
-    const row = await repository.voidPayment(id, voidedBy, trimmed || null);
-    return mapDbPaymentToPayment(row);
-  }
-
-  // Customer-list quick void: voids EVERY active payment whose block covers the
-  // CURRENT month across all of a customer's lines (fetches on demand — the list
-  // doesn't keep per-customer payments). Multi-month blocks are voided whole,
-  // matching the detail-sheet void. Returns the voided payments (empty when none
-  // cover the current month).
-  async voidCurrentMonth(
-    customerId: string,
-    voidedBy: string,
-    notes: string,
-  ): Promise<Payment[]> {
-    const { year, month } = getCurrentYearMonth();
-    const currentBillingMonth = toBillingMonth(year, month);
-    const payments = await this.getPaymentsForCustomer(customerId);
-    const covering = payments.filter((p) => {
-      if (p.amountPaid <= 0) return false;
-      const [pYear, pMonthNum] = p.billingMonth.split("-").map(Number);
-      for (let d = 0; d < p.durationMonths; d++) {
-        const date = new Date(pYear, pMonthNum - 1 + d, 1);
-        if (
-          toBillingMonth(date.getFullYear(), date.getMonth() + 1) ===
-          currentBillingMonth
-        ) {
-          return true;
-        }
-      }
-      return false;
-    });
-    if (covering.length === 0) return [];
-    return this.voidPayments(covering.map((p) => p.id), voidedBy, notes);
-  }
-
-  // Voids several payments in one round-trip (month-grid bulk void).
-  async voidPayments(
-    ids: string[],
-    voidedBy: string,
-    notes: string,
-  ): Promise<Payment[]> {
-    if (ids.length === 0) return [];
-    await this.assertVoidableInOrder(ids);
-    const trimmed = notes.trim();
-    const rows = await repository.voidMany(ids, voidedBy, trimmed || null);
-    return rows.map(mapDbPaymentToPayment);
-  }
-
-  // Voids run NEWEST FIRST: a month may not be voided while a LATER month of the
-  // same service line is still paid. Without it, undoing an old month leaves a
-  // paid month on top of an unpaid one — exactly the state the pay-oldest-first
-  // rule exists to prevent, reached from the other side.
-  //
-  // Resolves the rows itself from the ids, so EVERY caller is covered — the
-  // Transactions → Payments tab voids a mixed selection and never loads a grid.
-  // Months inside the same void never block each other.
-  private async assertVoidableInOrder(ids: string[]): Promise<void> {
-    const targets = (await repository.findByIds(ids)).map(mapDbPaymentToPayment);
-    // Nothing to protect once a target is already voided (a repeat void is a
-    // no-op at the repository), and a zero-paid slot was never a payment.
-    const live = targets.filter((p) => p.voidedAt === null && p.amountPaid > 0);
-    if (live.length === 0) return;
-
-    // One read per customer, then the rule is applied per service line.
-    const byCustomer = groupBy(live, (p) => p.customerId);
-    for (const [customerId, customerTargets] of byCustomer) {
-      const active = await this.getPaymentsForCustomer(customerId);
-      for (const [lineId, lineTargets] of groupBy(customerTargets, (p) => p.customerPlanId)) {
-        const paidMonths = this.paidBillingMonths(
-          active.filter((p) => p.customerPlanId === lineId),
-        );
-        const targetMonths = lineTargets.flatMap((p) =>
-          coveredBillingMonths(p.billingMonth, p.durationMonths),
-        );
-        const blocking = blockingPaidMonths(paidMonths, targetMonths);
-        // Only the newest is named — that is the one month to void next.
-        if (blocking.length > 0) {
-          throw new Error(
-            i18n.t("errors.later_month_paid", { month: billingMonthLabel(blocking[0]) }),
-          );
-        }
-      }
-    }
-  }
-
   // An unskip is a void of an EXPECTATION, so it follows the void rule: it turns
   // "nothing expected" back into an unpaid month, and may not run while a LATER
   // month of the same line is paid — that would leave a paid month sitting on an
   // unpaid one. Such a month can still be COLLECTED instead (a payment outranks
   // the skip in buildMonthGrid), which is what the grid offers in place of the
   // unskip. Months inside the same write never block each other.
-  assertUnskippableInOrder(targetMonths: string[], linePayments: Payment[]): void {
-    const blocking = blockingPaidMonths(this.paidBillingMonths(linePayments), targetMonths);
+  assertUnskippableInOrder(targetMonths: string[], lineBills: MonthBill[]): void {
+    const blocking = blockingPaidMonths(this.paidBillingMonths(lineBills), targetMonths);
     // Only the newest is named — that is the one month standing in the way.
     if (blocking.length > 0) {
       throw new Error(
@@ -500,7 +61,7 @@ class PaymentService {
   // second without being the first — red, blocking, not yet overdue (#83).
   buildCustomerStatus(
     lines: CustomerPlan[],
-    payments: Payment[],
+    bills: MonthBill[],
     skips: SkippedMonth[],
     unpaidRule: UnpaidStartRule = DEFAULT_UNPAID_START_RULE,
   ): CustomerStatus {
@@ -515,7 +76,7 @@ class PaymentService {
 
     for (const line of lines) {
       if (!line.active) continue;
-      const linePayments = payments.filter((p) => p.customerPlanId === line.id);
+      const lineBills = bills.filter((b) => b.charge.customerPlanId === line.id);
       const lineSkips = skips.filter((s) => s.customerPlanId === line.id);
       const startYear = new Date(line.startDate).getFullYear();
 
@@ -525,7 +86,7 @@ class PaymentService {
       let lineRequired = 0;
       let lineUnpaid = 0;
       for (let year = startYear; year <= currentYear; year++) {
-        for (const entry of this.buildMonthGrid(line, linePayments, lineSkips, year, unpaidRule)) {
+        for (const entry of this.buildMonthGrid(line, lineBills, lineSkips, year, unpaidRule)) {
           if (entry.status === "paid" || entry.status === "unpaid") {
             // A partial payment resolves to "paid" (its balance becomes a debt),
             // so a covered month always counts as settled here.
@@ -603,18 +164,17 @@ class PaymentService {
   }
 
   // The customer list's whole badge dataset, in ONE query pass: every payment
-  // and skip is fetched once, grouped per customer, then run through
-  // buildCustomerStatus. Customers absent from the returned map have no status
+  // and skip is fetched ONCE by the caller (the ledger owns the bills query) and
+  // handed in here, so this service stays pure month-rule logic with no data
+  // access of its own. Customers absent from the returned map have no status
   // yet — the list must render no payment badge for them rather than guessing.
-  async getCustomerStatuses(
+  getCustomerStatuses(
     customers: Customer[],
+    bills: MonthBill[],
+    skips: SkippedMonth[],
     unpaidRule: UnpaidStartRule = DEFAULT_UNPAID_START_RULE,
-  ): Promise<Map<string, CustomerStatus>> {
-    const [rows, skips] = await Promise.all([
-      repository.findActivePayments(),
-      skippedMonthService.getActiveSkips(),
-    ]);
-    const paymentsByCustomer = groupBy(rows.map(mapDbPaymentToPayment), (p) => p.customerId);
+  ): Map<string, CustomerStatus> {
+    const billsByCustomer = groupBy(bills, (b) => b.charge.customerId ?? '');
     const skipsByCustomer = groupBy(skips, (s) => s.customerId);
 
     const statuses = new Map<string, CustomerStatus>();
@@ -627,7 +187,7 @@ class PaymentService {
         customer.id,
         this.buildCustomerStatus(
           customer.customerPlans ?? [],
-          paymentsByCustomer.get(customer.id) ?? [],
+          billsByCustomer.get(customer.id) ?? [],
           skipsByCustomer.get(customer.id) ?? [],
           unpaidRule,
         ),
@@ -645,28 +205,26 @@ class PaymentService {
   // all one month behind is one month behind, not three.
   //
   // OVERDUE months only (unpaidBillingMonths) — a prepay gap is not a debt.
-  async getOverdueMonthCounts(
+  getOverdueMonthCounts(
     customers: Customer[],
+    bills: MonthBill[],
+    skips: SkippedMonth[],
     unpaidRule: UnpaidStartRule = DEFAULT_UNPAID_START_RULE,
-  ): Promise<Map<string, number>> {
-    const [rows, skips] = await Promise.all([
-      repository.findActivePayments(),
-      skippedMonthService.getActiveSkips(),
-    ]);
-    const paymentsByCustomer = groupBy(rows.map(mapDbPaymentToPayment), (p) => p.customerId);
+  ): Map<string, number> {
+    const billsByCustomer = groupBy(bills, (b) => b.charge.customerId ?? '');
     const skipsByCustomer = groupBy(skips, (s) => s.customerId);
 
     const counts = new Map<string, number>();
     for (const customer of customers) {
       if (!customer.active || !customer.isRegular) continue;
-      const payments = paymentsByCustomer.get(customer.id) ?? [];
+      const customerBills = billsByCustomer.get(customer.id) ?? [];
       const skipRows = skipsByCustomer.get(customer.id) ?? [];
       const months = new Set<string>();
       for (const line of customer.customerPlans ?? []) {
         if (!line.active || line.cancelledAt) continue;
         for (const m of this.unpaidBillingMonths(
           line,
-          payments.filter((p) => p.customerPlanId === line.id),
+          customerBills.filter((b) => b.charge.customerPlanId === line.id),
           skipRows.filter((sk) => sk.customerPlanId === line.id),
           unpaidRule,
         )) {
@@ -687,14 +245,14 @@ class PaymentService {
   // which also counts not-yet-due gaps (see #81b).
   unpaidBillingMonths(
     line: CustomerPlan,
-    linePayments: Payment[],
+    lineBills: MonthBill[],
     lineSkips: SkippedMonth[],
     unpaidRule: UnpaidStartRule = DEFAULT_UNPAID_START_RULE,
   ): string[] {
     const { year: currentYear } = getCurrentYearMonth();
     const months: string[] = [];
     for (let year = new Date(line.startDate).getFullYear(); year <= currentYear; year++) {
-      for (const entry of this.buildMonthGrid(line, linePayments, lineSkips, year, unpaidRule)) {
+      for (const entry of this.buildMonthGrid(line, lineBills, lineSkips, year, unpaidRule)) {
         if (entry.status === "unpaid") months.push(entry.billingMonth);
       }
     }
@@ -712,12 +270,12 @@ class PaymentService {
   // the row a prepay leaves behind.
   uncoveredBillingMonths(
     line: CustomerPlan,
-    linePayments: Payment[],
+    lineBills: MonthBill[],
     lineSkips: SkippedMonth[],
     unpaidRule: UnpaidStartRule = DEFAULT_UNPAID_START_RULE,
   ): string[] {
     const { year: currentYear } = getCurrentYearMonth();
-    const covered = this.paidBillingMonths(linePayments);
+    const covered = this.paidBillingMonths(lineBills);
     // Nothing is covered beyond today → no prepay to leave a hole behind, so the
     // overdue walk already says everything there is to say.
     const lastCovered = covered.length > 0 ? covered[covered.length - 1] : null;
@@ -728,7 +286,7 @@ class PaymentService {
 
     const months: string[] = [];
     for (let year = new Date(line.startDate).getFullYear(); year <= endYear; year++) {
-      for (const entry of this.buildMonthGrid(line, linePayments, lineSkips, year, unpaidRule)) {
+      for (const entry of this.buildMonthGrid(line, lineBills, lineSkips, year, unpaidRule)) {
         // "future" joins "unpaid" here — both mean nothing has been collected.
         // before_start (line hadn't started) and skipped (nothing expected) are
         // not holes, and paid needs nothing.
@@ -741,11 +299,11 @@ class PaymentService {
   }
 
   // Every month this service line currently has PAID, across all years — a
-  // multi-month block counted month by month. Straight from the payments (not the
+  // multi-month block counted month by month. Straight from the bills (not the
   // grid), so it is not year-scoped: the void-newest-first gate must see a paid
-  // month sitting in a year the caller isn't looking at.
-  paidBillingMonths(linePayments: Payment[]): string[] {
-    return [...buildCoverageSet(linePayments)].sort();
+  // month sitting in a year the caller is not looking at.
+  paidBillingMonths(lineBills: MonthBill[]): string[] {
+    return [...buildCoverageSet(lineBills)].sort();
   }
 
   // Months are settled OLDEST FIRST: a write is refused while an earlier month
@@ -756,13 +314,13 @@ class PaymentService {
   assertPayableInOrder(
     line: CustomerPlan,
     targetMonths: string[],
-    linePayments: Payment[],
+    lineBills: MonthBill[],
     lineSkips: SkippedMonth[],
     unpaidRule: UnpaidStartRule = DEFAULT_UNPAID_START_RULE,
   ): void {
     const blocking = blockingUnpaidMonths(
       // Uncovered, not merely overdue — a prepay must not jump a not-yet-due month.
-      this.uncoveredBillingMonths(line, linePayments, lineSkips, unpaidRule),
+      this.uncoveredBillingMonths(line, lineBills, lineSkips, unpaidRule),
       targetMonths,
     );
     // Only the oldest is named — that is the one month the user must collect next.
@@ -774,7 +332,7 @@ class PaymentService {
   }
 
   // THE single source of truth for month status logic. No other file may reimplement this.
-  // Builds the grid for ONE service line: `payments` and `skips` must already be
+  // Builds the grid for ONE service line: `bills` and `skips` must already be
   // scoped to that line, and `line.startDate` sets the before_start boundary. (A
   // customer with several lines builds one grid per line — see paymentSlice.buildGrids.)
   // `unpaidRule` is the tenant's UnpaidStartRule; it only ever affects the CURRENT
@@ -885,39 +443,6 @@ class PaymentService {
 
 export default new PaymentService()
 
-// Shared validation for a single-month payment input (used by createPayment and
-// the batch createPayments).
-function validateCreatePayment(data: CreatePaymentInput): void {
-  if (data.amountDue <= 0) throw new Error(i18n.t("errors.amount_due_positive"));
-  if (data.amountPaid < 0) throw new Error(i18n.t("errors.amount_paid_negative"));
-  if (data.amountPaid > data.amountDue) {
-    throw new Error(i18n.t("errors.amount_paid_exceeds_due"));
-  }
-  if (!data.billingMonth.endsWith("-01")) {
-    throw new Error(i18n.t("errors.billing_month_format"));
-  }
-  if (!(data.ratePerUsdSnapshot > 0)) {
-    throw new Error(i18n.t("errors.rate_snapshot_positive"));
-  }
-}
-
-function toPaymentPayload(data: CreatePaymentInput) {
-  return {
-    billing_month: data.billingMonth,
-    amount_due: data.amountDue,
-    amount_paid: data.amountPaid,
-    duration_months: data.durationMonths,
-    currency_id: data.currencyId,
-    rate_per_usd_snapshot: data.ratePerUsdSnapshot,
-    customer_id: data.customerId,
-    customer_plan_id: data.customerPlanId,
-    plan_id: data.planId,
-    received_by_user_id: data.receivedByUserId,
-    tenant_id: data.tenantId,
-    notes: data.notes,
-  };
-}
-
 // Resolves a multi-month block against the already-covered months: returns the
 // effective start (first non-covered month in the range), the duration from
 // there to the end of the original window, and the months stepped over because
@@ -993,14 +518,15 @@ function groupBy<T>(rows: T[], key: (row: T) => string): Map<string, T[]> {
   return map;
 }
 
-// Returns a Set of billing months already covered by the given payments (including multi-month ranges).
-// Payments with amountPaid = 0 are excluded — they are treated as unpaid (slot reserved only).
-function buildCoverageSet(payments: Payment[]): Set<string> {
+// Billing months already covered, multi-month bundles counted month by month.
+// A bill with nothing collected is NOT covered — money decides, never the mere
+// existence of a row (an empty bill is what a voided collection leaves behind).
+function buildCoverageSet(bills: MonthBill[]): Set<string> {
   const covered = new Set<string>();
-  for (const payment of payments) {
-    if (payment.voidedAt !== null || payment.amountPaid === 0) continue;
-    const [pYear, pMonthNum] = payment.billingMonth.split("-").map(Number);
-    for (let d = 0; d < payment.durationMonths; d++) {
+  for (const { charge, collected } of bills) {
+    if (charge.voidedAt !== null || collected === 0 || !charge.billingMonth) continue;
+    const [pYear, pMonthNum] = charge.billingMonth.split("-").map(Number);
+    for (let d = 0; d < charge.durationMonths; d++) {
       const date = new Date(pYear, pMonthNum - 1 + d, 1);
       covered.add(toBillingMonth(date.getFullYear(), date.getMonth() + 1));
     }
