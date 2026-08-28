@@ -58,7 +58,7 @@ export function moneyCsv(data: MoneyReport, currencies: Currency[]): CsvTable {
 /** One row per customer who is behind, worst first. */
 export function debtsCsv(data: DebtsReport): CsvTable {
   const t = i18n.t.bind(i18n);
-  const owedByCustomer = new Map(data.topDebtors.map((d) => [d.customerId, d.netUsd]));
+  const owedByCustomer = new Map(data.topDebtors.map((d) => [d.customerId, d.debtUsd]));
   return {
     headers: [
       t('reports.col_customer'),

@@ -46,7 +46,10 @@ export interface CreateSaleInput {
     notes: string | null;
 }
 
-// Input shape for correcting an existing sale. Everything the form owns can
+// Input shape for correcting an existing sale. NO amount: an edit re-prices the
+// bill and leaves every collection against it exactly as recorded — correcting
+// money means voiding a payment, in the place that owns it.
+// Everything else the form owns can
 // change (including swapping a product line for a service one); what identifies
 // the sale cannot — id, tenant, `sold_at` and the original `recorded_by_user_id`
 // all stay as recorded. `actorUserId` is who is making the correction (the audit
@@ -55,7 +58,6 @@ export interface UpdateSaleInput {
     items: CreateSaleItemInput[];
     customerId: string | null;
     branchId: string | null;
-    amountPaid: number;
     currency: Currency | null;
     notes: string | null;
     actorUserId: string | null;

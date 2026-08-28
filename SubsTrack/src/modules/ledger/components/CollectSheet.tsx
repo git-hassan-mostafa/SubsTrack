@@ -13,7 +13,7 @@ import { PressableOpacity } from "@/src/shared/components/PressableOpacity/Press
 import { Dropdown } from "@/src/shared/components/Dropdown";
 import { COLORS } from "@/src/shared/constants";
 import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
-import type { Currency, OpenItem } from "@/src/core/types";
+import type { OpenItem } from "@/src/core/types";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { getTodayDateString } from "@/src/core/utils/date";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";

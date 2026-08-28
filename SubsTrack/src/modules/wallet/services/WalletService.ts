@@ -1,14 +1,7 @@
 import type { BranchFilter } from '@/src/core/constants';
-import type {
-  UserWallet,
-  UserWalletDetail,
-  WalletItem,
-  WalletSource,
-} from '@/src/core/types';
+import type { UserWallet, UserWalletDetail, WalletItem } from '@/src/core/types';
 import i18n from '@/src/core/i18n';
-import { paymentService } from '@/src/modules/customer/customer-payments';
-import { saleService } from '@/src/modules/transaction/sales';
-import { debtService } from '@/src/modules/transaction/debts';
+import { collectionService } from '@/src/modules/ledger';
 import { userService } from '@/src/modules/admin/users';
 import {
   canCloseOut,
@@ -19,13 +12,13 @@ import {
 } from '../utils/custody';
 import { groupByCurrency, sumUsd } from '@/src/core/utils/currency';
 
-// A wallet is DERIVED, never stored. It composes the three cash sources —
-// subscription payments, sales, and debt payments — filtered to the rows a user
-// is currently HOLDING (held_by_user_id), not the rows they collected: cash
-// moves up the chain (collector → branch admin → tenant-wide admin) and each
-// handover re-points that column. Multi-currency: each row is summed in its own
-// currency (physical cash) AND in USD via its frozen snapshot rate (drift-free,
-// same as DebtService). Who may take cash from whom lives in utils/custody.ts.
+// A wallet is DERIVED, never stored: the hand-overs (`collections`) a user is
+// currently HOLDING (held_by_user_id), not the ones they collected — cash moves
+// up the chain (collector → branch admin → tenant-wide admin) and each handover
+// re-points that column. ONE source now: a month, a sale and a custom fee are
+// all settled by the same row, so there is nothing left to merge. Multi-currency:
+// each row is summed in its own currency (physical cash) AND in USD via its
+// frozen snapshot rate. Who may take cash from whom lives in utils/custody.ts.
 
 /** One holder, resolved from the user list — what the chain rules need. */
 type HolderInfo = WalletActor & { fullName: string; active: boolean };
@@ -83,11 +76,11 @@ class WalletService {
   // viewer is the owner, who has no wallet.
   async receiveFrom(
     holderUserId: string,
-    items: { source: WalletSource; id: string }[],
+    ids: string[],
     viewer: WalletActor,
   ): Promise<void> {
     await this.assertCanReceive(holderUserId, viewer);
-    await this.moveCustody(items, holderUserId, custodyTargetFor(viewer), viewer.id);
+    await this.moveCustody(ids, holderUserId, custodyTargetFor(viewer), viewer.id);
   }
 
   // Take EVERYTHING a holder is carrying — the "receive all" button. Re-reads
@@ -100,7 +93,7 @@ class WalletService {
     await this.assertCanReceive(holderUserId, viewer);
     const items = await this.collectItems(branchFilter, holderUserId);
     await this.moveCustody(
-      items.map((i) => ({ source: i.source, id: i.id })),
+      items.map((i) => i.id),
       holderUserId,
       custodyTargetFor(viewer),
       viewer.id,
@@ -109,19 +102,16 @@ class WalletService {
 
   // Settle the viewer's OWN cash: banked, out of the system. The top of the
   // chain needs this exit — nobody above them can take it.
-  async closeOut(
-    items: { source: WalletSource; id: string }[],
-    viewer: WalletActor,
-  ): Promise<void> {
+  async closeOut(ids: string[], viewer: WalletActor): Promise<void> {
     this.assertCanCloseOut(viewer);
-    await this.moveCustody(items, viewer.id, null, viewer.id);
+    await this.moveCustody(ids, viewer.id, null, viewer.id);
   }
 
   async closeOutAll(viewer: WalletActor, branchFilter: BranchFilter = null): Promise<void> {
     this.assertCanCloseOut(viewer);
     const items = await this.collectItems(branchFilter, viewer.id);
     await this.moveCustody(
-      items.map((i) => ({ source: i.source, id: i.id })),
+      items.map((i) => i.id),
       viewer.id,
       null,
       viewer.id,
@@ -130,90 +120,41 @@ class WalletService {
 
   // ── internals ────────────────────────────────────────────────────────────
 
-  // The one write. Groups by source and moves each set in one round-trip.
+  // The one write — one table, one round-trip, guarded on the current holder.
   private async moveCustody(
-    items: { source: WalletSource; id: string }[],
+    ids: string[],
     fromUserId: string,
     toUserId: string | null,
     actorUserId: string,
   ): Promise<void> {
-    const bySource: Record<WalletSource, string[]> = { payment: [], sale: [], debt_payment: [] };
-    for (const it of items) bySource[it.source].push(it.id);
-    await Promise.all([
-      paymentService.transferCustody(bySource.payment, fromUserId, toUserId, actorUserId),
-      saleService.transferCustody(bySource.sale, fromUserId, toUserId, actorUserId),
-      debtService.transferDebtPaymentCustody(
-        bySource.debt_payment,
-        fromUserId,
-        toUserId,
-        actorUserId,
-      ),
-    ]);
+    await collectionService.transferCustody(ids, fromUserId, toUserId, actorUserId);
   }
 
-  // Fan out over the three cash sources and normalise each into a WalletItem.
-  // Rows nobody holds are already excluded by the queries; rows with no
-  // collector still resolve (the holder is what a wallet groups on).
+  // Every hand-over in scope that somebody is holding, as WalletItems. Rows
+  // nobody holds are already excluded by the query; a row with no recorder still
+  // resolves (the holder is what a wallet groups on).
   private async collectItems(
     branchFilter: BranchFilter,
     holderUserId: string | null,
   ): Promise<WalletItem[]> {
-    const [payments, sales, debtPayments] = await Promise.all([
-      paymentService.getHeldForWallet(branchFilter, holderUserId),
-      saleService.getHeldForWallet(branchFilter, holderUserId),
-      debtService.getHeldDebtPayments(branchFilter, holderUserId),
-    ]);
-
+    const held = await collectionService.getHeld(branchFilter, holderUserId);
     const items: WalletItem[] = [];
-    for (const p of payments) {
-      if (!p.heldByUserId) continue;
+    for (const c of held) {
+      if (!c.heldByUserId) continue;
       items.push({
-        id: p.id,
-        source: 'payment',
-        collectorUserId: p.receivedByUserId ?? p.heldByUserId,
+        id: c.id,
+        source: c.kind,
+        collectorUserId: c.receivedByUserId ?? c.heldByUserId,
         collectorName: null, // filled by nameCollectors once the holders are known
-        holderUserId: p.heldByUserId,
-        customerId: p.customerId,
-        customerName: p.customerName || null,
-        label: p.planName,
-        amount: p.amountPaid,
-        currencyId: p.currencyId,
-        ratePerUsdSnapshot: p.ratePerUsdSnapshot,
-        date: p.paidAt,
-      });
-    }
-    for (const s of sales) {
-      if (!s.heldByUserId) continue;
-      items.push({
-        id: s.id,
-        source: 'sale',
-        collectorUserId: s.recordedByUserId ?? s.heldByUserId,
-        collectorName: null,
-        holderUserId: s.heldByUserId,
-        customerId: s.customerId,
-        customerName: s.customer?.name ?? null,
-        label: s.itemsSummary,
-        amount: s.amountPaid,
-        currencyId: s.currencyId,
-        ratePerUsdSnapshot: s.ratePerUsdSnapshot,
-        date: s.soldAt,
-      });
-    }
-    for (const d of debtPayments) {
-      if (!d.heldByUserId) continue;
-      items.push({
-        id: d.id,
-        source: 'debt_payment',
-        collectorUserId: d.receivedByUserId ?? d.heldByUserId,
-        collectorName: null,
-        holderUserId: d.heldByUserId,
-        customerId: d.customerId,
-        customerName: d.customerName || null,
-        label: null,
-        amount: d.amount,
-        currencyId: d.currencyId,
-        ratePerUsdSnapshot: d.ratePerUsdSnapshot,
-        date: d.paidAt,
+        holderUserId: c.heldByUserId,
+        customerId: c.customerId,
+        customerName: c.customerName,
+        // What this cash settled — the same labels the history row shows.
+        label: c.itemLabels.filter(Boolean).join(', ') || null,
+        amount: c.amount,
+        currencyId: c.currencyId,
+        ratePerUsdSnapshot: c.ratePerUsdSnapshot,
+        date: c.receivedAt,
       });
     }
     return items;

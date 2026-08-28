@@ -10,7 +10,7 @@ import {
   CustomerPicker,
   CustomerFormSheet,
 } from "@/src/modules/customer/customers";
-import { PaymentAmountPaidSection } from "@/src/modules/customer/customer-payments";
+import { AmountCollectedSection } from "@/src/modules/ledger";
 import { SendOnWhatsAppButton, useSendInvoice } from "@/src/modules/invoicing";
 import type { Customer, Sale } from "@/src/core/types";
 import { useAuth } from "@/src/modules/authentication/auth";
@@ -32,11 +32,9 @@ const EMPTY_CART: SaleCartDraft = {
   dirty: false,
 };
 
-// How a saved sale's collected amount maps onto the form's three modes.
-function modeOf(sale: Sale): "full" | "partial" | "debt" {
-  if (sale.amountPaid >= sale.totalAmount) return "full";
-  return sale.amountPaid > 0 ? "partial" : "debt";
-}
+// How much of a NEW sale is being collected at the till. An edit never shows
+// this: money is a `collections` row of its own now, so correcting a sale
+// re-prices the bill and leaves every payment against it exactly as recorded.
 
 interface Props {
   // Optional pre-selected customer (used when launched from CustomerDetailScreen).
@@ -74,12 +72,8 @@ export function SaleFormSheet({
   const [customer, setCustomer] = useState<Customer | null>(
     sale?.customer ?? initialCustomer ?? null,
   );
-  const [paymentMode, setPaymentMode] = useState<"full" | "partial" | "debt">(
-    sale ? modeOf(sale) : "full",
-  );
-  const [amountPaid, setAmountPaid] = useState<number | null>(
-    sale && modeOf(sale) === "partial" ? sale.amountPaid : null,
-  );
+  const [paymentMode, setPaymentMode] = useState<"full" | "partial" | "debt">("full");
+  const [amountPaid, setAmountPaid] = useState<number | null>(null);
   const [notes, setNotes] = useState(sale?.notes ?? "");
   const [addCustomerOpen, setAddCustomerOpen] = useState(false);
 
@@ -130,6 +124,9 @@ export function SaleFormSheet({
       : paymentMode === "partial" && hasCustomer
         ? (amountPaid ?? 0)
         : total;
+  // What is still owed on the sale being edited — shown read-only, since the
+  // form can re-price the bill but never rewrite a payment.
+  const collectedOnSale = sale?.amountPaid ?? 0;
 
   async function handleSubmit(send = false) {
     if (!user || !cart.ready || busy) return;
@@ -153,14 +150,16 @@ export function SaleFormSheet({
       items: cart.lines,
       customerId: customer?.id ?? null,
       branchId,
-      amountPaid: resolvedAmountPaid,
       currency: cart.currency,
       notes: notes.trim() || null,
     };
     const saved = sale
-      ? await updateSale(sale, { ...common, actorUserId: user.id })
+      ? // An edit carries NO amount: it re-prices the bill and leaves every
+        // collection against it untouched.
+        await updateSale(sale, { ...common, actorUserId: user.id })
       : await createSale({
           ...common,
+          amountPaid: resolvedAmountPaid,
           recordedByUserId: user.id,
           tenantId: user.tenantId,
         });
@@ -184,7 +183,11 @@ export function SaleFormSheet({
   // its own spinner instead of both greying out.
   const submitDisabled =
     !cart.ready ||
-    (paymentMode === "partial" &&
+    // Re-pricing may not drop the total below what has already been collected —
+    // the service refuses it, so say so before the button is pressed.
+    (editing && total + 1e-9 < collectedOnSale) ||
+    (!editing &&
+      paymentMode === "partial" &&
       hasCustomer &&
       (amountPaid == null || amountPaid < 0 || amountPaid > total));
 
@@ -242,15 +245,24 @@ export function SaleFormSheet({
         {/* Full / partial / debt collection. Partial and debt both leave a
             "Sales" debt on the customer, so they're only offered when a
             customer is selected. */}
-        {hasCustomer ? (
-          <PaymentAmountPaidSection
+        {editing ? (
+          // Read-only on an edit: what was collected lives in its own rows and
+          // is corrected by voiding a payment, never by re-typing it here.
+          <View className="mb-4 px-4 py-2.5 rounded-xl bg-gray-50 flex-row items-center justify-between">
+            <Text className="text-sm text-gray-500">{t("sales.paid_label")}</Text>
+            <Text className="text-sm text-gray-900 font-medium">
+              {formatMoney(collectedOnSale, cart.currency, cart.currency)}
+            </Text>
+          </View>
+        ) : hasCustomer ? (
+          <AmountCollectedSection
             paymentMode={paymentMode}
             onPaymentModeChange={setPaymentMode}
             amountPaid={amountPaid}
             onAmountPaidChange={setAmountPaid}
             currencyId={cart.currencyId}
             amountDue={total > 0 ? total : null}
-            formatAmount={(a) => formatMoney(a, cart.currency, cart.currency)}
+            formatAmount={(a: number) => formatMoney(a, cart.currency, cart.currency)}
             onFocusClearError={clearError}
             partialDisabled={total <= 0}
             allowDebt

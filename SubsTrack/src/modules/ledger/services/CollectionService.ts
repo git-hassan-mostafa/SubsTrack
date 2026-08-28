@@ -1,11 +1,14 @@
 import type { BranchFilter } from '@/src/core/constants';
+import type { DbCollection } from '@/src/core/types/db';
 import i18n from '@/src/core/i18n';
 import type {
   AllocationLine,
-  CollectedRow,
+  CashRow,
+  ChargeKind,
   Collection,
   CollectionListItem,
   OpenItem,
+  WalletSource,
 } from '@/src/core/types';
 import { nowIso } from '@/src/core/offline/ids';
 import { chargeService } from './ChargeService';
@@ -168,7 +171,12 @@ class CollectionService {
    */
   async getHistory(opts: FindCollectionsOptions): Promise<CollectionListItem[]> {
     const rows = await repository.find({ ...opts, includeVoided: opts.includeVoided ?? true });
-    return rows.map((row) => {
+    return rows.map((row) => this.toListItem(row));
+  }
+
+  /** One DB row as a list item — labels frozen at read time. */
+  private toListItem(row: DbCollection): CollectionListItem {
+    {
       const c = mapDbCollectionToCollection(row);
       const items = c.items ?? [];
       const dbItems = row.collection_items ?? [];
@@ -192,8 +200,11 @@ class CollectionService {
         // charge is called — chargeLabel is the one answer for every kind.
         itemLabels: dbItems.map((it) => (it.charges ? chargeLabel(it.charges) : '')),
         items,
+        // What the money paid for. 'mixed' is honest: a hand-over can settle a
+        // month AND a sale, and no allocation could split the cash between them.
+        kind: kindOf(dbItems.map((it) => it.charges?.kind)),
       };
-    });
+    }
   }
 
   /** The history's section headers: "YYYY-MM" → USD, over ALL matching rows. */
@@ -245,31 +256,43 @@ class CollectionService {
 
   // ── Money in ──────────────────────────────────────────────────────────────
 
+  /** Cash that arrived in a window, one row per bill it settled. */
   collectedInRange(
     startIso: string,
     endExclusiveIso: string,
     branchFilter: BranchFilter,
-  ): Promise<CollectedRow[]> {
+  ): Promise<CashRow[]> {
     return repository.collectedInRange(startIso, endExclusiveIso, branchFilter);
-  }
-
-  collectedByKindInRange(startIso: string, endExclusiveIso: string, branchFilter: BranchFilter) {
-    return repository.collectedByKindInRange(startIso, endExclusiveIso, branchFilter);
   }
 
   // ── Collector wallet ──────────────────────────────────────────────────────
 
-  findHeld(userId: string, branchFilter: BranchFilter) {
-    return repository.findHeld(userId, branchFilter);
-  }
-
-  findAllHeld(branchFilter: BranchFilter) {
-    return repository.findAllHeld(branchFilter);
+  /**
+   * The cash a user — or everyone in scope — is physically holding.
+   *
+   * Returns the same shape as the history list, so the wallet reads a labelled
+   * hand-over instead of re-deriving what each one settled.
+   */
+  async getHeld(
+    branchFilter: BranchFilter,
+    holderUserId: string | null,
+  ): Promise<CollectionListItem[]> {
+    const rows = holderUserId
+      ? await repository.findHeld(holderUserId, branchFilter)
+      : await repository.findAllHeld(branchFilter);
+    return rows.map((row) => this.toListItem(row));
   }
 
   transferCustody(ids: string[], fromUserId: string, toUserId: string | null, actorUserId: string) {
     return repository.transferCustody(ids, fromUserId, toUserId, actorUserId);
   }
+}
+
+/** The one kind every line shares, or 'mixed' when they disagree. */
+function kindOf(kinds: (ChargeKind | undefined)[]): WalletSource {
+  const present = kinds.filter((k): k is ChargeKind => !!k);
+  if (present.length === 0) return 'mixed';
+  return present.every((k) => k === present[0]) ? present[0] : 'mixed';
 }
 
 /** Money is NUMERIC(20,8); compare with a tolerance well below one cent. */

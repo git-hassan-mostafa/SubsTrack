@@ -11,7 +11,6 @@ import type {
 import { OfflineBaseRepository } from '@/src/core/offline/OfflineBaseRepository';
 import { insertDirty, updateDirty } from '@/src/core/offline/db/dml';
 import { newId, nowIso } from '@/src/core/offline/ids';
-import { custodyValues } from '@/src/modules/wallet/utils/custodyValues';
 import type { FindSalesOptions } from '../utils/types';
 import type { CreateSalePayload, ISaleRepository, UpdateSalePayload } from './ISaleRepository';
 import { dayStartIso, nextDayStartIso } from '@/src/core/utils/dateRange';
@@ -311,6 +310,19 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
     if (!row) this.handleError(new Error('Sale not found'));
     const [hydrated] = await this.hydrate([this.decodeOne<DbSale>('sales', row)!]);
     return hydrated;
+  }
+
+  async countInRange(
+    startIso: string,
+    endExclusiveIso: string,
+    branchFilter: BranchFilter = null,
+  ): Promise<number> {
+    const { sql, params } = this.combineWhere([
+      { clause: 's.voided_at IS NULL', params: [] },
+      { clause: 's.sold_at >= ? AND s.sold_at < ?', params: [startIso, endExclusiveIso] },
+      this.branchWhere(branchFilter, this.BRANCH_SCOPES.sales, 's'),
+    ]);
+    return this.count(`SELECT COUNT(*) AS n FROM sales s ${sql}`, params);
   }
 
   // Same filters as findAll but unpaginated + a lean projection — used to

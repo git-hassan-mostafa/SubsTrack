@@ -1,4 +1,5 @@
 import type { Charge, Sale, SaleItem } from '@/src/core/types';
+import type { BranchFilter } from '@/src/core/constants';
 import i18n from '@/src/core/i18n';
 import { newId, nowIso } from '@/src/core/offline/ids';
 import repository from '../repository/SaleRepository';
@@ -317,6 +318,11 @@ class SaleService {
     });
     const [updated] = await this.withMoney([mapDbSaleToSale(row)]);
     return updated;
+  }
+
+  /** How many sales happened in a window — the dashboard's activity count. */
+  countInRange(startIso: string, endExclusiveIso: string, branchFilter: BranchFilter = null) {
+    return repository.countInRange(startIso, endExclusiveIso, branchFilter);
   }
 
   // Buckets monthlyTotals() rows into per-calendar-month USD sums ("YYYY-MM"

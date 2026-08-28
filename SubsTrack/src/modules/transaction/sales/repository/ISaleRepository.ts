@@ -1,3 +1,4 @@
+import type { BranchFilter } from '@/src/core/constants';
 import type { DbSale, DbSaleItem } from '@/src/core/types/db';
 import type { CreateStockMovementPayload } from '@/src/modules/admin/products';
 import type {
@@ -94,4 +95,11 @@ export interface ISaleRepository {
   monthlyTotals(
     opts?: FindSalesOptions,
   ): Promise<{ soldAt: string; amount: number; ratePerUsdSnapshot: number }[]>;
+  // How many sales happened in a window — the dashboard's activity count. Not a
+  // money figure: cash lives on `collections` now, but a sale is still an event.
+  countInRange(
+    startIso: string,
+    endExclusiveIso: string,
+    branchFilter?: BranchFilter,
+  ): Promise<number>;
 }

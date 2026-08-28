@@ -122,7 +122,7 @@ export class OfflineChargeRepository extends OfflineBaseRepository implements IC
         params: opts.kinds,
       });
     }
-    parts.push(this.branchWhere(opts.branchFilter ?? null, this.BRANCH_SCOPES.charges, 'cu'));
+    parts.push(this.branchWhere(opts.branchFilter ?? null, this.BRANCH_SCOPES.charges, 'c'));
     const where = this.combineWhere(parts);
     const rows = await this.all(
       `SELECT c.* FROM charges c
@@ -299,7 +299,7 @@ export class OfflineChargeRepository extends OfflineBaseRepository implements IC
       { clause: 'c.written_off_at IS NOT NULL', params: [] as unknown[] },
       { clause: 'c.written_off_at >= ?', params: [startIso] },
       { clause: 'c.written_off_at < ?', params: [endExclusiveIso] },
-      this.branchWhere(branchFilter, this.BRANCH_SCOPES.charges, 'cu'),
+      this.branchWhere(branchFilter, this.BRANCH_SCOPES.charges, 'c'),
     ];
     const where = this.combineWhere(parts);
     const rows = await this.all(

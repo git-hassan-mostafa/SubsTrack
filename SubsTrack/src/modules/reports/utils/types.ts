@@ -1,7 +1,6 @@
 import type { BranchFilter } from '@/src/core/constants';
-import type { CashRow, ExpenseItem } from '@/src/core/types';
+import type { CashRow, CustomerDebts, ExpenseItem } from '@/src/core/types';
 import type { ReportPeriod } from '@/src/core/utils/dateRange';
-import type { Debtor } from '@/src/modules/transaction/debts/utils/debtAggregations';
 import type { Entry } from './aggregate';
 
 export interface ReportsFilter {
@@ -50,9 +49,10 @@ export interface DebtsReport {
   // OUTSTANDING debt is ALL-TIME — DebtsFilter has no date scope and must not
   // grow one. The period below applies only to debt COLLECTED.
   outstandingUsd: number;
-  grossUsd: number;
+  // Money given up on in the period — a recorded loss, never counted as owed.
+  writtenOffUsd: number;
   debtorCount: number;
-  topDebtors: Debtor[];
+  topDebtors: CustomerDebts[];
   categoryEntries: Entry[];
   // Debt cash collected IN the period — the one period-scoped figure here.
   collected: CashRow[];

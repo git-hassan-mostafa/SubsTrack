@@ -43,7 +43,7 @@ const SOURCE_META: Record<
     labelKey: string;
   }
 > = {
-  payment: {
+  month: {
     icon: "card-outline",
     color: COLORS.primary,
     bg: "bg-indigo-50",
@@ -55,16 +55,24 @@ const SOURCE_META: Record<
     bg: "bg-green-50",
     labelKey: "wallet.source_sale",
   },
-  debt_payment: {
-    icon: "cash-outline",
+  manual: {
+    icon: "document-text-outline",
     color: COLORS.warning,
     bg: "bg-amber-50",
     labelKey: "wallet.source_debt",
   },
+  // One hand-over can settle a month AND a sale — no allocation could split
+  // the cash between them, so the row says so instead of picking one.
+  mixed: {
+    icon: "cash-outline",
+    color: COLORS.success,
+    bg: "bg-green-50",
+    labelKey: "wallet.source_mixed",
+  },
 };
 
-// Composite key — an id alone isn't unique across the three sources.
-const keyOf = (it: WalletItem) => `${it.source}:${it.id}`;
+// A hand-over's own id — unique now that there is one money table.
+const keyOf = (it: WalletItem) => it.id;
 
 // Local calendar day (YYYY-MM-DD) of an ISO timestamp, matching how the card
 // shows the date — so the date-range filter agrees with what the user sees.
@@ -179,9 +187,10 @@ export function WalletDetailView({
   }, [allItems]);
 
   const typeOptions: DropdownOption<WalletSource>[] = [
-    { label: t("wallet.source_payment"), value: "payment" },
+    { label: t("wallet.source_payment"), value: "month" },
     { label: t("wallet.source_sale"), value: "sale" },
-    { label: t("wallet.source_debt"), value: "debt_payment" },
+    { label: t("wallet.source_debt"), value: "manual" },
+    { label: t("wallet.source_mixed"), value: "mixed" },
   ];
 
   const hasActiveFilters =

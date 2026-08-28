@@ -697,6 +697,8 @@ export interface CollectionListItem {
   // Frozen-at-read labels of what this hand-over paid, in allocation order.
   itemLabels: string[];
   items: CollectionItem[];
+  // The one kind every line shares, or 'mixed'. Drives the wallet's type filter.
+  kind: WalletSource;
 }
 
 // ── Expenses ─────────────────────────────────────────────────────────────────
@@ -795,7 +797,10 @@ export interface ExpensesView {
 // Who may receive from whom lives in modules/wallet/utils/custody.ts.
 // Void / edit of a source row self-corrects.
 
-export type WalletSource = 'payment' | 'sale' | 'debt_payment';
+// What a held hand-over PAID FOR. A collection can settle several bills at
+// once, so 'mixed' is a real state — the wallet says so rather than pretending
+// the cash belongs to one stream.
+export type WalletSource = 'month' | 'sale' | 'manual' | 'mixed';
 
 // Why the viewer cannot receive a given wallet. null = they can.
 export type ReceiveBlock =
@@ -819,8 +824,8 @@ export interface WalletItem {
   // The customer this cash came from. null = a walk-in sale (no customer).
   customerId: string | null;
   customerName: string | null;
-  // Secondary descriptor shown under the customer: the plan (subscription) or
-  // product (sale). null for debt payments (no sub-line beyond the type).
+  // Secondary descriptor shown under the customer: what this money settled,
+  // joined ("Jan 2026 · Internet, Router"). null when nothing could be named.
   label: string | null;
   amount: number;
   currencyId: string | null;
@@ -995,7 +1000,7 @@ export type UnpaidStartRule = 'month_start' | 'customer_start_day';
 // USD is always `amount / ratePerUsdSnapshot` — the row's FROZEN rate, so a
 // later rate edit cannot drift a historical figure.
 export interface CollectedRow {
-  id: string;              // the source row's id — the drill-down key
+  id: string;              // the collection_item's id — the drill-down key
   date: string;            // ISO instant the money arrived (paid_at / sold_at)
   amount: number;          // as collected, in its own currency
   currencyId: string | null;
@@ -1006,9 +1011,16 @@ export interface CollectedRow {
   customerName: string | null; // joined, for the drill-down list
   planId: string | null;       // subscriptions only — feeds per-plan revenue
   label: string | null;        // what the money was for (plan / items / note)
+  // The hand-over this slice belongs to. Several rows can share one, which is
+  // what a mixed payment looks like once it is split by bill.
+  collectionId: string;
 }
 
-export type CashStream = 'subscription' | 'sale' | 'debt';
+// What a slice of cash PAID FOR. It is charges.kind, because that is the only
+// honest answer once one hand-over can settle a month and a sale at the same
+// time — the money is split by the bills it closed, never by the row it arrived
+// on. This is exactly why the reports' parts now add up to their total.
+export type CashStream = ChargeKind;
 
 // A CollectedRow tagged with which stream it came from. What ReportsService
 // hands the aggregators and the drill-down sheet.

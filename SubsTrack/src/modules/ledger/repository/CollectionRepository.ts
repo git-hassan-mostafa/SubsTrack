@@ -1,7 +1,7 @@
 import { Platform } from 'react-native';
 import { BaseRepository } from '@/src/core/utils/BaseRepository';
 import { PAGE_SIZE, type BranchFilter } from '@/src/core/constants';
-import type { CollectedRow } from '@/src/core/types';
+import type { CashRow, CashStream } from '@/src/core/types';
 import type { DbCollection, DbCollectionItem } from '@/src/core/types/db';
 import { custodyValues } from '@/src/modules/wallet/utils/custodyValues';
 import type {
@@ -16,6 +16,51 @@ import { sumByMonth } from '../utils/monthTotals';
 // A hand-over with its split and the bill each line paid — everything a receipt
 // or a history row needs in one read.
 const COLLECTION_SELECT = '*, collection_items(*, charges(*)), customers(*)';
+
+// The joined shape `collectedInRange` reads — one settled bill plus the
+// hand-over it came in on.
+interface CollectedItemRow {
+  id: string;
+  amount: number;
+  charges: {
+    kind: CashStream;
+    plan_id: string | null;
+    description: string | null;
+    billing_month: string | null;
+  };
+  collections: {
+    id: string;
+    received_at: string;
+    currency_id: string | null;
+    rate_per_usd_snapshot: number;
+    branch_id: string | null;
+    received_by_user_id: string | null;
+    customer_id: string | null;
+    notes: string | null;
+    customers?: { name: string } | null;
+  };
+}
+
+function toCashRow(r: CollectedItemRow): CashRow {
+  const c = r.collections;
+  return {
+    id: r.id,
+    collectionId: c.id,
+    date: c.received_at,
+    amount: Number(r.amount),
+    // The CURRENCY and RATE come from the hand-over, not the bill: they are
+    // what the money physically was, and a collection is single-currency.
+    currencyId: c.currency_id,
+    ratePerUsdSnapshot: Number(c.rate_per_usd_snapshot),
+    branchId: c.branch_id,
+    receivedByUserId: c.received_by_user_id,
+    customerId: c.customer_id,
+    customerName: c.customers?.name ?? null,
+    planId: r.charges.plan_id,
+    label: r.charges.description ?? r.charges.billing_month ?? c.notes,
+    stream: r.charges.kind,
+  };
+}
 const COLLECTION_SELECT_LEAN = '*, customers(*)';
 
 export class CollectionRepository extends BaseRepository implements ICollectionRepository {
@@ -206,68 +251,40 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
     startIso: string,
     endExclusiveIso: string,
     branchFilter: BranchFilter,
-  ): Promise<CollectedRow[]> {
-    let query = this.db
-      .from('collections')
-      .select('*, customers(name)')
-      .is('voided_at', null)
-      .gte('received_at', startIso)
-      .lt('received_at', endExclusiveIso);
-    query = this.applyBranchFilter(query, branchFilter, this.BRANCH_SCOPES.collections);
-    const { data, error } = await query;
-    if (error) this.handleError(error);
-    return (data ?? []).map((r: DbCollection) => ({
-      id: r.id,
-      date: r.received_at,
-      amount: r.amount,
-      currencyId: r.currency_id,
-      ratePerUsdSnapshot: r.rate_per_usd_snapshot,
-      branchId: r.branch_id,
-      receivedByUserId: r.received_by_user_id,
-      customerId: r.customer_id,
-      customerName: r.customers?.name ?? null,
-      planId: null,
-      label: r.notes,
-    }));
-  }
-
-  async collectedByKindInRange(
-    startIso: string,
-    endExclusiveIso: string,
-    branchFilter: BranchFilter,
-  ): Promise<Record<'month' | 'sale' | 'manual', number>> {
-    // Split the SAME money by what each line PAID FOR, so a partly-paid sale
-    // finally lands in the right bucket instead of the whole payment doing so.
+  ): Promise<CashRow[]> {
+    // Read from the ITEM side: one row per bill settled, tagged with what that
+    // bill was. A hand-over that closed a month AND a sale becomes two rows, so
+    // every breakdown is one pass and each drill-down adds up to the number
+    // above it. The header always equals the sum of its items, so the grand
+    // total is unchanged.
     let query = this.db
       .from('collection_items')
-      .select('amount, charges!inner(kind), collections!inner(received_at, voided_at, rate_per_usd_snapshot, branch_id, customer_id)')
+      .select(
+        'id, amount, charges!inner(kind, plan_id, description, billing_month), ' +
+          'collections!inner(id, received_at, currency_id, rate_per_usd_snapshot, branch_id, ' +
+          'received_by_user_id, customer_id, notes, voided_at, customers(name))',
+      )
       .is('collections.voided_at', null)
       .gte('collections.received_at', startIso)
       .lt('collections.received_at', endExclusiveIso);
     query = this.applyBranchFilter(query, branchFilter, {
+      ...this.BRANCH_SCOPES.collections,
       kind: 'inherited',
       joinedTable: 'collections',
     });
     const { data, error } = await query;
     if (error) this.handleError(error);
-
-    const totals = { month: 0, sale: 0, manual: 0 };
-    for (const row of (data ?? []) as unknown as {
-      amount: number;
-      charges: { kind: 'month' | 'sale' | 'manual' };
-      collections: { rate_per_usd_snapshot: number };
-    }[]) {
-      totals[row.charges.kind] += row.amount / row.collections.rate_per_usd_snapshot;
-    }
-    return totals;
+    return ((data ?? []) as unknown as CollectedItemRow[]).map(toCashRow);
   }
 
   // ── Collector wallet ──────────────────────────────────────────────────────
 
   async findHeld(userId: string, branchFilter: BranchFilter): Promise<DbCollection[]> {
+    // The FULL select, matching the offline read: a wallet row names what the
+    // money settled, which lives on the items.
     let query = this.db
       .from('collections')
-      .select(COLLECTION_SELECT_LEAN)
+      .select(COLLECTION_SELECT)
       .eq('held_by_user_id', userId)
       .is('voided_at', null);
     query = this.applyBranchFilter(query, branchFilter, this.BRANCH_SCOPES.collections);
@@ -279,7 +296,7 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
   async findAllHeld(branchFilter: BranchFilter): Promise<DbCollection[]> {
     let query = this.db
       .from('collections')
-      .select(COLLECTION_SELECT_LEAN)
+      .select(COLLECTION_SELECT)
       .not('held_by_user_id', 'is', null)
       .is('voided_at', null);
     query = this.applyBranchFilter(query, branchFilter, this.BRANCH_SCOPES.collections);

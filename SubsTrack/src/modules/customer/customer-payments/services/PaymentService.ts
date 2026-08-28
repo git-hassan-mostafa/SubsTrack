@@ -22,9 +22,7 @@ import {
   billingMonthLabel,
   blockingPaidMonths,
   blockingUnpaidMonths,
-  coveredBillingMonths,
 } from "../utils/payOrder";
-import type { MultiMonthConflict } from "../utils/types";
 
 class PaymentService {
   // An unskip is a void of an EXPECTATION, so it follows the void rule: it turns
@@ -442,70 +440,6 @@ class PaymentService {
 }
 
 export default new PaymentService()
-
-// Resolves a multi-month block against the already-covered months: returns the
-// effective start (first non-covered month in the range), the duration from
-// there to the end of the original window, and the months stepped over because
-// they were already paid. effectiveDuration <= 0 means the whole block is covered.
-function resolveMultiMonthBlock(
-  startMonth: string,
-  durationMonths: number,
-  covered: Set<string>,
-): { effectiveStart: string; effectiveDuration: number; conflictMonths: MultiMonthConflict[] } {
-  const [startYear, startMonthNum] = startMonth.split("-").map(Number);
-  const conflictMonths: MultiMonthConflict[] = [];
-  let effectiveStart = startMonth;
-  let effectiveDuration = durationMonths;
-  let foundStart = false;
-
-  for (let d = 0; d < durationMonths; d++) {
-    const date = new Date(startYear, startMonthNum - 1 + d, 1);
-    const bm = toBillingMonth(date.getFullYear(), date.getMonth() + 1);
-    if (covered.has(bm)) {
-      conflictMonths.push({ billingMonth: bm, label: MONTHS[date.getMonth()] });
-    } else if (!foundStart) {
-      effectiveStart = bm;
-      effectiveDuration = durationMonths - d;
-      foundStart = true;
-    }
-  }
-
-  // Every month in the window was already covered.
-  if (conflictMonths.length === durationMonths) effectiveDuration = 0;
-
-  return { effectiveStart, effectiveDuration, conflictMonths };
-}
-
-// A block payment may not silently pay over a skipped month — the block covers
-// consecutive months and cannot leave a hole, so the whole payment is refused
-// and the user is told which months to unskip first. A skip a LATER paid month
-// has locked is exempt: its unskip is refused too (assertUnskippableInOrder), so
-// collecting it is the only way left to settle it.
-function assertNoSkippedMonths(
-  startMonth: string,
-  durationMonths: number,
-  lineSkips: SkippedMonth[],
-  coveredMonths: Set<string>,
-): void {
-  if (lineSkips.length === 0) return;
-  const latestCovered = [...coveredMonths].sort().pop() ?? null;
-  const active = new Set(
-    lineSkips
-      .filter((s) => s.skipped && !(latestCovered !== null && s.billingMonth < latestCovered))
-      .map((s) => s.billingMonth),
-  );
-  if (active.size === 0) return;
-  const [startYear, startMonthNum] = startMonth.split("-").map(Number);
-  const hits: string[] = [];
-  for (let d = 0; d < durationMonths; d++) {
-    const date = new Date(startYear, startMonthNum - 1 + d, 1);
-    const bm = toBillingMonth(date.getFullYear(), date.getMonth() + 1);
-    if (active.has(bm)) hits.push(i18n.t(`months.${MONTHS[date.getMonth()]}`));
-  }
-  if (hits.length > 0) {
-    throw new Error(i18n.t("errors.months_skipped", { months: hits.join(", ") }));
-  }
-}
 
 // Buckets rows by a key — used to slice one tenant-wide fetch per customer.
 function groupBy<T>(rows: T[], key: (row: T) => string): Map<string, T[]> {

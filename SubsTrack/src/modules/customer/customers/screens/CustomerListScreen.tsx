@@ -19,7 +19,7 @@ import {
 import { useDebounce } from "@/src/shared/hooks/useDebounce";
 import { COLORS } from "@/src/shared/constants";
 import { useSubscriptionSlice } from "@/src/state/hooks/useSubscriptionSlice";
-import type { Customer, Payment } from "@/src/core/types";
+import type { Collection, Customer, CustomerPlan, OpenItem } from "@/src/core/types";
 import { useSendInvoice, WhatsAppComboIcon } from "@/src/modules/invoicing";
 import { CustomerCard } from "../components/CustomerCard";
 import {
@@ -30,15 +30,18 @@ import {
 import { CustomerHistorySheet } from "../components/CustomerHistorySheet";
 import { CustomerFormSheet } from "../components/CustomerFormSheet";
 import { CustomDebtFormSheet } from "@/src/modules/transaction/debts/components/CustomDebtFormSheet";
-import { DebtPaymentFormSheet } from "@/src/modules/transaction/debts/components/DebtPaymentFormSheet";
+import {
+  useCollectSheet,
+  virtualMonthItem,
+} from "@/src/modules/ledger";
 import { useCustomerSlice } from "@/src/state/hooks/useCustomerSlice";
 import { usePaymentSlice } from "@/src/state/hooks/usePaymentSlice";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
-import { useDebtSlice } from "@/src/state/hooks/useDebtSlice";
+import { useLedgerSlice } from "@/src/state/hooks/useLedgerSlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { useAuth } from "../../../authentication/auth/hooks/useAuth";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
-import { getCurrentYearMonth } from "@/src/core/utils/date";
+import { getCurrentYearMonth, toBillingMonth } from "@/src/core/utils/date";
 import { isBeforeStartDate } from "@/src/modules/customer/customer-payments/utils/monthDueRules";
 import { resolveLinePrice } from "@/src/modules/customer/customer-plans/utils/linePrice";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
@@ -56,7 +59,6 @@ import {
   useSelection,
   useSelectionBackHandler,
 } from "@/src/shared/hooks/useSelection";
-import type { BulkPayCustomerRequest } from "@/src/state/slices/payments/paymentSlice";
 import { SaleFormSheet } from "@/src/modules/transaction/sales";
 
 // The payment tabs are exactly the card's payment flags (`CustomerFlag`), so a
@@ -103,20 +105,15 @@ export function CustomerListScreen() {
   const bulkDeleteCustomers = useCustomerSlice((s) => s.bulkDeleteCustomers);
   const customerStatuses = usePaymentSlice((s) => s.customerStatuses);
   const fetchCustomerStatuses = usePaymentSlice((s) => s.fetchCustomerStatuses);
-  const bulkPayCustomers = usePaymentSlice((s) => s.bulkPayCustomers);
-  const voidCurrentMonthForCustomer = usePaymentSlice(
-    (s) => s.voidCurrentMonthForCustomer,
-  );
   const paymentError = usePaymentSlice((s) => s.error);
   const clearPaymentError = usePaymentSlice((s) => s.clearError);
-  const clearPaymentTierLimitError = usePaymentSlice(
-    (s) => s.clearTierLimitError,
-  );
   const currencies = useCurrencySlice((s) => s.items);
-  const netDebtByCustomer = useDebtSlice((s) => s.netByCustomer);
-  const fetchNetDebtByCustomer = useDebtSlice((s) => s.fetchNetByCustomer);
-  const addDebtPayment = useDebtSlice((s) => s.addDebtPayment);
-  const { canSend, sendPaymentInvoice } = useSendInvoice();
+  const netDebtByCustomer = useLedgerSlice((s) => s.netByCustomer);
+  const fetchNetDebtByCustomer = useLedgerSlice((s) => s.fetchNetByCustomer);
+  const collect = useLedgerSlice((s) => s.collect);
+  const fetchOwed = useLedgerSlice((s) => s.fetchOwed);
+  const owed = useLedgerSlice((s) => s.owed);
+  const { canSend, sendCollectionInvoice } = useSendInvoice();
   const displayCurrencyId = useDisplayCurrencyId();
   const displayCurrency = findCurrency(currencies, displayCurrencyId);
   const [formVisible, setFormVisible] = useState(false);
@@ -132,8 +129,8 @@ export function CustomerListScreen() {
   const [customDebtCustomer, setCustomDebtCustomer] = useState<Customer | null>(
     null,
   );
-  const [debtPaymentCustomer, setDebtPaymentCustomer] =
-    useState<Customer | null>(null);
+  // Whose pool the collect sheet is loading. It opens once `owed` lands.
+  const [collectCustomer, setCollectCustomer] = useState<Customer | null>(null);
   const [saleCustomer, setSaleCustomer] = useState<Customer | null>(null);
   const [historyCustomer, setHistoryCustomer] = useState<Customer | null>(null);
   const selection = useSelection();
@@ -191,14 +188,6 @@ export function CustomerListScreen() {
 
   // "Already has a payment recorded for this month" — some or all plans. Gates
   // the menu's void-this-month row (there has to be something to void).
-  const hasCurrentMonthPayment = useCallback(
-    (id: string) => {
-      const s = customerStatuses.get(id)?.status;
-      return s === "paid" || s === "mixed";
-    },
-    [customerStatuses],
-  );
-
   const filtered = useMemo(() => {
     if (activeTab === "all") return customers;
     if (activeTab === "active") return customers.filter((c) => c.active);
@@ -255,13 +244,15 @@ export function CustomerListScreen() {
   // pay. Custom-price / plan-less lines need the manual form and are excluded.
   // Lines not due this month (already covered by a payment, or skipped) are left
   // out so a mixed multi-plan customer pays only the plans still owed.
-  function eligibleFixedLines(customer: Customer): BulkPayCustomerRequest[] {
+  function eligibleFixedLines(customer: Customer): OpenItem[] {
     const status = customerStatuses.get(customer.id);
     const notDue = new Set(status?.notDueLineIds);
     // Months are settled oldest-first, so a line with an older uncovered month
     // can't have THIS month collected — its backlog is paid from the customer's
     // month grid instead.
     const uncovered = new Set(status?.uncoveredLineIds);
+    const { year, month } = getCurrentYearMonth();
+    const billingMonth = toBillingMonth(year, month);
     return startedActiveLines(customer)
       .filter(
         (l) =>
@@ -271,16 +262,32 @@ export function CustomerListScreen() {
         // One resolution per line, feeding BOTH the amount and the rate snapshot
         // — separating them is how an LBP amount ends up frozen at a USD rate.
         const price = resolveLinePrice(l);
-        return {
+        // A line reaching here has had NO money this month (that is exactly what
+        // `notDueLineIds` excludes), so the month has no bill yet and the item is
+        // virtual — its charge is raised by the collect that pays it.
+        return virtualMonthItem({
           customerId: customer.id,
-          line: l,
-          amountDue: price.amount!,
+          customerName: customer.name,
+          branchId: customer.branchId,
+          customerPlanId: l.id,
+          billingMonth,
           durationMonths: price.durationMonths,
+          planId: l.planId,
+          label: planLabel(l, billingMonth),
+          amount: price.amount!,
           currencyId: price.currencyId,
-          currency: findCurrency(currencies, price.currencyId),
-          amountPaid: price.amount!,
-        };
+          ratePerUsdSnapshot:
+            findCurrency(currencies, price.currencyId)?.ratePerUsd ?? 1,
+          dueDate: billingMonth,
+        });
       });
+  }
+
+  /** "Jan 2026 · Internet" — what the receipt and the split preview show. */
+  function planLabel(line: CustomerPlan, billingMonth: string): string {
+    const [y, m] = billingMonth.split("-").map(Number);
+    const base = `${t(`months.${MONTHS[m - 1]}`)} ${y}`;
+    return line.plan?.name ? `${base} · ${line.plan.name}` : base;
   }
 
   // Lines due this month that quick pay can't collect because no amount is
@@ -310,25 +317,48 @@ export function CustomerListScreen() {
     );
   }
 
-  // Pays the current month for every eligible fixed-price line of the given
-  // requests in one batch ("collect all due"), then refreshes the badges.
-  // Returns the created payments so a caller can invoice them.
-  async function executePay(
-    requests: BulkPayCustomerRequest[],
-  ): Promise<Payment[]> {
-    if (!user || !currentTier || requests.length === 0) return [];
-    const created = await bulkPayCustomers(
-      requests,
-      user.id,
-      user.tenantId,
-      currentTier,
-    );
+  /**
+   * Collects the current month for the given items ("collect all due").
+   *
+   * ONE hand-over per customer PER CURRENCY: a collection is single-currency by
+   * design (that is what lets a balance close at exactly zero), so a customer
+   * with an LBP line and a USD line is two rows — physically two piles of cash.
+   * Returns them so a caller can send the receipts.
+   */
+  async function executePay(items: OpenItem[]): Promise<Collection[]> {
+    if (!user || items.length === 0) return [];
+    const groups = new Map<string, OpenItem[]>();
+    for (const item of items) {
+      const key = `${item.customerId}|${item.currencyId ?? "USD"}`;
+      const list = groups.get(key);
+      if (list) list.push(item);
+      else groups.set(key, [item]);
+    }
+
+    const created: Collection[] = [];
+    let failed = 0;
+    for (const group of groups.values()) {
+      const amount = group.reduce((sum, i) => sum + i.balance, 0);
+      const row = await collect({
+        tenantId: user.tenantId,
+        customerId: group[0].customerId,
+        branchId: group[0].branchId,
+        amount,
+        currencyId: group[0].currencyId,
+        ratePerUsdSnapshot: group[0].ratePerUsdSnapshot,
+        receivedAt: new Date().toISOString(),
+        receivedByUserId: user.id,
+        notes: null,
+        lines: group.map((item) => ({ item, amount: item.balance, settles: true })),
+      });
+      if (row) created.push(row);
+      else failed += 1;
+    }
+
     clearSelection();
     void fetchCustomerStatuses(customers);
-    const failed = requests.length - created.length;
+    void fetchNetDebtByCustomer(branchFilter);
     if (failed > 0) {
-      clearPaymentError();
-      clearPaymentTierLimitError();
       setBulkNotice(
         t("customers.bulk_pay_summary", { ok: created.length, failed }),
       );
@@ -366,19 +396,16 @@ export function CustomerListScreen() {
     setQuickPayCustomerId(customer.id);
     try {
       const created = await executePay(requests);
-      // ONE message for the whole batch — a multi-plan customer gets a single
-      // chat listing every line, not one message per plan.
-      if (send && created.length > 0) {
-        await sendPaymentInvoice({
-          phone: customer.phoneNumber,
-          customerName: customer.name,
-          rows: created.map((p) => ({
-            payment: p,
-            planName:
-              requests.find((r) => r.line.id === p.customerPlanId)?.line.plan
-                ?.name ?? null,
-          })),
-        });
+      // ONE message per hand-over — a multi-plan customer in one currency gets a
+      // single chat listing every line, which is what the receipt already is.
+      if (send) {
+        for (const collection of created) {
+          await sendCollectionInvoice({
+            phone: customer.phoneNumber,
+            customerName: customer.name,
+            collection,
+          });
+        }
       }
     } finally {
       setQuickPayCustomerId(null);
@@ -393,6 +420,22 @@ export function CustomerListScreen() {
     if (!customer.active || !customer.isRegular) return false;
     return hasUnpaidStartedLine(customer);
   }
+
+  const collectSheet = useCollectSheet({
+    onCollected: () => {
+      setCollectCustomer(null);
+      void fetchCustomerStatuses(customers);
+      void fetchNetDebtByCustomer(branchFilter);
+    },
+  });
+
+  // The pool is a round trip; open the sheet the moment it lands. Cleared
+  // straight away so re-picking the same customer opens it again.
+  useEffect(() => {
+    if (!collectCustomer || owed.length === 0) return;
+    collectSheet.open(collectCustomer.id, collectCustomer.name, owed);
+    setCollectCustomer(null);
+  }, [collectCustomer, owed, collectSheet]);
 
   const openMenu = useCallback((customer: Customer) => {
     setMenuCustomer(customer);
@@ -453,34 +496,6 @@ export function CustomerListScreen() {
     } else {
       await reactivateCustomer(customer.id);
     }
-  }
-
-  async function handleVoidCurrentMonth(customer: Customer) {
-    if (!user) return;
-    // Multi-plan customers void every plan paid this month at once, so the
-    // confirm spells that out; single-plan keeps the plain wording.
-    const isMulti = startedActiveLines(customer).length >= 2;
-    const ok = await confirm({
-      title: isMulti
-        ? t("payments.void_paid_plans_confirm_title")
-        : t("payments.void_confirm_title"),
-      message: t(
-        isMulti
-          ? "payments.void_paid_plans_confirm_message"
-          : "payments.void_confirm_message",
-        {
-          month: t(`months.${MONTHS[new Date().getMonth()]}`),
-          year: new Date().getFullYear(),
-        },
-      ),
-      confirmLabel: t("payments.void_payment"),
-      destructive: true,
-    });
-    if (!ok) return;
-    const voided = await voidCurrentMonthForCustomer(customer.id, user.id);
-    // The freed month may now read as unpaid (or overdue), and the voided lines
-    // must drop out of the covered set so quick pay can collect them again.
-    if (voided) void fetchCustomerStatuses(customers);
   }
 
   async function handleDeleteCustomer(customer: Customer) {
@@ -622,36 +637,17 @@ export function CustomerListScreen() {
     return actions;
   }
 
-  // Pay off a customer's WHOLE net debt in one shot: a single debt payment
-  // equal to their net (recorded in USD, the canonical net — clears it exactly;
-  // the service caps at the net owed either way). Shown only when they owe.
-  async function handlePayFullDebt(customer: Customer) {
-    if (!user) return;
-    const netUsd = netDebtByCustomer[customer.id] ?? 0;
-    if (netUsd <= 0) return;
-    const ok = await confirm({
-      title: t("debts.pay_full_title"),
-      message: t("debts.pay_full_message", {
-        amount: formatMoney(netUsd, null, displayCurrency),
-        customer: customer.name,
-      }),
-      confirmLabel: t("debts.pay"),
-    });
-    if (!ok) return;
-    await addDebtPayment({
-      customerId: customer.id,
-      amount: netUsd,
-      notes: null,
-      currency: null,
-      receivedByUserId: user.id,
-      tenantId: user.tenantId,
-    });
+  // Collect against everything a customer owes — the waterfall settles it
+  // oldest-first and the sheet shows the split before anything is written.
+  // Loading their pool is a round trip, so the sheet opens once it lands.
+  async function handleCollectDebt(customer: Customer) {
+    setCollectCustomer(customer);
+    await fetchOwed(customer, customer.customerPlans ?? [], currencies);
   }
 
   function buildMenuActions(customer: Customer | null): ActionMenuItem[] {
     if (!customer) return [];
     const items: ActionMenuItem[] = [];
-    const hasDebt = hasDebtFlag(netDebtByCustomer[customer.id]);
     // A customer with 2+ plans in play this month gets the plan-aware wording
     // ("Quick pay unpaid plans" / "Void paid plans"); a single-plan customer
     // keeps the plain "Quick pay" / "Void current month" labels.
@@ -683,17 +679,6 @@ export function CustomerListScreen() {
         });
       }
     }
-    if (hasCurrentMonthPayment(customer.id)) {
-      items.push({
-        key: "void-current-month",
-        label: isMulti
-          ? t("payments.void_paid_plans")
-          : t("payments.void_current_month"),
-        icon: "close-circle-outline",
-        destructive: true,
-        onPress: () => void handleVoidCurrentMonth(customer),
-      });
-    }
     items.push({
       key: "record-sale",
       label: t("sales.record_button"),
@@ -709,20 +694,12 @@ export function CustomerListScreen() {
       onPress: () => setCustomDebtCustomer(customer),
     });
     items.push({
-      key: "record-debt-payment",
-      label: t("debts.record_debt_payment"),
+      key: "collect",
+      label: t("ledger.collect_money"),
       icon: "cash-outline",
       iconBadge: "add",
-      onPress: () => setDebtPaymentCustomer(customer),
+      onPress: () => void handleCollectDebt(customer),
     });
-    if (hasDebt) {
-      items.push({
-        key: "pay-full-debt",
-        label: t("debts.pay_full"),
-        icon: "checkmark-done-outline",
-        onPress: () => void handlePayFullDebt(customer),
-      });
-    }
     items.push({
       key: "edit",
       label: t("common.edit"),
@@ -950,12 +927,7 @@ export function CustomerListScreen() {
           onDismiss={() => setCustomDebtCustomer(null)}
         />
       )}
-      {debtPaymentCustomer && (
-        <DebtPaymentFormSheet
-          initialCustomer={debtPaymentCustomer}
-          onDismiss={() => setDebtPaymentCustomer(null)}
-        />
-      )}
+      {collectSheet.sheet}
     </SafeAreaView>
   );
 }

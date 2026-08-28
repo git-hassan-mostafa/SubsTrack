@@ -1,5 +1,5 @@
 import { OFFLINE_PAGE_SIZE, type BranchFilter } from '@/src/core/constants';
-import type { CollectedRow } from '@/src/core/types';
+import type { CashRow, CashStream } from '@/src/core/types';
 import type { DbCharge, DbCollection, DbCollectionItem, DbCustomer } from '@/src/core/types/db';
 import { OfflineBaseRepository } from '@/src/core/offline/OfflineBaseRepository';
 import { insertDirty, markDeleted, updateDirty } from '@/src/core/offline/db/dml';
@@ -69,7 +69,7 @@ export class OfflineCollectionRepository
       parts.push({ clause: 'c.received_at < ?', params: [opts.endExclusiveIso] });
     if (opts.searchTerm?.trim())
       parts.push({ clause: 'cu.name LIKE ?', params: [`%${opts.searchTerm.trim()}%`] });
-    parts.push(this.branchWhere(opts.branchFilter ?? null, this.BRANCH_SCOPES.collections, 'cu'));
+    parts.push(this.branchWhere(opts.branchFilter ?? null, this.BRANCH_SCOPES.collections, 'c'));
 
     const where = this.combineWhere(parts);
     const rows = await this.all(
@@ -97,7 +97,7 @@ export class OfflineCollectionRepository
       parts.push({ clause: 'c.received_at < ?', params: [opts.endExclusiveIso] });
     if (opts.searchTerm?.trim())
       parts.push({ clause: 'cu.name LIKE ?', params: [`%${opts.searchTerm.trim()}%`] });
-    parts.push(this.branchWhere(opts.branchFilter ?? null, this.BRANCH_SCOPES.collections, 'cu'));
+    parts.push(this.branchWhere(opts.branchFilter ?? null, this.BRANCH_SCOPES.collections, 'c'));
 
     const where = this.combineWhere(parts);
     const rows = await this.all<{
@@ -300,68 +300,64 @@ export class OfflineCollectionRepository
 
   // ── Money in ──────────────────────────────────────────────────────────────
 
+  // Mirror of the Supabase read: ONE ROW PER BILL SETTLED, tagged with what
+  // that bill was. See CollectionRepository.collectedInRange.
   async collectedInRange(
     startIso: string,
     endExclusiveIso: string,
     branchFilter: BranchFilter,
-  ): Promise<CollectedRow[]> {
-    const parts = [
-      { clause: 'c.voided_at IS NULL', params: [] as unknown[] },
-      { clause: 'c.received_at >= ?', params: [startIso] },
-      { clause: 'c.received_at < ?', params: [endExclusiveIso] },
-      this.branchWhere(branchFilter, this.BRANCH_SCOPES.collections, 'cu'),
-    ];
-    const where = this.combineWhere(parts);
-    const rows = await this.all<Record<string, unknown> & { customer_name: string | null }>(
-      `SELECT c.*, cu.name AS customer_name FROM collections c
-         LEFT JOIN customers cu ON cu.id = c.customer_id
-        ${where.sql}`,
-      where.params,
-    );
-    return rows.map((r) => {
-      const c = this.decodeOne<DbCollection>('collections', r)!;
-      return {
-        id: c.id,
-        date: c.received_at,
-        amount: c.amount,
-        currencyId: c.currency_id,
-        ratePerUsdSnapshot: c.rate_per_usd_snapshot,
-        branchId: c.branch_id,
-        receivedByUserId: c.received_by_user_id,
-        customerId: c.customer_id,
-        customerName: r.customer_name ?? null,
-        planId: null,
-        label: c.notes,
-      };
-    });
-  }
-
-  async collectedByKindInRange(
-    startIso: string,
-    endExclusiveIso: string,
-    branchFilter: BranchFilter,
-  ): Promise<Record<'month' | 'sale' | 'manual', number>> {
+  ): Promise<CashRow[]> {
     const parts = [
       { clause: 'co.voided_at IS NULL', params: [] as unknown[] },
       { clause: 'co.received_at >= ?', params: [startIso] },
       { clause: 'co.received_at < ?', params: [endExclusiveIso] },
-      this.branchWhere(branchFilter, this.BRANCH_SCOPES.collections, 'cu'),
+      this.branchWhere(branchFilter, this.BRANCH_SCOPES.collections, 'co'),
     ];
     const where = this.combineWhere(parts);
-    const rows = await this.all<{ kind: 'month' | 'sale' | 'manual'; usd: number }>(
-      `SELECT ch.kind AS kind,
-              SUM(CAST(i.amount AS REAL) / CAST(co.rate_per_usd_snapshot AS REAL)) AS usd
+    const rows = await this.all<{
+      id: string;
+      amount: number;
+      kind: CashStream;
+      plan_id: string | null;
+      description: string | null;
+      billing_month: string | null;
+      collection_id: string;
+      received_at: string;
+      currency_id: string | null;
+      rate_per_usd_snapshot: number;
+      branch_id: string | null;
+      received_by_user_id: string | null;
+      customer_id: string | null;
+      customer_name: string | null;
+      notes: string | null;
+    }>(
+      `SELECT i.id, i.amount,
+              ch.kind, ch.plan_id, ch.description, ch.billing_month,
+              co.id AS collection_id, co.received_at, co.currency_id,
+              co.rate_per_usd_snapshot, co.branch_id, co.received_by_user_id,
+              co.customer_id, co.notes, cu.name AS customer_name
          FROM collection_items i
          JOIN collections co ON co.id = i.collection_id
          JOIN charges ch ON ch.id = i.charge_id
          LEFT JOIN customers cu ON cu.id = co.customer_id
-        ${where.sql}
-        GROUP BY ch.kind`,
+        ${where.sql}`,
       where.params,
     );
-    const totals = { month: 0, sale: 0, manual: 0 };
-    for (const r of rows) totals[r.kind] = Number(r.usd ?? 0);
-    return totals;
+    return rows.map((r) => ({
+      id: r.id,
+      collectionId: r.collection_id,
+      date: r.received_at,
+      amount: Number(r.amount),
+      currencyId: r.currency_id,
+      ratePerUsdSnapshot: Number(r.rate_per_usd_snapshot),
+      branchId: r.branch_id,
+      receivedByUserId: r.received_by_user_id,
+      customerId: r.customer_id,
+      customerName: r.customer_name,
+      planId: r.plan_id,
+      label: r.description ?? r.billing_month ?? r.notes,
+      stream: r.kind,
+    }));
   }
 
   // ── Collector wallet ──────────────────────────────────────────────────────
@@ -370,7 +366,7 @@ export class OfflineCollectionRepository
     const parts = [
       { clause: 'c.held_by_user_id = ?', params: [userId] as unknown[] },
       { clause: 'c.voided_at IS NULL', params: [] },
-      this.branchWhere(branchFilter, this.BRANCH_SCOPES.collections, 'cu'),
+      this.branchWhere(branchFilter, this.BRANCH_SCOPES.collections, 'c'),
     ];
     const where = this.combineWhere(parts);
     const rows = await this.all(
@@ -386,7 +382,7 @@ export class OfflineCollectionRepository
     const parts = [
       { clause: 'c.held_by_user_id IS NOT NULL', params: [] as unknown[] },
       { clause: 'c.voided_at IS NULL', params: [] },
-      this.branchWhere(branchFilter, this.BRANCH_SCOPES.collections, 'cu'),
+      this.branchWhere(branchFilter, this.BRANCH_SCOPES.collections, 'c'),
     ];
     const where = this.combineWhere(parts);
     const rows = await this.all(

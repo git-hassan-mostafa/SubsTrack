@@ -275,7 +275,7 @@ export class OfflineCustomerRepository
     // (a) Months MONEY actually reached — read from the item side, so a bill
     // left empty by a void reads like a month never touched. Join customers for
     // the inherited branch filter.
-    const pBranch = this.branchWhere(branchFilter, this.BRANCH_SCOPES.charges, 'c');
+    const pBranch = this.branchWhere(branchFilter, this.BRANCH_SCOPES.charges, 'ch');
     const covered = await this.all<{
       customer_plan_id: string;
       billing_month: string;

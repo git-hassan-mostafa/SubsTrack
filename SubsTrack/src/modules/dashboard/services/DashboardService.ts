@@ -1,37 +1,35 @@
-import type {
-  DashboardMetrics,
-  DebtCategory,
-  UnpaidStartRule,
-} from "@/src/core/types";
+import type { ChargeKind, DashboardMetrics, UnpaidStartRule } from "@/src/core/types";
 import type { BranchFilter } from "@/src/core/constants";
 import { getCurrentYearMonth, toBillingMonth } from "@/src/core/utils/date";
-import { sumUsd } from "@/src/core/utils/currency";
 import { customerRepository as customerRepo } from "@/src/modules/customer/customers";
-import { paymentRepository as paymentRepo } from "@/src/modules/customer/customer-payments";
 import { planRepository as planRepo } from "@/src/modules/admin/plans";
 import { userRepository as userRepo } from "@/src/modules/admin/users";
-import { saleRepository as saleRepo } from "@/src/modules/transaction/sales";
-import { debtRepository as debtRepo, debtService } from "@/src/modules/transaction/debts";
+import { collectionService, ledgerService } from "@/src/modules/ledger";
+import saleService from "@/src/modules/transaction/sales/services/SaleService";
 // Deep import (not the module barrel) — the barrel re-exports ExpensesPanel,
 // which would drag the whole screen graph back into this service.
 import expenseService from "@/src/modules/transaction/expenses/services/ExpenseService";
 import walletService from "@/src/modules/wallet/services/WalletService";
 import type { WalletActor } from "@/src/modules/wallet/utils/custody";
 
-// Revenue on this dashboard is CASH COLLECTED, not billed. All three streams
-// (subscription payments, sales, debt payments) sum only what was received, so
-// a partial payment or partial sale contributes just its paid part and the
-// remainder shows up later, in the month its debt is collected.
+// Revenue on this dashboard is CASH COLLECTED, not billed — ONE read over
+// `collections` by received_at. A partial payment contributes just its paid
+// part; the remainder is a debt and enters revenue in the month it is
+// collected, so nothing is counted twice and nothing collected is lost.
 //
-// Amounts are summed in USD via each row's frozen snapshot rate (sumUsd), and
-// monthlyRevenue / totalDebt stay canonical USD so the screen can re-format
-// into the user's display currency at render.
+// The breakdown splits that SAME money by what each item PAID FOR
+// (charges.kind), which is why the three parts now add up to the total exactly
+// — the old three-stream version could not, because a payment against a sale
+// debt landed in the "debt" bucket instead of "sales".
+//
+// Amounts are summed in USD via each row's frozen snapshot rate, and every
+// figure stays canonical USD so the screen can re-format at render.
 
-// One calendar month of collected cash, split by stream.
+// One calendar month of collected cash, split by what it settled.
 interface MonthCollections {
   subscription: number;
   sales: number;
-  debt: number;
+  manual: number;
   total: number;
   paymentsCollectedCount: number;
   salesCount: number;
@@ -49,24 +47,25 @@ class DashboardService {
   ): Promise<MonthCollections> {
     const start = new Date(year, month - 1, 1).toISOString();
     const endExclusive = new Date(year, month, 1).toISOString();
-    // Payments and debt payments key off paid_at, sales off sold_at — all ISO.
-    const [paidRows, saleRows, debtRows] = await Promise.all([
-      paymentRepo.paidAmountsForMonth(start, endExclusive, branchFilter),
-      saleRepo.totalsForMonth(start, endExclusive, branchFilter),
-      debtRepo.paidAmountsInRange(start, endExclusive, branchFilter),
+    const [rows, salesCount] = await Promise.all([
+      collectionService.collectedInRange(start, endExclusive, branchFilter),
+      saleService.countInRange(start, endExclusive, branchFilter),
     ]);
-    const subscription = sumUsd(paidRows);
-    const sales = sumUsd(saleRows);
-    const debt = sumUsd(debtRows);
+    // ONE pass: every row is a settled bill carrying its own kind, so the three
+    // parts and the total come from the same numbers and cannot disagree.
+    const usd = (r: { amount: number; ratePerUsdSnapshot: number }) =>
+      r.amount / r.ratePerUsdSnapshot;
+    const sumOf = (kind: ChargeKind) =>
+      rows.filter((r) => r.stream === kind).reduce((s, r) => s + usd(r), 0);
     return {
-      subscription,
-      sales,
-      debt,
-      total: subscription + sales + debt,
-      // paidRows carries one row per non-voided payment for the month; a 0
-      // amount is an unpaid slot, so real collections are the positive ones.
-      paymentsCollectedCount: paidRows.filter((r) => r.amount > 0).length,
-      salesCount: saleRows.length,
+      subscription: sumOf('month'),
+      sales: sumOf('sale'),
+      manual: sumOf('manual'),
+      total: rows.reduce((s, r) => s + usd(r), 0),
+      // How many times cash was physically taken — hand-overs, not bills.
+      paymentsCollectedCount: new Set(rows.map((r) => r.collectionId)).size,
+      // A count of SALES, not of money — a pay-later sale still happened.
+      salesCount,
     };
   }
 
@@ -78,7 +77,7 @@ class DashboardService {
     viewer: WalletActor | null = null,
     // Decides whether a line whose billing day hasn't arrived counts as unpaid
     // this month — same rule the month grid and the customer badges use.
-    unpaidRule: UnpaidStartRule = 'month_start',
+    unpaidRule: UnpaidStartRule = "month_start",
   ): Promise<DashboardMetrics> {
     const { year, month } = getCurrentYearMonth();
     const billingMonth = toBillingMonth(year, month);
@@ -105,17 +104,9 @@ class DashboardService {
       customerRepo.countUnpaidForMonth(billingMonth, branchFilter, unpaidRule),
       userRepo.countAll(branchFilter),
       planRepo.countAll(branchFilter),
-      debtService.getDebtsView({ branchFilter }),
-      customerRepo.countCreatedInRange(
-        monthStart,
-        monthEndExclusive,
-        branchFilter,
-      ),
-      customerRepo.countCancelledInRange(
-        monthStart,
-        monthEndExclusive,
-        branchFilter,
-      ),
+      ledgerService.getDebtsView(branchFilter),
+      customerRepo.countCreatedInRange(monthStart, monthEndExclusive, branchFilter),
+      customerRepo.countCancelledInRange(monthStart, monthEndExclusive, branchFilter),
       // Last month's total, for the hero card's vs-last-month pill.
       this.getMonthCollections(year, month - 1, branchFilter),
       viewer ? walletService.getWalletsView(viewer, branchFilter) : Promise.resolve([]),
@@ -132,15 +123,16 @@ class DashboardService {
     const walletCollectors = wallets.length;
     const walletTransactions = wallets.reduce((sum, w) => sum + w.itemCount, 0);
 
-    // Debt breakdown by category, in USD. Debt payments aren't tied to a category
-    // (see DebtService), so these are GROSS remaining balances while totalDebt
-    // below is the net (gross − debt payments) — they don't add up to it, and the
-    // 'custom' category isn't surfaced at all.
-    const grossDebt = (category: DebtCategory) =>
-      sumUsd(
-        debtsView.items
-          .filter((i) => i.category === category)
-          .map((i) => ({ amount: i.remaining, ratePerUsdSnapshot: i.ratePerUsdSnapshot })),
+    // Debt by kind, in USD. Every row carries its own balance, so unlike the old
+    // gross-vs-net split these three ADD UP to totalDebt exactly.
+    const debtOf = (kind: ChargeKind) =>
+      debtsView.customers.reduce(
+        (sum, c) =>
+          sum +
+          c.items
+            .filter((i) => i.kind === kind)
+            .reduce((s, i) => s + i.balance / i.ratePerUsdSnapshot, 0),
+        0,
       );
 
     return {
@@ -149,7 +141,7 @@ class DashboardService {
       monthlyRevenue: collected.total,
       subscriptionRevenue: collected.subscription,
       salesRevenue: collected.sales,
-      debtRevenue: collected.debt,
+      manualRevenue: collected.manual,
       monthlyExpenses: expenses.totalUsd,
       stockExpenses: expenses.stockUsd,
       customExpenses: expenses.customUsd,
@@ -158,9 +150,10 @@ class DashboardService {
       dueThisMonth: monthCounts.due,
       totalUsers,
       totalPlans,
-      totalDebt: debtsView.summary.netUsd,
-      monthsDebt: grossDebt("months"),
-      salesDebt: grossDebt("sales"),
+      totalDebt: debtsView.summary.totalUsd,
+      monthsDebt: debtOf("month"),
+      salesDebt: debtOf("sale"),
+      manualDebt: debtOf("manual"),
       walletCash,
       walletCollectors,
       walletTransactions,

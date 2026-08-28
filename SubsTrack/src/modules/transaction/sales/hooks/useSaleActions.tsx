@@ -5,11 +5,11 @@ import {
   ActionMenu,
   type ActionMenuItem,
 } from "@/src/shared/components/ActionMenu";
-import { confirm } from "@/src/shared/lib/confirm";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
-import { useSaleSlice } from "@/src/state/hooks/useSaleSlice";
+import { openItemFromCharge, useCollectSheet } from "@/src/modules/ledger";
+import saleService from "@/src/modules/transaction/sales/services/SaleService";
 import { useRecordHistoryAction } from "@/src/modules/admin/audit";
 import { useSendInvoice, WhatsAppComboIcon } from "@/src/modules/invoicing";
 import { SaleBulkVoidSheet } from "../components/SaleBulkVoidSheet";
@@ -22,11 +22,11 @@ interface Options {
   /** After a void — the screen refreshes its own list and reports failures. */
   onVoided?: (result: { ok: number; failed: number }) => void;
   /**
-   * After a "complete" — the amount collected moved, and the Sales tab's month
-   * section totals are a separate query, so the screen refetches (same reason
-   * the sale form's `onUpdated` does).
+   * After money was collected against a sale — the screen refetches, since its
+   * month section totals are a separate query (same reason the sale form's
+   * `onUpdated` does).
    */
-  onCompleted?: () => void;
+  onCollected?: () => void;
 }
 
 export interface SaleActions {
@@ -41,8 +41,8 @@ export interface SaleActions {
 /**
  * Everything a single sale can do, defined once for all three sales surfaces
  * (the Transactions tab, the customer panel, the customer's full list): open the
- * receipt, correct it, mark it fully paid, re-send it on WhatsApp, read its
- * history, void it.
+ * receipt, correct it, collect what is still owed on it, re-send it on WhatsApp,
+ * read its history, void it.
  *
  * The screens keep the receipt sheet and the sale form — they own the refresh
  * callbacks — so this only holds the menu, the void dialog and the history sheet.
@@ -53,34 +53,27 @@ export function useSaleActions({
   onView,
   onEdit,
   onVoided,
-  onCompleted,
+  onCollected,
 }: Options): SaleActions {
   const { t } = useTranslation();
   const { canSend, sendSaleInvoice } = useSendInvoice();
   const history = useRecordHistoryAction("sales");
   const currencies = useCurrencySlice((s) => s.items);
   const displayCurrencyId = useDisplayCurrencyId();
-  const completeSale = useSaleSlice((s) => s.completeSale);
+  const collectSheet = useCollectSheet({ onCollected: () => onCollected?.() });
   const [menuSale, setMenuSale] = useState<Sale | null>(null);
   const [voidIds, setVoidIds] = useState<string[] | null>(null);
 
-  // "Complete": the sale was paid in full, the amount collected was just written
-  // down short. Raises amount_paid to the total — a correction, so no debt
-  // payment is recorded and the sale's debt row simply disappears.
-  async function handleComplete(sale: Sale) {
-    const remaining = sale.totalAmount - sale.amountPaid;
-    const source = findCurrency(currencies, sale.currencyId);
-    const target = findCurrency(currencies, displayCurrencyId);
-    const ok = await confirm({
-      title: t("common.complete_title"),
-      message: t("common.complete_message", {
-        amount: formatMoney(remaining, source, target),
-      }),
-      confirmLabel: t("common.complete"),
-    });
-    if (!ok) return;
-    const updated = await completeSale(sale.id);
-    if (updated) onCompleted?.();
+  // Collect what is still owed on a pay-later or partly-paid sale. It goes
+  // through the SAME sheet as any other bill — one door for money in, so the
+  // custody, audit and currency rules are written in exactly one place.
+  async function handleCollect(sale: Sale) {
+    const charge = await saleService.getChargeForSale(sale.id);
+    if (!charge) return;
+    collectSheet.openOne(
+      sale.customer?.name ?? "",
+      openItemFromCharge(charge, sale.amountPaid, sale.itemsSummary),
+    );
   }
 
   function buildActions(sale: Sale | null): ActionMenuItem[] {
@@ -105,14 +98,21 @@ export function useSaleActions({
         onPress: () => onEdit(sale),
       });
 
-      // Only a sale that still owes something has anything to complete.
-      if (sale.amountPaid < sale.totalAmount) {
+      // Only a sale that still owes something can be collected on — and only
+      // from a customer: a walk-in has nobody to chase.
+      const owed = sale.totalAmount - sale.amountPaid;
+      if (owed > 1e-9 && sale.customerId) {
         actions.push({
-          key: "complete",
-          label: t("common.complete"),
-          icon: "checkmark-done-outline",
-          caption: t("common.complete_caption"),
-          onPress: () => void handleComplete(sale),
+          key: "collect",
+          label: t("ledger.collect_remaining", {
+            amount: formatMoney(
+              owed,
+              findCurrency(currencies, sale.currencyId),
+              findCurrency(currencies, displayCurrencyId),
+            ),
+          }),
+          icon: "cash-outline",
+          onPress: () => void handleCollect(sale),
         });
       }
 
@@ -180,6 +180,7 @@ export function useSaleActions({
         ) : null}
 
         {history.sheet}
+        {collectSheet.sheet}
       </>
     ),
   };

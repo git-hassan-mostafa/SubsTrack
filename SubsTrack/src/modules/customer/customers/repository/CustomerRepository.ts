@@ -263,16 +263,18 @@ export class CustomerRepository extends BaseRepository implements ICustomerRepos
     let coverQuery = this.db
       .from('collection_items')
       .select(
-        'charges!inner(customer_plan_id, billing_month, duration_months, kind, voided_at, customers!inner(branch_id)), collections!inner(voided_at)',
+        'charges!inner(customer_plan_id, billing_month, duration_months, kind, voided_at, branch_id), collections!inner(voided_at)',
       )
       .eq('charges.kind', 'month')
       .lte('charges.billing_month', billingMonth)
       .gte('charges.billing_month', cutoff)
       .is('charges.voided_at', null)
       .is('collections.voided_at', null);
+    // A charge owns its branch, so the filter rides the embed directly.
     coverQuery = this.applyBranchFilter(coverQuery, branchFilter, {
+      ...this.BRANCH_SCOPES.charges,
       kind: 'inherited',
-      joinedTable: 'charges.customers',
+      joinedTable: 'charges',
     });
     const { data: coverRows, error: pErr } = await coverQuery;
     if (pErr) this.handleError(pErr);

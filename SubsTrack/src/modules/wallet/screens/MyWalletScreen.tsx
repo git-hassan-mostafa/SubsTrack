@@ -58,7 +58,7 @@ export function MyWalletScreen() {
     if (!ok) return false;
     setBusy(true);
     try {
-      await closeOutItems(selected.map((i) => ({ source: i.source, id: i.id })));
+      await closeOutItems(selected.map((i) => i.id));
       return true;
     } finally {
       setBusy(false);

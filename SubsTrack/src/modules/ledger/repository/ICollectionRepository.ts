@@ -1,5 +1,5 @@
 import type { BranchFilter } from '@/src/core/constants';
-import type { CollectedRow } from '@/src/core/types';
+import type { CashRow } from '@/src/core/types';
 import type { DbCollection, DbCollectionItem } from '@/src/core/types/db';
 import type { CreateChargePayload } from './IChargeRepository';
 
@@ -83,24 +83,18 @@ export interface ICollectionRepository {
 
   // ── Money in ──────────────────────────────────────────────────────────────
   /**
-   * Cash that ARRIVED in a window. One read — the three old streams (payments,
-   * sales, debt payments) are one table now, so the dashboard and Reports stop
-   * merging anything.
+   * Cash that ARRIVED in a window, ONE ROW PER BILL IT SETTLED and tagged with
+   * what that bill was.
+   *
+   * The three old streams (payments, sales, debt payments) are one table now,
+   * so nothing merges anything; and because the split is by BILL rather than by
+   * hand-over, a payment against a sale debt finally counts as sales revenue.
    */
   collectedInRange(
     startIso: string,
     endExclusiveIso: string,
     branchFilter: BranchFilter,
-  ): Promise<CollectedRow[]>;
-  /**
-   * The same window, split by what each item PAID FOR (charges.kind), so a
-   * partly-paid sale finally lands in the right bucket.
-   */
-  collectedByKindInRange(
-    startIso: string,
-    endExclusiveIso: string,
-    branchFilter: BranchFilter,
-  ): Promise<Record<'month' | 'sale' | 'manual', number>>;
+  ): Promise<CashRow[]>;
 
   // ── Collector wallet ──────────────────────────────────────────────────────
   /** Cash a user is holding right now. */

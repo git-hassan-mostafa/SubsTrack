@@ -120,7 +120,7 @@ export function CustomerSalesPanel({ customer }: Props) {
     onView: setActiveSale,
     onEdit: openEdit,
     onVoided: () => void refresh(),
-    onCompleted: () => void refresh(),
+    onCollected: () => void refresh(),
   });
 
   return (

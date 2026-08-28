@@ -15,9 +15,10 @@ export type QuickActionSheet =
   | 'customer'
   | 'sale'
   | 'customDebt'
-  | 'debtPayment'
+  // Take money from any customer — the waterfall settles whatever they owe.
+  | 'collect'
   | 'expense'
-  | 'paymentsHistory'
+  | 'collectionsHistory'
   | 'batchRestock';
 
 export interface UiSlice {

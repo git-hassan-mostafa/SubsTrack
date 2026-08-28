@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
-import type { Currency, DebtCategory } from "@/src/core/types";
+import type { ChargeKind, Currency } from "@/src/core/types";
 import { formatMoney } from "@/src/core/utils/currency";
 import { delta, shareOfTotal } from "../../utils/aggregate";
 import type { DebtsReport as DebtsReportData, RecordRow } from "../../utils/types";
@@ -19,11 +19,12 @@ interface Props {
   displayCurrency: Currency | null;
 }
 
+// Keyed on charges.kind, so a debt category and its matching cash stream are
+// the same colour on both cards with nothing to keep in sync.
 const CATEGORY_COLORS: Record<string, string> = {
-  months: REPORT_COLORS.subscription,
-  sales: REPORT_COLORS.sale,
-  custom: REPORT_COLORS.debt,
-  services: COLORS.gray400,
+  month: REPORT_COLORS.month,
+  sale: REPORT_COLORS.sale,
+  manual: REPORT_COLORS.manual,
 };
 
 export function DebtsReport({ data, currencies, displayCurrency }: Props) {
@@ -72,7 +73,7 @@ export function DebtsReport({ data, currencies, displayCurrency }: Props) {
     label:
       e.key === "__other__"
         ? t("reports.other")
-        : t(`debts.category_${e.key as DebtCategory}`),
+        : t(`ledger.kind_${e.key as ChargeKind}`),
     amount: money(e.usd),
     share: e.share,
     color: CATEGORY_COLORS[e.key] ?? COLORS.gray400,
@@ -82,7 +83,7 @@ export function DebtsReport({ data, currencies, displayCurrency }: Props) {
     (): RecordRow[] =>
       data.collected.map((r) => ({
         id: r.id,
-        title: r.customerName ?? t("reports.stream_debt"),
+        title: r.customerName ?? t("reports.debt_collected"),
         subtitle: r.label,
         date: r.date,
         amount: r.amount,
@@ -109,7 +110,7 @@ export function DebtsReport({ data, currencies, displayCurrency }: Props) {
             // The ageing list is the authority on "how far behind"; a debtor
             // with money owed but no unpaid month simply has no sub-line.
             sub: agingSub(data, d.customerId, t),
-            amount: money(d.netUsd),
+            amount: money(d.debtUsd),
             tone: "danger" as const,
           }))}
           emptyLabel={t("reports.no_debtors")}

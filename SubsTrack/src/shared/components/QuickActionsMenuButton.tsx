@@ -22,10 +22,10 @@ export function QuickActionsMenuButton() {
 
   const actions: ActionMenuItem[] = [
     {
-      key: "paymentsHistory",
-      label: t("payments.history"),
+      key: "collectionsHistory",
+      label: t("ledger.history_title"),
       icon: "time-outline",
-      onPress: () => openQuickAction("paymentsHistory"),
+      onPress: () => openQuickAction("collectionsHistory"),
     },
     {
       key: "customer",
@@ -49,11 +49,11 @@ export function QuickActionsMenuButton() {
       onPress: () => openQuickAction("customDebt"),
     },
     {
-      key: "debtPayment",
-      label: t("debts.record_debt_payment"),
+      key: "collect",
+      label: t("ledger.collect_money"),
       icon: "cash-outline",
       iconBadge: "add",
-      onPress: () => openQuickAction("debtPayment"),
+      onPress: () => openQuickAction("collect"),
     },
   ];
 

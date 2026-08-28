@@ -126,7 +126,7 @@ export function WalletsScreen() {
       confirmLabel: closing ? t("wallet.close_out") : t("wallet.receive"),
     });
     if (!ok) return false;
-    const payload = selected.map((i) => ({ source: i.source, id: i.id }));
+    const payload = selected.map((i) => i.id);
     setBusy(true);
     try {
       if (closing) await closeOutItems(payload);

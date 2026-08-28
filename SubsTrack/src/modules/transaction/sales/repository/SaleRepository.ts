@@ -1,9 +1,7 @@
 import { Platform } from 'react-native';
 import { BaseRepository } from '@/src/core/utils/BaseRepository';
 import { PAGE_SIZE, type BranchFilter } from '@/src/core/constants';
-import type { CollectedRow } from '@/src/core/types';
 import type { DbSale, DbSaleItem } from '@/src/core/types/db';
-import { custodyValues } from '@/src/modules/wallet/utils/custodyValues';
 import type { CreateStockMovementPayload } from '@/src/modules/admin/products';
 import { FindSalesOptions } from '../utils/types';
 import type {
@@ -307,6 +305,23 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
   // compute the true per-month total when a month holds more rows than one
   // findAll page (PAGE_SIZE). `customers(name)` stays in the select only
   // because the search filter below references it via dot notation.
+  async countInRange(
+    startIso: string,
+    endExclusiveIso: string,
+    branchFilter: BranchFilter = null,
+  ): Promise<number> {
+    let query = this.db
+      .from('sales')
+      .select('id', { count: 'exact', head: true })
+      .gte('sold_at', startIso)
+      .lt('sold_at', endExclusiveIso)
+      .is('voided_at', null);
+    query = this.applyBranchFilter(query, branchFilter, this.BRANCH_SCOPES.sales);
+    const { count, error } = await query;
+    if (error) this.handleError(error);
+    return count ?? 0;
+  }
+
   async monthlyTotals(
     opts: FindSalesOptions = {},
   ): Promise<{ soldAt: string; amount: number; ratePerUsdSnapshot: number }[]> {

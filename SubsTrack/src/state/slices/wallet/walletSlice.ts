@@ -1,5 +1,5 @@
 import type { StateCreator } from 'zustand';
-import type { AuthUser, UserWallet, UserWalletDetail, WalletSource } from '@/src/core/types';
+import type { AuthUser, UserWallet, UserWalletDetail } from '@/src/core/types';
 import walletService from '@/src/modules/wallet/services/WalletService';
 import type { WalletActor } from '@/src/modules/wallet/utils/custody';
 import { resolveBranchFilter } from '@/src/shared/lib/branchFilter';
@@ -25,16 +25,13 @@ export interface WalletSlice {
   fetchWallets: () => Promise<void>;
   fetchDetail: (holderUserId: string) => Promise<void>;
   clearDetail: () => void;
-  // Per-transaction handover: takes the given items off `holderUserId` and puts
-  // them in the viewer's wallet (or out of the system for the owner).
-  receiveFrom: (
-    holderUserId: string,
-    items: { source: WalletSource; id: string }[],
-  ) => Promise<void>;
+  // Per-transaction handover: takes the given hand-overs off `holderUserId` and
+  // puts them in the viewer's wallet (or out of the system for the owner).
+  receiveFrom: (holderUserId: string, ids: string[]) => Promise<void>;
   // "Receive everything from this holder" — empties their wallet into yours.
   receiveAllFrom: (holderUserId: string) => Promise<void>;
   // Settle your OWN cash: banked, out of the system.
-  closeOutItems: (items: { source: WalletSource; id: string }[]) => Promise<void>;
+  closeOutItems: (ids: string[]) => Promise<void>;
   closeOutAll: () => Promise<void>;
   clearError: () => void;
   reset: () => void;
@@ -132,11 +129,11 @@ export const createWalletSlice: StateCreator<
       });
     },
 
-    receiveFrom: async (holderUserId, items) => {
+    receiveFrom: async (holderUserId, ids) => {
       const user = get().auth.user;
       if (!user) return;
       await mutate(
-        () => walletService.receiveFrom(holderUserId, items, actorOf(user)),
+        () => walletService.receiveFrom(holderUserId, ids, actorOf(user)),
         holderUserId,
       );
     },
@@ -150,10 +147,10 @@ export const createWalletSlice: StateCreator<
       );
     },
 
-    closeOutItems: async (items) => {
+    closeOutItems: async (ids) => {
       const user = get().auth.user;
       if (!user) return;
-      await mutate(() => walletService.closeOut(items, actorOf(user)), user.id);
+      await mutate(() => walletService.closeOut(ids, actorOf(user)), user.id);
     },
 
     closeOutAll: async () => {

@@ -137,7 +137,8 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
 
   const selection = useSelection();
   useSelectionBackHandler(selection.active, selection.clear);
-  const [bulkBusy, setBulkBusy] = useState(false);
+  // Set while a multi-select collect is in flight — the toolbar greys out.
+  const bulkBusy = collecting;
   // Months being skipped / unskipped (one cell, or a whole selection).
   const [skipRequest, setSkipRequest] = useState<{
     entries: MonthEntry[];
@@ -252,7 +253,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
     );
   }
 
-  function showPayOrderBlocked(month: string) {
+  const showPayOrderBlocked = useCallback((month: string) => {
     void confirm({
       title: t("common.not_available"),
       message: t("payments.earlier_month_unpaid", {
@@ -261,7 +262,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
       confirmLabel: t("common.close"),
       hideCancel: true,
     });
-  }
+  }, [t]);
 
   // An unskip is a void of an EXPECTATION, so it follows the void rule: it is
   // locked while a LATER month is paid, since it would leave an unpaid month
@@ -295,19 +296,19 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
 
   // ── Turning cells into collectable items ───────────────────────────────
 
-  function monthLabelOf(entry: MonthEntry): string {
+  const monthLabelOf = useCallback((entry: MonthEntry): string => {
     const span = entry.charge?.durationMonths ?? linePrice.durationMonths;
     const base =
       span > 1
         ? getBlockRangeLabel(entry.billingMonth, span, t)
         : `${t(`months.${entry.label}`)} ${entry.year}`;
     return plan?.name ? `${base} · ${plan.name}` : base;
-  }
+  }, [linePrice.durationMonths, plan?.name, t]);
 
   // A cell as something money can be put against. Null when the line has no
   // fixed price and the month has no bill — there is nothing to collect until
   // someone types an amount, which the collect sheet cannot invent.
-  function itemFor(entry: MonthEntry): OpenItem | null {
+  const itemFor = useCallback((entry: MonthEntry): OpenItem | null => {
     if (!selectedLine) return null;
     return monthItemFromEntry({
       entry,
@@ -324,7 +325,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
       },
       ratePerUsd: findCurrency(currencies, linePrice.currencyId)?.ratePerUsd ?? 1,
     });
-  }
+  }, [selectedLine, customer, linePrice, currencies, monthLabelOf]);
 
   /**
    * The items a selection of payable cells becomes.
@@ -333,7 +334,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
    * collapse to ONE item per block — otherwise a 3-month plan would be billed
    * three times for the same period.
    */
-  function itemsForEntries(entries: MonthEntry[]): OpenItem[] {
+  const itemsForEntries = useCallback((entries: MonthEntry[]): OpenItem[] => {
     if (!selectedLine) return [];
     if (linePrice.durationMonths > 1) {
       const blocks = groupPayableBlocks(entries, selectedLine);
@@ -348,12 +349,10 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
         })
         .filter((i): i is OpenItem => i !== null);
     }
-    return entries
-      .map(itemFor)
-      .filter((i): i is OpenItem => i !== null);
-  }
+    return entries.map(itemFor).filter((i): i is OpenItem => i !== null);
+  }, [selectedLine, linePrice, itemFor]);
 
-  function openCollect(entries: MonthEntry[], send = false) {
+  const openCollect = useCallback((entries: MonthEntry[], send = false) => {
     const items = itemsForEntries(entries);
     if (items.length === 0) {
       void confirm({
@@ -365,7 +364,8 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
       return;
     }
     setCollectFor({ items, single: items.length === 1, send });
-  }
+    // itemsForEntries is memoised by React Compiler; `t` is the only other read.
+  }, [itemsForEntries, t]);
 
   function handleCellPress(entry: MonthEntry) {
     if (entry.status === "before_start") {

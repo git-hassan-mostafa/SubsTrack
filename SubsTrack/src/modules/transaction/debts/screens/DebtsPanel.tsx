@@ -58,7 +58,9 @@ export function DebtsPanel() {
   }, [branchFilter, fetchDebts]);
 
   const target = findCurrency(currencies, displayCurrencyId);
-  const debtors = view?.customers ?? [];
+  // Memoised because two useMemos below depend on it — a fresh [] each render
+  // would make both recompute on every keystroke.
+  const debtors = useMemo(() => view?.customers ?? [], [view]);
 
   // Debtors search is client-side, by customer name only.
   const visibleDebtors = useMemo(() => {

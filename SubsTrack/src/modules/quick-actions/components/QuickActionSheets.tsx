@@ -1,12 +1,12 @@
 import { useUiSlice } from "@/src/state/hooks/useUiSlice";
 import { CustomerFormSheet } from "@/src/modules/customer/customers";
-import { PaymentsHistorySheet } from "@/src/modules/customer/customer-payments";
+import {
+  CollectQuickActionSheet,
+  CollectionsHistorySheet,
+} from "@/src/modules/ledger";
 import { SaleFormSheet } from "@/src/modules/transaction/sales";
 import { ProductBatchRestockSheet } from "@/src/modules/admin/products";
-import {
-  CustomDebtFormSheet,
-  DebtPaymentFormSheet,
-} from "@/src/modules/transaction/debts";
+import { CustomDebtFormSheet } from "@/src/modules/transaction/debts";
 import { ExpenseFormSheet } from "@/src/modules/transaction/expenses";
 
 /**
@@ -28,12 +28,12 @@ export function QuickActionSheets() {
       return <SaleFormSheet onDismiss={close} />;
     case "customDebt":
       return <CustomDebtFormSheet onDismiss={close} />;
-    case "debtPayment":
-      return <DebtPaymentFormSheet onDismiss={close} />;
+    case "collect":
+      return <CollectQuickActionSheet onDismiss={close} />;
     case "expense":
       return <ExpenseFormSheet onDismiss={close} />;
-    case "paymentsHistory":
-      return <PaymentsHistorySheet onDismiss={close} />;
+    case "collectionsHistory":
+      return <CollectionsHistorySheet onDismiss={close} />;
     case "batchRestock":
       return <ProductBatchRestockSheet onDismiss={close} />;
     default:
