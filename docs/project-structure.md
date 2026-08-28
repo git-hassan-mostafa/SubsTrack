@@ -83,8 +83,9 @@ SubsTrack/
 │   │       ├── auth/authSlice.ts
 │   │       ├── subscription/subscriptionSlice.ts
 │   │       ├── customers/customerSlice.ts
-│   │       ├── payments/paymentSlice.ts            # per-customer month-grid payments
-│   │       ├── payments-list/paymentsListSlice.ts  # tenant-wide filterable payments list (Transactions → Payments)
+│   │       ├── payments/paymentSlice.ts            # per-customer month-GRID state only (bills + skips + the gate lists)
+│   │       ├── ledger/ledgerSlice.ts               # the money: debts view, one customer's owed pool, collect / void / write off
+│   │       ├── collections/collectionsListSlice.ts # the paginated money-in history
 │   │       ├── plans/planSlice.ts
 │   │       ├── users/userSlice.ts
 │   │       ├── dashboard/dashboardSlice.ts
@@ -94,7 +95,7 @@ SubsTrack/
 │   │       ├── products/productSlice.ts
 │   │       ├── services/serviceSlice.ts
 │   │       ├── sales/saleSlice.ts
-│   │       ├── debts/debtSlice.ts
+│   │       ├── ledger/ledgerSlice.ts
 │   │       ├── expenses/expenseSlice.ts
 │   │       ├── reports/reportsSlice.ts             # period + section filter session, one report at a time
 │   │       └── options/optionSlice.ts
@@ -145,15 +146,14 @@ SubsTrack/
 │   │   │   ├── services/CustomerPlanService.ts    # createLine/updateLine/deleteLine + syncLines
 │   │   │   └── utils/mapper.ts                     # managed inline from CustomerFormSheet's Plans section
 │   │   │
-│   │   ├── customer-payments/                    # (note: directory name is customer-payments)
-│   │   │   ├── repository/PaymentRepository.ts   # per-customer findByCustomer + tenant-wide findAll (Payments list)
-│   │   │   ├── services/PaymentService.ts        # ← buildMonthGrid() lives here ONLY; getPayments() for the flat list
-│   │   │   ├── screens/PaymentsPanel.tsx         # Payments segment of the Transactions hub (tenant-wide filterable list)
+│   │   ├── customer-payments/                    # the MONTH GRID only — money lives in modules/ledger
+│   │   │   ├── repository/SkippedMonthRepository.ts  # the one table this module still owns (+ .offline sibling)
+│   │   │   ├── services/PaymentService.ts        # ← buildMonthGrid() lives here ONLY. No CRUD: it takes MonthBill[] in
+│   │   │   ├── services/SkippedMonthService.ts
 │   │   │   ├── utils/monthDueRules.ts            # is a month started / owed / late (isNotDueYet, isNotLateYet) — #83
-│   │   │   ├── utils/{payOrder, monthSelection, blockRangeLabel, mapper, types}.ts
-│   │   │   └── components/{MonthGrid, MonthCell, YearNavigator, PaymentFormSheet,
-│   │   │                    PaymentDetailSheet, VoidSheet, CustomerPaymentPanel,
-│   │   │                    PaymentListCard, PaymentListVoidSheet}.tsx
+│   │   │   ├── utils/{payOrder, monthSelection, blockRangeLabel, paymentEntry, mapper, types}.ts
+│   │   │   └── components/{MonthGrid, MonthCell, YearNavigator, SkipMonthSheet,
+│   │   │                    CustomerPaymentPanel}.tsx
 │   │   │
 │   │   ├── plans/
 │   │   │   ├── repository/PlanRepository.ts
@@ -206,16 +206,29 @@ SubsTrack/
 │   │   │
 │   │   ├── invoicing/                           # WhatsApp receipt/invoice — a wa.me deep link, no native module
 │   │   │   ├── utils/invoiceText.ts             # PURE builders (t arrives in InvoiceContext); owns the whole message format
-│   │   │   ├── hooks/useSendInvoice.ts          # gathers ctx from the stores → openWhatsApp; { canSend, sendPaymentInvoice, sendSaleInvoice }
+│   │   │   ├── hooks/useSendInvoice.ts          # gathers ctx from the stores → openWhatsApp; { canSend, sendCollectionInvoice, sendSaleInvoice }
 │   │   │   └── components/SendOnWhatsAppButton.tsx  # the app's single green button (+ disabled caption); also used by ContactToUpgradeButton
 │   │   │
-│   │   ├── debts/                               # Per-customer debt ledger (runtime-computed; Transactions → Debts)
-│   │   │   ├── repository/DebtRepository.ts    # custom_debts + debt_payments CRUD/reads (+ .offline sibling)
-│   │   │   ├── services/DebtService.ts         # composes partial payments + partial sales + custom_debts → DebtItem[] + USD DebtSummary
-│   │   │   ├── utils/debtAggregations.ts        # client-side sumDebtNetUsd + groupDebtors (Debtor[]) over already-loaded rows
-│   │   │   ├── hooks/useDebtRowActions.ts       # the shared row actions (pay debt / remove custom debt / remove debt payment): confirm + slice call, used by BOTH the Debts tab and the customer-detail panel
-│   │   │   ├── screens/DebtsPanel.tsx           # Debts segment of the hub: Debtors / Debts / Payments sub-tabs (PillTabs)
-│   │   │   └── components/{DebtItemCard, DebtPaymentCard, DebtList, DebtorCard, DebtorDetailSheet, CustomerDebtsPanel, CustomDebtFormSheet, DebtPaymentFormSheet}.tsx  # DebtList = shared list body (Debtor modal + customer detail)
+│   │   ├── ledger/                              # THE MONEY MODEL: charges (owed) + collections (received)
+│   │   │   ├── repository/{IChargeRepository, ChargeRepository, ChargeRepository.offline}.ts
+│   │   │   ├── repository/{ICollectionRepository, CollectionRepository, CollectionRepository.offline}.ts
+│   │   │   ├── services/ChargeService.ts        # bills: raise / correct / void / write off / open items / debts view
+│   │   │   ├── services/CollectionService.ts    # money: collect / void / history / wallet passthroughs
+│   │   │   ├── services/LedgerService.ts        # "what does this customer owe?" — stored bills + virtual unpaid months
+│   │   │   ├── utils/waterfall.ts               # PURE oldest-first allocation (no I/O, no clock)
+│   │   │   ├── utils/openItems.ts               # THE debt rule (isDebtItem) + the OpenItem builders
+│   │   │   ├── utils/{monthTotals, mapper}.ts
+│   │   │   ├── hooks/useCollectSheet.tsx        # the one way a list opens the collect sheet
+│   │   │   ├── screens/CollectionsPanel.tsx     # the money-in history (one list, was payments + debt payments)
+│   │   │   └── components/{CollectSheet, BillSheet, CollectionCard, CollectionsHistorySheet,
+│   │   │                    CollectQuickActionSheet, VoidCollectionDialog, CollectionsVoidDialog,
+│   │   │                    AmountCollectedSection}.tsx
+│   │   │
+│   │   ├── debts/                               # The DEBTS SCREENS. The money model itself is modules/ledger
+│   │   │   ├── hooks/useDebtRowActions.ts       # the two corrections a bill takes: void a mistake / write off a loss
+│   │   │   ├── screens/DebtsPanel.tsx           # Debts segment of the hub: one row per customer who owes, worst-behind first
+│   │   │   └── components/{DebtItemCard, DebtList, DebtorCard, DebtorDetailSheet,
+│   │   │                    CustomerDebtsPanel, CustomDebtFormSheet}.tsx   # DebtList = shared body (debtor sheet + customer detail)
 │   │   │
 │   │   ├── expenses/                            # Money OUT — admin-only (Transactions → Expenses)
 │   │   │   ├── repository/ExpenseRepository.ts # the STORED expenses table only (+ .offline sibling); branch scope 'owned'
