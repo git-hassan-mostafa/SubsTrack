@@ -5,49 +5,36 @@ import { useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/src/shared/components/Text";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
-import { ActionMenu } from "@/src/shared/components/ActionMenu";
 import { COLORS } from "@/src/shared/constants";
-import type {
-  Customer,
-  DebtItem,
-  DebtPaymentItem,
-  DebtSummary,
-} from "@/src/core/types";
+import type { Customer, OpenItem } from "@/src/core/types";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
-import debtService from "../services/DebtService";
+import { chargeService, isDebtItem, useCollectSheet } from "@/src/modules/ledger";
 import { useDebtRowActions } from "../hooks/useDebtRowActions";
 import { DebtList } from "./DebtList";
 import { CustomDebtFormSheet } from "./CustomDebtFormSheet";
-import { DebtPaymentFormSheet } from "./DebtPaymentFormSheet";
 
 interface Props {
   customer: Customer;
 }
 
-const EMPTY_SUMMARY: DebtSummary = { grossUsd: 0, paymentsUsd: 0, netUsd: 0 };
-
-// Renders on the customer detail screen. Shows this customer's outstanding debts
-// (partial months, partial sales, custom debts) and the debt payments recorded
-// against them, with the net still-owed figure. Reads independently from the
-// global `debts` slice (via the service) so the customer-scoped view never
-// collides with the Transactions → Debts tab's filter/list state — same pattern
-// as CustomerSalesPanel. Rows carry the same 3-dot actions as the Debts tab
-// (pay a debt / remove a custom debt / remove a debt payment); because the data
-// is local, each action re-reads it via `refresh`.
+/**
+ * This customer's open bills, on the customer detail screen.
+ *
+ * Reads the service directly rather than the global `ledger` slice, so the
+ * customer-scoped view never collides with the Transactions → Debts tab's list
+ * state — the same pattern as CustomerSalesPanel. Plain unpaid months are NOT
+ * listed here: the month grid above already shows them.
+ */
 export function CustomerDebtsPanel({ customer }: Props) {
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
   const displayCurrencyId = useDisplayCurrencyId();
 
-  const [items, setItems] = useState<DebtItem[]>([]);
-  const [payments, setPayments] = useState<DebtPaymentItem[]>([]);
-  const [summary, setSummary] = useState<DebtSummary>(EMPTY_SUMMARY);
+  const [items, setItems] = useState<OpenItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [menuOpen, setMenuOpen] = useState(false);
   const [customDebtOpen, setCustomDebtOpen] = useState(false);
-  const [paymentOpen, setPaymentOpen] = useState(false);
   // Discards out-of-order responses if focus fires refresh while one is in flight.
   const tokenRef = useRef(0);
 
@@ -55,34 +42,32 @@ export function CustomerDebtsPanel({ customer }: Props) {
     const token = ++tokenRef.current;
     setLoading(true);
     try {
-      // Not branch-scoped: show all of this customer's debts regardless of the
+      // Not branch-scoped: show all of this customer's bills regardless of the
       // admin's current branch view (mirrors CustomerSalesPanel).
-      const view = await debtService.getDebtsView({ customerId: customer.id });
+      const open = await chargeService.getOpenCharges({ customerId: customer.id });
       if (tokenRef.current !== token) return;
-      setItems(view.items);
-      setPayments(view.payments);
-      setSummary(view.summary);
+      setItems(
+        open
+          .filter((i) => isDebtItem(i.kind, i.paid))
+          .map((i) => ({ ...i, customerName: customer.name })),
+      );
     } finally {
       if (tokenRef.current === token) setLoading(false);
     }
-  }, [customer.id]);
+  }, [customer.id, customer.name]);
 
-  const { payItem, completeItem, voidItem, voidPayment } = useDebtRowActions({
-    onChanged: refresh,
-  });
+  const collectSheet = useCollectSheet({ onCollected: refresh });
+  const { voidItem, writeOffItem } = useDebtRowActions({ onChanged: refresh });
 
-  // Refresh on focus so debts/payments recorded in the Debts tab show on return.
+  // Refresh on focus so bills raised elsewhere show on return.
   useFocusEffect(
     useCallback(() => {
-      refresh();
+      void refresh();
     }, [refresh]),
   );
 
   const target = findCurrency(currencies, displayCurrencyId);
-  const net = summary.netUsd;
-  const isCredit = net < -1e-9;
-  const netLabel = formatMoney(Math.abs(net), null, target);
-  const isEmpty = items.length === 0 && payments.length === 0;
+  const totalUsd = items.reduce((sum, i) => sum + i.balance / i.ratePerUsdSnapshot, 0);
 
   return (
     <View className="px-4 mt-4">
@@ -91,19 +76,14 @@ export function CustomerDebtsPanel({ customer }: Props) {
           {t("debts.customer_panel_title")}
         </Text>
         <View className="flex-row items-center gap-3">
-          {!isEmpty ? (
-            <View className="items-end">
-              <Text
-                fontWeight="Bold"
-                className={`text-base ${isCredit ? "text-green-600" : "text-gray-900"}`}
-              >
-                {isCredit ? `- ${netLabel}` : netLabel}
-              </Text>
-            </View>
+          {items.length > 0 ? (
+            <Text fontWeight="Bold" className="text-base text-gray-900">
+              {formatMoney(totalUsd, null, target)}
+            </Text>
           ) : null}
           <PressableOpacity
-            onPress={() => setMenuOpen(true)}
-            accessibilityLabel={t("debts.add")}
+            onPress={() => setCustomDebtOpen(true)}
+            accessibilityLabel={t("debts.add_custom_debt")}
             className="w-8 h-8 rounded-full bg-indigo-50 items-center justify-center"
           >
             <Ionicons name="add" size={18} color={COLORS.primary} />
@@ -113,34 +93,10 @@ export function CustomerDebtsPanel({ customer }: Props) {
 
       <DebtList
         items={items}
-        payments={payments}
         loading={loading}
-        onPay={payItem}
-        onComplete={completeItem}
+        onCollect={(item) => collectSheet.openOne(customer.name, item)}
         onVoidItem={voidItem}
-        onVoidPayment={voidPayment}
-      />
-
-      <ActionMenu
-        visible={menuOpen}
-        title={t("debts.add")}
-        onDismiss={() => setMenuOpen(false)}
-        actions={[
-          {
-            key: "custom_debt",
-            label: t("debts.add_custom_debt"),
-            icon: "document-text-outline",
-            iconBadge: "add",
-            onPress: () => setCustomDebtOpen(true),
-          },
-          {
-            key: "payment",
-            label: t("debts.record_debt_payment"),
-            icon: "cash-outline",
-            iconBadge: "add",
-            onPress: () => setPaymentOpen(true),
-          },
-        ]}
+        onWriteOff={writeOffItem}
       />
 
       {customDebtOpen && (
@@ -150,13 +106,8 @@ export function CustomerDebtsPanel({ customer }: Props) {
           onCreated={refresh}
         />
       )}
-      {paymentOpen && (
-        <DebtPaymentFormSheet
-          initialCustomer={customer}
-          onDismiss={() => setPaymentOpen(false)}
-          onCreated={refresh}
-        />
-      )}
+
+      {collectSheet.sheet}
     </View>
   );
 }

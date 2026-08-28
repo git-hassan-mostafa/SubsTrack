@@ -1,5 +1,5 @@
 import i18n from '@/src/core/i18n';
-import type { Charge, MonthBill, OpenItem } from '@/src/core/types';
+import type { Charge, MonthBill, MonthEntry, OpenItem } from '@/src/core/types';
 import type { DbCharge } from '@/src/core/types/db';
 import { getBlockRangeLabel } from '@/src/modules/customer/customer-payments/utils/blockRangeLabel';
 
@@ -28,6 +28,7 @@ export function openItemFromCharge(charge: Charge, paid: number, label: string):
     kind: charge.kind,
     customerId: charge.customerId ?? '',
     customerName: '',
+    branchId: charge.branchId,
     customerPlanId: charge.customerPlanId,
     billingMonth: charge.billingMonth,
     durationMonths: charge.durationMonths,
@@ -57,6 +58,7 @@ export function openItemFromCharge(charge: Charge, paid: number, label: string):
 export function virtualMonthItem(args: {
   customerId: string;
   customerName: string;
+  branchId: string | null;
   customerPlanId: string;
   billingMonth: string;
   durationMonths: number;
@@ -72,6 +74,7 @@ export function virtualMonthItem(args: {
     kind: 'month',
     customerId: args.customerId,
     customerName: args.customerName,
+    branchId: args.branchId,
     customerPlanId: args.customerPlanId,
     billingMonth: args.billingMonth,
     durationMonths: args.durationMonths,
@@ -106,6 +109,52 @@ export function chargeLabel(row: DbCharge): string {
     return row.sales?.items_summary ?? i18n.t('debts.sale');
   }
   return row.description ?? i18n.t('debts.custom');
+}
+
+/**
+ * One month CELL as something money can be put against.
+ *
+ * The two cases are the whole model in miniature: a month money has already
+ * touched has a bill, so the item is that bill's remaining balance; a month
+ * nothing has touched has no row at all, so the item is derived from the line's
+ * price and its charge is raised at the moment the money lands.
+ *
+ * Returns null when the line has no fixed price — there is nothing to collect
+ * until someone types an amount.
+ */
+export function monthItemFromEntry(args: {
+  entry: Pick<MonthEntry, 'charge' | 'collected' | 'billingMonth'>;
+  customerId: string;
+  customerName: string;
+  branchId: string | null;
+  customerPlanId: string;
+  planId: string | null;
+  label: string;
+  /** The line's resolved price — ignored when the month already has a bill. */
+  price: { amount: number | null; currencyId: string | null; durationMonths: number };
+  /** Today's rate for that currency; only a virtual month needs one. */
+  ratePerUsd: number;
+}): OpenItem | null {
+  const { entry } = args;
+  if (entry.charge) {
+    return openItemFromCharge(entry.charge, entry.collected, args.label);
+  }
+  if (args.price.amount === null || args.price.amount <= 0) return null;
+  return virtualMonthItem({
+    customerId: args.customerId,
+    customerName: args.customerName,
+    branchId: args.branchId,
+    customerPlanId: args.customerPlanId,
+    billingMonth: entry.billingMonth,
+    durationMonths: args.price.durationMonths,
+    planId: args.planId,
+    label: args.label,
+    amount: args.price.amount,
+    currencyId: args.price.currencyId,
+    // No frozen rate yet — it freezes for good when money lands on it.
+    ratePerUsdSnapshot: args.ratePerUsd,
+    dueDate: entry.billingMonth,
+  });
 }
 
 /** The bill for a month, if one exists — the grid's per-month lookup. */

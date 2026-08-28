@@ -20,6 +20,10 @@ interface Props {
   onSendInvoice?: (item: CollectionListItem) => void;
   /** On a single-customer surface the name on every row is noise. */
   hideCustomerName?: boolean;
+  selectionMode?: boolean;
+  selected?: boolean;
+  onToggleSelect?: (item: CollectionListItem) => void;
+  onEnterSelection?: (item: CollectionListItem) => void;
 }
 
 /**
@@ -29,7 +33,16 @@ interface Props {
  * several shows a "3 items" expander — so the common case stays compact and
  * the waterfall's split is one tap away.
  */
-export function CollectionCard({ item, onVoid, onSendInvoice, hideCustomerName }: Props) {
+export function CollectionCard({
+  item,
+  onVoid,
+  onSendInvoice,
+  hideCustomerName,
+  selectionMode = false,
+  selected = false,
+  onToggleSelect,
+  onEnterSelection,
+}: Props) {
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
   const displayCurrencyId = useDisplayCurrencyId();
@@ -76,6 +89,10 @@ export function CollectionCard({ item, onVoid, onSendInvoice, hideCustomerName }
       iconColor={COLORS.success}
       iconBgClassName="bg-emerald-50"
       dimmed={voided}
+      selectionMode={selectionMode}
+      selected={selected}
+      onToggleSelect={onToggleSelect ? () => onToggleSelect(item) : undefined}
+      onEnterSelection={onEnterSelection ? () => onEnterSelection(item) : undefined}
       onMenu={actions.length > 0 ? () => setMenuOpen(true) : undefined}
     >
       <View className="flex-1 gap-0.5">
@@ -104,20 +121,18 @@ export function CollectionCard({ item, onVoid, onSendInvoice, hideCustomerName }
               color={COLORS.primary}
             />
           </PressableOpacity>
-        ) : (
-          item.items[0]?.charge && (
-            <Text className="text-xs text-slate-600" numberOfLines={1}>
-              {chargeText(item.items[0].charge, t)}
-            </Text>
-          )
-        )}
+        ) : item.itemLabels[0] ? (
+          <Text className="text-xs text-slate-600" numberOfLines={1}>
+            {item.itemLabels[0]}
+          </Text>
+        ) : null}
 
         {multi && expanded && (
           <View className="mt-1 gap-1 border-l-2 border-slate-200 pl-2">
-            {item.items.map((line) => (
+            {item.items.map((line, i) => (
               <View key={line.id} className="flex-row items-center justify-between">
                 <Text className="flex-1 text-xs text-slate-600" numberOfLines={1}>
-                  {line.charge ? chargeText(line.charge, t) : "—"}
+                  {item.itemLabels[i] || "—"}
                 </Text>
                 <Text className="text-xs text-slate-700">{money(line.amount)}</Text>
               </View>
@@ -136,13 +151,4 @@ export function CollectionCard({ item, onVoid, onSendInvoice, hideCustomerName }
       <ActionMenu visible={menuOpen} onDismiss={() => setMenuOpen(false)} actions={actions} />
     </EntityCard>
   );
-}
-
-function chargeText(
-  charge: { kind: string; description: string | null; billingMonth: string | null },
-  t: (k: string) => string,
-): string {
-  if (charge.kind === "manual") return charge.description ?? t("debts.custom");
-  if (charge.kind === "sale") return t("debts.sale");
-  return charge.billingMonth ?? t("debts.subscription");
 }

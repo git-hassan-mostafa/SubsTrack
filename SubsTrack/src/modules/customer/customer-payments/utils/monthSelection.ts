@@ -28,12 +28,11 @@ function blockStartAbs(abs: number, line: CustomerPlan, n: number): number {
   return base + Math.floor((abs - base) / n) * n;
 }
 
-function hasActivePayment(entry: MonthEntry): boolean {
-  return (
-    entry.status === "paid" &&
-    entry.payment != null &&
-    entry.payment.voidedAt === null
-  );
+// Money has reached this month. Keyed off the AMOUNT, never on a bill row
+// existing — a bill emptied by a voided collection must behave like a month
+// that was never touched.
+function hasMoney(entry: MonthEntry): boolean {
+  return entry.status === "paid" && entry.collected > 0;
 }
 
 function isPayable(entry: MonthEntry): boolean {
@@ -43,8 +42,8 @@ function isPayable(entry: MonthEntry): boolean {
 /**
  * The set of billing months that should select/deselect together when the user
  * toggles `entry`:
- * - cell backed by an active payment → every visible month sharing that payment
- *   (keeps a multi-month block whole for voiding);
+ * - cell money has reached → every visible month sharing that bill (keeps a
+ *   multi-month block whole);
  * - skipped cell → just itself (it can only be unskipped);
  * - multi-month plan + payable cell → the visible payable months of its
  *   start-aligned window;
@@ -56,10 +55,10 @@ export function expandSelectionUnit(
   monthGrid: MonthEntry[],
   line: CustomerPlan,
 ): string[] {
-  if (hasActivePayment(entry)) {
-    const paymentId = entry.payment!.id;
+  if (hasMoney(entry)) {
+    const chargeId = entry.charge!.id;
     return monthGrid
-      .filter((m) => m.payment?.id === paymentId)
+      .filter((m) => m.charge?.id === chargeId)
       .map((m) => m.billingMonth);
   }
 
@@ -86,8 +85,8 @@ export function expandSelectionUnit(
 
 /**
  * Groups the selected payable months of a multi-month plan into the distinct
- * blocks that should each become one `createMultiMonthPayment` call. The block
- * start may fall before the visible grid year if a window straddles a boundary.
+ * blocks that each become ONE bill. The block start may fall before the visible
+ * grid year if a window straddles a boundary.
  */
 export function groupPayableBlocks(
   payableEntries: MonthEntry[],

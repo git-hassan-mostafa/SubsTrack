@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import type { Sale } from "@/src/core/types";
+import type { Collection, Sale } from "@/src/core/types";
 import { getDateLocale } from "@/src/core/utils/date";
 import { useLanguageStore } from "@/src/core/i18n/languageStore";
 import { confirm } from "@/src/shared/lib/confirm";
@@ -9,10 +9,9 @@ import { useAuthSlice } from "@/src/state/hooks/useAuthSlice";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import {
-  buildPaymentInvoiceText,
+  buildCollectionInvoiceText,
   buildSalesInvoiceText,
   type InvoiceContext,
-  type PaymentInvoiceRow,
 } from "../utils/invoiceText";
 import {
   resolveInvoiceRecipient,
@@ -91,13 +90,14 @@ export function useSendInvoice() {
     [t],
   );
 
-  const sendPaymentInvoice = useCallback(
+  // One hand-over, one receipt — whatever mix of months, sales and fees the
+  // money settled. There is no longer any such thing as a per-month receipt.
+  const sendCollectionInvoice = useCallback(
     (a: {
       phone: string | null | undefined;
       customerName: string;
-      rows: PaymentInvoiceRow[];
-    }) =>
-      send(a.phone, buildPaymentInvoiceText(ctx, a.customerName, a.rows)),
+      collection: Collection;
+    }) => send(a.phone, buildCollectionInvoiceText(ctx, a.customerName, a.collection)),
     [ctx, send],
   );
 
@@ -125,7 +125,7 @@ export function useSendInvoice() {
   return {
     canSend,
     resolveRecipient,
-    sendPaymentInvoice,
+    sendCollectionInvoice,
     sendSaleInvoice,
     sendSalesInvoice,
   };

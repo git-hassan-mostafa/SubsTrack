@@ -1,5 +1,5 @@
 import { View } from 'react-native';
-import type { MonthEntry, Payment } from '@/src/core/types';
+import type { Charge, MonthEntry } from '@/src/core/types';
 import { MonthCell } from './MonthCell';
 
 interface Props {
@@ -19,18 +19,18 @@ interface Props {
 // The grid always has 4 cells per row (Jan–Apr, May–Aug, Sep–Dec).
 const COLUMNS = 4;
 
-// Returns the payment ID if the month is settled by a payment (a partial
-// payment reports as "paid"), or null — used to detect which cells share the
-// same multi-month payment.
+// The BILL id when the month is settled (a partial reports as "paid"), else
+// null — this is what tells the cells of one multi-month block apart.
 function groupIdOf(entry: MonthEntry): string | null {
-  return entry.status === 'paid' && entry.payment ? entry.payment.id : null;
+  return entry.status === 'paid' && entry.charge ? entry.charge.id : null;
 }
 
-// Checks whether a payment that starts in currentYear extends at least into January of the next year.
-function paymentCoversNextYearJanuary(payment: Payment, currentYear: number): boolean {
-  const startYear = parseInt(payment.billingMonth.substring(0, 4));
-  const startMonth = parseInt(payment.billingMonth.substring(5, 7));
-  const endAbsolute = startYear * 12 + startMonth + payment.durationMonths - 1;
+// Whether a bill starting in currentYear reaches at least January of the next.
+function billCoversNextYearJanuary(charge: Charge, currentYear: number): boolean {
+  if (!charge.billingMonth) return false;
+  const startYear = parseInt(charge.billingMonth.substring(0, 4));
+  const startMonth = parseInt(charge.billingMonth.substring(5, 7));
+  const endAbsolute = startYear * 12 + startMonth + charge.durationMonths - 1;
   return endAbsolute >= (currentYear + 1) * 12 + 1;
 }
 
@@ -59,7 +59,7 @@ export function MonthGrid({
         const atRowStart = i % COLUMNS === 0;
         const atRowEnd = (i + 1) % COLUMNS === 0;
 
-        // Whether the left/right neighbour belongs to the same multi-month payment.
+        // Whether the left/right neighbour belongs to the same multi-month bill.
         const sameGroupAsPrev =
           !!myGroup && prev != null && groupIdOf(prev) === myGroup;
         const sameGroupAsNext =
@@ -74,16 +74,16 @@ export function MonthGrid({
         const wrapFromPrev = sameGroupAsPrev && atRowStart;
         const wrapToNext = sameGroupAsNext && atRowEnd;
 
-        // Different years — January continuing a payment from December of the previous year.
+        // Different years — January continuing a bill from the previous December.
         const crossYearFromPrev =
           i === 0 && entry.status === 'paid' && entry.isGroupSecondary;
 
-        // Different years — December whose payment spills into January of the next year.
+        // Different years — December whose bill spills into next January.
         const crossYearToNext =
           i === months.length - 1 &&
           entry.status === 'paid' &&
-          entry.payment != null &&
-          paymentCoversNextYearJanuary(entry.payment, entry.year);
+          entry.charge != null &&
+          billCoversNextYearJanuary(entry.charge, entry.year);
 
         return (
           <MonthCell

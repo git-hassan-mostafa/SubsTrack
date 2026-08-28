@@ -59,6 +59,7 @@ function unitsByProduct(items: { productId: string; quantity: number }[]): Map<s
 function saleOpenItem(args: {
   chargeId: string;
   customerId: string | null;
+  branchId: string | null;
   label: string;
   amount: number;
   currencyId: string | null;
@@ -70,7 +71,7 @@ function saleOpenItem(args: {
     {
       id: args.chargeId,
       tenantId: '',
-      branchId: null,
+      branchId: args.branchId,
       customerId: args.customerId,
       kind: 'sale' as const,
       customerPlanId: null,
@@ -237,6 +238,7 @@ class SaleService {
             item: saleOpenItem({
               chargeId,
               customerId: input.customerId,
+              branchId: input.branchId,
               label: itemsSummary,
               amount: total,
               currencyId: input.currency?.id ?? null,

@@ -16,54 +16,37 @@ import {
 } from "@/src/shared/components/ActionMenu";
 import { InlineSelectionToolbar } from "@/src/shared/components/InlineSelectionToolbar";
 import type {
+  Collection,
   Customer,
   CustomerPlan,
   MonthEntry,
-  Payment,
+  OpenItem,
 } from "@/src/core/types";
 import { getCurrentYearMonth, getDateLocale } from "@/src/core/utils/date";
-import {
-  findCurrency,
-  formatMoney,
-  snapshotCurrency,
-  toUsd,
-} from "@/src/core/utils/currency";
+import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { COLORS } from "@/src/shared/constants";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
-import { useSubscriptionSlice } from "@/src/state/hooks/useSubscriptionSlice";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { getBlockRangeLabel } from "../utils/blockRangeLabel";
 import { resolveLinePrice } from "@/src/modules/customer/customer-plans/utils/linePrice";
 import { MonthGrid } from "./MonthGrid";
-import { PaymentDetailSheet } from "./PaymentDetailSheet";
-import { PaymentFormSheet } from "./PaymentFormSheet";
 import { SkipMonthSheet } from "./SkipMonthSheet";
-import { VoidSheet } from "./VoidSheet";
-import {
-  BulkPaymentFormSheet,
-  type BulkPaymentValues,
-} from "./BulkPaymentFormSheet";
-import { BulkVoidSheet } from "./BulkVoidSheet";
-import {
-  expandSelectionUnit,
-  groupPayableBlocks,
-} from "../utils/monthSelection";
+import { expandSelectionUnit, groupPayableBlocks } from "../utils/monthSelection";
 import {
   billingMonthLabel,
   blockingPaidMonths,
   blockingUnpaidMonths,
-  coveredBillingMonths,
 } from "../utils/payOrder";
 import {
   useSelection,
   useSelectionBackHandler,
 } from "@/src/shared/hooks/useSelection";
 import type { SelectionAction } from "@/src/shared/components/PageHeader";
-import { UpgradePromptModal } from "@/src/modules/admin/subscription";
 import { useSendInvoice, WhatsAppComboIcon } from "@/src/modules/invoicing";
+import { BillSheet, CollectSheet, monthItemFromEntry } from "@/src/modules/ledger";
 import { usePaymentSlice } from "@/src/state/hooks/usePaymentSlice";
+import { useLedgerSlice } from "@/src/state/hooks/useLedgerSlice";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
-import { getStore } from "@/src/state/globalStore";
 
 interface CustomerPaymentPanelProps {
   customer: Customer;
@@ -106,34 +89,24 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
   const { quickPay } = useLocalSearchParams<{ quickPay?: string }>();
   const { user } = useAuth();
   // Per-field selectors, never `usePaymentSlice()` bare: subscribing to the whole
-  // slice re-renders this panel (month grid included) on every unrelated payment
-  // change, and hands every effect a dep that changes identity each time.
-  const payments = usePaymentSlice((s) => s.items);
+  // slice re-renders this panel (month grid included) on every unrelated change,
+  // and hands every effect a dep that changes identity each time.
+  const bills = usePaymentSlice((s) => s.bills);
   const monthGridsByLine = usePaymentSlice((s) => s.monthGridsByLine);
   const uncoveredMonthsByLine = usePaymentSlice((s) => s.uncoveredMonthsByLine);
   const paidMonthsByLine = usePaymentSlice((s) => s.paidMonthsByLine);
   const paymentsLoading = usePaymentSlice((s) => s.loading);
-  const loadingUpdate = usePaymentSlice((s) => s.loadingUpdate);
   const paymentsError = usePaymentSlice((s) => s.error);
-  const paymentsTierLimitError = usePaymentSlice((s) => s.tierLimitError);
-  const getPayments = usePaymentSlice((s) => s.getPayments);
-  const createPayment = usePaymentSlice((s) => s.createPayment);
-  const createPayments = usePaymentSlice((s) => s.createPayments);
-  const createMultiMonthPayment = usePaymentSlice(
-    (s) => s.createMultiMonthPayment,
-  );
-  const createMultiMonthPayments = usePaymentSlice(
-    (s) => s.createMultiMonthPayments,
-  );
-  const updatePayment = usePaymentSlice((s) => s.updatePayment);
+  const getBills = usePaymentSlice((s) => s.getBills);
+  const fetchBills = usePaymentSlice((s) => s.fetchBills);
   const clearPaymentError = usePaymentSlice((s) => s.clearError);
-  const clearPaymentTierLimitError = usePaymentSlice(
-    (s) => s.clearTierLimitError,
-  );
   const resetPayments = usePaymentSlice((s) => s.reset);
+  const collect = useLedgerSlice((s) => s.collect);
+  const collecting = useLedgerSlice((s) => s.loadingCollect);
+  const ledgerError = useLedgerSlice((s) => s.error);
+  const clearLedgerError = useLedgerSlice((s) => s.clearError);
   const currencies = useCurrencySlice((s) => s.items);
-  const currentTier = useSubscriptionSlice((s) => s.currentTier);
-  const { canSend, sendPaymentInvoice } = useSendInvoice();
+  const { canSend, sendCollectionInvoice } = useSendInvoice();
   const displayCurrencyId = useDisplayCurrencyId();
   const displayCurrency = findCurrency(currencies, displayCurrencyId);
 
@@ -149,22 +122,22 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
 
   const [year, setYear] = useState(getCurrentYearMonth().year);
   const [selectedLineId, setSelectedLineId] = useState<string | null>(null);
-  const [selectedEntry, setSelectedEntry] = useState<MonthEntry | null>(null);
   const [menuEntry, setMenuEntry] = useState<MonthEntry | null>(null);
   const [quickPayMonth, setQuickPayMonth] = useState<string | null>(null);
-  const [detailVisible, setDetailVisible] = useState(false);
-  const [formVisible, setFormVisible] = useState(false);
-  const [voidVisible, setVoidVisible] = useState(false);
+  // The bill a "paid" cell opened — its own sheet lists every payment on it.
+  const [billEntry, setBillEntry] = useState<MonthEntry | null>(null);
+  // What the collect sheet is about to take money for. One item = one month;
+  // several = a multi-select, split oldest-first by the waterfall.
+  const [collectFor, setCollectFor] = useState<{
+    items: OpenItem[];
+    single: boolean;
+    send: boolean;
+  } | null>(null);
   const quickPayHandledRef = useRef(false);
 
   const selection = useSelection();
   useSelectionBackHandler(selection.active, selection.clear);
   const [bulkBusy, setBulkBusy] = useState(false);
-  const [bulkPayVisible, setBulkPayVisible] = useState(false);
-  // Whether the custom-amount bulk sheet should also send the invoice — the
-  // choice is made in the toolbar, the amount only afterwards.
-  const [bulkPaySend, setBulkPaySend] = useState(false);
-  const [bulkVoidIds, setBulkVoidIds] = useState<string[] | null>(null);
   // Months being skipped / unskipped (one cell, or a whole selection).
   const [skipRequest, setSkipRequest] = useState<{
     entries: MonthEntry[];
@@ -202,8 +175,8 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
   const lineUncoveredMonths = selectedLine
     ? (uncoveredMonthsByLine[selectedLine.id] ?? EMPTY_MONTHS)
     : EMPTY_MONTHS;
-  // The same, for the months this line HAS paid — voids run newest-first, and a
-  // later paid month can also sit outside the viewed year.
+  // The same, for the months this line HAS paid — a later paid month can sit
+  // outside the viewed year and still lock an unskip.
   const linePaidMonths = selectedLine
     ? (paidMonthsByLine[selectedLine.id] ?? EMPTY_MONTHS)
     : EMPTY_MONTHS;
@@ -231,13 +204,13 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
       : withPeriod;
   })();
 
-  // Loads every line's payments once per customer; switching years/lines
-  // rebuilds the grids from the store instead of re-fetching.
+  // Loads every line's bills once per customer; switching years/lines rebuilds
+  // the grids from the store instead of re-fetching.
   useEffect(() => {
     if (lines.length > 0) {
-      getPayments(customer.id, lines, year);
+      getBills(customer.id, lines, year);
     }
-  }, [customer.id, year, linesKey, lines, getPayments]);
+  }, [customer.id, year, linesKey, lines, getBills]);
 
   // `selection.clear` (not `selection`) — the hook returns a fresh object each
   // render, so depending on it would loop.
@@ -250,60 +223,6 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
     return () => resetPayments();
   }, [resetPayments]);
 
-  // ?quickPay=1 handshake from the customer list: open the form for the current
-  // month of the (first) selected line once its grid is ready. Fires at most once.
-  useEffect(() => {
-    if (quickPay !== "1" || quickPayHandledRef.current) return;
-    if (paymentsLoading || grid.length === 0) return;
-    const { year: cy, month: cm } = getCurrentYearMonth();
-    const currentEntry = grid.find((m) => m.year === cy && m.month === cm);
-    if (!currentEntry) return;
-    quickPayHandledRef.current = true;
-    router.setParams({ quickPay: undefined });
-    // A skipped month can't be paid — explain instead of opening the form. Unless
-    // a later paid month locked its unskip: collecting it is then the only way to
-    // settle it, so the form opens as usual.
-    if (
-      currentEntry.status === "skipped" &&
-      blockingPaidMonths(linePaidMonths, [currentEntry.billingMonth]).length ===
-        0
-    ) {
-      void confirm({
-        title: t("common.not_available"),
-        message: t("payments.skip.pay_blocked"),
-        confirmLabel: t("common.close"),
-        hideCancel: true,
-      });
-      return;
-    }
-    // Same oldest-first rule as a manual tap — the list can hand us a customer
-    // whose current month is unpaid but whose backlog is older still.
-    const blocker = blockingUnpaidMonths(lineUncoveredMonths, [
-      currentEntry.billingMonth,
-    ])[0];
-    if (blocker) {
-      void confirm({
-        title: t("common.not_available"),
-        message: t("payments.earlier_month_unpaid", {
-          month: billingMonthLabel(blocker),
-        }),
-        confirmLabel: t("common.close"),
-        hideCancel: true,
-      });
-      return;
-    }
-    setSelectedEntry(currentEntry);
-    setFormVisible(true);
-  }, [
-    quickPay,
-    paymentsLoading,
-    grid,
-    lineUncoveredMonths,
-    linePaidMonths,
-    router,
-    t,
-  ]);
-
   const lineActive = selectedLine?.active ?? false;
 
   // Calendar-future month (strictly after the current month) — the same thing
@@ -314,8 +233,8 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
   }
 
   // On an inactive customer OR a cancelled plan, only FUTURE months are blocked;
-  // past + current months stay fully payable (record, quick-pay, bulk-pay). This
-  // is the single gate all three pay paths share.
+  // past + current months stay fully payable. This is the single gate all the
+  // collect paths share.
   function isPayBlocked(entry: MonthEntry): boolean {
     return (!customer.active || !lineActive) && isCalendarFuture(entry);
   }
@@ -325,49 +244,18 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
   // Months inside the same write never block it, so paying a whole backlog in
   // one selection is fine while cherry-picking a later month is not.
   function payOrderBlocker(entries: MonthEntry[]): string | null {
-    const blocking = blockingUnpaidMonths(
-      lineUncoveredMonths,
-      entries.map((e) => e.billingMonth),
+    return (
+      blockingUnpaidMonths(
+        lineUncoveredMonths,
+        entries.map((e) => e.billingMonth),
+      )[0] ?? null
     );
-    return blocking[0] ?? null;
   }
 
   function showPayOrderBlocked(month: string) {
     void confirm({
       title: t("common.not_available"),
       message: t("payments.earlier_month_unpaid", {
-        month: billingMonthLabel(month),
-      }),
-      confirmLabel: t("common.close"),
-      hideCancel: true,
-    });
-  }
-
-  // Voids run NEWEST FIRST (the mirror of the above): returns the newest paid
-  // month that must be voided before `entries` may be, or null when allowed.
-  // Months inside the same void never block it.
-  function voidOrderBlocker(entries: MonthEntry[]): string | null {
-    const blocking = blockingPaidMonths(
-      linePaidMonths,
-      // A block is voided whole, so the target is every month ITS payment covers
-      // — read off the payment, since a secondary cell's own month is not the
-      // block's start.
-      entries.flatMap((e) =>
-        e.payment
-          ? coveredBillingMonths(
-              e.payment.billingMonth,
-              e.payment.durationMonths,
-            )
-          : [e.billingMonth],
-      ),
-    );
-    return blocking[0] ?? null;
-  }
-
-  function showVoidOrderBlocked(month: string) {
-    void confirm({
-      title: t("common.not_available"),
-      message: t("payments.later_month_paid", {
         month: billingMonthLabel(month),
       }),
       confirmLabel: t("common.close"),
@@ -389,13 +277,13 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
 
   // A skipped month whose unskip is locked can never go back to unpaid, so
   // COLLECTING it is the only way left to settle it. It therefore joins the
-  // payable statuses (a payment outranks the skip in buildMonthGrid, leaving the
+  // payable statuses (money outranks the skip in buildMonthGrid, leaving the
   // skip inert) and its unskip action is hidden instead.
   function isLockedSkipped(entry: MonthEntry): boolean {
     return entry.status === "skipped" && unskipOrderBlocker([entry]) !== null;
   }
 
-  // The statuses a payment can be recorded for: nothing collected yet, or a
+  // The statuses money can be collected for: nothing collected yet, or a
   // skipped month that can no longer be unskipped.
   function isPayableStatus(entry: MonthEntry): boolean {
     return (
@@ -403,6 +291,80 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
       entry.status === "future" ||
       isLockedSkipped(entry)
     );
+  }
+
+  // ── Turning cells into collectable items ───────────────────────────────
+
+  function monthLabelOf(entry: MonthEntry): string {
+    const span = entry.charge?.durationMonths ?? linePrice.durationMonths;
+    const base =
+      span > 1
+        ? getBlockRangeLabel(entry.billingMonth, span, t)
+        : `${t(`months.${entry.label}`)} ${entry.year}`;
+    return plan?.name ? `${base} · ${plan.name}` : base;
+  }
+
+  // A cell as something money can be put against. Null when the line has no
+  // fixed price and the month has no bill — there is nothing to collect until
+  // someone types an amount, which the collect sheet cannot invent.
+  function itemFor(entry: MonthEntry): OpenItem | null {
+    if (!selectedLine) return null;
+    return monthItemFromEntry({
+      entry,
+      customerId: customer.id,
+      customerName: customer.name,
+      branchId: customer.branchId,
+      customerPlanId: selectedLine.id,
+      planId: selectedLine.planId,
+      label: monthLabelOf(entry),
+      price: {
+        amount: linePrice.amount,
+        currencyId: linePrice.currencyId,
+        durationMonths: linePrice.durationMonths,
+      },
+      ratePerUsd: findCurrency(currencies, linePrice.currencyId)?.ratePerUsd ?? 1,
+    });
+  }
+
+  /**
+   * The items a selection of payable cells becomes.
+   *
+   * On a multi-month plan the cells of one block share a single bill, so they
+   * collapse to ONE item per block — otherwise a 3-month plan would be billed
+   * three times for the same period.
+   */
+  function itemsForEntries(entries: MonthEntry[]): OpenItem[] {
+    if (!selectedLine) return [];
+    if (linePrice.durationMonths > 1) {
+      const blocks = groupPayableBlocks(entries, selectedLine);
+      return blocks
+        .map((b) => {
+          const cell =
+            entries.find((e) => e.billingMonth === b.startBillingMonth) ??
+            entries.find((e) => e.billingMonth >= b.startBillingMonth);
+          if (!cell) return null;
+          // The block is billed from its START month, whichever cell was tapped.
+          return itemFor({ ...cell, billingMonth: b.startBillingMonth });
+        })
+        .filter((i): i is OpenItem => i !== null);
+    }
+    return entries
+      .map(itemFor)
+      .filter((i): i is OpenItem => i !== null);
+  }
+
+  function openCollect(entries: MonthEntry[], send = false) {
+    const items = itemsForEntries(entries);
+    if (items.length === 0) {
+      void confirm({
+        title: t("common.not_available"),
+        message: t("ledger.no_price_to_collect"),
+        confirmLabel: t("common.close"),
+        hideCancel: true,
+      });
+      return;
+    }
+    setCollectFor({ items, single: items.length === 1, send });
   }
 
   function handleCellPress(entry: MonthEntry) {
@@ -419,9 +381,16 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
     // A skipped month is not payable — tapping it offers the unskip instead.
     // Checked before the inactive gate: unskipping is not a payment, so it stays
     // available on a cancelled plan / inactive customer. A locked skip has no
-    // unskip left, so it falls through to the pay path below.
+    // unskip left, so it falls through to the collect path below.
     if (entry.status === "skipped" && !isLockedSkipped(entry)) {
       setSkipRequest({ entries: [entry], mode: "unskip" });
+      return;
+    }
+
+    // A month money has reached opens its BILL — which lists every payment made
+    // against it, and is where one of them can be voided.
+    if (entry.status === "paid" && entry.charge) {
+      setBillEntry(entry);
       return;
     }
 
@@ -439,13 +408,6 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
       return;
     }
 
-    setSelectedEntry(entry);
-
-    if (entry.status === "paid" && entry.payment) {
-      setDetailVisible(true);
-      return;
-    }
-
     // Older month still open → collect that one first.
     const blocker = payOrderBlocker([entry]);
     if (blocker) {
@@ -453,25 +415,112 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
       return;
     }
 
-    setFormVisible(true);
+    openCollect([entry]);
   }
 
-  // From the payment detail sheet. A newer paid month must go first, so say which
-  // one instead of opening the void sheet.
-  function handleVoidPress() {
-    if (!selectedEntry) return;
-    const blocker = voidOrderBlocker([selectedEntry]);
-    if (blocker) {
-      showVoidOrderBlocked(blocker);
+  // ?quickPay=1 handshake from the customer list: collect the current month of
+  // the (first) selected line once its grid is ready. Fires at most once.
+  useEffect(() => {
+    if (quickPay !== "1" || quickPayHandledRef.current) return;
+    if (paymentsLoading || grid.length === 0) return;
+    const { year: cy, month: cm } = getCurrentYearMonth();
+    const currentEntry = grid.find((m) => m.year === cy && m.month === cm);
+    if (!currentEntry) return;
+    quickPayHandledRef.current = true;
+    router.setParams({ quickPay: undefined });
+    // A skipped month can't be paid — explain instead of opening the sheet.
+    // Unless a later paid month locked its unskip: collecting it is then the
+    // only way to settle it, so the sheet opens as usual.
+    if (
+      currentEntry.status === "skipped" &&
+      blockingPaidMonths(linePaidMonths, [currentEntry.billingMonth]).length === 0
+    ) {
+      void confirm({
+        title: t("common.not_available"),
+        message: t("payments.skip.pay_blocked"),
+        confirmLabel: t("common.close"),
+        hideCancel: true,
+      });
       return;
     }
-    setVoidVisible(true);
+    // Same oldest-first rule as a manual tap — the list can hand us a customer
+    // whose current month is unpaid but whose backlog is older still.
+    const blocker = blockingUnpaidMonths(lineUncoveredMonths, [
+      currentEntry.billingMonth,
+    ])[0];
+    if (blocker) {
+      showPayOrderBlocked(blocker);
+      return;
+    }
+    openCollect([currentEntry]);
+    // The ref guard is what keeps this to a single firing; the deps are listed
+    // in full because React Compiler memoises the callbacks (never disable the
+    // hooks lint — it switches the compiler off for the whole file).
+  }, [
+    quickPay,
+    paymentsLoading,
+    grid,
+    lineUncoveredMonths,
+    linePaidMonths,
+    router,
+    t,
+    openCollect,
+    showPayOrderBlocked,
+  ]);
+
+  // ── Collecting ─────────────────────────────────────────────────────────
+
+  /**
+   * Sends ONE receipt for a hand-over — the split it covers is listed inside.
+   * No-op when the write failed or the customer has no number: the money must
+   * still count as collected.
+   */
+  async function sendReceipt(collection: Collection | null) {
+    if (!collection || !canSend(customer.phoneNumber)) return;
+    await sendCollectionInvoice({
+      phone: customer.phoneNumber,
+      customerName: customer.name,
+      collection,
+    });
   }
 
-  // Quick Pay is available on unpaid + future-status (prepay) months of a
-  // fixed-price plan — custom-price / planless fall back to the form. A cancelled
-  // plan (or inactive customer) can still quick-pay its PAST/CURRENT months;
-  // only calendar-future months are blocked (isPayBlocked).
+  /** Everything the grid writes goes through here — one door, one refresh. */
+  async function runCollect(args: {
+    items: OpenItem[];
+    amount: number;
+    currencyId: string | null;
+    ratePerUsdSnapshot: number;
+    receivedAt: string;
+    notes: string | null;
+    lines: { item: OpenItem; amount: number }[];
+    send: boolean;
+  }): Promise<boolean> {
+    if (!user) return false;
+    const created = await collect({
+      tenantId: user.tenantId,
+      customerId: customer.id,
+      branchId: customer.branchId,
+      amount: args.amount,
+      currencyId: args.currencyId,
+      ratePerUsdSnapshot: args.ratePerUsdSnapshot,
+      receivedAt: args.receivedAt,
+      receivedByUserId: user.id,
+      notes: args.notes,
+      lines: args.lines.map((l) => ({
+        item: l.item,
+        amount: l.amount,
+        settles: l.amount >= l.item.balance,
+      })),
+    });
+    if (!created) return false;
+    await fetchBills(customer.id, lines, year);
+    if (args.send) await sendReceipt(created);
+    return true;
+  }
+
+  // Quick Pay: the full price of the month, in one tap. Available on unpaid +
+  // future-status (prepay) months of a fixed-price line — a custom-price line
+  // falls back to the sheet, which is where an amount can be typed.
   function canQuickPay(entry: MonthEntry): boolean {
     return (
       !isPayBlocked(entry) &&
@@ -481,102 +530,48 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
     );
   }
 
-  function hasActivePayment(entry: MonthEntry): boolean {
-    return (
-      entry.status === "paid" &&
-      entry.payment != null &&
-      entry.payment.voidedAt === null
-    );
-  }
-
-  // Sends ONE invoice covering every payment passed in — the months just
-  // created by a pay, or already-paid months picked in the grid (the builder
-  // totals them per currency either way). No-op when the write failed or the
-  // customer has no number — the pay must still count as done.
-  async function sendInvoiceFor(payments: Payment[]) {
-    const rows = payments.filter((p) => p != null);
-    if (rows.length === 0 || !canSend(customer.phoneNumber)) return;
-    await sendPaymentInvoice({
-      phone: customer.phoneNumber,
-      customerName: customer.name,
-      rows: rows.map((payment) => ({ payment, planName: plan?.name ?? null })),
-    });
-  }
-
   async function handleQuickPay(entry: MonthEntry, send = false) {
-    // No remembered amount → the manual form. `plan` may legitimately be null
-    // here: a plan-less line can still carry a special price.
     if (!selectedLine || !linePrice.isFixed || !user) {
-      setSelectedEntry(entry);
-      setFormVisible(true);
+      openCollect([entry], send);
       return;
     }
-    // The line's own currency, NOT the plan's — this is what freezes
-    // rate_per_usd_snapshot on the payment (gotcha #21).
-    const planCurrency = findCurrency(currencies, linePrice.currencyId);
-
+    const items = itemsForEntries([entry]);
+    const item = items[0];
+    if (!item) {
+      openCollect([entry], send);
+      return;
+    }
     if (linePrice.durationMonths > 1) {
-      if (!currentTier) return;
       const ok = await confirm({
         title: t("payments.quick_pay.confirm_multi_month_title"),
         message: t("payments.quick_pay.confirm_multi_month_message", {
-          amount: formatMoney(linePrice.amount!, planCurrency, planCurrency),
+          amount: formatMoney(
+            item.balance,
+            findCurrency(currencies, item.currencyId),
+            displayCurrency,
+          ),
           months: getBlockRangeLabel(
-            entry.billingMonth,
-            linePrice.durationMonths,
+            item.billingMonth!,
+            item.durationMonths,
             t,
           ),
         }),
         confirmLabel: t("payments.quick_pay.confirm"),
       });
       if (!ok) return;
-      setQuickPayMonth(entry.billingMonth);
-      try {
-        const result = await createMultiMonthPayment(
-          entry.billingMonth,
-          customer,
-          selectedLine.id,
-          selectedLine.planId,
-          linePrice.amount!,
-          linePrice.durationMonths,
-          planCurrency,
-          linePrice.amount!,
-          user.id,
-          null,
-          user.tenantId,
-          false,
-          lines,
-          year,
-          currentTier,
-        );
-        if (send) await sendInvoiceFor(result ? [result.payment] : []);
-      } finally {
-        setQuickPayMonth(null);
-      }
-      return;
     }
-
     setQuickPayMonth(entry.billingMonth);
     try {
-      const created = await createPayment(
-        {
-          billingMonth: entry.billingMonth,
-          amountDue: linePrice.amount!,
-          amountPaid: linePrice.amount!,
-          durationMonths: 1,
-          currencyId: linePrice.currencyId,
-          customerId: customer.id,
-          customerPlanId: selectedLine.id,
-          // From the LINE — a line with a special price may have no plan.
-          planId: selectedLine.planId,
-          receivedByUserId: user.id,
-          tenantId: user.tenantId,
-          notes: null,
-        },
-        planCurrency,
-        lines,
-      );
-      if (send) await sendInvoiceFor(created ? [created] : []);
+      await runCollect({
+        items,
+        amount: item.balance,
+        currencyId: item.currencyId,
+        ratePerUsdSnapshot: item.ratePerUsdSnapshot,
+        receivedAt: new Date().toISOString(),
+        notes: null,
+        lines: [{ item, amount: item.balance }],
+        send,
+      });
     } finally {
       setQuickPayMonth(null);
     }
@@ -611,9 +606,17 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
         caption: sendable ? undefined : t("invoice.no_phone"),
         onPress: () => void handleQuickPay(entry, true),
       });
+      // Part of the price now, the rest later — the sheet is where an amount
+      // below the full one is typed.
+      items.push({
+        key: "collect-part",
+        label: t("ledger.collect_part"),
+        icon: "cash-outline",
+        onPress: () => openCollect([entry]),
+      });
     }
     // Skip is offered on months with nothing to collect yet; a paid month must
-    // be voided first, so the two actions never appear together.
+    // have its payment voided first, so the two actions never appear together.
     if (entry.status === "unpaid" || entry.status === "future") {
       items.push({
         key: "skip",
@@ -632,32 +635,26 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
         onPress: () => setSkipRequest({ entries: [entry], mode: "unskip" }),
       });
     }
-    if (hasActivePayment(entry)) {
+    // A month money has reached: its bill lists every payment on it, and a
+    // payment is voided from there. There is no "void the month" any more — one
+    // hand-over can cover several months, so only the payment can be undone.
+    if (entry.status === "paid" && entry.charge) {
       items.push({
-        key: "void",
-        label: t("payments.void_payment"),
-        icon: "close-circle-outline",
-        destructive: true,
-        // Kept visible when a newer month blocks it — pressing explains which
-        // month to void first, rather than the row silently disappearing.
-        onPress: () => {
-          const blocker = voidOrderBlocker([entry]);
-          if (blocker) {
-            showVoidOrderBlocked(blocker);
-            return;
-          }
-          setSelectedEntry(entry);
-          setVoidVisible(true);
-        },
+        key: "bill",
+        label: t("ledger.view_bill"),
+        icon: "receipt-outline",
+        onPress: () => setBillEntry(entry),
       });
+      if (entry.balance > 0) {
+        items.push({
+          key: "collect-remaining",
+          label: t("ledger.collect_rest"),
+          icon: "cash-outline",
+          onPress: () => openCollect([entry]),
+        });
+      }
     }
     return items;
-  }
-
-  async function handleEditAmount(next: { amountPaid: number }) {
-    if (!selectedEntry?.payment) return;
-    await updatePayment(selectedEntry.payment.id, next.amountPaid, lines, year);
-    if (!getStore().getState().payments.error) setDetailVisible(false);
   }
 
   // --- Multi-select (bulk) ---------------------------------------------------
@@ -665,23 +662,14 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
   const selectedEntries = grid.filter((m) =>
     selection.selectedIds.has(m.billingMonth),
   );
-  // Payable in bulk: unpaid, a future-status (prepay) slot, or a skipped month
-  // whose unskip is locked — but never a calendar-future month on a cancelled
-  // plan / inactive customer (isPayBlocked).
+  // Payable in bulk: unpaid, a future-status (prepay) slot, a skipped month
+  // whose unskip is locked, or a partly-paid month with a balance left — but
+  // never a calendar-future month on a cancelled plan / inactive customer.
   const payableEntries = selectedEntries.filter(
-    (e) => isPayableStatus(e) && !isPayBlocked(e),
-  );
-  const voidableEntries = selectedEntries.filter(
     (e) =>
-      e.status === "paid" && e.payment != null && e.payment.voidedAt === null,
+      !isPayBlocked(e) &&
+      (isPayableStatus(e) || (e.status === "paid" && e.balance > 0)),
   );
-  // The same rows as a receipt: one entry per PAYMENT, since a multi-month block
-  // fills several cells from a single payment row and must be listed once.
-  const selectedPayments = [
-    ...new Map(
-      voidableEntries.map((e) => [e.payment!.id, e.payment!]),
-    ).values(),
-  ];
   // Skippable = nothing collected yet on that month; unskippable = already
   // skipped, minus the ones a later paid month locked (collect those instead).
   const skippableEntries = selectedEntries.filter(
@@ -703,11 +691,6 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
     if (unit.length > 0) selection.enterWith(unit);
   }
 
-  function bulkSucceeded(): boolean {
-    const ps = getStore().getState().payments;
-    return !ps.error && !ps.tierLimitError;
-  }
-
   function runBulkPay(send = false) {
     if (bulkBusy || payableEntries.length === 0) return;
     // The whole selection is judged at once, so a backlog selected together
@@ -717,146 +700,19 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
       showPayOrderBlocked(blocker);
       return;
     }
-    if (!linePrice.isFixed) {
-      // The custom-amount sheet asks for the amount first; it carries the send
-      // intent to its own submit.
-      setBulkPaySend(send);
-      setBulkPayVisible(true);
-    } else if (linePrice.durationMonths > 1) {
-      void runBulkMultiMonthPay(send);
-    } else {
-      void runBulkFixedPay(send);
-    }
-  }
-
-  async function runBulkFixedPay(send: boolean) {
-    if (!user || !selectedLine || !linePrice.isFixed) return;
-    const ok = await confirm({
-      title: t("payments.quick_pay.pay_now"),
-      message: t("payments.bulk_pay_message", { count: payableEntries.length }),
-      confirmLabel: t("payments.quick_pay.pay_now"),
-    });
-    if (!ok) return;
-    const planCurrency = findCurrency(currencies, linePrice.currencyId);
-    const inputs = payableEntries.map((e) => ({
-      billingMonth: e.billingMonth,
-      amountDue: linePrice.amount!,
-      amountPaid: linePrice.amount!,
-      durationMonths: 1,
-      currencyId: linePrice.currencyId,
-      customerId: customer.id,
-      customerPlanId: selectedLine.id,
-      planId: selectedLine.planId,
-      receivedByUserId: user.id,
-      tenantId: user.tenantId,
-      notes: null,
-    }));
-    clearPaymentError();
-    setBulkBusy(true);
-    try {
-      const created = await createPayments(inputs, planCurrency, lines, year);
-      if (send) await sendInvoiceFor(created);
-    } finally {
-      setBulkBusy(false);
-    }
-    if (bulkSucceeded()) selection.clear();
-  }
-
-  async function runBulkMultiMonthPay(send: boolean) {
-    if (!user || !selectedLine || !linePrice.isFixed || !currentTier) return;
-    const blocks = groupPayableBlocks(payableEntries, selectedLine);
-    const ok = await confirm({
-      title: t("payments.quick_pay.pay_now"),
-      message: t("payments.bulk_pay_blocks_message", { count: blocks.length }),
-      confirmLabel: t("payments.quick_pay.pay_now"),
-    });
-    if (!ok) return;
-    const planCurrency = findCurrency(currencies, linePrice.currencyId);
-    clearPaymentError();
-    clearPaymentTierLimitError();
-    setBulkBusy(true);
-    try {
-      const result = await createMultiMonthPayments(
-        blocks.map((b) => b.startBillingMonth),
-        customer,
-        selectedLine.id,
-        selectedLine.planId,
-        linePrice.amount!,
-        linePrice.durationMonths,
-        planCurrency,
-        linePrice.amount!,
-        user.id,
-        null,
-        user.tenantId,
-        lines,
-        year,
-        currentTier,
-      );
-      if (send) await sendInvoiceFor(result?.payments ?? []);
-    } finally {
-      setBulkBusy(false);
-    }
-    if (bulkSucceeded()) selection.clear();
-  }
-
-  async function runBulkCustomPay(values: BulkPaymentValues) {
-    if (!user || !selectedLine) return;
-    const currency = findCurrency(currencies, values.currencyId);
-    const inputs = payableEntries.map((e) => ({
-      billingMonth: e.billingMonth,
-      amountDue: values.amountDue,
-      amountPaid: values.amountPaid,
-      durationMonths: 1,
-      currencyId: values.currencyId,
-      customerId: customer.id,
-      customerPlanId: selectedLine.id,
-      planId: selectedLine.planId,
-      receivedByUserId: user.id,
-      tenantId: user.tenantId,
-      notes: null,
-    }));
-    clearPaymentError();
-    setBulkBusy(true);
-    try {
-      const created = await createPayments(inputs, currency, lines, year);
-      if (bulkPaySend) await sendInvoiceFor(created);
-    } finally {
-      setBulkBusy(false);
-    }
-    if (bulkSucceeded()) {
-      setBulkPayVisible(false);
-      selection.clear();
-    }
-  }
-
-  function runBulkVoid() {
-    if (bulkBusy || voidableEntries.length === 0) return;
-    // The whole selection is judged at once, so voiding a paid tail together
-    // passes while cherry-picking an older month out of it does not.
-    const blocker = voidOrderBlocker(voidableEntries);
-    if (blocker) {
-      showVoidOrderBlocked(blocker);
-      return;
-    }
-    const ids = Array.from(new Set(voidableEntries.map((e) => e.payment!.id)));
-    setBulkVoidIds(ids);
-  }
-
-  async function sendSelectedInvoice() {
-    await sendInvoiceFor(selectedPayments);
-    selection.clear();
+    openCollect(payableEntries, send);
   }
 
   const selectionActions: SelectionAction[] = [];
   if (payableEntries.length > 0) {
     selectionActions.push({
       key: "pay",
-      icon: "flash-outline",
-      label: t("payments.quick_pay.pay_now"),
+      icon: "cash-outline",
+      label: t("payments.collect"),
       disabled: bulkBusy,
       onPress: () => runBulkPay(),
     });
-    // One invoice for the whole selection — hidden (not disabled) without a
+    // One receipt for the whole hand-over — hidden (not disabled) without a
     // number, since the toolbar is icon-sized and has nowhere for a caption.
     if (canSend(customer.phoneNumber)) {
       selectionActions.push({
@@ -875,8 +731,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
       icon: "play-skip-forward-outline",
       label: t("payments.skip.skip_action"),
       disabled: bulkBusy,
-      onPress: () =>
-        setSkipRequest({ entries: skippableEntries, mode: "skip" }),
+      onPress: () => setSkipRequest({ entries: skippableEntries, mode: "skip" }),
     });
   }
   if (skippedEntries.length > 0) {
@@ -885,30 +740,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
       icon: "refresh-outline",
       label: t("payments.skip.unskip_action"),
       disabled: bulkBusy,
-      onPress: () =>
-        setSkipRequest({ entries: skippedEntries, mode: "unskip" }),
-    });
-  }
-  // Re-send the receipt for months already collected. Hidden (not disabled)
-  // without a number, like the pay-and-send action above.
-  if (selectedPayments.length > 0 && canSend(customer.phoneNumber)) {
-    selectionActions.push({
-      key: "send-invoice",
-      icon: "receipt-outline",
-      renderIcon: (size) => <WhatsAppComboIcon variant="report" size={size} />,
-      label: t("invoice.send_invoice_whatsapp"),
-      disabled: bulkBusy,
-      onPress: () => void sendSelectedInvoice(),
-    });
-  }
-  if (voidableEntries.length > 0) {
-    selectionActions.push({
-      key: "void",
-      icon: "close-circle-outline",
-      label: t("payments.void_payment"),
-      destructive: true,
-      disabled: bulkBusy,
-      onPress: runBulkVoid,
+      onPress: () => setSkipRequest({ entries: skippedEntries, mode: "unskip" }),
     });
   }
 
@@ -924,28 +756,20 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
   const paidCount = grid.filter((m) => m.status === "paid").length;
   const unpaidCount = grid.filter((m) => m.status === "unpaid").length;
   const skippedCount = grid.filter((m) => m.status === "skipped").length;
-  const collectedTotalUsd = payments
+  // Collected in the viewed year, from the bills themselves — each converted at
+  // the rate its own bill froze, so an edited rate never moves last year's total.
+  const collectedTotalUsd = bills
     .filter(
-      (p) =>
-        !p.voidedAt &&
-        p.customerPlanId === selectedLine?.id &&
-        p.billingMonth.startsWith(String(year)),
+      (b) =>
+        b.charge.customerPlanId === selectedLine?.id &&
+        (b.charge.billingMonth ?? "").startsWith(String(year)),
     )
-    .reduce(
-      (sum, p) =>
-        sum + toUsd(p.amountPaid, snapshotCurrency(p, currencies)),
-      0,
-    );
+    .reduce((sum, b) => sum + b.collected / b.charge.ratePerUsdSnapshot, 0);
   const collectedTotalLabel = formatMoney(
     collectedTotalUsd,
     null,
     displayCurrency,
   );
-
-  const canEditAmount =
-    selectedEntry?.payment != null &&
-    !selectedEntry.isGroupSecondary &&
-    selectedEntry.payment.voidedAt === null;
 
   // Back-limit for the year navigator: the selected line's start year, or —
   // before a line is selected — the earliest of all the customer's lines.
@@ -968,6 +792,12 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
     onPrev: () => stepYear(-1),
   });
 
+  const error = paymentsError ?? ledgerError;
+  const clearErrors = () => {
+    clearPaymentError();
+    clearLedgerError();
+  };
+
   // Empty state — a customer with no service lines (rare: every customer keeps
   // ≥1 line, managed from the customer form's Plans editor).
   if (lines.length === 0) {
@@ -983,9 +813,9 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
 
   return (
     <>
-      {paymentsError ? (
+      {error ? (
         <View className="px-4 mt-4">
-          <ErrorBanner message={paymentsError} onDismiss={clearPaymentError} />
+          <ErrorBanner message={error} onDismiss={clearErrors} />
         </View>
       ) : null}
 
@@ -1185,7 +1015,7 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
               {t("payments.amount_due")} · {daysIntoMonth} days into the month
             </Text>
           </View>
-          {/* Collects straight away — falls back to the form only when the line
+          {/* Collects straight away — falls back to the sheet only when the line
               has no fixed price to charge (handleQuickPay opens it itself). */}
           <PressableOpacity
             onPress={() => void handleQuickPay(currentMonthEntry)}
@@ -1203,51 +1033,49 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
         </View>
       ) : null}
 
-      {formVisible && selectedEntry && selectedLine && (
-        <PaymentFormSheet
-          entry={selectedEntry}
-          customer={customer}
-          line={selectedLine}
-          lines={lines}
-          monthGrid={grid}
-          onDismiss={() => setFormVisible(false)}
-        />
-      )}
-      {detailVisible && selectedEntry && (
-        <PaymentDetailSheet
-          entry={selectedEntry}
-          recipient={{ name: customer.name, phone: customer.phoneNumber }}
-          planName={plan?.name ?? null}
-          onVoid={handleVoidPress}
-          onEdit={canEditAmount ? handleEditAmount : undefined}
-          editLoading={loadingUpdate}
-          onDismiss={() => setDetailVisible(false)}
-        />
-      )}
-      {voidVisible && selectedEntry && (
-        <VoidSheet
-          entry={selectedEntry}
-          lines={lines}
-          year={year}
-          onDismiss={() => {
-            setDetailVisible(false);
-            setVoidVisible(false);
+      {collectFor && (
+        <CollectSheet
+          visible
+          customerName={customer.name}
+          owed={collectFor.items}
+          singleItem={collectFor.single ? collectFor.items[0] : null}
+          loading={collecting}
+          onSubmit={async (values) => {
+            const ok = await runCollect({
+              items: collectFor.items,
+              amount: values.amount,
+              currencyId: values.currencyId,
+              ratePerUsdSnapshot: values.ratePerUsdSnapshot,
+              receivedAt: values.receivedAt,
+              notes: values.notes,
+              lines: values.lines,
+              send: collectFor.send,
+            });
+            if (ok) {
+              setCollectFor(null);
+              selection.clear();
+            }
           }}
+          onDismiss={() => setCollectFor(null)}
         />
       )}
 
-      {bulkPayVisible && (
-        <BulkPaymentFormSheet
-          count={payableEntries.length}
-          submitting={bulkBusy}
-          onConfirm={runBulkCustomPay}
-          sendToPhone={bulkPaySend ? customer.phoneNumber : null}
-          onDismiss={() => {
-            setBulkPayVisible(false);
-            setBulkPaySend(false);
+      {billEntry?.charge && (
+        <BillSheet
+          visible
+          charge={billEntry.charge}
+          label={monthLabelOf(billEntry)}
+          recipient={{ name: customer.name, phone: customer.phoneNumber }}
+          onCollect={() => {
+            const entry = billEntry;
+            setBillEntry(null);
+            if (entry) openCollect([entry]);
           }}
+          onChanged={() => void fetchBills(customer.id, lines, year)}
+          onDismiss={() => setBillEntry(null)}
         />
       )}
+
       {skipRequest && selectedLine && (
         <SkipMonthSheet
           entries={skipRequest.entries}
@@ -1263,24 +1091,6 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
           onDismiss={() => setSkipRequest(null)}
         />
       )}
-
-      {bulkVoidIds && (
-        <BulkVoidSheet
-          paymentIds={bulkVoidIds}
-          lines={lines}
-          year={year}
-          onVoided={() => {
-            setBulkVoidIds(null);
-            selection.clear();
-          }}
-          onDismiss={() => setBulkVoidIds(null)}
-        />
-      )}
-
-      <UpgradePromptModal
-        payload={paymentsTierLimitError}
-        onClose={clearPaymentTierLimitError}
-      />
 
       <ActionMenu
         visible={menuEntry !== null}

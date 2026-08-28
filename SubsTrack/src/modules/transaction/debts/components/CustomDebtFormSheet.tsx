@@ -14,14 +14,22 @@ import {
 import type { Customer } from "@/src/core/types";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
-import { useDebtSlice } from "@/src/state/hooks/useDebtSlice";
+import { useLedgerSlice } from "@/src/state/hooks/useLedgerSlice";
 import { findCurrency } from "@/src/core/utils/currency";
+import { getTodayDateString } from "@/src/core/utils/date";
+import { DatePickerInput } from "@/src/shared/components/DatePickerInput";
 import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
 
 // When locked to a specific customer, the form only needs their id + name (no
 // picker is rendered), so callers may pass a lightweight customer ref — e.g. the
 // debtor detail sheet, which has only the debtor's id/name, not a full Customer.
-type CustomerRef = Pick<Customer, "id" | "name">;
+type CustomerRef = Pick<Customer, "id" | "name"> & Partial<Pick<Customer, "branchId">>;
+
+// A locked customer may arrive as a bare {id, name} (the debtor sheet has no
+// full record), so the branch falls back to the recording user's.
+function branchOf(customer: CustomerRef): string | null | undefined {
+  return customer.branchId;
+}
 
 interface Props {
   initialCustomer?: CustomerRef | null;
@@ -37,10 +45,10 @@ export function CustomDebtFormSheet({
   const { t } = useTranslation();
   const { user } = useAuth();
   const currencies = useCurrencySlice((s) => s.items);
-  const addCustomDebt = useDebtSlice((s) => s.addCustomDebt);
-  const loading = useDebtSlice((s) => s.loading);
-  const error = useDebtSlice((s) => s.error);
-  const clearError = useDebtSlice((s) => s.clearError);
+  const addManualCharge = useLedgerSlice((s) => s.addManualCharge);
+  const loading = useLedgerSlice((s) => s.loading);
+  const error = useLedgerSlice((s) => s.error);
+  const clearError = useLedgerSlice((s) => s.clearError);
 
   // When `initialCustomer` is passed the customer is locked (no picker). The
   // picker path builds up a full Customer here; the effective target is either.
@@ -48,6 +56,9 @@ export function CustomDebtFormSheet({
   const [amount, setAmount] = useState<number | null>(null);
   const [currencyId, setCurrencyId] = useState<string | null>(null);
   const [description, setDescription] = useState("");
+  // When it is OWED. The waterfall sorts on this, so back-dating a fee puts it
+  // at the front of the queue — which is exactly what back-dating means.
+  const [dueDate, setDueDate] = useState(getTodayDateString);
   const [addCustomerOpen, setAddCustomerOpen] = useState(false);
 
   // `currencyId` is excluded: CurrencyInput self-seeds it from the last-used
@@ -57,6 +68,7 @@ export function CustomDebtFormSheet({
     pickedId: picked?.id ?? null,
     amount,
     description,
+    dueDate,
   });
 
   const customer: CustomerRef | null = initialCustomer ?? picked;
@@ -67,21 +79,27 @@ export function CustomDebtFormSheet({
 
   async function handleSubmit() {
     if (!user || !customer || amount == null || amount <= 0) return;
-    const ok = await addCustomDebt({
-      customerId: customer.id,
-      amount,
-      description: description.trim() || null,
-      currency: findCurrency(currencies, currencyId),
-      recordedByUserId: user.id,
+    const currency = findCurrency(currencies, currencyId);
+    const created = await addManualCharge({
       tenantId: user.tenantId,
+      customerId: customer.id,
+      branchId: branchOf(customer) ?? user.branchId,
+      description: description.trim(),
+      amount,
+      currencyId: currency?.id ?? null,
+      ratePerUsdSnapshot: currency?.ratePerUsd ?? 1,
+      dueDate,
+      recordedByUserId: user.id,
     });
-    if (ok) {
+    if (created) {
       onCreated?.();
       onDismiss();
     }
   }
 
-  const submitDisabled = !customer || amount == null || amount <= 0 || loading;
+  // A description is what a hand-typed fee IS — without it the row says nothing.
+  const submitDisabled =
+    !customer || amount == null || amount <= 0 || !description.trim() || loading;
 
   return (
     <>
@@ -127,11 +145,17 @@ export function CustomDebtFormSheet({
             />
 
             <Input
-              label={t("debts.description_label")}
+              label={t("debts.description_label") + " *"}
               value={description}
               onChangeText={setDescription}
               placeholder={t("debts.description_placeholder")}
               multiline
+            />
+
+            <DatePickerInput
+              label={t("ledger.due_date")}
+              value={dueDate}
+              onChange={setDueDate}
             />
 
             <Button

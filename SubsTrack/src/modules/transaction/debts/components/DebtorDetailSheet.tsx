@@ -8,72 +8,57 @@ import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer
 import { SheetDragArea } from "@/src/shared/components/SheetDragArea";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
-import { ActionMenu } from "@/src/shared/components/ActionMenu";
+import { Button } from "@/src/shared/components/Button";
 import { COLORS } from "@/src/shared/constants";
-import type { DebtItem, DebtPaymentItem } from "@/src/core/types";
+import type { CustomerDebts, OpenItem } from "@/src/core/types";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { useAfterFirstFrame } from "@/src/shared/hooks/useAfterFirstFrame";
-import { sumDebtNetUsd } from "../utils/debtAggregations";
-import { useDebtSourceSheet } from "../hooks/useDebtSourceSheet";
 import { DebtList } from "./DebtList";
 import { CustomDebtFormSheet } from "./CustomDebtFormSheet";
-import { DebtPaymentFormSheet } from "./DebtPaymentFormSheet";
 
 interface Props {
-  customerId: string;
-  customerName: string;
-  // Already filtered to this customer by the parent (derived from the slice each
-  // render, so a pay/void re-fetch flows straight back into the open modal).
-  items: DebtItem[];
-  payments: DebtPaymentItem[];
+  debtor: CustomerDebts;
   onDismiss: () => void;
-  // Optional row actions — the debtor modal wires these to the Debts-tab handlers.
-  onPay?: (item: DebtItem) => void;
-  onComplete?: (item: DebtItem) => void;
-  onVoidItem?: (item: DebtItem) => void;
-  onVoidPayment?: (payment: DebtPaymentItem) => void;
+  /** Collect against this customer's whole pool, oldest bill first. */
+  onCollectAll: (items: OpenItem[]) => void;
+  /** Collect against one bill only. */
+  onCollectItem: (item: OpenItem) => void;
+  onVoidItem?: (item: OpenItem) => void;
+  onWriteOff?: (item: OpenItem) => void;
+  /** A custom fee was added — the parent refreshes. */
+  onChanged?: () => void;
 }
 
-// The debtor detail modal (opened from a Debtors-tab row): the customer's net
-// still-owed figure plus the shared DebtList (their debts history + debt
-// payments history). Interactive — add a debt / debt payment, pay a debt, or
-// void a payment right here (same add pattern as the customer-detail panel).
+/**
+ * Everything one customer owes.
+ *
+ * Two sections, and the split is the point: DEBTS are bills money is being
+ * chased for; UNPAID MONTHS are owed but belong to the month grid. The collect
+ * button pours money over BOTH, oldest first — which is exactly what happens
+ * when a customer hands over cash without saying what it is for.
+ */
 export function DebtorDetailSheet({
-  customerId,
-  customerName,
-  items,
-  payments,
+  debtor,
   onDismiss,
-  onPay,
-  onComplete,
+  onCollectAll,
+  onCollectItem,
   onVoidItem,
-  onVoidPayment,
+  onWriteOff,
+  onChanged,
 }: Props) {
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
   const displayCurrencyId = useDisplayCurrencyId();
   const target = findCurrency(currencies, displayCurrencyId);
 
-  // Tapping a month / sale row opens the record behind it (read-only receipt).
-  const {
-    open: openSource,
-    sheet: sourceSheet,
-    loadingId,
-  } = useDebtSourceSheet();
-
-  const [menuOpen, setMenuOpen] = useState(false);
   const [customDebtOpen, setCustomDebtOpen] = useState(false);
-  const [paymentOpen, setPaymentOpen] = useState(false);
-  // The debts history can be long — keep it off the open path.
+  // The list can be long — keep it off the sheet's open path.
   const bodyReady = useAfterFirstFrame();
 
-  const net = sumDebtNetUsd(items, payments).netUsd;
-  const isCredit = net < -1e-9;
-  const netLabel = formatMoney(Math.abs(net), null, target);
-
-  const lockedCustomer = { id: customerId, name: customerName };
+  const owed = [...debtor.items, ...debtor.unpaidMonths];
+  const totalUsd = debtor.debtUsd + debtor.unpaidMonthsUsd;
 
   return (
     <>
@@ -81,25 +66,17 @@ export function DebtorDetailSheet({
         <ResponsiveContainer className="flex-1">
           <SheetDragArea className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
             <View className="flex-1 pe-2">
-              <Text
-                fontWeight="Bold"
-                className="text-lg text-gray-900"
-                numberOfLines={1}
-              >
-                {customerName}
+              <Text fontWeight="Bold" className="text-lg text-gray-900" numberOfLines={1}>
+                {debtor.customerName}
               </Text>
-              <Text
-                className={`text-sm font-semibold mt-0.5 ${isCredit ? "text-green-600" : "text-gray-500"}`}
-                numberOfLines={1}
-              >
-                {(isCredit ? "- " : "") + netLabel} ·{" "}
-                {isCredit ? t("debts.credit") : t("debts.total_outstanding")}
+              <Text className="text-sm font-semibold text-gray-500 mt-0.5" numberOfLines={1}>
+                {formatMoney(totalUsd, null, target)} · {t("debts.total_outstanding")}
               </Text>
             </View>
             <View className="flex-row items-center gap-3">
               <PressableOpacity
-                onPress={() => setMenuOpen(true)}
-                accessibilityLabel={t("debts.add")}
+                onPress={() => setCustomDebtOpen(true)}
+                accessibilityLabel={t("debts.add_custom_debt")}
                 className="w-8 h-8 rounded-full bg-indigo-50 items-center justify-center"
               >
                 <Ionicons name="add" size={18} color={COLORS.primary} />
@@ -121,57 +98,36 @@ export function DebtorDetailSheet({
             }}
           >
             {bodyReady ? (
-              <DebtList
-                items={items}
-                payments={payments}
-                onPay={onPay}
-                onComplete={onComplete}
-                onVoidItem={onVoidItem}
-                onVoidPayment={onVoidPayment}
-                onOpenItem={openSource}
-                openingItemId={loadingId}
-              />
+              <>
+                <View className="mb-4">
+                  <Button
+                    label={t("ledger.collect_amount", {
+                      amount: formatMoney(totalUsd, null, target),
+                    })}
+                    onPress={() => onCollectAll(owed)}
+                    disabled={owed.length === 0}
+                  />
+                </View>
+                <DebtList
+                  items={debtor.items}
+                  unpaidMonths={debtor.unpaidMonths}
+                  onCollect={onCollectItem}
+                  onVoidItem={onVoidItem}
+                  onWriteOff={onWriteOff}
+                />
+              </>
             ) : null}
           </BottomSheetScrollView>
         </ResponsiveContainer>
       </AppBottomSheet>
 
-      <ActionMenu
-        visible={menuOpen}
-        title={t("debts.add")}
-        onDismiss={() => setMenuOpen(false)}
-        actions={[
-          {
-            key: "custom_debt",
-            label: t("debts.add_custom_debt"),
-            icon: "document-text-outline",
-            iconBadge: "add",
-            onPress: () => setCustomDebtOpen(true),
-          },
-          {
-            key: "payment",
-            label: t("debts.record_debt_payment"),
-            icon: "cash-outline",
-            iconBadge: "add",
-            onPress: () => setPaymentOpen(true),
-          },
-        ]}
-      />
-
       {customDebtOpen && (
         <CustomDebtFormSheet
-          initialCustomer={lockedCustomer}
+          initialCustomer={{ id: debtor.customerId, name: debtor.customerName }}
           onDismiss={() => setCustomDebtOpen(false)}
+          onCreated={onChanged}
         />
       )}
-      {paymentOpen && (
-        <DebtPaymentFormSheet
-          initialCustomer={lockedCustomer}
-          onDismiss={() => setPaymentOpen(false)}
-        />
-      )}
-
-      {sourceSheet}
     </>
   );
 }

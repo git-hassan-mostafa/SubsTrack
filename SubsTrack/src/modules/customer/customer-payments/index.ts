@@ -6,7 +6,6 @@ export { SkipMonthSheet } from './components/SkipMonthSheet';
 export { CustomerPaymentPanel } from './components/CustomerPaymentPanel';
 export { MonthCell } from './components/MonthCell';
 export { MonthGrid } from './components/MonthGrid';
-export { PaymentsPanel } from './screens/PaymentsPanel';
 export { YearNavigator } from './components/YearNavigator';
 export { getBlockRangeLabel } from './utils/blockRangeLabel';
 export { chargeToMonthEntry } from './utils/paymentEntry';

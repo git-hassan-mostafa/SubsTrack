@@ -1,92 +1,67 @@
 import { useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import type { DebtItem, DebtPaymentItem } from "@/src/core/types";
+import type { OpenItem } from "@/src/core/types";
 import { confirm } from "@/src/shared/lib/confirm";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
-import { useDebtSlice } from "@/src/state/hooks/useDebtSlice";
+import { useLedgerSlice } from "@/src/state/hooks/useLedgerSlice";
 import { useAuth } from "@/src/modules/authentication/auth";
 
 interface Options {
-  // Called after a successful mutation, for surfaces that keep their own copy of
-  // the data (the customer-detail panel reads the service directly, so the
-  // slice refresh the actions trigger never reaches it).
+  // Called after a successful mutation, for surfaces that keep their own copy
+  // of the data.
   onChanged?: () => void;
 }
 
-// The debt row actions (pay a debt / complete the record behind it / remove a
-// custom debt / remove a debt payment), shared by every surface that lists debt
-// rows: the Debts tab, the
-// debtor modal, and the customer-detail panel. Each confirms first, then goes
-// through the debts slice so the branch-wide list and the customer-list debt
-// flag stay correct.
+/**
+ * What can be done to ONE bill from a debts list.
+ *
+ * Collecting is deliberately NOT here: money always goes through the collect
+ * sheet, so staff sees the split before it is written. What is left are the two
+ * corrections a bill can take, and they are opposites:
+ *
+ *   void      — the bill was a MISTAKE and never existed. Refused once money
+ *               sits on it (void that payment first).
+ *   write off — the bill is REAL and will never be paid. It leaves "still owed"
+ *               and is reported as a loss.
+ */
 export function useDebtRowActions({ onChanged }: Options = {}) {
   const { t } = useTranslation();
   const { user } = useAuth();
   const currencies = useCurrencySlice((s) => s.items);
   const displayCurrencyId = useDisplayCurrencyId();
-  const addDebtPayment = useDebtSlice((s) => s.addDebtPayment);
-  const completeDebt = useDebtSlice((s) => s.completeDebt);
-  const voidCustomDebt = useDebtSlice((s) => s.voidCustomDebt);
-  const voidDebtPayment = useDebtSlice((s) => s.voidDebtPayment);
+  const voidCharge = useLedgerSlice((s) => s.voidCharge);
+  const writeOffCharge = useLedgerSlice((s) => s.writeOffCharge);
 
   const target = findCurrency(currencies, displayCurrencyId);
 
-  // Pay off a debt row by recording a debt payment equal to its remaining
-  // amount, in the row's own currency. This never touches the underlying
-  // payment/sale — it only offsets the customer's runtime debt total.
-  const payItem = useCallback(
-    async (item: DebtItem) => {
-      if (!user) return;
+  const writeOffItem = useCallback(
+    async (item: OpenItem) => {
+      if (!user || !item.chargeId) return;
       const source = findCurrency(currencies, item.currencyId);
       const ok = await confirm({
-        title: t("debts.pay_title"),
-        message: t("debts.pay_message", {
-          amount: formatMoney(item.remaining, source, target),
+        title: t("ledger.write_off_title"),
+        message: t("ledger.write_off_message", {
+          amount: formatMoney(item.balance, source, target),
           customer: item.customerName,
         }),
-        confirmLabel: t("debts.pay"),
+        confirmLabel: t("ledger.write_off"),
+        destructive: true,
       });
       if (!ok) return;
-      await addDebtPayment({
-        customerId: item.customerId,
-        amount: item.remaining,
-        notes: null,
-        currency: source,
-        receivedByUserId: user.id,
-        tenantId: user.tenantId,
-      });
+      await writeOffCharge(item.chargeId, user.id, null);
       onChanged?.();
     },
-    [user, currencies, target, t, addDebtPayment, onChanged],
-  );
-
-  // "Complete" the record behind a months/sales row instead of collecting
-  // against it: its amount paid is raised to the full amount, so the debt is gone
-  // because nothing is owed any more. No debt payment, no new cash — a fix for a
-  // short-recorded amount. A custom debt has no such record behind it.
-  const completeItem = useCallback(
-    async (item: DebtItem) => {
-      if (item.sourceType === "custom_debt") return;
-      const source = findCurrency(currencies, item.currencyId);
-      const ok = await confirm({
-        title: t("common.complete_title"),
-        message: t("common.complete_message", {
-          amount: formatMoney(item.remaining, source, target),
-        }),
-        confirmLabel: t("common.complete"),
-      });
-      if (!ok) return;
-      await completeDebt(item);
-      onChanged?.();
-    },
-    [currencies, target, t, completeDebt, onChanged],
+    [user, currencies, target, t, writeOffCharge, onChanged],
   );
 
   const voidItem = useCallback(
-    async (item: DebtItem) => {
-      if (!user || item.category !== "custom") return;
+    async (item: OpenItem) => {
+      // Only a hand-typed fee can be removed from here. A month is undone by
+      // voiding the payment that reached it, and a sale by voiding the sale —
+      // each in the place that owns the record.
+      if (!user || !item.chargeId || item.kind !== "manual") return;
       const ok = await confirm({
         title: t("debts.void_custom_title"),
         message: t("debts.void_custom_message"),
@@ -94,27 +69,11 @@ export function useDebtRowActions({ onChanged }: Options = {}) {
         destructive: true,
       });
       if (!ok) return;
-      await voidCustomDebt(item.id, user.id, null);
+      await voidCharge(item.chargeId, user.id, null);
       onChanged?.();
     },
-    [user, t, voidCustomDebt, onChanged],
+    [user, t, voidCharge, onChanged],
   );
 
-  const voidPayment = useCallback(
-    async (payment: DebtPaymentItem) => {
-      if (!user) return;
-      const ok = await confirm({
-        title: t("debts.void_payment_title"),
-        message: t("debts.void_payment_message"),
-        confirmLabel: t("common.delete"),
-        destructive: true,
-      });
-      if (!ok) return;
-      await voidDebtPayment(payment.id, user.id, null);
-      onChanged?.();
-    },
-    [user, t, voidDebtPayment, onChanged],
-  );
-
-  return { payItem, completeItem, voidItem, voidPayment };
+  return { voidItem, writeOffItem };
 }

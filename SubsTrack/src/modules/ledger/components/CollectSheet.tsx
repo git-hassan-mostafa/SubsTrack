@@ -13,7 +13,7 @@ import { PressableOpacity } from "@/src/shared/components/PressableOpacity/Press
 import { Dropdown } from "@/src/shared/components/Dropdown";
 import { COLORS } from "@/src/shared/constants";
 import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
-import type { Currency, Customer, OpenItem } from "@/src/core/types";
+import type { Currency, OpenItem } from "@/src/core/types";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { getTodayDateString } from "@/src/core/utils/date";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
@@ -23,7 +23,7 @@ import { allocate, keyOf, totalOwed } from "../utils/waterfall";
 interface Props {
   visible: boolean;
   onDismiss: () => void;
-  customer: Customer | null;
+  customerName: string;
   /** Everything the customer owes — debts AND plain unpaid months. */
   owed: OpenItem[];
   loading: boolean;
@@ -53,7 +53,7 @@ interface Props {
 export function CollectSheet({
   visible,
   onDismiss,
-  customer,
+  customerName,
   owed,
   loading,
   onSubmit,
@@ -137,7 +137,7 @@ export function CollectSheet({
       title={
         singleItem
           ? t("ledger.collect_item_title", { item: singleItem.label })
-          : t("ledger.collect_from", { name: customer?.name ?? "" })
+          : t("ledger.collect_from", { name: customerName })
       }
     >
       <View className="gap-4 px-4 pb-8">

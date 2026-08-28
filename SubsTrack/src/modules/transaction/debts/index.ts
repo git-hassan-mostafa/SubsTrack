@@ -1,23 +1,12 @@
-export { default as debtService } from './services/DebtService';
-export { default as debtRepository } from './repository/DebtRepository';
-export { mapDbCustomDebtToCustomDebt, mapDbDebtPaymentToDebtPayment } from './utils/mapper';
-export type {
-  CreateCustomDebtInput,
-  CreateDebtPaymentInput,
-  DebtsFilter,
-  DebtsView,
-} from './utils/types';
+// The Debts screens. The money model itself lives in `modules/ledger` — these
+// are the views over it: who owes, how far behind, and the two corrections a
+// bill can take (void a mistake, write off a loss).
+
 export { DebtsPanel } from './screens/DebtsPanel';
 export { DebtItemCard } from './components/DebtItemCard';
-export { DebtPaymentCard } from './components/DebtPaymentCard';
 export { DebtList } from './components/DebtList';
+export { DebtorCard } from './components/DebtorCard';
+export { DebtorDetailSheet } from './components/DebtorDetailSheet';
 export { CustomerDebtsPanel } from './components/CustomerDebtsPanel';
 export { CustomDebtFormSheet } from './components/CustomDebtFormSheet';
-export { DebtPaymentFormSheet } from './components/DebtPaymentFormSheet';
-export {
-  sumDebtNetUsd,
-  groupDebtors,
-  type Debtor,
-} from './utils/debtAggregations';
 export { useDebtRowActions } from './hooks/useDebtRowActions';
-export { useDebtSourceSheet } from './hooks/useDebtSourceSheet';

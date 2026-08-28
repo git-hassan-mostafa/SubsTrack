@@ -3,43 +3,41 @@ import { TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { ConfirmDialog } from "@/src/shared/components/ConfirmDialog";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
-import type { CustomerPlan } from "@/src/core/types";
-import { useAuth } from "@/src/modules/authentication/auth";
-import { usePaymentSlice } from "@/src/state/hooks/usePaymentSlice";
-import { getStore } from "@/src/state/globalStore";
 import { COLORS } from "@/src/shared/constants";
+import type { Collection } from "@/src/core/types";
+import { useLedgerSlice } from "@/src/state/hooks/useLedgerSlice";
 
 interface Props {
-  paymentIds: string[];
-  lines: CustomerPlan[];
-  year: number;
-  onVoided: () => void;
+  collection: Collection;
+  voidedBy: string;
+  /** Fired only when the void actually landed. */
+  onDone: () => void;
   onDismiss: () => void;
 }
 
-// Voids several payments in one confirm — a single batch write via the slice's
-// voidPayments action.
-export function BulkVoidSheet({
-  paymentIds,
-  lines,
-  year,
-  onVoided,
-  onDismiss,
-}: Props) {
+/**
+ * Undo ONE hand-over of cash.
+ *
+ * Every bill it touched gets its balance back on its own — a balance is a sum
+ * over live items and this row stops being one — so the warning names how many
+ * bills that is. A month bill left at zero collected is deliberately kept: it
+ * holds the frozen price, and it reads as plain "unpaid" everywhere because
+ * nothing in the app asks whether a bill row exists, only how much money came.
+ */
+export function VoidCollectionDialog({ collection, voidedBy, onDone, onDismiss }: Props) {
   const { t } = useTranslation();
-  const { user } = useAuth();
-  const voidPayments = usePaymentSlice((s) => s.voidPayments);
-  const error = usePaymentSlice((s) => s.error);
-  const clearError = usePaymentSlice((s) => s.clearError);
+  const voidCollection = useLedgerSlice((s) => s.voidCollection);
+  const error = useLedgerSlice((s) => s.error);
+  const clearError = useLedgerSlice((s) => s.clearError);
   const [reason, setReason] = useState("");
 
+  const count = collection.items?.length ?? 1;
+
   async function handleConfirm() {
-    if (!user) return;
-    clearError();
-    await voidPayments(paymentIds, user.id, reason, lines, year);
-    if (!getStore().getState().payments.error) {
+    const ok = await voidCollection(collection.id, voidedBy, reason.trim() || null);
+    if (ok) {
       setReason("");
-      onVoided();
+      onDone();
     }
   }
 
@@ -52,9 +50,13 @@ export function BulkVoidSheet({
   return (
     <ConfirmDialog
       visible
-      title={t("payments.bulk_void_title", { count: paymentIds.length })}
-      message={t("payments.bulk_void_message", { count: paymentIds.length })}
-      confirmLabel={t("payments.void_payment")}
+      title={t("ledger.void_payment")}
+      message={
+        count > 1
+          ? t("ledger.void_covers_many_warning", { count })
+          : t("ledger.void_warning")
+      }
+      confirmLabel={t("ledger.void_payment")}
       destructive
       onConfirm={handleConfirm}
       onCancel={handleDismiss}

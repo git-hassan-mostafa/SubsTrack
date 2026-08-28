@@ -176,6 +176,7 @@ class CollectionService {
         id: c.id,
         customerId: c.customerId,
         customerName: row.customers?.name ?? null,
+        customerPhone: row.customers?.phone_number ?? null,
         amount: c.amount,
         currencyId: c.currencyId,
         ratePerUsdSnapshot: c.ratePerUsdSnapshot,

@@ -3,39 +3,39 @@ import { TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { ConfirmDialog } from "@/src/shared/components/ConfirmDialog";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
-import { useAuth } from "@/src/modules/authentication/auth";
-import { usePaymentsListSlice } from "@/src/state/hooks/usePaymentsListSlice";
-import { getStore } from "@/src/state/globalStore";
 import { COLORS } from "@/src/shared/constants";
+import { useCollectionsListSlice } from "@/src/state/hooks/useCollectionsListSlice";
+import { getStore } from "@/src/state/globalStore";
 
 interface Props {
-  // One id for a single payment, or many for a bulk void.
-  paymentIds: string[];
+  // One id for a single hand-over, or many for a bulk void.
+  collectionIds: string[];
+  voidedBy: string;
   onVoided: () => void;
   onDismiss: () => void;
 }
 
-// Void confirmation (with optional reason) for the tenant-wide Payments list.
-// Backed by the paymentsList slice — unlike the customer grid's VoidSheet it
-// has no customer/year/grid context to rebuild.
-export function PaymentListVoidSheet({
-  paymentIds,
+// Void confirmation (with an optional reason) for the money-in history. Backed
+// by the collections slice, which patches the rows in place so a voided
+// hand-over stays visible and merely stops counting.
+export function CollectionsVoidDialog({
+  collectionIds,
+  voidedBy,
   onVoided,
   onDismiss,
 }: Props) {
   const { t } = useTranslation();
-  const { user } = useAuth();
-  const voidPayments = usePaymentsListSlice((s) => s.voidPayments);
-  const error = usePaymentsListSlice((s) => s.error);
-  const clearError = usePaymentsListSlice((s) => s.clearError);
+  const voidCollections = useCollectionsListSlice((s) => s.voidCollections);
+  const error = useCollectionsListSlice((s) => s.error);
+  const clearError = useCollectionsListSlice((s) => s.clearError);
   const [reason, setReason] = useState("");
 
-  const count = paymentIds.length;
+  const count = collectionIds.length;
 
   async function handleConfirm() {
-    if (!user || count === 0) return;
-    await voidPayments(paymentIds, user.id, reason);
-    if (!getStore().getState().paymentsList.error) {
+    if (count === 0) return;
+    await voidCollections(collectionIds, voidedBy, reason);
+    if (!getStore().getState().collections.error) {
       setReason("");
       onVoided();
     }
@@ -52,7 +52,7 @@ export function PaymentListVoidSheet({
       visible
       title={t("payments.bulk_void_title", { count })}
       message={t("payments.bulk_void_message", { count })}
-      confirmLabel={t("payments.void_payment")}
+      confirmLabel={t("ledger.void_payment")}
       destructive
       onConfirm={handleConfirm}
       onCancel={handleDismiss}

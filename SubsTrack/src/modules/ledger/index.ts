@@ -7,7 +7,14 @@ export { ledgerService } from './services/LedgerService';
 
 export { allocate, allocateExcluding, keyOf, sortByDue, totalOwed } from './utils/waterfall';
 export type { AllocationResult } from './utils/waterfall';
-export { billForMonth, chargeLabel, isDebtItem, openItemFromCharge, virtualMonthItem } from './utils/openItems';
+export {
+  billForMonth,
+  chargeLabel,
+  isDebtItem,
+  monthItemFromEntry,
+  openItemFromCharge,
+  virtualMonthItem,
+} from './utils/openItems';
 export {
   mapDbChargeToCharge,
   mapDbCollectionToCollection,
@@ -18,3 +25,11 @@ export type { CreateManualChargeInput } from './services/ChargeService';
 export type { CollectInput } from './services/CollectionService';
 export type { IChargeRepository } from './repository/IChargeRepository';
 export type { ICollectionRepository } from './repository/ICollectionRepository';
+
+export { CollectSheet } from './components/CollectSheet';
+export { useCollectSheet } from './hooks/useCollectSheet';
+export { BillSheet } from './components/BillSheet';
+export { CollectionCard } from './components/CollectionCard';
+export { CollectionsPanel } from './screens/CollectionsPanel';
+export { CollectionsHistorySheet } from './components/CollectionsHistorySheet';
+export { VoidCollectionDialog } from './components/VoidCollectionDialog';

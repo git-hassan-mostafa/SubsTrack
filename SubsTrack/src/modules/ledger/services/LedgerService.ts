@@ -114,6 +114,7 @@ class LedgerService {
             virtualMonthItem({
               customerId: customer.id,
               customerName: customer.name,
+              branchId: customer.branchId,
               customerPlanId: line.id,
               billingMonth: entry.billingMonth,
               durationMonths: price.durationMonths,

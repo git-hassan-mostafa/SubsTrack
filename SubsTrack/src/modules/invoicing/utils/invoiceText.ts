@@ -9,7 +9,7 @@
 //   - list rows start with a literal `•`. A leading `*` or `-` would be read as
 //     markup by WhatsApp.
 
-import type { Currency, Payment, Sale } from "@/src/core/types";
+import type { Charge, Collection, CollectionItem, Currency, Sale } from "@/src/core/types";
 import { formatDate } from "@/src/core/utils/date";
 import {
   findCurrency,
@@ -33,13 +33,78 @@ export interface InvoiceContext {
   displayCurrencyId: string | null;
 }
 
-/** One paid service line. `planName` is null for a plan-less line. */
-export interface PaymentInvoiceRow {
-  payment: Payment;
-  planName: string | null;
+const BULLET = "•";
+
+/**
+ * What one line of a hand-over settled. The domain `Charge` carries no joins,
+ * so a month reads as its period and the other two fall back to their kind —
+ * which is exactly what a customer needs to recognise the row.
+ */
+function chargeLine(ctx: InvoiceContext, charge: Charge | null | undefined): string {
+  if (!charge) return ctx.t("ledger.payment");
+  if (charge.kind === "month" && charge.billingMonth) {
+    return getBlockRangeLabel(charge.billingMonth, charge.durationMonths, ctx.t);
+  }
+  if (charge.kind === "sale") return ctx.t("debts.sale");
+  return charge.description ?? ctx.t("debts.custom");
 }
 
-const BULLET = "•";
+/**
+ * The receipt for ONE hand-over of cash.
+ *
+ * A collection is single-currency and single-dated, so this message has one
+ * amount, one date and one receipt id however many bills the money settled —
+ * which is the whole reason the split lives inside it as a list rather than
+ * producing several receipts.
+ */
+export function buildCollectionInvoiceText(
+  ctx: InvoiceContext,
+  customerName: string,
+  collection: Collection,
+): string {
+  const title = ctx.t("payments.receipt_title");
+  const source = snapshotCurrency(collection, ctx.currencies);
+  const items = collection.items ?? [];
+
+  const header = [
+    row(ctx.t("sales.customer_label"), customerName),
+    row(
+      ctx.t("payments.amount_paid_label"),
+      money(collection.amount, source) +
+        equivalent(ctx, collection.amount, source),
+    ),
+    row(ctx.t("payments.paid_on"), formatDate(collection.receivedAt, ctx.locale)),
+  ];
+
+  // One line, and it IS the whole hand-over → naming it above the amount reads
+  // better than a one-item list.
+  if (items.length === 1) {
+    header.splice(1, 0, row(ctx.t("payments.month_label"), chargeLine(ctx, items[0].charge)));
+  }
+
+  const blocks = [header.join("\n")];
+  if (items.length > 1) {
+    blocks.push(
+      [
+        ctx.t("ledger.this_pays"),
+        ...sortedItems(items).map(
+          (it) => `${BULLET} ${chargeLine(ctx, it.charge)}: ${money(it.amount, source)}`,
+        ),
+      ].join("\n"),
+    );
+  }
+  blocks.push(row(ctx.t("payments.receipt_id"), receiptId(collection.id)));
+
+  return assemble(ctx, title, blocks);
+}
+
+// Oldest bill first — a receipt reads as a statement, and the waterfall settled
+// them in this order anyway.
+function sortedItems(items: CollectionItem[]): CollectionItem[] {
+  return [...items].sort((a, b) =>
+    (a.charge?.dueDate ?? "").localeCompare(b.charge?.dueDate ?? ""),
+  );
+}
 
 // Joins the blocks with blank lines between them, dropping empties so an absent
 // section never leaves a double gap.
@@ -90,104 +155,6 @@ function sumByCurrency<T>(
     groups.set(key, group);
   }
   return [...groups.values()];
-}
-
-function totalsByCurrency(
-  ctx: InvoiceContext,
-  rows: PaymentInvoiceRow[],
-): string[] {
-  // "Total paid", not "Total": these sum amountPaid, and a bare "Total" next to a
-  // line that still owes a balance reads as "nothing is owed".
-  return sumByCurrency(
-    rows,
-    (r) => r.payment.amountPaid,
-    (r) => snapshotCurrency(r.payment, ctx.currencies),
-  ).map(({ source, sum }) =>
-    row(ctx.t("invoice.total_paid"), money(sum, source)),
-  );
-}
-
-// The month (or month range for a multi-month bundle) plus the plan name.
-function periodLabel(ctx: InvoiceContext, r: PaymentInvoiceRow): string {
-  const months = getBlockRangeLabel(
-    r.payment.billingMonth,
-    r.payment.durationMonths,
-    ctx.t,
-  );
-  return r.planName ? `${months} · ${r.planName}` : months;
-}
-
-export function buildPaymentInvoiceText(
-  ctx: InvoiceContext,
-  customerName: string,
-  rows: PaymentInvoiceRow[],
-): string {
-  const title = ctx.t("payments.receipt_title");
-  if (rows.length === 0) return assemble(ctx, title, []);
-
-  if (rows.length === 1) {
-    const { payment } = rows[0];
-    const source = snapshotCurrency(payment, ctx.currencies);
-    const lines = [
-      row(ctx.t("sales.customer_label"), customerName),
-      row(ctx.t("payments.month_label"), periodLabel(ctx, rows[0])),
-      row(ctx.t("payments.amount_due_label"), money(payment.amountDue, source)),
-      row(
-        ctx.t("payments.amount_paid_label"),
-        money(payment.amountPaid, source) +
-          equivalent(ctx, payment.amountPaid, source),
-      ),
-    ];
-    if (payment.balance > 0) {
-      lines.push(
-        row(ctx.t("sales.remaining_label"), money(payment.balance, source)),
-      );
-    }
-    lines.push(
-      row(ctx.t("payments.paid_on"), formatDate(payment.paidAt, ctx.locale)),
-      row(ctx.t("payments.receipt_id"), receiptId(payment.id)),
-    );
-    return assemble(ctx, title, [lines.join("\n")]);
-  }
-
-  // Several months in one message — either paid together (quick pay) or picked
-  // from the grid/list afterwards. One bullet per line, then a total per
-  // currency, then every receipt id.
-  // Oldest month first: a receipt reads as a statement, and a selection reaches
-  // us in list order (newest first). Stable, so several lines of the SAME month
-  // (a multi-plan quick pay) keep their order.
-  const ordered = [...rows].sort((a, b) =>
-    a.payment.billingMonth.localeCompare(b.payment.billingMonth),
-  );
-  // Paid together → one "Paid on" header; months collected on different days
-  // date each bullet instead, or the header would speak for all of them.
-  const dates = ordered.map((r) => formatDate(r.payment.paidAt, ctx.locale));
-  const oneDate = dates.every((d) => d === dates[0]);
-
-  const bullets = ordered.map((r, i) => {
-    const source = snapshotCurrency(r.payment, ctx.currencies);
-    const remaining =
-      r.payment.balance > 0
-        ? ` (${ctx.t("sales.remaining_label")}: ${money(r.payment.balance, source)})`
-        : "";
-    const when = oneDate ? "" : ` · ${dates[i]}`;
-    return `${BULLET} ${periodLabel(ctx, r)}: ${money(r.payment.amountPaid, source)}${remaining}${when}`;
-  });
-
-  const header = [row(ctx.t("sales.customer_label"), customerName)];
-  if (oneDate) header.push(row(ctx.t("payments.paid_on"), dates[0]));
-
-  return assemble(ctx, title, [
-    header.join("\n"),
-    bullets.join("\n"),
-    [
-      ...totalsByCurrency(ctx, ordered),
-      row(
-        ctx.t("payments.receipt_id"),
-        ordered.map((r) => receiptId(r.payment.id)).join(", "),
-      ),
-    ].join("\n"),
-  ]);
 }
 
 export function buildSaleInvoiceText(

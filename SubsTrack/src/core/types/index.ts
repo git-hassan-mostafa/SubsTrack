@@ -609,6 +609,9 @@ export interface OpenItem {
   kind: ChargeKind;
   customerId: string;
   customerName: string;
+  // Whose branch the money belongs to. Carried so that collecting from a debts
+  // list — which never loads the full customer — still files the cash correctly.
+  branchId: string | null;
   // month rows only — the natural key a virtual row is deduped and hashed on.
   customerPlanId: string | null;
   billingMonth: string | null;
@@ -679,6 +682,7 @@ export interface CollectionListItem {
   id: string;
   customerId: string | null;
   customerName: string | null;
+  customerPhone: string | null;
   amount: number;
   currencyId: string | null;
   ratePerUsdSnapshot: number;

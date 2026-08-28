@@ -1,72 +1,55 @@
-import { useMemo } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
 import { COLORS } from "@/src/shared/constants";
-import type { DebtItem, DebtPaymentItem } from "@/src/core/types";
+import type { OpenItem } from "@/src/core/types";
 import { DebtItemCard } from "./DebtItemCard";
-import { DebtPaymentCard } from "./DebtPaymentCard";
-
-type Row =
-  | { kind: "item"; item: DebtItem; date: string }
-  | { kind: "payment"; payment: DebtPaymentItem; date: string };
 
 interface Props {
-  items: DebtItem[];
-  payments: DebtPaymentItem[];
+  /** Bills with money still owed on them — the debts proper. */
+  items: OpenItem[];
+  /**
+   * Plain unpaid months: OWED, but not a debt. They get their own muted section
+   * because they belong to the month grid's workflow, not to chasing arrears.
+   */
+  unpaidMonths?: OpenItem[];
   loading?: boolean;
-  // Message shown when there is nothing to list. Defaults to the customer-panel copy.
+  // Message shown when there is nothing to list.
   emptyMessage?: string;
-  // Optional row actions, surfaced as each row's 3-dot menu. Both callers (the
-  // debtor modal and the customer-detail panel) wire all three up via
-  // `useDebtRowActions`; omit them for a read-only list (no menus).
-  onPay?: (item: DebtItem) => void;
-  onComplete?: (item: DebtItem) => void;
-  onVoidItem?: (item: DebtItem) => void;
-  onVoidPayment?: (payment: DebtPaymentItem) => void;
-  // Tapping a derived row opens the record behind it (month receipt / sale
-  // receipt). Omit for a read-only list.
-  onOpenItem?: (item: DebtItem) => void;
-  // Id of the row whose record is being fetched, so that card shows a spinner.
-  openingItemId?: string | null;
+  onCollect?: (item: OpenItem) => void;
+  onVoidItem?: (item: OpenItem) => void;
+  onWriteOff?: (item: OpenItem) => void;
+  /** Tapping a row opens the record behind it. Omit for a read-only list. */
+  onOpenItem?: (item: OpenItem) => void;
+  /** Key of the row whose record is being fetched, so it shows a spinner. */
+  openingItemKey?: string | null;
 }
 
-// The shared debt-list body: a customer's outstanding debts (partial months,
-// partial sales, custom) and the debt payments recorded against them, merged
-// into one newest-first list ordered by when each was RECORDED
-// (DebtItem.createdAt / DebtPayment.paidAt) — the same interleaving as
-// DebtHistorySheet. Always `hideCustomerName`
-// (rendered on a single-customer surface). Purely presentational — the container
-// owns the title / net header and supplies the row actions. Reused by
-// CustomerDebtsPanel and DebtorDetailSheet, both interactive.
+/** Stable across a virtual month too, which has no charge id yet. */
+function rowKey(item: OpenItem): string {
+  return item.chargeId ?? `${item.customerPlanId}:${item.billingMonth}`;
+}
+
+/**
+ * The shared debt-list body, oldest due date first.
+ *
+ * Sorted by DUE DATE, not by when the row was recorded: a debts list is read to
+ * answer "what is furthest behind", and the waterfall settles them in the same
+ * order — so the list reads exactly as the money will flow.
+ */
 export function DebtList({
   items,
-  payments,
+  unpaidMonths = [],
   loading = false,
   emptyMessage,
-  onPay,
-  onComplete,
+  onCollect,
   onVoidItem,
-  onVoidPayment,
+  onWriteOff,
   onOpenItem,
-  openingItemId,
+  openingItemKey,
 }: Props) {
   const { t } = useTranslation();
-  const isEmpty = items.length === 0 && payments.length === 0;
-
-  const rows: Row[] = useMemo(() => {
-    const merged: Row[] = [
-      ...items.map(
-        (item) => ({ kind: "item", item, date: item.createdAt }) as Row,
-      ),
-      ...payments.map(
-        (payment) => ({ kind: "payment", payment, date: payment.paidAt }) as Row,
-      ),
-    ];
-    // Newest-first, matching DebtHistorySheet and the Payments/Sales tabs.
-    merged.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
-    return merged;
-  }, [items, payments]);
+  const isEmpty = items.length === 0 && unpaidMonths.length === 0;
 
   if (loading && isEmpty) {
     return (
@@ -88,26 +71,34 @@ export function DebtList({
 
   return (
     <>
-      {rows.map((row) =>
-        row.kind === "item" ? (
-          <DebtItemCard
-            key={`i-${row.item.category}-${row.item.id}`}
-            item={row.item}
-            hideCustomerName
-            onPay={onPay}
-            onComplete={onComplete}
-            onVoid={onVoidItem}
-            onOpen={onOpenItem}
-            loading={openingItemId === row.item.id}
-          />
-        ) : (
-          <DebtPaymentCard
-            key={`p-${row.payment.id}`}
-            payment={row.payment}
-            hideCustomerName
-            onVoid={onVoidPayment}
-          />
-        ),
+      {items.map((item) => (
+        <DebtItemCard
+          key={rowKey(item)}
+          item={item}
+          hideCustomerName
+          onCollect={onCollect}
+          onVoid={onVoidItem}
+          onWriteOff={onWriteOff}
+          onOpen={onOpenItem}
+          loading={openingItemKey === rowKey(item)}
+        />
+      ))}
+
+      {unpaidMonths.length > 0 && (
+        <>
+          <Text className="mt-4 mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+            {t("ledger.unpaid_months_section")}
+          </Text>
+          {unpaidMonths.map((item) => (
+            <DebtItemCard
+              key={rowKey(item)}
+              item={item}
+              hideCustomerName
+              muted
+              onCollect={onCollect}
+            />
+          ))}
+        </>
       )}
     </>
   );
