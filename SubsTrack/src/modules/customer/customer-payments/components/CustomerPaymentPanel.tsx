@@ -109,6 +109,7 @@ export function CustomerPaymentPanel({
   const clearPaymentError = usePaymentSlice((s) => s.clearError);
   const resetPayments = usePaymentSlice((s) => s.reset);
   const collect = useLedgerSlice((s) => s.collect);
+  const voidChargeWithPayments = useLedgerSlice((s) => s.voidChargeWithPayments);
   const collecting = useLedgerSlice((s) => s.loadingCollect);
   const ledgerError = useLedgerSlice((s) => s.error);
   const clearLedgerError = useLedgerSlice((s) => s.clearError);
@@ -545,6 +546,37 @@ export function CustomerPaymentPanel({
     return true;
   }
 
+  /**
+   * Void a month outright: the bill and every payment that reached it.
+   *
+   * The narrow door is BillSheet, which undoes one hand-over at a time and is
+   * the right tool when only the cash was wrong. This is the wide one, for a
+   * month that should never have been billed at all — so the confirm says the
+   * money goes with it. It does NOT count the hand-overs to say how many: the
+   * write reads their ids anyway, so counting first was a second read of the
+   * same rows purely to fill in a number.
+   *
+   * There is no order rule to check: this LOWERS what is covered, so it can
+   * never leave a paid month sitting on an unpaid one — the same reason a
+   * payment void needs no gate either.
+   */
+  async function voidBill(entry: MonthEntry): Promise<boolean> {
+    const chargeId = entry.charge?.id;
+    if (!user || !chargeId) return false;
+    const ok = await confirm({
+      title: t("ledger.void_month_title"),
+      message: t("ledger.void_month_message", { month: monthLabelOf(entry) }),
+      confirmLabel: t("ledger.void_month"),
+      destructive: true,
+    });
+    if (!ok) return false;
+    if (!(await voidChargeWithPayments(chargeId, user.id, null))) return false;
+    // A void has no additive local patch (mergeCollection only ever adds), so
+    // the grid is re-read.
+    await fetchBills(customer.id, lines, year);
+    return true;
+  }
+
   // Quick Pay: the full price of the month, in one tap. Available on unpaid +
   // future-status (prepay) months of a fixed-price line — a custom-price line
   // falls back to the sheet, which is where an amount can be typed.
@@ -662,9 +694,9 @@ export function CustomerPaymentPanel({
         onPress: () => setSkipRequest({ entries: [entry], mode: "unskip" }),
       });
     }
-    // A month money has reached: its bill lists every payment on it, and a
-    // payment is voided from there. There is no "void the month" any more — one
-    // hand-over can cover several months, so only the payment can be undone.
+    // A month money has reached: its bill lists every payment on it, and one
+    // payment is voided from there — the narrow correction, when only that cash
+    // was wrong.
     if (entry.status === "paid" && entry.charge) {
       items.push({
         key: "bill",
@@ -680,6 +712,19 @@ export function CustomerPaymentPanel({
           onPress: () => openCollect([entry]),
         });
       }
+    }
+    // Void the whole month — the wide correction, for a month that should never
+    // have been billed. Offered wherever a bill exists, which includes an UNPAID
+    // month still holding the bill a voided payment left behind (that bill keeps
+    // the frozen price, so removing it is a real decision, not a no-op).
+    if (entry.charge) {
+      items.push({
+        key: "void-month",
+        label: t("ledger.void_month"),
+        icon: "close-circle-outline",
+        destructive: true,
+        onPress: () => void voidBill(entry),
+      });
     }
     return items;
   }
@@ -1100,6 +1145,10 @@ export function CustomerPaymentPanel({
             const entry = billEntry;
             setBillEntry(null);
             if (entry) openCollect([entry]);
+          }}
+          onVoidBill={async () => {
+            const entry = billEntry;
+            return entry ? await voidBill(entry) : false;
           }}
           onChanged={() => void fetchBills(customer.id, lines, year)}
           onDismiss={() => setBillEntry(null)}

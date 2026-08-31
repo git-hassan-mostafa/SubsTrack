@@ -66,11 +66,19 @@ export function DebtorDetailSheet({
         <ResponsiveContainer className="flex-1">
           <SheetDragArea className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
             <View className="flex-1 pe-2">
-              <Text fontWeight="Bold" className="text-lg text-gray-900" numberOfLines={1}>
+              <Text
+                fontWeight="Bold"
+                className="text-lg text-gray-900"
+                numberOfLines={1}
+              >
                 {debtor.customerName}
               </Text>
-              <Text className="text-sm font-semibold text-gray-500 mt-0.5" numberOfLines={1}>
-                {formatMoney(totalUsd, null, target)} · {t("debts.total_outstanding")}
+              <Text
+                className="text-sm font-semibold text-gray-500 mt-0.5"
+                numberOfLines={1}
+              >
+                {formatMoney(totalUsd, null, target)} ·{" "}
+                {t("debts.total_outstanding")}
               </Text>
             </View>
             <View className="flex-row items-center gap-3">
@@ -111,6 +119,7 @@ export function DebtorDetailSheet({
                 <DebtList
                   items={debtor.items}
                   unpaidMonths={debtor.unpaidMonths}
+                  newestFirst
                   onCollect={onCollectItem}
                   onVoidItem={onVoidItem}
                   onWriteOff={onWriteOff}

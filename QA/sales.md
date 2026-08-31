@@ -33,6 +33,7 @@ Covers the one-off sales ledger: recording a sale (with **one or more products a
 3. **One currency per sale.** Every line's `unit_amount` is in the sale's `currency_id`. Products priced in another currency are auto-converted into the sale currency (live rate) as the editable prefill.
 4. **`customer_id` (header) is nullable.** Walk-in (anonymous) sales have `customer_id = NULL`.
 5. **No hard delete.** Void via `voided_at` / `voided_by` / `void_reason` on the header. Voided sales drop from the active list but stay in DB; lines cascade only on hard delete.
+5a. **A void takes the sale's PAYMENTS with it** (§4). The cash was handed over *for* this sale, so leaving it live would point real money at a record that no longer exists. It is never silent — the confirm message states it — but it is also never *counted*: the wording is unconditional, so opening the dialog costs no reads, and it warns that a hand-over covering another bill is voided **whole**.
 5b. **A non-voided sale is EDITABLE in place** (§2C) — every snapshot in rule 2 is re-taken by the edit, including `rate_per_usd_snapshot` when the currency changes. A line the edit drops is **soft-voided** (`sale_items.voided_at`), never deleted, and the sale's stock movements are **swapped** (old soft-voided, new inserted) only when the per-product unit count actually changed. A voided sale can never be edited.
 6. **Dashboard revenue includes sales, as CASH.** There is ONE cash read (`collectedInRange`), and each row is tagged with the bill it settled — so cash against a sale counts as **sales** revenue whether it arrived at the till or three months later. A partial sale contributes only what was collected. `salesCount` counts sale headers, paid or not.
 7. **Product delete-reference counts key off `sale_items.product_id`.** A product used by any sale line soft-deletes (kept), else hard-deletes. Services follow the same rule off `sale_items.service_id`.
@@ -360,6 +361,17 @@ Covers the one-off sales ledger: recording a sale (with **one or more products a
 | 3.11 | Date | Always shown | Formatted sale date |
 | 3.12 | Void button | Sale is not voided | "Void this sale" button visible |
 | 3.13 | Voided sale UI | Open a voided sale (e.g. direct navigation) | Voided marker shown; Void button hidden |
+| 3.14 | Payments list shown | Open a sale that took money | Under the products card: a "N payments" heading and one row per hand-over — amount put against THIS sale, date + time, collector name |
+| 3.15 | Nothing collected yet | Open a pay-later sale with no payment | Heading reads "0 payments"; body reads "No payments yet." |
+| 3.16 | Installments | Sale of $50 collected as $20 then $30 | Two rows, $20 and $30, each with its own date and collector; hero still shows the totals from the sale |
+| 3.17 | Hand-over that also paid other bills | Collect one payment covering this sale AND a month | The row shows only the part put against this sale, plus the "also paid other bills" note |
+| 3.18 | Voided payment row | Void a payment on the sale | The row stays, dimmed, marked "Voided"; it has no 3-dot menu; the live count drops by one |
+| 3.19 | Void a payment from the receipt | Row 3-dot → Void payment → confirm | Payment voided; the list reloads; the sales list behind refreshes so the sale reads as owing again |
+| 3.20 | Send a receipt for one payment | Row 3-dot → Send on WhatsApp (customer has a phone) | wa.me opens with that hand-over's receipt |
+| 3.21 | Walk-in sale payments | Open a walk-in sale that took money | Rows are listed; the 3-dot menu offers only Void payment (no WhatsApp — there is no customer) |
+| 3.22 | Lean read (no chargeId) | Sale loaded without its bill | Payments block not rendered at all; no request fired |
+| 3.23 | Voided sale | Open a voided sale that had payments | Rows still listed, all marked "Voided" (the bill void took them) |
+| 3.24 | Currency | Sale in LBP | Every payment row prints in LBP using the row's frozen rate — same as the month bill sheet |
 
 ---
 
@@ -374,9 +386,19 @@ Covers the one-off sales ledger: recording a sale (with **one or more products a
 | 4.5 | Cancel | Tap Cancel | Returns to receipt, sale unchanged |
 | 4.6 | Confirm void | Tap confirm | `voided_at`, `voided_by`, `void_reason` set on row. Sale disappears from active list |
 | 4.7 | Audit trail | Inspect DB after void | Row still exists with all void fields populated |
-| 4.8 | Dashboard impact | Void a current-month sale | Voiding is **refused** while money has been collected against the sale — void the payment first. With nothing collected, the sale and its bill are voided together and the debt disappears |
+| 4.8 | Dashboard impact, unpaid sale | Void a current-month sale with nothing collected | The sale and its bill are voided together and the debt disappears |
 | 4.9 | Network error during void | Disable network, confirm | ErrorBanner; sale NOT voided |
 | 4.10 | Permission gating | User role | Void available (or admin-only — verify gate; file as finding if unexpected) |
+| 4.11 | **A paid sale IS voidable, and the message says so** | Void a fully-paid sale | The confirm states that any money collected is voided too and goes back to being uncollected. It is no longer refused — the old "Void the payment first" error is gone |
+| 4.12 | Confirm a paid void | Confirm 4.11 | The sale, its bill **and** its hand-over are all voided. The money-in history shows the payment dimmed + **Voided**; the dashboard revenue and the collector's wallet each drop by that amount; the stock comes back |
+| 4.13 | Installments | Void a sale paid in 2 installments | Both hand-overs are voided; the confirm wording is identical to 4.11 (no count) |
+| 4.14 | **A hand-over covering other bills** | Collect one payment across a sale + a month, then void the sale | The confirm warns that a payment which also settled another bill is undone in full. Confirm — the **month** goes back to unpaid too, because one physical hand-over cannot be half-undone |
+| 4.15 | Same message when nothing was collected | Open the void dialog on a pay-later sale | Same wording ("any money collected…") — it costs no read, so it does not vary by what is actually paid |
+| 4.16 | **Opening the dialog costs no reads** | Select 20 paid sales → Void | The confirm appears instantly; watch the network / SQL log — nothing is queried until Confirm |
+| 4.17 | Void order is safe | Inspect after 4.12 | Payments are voided **before** the sale, so an interrupted run leaves an unpaid sale (still owed) — never live cash on a voided sale |
+| 4.18 | Audit after a paid void | Admin → Audit Log | A `sales` **void**, a `charges` **void** and a `collections` **void** entry per payment |
+| 4.19 | Offline paid void | Void a paid sale offline, then sync | Sale, bill and payments all arrive voided; no balance goes negative |
+| 4.20 | Bulk void speed | Select 10 paid sales → Void | Completes in roughly the time one takes — every hand-over goes in **one** write (`voidMany`), and the payments of the whole selection are gathered in one batch, not per sale |
 
 ---
 

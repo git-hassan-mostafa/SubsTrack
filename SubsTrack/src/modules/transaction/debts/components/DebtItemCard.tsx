@@ -5,7 +5,10 @@ import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/src/shared/components/Text";
 import { COLORS } from "@/src/shared/constants";
 import { EntityCard } from "@/src/shared/components/EntityCard";
-import { ActionMenu, type ActionMenuItem } from "@/src/shared/components/ActionMenu";
+import {
+  ActionMenu,
+  type ActionMenuItem,
+} from "@/src/shared/components/ActionMenu";
 import type { ChargeKind, OpenItem } from "@/src/core/types";
 import {
   findCurrency,
@@ -16,7 +19,7 @@ import {
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { useLanguageStore } from "@/src/core/i18n/languageStore";
-import { formatDate } from "@/src/core/utils/date";
+import { formatDateTimeShort } from "@/src/core/utils/date";
 
 interface Props {
   item: OpenItem;
@@ -75,9 +78,17 @@ export function DebtItemCard({
   // "20/50 $" — collected out of owed. Only shown once money has reached the
   // bill; before that the amount already says everything.
   const paidFraction =
-    item.paid > 0 ? formatPaidFraction(item.paid, item.amount, source, source) : null;
+    item.paid > 0
+      ? formatPaidFraction(item.paid, item.amount, source, source)
+      : null;
   const style = KIND_STYLE[item.kind];
   const late = daysLate(item.dueDate);
+  // When the bill was actually raised, clock time included. Only a STORED bill
+  // has a real instant — a virtual month's `issuedAt` is just its billing month,
+  // so printing a time there would invent one.
+  const billedAt = item.chargeId
+    ? formatDateTimeShort(item.issuedAt, locale)
+    : null;
 
   const actions: ActionMenuItem[] = [];
   if (onCollect) {
@@ -130,12 +141,15 @@ export function DebtItemCard({
         menuLoading={loading}
       >
         <View className="flex-1">
-          <Text className="text-base font-semibold text-gray-900" numberOfLines={1}>
+          <Text
+            className="text-base font-semibold text-gray-900"
+            numberOfLines={1}
+          >
             {hideCustomerName ? item.label : item.customerName}
           </Text>
           <Text className="text-xs text-gray-500 mt-0.5" numberOfLines={1}>
             {hideCustomerName ? "" : `${item.label} · `}
-            {formatDate(item.dueDate, locale)}
+            {billedAt ? ` · ${billedAt}` : ""}
             {/* How far behind — the one thing a debts list is really asking. */}
             {late > 0 ? ` · ${t("ledger.days_late", { count: late })}` : ""}
             {/* Collected out of owed — says WHY the row owes what it owes. Sits

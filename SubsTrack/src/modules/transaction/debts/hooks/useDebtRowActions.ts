@@ -58,9 +58,9 @@ export function useDebtRowActions({ onChanged }: Options = {}) {
 
   const voidItem = useCallback(
     async (item: OpenItem) => {
-      // Only a hand-typed fee can be removed from here. A month is undone by
-      // voiding the payment that reached it, and a sale by voiding the sale —
-      // each in the place that owns the record.
+      // Only a hand-typed fee can be removed from here. A month is voided from
+      // its own grid cell and a sale from the sale — each in the place that owns
+      // the record, and each taking that record's payments with it.
       if (!user || !item.chargeId || item.kind !== "manual") return;
       const ok = await confirm({
         title: t("debts.void_custom_title"),

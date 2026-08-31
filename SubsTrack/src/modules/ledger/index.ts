@@ -30,6 +30,7 @@ export { CollectSheet } from './components/CollectSheet';
 export { useCollectSheet } from './hooks/useCollectSheet';
 export { CollectQuickActionSheet } from './components/CollectQuickActionSheet';
 export { BillSheet } from './components/BillSheet';
+export { BillPaymentsList } from './components/BillPaymentsList';
 export { CollectionCard } from './components/CollectionCard';
 export { CollectionsPanel } from './screens/CollectionsPanel';
 export { CollectionsHistorySheet } from './components/CollectionsHistorySheet';

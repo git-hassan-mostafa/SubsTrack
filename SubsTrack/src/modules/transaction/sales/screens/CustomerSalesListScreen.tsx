@@ -279,6 +279,7 @@ export function CustomerSalesListScreen() {
         onVoid={handleVoid}
         onEdit={openEdit}
         voidLoading={voidLoading}
+        onChanged={refresh}
       />
 
       {saleActions.sheets}

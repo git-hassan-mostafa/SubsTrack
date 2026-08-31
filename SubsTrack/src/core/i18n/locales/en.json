@@ -694,7 +694,6 @@
     "collection_already_voided": "This payment is already voided.",
     "sale_walkin_must_be_paid": "A walk-in sale has no customer to chase, so it must be paid in full.",
     "sale_total_below_collected": "The new total is less than what has already been collected on this sale.",
-    "sale_void_has_money": "Money has been collected on this sale. Void the payment first.",
     "debt_description_required": "Write what this charge is for."
   },
   "subscription": {
@@ -895,8 +894,8 @@
     "void_reason_placeholder": "Why are you voiding this sale?",
     "bulk_void_title_one": "Void this sale",
     "bulk_void_title": "Void {{count}} sales",
-    "bulk_void_message_one": "Void this sale? The record stays in the audit log — voids cannot be undone.",
-    "bulk_void_message": "Void {{count}} selected sale(s)? The records stay in the audit log — voids cannot be undone.",
+    "bulk_void_message_one": "Void this sale? Any money collected on it is voided too, and goes back to being uncollected. The records stay in the audit log — voids cannot be undone.",
+    "bulk_void_message": "Void {{count}} selected sale(s)? Any money collected on them is voided too, and goes back to being uncollected. The records stay in the audit log — voids cannot be undone.",
     "partial_debt_notice": "This sale is not fully paid. The remaining balance appears in the Debts tab."
   },
   "invoice": {
@@ -1295,6 +1294,9 @@
     "void_payment": "Void payment",
     "void_warning": "This payment will be undone and the money will be owed again.",
     "void_covers_many_warning": "This payment settled {{count}} bills. Voiding it makes all of them owed again.",
+    "void_month": "Void this month",
+    "void_month_title": "Void this month?",
+    "void_month_message": "{{month}} will no longer be billed, and any money collected on it is voided too — it goes back to being uncollected. A payment that also settled another bill is undone in full, so that bill becomes owed again. The records stay in the audit log — voids cannot be undone.",
     "voided": "Voided",
     "write_off": "Write off",
     "write_off_caption": "He will not pay — record it as a loss",

@@ -6,6 +6,8 @@ import repository from '../repository/SaleRepository';
 // Direct paths, not the ledger barrel: the barrel reaches components → the
 // global store → saleSlice → back here.
 import chargeRepository from '@/src/modules/ledger/repository/ChargeRepository';
+import collectionRepository from '@/src/modules/ledger/repository/CollectionRepository';
+import { chargeService } from '@/src/modules/ledger/services/ChargeService';
 import { collectionService } from '@/src/modules/ledger/services/CollectionService';
 import { mapDbChargeToCharge } from '@/src/modules/ledger/utils/mapper';
 import { openItemFromCharge } from '@/src/modules/ledger/utils/openItems';
@@ -395,21 +397,79 @@ class SaleService {
   }
 
   /**
-   * The sale never happened: the header, its stock movements and its bill are
-   * all voided together.
+   * The sale never happened: the header, its stock movements, its bill AND
+   * every payment collected against it are all voided together.
    *
-   * Refused once money has been collected against the bill — that cash is real
-   * and points at this sale, so the collection has to be voided first. Same
-   * rule, and the same reason, as ChargeService.voidCharge.
+   * The cash goes too because it was handed over FOR this sale — leaving it
+   * live would point real money at a record that no longer exists. It is not
+   * silent: the void dialog's message states that any money collected goes with
+   * it (no count — this reads the ids anyway, so counting first was a second
+   * read of the same rows). A hand-over that also settled other bills is voided
+   * whole. The customer's wallet and every balance self-correct, because a
+   * balance is a sum over live rows and these stop being live.
    */
   async voidSale(id: string, voidedBy: string, reason: string): Promise<Sale> {
-    const charge = await chargeRepository.findBySaleId(id);
-    if (charge) {
-      const paid = (await this.paidByCharge([charge.id])).get(charge.id) ?? 0;
-      if (paid > 0) throw new Error(i18n.t('errors.sale_void_has_money'));
-    }
-    const row = await repository.voidSale(id, voidedBy, reason.trim());
+    const trimmed = reason.trim();
+    await this.voidPaymentsForSales([id], voidedBy, trimmed);
+    const row = await repository.voidSale(id, voidedBy, trimmed);
     return mapDbSaleToSale(row);
+  }
+
+  /**
+   * Void several sales under one reason, reporting which ones failed.
+   *
+   * The PAYMENTS of all of them go in one batch up front, so a bulk void costs
+   * three queries plus one write per sale instead of re-reading the ledger for
+   * every row. The sales themselves stay a loop on purpose: each is an
+   * independent record and one failure must not lose the others (the caller
+   * shows `{ ok, failed }`).
+   *
+   * Voiding the cash first is the same safety order as `voidSale` — a sale whose
+   * own void then fails is left unpaid and still owed, never voided-with-live-cash.
+   */
+  async voidSales(
+    ids: string[],
+    voidedBy: string,
+    reason: string,
+  ): Promise<{ voided: Sale[]; failed: { id: string; message: string }[] }> {
+    const trimmed = reason.trim();
+    const voided: Sale[] = [];
+    const failed: { id: string; message: string }[] = [];
+    if (ids.length === 0) return { voided, failed };
+    await this.voidPaymentsForSales(ids, voidedBy, trimmed);
+    for (const id of ids) {
+      try {
+        const row = await repository.voidSale(id, voidedBy, trimmed);
+        voided.push(mapDbSaleToSale(row));
+      } catch (e) {
+        failed.push({ id, message: (e as Error).message });
+      }
+    }
+    return { voided, failed };
+  }
+
+  /**
+   * The cash on these sales, and only the cash: `repository.voidSale` already
+   * voids each sale's own bill in its own transaction, so this adds the one
+   * thing it cannot reach.
+   *
+   * Payments before the sale on purpose — if a sale's void then failed, what is
+   * left is an unpaid sale the customer still owes, which is recoverable; the
+   * other order would leave live cash on a voided sale.
+   *
+   * Three queries for ANY number of sales, so a bulk void of 20 paid sales
+   * costs the same as one.
+   */
+  private async voidPaymentsForSales(
+    saleIds: string[],
+    voidedBy: string,
+    reason: string,
+  ): Promise<void> {
+    const charges = await chargeRepository.findBySaleIds(saleIds);
+    if (charges.length === 0) return;
+    const paymentIds = await chargeService.paymentIdsForCharges(charges.map((c) => c.id));
+    if (paymentIds.length === 0) return;
+    await collectionRepository.voidMany(paymentIds, voidedBy, reason || null);
   }
 
   // True when the edited cart takes exactly the same units off the shelf as the

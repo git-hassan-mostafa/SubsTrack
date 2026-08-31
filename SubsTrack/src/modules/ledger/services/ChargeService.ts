@@ -243,6 +243,56 @@ class ChargeService {
     return mapDbChargeToCharge(row);
   }
 
+  /** Live hand-overs that put money against this bill — what a void must undo. */
+  paymentIdsForCharge(chargeId: string): Promise<string[]> {
+    return this.paymentIdsForCharges([chargeId]);
+  }
+
+  /**
+   * The same for MANY bills, in one query. `findItemsForCharges` already takes
+   * an array, so voiding a whole selection of sales costs one read here rather
+   * than one per bill.
+   */
+  async paymentIdsForCharges(chargeIds: string[]): Promise<string[]> {
+    if (chargeIds.length === 0) return [];
+    const items = await collectionRepository.findItemsForCharges(chargeIds);
+    return [...new Set(items.map((i) => i.collection_id))];
+  }
+
+  /**
+   * The bill AND the cash against it were a mistake — the whole record goes.
+   *
+   * `voidCharge` refuses a paid bill on purpose, because cash pointing at a
+   * deleted bill is worse than no void at all. This is the other answer to the
+   * same problem: undo the hand-overs FIRST, then the bill, so the money is
+   * never orphaned. The caller's confirm must therefore SAY that the money goes
+   * with it — but it does not need a figure, so nothing counts the hand-overs
+   * beforehand; this reads their ids anyway, in the one query it must do.
+   *
+   * Payments go first for a reason: should the bill's own void then fail, what
+   * is left is an unpaid bill the customer still owes — recoverable. The other
+   * order would leave live cash sitting on a voided bill.
+   *
+   * A hand-over that also settled OTHER bills is voided WHOLE — one physical
+   * handing-over of cash cannot be half-undone, which is the part the confirm
+   * message has to warn about.
+   */
+  async voidChargeWithPayments(
+    id: string,
+    voidedBy: string,
+    reason: string | null,
+  ): Promise<Charge> {
+    // The only read: which hand-overs to undo. Nothing counts them beforehand —
+    // the confirm states that the money goes, without needing a figure.
+    const paymentIds = await this.paymentIdsForCharge(id);
+    // ONE write for every hand-over, not one per row — see voidMany.
+    if (paymentIds.length > 0) {
+      await collectionRepository.voidMany(paymentIds, voidedBy, reason);
+    }
+    const row = await repository.void(id, voidedBy, reason);
+    return mapDbChargeToCharge(row);
+  }
+
   /**
    * The bill is REAL but will never be paid. Leaves "still owed" and is reported
    * as a loss — the opposite statement to a void, which claims it never existed.

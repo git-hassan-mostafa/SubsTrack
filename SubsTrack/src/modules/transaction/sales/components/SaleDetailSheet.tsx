@@ -22,6 +22,7 @@ import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
 import { SendOnWhatsAppButton, useSendInvoice } from "@/src/modules/invoicing";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { RecordHistorySheet } from "@/src/modules/admin/audit";
+import { BillPaymentsList } from "@/src/modules/ledger";
 
 interface Props {
   sale: Sale | null;
@@ -31,6 +32,8 @@ interface Props {
   // sense; never offered for a voided sale.
   onEdit?: (sale: Sale) => void;
   voidLoading?: boolean;
+  /** A payment on this sale was voided here — the caller refreshes its list. */
+  onChanged?: () => void;
 }
 
 export function SaleDetailSheet({
@@ -39,6 +42,7 @@ export function SaleDetailSheet({
   onVoid,
   onEdit,
   voidLoading,
+  onChanged,
 }: Props) {
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
@@ -218,6 +222,25 @@ export function SaleDetailSheet({
               ) : null}
             </View>
           ) : null}
+        </View>
+      ) : null}
+
+      {/* Every hand-over that reached this sale — the same list a month bill
+          shows, because a sale and a month are one charges row to the ledger.
+          A lean read carries no chargeId, so there is nothing to load. */}
+      {sale.chargeId ? (
+        <View className="mb-4">
+          <BillPaymentsList
+            chargeId={sale.chargeId}
+            snapshot={sale}
+            visible
+            recipient={
+              sale.customer
+                ? { name: sale.customer.name, phone: sale.customer.phoneNumber }
+                : null
+            }
+            onChanged={onChanged}
+          />
         </View>
       ) : null}
 

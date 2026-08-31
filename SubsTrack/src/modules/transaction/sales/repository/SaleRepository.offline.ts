@@ -283,8 +283,8 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
          WHERE sale_id = ? AND voided_at IS NULL`,
         [now, voidedBy, now, id] as never[],
       );
-      // Nothing may still be owed for a sale that never happened. The service
-      // has already refused this if money was collected against the bill.
+      // Nothing may still be owed for a sale that never happened. Any money
+      // that WAS collected has already been voided by the service.
       await db.runAsync(
         `UPDATE charges SET voided_at = ?, voided_by = ?, void_reason = ?, updated_at = ?, _dirty = 1
          WHERE sale_id = ? AND voided_at IS NULL`,

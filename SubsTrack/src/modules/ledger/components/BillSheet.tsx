@@ -1,30 +1,21 @@
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, View } from "react-native";
+import { View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/src/shared/components/Text";
 import { FormSheet } from "@/src/shared/components/FormSheet";
 import { Button } from "@/src/shared/components/Button";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
-import { ActionMenu, type ActionMenuItem } from "@/src/shared/components/ActionMenu";
-import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
-import { COLORS } from "@/src/shared/constants";
-import type { Charge, Collection } from "@/src/core/types";
+import type { Charge } from "@/src/core/types";
 import {
   findCurrency,
   formatMoney,
   formatPaidFraction,
   snapshotCurrency,
 } from "@/src/core/utils/currency";
-import { formatDate, formatDateTimeShort } from "@/src/core/utils/date";
+import { formatDate } from "@/src/core/utils/date";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { useLanguageStore } from "@/src/core/i18n/languageStore";
-import { useUserSlice } from "@/src/state/hooks/useUserSlice";
-import { useAuth } from "@/src/modules/authentication/auth";
-import { useSendInvoice } from "@/src/modules/invoicing";
-import { collectionService } from "../services/CollectionService";
-import { VoidCollectionDialog } from "./VoidCollectionDialog";
+import { BillPaymentsList } from "./BillPaymentsList";
 
 interface Props {
   visible: boolean;
@@ -35,6 +26,12 @@ interface Props {
   recipient?: { name: string; phone: string | null } | null;
   /** Collect what is still owed on this bill. Hidden once it is settled. */
   onCollect?: (charge: Charge) => void;
+  /**
+   * Void the bill AND every payment on it. Omit to hide the action — the owner
+   * of the record supplies it (a month's panel does; a sale is voided from the
+   * sale itself). Resolves true once it is gone, so the sheet can close.
+   */
+  onVoidBill?: (charge: Charge) => Promise<boolean>;
   /** Something in here moved money — the caller refreshes its own view. */
   onChanged?: () => void;
 }
@@ -44,12 +41,13 @@ interface Props {
  *
  * This is the shape change the whole rewrite is for: a bill used to be a single
  * row with one amount and one date, so a second payment had nowhere to go. Now
- * the hero shows a running `15 / 20 $` and the body lists each hand-over with
- * its own date and collector.
+ * the hero shows a running `15 / 20 $` and `BillPaymentsList` lists each
+ * hand-over with its own date and collector.
  *
- * Voiding lives HERE and nowhere else, because a hand-over can cover several
- * bills — "void this month" is not a thing that can be undone on its own, only
- * the payment can. The row says so when it covers more than this bill.
+ * Two different corrections live here, and they are not the same statement:
+ * voiding ONE PAYMENT says that hand-over was wrong and leaves the bill owed
+ * (the list owns that), while `onVoidBill` says the BILL should never have
+ * existed and takes every payment on it down too — that is the footer.
  */
 export function BillSheet({
   visible,
@@ -58,39 +56,26 @@ export function BillSheet({
   label,
   recipient,
   onCollect,
+  onVoidBill,
   onChanged,
 }: Props) {
   const { t } = useTranslation();
-  const { user } = useAuth();
   const currencies = useCurrencySlice((s) => s.items);
-  const users = useUserSlice((s) => s.items);
   const displayCurrencyId = useDisplayCurrencyId();
   const { language } = useLanguageStore();
   const locale = language === "ar" ? "ar" : "en-US";
-  const { canSend, sendCollectionInvoice } = useSendInvoice();
 
-  const [payments, setPayments] = useState<Collection[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [menuFor, setMenuFor] = useState<Collection | null>(null);
-  const [voidTarget, setVoidTarget] = useState<Collection | null>(null);
+  // Reported by the payments list after every load, so the hero and the rows
+  // can never disagree about how much money reached this bill.
+  const [collected, setCollected] = useState(0);
+  const [voiding, setVoiding] = useState(false);
 
+  const handleCollected = useCallback((v: number) => setCollected(v), []);
+
+  // A different bill has a different total — drop the old one rather than let
+  // the hero show last month's figure for the frame before the list loads.
   const chargeId = charge?.id ?? null;
-  const load = useCallback(async () => {
-    if (!chargeId) return;
-    setLoading(true);
-    try {
-      setPayments(await collectionService.getPaymentsForCharge(chargeId));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setLoading(false);
-    }
-  }, [chargeId]);
-
-  useEffect(() => {
-    if (visible) void load();
-  }, [visible, load]);
+  useEffect(() => setCollected(0), [chargeId]);
 
   if (!charge) return null;
 
@@ -98,57 +83,25 @@ export function BillSheet({
   const display = findCurrency(currencies, displayCurrencyId);
   const money = (v: number) => formatMoney(v, source, display);
 
-  const live = payments.filter((p) => p.voidedAt === null);
-  const collected = live.reduce((sum, p) => sum + itemAmount(p, charge.id), 0);
   const balance = charge.amount - collected;
   const settled = balance <= 0;
   const partial = collected > 0 && balance > 0;
 
-  const userName = (id: string | null) =>
-    users.find((u) => u.id === id)?.fullName ?? t("common.unknown");
-
-  const sendable = !!recipient && canSend(recipient.phone);
-
-  async function handleSend(collection: Collection) {
-    if (!recipient) return;
-    await sendCollectionInvoice({
-      phone: recipient.phone,
-      customerName: recipient.name,
-      collection,
-    });
-  }
-
-  function paymentActions(target: Collection): ActionMenuItem[] {
-    const actions: ActionMenuItem[] = [];
-    if (sendable) {
-      actions.push({
-        key: "invoice",
-        label: t("invoicing.send_on_whatsapp"),
-        icon: "logo-whatsapp",
-        onPress: () => {
-          setMenuFor(null);
-          void handleSend(target);
-        },
-      });
+  // The caller owns the confirm (it knows what the record is called) and the
+  // refresh; the sheet closes once the bill it is showing no longer exists.
+  async function handleVoidBill() {
+    if (!onVoidBill || !charge || voiding) return;
+    setVoiding(true);
+    try {
+      if (await onVoidBill(charge)) onDismiss();
+    } finally {
+      setVoiding(false);
     }
-    actions.push({
-      key: "void",
-      label: t("ledger.void_payment"),
-      icon: "trash-outline",
-      destructive: true,
-      onPress: () => {
-        setVoidTarget(target);
-        setMenuFor(null);
-      },
-    });
-    return actions;
   }
 
   return (
     <FormSheet visible={visible} onDismiss={onDismiss} title={label}>
       <View className="gap-5 px-4 pb-8">
-        {error ? <ErrorBanner message={error} onDismiss={() => setError(null)} /> : null}
-
         {/* Collected out of owed — the running total, not a one-off snapshot. */}
         <View className="items-center gap-1 py-2">
           <Text className="text-3xl font-bold text-slate-900">
@@ -182,49 +135,14 @@ export function BillSheet({
           {charge.notes ? <Row label={t("ledger.notes")} value={charge.notes} /> : null}
         </View>
 
-        <View className="gap-2">
-          <Text className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-            {t("ledger.payments_count", { count: live.length })}
-          </Text>
-          {loading ? (
-            <ActivityIndicator />
-          ) : payments.length === 0 ? (
-            <Text className="py-2 text-sm text-slate-500">{t("ledger.no_payments_yet")}</Text>
-          ) : (
-            payments.map((p) => {
-              const paidHere = itemAmount(p, charge.id);
-              const coversMore = (p.items?.length ?? 0) > 1;
-              const voided = p.voidedAt !== null;
-              return (
-                <View
-                  key={p.id}
-                  className={`flex-row items-center gap-3 rounded-xl border border-slate-200 px-3 py-2.5 ${
-                    voided ? "opacity-50" : ""
-                  }`}
-                >
-                  <Ionicons name="cash-outline" size={18} color={COLORS.success} />
-                  <View className="flex-1">
-                    <Text className="text-sm font-semibold text-slate-900">
-                      {money(paidHere)}
-                    </Text>
-                    <Text className="text-xs text-slate-500">
-                      {formatDateTimeShort(p.receivedAt, locale)} · {userName(p.receivedByUserId)}
-                      {/* Say so when this money also settled other bills — that
-                          is exactly what makes voiding it a wider decision. */}
-                      {coversMore ? ` · ${t("ledger.covers_others")}` : ""}
-                      {voided ? ` · ${t("ledger.voided")}` : ""}
-                    </Text>
-                  </View>
-                  {!voided && (
-                    <PressableOpacity onPress={() => setMenuFor(p)} className="p-1">
-                      <Ionicons name="ellipsis-vertical" size={16} color={COLORS.gray500} />
-                    </PressableOpacity>
-                  )}
-                </View>
-              );
-            })
-          )}
-        </View>
+        <BillPaymentsList
+          chargeId={charge.id}
+          snapshot={charge}
+          visible={visible}
+          recipient={recipient}
+          onChanged={onChanged}
+          onCollectedChange={handleCollected}
+        />
 
         {!settled && onCollect && (
           <Button
@@ -232,26 +150,19 @@ export function BillSheet({
             onPress={() => onCollect(charge)}
           />
         )}
+
+        {/* The bill itself was a mistake — it goes, and the cash on it with it.
+            Last, because the per-payment void above is the usual correction and
+            this one is the wider statement. */}
+        {onVoidBill && (
+          <Button
+            label={t("ledger.void_month")}
+            variant="danger"
+            loading={voiding}
+            onPress={() => void handleVoidBill()}
+          />
+        )}
       </View>
-
-      <ActionMenu
-        visible={menuFor !== null}
-        onDismiss={() => setMenuFor(null)}
-        actions={menuFor ? paymentActions(menuFor) : []}
-      />
-
-      {voidTarget && user && (
-        <VoidCollectionDialog
-          collection={voidTarget}
-          voidedBy={user.id}
-          onDone={() => {
-            setVoidTarget(null);
-            void load();
-            onChanged?.();
-          }}
-          onDismiss={() => setVoidTarget(null)}
-        />
-      )}
     </FormSheet>
   );
 }
@@ -263,11 +174,4 @@ function Row({ label, value }: { label: string; value: string }) {
       <Text className="text-sm text-slate-900">{value}</Text>
     </View>
   );
-}
-
-/** What one hand-over put against THIS bill — it may have covered others too. */
-function itemAmount(collection: Collection, chargeId: string): number {
-  return (collection.items ?? [])
-    .filter((i) => i.chargeId === chargeId)
-    .reduce((sum, i) => sum + i.amount, 0);
 }

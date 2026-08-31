@@ -94,7 +94,26 @@ Set up ONE customer owing exactly this:
 7.3 Reports → Debts shows it under **Written off** for the period it was written off in.
 7.4 Only the part **never collected** is counted as the loss — write off a bill of 50 that had 20 collected and the loss is 30.
 7.5 A written-off bill cannot also be voided (and vice versa) — the DB constraint refuses it.
-7.6 A bill with money on it **cannot be voided**: the error tells you to void the payment first or write it off.
+7.6 A **debt row's** void still refuses a bill with money on it (it only ever removes a hand-typed fee): the error tells you to void the payment first or write it off. The wide door is section 6b, and it is reachable only from the record that owns the bill.
+
+## 6b. Void a whole bill (the bill AND its payments)
+
+The other statement to 6: there the *cash* was wrong and the bill stays owed; here the **bill should never have existed**, so the cash goes with it. Reachable from the month cell's 3-dot → **Void this month**, from **View bill**'s red footer button, and — for a sale — from the sale's own **Void sale**.
+
+6b.1 On a **fully unpaid** month that still holds a bill (collect it, then void the hand-over per section 6 — the empty bill stays), the cell menu offers **Void this month**. Confirm: the bill is gone, the cell stays red/unpaid, and re-collecting raises a **fresh** bill (the frozen price is no longer preserved — that is the point of voiding it).
+6b.2 On a **paid** month, the cell menu offers **Void this month** *and* **View bill**. The confirm names the month and states that any money collected on it is voided too. It carries **no count** — the wording is the same whether one payment or five are involved.
+6b.3 Confirm 6b.2. The cell goes red/unpaid, the money-in history shows the hand-over dimmed + **Voided**, the dashboard revenue and the collector's wallet both drop by that amount.
+6b.4 **The wider case, which the message must warn about:** collect 55 across Jan + Feb + a sale (scenario 3), then void **January's** bill. The confirm warns that a payment which also settled another bill is undone in full, making that bill owed again. Confirm — February **and** the sale go back to owed as well, because one physical hand-over cannot be half-undone.
+6b.5 A month with **two** hand-overs on it (installments, scenario 2): both are voided, and the confirm reads exactly as it did in 6b.2 (no count, so no wording to get wrong).
+6b.6 **View bill** → the red footer button does exactly the same thing as the cell menu, and the sheet closes itself once the bill is gone.
+6b.7 A month with **no bill at all** (never collected) offers **no** void action — there is nothing to void.
+6b.8 Cancel the confirm at every entry point: nothing is written, no payment is voided.
+6b.9 Admin → Audit Log shows a `charges` **void** entry *and* a `collections` **void** entry per payment, all by the acting user.
+6b.10 **Order:** the payments are voided before the bill, so an interrupted run leaves an *unpaid bill* (still owed, recoverable) — never live cash pointing at a voided bill.
+6b.11 Offline: do 6b.4 on a device with no network, then sync. The bill and every payment arrive voided; no balance goes negative.
+6b.12 **Speed (the regression this guards).** Void a bill carrying **10+** hand-overs, on a device (offline path). It must complete in roughly the time one payment takes — the payments go in **one** UPDATE inside **one** transaction (`voidMany`), not a transaction per row queuing behind `withDbLock`. Same for the money-in history's bulk void of 10+ rows, and for a 10-sale bulk void.
+6b.13 **Opening a void dialog costs no reads.** The confirm appears instantly for any bill or selection, however many payments are involved — it states that the money goes without counting it. Watch the network / SQL log: nothing is queried until Confirm is pressed.
+6b.14 Audit is still **one entry per hand-over** after a batched void (not one for the batch), and each carries its own `before_data`.
 
 ## 8. Two currencies
 
@@ -144,7 +163,7 @@ Set-up: a customer whose only service line is **"No plan"** (or a plan marked
 ## 12. Things that must NOT be possible
 
 12.1 No screen offers to edit the amount of a recorded hand-over.
-12.2 No screen offers "void this month's payment" on a month cell — only **View bill**.
+12.2 No month cell offers to void a *single payment* — that lives in **View bill**, which owns the per-hand-over void. The cell's own **Void this month** is the whole bill, not one payment.
 12.3 No "Complete" action anywhere (on a debt row or a sale row).
 12.4 A partly-paid month never shows a "partial" *status* — it is `paid` everywhere the status is read, and only the ring / fraction distinguish it.
 12.5 Collecting a month while an **earlier** month of the same line is uncovered is refused, naming the older month.

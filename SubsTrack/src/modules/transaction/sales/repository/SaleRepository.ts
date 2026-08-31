@@ -279,8 +279,8 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
       .is('voided_at', null);
     if (stockError) this.handleError(stockError);
 
-    // Nothing may still be owed for a sale that never happened. The service has
-    // already refused this if money was collected against the bill.
+    // Nothing may still be owed for a sale that never happened. Any money that
+    // WAS collected against the bill has already been voided by the service.
     const { error: chargeError } = await this.db
       .from('charges')
       .update({ voided_at: now, voided_by: voidedBy, void_reason: reason })

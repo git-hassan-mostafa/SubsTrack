@@ -61,6 +61,10 @@ Covers the **Debts** screen (Transactions → Debts — a single debtors list, n
 | 2.7 | Rows show the fraction | A month with 10 of 20 collected | The date line reads "… · 10/20 $" — collected out of owed, in the collected currency |
 | 2.8 | Rows show how late | A bill 40 days past due | The date line includes "40 days late" |
 | 2.9 | Settled customer | Collect everything | The sheet empties and the customer leaves the list |
+| 2.10 | **Newest first — the sheet only** | A customer owing Jan, Mar and a sale raised today | The sheet lists them **latest raised first** (sale, Mar, Jan). Both sections sort this way independently. The Debts **list** and the customer-detail panel are unchanged — still oldest due date first |
+| 2.11 | The display sort never moves the money | With that list on screen, tap **Collect $N** | The split preview still fills **oldest due date first** (Jan, then Mar, then the sale) — the list's order is presentation only |
+| 2.12 | Rows show the time | A bill raised today | The date line ends with when it was billed, clock time included ("Billed on" instant, e.g. "Aug 31, 2:15 PM"); the year is dropped while it is the current one |
+| 2.13 | A virtual month shows no time | An unpaid month nothing has been collected for | **No** time is printed — it has no bill yet, so there is no real instant to show. Only its due date and "days late" |
 
 ---
 

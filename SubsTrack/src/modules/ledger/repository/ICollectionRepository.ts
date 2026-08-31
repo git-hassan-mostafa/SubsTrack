@@ -65,6 +65,18 @@ export interface ICollectionRepository {
   create(payload: CreateCollectionPayload): Promise<DbCollection>;
   /** Un-applies every item at once, so all the balances it touched come back. */
   void(id: string, voidedBy: string, reason: string | null): Promise<DbCollection>;
+  /**
+   * The same, for many hand-overs in ONE write — what voiding a whole bill or a
+   * paid sale needs. Not a loop over `void`: that costs a read, a write and a
+   * transaction each, which is what made voiding a paid record slow.
+   *
+   * Returns only the rows this call actually voided (an already-voided one is
+   * skipped, not an error — the right answer for a multi-select), and they are
+   * **not hydrated**: no `collection_items`, no charges, no customer. Callers
+   * want to know *what* was voided; loading joins nobody reads would undo the
+   * batching. Re-read through `find`/`findById` if a full row is needed.
+   */
+  voidMany(ids: string[], voidedBy: string, reason: string | null): Promise<DbCollection[]>;
 
   // ── Money in ──────────────────────────────────────────────────────────────
   /**

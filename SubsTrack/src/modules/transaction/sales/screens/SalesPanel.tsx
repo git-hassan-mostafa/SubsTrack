@@ -412,6 +412,7 @@ export function SalesPanel() {
         onVoid={handleVoid}
         onEdit={openEdit}
         voidLoading={voidLoading}
+        onChanged={fetchSales}
       />
 
       {saleActions.sheets}

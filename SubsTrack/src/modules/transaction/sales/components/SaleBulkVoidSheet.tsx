@@ -16,6 +16,11 @@ interface Props {
 // Voids several sales with one shared reason via the slice's voidSales batch.
 // A total failure keeps the dialog open with the error; any success closes it
 // and reports counts back to the screen.
+//
+// The message states that any money collected goes with the sale. It does NOT
+// count the hand-overs first: the void takes the ids from a query it has to run
+// anyway, so counting them was a second read of the same rows just to put a
+// number in a sentence.
 export function SaleBulkVoidSheet({ saleIds, onVoided, onDismiss }: Props) {
   const { t } = useTranslation();
   const { user } = useAuth();

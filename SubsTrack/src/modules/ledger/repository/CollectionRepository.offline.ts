@@ -241,6 +241,63 @@ export class OfflineCollectionRepository
     return (await this.findById(id))!;
   }
 
+  /**
+   * Void many hand-overs inside ONE transaction and ONE UPDATE. A loop over
+   * `void()` opened a transaction per row — and expo-sqlite gives the app a
+   * single connection, so each one queued behind `withDbLock`. That queue is
+   * what made voiding a paid bill or sale slow.
+   *
+   * The rows come back UN-hydrated (no items, charges or customer): every caller
+   * only wants to know what was voided, so paying `hydrate`'s three extra
+   * queries for joins nobody reads would undo the point of batching.
+   */
+  async voidMany(
+    ids: string[],
+    voidedBy: string,
+    reason: string | null,
+  ): Promise<DbCollection[]> {
+    if (ids.length === 0) return [];
+    const now = nowIso();
+    const holes = ids.map(() => '?').join(',');
+    // The priors the audit needs — and, once stamped, the return value, so the
+    // write is not followed by a read of what we already know.
+    const priors = this.decodeAll<DbCollection>(
+      'collections',
+      await this.all(`SELECT * FROM collections WHERE id IN (${holes})`, ids),
+    );
+    // Already-voided rows are skipped by the UPDATE's guard, so they are not
+    // "what this call voided" either.
+    const live = priors.filter((p) => !p.voided_at);
+    if (live.length === 0) return [];
+    await this.write(async (db) => {
+      await db.runAsync(
+        `UPDATE collections
+            SET voided_at = ?, voided_by = ?, void_reason = ?, updated_at = ?, _dirty = 1
+          WHERE id IN (${holes}) AND voided_at IS NULL`,
+        [now, voidedBy, reason, now, ...ids] as never[],
+      );
+      // One entry per record — the trail stays per row, only the write batches.
+      for (const prior of live) {
+        await this.auditIn(db, {
+          table: 'collections',
+          recordId: prior.id,
+          action: 'void',
+          before: prior,
+          after: { ...prior, voided_at: now, voided_by: voidedBy, void_reason: reason },
+          branchId: prior.branch_id ?? null,
+          subject: prior.customers?.name ?? null,
+        });
+      }
+    });
+    return live.map((p) => ({
+      ...p,
+      voided_at: now,
+      voided_by: voidedBy,
+      void_reason: reason,
+      updated_at: now,
+    }));
+  }
+
   // ── Money in ──────────────────────────────────────────────────────────────
 
   // Mirror of the Supabase read: ONE ROW PER BILL SETTLED, tagged with what

@@ -261,9 +261,14 @@ class CollectionService {
     voidedBy: string,
     reason: string | null,
   ): Promise<Collection[]> {
-    const out: Collection[] = [];
-    for (const id of ids) out.push(await this.voidCollection(id, voidedBy, reason));
-    return out;
+    if (ids.length === 0) return [];
+    // ONE write, not a loop over `voidCollection` — that cost a read, a write
+    // and (offline) a transaction each. `voidMany`'s `voided_at IS NULL` guard
+    // is what used to be the per-row "already voided" check; a row that was
+    // already void is simply skipped instead of throwing, which is the right
+    // answer for a multi-select anyway.
+    const rows = await repository.voidMany(ids, voidedBy, reason);
+    return rows.map(mapDbCollectionToCollection);
   }
 
   // ── Money in ──────────────────────────────────────────────────────────────

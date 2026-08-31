@@ -316,28 +316,18 @@ export const createSaleSlice: StateCreator<
       state.sales.loading = true;
       state.sales.error = null;
     });
-    const trimmed = reason.trim();
-    const voidedIds: string[] = [];
-    let failed = 0;
-    let lastError: string | null = null;
-    for (const id of ids) {
-      try {
-        await saleService.voidSale(id, voidedBy, trimmed);
-        voidedIds.push(id);
-      } catch (e) {
-        failed++;
-        lastError = (e as Error).message;
-      }
-    }
+    // One call for the whole selection: the service batches the payment voids
+    // and reports per-sale failures, so a bad row can't take the others down.
+    const { voided, failed } = await saleService.voidSales(ids, voidedBy, reason);
     set((state) => {
-      const removed = new Set(voidedIds);
+      const removed = new Set(voided.map((s) => s.id));
       state.sales.items = state.sales.items.filter((s) => !removed.has(s.id));
       state.sales.loading = false;
-      state.sales.error = lastError;
+      state.sales.error = failed.at(-1)?.message ?? null;
     });
     // The voids gave their stock back.
-    if (voidedIds.length > 0) void get().products.fetchProducts();
-    return { ok: voidedIds.length, failed };
+    if (voided.length > 0) void get().products.fetchProducts();
+    return { ok: voided.length, failed: failed.length };
   },
 
   clearError: () =>

@@ -219,6 +219,7 @@ export function CustomerSalesPanel({ customer }: Props) {
         onVoid={handleVoid}
         onEdit={openEdit}
         voidLoading={voidLoading}
+        onChanged={refresh}
       />
 
       {saleActions.sheets}

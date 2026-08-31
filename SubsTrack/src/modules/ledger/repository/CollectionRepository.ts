@@ -219,6 +219,47 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
     return voided;
   }
 
+  /**
+   * Void many hand-overs in one round trip pair: one read for the priors the
+   * audit needs, one UPDATE over them all. A loop over `void()` costs three
+   * calls each, which is what made voiding a paid bill or sale slow.
+   */
+  async voidMany(
+    ids: string[],
+    voidedBy: string,
+    reason: string | null,
+  ): Promise<DbCollection[]> {
+    if (ids.length === 0) return [];
+    const { data: priors } = await this.db
+      .from('collections')
+      .select(COLLECTION_SELECT_LEAN)
+      .in('id', ids);
+    const priorById = new Map(((priors ?? []) as DbCollection[]).map((c) => [c.id, c]));
+    const { data, error } = await this.db
+      .from('collections')
+      .update({ voided_at: new Date().toISOString(), voided_by: voidedBy, void_reason: reason })
+      .in('id', ids)
+      // Same guard as `void`: a repeat void is a no-op, not a restamp.
+      .is('voided_at', null)
+      .select(COLLECTION_SELECT_LEAN);
+    if (error) this.handleError(error);
+    const voided = (data ?? []) as DbCollection[];
+    // One entry per row still — the trail is per record, only the writes batch.
+    // `audit()` is detached, so these add nothing to the critical path.
+    for (const row of voided) {
+      this.audit({
+        table: 'collections',
+        recordId: row.id,
+        action: 'void',
+        before: priorById.get(row.id),
+        after: row,
+        branchId: row.branch_id,
+        subject: row.customers?.name ?? null,
+      });
+    }
+    return voided;
+  }
+
   // ── Money in ──────────────────────────────────────────────────────────────
 
   async collectedInRange(

@@ -347,6 +347,8 @@ An edit **re-prices the bill and leaves every payment against it alone** — mon
 
 **Receipt (`SaleDetailSheet`).** The lines get their **own card**, separate from the customer / sold-at / receipt-ID rows: an "Items" header (cart icon + line count when >1), then one row per line — numbered bubble, `item_name_snapshot` (a **service** line prefixed with a small `construct-outline` mark, so the bill shows at a glance which part was labour), a `qty × unit price` sub-line, and the line total on the right. A totals footer (Total, plus Paid / Remaining when the sale is partial) renders only when it adds information (multi-line or partial sale). The hero's caption swaps the frozen `items_summary` for a "{{count}} items" count once there is more than one line, since the summary gets long. Lean reads (empty `items`) simply skip the card.
 
+Below the lines the receipt shows **every payment that reached the sale** — the same `BillPaymentsList` the month bill sheet uses, fed the sale's own `chargeId` and currency snapshot. A sale and a month are one `charges` row to the ledger, so a sale paid in installments deserves the same running record: one row per hand-over with its amount *against this sale*, its date, its collector, an "also paid other bills" note when the cash was wider than this record, and a 3-dot menu offering **Send on WhatsApp** (customer + phone only) and **Void payment**. Voiding one there refreshes the screen behind, so the sale reads as owing again. A lean read carries no `chargeId`, so the block is not rendered and nothing is fetched.
+
 **Row actions (`useSaleActions`).** Every sale row carries a **3-dot menu** holding everything one sale can do, so no action is reachable only by opening the receipt first: **View receipt · Edit sale · Complete · Send invoice on WhatsApp · History · Void sale**. A **voided** sale keeps only the two that still make sense (view + history) — void is final, so it is never editable, re-sendable or voidable again. The WhatsApp row stays **visible and disabled with a caption** when there is nobody to send to (walk-in) or no phone on the customer, the same "explain, don't vanish" rule the invoice selection action follows.
 
 **Collect** appears only while the sale still owes something and has a customer (a walk-in has nobody to chase). It opens the very same `CollectSheet` every other bill uses — one door for money in, so custody, the audit entry and the currency rules are written in exactly one place. The old **Complete** action is gone with the model that needed it: `amount_paid` had no date of its own, so "he really paid in full, it was written down short" could only be expressed by rewriting the number. Now the second payment is simply recorded, on the day it happened. The hook takes an `onCollected` callback for the same reason the sale form takes `onUpdated`: the Sales tab's month section totals are a separate query, so the screen refetches.
@@ -798,7 +800,7 @@ keeps them mutually exclusive:
 
 | | means | effect |
 | --- | --- | --- |
-| **void** (`voided_at`) | it was a MISTAKE — it never existed | gone from every figure. Refused once money sits on it: void that payment first |
+| **void** (`voided_at`) | it was a MISTAKE — it never existed | gone from every figure. `voidCharge` is refused once money sits on it; `voidChargeWithPayments` is the deliberate "take the cash with it" door (see below) |
 | **write off** (`written_off_at`) | it is REAL but will never be paid | leaves "still owed", reported as a **loss** in Reports → Debts |
 
 Voiding a **collection** is the third, and different again: the cash was real
@@ -821,7 +823,831 @@ the **charge's** (what he was billed).
 | Where | What |
 | --- | --- |
 | `CollectSheet` | the ONE collect form. Two modes: a whole customer (type an amount, watch the waterfall split it, untick a row to steer the cash on) or a single bill. Same write either way, so one code path and one audit shape. |
-| `BillSheet` | one bill: a running `15 / 20 $` hero, then **every payment that reached it**, each with its own date and collector. Voiding lives here and nowhere else. |
+| `BillSheet` | one bill: a running `15 / 20 # Feature Deep-Dives
+
+> Detailed behavior for each feature area. Read the relevant section BEFORE editing that area's code. Referenced from `CLAUDE.md`.
+> The Month Grid algorithm itself stays in `CLAUDE.md` (it is the single most critical rule). This file covers everything built around it.
+
+## Contents
+
+- [Multi-Tenancy](#multi-tenancy)
+- [Branches (multi-location)](#branches-multi-location)
+- [Authentication Flow](#authentication-flow)
+- [Multi-Month Plans](#multi-month-plans)
+- [Multi-Currency](#multi-currency)
+- [App Options (Global Config)](#app-options-global-config)
+- [Tenant Settings (Per-Tenant Config)](#tenant-settings-per-tenant-config)
+- [Subscription Tiers](#subscription-tiers)
+- [Products & One-Off Sales](#products--one-off-sales)
+  - [Services](#services)
+- [Reports](#reports)
+- [Expenses](#expenses)
+- [WhatsApp Invoices](#whatsapp-invoices)
+- [Transactions Hub](#transactions-hub)
+- [The Ledger (charges + collections)](#the-ledger-charges--collections)
+- [Regular Customer](#regular-customer)
+- [Skipped Months](#skipped-months)
+- [Multiple Plans per Customer (service lines)](#multiple-plans-per-customer-service-lines)
+- [Pay Oldest Month First](#pay-oldest-month-first)
+- [Payment Scenarios](#payment-scenarios)
+- [Multi-Select & Bulk Actions](#multi-select--bulk-actions)
+- [Audit Trail](#audit-trail)
+- [Developer Tools](#developer-tools)
+
+---
+
+## Multi-Tenancy
+
+- **RLS is the primary guard** — all queries automatically scoped to the caller's tenant via Supabase JWT claims.
+- **App-level filtering** (`tenant_id` from `authStore`) is a secondary belt-and-suspenders guard.
+- `tenant_id` is injected into the JWT by a Supabase auth hook at login. **Never derive it from client input.**
+- Login email convention: `username@tenantcode.com` (synthetic, not a real email address).
+
+---
+
+## Branches (multi-location)
+
+Tenants can optionally create branches/zones. A tenant with zero branches behaves exactly as before — feature is invisible.
+
+**NULL semantics differ per table:**
+
+| Table       | `branch_id IS NULL` means                                      |
+| ----------- | -------------------------------------------------------------- |
+| `users`     | Tenant-wide admin (sees all branches and unassigned records).  |
+| `customers` | UNASSIGNED — visible only to tenant-wide admins.               |
+| `plans`     | SHARED catalog item — visible to every branch.                 |
+| `payments`  | (no `branch_id` column — inherits from customer via FK + JOIN) |
+
+**RLS layered on tenant_id:**
+
+- `public.current_branch_id()` reads `users.branch_id` for the calling user (SECURITY DEFINER).
+- Policies admit a row when `tenant_id` matches AND either the caller is tenant-wide (`current_branch_id() IS NULL`) or the row's branch matches. Plans additionally admit `branch_id IS NULL` (shared) for everyone.
+- Payments inherit via `EXISTS (SELECT 1 FROM customers c WHERE c.id = payments.customer_id AND c.branch_id = current_branch_id())`.
+- Branch switching for tenant-wide admins is purely UI state in `uiPrefStore.currentBranchId` — no JWT change.
+
+**UI:**
+
+- [BranchSelector](../SubsTrack/src/shared/components/BranchSelector.tsx) is a chip rendered below `PageHeader` on Customers/Dashboard/Plans/Users. It self-conceals: only renders for tenant-wide admins (`user.branchId === null`) when ≥1 active branch exists.
+- Options: All Branches (`null`) / each active branch / Unassigned (`BRANCH_FILTER_UNASSIGNED`).
+- `useEffectiveBranchFilter()` / `resolveBranchFilter(user)` in [branchFilter.ts](../SubsTrack/src/shared/lib/branchFilter.ts) returns the active filter: branch-scoped users always get their own `branchId`; tenant-wide admins get `uiPrefStore.currentBranchId`.
+- `applyBranchFilter(query, filter, column?)` mutates a supabase query builder: `null` → no-op, `BRANCH_FILTER_UNASSIGNED` → `.is(column, null)`, UUID → `.eq(column, uuid)`.
+
+**Form behavior:**
+
+- CustomerFormSheet: Branch picker only shown to tenant-wide admins. Branch-scoped users auto-assign their own branch. The plan dropdown filters to `branch_id IS NULL OR branch_id = selected_branch`, and the inline Plans editor's `PlanPicker` is **disabled** (greyed, with a "Select a branch first" hint) while no branch is chosen (`branchId === null`) — branch is required, so a plan can't be picked before it. `Dropdown` grew a `disabled`/`disabledHint` prop for this, threaded through `PlanPicker`.
+- PlanFormSheet: Branch picker only for tenant-wide admins; nullable (= Shared, visible to every branch) — mirrors ProductFormSheet. Branch-scoped users always create branch-scoped plans (their own).
+- UserFormSheet: Branch picker for tenant-wide admin. Once ≥1 branch exists, role=`user` requires a branch (enforced in `UserService.validate`). The `create-user` edge function additionally validates and forces branch_id for branch-scoped callers.
+
+See gotchas #26–#32 for the full branch NULL-semantics + enforcement rules.
+
+---
+
+## Authentication Flow
+
+```
+app/index.tsx
+  → authSlice.restoreSession()   (on mount)
+  → if no session → redirect to (auth)/login
+  → if session → redirect to (app)/(tabs)/home (admin) or (app)/(tabs)/customers (user)
+
+LoginScreen
+  → authSlice.login(username, tenantCode, password)
+  → AuthService: email = `${username}@${tenantCode}.com`
+  → AuthRepository.signIn(email, password)   [Supabase Auth]
+  → AuthRepository.getUserProfile(userId)    [public.users]
+  → AuthRepository.getTenant(tenantId)       [tenants joined with tier_plans]
+  → stores AuthUser + tenantActive in authSlice
+  → primePostAuth(user) — Promise.all of:
+       get().currencies.fetchCurrencies()
+       get().branches.fetchBranches()
+       get().options.fetchOptions()         (loads global app_options — e.g. LiraRate)
+       get().subscription.init(tenantId)
+         → tierService.fetchTiers() (3 tier_plans rows)
+         → tierService.fetchUsage() (counts customers/users/plans/branches/currencies)
+         → tierService.getTenantWithTier(tenantId) — fresh tenant + joined tier
+           → also writes back via authSlice.setUserTier so user.tenant.tier stays in sync
+
+LoginScreen also exposes "Create a new organization" → signupSlice (2-step form):
+  Step 1 (SignupOrganizationScreen)
+    → signupSlice.validateAndCheckCode()
+    → SignupService.validateOrganization() + repo.isTenantCodeAvailable()
+    → on success → push /(auth)/signup-account
+  Step 2 (SignupAccountScreen)
+    → signupSlice.submit()
+    → SignupService.createTenant() → SignupRepository.createTenant()
+    → supabase.functions.invoke('create-tenant') [service-role server-side]
+       atomically: tier_plans (lookup Free id) → tenants(tier_id=Free) →
+       branches('Default Branch') → auth.users → public.users(role=superadmin, branch_id=null)
+       cascading rollback on any step
+    → auto-login via authSlice.login(...) with the just-entered credentials
+    → root layout reacts to authSlice.user and routes into the app
+
+app/(app)/_layout.tsx
+  → if !user → redirect to login
+  → if !tenantActive → show TenantInactiveScreen
+  → otherwise → render tabs
+```
+
+**Hydration note:** `authSlice` exports an internal `primePostAuth(get, user)` helper called by `login` and `restoreSession`. It runs `get().currencies.fetchCurrencies()`, `get().branches.fetchBranches()`, `get().options.fetchOptions()`, and `get().subscription.init(tenantId)` in parallel via `Promise.all`. `subscription.init` is the **source of truth** for the active tier (see Subscription Tiers below).
+
+See `docs/edge-functions.md` for `create-tenant` internals and gotcha #33 for the anon-path rationale.
+
+---
+
+## Multi-Month Plans
+
+Plans can cover 1–12 consecutive months. When `durationMonths > 1`:
+
+- The plan represents a **bundled price** for the entire period (not per-month).
+- Multi-month plans **must have a fixed price** — `isCustomPrice` must be `false`.
+- A single `Payment` record is created with `durationMonths` matching the plan. That payment covers all months in the range.
+
+**Recording a multi-month payment (one bill, `duration_months > 1`):**
+
+1. Builds a coverage set from existing active payments to detect conflicts.
+2. If any months in the proposed range are already paid:
+   - With `skipConflicts = false` → throws an error listing the conflicting months.
+   - With `skipConflicts = true` → finds the first uncovered month, adjusts `effectiveStart` and `effectiveDuration`, records a single payment for the remaining range.
+3. Returns `{ payment, skippedMonths }` so the UI can surface conflict info.
+
+**Return types:**
+
+```typescript
+type MultiMonthConflict = { billingMonth: string; label: string };
+type CreateMultiMonthPaymentResult = {
+  payment: Payment;
+  skippedMonths: MultiMonthConflict[];
+};
+```
+
+See gotchas #13, #14, #15 for the storage + grid-rendering details.
+
+---
+
+## Multi-Currency
+
+The app supports an arbitrary list of non-USD currencies per tenant. USD is the implicit base — never stored in the `currencies` table.
+
+**Storage model: amount is as-typed, paired with `currency_id`.**
+
+- `plans.price` + `plans.currency_id` — the price was literally `89000` in LBP (not 1.00 USD). Plan USD equivalents use the **live** rate (forward-looking pricing).
+- `charges.amount` (what he was BILLED) and `collections.amount` (what he HANDED OVER), each with its own `currency_id` + `rate_per_usd_snapshot`. The customer literally handed over `89000 LBP`. **The LBP value is preserved forever**, and the USD equivalent is frozen at each row's own recording time. The two rates are deliberately separate: a debt total converts at the rate he was billed at, revenue and the wallet at the rate the cash arrived at. `BillSheet`, the year totals and every dashboard aggregate convert via the snapshot — they do not drift when the live rate is edited.
+- `null currency_id` means USD throughout the codebase; USD payments store snapshot = 1.
+
+**Conversion helpers** ([src/core/utils/currency.ts](../SubsTrack/src/core/utils/currency.ts)):
+
+```ts
+toUsd(amount, source: Currency | null): number       // null source → amount unchanged
+fromUsd(amountUsd, target: Currency | null): number  // null target → amount unchanged
+convert(amount, source, target): number              // go via USD
+formatMoney(amount, source, target): string  // convert + Intl.NumberFormat
+findCurrency(currencies, id | null): Currency | null
+paymentSnapshotCurrency(payment, currencies): Currency | null  // returns the source Currency with ratePerUsd overridden by the payment's snapshot — use everywhere a historical payment amount is displayed
+```
+
+**`CurrencyInput`** ([src/shared/components/CurrencyInput.tsx](../SubsTrack/src/shared/components/CurrencyInput.tsx)) — the reusable input with an embedded currency dropdown. Used in PlanFormSheet (price) and CollectSheet (the amount received). The dropdown lists USD + active tenant currencies. Switching currency does NOT convert the typed number — switching means "I meant this number in the new currency."
+
+**Display currency is per-TENANT, not per device** — stored in `tenant_settings` under the `DisplayCurrencyId` key (a `currencies.id`; blank/unset = USD), set by an admin in Tenant Settings and read everywhere through the `useDisplayCurrencyId()` hook. Every user of the organization therefore sees amounts in the same currency, on every device, and an admin's change reaches the others on their next sync/login. All read-only displays (PlanCard, DashboardScreen, admin/index revenue card, CustomerPaymentPanel year summary) convert their values to it at render. The currency a value was **stored in** is preserved in `BillSheet`'s primary line for receipt fidelity, with the display-currency equivalent as a secondary "≈" line. A soft-deleted / unknown id resolves to `null` via `findCurrency`, so the UI falls back to USD instead of crashing.
+
+**Aggregates** (Dashboard) sum across mixed currencies by converting each row to USD using its `rate_per_usd_snapshot` (drift-free historical totals) in `DashboardService.getMetrics()`. The screen then formats the USD total in the tenant's display currency.
+
+**Last-used currency** persists in [src/shared/lib/uiPrefStore.ts](../SubsTrack/src/shared/lib/uiPrefStore.ts) so the `CurrencyInput` dropdown defaults to whatever the user typed in last time.
+
+**Currency deletion** is safety-guarded: `CurrencyService.deleteCurrency()` counts references in `plans` + `payments`. If non-zero, it does a soft-delete (sets `active = false`); otherwise it hard-deletes. `ON DELETE RESTRICT` on the FKs prevents any chance of orphaning historical data.
+
+**Default Lebanese Pound currency.** Every newly created tenant is auto-seeded with an `LBP` (Lebanese Pound) currency (`decimals = 0`, `symbol = 'ل.ل'`). Its `rate_per_usd` is copied **once, at creation time**, from the global `app_options.LiraRate` option (see App Options below). After creation it is an ordinary editable tenant currency — the seed is a starting default, not a live link. Both tenant-creation paths seed it: SuperAdmin's `TenantService.createTenant` (via `TenantRepository.getLiraRate` + `createLbpCurrency`) and the public `create-tenant` edge function. A missing/invalid `LiraRate` never blocks signup — both paths fall back to `DEFAULT_LIRA_RATE = 89000`.
+
+See gotchas #18, #19, #21, #22, #24, #36 for the snapshot/conversion rules.
+
+---
+
+## App Options (Global Config)
+
+`app_options` is a **global, app-wide** key/value table (NOT tenant-scoped — no `tenant_id`). Columns: `id`, `key` (unique), `value` (text), `description`, timestamps. It holds cross-tenant configuration the SaaS owner controls. Seeded keys today:
+
+- `LiraRate` — default USD→LBP rate (LBP per 1 USD) used when seeding each new tenant's LBP currency.
+- `AllowPlanUpgrade` (`'true'`/`'false'`, default true) — when `false`, the in-app upgrade buttons (`TierCard`, `UpgradePromptModal`) are replaced by a "contact to upgrade" WhatsApp button that deep-links to `SupportWhatsAppNumber` with a pre-filled message. Purely a UX gate.
+- `AllowSelfServiceSignup` (`'true'`/`'false'`, default true) — when `false`, the login screen hides the "Create organization" button **and** the `create-tenant` edge function rejects signups (`403`, `code: signup_disabled`) — server-side is authoritative.
+- `SupportWhatsAppNumber` — support WhatsApp number (international format, digits only) used by the upgrade WhatsApp deep-link.
+
+- **RLS:** `app_options_select` grants `SELECT` to **`anon` + `authenticated`** (anon is required because some flags gate pre-auth UI, e.g. self-service signup on the login screen). There is **no** write policy, so only the **service role** (SuperAdmin app + the `create-tenant` edge function) can insert/update/delete — RLS bypass is the write path.
+- **SuperAdmin** owns full CRUD via the **Options** tab ([app/(tabs)/options.tsx](<../SuperAdmin/app/(tabs)/options.tsx>) → `OptionsScreen`). The `options` module mirrors `tier-plans` (repository + service + standalone `optionStore` + screen + `OptionFormSheet`) but adds create + delete. The option **key is immutable after creation** (only `value` + `description` are editable), so well-known keys can't be renamed out from under the code that reads them.
+- **SubsTrack** has a **read-only** `options` module (repository `findAll`/`findByKey` + `OptionService.getOptions`/`getOptionValue` + `optionSlice` + `useOptionSlice`). It never writes. Options are fetched **at app bootstrap** (`app/_layout.tsx`, so the pre-auth login screen can read flags) and re-primed on login/restore via `primePostAuth`; they are intentionally **not** reset on `logout`. Reference keys through `OPTION_KEYS`, never magic strings. Read values through the typed selector hooks in [useOptionSlice.ts](../SubsTrack/src/state/hooks/useOptionSlice.ts): generic `useOptionValue(key)` / `useBooleanOption(key, fallback)`, and semantic `useCanUpgradePlan()` / `useSelfServiceSignupEnabled()` / `useSupportWhatsAppNumber()`. For **conditional UI**, prefer the declarative gate components in [FeatureGate.tsx](../SubsTrack/src/shared/components/FeatureGate.tsx) — `<CanUpgrade fallback={…}>` and `<CanCreateOrganization>` — which wrap the gated element and render `children` when enabled, else `fallback`; this keeps flag ternaries out of the screens. WhatsApp deep-links go through `openWhatsApp()` in [shared/lib/whatsapp.ts](../SubsTrack/src/shared/lib/whatsapp.ts).
+
+See gotcha #38.
+
+---
+
+## Tenant Settings (Per-Tenant Config)
+
+`tenant_settings` is the **tenant-scoped twin** of `app_options`: same key/value shape, but every row carries a `tenant_id`, and it is written **in-app by admins** rather than by the SaaS owner. Columns: `id`, `tenant_id`, `key`, `value`, timestamps, with `UNIQUE(tenant_id, key)`.
+
+- **RLS:** `tenant_settings_select` lets **every member** of the tenant read (the values drive shared behavior, so a non-admin collector must see them too); `tenant_settings_write` restricts `ALL` to `admin` / `superadmin` of that tenant. Both scope on `current_tenant_id()`.
+- **Module:** `src/modules/admin/tenant-settings/` — the usual repository (platform switch) + service + mapper + `TENANT_SETTING_KEYS`. `TenantSettingService` owns the **parsing** of raw strings into typed settings (`parseUnpaidStartRule`), so no caller ever inspects a raw value.
+- **State:** the `tenantSettings` slice (loaded in `primePostAuth`, **reset on logout** — unlike the global `options` slice, since it is tenant-scoped and must not leak to the next tenant on a shared device). Read through [useTenantSettingSlice.ts](../SubsTrack/src/state/hooks/useTenantSettingSlice.ts): generic `useTenantSettingValue(key)` and semantic `useUnpaidStartRule()`. Reference keys through `TENANT_SETTING_KEYS`, never magic strings.
+- **UI:** Admin → Tenant Settings, one section per setting (`UnpaidRuleSection`), matching `DisplayCurrencySection`'s card layout. Saving refreshes the current-month badge sets, since a rule change restates which months are unpaid.
+- **Offline:** a normal tenant-scoped synced table. The offline write derives a **deterministic id from `(tenant_id, key)`** and upserts on that natural key (registered in `NATURAL_KEYS` **and** in `sync/push.ts`'s `conflictTarget`), so two devices setting the same option offline converge on one row instead of stalling the push on the UNIQUE index.
+
+**Keys today:**
+
+- `UnpaidStartRule` (`'month_start'` default \| `'customer_start_day'`) — when a month turns unpaid, and when the customer starts reading "Overdue". Those are **two** facts under `'customer_start_day'`: the **current** month is grey until the line's billing day (`isNotDueYet`), and **last** month is red but not yet *late* until that same day (`isNotLateYet`) — see gotcha #83. See [CLAUDE.md](../CLAUDE.md) → Critical Business Logic: Month Grid for the full rule; both helpers live in `customer-payments/utils/monthDueRules.ts`, shared by the grid and the customer-list aggregator.
+
+**Adding a new key:** add it to `TENANT_SETTING_KEYS`, give `TenantSettingService` a typed setter + parser, add a semantic hook, and render a section on the screen. No schema change is needed — it is a key/value table.
+
+---
+
+## Subscription Tiers
+
+Every tenant lives on one of three global `tier_plans` rows: **Free**, **Pro**, **Business**. The catalog is small and fixed (3 rows seeded by `script.sql`, editable by the SaaS owner via SuperAdmin's tier-plans module). Each tier defines numeric limits (`max_customers`, `max_users`, `max_plans`, `max_branches`, `max_currencies` — NULL means unlimited), feature flags (`multi_currency_enabled`, `multi_month_plans_enabled`), and a USD monthly price.
+
+**Enforcement is service-layer.** Every feature `Service.createX()` calls `tierService.assertCanCreate(tier, usage, resource)` immediately after its existing `validate()`. Failures throw a typed `TierLimitError` (from [TierService.ts](../SubsTrack/src/modules/subscription/services/TierService.ts)) carrying `{resource, limit, tierCode}`. Slice actions catch via `instanceof` and set a structured `tierLimitError` field next to the standard `error: string`. Form sheets check `tierLimitError` and render an `UpgradePromptModal` (the existing `ErrorBanner` path stays for regular validation errors). This avoids parsing error strings.
+
+**Tier and usage are passed in as parameters from components**, not read across slices in actions (slice actions still touch `get().subscription.refreshUsage()` after creates, but the _input_ tier/usage comes from the caller). The pattern in slices:
+
+```ts
+createCustomer: async (data, tenantId, tier, usage) => {
+  set((s) => {
+    s.customers.loading = true;
+    s.customers.error = null;
+    s.customers.tierLimitError = null;
+  });
+  try {
+    const customer = await customerService.createCustomer(
+      data,
+      tenantId,
+      tier,
+      usage,
+    );
+    set((s) => {
+      s.customers.items.unshift(customer);
+      s.customers.loading = false;
+    });
+    void get().subscription.refreshUsage(); // ← cross-slice via get()
+  } catch (e) {
+    if (e instanceof TierLimitError) {
+      set((s) => {
+        s.customers.tierLimitError = {
+          resource: e.resource,
+          limit: e.limit,
+          tierCode: e.tierCode,
+        };
+        s.customers.loading = false;
+      });
+    } else {
+      set((s) => {
+        s.customers.error = (e as Error).message;
+        s.customers.loading = false;
+      });
+    }
+  }
+};
+```
+
+Components read `currentTier` and `usage` from `useSubscriptionSlice` and forward them into the action.
+
+**Hydration:** `authSlice` exports an internal `primePostAuth(get, user)` helper called by `login` and `restoreSession`. It runs `get().currencies.fetchCurrencies()`, `get().branches.fetchBranches()`, `get().options.fetchOptions()`, and `get().subscription.init(tenantId)` in parallel via `Promise.all`. `subscription.init` is the **source of truth** for the active tier: it concurrently fetches the tier catalog, the tenant's usage, and the tenant row with its joined tier (`tierService.getTenantWithTier`), then writes the resolved tier back to `auth.user.tenant.tier` via `authSlice.setUserTier` so the auth slice stays in sync. This is why a tier upgrade made in a previous session is reflected immediately on app restart — the subscription slice never trusts a parameter-passed tier; it always re-queries the DB.
+
+**Upgrade UX:** dedicated screen at [SubscriptionScreen.tsx](../SubsTrack/src/modules/subscription/screens/SubscriptionScreen.tsx) (routed at `/(app)/(tabs)/admin/subscription`). Shows 3 stacked TierCards with usage bars for the current tier and Upgrade/Downgrade buttons for the others. Upgrades are instant swaps via `subscriptionSlice.upgrade(tenantId, tierId)` — no billing wired up yet. Downgrades call `TierService.canDowngradeTo(targetTier, usage)` first; if usage exceeds the target tier's limits the dialog lists blockers ("42 / 30 customers") and refuses to swap. The `UpgradePromptModal` is also triggered inline whenever a form sheet hits a `TierLimitError`. The "Subscription" entry in the admin menu ([admin/index.tsx](<../SubsTrack/app/(app)/(tabs)/admin/index.tsx>)) is rendered only for tenant-wide admins (`user.branchId === null`) — branch-scoped admins don't see it.
+
+**`UpgradePromptModal` design:** for tenant-wide admins, the modal renders compact preview cards for the available upgrade tiers (every tier with `sortOrder > currentTier.sortOrder`), each showing name, monthly price, and a few key perks (customer/user caps, multi-month/multi-currency flags). The footer has "Not now" + "View plans"; "View plans" pushes `/(app)/(tabs)/admin/subscription`. Branch-scoped admins and staff see a stripped-down "Limit reached — contact your administrator" notice with just a Close button (they can't change the tier themselves).
+
+**Soft UX gates** beyond the hard service-layer block: PlanFormSheet hides multi-month duration UI when `tier.multiMonthPlansEnabled === false`; CurrencyFormSheet hides itself behind the same `assertMultiCurrency` check; the Add buttons on list screens stay enabled so the user always reaches an explanation.
+
+**Tenant creation defaults to Free.** Both the public `create-tenant` edge function and SuperAdmin's `TenantService.createTenant` look up the Free tier id and stamp it on the new `tenants` row. SuperAdmin's `TenantFormSheet` exposes a tier dropdown so the SaaS owner can onboard paid tenants directly or change a tenant's tier later (the manual paid-upgrade path). `tier_upgraded_at` is touched on every change.
+
+**Future-proofing:** to add Stripe, append nullable `stripe_price_id_monthly` / `stripe_price_id_yearly` to `tier_plans` and `stripe_customer_id` / `stripe_subscription_id` to `tenants`. Only `subscriptionSlice.upgrade()` changes — it redirects to a Checkout session, the webhook updates `tier_id`. Every other call site already reads from `currentTier`.
+
+---
+
+## Products & One-Off Sales
+
+`products` + `services` + `sales` extend SubsTrack beyond recurring subscriptions. `payments` (subscriptions) and `sales` are deliberately separate ledgers — they don't share schema or service code. Subscription month-grid logic is untouched.
+
+**Products** mirror `plans` exactly: per-tenant catalog, optional currency, `branch_id IS NULL` = SHARED, soft-delete via `active = false` when a product has historical sales (hard-delete otherwise — mirrors `CurrencyService.deleteCurrency`). Tier-gated through `tier_plans.max_products` (Free: 5, Pro/Business: unlimited). Soft-vs-hard delete keys off **`sale_items.product_id`** references (not `sales`).
+
+**A sale is a header + lines, and a line sells a product OR a service.** One sale can hold **several lines** in any mix (a small "cart") — products only, services only, or both, but at least one of something. The account/transaction lives on the `sales` header; each thing sold is a `sale_items` row. This mirrors the `customers` → `customer_plans` header/line split. See **Services** below for what a service line is and is not.
+
+- **`sales` (header)** — one transaction: `items_summary`, `total_amount`, `currency_id` + `rate_per_usd_snapshot`, `customer_id`, `recorded_by_user_id`, `sold_at`, void fields. It holds **no money and no custody**: what the sale OWES is its `charges` row (`kind = 'sale'`, written in the same transaction) and what was COLLECTED is a `collections` row — which is what lets one sale take installments. `Sale.amountPaid` still exists in the domain type but is **derived**, filled by `SaleService.withMoney` from the bill's balance.
+  - `items_summary` — a **frozen** human summary of every line (e.g. `"Water ×2, Installation"`), built by the service at create time. It powers the Sales-tab **search** and the **list / debt / wallet labels** so those stay lean (no `sale_items` join needed). Contains every line's name — products and services alike — so search matches any of them.
+  - `total_amount` — the summed line totals, **app-written** at create (a generated column can't sum a child table). Snapshot, never recomputed. It is also the amount of the sale's bill, so anything still owed on it is one "sale" debt for the whole sale.
+  - `rate_per_usd_snapshot` — currency rate at sale time, same drift-free principle as `payments.rate_per_usd_snapshot`. Use `paymentSnapshotCurrency(sale, currencies)` to display — it works for any row with `currencyId` + `ratePerUsdSnapshot` despite the name.
+  - `customer_id` is **nullable** — walk-in sales are recorded with `customer_id = NULL`.
+  - `voided_at` / `voided_by` / `void_reason` for soft-void. Voiding cascades to `sale_items` only on hard delete (FK `ON DELETE CASCADE`); a void just stamps the header. No hard delete of active sales.
+- **`sale_items` (lines)** — one row per thing sold: `sale_id`, `line_type` (`'product'` | `'service'`), nullable `product_id` / `service_id`, `item_name_snapshot` (frozen), `quantity` (**always 1 on a service line** — labour has nothing to count; see Services below), `unit_amount` (frozen, in the sale currency), `voided_at` (set only when an **edit** dropped the line — see below). `line_total = unit_amount * quantity` is **derived in the mapper** (no stored column). No own `branch_id` — RLS inherits from the parent sale (`EXISTS`), like `payments` inherit via the customer. `ON DELETE CASCADE` from `sales`; `ON DELETE RESTRICT` on **both** `product_id` and `service_id` (a referenced catalog row can't be hard-deleted — including by a line an edit dropped, which is why both reference counts deliberately count voided lines too). `chk_sale_items_line_ref` keeps the type and the ids agreeing: a `'product'` line has a product and no service; a `'service'` line has no product, and **may** have no service either — that gap is the one-off typed job.
+  - The name column was `product_name_snapshot` before a line could be a service. The rename is guarded inside `script.sql` and needs a matching local backfill, because the SQLite mirror is additive-only — see gotcha #99 before renaming anything else it mirrors.
+
+**One currency per sale, auto-convert.** A sale freezes exactly one currency + one rate (the debt / wallet / dashboard math depends on it). The `SaleFormSheet` has a single sale-currency selector; when a catalog item (product **or** service) is added, its price is **converted into the sale currency** at the live rate (`convert()` in `src/core/utils/currency.ts`) as the editable per-line prefill. The first catalog item picked adopts its own currency as the sale default (until the user changes it); changing the sale currency re-prices every catalog line from its own price — a **one-off** service has no catalog price, so its typed amount is left alone. The `SaleItemsEditor` (`src/modules/transaction/sales/components/`) owns the cart rows + sale currency and reports a `SaleCartDraft` (`lines` / `total` / `currency` / `ready` / `dirty`) up to the form — mirroring `CustomerPlansEditor`'s add/remove-row pattern. An optional `initial` seeds it from a saved sale (edit mode). It answers `dirty` **itself** rather than letting the form diff its values: it re-reports the draft from an effect one render after mount, so `useDirtyForm`'s baseline would be the empty cart and an untouched edit form would prompt "discard changes?" on close (gotcha #55). The editor owns the baseline, so it owns the answer — and its signature covers `lineType` / `serviceId` / the typed name too, or flipping a row to a service would read as untouched.
+
+**Create is header-then-lines.** `SaleService.createSale` computes the summed `total_amount` + `items_summary`, then `SaleRepository.create` inserts the header, then the lines (web: sequential insert like the customer + `customer_plans` path; offline: header + all lines in one SQLite transaction, pushed parents-before-children via `PUSH_WAVES`). List/detail reads join `sale_items(*, products(*), services(*))` — both LEFT joins, since a line fills at most one of them; the lean aggregate/label reads (`partialSales`, `heldForWallet`, dashboard totals) read only header columns.
+
+### Services
+
+A **service** is labour the tenant charges for — an installation, a repair visit, a router setup. Before this existed the only way to bill for one was to invent a fake product, which dragged it through the stock ledger and the derived stock expenses where it does not belong.
+
+**What a service is:** a **line on a sale**. There is no service record, no Services tab, and no fourth money stream. That is the design, not a shortcut: every money figure in the app reads the sale's **one bill**, so services arrived in revenue, debts, the collector wallet, Reports, WhatsApp invoices and the CSV export with **no new aggregation anywhere**. Read gotcha #98 before adding a "services revenue" figure — a mixed sale raises one charge, and splitting the cash against it between goods and labour is a number the business never agreed to.
+
+**What a service is NOT:** stocked or costed. No `stock_movements` row, no oversell check, no expense. Staff pay is still typed by hand under the `salaries` expense category. Because a service line moves no stock, every stock path narrows through `productLines()` / `savedProductLines()` in `sales/utils/saleLines.ts` — never a nullable-id test (gotcha #97).
+
+**The price list (`services`).** Admin → Services, reached from the admin menu. The products screen minus stock and cost: name, description, price + currency, branch (`branch_id IS NULL` = SHARED), `active`. `UNIQUE(tenant_id, branch_id, name)` and the RLS pair `services_select` / `services_modify` are copied from `products` verbatim — so a **collector** can add one from the sale form the same way they can add a product, and a branch-scoped user can only write in their own branch. **No tier limit** (unlike `max_products`): services are uncapped. Soft-delete when any sale line references it (counting voided lines, since the FK is `ON DELETE RESTRICT`), hard-delete otherwise — the same two-mode `deleteService` as products, with a batch counterpart. Audited like products, with **History** on the card menu via `useRecordHistoryAction('services')`.
+
+Layers: `src/modules/admin/service-catalog/` — repository (+ `.offline`, platform switch), `ServiceCatalogService`, `ServiceListScreen`, `ServiceCard`, `ServiceFormSheet`, and a `services` slice with the standard `loaded` guard. The business-logic class is named `ServiceCatalogService`, not `ServiceService`, because "service" is also this app's name for that whole layer — and the module folder is `service-catalog` so the file is not `admin/services/services/…`.
+
+**Picking one on a sale.** A line's kind is decided by **which button added it** — the cart footer holds two dashed buttons, **+ Add product** and **+ Add service** — and the card then only *labels* what it sells (icon + word, plus `#n` when there are several). There is **no per-row switch**: the first shape of this editor put a full-width `Product | Service` segmented control at the top of each card, which read as a page tab bar, so tapping "Service" looked like navigating to a services list and instead silently wiped the product the user had just picked (gotcha #101). A sale holding both is therefore **two lines, never one line toggled twice**, which is also what the data model always said. A new sale opens with **zero** rows — the two buttons are the empty state — and any row, including the last, can be removed, which is how a line's kind is changed. In a service row the dropdown offers the active catalog services (priced in the sale currency, same conversion as products) plus a final **"Other — type a name"** option, which reveals a name field: that is the **one-off** — `service_id IS NULL`, and `item_name_snapshot` is the entire record of what was sold, so no catalog row is created. Adding a service inline (the dropdown's "+") prices the row from the object the form just saved, not from a store lookup, which would miss it on that render.
+
+**A service line has NO quantity — only a price.** No stock cap, no "N left" caption, and **no stepper at all**: labour is one job at one price, so the row shows a single **Price** field which *is* the line total. Two jobs are two lines; a bigger job is a bigger number. This is enforced by the type, not by a runtime check — the `service` variant of `CreateSaleItemInput` simply has no `quantity` field, so the compiler stops any caller from multiplying one. `lineQuantity()` (`sales/utils/saleLines.ts`) is the one answer to "how many?", returning 1 for labour, and every total, summary and DB row goes through it: `sale_items.quantity` still exists and still stores **1** on a service line, so nothing downstream had to learn a special case. The receipt and the WhatsApp invoice both drop the `1 × …` prefix on a service line, because "1 × $25 = $25" is noise.
+
+**Validation** splits by kind in `SaleService.validate`: a product line needs a real catalog row (`errors.sale_product_required`) **and** a positive integer quantity, a service line needs a non-blank resolved name (`errors.sale_service_required`) — which is also what keeps the `NOT NULL` name column legal for a one-off — and no quantity rule at all. The positive `unit_amount` check is shared.
+
+**Edit an existing sale.** A recorded sale can be corrected in place — "I rang up the wrong product / quantity / price" no longer means void + re-record, which lost the receipt id and left a dead row in the trail. **Any staff member** may edit, from the sale row's **3-dot menu** or the receipt sheet's **Edit sale** action (all three sale surfaces: the Sales tab, the customer panel, the per-customer page). It reuses **one form** — `SaleFormSheet` takes an optional `sale` prop and switches title, button and submit path; there is no second edit form. A **voided** sale is a closed record and never offers the action (`SaleService.updateSale` refuses it, and both repositories filter `voided_at IS NULL`).
+
+Everything the form owns can change: the lines (including swapping a product line for a service one, or the reverse), quantities, unit prices, the sale currency, the customer, the amount collected and the notes. What identifies the sale cannot: `id`, `tenant_id`, `sold_at`, and the original `recorded_by_user_id` (who made the correction is in the audit trail, not on the row). Five rules make it safe:
+
+- **Changing the currency RE-FREEZES `rate_per_usd_snapshot`**, exactly like editing a payment (gotcha #21) — the corrected row is what every historical USD total then reports.
+- **The stock ledger is swapped, not reversed.** `SaleRepository.update` soft-voids the sale's live `'sale'` movements and inserts fresh ones — the same idempotent shape as `voidSale`, never compensating opposite rows (gotcha #48). It only happens when the **per-product** unit count actually changed: `SaleService.sameStockFootprint` compares the carts by product, so a price / notes / amount-paid fix leaves the ledger untouched (and splitting one line of 3 into 1 + 2 moves nothing, so it doesn't either). **Service lines are invisible to that comparison on both sides**, so a service-only edit compares two empty footprints and correctly leaves the ledger alone; replacing the last product line with a service yields an empty replacement set, which voids the old movements and inserts none — giving the stock back exactly once (gotcha #97).
+- **The sale's own units count as available while it is being re-cut.** `assertStockAvailable` takes a `credited` map (and `SaleItemsEditor` a matching stock credit), so re-pricing a sale that took the last unit isn't rejected as out of stock, and the cart's "N left" caption shows the true ceiling. The editor also keeps a product that was **deactivated** since the sale on its line — otherwise the edit couldn't re-save the line it is standing on — while barring it from a new one.
+- **A dropped line is soft-voided (`voided_at`), never deleted.** The sync engine has no tombstones for `sale_items`, so a delete would live on forever in every other device's mirror. Lines are matched to the existing rows **by position**, so a line that merely changed quantity or price keeps its id and syncs as a plain update. `mapDbSaleToSale` filters voided lines out — the one place both the web and the offline read pass through — and the Sales-tab product filter skips them too.
+- **A walk-in edit keeps the sale's branch.** The create rule (`customer.branchId ?? user.branchId`) would move a collector's branch sale to "no branch" the moment a tenant-wide admin corrected a typo in it, so an edit falls back to `sale.branchId` instead.
+
+An edit **re-prices the bill and leaves every payment against it alone** — money is a `collections` row with its own date, collector and custody, so correcting it means voiding that payment, not re-typing a number here. The form shows the collected amount read-only and refuses a total below it (`errors.sale_total_below_collected`); the service refuses it too. There is **no custody lock** — a sale stays editable after its cash has been handed up the chain. One audit entry is written for the sale as a whole (`action: 'update'`, changed columns only) — `sale_items` and `stock_movements` remain deliberately un-audited, and the changed `items_summary` / `total_amount` are what report a re-cut cart.
+
+**Receipt (`SaleDetailSheet`).** The lines get their **own card**, separate from the customer / sold-at / receipt-ID rows: an "Items" header (cart icon + line count when >1), then one row per line — numbered bubble, `item_name_snapshot` (a **service** line prefixed with a small `construct-outline` mark, so the bill shows at a glance which part was labour), a `qty × unit price` sub-line, and the line total on the right. A totals footer (Total, plus Paid / Remaining when the sale is partial) renders only when it adds information (multi-line or partial sale). The hero's caption swaps the frozen `items_summary` for a "{{count}} items" count once there is more than one line, since the summary gets long. Lean reads (empty `items`) simply skip the card.
+
+**Row actions (`useSaleActions`).** Every sale row carries a **3-dot menu** holding everything one sale can do, so no action is reachable only by opening the receipt first: **View receipt · Edit sale · Complete · Send invoice on WhatsApp · History · Void sale**. A **voided** sale keeps only the two that still make sense (view + history) — void is final, so it is never editable, re-sendable or voidable again. The WhatsApp row stays **visible and disabled with a caption** when there is nobody to send to (walk-in) or no phone on the customer, the same "explain, don't vanish" rule the invoice selection action follows.
+
+**Collect** appears only while the sale still owes something and has a customer (a walk-in has nobody to chase). It opens the very same `CollectSheet` every other bill uses — one door for money in, so custody, the audit entry and the currency rules are written in exactly one place. The old **Complete** action is gone with the model that needed it: `amount_paid` had no date of its own, so "he really paid in full, it was written down short" could only be expressed by rewriting the number. Now the second payment is simply recorded, on the day it happened. The hook takes an `onCollected` callback for the same reason the sale form takes `onUpdated`: the Sales tab's month section totals are a separate query, so the screen refetches.
+
+The whole set is defined **once**, in `sales/hooks/useSaleActions.tsx`, and used by all three sale surfaces (Sales tab, customer panel, per-customer page) — adding an action means one edit, not three. The hook owns the `ActionMenu`, the shared-reason void dialog and the record-history sheet; the screens keep the receipt sheet and the sale form, since those carry each screen's own refresh callback. Two deliberate choices inside it:
+
+- **One menu per SCREEN, not per card.** The debts / expenses cards each mount their own `ActionMenu`, but the sales lists are paginated and virtualized, so a per-card menu would mount a bottom sheet per visible row. `SaleCard` only raises `onMenu(sale)`.
+- **One void dialog for one sale and for a selection.** `requestVoid(sales)` feeds the same `SaleBulkVoidSheet` from the card menu and from the multi-select toolbar, so a single-sale void gets the same reason box and the same `voidSales` path (its title/message have `_one` plural forms so the copy reads right for one row).
+
+**Branch semantics:**
+
+- `products.branch_id`: same as `plans` — `NULL` = SHARED catalog item visible to every branch.
+- `sales.branch_id`: same as `customers` — `NULL` only when a tenant-wide admin records a walk-in without picking a branch. RLS scopes branch-scoped users to their own branch. `sale_items` has no `branch_id` — it inherits via the parent sale.
+
+**`AsyncEntityPicker`** ([src/shared/components/AsyncEntityPicker.tsx](../SubsTrack/src/shared/components/AsyncEntityPicker.tsx)) is the reusable customer picker built for `SaleFormSheet`. Generic over `<T>`; the caller passes a `loadPage(search, page)` callback. Reuses `SearchTextBox`, `useDebounce` (300 ms), and a `requestToken` ref to discard stale responses when the user types fast (same pattern as `customerSlice.searchToken`). Use it any time the option list is too large to fit in memory — small static lists keep using `Dropdown`.
+
+**Sales tab filters:** `SalesPanel` exposes a chip filter bar above the list — search (sale `items_summary` + customer name), customer (`CustomerPicker`), product (`Dropdown` over active products, lazy-loaded via `fetchProducts` on mount — the repo resolves "sales containing this product" from `sale_items`), and a **From/To date range** (`DatePickerInput` with `triggerStyle="chip"`, the two pickers constrain each other via `minDate`/`maxDate`). All non-search filters live on the `sales` slice (`customerFilter`, `productFilter`, `fromDate`, `toDate`) and flow into `saleService.getSales` → `SaleRepository.findAll`; date bounds are calendar days converted to `sold_at` timestamp bounds (end inclusive via next-day-exclusive). A "Clear filters" chip (visible only when ≥1 filter is active) resets them in one tap via `clearFilters`.
+
+**Customer sales surfaces:** the customer detail screen renders `CustomerSalesPanel` at the **bottom** (below the payment grid + details card). The panel shows only a **5-sale preview**; when the customer has more it renders a "Show all" link to a dedicated full-page list (`CustomerSalesListScreen` at `customers/[id]/sales`) that mirrors the Sales tab (search + infinite scroll + record FAB + void) but is locked to one customer. Both surfaces keep their **list reads** independent of the global `sales` slice — the panel via `saleService.getSalesForCustomer` (with a stale-response token guard), the full page via the `useCustomerSalesList` hook — so neither clobbers the Sales tab's filter/search/list state. **Mutations, however, route through the global slice** so the Sales tab cache stays coherent: creates go through `SaleFormSheet` → `saleSlice.createSale` (unshift), and voids go through `saleSlice.voidSale` (drops the row from `sales.items`); each surface then refreshes its own local list. Neither surface applies a branch filter: they show **all** of the customer's sales regardless of the admin's current branch view.
+
+Both customer surfaces also carry **multi-select → one WhatsApp receipt** (`useSaleInvoiceAction`): long-press a card to enter selection, tap to tick, and the send action builds a single receipt for the whole selection. The full page uses the page-header `SelectionBar` (with select-all); the **preview panel** swaps its own title row for an `InlineSelectionToolbar` with **no select-all** — five rows don't need one — inside a fixed-height (`h-9`) wrapper so entering selection can't shift the cards under the finger that long-pressed one, and it hides "Show all" while selecting. Its selection is cleared by every `refresh()`, because a new sale can push a ticked row out of the 5-row preview. Bulk **void** stays on the full page and the Sales tab only.
+
+**Dashboard:** `DashboardService.getMetrics()` makes **one** cash read — `collectionService.collectedInRange` — plus a plain `saleService.countInRange` for the activity count. The Revenue card shows `monthlyRevenue = subscriptionRevenue + salesRevenue + manualRevenue`, with a breakdown sub-line listing only the non-zero streams. All three come from the SAME rows, split by what each one settled (`charges.kind`), so unlike the old three-query version **they add up to the total exactly**. Everything is summed in USD via each row's frozen `rate_per_usd_snapshot`, then formatted into the display currency at render.
+
+**Revenue is CASH COLLECTED, not billed value** — and now there is only one place it can come from: `collection_items`, by `collections.received_at`. A partial payment contributes only what arrived; the remainder is a debt and enters revenue in the month it is collected, so every unit of money is counted exactly once and nothing collected is lost. Reading from the **item** side is what fixed the old breakdown: a payment against a sale debt used to land in a "debts" bucket, so sales revenue under-reported. `salesCount` is still every sale row, paid or not (`SaleRepository.countInRange`) — only the money is cash-based. Do **not** switch any revenue query back to `sales.total_amount` or `charges.amount`.
+
+**Home analytics (expanded).** `getMetrics()` also computes a richer analytics set, all branch-scoped and USD-canonical:
+
+- **Month-over-month** — `prevMonthRevenue`, the dashboard's only comparison figure (there is **no revenue chart**: it was removed along with `RevenuePoint`, `getRevenueTrend` and the slice's `trend` state). The hero card renders a ▲/▼ % pill ("vs last month") when the prior month had revenue. Built by `DashboardService.getMonthCollections(year, month, branchFilter)` — one private helper that returns a month's collected cash split by what it settled (plus `paymentsCollectedCount` / `salesCount`), and the **only** place the revenue query is issued: `getMetrics()` calls it twice inside its own `Promise.all` (this month for the breakdown, `month - 1` for the pill), so both figures come from the **same read**, scoped by **when the money arrived** (`collections.received_at`, never `billing_month`) — the pill compares like with like by construction, not by two code paths agreeing. `Date` normalizes month 0 into last December, so January needs no special case.
+- **Growth this month** — `newCustomersThisMonth` / `cancelledThisMonth` via `customer.countCreatedInRange` / `countCancelledInRange` (by `created_at` / `cancelled_at`, `[monthStart, monthEndExclusive)`).
+- **Activity this month** — `paymentsCollectedCount` (positive-amount rows in `paidAmountsForMonth`, scoped by `paid_at`) and `salesCount` (`totalsForMonth` row count). The screen derives **avg payment** = `subscriptionRevenue / paymentsCollectedCount`, shown as the "Payments" tile sub-line.
+- **Total debt tile** — the one figure on the dashboard that is **all-time, not month-scoped** (it answers "how much is still outside", which has no month). `totalDebt` comes straight from `ledgerService.getDebtsView().summary.totalUsd` — the same number as the Debts screen header. Its sub-line breaks it down by kind (`monthsDebt` / `salesDebt` / `manualDebt`), and **these now sum to the headline exactly**: every row carries its own balance, so there is no gross-vs-net split left to explain. The old mismatch (and the reverted attempt to reconcile it) died with `debt_payments`.
+  - `totalDebt` **also appears inside the purple hero card** as a red-tinted chip (`bg-red-400/20`, matching the card's decline pill) prefixed with a minus — `Owed by customers −$383.00` — shown only when `totalDebt > 0`. It sits below the revenue breakdown, sharing a wrapping row with the orange `Expenses $X` chip. **Only the red chip carries a minus** — spending prints unsigned, the same way `outflowLabel()` prints it on the Expenses tab, so the two screens never disagree about the sign of a cost. The tint + minus are load-bearing: everything else in that card is money **collected**, so the one figure that is money **not** collected has to read as an outflow at a glance. The tile below keeps the reconciling category breakdown; the chip is the glance-value.
+  - The hero's revenue breakdown lists **Subscriptions and Sales** (and hand-typed fees when there are any). The old "hide collected debts from the breakdown" rule is obsolete: money is now filed under **what it paid for**, so cash that settled a sale debt appears under Sales — where the owner would look for it — instead of in a second debt figure beside the one that says what is still owed.
+  - So the card carries **money in** (big number + streams) and **money out** (the chips) together, and they never mix: collecting a debt raises the total and lowers the red chip.
+
+**The hero card is its own component** — `dashboard/components/RevenueHeroCard.tsx`. It owns every figure printed on the purple card and derives them itself (the month label, the ▲/▼ pill, the revenue mix, the two outflow chips, the collection bar), so the screen hands it only `metrics`, `fmt`, `showExpenses` (admin **and** something was spent — the same flag that reveals the two money-out tiles below) and an `onPress`. **Tapping the card opens the Reports tab**, and a "Reports ›" pill in its top-right says so; both the dashboard and Reports are admin-only tabs, so anyone who can see the card can open it. Without `onPress` the card renders as a plain `View` — no pill, no press feedback. Layout is flat panels rather than divider rules: the revenue mix and the Net row each sit in a `bg-white/10` inset (the old `bg-indigo-500` dividers were invisible, since `bg-primary` **is** indigo-500).
+
+Presentation: the screen uses a shared `StatTile` (label / big value / sub-line / tone / optional icon) for the stat grid (Active, Unpaid, New, Cancelled, Payments, Sales) and the total-debt money tile. Every repo range query has a Supabase + Offline SQLite implementation behind the `ICollectionRepository` / `IChargeRepository` / `ISaleRepository` / `ICustomerRepository` seam.
+
+**Tier-gating** is sale-blind: products consume a slot (gated by `max_products`), but recording sales is unlimited on every tier. Stock is not gated at all — restocking is unlimited.
+
+### Stock
+
+Every product carries a stock quantity and can be **out of stock**. Stock on hand is **computed at runtime** — `Product.stockOnHand = SUM(stock_movements.quantity_delta)` over the non-voided rows — exactly like Debts and the Collector Wallet. There is deliberately **no counter column on `products`**: the offline sync pushes whole rows with latest-`updated_at`-wins, so two devices each selling one unit offline would both write the same decremented number and one sale would vanish. Additive ledger rows merge with no conflict.
+
+**`stock_movements`** — `product_id`, signed `quantity_delta` (never 0), `reason`, `sale_id` (only for `'sale'`), `unit_cost` + `currency_id` + `rate_per_usd_snapshot` (what the stock cost to BUY — see below), `note`, `recorded_by_user_id`, `occurred_at`, plus soft-void fields. Reasons:
+
+| Reason | Written by | Sign |
+| --- | --- | --- |
+| `initial` | the "Starting stock" field on **product create** | + |
+| `restock` | the product's stock sheet, "Add" — or the **batch restock** sheet | + |
+| `adjustment` | the product's stock sheet, "Remove" (damage, miscount, wrong entry) | − |
+| `sale` | `SaleService.createSale`, one row per line | − |
+
+**Reading it.** Web reads the `product_stock` view — `SUM(quantity_delta) … WHERE voided_at IS NULL GROUP BY product_id, tenant_id`, declared `WITH (security_invoker = true)` so the caller's RLS on `stock_movements` still applies (**requires PG 15+**; without `security_invoker` the view runs as its owner and leaks every tenant's stock). Offline runs the same `GROUP BY` on the mirror — there is no local view. Both are `IProductRepository.stockOnHand(ids?)` returning `Record<productId, number>`; products with no movements are absent and default to 0. `ProductService.getProducts` folds the map into each `Product`.
+
+**Branch scoping is inherited from the PRODUCT, not the sale.** The `stock_movements_all` policy mirrors `products_select` (`current_branch_id() IS NULL OR p.branch_id IS NULL OR p.branch_id = current_branch_id()`) — **not** `sale_items_all`, which inherits `sales`' *owned* semantics. Copying `sale_items_all` would hide every SHARED product's movements from a branch-scoped user, so each shared product would read as permanently out of stock and be unsellable for them. A shared product has **one** stock pool across all branches. The `WITH CHECK` also allows shared products (unlike `products_modify`): a branch user who can *sell* a shared item must be able to write its movement.
+
+**Writing it.**
+
+- **Sale create** — `SaleService.createSale` builds one negative `'sale'` movement per line and passes them in `CreateSalePayload.movements`. The repository writes them alongside the header + lines (offline: the *same* transaction), so a sale can never exist without the stock it consumed.
+- **Sale void** — the sale's movements are **soft-voided** (`UPDATE … WHERE sale_id = ? AND voided_at IS NULL`), not reversed with opposite rows. One statement, independent of line count, and idempotent — a repeat void is a no-op instead of returning the stock twice. Bulk void inherits this for free (`saleSlice.voidSales` loops `saleService.voidSale`).
+- **Manual** — `ProductService.addStock` appends a single `restock` row. **A manual entry only ever ADDS** — there is no "remove from stock" form: a delivery that was mistyped, never arrived, or was logged twice is fixed on the entry that recorded it (see [Editing a stock entry](#editing-a-stock-entry) and [Reverting a stock entry](#reverting-a-stock-entry)). A row is never deleted, and a `'sale'` row is never touched by hand.
+- **Batch restock** — `ProductService.restockMany(entries, tenantId, note, userId)` appends one `restock` row **per product** in a single `addMovements` call (offline: one transaction), then returns the fresh on-hand map so `productSlice.batchRestock` updates the list without a refetch. One arriving delivery = one save, but the per-product history stays exactly as detailed as the one-at-a-time path — there is no "batch" reason and no grouping row. The shared note is copied onto every row.
+
+**Blocking.** `SaleService.createSale` calls `assertStockAvailable` after `validate()` — a **fresh** `stockOnHand` read (the store can be minutes stale), summing the requested quantity **per product across all cart lines** (the same product can sit on two rows). Throws `errors.sale_out_of_stock` / `errors.sale_insufficient_stock`. Because it lives in the service, every entry point is covered (sale form, quick actions, customer screens). `SaleItemsEditor` mirrors it as a soft guard: out-of-stock products stay listed but greyed via `DropdownOption.disabled`, the quantity stepper caps at *on-hand minus what other rows already took*, each row shows "N left", and an oversold cart reports `ready: false`. The check is **advisory** — two offline devices can still each sell the last unit, and the DB deliberately allows a negative total (gotcha #48).
+
+**UI.** `ProductCard` shows a green "N in stock" / red "Out of stock" / red "Short by N" chip. `ProductStockSheet` (product row menu → "Adjust Stock", or the link on the edit form) shows the current on-hand, a quantity + cost + note that only ever adds, and the last 20 movements as a bordered list: a reason icon tinted by direction (green adds / red removes), the reason, date **and** time (`formatDateTime`), who recorded it (resolved from the users slice via `recordedByUserId`), the note, a **3-dot menu** on every correctable row (Edit entry · History), and a "Reversed" chip with struck-through amount on voided rows. An amber line warns when the save would push stock **below zero** — it never blocks, because the DB accepts a negative total on purpose (gotcha #48). `ProductFormSheet` takes "Starting stock" on **create only**; on edit it renders the number read-only next to an "Adjust Stock" link, so the total is never free-typed.
+
+`ProductBatchRestockSheet` is the many-products counterpart: a search box, then every **active** product as one compact row — name, current on-hand, and a `[−] qty [+]` stepper. A row with a quantity turns indigo and previews the result (`3 → 8`), so what's included is visible without reordering the list while the user types. One shared note applies to every row, and a summary line ("N products selected · +40") sits above the save button. Quantities are held per product id, so filtering the list never loses what was already typed. Two entry points, one component: the **Restock** button beside the search box on the products screen, and **Batch Restock** in the PageHeader quick-actions menu (admin-only there, since products live in the admin tab that non-admins never see).
+
+**Cost — the money side of the ledger.** A movement can carry what one unit cost to buy: `unit_cost` + `currency_id` + `rate_per_usd_snapshot`, written together by `ProductService.movement()` or all three null. That is the **only** money on `stock_movements`, and it is what makes buying stock an expense (see [Expenses](#expenses)). `products` also gained `cost_price` + `cost_currency_id` — a *default* that pre-fills the restock forms, live like `price` and never frozen; each delivery freezes its own cost on its own movement. Everything is optional: a restock with no cost still records the stock and simply adds no expense, which is also what every legacy row does. A `'sale'` movement never carries a cost (stock leaving is not money leaving) — `movement()` enforces that one.
+
+**Cost is typed in three places:** the product form's **Cost price** field (the default, plus the opening stock's cost on create), the stock sheet's **Cost per unit** / **Total cost** pair (see below), and the **batch restock** sheet, where one **delivery currency** is picked for the whole save and each picked row opens a cost line seeded from its product's cost price, converted at the live rate (the `SaleItemsEditor` rule — changing the delivery currency re-prices every row). The stock history shows a costed row's money ("Cost: $X", or green "Money back: $X" on a negative row), so which rows moved Expenses is visible.
+
+**A stock expense comes back down through the ENTRY, never through a second row.** `amount = quantity_delta × unit_cost`, so a *negative* costed row is a negative expense — a credit — but **no new one can be written**: the stock sheet has no Remove mode, so the two doors are **Edit entry** (the row says 12, the delivery was 10) and **Revert entry** (the row should never have existed). Both take the money off the **entry's own month**, which is what a mistyped delivery needs — correcting a July delivery in August drops July's expense and leaves August alone. The credit shape stays supported for the negative rows older data already holds, and for editing one of them; it is simply not something staff can create any more.
+
+**What has no door any more:** stock that really left later — damaged, lost, stolen, or returned to the supplier. Those were the empty-cost and the costed *removal*, and both went with the Remove mode. The count now comes down only by selling, or by editing the entry that put the units there — which rewrites that entry's own month instead of recording a later event.
+
+**Per unit or per delivery — both are typeable, and each fills the other.** A supplier invoice states one or the other ("4.50 each", "45 for the lot"), so the stock sheet puts **Cost per unit** and **Total cost** side by side: typing either one recomputes the other from the quantity (`total = unit × qty`, `unit = total ÷ qty`). Only **`unit_cost`** is ever saved — the total is a way of entering it, not a column — so the derived unit keeps **8 decimals** (what `stock_movements.unit_cost` stores): rounding 100 ÷ 3 to 33.33 would make the recorded expense 99.99 and disagree with the invoice that was typed. **The last field staff typed is the anchor**, so changing the quantity afterwards recomputes the *other* one and never overwrites what they entered — typed a 45 total, then fixed 10 units to 12, and the unit becomes 3.75 while the total stays 45. Everything else keeps the per-unit field as the source of truth: an abandoned edit and picking Edit on a row both reset the anchor to "unit". One currency for both — the picker sits on the per-unit input and the total is locked to it, since a movement stores one currency.
+
+#### Editing a stock entry
+
+A **manual** movement can be corrected in place — `ProductService.updateMovement` → `IProductRepository.updateMovement`, reached from the history row's 3-dot menu → **Edit entry**. It is one of the **two** doors into "the stock number is wrong"; the other is [Reverting a stock entry](#reverting-a-stock-entry):
+
+| | **Edit the row** | **Revert the row** |
+| --- | --- | --- |
+| What happened | the entry was **written** wrong (12 typed for a 10-unit delivery, a cost of 0.50 the invoice says was 0.45) | the entry should **not exist** at all (logged against the wrong product, saved twice) |
+| The history says | 10 arrived | the row stays, struck through and chipped "Reversed" |
+| The month that moves | the entry's **own** month — July becomes $5.00 | the entry's **own** month — July's $6.00 goes away |
+
+Both look backwards, and that is now the whole story: a manual entry cannot *remove* stock, so "12 arrived, then 2 went back" is a shape the ledger no longer writes (it did until this change — gotchas #94 / #96 keep the reasoning, and older data can still hold such a row).
+
+**What may change, and what may not.** Only **quantity**, **cost + currency** and **note**. `occurred_at` is locked (it is what decides which month the money counts in — moving it is what the two-doors rule exists to avoid), and so are `reason`, `product_id` and the row's own identity. `UpdateStockMovementPayload` is the type that says so.
+
+Four guards live in the **service**, so every future caller inherits them:
+
+- a `'sale'` row is refused (`errors.stock_movement_sale_locked`) — `SaleService` swaps a sale's movements when the sale is edited, so a hand-edit would leave the sale saying 3 sold and the ledger saying 1;
+- a **voided** row is refused — it is already dead;
+- the quantity arrives as a **magnitude**, and the sign is taken from the existing row, so a correction can structurally never turn stock added into stock removed (that is a new event, not a fix);
+- **oversell is not blocked**, only warned about in the sheet — editing a delivery of 12 down to 10 after 11 were sold lands on −1, and negative stock is legal by design (gotcha #48).
+
+**The rate only re-freezes when the cost actually moved.** Changing the amount or the currency re-snapshots `rate_per_usd_snapshot` at the live rate (the payment/sale edit rule, gotchas #21 / #90); editing only the quantity keeps the old rate, or a 2-unit fix would silently re-value a months-old purchase at today's rate. `ProductService.costFields()` is the one place that builds the cost trio, shared with `movement()`.
+
+**Editing is why `stock_movements` is now audited** — see [Audit Trail](#audit-trail). Nothing else would remember that the row once said 12: the ledger is the only record of a manual movement, and an in-place edit overwrites it. Only an **edit** or a **revert** writes an audit entry (the insert would just duplicate the stock history), the entry is filed under the parent **product's** branch and name (`auditedUpdate`'s new `audit` option — a movement owns neither), and the same trail is readable from the row's own **History** action.
+
+**UI.** One form does both jobs, like `SaleFormSheet`: picking Edit fills the sheet's quantity / cost / note from the row, puts an "Editing this entry" banner above it (direction locked, with a Cancel ✕ and a one-line note on when an edit is the wrong tool), and turns the button into "Save Changes". The tapped row sits far below the form, so picking Edit also **scrolls the body back to the top** (`scrollBody.current?.(0)`, the handle `FormSheet` fills through its `scrollRef` prop — a ref and not a context, see gotcha #102) — otherwise the filled fields and the banner stay off-screen and the action looks like it did nothing. Saving **keeps the sheet open** and reloads the history — a correction is only believable next to the rows it fixed — and resets the form to its first-render state so the unsaved-changes guard stays quiet.
+
+#### Reverting a stock entry
+
+The edit door's sibling, for when the entry should never have existed at all — a delivery logged against the wrong product, a duplicate save, an adjustment somebody typed on the wrong row. Reached from the same 3-dot menu (**Revert entry**, red, last), behind a confirm dialog, and open to **any staff member** like the edit.
+
+**It is a soft-void, not a row deletion.** `voided_at` + `voided_by` are set, and both derived numbers fix themselves: the row leaves the stock sum (`product_stock` / the mirror's `GROUP BY` count only live rows) and, if it carried a cost, it leaves Expenses. The row stays in the history, greyed out with the "Reversed" chip that a sale-voided movement already wears — hard-deleting it would take away the only answer to "where did the other 12 bottles go", and the ledger is deliberately a record of what staff did, not just of the current total (rule 7, no hard deletes).
+
+**The month is the entry's own, exactly like an edit.** Reverting says the entry was never real, so the money comes off the month the entry belongs to: a July delivery reverted in August leaves August untouched and drops July's expense. There used to be an opposite door — a costed *removal*, which credited the month it was recorded in — but the stock sheet's Remove mode is gone, so only older data holds such a row (see [Stock](#stock) → cost, gotchas #94 / #96).
+
+**Refused for the same rows an edit is refused for, in the SERVICE.** `ProductService.revertMovement` and `updateMovement` share one guard — `liveManualMovement(id)` — so a `'sale'` row (its movements belong to the sale, which swaps them itself) and an already-reverted row are turned away wherever they are called from, not merely hidden in the menu. `stock_movements.voidMovement` is the one write, audited as a **`void`** with the parent product's branch and name, so "who reverted this and when" is answerable — and the reverted row's menu keeps its **History** action for exactly that (Edit and Revert are gone; a `'sale'` row still opens no menu at all).
+
+**UI.** The confirm dialog names the entry ("Stock added +12 will stop counting…") and says what happens to the totals. On success the sheet stays open and reloads the history, so the "Reversed" row is visible immediately, and a form still filled from that row is reset — otherwise Save Changes would sit there pointing at an entry that no longer counts.
+
+See gotchas #35, #36, #37, #48, #88, #89, #94, #96.
+
+---
+
+## Reports
+
+The Home dashboard answers one question — "how is **this month** going?" — with fixed tiles for one fixed period. The Reports tab answers "how is the business going, over any period I choose". It is a small number of curated sections, not a query builder: an ISP owner reads them, not a data analyst.
+
+**Admin-only**, the same gate as Expenses and the dashboard — the tab is hidden with `href: isAdmin ? undefined : null`, so the route is not even in the tab bar for a collector.
+
+### The page
+
+`PageHeader` (with the branch chip and a CSV export button) → `PeriodPicker` → a `SegmentedTabs` section switcher → the section's cards. Phase 1 ships **Money** and **Debts**; Customers and Staff/Products are phase 2 and drop into the same shells.
+
+**Period** (`src/core/utils/dateRange.ts`) is one primitive: `ReportPeriod { preset, fromDate, toDate }` with presets *This month · Last month · Last 3 / 6 / 12 months · This year · Custom*. Every preset is **whole calendar months** — it always ends on the last day of its final month — so its buckets and its comparison window are the same shape. `previousPeriod()` shifts a month-aligned period by whole months and anything custom by its own day count. The file also holds the app's `dayStartIso` / `nextDayStartIso` / `rangeFromDays` helpers, which four repositories and the expense slice used to carry privately.
+
+### Money
+
+| Block | What it shows |
+| --- | --- |
+| KPIs | Collected · Spent · Net · Margin, each with a ▲/▼ pill vs the previous period of the same length |
+| Money in | Breakdown by stream, with an inline share bar |
+| Money out | Breakdown by expense category (including the derived `stock` half) |
+| Collected by currency | What was **physically** collected in each currency, each printed in its own currency with a `≈` display-currency value beside it |
+
+### Debts
+
+| Block | What it shows |
+| --- | --- |
+| KPIs | Still owed (**all time**) · Collected on debts (**this period**) · Customers owing · Behind on payments (**counted to today**, so this one does not move with the period) |
+| Who owes the most | Top 10 debtors, each with how many months they are behind, tappable through to the customer |
+| What is owed for | Gross by debt category (months / sales / custom) |
+
+Only one figure here is period-scoped. See gotcha #91 — outstanding debt is all-time by design, and the two are labelled apart on purpose.
+
+### How the data is built
+
+Two arrays feed almost everything, and both come from code that already existed.
+
+**Money out needs no new query at all**: `ExpenseService.getExpensesView` already returns `ExpenseItem[]` carrying date, amount, currency, frozen rate, branch, staff, category and product — with the derived stock half merged and the branch semantics of gotcha #88 applied.
+
+**Money in** is three new reads, one per stream, all returning the same `CollectedRow` shape:
+
+| Repository | Method |
+| --- | --- |
+| `ICollectionRepository` | `collectedInRange(startIso, endExclusiveIso, branchFilter)` — ONE read, one row per bill settled |
+| `ISaleRepository` | `collectedInRange(…)` |
+
+Each lives on the repository that owns its table (never a cross-table `ReportsRepository`, which would have to re-derive the branch scoping `BRANCH_SCOPES` already encodes), and each has a Supabase impl and an offline SQLite twin. `ReportsService` tags them with their `stream` and merges them into one `CashRow[]`.
+
+Everything else — by stream, by category, by currency, the comparison, and every drill-down — is **pure client-side aggregation** in `reports/utils/aggregate.ts` (`sumByKey`, `topN`, `shareOfTotal`, `delta`). **One query per stream per window**, so a 12-month report costs the same round trips as a 1-month one.
+
+Revenue is **cash collected**, exactly as on the dashboard, and from the same one read: `collection_items` by `collections.received_at`, each summed in USD via the collection's frozen `rate_per_usd_snapshot`. Reports and dashboard must reconcile to the cent for a single month — that is the acceptance test, and it is now hard to fail, because both call `CollectionService.collectedInRange`.
+
+### Drill-down
+
+Tapping a breakdown row or the debts card opens `RecordsSheet` with the records behind that number. It is always a **filter over rows already in memory** — never a second query — which is also what guarantees the rows add up to exactly the figure that was tapped.
+
+### Export
+
+The header's download button writes the section as CSV and hands it to the system share sheet (`expo-file-system` + `expo-sharing`); on web, where `expo-sharing` is a no-op, it falls back to a plain browser download. `src/shared/lib/csv.ts` does the RFC-4180 quoting and writes a UTF-8 BOM, so a customer name with a comma does not split a cell and Arabic opens correctly in Excel. The money sheet writes spending as **negative** rows, so its Amount column sums to the report's Net.
+
+### Reusable pieces
+
+A phase-2 report is a config object plus a data hook, because the presentation is already built: `ReportSection` (loading / error / empty / pull-to-refresh), `KpiRow`, `ReportCard`, `BreakdownList`, `RankedList`, `ComparisonPill`, `CurrencySplit` and `RecordsSheet`, with one palette in `reports/utils/reportColors.ts` so a stream keeps its colour on every card.
+
+**There are no charts.** A charting library (`react-native-svg` + `react-native-gifted-charts`) was fitted and then taken back out — the numbers, the share bars and the drill-downs carry the reports on their own, and the library cost a native rebuild for decoration. Do not reintroduce one without a figure that genuinely cannot be read as a list.
+
+Three things moved out of single-use homes on the way, and the reports then reuse them rather than re-writing: `StatTile` → `src/shared/components/`, the date-range helpers → `src/core/utils/dateRange.ts`, and the wallet's per-currency fold → `groupByCurrency` in `src/core/utils/currency.ts`.
+
+### Release
+
+This is **not** an OTA release. `expo-file-system` and `expo-sharing` (the CSV export) change the native fingerprint, so the installed build can never receive it — `npm run build-prod` plus a reinstall is required. The range reports scan `collections (tenant_id, received_at)`, which the ledger schema indexes. No table or column changes — the whole feature is read-only.
+
+---
+
+## Expenses
+
+The app counted only money **in** — every hand-over summed into `monthlyRevenue`. Expenses are the other half, so the dashboard can answer "did I actually make money?". **Admin-only end to end** (RLS on the table, and the UI drops the segment, the quick action and the dashboard tiles for anyone else): rent and salaries are not staff business.
+
+**Two sources, one view.** `ExpenseService.getExpensesView({ startIso, endExclusiveIso, branchFilter })` composes them into a uniform `ExpenseItem[]` + a USD `ExpenseSummary` — the same shape `LedgerService` uses (stored rows + a derived stream from another service):
+
+| Source | Where it comes from |
+| --- | --- |
+| `manual` | Hand-typed rows in the `expenses` table (rent, salaries, fuel, …) |
+| `stock` | **Derived** at read time from `stock_movements` — costed, non-voided, non-`'sale'` rows; `amount = quantity_delta × unit_cost`, so a costed **negative** row is a negative amount (money back) — older data only, since a manual entry can no longer remove stock |
+
+**A restock never writes an expense row.** Deriving it means correcting the stock corrects the expense, with no second insert inside the offline restock transaction, no drift on a void, and no orphan when a hard-deleted product takes its ledger with it. The cost of that choice is that a derived row **cannot be voided** (`ExpenseItem.canVoid` is false; its 3-dot offers "Open product") — a wrong cost is fixed on the entry that carries it — **Edit entry** for a mistyped one, **Revert entry** for one that should never have existed — and both take the money off the month that entry belongs to (see [Stock](#stock) → cost, and gotchas #94 / #96). Row ids are prefixed (`exp:` / `stock:`) so the two sources can never collide.
+
+**Credits print `+`, in green.** A negative amount is the one figure on this screen that is not money leaving, so `outflowLabel()` — used by the card, the total-spent headline and every month section total — flips the leading `−` to `+` over the absolute value. Without it a credit reads `−-$5.00`. Its label says what it is (`Water ×2 returned`) instead of `×-2`.
+
+**Cash basis, exactly like revenue.** A purchase counts in the month it was **paid for**, never the month the goods sell — no FIFO, no cost layering, and unsold stock is inventory rather than a loss. Manual rows key off `incurred_at`, a **user-picked date** (last month's rent entered today belongs to last month), not `created_at`.
+
+**`expenses` table** — `branch_id` (its **own**, `NULL` = a company-wide expense), `category` (free text at the DB level; the app owns the code list, so a new category needs no migration), `description`, `amount` + `currency_id` + `rate_per_usd_snapshot` (the standard frozen-rate trio), `recorded_by_user_id`, `incurred_at`, soft-void fields. **Void-only, no edit** — a typo is voided and re-entered, so the row is its own history and the table is deliberately **not audited** (the same call as the debt tables). No tier gating.
+
+**Branch semantics: one rule, and it is `owned` on both halves.** `expenses.branch_id` is `owned`, and NULL means **the company bought it, no branch did** — so a company-wide expense shows in the **All branches** view only (the "Unassigned" chip reaches it on its own). The *derived* half follows the same rule via the parent **product**: `stock_movements: { kind: 'inherited', joinedTable: 'products' }`, deliberately narrower than the stock RLS policy. Both exist for the same reason — **branch views must sum to the tenant total**. Making either one `shared` puts head-office rent, or a shared product's delivery, into every branch's expenses at once, and two branch admins each read the same money as theirs. The RLS policy is wider than the app filter on purpose: visibility and aggregation are different questions. Gotcha #88.
+
+**UI.** An **Expenses** segment in the Transactions hub (admin-only) plus an "Add expense" quick action. `ExpensesPanel` reads a **date window** (the current calendar month by default) rather than paginating, so section totals are always the local sum: a total-spent headline with a stock/other split, search + category + From/To chips, then a month-grouped `SectionList` via the shared `groupByMonth` / `MonthSectionHeader`. Every amount carries a leading `−`. `ExpenseFormSheet` is the `CustomDebtFormSheet` shape (category `Dropdown`, `CurrencyInput`, `DatePickerInput` capped at today, branch picker, description).
+
+**Dashboard.** `DashboardMetrics` gains `monthlyExpenses` / `stockExpenses` / `customExpenses` / `netIncome`. **`monthlyRevenue` stays GROSS** — `netIncome` is the subtraction, so `prevMonthRevenue` and the vs-last-month pill keep their meaning. The hero card gains an orange `Expenses $X` chip (unsigned, like `outflowLabel()` on the Expenses tab) beside the red "Owed by customers −$X" one (orange vs red because they mean different things — money already spent vs money not yet collected) and a `Net this month` line, red when negative; two full-width tiles follow. Admin-only throughout: `getMetrics` reuses the wallet's `viewer` gate.
+
+**Code map:** `src/modules/transaction/expenses/` (repository + service + `expenseCategories.ts` + panel/card/form), the `expenses` slice + `useExpenseSlice`, `stockCostsInRange` on `IProductRepository`. See gotchas #88, #89 and #94; QA [expenses.md](../QA/expenses.md).
+
+---
+
+## WhatsApp Invoices
+
+Staff can send the customer a **plain-text receipt over WhatsApp** — at the moment the money is taken, or later from the saved record. It is a `wa.me` deep link end to end: no PDF, no printing, no new dependency, no DB change, no server work. Everything lives in the small `src/modules/invoicing/` module.
+
+**The module (4 files).**
+
+- `utils/invoiceText.ts` — **pure** builders, no React and no i18n singleton: `t` arrives inside an `InvoiceContext { t, orgName, locale, currencies, displayCurrencyId }` (the same "pass `t` in" pattern as `blockRangeLabel.ts`). Exports `buildPaymentInvoiceText(ctx, customerName, rows)`, `buildSaleInvoiceText(ctx, sale, customerName)` and `buildSalesInvoiceText(ctx, sales, customerName)` (which falls back to the single-sale layout for one row, so a lone sale always produces the same document). It is **not a Service** — it decides nothing, validates nothing, throws nothing. It lives in a module rather than `src/core/` only because it reuses `getBlockRangeLabel`, and Core may not import from a module.
+- `utils/invoiceRecipient.ts` — pure: collapses the rows of a multi-row receipt to the ONE customer it can be sent to, or names why it can't (`mixed` / `no_customer` / `no_phone`). Callers map their own row type down to `InvoiceRecipientRow { customerId, customerName, phone }`.
+- `hooks/useSendInvoice.ts` — the one place that turns a saved record into a message. Gathers the context from the stores (`useAuthSlice` tenant name, `useCurrencySlice`, `useDisplayCurrencyId`, `useLanguageStore`, `useTranslation`), calls `openWhatsApp`, and on a `false` result shows the `confirm({ hideCancel: true })` dialog. Returns `{ canSend, resolveRecipient, sendPaymentInvoice, sendSaleInvoice, sendSalesInvoice }`; `resolveRecipient` is the recipient util plus the dialog that explains a refusal.
+- `components/SendOnWhatsAppButton.tsx` — the app's single green (`bg-[#25D366]` + `logo-whatsapp`) action row. Matches `Button`'s geometry but is its own component because `Button` takes no icon and no `className`. `ContactToUpgradeButton` was re-pointed at it, so that markup now exists once.
+
+**Entry points.**
+
+| Where | Action |
+| --- | --- |
+| `CollectSheet` | (via each surface's own send flag) the hand-over it writes is sent as one receipt |
+| `SaleFormSheet` | a second, stacked button — **Save & send on WhatsApp**, using the `Sale` `createSale` already returns |
+| Quick pay — month-cell menu (`CustomerPaymentPanel`) + customer-card menu (`CustomerListScreen`) | a **Pay & send on WhatsApp** row beside "Quick pay" |
+| **Month-grid multi-select** (`InlineSelectionToolbar`) | a green WhatsApp action beside "Collect" — one receipt for the hand-over it writes |
+| `BillSheet` / the money-in history row menu | **Send on WhatsApp**, to re-send a saved hand-over any time |
+| `SaleDetailSheet` + the three sales lists | **Send invoice on WhatsApp** — one sale, or one receipt covering a selection |
+
+Stacked, not side-by-side: `Button` takes no `className`, and the long label (and its Arabic form) truncates at half a phone width.
+
+**Both busy states are one marker, not two flags.** Each form tracks `busyOn: "save" | "send" | null`, set **before** the write and cleared in a `finally`, so the spinner stays on the button the user actually pressed across both phases (the store write, then the awaited deep link). Consequently `canSubmit` / `submitDisabled` are **validity-only** — folding the slice's loading flag into them greys out *both* buttons, and a disabled `SendOnWhatsAppButton` shows no spinner at all.
+
+**No phone → visible but disabled, with a caption.** `canSend` digit-strips exactly like `openWhatsApp`, so `"-"` or `"n/a"` disables rather than producing a broken link. The button caption is `invoice.no_phone`, or `invoice.no_customer` for a walk-in sale; the menu rows use `ActionMenuItem.caption` for the same hint. **A voided hand-over or sale never shows the button** — a cancelled receipt is not a receipt.
+
+**A receipt is ONE hand-over, and that simplified the whole builder.** `buildCollectionInvoiceText` replaced the old multi-row payment builder, and three rules it needed simply stopped existing:
+
+- **One currency**, because a collection is single-currency — so no "one Total per distinct currency" any more, just one amount.
+- **One date**, because a hand-over happens once — so no "date each bullet when the rows weren't collected together".
+- **One customer**, because a collection belongs to one — so no `resolveRecipient` refusing a mixed selection.
+
+What is left is the split: a hand-over that settled one bill names it above the amount, and one that settled several lists them as bullets under **"This pays"**, oldest bill first. The old rules were all workarounds for receipts assembled out of unrelated rows; the model now produces the receipt directly.
+
+**Message format** (owned entirely by `invoiceText.ts`): `*Org name*` bold header + a receipt title, then `Label: value` lines, list rows prefixed with a literal `•`, and an `invoice.thank_you` footer. Amounts are `formatMoney(v, source, source)` where `source = snapshotCurrency(row, currencies)` — the literal cash at the row's frozen rate — with a ` (≈ …)` display-currency suffix on the **one** headline amount only. The date uses `getDateLocale(language)`, which always returns `en-US`: `formatMoney` hardcodes Latin digits, so an `"ar"` date would mix numeral systems inside one message.
+
+**A multi-plan or multi-month collection is naturally one message**, because it is naturally one row. `CustomerListScreen`'s "collect all due" groups a customer's lines **by currency** and writes one collection per group (a collection cannot mix currencies), so a customer billed in two currencies receives two receipts — which is correct: he handed over two piles of cash.
+
+**Several sales still need the multi-row builder**, and `buildSalesInvoiceText` is unchanged: a sales-list selection is genuinely a set of unrelated records, so it keeps the oldest-first sort, the per-currency totals and `resolveRecipient`'s refusal of a mixed selection.
+
+**Getting the created record back.** `ledger.collect` returns the created `Collection` (no new state field), which is all a receipt needs — the header, its split, and its id.
+
+See gotchas #68, #69, #80. QA: [../QA/whatsapp-invoices.md](../QA/whatsapp-invoices.md).
+
+---
+
+## Transactions Hub
+
+The bottom **Transactions** tab (`app/(app)/(tabs)/transactions`) is a hub hosting in-page segments via the shared `SegmentedTabs` control: **Debts** (default), **Sales**, and — for admins — **Expenses**. `TransactionsScreen` owns the page chrome (SafeAreaView + title + `BranchSelector` + segments); each segment is a self-contained **panel** that owns its own body (filters, list, sheets, multi-select) but not the chrome. The selection toolbar that used to live inside `PageHeader` was extracted into a shared `SelectionBar` so panels (which have no `PageHeader`) can render it; `PageHeader` re-uses `SelectionBar` and re-exports `SelectionAction` for back-compat. While a panel is in selection mode it **replaces its filter row** with the single `SelectionBar` (see the shared selection row below).
+
+- **Debts** → `DebtsPanel` (see [The Ledger](#the-ledger-charges--collections) — `ledger` slice).
+- **Sales** → `SalesPanel` (the former `SalesListScreen` body, behavior unchanged — `sales` slice).
+- **Expenses** → `ExpensesPanel` (see [Expenses](#expenses) — `expenses` slice). **Admin-only**: the segment is dropped from the array entirely for a non-admin, matching the RLS on the table.
+
+> **There is no Services segment.** It existed as a "coming soon" placeholder and was **removed** when services shipped, because a service turned out to be a **line on a sale** rather than its own record — so the Sales tab already lists every one of them, and the price list belongs at Admin → Services. See [Products & One-Off Sales → Services](#services).
+
+> **The money-in history is a sheet, not a tab.** `CollectionsPanel` lives in a
+> full-height bottom sheet (`CollectionsHistorySheet`) launched from the
+> **PageHeader 3-dot quick-actions menu** ("Money received", first item) on any
+> screen, riding the same `ui`-slice / `QuickActionSheets` seam as the other
+> quick-add sheets. It is **one** list where there used to be two: a month, a
+> sale and a custom fee are all settled by the same `collections` row, so the
+> payments history and the debt-payments history had nothing left to keep apart.
+>
+> **Voided hand-overs STAY in the list, marked** — history is a record of what
+> happened, so the read passes `includeVoided: true` and `voidCollections`
+> **merges** the voided rows back into `items` instead of dropping them. Money
+> never counts one: `monthlyTotals` excludes voided rows server-side, and the
+> panel's own per-row sum returns 0 for them. The **month grid is untouched** —
+> it keys off collected money, and a voided collection contributes none.
+
+**Month-grouped lists.** Sales, Payments, and Debts all render as a `SectionList` grouped by calendar month, newest first — one section header per month ("This Month" for the current month, else "June 2026"). The two newest buckets break out ahead of the months: **Today** (`common.today`) and **This Week** (`common.this_week`, Monday-based week start, excluding today) — a row lands in exactly one bucket (today → this week → its month). The grouping is a pure view transform (`groupByMonth` in [monthSections.ts](../SubsTrack/src/shared/lib/monthSections.ts)) over the **already date-desc-sorted** slice data, so the slice/service stays the single source of sort order — it only buckets, it never re-sorts. Day/week bucket totals are always summed locally (their newest rows are guaranteed loaded); a month whose newest rows were peeled into Today/This-Week has that peeled USD subtracted from its authoritative `totalsByMonth` total so the header still reads the correct remainder. Each panel supplies the row's date: Sales → `soldAt`, money received → `receivedAt`. (Debts is a flat debtors list — it has no month sections.) Headers render via the shared `MonthSectionHeader`; sticky headers are disabled. Selection / select-all still resolve against the flat slice array (the sections are built from it), so multi-select is unaffected. Full month names come from the `months_long` i18n block; "This Month" from `common.current_month`.
+  - **Month totals.** Each panel also passes `groupByMonth` a `getAmountUsd` row-to-USD function, so every section carries a `totalUsd`; `MonthSectionHeader` renders it (formatted into the display currency) at the trailing edge of the header, next to the row count. Sales sum the **value sold** (`totalAmount`, matching `soldAt`); the money-in history sums the **cash received** (`amount / ratePerUsdSnapshot`, matching `receivedAt`). (Debts no longer uses month sections — it's a flat debtors list; the debtor detail modal groups a customer's debts/payments via the shared `DebtList`.)
+    - **Sales/Payments are paginated (`PAGE_SIZE` = 30) — summing only the loaded rows would under-count any month with more rows than one page.** Both panels instead pass `groupByMonth` a 5th arg, `totalsByMonth: Record<"YYYY-MM", number>`, which — for any month key present — overrides the local per-row sum. That map comes from `saleSlice`/`collections`'s `monthlyTotals` state, refetched (in parallel with the paginated page) every time filters change via `SaleService.getMonthlyTotals` / `CollectionService.getMonthlyTotals`, which bucket `SaleRepository.monthlyTotals` / `CollectionRepository.monthlyTotals` — the **same filters as `findAll`, but unpaginated and projected to just the 2–3 numeric columns needed to sum** (no joins beyond what a search/branch filter needs), so it stays cheap even over a whole table. `fetchMoreSales`/`fetchMoreCollections` (loading further pages of an unchanged filter set) do **not** refetch it — the total doesn't change, only which rows are visible. Debts isn't paginated (it loads its full filtered set up front), so it never passes this arg and keeps summing locally.
+
+**Money received (tenant-wide):** `CollectionsPanel` lists every hand-over of
+cash across all customers, newest first, defaulting to the **last month**
+(`received_at` within `[one month ago, today]`). Backed by the `collections`
+slice + `CollectionRepository.find` + `CollectionService.getHistory` (returns
+`CollectionListItem` — the header, its split, the joined customer name and phone,
+and the one `kind` every line shares or `'mixed'`). Filter chips: **Customer**,
+**Collected by**, **From** + **To** (day-granular, inclusive). Branch scoping is
+the collection's **own** `branch_id` (gotcha #103). A row that settled several
+bills expands to show the split; its 3-dot offers **Send on WhatsApp** (one
+receipt per hand-over — the split is listed inside it) and **Void payment**.
+Multi-select enables bulk void. The per-customer `payments` slice and the month
+grid are untouched.
+
+---
+
+## The Ledger (charges + collections)
+
+Everything about money — what is owed, and what was handed over — lives in three
+tables. This replaced the whole `payments` / `custom_debts` / `debt_payments`
+family, and the reason is one sentence:
+
+> `payments.amount_paid` and `sales.amount_paid` each hold **one number and one
+> date**, so when a customer pays 12 now and 8 next month there is nowhere for
+> the 8 to go.
+
+Raise `amount_paid` and the 8 counts as revenue on the original date; leave it
+and the row says he still owes it forever. Every debt problem the app had grew
+from that: `debt_payments` was a workaround that could only point at a
+*customer*, never at which month or sale it paid; debt was a customer-level
+`Σ categories − Σ payments`, so no individual line's balance was trustworthy;
+"Complete" existed only because `amount_paid` had no date of its own.
+
+### The model
+
+| Table | Role | One row = |
+| --- | --- | --- |
+| `charges` | what is owed — **the bill** | a month, a sale, or a hand-typed fee |
+| `collections` | money physically handed over | one hand-over: "$55, 5 Mar, taken by Sami" |
+| `collection_items` | which bill that money paid | one bill touched by that hand-over |
+
+A bill can take many payments and a payment can cover many bills — a genuine
+many-to-many, which is exactly why the middle table exists. Partial payments,
+installments, pay-later sales and oldest-first collection then all fall out for
+free, and the wallet, the dashboard and Reports each collapse to a single source.
+
+```
+balance(charge)  = charge.amount − Σ collection_items (of non-voided collections)
+debt(customer)   = Σ balance where balance > 0 AND (kind <> 'month' OR paid > 0)
+owed(customer)   = debt items + unpaid months from buildMonthGrid, deduped on
+                   (customer_plan_id, billing_month) — the charge row WINS
+revenue(period)  = Σ collection_items in the period, by collections.received_at
+wallet(user)     = Σ collections where held_by_user_id = user, per currency
+```
+
+**Nothing asks "does a charge row exist?" — everything asks "how much money came
+in?"** A month bill left at 0 collected (after a void) reads *identically* to no
+row at all. Miss this and a voided payment leaves a ghost debt behind.
+
+### Balance is never a column
+
+`charge_balances` is a `security_invoker` view (the `product_stock` precedent);
+offline the same `GROUP BY` runs over the mirror, so one mapper serves both. Two
+devices can therefore both collect offline without clobbering a counter.
+
+> **The view's `CASE` is load-bearing.** `p.voided_at IS NULL` sits in a LEFT
+> JOIN's `ON` clause, which does not *drop* an item whose collection was voided —
+> it only leaves the joined row all-NULL. A bare `SUM(i.amount)` keeps counting
+> voided cash, and voiding a payment never gives the balance back.
+
+### The waterfall
+
+`ledger/utils/waterfall.ts` is pure — no I/O, no clock. `allocate(amount, items)`
+spreads money **oldest due date first, filling each bill completely** before
+moving on. Never proportional: a customer settles his oldest bill, he does not
+part-pay all of them.
+
+The sort has **four levels**, and each earns its place:
+
+1. `dueDate` — when it HAD to be paid. Never the date it was typed, or a fee
+   back-dated to 2020 would jump the whole queue (gotcha #74 in a new place).
+2. `issuedAt` — a January month billed today loses to one billed last week.
+3. `createdAt`
+4. `keyOf(item)` — a total order, so the preview and the save can never disagree
+   and two devices splitting the same money land identically.
+
+Leftover money means **overpay**, and the service refuses it: there is nowhere
+for unapplied cash to live.
+
+### Virtual months
+
+A month has **no charge row until money reaches it**. `LedgerService.getOwed`
+therefore merges two sources — stored bills, and unpaid months derived from
+`buildMonthGrid` — deduped on `(customer_plan_id, billing_month)` with the
+**stored bill winning**. Miss the dedupe and an empty month charge left by a
+voided collection is counted twice.
+
+Collecting is what turns a month into a bill: `CollectionService.collect`
+materializes it in the same write, with an id from
+`deterministicId(customer_plan_id, billing_month)` — so two devices collecting
+the same month offline converge on ONE row instead of billing the customer
+twice.
+
+### A line with no set price
+
+A custom-price plan — or a customer with no plan at all — has no figure to bill,
+so `resolveLinePrice` returns `kind: 'typed'` and **`getOwed` skips the line
+entirely**: nothing can be poured over a bill whose amount nobody has typed. The
+month cell still collects. It builds an **open item** (`OpenItem.openAmount`,
+amount / balance / currency all empty) and the collect sheet grows one extra
+field, **Amount for this month** — that field IS the bill, and it also decides
+the currency, since an open item has none of its own.
+
+Three rules:
+
+- **Single item only.** Two open months in one write are two different unknown
+  amounts, so a grid multi-select containing one is refused with a message.
+  Quick pay follows the same rule: one price-less line opens the sheet on the
+  customer list itself, two send you to the month grid.
+- **Once the amount is typed the item becomes an ordinary bill**
+  (`billedOpenItem` in `CollectSheet`), so a part payment, the "leaves N owing"
+  hint and the overpay refusal are the existing code, not a second
+  implementation. "Owed 50, paid 20" works exactly as it does for a priced line.
+- **The bill is raised at what was typed**, in the hand-over's currency:
+  `CollectionService.materialize` uses `item.amount > 0 ? item.amount : line.amount`.
+
+Once that first bill exists the line behaves like any other — the remainder is a
+debt, and the Debts screen and the waterfall both see it. See gotcha #112.
+
+### Owed vs debt
+
+| | includes | consumed by |
+| --- | --- | --- |
+| **OWED** | everything with a balance, plain unpaid months included | the waterfall, and only the waterfall |
+| **DEBT** | partly-paid months, open/partly-paid sales, hand-typed fees | the Debts screen |
+
+`isDebtItem(kind, paid) = kind !== 'month' || paid > 0` — one function, in
+`ledger/utils/openItems.ts`. **A fully unpaid month is NOT a debt**: it is
+`unpaid`/`overdue` in the month grid, which is its own screen and its own
+workflow. It becomes a debt the moment it is *partly* paid, which is exactly
+when it stops being routine.
+
+### Void vs write-off
+
+Two different statements about one bill, and `chk_charges_void_xor_write_off`
+keeps them mutually exclusive:
+
+| | means | effect |
+| --- | --- | --- |
+| **void** (`voided_at`) | it was a MISTAKE — it never existed | gone from every figure. `voidCharge` is refused once money sits on it; `voidChargeWithPayments` is the deliberate "take the cash with it" door (see below) |
+| **write off** (`written_off_at`) | it is REAL but will never be paid | leaves "still owed", reported as a **loss** in Reports → Debts |
+
+Voiding a **collection** is the third, and different again: the cash was real
+but should not have been recorded. Every bill it touched gets its balance back
+on its own, because a balance is a sum over live items and this row stops being
+one.
+
+### One currency per hand-over
+
+A collection carries one currency, and it must equal the currency of every
+charge it pays — which is why `collection_items` has **no currency or rate of
+its own**. That is what lets a balance close at exactly zero, with no rate drift.
+A customer owing in two currencies is collected from twice, and the collect
+sheet shows a currency picker to say so. USD for revenue and the wallet uses the
+**collection's** frozen rate (what physically arrived); USD for a debt total uses
+the **charge's** (what he was billed).
+
+### Screens
+
+| Where | What |
+| --- | --- |
+| `CollectSheet` | the ONE collect form. Two modes: a whole customer (type an amount, watch the waterfall split it, untick a row to steer the cash on) or a single bill. Same write either way, so one code path and one audit shape. |
+ hero, then **every payment that reached it**, each with its own date and collector. |
+| `BillPaymentsList` | the payments half of `BillSheet`, on its own — the list of hand-overs against ONE bill, with the per-row menu (send receipt / void this payment). Shared with the **sale receipt**, because a month and a sale are the same `charges` row to the ledger. |
 | `CollectionCard` | one hand-over. A single-bill payment shows it inline; several show a `3 items ▾` expander. |
 | `CollectionsPanel` / `CollectionsHistorySheet` | the money-in history. ONE list where there were two (payments and debt payments). Reached from the quick-actions menu. |
 | `CollectQuickActionSheet` | "Collect money" from anywhere: pick a customer, the waterfall does the rest. |
@@ -832,13 +1658,64 @@ the **charge's** (what he was billed).
 the money will do BEFORE saving, which is what makes an automatic allocation
 trustworthy instead of magic.
 
-### Where voiding lives, and why it moved
+### Where voiding lives — two doors, two statements
 
 Under the old model "void this month's payment" was meaningful. It is not any
-more: one hand-over can settle three months and a sale, so there is no such
-thing as undoing it for one month. The grid's month menu therefore offers
-**View bill**, and the bill sheet is where a payment is voided — with the row
-saying *"also paid other bills"* when the decision is wider than it looks.
+more: one hand-over can settle three months and a sale, so *which* payment is a
+real question. So there are two doors, and they say different things.
+
+**Void one payment — the narrow door.** *That hand-over was wrong; the bill is
+still owed.* It lives in `BillPaymentsList`, per payment row — so on the
+month bill sheet and on the sale receipt, and nowhere else — with
+the row saying *"also paid other bills"* when the decision is wider than it
+looks. This is the everyday correction: cash mis-recorded, wrong customer,
+wrong amount.
+
+**Void the bill — the wide door.** *This should never have been billed at all*,
+so the cash sitting on it goes too. One primitive,
+`ChargeService.voidChargeWithPayments`, behind three entry points:
+
+| Where | Label |
+| --- | --- |
+| month cell 3-dot | **Void this month** (whenever the month has a bill — including an unpaid one still holding the bill a voided payment left behind) |
+| `BillSheet` footer | **Void this month** (red, last — the per-payment void above it is the usual correction) |
+| a sale's 3-dot / receipt | **Void sale** (`SaleService.voidSale`) |
+
+Three rules hold it together:
+
+- **Payments first, bill second.** If the bill's own void then fails, what is
+  left is an *unpaid bill* the customer still owes — recoverable. The other
+  order strands live cash on a bill that no longer exists.
+- **Always say the count.** `paymentIdsForCharge` (and `SaleService.paymentCountForSale`)
+  are read *before* the confirm, because a hand-over that also settled other
+  bills is voided **whole** — voiding January's bill can hand February back too,
+  and staff must be told before, not after.
+- **`voidCharge` still refuses a paid bill.** That is what keeps the narrow
+  paths (a debt row's void) from quietly destroying cash. Only a caller that
+  has shown the count gets the wide door.
+
+No order gate is needed either way: a void only ever *lowers* what is covered,
+so it can never leave a paid month sitting on an unpaid one. And `voidSale`
+voids only the **payments** — `repository.voidSale` already voids the sale's own
+charge inside its transaction, so one record keeps one owner.
+
+**One write, not a loop — this is a performance rule with teeth.**
+`CollectionRepository.voidMany` voids every hand-over in a single UPDATE (and,
+offline, a single transaction). A loop over `void()` costs a read + a write + an
+audit insert *per row* online, and offline opens a transaction per row — each
+queuing behind `withDbLock`, since expo-sqlite gives the app one connection.
+That queue is what made the first cut of this feature slow, and the same rule
+retired the old loop inside `CollectionService.voidCollections`. `voidMany`
+returns only the rows it actually voided, and offline returns them
+**un-hydrated** — no caller reads the joins, and `hydrate` is three more queries.
+
+**Nothing counts the payments to warn about them.** The confirm messages state
+that any money collected is voided too — unconditionally, with no figure — so
+opening a void dialog costs no reads at all. An earlier cut fetched a count per
+surface just to fill in "{{count}} payments", which re-read exactly the rows the
+write goes on to read anyway (`voidChargeWithPayments` needs their ids
+regardless). A number in that sentence does not justify a round trip on the way
+into a dialog.
 
 ### The sale writes its own bill
 

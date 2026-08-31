@@ -85,6 +85,18 @@ export interface LedgerSlice {
     values: { description?: string; amount?: number; dueDate?: string; notes?: string | null },
   ) => Promise<Charge | null>;
   voidCharge: (id: string, voidedBy: string, reason: string | null) => Promise<boolean>;
+  /**
+   * The bill and every payment on it — for a bill that should never have
+   * existed at all. `voidCharge` refuses a paid bill; this is the deliberate
+   * "take the cash with it" answer, so the caller's confirm must SAY that the
+   * money goes too (it does not need to know how much: the write finds the
+   * hand-overs itself, in the one read it has to do anyway).
+   */
+  voidChargeWithPayments: (
+    id: string,
+    voidedBy: string,
+    reason: string | null,
+  ) => Promise<boolean>;
   /** He owes it and will not pay — leaves "still owed", kept as a loss. */
   writeOffCharge: (id: string, writtenOffBy: string, reason: string | null) => Promise<boolean>;
 
@@ -243,6 +255,16 @@ export const createLedgerSlice: StateCreator<
 
     voidCharge: async (id, voidedBy, reason) => {
       const result = await run("loading", () => chargeService.voidCharge(id, voidedBy, reason));
+      return result !== null;
+    },
+
+    voidChargeWithPayments: async (id, voidedBy, reason) => {
+      const result = await run("loading", () =>
+        chargeService.voidChargeWithPayments(id, voidedBy, reason),
+      );
+      // The cash it undid was in someone's wallet and counted as revenue, so
+      // what one customer owes is no longer the only stale figure.
+      if (result !== null) get().ledger.clearOwed();
       return result !== null;
     },
 
