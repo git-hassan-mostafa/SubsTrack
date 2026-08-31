@@ -119,13 +119,21 @@ class ChargeService {
    * `gross − payments` subtraction, and every row already carries its own
    * balance, so the parts add up to the total exactly.
    *
-   * `unpaidMonths` arrives from LedgerService: a fully unpaid month is owed but
-   * is NOT a debt (it is red in the grid), so it is kept beside the debts rather
-   * than inside them.
+   * It sees STORED bills only, so it can never list a plain unpaid month — a
+   * month has no row until money reaches it, and that is deliberate: an unpaid
+   * month is red in the grid, which is its own workflow. `unpaidMonths` fills
+   * only from months that were PARTLY paid, for a customer who has a real debt.
    */
   buildDebtsView(open: OpenItem[]): DebtsView {
     const byCustomer = new Map<string, CustomerDebts>();
     for (const item of open) {
+      // An EMPTY month bill (paid, then the collection was voided) must read
+      // exactly like a month never touched — and a never-touched month has no
+      // row here at all. Without this, voiding a payment was the ONLY way a
+      // plain unpaid month reached this screen, so one voided month showed up
+      // while the customer's other unpaid months did not. Gotcha #106: key off
+      // MONEY, never off a row existing.
+      if (item.kind === 'month' && item.paid <= 0) continue;
       let entry = byCustomer.get(item.customerId);
       if (!entry) {
         entry = {

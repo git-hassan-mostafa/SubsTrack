@@ -744,9 +744,17 @@ for unapplied cash to live.
 
 A month has **no charge row until money reaches it**. `LedgerService.getOwed`
 therefore merges two sources — stored bills, and unpaid months derived from
-`buildMonthGrid` — deduped on `(customer_plan_id, billing_month)` with the
-**stored bill winning**. Miss the dedupe and an empty month charge left by a
+`buildMonthGrid` — deduped on `(customer_plan_id, billing_month)` with a
+**PAID stored bill winning**. Miss the dedupe and an empty month charge left by a
 voided collection is counted twice.
+
+An **EMPTY** stored bill (nothing collected) deliberately LOSES the dedupe: it
+must read like a month never touched, price included, so the virtual month wins
+and carries the line's CURRENT price. The grid takes the same branch in
+`monthItemFromEntry` (`entry.collected > 0`, not `entry.charge`), and both
+`CollectionRepository.create` paths re-price the stored row to match before
+collecting — otherwise the sheet would show the new price and bill the old one.
+A bill money has reached always keeps its frozen amount. See gotcha #106b.
 
 Collecting is what turns a month into a bill: `CollectionService.collect`
 materializes it in the same write, with an id from
@@ -792,6 +800,17 @@ debt, and the Debts screen and the waterfall both see it. See gotcha #112.
 `unpaid`/`overdue` in the month grid, which is its own screen and its own
 workflow. It becomes a debt the moment it is *partly* paid, which is exactly
 when it stops being routine.
+
+**The Debts screen never lists a plain unpaid month at all**, and that is
+structural, not a filter: `getDebtsView` reads **stored bills only** (no virtual
+pass — do not add one), and a month has no bill until money reaches it. So the
+`unpaidMonths` section fills only from **partly-paid** months. The one leak was
+an **empty** bill — a month paid and then voided keeps its `charges` row with
+`paid = 0` — which made voiding a payment the single way an unpaid month could
+appear there, showing that lone month while the customer's genuinely unpaid
+months stayed hidden. `buildDebtsView` now drops `kind === 'month' && paid <= 0`,
+so an emptied bill reads exactly like a month never touched (gotchas #106,
+#106c).
 
 ### Void vs write-off
 
@@ -1567,9 +1586,17 @@ for unapplied cash to live.
 
 A month has **no charge row until money reaches it**. `LedgerService.getOwed`
 therefore merges two sources — stored bills, and unpaid months derived from
-`buildMonthGrid` — deduped on `(customer_plan_id, billing_month)` with the
-**stored bill winning**. Miss the dedupe and an empty month charge left by a
+`buildMonthGrid` — deduped on `(customer_plan_id, billing_month)` with a
+**PAID stored bill winning**. Miss the dedupe and an empty month charge left by a
 voided collection is counted twice.
+
+An **EMPTY** stored bill (nothing collected) deliberately LOSES the dedupe: it
+must read like a month never touched, price included, so the virtual month wins
+and carries the line's CURRENT price. The grid takes the same branch in
+`monthItemFromEntry` (`entry.collected > 0`, not `entry.charge`), and both
+`CollectionRepository.create` paths re-price the stored row to match before
+collecting — otherwise the sheet would show the new price and bill the old one.
+A bill money has reached always keeps its frozen amount. See gotcha #106b.
 
 Collecting is what turns a month into a bill: `CollectionService.collect`
 materializes it in the same write, with an id from
@@ -1616,6 +1643,17 @@ debt, and the Debts screen and the waterfall both see it. See gotcha #112.
 workflow. It becomes a debt the moment it is *partly* paid, which is exactly
 when it stops being routine.
 
+**The Debts screen never lists a plain unpaid month at all**, and that is
+structural, not a filter: `getDebtsView` reads **stored bills only** (no virtual
+pass — do not add one), and a month has no bill until money reaches it. So the
+`unpaidMonths` section fills only from **partly-paid** months. The one leak was
+an **empty** bill — a month paid and then voided keeps its `charges` row with
+`paid = 0` — which made voiding a payment the single way an unpaid month could
+appear there, showing that lone month while the customer's genuinely unpaid
+months stayed hidden. `buildDebtsView` now drops `kind === 'month' && paid <= 0`,
+so an emptied bill reads exactly like a month never touched (gotchas #106,
+#106c).
+
 ### Void vs write-off
 
 Two different statements about one bill, and `chk_charges_void_xor_write_off`
@@ -1652,7 +1690,7 @@ the **charge's** (what he was billed).
 | `CollectionsPanel` / `CollectionsHistorySheet` | the money-in history. ONE list where there were two (payments and debt payments). Reached from the quick-actions menu. |
 | `CollectQuickActionSheet` | "Collect money" from anywhere: pick a customer, the waterfall does the rest. |
 | `DebtsPanel` | one row per customer who owes, **sorted by how far behind they are**. |
-| `DebtorDetailSheet` | two sections — **Debts** and a muted **Unpaid months** — plus one `Collect · N` button that pours money over both, oldest first. |
+| `DebtorDetailSheet` | two sections — **Debts** and a muted **Unpaid months** (partly-paid months only; see the DEBT-vs-OWED note above) — plus one `Collect · N` button that pours money over both, oldest first. |
 
 **The split preview is the heart of the collect sheet.** Staff sees exactly what
 the money will do BEFORE saving, which is what makes an automatic allocation

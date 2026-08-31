@@ -18,7 +18,8 @@ Covers the **Debts** screen (Transactions → Debts — a single debtors list, n
 
 1. **Every figure comes from ONE query over `charges`** joined to what has been collected. No category merging, no `gross − payments` subtraction.
 2. **The parts ADD UP.** `monthsDebt + salesDebt + manualDebt = totalDebt`, exactly. If they don't, something is reading the wrong source.
-3. **A fully unpaid month is OWED but is NOT a debt** — it belongs to the month grid. It appears on this screen only as the muted **"+N unpaid months"** hint on the card and as its own section inside the debtor sheet.
+3. **A fully unpaid month is OWED but is NOT a debt** — it belongs to the month grid, and this screen never lists one. It reads STORED bills only, and a month has no bill until money reaches it, so a never-touched month is invisible here by construction. The **"+N unpaid months"** hint and the sheet's **Unpaid months** section therefore fill only from **partly-paid** months of a customer who already has a real debt.
+3b. **An EMPTY month bill must read exactly like a month never touched.** Paying a month and then voiding that payment leaves a `charges` row with `paid = 0`; it is skipped here, because otherwise voiding a payment would be the ONE way a plain unpaid month reached this screen — showing that single month while every other unpaid month of the same customer stayed hidden. Key off MONEY, never off a row existing (gotcha #106).
 4. **A debt row is:** a partly-paid month, an open or partly-paid sale, or a hand-typed fee.
 5. **Kinds:** `month` / `sale` / `manual`. A sale made of **service** lines files under `sale` — the debt belongs to the sale as a whole.
 6. **Currency:** every bill freezes `rate_per_usd_snapshot` when it is raised. Totals are summed in USD via each row's own snapshot, then formatted into the display currency — they never drift when the live rate changes.
@@ -37,7 +38,7 @@ Covers the **Debts** screen (Transactions → Debts — a single debtors list, n
 | 1.3 | **Sorted by how far behind** | Several debtors with different oldest due dates | Worst-behind first, then by amount — not alphabetical, not by amount alone |
 | 1.4 | Days behind | A debtor whose oldest bill is 12 days past due | Card sub-line reads "12 days behind" |
 | 1.5 | Not late yet | A debtor whose only bill is not yet due | Sub-line reads "Not late yet" |
-| 1.6 | Unpaid-months hint | A debtor who also has 2 plain unpaid months | Sub-line ends with a muted "+2 unpaid months · $40" — and that amount is **not** in the bold debt figure |
+| 1.6 | Unpaid-months hint | A debtor who also has 2 **partly-paid** months | Sub-line ends with a muted "+2 unpaid months · $40" — and that amount is **not** in the bold debt figure |
 | 1.7 | A partly-paid month appears | Collect 10 of a 20 month | The customer appears; their debt rises by 10 |
 | 1.8 | A pay-later sale appears | Record a sale with **No payment** | The customer's debt rises by the whole total, dated from `sold_at` |
 | 1.9 | A fully paid sale does not | Record a sale as **Full** | No debt for it |
@@ -45,6 +46,10 @@ Covers the **Debts** screen (Transactions → Debts — a single debtors list, n
 | 1.11 | Search | Type part of a name | Client-side filter, no spinner and no re-fetch |
 | 1.12 | Totals reconcile | Note the header; add a fee of X | The header rises by exactly X (converted to the display currency) |
 | 1.13 | **A fully unpaid month never becomes a row** | A customer with nothing collected all year | They do NOT appear in the list at all (the grid is where that lives) |
+| 1.14 | **Paying a month then voiding the payment leaves NOTHING here** | Collect a month in full → void that payment → open Debts | The month is gone from this screen entirely: it is back to a plain unpaid month, which lives in the grid. The customer disappears too unless they hold a real debt. **This was the bug** — the emptied bill used to appear as a lone "unpaid month" while the same customer's genuinely unpaid months stayed hidden |
+| 1.15 | The voided month is still owed | After 1.14, open the customer's month grid | The cell is **red / unpaid** and collectable again — voiding the cash never made the month go away, it only moved it back to the grid's workflow |
+| 1.16 | Partial then void | Collect 10 of 20, then void that payment | Same as 1.14 — `paid` is back to 0, so the row stops being a debt and leaves the screen |
+| 1.17 | A partial that survives stays a debt | Collect 10 of 20 and leave it | The month IS a debt row (§1.7) — only a fully emptied bill is skipped |
 
 ---
 
@@ -52,7 +57,8 @@ Covers the **Debts** screen (Transactions → Debts — a single debtors list, n
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 2.1 | Open | Tap a debtor row | A full-height sheet: name, total outstanding, then a **Collect** button, then the debts, then a muted **Unpaid months** section |
+| 2.1 | Open | Tap a debtor row | A full-height sheet: name, total outstanding, then a **Collect** button, then the debts, then a muted **Unpaid months** section — the latter present only when a **partly-paid** month exists |
+| 2.1b | No emptied bills in the section | Pay a month, void the payment, open the debtor sheet | The **Unpaid months** section does not list that month (and is absent altogether if it was the only entry) |
 | 2.2 | The two sections are different things | Compare | The bold total on the card counts only the debts; the sheet's button covers **both** sections, which is why its figure can be larger |
 | 2.3 | Collect everything | Tap **Collect $N** | The collect sheet opens with the whole pool and the waterfall preview (see ledger-collections.md §3) |
 | 2.4 | Collect one bill | A row's 3-dot → **Collect** | The collect sheet opens with that bill alone, no split preview |

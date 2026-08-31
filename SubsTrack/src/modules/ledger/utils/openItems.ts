@@ -148,7 +148,12 @@ export function monthItemFromEntry(args: {
   ratePerUsd: number;
 }): OpenItem | null {
   const { entry } = args;
-  if (entry.charge) {
+  // Keys off MONEY, not on the bill existing. An EMPTY bill (its only
+  // collection was voided) must read exactly like a month never touched —
+  // including its price — so it is re-priced from the line's CURRENT price
+  // instead of keeping the figure it was first billed at. Only a bill money has
+  // actually reached keeps its frozen amount. See gotcha #106b.
+  if (entry.charge && entry.collected > 0) {
     return openItemFromCharge(entry.charge, entry.collected, args.label, args.customerName);
   }
   const priced = args.price.amount !== null && args.price.amount > 0;

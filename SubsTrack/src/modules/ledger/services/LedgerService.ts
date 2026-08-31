@@ -56,8 +56,15 @@ class LedgerService {
       customerName: customer.name,
     }));
 
+    // An EMPTY month bill (its only collection was voided) must read exactly
+    // like a month never touched — including its price. So only a bill money
+    // has actually reached wins the dedupe; an empty one falls through to the
+    // virtual path and is re-priced from the line's CURRENT price, and the
+    // collect write re-prices the stored row to match (gotcha #106b).
     const billed = new Set(
-      stored.filter((i) => i.kind === 'month').map((i) => `${i.customerPlanId}:${i.billingMonth}`),
+      stored
+        .filter((i) => i.kind === 'month' && i.paid > 0)
+        .map((i) => `${i.customerPlanId}:${i.billingMonth}`),
     );
     const virtual = await this.virtualUnpaidMonths({
       customer,
@@ -69,7 +76,17 @@ class LedgerService {
       today: args.today ?? new Date(),
     });
 
-    return sortByDue([...stored, ...virtual]);
+    // Drop the empty bills the virtual pass just replaced, or the month would
+    // appear twice (once at its stale price, once at the current one).
+    const revalued = new Set(virtual.map((i) => `${i.customerPlanId}:${i.billingMonth}`));
+    const kept = stored.filter(
+      (i) =>
+        i.kind !== 'month' ||
+        i.paid > 0 ||
+        !revalued.has(`${i.customerPlanId}:${i.billingMonth}`),
+    );
+
+    return sortByDue([...kept, ...virtual]);
   }
 
   /**

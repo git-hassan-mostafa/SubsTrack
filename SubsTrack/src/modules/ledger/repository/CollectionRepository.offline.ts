@@ -1,3 +1,4 @@
+import type { SQLiteDatabase } from 'expo-sqlite';
 import { OFFLINE_PAGE_SIZE, type BranchFilter } from '@/src/core/constants';
 import type { CashRow, CashStream } from '@/src/core/types';
 import type { DbCharge, DbCollection, DbCollectionItem, DbCustomer } from '@/src/core/types/db';
@@ -10,6 +11,7 @@ import type {
   FindCollectionsOptions,
   ICollectionRepository,
 } from './ICollectionRepository';
+import type { CreateChargePayload } from './IChargeRepository';
 import { sumByMonth } from '../utils/monthTotals';
 
 /** SQLite-backed hand-overs. Reproduces
@@ -125,6 +127,64 @@ export class OfflineCollectionRepository
   }
 
   /**
+   * Bring an EMPTY month bill up to the price being billed now — the offline
+   * twin of `CollectionRepository.repriceEmptyBills`. See it for the reasoning.
+   *
+   * Runs inside the caller's transaction, so the reprice and the money that
+   * caused it can never be saved apart.
+   */
+  private async repriceEmptyBill(
+    db: SQLiteDatabase,
+    chargeId: string,
+    next: CreateChargePayload,
+  ): Promise<void> {
+    if (next.kind !== 'month') return;
+    const paid = await db.getFirstAsync<{ total: number | null }>(
+      'SELECT SUM(ci.amount) AS total FROM collection_items ci ' +
+      'JOIN collections c ON c.id = ci.collection_id ' +
+      'WHERE ci.charge_id = ? AND c.voided_at IS NULL',
+      [chargeId] as never[],
+    );
+    if ((paid?.total ?? 0) > 0) return;
+
+    const before = this.decodeOne<DbCharge>(
+      'charges',
+      await this.first('SELECT * FROM charges WHERE id = ?', [chargeId]),
+    );
+    if (!before) return;
+    const same =
+      Number(before.amount) === Number(next.amount) &&
+      before.currency_id === next.currency_id &&
+      Number(before.rate_per_usd_snapshot) === Number(next.rate_per_usd_snapshot) &&
+      before.duration_months === next.duration_months &&
+      before.plan_id === next.plan_id;
+    if (same) return;
+
+    const patch = {
+      amount: next.amount,
+      currency_id: next.currency_id,
+      rate_per_usd_snapshot: next.rate_per_usd_snapshot,
+      duration_months: next.duration_months,
+      plan_id: next.plan_id,
+      // Re-raised, so it is no longer a void or a loss.
+      voided_at: null,
+      voided_by: null,
+      void_reason: null,
+    };
+    await updateDirty(db, 'charges', chargeId, patch);
+    await this.auditIn(db, {
+      table: 'charges',
+      recordId: chargeId,
+      action: 'update',
+      before,
+      after: { ...before, ...patch },
+      ...(before.customer_id
+        ? await this.customerAudit(before.customer_id)
+        : { branchId: before.branch_id }),
+    });
+  }
+
+  /**
    * The bills, the hand-over and its split all land in ONE transaction: cash
    * can never be recorded against a bill that failed to save, and a month the
    * waterfall just materialized cannot exist without the money that created it.
@@ -152,8 +212,8 @@ export class OfflineCollectionRepository
 
     await this.write(async (db) => {
       for (const charge of charges) {
-        // Find-or-create on the natural key: an existing bill keeps its frozen
-        // price, so re-collecting a month never re-prices it.
+        // Find-or-create on the natural key: a bill money has REACHED keeps its
+        // frozen price, so re-collecting it never re-prices it.
         const existing = charge.customer_plan_id
           ? await db.getFirstAsync<{ id: string }>(
             'SELECT id FROM charges WHERE customer_plan_id = ? AND billing_month = ?',
@@ -164,6 +224,12 @@ export class OfflineCollectionRepository
           ] as never[]);
         if (existing) {
           chargeIdMap.set(charge.id, existing.id);
+          // An EMPTY bill (its only collection was voided) is re-priced to what
+          // is being billed now — the sheet already re-priced the item from the
+          // line's current price (gotcha #106b), so the row must follow or the
+          // customer is billed a figure nobody was shown. Guarded on `paid = 0`,
+          // the same money-not-a-row rule the read side uses.
+          await this.repriceEmptyBill(db, existing.id, charge);
           continue;
         }
         const chargeRow: DbCharge = {

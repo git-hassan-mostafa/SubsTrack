@@ -9,6 +9,7 @@ import type {
   FindCollectionsOptions,
   ICollectionRepository,
 } from './ICollectionRepository';
+import type { CreateChargePayload } from './IChargeRepository';
 import { OfflineCollectionRepository } from './CollectionRepository.offline';
 import { sumByMonth } from '../utils/monthTotals';
 
@@ -139,6 +140,81 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
     return (data ?? []) as DbCollectionItem[];
   }
 
+  /**
+   * Bring EMPTY month bills up to the price being billed now.
+   *
+   * A bill whose only collection was voided keeps its row (it is the natural
+   * key), but nothing about it may still read as "billed" — including its
+   * amount. The caller has already re-priced the item from the line's current
+   * price, so the stored row is aligned to it here.
+   *
+   * Guarded on `paid = 0`, never on "was voided": that is the same
+   * money-not-a-row rule, and it also makes the write safe if another device
+   * collected this month in between.
+   */
+  private async repriceEmptyBills(charges: CreateChargePayload[]): Promise<void> {
+    const months = charges.filter((c) => c.kind === 'month');
+    if (months.length === 0) return;
+
+    const { data: existing, error } = await this.db
+      .from('charges')
+      .select('*')
+      .in('id', months.map((c) => c.id));
+    if (error) this.handleError(error);
+
+    const rows = (existing ?? []) as DbCharge[];
+    if (rows.length === 0) return;
+    const balances = await this.db
+      .from('charge_balances')
+      .select('*')
+      .in('id', rows.map((r) => r.id));
+    if (balances.error) this.handleError(balances.error);
+    const paidById = new Map(
+      (balances.data ?? []).map((b: { id: string; paid: number }) => [b.id, Number(b.paid)]),
+    );
+
+    for (const row of rows) {
+      if ((paidById.get(row.id) ?? 0) > 0) continue;
+      const next = months.find((c) => c.id === row.id)!;
+      const same =
+        Number(row.amount) === Number(next.amount) &&
+        row.currency_id === next.currency_id &&
+        Number(row.rate_per_usd_snapshot) === Number(next.rate_per_usd_snapshot) &&
+        row.duration_months === next.duration_months &&
+        row.plan_id === next.plan_id;
+      if (same) continue;
+
+      const { data: updated, error: updateError } = await this.db
+        .from('charges')
+        .update({
+          amount: next.amount,
+          currency_id: next.currency_id,
+          rate_per_usd_snapshot: next.rate_per_usd_snapshot,
+          duration_months: next.duration_months,
+          plan_id: next.plan_id,
+          // An empty bill left by a void is being re-raised, so it is no longer
+          // a void or a loss.
+          voided_at: null,
+          voided_by: null,
+          void_reason: null,
+        })
+        .eq('id', row.id)
+        .select('*, customers(*)')
+        .single();
+      if (updateError) this.handleError(updateError);
+      const after = updated as DbCharge;
+      this.audit({
+        table: 'charges',
+        recordId: row.id,
+        action: 'update',
+        before: row,
+        after,
+        branchId: after.branch_id,
+        customerId: after.customer_id ?? undefined,
+      });
+    }
+  }
+
   async create(payload: CreateCollectionPayload): Promise<DbCollection> {
     const { items, charges, ...header } = payload;
 
@@ -146,6 +222,13 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
     // deterministic id, so a month another device already billed is reused
     // rather than duplicated — and keeps ITS frozen price.
     if (charges.length > 0) {
+      // An EMPTY bill left by a voided collection is re-priced to what the
+      // caller is billing now: the sheet re-prices it from the current plan
+      // (gotcha #106b), so the row must follow or the customer is billed a
+      // figure nobody was shown. A bill money has reached is never touched —
+      // the guard is on the balance, so it is also safe against a device that
+      // collected the same month meanwhile.
+      await this.repriceEmptyBills(charges);
       const { data: inserted, error } = await this.db
         .from('charges')
         .upsert(charges, { onConflict: 'id', ignoreDuplicates: true })

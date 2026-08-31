@@ -178,3 +178,50 @@ Native build only — the web repository tolerates the duplicate id silently, so
 13.4 Admin → Audit Log shows the `charges` create entry under the id that was **actually stored** (the same id the bill sheet shows).
 13.5 Collect a **walk-in sale** (no customer, so `customer_plan_id` is NULL) and confirm the bill and its cash still save — the natural-key lookup matches nothing for these and must fall through to the id check.
 13.6 Sync after each of the above and confirm the bill converges to ONE row on the server (no duplicate month bill for the same line + month).
+
+## 14. Re-pricing an empty bill (gotcha #106b)
+
+An "empty" bill is a month whose only payment was voided. It must read exactly like a month never touched — **including its price**.
+
+### 14.1 Plan swapped after a void
+
+14.1.1 Put a customer on the default **no-plan** (custom-price) line. Collect the current month for **$50**.
+14.1.2 Void that hand-over (View bill → the payment row → Void).
+14.1.3 In the customer form, change that line from no-plan to a predefined plan priced **$30**. Save.
+14.1.4 Tap the same month cell. The collect sheet must open at **$30**, not $50.
+14.1.5 Save it. The bill stored is **$30** — reopen View bill and confirm the owed figure and the receipt both read $30.
+
+### 14.2 Plan price edited after a void
+
+14.2.1 Collect a month on a **$50** plan, then void the hand-over.
+14.2.2 Admin → Plans: change that plan's price to **$40**.
+14.2.3 Tap the same month cell → the sheet opens at **$40**, and saving bills $40.
+
+### 14.3 A PAID bill is never re-priced
+
+14.3.1 Collect a month at $50 and **do not** void it. Change the plan price to $40.
+14.3.2 The month still reads $50 everywhere (grid, View bill, receipt) — the price froze when the money landed.
+14.3.3 A **partly** paid month (paid $20 of $50) also keeps $50 after a price change; the sheet still offers the $30 remainder, not a re-priced figure.
+14.3.4 Void the *bill* (not the payment) and confirm nothing is re-priced by that action alone.
+
+### 14.4 Currency changes with the price
+
+14.4.1 Collect a month billed in **LBP**, void it, then move the line to a **USD**-priced plan.
+14.4.2 The sheet opens in USD at the new amount, and the saved bill's currency **and** its rate snapshot are the USD ones — not the old LBP rate.
+
+### 14.5 Multi-month span changes
+
+14.5.1 Collect a 1-month block at $50, void it, then move the line to a **3-month / $120** plan.
+14.5.2 The re-priced block covers **3 months** at $120 — the cells join into one pill, and the stored bill's `duration_months` is 3.
+
+### 14.6 The other collect doors agree
+
+14.6.1 After 14.1.3 (empty bill, plan now $30), use the customer list **quick pay** — it must charge $30.
+14.6.2 Use the quick-actions **Collect money** sheet for the same customer — the split preview lists that month at **$30**, and the total owed reflects $30.
+14.6.3 The **Debts** screen and the dashboard "still owed" figure do not show the month twice (once at $50, once at $30).
+
+### 14.7 Offline / multi-device
+
+14.7.1 Do 14.1 offline on a device, then sync. The server's bill is the re-priced one, and there is exactly **one** row for that line + month.
+14.7.2 Race it: on device A collect the emptied month (billing $30) while device B collects the same month first at $50 and syncs in between. The later write must **not** overwrite a bill that now has money on it — the `paid = 0` guard holds, and no cash is left pointing at a re-priced amount nobody agreed to.
+14.7.3 Admin → Audit Log shows a `charges` **update** entry for the re-price, with the old and new amounts.
