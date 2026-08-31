@@ -1,4 +1,4 @@
-import type { Charge, Sale, SaleItem } from '@/src/core/types';
+import type { Sale, SaleItem } from '@/src/core/types';
 import type { BranchFilter } from '@/src/core/constants';
 import i18n from '@/src/core/i18n';
 import { newId, nowIso } from '@/src/core/offline/ids';
@@ -142,19 +142,20 @@ class SaleService {
     return sales.map((s) => {
       const charge = bySale.get(s.id);
       if (!charge) return s;
-      return { ...s, chargeId: charge.id, amountPaid: paid.get(charge.id) ?? 0 };
+      return {
+        ...s,
+        chargeId: charge.id,
+        // Mapped here, not re-read later: collecting on a sale needs the whole
+        // bill, and this row is already in hand.
+        charge: mapDbChargeToCharge(charge),
+        amountPaid: paid.get(charge.id) ?? 0,
+      };
     });
   }
 
   private async paidByCharge(chargeIds: string[]): Promise<Map<string, number>> {
     const balances = await chargeRepository.balances(chargeIds);
     return new Map(balances.map((b) => [b.id, b.paid]));
-  }
-
-  /** The bill one sale raised — the receipt lists the payments against it. */
-  async getChargeForSale(saleId: string): Promise<Charge | null> {
-    const row = await chargeRepository.findBySaleId(saleId);
-    return row ? mapDbChargeToCharge(row) : null;
   }
 
   async createSale(input: CreateSaleInput): Promise<Sale> {

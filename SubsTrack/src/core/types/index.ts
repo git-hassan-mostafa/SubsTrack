@@ -440,12 +440,16 @@ export interface Sale {
   // `charges` row (kind 'sale') and what was collected is a `collections` row.
   // A sale can therefore take several payments over time without this row moving.
   //
-  // The two fields below are DERIVED from that bill, never stored columns — the
+  // The three fields below are DERIVED from that bill, never stored columns — the
   // service fills them in after reading the balance, so a card can still print
   // "20/50" without the sale document owning money again. 0 / null on the lean
   // reads that only need the header.
   amountPaid: number;
   chargeId: string | null;
+  // The bill itself, kept because the read that filled `chargeId` already had
+  // the whole row: collecting on a sale needs its currency, frozen rate and due
+  // date, and re-reading them would make the menu tap wait on a query.
+  charge: Charge | null;
   // The product lines. Present on list/detail reads; empty on lean reads (debt/wallet
   // use itemsSummary instead).
   items: SaleItem[];

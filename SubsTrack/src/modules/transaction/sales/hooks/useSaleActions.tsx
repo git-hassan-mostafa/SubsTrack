@@ -5,11 +5,7 @@ import {
   ActionMenu,
   type ActionMenuItem,
 } from "@/src/shared/components/ActionMenu";
-import { findCurrency, formatMoney } from "@/src/core/utils/currency";
-import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
-import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { openItemFromCharge, useCollectSheet } from "@/src/modules/ledger";
-import saleService from "@/src/modules/transaction/sales/services/SaleService";
 import { useRecordHistoryAction } from "@/src/modules/admin/audit";
 import { useSendInvoice, WhatsAppComboIcon } from "@/src/modules/invoicing";
 import { SaleBulkVoidSheet } from "../components/SaleBulkVoidSheet";
@@ -58,8 +54,6 @@ export function useSaleActions({
   const { t } = useTranslation();
   const { canSend, sendSaleInvoice } = useSendInvoice();
   const history = useRecordHistoryAction("sales");
-  const currencies = useCurrencySlice((s) => s.items);
-  const displayCurrencyId = useDisplayCurrencyId();
   const collectSheet = useCollectSheet({ onCollected: () => onCollected?.() });
   const [menuSale, setMenuSale] = useState<Sale | null>(null);
   const [voidIds, setVoidIds] = useState<string[] | null>(null);
@@ -67,13 +61,14 @@ export function useSaleActions({
   // Collect what is still owed on a pay-later or partly-paid sale. It goes
   // through the SAME sheet as any other bill — one door for money in, so the
   // custody, audit and currency rules are written in exactly one place.
-  async function handleCollect(sale: Sale) {
-    const charge = await saleService.getChargeForSale(sale.id);
-    if (!charge) return;
+  // Synchronous on purpose: the bill rode in on the sale, so the sheet opens on
+  // the tap instead of after a query — the debts card has always behaved that way.
+  function handleCollect(sale: Sale) {
+    if (!sale.charge) return;
     collectSheet.openOne(
       sale.customer?.name ?? "",
       openItemFromCharge(
-        charge,
+        sale.charge,
         sale.amountPaid,
         sale.itemsSummary,
         sale.customer?.name ?? "",
@@ -110,14 +105,10 @@ export function useSaleActions({
         actions.push({
           key: "collect",
           label: t("ledger.collect_remaining", {
-            amount: formatMoney(
-              owed,
-              findCurrency(currencies, sale.currencyId),
-              findCurrency(currencies, displayCurrencyId),
-            ),
+            amount: "",
           }),
           icon: "cash-outline",
-          onPress: () => void handleCollect(sale),
+          onPress: () => handleCollect(sale),
         });
       }
 

@@ -36,10 +36,11 @@ export function mapDbSaleToSale(db: DbSale): Sale {
         customerId: db.customer_id,
         recordedByUserId: db.recorded_by_user_id,
         totalAmount: Number(db.total_amount),
-        // Derived, and unknown at mapping time — SaleService fills both from the
-        // sale's charge balance. A caller that skips that step sees "owes it all".
+        // Derived, and unknown at mapping time — SaleService fills all three from
+        // the sale's charge balance. A caller that skips that step sees "owes it all".
         amountPaid: 0,
         chargeId: null,
+        charge: null,
         currencyId: db.currency_id,
         ratePerUsdSnapshot: Number(db.rate_per_usd_snapshot),
         soldAt: db.sold_at,
