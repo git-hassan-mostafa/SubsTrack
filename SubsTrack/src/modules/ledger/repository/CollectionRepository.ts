@@ -79,7 +79,11 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
     let query = this.db
       .from('collections')
       .select(COLLECTION_SELECT)
+      // created_at breaks the tie: a back-dated hand-over (and every row
+      // written before received_at carried a time of day) lands at noon, so
+      // without it same-day rows come back in arbitrary order.
       .order('received_at', { ascending: false })
+      .order('created_at', { ascending: false })
       .range(offset, offset + limit - 1);
 
     if (!opts.includeVoided) query = query.is('voided_at', null);

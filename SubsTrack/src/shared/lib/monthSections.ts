@@ -14,17 +14,27 @@ export interface MonthSection<T> {
   totalUsd?: number;
 }
 
-// Parse the year+month out of any ISO-ish date string (YYYY-MM-DD, YYYY-MM-01,
-// or a full timestamp). We only need the leading year and month, so a plain
-// split is enough and avoids Date timezone drift.
-function yearMonthOf(iso: string): { year: number; month: number } {
-  const [year, month] = iso.split(/[-T]/).map(Number);
-  return { year, month };
+// The LOCAL calendar day of any ISO-ish date string, as YYYY-MM-DD.
+//
+// A bare date (YYYY-MM-DD, YYYY-MM-01) is already a calendar day, so it is cut
+// as-is — parsing it would drag it through UTC. A full timestamp is an instant
+// and MUST be read locally: 'today' and the week start below are local, and a
+// UTC slice puts an early-morning row (before 03:00 at UTC+3) in yesterday's
+// bucket while the card's own formatDate still prints today.
+function dayOf(iso: string): string {
+  if (!iso.includes('T')) return iso.slice(0, 10);
+  const d = new Date(iso);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
 
-// The leading YYYY-MM-DD of any ISO-ish date string (timezone-safe string cut).
-function dayOf(iso: string): string {
-  return iso.slice(0, 10);
+// The year+month of that same local day, so a section header can never
+// disagree with the dates on the rows inside it.
+function yearMonthOf(iso: string): { year: number; month: number } {
+  const [year, month] = dayOf(iso).split('-').map(Number);
+  return { year, month };
 }
 
 // The Monday-based start of the current week as YYYY-MM-DD. Rows on/after this

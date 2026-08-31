@@ -9,7 +9,7 @@ import { ActionMenu, type ActionMenuItem } from "@/src/shared/components/ActionM
 import { COLORS } from "@/src/shared/constants";
 import type { CollectionListItem } from "@/src/core/types";
 import { findCurrency, formatMoney, snapshotCurrency } from "@/src/core/utils/currency";
-import { formatDate } from "@/src/core/utils/date";
+import { formatDateTimeShort } from "@/src/core/utils/date";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { useLanguageStore } from "@/src/core/i18n/languageStore";
@@ -105,7 +105,7 @@ export function CollectionCard({
           ) : null}
         </View>
 
-        <Text className="text-xs text-slate-500">{formatDate(item.receivedAt, locale)}</Text>
+        <Text className="text-xs text-slate-500">{formatDateTimeShort(item.receivedAt, locale)}</Text>
 
         {multi ? (
           <PressableOpacity

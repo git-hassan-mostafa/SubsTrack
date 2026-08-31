@@ -71,3 +71,25 @@ export function getDateMonthsAgoString(months: number): string {
   const d = String(target.getDate()).padStart(2, "0");
   return `${y}-${m}-${d}`;
 }
+
+// YYYY-MM-DD HH:mm for right now — the collect sheet's default "received at",
+// which is a real instant the staff member can then adjust.
+export function getNowDateTimeString(): string {
+  const now = new Date();
+  const h = String(now.getHours()).padStart(2, "0");
+  const min = String(now.getMinutes()).padStart(2, "0");
+  return `${getTodayDateString()} ${h}:${min}`;
+}
+
+/**
+ * A picked date — "YYYY-MM-DD HH:mm" or a bare "YYYY-MM-DD" — as a real
+ * instant. A picked time is taken as local and used as-is; a bare day has no
+ * time to record, so it lands at noon (safe in every timezone) unless it is
+ * today, which keeps the current clock. Used for `collections.received_at`.
+ */
+export function dayToInstantIso(day: string): string {
+  const [datePart, timePart] = day.trim().split(/\s+/);
+  if (timePart) return new Date(`${datePart}T${timePart}:00`).toISOString();
+  if (datePart === getTodayDateString()) return new Date().toISOString();
+  return new Date(`${datePart}T12:00:00`).toISOString();
+}

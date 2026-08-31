@@ -16,7 +16,7 @@ import {
   formatPaidFraction,
   snapshotCurrency,
 } from "@/src/core/utils/currency";
-import { formatDate } from "@/src/core/utils/date";
+import { formatDate, formatDateTimeShort } from "@/src/core/utils/date";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { useLanguageStore } from "@/src/core/i18n/languageStore";
@@ -208,7 +208,7 @@ export function BillSheet({
                       {money(paidHere)}
                     </Text>
                     <Text className="text-xs text-slate-500">
-                      {formatDate(p.receivedAt, locale)} · {userName(p.receivedByUserId)}
+                      {formatDateTimeShort(p.receivedAt, locale)} · {userName(p.receivedByUserId)}
                       {/* Say so when this money also settled other bills — that
                           is exactly what makes voiding it a wider decision. */}
                       {coversMore ? ` · ${t("ledger.covers_others")}` : ""}

@@ -228,7 +228,12 @@ class CollectionService {
     return collections
       .filter((c): c is NonNullable<typeof c> => !!c)
       .map(mapDbCollectionToCollection)
-      .sort((a, b) => a.receivedAt.localeCompare(b.receivedAt));
+      // Oldest first, createdAt breaking the tie — same-day hand-overs share
+      // one received_at whenever the day was back-dated.
+      .sort(
+        (a, b) =>
+          a.receivedAt.localeCompare(b.receivedAt) || a.createdAt.localeCompare(b.createdAt),
+      );
   }
 
   // ── Corrections ───────────────────────────────────────────────────────────

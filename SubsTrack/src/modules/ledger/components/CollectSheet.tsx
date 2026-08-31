@@ -15,7 +15,7 @@ import { COLORS } from "@/src/shared/constants";
 import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
 import type { OpenItem } from "@/src/core/types";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
-import { getTodayDateString } from "@/src/core/utils/date";
+import { dayToInstantIso, getNowDateTimeString } from "@/src/core/utils/date";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { allocate, keyOf, totalOwed } from "../utils/waterfall";
@@ -63,7 +63,10 @@ export function CollectSheet({
   const currencies = useCurrencySlice((s) => s.items);
   const displayCurrencyId = useDisplayCurrencyId();
 
-  const pool = useMemo(() => (singleItem ? [singleItem] : owed), [singleItem, owed]);
+  const pool = useMemo(
+    () => (singleItem ? [singleItem] : owed),
+    [singleItem, owed],
+  );
 
   // A month on a line with no set price: nothing is owed yet, so there is no
   // ceiling, no split and no locked currency — what is typed becomes the bill.
@@ -76,8 +79,8 @@ export function CollectSheet({
     () => Array.from(new Set(pool.map((i) => i.currencyId))),
     [pool],
   );
-  const [currencyId, setCurrencyId] = useState<string | null>(
-    () => dominantCurrency(pool),
+  const [currencyId, setCurrencyId] = useState<string | null>(() =>
+    dominantCurrency(pool),
   );
   // Open mode only: what this month costs. Typing it is what raises the bill.
   const [openBill, setOpenBill] = useState<number | null>(null);
@@ -92,7 +95,7 @@ export function CollectSheet({
   );
   const [amount, setAmount] = useState<number | null>(() => maxAmount || null);
   const [excluded, setExcluded] = useState<ReadonlySet<string>>(new Set());
-  const [receivedAt, setReceivedAt] = useState(getTodayDateString);
+  const [receivedAt, setReceivedAt] = useState(getNowDateTimeString);
   const [notes, setNotes] = useState("");
 
   const dirty = useDirtyForm({ amount, openBill, receivedAt, notes });
@@ -130,7 +133,11 @@ export function CollectSheet({
       if (value <= 0 || bill <= 0) return { lines: [], leftover: 0 };
       return {
         lines: [
-          { item: billedOpenItem, amount: Math.min(value, bill), settles: value >= bill },
+          {
+            item: billedOpenItem,
+            amount: Math.min(value, bill),
+            settles: value >= bill,
+          },
         ],
         leftover: Math.max(0, value - bill),
       };
@@ -142,7 +149,8 @@ export function CollectSheet({
   const remainingAfter = maxAmount - (amount ?? 0);
   // Overpay is refused: there is nowhere for unapplied cash to live.
   const overpaying = leftover > 0;
-  const canSubmit = !loading && (amount ?? 0) > 0 && lines.length > 0 && !overpaying;
+  const canSubmit =
+    !loading && (amount ?? 0) > 0 && lines.length > 0 && !overpaying;
 
   const submit = () => {
     if (!canSubmit) return;
@@ -150,7 +158,7 @@ export function CollectSheet({
       amount: amount!,
       currencyId,
       ratePerUsdSnapshot: currency?.ratePerUsd ?? 1,
-      receivedAt: new Date(`${receivedAt}T12:00:00`).toISOString(),
+      receivedAt: dayToInstantIso(receivedAt),
       notes: notes.trim() || null,
       lines: lines.map((l) => ({ item: l.item, amount: l.amount })),
     });
@@ -188,12 +196,16 @@ export function CollectSheet({
           <View className="flex-row items-center justify-between rounded-xl bg-slate-50 px-4 py-3">
             <Text className="text-slate-600">{t("ledger.owed")}</Text>
             <View className="flex-row items-center gap-3">
-              <Text className="text-lg font-semibold text-slate-900">{money(maxAmount)}</Text>
+              <Text className="text-lg font-semibold text-slate-900">
+                {money(maxAmount)}
+              </Text>
               <PressableOpacity
                 onPress={() => setAmount(maxAmount)}
                 className="rounded-lg bg-white px-3 py-1.5"
               >
-                <Text className="text-xs font-medium text-primary">{t("ledger.collect_all")}</Text>
+                <Text className="text-xs font-medium text-primary">
+                  {t("ledger.collect_all")}
+                </Text>
               </PressableOpacity>
             </View>
           </View>
@@ -231,7 +243,9 @@ export function CollectSheet({
                 label: findCurrency(currencies, id)?.code ?? "USD",
               }))}
             />
-            <Text className="text-xs text-amber-700">{t("ledger.other_currency_hint")}</Text>
+            <Text className="text-xs text-amber-700">
+              {t("ledger.other_currency_hint")}
+            </Text>
           </View>
         )}
 
@@ -251,6 +265,7 @@ export function CollectSheet({
           label={t("ledger.received_at")}
           value={receivedAt}
           onChange={setReceivedAt}
+          showTime
         />
 
         {/* The split preview: what this money will actually do. */}
@@ -289,7 +304,9 @@ export function CollectSheet({
                   </View>
                   <Text
                     className={
-                      line ? "text-sm font-semibold text-slate-900" : "text-sm text-slate-400"
+                      line
+                        ? "text-sm font-semibold text-slate-900"
+                        : "text-sm text-slate-400"
                     }
                   >
                     {line ? money(line.amount) : "—"}
@@ -299,7 +316,9 @@ export function CollectSheet({
             })}
 
             <View className="flex-row items-center justify-between border-t border-slate-200 pt-2">
-              <Text className="text-sm text-slate-600">{t("ledger.still_owed_after")}</Text>
+              <Text className="text-sm text-slate-600">
+                {t("ledger.still_owed_after")}
+              </Text>
               <Text className="text-sm font-semibold text-slate-900">
                 {money(Math.max(0, remainingAfter))}
               </Text>
@@ -308,7 +327,9 @@ export function CollectSheet({
         )}
 
         {singleItem && (amount ?? 0) > 0 && (amount ?? 0) < maxAmount && (
-          <Text className="text-xs text-amber-700">{t("ledger.partial_leaves_debt")}</Text>
+          <Text className="text-xs text-amber-700">
+            {t("ledger.partial_leaves_debt")}
+          </Text>
         )}
 
         {overpaying && (
@@ -325,7 +346,12 @@ export function CollectSheet({
           multiline
         />
 
-        <Button label={t("common.save")} onPress={submit} disabled={!canSubmit} loading={loading} />
+        <Button
+          label={t("common.save")}
+          onPress={submit}
+          disabled={!canSubmit}
+          loading={loading}
+        />
       </View>
     </FormSheet>
   );
@@ -335,7 +361,10 @@ export function CollectSheet({
 function dominantCurrency(items: OpenItem[]): string | null {
   const byCurrency = new Map<string | null, number>();
   for (const i of items) {
-    byCurrency.set(i.currencyId, (byCurrency.get(i.currencyId) ?? 0) + i.balance / i.ratePerUsdSnapshot);
+    byCurrency.set(
+      i.currencyId,
+      (byCurrency.get(i.currencyId) ?? 0) + i.balance / i.ratePerUsdSnapshot,
+    );
   }
   let best: string | null = null;
   let bestUsd = -1;

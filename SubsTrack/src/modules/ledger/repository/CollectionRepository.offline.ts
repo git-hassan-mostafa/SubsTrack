@@ -75,7 +75,7 @@ export class OfflineCollectionRepository
       `SELECT c.* FROM collections c
          LEFT JOIN customers cu ON cu.id = c.customer_id
         ${where.sql}
-        ORDER BY c.received_at DESC
+        ORDER BY c.received_at DESC, c.created_at DESC
         LIMIT ? OFFSET ?`,
       [...where.params, limit, offset],
     );
