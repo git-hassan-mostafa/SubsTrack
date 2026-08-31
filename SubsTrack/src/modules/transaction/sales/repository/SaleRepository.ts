@@ -144,30 +144,34 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
 
   async update(id: string, payload: UpdateSalePayload): Promise<DbSale> {
     const { items, movements, actorUserId, charge, ...header } = payload;
-    // One extra read so the trail can say what the sale WAS. PostgREST cannot
-    // return old values from an UPDATE.
-    const { data: prior } = await this.db.from('sales').select('*').eq('id', id).maybeSingle();
-    const { data, error } = await this.db
-      .from('sales')
-      .update(header)
-      .eq('id', id)
-      // A voided sale is a closed record — this filter is what locks it.
-      .is('voided_at', null)
-      .select(SALE_SELECT_LEAN)
-      .single();
+    // One extra read so the trail can say what the sale WAS (PostgREST cannot
+    // return old values from an UPDATE). It reads a different thing than the
+    // update writes, so the two go out together.
+    const [priorResult, { data, error }] = await Promise.all([
+      this.db.from('sales').select('*').eq('id', id).maybeSingle(),
+      this.db
+        .from('sales')
+        .update(header)
+        .eq('id', id)
+        // A voided sale is a closed record — this filter is what locks it.
+        .is('voided_at', null)
+        .select(SALE_SELECT_LEAN)
+        .single(),
+    ]);
     if (error) this.handleError(error);
+    const prior = priorResult.data;
     const updated = data as DbSale;
 
-    const lines = await this.replaceItems(id, items);
-    if (movements) await this.replaceSaleMovements(id, movements, actorUserId);
-    // The bill follows the sale. Money already collected against it is a
-    // separate row and is untouched — only what is OWED can be re-priced.
-    const { error: chargeError } = await this.db
-      .from('charges')
-      .update(charge)
-      .eq('sale_id', id)
-      .is('voided_at', null);
-    if (chargeError) this.handleError(chargeError);
+    // Lines, the stock ledger and the bill are three different tables keyed by
+    // the sale and none reads the others, so they go out in one wave. The bill
+    // follows the sale: money already collected against it is a separate row and
+    // is untouched — only what is OWED can be re-priced.
+    const [lines, , chargeResult] = await Promise.all([
+      this.replaceItems(id, items),
+      movements ? this.replaceSaleMovements(id, movements, actorUserId) : null,
+      this.db.from('charges').update(charge).eq('sale_id', id).is('voided_at', null),
+    ]);
+    if (chargeResult.error) this.handleError(chargeResult.error);
 
     // One entry for the sale as a whole, like create/void — the changed header
     // columns (items_summary, total_amount, amount_paid, …) say what moved, and
@@ -244,6 +248,10 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
     movements: Omit<CreateStockMovementPayload, 'sale_id'>[],
     voidedBy: string | null,
   ): Promise<void> {
+    // These two CANNOT be parallelized: the void selects on `sale_id` +
+    // `voided_at IS NULL`, which is exactly the shape of the rows the insert
+    // adds. Overlap them and the new movements get voided along with the old,
+    // and the sale silently stops consuming stock.
     const { error: voidError } = await this.db
       .from('stock_movements')
       .update({ voided_at: new Date().toISOString(), voided_by: voidedBy })
@@ -259,34 +267,40 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
 
   async voidSale(id: string, voidedBy: string, reason: string): Promise<DbSale> {
     const now = new Date().toISOString();
-    const { data: prior } = await this.db.from('sales').select('*').eq('id', id).maybeSingle();
-    const { data, error } = await this.db
-      .from('sales')
-      .update({ voided_at: now, voided_by: voidedBy, void_reason: reason })
-      .eq('id', id)
-      .is('voided_at', null)
-      .select(SALE_SELECT)
-      .single();
+    // The trail read and the header void touch different things, so they go out
+    // together.
+    const [priorResult, { data, error }] = await Promise.all([
+      this.db.from('sales').select('*').eq('id', id).maybeSingle(),
+      this.db
+        .from('sales')
+        .update({ voided_at: now, voided_by: voidedBy, void_reason: reason })
+        .eq('id', id)
+        .is('voided_at', null)
+        .select(SALE_SELECT)
+        .single(),
+    ]);
     if (error) this.handleError(error);
+    const prior = priorResult.data;
 
-    // Give the stock back by voiding the sale's movements rather than inserting
-    // opposite ones — `IS NULL` makes a repeat void a no-op instead of crediting
-    // the stock twice.
-    const { error: stockError } = await this.db
-      .from('stock_movements')
-      .update({ voided_at: now, voided_by: voidedBy })
-      .eq('sale_id', id)
-      .is('voided_at', null);
-    if (stockError) this.handleError(stockError);
-
-    // Nothing may still be owed for a sale that never happened. Any money that
-    // WAS collected against the bill has already been voided by the service.
-    const { error: chargeError } = await this.db
-      .from('charges')
-      .update({ voided_at: now, voided_by: voidedBy, void_reason: reason })
-      .eq('sale_id', id)
-      .is('voided_at', null);
-    if (chargeError) this.handleError(chargeError);
+    // Two different tables, neither reading the other, so one wave. The stock
+    // comes back by voiding the sale's movements rather than inserting opposite
+    // ones — `IS NULL` makes a repeat void a no-op instead of crediting the
+    // stock twice. And nothing may still be owed for a sale that never happened:
+    // money that WAS collected on the bill is already voided by the service.
+    const [stockResult, chargeResult] = await Promise.all([
+      this.db
+        .from('stock_movements')
+        .update({ voided_at: now, voided_by: voidedBy })
+        .eq('sale_id', id)
+        .is('voided_at', null),
+      this.db
+        .from('charges')
+        .update({ voided_at: now, voided_by: voidedBy, void_reason: reason })
+        .eq('sale_id', id)
+        .is('voided_at', null),
+    ]);
+    if (stockResult.error) this.handleError(stockResult.error);
+    if (chargeResult.error) this.handleError(chargeResult.error);
 
     const voided = data as DbSale;
     this.audit({

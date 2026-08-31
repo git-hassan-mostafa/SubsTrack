@@ -36,12 +36,17 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
         if (it.service_id) serviceIds.push(it.service_id);
       }
     }
-    const products = await this.rowsById<DbProduct>('products', productIds);
-    const services = await this.rowsById<DbService>('services', serviceIds);
-    const customers = await this.rowsById<DbCustomer>(
-      'customers',
-      sales.map((s) => s.customer_id).filter((c): c is string => !!c),
-    );
+    // Three independent lookups over the ids just collected. These are plain
+    // reads (no transaction, so no `withDbLock`), which is what lets them
+    // overlap — inside `write()` they could not.
+    const [products, services, customers] = await Promise.all([
+      this.rowsById<DbProduct>('products', productIds),
+      this.rowsById<DbService>('services', serviceIds),
+      this.rowsById<DbCustomer>(
+        'customers',
+        sales.map((s) => s.customer_id).filter((c): c is string => !!c),
+      ),
+    ]);
     return sales.map((s) => ({
       ...s,
       sale_items: (itemsByParent.get(s.id) ?? []).map((it) => ({
@@ -180,12 +185,16 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
     // A voided sale is a closed record; the web path's `voided_at IS NULL` filter
     // says the same thing by returning no row.
     if (!before) this.handleError(new Error('Sale not found'));
-    // Read before write() — the transaction must stay as short as possible.
-    const subject = await this.customerSubject(header.customer_id);
-    const existing = await this.all<{ id: string }>(
-      'SELECT id FROM sale_items WHERE sale_id = ? AND voided_at IS NULL ORDER BY created_at',
-      [id],
-    );
+    // Read before write() — the transaction must stay as short as possible. The
+    // two are unrelated reads, so they overlap; only work INSIDE the transaction
+    // has to stay sequential.
+    const [subject, existing] = await Promise.all([
+      this.customerSubject(header.customer_id),
+      this.all<{ id: string }>(
+        'SELECT id FROM sale_items WHERE sale_id = ? AND voided_at IS NULL ORDER BY created_at',
+        [id],
+      ),
+    ]);
 
     // Header + lines + the replacement stock decrements in one local transaction,
     // exactly like create.
@@ -266,6 +275,15 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
 
   async voidSale(id: string, voidedBy: string, reason: string): Promise<DbSale> {
     const now = nowIso();
+    // Read before write(), like create/update — a void never changes the
+    // customer, so the subject can be resolved outside the transaction instead
+    // of holding the one connection open for a second lookup.
+    const subject = await this.customerSubject(
+      (await this.first<{ customer_id: string | null }>(
+        'SELECT customer_id FROM sales WHERE id = ?',
+        [id],
+      ))?.customer_id ?? null,
+    );
     await this.write(async (db) => {
       const before = this.decodeOne<DbSale>(
         'sales',
@@ -302,7 +320,7 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
           before,
           after,
           branchId: after.branch_id,
-          subject: await this.customerSubject(after.customer_id),
+          subject,
         });
       }
     });
