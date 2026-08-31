@@ -148,3 +148,14 @@ Set-up: a customer whose only service line is **"No plan"** (or a plan marked
 12.3 No "Complete" action anywhere (on a debt row or a sale row).
 12.4 A partly-paid month never shows a "partial" *status* — it is `paid` everywhere the status is read, and only the ring / fraction distinguish it.
 12.5 Collecting a month while an **earlier** month of the same line is uncovered is refused, naming the older month.
+
+## 13. Offline: the bill's two unique keys (gotcha #114)
+
+Native build only — the web repository tolerates the duplicate id silently, so these must be run on a device.
+
+13.1 On a **multi-month plan** (e.g. $100 / 3 months), collect a block (Aug–Oct), then collect the **next** block (Nov). It must save. Previously this died with `UNIQUE constraint failed: charges.id` and the whole collect rolled back.
+13.2 Make a month's deterministic id belong to an unrelated row: collect a month, then change that service line's **start date** (or move the line) so the block start shifts, then collect the newly-exposed month. The save must succeed and the new bill must get a **fresh** id rather than colliding.
+13.3 After 13.1/13.2, open the month's **View bill** and confirm the hand-over is listed against it — the `collection_items` must point at the bill that really exists, not at the id the waterfall intended.
+13.4 Admin → Audit Log shows the `charges` create entry under the id that was **actually stored** (the same id the bill sheet shows).
+13.5 Collect a **walk-in sale** (no customer, so `customer_plan_id` is NULL) and confirm the bill and its cash still save — the natural-key lookup matches nothing for these and must fall through to the id check.
+13.6 Sync after each of the above and confirm the bill converges to ONE row on the server (no duplicate month bill for the same line + month).

@@ -33,6 +33,9 @@ export function CustomerDetailScreen() {
 
   const [editVisible, setEditVisible] = useState(false);
   const [historyVisible, setHistoryVisible] = useState(false);
+  // Bumped on pull-to-refresh so the panels below re-read too. The customer row
+  // alone would not show a month paid or voided elsewhere and synced down.
+  const [refreshToken, setRefreshToken] = useState(0);
 
   useEffect(() => {
     getSelectedCustomer();
@@ -48,6 +51,7 @@ export function CustomerDetailScreen() {
 
   const handleRefresh = useCallback(() => {
     fetchSelectedCustomer();
+    setRefreshToken((n) => n + 1);
   }, [id]);
 
   return (
@@ -101,7 +105,10 @@ export function CustomerDetailScreen() {
               />
             }
           >
-            <CustomerPaymentPanel customer={customer} />
+            <CustomerPaymentPanel
+              customer={customer}
+              refreshToken={refreshToken}
+            />
             <CustomerDetailsCard
               customer={customer}
               onDeleted={() => router.back()}

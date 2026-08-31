@@ -2,7 +2,7 @@ import { OFFLINE_PAGE_SIZE, type BranchFilter } from '@/src/core/constants';
 import type { CashRow, CashStream } from '@/src/core/types';
 import type { DbCharge, DbCollection, DbCollectionItem, DbCustomer } from '@/src/core/types/db';
 import { OfflineBaseRepository } from '@/src/core/offline/OfflineBaseRepository';
-import { insertDirty, updateDirty } from '@/src/core/offline/db/dml';
+import { insertDirty, updateDirty, upsertNaturalKeyDirty } from '@/src/core/offline/db/dml';
 import { newId, nowIso } from '@/src/core/offline/ids';
 import { custodyValues } from '@/src/modules/wallet/utils/custodyValues';
 import type {
@@ -16,8 +16,7 @@ import { sumByMonth } from '../utils/monthTotals';
  *  `'*, collection_items(*, charges(*)), customers(*)'`. */
 export class OfflineCollectionRepository
   extends OfflineBaseRepository
-  implements ICollectionRepository
-{
+  implements ICollectionRepository {
   private async hydrate(rows: DbCollection[]): Promise<DbCollection[]> {
     if (rows.length === 0) return rows;
     const itemsByParent = await this.childrenByParent<DbCollectionItem>(
@@ -157,12 +156,12 @@ export class OfflineCollectionRepository
         // price, so re-collecting a month never re-prices it.
         const existing = charge.customer_plan_id
           ? await db.getFirstAsync<{ id: string }>(
-              'SELECT id FROM charges WHERE customer_plan_id = ? AND billing_month = ?',
-              [charge.customer_plan_id, charge.billing_month] as never[],
-            )
+            'SELECT id FROM charges WHERE customer_plan_id = ? AND billing_month = ?',
+            [charge.customer_plan_id, charge.billing_month] as never[],
+          )
           : await db.getFirstAsync<{ id: string }>('SELECT id FROM charges WHERE id = ?', [
-              charge.id,
-            ] as never[]);
+            charge.id,
+          ] as never[]);
         if (existing) {
           chargeIdMap.set(charge.id, existing.id);
           continue;
@@ -178,12 +177,13 @@ export class OfflineCollectionRepository
           written_off_by: null,
           write_off_reason: null,
         };
-        await insertDirty(db, 'charges', chargeRow);
+        const storedId = await upsertNaturalKeyDirty(db, 'charges', chargeRow);
+        chargeIdMap.set(charge.id, storedId);
         await this.auditIn(db, {
           table: 'charges',
-          recordId: chargeRow.id,
+          recordId: storedId,
           action: 'create',
-          after: chargeRow,
+          after: { ...chargeRow, id: storedId },
           ...(chargeRow.customer_id
             ? await this.customerAudit(chargeRow.customer_id)
             : { branchId: chargeRow.branch_id }),

@@ -105,6 +105,7 @@ export function CustomerListScreen() {
   const bulkDeleteCustomers = useCustomerSlice((s) => s.bulkDeleteCustomers);
   const customerStatuses = usePaymentSlice((s) => s.customerStatuses);
   const fetchCustomerStatuses = usePaymentSlice((s) => s.fetchCustomerStatuses);
+  const syncCustomerStatus = usePaymentSlice((s) => s.syncCustomerStatus);
   const paymentError = usePaymentSlice((s) => s.error);
   const clearPaymentError = usePaymentSlice((s) => s.clearError);
   const currencies = useCurrencySlice((s) => s.items);
@@ -365,7 +366,16 @@ export function CustomerListScreen() {
     }
 
     clearSelection();
-    void fetchCustomerStatuses(customers);
+    // Only the customers just paid can have moved, so patch those badges rather
+    // than rebuilding the whole map (which re-reads every bill in the tenant).
+    for (const customerId of new Set(created.map((c) => c.customerId))) {
+      const paidCustomer = customerId
+        ? customers.find((c) => c.id === customerId)
+        : null;
+      if (paidCustomer) {
+        void syncCustomerStatus(paidCustomer.id, paidCustomer.customerPlans ?? []);
+      }
+    }
     void fetchNetDebtByCustomer(branchFilter);
     if (failed > 0) {
       setBulkNotice(
@@ -444,9 +454,13 @@ export function CustomerListScreen() {
     openOne: openOneCollect,
     sheet: collectSheet,
   } = useCollectSheet({
-    onCollected: () => {
+    onCollected: (collection) => {
       setCollectCustomer(null);
-      void fetchCustomerStatuses(customers);
+      // One customer was paid, so only that badge is stale.
+      const paid = collection.customerId
+        ? customers.find((c) => c.id === collection.customerId)
+        : null;
+      if (paid) void syncCustomerStatus(paid.id, paid.customerPlans ?? []);
       void fetchNetDebtByCustomer(branchFilter);
     },
   });

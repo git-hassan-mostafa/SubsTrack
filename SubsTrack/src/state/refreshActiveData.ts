@@ -53,6 +53,10 @@ export function refreshActiveData(): void {
     void s.ledger.fetchNetByCustomer(resolveBranchFilter(s.auth.user));
   }
 
+  // NOT refreshed here: `payments.bills` (the open customer's month grid). The
+  // viewed YEAR lives in the panel, not the slice, so this could only guess it.
+  // Pull-to-refresh on the customer page reloads it instead.
+
   // Tier usage counts (drives limit gating) — cheap and always relevant.
   void s.subscription.refreshUsage();
 }

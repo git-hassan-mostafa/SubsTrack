@@ -50,6 +50,10 @@ import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 
 interface CustomerPaymentPanelProps {
   customer: Customer;
+  // Bumped by the screen's pull-to-refresh. The grid is NOT reloaded on focus
+  // (that would re-query every time a sheet closes), so this is what picks up a
+  // month paid or voided on another device and synced down.
+  refreshToken?: number;
 }
 
 const EMPTY_GRID: MonthEntry[] = [];
@@ -82,7 +86,10 @@ function lineIndicatorStatus(grid: MonthEntry[]): LineIndicator | null {
   return null;
 }
 
-export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
+export function CustomerPaymentPanel({
+  customer,
+  refreshToken = 0,
+}: CustomerPaymentPanelProps) {
   const { t, i18n } = useTranslation();
   const locale = getDateLocale(i18n.language);
   const router = useRouter();
@@ -97,8 +104,8 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
   const paidMonthsByLine = usePaymentSlice((s) => s.paidMonthsByLine);
   const paymentsLoading = usePaymentSlice((s) => s.loading);
   const paymentsError = usePaymentSlice((s) => s.error);
-  const getBills = usePaymentSlice((s) => s.getBills);
   const fetchBills = usePaymentSlice((s) => s.fetchBills);
+  const applyCollection = usePaymentSlice((s) => s.applyCollection);
   const clearPaymentError = usePaymentSlice((s) => s.clearError);
   const resetPayments = usePaymentSlice((s) => s.reset);
   const collect = useLedgerSlice((s) => s.collect);
@@ -205,13 +212,16 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
       : withPeriod;
   })();
 
-  // Loads every line's bills once per customer; switching years/lines rebuilds
-  // the grids from the store instead of re-fetching.
+  // Loads every line's bills for the viewed customer/year. Always a real read
+  // (there is no cached companion): a cache keyed on the customer id would keep
+  // serving the pre-sync grid after a month was paid or voided elsewhere.
+  // Mount, year/line changes, and pull-to-refresh (`refreshToken`) only — NOT
+  // focus, so returning from a sheet costs no query.
   useEffect(() => {
     if (lines.length > 0) {
-      getBills(customer.id, lines, year);
+      void fetchBills(customer.id, lines, year);
     }
-  }, [customer.id, year, linesKey, lines, getBills]);
+  }, [customer.id, year, linesKey, lines, fetchBills, refreshToken]);
 
   // `selection.clear` (not `selection`) — the hook returns a fresh object each
   // render, so depending on it would loop.
@@ -528,7 +538,9 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
       })),
     });
     if (!created) return false;
-    await fetchBills(customer.id, lines, year);
+    // The created row carries its split and each bill it settled, so the grid
+    // repaints from what is already in hand — no reload, no blink.
+    applyCollection(created, lines, year);
     if (args.send) await sendReceipt(created);
     return true;
   }
@@ -994,7 +1006,10 @@ export function CustomerPaymentPanel({ customer }: CustomerPaymentPanelProps) {
             ) : null}
           </View>
 
-          {paymentsLoading ? (
+          {/* Spinner only on the FIRST load — a pull-to-refresh keeps the built
+              grid on screen under the refresh control, instead of blinking it
+              out and back. */}
+          {paymentsLoading && grid.length === 0 ? (
             <View className="h-40 items-center justify-center">
               <ActivityIndicator color={COLORS.primary} />
             </View>

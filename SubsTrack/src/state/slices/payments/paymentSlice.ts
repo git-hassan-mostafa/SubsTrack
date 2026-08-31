@@ -1,12 +1,12 @@
 import type { StateCreator } from "zustand";
 import type {
+  Collection,
   Customer,
   CustomerPlan,
   CustomerStatus,
   MonthBill,
   MonthEntry,
   SkippedMonth,
-  UnpaidStartRule,
 } from "@/src/core/types";
 import {
   paymentService,
@@ -14,20 +14,11 @@ import {
   type SetSkipInput,
 } from "@/src/modules/customer/customer-payments";
 import { chargeService } from "@/src/modules/ledger";
-// Deep imports (not the module barrel) — the barrel re-exports screens, which
-// would make the state layer pull in UI and risk an import cycle.
-import tenantSettingService from "@/src/modules/admin/tenant-settings/services/TenantSettingService";
-import { TENANT_SETTING_KEYS } from "@/src/modules/admin/tenant-settings/utils/constants";
 import type { GlobalState } from "@/src/state/globalStore";
-
-// The tenant's unpaid rule, read cross-slice at call time (never cached) so a
-// change in Tenant Settings takes effect on the very next status computation.
-const getUnpaidRule = (get: () => GlobalState): UnpaidStartRule =>
-  tenantSettingService.parseUnpaidStartRule(
-    get().tenantSettings.items.find(
-      (s) => s.key === TENANT_SETTING_KEYS.unpaidStartRule,
-    )?.value,
-  );
+import { buildGridsFor } from "./utils/buildGrids";
+import { groupMonthsByLine } from "./utils/groupMonthsByLine";
+import { mergeCollection } from "./utils/mergeCollection";
+import { getUnpaidRule } from "./utils/unpaidRule";
 
 /**
  * Month-grid state ONLY.
@@ -58,9 +49,19 @@ export interface PaymentSlice {
   error: string | null;
 
   fetchCustomerStatuses: (customers: Customer[]) => Promise<void>;
-  /** Loads the customer's bills only when they aren't already in the store. */
-  getBills: (customerId: string, lines: CustomerPlan[], year: number) => Promise<void>;
+  /**
+   * Always re-reads. There is deliberately no cached `getBills` companion: the
+   * panel loads on FOCUS, and a cache keyed on the customer id would keep
+   * serving the pre-sync grid after a month was paid or voided elsewhere.
+   */
   fetchBills: (customerId: string, lines: CustomerPlan[], year: number) => Promise<void>;
+  /**
+   * Merges a just-recorded hand-over into the bills already in the store and
+   * rebuilds the grids — no re-query. The created `Collection` comes back with
+   * its items and each item's charge, which is everything a month cell needs,
+   * so paying repaints instantly instead of blinking through a reload.
+   */
+  applyCollection: (collection: Collection, lines: CustomerPlan[], year: number) => void;
   /** Rebuilds the viewed year's grids from what is already in the store. */
   buildGrids: (lines: CustomerPlan[], year: number) => void;
   /** Patches one customer's badge after a local mutation. */
@@ -113,15 +114,6 @@ export const createPaymentSlice: StateCreator<
     });
   },
 
-  getBills: async (customerId, lines, year) => {
-    const bills = get().payments.bills;
-    if (bills.length > 0 && bills[0].charge.customerId === customerId) {
-      get().payments.buildGrids(lines, year);
-      return;
-    }
-    await get().payments.fetchBills(customerId, lines, year);
-  },
-
   fetchBills: async (customerId, lines, year) => {
     set((state) => {
       state.payments.loading = true;
@@ -147,6 +139,18 @@ export const createPaymentSlice: StateCreator<
         state.payments.loading = false;
       });
     }
+  },
+
+  applyCollection: (collection, lines, year) => {
+    const bills = mergeCollection(get().payments.bills, collection);
+    const { skips } = get().payments;
+    const derived = buildGridsFor(lines, bills, skips, year, getUnpaidRule(get));
+    set((state) => {
+      state.payments.bills = bills;
+      state.payments.monthGridsByLine = derived.grids;
+      state.payments.uncoveredMonthsByLine = derived.uncoveredMonths;
+      state.payments.paidMonthsByLine = derived.paidMonths;
+    });
   },
 
   buildGrids: (lines, year) => {
@@ -234,44 +238,3 @@ export const createPaymentSlice: StateCreator<
     });
   },
 });
-
-/** One pass per line: the grid plus the two gate lists the UI reads. */
-function buildGridsFor(
-  lines: CustomerPlan[],
-  bills: MonthBill[],
-  skips: SkippedMonth[],
-  year: number,
-  unpaidRule: UnpaidStartRule,
-): {
-  grids: Record<string, MonthEntry[]>;
-  uncoveredMonths: Record<string, string[]>;
-  paidMonths: Record<string, string[]>;
-} {
-  const grids: Record<string, MonthEntry[]> = {};
-  const uncoveredMonths: Record<string, string[]> = {};
-  const paidMonths: Record<string, string[]> = {};
-  for (const line of lines) {
-    const lineBills = bills.filter((b) => b.charge.customerPlanId === line.id);
-    const lineSkips = skips.filter((s) => s.customerPlanId === line.id);
-    grids[line.id] = paymentService.buildMonthGrid(line, lineBills, lineSkips, year, unpaidRule);
-    uncoveredMonths[line.id] = paymentService.uncoveredBillingMonths(
-      line,
-      lineBills,
-      lineSkips,
-      unpaidRule,
-    );
-    paidMonths[line.id] = paymentService.paidBillingMonths(lineBills);
-  }
-  return { grids, uncoveredMonths, paidMonths };
-}
-
-/** The unskip guard is per line, so bucket the months it would touch. */
-function groupMonthsByLine(inputs: SetSkipInput[]): Map<string, string[]> {
-  const byLine = new Map<string, string[]>();
-  for (const i of inputs) {
-    const list = byLine.get(i.customerPlanId);
-    if (list) list.push(i.billingMonth);
-    else byLine.set(i.customerPlanId, [i.billingMonth]);
-  }
-  return byLine;
-}
