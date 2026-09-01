@@ -1601,6 +1601,31 @@ The sort has **four levels**, and each earns its place:
 Leftover money means **overpay**, and the service refuses it: there is nowhere
 for unapplied cash to live.
 
+#### The order is SHOWN, not just applied
+
+An automatic split is only trustworthy if staff can see WHY the money went where
+it did. So the preview is drawn in the waterfall's own order and says so:
+
+- **`CollectSheet` re-sorts its own pool** with the same `sortByDue` before
+  rendering — it never trusts the order the caller handed it over in. The Debts
+  screen passes two separately-sorted lists glued together
+  (`[...items, ...unpaidMonths]`), and `buildDebtsView` sorts on `dueDate` alone
+  while `allocate` sorts on four levels, so without this the rows could say one
+  thing while the money did another.
+- **`AllocationPreview`** (`ledger/components/AllocationPreview.tsx`) renders it.
+  Each row carries its **queue number** (1, 2, 3…), its **due date** and **how
+  many days late** it is. The number is **filled** once money reaches the bill
+  and a **hollow outline** while it is still waiting behind the ones above it.
+- **Unticking a row re-numbers the ones below it** — the rule "the money moves
+  down to the next bill" shown instead of explained. A skipped row greys out,
+  strikes through its label and shows a `×` badge.
+- A row nothing reached prints **what it still needs**, since its status line
+  ("Not covered") does not say it the way "Leaves X owing" does.
+
+The section header carries one caption naming the rule (`ledger.waterfall_hint`),
+and `daysLate()` lives in `core/utils/date.ts` — one copy, shared with
+`ChargeService` and `DebtItemCard`.
+
 ### Virtual months
 
 A month has **no charge row until money reaches it**. `LedgerService.getOwed`

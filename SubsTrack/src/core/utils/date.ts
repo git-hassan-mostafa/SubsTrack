@@ -103,3 +103,10 @@ export function localMonthKey(iso: string): string {
   const d = new Date(iso);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
+
+// Whole days past a due date ("YYYY-MM-DD"), floored at 0 — how far behind a
+// bill is. The due day itself is not late.
+export function daysLate(dueDate: string, today: Date = new Date()): number {
+  const diff = today.getTime() - new Date(`${dueDate}T00:00:00`).getTime();
+  return diff <= 0 ? 0 : Math.floor(diff / 86_400_000);
+}

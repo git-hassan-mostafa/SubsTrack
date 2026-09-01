@@ -8,6 +8,7 @@ import type {
   OpenItem,
 } from '@/src/core/types';
 import { deterministicId, newId, nowIso } from '@/src/core/offline/ids';
+import { daysLate } from '@/src/core/utils/date';
 import repository from '../repository/ChargeRepository';
 import collectionRepository from '../repository/CollectionRepository';
 import { mapDbChargeToCharge } from '../utils/mapper';
@@ -340,13 +341,6 @@ class ChargeService {
       throw new Error(i18n.t('errors.debt_amount_positive'));
     }
   }
-}
-
-/** Whole days past a due date, floored at 0. */
-function daysLate(dueDate: string, today: Date): number {
-  const due = new Date(`${dueDate}T00:00:00`);
-  const diff = today.getTime() - due.getTime();
-  return diff <= 0 ? 0 : Math.floor(diff / 86_400_000);
 }
 
 export const chargeService = new ChargeService();

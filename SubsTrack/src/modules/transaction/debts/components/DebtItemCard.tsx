@@ -19,7 +19,7 @@ import {
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { useLanguageStore } from "@/src/core/i18n/languageStore";
-import { formatDateTimeShort } from "@/src/core/utils/date";
+import { daysLate, formatDateTimeShort } from "@/src/core/utils/date";
 
 interface Props {
   item: OpenItem;
@@ -48,12 +48,6 @@ const KIND_STYLE: Record<
   sale: { icon: "receipt-outline", badge: "bg-red-50 text-red-700" },
   manual: { icon: "document-text-outline", badge: "bg-red-50 text-red-700" },
 };
-
-/** Whole days past a due date, floored at 0. */
-function daysLate(dueDate: string): number {
-  const diff = Date.now() - new Date(`${dueDate}T00:00:00`).getTime();
-  return diff <= 0 ? 0 : Math.floor(diff / 86_400_000);
-}
 
 export function DebtItemCard({
   item,

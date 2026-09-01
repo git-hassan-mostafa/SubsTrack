@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/src/shared/components/Text";
 import {
   FormSheet,
@@ -14,7 +13,6 @@ import { Input } from "@/src/shared/components/Input";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
 import { Dropdown } from "@/src/shared/components/Dropdown";
-import { COLORS } from "@/src/shared/constants";
 import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
 import type { OpenItem } from "@/src/core/types";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
@@ -22,7 +20,8 @@ import { dayToInstantIso, getNowDateTimeString } from "@/src/core/utils/date";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useLedgerSlice } from "@/src/state/hooks/useLedgerSlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
-import { allocate, keyOf, totalOwed } from "../utils/waterfall";
+import { allocate, keyOf, sortByDue, totalOwed } from "../utils/waterfall";
+import { AllocationPreview } from "./AllocationPreview";
 
 interface Props {
   visible: boolean;
@@ -104,8 +103,11 @@ export function CollectSheet({
   );
   // Open mode only: what this month costs. Typing it is what raises the bill.
   const [openBill, setOpenBill] = useState<number | null>(null);
+  // Sorted HERE, not trusted from the caller: the preview must be drawn in the
+  // very order allocate() fills the bills, or the rows say one thing and the
+  // money does another (the debts screen hands over two lists glued together).
   const scoped = useMemo(
-    () => pool.filter((i) => i.currencyId === currencyId),
+    () => sortByDue(pool.filter((i) => i.currencyId === currencyId)),
     [pool, currencyId],
   );
 
@@ -165,7 +167,6 @@ export function CollectSheet({
     return allocate(amount ?? 0, included);
   }, [billedOpenItem, amount, included]);
 
-  const paidByKey = new Map(lines.map((l) => [keyOf(l.item), l]));
   const remainingAfter = maxAmount - (amount ?? 0);
   // Overpay is refused: there is nowhere for unapplied cash to live.
   const overpaying = leftover > 0;
@@ -291,62 +292,15 @@ export function CollectSheet({
           showTime
         />
 
-        {/* The split preview: what this money will actually do. */}
         {!singleItem && (
-          <View className="gap-2">
-            <Text className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-              {t("ledger.this_pays")}
-            </Text>
-            {scoped.map((item) => {
-              const line = paidByKey.get(keyOf(item));
-              const isExcluded = excluded.has(keyOf(item));
-              return (
-                <PressableOpacity
-                  key={keyOf(item)}
-                  onPress={() => toggle(item)}
-                  className="flex-row items-center gap-3 rounded-xl border border-slate-200 px-3 py-2.5"
-                >
-                  <Ionicons
-                    name={isExcluded ? "square-outline" : "checkbox"}
-                    size={20}
-                    color={isExcluded ? COLORS.gray500 : COLORS.primary}
-                  />
-                  <View className="flex-1">
-                    <Text className="text-sm text-slate-900" numberOfLines={1}>
-                      {item.label}
-                    </Text>
-                    <Text className="text-xs text-slate-500">
-                      {line?.settles
-                        ? t("ledger.pays_in_full")
-                        : line
-                          ? t("ledger.leaves_owing", {
-                              amount: money(item.balance - line.amount),
-                            })
-                          : t("ledger.not_covered")}
-                    </Text>
-                  </View>
-                  <Text
-                    className={
-                      line
-                        ? "text-sm font-semibold text-slate-900"
-                        : "text-sm text-slate-400"
-                    }
-                  >
-                    {line ? money(line.amount) : "—"}
-                  </Text>
-                </PressableOpacity>
-              );
-            })}
-
-            <View className="flex-row items-center justify-between border-t border-slate-200 pt-2">
-              <Text className="text-sm text-slate-600">
-                {t("ledger.still_owed_after")}
-              </Text>
-              <Text className="text-sm font-semibold text-slate-900">
-                {money(Math.max(0, remainingAfter))}
-              </Text>
-            </View>
-          </View>
+          <AllocationPreview
+            items={scoped}
+            lines={lines}
+            excluded={excluded}
+            onToggle={toggle}
+            money={money}
+            remainingAfter={remainingAfter}
+          />
         )}
 
         {singleItem && (amount ?? 0) > 0 && (amount ?? 0) < maxAmount && (

@@ -280,3 +280,44 @@ The bug this covers: `charges` is unique on `(customer_plan_id, billing_month)` 
 15.7.4 Same for a **written-off** month revived by a later payment: `issued_at` moves to the day the money arrived, `due_date` does not.
 15.7.5 A bill that was **never** dead is not re-stamped: collect $20 of October, then the remaining $40 a week later → **Billed on** keeps the original date (only `isDeadBill` rows are patched).
 15.7.6 Admin → Audit Log: the revive's `charges` **update** entry now lists `issued_at` among the changed fields, alongside `voided_at`.
+
+## 16. The order is VISIBLE in the collect sheet
+
+The split preview is drawn in the waterfall's own order (`sortByDue`), so the rows can never say one thing while the money does another.
+
+### 16.1 The numbered queue
+
+16.1.1 Re-run the §3 setup (January 20 · February 20 · sale 40 on 5 Mar · fee 20 on 10 Mar) and open the collect sheet.
+16.1.2 The rows read **1 January · 2 February · 3 the sale · 4 the fee** — top to bottom, oldest **due date** first. The sale (due 5 Mar) sits **above** the fee (due 10 Mar), and both sit **below** the two months.
+16.1.3 Under the "This pays" heading a one-line caption says money goes to the oldest bill first and that a row can be tapped to skip it.
+16.1.4 Each row shows its **due date** and, when it is late, **how many days late** — so the order can be checked by eye.
+
+### 16.2 What the number's look means
+
+16.2.1 Type **55**. Rows 1, 2 and 3 get a **filled** number (money reached them); row 4's number is a **hollow outline** (still in the queue, nothing left for it).
+16.2.2 Row 1 and 2 read **Pays in full** in green, row 3 **Leaves 25 owing** in amber, row 4 **Not covered** in grey with a **—** amount.
+16.2.3 Row 4 (nothing reached it) also prints **20 owed** in its second line, so what it still needs is visible without opening it.
+
+### 16.3 Skipping re-numbers the queue
+
+16.3.1 Untick **February**. Its row greys out, its label is struck through, its badge becomes a **×**, and its status reads **Skipped**.
+16.3.2 The rows below **re-number**: the sale becomes **2** and the fee **3** — the money visibly moved down.
+16.3.3 The amounts match §4.2 exactly (January 20, sale 35, fee untouched).
+16.3.4 Tap February again → it returns to position **2** and the numbering closes back up.
+
+### 16.4 Every door shows the same order
+
+16.4.1 Open the sheet from the **customer list** 3-dot → Collect money: numbered oldest-first.
+16.4.2 Open it from the **Collect money** quick action: identical order.
+16.4.3 Open it from **Transactions → Debts** → a debtor's 3-dot → Collect, and from the **debtor detail sheet's** "collect all": identical order. (This door hands over two separately-sorted lists glued together — the sheet re-sorts, so it must not differ.)
+16.4.4 Two bills sharing the same due date appear in the same order in every door, and in the same order the money lands.
+
+### 16.5 Two currencies
+
+16.5.1 With bills in two currencies, switch the currency picker → only that currency's rows are listed, re-numbered from **1**.
+16.5.2 "Still owed after" keeps counting the other currency's bills (it is the whole pool), unchanged from before.
+
+### 16.6 Single-bill mode is unaffected
+
+16.6.1 Collect one bill from a debt row → no "This pays" section at all (there is nothing to order).
+16.6.2 An **open-amount** month (no set price) still shows the "Amount for this month" field and no preview.
