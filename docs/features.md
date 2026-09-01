@@ -827,6 +827,25 @@ but should not have been recorded. Every bill it touched gets its balance back
 on its own, because a balance is a sum over live items and this row stops being
 one.
 
+**A dead bill still owns its month, so collecting it REVIVES it.** `charges`
+is unique on `(customer_plan_id, billing_month)` whatever the row's state, so a
+voided or written-off month bill is the only row that month can ever have —
+while every read (the grid, the debts screen, `charge_balances`) filters it out.
+Cash aimed at that month would therefore be saved onto a row nothing can see:
+counted in the wallet and in revenue, but the cell red again on the next
+refresh, for ever. So the write fixes its target first. `reviveTargetBill(s)`
+does two INDEPENDENT things: it clears all six void / write-off columns
+**unconditionally** whenever money is about to land (cash contradicts both "it
+was a mistake" and "it will never be paid"), and separately re-prices an EMPTY
+month bill. Keeping them independent is the whole lesson — the un-void used to
+be bundled into the re-price and so ran only when the price happened to have
+moved. Two supporting rules: the paid check that guards the re-price sums
+`collection_items` directly (a balance read hides the very row being fixed and
+would answer 0), and `charge_balances` now excludes **only** voided bills,
+because a write-off gives up on the remainder and does not un-collect what was
+already handed over. "No longer owed" is decided in one place,
+`ChargeRepository.find`. Gotcha #115.
+
 ### One currency per hand-over
 
 A collection carries one currency, and it must equal the currency of every
@@ -1668,6 +1687,25 @@ Voiding a **collection** is the third, and different again: the cash was real
 but should not have been recorded. Every bill it touched gets its balance back
 on its own, because a balance is a sum over live items and this row stops being
 one.
+
+**A dead bill still owns its month, so collecting it REVIVES it.** `charges`
+is unique on `(customer_plan_id, billing_month)` whatever the row's state, so a
+voided or written-off month bill is the only row that month can ever have —
+while every read (the grid, the debts screen, `charge_balances`) filters it out.
+Cash aimed at that month would therefore be saved onto a row nothing can see:
+counted in the wallet and in revenue, but the cell red again on the next
+refresh, for ever. So the write fixes its target first. `reviveTargetBill(s)`
+does two INDEPENDENT things: it clears all six void / write-off columns
+**unconditionally** whenever money is about to land (cash contradicts both "it
+was a mistake" and "it will never be paid"), and separately re-prices an EMPTY
+month bill. Keeping them independent is the whole lesson — the un-void used to
+be bundled into the re-price and so ran only when the price happened to have
+moved. Two supporting rules: the paid check that guards the re-price sums
+`collection_items` directly (a balance read hides the very row being fixed and
+would answer 0), and `charge_balances` now excludes **only** voided bills,
+because a write-off gives up on the remainder and does not un-collect what was
+already handed over. "No longer owed" is decided in one place,
+`ChargeRepository.find`. Gotcha #115.
 
 ### One currency per hand-over
 

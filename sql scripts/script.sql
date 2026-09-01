@@ -1414,8 +1414,10 @@ CREATE INDEX IF NOT EXISTS idx_collection_items_collection_id
 -- same rule as product_stock: an offline device must be able to add money
 -- without clobbering a counter. Voiding a collection makes its items vanish
 -- from here and the balance comes back on its own, with nothing to recompute.
--- Excludes voided bills (a mistake) and written-off bills (a recorded loss) —
--- neither is owed any more.
+-- Excludes VOIDED bills only. A written-off bill stays here on purpose: a
+-- write-off gives up on the REMAINDER, it does not un-collect what was already
+-- handed over, and hiding the row made real money read as 0 (gotcha #115).
+-- "No longer owed" is decided by ChargeRepository.find(), not by this view.
 -- ============================================================
 
 -- The CASE is load-bearing: `p.voided_at IS NULL` sits in the LEFT JOIN's ON
@@ -1432,7 +1434,7 @@ CREATE OR REPLACE VIEW charge_balances WITH (security_invoker = true) AS
     FROM charges c
     LEFT JOIN collection_items i ON i.charge_id = c.id
     LEFT JOIN collections p ON p.id = i.collection_id AND p.voided_at IS NULL
-    WHERE c.voided_at IS NULL AND c.written_off_at IS NULL
+    WHERE c.voided_at IS NULL
     GROUP BY c.id;
 
 GRANT SELECT ON charge_balances TO authenticated;

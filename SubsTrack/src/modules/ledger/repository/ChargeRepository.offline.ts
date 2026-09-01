@@ -105,9 +105,13 @@ export class OfflineChargeRepository extends OfflineBaseRepository implements IC
     return (await this.hydrate([decoded]))[0];
   }
 
+  // What is STILL OWED. A void ("never existed") and a write-off ("real, but
+  // given up on") both stop a bill being owed, so both are excluded HERE — the
+  // one place that decides it. `balances()` deliberately does not: money already
+  // collected stays collected (#115).
   async find(opts: FindChargesOptions): Promise<DbCharge[]> {
     const parts: { clause: string; params: unknown[] }[] = [
-      { clause: 'c.voided_at IS NULL', params: [] },
+      { clause: 'c.voided_at IS NULL AND c.written_off_at IS NULL', params: [] },
     ];
     if (opts.customerId) parts.push({ clause: 'c.customer_id = ?', params: [opts.customerId] });
     if (opts.customerIds?.length) {
@@ -144,6 +148,11 @@ export class OfflineChargeRepository extends OfflineBaseRepository implements IC
    * The local `charge_balances`. Same rule as `product_stock`: sum the ledger,
    * never a counter — a voided collection simply stops contributing, so a
    * balance corrects itself with nothing to recompute.
+   *
+   * A WRITTEN-OFF bill is included: a write-off gives up on the REMAINDER, it
+   * does not un-collect what was already handed over, so hiding it here made
+   * real money read as 0 in the grid (#115). "No longer owed" is decided by
+   * `find()`, which is what the debts screen and the waterfall go through.
    */
   async balances(chargeIds: string[]): Promise<DbChargeBalance[]> {
     if (chargeIds.length === 0) return [];
@@ -160,8 +169,7 @@ export class OfflineChargeRepository extends OfflineBaseRepository implements IC
                  JOIN collections co ON co.id = i.collection_id
                 WHERE i.charge_id = c.id AND co.voided_at IS NULL) AS paid
          FROM charges c
-        WHERE c.id IN (${ph})
-          AND c.voided_at IS NULL AND c.written_off_at IS NULL`,
+        WHERE c.id IN (${ph}) AND c.voided_at IS NULL`,
       chargeIds,
     );
     return rows.map((r) => {

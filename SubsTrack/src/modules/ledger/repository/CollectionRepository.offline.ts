@@ -12,6 +12,7 @@ import type {
   ICollectionRepository,
 } from './ICollectionRepository';
 import type { CreateChargePayload } from './IChargeRepository';
+import { isDeadBill, REVIVE_PATCH, samePrice } from './chargeRevive';
 import { sumByMonth } from '../utils/monthTotals';
 
 /** SQLite-backed hand-overs. Reproduces
@@ -127,50 +128,42 @@ export class OfflineCollectionRepository
   }
 
   /**
-   * Bring an EMPTY month bill up to the price being billed now — the offline
-   * twin of `CollectionRepository.repriceEmptyBills`. See it for the reasoning.
+   * Make an existing bill a valid target for the money about to land on it —
+   * the offline twin of `CollectionRepository.reviveTargetBills`. Two INDEPENDENT
+   * steps; see that method for the reasoning.
    *
-   * Runs inside the caller's transaction, so the reprice and the money that
-   * caused it can never be saved apart.
+   * Runs inside the caller's transaction, so the fix and the money that caused
+   * it can never be saved apart.
    */
-  private async repriceEmptyBill(
+  private async reviveTargetBill(
     db: SQLiteDatabase,
     chargeId: string,
     next: CreateChargePayload,
   ): Promise<void> {
-    if (next.kind !== 'month') return;
-    const paid = await db.getFirstAsync<{ total: number | null }>(
-      'SELECT SUM(ci.amount) AS total FROM collection_items ci ' +
-      'JOIN collections c ON c.id = ci.collection_id ' +
-      'WHERE ci.charge_id = ? AND c.voided_at IS NULL',
-      [chargeId] as never[],
-    );
-    if ((paid?.total ?? 0) > 0) return;
-
     const before = this.decodeOne<DbCharge>(
       'charges',
       await this.first('SELECT * FROM charges WHERE id = ?', [chargeId]),
     );
     if (!before) return;
-    const same =
-      Number(before.amount) === Number(next.amount) &&
-      before.currency_id === next.currency_id &&
-      Number(before.rate_per_usd_snapshot) === Number(next.rate_per_usd_snapshot) &&
-      before.duration_months === next.duration_months &&
-      before.plan_id === next.plan_id;
-    if (same) return;
 
-    const patch = {
-      amount: next.amount,
-      currency_id: next.currency_id,
-      rate_per_usd_snapshot: next.rate_per_usd_snapshot,
-      duration_months: next.duration_months,
-      plan_id: next.plan_id,
-      // Re-raised, so it is no longer a void or a loss.
-      voided_at: null,
-      voided_by: null,
-      void_reason: null,
-    };
+    // 1. Cash is arriving, so the bill EXISTS again — cleared unconditionally.
+    const revive = isDeadBill(before) ? REVIVE_PATCH : {};
+
+    // 2. An EMPTY month bill follows the price the sheet just showed (#106b);
+    //    a bill money has reached keeps its frozen price.
+    const reprice =
+      next.kind === 'month' && (await this.paidOn(db, chargeId)) <= 0 && !samePrice(before, next)
+        ? {
+          amount: next.amount,
+          currency_id: next.currency_id,
+          rate_per_usd_snapshot: next.rate_per_usd_snapshot,
+          duration_months: next.duration_months,
+          plan_id: next.plan_id,
+        }
+        : {};
+
+    const patch = { ...revive, ...reprice };
+    if (Object.keys(patch).length === 0) return;
     await updateDirty(db, 'charges', chargeId, patch);
     await this.auditIn(db, {
       table: 'charges',
@@ -182,6 +175,18 @@ export class OfflineCollectionRepository
         ? await this.customerAudit(before.customer_id)
         : { branchId: before.branch_id }),
     });
+  }
+
+  /** Live money on one bill, summed from the items — never from a balance read,
+   *  which hides a voided or written-off bill and would report 0 (#115). */
+  private async paidOn(db: SQLiteDatabase, chargeId: string): Promise<number> {
+    const row = await db.getFirstAsync<{ total: number | null }>(
+      'SELECT SUM(ci.amount) AS total FROM collection_items ci ' +
+      'JOIN collections c ON c.id = ci.collection_id ' +
+      'WHERE ci.charge_id = ? AND c.voided_at IS NULL',
+      [chargeId] as never[],
+    );
+    return Number(row?.total ?? 0);
   }
 
   /**
@@ -224,12 +229,10 @@ export class OfflineCollectionRepository
           ] as never[]);
         if (existing) {
           chargeIdMap.set(charge.id, existing.id);
-          // An EMPTY bill (its only collection was voided) is re-priced to what
-          // is being billed now — the sheet already re-priced the item from the
-          // line's current price (gotcha #106b), so the row must follow or the
-          // customer is billed a figure nobody was shown. Guarded on `paid = 0`,
-          // the same money-not-a-row rule the read side uses.
-          await this.repriceEmptyBill(db, existing.id, charge);
+          // The row found may be DEAD (voided / written off) — the natural key
+          // is unique whatever its state, so it is the only row this month can
+          // ever have. Cash arriving revives it, and an empty one is re-priced.
+          await this.reviveTargetBill(db, existing.id, charge);
           continue;
         }
         const chargeRow: DbCharge = {

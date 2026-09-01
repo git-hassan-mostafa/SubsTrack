@@ -226,3 +226,48 @@ An "empty" bill is a month whose only payment was voided. It must read exactly l
 14.7.1 Do 14.1 offline on a device, then sync. The server's bill is the re-priced one, and there is exactly **one** row for that line + month.
 14.7.2 Race it: on device A collect the emptied month (billing $30) while device B collects the same month first at $50 and syncs in between. The later write must **not** overwrite a bill that now has money on it — the `paid = 0` guard holds, and no cash is left pointing at a re-priced amount nobody agreed to.
 14.7.3 Admin → Audit Log shows a `charges` **update** entry for the re-price, with the old and new amounts.
+
+---
+
+## 15. Collecting a month whose bill is DEAD (voided / written off) — gotcha #115
+
+The bug this covers: `charges` is unique on `(customer_plan_id, billing_month)` **whatever the row's state**, so a voided or written-off month bill is the only row that month can ever have — while every read filters it out. Cash aimed at that month landed on the dead row and disappeared from the grid, staying in the wallet and in revenue.
+
+### 15.1 The reported case — void, then collect again
+
+15.1.1 Customer with a plan-less line carrying a **special price** ($60, USD). Collect October fully.
+15.1.2 October cell → **Void this month** (confirm — it takes the payment with it). The cell goes red; October is not on the Debts screen; the wallet and revenue drop by $60.
+15.1.3 Collect October again, **same price, same currency** (this is the trap — the old code only revived a bill whose price had changed).
+15.1.4 The cell shows **paid**. Pull to refresh / leave and re-open the customer → **still paid**. Restart the app → still paid.
+15.1.5 In the DB: exactly **one** `charges` row for that line + month, `voided_at IS NULL`, and one live `collection_items` row against it.
+15.1.6 Repeat 15.1.2–15.1.4 twice more. Never more than one bill, and the number of live hand-overs equals the number of times it was actually collected.
+
+### 15.2 Partial → write off → collect
+
+15.2.1 Collect $20 of a $60 October. It appears on the **Debts** screen with $40 still owed.
+15.2.2 Debt row menu → **Write off**. It leaves the Debts screen.
+15.2.3 The October cell now reads **paid (PARTIAL)** with `20/60`, not red — the $20 was really collected, and a write-off gives up on the remainder only. (Before the fix it read red, which is what invited the double charge.)
+15.2.4 Open the bill sheet: the $20 hand-over is listed.
+15.2.5 Collect the remaining $40 from the bill sheet. The bill is revived (`written_off_at` back to NULL), the month closes at 60/60, and Reports → Debts stops counting it as a loss.
+
+### 15.3 The optimistic paint must not lie
+
+15.3.1 With a bill artificially left voided in the DB (set `voided_at` by hand) and a `collection_items` row pointed at it, open the customer: the cell is **red**, not green.
+15.3.2 This is the guard in `mergeCollection` — money on a dead bill is dropped from the in-memory patch, so a regression shows up immediately instead of after a refresh.
+
+### 15.4 The re-price still works, and still only when it should
+
+15.4.1 Re-run §14 in full — reviving must not have changed any re-pricing behaviour.
+15.4.2 A bill with money on it is **never** re-priced, dead or alive: collect $20 of a $60 month, change the line's price to $80, collect the rest → the bill stays $60 and closes at 60/60.
+
+### 15.5 Offline / multi-device
+
+15.5.1 Do 15.1 fully offline, then sync. One bill on the server, un-voided, with the right hand-overs.
+15.5.2 Device A voids October and syncs; device B (offline, stale) collects October and syncs after. The bill comes back to life with B's money on it — no orphan cash, and still one row.
+15.5.3 Admin → Audit Log shows a `charges` **update** entry for the revive, with `voided_at` going from a timestamp to null.
+
+### 15.6 Nothing else moved
+
+15.6.1 Debts screen: a written-off bill is still absent (now excluded by `ChargeRepository.find`, not by the balance view).
+15.6.2 Reports → Debts: "lost to unpaid debts" still counts only the part never collected.
+15.6.3 Dashboard revenue and the collector wallet are unchanged for a normal collect.

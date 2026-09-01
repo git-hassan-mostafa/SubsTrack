@@ -10,6 +10,7 @@ import type {
   ICollectionRepository,
 } from './ICollectionRepository';
 import type { CreateChargePayload } from './IChargeRepository';
+import { isDeadBill, REVIVE_PATCH, samePrice } from './chargeRevive';
 import { OfflineCollectionRepository } from './CollectionRepository.offline';
 import { sumByMonth } from '../utils/monthTotals';
 
@@ -141,63 +142,58 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
   }
 
   /**
-   * Bring EMPTY month bills up to the price being billed now.
+   * Make the bills money is about to land on valid targets for it. TWO
+   * INDEPENDENT steps, and keeping them independent is the whole point:
    *
-   * A bill whose only collection was voided keeps its row (it is the natural
-   * key), but nothing about it may still read as "billed" — including its
-   * amount. The caller has already re-priced the item from the line's current
-   * price, so the stored row is aligned to it here.
+   *  1. REVIVE. A month's `(customer_plan_id, billing_month)` key is unique
+   *     whatever the row's state, so a voided or written-off bill is the only
+   *     row that month can ever have — the upsert below skips it and the split
+   *     points straight at it. But every read (the grid, the debts screen,
+   *     `charge_balances`) drops a dead bill, so the cash is saved and then
+   *     invisible. Money contradicts both a void ("a mistake") and a write-off
+   *     ("never going to be paid"), so both are cleared UNCONDITIONALLY. This
+   *     used to be bundled into step 2 and was skipped whenever the price had
+   *     not moved — which is exactly how it went wrong (gotcha #115).
    *
-   * Guarded on `paid = 0`, never on "was voided": that is the same
-   * money-not-a-row rule, and it also makes the write safe if another device
-   * collected this month in between.
+   *  2. RE-PRICE. An EMPTY month bill keeps its row (it is the natural key) but
+   *     may not keep its amount: the caller already re-priced the item from the
+   *     line's current price, so the stored row follows (gotcha #106b). Guarded
+   *     on `paid = 0`, never on "was voided" — the same money-not-a-row rule,
+   *     and it also makes the write safe if another device collected meanwhile.
    */
-  private async repriceEmptyBills(charges: CreateChargePayload[]): Promise<void> {
-    const months = charges.filter((c) => c.kind === 'month');
-    if (months.length === 0) return;
+  private async reviveTargetBills(charges: CreateChargePayload[]): Promise<void> {
+    if (charges.length === 0) return;
 
     const { data: existing, error } = await this.db
       .from('charges')
       .select('*')
-      .in('id', months.map((c) => c.id));
+      .in('id', charges.map((c) => c.id));
     if (error) this.handleError(error);
 
     const rows = (existing ?? []) as DbCharge[];
     if (rows.length === 0) return;
-    const balances = await this.db
-      .from('charge_balances')
-      .select('*')
-      .in('id', rows.map((r) => r.id));
-    if (balances.error) this.handleError(balances.error);
-    const paidById = new Map(
-      (balances.data ?? []).map((b: { id: string; paid: number }) => [b.id, Number(b.paid)]),
-    );
+    const paidById = await this.paidByCharge(rows.map((r) => r.id));
 
     for (const row of rows) {
-      if ((paidById.get(row.id) ?? 0) > 0) continue;
-      const next = months.find((c) => c.id === row.id)!;
-      const same =
-        Number(row.amount) === Number(next.amount) &&
-        row.currency_id === next.currency_id &&
-        Number(row.rate_per_usd_snapshot) === Number(next.rate_per_usd_snapshot) &&
-        row.duration_months === next.duration_months &&
-        row.plan_id === next.plan_id;
-      if (same) continue;
+      const next = charges.find((c) => c.id === row.id)!;
+      const revive = isDeadBill(row) ? REVIVE_PATCH : {};
+      const reprice =
+        next.kind === 'month' && (paidById.get(row.id) ?? 0) <= 0 && !samePrice(row, next)
+          ? {
+            amount: next.amount,
+            currency_id: next.currency_id,
+            rate_per_usd_snapshot: next.rate_per_usd_snapshot,
+            duration_months: next.duration_months,
+            plan_id: next.plan_id,
+          }
+          : {};
+
+      const patch = { ...revive, ...reprice };
+      if (Object.keys(patch).length === 0) continue;
 
       const { data: updated, error: updateError } = await this.db
         .from('charges')
-        .update({
-          amount: next.amount,
-          currency_id: next.currency_id,
-          rate_per_usd_snapshot: next.rate_per_usd_snapshot,
-          duration_months: next.duration_months,
-          plan_id: next.plan_id,
-          // An empty bill left by a void is being re-raised, so it is no longer
-          // a void or a loss.
-          voided_at: null,
-          voided_by: null,
-          void_reason: null,
-        })
+        .update(patch)
         .eq('id', row.id)
         .select('*, customers(*)')
         .single();
@@ -215,6 +211,17 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
     }
   }
 
+  /** Live money on each bill, summed from the items — NOT read from
+   *  `charge_balances`, which hides a dead bill and would report 0 (#115). */
+  private async paidByCharge(chargeIds: string[]): Promise<Map<string, number>> {
+    const items = await this.findItemsForCharges(chargeIds);
+    const paid = new Map<string, number>();
+    for (const it of items) {
+      paid.set(it.charge_id, (paid.get(it.charge_id) ?? 0) + Number(it.amount));
+    }
+    return paid;
+  }
+
   async create(payload: CreateCollectionPayload): Promise<DbCollection> {
     const { items, charges, ...header } = payload;
 
@@ -222,13 +229,10 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
     // deterministic id, so a month another device already billed is reused
     // rather than duplicated — and keeps ITS frozen price.
     if (charges.length > 0) {
-      // An EMPTY bill left by a voided collection is re-priced to what the
-      // caller is billing now: the sheet re-prices it from the current plan
-      // (gotcha #106b), so the row must follow or the customer is billed a
-      // figure nobody was shown. A bill money has reached is never touched —
-      // the guard is on the balance, so it is also safe against a device that
-      // collected the same month meanwhile.
-      await this.repriceEmptyBills(charges);
+      // The row the upsert is about to skip may be DEAD (voided / written off)
+      // or stale-priced. Fix it FIRST — cash must never land on a bill every
+      // read filters out (#115), and an empty one is re-priced (#106b).
+      await this.reviveTargetBills(charges);
       const { data: inserted, error } = await this.db
         .from('charges')
         .upsert(charges, { onConflict: 'id', ignoreDuplicates: true })

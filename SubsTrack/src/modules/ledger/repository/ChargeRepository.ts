@@ -79,8 +79,16 @@ export class ChargeRepository extends BaseRepository implements IChargeRepositor
     return (data as DbCharge) ?? null;
   }
 
+  // What is STILL OWED. A void ("never existed") and a write-off ("real, but
+  // given up on") both stop a bill being owed, so both are excluded HERE — the
+  // one place that decides it. `charge_balances` deliberately does not: money
+  // already collected stays collected (#115).
   async find(opts: FindChargesOptions): Promise<DbCharge[]> {
-    let query = this.db.from('charges').select(CHARGE_SELECT).is('voided_at', null);
+    let query = this.db
+      .from('charges')
+      .select(CHARGE_SELECT)
+      .is('voided_at', null)
+      .is('written_off_at', null);
     if (opts.customerId) query = query.eq('customer_id', opts.customerId);
     if (opts.customerIds?.length) query = query.in('customer_id', opts.customerIds);
     if (opts.kinds?.length) query = query.in('kind', opts.kinds);
