@@ -23,6 +23,7 @@ import {
   blockingPaidMonths,
   blockingUnpaidMonths,
   coveredBillingMonths,
+  latestTargetYear,
 } from "../utils/payOrder";
 
 class PaymentService {
@@ -296,12 +297,14 @@ class PaymentService {
   //
   // The walk runs past the current year up to the line's latest covered month,
   // because a gap is only a gap when something later is paid — that is exactly
-  // the row a prepay leaves behind.
+  // the row a prepay leaves behind. `throughYear` widens it to a year the caller
+  // can pay into but has never paid before — see gotcha #122.
   uncoveredBillingMonths(
     line: CustomerPlan,
     lineBills: MonthBill[],
     lineSkips: SkippedMonth[],
     unpaidRule: UnpaidStartRule = DEFAULT_UNPAID_START_RULE,
+    throughYear?: number,
   ): string[] {
     const { year: currentYear } = getCurrentYearMonth();
     const covered = this.paidBillingMonths(lineBills);
@@ -311,6 +314,7 @@ class PaymentService {
     const endYear = Math.max(
       currentYear,
       lastCovered ? Number(lastCovered.slice(0, 4)) : currentYear,
+      throughYear ?? currentYear,
     );
 
     const months: string[] = [];
@@ -349,7 +353,14 @@ class PaymentService {
   ): void {
     const blocking = blockingUnpaidMonths(
       // Uncovered, not merely overdue — a prepay must not jump a not-yet-due month.
-      this.uncoveredBillingMonths(line, lineBills, lineSkips, unpaidRule),
+      // Walked through the target's own year, or a gap above it is never seen.
+      this.uncoveredBillingMonths(
+        line,
+        lineBills,
+        lineSkips,
+        unpaidRule,
+        latestTargetYear(targetMonths),
+      ),
       targetMonths,
     );
     // Only the oldest is named — that is the one month the user must collect next.

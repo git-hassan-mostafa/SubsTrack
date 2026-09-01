@@ -50,21 +50,19 @@ export interface PaymentSlice {
 
   fetchCustomerStatuses: (customers: Customer[]) => Promise<void>;
   /**
-   * Always re-reads. There is deliberately no cached `getBills` companion: the
-   * panel loads on FOCUS, and a cache keyed on the customer id would keep
-   * serving the pre-sync grid after a month was paid or voided elsewhere.
+   * Loads the customer's WHOLE bill history — never year-scoped, so navigating
+   * years is a `buildGrids` re-derivation and not a query (#121). It stores the
+   * rows only; the caller's year effect derives the grids from them.
    */
-  fetchBills: (customerId: string, lines: CustomerPlan[], year: number) => Promise<void>;
+  fetchBills: (customerId: string) => Promise<void>;
   /**
-   * Merges a just-recorded hand-over into the bills already in the store and
-   * rebuilds the grids — no re-query. The created `Collection` comes back with
-   * its items and each item's charge, which is everything a month cell needs,
-   * so paying repaints instantly instead of blinking through a reload.
+   * Merges a just-recorded hand-over into the bills already in the store — no
+   * re-query. The created `Collection` comes back with its items and each
+   * item's charge, which is everything a month cell needs, so paying repaints
+   * instantly instead of blinking through a reload.
    */
   applyCollection: (
     collection: Collection,
-    lines: CustomerPlan[],
-    year: number,
     /** -1 when that hand-over was VOIDED — the money comes back off its bills. */
     sign?: 1 | -1,
   ) => void;
@@ -77,8 +75,6 @@ export interface PaymentSlice {
     skipped: boolean,
     tenantId: string,
     userId: string | null,
-    lines: CustomerPlan[],
-    year: number,
   ) => Promise<void>;
   /**
    * Void a month bill and every payment on it. The ONE write here the store
@@ -130,7 +126,7 @@ export const createPaymentSlice: StateCreator<
     });
   },
 
-  fetchBills: async (customerId, lines, year) => {
+  fetchBills: async (customerId) => {
     set((state) => {
       state.payments.loading = true;
       state.payments.error = null;
@@ -140,13 +136,9 @@ export const createPaymentSlice: StateCreator<
         chargeService.getMonthBillsForCustomer(customerId),
         skippedMonthService.getSkipsForCustomer(customerId),
       ]);
-      const derived = buildGridsFor(lines, bills, skips, year, getUnpaidRule(get));
       set((state) => {
         state.payments.bills = bills;
         state.payments.skips = skips;
-        state.payments.monthGridsByLine = derived.grids;
-        state.payments.uncoveredMonthsByLine = derived.uncoveredMonths;
-        state.payments.paidMonthsByLine = derived.paidMonths;
         state.payments.loading = false;
       });
     } catch (e) {
@@ -157,15 +149,10 @@ export const createPaymentSlice: StateCreator<
     }
   },
 
-  applyCollection: (collection, lines, year, sign = 1) => {
+  applyCollection: (collection, sign = 1) => {
     const bills = mergeCollection(get().payments.bills, collection, sign);
-    const { skips } = get().payments;
-    const derived = buildGridsFor(lines, bills, skips, year, getUnpaidRule(get));
     set((state) => {
       state.payments.bills = bills;
-      state.payments.monthGridsByLine = derived.grids;
-      state.payments.uncoveredMonthsByLine = derived.uncoveredMonths;
-      state.payments.paidMonthsByLine = derived.paidMonths;
     });
   },
 
@@ -198,7 +185,7 @@ export const createPaymentSlice: StateCreator<
     });
   },
 
-  setMonthsSkipped: async (inputs, skipped, tenantId, userId, lines, year) => {
+  setMonthsSkipped: async (inputs, skipped, tenantId, userId) => {
     set((state) => {
       state.payments.loadingSkip = true;
       state.payments.error = null;
@@ -217,13 +204,8 @@ export const createPaymentSlice: StateCreator<
       }
       await skippedMonthService.setSkipped(inputs, skipped, tenantId, userId);
       const skips = await skippedMonthService.getSkipsForCustomer(inputs[0].customerId);
-      const { bills } = get().payments;
-      const derived = buildGridsFor(lines, bills, skips, year, getUnpaidRule(get));
       set((state) => {
         state.payments.skips = skips;
-        state.payments.monthGridsByLine = derived.grids;
-        state.payments.uncoveredMonthsByLine = derived.uncoveredMonths;
-        state.payments.paidMonthsByLine = derived.paidMonths;
         state.payments.loadingSkip = false;
       });
     } catch (e) {

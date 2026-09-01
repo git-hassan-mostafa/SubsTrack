@@ -5,7 +5,8 @@ Cross-cutting. Covers the rewrite of **how** the money reads and writes talk to 
 - "what is still owed" comes from **one** query (`ChargeRepository.findOpenWithPaid`) instead of "read every bill, then ask a second query what has been paid on each",
 - the month grid's bills arrive **with** what has reached them (`DbChargeWithPaid`) instead of a second balances read,
 - a **write returns what it wrote** instead of reading the row back, so a bill patch, a hand-over, a voided payment and a new sale are all assembled in memory,
-- the mirror runs `synchronous = NORMAL` and has four new indexes.
+- the mirror runs `synchronous = NORMAL` and has four new indexes,
+- **navigating years in the month grid re-derives from the store instead of re-querying** (section 9).
 
 The risk is not "is it faster" — it is **"did a number quietly change"**. Run every section against a tenant that already has real history: several months, some partial payments, at least one voided collection, one written-off bill and one voided bill.
 
@@ -16,8 +17,9 @@ The risk is not "is it faster" — it is **"did a number quietly change"**. Run 
 - Assembled write returns: [CollectionRepository.offline.ts](SubsTrack/src/modules/ledger/repository/CollectionRepository.offline.ts)
 - A sale's own bill: [SaleService.ts](SubsTrack/src/modules/transaction/sales/services/SaleService.ts) (`chargeFromPayload`)
 - Mirror pragmas + indexes: [sqlite.ts](SubsTrack/src/core/offline/db/sqlite.ts), [schema.ts](SubsTrack/src/core/offline/db/schema.ts)
+- Fetch / derive split: [paymentSlice.ts](SubsTrack/src/state/slices/payments/paymentSlice.ts), [CustomerPaymentPanel.tsx](SubsTrack/src/modules/customer/customer-payments/components/CustomerPaymentPanel.tsx)
 - The `charge_balances` view (web): `sql scripts/script.sql`
-- Gotchas #118, #119, #120
+- Gotchas #118, #119, #120, #121
 
 > **The web half needs a database change.** `charge_balances` gained the bill's scoping columns so the server can decide which bills still owe. Run `sql scripts/script.sql` before testing or shipping the web build — see section 8.
 
@@ -106,3 +108,21 @@ The web build reads `charge_balances` with filters on columns the view only gain
 8.6 As a **branch-scoped** (non-admin) user on web, the Debts tab shows only that branch's debtors — the branch filter now runs on the view, so this is what proves it still scopes.
 8.7 As a **tenant-wide admin** on web, switch the branch chip through every branch and then All. Each branch's total still adds up to the all-branches total.
 8.8 A **walk-in sale** debt (no customer) appears under the branch it was sold in, not under every branch.
+
+## 9. Year navigation — re-derived, never re-read
+
+The grid's fetch is not year-scoped: it loads the customer's whole bill history once. Changing year must therefore be pure computation.
+
+9.1 Open a customer with several years of history. Tap the year arrows back and forth repeatedly. The grid repaints **instantly** — no spinner, no blank frame, no flicker.
+9.2 Go **offline** (airplane mode) and navigate years. Every year still renders, with no error banner: nothing is being fetched.
+9.3 Navigate to a **past** year with paid months. The cells are correct, including multi-month bundles and their "Included" labels.
+9.4 Navigate to a **future** year. Every month reads future/gray, and no bill is created by looking.
+9.5 Pull to refresh on the panel. **This** does re-read, and the spinner is allowed here.
+9.6 Collect a month, then move a year forward and back. The newly paid cell is still green — the write updated the store and the grid re-derived from it.
+9.7 Void a month bill, then move a year forward and back. The cell is still red.
+9.8 Skip a month, then move a year forward and back. The cell is still slate, with the note kept.
+9.9 Unskip a month while a **later** month of the line is paid. Still refused, with the same popup.
+9.10 On a customer whose **previous year** has an unpaid month, view the current year and try to pay a current month. Still refused (the backlog blocks it even though the viewed grid cannot show it).
+9.11 Switch the **service line** selector on a multi-plan customer. The grid swaps with no re-read, and each line's cells are its own.
+9.12 Change the customer's plans (add or remove a line) and return to the panel. The grid reflects the new lines.
+9.13 Leave the panel and come back. The bills are re-read on mount, as before.

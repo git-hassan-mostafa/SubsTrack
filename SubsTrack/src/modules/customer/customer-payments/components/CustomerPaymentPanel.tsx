@@ -100,12 +100,14 @@ export function CustomerPaymentPanel({
   // slice re-renders this panel (month grid included) on every unrelated change,
   // and hands every effect a dep that changes identity each time.
   const bills = usePaymentSlice((s) => s.bills);
+  const skips = usePaymentSlice((s) => s.skips);
   const monthGridsByLine = usePaymentSlice((s) => s.monthGridsByLine);
   const uncoveredMonthsByLine = usePaymentSlice((s) => s.uncoveredMonthsByLine);
   const paidMonthsByLine = usePaymentSlice((s) => s.paidMonthsByLine);
   const paymentsLoading = usePaymentSlice((s) => s.loading);
   const paymentsError = usePaymentSlice((s) => s.error);
   const fetchBills = usePaymentSlice((s) => s.fetchBills);
+  const buildGrids = usePaymentSlice((s) => s.buildGrids);
   const applyCollection = usePaymentSlice((s) => s.applyCollection);
   const clearPaymentError = usePaymentSlice((s) => s.clearError);
   const resetPayments = usePaymentSlice((s) => s.reset);
@@ -134,7 +136,8 @@ export function CustomerPaymentPanel({
   const [year, setYear] = useState(getCurrentYearMonth().year);
   const [selectedLineId, setSelectedLineId] = useState<string | null>(null);
   const [menuEntry, setMenuEntry] = useState<MonthEntry | null>(null);
-  const [quickPayMonth, setQuickPayMonth] = useState<string | null>(null);
+  // The month a cell action is writing — swaps its 3-dot for a spinner.
+  const [busyMonth, setBusyMonth] = useState<string | null>(null);
   // The bill a "paid" cell opened — its own sheet lists every payment on it.
   const [billEntry, setBillEntry] = useState<MonthEntry | null>(null);
   // What the collect sheet is about to take money for. One item = one month;
@@ -216,16 +219,19 @@ export function CustomerPaymentPanel({
       : withPeriod;
   })();
 
-  // Loads every line's bills for the viewed customer/year. Always a real read
-  // (there is no cached companion): a cache keyed on the customer id would keep
-  // serving the pre-sync grid after a month was paid or voided elsewhere.
-  // Mount, year/line changes, and pull-to-refresh (`refreshToken`) only — NOT
-  // focus, so returning from a sheet costs no query.
+  // Loads the customer's WHOLE bill history — mount, customer change and
+  // pull-to-refresh only. Always a real read (no cached companion): a cache
+  // keyed on the customer id would keep serving the pre-sync grid after a
+  // month was paid or voided elsewhere.
   useEffect(() => {
-    if (lines.length > 0) {
-      void fetchBills(customer.id, lines, year);
-    }
-  }, [customer.id, year, linesKey, lines, fetchBills, refreshToken]);
+    if (lines.length > 0) void fetchBills(customer.id);
+  }, [customer.id, lines.length, fetchBills, refreshToken]);
+
+  // The grids are a pure derivation, so changing year re-derives — never
+  // re-queries (#121). Also covers the rows arriving and the lines changing.
+  useEffect(() => {
+    if (lines.length > 0) buildGrids(lines, year);
+  }, [year, linesKey, lines, bills, skips, buildGrids]);
 
   // `selection.clear` (not `selection`) — the hook returns a fresh object each
   // render, so depending on it would loop.
@@ -557,7 +563,7 @@ export function CustomerPaymentPanel({
     if (!created) return false;
     // The created row carries its split and each bill it settled, so the grid
     // repaints from what is already in hand — no reload, no blink.
-    applyCollection(created, lines, year);
+    applyCollection(created);
     if (args.send) await sendReceipt(created);
     return true;
   }
@@ -597,17 +603,21 @@ export function CustomerPaymentPanel({
       destructive: true,
     });
     if (!ok) return false;
-    const result = await voidMonthBill(charge.id, user.id, null);
-    if (result.blockedBy) {
-      showVoidOrderBlocked(result.blockedBy);
-      return false;
+    // Held past the re-read, so the cell stays busy until the grid is correct.
+    setBusyMonth(entry.billingMonth);
+    try {
+      const result = await voidMonthBill(charge.id, user.id, null);
+      if (result.blockedBy) {
+        showVoidOrderBlocked(result.blockedBy);
+        return false;
+      }
+      if (!result.ok) return false;
+      // Re-read, not patched — a voided hand-over may settle another month too.
+      await fetchBills(customer.id);
+      return true;
+    } finally {
+      setBusyMonth(null);
     }
-    if (!result.ok) return false;
-    // The one write on this screen that is re-read rather than patched: it voids
-    // every hand-over on the bill, and one of those may also have settled ANOTHER
-    // month — which the write never names, so the grid cannot know it moved.
-    await fetchBills(customer.id, lines, year);
-    return true;
   }
 
   // Quick Pay: the full price of the month, in one tap. Available on unpaid +
@@ -652,7 +662,7 @@ export function CustomerPaymentPanel({
       });
       if (!ok) return;
     }
-    setQuickPayMonth(entry.billingMonth);
+    setBusyMonth(entry.billingMonth);
     try {
       await runCollect({
         items,
@@ -665,7 +675,7 @@ export function CustomerPaymentPanel({
         send,
       });
     } finally {
-      setQuickPayMonth(null);
+      setBusyMonth(null);
     }
   }
 
@@ -1098,7 +1108,7 @@ export function CustomerPaymentPanel({
               months={grid}
               onCellPress={handleCellPress}
               onCellMenu={setMenuEntry}
-              loadingBillingMonth={quickPayMonth}
+              loadingBillingMonth={busyMonth}
               isRegular={customer.isRegular}
               selectionMode={selection.active}
               isSelected={(bm) => selection.selectedIds.has(bm)}
@@ -1129,10 +1139,10 @@ export function CustomerPaymentPanel({
               has no fixed price to charge (handleQuickPay opens it itself). */}
           <PressableOpacity
             onPress={() => void handleQuickPay(currentMonthEntry)}
-            disabled={quickPayMonth === currentMonthEntry.billingMonth}
+            disabled={busyMonth === currentMonthEntry.billingMonth}
             className="bg-red-500 rounded-xl px-3 py-2 ms-2"
           >
-            {quickPayMonth === currentMonthEntry.billingMonth ? (
+            {busyMonth === currentMonthEntry.billingMonth ? (
               <ActivityIndicator size="small" color="#fff" />
             ) : (
               <Text className="text-white text-sm font-semibold">
@@ -1187,7 +1197,7 @@ export function CustomerPaymentPanel({
           }}
           // A hand-over was voided in the sheet — take its money back off the
           // bills already in the store instead of re-reading the customer.
-          onChanged={(voided) => applyCollection(voided, lines, year, -1)}
+          onChanged={(voided) => applyCollection(voided, -1)}
           onDismiss={() => setBillEntry(null)}
         />
       )}
@@ -1198,8 +1208,6 @@ export function CustomerPaymentPanel({
           mode={skipRequest.mode}
           customerId={customer.id}
           line={selectedLine}
-          lines={lines}
-          year={year}
           onDone={() => {
             setSkipRequest(null);
             selection.clear();

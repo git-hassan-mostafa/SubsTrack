@@ -17,8 +17,6 @@ interface Props {
   customerId: string;
   // The service line the months belong to (skips are per line, like payments).
   line: CustomerPlan;
-  lines: CustomerPlan[];
-  year: number;
   onDone: () => void;
   onDismiss: () => void;
 }
@@ -32,8 +30,6 @@ export function SkipMonthSheet({
   mode,
   customerId,
   line,
-  lines,
-  year,
   onDone,
   onDismiss,
 }: Props) {
@@ -65,8 +61,6 @@ export function SkipMonthSheet({
       isSkip,
       user.tenantId,
       user.id,
-      lines,
-      year,
     );
     if (!getStore().getState().payments.error) {
       setNote("");

@@ -65,6 +65,12 @@ export function blockingPaidMonths(
     .reverse();
 }
 
+/** The newest year a write touches — how far the uncovered walk must run. */
+export function latestTargetYear(targetMonths: string[]): number | undefined {
+  if (targetMonths.length === 0) return undefined;
+  return Number(targetMonths.reduce((a, b) => (b > a ? b : a)).slice(0, 4));
+}
+
 /** "March 2026" for a YYYY-MM-01 billing month, in the current language. */
 export function billingMonthLabel(billingMonth: string): string {
   const [year, month] = billingMonth.split("-").map(Number);
