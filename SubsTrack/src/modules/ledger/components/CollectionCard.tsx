@@ -4,7 +4,6 @@ import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/src/shared/components/Text";
 import { EntityCard } from "@/src/shared/components/EntityCard";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
 import { ActionMenu, type ActionMenuItem } from "@/src/shared/components/ActionMenu";
 import { COLORS } from "@/src/shared/constants";
 import type { CollectionListItem, WalletSource } from "@/src/core/types";
@@ -18,6 +17,13 @@ interface Props {
   item: CollectionListItem;
   onVoid?: (item: CollectionListItem) => void;
   onSendInvoice?: (item: CollectionListItem) => void;
+  /**
+   * Opens what this hand-over settled: the bill itself when it paid one, the
+   * split sheet when it paid several. Never offered on a voided row.
+   */
+  onOpen?: (item: CollectionListItem) => void;
+  /** True while this row's record is being fetched. */
+  loading?: boolean;
   /** On a single-customer surface the name on every row is noise. */
   hideCustomerName?: boolean;
   selectionMode?: boolean;
@@ -27,9 +33,9 @@ interface Props {
 }
 
 // What the money PAID FOR — same icon + uppercase badge the debts card wears, so
-// a bill and the cash that settled it read alike. Green because this is money IN.
-// 'mixed' is honest: one hand-over can settle a month AND a sale, and no
-// allocation could split the physical cash between them.
+// a bill and the cash that settled it read alike. Green because this is money IN;
+// 'mixed' is indigo instead, because it names no single kind — one hand-over can
+// settle a month AND a sale, and no allocation could split the physical cash.
 const KIND_STYLE: Record<
   WalletSource,
   { icon: keyof typeof Ionicons.glyphMap; badge: string }
@@ -37,7 +43,7 @@ const KIND_STYLE: Record<
   month: { icon: "calendar-outline", badge: "bg-emerald-50 text-emerald-700" },
   sale: { icon: "receipt-outline", badge: "bg-emerald-50 text-emerald-700" },
   manual: { icon: "document-text-outline", badge: "bg-emerald-50 text-emerald-700" },
-  mixed: { icon: "cash-outline", badge: "bg-emerald-50 text-emerald-700" },
+  mixed: { icon: "cash-outline", badge: "bg-indigo-50 text-indigo-700" },
 };
 
 /**
@@ -51,6 +57,8 @@ export function CollectionCard({
   item,
   onVoid,
   onSendInvoice,
+  onOpen,
+  loading = false,
   hideCustomerName,
   selectionMode = false,
   selected = false,
@@ -63,7 +71,6 @@ export function CollectionCard({
   const { language } = useLanguageStore();
   const locale = language === "ar" ? "ar" : "en-US";
   const [menuOpen, setMenuOpen] = useState(false);
-  const [expanded, setExpanded] = useState(false);
 
   const source = snapshotCurrency(item, currencies);
   const display = findCurrency(currencies, displayCurrencyId);
@@ -104,11 +111,15 @@ export function CollectionCard({
       iconColor={COLORS.success}
       iconBgClassName="bg-emerald-50"
       dimmed={voided}
+      // A voided hand-over settled nothing any more, so it opens nothing.
+      onPress={onOpen && !voided ? () => onOpen(item) : undefined}
       selectionMode={selectionMode}
       selected={selected}
       onToggleSelect={onToggleSelect ? () => onToggleSelect(item) : undefined}
       onEnterSelection={onEnterSelection ? () => onEnterSelection(item) : undefined}
       onMenu={actions.length > 0 ? () => setMenuOpen(true) : undefined}
+      menuLoading={loading}
+      reserveMenuSpace
     >
       <View className="flex-1 gap-0.5">
         <View className="flex-row items-center justify-between gap-2">
@@ -125,38 +136,19 @@ export function CollectionCard({
           {formatDateTimeShort(item.receivedAt, locale)}
         </Text>
 
+        {/* A split hand-over says so; its bills are one tap away, not inline. */}
         {multi ? (
-          <PressableOpacity
-            onPress={() => setExpanded((v) => !v)}
-            className="mt-1 flex-row items-center gap-1"
-          >
-            <Text className="text-xs font-medium text-primary">
+          <View className="mt-1 flex-row items-center gap-1 self-start rounded bg-slate-100 px-1.5 py-0.5">
+            <Ionicons name="layers-outline" size={11} color={COLORS.gray600} />
+            <Text className="text-[11px] font-medium text-slate-600">
               {t("ledger.n_items", { count: item.itemCount })}
             </Text>
-            <Ionicons
-              name={expanded ? "chevron-up" : "chevron-down"}
-              size={12}
-              color={COLORS.primary}
-            />
-          </PressableOpacity>
+          </View>
         ) : item.itemLabels[0] ? (
           <Text className="text-xs text-slate-600" numberOfLines={1}>
             {item.itemLabels[0]}
           </Text>
         ) : null}
-
-        {multi && expanded && (
-          <View className="mt-1 gap-1 border-l-2 border-slate-200 pl-2">
-            {item.items.map((line, i) => (
-              <View key={line.id} className="flex-row items-center justify-between">
-                <Text className="flex-1 text-xs text-slate-600" numberOfLines={1}>
-                  {item.itemLabels[i] || "—"}
-                </Text>
-                <Text className="text-xs text-slate-700">{money(line.amount)}</Text>
-              </View>
-            ))}
-          </View>
-        )}
 
         {voided && (
           <Text className="mt-1 text-xs text-red-600">

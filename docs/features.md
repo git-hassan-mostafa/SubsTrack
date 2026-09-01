@@ -1749,7 +1749,9 @@ the **charge's** (what he was billed).
 | `CollectSheet` | the ONE collect form. Two modes: a whole customer (type an amount, watch the waterfall split it, untick a row to steer the cash on) or a single bill. Same write either way, so one code path and one audit shape. |
  hero, then **every payment that reached it**, each with its own date and collector. |
 | `BillPaymentsList` | the payments half of `BillSheet`, on its own — the list of hand-overs against ONE bill, with the per-row menu (send receipt / void this payment). Shared with the **sale receipt**, because a month and a sale are the same `charges` row to the ledger. |
-| `CollectionCard` | one hand-over. A single-bill payment shows it inline; several show a `3 items ▾` expander. |
+| `CollectionCard` | one hand-over. A single-bill payment names it inline; several wear a `3 items` marker. **Tapping the card opens what it settled** — the bill itself, or `CollectionSplitSheet` when it closed several. A voided row is inert. |
+| `CollectionSplitSheet` / `CollectionItemCard` | the bills ONE hand-over settled, each a card that opens its own bill — the split shown rather than explained. Needs no read: the list already hydrates every item's charge. |
+| `useOpenBill` | "show me the bill behind this row", read-only. A month and a manual fee open the shared `BillSheet`; a **sale** opens its receipt through an injected `onOpenSale`, because the sale sheet lives in the sales module and sales depends on the ledger — never the reverse. |
 | `CollectionsPanel` / `CollectionsHistorySheet` | the money-in history. ONE list where there were two (payments and debt payments). Reached from the quick-actions menu. |
 | `CollectQuickActionSheet` | "Collect money" from anywhere: pick a customer, the waterfall does the rest. |
 | `DebtsPanel` | one row per customer who owes, **sorted by how far behind they are**. |

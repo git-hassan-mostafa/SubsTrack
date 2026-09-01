@@ -19,6 +19,8 @@ interface EntityCardProps {
   onMenu?: () => void;
   /** Shows a spinner in place of the menu icon. */
   menuLoading?: boolean;
+  /** Keeps the trailing slot's width when this row has no menu but peers do. */
+  reserveMenuSpace?: boolean;
 
   /** Multi-select state — swaps the icon for a checkbox and hides the menu. */
   selectionMode?: boolean;
@@ -48,6 +50,7 @@ export function EntityCard({
   onPress,
   onMenu,
   menuLoading = false,
+  reserveMenuSpace = false,
   selectionMode = false,
   selected = false,
   onToggleSelect,
@@ -80,7 +83,7 @@ export function EntityCard({
       {children}
 
       {/* Trailing 3-dot menu — hidden while selecting. */}
-      {onMenu && !selectionMode && (
+      {onMenu && !selectionMode ? (
         <PressableOpacity
           onPress={onMenu}
           disabled={menuLoading}
@@ -97,7 +100,9 @@ export function EntityCard({
             />
           )}
         </PressableOpacity>
-      )}
+      ) : reserveMenuSpace && !selectionMode ? (
+        <View className="ms-1 w-9 h-9" />
+      ) : null}
     </PressableOpacity>
   );
 }

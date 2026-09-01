@@ -1,5 +1,5 @@
 import type { StateCreator } from 'zustand';
-import type { CollectionListItem, Customer } from '@/src/core/types';
+import type { Collection, CollectionListItem, Customer } from '@/src/core/types';
 import { PAGE_SIZE } from '@/src/core/constants';
 import { getDateMonthsAgoString, getTodayDateString } from '@/src/core/utils/date';
 import { collectionService } from '@/src/modules/ledger';
@@ -39,6 +39,8 @@ export interface CollectionsListSlice {
   setReceivedTo: (date: string | null) => Promise<void>;
   clearFilters: () => Promise<void>;
   voidCollections: (ids: string[], voidedBy: string, reason: string) => Promise<void>;
+  /** A hand-over voided elsewhere (a bill sheet opened from this list). */
+  applyVoided: (voided: Collection) => void;
   clearError: () => void;
   reset: () => void;
 }
@@ -221,34 +223,11 @@ export const createCollectionsListSlice: StateCreator<
     });
     try {
       const voided = await collectionService.voidCollections(ids, voidedBy, reason);
-      const byId = new Map(voided.map((c) => [c.id, c]));
-      // Only rows that were still LIVE actually give money back — voiding an
-      // already-voided one changes nothing.
-      const undone = get().collections.items.filter((c) => byId.has(c.id) && !c.voidedAt);
+      for (const c of voided) get().collections.applyVoided(c);
       set((state) => {
-        // The row STAYS in the list, now marked as voided — history shows what
-        // happened, including reversals. Only its contribution to the section
-        // total drops (the totals query skips voided rows), and that is
-        // subtracted here rather than re-queried.
-        state.collections.items = state.collections.items.map((c) => {
-          const v = byId.get(c.id);
-          // Merge, not replace: `v` carries no joined customer name.
-          return v ? { ...c, voidedAt: v.voidedAt, voidReason: v.voidReason } : c;
-        });
-        for (const c of undone) {
-          addMonthTotal(
-            state.collections.monthlyTotals,
-            c.receivedAt,
-            -c.amount / c.ratePerUsdSnapshot,
-          );
-        }
         state.collections.loading = false;
       });
-      // Each row names the bills it had settled, so a sale it paid moves too.
-      for (const c of undone) get().sales.applyCollection(c, -1);
-      // Those bills are owed again.
-      if (undone.length > 0) get().ledger.markOwedChanged();
-      // Every balance it touched came back, so the debt badges are stale.
+      // Every balance those rows touched came back — ONE read for the batch.
       void get().ledger.fetchNetByCustomer(resolveBranchFilter(get().auth.user));
     } catch (e) {
       set((state) => {
@@ -256,6 +235,38 @@ export const createCollectionsListSlice: StateCreator<
         state.collections.loading = false;
       });
     }
+  },
+
+  applyVoided: (voided) => {
+    // Only a row that was still LIVE gives money back — re-voiding changes
+    // nothing, and this runs for hand-overs voided from a bill sheet too.
+    const before = get().collections.items.find((c) => c.id === voided.id);
+    set((state) => {
+      // The row STAYS in the list, now marked as voided — history shows what
+      // happened, including reversals. Only its contribution to the section
+      // total drops (the totals query skips voided rows), and that is
+      // subtracted here rather than re-queried.
+      state.collections.items = state.collections.items.map((c) =>
+        // Merge, not replace: `voided` carries no joined customer name.
+        c.id === voided.id
+          ? { ...c, voidedAt: voided.voidedAt, voidReason: voided.voidReason }
+          : c,
+      );
+      if (before && !before.voidedAt) {
+        addMonthTotal(
+          state.collections.monthlyTotals,
+          before.receivedAt,
+          -before.amount / before.ratePerUsdSnapshot,
+        );
+      }
+    });
+    if (before?.voidedAt) return;
+    // The row names the bills it had settled, so a sale it paid moves too.
+    get().sales.applyCollection(voided, -1);
+    // Those bills are owed again.
+    get().ledger.markOwedChanged();
+    // The debt badges are stale too, but that is ONE read per write — the
+    // caller fires it after the whole batch, never once per row.
   },
 
   clearError: () =>

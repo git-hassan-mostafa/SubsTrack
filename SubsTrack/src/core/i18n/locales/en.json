@@ -1320,7 +1320,10 @@
     "unpaid_months_section": "Unpaid months",
     "owed_by_n_customers": "owed by {{count}} customer",
     "owed_by_n_customers_plural": "owed by {{count}} customers",
-    "history_title": "Money received"
+    "history_title": "Money received",
+    "split_title": "What this paid",
+    "split_hint": "This payment settled {{count}} bill. Tap one to open it.",
+    "split_hint_plural": "This payment settled {{count}} bills. Tap one to open it."
   },
   "invoicing": {
     "send_on_whatsapp": "Send on WhatsApp"

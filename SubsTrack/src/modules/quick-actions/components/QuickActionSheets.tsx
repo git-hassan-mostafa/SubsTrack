@@ -1,10 +1,16 @@
+import { useState } from "react";
 import { useUiSlice } from "@/src/state/hooks/useUiSlice";
 import { CustomerFormSheet } from "@/src/modules/customer/customers";
 import {
   CollectQuickActionSheet,
   CollectionsHistorySheet,
 } from "@/src/modules/ledger";
-import { SaleFormSheet } from "@/src/modules/transaction/sales";
+import type { Sale } from "@/src/core/types";
+import {
+  SaleDetailSheet,
+  SaleFormSheet,
+  saleService,
+} from "@/src/modules/transaction/sales";
 import { ProductBatchRestockSheet } from "@/src/modules/admin/products";
 import { CustomDebtFormSheet } from "@/src/modules/transaction/debts";
 import { ExpenseFormSheet } from "@/src/modules/transaction/expenses";
@@ -18,6 +24,14 @@ import { ExpenseFormSheet } from "@/src/modules/transaction/expenses";
 export function QuickActionSheets() {
   const openSheet = useUiSlice((s) => s.openSheet);
   const close = useUiSlice((s) => s.closeQuickAction);
+
+  // The money-in history can open a sale's receipt. The sheet lives here rather
+  // than in the ledger, which must not depend on the sales module.
+  const [sale, setSale] = useState<Sale | null>(null);
+
+  async function openSale(saleId: string) {
+    setSale(await saleService.getSaleById(saleId));
+  }
 
   if (!openSheet) return null;
 
@@ -33,7 +47,12 @@ export function QuickActionSheets() {
     case "expense":
       return <ExpenseFormSheet onDismiss={close} />;
     case "collectionsHistory":
-      return <CollectionsHistorySheet onDismiss={close} />;
+      return (
+        <>
+          <CollectionsHistorySheet onDismiss={close} onOpenSale={openSale} />
+          <SaleDetailSheet sale={sale} onDismiss={() => setSale(null)} />
+        </>
+      );
     case "batchRestock":
       return <ProductBatchRestockSheet onDismiss={close} />;
     default:

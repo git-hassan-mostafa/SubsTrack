@@ -72,6 +72,7 @@ export function ExpenseCard({ item, onVoid, onOpenProduct }: Props) {
         iconColor={isStock ? COLORS.primary : COLORS.warning}
         iconBgClassName={isStock ? "bg-indigo-50" : "bg-amber-50"}
         onMenu={actions.length > 0 ? () => setMenuOpen(true) : undefined}
+        reserveMenuSpace
       >
         <View className="flex-1">
           <Text

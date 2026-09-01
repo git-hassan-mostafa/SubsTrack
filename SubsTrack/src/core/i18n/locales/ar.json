@@ -1320,7 +1320,10 @@
     "unpaid_months_section": "الأشهر غير المدفوعة",
     "owed_by_n_customers": "على {{count}} عميل",
     "owed_by_n_customers_plural": "على {{count}} عملاء",
-    "history_title": "المبالغ المستلمة"
+    "history_title": "المبالغ المستلمة",
+    "split_title": "ما تم دفعه",
+    "split_hint": "سدّدت هذه الدفعة {{count}} فاتورة. اضغط على واحدة لفتحها.",
+    "split_hint_plural": "سدّدت هذه الدفعة {{count}} فواتير. اضغط على واحدة لفتحها."
   },
   "invoicing": {
     "send_on_whatsapp": "إرسال عبر واتساب"

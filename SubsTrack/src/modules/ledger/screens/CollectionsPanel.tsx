@@ -31,24 +31,37 @@ import { CustomerPicker } from "@/src/modules/customer/customers";
 import { useSendInvoice } from "@/src/modules/invoicing";
 import { getDateMonthsAgoString, getTodayDateString } from "@/src/core/utils/date";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
-import type { CollectionListItem } from "@/src/core/types";
+import type { CollectionItem, CollectionListItem } from "@/src/core/types";
 import { useCollectionsListSlice } from "@/src/state/hooks/useCollectionsListSlice";
+import { useLedgerSlice } from "@/src/state/hooks/useLedgerSlice";
 import { useUserSlice } from "@/src/state/hooks/useUserSlice";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { CollectionCard } from "../components/CollectionCard";
+import { CollectionSplitSheet } from "../components/CollectionSplitSheet";
 import { CollectionsVoidDialog } from "../components/CollectionsVoidDialog";
+import { useOpenBill } from "../hooks/useOpenBill";
 import { collectionService } from "../services/CollectionService";
+
+interface Props {
+  /**
+   * Opens a SALE's receipt. Injected, because the sale sheet lives in the sales
+   * module and sales depends on the ledger — never the other way round. Omit and
+   * a sale row simply does not open.
+   */
+  onOpenSale?: (saleId: string) => Promise<void> | void;
+}
 
 /**
  * The money-in history: every hand-over of cash, newest first.
  *
  * ONE list where there used to be two (payments and debt payments) — a month, a
  * sale and a custom fee are all settled the same way now, so there is nothing
- * left to merge. A row that settled several bills expands to show the split.
+ * left to merge. Tapping a row opens what it settled: the bill itself, or the
+ * split sheet when one hand-over closed several.
  */
-export function CollectionsPanel() {
+export function CollectionsPanel({ onOpenSale }: Props = {}) {
   const { t } = useTranslation();
   const { user } = useAuth();
   const items = useCollectionsListSlice((s) => s.items);
@@ -69,6 +82,8 @@ export function CollectionsPanel() {
   const setReceivedTo = useCollectionsListSlice((s) => s.setReceivedTo);
   const clearFilters = useCollectionsListSlice((s) => s.clearFilters);
   const clearError = useCollectionsListSlice((s) => s.clearError);
+  const applyVoided = useCollectionsListSlice((s) => s.applyVoided);
+  const refreshNetByCustomer = useLedgerSlice((s) => s.fetchNetByCustomer);
 
   const users = useUserSlice((s) => s.items);
   const getUsers = useUserSlice((s) => s.getUsers);
@@ -79,6 +94,15 @@ export function CollectionsPanel() {
   const { canSend, sendCollectionInvoice } = useSendInvoice();
 
   const [voidIds, setVoidIds] = useState<string[] | null>(null);
+  const [split, setSplit] = useState<CollectionListItem | null>(null);
+  // A payment voided inside the bill sheet is a row of THIS list, so patch it.
+  const openBill = useOpenBill({
+    onOpenSale,
+    onChanged: (voided) => {
+      applyVoided(voided);
+      void refreshNetByCustomer(branchFilter);
+    },
+  });
 
   const selection = useSelection();
   const {
@@ -145,6 +169,25 @@ export function CollectionsPanel() {
       customerName: row.customerName ?? "",
       collection: full,
     });
+  }
+
+  /** One bill behind a hand-over. Its label was frozen by the list read. */
+  function openItem(item: CollectionItem, label: string) {
+    if (!item.charge) return;
+    void openBill.open(item.charge, label);
+  }
+
+  /**
+   * A hand-over that settled ONE bill goes straight to it; one that settled
+   * several opens the split first, because no allocation could pick for the user.
+   */
+  function openCollection(row: CollectionListItem) {
+    if (row.itemCount > 1) {
+      setSplit(row);
+      return;
+    }
+    const first = row.items[0];
+    if (first) openItem(first, row.itemLabels[0] ?? "");
   }
 
   function buildSelectionActions(rows: CollectionListItem[]): SelectionAction[] {
@@ -287,6 +330,10 @@ export function CollectionsPanel() {
                 onEnterSelection={(c) => enterSelection(c.id)}
                 onVoid={(c) => setVoidIds([c.id])}
                 onSendInvoice={canSend(item.customerPhone) ? (c) => void sendOne(c) : undefined}
+                onOpen={openCollection}
+                loading={
+                  item.itemCount === 1 && openBill.loadingId === item.items[0]?.chargeId
+                }
               />
             )}
             ListEmptyComponent={
@@ -312,6 +359,20 @@ export function CollectionsPanel() {
           onDismiss={() => setVoidIds(null)}
         />
       ) : null}
+
+      <CollectionSplitSheet
+        collection={split}
+        onDismiss={() => setSplit(null)}
+        onOpenItem={(item) => {
+          const i = split?.items.indexOf(item) ?? -1;
+          openItem(item, split?.itemLabels[i] ?? "");
+        }}
+        loadingItemId={
+          split?.items.find((i) => i.chargeId === openBill.loadingId)?.id ?? null
+        }
+      />
+
+      {openBill.sheet}
     </View>
   );
 }

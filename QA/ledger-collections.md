@@ -321,3 +321,49 @@ The split preview is drawn in the waterfall's own order (`sortByDue`), so the ro
 
 16.6.1 Collect one bill from a debt row → no "This pays" section at all (there is nothing to order).
 16.6.2 An **open-amount** month (no set price) still shows the "Amount for this month" field and no preview.
+
+## 17. Opening the bill behind a hand-over (money-in history)
+
+Setup: in **Money received** (quick actions → "Money received") have (a) a
+hand-over that settled ONE month, (b) one that settled ONE sale, (c) one that
+settled a month + a sale + a custom fee, and (d) a **voided** row.
+
+### 17.1 The card marker replaced the expander
+
+17.1.1 The multi-bill row (c) shows a grey **3 items** marker with a layers icon — there is **no** `▾` chevron and no inline list any more.
+17.1.2 Tapping the marker area does not expand anything in place; it opens the split sheet (§17.3).
+17.1.3 The single-bill rows (a) and (b) still name their bill inline, unchanged.
+
+### 17.2 A single-bill hand-over opens its bill
+
+17.2.1 Tap row (a) → the **month bill sheet** opens, titled with the bill's frozen label ("Jan 2026 · Internet").
+17.2.2 It shows collected-out-of-owed and every payment that reached that bill — including hand-overs made on other days.
+17.2.3 It offers **no Collect button and no red void-bill button**: this is a history surface, so the bill is read-only here.
+17.2.4 Tap row (b) → the **sale receipt** opens instead (its lines, its total, its payments). While it loads, the row's 3-dot slot shows a spinner.
+17.2.5 A hand-over that settled a **custom fee** opens the same bill sheet as a month, titled with the fee's description.
+
+### 17.3 A multi-bill hand-over opens the split
+
+17.3.1 Tap row (c) → a sheet titled **What this paid** opens, showing the hand-over's total, the customer, the date, and "This payment settled 3 bills."
+17.3.2 One card per bill, in the order the waterfall filled them, each with its own amount, its kind badge (MONTH / SALE / CUSTOM) and its frozen label.
+17.3.3 The card amounts **add up to the hand-over's total** exactly.
+17.3.4 Every amount prints in the **hand-over's** currency (an item has no currency of its own), with the display-currency suffix where one is set.
+17.3.5 Tap the month card → the month bill sheet opens **on top of** the split sheet. Back (or the header dismiss) returns to the split, not to the list.
+17.3.6 Tap the sale card → the sale receipt opens the same way; its row shows a spinner while the sale is fetched.
+17.3.7 Opening the split sheet triggers **no network read** — the list already carries every item and its charge.
+
+### 17.4 A voided hand-over is inert
+
+17.4.1 Row (d) has no 3-dot menu (nothing can be done to it) — and it still lines up: its **MONTH / SALE** badge sits in the same column as every other row's.
+17.4.2 Tapping row (d) does **nothing** — no bill sheet, no split sheet, no spinner.
+17.4.3 This holds for a voided multi-bill row too: the "3 items" marker is shown but not tappable.
+
+### 17.5 Selection mode still wins
+
+17.5.1 Long-press any row to enter selection → tapping rows now **selects** them; no sheet opens.
+17.5.2 Leave selection mode → tapping opens the bill again.
+
+### 17.6 Voiding a payment from inside
+
+17.6.1 Open a bill from §17.2, void one of its payments there → the bill's collected figure drops and the row stays owed.
+17.6.2 Close back to the money-in list → the voided hand-over now reads **Voided** and stops counting toward its month-section total.

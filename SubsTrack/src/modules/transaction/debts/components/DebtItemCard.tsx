@@ -132,6 +132,7 @@ export function DebtItemCard({
         dimmed={muted}
         onPress={onOpen ? () => onOpen(item) : undefined}
         onMenu={actions.length > 0 ? () => setMenuOpen(true) : undefined}
+        reserveMenuSpace
         menuLoading={loading}
       >
         <View className="flex-1">
