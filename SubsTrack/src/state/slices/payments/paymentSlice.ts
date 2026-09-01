@@ -74,6 +74,11 @@ export interface PaymentSlice {
     lines: CustomerPlan[],
     year: number,
   ) => Promise<void>;
+  voidMonthBill: (
+    chargeId: string,
+    voidedBy: string,
+    reason: string | null,
+  ) => Promise<{ ok: boolean; blockedBy: string | null }>;
   clearError: () => void;
   reset: () => void;
 }
@@ -216,6 +221,23 @@ export const createPaymentSlice: StateCreator<
         state.payments.loadingSkip = false;
       });
     }
+  },
+
+  voidMonthBill: async (chargeId, voidedBy, reason) => {
+    const { bills } = get().payments;
+    const target = bills.find((b) => b.charge.id === chargeId);
+    // Not in the store (a bill from a customer that is not the viewed one) — the
+    // order rule cannot be judged from here, so let the ledger write proceed.
+    if (target) {
+      const lineId = target.charge.customerPlanId;
+      const blockedBy = paymentService.billVoidOrderBlocker(
+        target,
+        bills.filter((b) => b.charge.customerPlanId === lineId),
+      );
+      if (blockedBy) return { ok: false, blockedBy };
+    }
+    const ok = await get().ledger.voidChargeWithPayments(chargeId, voidedBy, reason);
+    return { ok, blockedBy: null };
   },
 
   clearError: () => {

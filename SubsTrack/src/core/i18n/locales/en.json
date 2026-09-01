@@ -1305,6 +1305,7 @@
     "kind_month": "Month",
     "kind_sale": "Sale",
     "kind_manual": "Custom",
+    "kind_mixed": "Mixed",
     "days_late": "{{count}} day late",
     "days_late_plural": "{{count}} days late",
     "oldest_days_late": "{{count}} day behind",

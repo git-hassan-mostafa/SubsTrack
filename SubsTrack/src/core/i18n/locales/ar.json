@@ -1305,6 +1305,7 @@
     "kind_month": "شهر",
     "kind_sale": "مبيع",
     "kind_manual": "مخصص",
+    "kind_mixed": "متنوع",
     "days_late": "متأخر {{count}} يوم",
     "days_late_plural": "متأخر {{count}} يوماً",
     "oldest_days_late": "متأخر {{count}} يوم",

@@ -7,7 +7,7 @@ import { EntityCard } from "@/src/shared/components/EntityCard";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
 import { ActionMenu, type ActionMenuItem } from "@/src/shared/components/ActionMenu";
 import { COLORS } from "@/src/shared/constants";
-import type { CollectionListItem } from "@/src/core/types";
+import type { CollectionListItem, WalletSource } from "@/src/core/types";
 import { findCurrency, formatMoney, snapshotCurrency } from "@/src/core/utils/currency";
 import { formatDateTimeShort } from "@/src/core/utils/date";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
@@ -25,6 +25,20 @@ interface Props {
   onToggleSelect?: (item: CollectionListItem) => void;
   onEnterSelection?: (item: CollectionListItem) => void;
 }
+
+// What the money PAID FOR — same icon + uppercase badge the debts card wears, so
+// a bill and the cash that settled it read alike. Green because this is money IN.
+// 'mixed' is honest: one hand-over can settle a month AND a sale, and no
+// allocation could split the physical cash between them.
+const KIND_STYLE: Record<
+  WalletSource,
+  { icon: keyof typeof Ionicons.glyphMap; badge: string }
+> = {
+  month: { icon: "calendar-outline", badge: "bg-emerald-50 text-emerald-700" },
+  sale: { icon: "receipt-outline", badge: "bg-emerald-50 text-emerald-700" },
+  manual: { icon: "document-text-outline", badge: "bg-emerald-50 text-emerald-700" },
+  mixed: { icon: "cash-outline", badge: "bg-emerald-50 text-emerald-700" },
+};
 
 /**
  * ONE hand-over of cash. The $55 Ali gave is one row here, never three.
@@ -57,6 +71,7 @@ export function CollectionCard({
 
   const voided = item.voidedAt !== null;
   const multi = item.itemCount > 1;
+  const style = KIND_STYLE[item.kind];
 
   const actions: ActionMenuItem[] = [];
   if (onSendInvoice && !voided) {
@@ -85,7 +100,7 @@ export function CollectionCard({
 
   return (
     <EntityCard
-      icon="cash-outline"
+      icon={style.icon}
       iconColor={COLORS.success}
       iconBgClassName="bg-emerald-50"
       dimmed={voided}
@@ -96,16 +111,19 @@ export function CollectionCard({
       onMenu={actions.length > 0 ? () => setMenuOpen(true) : undefined}
     >
       <View className="flex-1 gap-0.5">
-        <View className="flex-row items-center justify-between">
+        <View className="flex-row items-center justify-between gap-2">
           <Text className="text-base font-semibold text-slate-900">{money(item.amount)}</Text>
-          {!hideCustomerName && item.customerName ? (
-            <Text className="text-xs text-slate-500" numberOfLines={1}>
-              {item.customerName}
-            </Text>
-          ) : null}
+          <Text
+            className={`text-[10px] font-semibold uppercase tracking-wide px-1.5 py-0.5 rounded ${style.badge}`}
+          >
+            {t(`ledger.kind_${item.kind}`)}
+          </Text>
         </View>
 
-        <Text className="text-xs text-slate-500">{formatDateTimeShort(item.receivedAt, locale)}</Text>
+        <Text className="text-xs text-slate-500" numberOfLines={1}>
+          {!hideCustomerName && item.customerName ? `${item.customerName} · ` : ""}
+          {formatDateTimeShort(item.receivedAt, locale)}
+        </Text>
 
         {multi ? (
           <PressableOpacity

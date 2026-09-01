@@ -26,6 +26,7 @@ Re-verify these after any release:
 4. **A month can take several payments.** The bill sheet lists each with its own date and collector.
 5. **The amount of a recorded hand-over can never be edited** — undoing one is a void.
 6. **Months are settled OLDEST FIRST**, where "earlier" means uncovered, not merely overdue.
+6b. **Month BILLS are voided NEWEST FIRST** — July cannot be voided while August is paid, so a paid month can never end up on top of an unpaid one. Voiding one **hand-over** is not gated.
 7. **Every amount freezes its currency's rate** at the moment it is written; a later rate change never moves a past figure.
 
 ---
@@ -130,13 +131,23 @@ Re-verify these after any release:
 
 ## 8. Void order — newest first
 
+The rule is about voiding a **month bill** ("Void this month", from the cell's
+3-dot menu or the bill sheet's red footer). Voiding one **hand-over** from the
+bill sheet's payment list is NOT gated — it leaves its bill where it was, owed.
+
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 8.1 | A newer paid month blocks | Jan and Feb both paid; try to void January's payment | Refused, naming February |
-| 8.2 | Newest first works | Void February, then January | Both succeed |
-| 8.3 | A partly-paid later month blocks too | Feb has 5 of 20 | It still blocks January (it is real money) |
-| 8.4 | An empty bill does not block | Feb's only payment was already voided | January voids freely |
-| 8.5 | All years are checked | Dec 2026 blocked by a paid Jan 2027 | Refused |
+| 8.1 | A newer paid month blocks | July and August both paid; cell menu on July → **Void this month** | Refused with a "Not available" popup naming **August** ("… is paid on this plan. Newer months must be voided first."). The destructive confirm never appears |
+| 8.2 | Newest first works | Void August, then July | Both succeed |
+| 8.3 | Same from the bill sheet | Open July's bill sheet with August paid; tap the red **Void this month** | Same popup; the sheet stays open |
+| 8.4 | A partly-paid later month blocks too | Aug has 5 of 20 | It still blocks July (it is real money) |
+| 8.5 | An empty bill does not block | Aug's only payment was already voided | July voids freely |
+| 8.6 | All years are checked | Dec 2026 blocked by a paid Jan 2027 | Refused, even though the 2027 grid is not on screen |
+| 8.7 | A multi-month block voids whole | A Jul–Sep bundle paid, nothing later | Allowed — its own months never block each other |
+| 8.8 | A block is blocked by what follows it | The Jul–Sep bundle with October paid | Refused, naming October |
+| 8.9 | Another service line does not block | Line A's July unpaid-voidable, line B's August paid | Allowed — the rule is per service line |
+| 8.10 | A payment void is never blocked | July + August paid; bill sheet on July → the payment row's **Void payment** | Allowed; July goes back to unpaid with August still paid |
+| 8.11 | Unskip follows the same rule | July skipped, August paid; try **Unskip** on July | Unskip is not offered; the pay actions are offered instead (§ monthly-grid) |
 
 ---
 
@@ -177,7 +188,7 @@ Re-verify these after any release:
 ## 12. Things that must NOT be possible
 
 12.1 Editing the amount of a recorded hand-over — there is no such control anywhere.
-12.2 A "void this month" action on a cell.
+12.2 Voiding a month while a **later** month of the same service line is paid (§8).
 12.3 A "Complete" action.
 12.4 Collecting 0.
 12.5 Collecting more than is owed.

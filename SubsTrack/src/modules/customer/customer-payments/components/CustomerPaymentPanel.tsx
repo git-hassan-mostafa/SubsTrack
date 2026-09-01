@@ -36,6 +36,7 @@ import {
   billingMonthLabel,
   blockingPaidMonths,
   blockingUnpaidMonths,
+  coveredBillingMonths,
 } from "../utils/payOrder";
 import {
   useSelection,
@@ -109,7 +110,9 @@ export function CustomerPaymentPanel({
   const clearPaymentError = usePaymentSlice((s) => s.clearError);
   const resetPayments = usePaymentSlice((s) => s.reset);
   const collect = useLedgerSlice((s) => s.collect);
-  const voidChargeWithPayments = useLedgerSlice((s) => s.voidChargeWithPayments);
+  // Not `ledger.voidChargeWithPayments` directly — a MONTH void must obey the
+  // newest-first order rule, which the payment slice owns (#79/#81).
+  const voidMonthBill = usePaymentSlice((s) => s.voidMonthBill);
   const collecting = useLedgerSlice((s) => s.loadingCollect);
   const ledgerError = useLedgerSlice((s) => s.error);
   const clearLedgerError = useLedgerSlice((s) => s.clearError);
@@ -275,24 +278,37 @@ export function CustomerPaymentPanel({
     });
   }, [t]);
 
-  // An unskip is a void of an EXPECTATION, so it follows the void rule: it is
-  // locked while a LATER month is paid, since it would leave an unpaid month
-  // under a paid one. Returns that month, or null when the unskip is allowed.
-  function unskipOrderBlocker(entries: MonthEntry[]): string | null {
-    return (
-      blockingPaidMonths(
-        linePaidMonths,
-        entries.map((e) => e.billingMonth),
-      )[0] ?? null
-    );
+  // Voids run NEWEST FIRST — the mirror of payOrderBlocker. Returns the newest
+  // paid month standing in the way, or null when the void is allowed. Months
+  // inside the same write never block it, so a whole block goes at once.
+  //
+  // An UNSKIP shares this helper on purpose: it is a void of an EXPECTATION, so
+  // it too is locked while a LATER month is paid — that would leave an unpaid
+  // month under a paid one.
+  function voidOrderBlocker(months: string[]): string | null {
+    return blockingPaidMonths(linePaidMonths, months)[0] ?? null;
   }
+
+  const showVoidOrderBlocked = useCallback(
+    (month: string) => {
+      void confirm({
+        title: t("common.not_available"),
+        message: t("payments.later_month_paid", {
+          month: billingMonthLabel(month),
+        }),
+        confirmLabel: t("common.close"),
+        hideCancel: true,
+      });
+    },
+    [t],
+  );
 
   // A skipped month whose unskip is locked can never go back to unpaid, so
   // COLLECTING it is the only way left to settle it. It therefore joins the
   // payable statuses (money outranks the skip in buildMonthGrid, leaving the
   // skip inert) and its unskip action is hidden instead.
   function isLockedSkipped(entry: MonthEntry): boolean {
-    return entry.status === "skipped" && unskipOrderBlocker([entry]) !== null;
+    return entry.status === "skipped" && voidOrderBlocker([entry.billingMonth]) !== null;
   }
 
   // The statuses money can be collected for: nothing collected yet, or a
@@ -556,13 +572,24 @@ export function CustomerPaymentPanel({
    * write reads their ids anyway, so counting first was a second read of the
    * same rows purely to fill in a number.
    *
-   * There is no order rule to check: this LOWERS what is covered, so it can
-   * never leave a paid month sitting on an unpaid one — the same reason a
-   * payment void needs no gate either.
+   * Voids run NEWEST FIRST, so it is refused while a LATER month of the same
+   * line is paid — undoing July under a paid August is precisely the "paid month
+   * sitting on an unpaid one" shape the pay rule exists to prevent. The whole
+   * BILL is the write, so a multi-month block is judged by every month it covers
+   * (months inside the same write never block each other).
    */
   async function voidBill(entry: MonthEntry): Promise<boolean> {
-    const chargeId = entry.charge?.id;
-    if (!user || !chargeId) return false;
+    const charge = entry.charge;
+    if (!user || !charge) return false;
+    // Checked here as well as in the slice, so the "void August first" popup
+    // comes up INSTEAD of the destructive confirm, not after it.
+    const blocker = voidOrderBlocker(
+      coveredBillingMonths(charge.billingMonth ?? entry.billingMonth, charge.durationMonths),
+    );
+    if (blocker) {
+      showVoidOrderBlocked(blocker);
+      return false;
+    }
     const ok = await confirm({
       title: t("ledger.void_month_title"),
       message: t("ledger.void_month_message", { month: monthLabelOf(entry) }),
@@ -570,7 +597,12 @@ export function CustomerPaymentPanel({
       destructive: true,
     });
     if (!ok) return false;
-    if (!(await voidChargeWithPayments(chargeId, user.id, null))) return false;
+    const result = await voidMonthBill(charge.id, user.id, null);
+    if (result.blockedBy) {
+      showVoidOrderBlocked(result.blockedBy);
+      return false;
+    }
+    if (!result.ok) return false;
     // A void has no additive local patch (mergeCollection only ever adds), so
     // the grid is re-read.
     await fetchBills(customer.id, lines, year);
@@ -864,7 +896,9 @@ export function CustomerPaymentPanel({
     onPrev: () => stepYear(-1),
   });
 
-  const error = paymentsError ?? ledgerError;
+  // The collect sheet shows the ledger error itself, right by its Save button,
+  // so the panel behind it must not print the same message twice.
+  const error = paymentsError ?? (collectFor ? null : ledgerError);
   const clearErrors = () => {
     clearPaymentError();
     clearLedgerError();

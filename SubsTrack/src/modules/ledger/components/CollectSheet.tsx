@@ -1,9 +1,12 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/src/shared/components/Text";
-import { FormSheet } from "@/src/shared/components/FormSheet";
+import {
+  FormSheet,
+  type SheetScrollTo,
+} from "@/src/shared/components/FormSheet";
 import { Button } from "@/src/shared/components/Button";
 import { CurrencyInput } from "@/src/shared/components/CurrencyInput";
 import { DatePickerInput } from "@/src/shared/components/DatePickerInput";
@@ -17,6 +20,7 @@ import type { OpenItem } from "@/src/core/types";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { dayToInstantIso, getNowDateTimeString } from "@/src/core/utils/date";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
+import { useLedgerSlice } from "@/src/state/hooks/useLedgerSlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { allocate, keyOf, totalOwed } from "../utils/waterfall";
 
@@ -62,6 +66,22 @@ export function CollectSheet({
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
   const displayCurrencyId = useDisplayCurrencyId();
+  // A failed save belongs HERE, next to the button that caused it — not on
+  // whichever screen behind the sheet happens to render the slice's banner.
+  const error = useLedgerSlice((s) => s.error);
+  const clearError = useLedgerSlice((s) => s.clearError);
+
+  // A failure from a previous attempt must not greet the next open.
+  useEffect(() => {
+    if (visible) clearError();
+  }, [visible, clearError]);
+
+  // Save sits at the bottom and the banner at the top, so on a long split
+  // preview a failed save would otherwise be announced off-screen.
+  const scrollBody = useRef<SheetScrollTo | null>(null);
+  useEffect(() => {
+    if (error) scrollBody.current?.(0);
+  }, [error]);
 
   const pool = useMemo(
     () => (singleItem ? [singleItem] : owed),
@@ -179,6 +199,7 @@ export function CollectSheet({
       visible={visible}
       onDismiss={onDismiss}
       dirty={dirty}
+      scrollRef={scrollBody}
       title={
         singleItem
           ? t("ledger.collect_item_title", { item: singleItem.label })
@@ -186,6 +207,8 @@ export function CollectSheet({
       }
     >
       <View className="gap-4 px-4 pb-8">
+        {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}
+
         {/* What is owed, and the one tap that collects all of it. Not for an
             open month: there is no figure yet, the amount typed becomes it. */}
         {openItem ? (

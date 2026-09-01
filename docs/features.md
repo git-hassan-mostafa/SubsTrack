@@ -1724,16 +1724,23 @@ Three rules hold it together:
 - **Payments first, bill second.** If the bill's own void then fails, what is
   left is an *unpaid bill* the customer still owes — recoverable. The other
   order strands live cash on a bill that no longer exists.
-- **Always say the count.** `paymentIdsForCharge` (and `SaleService.paymentCountForSale`)
-  are read *before* the confirm, because a hand-over that also settled other
-  bills is voided **whole** — voiding January's bill can hand February back too,
-  and staff must be told before, not after.
+- **Always say the money goes — with no number.** The confirm states it
+  unconditionally, so nothing reads the ledger on the way into the dialog: a
+  hand-over that also settled other bills is voided **whole**, so voiding
+  January's bill can hand February back too, and the message says exactly that.
 - **`voidCharge` still refuses a paid bill.** That is what keeps the narrow
-  paths (a debt row's void) from quietly destroying cash. Only a caller that
-  has shown the count gets the wide door.
+  paths (a debt row's void) from quietly destroying cash.
 
-No order gate is needed either way: a void only ever *lowers* what is covered,
-so it can never leave a paid month sitting on an unpaid one. And `voidSale`
+**A MONTH bill is voided NEWEST-FIRST.** Voiding July lowers *July* while a paid
+August sits above it — the very "✓ Paid on top of Overdue" shape the pay rule
+forbids (#79/#81) — so both month entry points go through
+`payments.voidMonthBill`, which asks `PaymentService.billVoidOrderBlocker` first
+and shows a popup naming the month to void first ("August 2026 is paid on this
+plan. Newer months must be voided first."). The rule lives in the **payment**
+slice, not the ledger one, because a **sale** has no month order. The whole bill
+is the write, so a multi-month block is judged by every month it covers, and a
+**partially**-paid later month still blocks. The **payment** void needs no gate —
+it leaves its bill exactly where it was, owed. And `voidSale`
 voids only the **payments** — `repository.voidSale` already voids the sale's own
 charge inside its transaction, so one record keeps one owner.
 

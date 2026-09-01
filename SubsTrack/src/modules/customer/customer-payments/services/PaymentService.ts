@@ -22,9 +22,40 @@ import {
   billingMonthLabel,
   blockingPaidMonths,
   blockingUnpaidMonths,
+  coveredBillingMonths,
 } from "../utils/payOrder";
 
 class PaymentService {
+  // Voids run NEWEST FIRST — the mirror of assertPayableInOrder. Voiding a month
+  // LOWERS what it covers, so undoing July while August is paid leaves a paid
+  // month sitting on an unpaid one, exactly the shape the pay rule exists to
+  // prevent. Months inside the same write never block each other, so voiding a
+  // whole multi-month block (or a run of months) is fine.
+  // The newest paid month standing in the way, or null when the void may run.
+  // Non-throwing so a caller can name the month in its own popup.
+  voidOrderBlocker(targetMonths: string[], lineBills: MonthBill[]): string | null {
+    // Only the newest matters — that is the one month the user must void next.
+    return blockingPaidMonths(this.paidBillingMonths(lineBills), targetMonths)[0] ?? null;
+  }
+
+  // The same, for ONE bill of the line: the whole bill is the write, so a
+  // multi-month block is judged by every month it covers (months inside the same
+  // write never block each other). Returns null when the bill carries no month.
+  billVoidOrderBlocker(bill: MonthBill, lineBills: MonthBill[]): string | null {
+    if (!bill.charge.billingMonth) return null;
+    return this.voidOrderBlocker(
+      coveredBillingMonths(bill.charge.billingMonth, bill.charge.durationMonths),
+      lineBills,
+    );
+  }
+
+  assertVoidableInOrder(targetMonths: string[], lineBills: MonthBill[]): void {
+    const blocking = this.voidOrderBlocker(targetMonths, lineBills);
+    if (blocking) {
+      throw new Error(i18n.t("errors.later_month_paid", { month: billingMonthLabel(blocking) }));
+    }
+  }
+
   // An unskip is a void of an EXPECTATION, so it follows the void rule: it turns
   // "nothing expected" back into an unpaid month, and may not run while a LATER
   // month of the same line is paid — that would leave a paid month sitting on an

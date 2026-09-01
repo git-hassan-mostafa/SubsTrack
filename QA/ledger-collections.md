@@ -114,6 +114,7 @@ The other statement to 6: there the *cash* was wrong and the bill stays owed; he
 6b.12 **Speed (the regression this guards).** Void a bill carrying **10+** hand-overs, on a device (offline path). It must complete in roughly the time one payment takes — the payments go in **one** UPDATE inside **one** transaction (`voidMany`), not a transaction per row queuing behind `withDbLock`. Same for the money-in history's bulk void of 10+ rows, and for a 10-sale bulk void.
 6b.13 **Opening a void dialog costs no reads.** The confirm appears instantly for any bill or selection, however many payments are involved — it states that the money goes without counting it. Watch the network / SQL log: nothing is queried until Confirm is pressed.
 6b.14 Audit is still **one entry per hand-over** after a batched void (not one for the batch), and each carries its own `before_data`.
+6b.15 **Newest month first.** With July *and* August paid on one service line, **Void this month** on July is refused — a "Not available" popup names August, and the destructive confirm never opens. Void August first, then July: both go through. Same from the bill sheet's red footer. Only a **month** bill is gated this way: a **sale** bill and a **hand-typed fee** are voided regardless of any month, and voiding one hand-over (section 6) is never blocked. Full matrix in `payments.md` §8.
 
 ## 8. Two currencies
 

@@ -36,6 +36,9 @@ export function CollectQuickActionSheet({ onDismiss }: Props) {
 
   const [customer, setCustomer] = useState<Customer | null>(null);
   const { open: openCollect, sheet } = useCollectSheet({ onCollected: onDismiss });
+  // Once the collect sheet is up it owns the ledger error (a failed save shows
+  // by its own Save button); this banner is only for the fetch that got here.
+  const showError = error != null && sheet == null;
 
   useEffect(() => {
     if (!customer) {
@@ -60,7 +63,9 @@ export function CollectQuickActionSheet({ onDismiss }: Props) {
     <>
       <FormSheet visible onDismiss={onDismiss} title={t("ledger.collect_money")}>
         <View className="gap-4 px-4 pb-8">
-          {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}
+          {showError ? (
+            <ErrorBanner message={error} onDismiss={clearError} />
+          ) : null}
 
           <CustomerPicker
             label={t("debts.customer_label") + " *"}

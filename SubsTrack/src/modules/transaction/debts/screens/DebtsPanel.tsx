@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, FlatList, RefreshControl, View } from "react-native";
+import {
+  ActivityIndicator,
+  FlatList,
+  RefreshControl,
+  View,
+} from "react-native";
 import { useTranslation } from "react-i18next";
 import { COLORS } from "@/src/shared/constants";
 import { EmptyState } from "@/src/shared/components/EmptyState";
@@ -106,7 +111,7 @@ export function DebtsPanel() {
           />
         </View>
 
-        {error ? (
+        {error && collectSheet.sheet == null ? (
           <View className="px-4 pt-4">
             <ErrorBanner message={error} onDismiss={clearError} />
           </View>
@@ -120,7 +125,11 @@ export function DebtsPanel() {
           <FlatList
             data={visibleDebtors}
             keyExtractor={(d) => d.customerId}
-            contentContainerStyle={{ padding: 16, paddingBottom: 96, flexGrow: 1 }}
+            contentContainerStyle={{
+              padding: 16,
+              paddingBottom: 96,
+              flexGrow: 1,
+            }}
             refreshControl={
               <RefreshControl
                 refreshing={loading}
@@ -183,9 +192,15 @@ export function DebtsPanel() {
           debtor={openDebtor}
           onDismiss={() => setOpenDebtorId(null)}
           onCollectAll={(items) =>
-            collectSheet.open(openDebtor.customerId, openDebtor.customerName, items)
+            collectSheet.open(
+              openDebtor.customerId,
+              openDebtor.customerName,
+              items,
+            )
           }
-          onCollectItem={(item) => collectSheet.openOne(openDebtor.customerName, item)}
+          onCollectItem={(item) =>
+            collectSheet.openOne(openDebtor.customerName, item)
+          }
           onVoidItem={voidItem}
           onWriteOff={writeOffItem}
           onChanged={refresh}
