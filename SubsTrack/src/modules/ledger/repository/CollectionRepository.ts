@@ -75,6 +75,16 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
     return (data as DbCollection) ?? null;
   }
 
+  async findByIds(ids: string[]): Promise<DbCollection[]> {
+    if (ids.length === 0) return [];
+    const { data, error } = await this.db
+      .from('collections')
+      .select(COLLECTION_SELECT)
+      .in('id', ids);
+    if (error) this.handleError(error);
+    return (data ?? []) as DbCollection[];
+  }
+
   async find(opts: FindCollectionsOptions): Promise<DbCollection[]> {
     const limit = opts.limit ?? PAGE_SIZE;
     const offset = opts.offset ?? 0;
@@ -161,8 +171,13 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
    *     on `paid = 0`, never on "was voided" — the same money-not-a-row rule,
    *     and it also makes the write safe if another device collected meanwhile.
    */
-  private async reviveTargetBills(charges: CreateChargePayload[]): Promise<void> {
-    if (charges.length === 0) return;
+  private async reviveTargetBills(
+    charges: CreateChargePayload[],
+  ): Promise<Map<string, DbCharge>> {
+    // Returned so the caller can assemble its own result: these are bills the
+    // split points at, and the split has to carry them (#119).
+    const current = new Map<string, DbCharge>();
+    if (charges.length === 0) return current;
 
     const { data: existing, error } = await this.db
       .from('charges')
@@ -171,7 +186,8 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
     if (error) this.handleError(error);
 
     const rows = (existing ?? []) as DbCharge[];
-    if (rows.length === 0) return;
+    if (rows.length === 0) return current;
+    for (const row of rows) current.set(row.id, row);
     const paidById = await this.paidByCharge(rows.map((r) => r.id));
 
     for (const row of rows) {
@@ -201,6 +217,7 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
         .single();
       if (updateError) this.handleError(updateError);
       const after = updated as DbCharge;
+      current.set(after.id, after);
       this.audit({
         table: 'charges',
         recordId: row.id,
@@ -211,6 +228,7 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
         customerId: after.customer_id ?? undefined,
       });
     }
+    return current;
   }
 
   /** Live money on each bill, summed from the items — NOT read from
@@ -227,6 +245,9 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
   async create(payload: CreateCollectionPayload): Promise<DbCollection> {
     const { items, charges, ...header } = payload;
 
+    // Every bill the split points at, so the created row is assembled here
+    // rather than read back (#119).
+    let targets = new Map<string, DbCharge>();
     // The bills must exist before anything can point at them. Upserted by their
     // deterministic id, so a month another device already billed is reused
     // rather than duplicated — and keeps ITS frozen price.
@@ -234,7 +255,7 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
       // The row the upsert is about to skip may be DEAD (voided / written off)
       // or stale-priced. Fix it FIRST — cash must never land on a bill every
       // read filters out (#115), and an empty one is re-priced (#106b).
-      await this.reviveTargetBills(charges);
+      targets = await this.reviveTargetBills(charges);
       const { data: inserted, error } = await this.db
         .from('charges')
         .upsert(charges, { onConflict: 'id', ignoreDuplicates: true })
@@ -244,6 +265,7 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
       // nothing for a bill another device had already billed, which is exactly
       // the set that should NOT get a second create entry.
       for (const row of (inserted ?? []) as DbCharge[]) {
+        targets.set(row.id, row);
         this.audit({
           table: 'charges',
           recordId: row.id,
@@ -264,10 +286,14 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
     if (error) this.handleError(error);
     const created = data as DbCollection;
 
-    const { error: itemsError } = await this.db
+    // `.select()` costs nothing extra on an INSERT and gives back the real rows
+    // (ids and timestamps), which is half of what the read-back used to fetch.
+    const { data: itemData, error: itemsError } = await this.db
       .from('collection_items')
-      .insert(items.map((it) => ({ ...it, collection_id: created.id })));
+      .insert(items.map((it) => ({ ...it, collection_id: created.id })))
+      .select();
     if (itemsError) this.handleError(itemsError);
+    const itemRows = (itemData ?? []) as DbCollectionItem[];
 
     // One entry for the hand-over as a whole — the split rides in after_data, so
     // the trail literally reads "55 → 20 Jan, 20 Feb, 15 Sale #13".
@@ -281,11 +307,36 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
       subject: created.customers?.name ?? null,
     });
 
-    return (await this.findById(created.id)) ?? created;
+    // Bills this write did not raise itself — a sale's, a custom fee's. One
+    // request, and only when there are any.
+    const missing = itemRows.map((it) => it.charge_id).filter((cid) => !targets.has(cid));
+    if (missing.length > 0) {
+      const { data: rest, error: restError } = await this.db
+        .from('charges')
+        .select('*')
+        .in('id', missing);
+      if (restError) this.handleError(restError);
+      for (const row of (rest ?? []) as DbCharge[]) targets.set(row.id, row);
+    }
+
+    // Assembled, not read back: every row here was just written by this method.
+    return {
+      ...created,
+      collection_items: itemRows.map((it) => ({
+        ...it,
+        charges: targets.get(it.charge_id) ?? null,
+      })),
+    };
   }
 
   async void(id: string, voidedBy: string, reason: string | null): Promise<DbCollection> {
-    const prior = await this.findById(id);
+    // Bare row, not `findById`: the diff keeps only a row's own columns, so the
+    // split and the customer that read joins in were downloaded to be dropped.
+    const { data: prior } = await this.db
+      .from('collections')
+      .select('*')
+      .eq('id', id)
+      .maybeSingle();
     const { data, error } = await this.db
       .from('collections')
       .update({ voided_at: new Date().toISOString(), voided_by: voidedBy, void_reason: reason })

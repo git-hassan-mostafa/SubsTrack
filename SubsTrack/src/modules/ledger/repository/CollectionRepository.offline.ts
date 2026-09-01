@@ -3,7 +3,7 @@ import { OFFLINE_PAGE_SIZE, type BranchFilter } from '@/src/core/constants';
 import type { CashRow, CashStream } from '@/src/core/types';
 import type { DbCharge, DbCollection, DbCollectionItem, DbCustomer } from '@/src/core/types/db';
 import { OfflineBaseRepository } from '@/src/core/offline/OfflineBaseRepository';
-import { insertDirty, updateDirty, upsertNaturalKeyDirty } from '@/src/core/offline/db/dml';
+import { insertDirty, updateDirty } from '@/src/core/offline/db/dml';
 import { newId, nowIso } from '@/src/core/offline/ids';
 import { custodyValues } from '@/src/modules/wallet/utils/custodyValues';
 import type {
@@ -53,6 +53,15 @@ export class OfflineCollectionRepository
     const decoded = this.decodeOne<DbCollection>('collections', row);
     if (!decoded) return null;
     return (await this.hydrate([decoded]))[0];
+  }
+
+  async findByIds(ids: string[]): Promise<DbCollection[]> {
+    if (ids.length === 0) return [];
+    const rows = await this.all(
+      `SELECT * FROM collections WHERE id IN (${ids.map(() => '?').join(',')})`,
+      ids,
+    );
+    return this.hydrate(this.decodeAll<DbCollection>('collections', rows));
   }
 
   async find(opts: FindCollectionsOptions): Promise<DbCollection[]> {
@@ -137,15 +146,11 @@ export class OfflineCollectionRepository
    */
   private async reviveTargetBill(
     db: SQLiteDatabase,
-    chargeId: string,
+    before: DbCharge,
     next: CreateChargePayload,
-  ): Promise<void> {
-    const before = this.decodeOne<DbCharge>(
-      'charges',
-      await this.first('SELECT * FROM charges WHERE id = ?', [chargeId]),
-    );
-    if (!before) return;
-
+    audit: { branchId: string | null; subject: string | null; customerId?: string },
+  ): Promise<DbCharge> {
+    const chargeId = before.id;
     // 1. Cash is arriving, so the bill EXISTS again — cleared unconditionally,
     //    and re-stamped as raised now (it is being billed again).
     const revive = isDeadBill(before) ? revivePatch(next.issued_at) : {};
@@ -164,18 +169,18 @@ export class OfflineCollectionRepository
         : {};
 
     const patch = { ...revive, ...reprice };
-    if (Object.keys(patch).length === 0) return;
+    if (Object.keys(patch).length === 0) return before;
+    const after = { ...before, ...patch } as DbCharge;
     await updateDirty(db, 'charges', chargeId, patch);
     await this.auditIn(db, {
       table: 'charges',
       recordId: chargeId,
       action: 'update',
       before,
-      after: { ...before, ...patch },
-      ...(before.customer_id
-        ? await this.customerAudit(before.customer_id)
-        : { branchId: before.branch_id }),
+      after,
+      ...audit,
     });
+    return after;
   }
 
   /** Live money on one bill, summed from the items — never from a balance read,
@@ -213,27 +218,39 @@ export class OfflineCollectionRepository
       remitted_by: null,
     };
 
-    // intended charge id -> the id the row really has, once find-or-create ran.
-    const chargeIdMap = new Map<string, string>();
+    // Resolved ONCE, and outside the transaction: every bill in a hand-over
+    // belongs to the same customer it does, so this was the same row read once
+    // per charge and again for the collection itself.
+    const audit = row.customer_id
+      ? await this.customerAudit(row.customer_id)
+      : { branchId: row.branch_id, subject: null };
+
+    // intended charge id -> the row the money really lands on.
+    const targets = new Map<string, DbCharge>();
+    const itemRows: DbCollectionItem[] = [];
 
     await this.write(async (db) => {
       for (const charge of charges) {
         // Find-or-create on the natural key: a bill money has REACHED keeps its
-        // frozen price, so re-collecting it never re-prices it.
-        const existing = charge.customer_plan_id
-          ? await db.getFirstAsync<{ id: string }>(
-            'SELECT id FROM charges WHERE customer_plan_id = ? AND billing_month = ?',
-            [charge.customer_plan_id, charge.billing_month] as never[],
-          )
-          : await db.getFirstAsync<{ id: string }>('SELECT id FROM charges WHERE id = ?', [
-            charge.id,
-          ] as never[]);
+        // frozen price, so re-collecting it never re-prices it. The WHOLE row is
+        // read - reviving it needs it, and returning it saves a read-back.
+        const existing = this.decodeOne<DbCharge>(
+          'charges',
+          charge.customer_plan_id
+            ? await db.getFirstAsync<Record<string, unknown>>(
+              'SELECT * FROM charges WHERE customer_plan_id = ? AND billing_month = ?',
+              [charge.customer_plan_id, charge.billing_month] as never[],
+            )
+            : await db.getFirstAsync<Record<string, unknown>>(
+              'SELECT * FROM charges WHERE id = ?',
+              [charge.id] as never[],
+            ),
+        );
         if (existing) {
-          chargeIdMap.set(charge.id, existing.id);
           // The row found may be DEAD (voided / written off) — the natural key
           // is unique whatever its state, so it is the only row this month can
           // ever have. Cash arriving revives it, and an empty one is re-priced.
-          await this.reviveTargetBill(db, existing.id, charge);
+          targets.set(charge.id, await this.reviveTargetBill(db, existing, charge, audit));
           continue;
         }
         const chargeRow: DbCharge = {
@@ -247,32 +264,39 @@ export class OfflineCollectionRepository
           written_off_by: null,
           write_off_reason: null,
         };
-        const storedId = await upsertNaturalKeyDirty(db, 'charges', chargeRow);
-        chargeIdMap.set(charge.id, storedId);
+        // The natural key was just checked, so the only collision left is an id
+        // already held by an unrelated row.
+        const taken = await db.getFirstAsync<{ id: string }>(
+          'SELECT id FROM charges WHERE id = ?',
+          [chargeRow.id] as never[],
+        );
+        const stored: DbCharge = { ...chargeRow, id: taken ? newId() : chargeRow.id };
+        await insertDirty(db, 'charges', stored);
+        targets.set(charge.id, stored);
         await this.auditIn(db, {
           table: 'charges',
-          recordId: storedId,
+          recordId: stored.id,
           action: 'create',
-          after: { ...chargeRow, id: storedId },
-          ...(chargeRow.customer_id
-            ? await this.customerAudit(chargeRow.customer_id)
-            : { branchId: chargeRow.branch_id }),
+          after: stored,
+          ...audit,
         });
       }
 
       await insertDirty(db, 'collections', row);
       for (const it of items) {
-        await insertDirty(db, 'collection_items', {
+        const itemRow: DbCollectionItem = {
           ...it,
           // Cash must point at the bill that really exists — the ids agree today
           // (a month bill is hashed from its natural key), but an item aimed at a
           // missing row is money pointing at nothing.
-          charge_id: chargeIdMap.get(it.charge_id) ?? it.charge_id,
+          charge_id: targets.get(it.charge_id)?.id ?? it.charge_id,
           id: newId(),
           collection_id: id,
           created_at: now,
           updated_at: now,
-        });
+        };
+        itemRows.push(itemRow);
+        await insertDirty(db, 'collection_items', itemRow);
       }
 
       await this.auditIn(db, {
@@ -280,35 +304,69 @@ export class OfflineCollectionRepository
         recordId: id,
         action: 'create',
         after: { ...row, collection_items: items },
-        ...(row.customer_id
-          ? await this.customerAudit(row.customer_id)
-          : { branchId: row.branch_id }),
+        ...audit,
       });
     });
 
-    return (await this.findById(id))!;
+    // The split must carry every bill it settled or the grid cannot repaint from
+    // it, so bills this write did not raise itself are read - in one query.
+    const raised = new Set([...targets.values()].map((c) => c.id));
+    const byId = await this.rowsById<DbCharge>(
+      'charges',
+      itemRows.map((it) => it.charge_id).filter((cid) => !raised.has(cid)),
+    );
+    for (const c of targets.values()) byId.set(c.id, c);
+
+    // Assembled, not read back: every row here was just written by this method.
+    return {
+      ...row,
+      collection_items: itemRows.map((it) => ({ ...it, charges: byId.get(it.charge_id) ?? null })),
+    };
   }
 
+  /**
+   * Undo ONE hand-over. Like `voidMany`, the row comes back un-hydrated: the
+   * caller already holds the split it passed in, and three hydrated reads to
+   * stamp three columns is what made undoing a payment feel slow.
+   */
   async void(id: string, voidedBy: string, reason: string | null): Promise<DbCollection> {
-    const prior = await this.findById(id);
+    const now = nowIso();
+    const prior = await this.forAudit(id);
+    if (!prior) this.handleError(new Error('Collection not found'));
+    const changes = {
+      voided_at: now,
+      voided_by: voidedBy,
+      void_reason: reason,
+      updated_at: now,
+    };
+    const after = { ...prior.row, ...changes };
     await this.write(async (db) => {
-      await updateDirty(db, 'collections', id, {
-        voided_at: nowIso(),
-        voided_by: voidedBy,
-        void_reason: reason,
-        updated_at: nowIso(),
-      });
+      await updateDirty(db, 'collections', id, changes);
       await this.auditIn(db, {
         table: 'collections',
         recordId: id,
         action: 'void',
-        before: prior,
-        after: { ...prior, voided_at: nowIso(), voided_by: voidedBy, void_reason: reason },
-        branchId: prior?.branch_id ?? null,
-        subject: prior?.customers?.name ?? null,
+        before: prior.row,
+        after,
+        branchId: prior.row.branch_id,
+        subject: prior.subject,
       });
     });
-    return (await this.findById(id))!;
+    return after;
+  }
+
+  // The row plus the frozen customer name, in ONE read - all the trail needs.
+  private async forAudit(
+    id: string,
+  ): Promise<{ row: DbCollection; subject: string | null } | null> {
+    const raw = await this.first<Record<string, unknown>>(
+      `SELECT c.*, cu.name AS __subject FROM collections c
+         LEFT JOIN customers cu ON cu.id = c.customer_id
+        WHERE c.id = ?`,
+      [id],
+    );
+    const row = this.decodeOne<DbCollection>('collections', raw);
+    return row ? { row, subject: (raw?.__subject as string | null) ?? null } : null;
   }
 
   /**
@@ -331,10 +389,18 @@ export class OfflineCollectionRepository
     const holes = ids.map(() => '?').join(',');
     // The priors the audit needs — and, once stamped, the return value, so the
     // write is not followed by a read of what we already know.
-    const priors = this.decodeAll<DbCollection>(
-      'collections',
-      await this.all(`SELECT * FROM collections WHERE id IN (${holes})`, ids),
+    // The customer name is joined in, not left null: the trail freezes it, and
+    // a bare `SELECT *` here quietly filed every batched void under no name.
+    const raw = await this.all<Record<string, unknown>>(
+      `SELECT c.*, cu.name AS __subject FROM collections c
+         LEFT JOIN customers cu ON cu.id = c.customer_id
+        WHERE c.id IN (${holes})`,
+      ids,
     );
+    const subjects = new Map(
+      raw.map((r) => [r.id as string, (r.__subject as string | null) ?? null]),
+    );
+    const priors = this.decodeAll<DbCollection>('collections', raw);
     // Already-voided rows are skipped by the UPDATE's guard, so they are not
     // "what this call voided" either.
     const live = priors.filter((p) => !p.voided_at);
@@ -355,7 +421,7 @@ export class OfflineCollectionRepository
           before: prior,
           after: { ...prior, voided_at: now, voided_by: voidedBy, void_reason: reason },
           branchId: prior.branch_id ?? null,
-          subject: prior.customers?.name ?? null,
+          subject: subjects.get(prior.id) ?? null,
         });
       }
     });

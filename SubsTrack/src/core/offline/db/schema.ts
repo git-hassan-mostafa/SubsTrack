@@ -70,6 +70,13 @@ export const CREATE_INDEX_STATEMENTS: string[] = [
   `CREATE INDEX IF NOT EXISTS idx_charges_sale ON charges(sale_id);`,
   `CREATE INDEX IF NOT EXISTS idx_sales_soldat ON sales(sold_at);`,
   `CREATE INDEX IF NOT EXISTS idx_sales_customer ON sales(customer_id);`,
+  // Every sale read hydrates its lines by sale_id, and the two delete-reference
+  // counts scan the other two — all three were full table scans.
+  `CREATE INDEX IF NOT EXISTS idx_sale_items_sale ON sale_items(sale_id);`,
+  `CREATE INDEX IF NOT EXISTS idx_sale_items_product ON sale_items(product_id);`,
+  `CREATE INDEX IF NOT EXISTS idx_sale_items_service ON sale_items(service_id);`,
+  // Read on every payment-panel load and every collect sheet.
+  `CREATE INDEX IF NOT EXISTS idx_skipped_months_customer ON skipped_months(customer_id);`,
   `CREATE INDEX IF NOT EXISTS idx_collections_customer ON collections(customer_id);`,
   `CREATE INDEX IF NOT EXISTS idx_collections_holder ON collections(held_by_user_id);`,
   // Every balance read sums the items of one bill, so this one carries the

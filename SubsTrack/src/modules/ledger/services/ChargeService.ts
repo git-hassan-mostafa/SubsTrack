@@ -56,12 +56,11 @@ class ChargeService {
    * them — the ONLY shape `buildMonthGrid` accepts.
    */
   async getMonthBillsForLines(customerPlanIds: string[]): Promise<Map<string, MonthBill[]>> {
-    const charges = await repository.findMonthChargesForLines(customerPlanIds);
-    const paid = await this.paidByCharge(charges.map((c) => c.id));
+    const rows = await repository.findMonthChargesForLines(customerPlanIds);
     const byLine = new Map<string, MonthBill[]>();
-    for (const row of charges) {
+    for (const { charge: row, paid } of rows) {
       const charge = mapDbChargeToCharge(row);
-      const bill: MonthBill = { charge, collected: paid.get(charge.id) ?? 0 };
+      const bill: MonthBill = { charge, collected: paid };
       const key = charge.customerPlanId!;
       const list = byLine.get(key);
       if (list) list.push(bill);
@@ -71,18 +70,11 @@ class ChargeService {
   }
 
   async getMonthBillsForCustomer(customerId: string): Promise<MonthBill[]> {
-    const charges = await repository.findMonthChargesForCustomer(customerId);
-    const paid = await this.paidByCharge(charges.map((c) => c.id));
-    return charges.map((row) => {
-      const charge = mapDbChargeToCharge(row);
-      return { charge, collected: paid.get(charge.id) ?? 0 };
-    });
-  }
-
-  /** How much has reached each of these bills. Missing id = nothing collected. */
-  async paidByCharge(chargeIds: string[]): Promise<Map<string, number>> {
-    const balances = await repository.balances(chargeIds);
-    return new Map(balances.map((b) => [b.id, b.paid]));
+    const rows = await repository.findMonthChargesForCustomer(customerId);
+    return rows.map(({ charge, paid }) => ({
+      charge: mapDbChargeToCharge(charge),
+      collected: paid,
+    }));
   }
 
   /**
@@ -95,24 +87,18 @@ class ChargeService {
     customerIds?: string[];
     branchFilter?: BranchFilter;
   }): Promise<OpenItem[]> {
-    const charges = await repository.find({ ...opts, openOnly: false });
-    const balances = await repository.balances(charges.map((c) => c.id));
-    const byId = new Map(balances.map((b) => [b.id, b]));
-    const items: OpenItem[] = [];
-    for (const row of charges) {
-      const bal = byId.get(row.id);
-      if (!bal || bal.balance <= 0) continue;
-      items.push(
-        openItemFromCharge(
-          mapDbChargeToCharge(row),
-          bal.paid,
-          chargeLabel(row),
-          // The debts list groups and titles by this — a walk-in sale has none.
-          row.customers?.name ?? '',
-        ),
-      );
-    }
-    return items;
+    // ONE read. It used to walk every bill the tenant ever raised, binding an
+    // id per row into a second balances query, purely to keep the open few.
+    const open = await repository.findOpenWithPaid(opts);
+    return open.map(({ charge, paid }) =>
+      openItemFromCharge(
+        mapDbChargeToCharge(charge),
+        paid,
+        chargeLabel(charge),
+        // The debts list groups and titles by it; a walk-in has none.
+        charge.customers?.name ?? '',
+      ),
+    );
   }
 
   /**

@@ -222,11 +222,12 @@ class CollectionService {
   /** Every payment made against one bill — the bill sheet's payments list. */
   async getPaymentsForCharge(chargeId: string): Promise<Collection[]> {
     const items = await repository.findItemsForCharges([chargeId]);
-    const collections = await Promise.all(
-      Array.from(new Set(items.map((i) => i.collection_id))).map((id) => repository.findById(id)),
-    );
+    // ONE read for the whole list. It used to be a findById per hand-over, and
+    // each of those is a row plus three join lookups.
+    const collections = await repository.findByIds([
+      ...new Set(items.map((i) => i.collection_id)),
+    ]);
     return collections
-      .filter((c): c is NonNullable<typeof c> => !!c)
       .map(mapDbCollectionToCollection)
       // Oldest first, createdAt breaking the tie — same-day hand-overs share
       // one received_at whenever the day was back-dated.

@@ -1,4 +1,4 @@
-import type { Sale, SaleItem } from '@/src/core/types';
+import type { Charge, Sale, SaleItem } from '@/src/core/types';
 import type { BranchFilter } from '@/src/core/constants';
 import i18n from '@/src/core/i18n';
 import { newId, nowIso } from '@/src/core/offline/ids';
@@ -21,6 +21,7 @@ import {
   UpdateSaleInput,
   type FindSalesOptions,
 } from '../utils/types'
+import type { SaleChargePayload } from '../repository/ISaleRepository';
 import { mapDbSaleToSale } from '../utils/mapper';
 import {
   cartUnits,
@@ -50,54 +51,25 @@ function totalOf(items: CreateSaleItemInput[]): number {
   return items.reduce((sum, it) => sum + it.unitAmount * lineQuantity(it), 0);
 }
 
-// The bill a brand-new sale just raised, as the collect path wants it. Built
-// from what was written rather than read back, so recording a paid sale costs
-// no extra round trip.
-function saleOpenItem(args: {
-  chargeId: string;
-  customerId: string | null;
-  branchId: string | null;
-  label: string;
-  amount: number;
-  currencyId: string | null;
-  ratePerUsdSnapshot: number;
-  dueDate: string;
-  issuedAt: string;
-  /** Already collected against this bill — 0 for a brand-new sale. */
-  paid?: number;
-}) {
-  return openItemFromCharge(
-    {
-      id: args.chargeId,
-      tenantId: '',
-      branchId: args.branchId,
-      customerId: args.customerId,
-      kind: 'sale' as const,
-      customerPlanId: null,
-      billingMonth: null,
-      durationMonths: 1,
-      planId: null,
-      saleId: null,
-      description: null,
-      amount: args.amount,
-      currencyId: args.currencyId,
-      ratePerUsdSnapshot: args.ratePerUsdSnapshot,
-      issuedAt: args.issuedAt,
-      dueDate: args.dueDate,
-      recordedByUserId: null,
-      notes: null,
-      createdAt: args.issuedAt,
-      updatedAt: args.issuedAt,
-      voidedAt: null,
-      voidedBy: null,
-      voidReason: null,
-      writtenOffAt: null,
-      writtenOffBy: null,
-      writeOffReason: null,
-    },
-    args.paid ?? 0,
-    args.label,
-  );
+// The bill a sale just raised, as a domain Charge — built from what was
+// written, so recording a paid sale costs no extra round trip.
+function chargeFromPayload(
+  payload: SaleChargePayload,
+  saleId: string,
+  at: string,
+): Charge {
+  return mapDbChargeToCharge({
+    ...payload,
+    sale_id: saleId,
+    created_at: at,
+    updated_at: at,
+    voided_at: null,
+    voided_by: null,
+    void_reason: null,
+    written_off_at: null,
+    written_off_by: null,
+    write_off_reason: null,
+  });
 }
 
 class SaleService {
@@ -172,6 +144,29 @@ class SaleService {
     const soldAt = nowIso();
     const chargeId = newId();
     const itemsSummary = buildItemsSummary(input.items);
+    // Built once and used three times: written with the sale, collected against
+    // at the till, and handed back on the sale - so nothing is read again to
+    // learn a bill this method itself raised.
+    const chargePayload: SaleChargePayload = {
+      id: chargeId,
+      tenant_id: input.tenantId,
+      branch_id: input.branchId,
+      customer_id: input.customerId,
+      kind: 'sale',
+      customer_plan_id: null,
+      billing_month: null,
+      duration_months: 1,
+      plan_id: null,
+      description: null,
+      amount: total,
+      currency_id: input.currency?.id ?? null,
+      rate_per_usd_snapshot: ratePerUsdSnapshot,
+      issued_at: soldAt,
+      // Owed the day it was sold — ageing on a pay-later sale starts now.
+      due_date: soldAt.slice(0, 10),
+      recorded_by_user_id: input.recordedByUserId,
+      notes: null,
+    };
     const row = await repository.create({
       tenant_id: input.tenantId,
       branch_id: input.branchId,
@@ -185,26 +180,7 @@ class SaleService {
       notes: input.notes?.trim() || null,
       // The bill the sale raises. Written in the same transaction offline, so a
       // sale can never exist without the thing that makes it collectable.
-      charge: {
-        id: chargeId,
-        tenant_id: input.tenantId,
-        branch_id: input.branchId,
-        customer_id: input.customerId,
-        kind: 'sale',
-        customer_plan_id: null,
-        billing_month: null,
-        duration_months: 1,
-        plan_id: null,
-        description: null,
-        amount: total,
-        currency_id: input.currency?.id ?? null,
-        rate_per_usd_snapshot: ratePerUsdSnapshot,
-        issued_at: soldAt,
-        // Owed the day it was sold — ageing on a pay-later sale starts now.
-        due_date: soldAt.slice(0, 10),
-        recorded_by_user_id: input.recordedByUserId,
-        notes: null,
-      },
+      charge: chargePayload,
       items: input.items.map((it) => toItemPayload(it, input.tenantId)),
       // Stock leaving with the sale — PRODUCT lines only, since labour comes off
       // no shelf. Written by the repository alongside the header + lines
@@ -218,6 +194,7 @@ class SaleService {
       ),
     });
 
+    const charge = chargeFromPayload(chargePayload, row.id, soldAt);
     // Cash taken at the till goes through the SAME collect path as any later
     // installment — money is recorded in exactly one place, so custody, the
     // audit entry and the currency rules are written once. Should it fail, the
@@ -235,17 +212,7 @@ class SaleService {
         notes: null,
         lines: [
           {
-            item: saleOpenItem({
-              chargeId,
-              customerId: input.customerId,
-              branchId: input.branchId,
-              label: itemsSummary,
-              amount: total,
-              currencyId: input.currency?.id ?? null,
-              ratePerUsdSnapshot,
-              dueDate: soldAt.slice(0, 10),
-              issuedAt: soldAt,
-            }),
+            item: openItemFromCharge(charge, 0, itemsSummary),
             amount: input.amountPaid,
             settles: input.amountPaid >= total - 1e-9,
           },
@@ -253,8 +220,15 @@ class SaleService {
       });
     }
 
-    const [sale] = await this.withMoney([mapDbSaleToSale(row)]);
-    return sale;
+    // No `withMoney`: the bill was raised by this method and the cash by the
+    // line above, so re-reading both would only confirm what is already known.
+    // A failed collect throws, so reaching here means all of it landed.
+    return {
+      ...mapDbSaleToSale(row),
+      chargeId: charge.id,
+      charge,
+      amountPaid: input.amountPaid,
+    };
   }
 
   // Corrects an existing sale in place: products, quantities, unit prices, the
@@ -349,18 +323,13 @@ class SaleService {
         notes: null,
         lines: [
           {
-            item: saleOpenItem({
-              chargeId: charge.id,
-              customerId: input.customerId,
-              branchId: input.branchId,
-              label: buildItemsSummary(input.items),
-              amount: total,
-              currencyId: input.currency?.id ?? null,
-              ratePerUsdSnapshot,
-              dueDate: charge.due_date,
-              issuedAt: charge.issued_at,
-              paid: sale.amountPaid,
-            }),
+            // The bill was just re-priced by `repository.update`, so the row
+            // read back above already carries the new total and currency.
+            item: openItemFromCharge(
+              mapDbChargeToCharge(charge),
+              sale.amountPaid,
+              buildItemsSummary(input.items),
+            ),
             amount: collectNow,
             settles: collectNow >= owing - 1e-9,
           },

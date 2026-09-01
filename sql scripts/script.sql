@@ -1424,13 +1424,25 @@ CREATE INDEX IF NOT EXISTS idx_collection_items_collection_id
 -- clause, so a voided collection does not remove its items from the result — it
 -- only leaves `p` all-NULL. A bare SUM(i.amount) would keep counting voided
 -- cash, and voiding a payment would never give the balance back.
+-- The columns after `balance` carry NO new information — every one is a plain
+-- `charges` column, exposed so the view can be FILTERED on the server. Without
+-- them "which bills still owe?" could only be answered by downloading every bill
+-- the tenant ever raised and posting its ids back in an IN list (gotcha #118).
+-- They are appended, never inserted: CREATE OR REPLACE VIEW may add columns at
+-- the end but may not rename, retype or reorder the ones already there.
 CREATE OR REPLACE VIEW charge_balances WITH (security_invoker = true) AS
     SELECT c.id,
            c.tenant_id,
            c.amount,
            COALESCE(SUM(CASE WHEN p.id IS NULL THEN 0 ELSE i.amount END), 0) AS paid,
            c.amount
-             - COALESCE(SUM(CASE WHEN p.id IS NULL THEN 0 ELSE i.amount END), 0) AS balance
+             - COALESCE(SUM(CASE WHEN p.id IS NULL THEN 0 ELSE i.amount END), 0) AS balance,
+           c.branch_id,
+           c.customer_id,
+           c.customer_plan_id,
+           c.kind,
+           c.due_date,
+           c.written_off_at
     FROM charges c
     LEFT JOIN collection_items i ON i.charge_id = c.id
     LEFT JOIN collections p ON p.id = i.collection_id AND p.voided_at IS NULL

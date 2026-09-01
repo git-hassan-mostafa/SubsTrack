@@ -52,6 +52,8 @@ export interface FindCollectionsOptions {
 
 export interface ICollectionRepository {
   findById(id: string): Promise<DbCollection | null>;
+  /** Several hand-overs with their splits, in ONE read - a bill's payments. */
+  findByIds(ids: string[]): Promise<DbCollection[]>;
   find(opts: FindCollectionsOptions): Promise<DbCollection[]>;
   /** The items settling these bills — powers a bill's own payments list. */
   findItemsForCharges(chargeIds: string[]): Promise<DbCollectionItem[]>;

@@ -5,10 +5,22 @@ import { insertDirty, updateDirty } from '@/src/core/offline/db/dml';
 import { nowIso } from '@/src/core/offline/ids';
 import type {
   CreateChargePayload,
+  DbChargeWithPaid,
   FindChargesOptions,
   IChargeRepository,
   UpdateChargePayload,
 } from './IChargeRepository';
+
+// The sum `balances()` computes for one bill, as an aggregate over a whole set.
+// A voided hand-over pays nothing, and neither does an item whose collection
+// has not synced down yet — the INNER-join rule, written so a LEFT JOIN can
+// still return the bills that have no items at all.
+const PAID_SUM =
+  `COALESCE(SUM(CASE WHEN co.id IS NOT NULL AND co.voided_at IS NULL
+                     THEN CAST(i.amount AS REAL) ELSE 0 END), 0)`;
+const PAID_JOIN =
+  `LEFT JOIN collection_items i ON i.charge_id = c.id
+   LEFT JOIN collections co ON co.id = i.collection_id`;
 
 /**
  * SQLite-backed bills. Reproduces
@@ -66,26 +78,34 @@ export class OfflineChargeRepository extends OfflineBaseRepository implements IC
     return this.hydrate(this.decodeAll<DbCharge>('charges', rows));
   }
 
-  async findMonthChargesForLines(customerPlanIds: string[]): Promise<DbCharge[]> {
+  async findMonthChargesForLines(customerPlanIds: string[]): Promise<DbChargeWithPaid[]> {
     if (customerPlanIds.length === 0) return [];
-    const rows = await this.all(
-      `SELECT * FROM charges
-        WHERE kind = 'month' AND voided_at IS NULL
-          AND customer_plan_id IN (${customerPlanIds.map(() => '?').join(',')})
-        ORDER BY billing_month ASC`,
+    return this.monthChargesWithPaid(
+      `c.customer_plan_id IN (${customerPlanIds.map(() => '?').join(',')})`,
       customerPlanIds,
     );
-    return this.decodeAll<DbCharge>('charges', rows);
   }
 
-  async findMonthChargesForCustomer(customerId: string): Promise<DbCharge[]> {
-    const rows = await this.all(
-      `SELECT * FROM charges
-        WHERE kind = 'month' AND voided_at IS NULL AND customer_id = ?
-        ORDER BY billing_month ASC`,
-      [customerId],
+  async findMonthChargesForCustomer(customerId: string): Promise<DbChargeWithPaid[]> {
+    return this.monthChargesWithPaid('c.customer_id = ?', [customerId]);
+  }
+
+  // The grid's input: the month bills AND what has reached each, in one query.
+  // Summing here rather than in a second `balances()` call is what keeps the
+  // customer list off one bound parameter per bill in the whole tenant.
+  private async monthChargesWithPaid(
+    scope: string,
+    params: unknown[],
+  ): Promise<DbChargeWithPaid[]> {
+    const rows = await this.all<Record<string, unknown>>(
+      `SELECT c.*, ${PAID_SUM} AS __paid
+         FROM charges c ${PAID_JOIN}
+        WHERE c.kind = 'month' AND c.voided_at IS NULL AND ${scope}
+        GROUP BY c.id
+        ORDER BY c.billing_month ASC`,
+      params,
     );
-    return this.decodeAll<DbCharge>('charges', rows);
+    return this.withPaid(rows);
   }
 
   async findBySaleIds(saleIds: string[]): Promise<DbCharge[]> {
@@ -105,11 +125,8 @@ export class OfflineChargeRepository extends OfflineBaseRepository implements IC
     return (await this.hydrate([decoded]))[0];
   }
 
-  // What is STILL OWED. A void ("never existed") and a write-off ("real, but
-  // given up on") both stop a bill being owed, so both are excluded HERE — the
-  // one place that decides it. `balances()` deliberately does not: money already
-  // collected stays collected (#115).
-  async find(opts: FindChargesOptions): Promise<DbCharge[]> {
+  // The one place "no longer owed" is decided - a void AND a write-off (#115).
+  private owedWhere(opts: FindChargesOptions): { sql: string; params: unknown[] } {
     const parts: { clause: string; params: unknown[] }[] = [
       { clause: 'c.voided_at IS NULL AND c.written_off_at IS NULL', params: [] },
     ];
@@ -127,21 +144,39 @@ export class OfflineChargeRepository extends OfflineBaseRepository implements IC
       });
     }
     parts.push(this.branchWhere(opts.branchFilter ?? null, this.BRANCH_SCOPES.charges, 'c'));
-    const where = this.combineWhere(parts);
-    const rows = await this.all(
-      `SELECT c.* FROM charges c
-         LEFT JOIN customers cu ON cu.id = c.customer_id
-        ${where.sql}
-        ORDER BY c.due_date ASC`,
+    return this.combineWhere(parts);
+  }
+
+  // The open bills in ONE query: no param per bill, and only the rows that
+  // still owe something are decoded and hydrated.
+  async findOpenWithPaid(opts: FindChargesOptions): Promise<DbChargeWithPaid[]> {
+    const where = this.owedWhere(opts);
+    // Filtered OUTSIDE the aggregate, not in a HAVING, so the sum is written -
+    // and computed - exactly once.
+    const rows = await this.all<Record<string, unknown>>(
+      `SELECT * FROM (
+         SELECT c.*, ${PAID_SUM} AS __paid
+           FROM charges c ${PAID_JOIN}
+          ${where.sql}
+          GROUP BY c.id
+       )
+        WHERE CAST(amount AS REAL) - __paid > 0
+        ORDER BY due_date ASC`,
       where.params,
     );
-    const charges = this.decodeAll<DbCharge>('charges', rows);
-    const hydrated = await this.hydrate(charges);
-    if (!opts.openOnly) return hydrated;
-    const open = new Set(
-      (await this.balances(hydrated.map((c) => c.id))).filter((b) => b.balance > 0).map((b) => b.id),
-    );
-    return hydrated.filter((c) => open.has(c.id));
+    const open = this.withPaid(rows);
+    // Only the bills that still owe something are hydrated for their labels.
+    const hydrated = await this.hydrate(open.map((o) => o.charge));
+    return hydrated.map((charge, i) => ({ charge, paid: open[i].paid }));
+  }
+
+  // Off the RAW rows - `decodeAll` keeps only the table's own columns.
+  private withPaid(rows: Record<string, unknown>[]): DbChargeWithPaid[] {
+    const paid = rows.map((r) => Number(r.__paid ?? 0));
+    return this.decodeAll<DbCharge>('charges', rows).map((charge, i) => ({
+      charge,
+      paid: paid[i],
+    }));
   }
 
   /**
@@ -179,12 +214,6 @@ export class OfflineChargeRepository extends OfflineBaseRepository implements IC
     });
   }
 
-  async openBalances(opts: FindChargesOptions): Promise<DbChargeBalance[]> {
-    const charges = await this.find({ ...opts, openOnly: false });
-    const balances = await this.balances(charges.map((c) => c.id));
-    return balances.filter((b) => b.balance > 0);
-  }
-
   async create(payload: CreateChargePayload): Promise<DbCharge> {
     const now = nowIso();
     const row: DbCharge = {
@@ -208,7 +237,9 @@ export class OfflineChargeRepository extends OfflineBaseRepository implements IC
         ...(row.customer_id ? await this.customerAudit(row.customer_id) : { branchId: row.branch_id }),
       });
     });
-    return (await this.findById(row.id)) ?? row;
+    // Fully formed already - the joins a read-back would add are LABELS,
+    // and no writer's caller reads one.
+    return row;
   }
 
   /**
@@ -235,67 +266,75 @@ export class OfflineChargeRepository extends OfflineBaseRepository implements IC
   }
 
   async update(id: string, values: UpdateChargePayload): Promise<DbCharge> {
-    const prior = await this.findById(id);
-    await this.write(async (db) => {
-      await updateDirty(db, 'charges', id, { ...values, updated_at: nowIso() });
-      const after = await this.first<Record<string, unknown>>(
-        'SELECT * FROM charges WHERE id = ?',
-        [id],
-      );
-      await this.auditIn(db, {
-        table: 'charges',
-        recordId: id,
-        action: 'update',
-        before: prior,
-        after: this.decodeOne<DbCharge>('charges', after),
-        branchId: prior?.branch_id ?? null,
-        subject: prior?.customers?.name ?? null,
-      });
-    });
-    return (await this.findById(id))!;
+    return this.patch(id, values, 'update');
   }
 
   async void(id: string, voidedBy: string, reason: string | null): Promise<DbCharge> {
-    return this.softMark(id, 'void', {
-      voided_at: nowIso(),
-      voided_by: voidedBy,
-      void_reason: reason,
-    });
+    return this.patch(
+      id,
+      { voided_at: nowIso(), voided_by: voidedBy, void_reason: reason },
+      'void',
+    );
   }
 
   async writeOff(id: string, writtenOffBy: string, reason: string | null): Promise<DbCharge> {
     // 'update', not 'void': the bill was real. The trail must be able to tell a
     // mistake apart from money the business gave up on.
-    return this.softMark(id, 'update', {
-      written_off_at: nowIso(),
-      written_off_by: writtenOffBy,
-      write_off_reason: reason,
-    });
+    return this.patch(
+      id,
+      {
+        written_off_at: nowIso(),
+        written_off_by: writtenOffBy,
+        write_off_reason: reason,
+      },
+      'update',
+    );
   }
 
-  private async softMark(
+  /**
+   * Every column write on a bill: patch it, and record the diff.
+   *
+   * Three reads used to bracket two lines of work - a HYDRATED before, a
+   * re-SELECT inside the transaction and a HYDRATED after - for a value whose
+   * only consumer is `mapDbChargeToCharge`, which reads no join at all. The
+   * patch is known, so `after` is `before` plus the patch.
+   */
+  private async patch(
     id: string,
-    action: 'void' | 'update',
     values: Record<string, unknown>,
+    action: 'void' | 'update',
   ): Promise<DbCharge> {
-    const prior = await this.findById(id);
+    const prior = await this.forAudit(id);
+    if (!prior) this.handleError(new Error('Charge not found'));
+    const changes = { ...values, updated_at: nowIso() };
+    const after = { ...prior.row, ...changes } as DbCharge;
     await this.write(async (db) => {
-      await updateDirty(db, 'charges', id, { ...values, updated_at: nowIso() });
-      const after = await this.first<Record<string, unknown>>(
-        'SELECT * FROM charges WHERE id = ?',
-        [id],
-      );
+      await updateDirty(db, 'charges', id, changes);
       await this.auditIn(db, {
         table: 'charges',
         recordId: id,
         action,
-        before: prior,
-        after: this.decodeOne<DbCharge>('charges', after),
-        branchId: prior?.branch_id ?? null,
-        subject: prior?.customers?.name ?? null,
+        before: prior.row,
+        after,
+        branchId: prior.row.branch_id,
+        subject: prior.subject,
       });
     });
-    return (await this.findById(id))!;
+    return after;
+  }
+
+  // The row plus the frozen customer name, in ONE read - all the trail needs.
+  private async forAudit(
+    id: string,
+  ): Promise<{ row: DbCharge; subject: string | null } | null> {
+    const raw = await this.first<Record<string, unknown>>(
+      `SELECT c.*, cu.name AS __subject FROM charges c
+         LEFT JOIN customers cu ON cu.id = c.customer_id
+        WHERE c.id = ?`,
+      [id],
+    );
+    const row = this.decodeOne<DbCharge>('charges', raw);
+    return row ? { row, subject: (raw?.__subject as string | null) ?? null } : null;
   }
 
   async writtenOffInRange(
@@ -311,9 +350,7 @@ export class OfflineChargeRepository extends OfflineBaseRepository implements IC
     ];
     const where = this.combineWhere(parts);
     const rows = await this.all(
-      `SELECT c.* FROM charges c
-         LEFT JOIN customers cu ON cu.id = c.customer_id
-        ${where.sql}`,
+      `SELECT c.* FROM charges c ${where.sql}`,
       where.params,
     );
     return this.hydrate(this.decodeAll<DbCharge>('charges', rows));

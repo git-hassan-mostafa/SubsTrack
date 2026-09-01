@@ -18,6 +18,8 @@ export async function initOfflineDb(): Promise<void> {
   _initPromise = (async () => {
     const db = await SQLite.openDatabaseAsync(DB_NAME);
     await db.execAsync('PRAGMA journal_mode = WAL;'); // concurrent reads during writes
+    // FULL fsyncs EVERY commit; in WAL, NORMAL still cannot corrupt the file.
+    await db.execAsync('PRAGMA synchronous = NORMAL;');
     await applySchema(db);
     _db = db;
   })();

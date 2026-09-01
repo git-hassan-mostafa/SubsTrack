@@ -27,12 +27,22 @@ export type UpdateChargePayload = Partial<
   Pick<DbCharge, 'amount' | 'currency_id' | 'rate_per_usd_snapshot' | 'due_date' | 'description' | 'notes'>
 >;
 
+/**
+ * A bill paired with what has reached it.
+ *
+ * The two travel together because the ONE query that reads a set of bills
+ * already has the sum in hand — asking for the bills and then asking for their
+ * balances cost a second read that bound one parameter per bill.
+ */
+export interface DbChargeWithPaid {
+  charge: DbCharge;
+  paid: number;
+}
+
 export interface FindChargesOptions {
   customerId?: string;
   customerIds?: string[];
   branchFilter?: BranchFilter;
-  /** Bills with money still owed on them (via charge_balances). */
-  openOnly?: boolean;
   kinds?: DbCharge['kind'][];
 }
 
@@ -40,22 +50,26 @@ export interface IChargeRepository {
   findById(id: string): Promise<DbCharge | null>;
   findByIds(ids: string[]): Promise<DbCharge[]>;
   /** Every non-voided month bill for these service lines — the grid's input. */
-  findMonthChargesForLines(customerPlanIds: string[]): Promise<DbCharge[]>;
+  findMonthChargesForLines(customerPlanIds: string[]): Promise<DbChargeWithPaid[]>;
   /** Every non-voided month bill for a customer, all years. */
-  findMonthChargesForCustomer(customerId: string): Promise<DbCharge[]>;
+  findMonthChargesForCustomer(customerId: string): Promise<DbChargeWithPaid[]>;
   findBySaleId(saleId: string): Promise<DbCharge | null>;
   /** The bills of a page of sales — one read instead of one per row. */
   findBySaleIds(saleIds: string[]): Promise<DbCharge[]>;
-  find(opts: FindChargesOptions): Promise<DbCharge[]>;
+  /**
+   * Every bill with money still owed on it, each with what has been collected.
+   * The debts view and the waterfall read this — and it is the ONLY way to ask.
+   * Reading the bills and then asking a second query what was paid on each
+   * walked every bill the tenant ever raised to keep the open few (#118).
+   */
+  findOpenWithPaid(opts: FindChargesOptions): Promise<DbChargeWithPaid[]>;
 
   /**
    * How much has been collected against these bills. Server: the
    * `charge_balances` view. Offline: the same GROUP BY over the mirror. Both
-   * exclude voided and written-off bills at source, so a caller never filters.
+   * exclude voided bills at source, so a caller never filters.
    */
   balances(chargeIds: string[]): Promise<DbChargeBalance[]>;
-  /** Every live bill with a balance > 0, for the debts view and the waterfall. */
-  openBalances(opts: FindChargesOptions): Promise<DbChargeBalance[]>;
 
   create(payload: CreateChargePayload): Promise<DbCharge>;
   /** Upsert by id — a month bill may already exist from another device. */
