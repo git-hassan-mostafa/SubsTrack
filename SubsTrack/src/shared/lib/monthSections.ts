@@ -1,6 +1,10 @@
 import type { TFunction } from "i18next";
 import { MONTHS } from "@/src/core/constants";
-import { getCurrentYearMonth, getTodayDateString } from "@/src/core/utils/date";
+import {
+  getCurrentYearMonth,
+  getTodayDateString,
+  localMonthKey,
+} from "@/src/core/utils/date";
 
 // A section of a transaction list. Most sections are one calendar month
 // (`key` = `YYYY-MM`), but the two newest buckets are day/week-scoped:
@@ -35,6 +39,21 @@ function dayOf(iso: string): string {
 function yearMonthOf(iso: string): { year: number; month: number } {
   const [year, month] = dayOf(iso).split('-').map(Number);
   return { year, month };
+}
+
+// Move one row's USD in or out of an authoritative month-total map, in place.
+// A write patches the map instead of re-running the totals query, so a section
+// header follows its list with no second round trip. A month the map does not
+// hold is left alone — it was never fetched, so there is no total to correct.
+export function addMonthTotal(
+  totals: Record<string, number>,
+  iso: string,
+  deltaUsd: number,
+): void {
+  if (!deltaUsd) return;
+  const key = localMonthKey(iso);
+  if (totals[key] === undefined) return;
+  totals[key] += deltaUsd;
 }
 
 // The Monday-based start of the current week as YYYY-MM-DD. Rows on/after this

@@ -1,5 +1,5 @@
 import { BranchFilter } from "@/src/core/constants";
-import { Currency, Product, Service } from "@/src/core/types";
+import { Currency, Product, Sale, Service } from "@/src/core/types";
 
 export interface FindSalesOptions {
     page?: number;
@@ -67,4 +67,13 @@ export interface UpdateSaleInput {
     // Extra cash handed over right now, on top of whatever was already
     // collected. 0 / omitted for an edit that only corrects the sale.
     collectNow?: number;
+}
+
+// What a void (one sale or a whole selection) leaves the caller with: the rows
+// that actually went, so every list can drop them and give their stock back
+// without re-reading, plus the counts the screen reports.
+export interface SaleVoidResult {
+    ok: number;
+    failed: number;
+    voided: Sale[];
 }

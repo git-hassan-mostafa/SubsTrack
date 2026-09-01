@@ -39,6 +39,7 @@ import type { Sale } from "@/src/core/types";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
+import { saleUsd } from "../utils/saleListPatch";
 import { SaleCard } from "../components/SaleCard";
 import { SaleFormSheet } from "../components/SaleFormSheet";
 import { SaleDetailSheet } from "../components/SaleDetailSheet";
@@ -102,13 +103,12 @@ export function SalesPanel() {
   const [bulkNotice, setBulkNotice] = useState<string | null>(null);
 
   // Every per-sale action (receipt / edit / send / history / void) lives in one
-  // hook, so all three sales surfaces offer the same menu.
+  // hook, so all three sales surfaces offer the same menu. This screen reads the
+  // slice, which patches itself on every write — so nothing here re-reads.
   const saleActions = useSaleActions({
     onView: setActiveSale,
     onEdit: openEdit,
     onVoided: handleVoided,
-    // The amount collected moved — refetch so the month section totals agree.
-    onCollected: fetchSales,
   });
 
   useEffect(() => {
@@ -134,16 +134,11 @@ export function SalesPanel() {
     !!customerFilter || !!productFilter || !!fromDate || !!toDate;
 
   // Bucket the already-date-desc sales into month sections (This Month / June 2026),
-  // each carrying the section's total amount collected (USD, via each row's snapshot rate).
+  // each carrying the section's VALUE SOLD (USD, via each row's snapshot rate) —
+  // the same figure `monthlyTotals` sums, so the day/week buckets and the month
+  // headers below them cannot disagree.
   const sections = useMemo(
-    () =>
-      groupByMonth(
-        sales,
-        (s) => s.soldAt,
-        t,
-        (s) => s.amountPaid / s.ratePerUsdSnapshot,
-        monthlyTotals,
-      ),
+    () => groupByMonth(sales, (s) => s.soldAt, t, saleUsd, monthlyTotals),
     [sales, t, monthlyTotals],
   );
 
@@ -389,20 +384,12 @@ export function SalesPanel() {
         )}
       </ResponsiveContainer>
 
-      {formOpen && (
-        <SaleFormSheet
-          onDismiss={() => setFormOpen(false)}
-          onCreated={fetchSales}
-        />
-      )}
+      {formOpen && <SaleFormSheet onDismiss={() => setFormOpen(false)} />}
 
       {editingSale && (
         <SaleFormSheet
           sale={editingSale}
           onDismiss={() => setEditingSale(null)}
-          // Refetch, not just the slice's in-place swap: the edit can change the
-          // amount collected, and the month section totals are a separate query.
-          onUpdated={fetchSales}
         />
       )}
 
@@ -412,7 +399,6 @@ export function SalesPanel() {
         onVoid={handleVoid}
         onEdit={openEdit}
         voidLoading={voidLoading}
-        onChanged={fetchSales}
       />
 
       {saleActions.sheets}

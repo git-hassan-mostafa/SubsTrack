@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useRouter, type Href } from "expo-router";
@@ -15,6 +15,7 @@ import { COLORS } from "@/src/shared/constants";
 import type { Customer, Sale } from "@/src/core/types";
 import saleService from "../services/SaleService";
 import { useSaleActions } from "../hooks/useSaleActions";
+import { saleListPatches } from "../utils/saleListPatch";
 import { useSaleInvoiceAction } from "../hooks/useSaleInvoiceAction";
 import { SaleCard } from "./SaleCard";
 import { SaleFormSheet } from "./SaleFormSheet";
@@ -40,6 +41,10 @@ export function CustomerSalesPanel({ customer }: Props) {
   // out of the Sales tab's cached list, not just this preview.
   const voidSaleGlobal = useSaleSlice((s) => s.voidSale);
   const [sales, setSales] = useState<Sale[]>([]);
+  // Whether the LAST FETCH saw more than the preview holds. Kept apart from
+  // `sales.length` so a row removed locally cannot hide the "Show all" link to
+  // sales this preview was never going to list.
+  const [serverHasMore, setServerHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
   const [activeSale, setActiveSale] = useState<Sale | null>(null);
@@ -72,10 +77,14 @@ export function CustomerSalesPanel({ customer }: Props) {
       );
       if (tokenRef.current !== token) return;
       setSales(items);
+      setServerHasMore(items.length > PREVIEW_LIMIT);
     } finally {
       if (tokenRef.current === token) setLoading(false);
     }
   }, [customer.id, clearSelection]);
+
+  // A write elsewhere moves this preview in place — the row is already in hand.
+  const patch = useMemo(() => saleListPatches(setSales, customer.id), [customer.id]);
 
   // `refresh` is already keyed on `customer.id`, so this is the same trigger.
   useEffect(() => {
@@ -88,6 +97,9 @@ export function CustomerSalesPanel({ customer }: Props) {
     try {
       await voidSaleGlobal(activeSale.id, user.id, reason);
       setActiveSale(null);
+      // Re-read, unlike every other write here: a void takes the sale's payments
+      // with it, and one of those may also have settled ANOTHER sale this list
+      // is showing — which the write never names.
       await refresh();
     } finally {
       setVoidLoading(false);
@@ -108,7 +120,8 @@ export function CustomerSalesPanel({ customer }: Props) {
   }
 
   const preview = sales.slice(0, PREVIEW_LIMIT);
-  const hasMore = sales.length > PREVIEW_LIMIT;
+  // …or a sale added locally has already pushed one past the preview.
+  const hasMore = serverHasMore || sales.length > PREVIEW_LIMIT;
   // Only the rendered rows can be ticked, so the selection is read off `preview`.
   const selectedSales = preview.filter((s) => selectedIds.has(s.id));
   // One receipt covering every selected sale — the same action the full sales
@@ -119,8 +132,9 @@ export function CustomerSalesPanel({ customer }: Props) {
   const saleActions = useSaleActions({
     onView: setActiveSale,
     onEdit: openEdit,
+    // See handleVoid: a void can move other sales too, so this one re-reads.
     onVoided: () => void refresh(),
-    onCollected: () => void refresh(),
+    onCollected: patch.collected,
   });
 
   return (
@@ -201,7 +215,7 @@ export function CustomerSalesPanel({ customer }: Props) {
         <SaleFormSheet
           initialCustomer={customer}
           onDismiss={() => setFormOpen(false)}
-          onCreated={refresh}
+          onCreated={patch.created}
         />
       )}
 
@@ -209,7 +223,7 @@ export function CustomerSalesPanel({ customer }: Props) {
         <SaleFormSheet
           sale={editingSale}
           onDismiss={() => setEditingSale(null)}
-          onUpdated={refresh}
+          onUpdated={patch.updated}
         />
       )}
 
@@ -219,7 +233,7 @@ export function CustomerSalesPanel({ customer }: Props) {
         onVoid={handleVoid}
         onEdit={openEdit}
         voidLoading={voidLoading}
-        onChanged={refresh}
+        onChanged={patch.paymentVoided}
       />
 
       {saleActions.sheets}

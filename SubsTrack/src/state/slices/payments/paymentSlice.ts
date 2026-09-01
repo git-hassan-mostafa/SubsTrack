@@ -61,7 +61,13 @@ export interface PaymentSlice {
    * its items and each item's charge, which is everything a month cell needs,
    * so paying repaints instantly instead of blinking through a reload.
    */
-  applyCollection: (collection: Collection, lines: CustomerPlan[], year: number) => void;
+  applyCollection: (
+    collection: Collection,
+    lines: CustomerPlan[],
+    year: number,
+    /** -1 when that hand-over was VOIDED — the money comes back off its bills. */
+    sign?: 1 | -1,
+  ) => void;
   /** Rebuilds the viewed year's grids from what is already in the store. */
   buildGrids: (lines: CustomerPlan[], year: number) => void;
   /** Patches one customer's badge after a local mutation. */
@@ -74,6 +80,11 @@ export interface PaymentSlice {
     lines: CustomerPlan[],
     year: number,
   ) => Promise<void>;
+  /**
+   * Void a month bill and every payment on it. The ONE write here the store
+   * cannot patch: a hand-over it undoes may also have settled OTHER months, and
+   * the write deliberately never reads those back — so the caller re-reads.
+   */
   voidMonthBill: (
     chargeId: string,
     voidedBy: string,
@@ -146,8 +157,8 @@ export const createPaymentSlice: StateCreator<
     }
   },
 
-  applyCollection: (collection, lines, year) => {
-    const bills = mergeCollection(get().payments.bills, collection);
+  applyCollection: (collection, lines, year, sign = 1) => {
+    const bills = mergeCollection(get().payments.bills, collection, sign);
     const { skips } = get().payments;
     const derived = buildGridsFor(lines, bills, skips, year, getUnpaidRule(get));
     set((state) => {

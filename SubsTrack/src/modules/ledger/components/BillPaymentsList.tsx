@@ -28,8 +28,11 @@ interface Props {
   visible: boolean;
   /** Who the receipt goes to. Omit to hide the WhatsApp action. */
   recipient?: { name: string; phone: string | null } | null;
-  /** Money moved in here — the owner of the record refreshes its own view. */
-  onChanged?: () => void;
+  /**
+   * A hand-over was voided here. The row comes with the split it had settled, so
+   * the owner of the record patches its own view instead of re-reading.
+   */
+  onChanged?: (voided: Collection) => void;
   /**
    * How much live money has reached this bill, reported after every load so the
    * owner prints its own 'collected out of owed' hero without a second read.
@@ -194,10 +197,12 @@ export function BillPaymentsList({
         <VoidCollectionDialog
           collection={voidTarget}
           voidedBy={user.id}
-          onDone={() => {
+          onDone={(voided) => {
             setVoidTarget(null);
-            void load();
-            onChanged?.();
+            // The stamped row is the whole change — swap it in rather than
+            // re-reading the bill's payments.
+            setPayments((prev) => prev.map((p) => (p.id === voided.id ? voided : p)));
+            onChanged?.(voided);
           }}
           onDismiss={() => setVoidTarget(null)}
         />

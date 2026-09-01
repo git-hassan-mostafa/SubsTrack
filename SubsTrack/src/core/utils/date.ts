@@ -93,3 +93,13 @@ export function dayToInstantIso(day: string): string {
   if (datePart === getTodayDateString()) return new Date().toISOString();
   return new Date(`${datePart}T12:00:00`).toISOString();
 }
+
+// "YYYY-MM" of an instant, read in the device's local zone — the key every
+// month-section total is bucketed under. Local on purpose: a UTC slice files an
+// early-morning row under the previous month and the header stops agreeing with
+// the rows beneath it. A bare day is already a calendar date, so it is cut as-is.
+export function localMonthKey(iso: string): string {
+  if (!iso.includes("T")) return iso.slice(0, 7);
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+}

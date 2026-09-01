@@ -1,6 +1,14 @@
 export { default as saleService } from './services/SaleService';
 export { mapDbSaleToSale } from './utils/mapper'
-export type { CreateSaleInput, UpdateSaleInput } from './utils/types';
+export type { CreateSaleInput, SaleVoidResult, UpdateSaleInput } from './utils/types';
+export {
+  addSale,
+  applyCollectionToSales,
+  removeSales,
+  replaceSale,
+  saleUsd,
+} from './utils/saleListPatch';
+export { cartUnits, savedUnits, stockDelta } from './utils/saleLines';
 export { default as saleRepository } from './repository/SaleRepository';
 export { CustomerSalesPanel } from './components/CustomerSalesPanel';
 export { SaleCard } from './components/SaleCard';

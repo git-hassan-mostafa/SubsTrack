@@ -2,13 +2,36 @@ import type { StateCreator } from 'zustand';
 import type { ExpenseCategory, ExpenseItem, ExpenseSummary } from '@/src/core/types';
 import {
   expenseService,
+  expenseToItem,
   type CreateExpenseInput,
 } from '@/src/modules/transaction/expenses';
-import { resolveBranchFilter } from '@/src/shared/lib/branchFilter';
+import { ownedRowMatchesFilter, resolveBranchFilter } from '@/src/shared/lib/branchFilter';
 import { currentMonthDays, rangeFromDays } from '@/src/core/utils/dateRange';
 import type { GlobalState } from '@/src/state/globalStore';
 
 const EMPTY_SUMMARY: ExpenseSummary = { totalUsd: 0, manualUsd: 0, stockUsd: 0 };
+
+/** Is this row inside the fetched day window? Both bounds are inclusive days. */
+function inWindow(date: string, window: { fromDate: string; toDate: string }): boolean {
+  const day = date.slice(0, 10);
+  return day >= window.fromDate && day <= window.toDate;
+}
+
+/** Newest first — the order `getExpensesView` returns, kept on an insert. */
+function insertByDateDesc(items: ExpenseItem[], item: ExpenseItem): ExpenseItem[] {
+  const at = items.findIndex((i) => i.date.localeCompare(item.date) < 0);
+  const next = [...items];
+  next.splice(at === -1 ? items.length : at, 0, item);
+  return next;
+}
+
+/** One row in (`sign` 1) or out (-1) of the totals, in USD via its frozen rate. */
+function addToSummary(summary: ExpenseSummary, item: ExpenseItem, sign: 1 | -1): void {
+  const usd = (sign * item.amount) / item.ratePerUsdSnapshot;
+  summary.totalUsd += usd;
+  if (item.source === 'stock') summary.stockUsd += usd;
+  else summary.manualUsd += usd;
+}
 
 export interface ExpenseSlice {
   // Both sources merged (stored expenses + derived stock purchases), newest first.
@@ -117,8 +140,18 @@ export const createExpenseSlice: StateCreator<
       state.expenses.error = null;
     });
     try {
-      await expenseService.addExpense(input);
-      await get().expenses.fetchExpenses();
+      const expense = await expenseService.addExpense(input);
+      const item = expenseToItem(expense);
+      const branchFilter = resolveBranchFilter(get().auth.user);
+      set((state) => {
+        state.expenses.loading = false;
+        // An expense dated outside the shown window, or belonging to a branch
+        // this view excludes, is written but has no place on this screen.
+        if (!inWindow(item.date, state.expenses)) return;
+        if (!ownedRowMatchesFilter(item.branchId, branchFilter)) return;
+        state.expenses.items = insertByDateDesc(state.expenses.items, item);
+        addToSummary(state.expenses.summary, item, 1);
+      });
       return true;
     } catch (e) {
       set((state) => {
@@ -136,7 +169,15 @@ export const createExpenseSlice: StateCreator<
     });
     try {
       await expenseService.voidExpense(id, voidedBy, reason);
-      await get().expenses.fetchExpenses();
+      set((state) => {
+        state.expenses.loading = false;
+        const itemId = `exp:${id}`;
+        const gone = state.expenses.items.find((i) => i.id === itemId);
+        if (!gone) return;
+        // A voided expense simply stops being money out — the list hides it.
+        state.expenses.items = state.expenses.items.filter((i) => i.id !== itemId);
+        addToSummary(state.expenses.summary, gone, -1);
+      });
     } catch (e) {
       set((state) => {
         state.expenses.error = (e as Error).message;

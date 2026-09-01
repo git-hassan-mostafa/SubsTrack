@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
 import { FormSheet } from "@/src/shared/components/FormSheet";
 import { Button } from "@/src/shared/components/Button";
-import type { Charge } from "@/src/core/types";
+import type { Charge, Collection } from "@/src/core/types";
 import {
   findCurrency,
   formatMoney,
@@ -32,8 +32,11 @@ interface Props {
    * sale itself). Resolves true once it is gone, so the sheet can close.
    */
   onVoidBill?: (charge: Charge) => Promise<boolean>;
-  /** Something in here moved money — the caller refreshes its own view. */
-  onChanged?: () => void;
+  /**
+   * A hand-over on this bill was voided. The row comes with the split it had
+   * settled, so the caller patches its own view instead of re-reading.
+   */
+  onChanged?: (voided: Collection) => void;
 }
 
 /**

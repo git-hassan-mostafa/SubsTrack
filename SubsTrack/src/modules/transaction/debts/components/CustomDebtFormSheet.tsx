@@ -31,17 +31,14 @@ function branchOf(customer: CustomerRef): string | null | undefined {
   return customer.branchId;
 }
 
+// No "created" callback on purpose: raising a bill bumps `ledger.owedVersion`,
+// and every surface that shows owed money watches it (`useOwedChanged`).
 interface Props {
   initialCustomer?: CustomerRef | null;
   onDismiss: () => void;
-  onCreated?: () => void;
 }
 
-export function CustomDebtFormSheet({
-  initialCustomer,
-  onDismiss,
-  onCreated,
-}: Props) {
+export function CustomDebtFormSheet({ initialCustomer, onDismiss }: Props) {
   const { t } = useTranslation();
   const { user } = useAuth();
   const currencies = useCurrencySlice((s) => s.items);
@@ -91,10 +88,7 @@ export function CustomDebtFormSheet({
       dueDate,
       recordedByUserId: user.id,
     });
-    if (created) {
-      onCreated?.();
-      onDismiss();
-    }
+    if (created) onDismiss();
   }
 
   // A description is what a hand-typed fee IS — without it the row says nothing.

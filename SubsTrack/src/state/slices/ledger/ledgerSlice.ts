@@ -46,6 +46,19 @@ export interface LedgerSlice {
   collections: CollectionListItem[];
   /** customerId → USD still owed. Feeds the customer list's "Has debts" tab. */
   netByCustomer: Record<string, number>;
+  /**
+   * Bumped by EVERY write that changes what customers owe — a bill raised, moved
+   * or voided, and any cash for or against one.
+   *
+   * A debts view cannot be patched from the row a write returns: it is an
+   * aggregate (per-customer buckets, ageing, a summary) and it also holds
+   * VIRTUAL months that have no bill at all, so one written row does not
+   * describe it. Rather than have every debts surface guess when to re-read,
+   * the writes say so and the surfaces watch this number — including two panels
+   * sitting on the SAME screen as the write, which no focus event would reach.
+   * Read it through `useOwedChanged` (src/modules/ledger), never directly.
+   */
+  owedVersion: number;
   loading: boolean;
   loadingOwed: boolean;
   loadingCollect: boolean;
@@ -76,8 +89,16 @@ export interface LedgerSlice {
    * `error`.
    */
   collect: (input: CollectInput) => Promise<Collection | null>;
-  voidCollection: (id: string, voidedBy: string, reason: string | null) => Promise<boolean>;
-  voidCollections: (ids: string[], voidedBy: string, reason: string | null) => Promise<boolean>;
+  /**
+   * Undo one hand-over. Takes the ROW, not just its id: the split it carries is
+   * what tells every list which bills just lost money, so nothing has to re-read
+   * to find out. Returns that same row marked voided — null = the write failed.
+   */
+  voidCollection: (
+    collection: Collection,
+    voidedBy: string,
+    reason: string | null,
+  ) => Promise<Collection | null>;
 
   addManualCharge: (input: CreateManualChargeInput) => Promise<Charge | null>;
   updateManualCharge: (
@@ -100,6 +121,13 @@ export interface LedgerSlice {
   /** He owes it and will not pay — leaves "still owed", kept as a loss. */
   writeOffCharge: (id: string, writtenOffBy: string, reason: string | null) => Promise<boolean>;
 
+  /**
+   * Say that what customers owe has moved — see `owedVersion`. Every write in
+   * THIS slice does it for itself; the sales and money-in slices call it,
+   * because a sale raises its own bill and voiding cash gives one back.
+   */
+  markOwedChanged: () => void;
+
   clearError: () => void;
   reset: () => void;
 }
@@ -110,7 +138,13 @@ export const createLedgerSlice: StateCreator<
   [],
   LedgerSlice
 > = (set, get) => {
-  /** Run a write, surface its error, and report whether it succeeded. */
+  /**
+   * Run a write, surface its error, and report whether it succeeded.
+   *
+   * Every write that goes through here moves a bill or the cash on one, so a
+   * success also bumps `owedVersion` — one place, instead of remembering it at
+   * seven call sites.
+   */
   const run = async <T,>(
     flag: "loading" | "loadingCollect",
     fn: () => Promise<T>,
@@ -123,6 +157,7 @@ export const createLedgerSlice: StateCreator<
       const result = await fn();
       set((state) => {
         state.ledger[flag] = false;
+        state.ledger.owedVersion += 1;
       });
       return result;
     } catch (e) {
@@ -139,6 +174,7 @@ export const createLedgerSlice: StateCreator<
     owed: [],
     collections: [],
     netByCustomer: {},
+    owedVersion: 0,
     loading: false,
     loadingOwed: false,
     loadingCollect: false,
@@ -231,21 +267,30 @@ export const createLedgerSlice: StateCreator<
         const collection = await collectionService.collect(input);
         // The bills this touched moved, so the grid and the badges are stale.
         get().ledger.clearOwed();
+        // A sale is one of those bills, wherever the money was taken — the
+        // created row names every charge it settled, so the sales lists follow
+        // without re-reading. The month grid is patched by its own panel, which
+        // is the only place that knows the viewed lines and year.
+        get().sales.applyCollection(collection);
         return collection;
       }),
 
-    voidCollection: async (id, voidedBy, reason) => {
+    voidCollection: async (collection, voidedBy, reason) => {
       const result = await run("loading", () =>
-        collectionService.voidCollection(id, voidedBy, reason),
+        collectionService.voidCollection(collection.id, voidedBy, reason),
       );
-      return result !== null;
-    },
-
-    voidCollections: async (ids, voidedBy, reason) => {
-      const result = await run("loading", () =>
-        collectionService.voidCollections(ids, voidedBy, reason),
-      );
-      return result !== null;
+      if (result === null) return null;
+      // The money came back off every bill it had settled — same fan-out as
+      // `collect`, in the other direction.
+      get().sales.applyCollection(collection, -1);
+      // The write reads back lean (no split), so the caller gets the row it
+      // passed in, now stamped — everything a list needs to repaint.
+      return {
+        ...collection,
+        voidedAt: result.voidedAt,
+        voidedBy: result.voidedBy,
+        voidReason: result.voidReason,
+      };
     },
 
     addManualCharge: (input) => run("loading", () => chargeService.addManualCharge(input)),
@@ -273,6 +318,12 @@ export const createLedgerSlice: StateCreator<
         chargeService.writeOff(id, writtenOffBy, reason),
       );
       return result !== null;
+    },
+
+    markOwedChanged: () => {
+      set((state) => {
+        state.ledger.owedVersion += 1;
+      });
     },
 
     clearError: () => {

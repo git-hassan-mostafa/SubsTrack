@@ -7,7 +7,7 @@ import { PressableOpacity } from "@/src/shared/components/PressableOpacity/Press
 import { Text } from "@/src/shared/components/Text";
 import { Input } from "@/src/shared/components/Input";
 import { COLORS } from "@/src/shared/constants";
-import type { Sale, SaleItem } from "@/src/core/types";
+import type { Collection, Sale, SaleItem } from "@/src/core/types";
 import {
   findCurrency,
   formatMoney,
@@ -32,8 +32,11 @@ interface Props {
   // sense; never offered for a voided sale.
   onEdit?: (sale: Sale) => void;
   voidLoading?: boolean;
-  /** A payment on this sale was voided here — the caller refreshes its list. */
-  onChanged?: () => void;
+  /**
+   * A payment on this sale was voided here. The row carries the split it had
+   * settled, so the caller takes that money back off its own list.
+   */
+  onChanged?: (voided: Collection) => void;
 }
 
 export function SaleDetailSheet({

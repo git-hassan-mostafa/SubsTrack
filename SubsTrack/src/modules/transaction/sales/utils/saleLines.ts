@@ -44,6 +44,44 @@ export function savedProductLines(
     );
 }
 
+/**
+ * Units per product a cart takes off the shelf. The same product can sit on
+ * several lines, and only the SUM per product matters to stock.
+ */
+export function cartUnits(items: CreateSaleItemInput[]): Map<string, number> {
+    const units = new Map<string, number>();
+    for (const it of productLines(items)) {
+        units.set(it.product.id, (units.get(it.product.id) ?? 0) + it.quantity);
+    }
+    return units;
+}
+
+/** The saved counterpart: what a recorded sale is currently holding. */
+export function savedUnits(items: SaleItem[]): Map<string, number> {
+    const units = new Map<string, number>();
+    for (const it of savedProductLines(items)) {
+        units.set(it.productId, (units.get(it.productId) ?? 0) + it.quantity);
+    }
+    return units;
+}
+
+/**
+ * How each product's on-hand moves when `before` units are replaced by `after` —
+ * positive gives stock back, negative takes it. Recording a sale passes an empty
+ * `before`, voiding one passes an empty `after`.
+ */
+export function stockDelta(
+    before: Map<string, number>,
+    after: Map<string, number>,
+): Record<string, number> {
+    const delta: Record<string, number> = {};
+    for (const id of new Set([...before.keys(), ...after.keys()])) {
+        const moved = (before.get(id) ?? 0) - (after.get(id) ?? 0);
+        if (moved !== 0) delta[id] = moved;
+    }
+    return delta;
+}
+
 /** One cart line → the DB row. `sale_id` is filled in by the repository. */
 export function toItemPayload(
     it: CreateSaleItemInput,

@@ -271,3 +271,12 @@ The bug this covers: `charges` is unique on `(customer_plan_id, billing_month)` 
 15.6.1 Debts screen: a written-off bill is still absent (now excluded by `ChargeRepository.find`, not by the balance view).
 15.6.2 Reports → Debts: "lost to unpaid debts" still counts only the part never collected.
 15.6.3 Dashboard revenue and the collector wallet are unchanged for a normal collect.
+
+### 15.7 "Billed on" reads the real raise date
+
+15.7.1 Collect October (say Aug 29). Open the bill sheet — **Billed on** = Aug 29, **Due** = Oct 1.
+15.7.2 Void the month, then collect October again on a later day (Aug 31). The bill sheet now reads **Billed on Aug 31** — the day it was actually raised again — not Aug 29. (This was the bug: the revive cleared the void columns but kept the dead bill's `issued_at`, so the FIRST raise showed for ever.)
+15.7.3 **Due is unchanged** (still Oct 1) — ageing belongs to the month, so a January month revived in March is still 60+ days late on the Debts screen.
+15.7.4 Same for a **written-off** month revived by a later payment: `issued_at` moves to the day the money arrived, `due_date` does not.
+15.7.5 A bill that was **never** dead is not re-stamped: collect $20 of October, then the remaining $40 a week later → **Billed on** keeps the original date (only `isDeadBill` rows are patched).
+15.7.6 Admin → Audit Log: the revive's `charges` **update** entry now lists `issued_at` among the changed fields, alongside `voided_at`.

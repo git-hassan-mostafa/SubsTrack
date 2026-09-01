@@ -10,7 +10,12 @@ import type { Customer, OpenItem } from "@/src/core/types";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
-import { chargeService, isDebtItem, useCollectSheet } from "@/src/modules/ledger";
+import {
+  chargeService,
+  isDebtItem,
+  useCollectSheet,
+  useOwedChanged,
+} from "@/src/modules/ledger";
 import { useDebtRowActions } from "../hooks/useDebtRowActions";
 import { DebtList } from "./DebtList";
 import { CustomDebtFormSheet } from "./CustomDebtFormSheet";
@@ -56,15 +61,19 @@ export function CustomerDebtsPanel({ customer }: Props) {
     }
   }, [customer.id, customer.name]);
 
-  const collectSheet = useCollectSheet({ onCollected: refresh });
-  const { voidItem, writeOffItem } = useDebtRowActions({ onChanged: refresh });
+  const collectSheet = useCollectSheet();
+  const { voidItem, writeOffItem } = useDebtRowActions();
 
-  // Refresh on focus so bills raised elsewhere show on return.
+  // Refresh on focus so bills raised elsewhere show on return...
   useFocusEffect(
     useCallback(() => {
       void refresh();
     }, [refresh]),
   );
+  // ...and whenever a write moves what is owed — which is how a sale recorded
+  // in the panel above, or a month part-paid in the grid, shows up here without
+  // a focus change and without each of those screens knowing this panel exists.
+  useOwedChanged(refresh);
 
   const target = findCurrency(currencies, displayCurrencyId);
   const totalUsd = items.reduce((sum, i) => sum + i.balance / i.ratePerUsdSnapshot, 0);
@@ -103,7 +112,6 @@ export function CustomerDebtsPanel({ customer }: Props) {
         <CustomDebtFormSheet
           initialCustomer={customer}
           onDismiss={() => setCustomDebtOpen(false)}
-          onCreated={refresh}
         />
       )}
 

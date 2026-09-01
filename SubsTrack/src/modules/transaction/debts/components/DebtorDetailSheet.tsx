@@ -27,8 +27,6 @@ interface Props {
   onCollectItem: (item: OpenItem) => void;
   onVoidItem?: (item: OpenItem) => void;
   onWriteOff?: (item: OpenItem) => void;
-  /** A custom fee was added — the parent refreshes. */
-  onChanged?: () => void;
 }
 
 /**
@@ -46,7 +44,6 @@ export function DebtorDetailSheet({
   onCollectItem,
   onVoidItem,
   onWriteOff,
-  onChanged,
 }: Props) {
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
@@ -134,7 +131,6 @@ export function DebtorDetailSheet({
         <CustomDebtFormSheet
           initialCustomer={{ id: debtor.customerId, name: debtor.customerName }}
           onDismiss={() => setCustomDebtOpen(false)}
-          onCreated={onChanged}
         />
       )}
     </>

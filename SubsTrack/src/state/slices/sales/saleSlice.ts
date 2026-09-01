@@ -1,12 +1,22 @@
 import type { StateCreator } from 'zustand';
-import type { Customer, Product, Sale } from '@/src/core/types';
+import type { Collection, Customer, Product, Sale } from '@/src/core/types';
 import { PAGE_SIZE } from '@/src/core/constants';
 import {
+  addSale,
+  applyCollectionToSales,
+  cartUnits,
+  removeSales,
+  replaceSale,
   saleService,
+  saleUsd,
+  savedUnits,
+  stockDelta,
   type CreateSaleInput,
+  type SaleVoidResult,
   type UpdateSaleInput,
 } from '@/src/modules/transaction/sales';
 import { resolveBranchFilter } from '@/src/shared/lib/branchFilter';
+import { addMonthTotal } from '@/src/shared/lib/monthSections';
 import type { GlobalState } from '@/src/state/globalStore';
 
 export interface SaleSlice {
@@ -35,15 +45,31 @@ export interface SaleSlice {
   clearFilters: () => Promise<void>;
   createSale: (input: CreateSaleInput) => Promise<Sale | null>;
   updateSale: (sale: Sale, input: UpdateSaleInput) => Promise<Sale | null>;
-  voidSale: (id: string, voidedBy: string, reason: string) => Promise<void>;
+  voidSale: (id: string, voidedBy: string, reason: string) => Promise<Sale | null>;
   voidSales: (
     ids: string[],
     voidedBy: string,
     reason: string,
-  ) => Promise<{ ok: number; failed: number }>;
+  ) => Promise<SaleVoidResult>;
+  /**
+   * A hand-over landed on (or was taken back off) some bills. A sale holds no
+   * money of its own, so only the rows whose bill it names move. Called by the
+   * ledger slice for EVERY collect, wherever it was taken from.
+   */
+  applyCollection: (collection: Pick<Collection, 'items'>, sign?: 1 | -1) => void;
   clearError: () => void;
   reset: () => void;
 }
+
+/**
+ * Is the list narrowed right now? A patched row is always correct in itself, but
+ * whether it still BELONGS to a filtered list is a server question — the search
+ * matches the frozen summary or the customer's name — and answering it here
+ * would duplicate the query. So a filtered list re-reads after a write; the
+ * normal, unfiltered one never does.
+ */
+const isFiltered = (s: SaleSlice): boolean =>
+  !!(s.searchQuery || s.customerFilter || s.productFilter || s.fromDate || s.toDate);
 
 export const createSaleSlice: StateCreator<
   GlobalState,
@@ -239,12 +265,16 @@ export const createSaleSlice: StateCreator<
     try {
       const sale = await saleService.createSale(input);
       set((state) => {
-        state.sales.items.unshift(sale);
+        state.sales.items = addSale(state.sales.items, sale);
+        addMonthTotal(state.sales.monthlyTotals, sale.soldAt, saleUsd(sale));
         state.sales.loading = false;
       });
-      // The sale consumed stock — refresh so the next sale form and the product
-      // list show the new on-hand instead of the pre-sale figure.
-      void get().products.fetchProducts();
+      // The units this sale took off the shelf, straight into the catalog the
+      // next sale form reads — the write already knows them.
+      get().products.applyStockDelta(stockDelta(new Map(), cartUnits(input.items)));
+      // A sale raises its own bill, so a pay-later one is a new debt.
+      get().ledger.markOwedChanged();
+      if (isFiltered(get().sales)) void get().sales.fetchSales();
       return sale;
     } catch (e) {
       set((state) => {
@@ -263,14 +293,24 @@ export const createSaleSlice: StateCreator<
     try {
       const updated = await saleService.updateSale(sale, input);
       set((state) => {
-        const i = state.sales.items.findIndex((s) => s.id === updated.id);
-        if (i !== -1) state.sales.items[i] = updated;
+        state.sales.items = replaceSale(state.sales.items, updated);
+        // Re-pricing moves the month header by the difference, each side read
+        // at its own frozen rate (an edit may have changed the sale's currency).
+        addMonthTotal(
+          state.sales.monthlyTotals,
+          updated.soldAt,
+          saleUsd(updated) - saleUsd(sale),
+        );
         state.sales.loading = false;
       });
-      // The edit may have changed what left the shelf, and the section totals
-      // key off amount_paid — the screen refetches, this keeps the card honest
-      // in the meantime.
-      void get().products.fetchProducts();
+      // What the sale was holding comes back; what it now sells goes out.
+      get().products.applyStockDelta(
+        stockDelta(savedUnits(sale.items), cartUnits(input.items)),
+      );
+      // Re-pricing moved what the sale's bill owes.
+      get().ledger.markOwedChanged();
+      // An edit can move a sale out of a filter (its customer or its lines).
+      if (isFiltered(get().sales)) void get().sales.fetchSales();
       return updated;
     } catch (e) {
       set((state) => {
@@ -290,28 +330,31 @@ export const createSaleSlice: StateCreator<
       const voided = await saleService.voidSale(id, voidedBy, reason);
       set((state) => {
         // The sales list excludes voided rows by default — drop it from view.
-        state.sales.items = state.sales.items.filter((s) => s.id !== id);
+        state.sales.items = removeSales(state.sales.items, [id]);
+        addMonthTotal(state.sales.monthlyTotals, voided.soldAt, -saleUsd(voided));
         state.sales.loading = false;
-        // Update the snapshot if a copy was kept somewhere by reference (no-op
-        // for normal usage; keeps the reduced data observable in detail sheet).
-        void voided;
       });
-      // The void gave the stock back.
-      void get().products.fetchProducts();
+      // The void gave the stock back — the voided row still carries its lines.
+      get().products.applyStockDelta(stockDelta(savedUnits(voided.items), new Map()));
+      // Its bill went with it, so anything it still owed is no longer owed.
+      get().ledger.markOwedChanged();
+      return voided;
     } catch (e) {
       set((state) => {
         state.sales.error = (e as Error).message;
         state.sales.loading = false;
       });
+      return null;
     }
   },
 
   // Voids several sales with one shared reason. Each void is its own DB write
   // (mirrors the per-row voidSale); voided rows drop out of the list and the
-  // last failure's message is surfaced. Returns counts so the screen can show a
+  // last failure's message is surfaced. Returns the rows that actually went, so
+  // the customer-scoped lists drop the same ones, plus counts for the screen's
   // "voided X · Y failed" notice.
   voidSales: async (ids, voidedBy, reason) => {
-    if (ids.length === 0) return { ok: 0, failed: 0 };
+    if (ids.length === 0) return { ok: 0, failed: 0, voided: [] };
     set((state) => {
       state.sales.loading = true;
       state.sales.error = null;
@@ -320,15 +363,33 @@ export const createSaleSlice: StateCreator<
     // and reports per-sale failures, so a bad row can't take the others down.
     const { voided, failed } = await saleService.voidSales(ids, voidedBy, reason);
     set((state) => {
-      const removed = new Set(voided.map((s) => s.id));
-      state.sales.items = state.sales.items.filter((s) => !removed.has(s.id));
+      state.sales.items = removeSales(
+        state.sales.items,
+        voided.map((s) => s.id),
+      );
+      for (const s of voided) {
+        addMonthTotal(state.sales.monthlyTotals, s.soldAt, -saleUsd(s));
+      }
       state.sales.loading = false;
       state.sales.error = failed.at(-1)?.message ?? null;
     });
-    // The voids gave their stock back.
-    if (voided.length > 0) void get().products.fetchProducts();
-    return { ok: voided.length, failed: failed.length };
+    // The voids gave their stock back — one delta for the whole selection, so
+    // the catalog repaints once rather than per sale.
+    const returned = new Map<string, number>();
+    for (const s of voided) {
+      for (const [id, units] of savedUnits(s.items)) {
+        returned.set(id, (returned.get(id) ?? 0) + units);
+      }
+    }
+    get().products.applyStockDelta(stockDelta(returned, new Map()));
+    if (voided.length > 0) get().ledger.markOwedChanged();
+    return { ok: voided.length, failed: failed.length, voided };
   },
+
+  applyCollection: (collection, sign = 1) =>
+    set((state) => {
+      state.sales.items = applyCollectionToSales(state.sales.items, collection, sign);
+    }),
 
   clearError: () =>
     set((state) => {

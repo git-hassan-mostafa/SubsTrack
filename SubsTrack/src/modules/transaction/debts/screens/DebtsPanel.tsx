@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -21,7 +21,7 @@ import type { CustomerDebts } from "@/src/core/types";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { useLedgerSlice } from "@/src/state/hooks/useLedgerSlice";
-import { useCollectSheet } from "@/src/modules/ledger";
+import { useCollectSheet, useOwedChanged } from "@/src/modules/ledger";
 import { useDebtRowActions } from "../hooks/useDebtRowActions";
 import { DebtorCard } from "../components/DebtorCard";
 import { DebtorDetailSheet } from "../components/DebtorDetailSheet";
@@ -47,10 +47,17 @@ export function DebtsPanel() {
   const clearError = useLedgerSlice((s) => s.clearError);
 
   const branchFilter = useEffectiveBranchFilter();
-  const refresh = () => void fetchDebts(branchFilter);
+  const refresh = useCallback(
+    () => void fetchDebts(branchFilter),
+    [fetchDebts, branchFilter],
+  );
 
-  const collectSheet = useCollectSheet({ onCollected: refresh });
-  const { voidItem, writeOffItem } = useDebtRowActions({ onChanged: refresh });
+  const collectSheet = useCollectSheet();
+  const { voidItem, writeOffItem } = useDebtRowActions();
+  // Every write that moves what is owed brings this list along — collecting
+  // here, but equally a sale recorded from the quick-actions menu while this
+  // tab is open. There is no per-action wiring left.
+  useOwedChanged(refresh);
 
   const [debtorSearch, setDebtorSearch] = useState("");
   const debouncedDebtorSearch = useDebounce(debtorSearch);
@@ -59,8 +66,8 @@ export function DebtsPanel() {
   const [menuDebtor, setMenuDebtor] = useState<CustomerDebts | null>(null);
 
   useEffect(() => {
-    void fetchDebts(branchFilter);
-  }, [branchFilter, fetchDebts]);
+    refresh();
+  }, [refresh]);
 
   const target = findCurrency(currencies, displayCurrencyId);
   // Memoised because two useMemos below depend on it — a fresh [] each render
@@ -203,15 +210,11 @@ export function DebtsPanel() {
           }
           onVoidItem={voidItem}
           onWriteOff={writeOffItem}
-          onChanged={refresh}
         />
       )}
 
       {customDebtOpen && (
-        <CustomDebtFormSheet
-          onDismiss={() => setCustomDebtOpen(false)}
-          onCreated={refresh}
-        />
+        <CustomDebtFormSheet onDismiss={() => setCustomDebtOpen(false)} />
       )}
 
       {collectSheet.sheet}

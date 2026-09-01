@@ -1,6 +1,7 @@
-import type { Expense, ExpenseCategory } from '@/src/core/types';
+import type { Expense, ExpenseCategory, ExpenseItem } from '@/src/core/types';
 import type { DbExpense } from '@/src/core/types/db';
-import { isExpenseCategory } from './expenseCategories';
+import i18n from '@/src/core/i18n';
+import { expenseCategoryLabelKey, isExpenseCategory } from './expenseCategories';
 
 export function mapDbExpenseToExpense(db: DbExpense): Expense {
   return {
@@ -22,5 +23,28 @@ export function mapDbExpenseToExpense(db: DbExpense): Expense {
     voidedBy: db.voided_by,
     voidReason: db.void_reason,
     notes: db.notes,
+  };
+}
+
+/**
+ * One stored expense as a row of the merged view. Shared by the read (which
+ * composes both sources) and the slice (which patches a single write in), so a
+ * hand-typed expense looks the same however it got on screen.
+ */
+export function expenseToItem(e: Expense): ExpenseItem {
+  return {
+    id: `exp:${e.id}`,
+    source: 'manual',
+    category: e.category,
+    // No description falls back to the category name, so a row is never blank.
+    label: e.description?.trim() || i18n.t(expenseCategoryLabelKey(e.category)),
+    amount: e.amount,
+    currencyId: e.currencyId,
+    ratePerUsdSnapshot: e.ratePerUsdSnapshot,
+    date: e.incurredAt,
+    branchId: e.branchId,
+    recordedByUserId: e.recordedByUserId,
+    productId: null,
+    canVoid: true,
   };
 }

@@ -10,7 +10,7 @@ import type {
   ICollectionRepository,
 } from './ICollectionRepository';
 import type { CreateChargePayload } from './IChargeRepository';
-import { isDeadBill, REVIVE_PATCH, samePrice } from './chargeRevive';
+import { isDeadBill, revivePatch, samePrice } from './chargeRevive';
 import { OfflineCollectionRepository } from './CollectionRepository.offline';
 import { sumByMonth } from '../utils/monthTotals';
 
@@ -176,7 +176,9 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
 
     for (const row of rows) {
       const next = charges.find((c) => c.id === row.id)!;
-      const revive = isDeadBill(row) ? REVIVE_PATCH : {};
+      // The payload's `issued_at` is this collect's own `nowIso()` — one clock
+      // read for the whole write, so every revived bill in it agrees.
+      const revive = isDeadBill(row) ? revivePatch(next.issued_at) : {};
       const reprice =
         next.kind === 'month' && (paidById.get(row.id) ?? 0) <= 0 && !samePrice(row, next)
           ? {

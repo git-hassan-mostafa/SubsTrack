@@ -304,9 +304,10 @@ export function CollectionsPanel() {
           collectionIds={voidIds}
           voidedBy={user.id}
           onVoided={() => {
+            // The slice marks the rows voided and takes them out of the month
+            // totals — there is nothing left to re-read.
             setVoidIds(null);
             clearSelection();
-            void fetchCollections();
           }}
           onDismiss={() => setVoidIds(null)}
         />

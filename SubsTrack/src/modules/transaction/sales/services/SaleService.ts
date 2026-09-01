@@ -2,6 +2,7 @@ import type { Sale, SaleItem } from '@/src/core/types';
 import type { BranchFilter } from '@/src/core/constants';
 import i18n from '@/src/core/i18n';
 import { newId, nowIso } from '@/src/core/offline/ids';
+import { localMonthKey } from '@/src/core/utils/date';
 import repository from '../repository/SaleRepository';
 // Direct paths, not the ledger barrel: the barrel reaches components → the
 // global store → saleSlice → back here.
@@ -22,10 +23,11 @@ import {
 } from '../utils/types'
 import { mapDbSaleToSale } from '../utils/mapper';
 import {
+  cartUnits,
   lineName,
   lineQuantity,
   productLines,
-  savedProductLines,
+  savedUnits,
   toItemPayload,
   type ProductLineInput,
 } from '../utils/saleLines';
@@ -46,14 +48,6 @@ function buildItemsSummary(items: CreateSaleItemInput[]): string {
 
 function totalOf(items: CreateSaleItemInput[]): number {
   return items.reduce((sum, it) => sum + it.unitAmount * lineQuantity(it), 0);
-}
-
-// Units per product, which is the granularity stock cares about — the same
-// product can sit on several lines and only their sum has to be covered.
-function unitsByProduct(items: { productId: string; quantity: number }[]): Map<string, number> {
-  const map = new Map<string, number>();
-  for (const it of items) map.set(it.productId, (map.get(it.productId) ?? 0) + it.quantity);
-  return map;
 }
 
 // The bill a brand-new sale just raised, as the collect path wants it. Built
@@ -282,7 +276,7 @@ class SaleService {
     // sale that took the last unit would fail its own stock check.
     await this.assertStockAvailable(
       productLines(input.items),
-      unitsByProduct(savedProductLines(sale.items)),
+      savedUnits(sale.items),
     );
     const ratePerUsdSnapshot = input.currency?.ratePerUsd ?? 1;
     if (!(ratePerUsdSnapshot > 0)) {
@@ -390,8 +384,7 @@ class SaleService {
     const rows = await repository.monthlyTotals(opts);
     const totals: Record<string, number> = {};
     for (const r of rows) {
-      const d = new Date(r.soldAt);
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      const key = localMonthKey(r.soldAt);
       totals[key] = (totals[key] ?? 0) + r.amount / r.ratePerUsdSnapshot;
     }
     return totals;
@@ -478,10 +471,8 @@ class SaleService {
   // 1 + 2 moves no stock, so the ledger has nothing to correct. Service lines are
   // invisible here on both sides — adding or re-pricing labour moves no stock.
   private sameStockFootprint(before: SaleItem[], after: CreateSaleItemInput[]): boolean {
-    const was = unitsByProduct(savedProductLines(before));
-    const now = unitsByProduct(
-      productLines(after).map((it) => ({ productId: it.product.id, quantity: it.quantity })),
-    );
+    const was = savedUnits(before);
+    const now = cartUnits(after);
     if (was.size !== now.size) return false;
     for (const [id, quantity] of was) if (now.get(id) !== quantity) return false;
     return true;

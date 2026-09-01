@@ -8,12 +8,6 @@ import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { useLedgerSlice } from "@/src/state/hooks/useLedgerSlice";
 import { useAuth } from "@/src/modules/authentication/auth";
 
-interface Options {
-  // Called after a successful mutation, for surfaces that keep their own copy
-  // of the data.
-  onChanged?: () => void;
-}
-
 /**
  * What can be done to ONE bill from a debts list.
  *
@@ -26,7 +20,9 @@ interface Options {
  *   write off — the bill is REAL and will never be paid. It leaves "still owed"
  *               and is reported as a loss.
  */
-export function useDebtRowActions({ onChanged }: Options = {}) {
+// No "changed" callback: both writes go through the ledger slice, which bumps
+// `owedVersion`, and every debts surface watches it (`useOwedChanged`).
+export function useDebtRowActions() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const currencies = useCurrencySlice((s) => s.items);
@@ -51,9 +47,8 @@ export function useDebtRowActions({ onChanged }: Options = {}) {
       });
       if (!ok) return;
       await writeOffCharge(item.chargeId, user.id, null);
-      onChanged?.();
     },
-    [user, currencies, target, t, writeOffCharge, onChanged],
+    [user, currencies, target, t, writeOffCharge],
   );
 
   const voidItem = useCallback(
@@ -70,9 +65,8 @@ export function useDebtRowActions({ onChanged }: Options = {}) {
       });
       if (!ok) return;
       await voidCharge(item.chargeId, user.id, null);
-      onChanged?.();
     },
-    [user, t, voidCharge, onChanged],
+    [user, t, voidCharge],
   );
 
   return { voidItem, writeOffItem };

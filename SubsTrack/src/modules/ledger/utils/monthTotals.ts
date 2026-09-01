@@ -1,3 +1,5 @@
+import { localMonthKey } from '@/src/core/utils/date';
+
 /**
  * "YYYY-MM" → USD, over rows that each froze their own rate.
  *
@@ -5,13 +7,6 @@
  * the same section headers — the conversion must use the row's snapshot, never
  * today's rate, or last year's totals would move every time a rate is edited.
  */
-// "YYYY-MM" of an instant, read in the device's local zone.
-function localMonthKey(iso: string): string {
-  if (!iso.includes('T')) return iso.slice(0, 7);
-  const d = new Date(iso);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-}
-
 export function sumByMonth(
   rows: { received_at: string; amount: number; rate_per_usd_snapshot: number }[],
 ): Record<string, number> {

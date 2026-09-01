@@ -29,6 +29,7 @@ import { SaleCard } from "../components/SaleCard";
 import { SaleFormSheet } from "../components/SaleFormSheet";
 import { SaleDetailSheet } from "../components/SaleDetailSheet";
 import { useCustomerSalesList } from "../hooks/useCustomerSalesList";
+import type { SaleVoidResult } from "../utils/types";
 import { useSaleActions } from "../hooks/useSaleActions";
 import { useSaleInvoiceAction } from "../hooks/useSaleInvoiceAction";
 import { useCustomerSlice } from "@/src/state/hooks/useCustomerSlice";
@@ -64,6 +65,7 @@ export function CustomerSalesListScreen() {
     refresh,
     loadMore,
     clearError,
+    patch,
   } = useCustomerSalesList(id, debouncedSearch);
 
   const [formOpen, setFormOpen] = useState(false);
@@ -89,7 +91,7 @@ export function CustomerSalesListScreen() {
     onView: setActiveSale,
     onEdit: openEdit,
     onVoided: handleVoided,
-    onCollected: refresh,
+    onCollected: patch.collected,
   });
 
   // Ensure the customer is loaded for the header + record-sale prefill when the
@@ -104,6 +106,9 @@ export function CustomerSalesListScreen() {
     try {
       await voidSaleGlobal(activeSale.id, user.id, reason);
       setActiveSale(null);
+      // Re-read, unlike every other write here: a void takes the sale's payments
+      // with it, and one of those may also have settled ANOTHER sale in this
+      // list — which the write never names.
       await refresh();
     } finally {
       setVoidLoading(false);
@@ -133,8 +138,9 @@ export function CustomerSalesListScreen() {
     ];
   }
 
-  async function handleVoided(result: { ok: number; failed: number }) {
+  async function handleVoided(result: SaleVoidResult) {
     clearSelection();
+    // See handleVoid: a void can move other sales too, so this one re-reads.
     await refresh();
     if (result.failed > 0) {
       setBulkNotice(
@@ -261,7 +267,7 @@ export function CustomerSalesListScreen() {
         <SaleFormSheet
           initialCustomer={customer}
           onDismiss={() => setFormOpen(false)}
-          onCreated={refresh}
+          onCreated={patch.created}
         />
       )}
 
@@ -269,7 +275,7 @@ export function CustomerSalesListScreen() {
         <SaleFormSheet
           sale={editingSale}
           onDismiss={() => setEditingSale(null)}
-          onUpdated={refresh}
+          onUpdated={patch.updated}
         />
       )}
 
@@ -279,7 +285,7 @@ export function CustomerSalesListScreen() {
         onVoid={handleVoid}
         onEdit={openEdit}
         voidLoading={voidLoading}
-        onChanged={refresh}
+        onChanged={patch.paymentVoided}
       />
 
       {saleActions.sheets}

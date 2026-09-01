@@ -12,7 +12,7 @@ import type {
   ICollectionRepository,
 } from './ICollectionRepository';
 import type { CreateChargePayload } from './IChargeRepository';
-import { isDeadBill, REVIVE_PATCH, samePrice } from './chargeRevive';
+import { isDeadBill, revivePatch, samePrice } from './chargeRevive';
 import { sumByMonth } from '../utils/monthTotals';
 
 /** SQLite-backed hand-overs. Reproduces
@@ -146,8 +146,9 @@ export class OfflineCollectionRepository
     );
     if (!before) return;
 
-    // 1. Cash is arriving, so the bill EXISTS again — cleared unconditionally.
-    const revive = isDeadBill(before) ? REVIVE_PATCH : {};
+    // 1. Cash is arriving, so the bill EXISTS again — cleared unconditionally,
+    //    and re-stamped as raised now (it is being billed again).
+    const revive = isDeadBill(before) ? revivePatch(next.issued_at) : {};
 
     // 2. An EMPTY month bill follows the price the sheet just showed (#106b);
     //    a bill money has reached keeps its frozen price.

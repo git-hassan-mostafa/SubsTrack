@@ -18,15 +18,24 @@ export function isDeadBill(row: DbCharge): boolean {
  * Cash contradicts both statements a dead bill makes — a void ("it was a
  * mistake, it never existed") and a write-off ("it is real but will never be
  * paid"). So money arriving clears BOTH, always.
+ *
+ * `issued_at` is re-stamped with them: the row survived only because it owns the
+ * month's unique key, so keeping the dead bill's raise date reports a revived
+ * month as billed on a day nothing was billed (the sheet's "Billed on"). The
+ * bill being raised again IS a new raise — the same reasoning as re-pricing an
+ * empty bill (#106b). `due_date` is untouched: ageing belongs to the month.
  */
-export const REVIVE_PATCH = {
-  voided_at: null,
-  voided_by: null,
-  void_reason: null,
-  written_off_at: null,
-  written_off_by: null,
-  write_off_reason: null,
-} as const;
+export function revivePatch(issuedAt: string) {
+  return {
+    voided_at: null,
+    voided_by: null,
+    void_reason: null,
+    written_off_at: null,
+    written_off_by: null,
+    write_off_reason: null,
+    issued_at: issuedAt,
+  } as const;
+}
 
 /** Nothing about the price moved, so an empty bill needs no re-pricing. */
 export function samePrice(row: DbCharge, next: CreateChargePayload): boolean {

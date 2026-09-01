@@ -5,11 +5,12 @@ import { ConfirmDialog } from "@/src/shared/components/ConfirmDialog";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { useSaleSlice } from "@/src/state/hooks/useSaleSlice";
+import type { SaleVoidResult } from "../utils/types";
 import { COLORS } from "@/src/shared/constants";
 
 interface Props {
   saleIds: string[];
-  onVoided: (result: { ok: number; failed: number }) => void;
+  onVoided: (result: SaleVoidResult) => void;
   onDismiss: () => void;
 }
 

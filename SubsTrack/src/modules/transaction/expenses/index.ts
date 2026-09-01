@@ -1,6 +1,6 @@
 export { default as expenseService } from './services/ExpenseService';
 export { default as expenseRepository } from './repository/ExpenseRepository';
-export { mapDbExpenseToExpense } from './utils/mapper';
+export { expenseToItem, mapDbExpenseToExpense } from './utils/mapper';
 export type { CreateExpenseInput, ExpensesFilter } from './utils/types';
 export {
   EXPENSE_CATEGORIES,

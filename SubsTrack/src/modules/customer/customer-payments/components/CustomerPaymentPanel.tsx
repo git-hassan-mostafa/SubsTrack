@@ -603,8 +603,9 @@ export function CustomerPaymentPanel({
       return false;
     }
     if (!result.ok) return false;
-    // A void has no additive local patch (mergeCollection only ever adds), so
-    // the grid is re-read.
+    // The one write on this screen that is re-read rather than patched: it voids
+    // every hand-over on the bill, and one of those may also have settled ANOTHER
+    // month — which the write never names, so the grid cannot know it moved.
     await fetchBills(customer.id, lines, year);
     return true;
   }
@@ -1184,7 +1185,9 @@ export function CustomerPaymentPanel({
             const entry = billEntry;
             return entry ? await voidBill(entry) : false;
           }}
-          onChanged={() => void fetchBills(customer.id, lines, year)}
+          // A hand-over was voided in the sheet — take its money back off the
+          // bills already in the store instead of re-reading the customer.
+          onChanged={(voided) => applyCollection(voided, lines, year, -1)}
           onDismiss={() => setBillEntry(null)}
         />
       )}

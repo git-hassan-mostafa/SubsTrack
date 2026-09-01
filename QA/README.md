@@ -37,6 +37,7 @@ This folder contains the production QA test plan for the SubsTrack mobile app. E
 | Dashboard | [dashboard.md](dashboard.md) | Hero card (subscription + sales revenue, USD-aggregated via snapshots, display-currency formatted), stat cards, admin compact stats, refresh, branch scoping |
 | Settings | [settings.md](settings.md) | User-level prefs: profile, language switcher with restart, logout |
 | Admin & Navigation | [admin-and-navigation.md](admin-and-navigation.md) | Tab visibility, role gating, routing, deep links, ActionMenu pattern, PressableOpacity feedback, asterisk required fields |
+| Store Freshness | [store-freshness.md](store-freshness.md) | App-wide: a create / edit / delete patches the store from what the write returned instead of re-reading — lists, month section totals, stock on-hand, expense totals, and the two voids that deliberately still re-read |
 | Unsaved Changes | [unsaved-changes.md](unsaved-changes.md) | App-wide "Discard changes?" guard on every form-sheet close path (button / Back / drag-down / backdrop), clean forms never prompting, nested sheets |
 | Audit Trail | [audit-log.md](audit-log.md) | Append-only `audit_logs`: what is (and isn't) recorded, old→new diffs, offline writes + real action time, the 30-day local window and pruning, admin-only reads, append-only RLS, per-record History |
 | Multi-tenancy | [multi-tenancy.md](multi-tenancy.md) | Tenant isolation reads/writes, tenant inactive, organization code |

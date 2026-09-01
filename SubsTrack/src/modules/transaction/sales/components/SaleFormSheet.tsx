@@ -44,8 +44,10 @@ interface Props {
   // change; a voided sale is never passed here.
   sale?: Sale | null;
   onDismiss: () => void;
-  onCreated?: () => void;
-  onUpdated?: () => void;
+  // Both carry the saved row: a list that keeps its own state patches itself
+  // with it instead of re-reading the table (the global slice already has).
+  onCreated?: (sale: Sale) => void;
+  onUpdated?: (sale: Sale) => void;
 }
 
 export function SaleFormSheet({
@@ -191,8 +193,8 @@ export function SaleFormSheet({
           sale: saved,
         });
       }
-      if (sale) onUpdated?.();
-      else onCreated?.();
+      if (sale) onUpdated?.(saved);
+      else onCreated?.(saved);
       onDismiss();
     }
   }

@@ -6,8 +6,7 @@ import { sumUsd } from '@/src/core/utils/currency';
 // and a service must not drag UI into its graph.
 import productService from '@/src/modules/admin/products/services/ProductService';
 import repository from '../repository/ExpenseRepository';
-import { mapDbExpenseToExpense } from '../utils/mapper';
-import { expenseCategoryLabelKey } from '../utils/expenseCategories';
+import { expenseToItem, mapDbExpenseToExpense } from '../utils/mapper';
 import type { CreateExpenseInput, ExpensesFilter } from '../utils/types';
 
 /**
@@ -34,24 +33,9 @@ class ExpenseService {
       ),
     ]);
 
-    const manual: ExpenseItem[] = stored.map((row) => {
-      const e = mapDbExpenseToExpense(row);
-      return {
-        id: `exp:${e.id}`,
-        source: 'manual',
-        category: e.category,
-        // No description falls back to the category name, so a row is never blank.
-        label: e.description?.trim() || i18n.t(expenseCategoryLabelKey(e.category)),
-        amount: e.amount,
-        currencyId: e.currencyId,
-        ratePerUsdSnapshot: e.ratePerUsdSnapshot,
-        date: e.incurredAt,
-        branchId: e.branchId,
-        recordedByUserId: e.recordedByUserId,
-        productId: null,
-        canVoid: true,
-      };
-    });
+    const manual: ExpenseItem[] = stored.map((row) =>
+      expenseToItem(mapDbExpenseToExpense(row)),
+    );
 
     const stock: ExpenseItem[] = stockCosts.map((s) => ({
       id: `stock:${s.movementId}`,

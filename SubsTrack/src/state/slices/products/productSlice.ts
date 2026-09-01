@@ -33,6 +33,12 @@ export interface ProductSlice {
     costCurrency?: Currency | null,
   ) => Promise<void>;
   updateProduct: (id: string, data: ProductInput) => Promise<void>;
+  /**
+   * Signed on-hand change per product id — how a write elsewhere (a sale, its
+   * correction, its void) moves stock. Keeps the product list and the next sale
+   * form honest without re-reading the whole catalog.
+   */
+  applyStockDelta: (deltaByProduct: Record<string, number>) => void;
   addStock: (
     id: string,
     tenantId: string,
@@ -172,6 +178,14 @@ export const createProductSlice: StateCreator<
       });
     }
   },
+
+  applyStockDelta: (deltaByProduct) =>
+    set((state) => {
+      for (const p of state.products.items) {
+        const delta = deltaByProduct[p.id];
+        if (delta) p.stockOnHand += delta;
+      }
+    }),
 
   addStock: async (id, tenantId, quantity, note = null, userId = null, cost = null) => {
     set((state) => {

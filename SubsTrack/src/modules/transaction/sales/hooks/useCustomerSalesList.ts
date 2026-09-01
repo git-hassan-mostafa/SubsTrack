@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PAGE_SIZE } from "@/src/core/constants";
 import type { Sale } from "@/src/core/types";
 import saleService from "../services/SaleService";
+import { saleListPatches, type SalePatches } from "../utils/saleListPatch";
 
 interface CustomerSalesList {
   items: Sale[];
@@ -12,6 +13,8 @@ interface CustomerSalesList {
   refresh: () => Promise<void>;
   loadMore: () => Promise<void>;
   clearError: () => void;
+  /** A write landed elsewhere — patch this list instead of re-reading it. */
+  patch: SalePatches;
 }
 
 // Presentation-layer hook powering the full customer-scoped sales page.
@@ -89,5 +92,25 @@ export function useCustomerSalesList(
 
   const clearError = useCallback(() => setError(null), []);
 
-  return { items, loading, loadingMore, hasMore, error, refresh, loadMore, clearError };
+  // `setItems` is stable, so the patches only change with the scope. While a
+  // SEARCH is on they are replaced by a re-read: whether the saved row still
+  // matches the term is the server's question, and answering it here would
+  // duplicate the query (same reasoning as the Sales tab's filters).
+  const patch = useMemo<SalePatches>(() => {
+    const base = saleListPatches(setItems, customerId);
+    if (!search) return base;
+    return { ...base, created: () => void refresh(), updated: () => void refresh() };
+  }, [customerId, search, refresh]);
+
+  return {
+    items,
+    loading,
+    loadingMore,
+    hasMore,
+    error,
+    refresh,
+    loadMore,
+    clearError,
+    patch,
+  };
 }

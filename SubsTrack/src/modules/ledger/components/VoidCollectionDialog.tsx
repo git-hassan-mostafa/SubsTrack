@@ -10,8 +10,8 @@ import { useLedgerSlice } from "@/src/state/hooks/useLedgerSlice";
 interface Props {
   collection: Collection;
   voidedBy: string;
-  /** Fired only when the void actually landed. */
-  onDone: () => void;
+  /** Fired only when the void actually landed, with the row now marked voided. */
+  onDone: (voided: Collection) => void;
   onDismiss: () => void;
 }
 
@@ -34,10 +34,10 @@ export function VoidCollectionDialog({ collection, voidedBy, onDone, onDismiss }
   const count = collection.items?.length ?? 1;
 
   async function handleConfirm() {
-    const ok = await voidCollection(collection.id, voidedBy, reason.trim() || null);
-    if (ok) {
+    const voided = await voidCollection(collection, voidedBy, reason.trim() || null);
+    if (voided) {
       setReason("");
-      onDone();
+      onDone(voided);
     }
   }
 

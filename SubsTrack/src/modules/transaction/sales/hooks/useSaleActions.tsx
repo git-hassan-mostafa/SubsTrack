@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import type { Sale } from "@/src/core/types";
+import type { Collection, Sale } from "@/src/core/types";
 import {
   ActionMenu,
   type ActionMenuItem,
@@ -9,20 +9,25 @@ import { openItemFromCharge, useCollectSheet } from "@/src/modules/ledger";
 import { useRecordHistoryAction } from "@/src/modules/admin/audit";
 import { useSendInvoice, WhatsAppComboIcon } from "@/src/modules/invoicing";
 import { SaleBulkVoidSheet } from "../components/SaleBulkVoidSheet";
+import type { SaleVoidResult } from "../utils/types";
 
 interface Options {
   /** Opens the receipt sheet. */
   onView: (sale: Sale) => void;
   /** Opens the sale form on this sale. */
   onEdit: (sale: Sale) => void;
-  /** After a void — the screen refreshes its own list and reports failures. */
-  onVoided?: (result: { ok: number; failed: number }) => void;
   /**
-   * After money was collected against a sale — the screen refetches, since its
-   * month section totals are a separate query (same reason the sale form's
-   * `onUpdated` does).
+   * After a void. Carries the rows that actually went, so a screen holding its
+   * own list drops exactly those; the counts are for the "voided X · Y failed"
+   * notice.
    */
-  onCollected?: () => void;
+  onVoided?: (result: SaleVoidResult) => void;
+  /**
+   * After money was collected against a sale. The global list is patched by the
+   * ledger slice; a screen with its own list uses the hand-over to move the
+   * sale's `amountPaid`.
+   */
+  onCollected?: (collection: Collection) => void;
 }
 
 export interface SaleActions {
@@ -54,7 +59,7 @@ export function useSaleActions({
   const { t } = useTranslation();
   const { canSend, sendSaleInvoice } = useSendInvoice();
   const history = useRecordHistoryAction("sales");
-  const collectSheet = useCollectSheet({ onCollected: () => onCollected?.() });
+  const collectSheet = useCollectSheet({ onCollected });
   const [menuSale, setMenuSale] = useState<Sale | null>(null);
   const [voidIds, setVoidIds] = useState<string[] | null>(null);
 

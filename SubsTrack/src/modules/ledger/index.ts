@@ -28,6 +28,7 @@ export type { ICollectionRepository } from './repository/ICollectionRepository';
 
 export { CollectSheet } from './components/CollectSheet';
 export { useCollectSheet } from './hooks/useCollectSheet';
+export { useOwedChanged } from './hooks/useOwedChanged';
 export { CollectQuickActionSheet } from './components/CollectQuickActionSheet';
 export { BillSheet } from './components/BillSheet';
 export { BillPaymentsList } from './components/BillPaymentsList';
