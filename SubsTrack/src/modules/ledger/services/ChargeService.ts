@@ -217,6 +217,22 @@ class ChargeService {
     values: { description?: string; amount?: number; dueDate?: string; notes?: string | null },
   ): Promise<Charge> {
     if (values.amount !== undefined) this.validateAmount(values.amount);
+    const existing = await repository.findById(id);
+    if (!existing) throw new Error(i18n.t('errors.charge_not_found'));
+    // A void or a write-off is a closed statement about the bill — the same
+    // lock a voided sale carries.
+    if (existing.voided_at || existing.written_off_at) {
+      throw new Error(i18n.t('errors.charge_not_editable'));
+    }
+    // Re-pricing may not drop the bill below what has already been handed over.
+    // The twin of SaleService's sale_total_below_collected: money already taken
+    // is a fact, and a negative balance is invisible to every "still owed" read.
+    if (values.amount !== undefined) {
+      const [balance] = await repository.balances([id]);
+      if (balance && values.amount + EPSILON < balance.paid) {
+        throw new Error(i18n.t('errors.charge_amount_below_collected'));
+      }
+    }
     const row = await repository.update(id, {
       ...(values.description !== undefined ? { description: values.description.trim() } : {}),
       ...(values.amount !== undefined ? { amount: values.amount } : {}),
@@ -328,6 +344,9 @@ class ChargeService {
     }
   }
 }
+
+/** Money is NUMERIC(20,8); compare with a tolerance well below one cent. */
+const EPSILON = 1e-6;
 
 export const chargeService = new ChargeService();
 export { isDebtItem };

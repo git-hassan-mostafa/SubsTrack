@@ -249,6 +249,7 @@ export function SaleFormSheet({
           onChange={setCart}
           onFocusClearError={clearError}
           initial={initialCart}
+          currencyLocked={collectedOnSale > 0}
         />
 
         {/* Sale total */}

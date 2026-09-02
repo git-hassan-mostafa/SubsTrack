@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, type ReactNode } from "react";
 import {
+  Keyboard,
   Platform,
   View,
   useWindowDimensions,
@@ -105,6 +106,10 @@ const ANIMATION_CONFIGS: WithTimingConfig | undefined =
  * Content panning is off for every variant, which is what lets a plain
  * scrollable scroll inside a sheet.
  *
+ * Keyboard: opening any sheet first dismisses the keyboard, so a picker tapped
+ * while a field is focused isn't drawn behind it (gotcha #124). A text input
+ * INSIDE the sheet still raises it normally.
+ *
  * Present/dismiss lifecycle: the `auto` popups are ALWAYS mounted and toggle
  * `visible`. Calling Gorhom's `present()` / `dismiss()` out of sync with the
  * sheet's real state wedges it (the next call silently no-ops). So the bridge
@@ -203,6 +208,9 @@ export function AppBottomSheet({
 
   useEffect(() => {
     if (visible && !openRef.current) {
+      // The previously focused field keeps its keyboard over the opening sheet
+      // — see gotcha #124.
+      Keyboard.dismiss();
       ref.current?.present();
     } else if (!visible && openRef.current) {
       ref.current?.dismiss();

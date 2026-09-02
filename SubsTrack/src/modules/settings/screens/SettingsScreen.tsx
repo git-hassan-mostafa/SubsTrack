@@ -106,13 +106,6 @@ export function SettingsScreen() {
     refreshActiveData();
   }
 
-  // Deep-linked / refreshed straight into settings there is nothing to pop, so
-  // fall back to the one tab every role has.
-  function handleBackPress() {
-    if (router.canGoBack()) router.back();
-    else router.replace("/" as Href);
-  }
-
   const languageOptions = SUPPORTED_LANGUAGES.map((lang) => ({
     label: LANGUAGE_LABELS[lang],
     value: lang,
@@ -144,16 +137,7 @@ export function SettingsScreen() {
     <SafeAreaView className="flex-1 bg-gray-50">
       <ResponsiveContainer className="flex-1">
         <ScrollView>
-          {/* Settings is no longer a bottom tab — it is pushed from the header
-              button, so it needs its own way back. */}
           <View className="flex-row items-center gap-2 px-5 pt-5 pb-4">
-            <PressableOpacity onPress={handleBackPress} className="p-1 -ms-1">
-              <DirectionalIcon
-                name="chevron-back"
-                size={22}
-                color={COLORS.primary}
-              />
-            </PressableOpacity>
             <Text fontWeight="Bold" className="text-2xl text-gray-900">
               {t("settings.title")}
             </Text>

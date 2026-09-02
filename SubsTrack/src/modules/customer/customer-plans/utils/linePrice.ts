@@ -39,7 +39,9 @@ export function resolveLinePrice(line: PricedLine): LinePrice {
   // A special price REPLACES the plan's price for the same span the plan bills:
   // on a 3-month plan it is "100 per 3 months", not 100 a month. So it carries
   // the plan's own durationMonths and multi-month lines are fully supported.
-  if (line.customPrice !== null) {
+  // `!= null` on purpose: a row that never carried the column is undefined, and
+  // `!== null` would call that a special price of `undefined`.
+  if (line.customPrice != null) {
     return {
       amount: line.customPrice,
       currencyId: line.customCurrencyId,

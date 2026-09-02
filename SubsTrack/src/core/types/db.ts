@@ -342,7 +342,9 @@ export interface DbCollectionItem {
 }
 
 // The charge_balances view on the server; the equivalent GROUP BY over the
-// mirror offline. Voided and written-off charges are excluded at source.
+// mirror offline. A VOIDED charge is excluded at source; a WRITTEN-OFF one is
+// NOT — it keeps the money already collected (#115). "No longer owed" is
+// decided once, by ChargeRepository.findOpenWithPaid.
 export interface DbChargeBalance {
   id: string;
   tenant_id: string;

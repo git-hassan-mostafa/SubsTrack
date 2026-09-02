@@ -1,0 +1,22 @@
+{
+  "name": "substrack-tests",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Unit tests for every rule that touches money. Deliberately its OWN package: SubsTrack/package.json feeds the OTA fingerprint, so a devDependency or a script added there would silently cut every installed app off from updates (gotcha #53).",
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.26.0",
+    "@babel/preset-env": "^7.26.0",
+    "@babel/preset-typescript": "^7.26.0",
+    "@types/jest": "^29.5.14",
+    "@types/node": "^26.0.0",
+    "babel-jest": "^29.7.0",
+    "jest": "^29.7.0",
+    "typescript": "~5.9.2"
+  }
+}

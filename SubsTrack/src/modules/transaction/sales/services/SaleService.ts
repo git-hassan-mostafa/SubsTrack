@@ -262,6 +262,13 @@ class SaleService {
     if (total + 1e-9 < sale.amountPaid) {
       throw new Error(i18n.t('errors.sale_total_below_collected'));
     }
+    // Nor may the CURRENCY move once cash has arrived: a hand-over is frozen in
+    // the currency it was collected in, so re-freezing the bill in another one
+    // leaves a balance that can never close at zero (gotcha #111).
+    const nextCurrencyId = input.currency?.id ?? null;
+    if (sale.amountPaid > 0 && nextCurrencyId !== sale.currencyId) {
+      throw new Error(i18n.t('errors.sale_currency_locked'));
+    }
     const collectNow = input.collectNow ?? 0;
     // Same rule as a new sale, reachable here by clearing the customer or by
     // raising the price of a walk-in: an anonymous debt could never be chased.

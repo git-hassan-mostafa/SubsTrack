@@ -68,6 +68,8 @@ interface Props {
   onFocusClearError?: () => void;
   // Edit mode: seed the cart from a saved sale. Pass a stable object.
   initial?: SaleEditorInitial | null;
+  // Cash already collected freezes the sale currency — see gotcha #111.
+  currencyLocked?: boolean;
 }
 
 type Row = {
@@ -158,6 +160,7 @@ export function SaleItemsEditor({
   onChange,
   onFocusClearError,
   initial = null,
+  currencyLocked = false,
 }: Props) {
   const { t } = useTranslation();
   const products = useProductSlice((s) => s.items);
@@ -507,6 +510,8 @@ export function SaleItemsEditor({
           onChange={changeSaleCurrency}
           nullable
           nullLabel="USD"
+          disabled={currencyLocked}
+          disabledHint={currencyLocked ? t("errors.sale_currency_locked") : undefined}
         />
       </View>
 

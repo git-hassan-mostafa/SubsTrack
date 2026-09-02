@@ -367,3 +367,39 @@ settled a month + a sale + a custom fee, and (d) a **voided** row.
 
 17.6.1 Open a bill from §17.2, void one of its payments there → the bill's collected figure drops and the row stays owed.
 17.6.2 Close back to the money-in list → the voided hand-over now reads **Voided** and stops counting toward its month-section total.
+
+---
+
+## 18. Money-in list: search and section totals (WEB build only)
+
+`collections` owns its `branch_id`, so the customer join in these two queries exists **only** for the search box. Both were joined wrongly, and both symptoms are invisible on native (the SQLite mirror uses a real `LEFT JOIN` and always behaved correctly) — run this section in a **web** build.
+
+**Reference code:** `CollectionRepository.find` / `.monthlyTotals` (the Supabase pair, not `.offline`).
+
+### 18.1 Searching actually filters
+
+18.1.1 Open Money received with several customers' hand-overs listed. Type a name that matches exactly one customer → **only that customer's** hand-overs remain. (Before the fix, PostgREST applied the filter to the embedded customer instead of the parent row, so every hand-over stayed on screen and the non-matching ones simply lost their customer name.)
+
+18.1.2 Type a name that matches nobody → the list is **empty**, not "everything with no names".
+
+18.1.3 Clear the search → every hand-over is back, walk-in rows included.
+
+18.1.4 The section-header total for each month agrees with the rows beneath it while the search is on.
+
+### 18.2 Walk-in cash counts in the section total
+
+18.2.1 Record a **walk-in** sale (no customer) paid in full at the till. It writes a `collections` row with `customer_id = NULL`.
+
+18.2.2 Open Money received with no search term. The walk-in hand-over is listed, and the month's section header **includes its amount**. (Before the fix the header inner-joined `customers`, so walk-in cash was listed but never counted — the header disagreed with its own rows.)
+
+18.2.3 Add up the month's rows by hand and compare with the header — they must match exactly.
+
+18.2.4 Repeat on **native**: the same figures. The web and offline reads must agree.
+
+### 18.3 Nothing else moved
+
+18.3.1 Branch chip filtering still scopes the list and the totals (the branch comes from `collections.branch_id`, never the customer).
+
+18.3.2 A voided hand-over is still listed but still counts for nothing in the header.
+
+18.3.3 One customer's money-in panel (opened from a customer) is unchanged.

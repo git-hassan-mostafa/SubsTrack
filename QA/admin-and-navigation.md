@@ -21,11 +21,13 @@ Covers role-based navigation, the Admin landing screen, tab visibility, the acti
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 1.1 | Admin sees three tabs | Login as admin | Tabs: Customers (default), Admin, Settings |
-| 1.2 | User sees two tabs | Login as user | Tabs: Customers, Settings (Admin tab hidden via `href: null`) |
+| 1.1 | Admin sees six tabs | Login as admin | Tabs: Home, Customers, Transactions, Reports, Admin, Settings |
+| 1.2 | User sees three tabs | Login as user | Tabs: Customers, Transactions, Settings (Home / Reports / Admin hidden via `href: null`) |
 | 1.3 | Superadmin sees admin tab | Login as superadmin | Same as admin |
-| 1.4 | Tab order on RTL | Switch to Arabic | Order is reversed visually; Customers should still be the first tab logically |
-| 1.5 | Tab icons | Look at icons | people-outline for Customers, shield-outline for Admin, settings-outline for Settings |
+| 1.4 | Tab order on RTL | Switch to Arabic | Order is reversed visually; Home should still be the first tab logically |
+| 1.5 | Tab icons | Look at icons | home / people-outline / swap-horizontal-outline / stats-chart-outline / shield-outline / settings-outline |
+| 1.7 | Settings is a tab, not a header button | Any screen | No gear icon in the header — only the branch chip and the 3-dot menu; Settings is reached from the tab bar |
+| 1.8 | Six tabs still fit | Login as admin on a small phone, English and Arabic | Every icon and the selected label fit on one line; no clipping or overlap |
 | 1.6 | Tab label translation | Switch language | Labels render in the active language |
 
 ## 2. Initial route after login
@@ -107,12 +109,12 @@ Each tab's `_layout.tsx` exports `unstable_settings = { anchor: "index" }`, so l
 |---|----------|-------|-----------------|
 | 6c.1 | Back returns to the previous tab | Home → Customers tab → Transactions tab → Back | Customers tab (was: Home) |
 | 6c.2 | Three tabs deep | Home → Customers → Transactions → Reports → Back, Back | Transactions, then Customers |
-| 6c.3 | Settings from a non-Home tab | Customers → gear icon → Back | Customers list (was: Home) |
-| 6c.4 | Settings keeps the tab's stack position | Customers → open a customer → gear icon → Back | The same customer detail page, not the customers list |
-| 6c.5 | Settings sub-page | Transactions → gear → My Wallet → Back, Back | Settings, then Transactions |
+| 6c.3 | Settings from a non-Home tab | Customers → Settings tab → Back | Customers list (was: Home) |
+| 6c.4 | Settings keeps the tab's stack position | Customers → open a customer → Settings tab → Back | The same customer detail page, not the customers list |
+| 6c.5 | Settings sub-page | Transactions → Settings tab → My Wallet → Back, Back | Settings, then Transactions |
 | 6c.6 | Stack pop still wins over tab history | Admin → Plans → Back | Admin hub (unchanged — the stack pops first) |
 | 6c.7 | Cross-tab jump into a nested page | Transactions → Expenses → a stock row → "Open product" → Back, Back | Products' parent (Admin hub), then Transactions |
-| 6c.8 | Non-admin never lands on the dashboard | Log in as `user` (Home/Reports/Admin tabs hidden) → Customers → gear → Back | Customers list — the admin-only dashboard must never appear |
+| 6c.8 | Non-admin never lands on the dashboard | Log in as `user` (Home/Reports/Admin tabs hidden) → Customers → Settings tab → Back | Customers list — the admin-only dashboard must never appear |
 | 6c.9 | Revisiting a tab does not stack up | Home → Customers → Home → Customers → Back | Home once, then Back exits the app (duplicates are collapsed) |
 | 6c.10 | Back at the entry tab exits | Fresh login → Back immediately | App exits (Android) — no navigation loop |
 | 6c.11 | Web browser Back | Repeat 6c.1 and 6c.3 on web with the browser's Back button | Same destinations as native |

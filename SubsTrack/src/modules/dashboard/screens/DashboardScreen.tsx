@@ -20,7 +20,6 @@ import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { BranchSelector } from "@/src/shared/components/BranchSelector";
 import { QuickActionsMenuButton } from "@/src/shared/components/QuickActionsMenuButton";
-import { SettingsButton } from "@/src/shared/components/SettingsButton";
 import { COLORS } from "@/src/shared/constants";
 import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
 import { CustomerFormSheet } from "@/src/modules/customer/customers/components/CustomerFormSheet";
@@ -94,7 +93,6 @@ export function DashboardScreen() {
               {t("home.title")}
             </Text>
             <BranchSelector className="" />
-            <SettingsButton />
             <QuickActionsMenuButton />
           </View>
 

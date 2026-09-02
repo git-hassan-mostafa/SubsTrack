@@ -17,6 +17,9 @@ import { sumByMonth } from '../utils/monthTotals';
 // A hand-over with its split and the bill each line paid — everything a receipt
 // or a history row needs in one read.
 const COLLECTION_SELECT = '*, collection_items(*, charges(*)), customers(*)';
+// Only while a search term is on: an `ilike` on a plain embed filters the
+// embedded rows, so the parent list comes back whole — see `find`.
+const COLLECTION_SELECT_SEARCH = '*, collection_items(*, charges(*)), customers!inner(*)';
 
 // The joined shape `collectedInRange` reads — one settled bill plus the
 // hand-over it came in on.
@@ -88,9 +91,15 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
   async find(opts: FindCollectionsOptions): Promise<DbCollection[]> {
     const limit = opts.limit ?? PAGE_SIZE;
     const offset = opts.offset ?? 0;
+    const search = opts.searchTerm?.trim();
     let query = this.db
       .from('collections')
-      .select(COLLECTION_SELECT)
+      // `!inner` ONLY while searching: a filter on a plain embed narrows the
+      // EMBEDDED rows, not the parents, so a left-joined customers(*) returned
+      // every hand-over with a null customer instead of the matches. An inner
+      // join the rest of the time would drop walk-in cash, which has no
+      // customer at all — see monthlyTotals.
+      .select(search ? COLLECTION_SELECT_SEARCH : COLLECTION_SELECT)
       // created_at breaks the tie: a back-dated hand-over (and every row
       // written before received_at carried a time of day) lands at noon, so
       // without it same-day rows come back in arbitrary order.
@@ -104,9 +113,7 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
     if (opts.receivedByUserId) query = query.eq('received_by_user_id', opts.receivedByUserId);
     if (opts.startIso) query = query.gte('received_at', opts.startIso);
     if (opts.endExclusiveIso) query = query.lt('received_at', opts.endExclusiveIso);
-    if (opts.searchTerm?.trim()) {
-      query = query.ilike('customers.name', `%${opts.searchTerm.trim()}%`);
-    }
+    if (search) query = query.ilike('customers.name', `%${search}%`);
     query = this.applyBranchFilter(query, opts.branchFilter ?? null, this.BRANCH_SCOPES.collections);
 
     const { data, error } = await query;
@@ -117,9 +124,18 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
   async monthlyTotals(opts: FindCollectionsOptions): Promise<Record<string, number>> {
     // Three numeric columns, unpaginated — cheap, and the only way a section
     // header can show the month's real total rather than the loaded page's.
+    const search = opts.searchTerm?.trim();
     let query = this.db
       .from('collections')
-      .select('received_at, amount, rate_per_usd_snapshot, customers!inner(name, branch_id)')
+      // The customer join exists ONLY for the search — `collections` owns its
+      // branch_id, so scoping never needs it. Joined `!inner` unconditionally,
+      // it silently dropped every walk-in sale's cash (customer_id IS NULL)
+      // from the section-header totals while the rows beneath still listed it.
+      .select(
+        search
+          ? 'received_at, amount, rate_per_usd_snapshot, customers!inner(name)'
+          : 'received_at, amount, rate_per_usd_snapshot',
+      )
       .is('voided_at', null);
 
     if (opts.customerId) query = query.eq('customer_id', opts.customerId);
@@ -127,9 +143,7 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
     if (opts.receivedByUserId) query = query.eq('received_by_user_id', opts.receivedByUserId);
     if (opts.startIso) query = query.gte('received_at', opts.startIso);
     if (opts.endExclusiveIso) query = query.lt('received_at', opts.endExclusiveIso);
-    if (opts.searchTerm?.trim()) {
-      query = query.ilike('customers.name', `%${opts.searchTerm.trim()}%`);
-    }
+    if (search) query = query.ilike('customers.name', `%${search}%`);
     query = this.applyBranchFilter(query, opts.branchFilter ?? null, this.BRANCH_SCOPES.collections);
 
     const { data, error } = await query;

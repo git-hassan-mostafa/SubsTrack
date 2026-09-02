@@ -86,10 +86,11 @@ export function useCollectSheet({ onCollected }: Options = {}) {
             settles: l.amount >= l.item.balance,
           })),
         });
-        if (created) {
-          setTarget(null);
-          onCollected?.(created);
-        }
+        if (!created) return;
+        // Closed first, then the caller's follow-on work — whatever it repaints
+        // must not hold the JS thread while the sheet is trying to slide out.
+        setTarget(null);
+        onCollected?.(created);
       }}
     />
   ) : null;

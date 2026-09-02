@@ -35,8 +35,17 @@ export function mergeCollection(
   }
   const merged = bills.map((b) => {
     const extra = paid.get(b.charge.id);
+    // The write may have RE-PRICED an empty bill (#106b), so the row it returned
+    // wins over the stale one held here — otherwise a settled month reads
+    // "PARTIAL 25/30" until something forces a reload.
+    const written = raised.get(b.charge.id)?.charge;
     raised.delete(b.charge.id);
-    return extra ? { ...b, collected: Math.max(0, b.collected + extra) } : b;
+    if (!extra) return written ? { ...b, charge: written } : b;
+    return {
+      ...b,
+      charge: written ?? b.charge,
+      collected: Math.max(0, b.collected + extra),
+    };
   });
   // Whatever is left was billed for the first time by this collect.
   for (const bill of raised.values()) {
