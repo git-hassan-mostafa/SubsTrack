@@ -197,6 +197,7 @@ export function BillPaymentsList({
         <VoidCollectionDialog
           collection={voidTarget}
           voidedBy={user.id}
+          onBillChargeId={chargeId}
           onDone={(voided) => {
             setVoidTarget(null);
             // The stamped row is the whole change — swap it in rather than

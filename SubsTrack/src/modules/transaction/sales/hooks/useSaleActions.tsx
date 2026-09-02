@@ -61,7 +61,10 @@ export function useSaleActions({
   const history = useRecordHistoryAction("sales");
   const collectSheet = useCollectSheet({ onCollected });
   const [menuSale, setMenuSale] = useState<Sale | null>(null);
-  const [voidIds, setVoidIds] = useState<string[] | null>(null);
+  const [voidTarget, setVoidTarget] = useState<{
+    saleIds: string[];
+    chargeIds: string[];
+  } | null>(null);
 
   // Collect what is still owed on a pay-later or partly-paid sale. It goes
   // through the SAME sheet as any other bill — one door for money in, so the
@@ -149,7 +152,11 @@ export function useSaleActions({
         label: t("sales.void_sale"),
         icon: "close-circle-outline",
         destructive: true,
-        onPress: () => setVoidIds([sale.id]),
+        onPress: () =>
+          setVoidTarget({
+            saleIds: [sale.id],
+            chargeIds: sale.chargeId ? [sale.chargeId] : [],
+          }),
       });
     }
     return actions;
@@ -158,7 +165,11 @@ export function useSaleActions({
   return {
     openMenu: setMenuSale,
     requestVoid: (sales) => {
-      if (sales.length > 0) setVoidIds(sales.map((s) => s.id));
+      if (sales.length === 0) return;
+      setVoidTarget({
+        saleIds: sales.map((s) => s.id),
+        chargeIds: sales.map((s) => s.chargeId).filter((id): id is string => !!id),
+      });
     },
     sheets: (
       <>
@@ -169,14 +180,15 @@ export function useSaleActions({
           onDismiss={() => setMenuSale(null)}
         />
 
-        {voidIds ? (
+        {voidTarget ? (
           <SaleBulkVoidSheet
-            saleIds={voidIds}
+            saleIds={voidTarget.saleIds}
+            chargeIds={voidTarget.chargeIds}
             onVoided={(result) => {
-              setVoidIds(null);
+              setVoidTarget(null);
               onVoided?.(result);
             }}
-            onDismiss={() => setVoidIds(null)}
+            onDismiss={() => setVoidTarget(null)}
           />
         ) : null}
 

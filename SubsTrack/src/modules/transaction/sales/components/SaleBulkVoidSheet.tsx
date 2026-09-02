@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { TextInput, View } from "react-native";
+import { useEffect, useState } from "react";
+import { ActivityIndicator, TextInput, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { ConfirmDialog } from "@/src/shared/components/ConfirmDialog";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
@@ -7,9 +7,17 @@ import { useAuth } from "@/src/modules/authentication/auth";
 import { useSaleSlice } from "@/src/state/hooks/useSaleSlice";
 import type { SaleVoidResult } from "../utils/types";
 import { COLORS } from "@/src/shared/constants";
+import {
+  collectionService,
+  SharedBillsWarning,
+  sharedBillsAcross,
+  type SharedBill,
+} from "@/src/modules/ledger";
 
 interface Props {
   saleIds: string[];
+  /** The sales' own bills — what a shared hand-over must be measured against. */
+  chargeIds: string[];
   onVoided: (result: SaleVoidResult) => void;
   onDismiss: () => void;
 }
@@ -18,17 +26,58 @@ interface Props {
 // A total failure keeps the dialog open with the error; any success closes it
 // and reports counts back to the screen.
 //
-// The message states that any money collected goes with the sale. It does NOT
-// count the hand-overs first: the void takes the ids from a query it has to run
-// anyway, so counting them was a second read of the same rows just to put a
-// number in a sentence.
-export function SaleBulkVoidSheet({ saleIds, onVoided, onDismiss }: Props) {
+// The message states that any money collected goes with the sale. It never
+// COUNTS the hand-overs — a bare number warns nobody; it names the other bills
+// they also settled instead, since a shared hand-over is voided whole (#125).
+export function SaleBulkVoidSheet({ saleIds, chargeIds, onVoided, onDismiss }: Props) {
   const { t } = useTranslation();
   const { user } = useAuth();
   const voidSales = useSaleSlice((s) => s.voidSales);
   const error = useSaleSlice((s) => s.error);
   const clearError = useSaleSlice((s) => s.clearError);
   const [reason, setReason] = useState("");
+  const [shared, setShared] = useState<SharedBill[]>([]);
+  // The dialog is open while the lookup runs, so confirm must stay shut until
+  // it lands — otherwise Void is tappable before its gate has appeared.
+  const [checking, setChecking] = useState(chargeIds.length > 0);
+  // Keyed on the ids themselves, so a new-but-equal array cannot re-run the read.
+  const chargeKey = chargeIds.join(",");
+
+  // The OTHER bills these sales' hand-overs settled. A hand-over is voided
+  // whole, so voiding a sale can un-pay a month that shared the same cash —
+  // naming it is the only thing that makes that predictable.
+  useEffect(() => {
+    let live = true;
+    const ids = chargeKey ? chargeKey.split(",") : [];
+    if (ids.length === 0) {
+      setShared([]);
+      setChecking(false);
+      return;
+    }
+    setChecking(true);
+    void (async () => {
+      try {
+        const perCharge = await Promise.all(
+          ids.map((id) => collectionService.getPaymentsForCharge(id)),
+        );
+        const payments = perCharge.flat().filter((c) => c.voidedAt === null);
+        // Deduped: one hand-over can settle several of the selected sales.
+        const byId = new Map(payments.map((c) => [c.id, c]));
+        // Every selected sale is going, so its own bill is not collateral.
+        const bills = sharedBillsAcross([...byId.values()], null, t).filter(
+          (b) => !ids.includes(b.chargeId),
+        );
+        if (live) setShared(bills);
+      } catch {
+        // A failed read must not block the void — the prose warning stands.
+      } finally {
+        if (live) setChecking(false);
+      }
+    })();
+    return () => {
+      live = false;
+    };
+  }, [chargeKey, t]);
 
   async function handleConfirm() {
     if (!user) return;
@@ -51,10 +100,21 @@ export function SaleBulkVoidSheet({ saleIds, onVoided, onDismiss }: Props) {
       title={t("sales.bulk_void_title", { count: saleIds.length })}
       message={t("sales.bulk_void_message", { count: saleIds.length })}
       confirmLabel={t("sales.void_sale")}
+      confirmDisabled={checking}
       destructive
       onConfirm={handleConfirm}
       onCancel={handleDismiss}
     >
+      {checking ? (
+        <View className="mb-3 items-start">
+          <ActivityIndicator />
+        </View>
+      ) : null}
+      {shared.length > 0 ? (
+        <View className="mb-3">
+          <SharedBillsWarning bills={shared} />
+        </View>
+      ) : null}
       {error ? (
         <View className="mb-2">
           <ErrorBanner message={error} onDismiss={clearError} />

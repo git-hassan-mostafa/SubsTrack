@@ -695,6 +695,9 @@
     "collection_already_voided": "This payment is already voided.",
     "sale_walkin_must_be_paid": "A walk-in sale has no customer to chase, so it must be paid in full.",
     "sale_total_below_collected": "The new total is less than what has already been collected on this sale.",
+    "sale_currency_locked": "Money has already been collected on this sale, so its currency cannot change. Void the payment first.",
+    "charge_amount_below_collected": "The new amount is less than what has already been collected on this bill.",
+    "charge_not_editable": "This bill was voided or written off, so it can no longer be edited.",
     "debt_description_required": "Write what this charge is for."
   },
   "subscription": {
@@ -1301,7 +1304,7 @@
     "void_covers_many_warning": "This payment settled {{count}} bills. Voiding it makes all of them owed again.",
     "void_month": "Void this month",
     "void_month_title": "Void this month?",
-    "void_month_message": "{{month}} will no longer be billed, and any money collected on it is voided too — it goes back to being uncollected. A payment that also settled another bill is undone in full, so that bill becomes owed again. The records stay in the audit log — voids cannot be undone.",
+    "void_month_message": "{{month}} will no longer be billed, and any money collected on it is voided too — it goes back to being uncollected. The records stay in the audit log — voids cannot be undone.",
     "voided": "Voided",
     "write_off": "Write off",
     "write_off_caption": "He will not pay — record it as a loss",
@@ -1324,7 +1327,10 @@
     "history_title": "Money received",
     "split_title": "What this paid",
     "split_hint": "This payment settled {{count}} bill. Tap one to open it.",
-    "split_hint_plural": "This payment settled {{count}} bills. Tap one to open it."
+    "split_hint_plural": "This payment settled {{count}} bills. Tap one to open it.",
+    "shared_bill_fallback": "Bill",
+    "shared_void_explainer": "This money was handed over once and split across several bills. It cannot be given back in part, so the whole payment is cancelled and this bill becomes unpaid again:",
+    "shared_void_explainer_plural": "This money was handed over once and split across several bills. It cannot be given back in part, so the whole payment is cancelled and these {{count}} bills become unpaid again:"
   },
   "invoicing": {
     "send_on_whatsapp": "Send on WhatsApp"

@@ -44,7 +44,15 @@ import {
 } from "@/src/shared/hooks/useSelection";
 import type { SelectionAction } from "@/src/shared/components/PageHeader";
 import { useSendInvoice, WhatsAppComboIcon } from "@/src/modules/invoicing";
-import { BillSheet, CollectSheet, monthItemFromEntry } from "@/src/modules/ledger";
+import {
+  BillSheet,
+  CollectSheet,
+  collectionService,
+  monthItemFromEntry,
+  SharedBillsWarning,
+  sharedBillsAcross,
+} from "@/src/modules/ledger";
+import type { SharedBill } from "@/src/modules/ledger";
 import { usePaymentSlice } from "@/src/state/hooks/usePaymentSlice";
 import { useLedgerSlice } from "@/src/state/hooks/useLedgerSlice";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
@@ -532,7 +540,12 @@ export function CustomerPaymentPanel({
     });
   }
 
-  /** Everything the grid writes goes through here — one door, one refresh. */
+  /**
+   * Everything the grid writes goes through here — one door, one refresh.
+   *
+   * Returns the created row rather than a flag so a SHEET caller can close
+   * before the follow-on work runs — see `afterCollect`.
+   */
   async function runCollect(args: {
     items: OpenItem[];
     amount: number;
@@ -541,10 +554,9 @@ export function CustomerPaymentPanel({
     receivedAt: string;
     notes: string | null;
     lines: { item: OpenItem; amount: number }[];
-    send: boolean;
-  }): Promise<boolean> {
-    if (!user) return false;
-    const created = await collect({
+  }): Promise<Collection | null> {
+    if (!user) return null;
+    return collect({
       tenantId: user.tenantId,
       customerId: customer.id,
       branchId: customer.branchId,
@@ -560,12 +572,19 @@ export function CustomerPaymentPanel({
         settles: l.amount >= l.item.balance,
       })),
     });
-    if (!created) return false;
-    // The created row carries its split and each bill it settled, so the grid
-    // repaints from what is already in hand — no reload, no blink.
+  }
+
+  /**
+   * The rest of a successful collect, run AFTER the sheet was told to close.
+   *
+   * The created row carries its split and each bill it settled, so the grid
+   * repaints from what is already in hand — no reload, no blink. But that
+   * re-derives every line's months synchronously, so doing it before the close
+   * blocks the dismiss animation from ever starting (gotcha #122).
+   */
+  async function afterCollect(created: Collection, send: boolean) {
     applyCollection(created);
-    if (args.send) await sendReceipt(created);
-    return true;
+    if (send) await sendReceipt(created);
   }
 
   /**
@@ -574,9 +593,8 @@ export function CustomerPaymentPanel({
    * The narrow door is BillSheet, which undoes one hand-over at a time and is
    * the right tool when only the cash was wrong. This is the wide one, for a
    * month that should never have been billed at all — so the confirm says the
-   * money goes with it. It does NOT count the hand-overs to say how many: the
-   * write reads their ids anyway, so counting first was a second read of the
-   * same rows purely to fill in a number.
+   * money goes with it, and NAMES the other bills a shared hand-over would
+   * un-pay (#125). It still never counts them: a bare number warns nobody.
    *
    * Voids run NEWEST FIRST, so it is refused while a LATER month of the same
    * line is paid — undoing July under a paid August is precisely the "paid month
@@ -596,11 +614,33 @@ export function CustomerPaymentPanel({
       showVoidOrderBlocked(blocker);
       return false;
     }
+    // The hand-overs this month sits on, so the confirm can NAME the other
+    // bills they settled — a shared hand-over is voided whole, and prose alone
+    // read as boilerplate. The write reads their ids anyway; this is the same
+    // rows one step earlier, and only on a month that has a bill.
+    let shared: SharedBill[] = [];
+    // The cell spins while this runs: it is a query before a dialog, so without
+    // it a tap looks ignored until the confirm appears.
+    setBusyMonth(entry.billingMonth);
+    try {
+      const payments = await collectionService.getPaymentsForCharge(charge.id);
+      shared = sharedBillsAcross(
+        payments.filter((p) => p.voidedAt === null),
+        charge.id,
+        t,
+      );
+    } catch {
+      // A failed read must not block the void — the prose warning still stands.
+    } finally {
+      setBusyMonth(null);
+    }
     const ok = await confirm({
       title: t("ledger.void_month_title"),
       message: t("ledger.void_month_message", { month: monthLabelOf(entry) }),
       confirmLabel: t("ledger.void_month"),
       destructive: true,
+      // Shared cash: name the bills the void also un-pays.
+      content: shared.length > 0 ? () => <SharedBillsWarning bills={shared} /> : undefined,
     });
     if (!ok) return false;
     // Held past the re-read, so the cell stays busy until the grid is correct.
@@ -633,6 +673,12 @@ export function CustomerPaymentPanel({
   }
 
   async function handleQuickPay(entry: MonthEntry, send = false) {
+    // Quick pay skips openCollect, so the oldest-first gate is re-asserted here.
+    const orderBlocker = payOrderBlocker([entry]);
+    if (orderBlocker) {
+      showPayOrderBlocked(orderBlocker);
+      return;
+    }
     if (!selectedLine || !linePrice.isFixed || !user) {
       openCollect([entry], send);
       return;
@@ -664,7 +710,7 @@ export function CustomerPaymentPanel({
     }
     setBusyMonth(entry.billingMonth);
     try {
-      await runCollect({
+      const created = await runCollect({
         items,
         amount: item.balance,
         currencyId: item.currencyId,
@@ -672,8 +718,8 @@ export function CustomerPaymentPanel({
         receivedAt: new Date().toISOString(),
         notes: null,
         lines: [{ item, amount: item.balance }],
-        send,
       });
+      if (created) await afterCollect(created, send);
     } finally {
       setBusyMonth(null);
     }
@@ -1161,7 +1207,8 @@ export function CustomerPaymentPanel({
           singleItem={collectFor.single ? collectFor.items[0] : null}
           loading={collecting}
           onSubmit={async (values) => {
-            const ok = await runCollect({
+            const send = collectFor.send;
+            const created = await runCollect({
               items: collectFor.items,
               amount: values.amount,
               currencyId: values.currencyId,
@@ -1169,12 +1216,13 @@ export function CustomerPaymentPanel({
               receivedAt: values.receivedAt,
               notes: values.notes,
               lines: values.lines,
-              send: collectFor.send,
             });
-            if (ok) {
-              setCollectFor(null);
-              selection.clear();
-            }
+            if (!created) return;
+            // Closed BEFORE the grid patch, or the re-derive it triggers holds
+            // the JS thread and the sheet sits there finished but open (#122).
+            setCollectFor(null);
+            selection.clear();
+            await afterCollect(created, send);
           }}
           onDismiss={() => setCollectFor(null)}
         />

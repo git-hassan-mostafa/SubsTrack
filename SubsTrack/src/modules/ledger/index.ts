@@ -40,5 +40,8 @@ export type { OpenBill } from './hooks/useOpenBill';
 export { CollectionsPanel } from './screens/CollectionsPanel';
 export { CollectionsHistorySheet } from './components/CollectionsHistorySheet';
 export { VoidCollectionDialog } from './components/VoidCollectionDialog';
+export { SharedBillsWarning } from './components/SharedBillsWarning';
+export { sharedBillsAcross, sharedBillsOf } from './utils/sharedBills';
+export type { SharedBill } from './utils/sharedBills';
 export { AmountCollectedSection } from './components/AmountCollectedSection';
 export type { PaymentMode } from './components/AmountCollectedSection';

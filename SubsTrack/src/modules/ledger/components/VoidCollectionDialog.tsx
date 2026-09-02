@@ -6,10 +6,14 @@ import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { COLORS } from "@/src/shared/constants";
 import type { Collection } from "@/src/core/types";
 import { useLedgerSlice } from "@/src/state/hooks/useLedgerSlice";
+import { sharedBillsOf } from "../utils/sharedBills";
+import { SharedBillsWarning } from "./SharedBillsWarning";
 
 interface Props {
   collection: Collection;
   voidedBy: string;
+  /** The bill this was opened from — the one outcome the user already expects. */
+  onBillChargeId?: string | null;
   /** Fired only when the void actually landed, with the row now marked voided. */
   onDone: (voided: Collection) => void;
   onDismiss: () => void;
@@ -24,14 +28,21 @@ interface Props {
  * holds the frozen price, and it reads as plain "unpaid" everywhere because
  * nothing in the app asks whether a bill row exists, only how much money came.
  */
-export function VoidCollectionDialog({ collection, voidedBy, onDone, onDismiss }: Props) {
+export function VoidCollectionDialog({
+  collection,
+  voidedBy,
+  onBillChargeId = null,
+  onDone,
+  onDismiss,
+}: Props) {
   const { t } = useTranslation();
   const voidCollection = useLedgerSlice((s) => s.voidCollection);
   const error = useLedgerSlice((s) => s.error);
   const clearError = useLedgerSlice((s) => s.clearError);
   const [reason, setReason] = useState("");
 
-  const count = collection.items?.length ?? 1;
+  // The split is already hydrated on the row, so naming them costs no read.
+  const shared = sharedBillsOf(collection, onBillChargeId, t);
 
   async function handleConfirm() {
     const voided = await voidCollection(collection, voidedBy, reason.trim() || null);
@@ -52,8 +63,8 @@ export function VoidCollectionDialog({ collection, voidedBy, onDone, onDismiss }
       visible
       title={t("ledger.void_payment")}
       message={
-        count > 1
-          ? t("ledger.void_covers_many_warning", { count })
+        shared.length > 0
+          ? t("ledger.void_covers_many_warning", { count: shared.length + 1 })
           : t("ledger.void_warning")
       }
       confirmLabel={t("ledger.void_payment")}
@@ -61,6 +72,11 @@ export function VoidCollectionDialog({ collection, voidedBy, onDone, onDismiss }
       onConfirm={handleConfirm}
       onCancel={handleDismiss}
     >
+      {shared.length > 0 ? (
+        <View className="mb-3">
+          <SharedBillsWarning bills={shared} />
+        </View>
+      ) : null}
       {error ? (
         <View className="mb-2">
           <ErrorBanner message={error} onDismiss={clearError} />
