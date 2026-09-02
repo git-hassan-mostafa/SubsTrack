@@ -146,11 +146,18 @@ export default function TabsLayout() {
           ),
         }}
       />
-      {/* Reachable only from the header's settings button (`href: null` keeps the
-          route navigable but drops it from the tab bar). */}
       <Tabs.Screen
         name="settings"
-        options={{ title: t("settings.title"), href: null }}
+        options={{
+          title: t("settings.title"),
+          tabBarIcon: ({ color }) => (
+            <Ionicons
+              name="settings-outline"
+              size={TAB_ICON_SIZE}
+              color={color}
+            />
+          ),
+        }}
       />
     </Tabs>
   );
