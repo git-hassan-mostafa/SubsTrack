@@ -37,6 +37,19 @@ export type BranchScope =
 export abstract class BaseRepository {
   protected readonly db: SupabaseClient = supabase;
 
+  /**
+   * Force a live access token before invoking an edge function. `getSession()`
+   * refreshes an expired token but only reports the failure through its error —
+   * an edge function otherwise receives the dead one and answers 401 "Auth
+   * session missing!". See gotcha #123.
+   */
+  protected async ensureFreshSession(): Promise<void> {
+    const { data, error } = await this.db.auth.getSession();
+    if (error || !data.session) {
+      this.handleError(new Error(i18n.t("errors.session_expired")));
+    }
+  }
+
   protected handleError(error: unknown): never {
     if (error && typeof error === "object" && "message" in error) {
       const message = (error as { message: string }).message;

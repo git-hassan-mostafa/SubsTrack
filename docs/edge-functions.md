@@ -2,6 +2,7 @@
 
 > Deno-runtime functions under `SubsTrack/supabase/functions/`. Referenced from `CLAUDE.md`.
 > Error handling for ALL of these is governed by gotcha #40 in `docs/gotchas.md` — invoke errors must go through `BaseRepository.handleFunctionsError` / `readFunctionsErrorBody`, never raw `handleError`.
+> **Every `functions.invoke` call site must `await this.ensureFreshSession()` first** — on native the token refresh is a foreground-only timer, so a backgrounded app sends an expired JWT and the function answers 401 `"Auth session missing!"`. See gotcha #123.
 
 ## `create-user`
 
@@ -12,6 +13,7 @@ Located at `SubsTrack/supabase/functions/create-user/index.ts`.
 - Enforces tenant isolation — admin can only create users in their own tenant.
 - For branch-scoped callers, validates and forces `branch_id` to the caller's branch.
 - Rolls back the `auth.users` entry if `public.users` insert fails.
+- **Logs one structured JSON line per event** — `{ fn, reqId, event, … }` through its `log()` helper, with a per-call `reqId` tying the lines of one request together and `client` (the `x-client-info` header) telling a phone call from a web one. Every rejection goes through `fail()`, which logs the status + reason before returning it, so a 4xx is always explainable from the dashboard logs alone. Passwords are never logged (only their length).
 - Deploy: `yarn deploy-create-user-edge-function` (from inside `SubsTrack/`).
 
 ## `update-user-password`

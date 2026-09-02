@@ -11,18 +11,43 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type",
 };
 
+// One structured JSON line per event, greppable in the dashboard's logs.
+function log(reqId: string, event: string, detail: Record<string, unknown> = {}) {
+  console.log(JSON.stringify({ fn: "create-user", reqId, event, ...detail }));
+}
+
+// Every rejection logs its reason AND returns it, so a 4xx is always
+// explainable from the logs alone.
+function fail(
+  reqId: string,
+  status: number,
+  error: string,
+  detail: Record<string, unknown> = {},
+) {
+  log(reqId, "rejected", { status, error, ...detail });
+  return new Response(JSON.stringify({ error }), {
+    status,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  // Short id tying every line of one call together across concurrent requests.
+  const reqId = crypto.randomUUID().slice(0, 8);
+  // x-client-info is how a phone build is told apart from the web one.
+  log(reqId, "request", {
+    method: req.method,
+    client: req.headers.get("x-client-info") ?? null,
+  });
+
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return fail(reqId, 401, "Unauthorized", { reason: "no_auth_header" });
     }
 
     const serviceClient = createClient(
@@ -44,11 +69,28 @@ Deno.serve(async (req) => {
     ]);
 
     if (callerErr || !caller) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      // Decode the unverified payload only to report WHY — an expired token is a
+      // stale client, a malformed one is a wiring bug, and they need different fixes.
+      let tokenExpiredAt: string | null = null;
+      let tokenIsAnon = false;
+      try {
+        const raw = authHeader.replace(/^Bearer\s+/i, "");
+        const claims = JSON.parse(atob(raw.split(".")[1]));
+        tokenExpiredAt = claims.exp ? new Date(claims.exp * 1000).toISOString() : null;
+        tokenIsAnon = claims.role === "anon";
+      } catch {
+        // Not a JWT at all — the two flags stay at their defaults.
+      }
+      return fail(reqId, 401, "Unauthorized", {
+        reason: "jwt_rejected",
+        authError: callerErr?.message ?? null,
+        tokenExpiredAt,
+        tokenExpired: tokenExpiredAt !== null && tokenExpiredAt < new Date().toISOString(),
+        tokenIsAnon,
       });
     }
+
+    log(reqId, "caller_authenticated", { callerId: caller.id });
 
     // Look up caller's profile to get their role, tenant, and branch
     const { data: callerProfile, error: profileLookupErr } = await serviceClient
@@ -58,50 +100,51 @@ Deno.serve(async (req) => {
       .single();
 
     if (profileLookupErr || !callerProfile) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      return fail(reqId, 401, "Unauthorized", {
+        reason: "caller_profile_missing",
+        callerId: caller.id,
+        dbError: profileLookupErr?.message ?? null,
       });
     }
 
     if (!["admin", "superadmin"].includes(callerProfile.role)) {
-      return new Response(
-        JSON.stringify({ error: "Forbidden: admin role required" }),
-        {
-          status: 403,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
-      );
+      return fail(reqId, 403, "Forbidden: admin role required", {
+        callerRole: callerProfile.role,
+      });
     }
 
     const { username, fullName, password, phone, role, tenantId, branchId } = body;
 
+    // The payload as received — never the password itself.
+    log(reqId, "payload", {
+      username: username ?? null,
+      hasFullName: !!fullName?.trim(),
+      passwordLength: typeof password === "string" ? password.length : 0,
+      role: role ?? null,
+      tenantId: tenantId ?? null,
+      branchId: branchId ?? null,
+      callerRole: callerProfile.role,
+      callerTenantId: callerProfile.tenant_id,
+      callerBranchId: callerProfile.branch_id,
+    });
+
     if (!fullName?.trim()) {
-      return new Response(JSON.stringify({ error: "Full name is required" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return fail(reqId, 400, "Full name is required");
     }
 
     // Enforce tenant isolation: admin can only create users within their own tenant
     if (tenantId !== callerProfile.tenant_id) {
-      return new Response(
-        JSON.stringify({
-          error: "Forbidden: cannot create users for another tenant",
-        }),
-        {
-          status: 403,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
+      return fail(
+        reqId,
+        403,
+        "Forbidden: cannot create users for another tenant",
+        { tenantId, callerTenantId: callerProfile.tenant_id },
       );
     }
 
     // Validate role — only admin and user are allowed via the app
     if (!["admin", "user"].includes(role)) {
-      return new Response(JSON.stringify({ error: "Invalid role" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return fail(reqId, 400, "Invalid role", { role });
     }
 
     // Enforce branch isolation: branch-scoped admins can only create users in
@@ -118,6 +161,12 @@ Deno.serve(async (req) => {
     const needsBranchValidation = callerProfile.branch_id === null && resolvedBranchId !== null;
     const needsBranchCount = role === "user" && resolvedBranchId === null;
 
+    log(reqId, "branch_resolved", {
+      resolvedBranchId,
+      needsBranchValidation,
+      needsBranchCount,
+    });
+
     const [
       { data: tenant, error: tenantErr },
       { data: branchRow, error: branchErr },
@@ -133,48 +182,38 @@ Deno.serve(async (req) => {
     ]);
 
     if (tenantErr || !tenant?.tenant_code) {
-      return new Response(
-        JSON.stringify({ error: "Tenant not found or missing tenant_code" }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
-      );
+      return fail(reqId, 400, "Tenant not found or missing tenant_code", {
+        tenantId,
+        dbError: tenantErr?.message ?? null,
+      });
     }
 
     if (needsBranchValidation && (branchErr || !branchRow || branchRow.tenant_id !== tenantId)) {
-      return new Response(
-        JSON.stringify({ error: "Invalid branch for this tenant" }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
-      );
+      return fail(reqId, 400, "Invalid branch for this tenant", {
+        resolvedBranchId,
+        tenantId,
+        branchTenantId: branchRow?.tenant_id ?? null,
+        dbError: branchErr?.message ?? null,
+      });
     }
 
     if (needsBranchCount) {
       if (countErr) {
-        return new Response(
-          JSON.stringify({ error: countErr.message }),
-          {
-            status: 500,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          },
-        );
+        return fail(reqId, 500, countErr.message, { step: "branch_count" });
       }
       if ((count ?? 0) > 0) {
-        return new Response(
-          JSON.stringify({ error: "Staff users must be assigned to a branch" }),
-          {
-            status: 400,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          },
-        );
+        // The usual phone-only failure: the client sent no branch because its
+        // local mirror had none, while the tenant really does have branches.
+        return fail(reqId, 400, "Staff users must be assigned to a branch", {
+          tenantBranchCount: count,
+        });
       }
     }
 
     // Construct synthetic email matching the login convention: username@tenantcode.com
     const email = `${username}@${tenant.tenant_code}.com`;
+
+    log(reqId, "creating_auth_user", { email });
 
     // Create auth user
     const { data: authData, error: authErr } =
@@ -183,7 +222,10 @@ Deno.serve(async (req) => {
         password,
         email_confirm: true,
       });
-    if (authErr) throw new Error(authErr.message);
+    if (authErr) {
+      log(reqId, "auth_create_failed", { email, authError: authErr.message });
+      throw new Error(authErr.message);
+    }
 
     const userId = authData.user.id;
 
@@ -203,20 +245,30 @@ Deno.serve(async (req) => {
       .single();
 
     if (profileErr) {
+      log(reqId, "profile_insert_failed", {
+        userId,
+        dbError: profileErr.message,
+        dbCode: profileErr.code ?? null,
+        dbDetails: profileErr.details ?? null,
+      });
       // Rollback the auth user to keep state consistent
       await serviceClient.auth.admin.deleteUser(userId).catch(() => { });
       throw new Error(profileErr.message);
     }
 
+    log(reqId, "created", { userId, role, branchId: resolvedBranchId });
+
     return new Response(JSON.stringify(profile), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
-    console.log("error from catech", err);
+    const message = err instanceof Error ? err.message : "Unknown error";
+    log(reqId, "unhandled", {
+      message,
+      stack: err instanceof Error ? err.stack : null,
+    });
     return new Response(
-      JSON.stringify({
-        error: err instanceof Error ? err.message : "Unknown error",
-      }),
+      JSON.stringify({ error: message }),
       {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },

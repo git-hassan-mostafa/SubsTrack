@@ -14,6 +14,7 @@ import { useAuth } from "@/src/modules/authentication/auth";
 import { useUserSlice } from "@/src/state/hooks/useUserSlice";
 import { getStore } from "@/src/state/globalStore";
 import { useActiveBranches } from "@/src/modules/admin/branches";
+import { useBranchSlice } from "@/src/state/hooks/useBranchSlice";
 import { useSubscriptionSlice } from "@/src/state/hooks/useSubscriptionSlice";
 import { UpgradePromptModal } from "@/src/modules/admin/subscription";
 import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
@@ -50,6 +51,7 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
   const tierLimitError = useUserSlice((s) => s.tierLimitError);
   const clearTierLimitError = useUserSlice((s) => s.clearTierLimitError);
   const activeBranches = useActiveBranches();
+  const branchesLoaded = useBranchSlice((s) => s.loaded);
   const currentTier = useSubscriptionSlice((s) => s.currentTier);
   const usage = useSubscriptionSlice((s) => s.usage);
 
@@ -80,7 +82,9 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
     confirmNewPassword: "",
   });
 
-  const dirty = useDirtyForm(form);
+  // The branch below is seeded by an effect, so it must not count as an edit.
+  const [branchAutoSeeded, setBranchAutoSeeded] = useState(false);
+  const dirty = useDirtyForm(form, branchAutoSeeded ? ["branchId"] : undefined);
 
   const isOwnAccount = editUser?.id === currentUser?.id;
 
@@ -129,6 +133,15 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
     clearError();
   }, [clearError]);
 
+  // Branches load in an effect, so the single-branch default above is computed
+  // before they arrive — re-seed it once they do, or staff go up with no branch.
+  useEffect(() => {
+    if (editUser || !branchesLoaded || activeBranches.length !== 1) return;
+    if (form.branchId !== null || form.role !== "user") return;
+    setBranchAutoSeeded(true);
+    setForm((prev) => ({ ...prev, branchId: activeBranches[0].id }));
+  }, [editUser, branchesLoaded, activeBranches, form.branchId, form.role]);
+
   // Staff users must be assigned to a branch once the tenant has any.
   // BranchPicker hides itself when there are no branches, so this validation
   // only fires in the "we have branches AND staff role AND no branch picked" case.
@@ -168,6 +181,7 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
   }
 
   const canSubmit =
+    branchesLoaded &&
     !!form.username.trim() &&
     !!form.fullName.trim() &&
     !usernameInvalid &&
@@ -312,7 +326,10 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
 
         <BranchPicker
           value={form.branchId}
-          onChange={(v) => setForm((prev) => ({ ...prev, branchId: v }))}
+          onChange={(v) => {
+            setBranchAutoSeeded(false);
+            setForm((prev) => ({ ...prev, branchId: v }));
+          }}
           nullLabel={t("branches.tenant_wide_admin")}
           nullSublabel={t("branches.tenant_wide_hint")}
           nullable={form.role === "admin"}

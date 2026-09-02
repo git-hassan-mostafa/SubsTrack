@@ -592,6 +592,7 @@
   },
   "errors": {
     "unexpected": "An unexpected error occurred",
+    "session_expired": "Your session has expired. Please sign in again.",
     "connection_error": "Connection error. Please try again.",
     "requires_connection": "This action requires an internet connection. Please reconnect and try again.",
     "organization_switch_blocked": "You have unsynced changes from the previous organization. Please sign back into it and sync before switching organizations.",

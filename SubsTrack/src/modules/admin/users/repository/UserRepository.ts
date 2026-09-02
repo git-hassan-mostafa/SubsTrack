@@ -18,6 +18,7 @@ export class UserRepository extends BaseRepository implements IUserRepository {
   }
 
   async create(payload: CreateUserPayload): Promise<DbUser> {
+    await this.ensureFreshSession();
     const { data, error } = await this.db.functions.invoke("create-user", {
       body: payload,
     });
@@ -83,6 +84,7 @@ export class UserRepository extends BaseRepository implements IUserRepository {
   async delete(id: string): Promise<void> {
     // Snapshot before the edge function removes the row.
     const { data: prior } = await this.db.from('users').select('*').eq('id', id).maybeSingle();
+    await this.ensureFreshSession();
     const { error } = await this.db.functions.invoke('delete-user', {
       body: { userId: id },
     });
@@ -100,6 +102,7 @@ export class UserRepository extends BaseRepository implements IUserRepository {
   }
 
   async updatePassword(userId: string, newPassword: string): Promise<void> {
+    await this.ensureFreshSession();
     const { error } = await this.db.functions.invoke('update-user-password', {
       body: { userId, newPassword },
     });
