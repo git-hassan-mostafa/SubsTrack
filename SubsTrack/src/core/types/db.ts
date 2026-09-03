@@ -313,6 +313,7 @@ export interface DbCollection {
   received_at: string;
   received_by_user_id: string | null;
   notes: string | null;
+  kind: 'month' | 'sale' | 'manual' | 'mixed' | null;
   created_at: string;
   updated_at: string;
   voided_at: string | null;

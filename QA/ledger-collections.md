@@ -60,7 +60,7 @@ Set up ONE customer owing exactly this:
 3.4 Save. **One** `collections` row of 55, with **three** `collection_items` (20 / 20 / 15).
 3.5 January and February cells both turn green. The two month bills were **materialized by this write** — they did not exist before it.
 3.6 The Debts screen shows the sale at **25** and the fee at **20**; the two months are gone.
-3.7 The money-in history shows **one** row of 55 with a `3 items ▾` expander; expanding it lists the split.
+3.7 The money-in history shows **one** row of 55: the two months and the sale are named on its second line, with a grey `3 items` chip; tapping the row opens the split.
 3.8 The audit log has **one** `collections` create entry whose `after_data` carries the whole split, plus a `charges` create for each month it raised.
 3.9 Send the WhatsApp receipt from that row: **one** message, listing the three lines under "This pays".
 
@@ -98,14 +98,14 @@ Set up ONE customer owing exactly this:
 
 ## 6b. Void a whole bill (the bill AND its payments)
 
-The other statement to 6: there the *cash* was wrong and the bill stays owed; here the **bill should never have existed**, so the cash goes with it. Reachable from the month cell's 3-dot → **Void this month**, from **View bill**'s red footer button, and — for a sale — from the sale's own **Void sale**.
+The other statement to 6: there the *cash* was wrong and the bill stays owed; here the **bill should never have existed**, so the cash goes with it. Reachable from the month cell's 3-dot → **Void this month**, from **View bill**'s header 3-dot menu, and — for a sale — from the sale's own **Void sale**.
 
 6b.1 On a **fully unpaid** month that still holds a bill (collect it, then void the hand-over per section 6 — the empty bill stays), the cell menu offers **Void this month**. Confirm: the bill is gone, the cell stays red/unpaid, and re-collecting raises a **fresh** bill (the frozen price is no longer preserved — that is the point of voiding it).
 6b.2 On a **paid** month, the cell menu offers **Void this month** *and* **View bill**. The confirm names the month and states that any money collected on it is voided too. It carries **no count** — the wording is the same whether one payment or five are involved.
 6b.3 Confirm 6b.2. The cell goes red/unpaid, the money-in history shows the hand-over dimmed + **Voided**, the dashboard revenue and the collector's wallet both drop by that amount.
 6b.4 **The wider case, which the message must warn about:** collect 55 across Jan + Feb + a sale (scenario 3), then void **January's** bill. The confirm warns that a payment which also settled another bill is undone in full, making that bill owed again. Confirm — February **and** the sale go back to owed as well, because one physical hand-over cannot be half-undone.
 6b.5 A month with **two** hand-overs on it (installments, scenario 2): both are voided, and the confirm reads exactly as it did in 6b.2 (no count, so no wording to get wrong).
-6b.6 **View bill** → the red footer button does exactly the same thing as the cell menu, and the sheet closes itself once the bill is gone.
+6b.6 **View bill** → the header **3-dot menu → Void this month** does exactly the same thing as the cell menu, and the sheet closes itself once the bill is gone.
 6b.7 A month with **no bill at all** (never collected) offers **no** void action — there is nothing to void.
 6b.8 Cancel the confirm at every entry point: nothing is written, no payment is voided.
 6b.9 Admin → Audit Log shows a `charges` **void** entry *and* a `collections` **void** entry per payment, all by the acting user.
@@ -114,7 +114,7 @@ The other statement to 6: there the *cash* was wrong and the bill stays owed; he
 6b.12 **Speed (the regression this guards).** Void a bill carrying **10+** hand-overs, on a device (offline path). It must complete in roughly the time one payment takes — the payments go in **one** UPDATE inside **one** transaction (`voidMany`), not a transaction per row queuing behind `withDbLock`. Same for the money-in history's bulk void of 10+ rows, and for a 10-sale bulk void.
 6b.13 **Opening a void dialog costs no reads.** The confirm appears instantly for any bill or selection, however many payments are involved — it states that the money goes without counting it. Watch the network / SQL log: nothing is queried until Confirm is pressed.
 6b.14 Audit is still **one entry per hand-over** after a batched void (not one for the batch), and each carries its own `before_data`.
-6b.15 **Newest month first.** With July *and* August paid on one service line, **Void this month** on July is refused — a "Not available" popup names August, and the destructive confirm never opens. Void August first, then July: both go through. Same from the bill sheet's red footer. Only a **month** bill is gated this way: a **sale** bill and a **hand-typed fee** are voided regardless of any month, and voiding one hand-over (section 6) is never blocked. Full matrix in `payments.md` §8.
+6b.15 **Newest month first.** With July *and* August paid on one service line, **Void this month** on July is refused — a "Not available" popup names August, and the destructive confirm never opens. Void August first, then July: both go through. Same from the bill sheet's header 3-dot menu. Only a **month** bill is gated this way: a **sale** bill and a **hand-typed fee** are voided regardless of any month, and voiding one hand-over (section 6) is never blocked. Full matrix in `payments.md` §8.
 
 ## 8. Two currencies
 
@@ -330,33 +330,39 @@ settled a month + a sale + a custom fee, and (d) a **voided** row.
 
 ### 17.1 The card marker replaced the expander
 
-17.1.1 The multi-bill row (c) shows a grey **3 items** marker with a layers icon — there is **no** `▾` chevron and no inline list any more.
-17.1.2 Tapping the marker area does not expand anything in place; it opens the split sheet (§17.3).
-17.1.3 The single-bill rows (a) and (b) still name their bill inline, unchanged.
+17.1.1 The multi-bill row (c) shows a grey **3 items** chip — there is **no** `▾` chevron and no inline list any more; the bills themselves are **named** on the line above it (see §19.1).
+17.1.2 Tapping the row does not expand anything in place; it opens the split sheet (§17.3).
+17.1.3 The single-bill rows (a) and (b) name their bill on the same line, with no chip.
 
 ### 17.2 A single-bill hand-over opens its bill
 
 17.2.1 Tap row (a) → the **month bill sheet** opens, titled with the bill's frozen label ("Jan 2026 · Internet").
 17.2.2 It shows collected-out-of-owed and every payment that reached that bill — including hand-overs made on other days.
-17.2.3 It offers **no Collect button and no red void-bill button**: this is a history surface, so the bill is read-only here.
+17.2.3 It offers **no Collect button and no 3-dot menu at all** (so no Void this month): this is a history surface, so the bill is read-only here.
 17.2.4 Tap row (b) → the **sale receipt** opens instead (its lines, its total, its payments). While it loads, the row's 3-dot slot shows a spinner.
 17.2.5 A hand-over that settled a **custom fee** opens the same bill sheet as a month, titled with the fee's description.
 
 ### 17.3 A multi-bill hand-over opens the split
 
-17.3.1 Tap row (c) → a sheet titled **What this paid** opens, showing the hand-over's total, the customer, the date, and "This payment settled 3 bills."
-17.3.2 One card per bill, in the order the waterfall filled them, each with its own amount, its kind badge (MONTH / SALE / CUSTOM) and its frozen label.
+17.3.1 Tap row (c) → a sheet titled **What this paid** opens: the hand-over's total, a status pill, then a details block (customer · received to the minute · who took it · where the cash is now · notes) and the bills under **This pays**. See §19.4.
+17.3.2 One card per bill, in the order the waterfall filled them, each with its own amount, its own kind icon colour and its frozen label — plus the bill's **total** and **due date**, and when it was billed.
 17.3.3 The card amounts **add up to the hand-over's total** exactly.
-17.3.4 Every amount prints in the **hand-over's** currency (an item has no currency of its own), with the display-currency suffix where one is set.
+17.3.4 Every amount prints in the **hand-over's** currency (an item has no currency of its own), with the display-currency value as a `≈` line under the headline only.
 17.3.5 Tap the month card → the month bill sheet opens **on top of** the split sheet. Back (or the header dismiss) returns to the split, not to the list.
 17.3.6 Tap the sale card → the sale receipt opens the same way; its row shows a spinner while the sale is fetched.
 17.3.7 Opening the split sheet triggers **no network read** — the list already carries every item and its charge.
 
-### 17.4 A voided hand-over is inert
+### 17.4 A voided hand-over opens its own record
 
-17.4.1 Row (d) has no 3-dot menu (nothing can be done to it) — and it still lines up: its **MONTH / SALE** badge sits in the same column as every other row's.
-17.4.2 Tapping row (d) does **nothing** — no bill sheet, no split sheet, no spinner.
-17.4.3 This holds for a voided multi-bill row too: the "3 items" marker is shown but not tappable.
+17.4.1 Row (d) has no 3-dot menu (nothing can be done to it), its amount is **struck through**, and it wears a red **Voided** chip carrying the reason.
+17.4.2 Tapping row (d) opens the **split sheet** — its own record. It used to do nothing at all.
+17.4.3 It opens the split even when it settled **one** bill: a live row would go straight to that bill, but the bill is owed again and is no longer this row's story.
+17.4.4 A voided row shows **no** custody chip — the cash it names does not exist any more.
+17.4.5 The sheet lists: the struck-through total, a **kind** pill plus a red **Voided** pill, the customer, when it was received, who took it, the notes, **when it was voided, by whom, and the reason**.
+17.4.6 It shows **no** "Cash now with…" row — a voided hand-over holds nothing, so custody there would be a lie.
+17.4.7 The bills section is headed **This had paid** with the caption "These bills are owed again", not "This pays".
+17.4.8 The bill cards are still tappable, and each opens a bill that now shows the money back as owed.
+17.4.9 Void a row from the list, then tap it straight away (no refresh): **Voided by** already names you — the store patch carries it.
 
 ### 17.5 Selection mode still wins
 
@@ -403,3 +409,118 @@ settled a month + a sale + a custom fee, and (d) a **voided** row.
 18.3.2 A voided hand-over is still listed but still counts for nothing in the header.
 
 18.3.3 One customer's money-in panel (opened from a customer) is unchanged.
+
+---
+
+## 19. Money received — the card, the filters and the totals
+
+What this section tests is **readability**, not new money rules: nothing here changes a balance. The one new stored value is `collections.kind` (what the cash paid for, frozen at collect time), which the type filter reads.
+
+**Reference code:** [CollectionCard.tsx](../SubsTrack/src/modules/ledger/components/CollectionCard.tsx) · [CollectionsPanel.tsx](../SubsTrack/src/modules/ledger/screens/CollectionsPanel.tsx) · [CollectionSplitSheet.tsx](../SubsTrack/src/modules/ledger/components/CollectionSplitSheet.tsx) · [collectionLabel.ts](../SubsTrack/src/modules/ledger/utils/collectionLabel.ts) · [collectionKind.ts](../SubsTrack/src/modules/ledger/utils/collectionKind.ts) · `formatMoneyPair` in [currency.ts](../SubsTrack/src/core/utils/currency.ts)
+
+> Run `sql scripts/script.sql` first — this section needs `collections.kind` and its backfill.
+
+### 19.1 The card reads who → how much → what → who holds it
+
+19.1.1 The **customer's name** is the bold first line, left; the **amount** is bold on the right. (It used to be the other way round.)
+19.1.2 A walk-in hand-over (no customer) reads **Walk-in / no customer**, never a blank line.
+19.1.3 The second line **names the bills**: one bill prints its label, two print both separated by a comma, four print the first two then **+2 more**.
+19.1.4 The third line is **who took the cash · the date and time** (to the minute — nothing on this page prints seconds).
+19.1.5 The kind is carried by the **icon colour** — month and sale green (a sale matches the Sales page exactly), custom violet, mixed indigo.
+19.1.5a A **kind chip** also names it in words: Month · Sale · Custom · Mixed, tinted to match its icon. Month and sale share the green tint, so the WORD is what tells them apart.
+19.1.5b The chip is on **every** row, including voided ones, and sits first — before `N items`, the holder chip and `Voided`.
+19.1.5c A **mixed** hand-over reads `Mixed`, never the kind of just one of its bills.
+19.1.6 A hand-over of several bills wears a grey **N items** chip.
+
+### 19.2 The amount is the money that was physically handed over
+
+19.2.1 With the display currency set to USD, collect **180,000 LBP**. The card's headline reads `180,000 L.L.` and a small grey `≈ $2.00` sits under it. (It used to read only `$2.00`.)
+19.2.2 Collect in USD with the display currency USD → **no** `≈` line at all.
+19.2.3 Set the display currency to LBP and collect in LBP → still no `≈` line (it would repeat the same figure).
+19.2.4 Send that hand-over's WhatsApp receipt: the amount in the message and the amount on the card are **the same number in the same currency**.
+19.2.5 The month section header still totals in the **display** currency (it sums many currencies, so it must convert).
+
+### 19.3 Custody is only mentioned when it moved
+
+19.3.1 A hand-over still held by the collector who took it → **no** custody chip.
+19.3.2 Have an admin receive that cash in Wallets, then reopen the list → an amber chip names the **holder**.
+19.3.3 Close out (bank) the cash → the chip reads **Banked / handed over**.
+
+### 19.4 The detail sheet says everything the row could not
+
+19.4.1 Open a multi-bill hand-over → customer, received, who took it, where the cash is now, and the **notes** typed when collecting are all listed. (Notes were stored but never shown anywhere before.)
+19.4.2 A hand-over with no notes simply has no Notes row — never an empty one.
+19.4.3 A **voided** hand-over shows its void time and reason, and its total is struck through.
+19.4.4 Each bill card shows the bill's total and due date, and when it was billed. Those figures are the **bill's**, not this payment's — a bill of 50 settled by 20 here shows both numbers.
+19.4.5 A bill card does **not** claim a remaining balance. Tap it: the bill sheet is where "collected out of owed" is computed.
+
+### 19.5 The month bill sheet shows the same depth
+
+19.5.1 Open a month bill (from a cell or from the money-in list) → the details block lists the customer, the month billed, the bill total, the due date, when it was billed, who billed it, and the notes.
+19.5.2 Every payment row in it shows the time and its collector.
+19.5.3 A bill in LBP prints its hero, its remaining and every payment row in **LBP**, with one `≈` display line under the hero. Nothing in the sheet mixes the two currencies.
+19.5.4 A 3-month bundle names its whole range in "Month billed" ("Apr – Jun 2026"), exactly as the cells do.
+
+### 19.6 The period is visible, never a silent default
+
+19.6.1 Open Money received: the period chips show **This month** selected, and the exact dates are printed under them. (The screen used to silently show "the last month" with nothing on screen saying so.)
+19.6.2 Pick **Last 3 months** → the list and the total both widen; the caption follows.
+19.6.3 Pick **Custom** → two date inputs appear; the range applies on change.
+19.6.4 A hand-over dated **today** is always inside the default window, and one from two months ago is **not** — widen the period and it appears.
+
+### 19.7 Type, status, sort field and order
+
+19.7.1 Filter **Type → Month**: only hand-overs whose every bill was a month remain. A payment that settled a month **and** a sale is **not** listed.
+19.7.2 Filter **Type → Mixed**: exactly those multi-kind hand-overs.
+19.7.3 Filter **Type → Sale** and then **Custom**: the same rule per kind.
+19.7.4 The section-header totals and the summary bar follow the type filter — the header never totals rows that are filtered out.
+19.7.5 Filter **Status → Not voided**: voided rows disappear. **Voided only**: nothing but reversals.
+19.7.6 Set **Order → Oldest first**: the list reverses, the month sections come oldest first, and paging on scroll keeps that order (no duplicate or missing rows).
+19.7.6a **Sort by** offers exactly three dates — Received date (default), Recorded date, Last updated. There is deliberately no due-date and no amount option (gotcha #129).
+19.7.6b Record a payment with a **back-dated** received date (cash taken last week, entered today). Under **Received date** it sits in last week's month section; under **Recorded date** it jumps to the top of today's. The two orders must visibly differ.
+19.7.6c Void an old hand-over, then sort by **Last updated**: that row moves to the top (newest first). Its position under Received date is unchanged.
+19.7.6d Sort by **Last updated** and scroll past one page: no row appears twice and none is skipped — several rows voided in one action share an `updated_at`, and `created_at` is what breaks that tie.
+19.7.6e Each sort field works with **both** directions, and with the period, type, status, customer and collector filters applied at once.
+19.7.7 Any filter change resets paging: scroll far down, change the type, and the list starts at the top with the right rows.
+19.7.8 **Clear filters** returns to This month · all types · both statuses · Received date · newest first, and the Clear chip is only offered while something is off-default (including a non-default period, sort field or order).
+
+### 19.8 The summary bar
+
+19.8.1 Under the filters, **Collected in this view** shows one total for the whole filter — not just the loaded page. Verify by scrolling: it does not change as more rows load.
+19.8.2 It equals the sum of every month section header.
+19.8.3 Voided rows contribute **nothing** to it (with Status → Voided only, it reads zero).
+19.8.4 Void a listed hand-over from its 3-dot menu → the total drops by that amount with no reload.
+
+### 19.9 The stored kind
+
+19.9.1 Collect one month → the new `collections` row has `kind = 'month'`.
+19.9.2 Collect 55 across two months and a sale → `kind = 'mixed'`.
+19.9.3 A hand-over recorded **before** this change (its `kind` is NULL until the backfill runs) still shows the right badge and icon in the list — the read derives it from the items.
+19.9.4 After running `script.sql`, no live `collections` row has a NULL `kind`; on native, sync brings the backfilled value down and the type filter then matches those rows too.
+19.9.5 Offline: collect while offline → the row is written with its kind, filters work against the mirror, and the value that later reaches Postgres is the same one.
+
+---
+
+## 20. The bill sheet's header 3-dot menu (gotcha #131)
+
+`BillSheet` used to end in **two** stacked full-width buttons — a primary
+**Collect** and a red **Void this month**. The collect button stays in the body
+(a bill is opened to collect it); voiding the bill moved to a 3-dot button in
+the sheet header, beside Close, matching the sale receipt (`sales.md` §3A).
+
+Setup: a partly-paid month bill on a customer's grid (**View bill** from the
+cell's 3-dot), reached from the customer payment panel — which is the one
+surface that passes `onVoidBill`.
+
+20.1 The body ends in exactly **one** full-width button: **Collect $X** (the remaining amount). There is no red bar under it.
+20.2 The header reads: the bill's label on the left, then a 3-dot icon and **Close** on the right.
+20.3 Tap the 3-dot → an ActionMenu opens titled with the bill's label, holding one red destructive row: **Void this month**.
+20.4 A **settled** bill (nothing remaining) shows no Collect button, but the 3-dot is still there with Void this month — that is the only action left.
+20.5 Opened from the **money-in history** (§17.2), the sheet passes no `onVoidBill`, so the 3-dot button is **hidden entirely** — a history surface is read-only.
+20.6 Menu → Void this month → the caller's own destructive confirm appears (naming the month, stating the money goes). Cancel leaves the bill untouched and the sheet open.
+20.7 Confirm → the bill and its payments are voided and **the sheet closes itself**. Same behavior as before the button moved.
+20.8 **Newest month first still gates it.** With a later month of the same line paid, Void this month from this menu is refused by the "Not available" popup naming that month — the destructive confirm never opens (the same rule as 6b.15).
+20.9 After a refusal in 20.8 the sheet stays open and the menu can be opened again — no wedged backdrop, no dead taps.
+20.10 There is **no loading spinner on the void** any more: the confirm dialog blocks while it runs and the sheet dismisses on success, so there is nothing left to spin on. It must not double-fire if the menu row is tapped twice quickly (the menu closes on the first tap).
+20.11 Press and drag **down** on the header near the 3-dot → the sheet drags/closes; a plain tap on the icon still opens the menu.
+20.12 RTL (Arabic): the 3-dot and Close sit on the leading side and the menu row reads right-to-left.

@@ -2,21 +2,26 @@ import {
   useCallback,
   useEffect,
   useRef,
+  useState,
   type ReactNode,
   type RefObject,
 } from "react";
+import { View } from "react-native";
 import {
   BottomSheetScrollView,
   type BottomSheetScrollViewMethods,
 } from "@gorhom/bottom-sheet";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
+import { Ionicons } from "@expo/vector-icons";
 import { AppBottomSheet } from "./AppBottomSheet";
 import { useSheetDismiss } from "./sheetDismissContext";
 import { ResponsiveContainer } from "./ResponsiveContainer";
 import { SheetDragArea } from "./SheetDragArea";
 import { PressableOpacity } from "./PressableOpacity/PressableOpacity";
 import { Text } from "./Text";
+import { ActionMenu, type ActionMenuItem } from "./ActionMenu";
+import { COLORS } from "@/src/shared/constants";
 import { useAfterFirstFrame } from "@/src/shared/hooks/useAfterFirstFrame";
 
 /** Scrolls the sheet body to a content offset; `0` is the top of the form. */
@@ -45,6 +50,13 @@ interface FormSheetProps {
    * caller would silently get a no-op.
    */
   scrollRef?: RefObject<SheetScrollTo | null>;
+  /**
+   * Secondary actions on the record the sheet shows (edit, history, void),
+   * behind a 3-dot button in the header. Empty or omitted hides the button, so
+   * a caller builds the array conditionally the way every ActionMenu caller
+   * does. See gotcha #131 for why these left the body.
+   */
+  menuActions?: ActionMenuItem[];
   children: ReactNode;
 }
 
@@ -74,6 +86,7 @@ export function FormSheet({
   dismissLabel,
   dirty = false,
   scrollRef,
+  menuActions,
   children,
 }: FormSheetProps) {
   return (
@@ -89,6 +102,7 @@ export function FormSheet({
         dismissLabel={dismissLabel}
         onDismiss={onDismiss}
         scrollRef={scrollRef}
+        menuActions={menuActions}
       >
         {children}
       </FormSheetBody>
@@ -107,6 +121,7 @@ function FormSheetBody({
   dismissLabel,
   onDismiss,
   scrollRef,
+  menuActions,
   children,
 }: {
   visible: boolean;
@@ -114,12 +129,25 @@ function FormSheetBody({
   dismissLabel?: string;
   onDismiss: () => void;
   scrollRef?: RefObject<SheetScrollTo | null>;
+  menuActions?: ActionMenuItem[];
   children: ReactNode;
 }) {
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const bodyReady = useAfterFirstFrame(visible);
   const dismiss = useSheetDismiss(onDismiss);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const hasMenu = (menuActions?.length ?? 0) > 0;
+  // The actions the menu was opened with. An action may remove itself from the
+  // list (the sale receipt's void swaps the menu for a reason form), and letting
+  // the open menu re-render empty — or unmount mid-animation — wedges Gorhom and
+  // leaves the backdrop up. Frozen on open, so it closes showing what was tapped.
+  const [openActions, setOpenActions] = useState<ActionMenuItem[]>([]);
+
+  function openMenu() {
+    setOpenActions(menuActions ?? []);
+    setMenuOpen(true);
+  }
 
   const bodyRef = useRef<BottomSheetScrollViewMethods>(null);
   const scrollTo = useCallback<SheetScrollTo>((y) => {
@@ -138,14 +166,29 @@ function FormSheetBody({
   return (
     <ResponsiveContainer className="flex-1">
       <SheetDragArea className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
-        <Text fontWeight="Bold" className="text-lg text-gray-900">
+        <Text fontWeight="Bold" className="flex-1 me-3 text-lg text-gray-900">
           {title}
         </Text>
-        <PressableOpacity onPress={dismiss}>
-          <Text className="text-base text-primary font-medium">
-            {dismissLabel ?? t("common.cancel")}
-          </Text>
-        </PressableOpacity>
+        <View className="flex-row items-center gap-4">
+          {hasMenu ? (
+            <PressableOpacity
+              onPress={openMenu}
+              hitSlop={8}
+              accessibilityLabel={t("common.more_actions")}
+            >
+              <Ionicons
+                name="ellipsis-vertical"
+                size={20}
+                color={COLORS.gray600}
+              />
+            </PressableOpacity>
+          ) : null}
+          <PressableOpacity onPress={dismiss}>
+            <Text className="text-base text-primary font-medium">
+              {dismissLabel ?? t("common.cancel")}
+            </Text>
+          </PressableOpacity>
+        </View>
       </SheetDragArea>
 
       <BottomSheetScrollView
@@ -160,6 +203,15 @@ function FormSheetBody({
       >
         {bodyReady ? children : null}
       </BottomSheetScrollView>
+
+      {openActions.length > 0 ? (
+        <ActionMenu
+          visible={menuOpen}
+          title={title}
+          actions={openActions}
+          onDismiss={() => setMenuOpen(false)}
+        />
+      ) : null}
     </ResponsiveContainer>
   );
 }

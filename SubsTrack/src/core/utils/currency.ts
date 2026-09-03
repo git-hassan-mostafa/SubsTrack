@@ -117,3 +117,13 @@ export function formatPaidFraction(
   const paidLabel = stripCurrencyLabel(formatMoney(paid, source, target), target);
   return `${paidLabel}/${formatMoney(due, source, target)}`;
 }
+
+export function formatMoneyPair(
+  amount: number,
+  source: Currency | null,
+  display: Currency | null,
+): { primary: string; approx: string | null } {
+  const primary = formatMoney(amount, source, source);
+  const same = (source?.id ?? null) === (display?.id ?? null);
+  return { primary, approx: same ? null : `≈ ${formatMoney(amount, source, display)}` };
+}

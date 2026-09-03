@@ -1289,6 +1289,14 @@ ALTER TABLE collections ADD COLUMN IF NOT EXISTS received_by_user_id UUID
     CONSTRAINT fk_collections_received_by REFERENCES users(id) ON DELETE SET NULL;
 
 ALTER TABLE collections ADD COLUMN IF NOT EXISTS notes TEXT;
+
+-- What the cash PAID FOR: the one kind all its items share, or 'mixed'. Frozen by
+-- the app at collect time (like sales.items_summary) because a collection's items
+-- never change afterwards -- it is what makes the history's type filter one
+-- indexed predicate instead of a COUNT(DISTINCT) no PostgREST query can express.
+-- Free text: the app owns the code list, so a new kind needs no migration.
+ALTER TABLE collections ADD COLUMN IF NOT EXISTS kind TEXT;
+
 ALTER TABLE collections ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 ALTER TABLE collections ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 
@@ -1358,6 +1366,10 @@ CREATE INDEX IF NOT EXISTS idx_collections_customer_id
 CREATE INDEX IF NOT EXISTS idx_collections_holder
     ON collections (held_by_user_id)
     WHERE held_by_user_id IS NOT NULL AND voided_at IS NULL;
+
+-- The money-in history's type filter.
+CREATE INDEX IF NOT EXISTS idx_collections_kind
+    ON collections (tenant_id, kind);
 
 -- ============================================================
 -- COLLECTION ITEMS  (which bill the money paid — the lines)

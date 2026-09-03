@@ -27,6 +27,10 @@ interface Props {
   onCollectItem: (item: OpenItem) => void;
   onVoidItem?: (item: OpenItem) => void;
   onWriteOff?: (item: OpenItem) => void;
+  /** Tapping a row opens the record behind it — a bill, or a sale's receipt. */
+  onOpenItem?: (item: OpenItem) => void;
+  /** Key of the row whose record is being fetched, so it shows a spinner. */
+  openingItemKey?: string | null;
 }
 
 /**
@@ -44,6 +48,8 @@ export function DebtorDetailSheet({
   onCollectItem,
   onVoidItem,
   onWriteOff,
+  onOpenItem,
+  openingItemKey,
 }: Props) {
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
@@ -120,6 +126,8 @@ export function DebtorDetailSheet({
                   onCollect={onCollectItem}
                   onVoidItem={onVoidItem}
                   onWriteOff={onWriteOff}
+                  onOpenItem={onOpenItem}
+                  openingItemKey={openingItemKey}
                 />
               </>
             ) : null}

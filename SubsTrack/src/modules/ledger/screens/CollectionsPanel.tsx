@@ -13,8 +13,11 @@ import { EmptyState } from "@/src/shared/components/EmptyState";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { Text } from "@/src/shared/components/Text";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
-import { Dropdown, type DropdownOption } from "@/src/shared/components/Dropdown";
-import { DatePickerInput } from "@/src/shared/components/DatePickerInput";
+import {
+  Dropdown,
+  type DropdownOption,
+} from "@/src/shared/components/Dropdown";
+import { PeriodPicker } from "@/src/shared/components/PeriodPicker";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { MonthSectionHeader } from "@/src/shared/components/MonthSectionHeader";
 import { groupByMonth } from "@/src/shared/lib/monthSections";
@@ -29,9 +32,17 @@ import {
 import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
 import { CustomerPicker } from "@/src/modules/customer/customers";
 import { useSendInvoice } from "@/src/modules/invoicing";
-import { getDateMonthsAgoString, getTodayDateString } from "@/src/core/utils/date";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
-import type { CollectionItem, CollectionListItem } from "@/src/core/types";
+import type {
+  CollectionItem,
+  CollectionListItem,
+  WalletSource,
+} from "@/src/core/types";
+import type {
+  CollectionSortField,
+  SortDirection,
+} from "../repository/ICollectionRepository";
+import type { CollectionStatus } from "@/src/state/slices/collections/collectionsListSlice";
 import { useCollectionsListSlice } from "@/src/state/hooks/useCollectionsListSlice";
 import { useLedgerSlice } from "@/src/state/hooks/useLedgerSlice";
 import { useUserSlice } from "@/src/state/hooks/useUserSlice";
@@ -75,11 +86,19 @@ export function CollectionsPanel({ onOpenSale }: Props = {}) {
   const customerFilter = useCollectionsListSlice((s) => s.customerFilter);
   const setCustomerFilter = useCollectionsListSlice((s) => s.setCustomerFilter);
   const receivedByUserId = useCollectionsListSlice((s) => s.receivedByUserId);
-  const setReceivedByUserId = useCollectionsListSlice((s) => s.setReceivedByUserId);
-  const receivedFrom = useCollectionsListSlice((s) => s.receivedFrom);
-  const setReceivedFrom = useCollectionsListSlice((s) => s.setReceivedFrom);
-  const receivedTo = useCollectionsListSlice((s) => s.receivedTo);
-  const setReceivedTo = useCollectionsListSlice((s) => s.setReceivedTo);
+  const setReceivedByUserId = useCollectionsListSlice(
+    (s) => s.setReceivedByUserId,
+  );
+  const period = useCollectionsListSlice((s) => s.period);
+  const setPeriod = useCollectionsListSlice((s) => s.setPeriod);
+  const kind = useCollectionsListSlice((s) => s.kind);
+  const setKind = useCollectionsListSlice((s) => s.setKind);
+  const status = useCollectionsListSlice((s) => s.status);
+  const setStatus = useCollectionsListSlice((s) => s.setStatus);
+  const sortField = useCollectionsListSlice((s) => s.sortField);
+  const setSortField = useCollectionsListSlice((s) => s.setSortField);
+  const sortDirection = useCollectionsListSlice((s) => s.sortDirection);
+  const setSortDirection = useCollectionsListSlice((s) => s.setSortDirection);
   const clearFilters = useCollectionsListSlice((s) => s.clearFilters);
   const clearError = useCollectionsListSlice((s) => s.clearError);
   const applyVoided = useCollectionsListSlice((s) => s.applyVoided);
@@ -131,13 +150,58 @@ export function CollectionsPanel({ onOpenSale }: Props = {}) {
     [users],
   );
 
+  const kindOptions: DropdownOption<WalletSource>[] = useMemo(
+    () =>
+      (["month", "sale", "manual", "mixed"] as WalletSource[]).map((k) => ({
+        label: t(`ledger.kind_${k}`),
+        value: k,
+      })),
+    [t],
+  );
+
+  const statusOptions: DropdownOption<CollectionStatus>[] = useMemo(
+    () => [
+      { label: t("ledger.status_live"), value: "live" },
+      { label: t("ledger.status_voided"), value: "voided" },
+    ],
+    [t],
+  );
+
+  // Only dates the hand-over owns — a due date is the bill's (gotcha #129).
+  const sortFieldOptions: DropdownOption<CollectionSortField>[] = useMemo(
+    () => [
+      { label: t("ledger.sort_by_received"), value: "received_at" },
+      { label: t("ledger.sort_by_recorded"), value: "created_at" },
+      { label: t("ledger.sort_by_updated"), value: "updated_at" },
+    ],
+    [t],
+  );
+
+  const sortOptions: DropdownOption<SortDirection>[] = useMemo(
+    () => [
+      { label: t("ledger.sort_newest"), value: "desc" },
+      { label: t("ledger.sort_oldest"), value: "asc" },
+    ],
+    [t],
+  );
+
   const hasActiveFilters =
     !!customerFilter ||
     !!receivedByUserId ||
-    receivedFrom !== getDateMonthsAgoString(1) ||
-    receivedTo !== getTodayDateString();
+    !!kind ||
+    !!status ||
+    sortField !== "received_at" ||
+    sortDirection !== "desc" ||
+    period.preset !== "this_month";
 
   const selected = items.filter((c) => selectedIds.has(c.id));
+
+  // The money in the CURRENT filter, not just the loaded page: the totals query
+  // is unpaginated, so these month sums already cover every matching row.
+  const periodTotalUsd = useMemo(
+    () => Object.values(monthlyTotals).reduce((sum, v) => sum + v, 0),
+    [monthlyTotals],
+  );
 
   // Bucket the already-received_at-desc rows into month sections, each carrying
   // that month's true total (USD, at each row's own frozen rate).
@@ -172,25 +236,27 @@ export function CollectionsPanel({ onOpenSale }: Props = {}) {
   }
 
   /** One bill behind a hand-over. Its label was frozen by the list read. */
-  function openItem(item: CollectionItem, label: string) {
+  function openItem(
+    item: CollectionItem,
+    label: string,
+    customerName?: string | null,
+  ) {
     if (!item.charge) return;
-    void openBill.open(item.charge, label);
+    void openBill.open(item.charge, label, customerName);
   }
 
-  /**
-   * A hand-over that settled ONE bill goes straight to it; one that settled
-   * several opens the split first, because no allocation could pick for the user.
-   */
   function openCollection(row: CollectionListItem) {
-    if (row.itemCount > 1) {
+    if (row.itemCount > 1 || row.voidedAt !== null) {
       setSplit(row);
       return;
     }
     const first = row.items[0];
-    if (first) openItem(first, row.itemLabels[0] ?? "");
+    if (first) openItem(first, row.itemLabels[0] ?? "", row.customerName);
   }
 
-  function buildSelectionActions(rows: CollectionListItem[]): SelectionAction[] {
+  function buildSelectionActions(
+    rows: CollectionListItem[],
+  ): SelectionAction[] {
     // Already-voided rows are visible in the list, so a mixed selection must
     // only void the live ones; an all-voided selection offers nothing.
     const live = rows.filter((c) => c.voidedAt === null);
@@ -211,12 +277,13 @@ export function CollectionsPanel({ onOpenSale }: Props = {}) {
       <ResponsiveContainer className="flex-1">
         {/* Filters hide while selecting; the selection toolbar takes over. */}
         {!selectionActive ? (
-          <View className="px-4">
+          <View>
+            <PeriodPicker value={period} onChange={setPeriod} />
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
-              className="-mx-4"
+              className="mt-2"
               contentContainerStyle={{
                 paddingHorizontal: 16,
                 gap: 8,
@@ -240,21 +307,38 @@ export function CollectionsPanel({ onOpenSale }: Props = {}) {
                 nullLabel={t("payments.all_users")}
                 triggerStyle="chip"
               />
-              <DatePickerInput
-                placeholder={t("payments.paid_from")}
-                value={receivedFrom ?? ""}
-                onChange={(v) => setReceivedFrom(v || null)}
-                maxDate={receivedTo ?? undefined}
+              <Dropdown<WalletSource>
+                placeholder={t("ledger.filter_by_type")}
+                options={kindOptions}
+                value={kind}
+                onChange={(k) => setKind(k)}
+                nullable
+                nullLabel={t("ledger.all_types")}
                 triggerStyle="chip"
-                clearable
               />
-              <DatePickerInput
-                placeholder={t("payments.paid_to")}
-                value={receivedTo ?? ""}
-                onChange={(v) => setReceivedTo(v || null)}
-                minDate={receivedFrom ?? undefined}
+              <Dropdown<CollectionStatus>
+                placeholder={t("ledger.filter_by_status")}
+                options={statusOptions}
+                value={status}
+                onChange={(s) => setStatus(s)}
+                nullable
+                nullLabel={t("ledger.all_statuses")}
                 triggerStyle="chip"
-                clearable
+              />
+              <Dropdown<CollectionSortField>
+                placeholder={t("ledger.sort_by_label")}
+                options={sortFieldOptions}
+                value={sortField}
+                onChange={(f) => setSortField(f ?? "received_at")}
+                triggerStyle="chip"
+              />
+              <Dropdown<SortDirection>
+                placeholder={t("ledger.sort_label")}
+                options={sortOptions}
+                value={sortDirection}
+                // Not nullable: there is always an order, so null means "keep".
+                onChange={(d) => setSortDirection(d ?? "desc")}
+                triggerStyle="chip"
               />
               {hasActiveFilters ? (
                 <PressableOpacity
@@ -268,6 +352,15 @@ export function CollectionsPanel({ onOpenSale }: Props = {}) {
                 </PressableOpacity>
               ) : null}
             </ScrollView>
+
+            <View className="mt-3 flex-row items-baseline justify-between border-t border-gray-100 px-4 pt-3">
+              <Text className="text-xs uppercase tracking-wide text-gray-500">
+                {t("ledger.total_in_period")}
+              </Text>
+              <Text fontWeight="SemiBold" className="text-sm text-emerald-700">
+                {formatMoney(periodTotalUsd, null, displayCurrency)}
+              </Text>
+            </View>
           </View>
         ) : (
           <SelectionBar
@@ -294,7 +387,11 @@ export function CollectionsPanel({ onOpenSale }: Props = {}) {
             sections={sections}
             keyExtractor={(c) => c.id}
             stickySectionHeadersEnabled={false}
-            contentContainerStyle={{ padding: 16, paddingBottom: 96, flexGrow: 1 }}
+            contentContainerStyle={{
+              padding: 16,
+              paddingBottom: 96,
+              flexGrow: 1,
+            }}
             refreshControl={
               <RefreshControl
                 refreshing={loading}
@@ -311,7 +408,11 @@ export function CollectionsPanel({ onOpenSale }: Props = {}) {
                 title={section.title}
                 count={section.data.length}
                 first={section.key === sections[0]?.key}
-                total={formatMoney(section.totalUsd ?? 0, null, displayCurrency)}
+                total={formatMoney(
+                  section.totalUsd ?? 0,
+                  null,
+                  displayCurrency,
+                )}
               />
             )}
             ListFooterComponent={
@@ -329,10 +430,15 @@ export function CollectionsPanel({ onOpenSale }: Props = {}) {
                 onToggleSelect={(c) => toggleSelect(c.id)}
                 onEnterSelection={(c) => enterSelection(c.id)}
                 onVoid={(c) => setVoidIds([c.id])}
-                onSendInvoice={canSend(item.customerPhone) ? (c) => void sendOne(c) : undefined}
+                onSendInvoice={
+                  canSend(item.customerPhone)
+                    ? (c) => void sendOne(c)
+                    : undefined
+                }
                 onOpen={openCollection}
                 loading={
-                  item.itemCount === 1 && openBill.loadingId === item.items[0]?.chargeId
+                  item.itemCount === 1 &&
+                  openBill.loadingId === item.items[0]?.chargeId
                 }
               />
             )}
@@ -365,10 +471,11 @@ export function CollectionsPanel({ onOpenSale }: Props = {}) {
         onDismiss={() => setSplit(null)}
         onOpenItem={(item) => {
           const i = split?.items.indexOf(item) ?? -1;
-          openItem(item, split?.itemLabels[i] ?? "");
+          openItem(item, split?.itemLabels[i] ?? "", split?.customerName);
         }}
         loadingItemId={
-          split?.items.find((i) => i.chargeId === openBill.loadingId)?.id ?? null
+          split?.items.find((i) => i.chargeId === openBill.loadingId)?.id ??
+          null
         }
       />
 

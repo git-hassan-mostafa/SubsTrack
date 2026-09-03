@@ -4,11 +4,9 @@ import i18n from '@/src/core/i18n';
 import type {
   AllocationLine,
   CashRow,
-  ChargeKind,
   Collection,
   CollectionListItem,
   OpenItem,
-  WalletSource,
 } from '@/src/core/types';
 import { nowIso } from '@/src/core/offline/ids';
 import { chargeService } from './ChargeService';
@@ -19,6 +17,7 @@ import type {
   FindCollectionsOptions,
 } from '../repository/ICollectionRepository';
 import { mapDbCollectionToCollection } from '../utils/mapper';
+import { collectionKind } from '../utils/collectionKind';
 import { chargeLabel } from '../utils/openItems';
 import { allocate, keyOf } from '../utils/waterfall';
 
@@ -117,6 +116,7 @@ class CollectionService {
       received_at: input.receivedAt,
       received_by_user_id: input.receivedByUserId,
       notes: input.notes ?? null,
+      kind: collectionKind(lines.map((l) => l.item.kind)),
       items,
       charges,
     });
@@ -201,15 +201,12 @@ class CollectionService {
         branchId: c.branchId,
         notes: c.notes,
         voidedAt: c.voidedAt,
+        voidedBy: c.voidedBy,
         voidReason: c.voidReason,
         itemCount: items.length,
-        // Labelled here, from the DB row, so the list never re-derives what a
-        // charge is called — chargeLabel is the one answer for every kind.
         itemLabels: dbItems.map((it) => (it.charges ? chargeLabel(it.charges) : '')),
         items,
-        // What the money paid for. 'mixed' is honest: a hand-over can settle a
-        // month AND a sale, and no allocation could split the cash between them.
-        kind: kindOf(dbItems.map((it) => it.charges?.kind)),
+        kind: row.kind ?? collectionKind(dbItems.map((it) => it.charges?.kind)),
       };
     }
   }
@@ -313,13 +310,6 @@ class CollectionService {
  */
 function ceilingOf(line: AllocationLine): number {
   return line.item.openAmount && line.item.balance <= 0 ? line.amount : line.item.balance;
-}
-
-/** The one kind every line shares, or 'mixed' when they disagree. */
-function kindOf(kinds: (ChargeKind | undefined)[]): WalletSource {
-  const present = kinds.filter((k): k is ChargeKind => !!k);
-  if (present.length === 0) return 'mixed';
-  return present.every((k) => k === present[0]) ? present[0] : 'mixed';
 }
 
 /** Money is NUMERIC(20,8); compare with a tolerance well below one cent. */

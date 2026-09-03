@@ -64,13 +64,24 @@ Covers the **Debts** screen (Transactions → Debts — a single debtors list, n
 | 2.4 | Collect one bill | A row's 3-dot → **Collect** | The collect sheet opens with that bill alone, no split preview |
 | 2.5 | Live refresh | Collect part of a bill from inside the sheet | The row's amount drops and the header follows, without closing the sheet |
 | 2.6 | Add a fee here | Header **+** → amount, description, due date → save | Pre-filled to this customer (read-only); the row appears and the total rises |
-| 2.7 | Rows show the fraction | A month with 10 of 20 collected | The date line reads "… · 10/20 $" — collected out of owed, in the collected currency |
-| 2.8 | Rows show how late | A bill 40 days past due | The date line includes "40 days late" |
+| 2.7 | Rows show the fraction | A month with 10 of 20 collected | An **amber chip** reads "10/20 $" — collected out of owed, in the bill's own currency |
+| 2.8 | Rows show how late | A bill 40 days past due | A **red chip** reads "40 days late". Nothing late → no chip |
+| 2.8b | The card reads like a money-received card | Any row | Label + amount on one line, the due and billed dates under it, then a chip row. The **kind chip** is tinted per kind (month and sale share teal — the word parts them; custom is violet) — never emerald, which means money that arrived |
+| 2.8c | Amount in the bill's own currency | An LBP bill with USD as the display currency | The bold figure is the **LBP** balance, with a small `≈ $…` under it. Same rule as the money-received card (#128) |
+| 2.8d | A written-off bill says so | Write a bill off, reopen the sheet | An **orange "Written off" chip**; the row still shows as owed |
 | 2.9 | Settled customer | Collect everything | The sheet empties and the customer leaves the list |
 | 2.10 | **Newest first — the sheet only** | A customer owing Jan, Mar and a sale raised today | The sheet lists them **latest raised first** (sale, Mar, Jan). Both sections sort this way independently. The Debts **list** and the customer-detail panel are unchanged — still oldest due date first |
 | 2.11 | The display sort never moves the money | With that list on screen, tap **Collect $N** | The split preview still fills **oldest due date first** (Jan, then Mar, then the sale) — the list's order is presentation only |
 | 2.12 | Rows show the time | A bill raised today | The date line ends with when it was billed, clock time included ("Billed on" instant, e.g. "Aug 31, 2:15 PM"); the year is dropped while it is the current one |
 | 2.13 | A virtual month shows no time | An unpaid month nothing has been collected for | **No** time is printed — it has no bill yet, so there is no real instant to show. Only its due date and "days late" |
+| 2.14 | Tap a **month** row | A partly-paid month | `BillSheet` opens: the bill's `collected / owed` hero, its details, and every hand-over that reached it |
+| 2.15 | Tap a **fee** row | A hand-typed debt | The same `BillSheet` — a month and a fee are the same `charges` row |
+| 2.16 | Tap a **sale** row | A pay-later sale | The sale **receipt** opens (its lines, totals and payments), not `BillSheet` |
+| 2.17 | A month or a fee opens instantly | Tap either | **No spinner** — the row carries its own bill, the same way the money-in history does. Only a **sale** shows one, while its receipt loads |
+| 2.18 | A virtual month is not tappable | An unpaid month nothing was collected for | Tapping does nothing — there is no stored bill behind it. Its 3-dot **Collect** still works |
+| 2.19 | Unpaid-months rows open too | Tap a row in the muted **Unpaid months** section | It is a partly-paid month bill, so `BillSheet` opens the same way |
+| 2.20 | Void a payment from inside | Open a bill → a payment's 3-dot → **Void payment** | The bill's balance rises, and the debtor sheet + list behind it follow without being reopened |
+| 2.21 | The bill sheet is read-only here | Any opened bill | No **Collect** and no **Void bill** footer — collecting is the row's own 3-dot action |
 
 ---
 

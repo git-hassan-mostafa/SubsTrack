@@ -217,10 +217,14 @@ SubsTrack/
 │   │   │   ├── services/LedgerService.ts        # "what does this customer owe?" — stored bills + virtual unpaid months
 │   │   │   ├── utils/waterfall.ts               # PURE oldest-first allocation (no I/O, no clock)
 │   │   │   ├── utils/openItems.ts               # THE debt rule (isDebtItem) + the OpenItem builders
+│   │   │   ├── utils/collectionKind.ts          # what the cash PAID FOR ('mixed' when it disagrees) - frozen at collect, derived for old rows
+│   │   │   ├── utils/collectionLabel.ts         # the bills a hand-over paid, in words ("Jan 2026 · Internet, Sale #12 +1")
+│   │   │   ├── utils/kindStyle.ts               # one icon + colour per kind; the row's kind is its ICON, not a badge
 │   │   │   ├── utils/{monthTotals, mapper}.ts
 │   │   │   ├── hooks/useCollectSheet.tsx        # the one way a list opens the collect sheet
 │   │   │   ├── screens/CollectionsPanel.tsx     # the money-in history (one list, was payments + debt payments)
-│   │   │   └── components/{CollectSheet, BillSheet, CollectionCard, CollectionsHistorySheet,
+│   │   │   └── components/{CollectSheet, BillSheet, BillPaymentsList, CollectionCard,
+│   │   │                    CollectionSplitSheet, CollectionItemCard, CollectionsHistorySheet,
 │   │   │                    CollectQuickActionSheet, VoidCollectionDialog, CollectionsVoidDialog,
 │   │   │                    AmountCollectedSection}.tsx
 │   │   │
@@ -253,6 +257,7 @@ SubsTrack/
 │       │   ├── BottomSheetScaffold.tsx # Auto-height popup shell (dropdowns/pickers/menus) on AppBottomSheet
 │       │   ├── FormSheet.tsx      # Full-height form/detail sheet shell on AppBottomSheet (replaced the deleted SheetModal)
 │       │   ├── bottomSheetInputContext.ts # useSheetTextInput / useSheetScrollView — swap to Gorhom variants inside a sheet
+│       │   ├── InfoRows.tsx      # A record's label→value block for the detail sheets; empty values drop out
 │       │   ├── ErrorBanner.tsx    # Inline error display (never toast/alert)
 │       │   ├── Dropdown.tsx, DatePickerInput.tsx
 │       │   ├── AsyncEntityPicker.tsx # Searchable + paginated picker for large entity lists (used for customer picker in SaleFormSheet)

@@ -8,6 +8,7 @@ export const COLORS = {
   warningLight: "#fffbeb",
   white: "#ffffff",
   black: "#000000",
+  violet: "#7c3aed",
 
   gray50: "#f9fafb",
   gray100: "#f3f4f6",

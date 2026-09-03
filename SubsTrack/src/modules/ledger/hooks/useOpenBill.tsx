@@ -1,5 +1,6 @@
 import { useCallback, useState, type ReactNode } from "react";
-import type { Charge, Collection } from "@/src/core/types";
+import type { Charge, Collection, OpenItem } from "@/src/core/types";
+import { chargeService } from "../services/ChargeService";
 import { BillSheet } from "../components/BillSheet";
 
 interface Options {
@@ -14,11 +15,13 @@ interface Options {
 }
 
 export interface OpenBill {
-  /** Opens whatever record a bill belongs to. Reports if it did anything. */
-  open: (charge: Charge, label: string) => Promise<void>;
-  /** The bill id currently being opened — for the row's spinner. */
+  open: (
+    charge: Charge,
+    label: string,
+    customerName?: string | null,
+  ) => Promise<void>;
+  openOwed: (item: OpenItem) => Promise<void>;
   loadingId: string | null;
-  /** Render once per screen. */
   sheet: ReactNode;
 }
 
@@ -31,28 +34,71 @@ export interface OpenBill {
  * it lists the bill and its payments without offering to collect or void it.
  */
 export function useOpenBill({ onOpenSale, onChanged }: Options = {}): OpenBill {
-  const [bill, setBill] = useState<{ charge: Charge; label: string } | null>(null);
+  const [bill, setBill] = useState<{
+    charge: Charge;
+    label: string;
+    customerName?: string | null;
+  } | null>(null);
   const [loadingId, setLoadingId] = useState<string | null>(null);
 
-  const open = useCallback(
-    async (charge: Charge, label: string) => {
-      if (charge.kind === "sale") {
-        if (!onOpenSale || !charge.saleId) return;
-        setLoadingId(charge.id);
-        try {
-          await onOpenSale(charge.saleId);
-        } finally {
-          setLoadingId(null);
-        }
-        return;
+  const openSale = useCallback(
+    async (chargeId: string, saleId: string) => {
+      if (!onOpenSale) return;
+      setLoadingId(chargeId);
+      try {
+        await onOpenSale(saleId);
+      } finally {
+        setLoadingId(null);
       }
-      setBill({ charge, label });
     },
     [onOpenSale],
   );
 
+  const open = useCallback(
+    async (charge: Charge, label: string, customerName?: string | null) => {
+      if (charge.kind === "sale") {
+        if (charge.saleId) await openSale(charge.id, charge.saleId);
+        return;
+      }
+      setBill({ charge, label, customerName });
+    },
+    [openSale],
+  );
+
+  const openOwed = useCallback(
+    async (item: OpenItem) => {
+      if (!item.chargeId) return;
+      if (item.kind === "sale") {
+        if (item.saleId) await openSale(item.chargeId, item.saleId);
+        return;
+      }
+      if (item.charge) {
+        setBill({
+          charge: item.charge,
+          label: item.label,
+          customerName: item.customerName,
+        });
+        return;
+      }
+      setLoadingId(item.chargeId);
+      try {
+        const charge = await chargeService.getById(item.chargeId);
+        if (charge)
+          setBill({
+            charge,
+            label: item.label,
+            customerName: item.customerName,
+          });
+      } finally {
+        setLoadingId(null);
+      }
+    },
+    [openSale],
+  );
+
   return {
     open,
+    openOwed,
     loadingId,
     sheet: (
       <BillSheet
@@ -60,6 +106,7 @@ export function useOpenBill({ onOpenSale, onChanged }: Options = {}): OpenBill {
         onDismiss={() => setBill(null)}
         charge={bill?.charge ?? null}
         label={bill?.label ?? ""}
+        customerName={bill?.customerName}
         onChanged={onChanged}
       />
     ),

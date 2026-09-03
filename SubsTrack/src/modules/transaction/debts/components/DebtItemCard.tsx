@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/src/shared/components/Text";
 import { COLORS } from "@/src/shared/constants";
+import { Chip } from "@/src/shared/components/Chip";
 import { EntityCard } from "@/src/shared/components/EntityCard";
 import {
   ActionMenu,
@@ -12,14 +13,18 @@ import {
 import type { ChargeKind, OpenItem } from "@/src/core/types";
 import {
   findCurrency,
-  formatMoney,
+  formatMoneyPair,
   formatPaidFraction,
   snapshotCurrency,
 } from "@/src/core/utils/currency";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { useLanguageStore } from "@/src/core/i18n/languageStore";
-import { daysLate, formatDateTimeShort } from "@/src/core/utils/date";
+import {
+  daysLate,
+  formatDate,
+  formatDateTimeShort,
+} from "@/src/core/utils/date";
 
 interface Props {
   item: OpenItem;
@@ -40,15 +45,33 @@ interface Props {
   muted?: boolean;
 }
 
-const KIND_STYLE: Record<
-  ChargeKind,
-  { icon: keyof typeof Ionicons.glyphMap; badge: string }
-> = {
-  month: { icon: "calendar-outline", badge: "bg-red-50 text-red-700" },
-  sale: { icon: "receipt-outline", badge: "bg-red-50 text-red-700" },
-  manual: { icon: "document-text-outline", badge: "bg-red-50 text-red-700" },
+interface KindStyle {
+  icon: keyof typeof Ionicons.glyphMap;
+  chipClassName: string;
+}
+
+// Month and sale share a tint, so the chip's WORD is what parts them — the
+// same rule as CollectionCard. Never emerald: that means money that arrived.
+const KIND_STYLE: Record<ChargeKind, KindStyle> = {
+  month: {
+    icon: "calendar-outline",
+    chipClassName: "bg-teal-50 text-teal-700",
+  },
+  sale: { icon: "receipt-outline", chipClassName: "bg-teal-50 text-teal-700" },
+  manual: {
+    icon: "document-text-outline",
+    chipClassName: "bg-violet-50 text-violet-700",
+  },
 };
 
+/**
+ * ONE bill that still owes money — the debts twin of `CollectionCard`.
+ *
+ * Read top-down it answers what a debts list is opened with: what is owed, how
+ * much, when it was due, and what state the bill is in. The facts that used to
+ * be crammed into one grey micro-line are chips now, because "40 days late" is
+ * the point of the row and was the easiest thing on it to miss.
+ */
 export function DebtItemCard({
   item,
   onCollect,
@@ -67,22 +90,25 @@ export function DebtItemCard({
   const [menuOpen, setMenuOpen] = useState(false);
 
   const source = snapshotCurrency(item, currencies);
-  const target = findCurrency(currencies, displayCurrencyId);
-  const amountLabel = formatMoney(item.balance, source, target);
-  // "20/50 $" — collected out of owed. Only shown once money has reached the
-  // bill; before that the amount already says everything.
+  const display = findCurrency(currencies, displayCurrencyId);
+  // The bill's OWN currency — what the customer will hand over. See #128.
+  const money = formatMoneyPair(item.balance, source, display);
+  // "20/50 $" — collected out of owed. Only once money has reached the bill.
   const paidFraction =
     item.paid > 0
       ? formatPaidFraction(item.paid, item.amount, source, source)
       : null;
   const style = KIND_STYLE[item.kind];
   const late = daysLate(item.dueDate);
-  // When the bill was actually raised, clock time included. Only a STORED bill
-  // has a real instant — a virtual month's `issuedAt` is just its billing month,
-  // so printing a time there would invent one.
+  const writtenOff = item.charge?.writtenOffAt != null;
+  // Only a STORED bill has a real instant — a virtual month's `issuedAt` is
+  // just its billing month, so printing a time there would invent one.
   const billedAt = item.chargeId
     ? formatDateTimeShort(item.issuedAt, locale)
     : null;
+
+  // A virtual month has no stored bill, so there is no record to open.
+  const handleOpen = onOpen && item.chargeId ? () => onOpen(item) : undefined;
 
   const actions: ActionMenuItem[] = [];
   if (onCollect) {
@@ -124,46 +150,78 @@ export function DebtItemCard({
   }
 
   return (
-    <>
-      <EntityCard
-        icon={style.icon}
-        iconColor={muted ? COLORS.gray500 : COLORS.danger}
-        iconBgClassName={muted ? "bg-gray-100" : "bg-red-50"}
-        dimmed={muted}
-        onPress={onOpen ? () => onOpen(item) : undefined}
-        onMenu={actions.length > 0 ? () => setMenuOpen(true) : undefined}
-        reserveMenuSpace
-        menuLoading={loading}
-      >
-        <View className="flex-1">
+    <EntityCard
+      icon={style.icon}
+      iconColor={muted ? COLORS.gray500 : COLORS.danger}
+      iconBgClassName={muted ? "bg-gray-100" : "bg-red-50"}
+      dimmed={muted}
+      onPress={handleOpen}
+      onMenu={actions.length > 0 ? () => setMenuOpen(true) : undefined}
+      reserveMenuSpace
+      menuLoading={loading}
+    >
+      <View className="flex-1 gap-0.5">
+        <View className="flex-row items-start justify-between gap-2">
           <Text
-            className="text-base font-semibold text-gray-900"
+            className="flex-1 text-base font-semibold text-slate-900"
             numberOfLines={1}
           >
             {hideCustomerName ? item.label : item.customerName}
           </Text>
-          <Text className="text-xs text-gray-500 mt-0.5" numberOfLines={1}>
-            {hideCustomerName ? "" : `${item.label} · `}
-            {billedAt ? ` · ${billedAt}` : ""}
-            {/* How far behind — the one thing a debts list is really asking. */}
-            {late > 0 ? ` · ${t("ledger.days_late", { count: late })}` : ""}
-            {/* Collected out of owed — says WHY the row owes what it owes. Sits
-                here, not under the amount, so the card keeps its height. */}
-            {paidFraction ? ` · ${paidFraction}` : ""}
-          </Text>
+          <View className="items-end">
+            <Text className="text-base font-semibold text-slate-900">
+              {money.primary}
+            </Text>
+            {money.approx ? (
+              <Text className="text-[11px] text-slate-400">{money.approx}</Text>
+            ) : null}
+          </View>
         </View>
 
-        <View className="items-end ms-2">
-          <Text fontWeight="Bold" className="text-base text-gray-900">
-            {amountLabel}
+        {hideCustomerName ? null : (
+          <Text className="text-xs text-slate-600" numberOfLines={1}>
+            {item.label}
           </Text>
+        )}
+        {/* Both dates the bill owns — tight leading keeps them one block. */}
+        <View>
           <Text
-            className={`text-[10px] font-semibold uppercase tracking-wide mt-1 px-1.5 py-0.5 rounded ${style.badge}`}
+            className="text-[11px] leading-[15px] text-slate-500"
+            numberOfLines={1}
           >
-            {t(`ledger.kind_${item.kind}`)}
+            {t("ledger.due_date")} {formatDate(item.dueDate, locale)}
           </Text>
+          {billedAt ? (
+            <Text
+              className="text-[11px] leading-[15px] text-slate-500"
+              numberOfLines={1}
+            >
+              {t("ledger.issued_at")} {billedAt}
+            </Text>
+          ) : null}
         </View>
-      </EntityCard>
+        <View className="mt-1 flex-row flex-wrap items-center gap-1">
+          <Chip
+            text={t(`ledger.kind_${item.kind}`)}
+            className={style.chipClassName}
+          />
+          {late > 0 ? (
+            <Chip
+              text={t("ledger.days_late", { count: late })}
+              className="bg-red-50 text-red-700"
+            />
+          ) : null}
+          {paidFraction ? (
+            <Chip text={paidFraction} className="bg-amber-50 text-amber-700" />
+          ) : null}
+          {writtenOff ? (
+            <Chip
+              text={t("ledger.written_off")}
+              className="bg-orange-50 text-orange-700"
+            />
+          ) : null}
+        </View>
+      </View>
 
       <ActionMenu
         visible={menuOpen}
@@ -171,6 +229,6 @@ export function DebtItemCard({
         actions={actions}
         onDismiss={() => setMenuOpen(false)}
       />
-    </>
+    </EntityCard>
   );
 }

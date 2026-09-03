@@ -8,7 +8,7 @@ import { Text } from "@/src/shared/components/Text";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // The icon carries the tab, so it is bigger than the 24 default.
-const TAB_ICON_SIZE = 28;
+const TAB_ICON_SIZE = 24;
 // Only the SELECTED tab is named, but the label slot is reserved on every tab
 // (an unselected one renders it invisible) — otherwise the selected icon would
 // jump up while its neighbours stayed centred. A fixed line height keeps the bar
@@ -46,7 +46,7 @@ export default function TabsLayout() {
             fontWeight="Bold"
             numberOfLines={1}
             style={{
-              fontSize: 14,
+              fontSize: 12,
               lineHeight: TAB_LABEL_HEIGHT,
               marginBottom: TAB_LABEL_MARGIN,
               textAlign: "center",

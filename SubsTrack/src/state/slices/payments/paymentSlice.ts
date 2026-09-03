@@ -44,6 +44,8 @@ export interface PaymentSlice {
   paidMonthsByLine: Record<string, string[]>;
   /** The customer list's badge dataset. Absent = unknown, never "unpaid". */
   customerStatuses: Map<string, CustomerStatus>;
+  /** Whose bills are in the store — the "grids may be derived" signal (#130). */
+  billsCustomerId: string | null;
   loading: boolean;
   loadingSkip: boolean;
   error: string | null;
@@ -102,6 +104,7 @@ export const createPaymentSlice: StateCreator<
   uncoveredMonthsByLine: {},
   paidMonthsByLine: {},
   customerStatuses: new Map(),
+  billsCustomerId: null,
   loading: false,
   loadingSkip: false,
   error: null,
@@ -139,6 +142,7 @@ export const createPaymentSlice: StateCreator<
       set((state) => {
         state.payments.bills = bills;
         state.payments.skips = skips;
+        state.payments.billsCustomerId = customerId;
         state.payments.loading = false;
       });
     } catch (e) {
@@ -247,6 +251,7 @@ export const createPaymentSlice: StateCreator<
       state.payments.uncoveredMonthsByLine = {};
       state.payments.paidMonthsByLine = {};
       state.payments.customerStatuses = new Map();
+      state.payments.billsCustomerId = null;
       state.payments.loading = false;
       state.payments.loadingSkip = false;
       state.payments.error = null;

@@ -54,6 +54,7 @@ export function openItemFromCharge(
     issuedAt: charge.issuedAt,
     createdAt: charge.createdAt,
     isDebt: isDebtItem(charge.kind, paid),
+    charge,
   };
 }
 

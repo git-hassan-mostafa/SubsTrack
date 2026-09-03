@@ -259,6 +259,7 @@ export const TABLES: TableSpec[] = [
       id: 'text', tenant_id: 'text', branch_id: 'text', customer_id: 'text',
       amount: 'num', currency_id: 'text', rate_per_usd_snapshot: 'num',
       received_at: 'text', received_by_user_id: 'text', notes: 'text',
+      kind: 'text',
       voided_at: 'text', voided_by: 'text', void_reason: 'text',
       held_by_user_id: 'text', remitted_at: 'text', remitted_by: 'text',
       created_at: 'text', updated_at: 'text',

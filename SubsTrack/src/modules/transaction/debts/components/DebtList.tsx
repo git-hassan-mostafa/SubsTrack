@@ -116,6 +116,8 @@ export function DebtList({
               hideCustomerName
               muted
               onCollect={onCollect}
+              onOpen={onOpenItem}
+              loading={openingItemKey === rowKey(item)}
             />
           ))}
         </>

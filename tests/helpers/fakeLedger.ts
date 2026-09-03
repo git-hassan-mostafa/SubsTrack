@@ -15,6 +15,7 @@ import {
   revivePatch,
   samePrice,
 } from '@/src/modules/ledger/repository/chargeRevive';
+import { collectionKind } from '@/src/modules/ledger/utils/collectionKind';
 import { sumByMonth } from '@/src/modules/ledger/utils/monthTotals';
 
 /**
@@ -37,6 +38,14 @@ let collections: DbCollection[] = [];
 let items: DbCollectionItem[] = [];
 let n = 0;
 const nextId = (p: string) => `${p}-${++n}`;
+
+/** What a hand-over paid for, read off its items — the pre-column fallback. */
+const derivedKind = (collectionId: string) =>
+  collectionKind(
+    items
+      .filter((i) => i.collection_id === collectionId)
+      .map((i) => charges.find((c) => c.id === i.charge_id)?.kind),
+  );
 
 export const store = {
   get charges() {
@@ -107,6 +116,9 @@ export const store = {
       received_at: '2026-02-01T10:00:00.000Z',
       received_by_user_id: 'user-1',
       notes: null,
+      // Null on purpose: a seeded row stands for one written before the column
+      // existed, so the read path's fallback derivation stays exercised.
+      kind: null,
       created_at: '2026-02-01T10:00:00.000Z',
       updated_at: '2026-02-01T10:00:00.000Z',
       voided_at: null,
@@ -257,11 +269,19 @@ export const fakeCollectionRepository = {
   async find(opts: FindCollectionsOptions): Promise<DbCollection[]> {
     let rows = collections.slice();
     if (!opts.includeVoided) rows = rows.filter((c) => c.voided_at === null);
+    if (opts.voidedOnly) rows = rows.filter((c) => c.voided_at !== null);
     if (opts.customerId) rows = rows.filter((c) => c.customer_id === opts.customerId);
     if (opts.heldByUserId) rows = rows.filter((c) => c.held_by_user_id === opts.heldByUserId);
     if (opts.startIso) rows = rows.filter((c) => c.received_at >= opts.startIso!);
     if (opts.endExclusiveIso) rows = rows.filter((c) => c.received_at < opts.endExclusiveIso!);
-    rows.sort((a, b) => b.received_at.localeCompare(a.received_at));
+    // Both repositories fall back to deriving the kind from the row's own items
+    // when the frozen column is still null — the mirror's COALESCE, in JS.
+    if (opts.kind) rows = rows.filter((c) => (c.kind ?? derivedKind(c.id)) === opts.kind);
+    const asc = opts.sortDirection === 'asc';
+    const field = opts.sortField ?? 'received_at';
+    // created_at breaks ties, exactly as both repositories order.
+    const key = (c: DbCollection) => `${c[field]}|${c.created_at}`;
+    rows.sort((a, b) => (asc ? key(a).localeCompare(key(b)) : key(b).localeCompare(key(a))));
     return fakeCollectionRepository.findByIds(rows.map((r) => r.id));
   },
   async findItemsForCharges(chargeIds: string[]): Promise<DbCollectionItem[]> {
@@ -271,8 +291,12 @@ export const fakeCollectionRepository = {
       .filter((i) => collections.find((c) => c.id === i.collection_id)?.voided_at === null);
   },
   async monthlyTotals(opts: FindCollectionsOptions): Promise<Record<string, number>> {
+    // Both repositories: voided money is not money, so it has no total.
+    if (opts.voidedOnly) return {};
     let rows = collections.filter((c) => c.voided_at === null);
     if (opts.customerId) rows = rows.filter((c) => c.customer_id === opts.customerId);
+    // Same type filter as `find`, or a header total would not match its rows.
+    if (opts.kind) rows = rows.filter((c) => (c.kind ?? derivedKind(c.id)) === opts.kind);
     return sumByMonth(
       rows.map((r) => ({
         received_at: r.received_at,
@@ -350,6 +374,8 @@ export const fakeCollectionRepository = {
       voided_at: new Date().toISOString(),
       voided_by: voidedBy,
       void_reason: reason,
+      // Every synced table carries a BEFORE UPDATE trigger for this.
+      updated_at: new Date().toISOString(),
     });
     return { ...row };
   },
@@ -359,6 +385,7 @@ export const fakeCollectionRepository = {
       Object.assign(row, {
         voided_at: new Date().toISOString(),
         voided_by: voidedBy,
+        updated_at: new Date().toISOString(),
         void_reason: reason,
       });
     }

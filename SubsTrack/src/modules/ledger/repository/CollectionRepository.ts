@@ -92,22 +92,18 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
     const limit = opts.limit ?? PAGE_SIZE;
     const offset = opts.offset ?? 0;
     const search = opts.searchTerm?.trim();
+    const asc = opts.sortDirection === 'asc';
+    const sortField = opts.sortField ?? 'received_at';
     let query = this.db
       .from('collections')
-      // `!inner` ONLY while searching: a filter on a plain embed narrows the
-      // EMBEDDED rows, not the parents, so a left-joined customers(*) returned
-      // every hand-over with a null customer instead of the matches. An inner
-      // join the rest of the time would drop walk-in cash, which has no
-      // customer at all — see monthlyTotals.
       .select(search ? COLLECTION_SELECT_SEARCH : COLLECTION_SELECT)
-      // created_at breaks the tie: a back-dated hand-over (and every row
-      // written before received_at carried a time of day) lands at noon, so
-      // without it same-day rows come back in arbitrary order.
-      .order('received_at', { ascending: false })
-      .order('created_at', { ascending: false })
-      .range(offset, offset + limit - 1);
+      .order(sortField, { ascending: asc });
+    if (sortField !== 'created_at') query = query.order('created_at', { ascending: asc });
+    query = query.range(offset, offset + limit - 1);
 
     if (!opts.includeVoided) query = query.is('voided_at', null);
+    if (opts.voidedOnly) query = query.not('voided_at', 'is', null);
+    if (opts.kind) query = query.eq('kind', opts.kind);
     if (opts.customerId) query = query.eq('customer_id', opts.customerId);
     if (opts.heldByUserId) query = query.eq('held_by_user_id', opts.heldByUserId);
     if (opts.receivedByUserId) query = query.eq('received_by_user_id', opts.receivedByUserId);
@@ -122,6 +118,7 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
   }
 
   async monthlyTotals(opts: FindCollectionsOptions): Promise<Record<string, number>> {
+    if (opts.voidedOnly) return {};
     // Three numeric columns, unpaginated — cheap, and the only way a section
     // header can show the month's real total rather than the loaded page's.
     const search = opts.searchTerm?.trim();
@@ -143,6 +140,7 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
     if (opts.receivedByUserId) query = query.eq('received_by_user_id', opts.receivedByUserId);
     if (opts.startIso) query = query.gte('received_at', opts.startIso);
     if (opts.endExclusiveIso) query = query.lt('received_at', opts.endExclusiveIso);
+    if (opts.kind) query = query.eq('kind', opts.kind);
     if (search) query = query.ilike('customers.name', `%${search}%`);
     query = this.applyBranchFilter(query, opts.branchFilter ?? null, this.BRANCH_SCOPES.collections);
 
@@ -430,8 +428,8 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
       .from('collection_items')
       .select(
         'id, amount, charges!inner(kind, plan_id, description, billing_month), ' +
-          'collections!inner(id, received_at, currency_id, rate_per_usd_snapshot, branch_id, ' +
-          'received_by_user_id, customer_id, notes, voided_at, customers(name))',
+        'collections!inner(id, received_at, currency_id, rate_per_usd_snapshot, branch_id, ' +
+        'received_by_user_id, customer_id, notes, voided_at, customers(name))',
       )
       .is('collections.voided_at', null)
       .gte('collections.received_at', startIso)

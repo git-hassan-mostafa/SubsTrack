@@ -293,6 +293,120 @@ describe('voiding a hand-over', () => {
   });
 });
 
+describe('what the cash paid for', () => {
+  const kindOfRow = (id: string) => store.collections.find((c) => c.id === id)?.kind;
+
+  it('TC-CL-50 freezes ONE kind when every bill it settles agrees', async () => {
+    store.seedCharge({ id: 'chg-a', amount: 10 });
+    store.seedCharge({ id: 'chg-b', amount: 10 });
+    const row = await collectionService.collect(
+      input({
+        amount: 20,
+        lines: [
+          lineOf(openItem({ chargeId: 'chg-a', amount: 10 }), 10),
+          lineOf(openItem({ chargeId: 'chg-b', amount: 10 }), 10),
+        ],
+      }),
+    );
+    expect(kindOfRow(row.id)).toBe('month');
+  });
+
+  it('TC-CL-51 freezes it as mixed when one hand-over settles two kinds', async () => {
+    store.seedCharge({ id: 'chg-m', amount: 10 });
+    store.seedCharge({ id: 'chg-s', amount: 10, kind: 'sale' });
+    const row = await collectionService.collect(
+      input({
+        amount: 20,
+        lines: [
+          lineOf(openItem({ chargeId: 'chg-m', amount: 10 }), 10),
+          lineOf(openItem({ chargeId: 'chg-s', kind: 'sale', amount: 10 }), 10),
+        ],
+      }),
+    );
+    expect(kindOfRow(row.id)).toBe('mixed');
+  });
+
+  it('TC-CL-52 a row written before the column reports its kind, derived', async () => {
+    const chg = store.seedCharge({ amount: 10, kind: 'sale' });
+    const old = store.seedCollection(chg.id, 10);
+    expect(old.kind).toBeNull();
+    const [listed] = await collectionService.getHistory({});
+    expect(listed.kind).toBe('sale');
+  });
+
+  it('TC-CL-53 the type filter reads the frozen kind, and mixed is its own type', async () => {
+    const month = store.seedCharge({ id: 'f-m', amount: 10 });
+    store.seedCollection(month.id, 10, { id: 'only-month', kind: 'month' });
+    store.seedCharge({ id: 'f-s', amount: 10, kind: 'sale' });
+    store.seedCollection('f-s', 10, { id: 'a-mix', kind: 'mixed' });
+
+    const months = await collectionService.getHistory({ kind: 'month' });
+    expect(months.map((c) => c.id)).toEqual(['only-month']);
+    const mixed = await collectionService.getHistory({ kind: 'mixed' });
+    expect(mixed.map((c) => c.id)).toEqual(['a-mix']);
+  });
+
+  it('TC-CL-54 the history can be read oldest first, and voided rows on their own', async () => {
+    const chg = store.seedCharge({ amount: 30 });
+    store.seedCollection(chg.id, 10, { id: 'c1', received_at: '2026-02-01T00:00:00.000Z' });
+    store.seedCollection(chg.id, 10, { id: 'c2', received_at: '2026-03-01T00:00:00.000Z' });
+    const dead = store.seedCollection(chg.id, 10, {
+      id: 'c3',
+      received_at: '2026-04-01T00:00:00.000Z',
+    });
+    await collectionService.voidCollection(dead.id, 'user-1', null);
+
+    const oldestFirst = await collectionService.getHistory({ sortDirection: 'asc' });
+    expect(oldestFirst.map((c) => c.id)).toEqual(['c1', 'c2', 'c3']);
+    const onlyVoided = await collectionService.getHistory({ voidedOnly: true });
+    expect(onlyVoided.map((c) => c.id)).toEqual(['c3']);
+  });
+
+  it('TC-CL-55 the RECEIVED date and the RECORDED date are different orders', async () => {
+    const chg = store.seedCharge({ amount: 40 });
+    // Cash that arrived in January but was only entered into the app in February.
+    store.seedCollection(chg.id, 10, {
+      id: 'backdated',
+      received_at: '2026-01-05T10:00:00.000Z',
+      created_at: '2026-02-10T10:00:00.000Z',
+      updated_at: '2026-02-10T10:00:00.000Z',
+    });
+    store.seedCollection(chg.id, 10, {
+      id: 'same-day',
+      received_at: '2026-02-01T10:00:00.000Z',
+      created_at: '2026-02-01T10:00:00.000Z',
+      updated_at: '2026-02-01T10:00:00.000Z',
+    });
+
+    const byReceived = await collectionService.getHistory({ sortField: 'received_at' });
+    expect(byReceived.map((c) => c.id)).toEqual(['same-day', 'backdated']);
+    const byRecorded = await collectionService.getHistory({ sortField: 'created_at' });
+    expect(byRecorded.map((c) => c.id)).toEqual(['backdated', 'same-day']);
+  });
+
+  it('TC-CL-56 last-updated order surfaces the row a void just touched', async () => {
+    const chg = store.seedCharge({ amount: 40 });
+    const stale = store.seedCollection(chg.id, 10, {
+      id: 'oldest',
+      received_at: '2026-01-01T00:00:00.000Z',
+      created_at: '2026-01-01T00:00:00.000Z',
+      updated_at: '2026-01-01T00:00:00.000Z',
+    });
+    store.seedCollection(chg.id, 10, {
+      id: 'newest',
+      received_at: '2026-03-01T00:00:00.000Z',
+      created_at: '2026-03-01T00:00:00.000Z',
+      updated_at: '2026-03-01T00:00:00.000Z',
+    });
+    await collectionService.voidCollection(stale.id, 'user-1', null);
+
+    const byReceived = await collectionService.getHistory({ sortField: 'received_at' });
+    expect(byReceived[0].id).toBe('newest');
+    const byUpdated = await collectionService.getHistory({ sortField: 'updated_at' });
+    expect(byUpdated[0].id).toBe('oldest');
+  });
+});
+
 describe('a bill`s payments list', () => {
   it('TC-CL-40 lists live hand-overs oldest first and drops voided ones', async () => {
     const chg = store.seedCharge({ amount: 60 });

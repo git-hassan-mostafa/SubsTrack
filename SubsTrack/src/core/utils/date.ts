@@ -16,37 +16,42 @@ export function getCurrentYearMonth(): { year: number; month: number } {
   return { year: now.getFullYear(), month: now.getMonth() + 1 };
 }
 
+function noCommas(s: string): string {
+  return s.replace(/,/g, "");
+}
+
 export function formatDate(iso: string, locale = "en-US", options: Intl.DateTimeFormatOptions = {
   month: "short",
   day: "numeric",
   year: "numeric",
 }): string {
-  return new Date(iso).toLocaleDateString(locale, options);
+  return noCommas(new Date(iso).toLocaleDateString(locale, options));
 }
 
-// Date + clock time, for logs where the exact moment matters (e.g. stock history).
 export function formatDateTime(iso: string, locale = "en-US"): string {
-  return new Date(iso).toLocaleString(locale, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
+  return noCommas(
+    new Date(iso).toLocaleString(locale, {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    })
+  );
 }
 
-// Same stamp, minus the year while it's the current one — keeps a log row's
-// "who · when" line on one line on a phone.
 export function formatDateTimeShort(iso: string, locale = "en-US"): string {
   const d = new Date(iso);
   const thisYear = d.getFullYear() === new Date().getFullYear();
-  return d.toLocaleString(locale, {
-    month: "short",
-    day: "numeric",
-    ...(thisYear ? {} : { year: "numeric" }),
-    hour: "numeric",
-    minute: "2-digit",
-  });
+  return noCommas(
+    d.toLocaleString(locale, {
+      month: "short",
+      day: "numeric",
+      ...(thisYear ? {} : { year: "numeric" }),
+      hour: "numeric",
+      minute: "2-digit",
+    })
+  );
 }
 
 export function isValidDateString(s: string): boolean {

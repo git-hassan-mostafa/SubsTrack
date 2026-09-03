@@ -1,12 +1,13 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 import { OFFLINE_PAGE_SIZE, type BranchFilter } from '@/src/core/constants';
-import type { CashRow, CashStream } from '@/src/core/types';
+import type { CashRow, CashStream, WalletSource } from '@/src/core/types';
 import type { DbCharge, DbCollection, DbCollectionItem, DbCustomer } from '@/src/core/types/db';
 import { OfflineBaseRepository } from '@/src/core/offline/OfflineBaseRepository';
 import { insertDirty, updateDirty } from '@/src/core/offline/db/dml';
 import { newId, nowIso } from '@/src/core/offline/ids';
 import { custodyValues } from '@/src/modules/wallet/utils/custodyValues';
 import type {
+  CollectionSortField,
   CreateCollectionPayload,
   FindCollectionsOptions,
   ICollectionRepository,
@@ -67,8 +68,12 @@ export class OfflineCollectionRepository
   async find(opts: FindCollectionsOptions): Promise<DbCollection[]> {
     const limit = opts.limit ?? OFFLINE_PAGE_SIZE;
     const offset = opts.offset ?? 0;
+    const dir = opts.sortDirection === 'asc' ? 'ASC' : 'DESC';
+    const sortCol = SORT_COLUMNS[opts.sortField ?? 'received_at'] ?? 'received_at';
     const parts: { clause: string; params: unknown[] }[] = [];
     if (!opts.includeVoided) parts.push({ clause: 'c.voided_at IS NULL', params: [] });
+    if (opts.voidedOnly) parts.push({ clause: 'c.voided_at IS NOT NULL', params: [] });
+    if (opts.kind) parts.push(kindWhere(opts.kind));
     if (opts.customerId) parts.push({ clause: 'c.customer_id = ?', params: [opts.customerId] });
     if (opts.heldByUserId)
       parts.push({ clause: 'c.held_by_user_id = ?', params: [opts.heldByUserId] });
@@ -86,7 +91,7 @@ export class OfflineCollectionRepository
       `SELECT c.* FROM collections c
          LEFT JOIN customers cu ON cu.id = c.customer_id
         ${where.sql}
-        ORDER BY c.received_at DESC, c.created_at DESC
+        ORDER BY c.${sortCol} ${dir}, c.created_at ${dir}
         LIMIT ? OFFSET ?`,
       [...where.params, limit, offset],
     );
@@ -94,9 +99,11 @@ export class OfflineCollectionRepository
   }
 
   async monthlyTotals(opts: FindCollectionsOptions): Promise<Record<string, number>> {
+    if (opts.voidedOnly) return {};
     const parts: { clause: string; params: unknown[] }[] = [
       { clause: 'c.voided_at IS NULL', params: [] },
     ];
+    if (opts.kind) parts.push(kindWhere(opts.kind));
     if (opts.customerId) parts.push({ clause: 'c.customer_id = ?', params: [opts.customerId] });
     if (opts.heldByUserId)
       parts.push({ clause: 'c.held_by_user_id = ?', params: [opts.heldByUserId] });
@@ -553,4 +560,22 @@ export class OfflineCollectionRepository
       }
     });
   }
+}
+
+const SORT_COLUMNS: Record<CollectionSortField, string> = {
+  received_at: 'received_at',
+  created_at: 'created_at',
+  updated_at: 'updated_at',
+};
+
+function kindWhere(kind: WalletSource): { clause: string; params: unknown[] } {
+  return {
+    clause: `COALESCE(c.kind, (
+        SELECT CASE WHEN COUNT(DISTINCT ch.kind) = 1 THEN MIN(ch.kind) ELSE 'mixed' END
+          FROM collection_items i
+          JOIN charges ch ON ch.id = i.charge_id
+         WHERE i.collection_id = c.id
+      )) = ?`,
+    params: [kind],
+  };
 }

@@ -4,14 +4,16 @@ import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/src/shared/components/Text";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
-import { ActionMenu, type ActionMenuItem } from "@/src/shared/components/ActionMenu";
+import {
+  ActionMenu,
+  type ActionMenuItem,
+} from "@/src/shared/components/ActionMenu";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { COLORS } from "@/src/shared/constants";
 import type { Collection } from "@/src/core/types";
-import { formatDateTimeShort } from "@/src/core/utils/date";
+import { formatDateTime } from "@/src/core/utils/date";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
-import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
-import { findCurrency, formatMoney, snapshotCurrency } from "@/src/core/utils/currency";
+import { formatMoney, snapshotCurrency } from "@/src/core/utils/currency";
 import { useLanguageStore } from "@/src/core/i18n/languageStore";
 import { useUserSlice } from "@/src/state/hooks/useUserSlice";
 import { useAuth } from "@/src/modules/authentication/auth";
@@ -61,7 +63,6 @@ export function BillPaymentsList({
   const { user } = useAuth();
   const currencies = useCurrencySlice((s) => s.items);
   const users = useUserSlice((s) => s.items);
-  const displayCurrencyId = useDisplayCurrencyId();
   const { language } = useLanguageStore();
   const locale = language === "ar" ? "ar" : "en-US";
   const { canSend, sendCollectionInvoice } = useSendInvoice();
@@ -92,8 +93,7 @@ export function BillPaymentsList({
   }, [visible, load]);
 
   const source = snapshotCurrency(snapshot, currencies);
-  const display = findCurrency(currencies, displayCurrencyId);
-  const money = (v: number) => formatMoney(v, source, display);
+  const money = (v: number) => formatMoney(v, source, source);
 
   const live = payments.filter((p) => p.voidedAt === null);
   const collected = live.reduce((sum, p) => sum + itemAmount(p, chargeId), 0);
@@ -144,7 +144,9 @@ export function BillPaymentsList({
 
   return (
     <View className="gap-2">
-      {error ? <ErrorBanner message={error} onDismiss={() => setError(null)} /> : null}
+      {error ? (
+        <ErrorBanner message={error} onDismiss={() => setError(null)} />
+      ) : null}
 
       <Text className="text-xs font-semibold uppercase tracking-wide text-slate-500">
         {t("ledger.payments_count", { count: live.length })}
@@ -153,7 +155,9 @@ export function BillPaymentsList({
       {loading ? (
         <ActivityIndicator />
       ) : payments.length === 0 ? (
-        <Text className="py-2 text-sm text-slate-500">{t("ledger.no_payments_yet")}</Text>
+        <Text className="py-2 text-sm text-slate-500">
+          {t("ledger.no_payments_yet")}
+        </Text>
       ) : (
         payments.map((p) => {
           const paidHere = itemAmount(p, chargeId);
@@ -168,18 +172,23 @@ export function BillPaymentsList({
             >
               <Ionicons name="cash-outline" size={18} color={COLORS.success} />
               <View className="flex-1">
-                <Text className="text-sm font-semibold text-slate-900">{money(paidHere)}</Text>
+                <Text className="text-sm font-semibold text-slate-900">
+                  {money(paidHere)}
+                </Text>
                 <Text className="text-xs text-slate-500">
-                  {formatDateTimeShort(p.receivedAt, locale)} · {userName(p.receivedByUserId)}
-                  {/* Say so when this money also settled other bills — that is
-                      exactly what makes voiding it a wider decision. */}
+                  {formatDateTime(p.receivedAt, locale)} ·{" "}
+                  {userName(p.receivedByUserId)}
                   {coversMore ? ` · ${t("ledger.covers_others")}` : ""}
                   {voided ? ` · ${t("ledger.voided")}` : ""}
                 </Text>
               </View>
               {!voided && (
                 <PressableOpacity onPress={() => setMenuFor(p)} className="p-1">
-                  <Ionicons name="ellipsis-vertical" size={16} color={COLORS.gray500} />
+                  <Ionicons
+                    name="ellipsis-vertical"
+                    size={16}
+                    color={COLORS.gray500}
+                  />
                 </PressableOpacity>
               )}
             </View>
@@ -202,7 +211,9 @@ export function BillPaymentsList({
             setVoidTarget(null);
             // The stamped row is the whole change — swap it in rather than
             // re-reading the bill's payments.
-            setPayments((prev) => prev.map((p) => (p.id === voided.id ? voided : p)));
+            setPayments((prev) =>
+              prev.map((p) => (p.id === voided.id ? voided : p)),
+            );
             onChanged?.(voided);
           }}
           onDismiss={() => setVoidTarget(null)}

@@ -1,5 +1,6 @@
 import {
   convert,
+  formatMoneyPair,
   formatPaidFraction,
   fromUsd,
   groupByCurrency,
@@ -68,6 +69,18 @@ describe('currency', () => {
 
   it('TC-CU-07 formatPaidFraction prints the label once', () => {
     expect(formatPaidFraction(20, 50, null, null)).toBe('20.00/$50.00');
+  });
+
+  it('TC-CU-08 formatMoneyPair leads with the currency COLLECTED, converting only the hint', () => {
+    expect(formatMoneyPair(180000, LBP, null)).toEqual({
+      primary: '180,000 L.L.',
+      approx: '≈ $2.00',
+    });
+  });
+
+  it('TC-CU-09 formatMoneyPair drops the hint when it would repeat the amount', () => {
+    expect(formatMoneyPair(20, null, null).approx).toBeNull();
+    expect(formatMoneyPair(180000, LBP, LBP).approx).toBeNull();
   });
 });
 

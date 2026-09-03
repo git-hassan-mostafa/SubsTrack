@@ -1,7 +1,11 @@
 import type { StateCreator } from 'zustand';
-import type { Collection, CollectionListItem, Customer } from '@/src/core/types';
+import type { Collection, CollectionListItem, Customer, WalletSource } from '@/src/core/types';
 import { PAGE_SIZE } from '@/src/core/constants';
-import { getDateMonthsAgoString, getTodayDateString } from '@/src/core/utils/date';
+import { periodFromPreset, toRange, type ReportPeriod } from '@/src/core/utils/dateRange';
+import type {
+  CollectionSortField,
+  SortDirection,
+} from '@/src/modules/ledger/repository/ICollectionRepository';
 import { collectionService } from '@/src/modules/ledger';
 import { resolveBranchFilter } from '@/src/shared/lib/branchFilter';
 import { addMonthTotal } from '@/src/shared/lib/monthSections';
@@ -14,6 +18,12 @@ import type { GlobalState } from '@/src/state/globalStore';
  * a custom fee are all settled by collecting, so there is one stream to page
  * through instead of three to merge.
  */
+/** Money that still counts, or only the reversals. */
+export type CollectionStatus = 'live' | 'voided';
+
+/** This month, newest first — what the screen opens on and clears back to. */
+export const defaultCollectionsPeriod = (): ReportPeriod => periodFromPreset('this_month');
+
 export interface CollectionsListSlice {
   items: CollectionListItem[];
   // "YYYY-MM" → USD total for that month, across ALL rows matching the current
@@ -28,15 +38,24 @@ export interface CollectionsListSlice {
   searchToken: number;
   customerFilter: Customer | null;
   receivedByUserId: string | null;
-  // YYYY-MM-DD — received-date range; defaults to [one month ago, today].
-  receivedFrom: string | null;
-  receivedTo: string | null;
+  // The received-date window, exactly as the period chips present it.
+  period: ReportPeriod;
+  // What the cash paid for. Null = every type.
+  kind: WalletSource | null;
+  // Null = both live and voided rows.
+  status: CollectionStatus | null;
+  // Which date the list is ordered by.
+  sortField: CollectionSortField;
+  sortDirection: SortDirection;
   fetchCollections: () => Promise<void>;
   fetchMoreCollections: () => Promise<void>;
   setCustomerFilter: (customer: Customer | null) => Promise<void>;
   setReceivedByUserId: (userId: string | null) => Promise<void>;
-  setReceivedFrom: (date: string | null) => Promise<void>;
-  setReceivedTo: (date: string | null) => Promise<void>;
+  setPeriod: (period: ReportPeriod) => Promise<void>;
+  setKind: (kind: WalletSource | null) => Promise<void>;
+  setStatus: (status: CollectionStatus | null) => Promise<void>;
+  setSortField: (field: CollectionSortField) => Promise<void>;
+  setSortDirection: (direction: SortDirection) => Promise<void>;
   clearFilters: () => Promise<void>;
   voidCollections: (ids: string[], voidedBy: string, reason: string) => Promise<void>;
   /** A hand-over voided elsewhere (a bill sheet opened from this list). */
@@ -45,32 +64,29 @@ export interface CollectionsListSlice {
   reset: () => void;
 }
 
-// A date filter is a DAY, but received_at is an instant — so "to" must cover
-// the whole of that day, hence the exclusive next-midnight bound.
-function nextDayIso(date: string): string {
-  const d = new Date(`${date}T00:00:00`);
-  d.setDate(d.getDate() + 1);
-  return d.toISOString();
-}
-
 function buildOptions(
   state: CollectionsListSlice,
   page: number,
   branchFilter: ReturnType<typeof resolveBranchFilter>,
 ) {
+  // A day bound is inclusive in the UI and an instant in the repository, and
+  // toRange is that one conversion — shared with Reports and Expenses.
+  const range = toRange(state.period);
   return {
     limit: PAGE_SIZE,
     offset: page * PAGE_SIZE,
     branchFilter,
     customerId: state.customerFilter?.id ?? undefined,
     receivedByUserId: state.receivedByUserId ?? undefined,
-    startIso: state.receivedFrom
-      ? new Date(`${state.receivedFrom}T00:00:00`).toISOString()
-      : undefined,
-    endExclusiveIso: state.receivedTo ? nextDayIso(state.receivedTo) : undefined,
+    startIso: range.startIso,
+    endExclusiveIso: range.endExclusiveIso,
+    kind: state.kind ?? undefined,
+    sortField: state.sortField,
+    sortDirection: state.sortDirection,
     // History is a record of what happened, so a voided hand-over stays visible
     // (the card marks it). It is excluded from the section totals instead.
-    includeVoided: true,
+    includeVoided: state.status !== 'live',
+    voidedOnly: state.status === 'voided',
   };
 }
 
@@ -98,8 +114,11 @@ export const createCollectionsListSlice: StateCreator<
   searchToken: 0,
   customerFilter: null,
   receivedByUserId: null,
-  receivedFrom: getDateMonthsAgoString(1),
-  receivedTo: getTodayDateString(),
+  period: defaultCollectionsPeriod(),
+  kind: null,
+  status: null,
+  sortField: 'received_at',
+  sortDirection: 'desc',
 
   fetchCollections: async () => {
     const token = get().collections.searchToken;
@@ -185,31 +204,66 @@ export const createCollectionsListSlice: StateCreator<
     await get().collections.fetchCollections();
   },
 
-  setReceivedFrom: async (date) => {
-    if (get().collections.receivedFrom === date) return;
+  setPeriod: async (period) => {
+    const now = get().collections.period;
+    const same =
+      now.preset === period.preset &&
+      now.fromDate === period.fromDate &&
+      now.toDate === period.toDate;
+    if (same) return;
     set((state) => {
-      state.collections.receivedFrom = date;
+      state.collections.period = period;
       restart(state);
     });
     await get().collections.fetchCollections();
   },
 
-  setReceivedTo: async (date) => {
-    if (get().collections.receivedTo === date) return;
+  setKind: async (kind) => {
+    if (get().collections.kind === kind) return;
     set((state) => {
-      state.collections.receivedTo = date;
+      state.collections.kind = kind;
       restart(state);
     });
     await get().collections.fetchCollections();
   },
 
-  // Resets to the default view: money received in the last month.
+  setStatus: async (status) => {
+    if (get().collections.status === status) return;
+    set((state) => {
+      state.collections.status = status;
+      restart(state);
+    });
+    await get().collections.fetchCollections();
+  },
+
+  setSortField: async (field) => {
+    if (get().collections.sortField === field) return;
+    set((state) => {
+      state.collections.sortField = field;
+      restart(state);
+    });
+    await get().collections.fetchCollections();
+  },
+
+  setSortDirection: async (direction) => {
+    if (get().collections.sortDirection === direction) return;
+    set((state) => {
+      state.collections.sortDirection = direction;
+      restart(state);
+    });
+    await get().collections.fetchCollections();
+  },
+
+  // Resets to the default view: this month's money, newest first.
   clearFilters: async () => {
     set((state) => {
       state.collections.customerFilter = null;
       state.collections.receivedByUserId = null;
-      state.collections.receivedFrom = getDateMonthsAgoString(1);
-      state.collections.receivedTo = getTodayDateString();
+      state.collections.period = defaultCollectionsPeriod();
+      state.collections.kind = null;
+      state.collections.status = null;
+      state.collections.sortField = 'received_at';
+      state.collections.sortDirection = 'desc';
       restart(state);
     });
     await get().collections.fetchCollections();
@@ -249,7 +303,12 @@ export const createCollectionsListSlice: StateCreator<
       state.collections.items = state.collections.items.map((c) =>
         // Merge, not replace: `voided` carries no joined customer name.
         c.id === voided.id
-          ? { ...c, voidedAt: voided.voidedAt, voidReason: voided.voidReason }
+          ? {
+              ...c,
+              voidedAt: voided.voidedAt,
+              voidedBy: voided.voidedBy,
+              voidReason: voided.voidReason,
+            }
           : c,
       );
       if (before && !before.voidedAt) {
@@ -286,7 +345,10 @@ export const createCollectionsListSlice: StateCreator<
       state.collections.searchToken += 1;
       state.collections.customerFilter = null;
       state.collections.receivedByUserId = null;
-      state.collections.receivedFrom = getDateMonthsAgoString(1);
-      state.collections.receivedTo = getTodayDateString();
+      state.collections.period = defaultCollectionsPeriod();
+      state.collections.kind = null;
+      state.collections.status = null;
+      state.collections.sortField = 'received_at';
+      state.collections.sortDirection = 'desc';
     }),
 });

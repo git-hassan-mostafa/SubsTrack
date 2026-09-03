@@ -359,8 +359,8 @@ Covers the one-off sales ledger: recording a sale (with **one or more products a
 | 3.9 | Notes row visible | Sale has notes | Notes row shown |
 | 3.10 | Notes row hidden | Sale has no notes | Notes row not rendered |
 | 3.11 | Date | Always shown | Formatted sale date |
-| 3.12 | Void button | Sale is not voided | "Void this sale" button visible |
-| 3.13 | Voided sale UI | Open a voided sale (e.g. direct navigation) | Voided marker shown; Void button hidden |
+| 3.12 | Void action | Sale is not voided | "Void sale" appears in the header 3-dot menu (red), **not** as a button in the body — see §3A |
+| 3.13 | Voided sale UI | Open a voided sale (e.g. direct navigation) | Voided marker shown; the 3-dot menu offers History only (no Edit, no Void, no WhatsApp) |
 | 3.14 | Payments list shown | Open a sale that took money | Under the products card: a "N payments" heading and one row per hand-over — amount put against THIS sale, date + time, collector name |
 | 3.15 | Nothing collected yet | Open a pay-later sale with no payment | Heading reads "0 payments"; body reads "No payments yet." |
 | 3.16 | Installments | Sale of $50 collected as $20 then $30 | Two rows, $20 and $30, each with its own date and collector; hero still shows the totals from the sale |
@@ -375,11 +375,37 @@ Covers the one-off sales ledger: recording a sale (with **one or more products a
 
 ---
 
+## 3A. Receipt header 3-dot menu (gotcha #131)
+
+The receipt's body used to end in **four** stacked full-width buttons (Send on WhatsApp, Edit sale, History, Void sale). Only the WhatsApp button remains in the body — a receipt is opened to send it. Edit / History / Void moved into a 3-dot button in the sheet header, beside Close.
+
+| # | Scenario | Steps | Expected result |
+|---|----------|-------|-----------------|
+| 3A.1 | Body holds ONE action | Open an active sale's receipt | Exactly one full-width button at the bottom: the green **Send on WhatsApp**. No Edit / History / Void bars anywhere in the body |
+| 3A.2 | Menu button placement | Look at the sheet header | Title on the left; a 3-dot (`ellipsis-vertical`) icon then **Close** on the right |
+| 3A.3 | Menu contents (admin, active sale) | Tap the 3-dot | ActionMenu opens titled "Sale Receipt" with: **Edit sale** (blue pencil), **History** (violet clock), **Void sale** (red, destructive) |
+| 3A.4 | Non-admin | Sign in as `role='user'`, open a receipt | History is **absent** (audit reads are admin-only); Edit and Void still listed |
+| 3A.5 | Voided sale | Open a voided sale, tap the 3-dot | Only **History** (admin) — a voided sale is a closed record. For a non-admin the 3-dot button is **hidden entirely** (no actions left) |
+| 3A.6 | No `onEdit` prop | Open the receipt from a surface that passes no `onEdit` | Edit sale is absent; the rest of the menu is unaffected |
+| 3A.7 | Colour vocabulary matches the row menu | Compare the 3-dot menu here with a sale card's 3-dot menu | Same glyphs and same colours for Edit / History / Void — both read `ICON_COLORS` |
+| 3A.8 | Edit | Menu → Edit sale | Menu closes, the sale form opens on this sale (same as the row menu's Edit) |
+| 3A.9 | History | Menu → History | Menu closes, the record history sheet opens over the receipt |
+| 3A.10 | **Void scrolls the form into view** | Scroll the receipt to the BOTTOM (a multi-line sale with payments), then Menu → Void sale | The body scrolls back to the top and the void **reason form** is visible right under the hero. It must not be left off-screen |
+| 3A.11 | Void form replaces the menu | After 3A.10, tap the 3-dot again | The button is **gone** while the reason form is open — every action is suppressed in void mode, so there is nothing to open |
+| 3A.12 | **Menu does not wedge on void** | Repeat 3A.10, then Cancel the reason form, then tap the 3-dot again | The menu opens normally. The backdrop must never be left stuck and no tap may be dead — the action removes itself from the list mid-close, which is what `openActions` freezes |
+| 3A.13 | Cancel restores the menu | After Cancel in 3A.12 | Edit / History / Void are all listed again |
+| 3A.14 | Confirm void | Menu → Void sale → type a reason → Void | Behaves exactly as §4 — the trigger moved, the flow did not |
+| 3A.15 | Drag still works | Press and drag **down** on the header near the 3-dot icon | The sheet drags/closes (the header is a `SheetDragArea`); a plain tap on the icon still opens the menu |
+| 3A.16 | Unsaved-guard unaffected | Type a void reason, then tap Close | "Discard changes?" is still asked — the header menu did not break the dirty guard |
+| 3A.17 | RTL | Switch to Arabic | The 3-dot and Close sit on the correct (leading) side; the menu rows read right-to-left |
+
+---
+
 ## 4. Void a sale
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 4.1 | Open void flow | Tap "Void this sale" on receipt | Void confirmation sheet / dialog opens |
+| 4.1 | Open void flow | Receipt header 3-dot → "Void sale" (or a sale row's 3-dot → Void sale) | Void reason form / confirmation opens — see §3A.10 for the receipt path |
 | 4.2 | Reason required | Leave reason blank | Void button disabled |
 | 4.3 | Whitespace-only reason | Enter `"   "` | Service rejects: "A reason is required" |
 | 4.4 | Confirm dialog | Enter reason, tap Void | ConfirmDialog: "Void Sale?" destructive style |

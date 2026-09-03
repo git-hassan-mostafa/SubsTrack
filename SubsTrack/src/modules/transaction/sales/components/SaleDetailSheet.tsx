@@ -1,7 +1,11 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { FormSheet } from "@/src/shared/components/FormSheet";
+import {
+  FormSheet,
+  type SheetScrollTo,
+} from "@/src/shared/components/FormSheet";
+import type { ActionMenuItem } from "@/src/shared/components/ActionMenu";
 import { useTranslation } from "react-i18next";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
@@ -58,6 +62,7 @@ export function SaleDetailSheet({
   const [voidMode, setVoidMode] = useState(false);
   const [voidReason, setVoidReason] = useState("");
   const [historyOpen, setHistoryOpen] = useState(false);
+  const scrollBody = useRef<SheetScrollTo | null>(null);
 
   // Only a typed reason is worth guarding — opening void mode loses nothing.
   const dirty = useDirtyForm({ voidReason });
@@ -90,6 +95,36 @@ export function SaleDetailSheet({
     ? formatPaidFraction(sale.amountPaid, sale.totalAmount, source, source)
     : totalSourceLabel;
   const receiptId = sale.id.slice(-6).toUpperCase();
+  // Everything but the receipt itself lives in the header menu — see gotcha #131.
+  const menuActions: ActionMenuItem[] = [];
+  if (!voided && !voidMode && onEdit) {
+    menuActions.push({
+      key: "edit",
+      label: t("sales.edit_sale"),
+      icon: "create-outline",
+      onPress: () => onEdit(sale),
+    });
+  }
+  if (isAdmin && !voidMode) {
+    menuActions.push({
+      key: "history",
+      label: t("audit.history"),
+      icon: "time-outline",
+      onPress: () => setHistoryOpen(true),
+    });
+  }
+  if (!voided && !voidMode && onVoid) {
+    menuActions.push({
+      key: "void",
+      label: t("sales.void_sale"),
+      icon: "close-circle-outline",
+      destructive: true,
+      onPress: () => {
+        setVoidMode(true);
+        scrollBody.current?.(0);
+      },
+    });
+  }
   const items = sale.items;
   const multipleItems = items.length > 1;
   // The frozen summary gets long with many products — the list below carries the
@@ -106,6 +141,8 @@ export function SaleDetailSheet({
       dirty={dirty}
       title={t("sales.receipt_title")}
       dismissLabel={t("common.close")}
+      menuActions={menuActions}
+      scrollRef={scrollBody}
     >
       {/* Hero card */}
       {voided || partiallyPaid ? (
@@ -150,6 +187,45 @@ export function SaleDetailSheet({
           <Text className="text-sm text-gray-400 mt-1">{itemsLabel}</Text>
         </View>
       )}
+
+      {/* The void REASON form only — the action that opens it lives in the
+          header menu, so a routine edit and a destructive void are no longer
+          two identical-looking bars. */}
+      {!voided && onVoid && voidMode ? (
+        <View className="mb-4">
+          <Input
+            label={t("sales.void_reason_label")}
+            value={voidReason}
+            onChangeText={setVoidReason}
+            placeholder={t("sales.void_reason_placeholder")}
+            multiline
+          />
+          <View className="flex-row gap-3 mt-2">
+            <PressableOpacity
+              onPress={() => {
+                setVoidMode(false);
+                setVoidReason("");
+              }}
+              className="flex-1 border border-gray-200 rounded-xl py-3 items-center"
+            >
+              <Text className="text-gray-600 font-medium">
+                {t("common.cancel")}
+              </Text>
+            </PressableOpacity>
+            <PressableOpacity
+              onPress={handleConfirmVoid}
+              disabled={voidLoading}
+              className={`flex-1 rounded-xl py-3 items-center ${
+                voidLoading ? "bg-red-200" : "bg-red-500"
+              }`}
+            >
+              <Text className="text-white font-semibold">
+                {t("sales.confirm_void")}
+              </Text>
+            </PressableOpacity>
+          </View>
+        </View>
+      ) : null}
 
       {/* Partial payment notice */}
       {partiallyPaid ? (
@@ -295,79 +371,6 @@ export function SaleDetailSheet({
           }
           className="mb-4"
         />
-      ) : null}
-
-      {/* Correct the sale. A voided sale is a closed record — void is final, so
-          the only way back is a new sale. */}
-      {!voided && !voidMode && onEdit ? (
-        <PressableOpacity
-          onPress={() => onEdit(sale)}
-          className="border border-gray-200 rounded-xl py-3 items-center mb-4 flex-row justify-center gap-2"
-        >
-          <Ionicons name="create-outline" size={16} color={COLORS.primary} />
-          <Text className="text-primary font-medium">
-            {t("sales.edit_sale")}
-          </Text>
-        </PressableOpacity>
-      ) : null}
-
-      {/* Change history — admin-only, mirroring the audit_logs read policy. */}
-      {isAdmin && !voidMode ? (
-        <PressableOpacity
-          onPress={() => setHistoryOpen(true)}
-          className="border border-gray-200 rounded-xl py-3 items-center mb-4 flex-row justify-center gap-2"
-        >
-          <Ionicons name="time-outline" size={16} color={COLORS.gray600} />
-          <Text className="text-gray-600 font-medium">{t("audit.history")}</Text>
-        </PressableOpacity>
-      ) : null}
-
-      {/* Void controls (active sales only) */}
-      {!voided && onVoid ? (
-        voidMode ? (
-          <View className="mb-4">
-            <Input
-              label={t("sales.void_reason_label")}
-              value={voidReason}
-              onChangeText={setVoidReason}
-              placeholder={t("sales.void_reason_placeholder")}
-              multiline
-            />
-            <View className="flex-row gap-3 mt-2">
-              <PressableOpacity
-                onPress={() => {
-                  setVoidMode(false);
-                  setVoidReason("");
-                }}
-                className="flex-1 border border-gray-200 rounded-xl py-3 items-center"
-              >
-                <Text className="text-gray-600 font-medium">
-                  {t("common.cancel")}
-                </Text>
-              </PressableOpacity>
-              <PressableOpacity
-                onPress={handleConfirmVoid}
-                disabled={voidLoading}
-                className={`flex-1 rounded-xl py-3 items-center ${
-                  voidLoading ? "bg-red-200" : "bg-red-500"
-                }`}
-              >
-                <Text className="text-white font-semibold">
-                  {t("sales.confirm_void")}
-                </Text>
-              </PressableOpacity>
-            </View>
-          </View>
-        ) : (
-          <PressableOpacity
-            onPress={() => setVoidMode(true)}
-            className="border border-red-300 rounded-xl py-3.5 items-center mb-4"
-          >
-            <Text className="text-red-500 font-semibold">
-              {t("sales.void_sale")}
-            </Text>
-          </PressableOpacity>
-        )
       ) : null}
 
       {historyOpen ? (

@@ -1,5 +1,5 @@
 import type { BranchFilter } from '@/src/core/constants';
-import type { CashRow } from '@/src/core/types';
+import type { CashRow, WalletSource } from '@/src/core/types';
 import type { DbCollection, DbCollectionItem } from '@/src/core/types/db';
 import type { CreateChargePayload } from './IChargeRepository';
 
@@ -37,6 +37,10 @@ export type CreateCollectionPayload = Omit<
   charges: CreateChargePayload[];
 };
 
+export type SortDirection = 'desc' | 'asc';
+
+export type CollectionSortField = 'received_at' | 'created_at' | 'updated_at';
+
 export interface FindCollectionsOptions {
   customerId?: string;
   branchFilter?: BranchFilter;
@@ -48,6 +52,10 @@ export interface FindCollectionsOptions {
   offset?: number;
   searchTerm?: string;
   includeVoided?: boolean;
+  kind?: WalletSource;
+  voidedOnly?: boolean;
+  sortField?: CollectionSortField;
+  sortDirection?: SortDirection;
 }
 
 export interface ICollectionRepository {

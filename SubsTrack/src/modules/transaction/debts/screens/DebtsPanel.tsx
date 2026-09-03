@@ -21,11 +21,16 @@ import type { CustomerDebts } from "@/src/core/types";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { useLedgerSlice } from "@/src/state/hooks/useLedgerSlice";
-import { useCollectSheet, useOwedChanged } from "@/src/modules/ledger";
+import { useCollectSheet, useOpenBill, useOwedChanged } from "@/src/modules/ledger";
 import { useDebtRowActions } from "../hooks/useDebtRowActions";
 import { DebtorCard } from "../components/DebtorCard";
 import { DebtorDetailSheet } from "../components/DebtorDetailSheet";
 import { CustomDebtFormSheet } from "../components/CustomDebtFormSheet";
+
+interface Props {
+  /** A sale's receipt — injected, so debts never depends on the sales module. */
+  onOpenSale?: (saleId: string) => Promise<void> | void;
+}
 
 /**
  * The Debts segment of the Transactions hub: one row per customer who still
@@ -35,7 +40,7 @@ import { CustomDebtFormSheet } from "../components/CustomDebtFormSheet";
  * collected — no category merging and no net-vs-gross subtraction, so the
  * breakdown adds up to the total exactly.
  */
-export function DebtsPanel() {
+export function DebtsPanel({ onOpenSale }: Props = {}) {
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
   const displayCurrencyId = useDisplayCurrencyId();
@@ -54,6 +59,8 @@ export function DebtsPanel() {
 
   const collectSheet = useCollectSheet();
   const { voidItem, writeOffItem } = useDebtRowActions();
+  // Voiding a payment inside the bill bumps owedVersion, so this list follows.
+  const openBill = useOpenBill({ onOpenSale });
   // Every write that moves what is owed brings this list along — collecting
   // here, but equally a sale recorded from the quick-actions menu while this
   // tab is open. There is no per-action wiring left.
@@ -210,6 +217,8 @@ export function DebtsPanel() {
           }
           onVoidItem={voidItem}
           onWriteOff={writeOffItem}
+          onOpenItem={openBill.openOwed}
+          openingItemKey={openBill.loadingId}
         />
       )}
 
@@ -218,6 +227,7 @@ export function DebtsPanel() {
       )}
 
       {collectSheet.sheet}
+      {openBill.sheet}
     </View>
   );
 }

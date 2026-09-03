@@ -132,7 +132,7 @@ Re-verify these after any release:
 ## 8. Void order — newest first
 
 The rule is about voiding a **month bill** ("Void this month", from the cell's
-3-dot menu or the bill sheet's red footer). Voiding one **hand-over** from the
+3-dot menu or the bill sheet's header 3-dot menu). Voiding one **hand-over** from the
 bill sheet's payment list is NOT gated — it leaves its bill where it was, owed.
 
 | # | Scenario | Steps | Expected result |

@@ -9,7 +9,10 @@ import {
   SegmentedTabs,
   type Segment,
 } from "@/src/shared/components/SegmentedTabs";
-import { SalesPanel } from "@/src/modules/transaction/sales";
+import {
+  SalesPanel,
+  useSaleDetailSheet,
+} from "@/src/modules/transaction/sales";
 import { DebtsPanel } from "@/src/modules/transaction/debts";
 import { ExpensesPanel } from "@/src/modules/transaction/expenses";
 import { PageHeader } from "@/src/shared/components/PageHeader";
@@ -26,6 +29,8 @@ export function TransactionsScreen() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const [tab, setTab] = useState<TransactionsTab>("debts");
+  // A debt row can BE a sale, and debts must not depend on the sales module.
+  const saleDetail = useSaleDetailSheet();
 
   // Expenses are admin-only (rent/salaries), matching the RLS on the table —
   // dropping the segment is what keeps it off a collector's screen.
@@ -75,10 +80,14 @@ export function TransactionsScreen() {
       <GestureDetector gesture={swipe}>
         <View className="flex-1">
           {tab === "sales" ? <SalesPanel /> : null}
-          {tab === "debts" ? <DebtsPanel /> : null}
+          {tab === "debts" ? (
+            <DebtsPanel onOpenSale={saleDetail.openSale} />
+          ) : null}
           {tab === "expenses" && isAdmin ? <ExpensesPanel /> : null}
         </View>
       </GestureDetector>
+
+      {saleDetail.sheet}
     </SafeAreaView>
   );
 }

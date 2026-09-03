@@ -17,3 +17,4 @@ export { SaleFormSheet } from './components/SaleFormSheet';
 export { CustomerSalesListScreen } from './screens/CustomerSalesListScreen';
 export { SalesPanel } from './screens/SalesPanel';
 export { useCustomerSalesList } from './hooks/useCustomerSalesList';
+export { useSaleDetailSheet } from './hooks/useSaleDetailSheet';

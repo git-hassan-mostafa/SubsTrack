@@ -332,3 +332,18 @@ A partial payment still resolves to `"paid"` (rule #1) — the ring and the labe
 | 14.8 | Display currency                  | Partial payment in LBP, display currency USD                                    | The fraction is in the **collected** currency (the frozen snapshot rate); the `≈` line below still converts the **paid** part only    |
 | 14.9 | Paying the rest clears the mark   | Collect the remainder as a debt payment                                         | The month is still paid; because the payment row's own balance is unchanged, the ring stays — completing the record (Debts → Complete) is what clears it |
 | 14.10| Arabic / RTL                      | Switch to Arabic → open the grid and the receipt                                | `PARTIAL` translated, the fraction stays left-to-right and readable, ring mirrors correctly                                          |
+
+## 15. First-load spinner (the grid is a derivation, not the fetch)
+
+The grid is built from the fetched bills one frame after they land (gotcha #130), so "still loading" means **the grid is absent** — never `payments.loading`. A wrong gate paints a full year of red unpaid cells while the read is in flight, which reads as real data.
+
+| #    | Scenario                          | Steps                                                                     | Expected result                                                                                                        |
+| ---- | --------------------------------- | ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| 15.1 | Spinner on first open             | Open a customer with payment history (throttle the network to see it)      | The grid area shows a centered spinner — **never** a year of red cells — until the real months paint                    |
+| 15.2 | No red flash                      | Repeat 15.1 on a customer whose months are all PAID                        | The cells go straight from the spinner to green; no red frame in between                                                |
+| 15.3 | No empty flash                    | Repeat 15.1 and watch the moment the rows arrive                           | The spinner is replaced by the built grid directly — no blank/collapsed grid area for a frame                           |
+| 15.4 | Pull-to-refresh keeps the grid    | With the grid on screen, pull to refresh                                   | The built grid stays visible under the refresh control; the spinner does **not** come back                              |
+| 15.5 | Year arrows stay instant          | Tap the year arrows back and forward                                       | Instant repaint from memory, no spinner and no query (gotcha #121)                                                      |
+| 15.6 | A failed read never spins forever | Go offline in a way that makes the read throw, then open the customer      | The spinner is dropped and the error banner shows — the grid area does not keep spinning                                |
+| 15.7 | A second customer never shows the first's grid | Open customer A, go back, open customer B                     | B shows the spinner first; A's months are never visible under B's name                                                  |
+| 15.8 | Customer with no service lines    | Open a customer with zero plans                                            | The "no subscriptions" empty state, no spinner                                                                          |

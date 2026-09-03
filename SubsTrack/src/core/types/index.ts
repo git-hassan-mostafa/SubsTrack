@@ -632,14 +632,9 @@ export interface OpenItem {
   dueDate: string;
   issuedAt: string;
   createdAt: string;
-  // False for a plain unpaid month — it is owed, but the Debts screen omits it.
   isDebt: boolean;
-  // A month on a line with NO set price (a custom-price plan, or no plan at
-  // all). There is nothing to owe until staff type an amount, so `amount` /
-  // `balance` are 0 and the money handed over IS the bill. Single-item collect
-  // only: the waterfall has no ceiling to fill, so it never enters a split, and
-  // the currency is the one picked on the hand-over rather than the item's.
   openAmount?: boolean;
+  charge?: Charge | null;
 }
 
 // One proposed line of a collection, before it is saved. The collect sheet
@@ -702,6 +697,7 @@ export interface CollectionListItem {
   branchId: string | null;
   notes: string | null;
   voidedAt: string | null;
+  voidedBy: string | null;
   voidReason: string | null;
   itemCount: number;
   // Frozen-at-read labels of what this hand-over paid, in allocation order.
