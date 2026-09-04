@@ -8,7 +8,6 @@ import { COLORS } from "@/src/shared/constants";
 import { Text } from "@/src/shared/components/Text";
 import { FormSheet } from "@/src/shared/components/FormSheet";
 import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
-import { useAuditLookups } from "../hooks/useAuditLookups";
 import {
   actionLabel,
   changedFieldsLabel,
@@ -17,28 +16,30 @@ import {
   subjectLabel,
   tableLabel,
 } from "../utils/format";
-import { showsColumn, type AuditFieldContext } from "../utils/valueDisplay";
+import { buildAuditSummary } from "../utils/summary";
+import {
+  fieldContext,
+  showsColumn,
+  type AuditContextBase,
+} from "../utils/valueDisplay";
+import { AuditSummaryText } from "./AuditSummaryText";
 
 interface AuditEntrySheetProps {
   entry: AuditEntry;
+  base: AuditContextBase;
   onDismiss: () => void;
 }
 
-/** One audit entry in full: who, when, and every field that moved. */
-export function AuditEntrySheet({ entry, onDismiss }: AuditEntrySheetProps) {
+/** One audit entry in full: the sentence, then who, when, and every field that moved. */
+export function AuditEntrySheet({
+  entry,
+  base,
+  onDismiss,
+}: AuditEntrySheetProps) {
   const { t } = useTranslation();
 
-  const lookups = useAuditLookups();
-  const ctx = useMemo<AuditFieldContext>(
-    () => ({
-      t,
-      locale: i18n.language,
-      table: entry.table,
-      row: entry.context,
-      lookups,
-    }),
-    [t, entry.table, entry.context, lookups],
-  );
+  const ctx = useMemo(() => fieldContext(base, entry), [base, entry]);
+  const summary = useMemo(() => buildAuditSummary(entry, ctx), [entry, ctx]);
   const changedFields = changedFieldsLabel(entry, ctx);
 
   const snapshotRows = entry.snapshot
@@ -53,11 +54,14 @@ export function AuditEntrySheet({ entry, onDismiss }: AuditEntrySheetProps) {
       title={`${actionLabel(t, entry.action)} · ${tableLabel(t, entry.table)}`}
       dismissLabel={t("common.close")}
     >
-      {/* Who + when, then what moved (an edit only — a create/delete has no diff). */}
+      <View className="bg-white rounded-2xl border border-gray-100 px-4 py-3.5 mb-4">
+        <AuditSummaryText
+          parts={summary}
+          className="text-[15px] leading-6 text-gray-900"
+        />
+      </View>
+
       <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden mb-4">
-        {/* The frozen parent name — now the only row naming WHOSE record this is,
-            so it shows on `customers` entries too (the record there IS the person).
-            Usually a customer; a stock movement's parent is its product. */}
         {entry.subject ? (
           <Row label={subjectLabel(t, entry.table)} value={entry.subject} />
         ) : null}
@@ -65,7 +69,6 @@ export function AuditEntrySheet({ entry, onDismiss }: AuditEntrySheetProps) {
           label={t("audit.filter_by_actor")}
           value={entry.actorUsername ?? t("audit.unknown_actor")}
         />
-        {/* Not payments.paid_on — this is when the change was made, on any table. */}
         <Row
           label={t("audit.occurred_at")}
           value={formatDateTime(entry.occurredAt, i18n.language)}
@@ -76,7 +79,6 @@ export function AuditEntrySheet({ entry, onDismiss }: AuditEntrySheetProps) {
         ) : null}
       </View>
 
-      {/* The diff: old → new, one row per changed field */}
       {entry.changes.length > 0 ? (
         <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden mb-4">
           {entry.changes.map((c, i) => (
@@ -111,7 +113,6 @@ export function AuditEntrySheet({ entry, onDismiss }: AuditEntrySheetProps) {
         </View>
       ) : null}
 
-      {/* Whole-row snapshot (create / delete) */}
       {snapshotRows.length > 0 ? (
         <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden mb-4">
           {snapshotRows.map(([key, value], i) => (

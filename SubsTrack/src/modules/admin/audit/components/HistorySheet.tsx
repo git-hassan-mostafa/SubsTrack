@@ -68,6 +68,7 @@ export function HistorySheet({
         {isAdmin ? (
           <HistoryList
             inSheet
+            showSubject={!subtitle}
             entries={timeline.entries}
             loading={timeline.loading}
             error={timeline.error}

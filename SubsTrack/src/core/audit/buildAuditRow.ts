@@ -24,7 +24,19 @@ export interface AuditInput {
 
 const IGNORED_FIELDS = new Set(['updated_at', 'balance']);
 
+// Identity columns carried into after_data even when unchanged — see gotcha #132.
 const CONTEXT_FIELDS: Partial<Record<AuditTable, string[]>> = {
+  charges: ['billing_month', 'kind', 'description', 'currency_id'],
+  collections: ['amount', 'currency_id', 'kind'],
+  plans: ['name', 'currency_id'],
+  products: ['name', 'currency_id'],
+  services: ['name'],
+  users: ['full_name'],
+  branches: ['name'],
+  currencies: ['code'],
+  tenants: ['name'],
+  skipped_months: ['billing_month', 'skipped'],
+  customer_plans: ['plan_id'],
   tenant_settings: ['key'],
 };
 
@@ -107,7 +119,8 @@ export function buildAuditRow(input: AuditInput): DbAuditLog | null {
     }
     if (names.length === 0) return null;
     for (const f of CONTEXT_FIELDS[input.table] ?? []) {
-      if (!names.includes(f)) diffAfter[f] = after[f] ?? null;
+      if (names.includes(f) || isBlank(after[f])) continue;
+      diffAfter[f] = after[f];
     }
     changed = names;
     beforeData = diffBefore;

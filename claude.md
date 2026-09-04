@@ -118,6 +118,14 @@ implementation detail unless explicitly requested.
   structure and match them. Prefer consistency over personal preference. If an
   existing pattern is an anti-pattern, flag it rather than silently diverging.
   **Except comments — §1.1 overrides this.**
+- **Reuse — look both ways before writing.** Before adding anything, search for an
+  existing function / component / hook / util that already does it and use that
+  instead. After adding or changing one, search for existing code that should now
+  use it — duplicated logic, a hand-rolled copy, a near-identical component — and
+  refactor those call sites onto it in the same change. Do not leave two ways to
+  do one thing. **Then say so**: list every file you refactored in the
+  `## Changes Made` bullets (§1.4). If a call site is too risky to touch in this
+  change, name it and say why instead of silently skipping it.
 - **Design philosophy**: minimal, clean, professional. Used daily by
   non-technical staff on phones; every screen immediately understandable. No
   animations, no decorative elements, no unnecessary complexity.

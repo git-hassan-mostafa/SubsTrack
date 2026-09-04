@@ -1,6 +1,6 @@
-import { MONTHS } from "@/src/core/constants";
 import { toBillingMonth } from "@/src/core/utils/date";
-import i18n from "@/src/core/i18n";
+
+export { billingMonthLabel } from "@/src/core/utils/billingMonth";
 
 
 /** Every billing month a payment covers (a multi-month block covers N of them). */
@@ -65,10 +65,4 @@ export function blockingPaidMonths(
 export function latestTargetYear(targetMonths: string[]): number | undefined {
   if (targetMonths.length === 0) return undefined;
   return Number(targetMonths.reduce((a, b) => (b > a ? b : a)).slice(0, 4));
-}
-
-/** "March 2026" for a YYYY-MM-01 billing month, in the current language. */
-export function billingMonthLabel(billingMonth: string): string {
-  const [year, month] = billingMonth.split("-").map(Number);
-  return `${i18n.t(`months.${MONTHS[month - 1]}`)} ${year}`;
 }

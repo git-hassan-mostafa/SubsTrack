@@ -1,13 +1,16 @@
-import { useState, type ReactElement } from "react";
+import { useMemo, useState, type ReactElement } from "react";
 import { ActivityIndicator, FlatList, RefreshControl, View } from "react-native";
 import { BottomSheetFlatList } from "@gorhom/bottom-sheet";
 import { useTranslation } from "react-i18next";
+import i18n from "@/src/core/i18n";
 import type { AuditEntry, AuditSource } from "@/src/core/types";
 import { IS_OFFLINE_CAPABLE } from "@/src/core/offline";
 import { COLORS } from "@/src/shared/constants";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { EmptyState } from "@/src/shared/components/EmptyState";
 import { Text } from "@/src/shared/components/Text";
+import { useAuditLookups } from "../hooks/useAuditLookups";
+import type { AuditContextBase } from "../utils/valueDisplay";
 import { AuditEntryCard } from "./AuditEntryCard";
 import { AuditEntrySheet } from "./AuditEntrySheet";
 
@@ -24,17 +27,10 @@ interface HistoryListProps {
   emptyTitle: string;
   emptyDescription: string;
   inSheet?: boolean;
+  showSubject?: boolean;
 }
 
-/**
- * The audit trail rendered as a list — shared by the admin Audit Log screen and the
- * per-record History sheet, which differ only in what they feed it.
- *
- * Deliberately presentational: it fetches nothing and owns no query state, so the
- * caller decides where entries come from (the slice's filter session for the admin
- * screen, a local hook for one record). The only state it keeps is which entry the
- * user tapped open, which no caller needs to know about.
- */
+/** Presentational: it fetches no entries, and builds the display context once. */
 export function HistoryList({
   entries,
   loading,
@@ -48,8 +44,16 @@ export function HistoryList({
   emptyTitle,
   emptyDescription,
   inSheet = false,
+  showSubject = true,
 }: HistoryListProps) {
+  const { t } = useTranslation();
   const [openEntry, setOpenEntry] = useState<AuditEntry | null>(null);
+
+  const lookups = useAuditLookups();
+  const base = useMemo<AuditContextBase>(
+    () => ({ t, locale: i18n.language, lookups }),
+    [t, lookups],
+  );
 
   const List = inSheet ? BottomSheetFlatList : FlatList;
 
@@ -66,7 +70,12 @@ export function HistoryList({
           data={entries}
           keyExtractor={(e: AuditEntry) => e.id}
           renderItem={({ item }: { item: AuditEntry }) => (
-            <AuditEntryCard entry={item} onPress={() => setOpenEntry(item)} />
+            <AuditEntryCard
+              entry={item}
+              base={base}
+              showSubject={showSubject}
+              onPress={() => setOpenEntry(item)}
+            />
           )}
           contentContainerStyle={{
             paddingHorizontal: 16,
@@ -105,7 +114,11 @@ export function HistoryList({
       )}
 
       {openEntry ? (
-        <AuditEntrySheet entry={openEntry} onDismiss={() => setOpenEntry(null)} />
+        <AuditEntrySheet
+          entry={openEntry}
+          base={base}
+          onDismiss={() => setOpenEntry(null)}
+        />
       ) : null}
     </>
   );

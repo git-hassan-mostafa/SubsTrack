@@ -1,5 +1,6 @@
 import type { TFunction } from 'i18next';
-import type { AuditTable } from '@/src/core/types';
+import type { AuditEntry, AuditTable, Currency } from '@/src/core/types';
+import { formatMoney } from '@/src/core/utils/currency';
 import { TENANT_SETTING_KEYS } from '@/src/modules/admin/tenant-settings/utils/constants';
 
 
@@ -7,15 +8,26 @@ import { TENANT_SETTING_KEYS } from '@/src/modules/admin/tenant-settings/utils/c
 export interface AuditLookups {
   user: (id: string) => string | null;
   currency: (id: string) => string | null;
+  currencyObject: (id: string | null) => Currency | null;
   branch: (id: string) => string | null;
+  plan: (id: string) => string | null;
 }
 
-export interface AuditFieldContext {
+/** Everything a field's display needs that is the same for every entry on screen. */
+export interface AuditContextBase {
   t: TFunction;
   locale: string;
+  lookups: AuditLookups;
+}
+
+export interface AuditFieldContext extends AuditContextBase {
   table: AuditTable | string;
   row: Record<string, unknown>;
-  lookups: AuditLookups;
+}
+
+/** Narrows the shared base onto one entry — the row a formatter reads its siblings from. */
+export function fieldContext(base: AuditContextBase, entry: AuditEntry): AuditFieldContext {
+  return { ...base, table: entry.table, row: entry.context };
 }
 
 /** The text to show for one value, or `null` to fall back to the generic rendering. */
@@ -40,7 +52,7 @@ function enumLabel(keys: Record<string, string>): AuditValueFormatter {
  * (null currency = USD, null branch = shared) — "(empty)" says nothing there.
  */
 function idRef(
-  kind: keyof AuditLookups,
+  kind: 'user' | 'currency' | 'branch' | 'plan',
   opts: { blank?: string; missing?: string } = {},
 ): AuditValueFormatter {
   return (value, { t, lookups }) => {
@@ -51,6 +63,15 @@ function idRef(
 
 const person = idRef('user', { missing: 'audit.deleted_user' });
 const currency = idRef('currency', { blank: 'audit.base_currency' });
+
+// Same Currency both sides: the trail shows what was stored, never re-converted.
+function money(currencyColumn: string): AuditValueFormatter {
+  return (value, { row, lookups }) => {
+    if (typeof value !== 'number') return null;
+    const c = lookups.currencyObject((row[currencyColumn] as string | null) ?? null);
+    return formatMoney(value, c, c);
+  };
+}
 
 
 const SETTINGS: Record<string, { label: string; value: AuditValueFormatter }> = {
@@ -83,6 +104,25 @@ const DISPLAY: Record<string, AuditValueFormatter> = {
   '*.currency_id': currency,
   '*.custom_currency_id': currency,
   '*.branch_id': idRef('branch', { blank: 'branches.unassigned' }),
+  '*.amount': money('currency_id'),
+  '*.total_amount': money('currency_id'),
+  '*.price': money('currency_id'),
+  '*.unit_cost': money('currency_id'),
+  '*.custom_price': money('custom_currency_id'),
+
+  'customer_plans.plan_id': idRef('plan'),
+
+  'charges.kind': enumLabel({
+    month: 'wallet.source_payment',
+    sale: 'wallet.source_sale',
+    manual: 'wallet.source_debt',
+  }),
+  'collections.kind': enumLabel({
+    month: 'wallet.source_payment',
+    sale: 'wallet.source_sale',
+    manual: 'wallet.source_debt',
+    mixed: 'wallet.source_mixed',
+  }),
 
   'users.role': enumLabel({ admin: 'users.admin', user: 'users.user', superadmin: 'users.super' }),
   'users.branch_id': idRef('branch', { blank: 'branches.tenant_wide_admin' }),
