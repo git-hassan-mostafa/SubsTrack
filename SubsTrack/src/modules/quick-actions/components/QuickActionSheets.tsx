@@ -1,4 +1,4 @@
-import { useUiSlice } from "@/src/state/hooks/useUiSlice";
+import { useUiStore } from "@/src/shared/lib/uiStore";
 import { CustomerFormSheet } from "@/src/modules/customer/customers";
 import {
   CollectQuickActionSheet,
@@ -19,8 +19,8 @@ import { ExpenseFormSheet } from "@/src/modules/transaction/expenses";
  * its own customer picker) and self-updates its slice on create.
  */
 export function QuickActionSheets() {
-  const openSheet = useUiSlice((s) => s.openSheet);
-  const close = useUiSlice((s) => s.closeQuickAction);
+  const openSheet = useUiStore((s) => s.openSheet);
+  const close = useUiStore((s) => s.closeQuickAction);
 
   // The money-in history can open a sale's receipt. The sheet lives here rather
   // than in the ledger, which must not depend on the sales module.

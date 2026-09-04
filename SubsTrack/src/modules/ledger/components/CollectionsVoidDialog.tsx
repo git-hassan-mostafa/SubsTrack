@@ -4,8 +4,7 @@ import { useTranslation } from "react-i18next";
 import { ConfirmDialog } from "@/src/shared/components/ConfirmDialog";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { COLORS } from "@/src/shared/constants";
-import { useCollectionsListSlice } from "@/src/state/hooks/useCollectionsListSlice";
-import { getStore } from "@/src/state/globalStore";
+import { useCollectionsListStore } from "@/src/modules/ledger/state/collectionsListStore";
 
 interface Props {
   // One id for a single hand-over, or many for a bulk void.
@@ -25,9 +24,9 @@ export function CollectionsVoidDialog({
   onDismiss,
 }: Props) {
   const { t } = useTranslation();
-  const voidCollections = useCollectionsListSlice((s) => s.voidCollections);
-  const error = useCollectionsListSlice((s) => s.error);
-  const clearError = useCollectionsListSlice((s) => s.clearError);
+  const voidCollections = useCollectionsListStore((s) => s.voidCollections);
+  const error = useCollectionsListStore((s) => s.error);
+  const clearError = useCollectionsListStore((s) => s.clearError);
   const [reason, setReason] = useState("");
 
   const count = collectionIds.length;
@@ -35,7 +34,7 @@ export function CollectionsVoidDialog({
   async function handleConfirm() {
     if (count === 0) return;
     await voidCollections(collectionIds, voidedBy, reason);
-    if (!getStore().getState().collections.error) {
+    if (!useCollectionsListStore.getState().error) {
       setReason("");
       onVoided();
     }

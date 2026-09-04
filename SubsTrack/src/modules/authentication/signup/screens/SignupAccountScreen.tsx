@@ -7,7 +7,7 @@ import { Text } from "@/src/shared/components/Text";
 import { Button } from "@/src/shared/components/Button";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { Input } from "@/src/shared/components/Input";
-import { useSignupSlice } from "@/src/state/hooks/useSignupSlice";
+import { useSignupStore } from "@/src/modules/authentication/signup/state/signupStore";
 import { getStore } from "@/src/state/globalStore";
 import { StepIndicator } from "../components/StepIndicator";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
@@ -15,17 +15,17 @@ import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer
 export function SignupAccountScreen() {
   const { t } = useTranslation();
   const router = useRouter();
-  const tenantCode = useSignupSlice((s) => s.tenantCode);
-  const adminUserName = useSignupSlice((s) => s.adminUserName);
-  const adminFullName = useSignupSlice((s) => s.adminFullName);
-  const adminPassword = useSignupSlice((s) => s.adminPassword);
-  const confirmPassword = useSignupSlice((s) => s.confirmPassword);
-  const error = useSignupSlice((s) => s.error);
-  const loading = useSignupSlice((s) => s.loading);
-  const setAccount = useSignupSlice((s) => s.setAccount);
-  const submit = useSignupSlice((s) => s.submit);
-  const clearError = useSignupSlice((s) => s.clearError);
-  const reset = useSignupSlice((s) => s.reset);
+  const tenantCode = useSignupStore((s) => s.tenantCode);
+  const adminUserName = useSignupStore((s) => s.adminUserName);
+  const adminFullName = useSignupStore((s) => s.adminFullName);
+  const adminPassword = useSignupStore((s) => s.adminPassword);
+  const confirmPassword = useSignupStore((s) => s.confirmPassword);
+  const error = useSignupStore((s) => s.error);
+  const loading = useSignupStore((s) => s.loading);
+  const setAccount = useSignupStore((s) => s.setAccount);
+  const submit = useSignupStore((s) => s.submit);
+  const clearError = useSignupStore((s) => s.clearError);
+  const reset = useSignupStore((s) => s.reset);
 
   const canSubmit =
     adminUserName.trim().length > 0 &&

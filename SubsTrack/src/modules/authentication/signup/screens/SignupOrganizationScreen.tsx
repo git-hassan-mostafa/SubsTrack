@@ -7,20 +7,20 @@ import { Text } from "@/src/shared/components/Text";
 import { Button } from "@/src/shared/components/Button";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { Input } from "@/src/shared/components/Input";
-import { useSignupSlice } from "@/src/state/hooks/useSignupSlice";
+import { useSignupStore } from "@/src/modules/authentication/signup/state/signupStore";
 import { StepIndicator } from "../components/StepIndicator";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 
 export function SignupOrganizationScreen() {
   const { t } = useTranslation();
   const router = useRouter();
-  const name = useSignupSlice((s) => s.name);
-  const tenantCode = useSignupSlice((s) => s.tenantCode);
-  const error = useSignupSlice((s) => s.error);
-  const checkingCode = useSignupSlice((s) => s.checkingCode);
-  const setOrganization = useSignupSlice((s) => s.setOrganization);
-  const validateAndCheckCode = useSignupSlice((s) => s.validateAndCheckCode);
-  const clearError = useSignupSlice((s) => s.clearError);
+  const name = useSignupStore((s) => s.name);
+  const tenantCode = useSignupStore((s) => s.tenantCode);
+  const error = useSignupStore((s) => s.error);
+  const checkingCode = useSignupStore((s) => s.checkingCode);
+  const setOrganization = useSignupStore((s) => s.setOrganization);
+  const validateAndCheckCode = useSignupStore((s) => s.validateAndCheckCode);
+  const clearError = useSignupStore((s) => s.clearError);
 
   const canSubmit = name.trim().length > 0 && tenantCode.trim().length > 0;
 

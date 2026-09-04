@@ -1,11 +1,11 @@
-import { useConfirmSlice } from "@/src/state/hooks/useConfirmSlice";
+import { useConfirmStore } from "@/src/shared/lib/confirmStore";
 import { ConfirmDialog } from "./ConfirmDialog";
 
 export default function GlobalConfirmDialog() {
-  const visible = useConfirmSlice((s) => s.visible);
-  const options = useConfirmSlice((s) => s.options);
-  const settle = useConfirmSlice((s) => s.settle);
-  const getContent = useConfirmSlice((s) => s.getContent);
+  const visible = useConfirmStore((s) => s.visible);
+  const options = useConfirmStore((s) => s.options);
+  const settle = useConfirmStore((s) => s.settle);
+  const getContent = useConfirmStore((s) => s.getContent);
 
   if (!options) return null;
 

@@ -1,6 +1,6 @@
 import { useAuthSlice } from "@/src/state/hooks/useAuthSlice";
 import { useCustomerSlice } from "@/src/state/hooks/useCustomerSlice";
-import { useDashboardSlice } from "@/src/state/hooks/useDashboardSlice";
+import { useDashboardStore } from "@/src/modules/dashboard/state/dashboardStore";
 import { initI18n } from "@/src/core/i18n";
 import { usePaymentSlice } from "@/src/state/hooks/usePaymentSlice";
 import { usePlanSlice } from "@/src/state/hooks/usePlanSlice";
@@ -40,7 +40,7 @@ export default function RootLayout() {
   const resetUsers = useUserSlice((s) => s.reset);
   const resetCustomers = useCustomerSlice((s) => s.reset);
   const resetPayments = usePaymentSlice((s) => s.reset);
-  const resetDashboard = useDashboardSlice((s) => s.reset);
+  const resetDashboard = useDashboardStore((s) => s.reset);
   const segments = useSegments();
   const router = useRouter();
 

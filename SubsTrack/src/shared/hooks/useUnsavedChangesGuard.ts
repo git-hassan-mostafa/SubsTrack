@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { confirm } from "@/src/shared/lib/confirm";
-import { getStore } from "@/src/state/globalStore";
+import { useConfirmStore } from "@/src/shared/lib/confirmStore";
 
 /**
  * Wraps a sheet's `onDismiss` so closing a **dirty** form asks to discard first.
@@ -49,13 +49,13 @@ export function useUnsavedChangesGuard(
   const [asking, setAsking] = useState(false);
 
   // The owning sheet is gone (parent unmounted it, screen navigated away). The
-  // confirm dialog lives in the GLOBAL store, so it outlives us — it must neither
-  // be left floating nor be opened on our way out.
+  // confirm dialog is a standalone store, so it outlives us — it must neither be
+  // left floating nor be opened on our way out.
   const deadRef = useRef(false);
   useEffect(
     () => () => {
       deadRef.current = true;
-      if (askingRef.current) getStore().getState().confirm.settle(false);
+      if (askingRef.current) useConfirmStore.getState().settle(false);
     },
     [],
   );

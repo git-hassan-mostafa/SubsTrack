@@ -8,7 +8,7 @@ import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { confirm } from "@/src/shared/lib/confirm";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
-import { useWalletSlice } from "@/src/state/hooks/useWalletSlice";
+import { useWalletStore } from "../state/walletStore";
 import type { WalletItem } from "@/src/core/types";
 import { WalletDetailView } from "../components/WalletDetailView";
 import { canCloseOut } from "../utils/custody";
@@ -23,14 +23,14 @@ export function MyWalletScreen() {
   const router = useRouter();
   const { user } = useAuth();
 
-  const detail = useWalletSlice((s) => s.detail);
-  const detailLoading = useWalletSlice((s) => s.detailLoading);
-  const error = useWalletSlice((s) => s.error);
-  const fetchDetail = useWalletSlice((s) => s.fetchDetail);
-  const clearDetail = useWalletSlice((s) => s.clearDetail);
-  const closeOutItems = useWalletSlice((s) => s.closeOutItems);
-  const closeOutAll = useWalletSlice((s) => s.closeOutAll);
-  const clearError = useWalletSlice((s) => s.clearError);
+  const detail = useWalletStore((s) => s.detail);
+  const detailLoading = useWalletStore((s) => s.detailLoading);
+  const error = useWalletStore((s) => s.error);
+  const fetchDetail = useWalletStore((s) => s.fetchDetail);
+  const clearDetail = useWalletStore((s) => s.clearDetail);
+  const closeOutItems = useWalletStore((s) => s.closeOutItems);
+  const closeOutAll = useWalletStore((s) => s.closeOutAll);
+  const clearError = useWalletStore((s) => s.clearError);
 
   const branchFilter = useEffectiveBranchFilter();
   const [busy, setBusy] = useState(false);

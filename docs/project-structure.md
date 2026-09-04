@@ -74,31 +74,41 @@ SubsTrack/
 │   │       ├── useAppFont.ts      # Font loader hook (Cairo for Arabic, System for English)
 │   │       └── locales/{en,ar}.json
 │   │
-│   ├── state/                     # Global Zustand store (slice pattern, immer middleware)
+│   ├── state/                     # Global store: CROSS-MODULE state only (slice pattern, immer)
 │   │   ├── globalStore.ts         # GlobalState + getStore() singleton (stashed on globalThis)
+│   │   ├── refreshActiveData.ts   # post-sync re-fetch — lists every loaded slice AND module store
 │   │   ├── hooks/
 │   │   │   ├── useGlobalStore.ts  # Overloaded wrapper around useStore(getStore(), sel)
-│   │   │   └── use<Feature>Slice.ts × 11  # Per-slice overloaded hooks (e.g. useCustomerSlice, useOptionSlice, useSubscriptionSlice)
-│   │   └── slices/
+│   │   │   └── use<Feature>Slice.ts × 15  # Per-slice overloaded hooks (e.g. useCustomerSlice)
+│   │   └── slices/                # 15 slices — each read by a peer slice or by 2+ modules
 │   │       ├── auth/authSlice.ts
-│   │       ├── subscription/subscriptionSlice.ts
+│   │       ├── subscription/subscriptionSlice.ts    # tier gating — read by 7 peer slices
 │   │       ├── customers/customerSlice.ts
+│   │       ├── customer-plans/customerPlanSlice.ts
 │   │       ├── payments/paymentSlice.ts            # per-customer month-GRID state only (bills + skips + the gate lists)
 │   │       ├── ledger/ledgerSlice.ts               # the money: debts view, one customer's owed pool, collect / void / write off
-│   │       ├── collections/collectionsListSlice.ts # the paginated money-in history
 │   │       ├── plans/planSlice.ts
 │   │       ├── users/userSlice.ts
-│   │       ├── dashboard/dashboardSlice.ts
 │   │       ├── branches/branchSlice.ts
 │   │       ├── currencies/currencySlice.ts
-│   │       ├── signup/signupSlice.ts
 │   │       ├── products/productSlice.ts
 │   │       ├── services/serviceSlice.ts
 │   │       ├── sales/saleSlice.ts
-│   │       ├── ledger/ledgerSlice.ts
-│   │       ├── expenses/expenseSlice.ts
-│   │       ├── reports/reportsSlice.ts             # period + section filter session, one report at a time
+│   │       ├── tenantSettings/tenantSettingSlice.ts
 │   │       └── options/optionSlice.ts
+│   │
+│   │   # MODULE STORES — standalone create()(immer()) stores, out of GlobalState.
+│   │   # Each is read by exactly one module and by no slice; both cross-cutting
+│   │   # lists (storeReset + refreshActiveData) name them explicitly.
+│   │   #   modules/dashboard/state/dashboardStore.ts
+│   │   #   modules/reports/state/reportsStore.ts             # period + section filter session
+│   │   #   modules/ledger/state/collectionsListStore.ts      # the paginated money-in history
+│   │   #   modules/transaction/expenses/state/expenseStore.ts
+│   │   #   modules/wallet/state/walletStore.ts
+│   │   #   modules/admin/audit/state/auditStore.ts           # the screen's filter session
+│   │   #   modules/authentication/signup/state/signupStore.ts
+│   │   # App-wide seams with NO owning module stay standalone under shared/lib:
+│   │   #   shared/lib/confirmStore.ts  shared/lib/uiStore.ts
 │   │
 │   ├── modules/                   # Feature modules (state moved out — see src/state/)
 │   │   ├── auth/

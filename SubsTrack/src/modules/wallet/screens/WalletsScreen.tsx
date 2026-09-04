@@ -22,7 +22,7 @@ import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
 import { useAfterFirstFrame } from "@/src/shared/hooks/useAfterFirstFrame";
-import { useWalletSlice } from "@/src/state/hooks/useWalletSlice";
+import { useWalletStore } from "../state/walletStore";
 import type { ReceiveBlock, UserWallet, WalletItem } from "@/src/core/types";
 import { WalletCard } from "../components/WalletCard";
 import {
@@ -53,19 +53,19 @@ export function WalletsScreen() {
   const { t } = useTranslation();
   const router = useRouter();
 
-  const items = useWalletSlice((s) => s.items);
-  const loading = useWalletSlice((s) => s.loading);
-  const error = useWalletSlice((s) => s.error);
-  const detail = useWalletSlice((s) => s.detail);
-  const detailLoading = useWalletSlice((s) => s.detailLoading);
-  const fetchWallets = useWalletSlice((s) => s.fetchWallets);
-  const fetchDetail = useWalletSlice((s) => s.fetchDetail);
-  const clearDetail = useWalletSlice((s) => s.clearDetail);
-  const receiveFrom = useWalletSlice((s) => s.receiveFrom);
-  const receiveAllFrom = useWalletSlice((s) => s.receiveAllFrom);
-  const closeOutItems = useWalletSlice((s) => s.closeOutItems);
-  const closeOutAll = useWalletSlice((s) => s.closeOutAll);
-  const clearError = useWalletSlice((s) => s.clearError);
+  const items = useWalletStore((s) => s.items);
+  const loading = useWalletStore((s) => s.loading);
+  const error = useWalletStore((s) => s.error);
+  const detail = useWalletStore((s) => s.detail);
+  const detailLoading = useWalletStore((s) => s.detailLoading);
+  const fetchWallets = useWalletStore((s) => s.fetchWallets);
+  const fetchDetail = useWalletStore((s) => s.fetchDetail);
+  const clearDetail = useWalletStore((s) => s.clearDetail);
+  const receiveFrom = useWalletStore((s) => s.receiveFrom);
+  const receiveAllFrom = useWalletStore((s) => s.receiveAllFrom);
+  const closeOutItems = useWalletStore((s) => s.closeOutItems);
+  const closeOutAll = useWalletStore((s) => s.closeOutAll);
+  const clearError = useWalletStore((s) => s.clearError);
 
   const currencies = useCurrencySlice((s) => s.items);
   const displayCurrencyId = useDisplayCurrencyId();

@@ -15,6 +15,11 @@
 // the screens the user has visited. The dashboard always refreshes because home
 // is the landing screen. List fetches reset to page 1 (fresh, from the top).
 
+import { useAuditStore } from '@/src/modules/admin/audit/state/auditStore';
+import { useDashboardStore } from '@/src/modules/dashboard/state/dashboardStore';
+import { useCollectionsListStore } from '@/src/modules/ledger/state/collectionsListStore';
+import { useExpenseStore } from '@/src/modules/transaction/expenses/state/expenseStore';
+import { useWalletStore } from '@/src/modules/wallet/state/walletStore';
 import { resolveBranchFilter } from '@/src/shared/lib/branchFilter';
 import { getStore } from './globalStore';
 
@@ -23,7 +28,7 @@ export function refreshActiveData(): void {
   const s = getStore().getState();
 
   // Home is the landing screen — always refresh its metrics + revenue trend.
-  void s.dashboard.fetchMetrics();
+  void useDashboardStore.getState().fetchMetrics();
 
   // Each list refreshes only if it was ever loaded (its screen was opened).
   // The slices with an "ensure loaded" action carry a `loaded` flag, so an
@@ -37,12 +42,17 @@ export function refreshActiveData(): void {
   if (s.services.loaded) void s.services.fetchServices();
   if (s.users.loaded) void s.users.fetchUsers();
   if (s.sales.items.length) void s.sales.fetchSales();
-  if (s.collections.items.length) void s.collections.fetchCollections();
-  if (s.wallet.items.length) void s.wallet.fetchWallets();
   if (s.ledger.debts) void s.ledger.fetchDebts(resolveBranchFilter(s.auth.user));
-  if (s.expenses.items.length) void s.expenses.fetchExpenses();
+  // Module stores sit outside GlobalState — reached through their own hook.
+  const collections = useCollectionsListStore.getState();
+  if (collections.items.length) void collections.fetchCollections();
+  const expenses = useExpenseStore.getState();
+  if (expenses.items.length) void expenses.fetchExpenses();
+  const wallet = useWalletStore.getState();
+  if (wallet.items.length) void wallet.fetchWallets();
   // A pull brings other devices' audit entries into the local window.
-  if (s.audit.items.length) void s.audit.fetchEntries();
+  const audit = useAuditStore.getState();
+  if (audit.items.length) void audit.fetchEntries();
 
   // The customer-list badges (month status + overdue, net debt) are derived from
   // the customer set, so refresh them whenever the customer list is loaded. The

@@ -10,8 +10,8 @@ import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchF
 import { findCurrency } from "@/src/core/utils/currency";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
-import { useReportsSlice } from "@/src/state/hooks/useReportsSlice";
-import type { ReportSection as SectionKey } from "@/src/state/slices/reports/reportsSlice";
+import { useReportsStore } from "@/src/modules/reports/state/reportsStore";
+import type { ReportSection as SectionKey } from "@/src/modules/reports/state/reportsStore";
 import { ReportSection } from "../components/ReportSection";
 import { MoneyReport } from "./sections/MoneyReport";
 import { DebtsReport } from "./sections/DebtsReport";
@@ -28,17 +28,17 @@ export function ReportsScreen() {
   const getCurrencies = useCurrencySlice((s) => s.getCurrencies);
   const displayCurrencyId = useDisplayCurrencyId();
 
-  const period = useReportsSlice((s) => s.period);
-  const section = useReportsSlice((s) => s.section);
-  const money = useReportsSlice((s) => s.money);
-  const debts = useReportsSlice((s) => s.debts);
-  const loading = useReportsSlice((s) => s.loading);
-  const error = useReportsSlice((s) => s.error);
-  const setPeriod = useReportsSlice((s) => s.setPeriod);
-  const setSection = useReportsSlice((s) => s.setSection);
-  const fetchSection = useReportsSlice((s) => s.fetchSection);
-  const refresh = useReportsSlice((s) => s.refresh);
-  const clearError = useReportsSlice((s) => s.clearError);
+  const period = useReportsStore((s) => s.period);
+  const section = useReportsStore((s) => s.section);
+  const money = useReportsStore((s) => s.money);
+  const debts = useReportsStore((s) => s.debts);
+  const loading = useReportsStore((s) => s.loading);
+  const error = useReportsStore((s) => s.error);
+  const setPeriod = useReportsStore((s) => s.setPeriod);
+  const setSection = useReportsStore((s) => s.setSection);
+  const fetchSection = useReportsStore((s) => s.fetchSection);
+  const refresh = useReportsStore((s) => s.refresh);
+  const clearError = useReportsStore((s) => s.clearError);
 
   const branchFilter = useEffectiveBranchFilter();
   const [exportError, setExportError] = useState<string | null>(null);

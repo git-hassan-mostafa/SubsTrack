@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import type { Currency } from "@/src/core/types";
 import type { ReportPeriod } from "@/src/core/utils/dateRange";
 import { exportCsv } from "@/src/shared/lib/csv";
-import type { ReportSection } from "@/src/state/slices/reports/reportsSlice";
+import type { ReportSection } from "@/src/modules/reports/state/reportsStore";
 import { debtsCsv, moneyCsv } from "../utils/csvRows";
 import type { DebtsReport, MoneyReport } from "../utils/types";
 

@@ -1,5 +1,4 @@
-import { getStore } from '@/src/state/globalStore';
-import type { ConfirmOptions } from '@/src/state/slices/confirm/confirmSlice';
+import { useConfirmStore, type ConfirmOptions } from './confirmStore';
 
 export const confirm = (options: ConfirmOptions): Promise<boolean> =>
-  getStore().getState().confirm.show(options);
+  useConfirmStore.getState().show(options);

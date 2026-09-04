@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { COLORS } from "@/src/shared/constants";
-import { useUiSlice } from "@/src/state/hooks/useUiSlice";
+import { useUiStore } from "@/src/shared/lib/uiStore";
 import { useAuthSlice } from "@/src/state/hooks/useAuthSlice";
 import { PressableOpacity } from "./PressableOpacity/PressableOpacity";
 import { ActionMenu, type ActionMenuItem } from "./ActionMenu";
@@ -15,7 +15,7 @@ import { ActionMenu, type ActionMenuItem } from "./ActionMenu";
 // own header and needs the same menu — one implementation, two callers.
 export function QuickActionsMenuButton() {
   const { t } = useTranslation();
-  const openQuickAction = useUiSlice((s) => s.openQuickAction);
+  const openQuickAction = useUiStore((s) => s.openQuickAction);
   const role = useAuthSlice((s) => s.user?.role);
   const isAdmin = role === "admin" || role === "superadmin";
   const [menuOpen, setMenuOpen] = useState(false);

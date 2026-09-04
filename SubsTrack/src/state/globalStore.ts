@@ -6,25 +6,16 @@ import { createSubscriptionSlice, type SubscriptionSlice } from './slices/subscr
 import { createCustomerSlice, type CustomerSlice } from './slices/customers/customerSlice';
 import { createCustomerPlanSlice, type CustomerPlanSlice } from './slices/customer-plans/customerPlanSlice';
 import { createPaymentSlice, type PaymentSlice } from './slices/payments/paymentSlice';
-import { createCollectionsListSlice, type CollectionsListSlice } from './slices/collections/collectionsListSlice';
 import { createPlanSlice, type PlanSlice } from './slices/plans/planSlice';
 import { createUserSlice, type UserSlice } from './slices/users/userSlice';
-import { createDashboardSlice, type DashboardSlice } from './slices/dashboard/dashboardSlice';
 import { createBranchSlice, type BranchSlice } from './slices/branches/branchSlice';
 import { createCurrencySlice, type CurrencySlice } from './slices/currencies/currencySlice';
-import { createSignupSlice, type SignupSlice } from './slices/signup/signupSlice';
-import { createConfirmSlice, type ConfirmSlice } from './slices/confirm/confirmSlice';
 import { createProductSlice, type ProductSlice } from './slices/products/productSlice';
 import { createServiceSlice, type ServiceSlice } from './slices/services/serviceSlice';
 import { createSaleSlice, type SaleSlice } from './slices/sales/saleSlice';
 import { createLedgerSlice, type LedgerSlice } from './slices/ledger/ledgerSlice';
-import { createExpenseSlice, type ExpenseSlice } from './slices/expenses/expenseSlice';
-import { createWalletSlice, type WalletSlice } from './slices/wallet/walletSlice';
 import { createOptionSlice, type OptionSlice } from './slices/options/optionSlice';
 import { createTenantSettingSlice, type TenantSettingSlice } from './slices/tenantSettings/tenantSettingSlice';
-import { createAuditSlice, type AuditSlice } from './slices/audit/auditSlice';
-import { createReportsSlice, type ReportsSlice } from './slices/reports/reportsSlice';
-import { createUiSlice, type UiSlice } from './slices/ui/uiSlice';
 
 export interface GlobalState {
   auth: AuthSlice;
@@ -32,25 +23,16 @@ export interface GlobalState {
   customers: CustomerSlice;
   customerPlans: CustomerPlanSlice;
   payments: PaymentSlice;
-  collections: CollectionsListSlice;
   plans: PlanSlice;
   users: UserSlice;
-  dashboard: DashboardSlice;
   branches: BranchSlice;
   currencies: CurrencySlice;
-  signup: SignupSlice;
-  confirm: ConfirmSlice;
   products: ProductSlice;
   services: ServiceSlice;
   sales: SaleSlice;
   ledger: LedgerSlice;
-  expenses: ExpenseSlice;
-  wallet: WalletSlice;
   options: OptionSlice;
   tenantSettings: TenantSettingSlice;
-  audit: AuditSlice;
-  reports: ReportsSlice;
-  ui: UiSlice;
 }
 
 const STORE_KEY = '__SUBSTRACK_GLOBAL_STORE__';
@@ -63,25 +45,16 @@ const initStore = (): StoreApi<GlobalState> =>
       customers: createCustomerSlice(set, get, store),
       customerPlans: createCustomerPlanSlice(set, get, store),
       payments: createPaymentSlice(set, get, store),
-      collections: createCollectionsListSlice(set, get, store),
       plans: createPlanSlice(set, get, store),
       users: createUserSlice(set, get, store),
-      dashboard: createDashboardSlice(set, get, store),
       branches: createBranchSlice(set, get, store),
       currencies: createCurrencySlice(set, get, store),
-      signup: createSignupSlice(set, get, store),
-      confirm: createConfirmSlice(set, get, store),
       products: createProductSlice(set, get, store),
       services: createServiceSlice(set, get, store),
       sales: createSaleSlice(set, get, store),
       ledger: createLedgerSlice(set, get, store),
-      expenses: createExpenseSlice(set, get, store),
-      wallet: createWalletSlice(set, get, store),
       options: createOptionSlice(set, get, store),
       tenantSettings: createTenantSettingSlice(set, get, store),
-      audit: createAuditSlice(set, get, store),
-      reports: createReportsSlice(set, get, store),
-      ui: createUiSlice(set, get, store),
     })),
   );
 

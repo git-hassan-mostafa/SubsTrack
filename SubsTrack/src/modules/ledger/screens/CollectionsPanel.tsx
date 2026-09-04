@@ -42,8 +42,8 @@ import type {
   CollectionSortField,
   SortDirection,
 } from "../repository/ICollectionRepository";
-import type { CollectionStatus } from "@/src/state/slices/collections/collectionsListSlice";
-import { useCollectionsListSlice } from "@/src/state/hooks/useCollectionsListSlice";
+import type { CollectionStatus } from "@/src/modules/ledger/state/collectionsListStore";
+import { useCollectionsListStore } from "@/src/modules/ledger/state/collectionsListStore";
 import { useLedgerSlice } from "@/src/state/hooks/useLedgerSlice";
 import { useUserSlice } from "@/src/state/hooks/useUserSlice";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
@@ -75,33 +75,33 @@ interface Props {
 export function CollectionsPanel({ onOpenSale }: Props = {}) {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const items = useCollectionsListSlice((s) => s.items);
-  const monthlyTotals = useCollectionsListSlice((s) => s.monthlyTotals);
-  const loading = useCollectionsListSlice((s) => s.loading);
-  const loadingMore = useCollectionsListSlice((s) => s.loadingMore);
-  const error = useCollectionsListSlice((s) => s.error);
-  const hasMore = useCollectionsListSlice((s) => s.hasMore);
-  const fetchCollections = useCollectionsListSlice((s) => s.fetchCollections);
-  const fetchMore = useCollectionsListSlice((s) => s.fetchMoreCollections);
-  const customerFilter = useCollectionsListSlice((s) => s.customerFilter);
-  const setCustomerFilter = useCollectionsListSlice((s) => s.setCustomerFilter);
-  const receivedByUserId = useCollectionsListSlice((s) => s.receivedByUserId);
-  const setReceivedByUserId = useCollectionsListSlice(
+  const items = useCollectionsListStore((s) => s.items);
+  const monthlyTotals = useCollectionsListStore((s) => s.monthlyTotals);
+  const loading = useCollectionsListStore((s) => s.loading);
+  const loadingMore = useCollectionsListStore((s) => s.loadingMore);
+  const error = useCollectionsListStore((s) => s.error);
+  const hasMore = useCollectionsListStore((s) => s.hasMore);
+  const fetchCollections = useCollectionsListStore((s) => s.fetchCollections);
+  const fetchMore = useCollectionsListStore((s) => s.fetchMoreCollections);
+  const customerFilter = useCollectionsListStore((s) => s.customerFilter);
+  const setCustomerFilter = useCollectionsListStore((s) => s.setCustomerFilter);
+  const receivedByUserId = useCollectionsListStore((s) => s.receivedByUserId);
+  const setReceivedByUserId = useCollectionsListStore(
     (s) => s.setReceivedByUserId,
   );
-  const period = useCollectionsListSlice((s) => s.period);
-  const setPeriod = useCollectionsListSlice((s) => s.setPeriod);
-  const kind = useCollectionsListSlice((s) => s.kind);
-  const setKind = useCollectionsListSlice((s) => s.setKind);
-  const status = useCollectionsListSlice((s) => s.status);
-  const setStatus = useCollectionsListSlice((s) => s.setStatus);
-  const sortField = useCollectionsListSlice((s) => s.sortField);
-  const setSortField = useCollectionsListSlice((s) => s.setSortField);
-  const sortDirection = useCollectionsListSlice((s) => s.sortDirection);
-  const setSortDirection = useCollectionsListSlice((s) => s.setSortDirection);
-  const clearFilters = useCollectionsListSlice((s) => s.clearFilters);
-  const clearError = useCollectionsListSlice((s) => s.clearError);
-  const applyVoided = useCollectionsListSlice((s) => s.applyVoided);
+  const period = useCollectionsListStore((s) => s.period);
+  const setPeriod = useCollectionsListStore((s) => s.setPeriod);
+  const kind = useCollectionsListStore((s) => s.kind);
+  const setKind = useCollectionsListStore((s) => s.setKind);
+  const status = useCollectionsListStore((s) => s.status);
+  const setStatus = useCollectionsListStore((s) => s.setStatus);
+  const sortField = useCollectionsListStore((s) => s.sortField);
+  const setSortField = useCollectionsListStore((s) => s.setSortField);
+  const sortDirection = useCollectionsListStore((s) => s.sortDirection);
+  const setSortDirection = useCollectionsListStore((s) => s.setSortDirection);
+  const clearFilters = useCollectionsListStore((s) => s.clearFilters);
+  const clearError = useCollectionsListStore((s) => s.clearError);
+  const applyVoided = useCollectionsListStore((s) => s.applyVoided);
   const refreshNetByCustomer = useLedgerSlice((s) => s.fetchNetByCustomer);
 
   const users = useUserSlice((s) => s.items);

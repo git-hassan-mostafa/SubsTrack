@@ -12,7 +12,7 @@ import { BranchPicker } from "@/src/shared/components/BranchPicker";
 import type { ExpenseCategory } from "@/src/core/types";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
-import { useExpenseSlice } from "@/src/state/hooks/useExpenseSlice";
+import { useExpenseStore } from "@/src/modules/transaction/expenses/state/expenseStore";
 import { findCurrency } from "@/src/core/utils/currency";
 import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
 import { EXPENSE_CATEGORIES } from "../utils/expenseCategories";
@@ -39,10 +39,10 @@ export function ExpenseFormSheet({ onDismiss, onCreated }: Props) {
   const { t } = useTranslation();
   const { user } = useAuth();
   const currencies = useCurrencySlice((s) => s.items);
-  const addExpense = useExpenseSlice((s) => s.addExpense);
-  const loading = useExpenseSlice((s) => s.loading);
-  const error = useExpenseSlice((s) => s.error);
-  const clearError = useExpenseSlice((s) => s.clearError);
+  const addExpense = useExpenseStore((s) => s.addExpense);
+  const loading = useExpenseStore((s) => s.loading);
+  const error = useExpenseStore((s) => s.error);
+  const clearError = useExpenseStore((s) => s.clearError);
 
   const [category, setCategory] = useState<ExpenseCategory>("rent");
   const [amount, setAmount] = useState<number | null>(null);
