@@ -14,7 +14,10 @@ import { PageHeader } from "@/src/shared/components/PageHeader";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { formatDate } from "@/src/core/utils/date";
 import { CustomerPaymentPanel } from "@/src/modules/customer/customer-payments";
-import { CustomerSalesPanel } from "@/src/modules/transaction/sales";
+import {
+  CustomerSalesPanel,
+  useSaleDetailSheet,
+} from "@/src/modules/transaction/sales";
 import { CustomerDebtsPanel } from "@/src/modules/transaction/debts";
 import { CustomerDetailsCard } from "../components/CustomerDetailsCard";
 import { CustomerFormSheet } from "../components/CustomerFormSheet";
@@ -36,6 +39,8 @@ export function CustomerDetailScreen() {
   // Bumped on pull-to-refresh so the panels below re-read too. The customer row
   // alone would not show a month paid or voided elsewhere and synced down.
   const [refreshToken, setRefreshToken] = useState(0);
+  // A debt row can BE a sale, and debts must not depend on the sales module.
+  const saleDetail = useSaleDetailSheet();
 
   useEffect(() => {
     getSelectedCustomer();
@@ -114,7 +119,10 @@ export function CustomerDetailScreen() {
               onDeleted={() => router.back()}
             />
             <CustomerSalesPanel customer={customer} />
-            <CustomerDebtsPanel customer={customer} />
+            <CustomerDebtsPanel
+              customer={customer}
+              onOpenSale={saleDetail.openSale}
+            />
             <View className="h-8" />
           </ScrollView>
         ) : null}
@@ -133,6 +141,8 @@ export function CustomerDetailScreen() {
           onDismiss={() => setHistoryVisible(false)}
         />
       )}
+
+      {saleDetail.sheet}
     </SafeAreaView>
   );
 }

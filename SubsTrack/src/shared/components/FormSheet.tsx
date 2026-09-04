@@ -57,6 +57,7 @@ interface FormSheetProps {
    * does. See gotcha #131 for why these left the body.
    */
   menuActions?: ActionMenuItem[];
+  fullBleed?: boolean;
   children: ReactNode;
 }
 
@@ -87,6 +88,7 @@ export function FormSheet({
   dirty = false,
   scrollRef,
   menuActions,
+  fullBleed = false,
   children,
 }: FormSheetProps) {
   return (
@@ -103,6 +105,7 @@ export function FormSheet({
         onDismiss={onDismiss}
         scrollRef={scrollRef}
         menuActions={menuActions}
+        fullBleed={fullBleed}
       >
         {children}
       </FormSheetBody>
@@ -122,6 +125,7 @@ function FormSheetBody({
   onDismiss,
   scrollRef,
   menuActions,
+  fullBleed,
   children,
 }: {
   visible: boolean;
@@ -130,6 +134,7 @@ function FormSheetBody({
   onDismiss: () => void;
   scrollRef?: RefObject<SheetScrollTo | null>;
   menuActions?: ActionMenuItem[];
+  fullBleed?: boolean;
   children: ReactNode;
 }) {
   const { t } = useTranslation();
@@ -196,8 +201,8 @@ function FormSheetBody({
         style={{ flex: 1 }}
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={{
-          paddingHorizontal: 24,
-          paddingTop: 24,
+          paddingHorizontal: fullBleed ? 0 : 24,
+          paddingTop: fullBleed ? 0 : 24,
           paddingBottom: 48 + insets.bottom,
         }}
       >

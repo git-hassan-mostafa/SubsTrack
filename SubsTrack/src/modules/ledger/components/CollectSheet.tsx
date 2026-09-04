@@ -207,7 +207,7 @@ export function CollectSheet({
           : t("ledger.collect_from", { name: customerName })
       }
     >
-      <View className="gap-4 px-4 pb-8">
+      <View className="gap-4 pb-8">
         {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}
 
         {/* What is owed, and the one tap that collects all of it. Not for an

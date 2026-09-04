@@ -17,7 +17,12 @@ interface Props {
 export function CollectionsHistorySheet({ onDismiss, onOpenSale }: Props) {
   const { t } = useTranslation();
   return (
-    <FormSheet visible onDismiss={onDismiss} title={t("ledger.history_title")}>
+    <FormSheet
+      visible
+      onDismiss={onDismiss}
+      title={t("ledger.history_title")}
+      fullBleed
+    >
       <CollectionsPanel onOpenSale={onOpenSale} />
     </FormSheet>
   );

@@ -104,7 +104,7 @@ export function BillSheet({
       title={label}
       menuActions={menuActions}
     >
-      <View className="gap-5 px-4 pb-8">
+      <View className="gap-5 pb-8">
         {/* Collected out of owed — the running total, not a one-off snapshot. */}
         <View className="items-center gap-1 py-2">
           <Text className="text-3xl font-bold text-slate-900">

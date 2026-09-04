@@ -49,7 +49,7 @@ export function CollectionSplitSheet({
 
   return (
     <FormSheet visible onDismiss={onDismiss} title={t("ledger.split_title")}>
-      <View className="items-center gap-1 px-4 pb-4 pt-2">
+      <View className="items-center gap-1 pb-4 pt-2">
         <Text
           className={`text-3xl font-bold ${
             voided ? "text-slate-400 line-through" : "text-slate-900"
@@ -71,7 +71,7 @@ export function CollectionSplitSheet({
         </View>
       </View>
 
-      <View className="px-4">
+      <View>
         <InfoRows
           rows={[
             {
@@ -113,7 +113,7 @@ export function CollectionSplitSheet({
         />
       </View>
 
-      <View className="px-4 pb-6 pt-5">
+      <View className="pb-6 pt-5">
         <Text className="pb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
           {voided ? t("ledger.this_paid") : t("ledger.this_pays")}
         </Text>

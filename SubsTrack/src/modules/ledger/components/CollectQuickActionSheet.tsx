@@ -62,7 +62,7 @@ export function CollectQuickActionSheet({ onDismiss }: Props) {
   return (
     <>
       <FormSheet visible onDismiss={onDismiss} title={t("ledger.collect_money")}>
-        <View className="gap-4 px-4 pb-8">
+        <View className="gap-4 pb-8">
           {showError ? (
             <ErrorBanner message={error} onDismiss={clearError} />
           ) : null}

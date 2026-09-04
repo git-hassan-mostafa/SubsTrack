@@ -43,7 +43,7 @@ export function RecordsSheet({
       title={title}
       dismissLabel={t("common.close")}
     >
-      <View className="px-4 pb-8">
+      <View className="pb-8">
         <View className="flex-row items-baseline gap-2 pb-3 border-b border-gray-100">
           <Text className="text-xs text-gray-400">{t("reports.total")}</Text>
           <Text fontWeight="Bold" className="text-lg text-gray-900">

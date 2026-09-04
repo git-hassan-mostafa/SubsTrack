@@ -14,6 +14,7 @@ import {
   chargeService,
   isDebtItem,
   useCollectSheet,
+  useOpenBill,
   useOwedChanged,
 } from "@/src/modules/ledger";
 import { useDebtRowActions } from "../hooks/useDebtRowActions";
@@ -22,6 +23,8 @@ import { CustomDebtFormSheet } from "./CustomDebtFormSheet";
 
 interface Props {
   customer: Customer;
+  /** A sale's receipt — injected, so debts never depends on the sales module. */
+  onOpenSale?: (saleId: string) => Promise<void> | void;
 }
 
 /**
@@ -32,7 +35,7 @@ interface Props {
  * state — the same pattern as CustomerSalesPanel. Plain unpaid months are NOT
  * listed here: the month grid above already shows them.
  */
-export function CustomerDebtsPanel({ customer }: Props) {
+export function CustomerDebtsPanel({ customer, onOpenSale }: Props) {
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
   const displayCurrencyId = useDisplayCurrencyId();
@@ -63,6 +66,8 @@ export function CustomerDebtsPanel({ customer }: Props) {
 
   const collectSheet = useCollectSheet();
   const { voidItem, writeOffItem } = useDebtRowActions();
+  // Voiding a payment inside the bill bumps owedVersion, which refreshes this list.
+  const openBill = useOpenBill({ onOpenSale });
 
   // Refresh on focus so bills raised elsewhere show on return...
   useFocusEffect(
@@ -106,6 +111,8 @@ export function CustomerDebtsPanel({ customer }: Props) {
         onCollect={(item) => collectSheet.openOne(customer.name, item)}
         onVoidItem={voidItem}
         onWriteOff={writeOffItem}
+        onOpenItem={openBill.openOwed}
+        openingItemKey={openBill.loadingId}
       />
 
       {customDebtOpen && (
@@ -116,6 +123,7 @@ export function CustomerDebtsPanel({ customer }: Props) {
       )}
 
       {collectSheet.sheet}
+      {openBill.sheet}
     </View>
   );
 }
