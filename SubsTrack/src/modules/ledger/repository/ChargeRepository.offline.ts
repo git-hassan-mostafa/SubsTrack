@@ -271,6 +271,7 @@ export class OfflineChargeRepository extends OfflineBaseRepository implements IC
         action,
         before: prior.row,
         after,
+        customerId: prior.row.customer_id ?? undefined,
         branchId: prior.row.branch_id,
         subject: prior.subject,
       });

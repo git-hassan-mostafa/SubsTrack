@@ -305,6 +305,7 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
       action: 'void',
       before: prior,
       after: voided,
+      customerId: voided.customer_id ?? undefined,
       branchId: voided.branch_id,
       subject: voided.customers?.name ?? null,
     });
@@ -337,6 +338,7 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
         action: 'void',
         before: priorById.get(row.id),
         after: row,
+        customerId: row.customer_id ?? undefined,
         branchId: row.branch_id,
         subject: row.customers?.name ?? null,
       });

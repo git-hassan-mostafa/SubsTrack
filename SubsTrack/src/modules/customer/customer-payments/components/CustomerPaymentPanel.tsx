@@ -21,6 +21,7 @@ import {
 } from "@/src/shared/components/ActionMenu";
 import { InlineSelectionToolbar } from "@/src/shared/components/InlineSelectionToolbar";
 import type {
+  AuditRecordTarget,
   Collection,
   Customer,
   CustomerPlan,
@@ -55,6 +56,7 @@ import { useSendInvoice, WhatsAppComboIcon } from "@/src/modules/invoicing";
 import {
   BillHistorySheet,
   BillSheet,
+  chargeService,
   CollectSheet,
   collectionService,
   monthItemFromEntry,
@@ -148,7 +150,11 @@ export function CustomerPaymentPanel({
   const [menuEntry, setMenuEntry] = useState<MonthEntry | null>(null);
   const [busyMonth, setBusyMonth] = useState<string | null>(null);
   const [billEntry, setBillEntry] = useState<MonthEntry | null>(null);
-  const [historyEntry, setHistoryEntry] = useState<MonthEntry | null>(null);
+  const [history, setHistory] = useState<{
+    chargeId: string | null;
+    targets: AuditRecordTarget[];
+    subtitle: string;
+  } | null>(null);
   const [collectFor, setCollectFor] = useState<{
     items: OpenItem[];
     single: boolean;
@@ -674,6 +680,23 @@ export function CustomerPaymentPanel({
     }
   }
 
+  // A VOIDED month keeps its trail but loses its charge — the grid's read drops
+  // voided rows — so the bill id is rebuilt from the line + month it is a hash of.
+  async function openHistory(entry: MonthEntry) {
+    const chargeId =
+      entry.charge?.id ??
+      (selectedLine
+        ? await chargeService.monthChargeId(selectedLine.id, entry.billingMonth)
+        : null);
+    setHistory({
+      chargeId,
+      targets: entry.skip
+        ? [{ table: "skipped_months", recordId: entry.skip.id }]
+        : [],
+      subtitle: monthLabelOf(entry),
+    });
+  }
+
   function buildMonthMenuActions(entry: MonthEntry | null): ActionMenuItem[] {
     if (!entry) return [];
     const items: ActionMenuItem[] = [
@@ -742,12 +765,15 @@ export function CustomerPaymentPanel({
         });
       }
     }
-    if ((entry.charge || entry.skip) && isAdmin) {
+    // Offered on every real month, not just one holding a bill: a VOIDED bill is
+    // dropped from the grid's read, and that is exactly the month whose trail
+    // someone needs. An untouched month simply reports nothing.
+    if (isAdmin && entry.status !== "before_start") {
       items.push({
         key: "history",
         label: t("audit.history"),
         icon: "time-outline",
-        onPress: () => setHistoryEntry(entry),
+        onPress: () => void openHistory(entry),
       });
     }
     if (entry.charge) {
@@ -1169,16 +1195,12 @@ export function CustomerPaymentPanel({
         />
       )}
 
-      {historyEntry && (
+      {history && (
         <BillHistorySheet
-          targets={
-            historyEntry.skip
-              ? [{ table: "skipped_months", recordId: historyEntry.skip.id }]
-              : []
-          }
-          chargeId={historyEntry.charge?.id ?? null}
-          subtitle={monthLabelOf(historyEntry)}
-          onDismiss={() => setHistoryEntry(null)}
+          targets={history.targets}
+          chargeId={history.chargeId}
+          subtitle={history.subtitle}
+          onDismiss={() => setHistory(null)}
         />
       )}
 

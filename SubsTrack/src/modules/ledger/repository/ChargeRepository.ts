@@ -234,6 +234,7 @@ export class ChargeRepository extends BaseRepository implements IChargeRepositor
       action,
       before: prior as DbCharge | null,
       after,
+      customerId: after.customer_id ?? undefined,
       branchId: after.branch_id,
       subject: after.customers?.name ?? null,
     });

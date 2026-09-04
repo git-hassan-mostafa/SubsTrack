@@ -313,6 +313,7 @@ export class OfflineCollectionRepository
         action: 'void',
         before: prior.row,
         after,
+        customerId: prior.row.customer_id ?? undefined,
         branchId: prior.row.branch_id,
         subject: prior.subject,
       });
@@ -367,6 +368,7 @@ export class OfflineCollectionRepository
           action: 'void',
           before: prior,
           after: { ...prior, voided_at: now, voided_by: voidedBy, void_reason: reason },
+          customerId: prior.customer_id ?? undefined,
           branchId: prior.branch_id ?? null,
           subject: subjects.get(prior.id) ?? null,
         });
