@@ -53,6 +53,7 @@ import {
 import type { SelectionAction } from "@/src/shared/components/PageHeader";
 import { useSendInvoice, WhatsAppComboIcon } from "@/src/modules/invoicing";
 import {
+  BillHistorySheet,
   BillSheet,
   CollectSheet,
   collectionService,
@@ -108,7 +109,7 @@ export function CustomerPaymentPanel({
   const locale = getDateLocale(i18n.language);
   const router = useRouter();
   const { quickPay } = useLocalSearchParams<{ quickPay?: string }>();
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const bills = usePaymentSlice((s) => s.bills);
   const skips = usePaymentSlice((s) => s.skips);
   const monthGridsByLine = usePaymentSlice((s) => s.monthGridsByLine);
@@ -147,6 +148,7 @@ export function CustomerPaymentPanel({
   const [menuEntry, setMenuEntry] = useState<MonthEntry | null>(null);
   const [busyMonth, setBusyMonth] = useState<string | null>(null);
   const [billEntry, setBillEntry] = useState<MonthEntry | null>(null);
+  const [historyEntry, setHistoryEntry] = useState<MonthEntry | null>(null);
   const [collectFor, setCollectFor] = useState<{
     items: OpenItem[];
     single: boolean;
@@ -740,6 +742,14 @@ export function CustomerPaymentPanel({
         });
       }
     }
+    if ((entry.charge || entry.skip) && isAdmin) {
+      items.push({
+        key: "history",
+        label: t("audit.history"),
+        icon: "time-outline",
+        onPress: () => setHistoryEntry(entry),
+      });
+    }
     if (entry.charge) {
       items.push({
         key: "void-month",
@@ -1156,6 +1166,19 @@ export function CustomerPaymentPanel({
           }}
           onChanged={(voided) => applyCollection(voided, -1)}
           onDismiss={() => setBillEntry(null)}
+        />
+      )}
+
+      {historyEntry && (
+        <BillHistorySheet
+          targets={
+            historyEntry.skip
+              ? [{ table: "skipped_months", recordId: historyEntry.skip.id }]
+              : []
+          }
+          chargeId={historyEntry.charge?.id ?? null}
+          subtitle={monthLabelOf(historyEntry)}
+          onDismiss={() => setHistoryEntry(null)}
         />
       )}
 

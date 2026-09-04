@@ -5,8 +5,11 @@ import {
   ActionMenu,
   type ActionMenuItem,
 } from "@/src/shared/components/ActionMenu";
-import { openItemFromCharge, useCollectSheet } from "@/src/modules/ledger";
-import { useRecordHistoryAction } from "@/src/modules/admin/audit";
+import {
+  BillHistorySheet,
+  openItemFromCharge,
+  useCollectSheet,
+} from "@/src/modules/ledger";
 import { saleTitle } from "@/src/core/utils/receiptId";
 import { useSendInvoice, WhatsAppComboIcon } from "@/src/modules/invoicing";
 import { SaleBulkVoidSheet } from "../components/SaleBulkVoidSheet";
@@ -44,9 +47,9 @@ export function useSaleActions({
 }: Options): SaleActions {
   const { t } = useTranslation();
   const { canSend, sendSaleInvoice } = useSendInvoice();
-  const history = useRecordHistoryAction("sales");
   const collectSheet = useCollectSheet({ onCollected });
   const [menuSale, setMenuSale] = useState<Sale | null>(null);
+  const [historySale, setHistorySale] = useState<Sale | null>(null);
   const [voidTarget, setVoidTarget] = useState<{
     saleIds: string[];
     chargeIds: string[];
@@ -125,7 +128,12 @@ export function useSaleActions({
       });
     }
 
-    actions.push(history.action(sale.id, saleTitle(sale.id, sale.itemsSummary)));
+    actions.push({
+      key: "history",
+      label: t("audit.history"),
+      icon: "time-outline",
+      onPress: () => setHistorySale(sale),
+    });
 
     if (!voided) {
       actions.push({
@@ -173,7 +181,14 @@ export function useSaleActions({
           />
         ) : null}
 
-        {history.sheet}
+        {historySale ? (
+          <BillHistorySheet
+            targets={[{ table: "sales", recordId: historySale.id }]}
+            chargeId={historySale.chargeId}
+            subtitle={saleTitle(historySale.id, historySale.itemsSummary)}
+            onDismiss={() => setHistorySale(null)}
+          />
+        ) : null}
         {collectSheet.sheet}
       </>
     ),

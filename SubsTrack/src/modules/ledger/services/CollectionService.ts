@@ -3,6 +3,7 @@ import type { DbCollection } from '@/src/core/types/db';
 import i18n from '@/src/core/i18n';
 import type {
   AllocationLine,
+  AuditRecordTarget,
   CashRow,
   Collection,
   CollectionListItem,
@@ -190,6 +191,15 @@ class CollectionService {
         (a, b) =>
           a.receivedAt.localeCompare(b.receivedAt) || a.createdAt.localeCompare(b.createdAt),
       );
+  }
+
+  /** Every hand-over that ever touched one bill, as audit targets. */
+  async getPaymentTargets(chargeId: string): Promise<AuditRecordTarget[]> {
+    const items = await repository.findItemsForCharges([chargeId]);
+    return [...new Set(items.map((i) => i.collection_id))].map((recordId) => ({
+      table: 'collections' as const,
+      recordId,
+    }));
   }
 
 

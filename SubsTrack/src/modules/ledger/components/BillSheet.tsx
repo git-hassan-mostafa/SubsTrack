@@ -20,7 +20,9 @@ import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { useUserSlice } from "@/src/state/hooks/useUserSlice";
 import { useLanguageStore } from "@/src/core/i18n/languageStore";
+import { useAuth } from "@/src/modules/authentication/auth";
 import { BillPaymentsList } from "./BillPaymentsList";
+import { BillHistorySheet } from "./BillHistorySheet";
 
 interface Props {
   visible: boolean;
@@ -51,6 +53,8 @@ export function BillSheet({
   const displayCurrencyId = useDisplayCurrencyId();
   const { language } = useLanguageStore();
   const locale = language === "ar" ? "ar" : "en-US";
+  const { isAdmin } = useAuth();
+  const [historyOpen, setHistoryOpen] = useState(false);
 
   const [collected, setCollected] = useState(0);
 
@@ -79,17 +83,24 @@ export function BillSheet({
     if (await onVoidBill(charge)) onDismiss();
   }
 
-  const menuActions: ActionMenuItem[] = onVoidBill
-    ? [
-        {
-          key: "void",
-          label: t("ledger.void_month"),
-          icon: "close-circle-outline",
-          destructive: true,
-          onPress: () => void handleVoidBill(),
-        },
-      ]
-    : [];
+  const menuActions: ActionMenuItem[] = [];
+  if (isAdmin) {
+    menuActions.push({
+      key: "history",
+      label: t("audit.history"),
+      icon: "time-outline",
+      onPress: () => setHistoryOpen(true),
+    });
+  }
+  if (onVoidBill) {
+    menuActions.push({
+      key: "void",
+      label: t("ledger.void_month"),
+      icon: "close-circle-outline",
+      destructive: true,
+      onPress: () => void handleVoidBill(),
+    });
+  }
 
   return (
     <FormSheet
@@ -177,6 +188,14 @@ export function BillSheet({
             onPress={() => onCollect(charge)}
           />
         )}
+
+        {historyOpen ? (
+          <BillHistorySheet
+            chargeId={charge.id}
+            subtitle={label}
+            onDismiss={() => setHistoryOpen(false)}
+          />
+        ) : null}
       </View>
     </FormSheet>
   );

@@ -26,8 +26,7 @@ import { receiptId, saleTitle } from "@/src/core/utils/receiptId";
 import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
 import { SendOnWhatsAppButton, useSendInvoice } from "@/src/modules/invoicing";
 import { useAuth } from "@/src/modules/authentication/auth";
-import { RecordHistorySheet } from "@/src/modules/admin/audit";
-import { BillPaymentsList } from "@/src/modules/ledger";
+import { BillHistorySheet, BillPaymentsList } from "@/src/modules/ledger";
 
 interface Props {
   sale: Sale | null;
@@ -364,9 +363,9 @@ export function SaleDetailSheet({
       ) : null}
 
       {historyOpen ? (
-        <RecordHistorySheet
-          table="sales"
-          recordId={sale.id}
+        <BillHistorySheet
+          targets={[{ table: "sales", recordId: sale.id }]}
+          chargeId={sale.chargeId}
           subtitle={saleTitle(sale.id, sale.itemsSummary)}
           onDismiss={() => setHistoryOpen(false)}
         />

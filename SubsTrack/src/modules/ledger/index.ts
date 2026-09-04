@@ -28,6 +28,7 @@ export { useCollectSheet } from './hooks/useCollectSheet';
 export { useOwedChanged } from './hooks/useOwedChanged';
 export { CollectQuickActionSheet } from './components/CollectQuickActionSheet';
 export { BillSheet } from './components/BillSheet';
+export { BillHistorySheet } from './components/BillHistorySheet';
 export { BillPaymentsList } from './components/BillPaymentsList';
 export { CollectionCard } from './components/CollectionCard';
 export { CollectionItemCard } from './components/CollectionItemCard';
