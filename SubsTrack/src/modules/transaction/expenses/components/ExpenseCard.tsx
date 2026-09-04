@@ -25,10 +25,7 @@ import {
 
 interface Props {
   item: ExpenseItem;
-  // Manual rows only (item.canVoid). A derived stock cost has no row to void —
-  // it is corrected on the stock entry itself (edit / revert).
   onVoid?: (item: ExpenseItem) => void;
-  // Opens the product behind a derived stock row.
   onOpenProduct?: (productId: string) => void;
 }
 

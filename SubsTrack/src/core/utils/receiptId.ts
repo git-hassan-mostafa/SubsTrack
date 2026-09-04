@@ -1,4 +1,3 @@
-/** How many trailing characters of the UUID a receipt number is cut from. */
 export const RECEIPT_ID_LENGTH = 6;
 
 /**

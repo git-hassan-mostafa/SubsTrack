@@ -56,11 +56,6 @@ import { useOpenBill } from "../hooks/useOpenBill";
 import { collectionService } from "../services/CollectionService";
 
 interface Props {
-  /**
-   * Opens a SALE's receipt. Injected, because the sale sheet lives in the sales
-   * module and sales depends on the ledger — never the other way round. Omit and
-   * a sale row simply does not open.
-   */
   onOpenSale?: (saleId: string) => Promise<void> | void;
 }
 
@@ -114,7 +109,6 @@ export function CollectionsPanel({ onOpenSale }: Props = {}) {
 
   const [voidIds, setVoidIds] = useState<string[] | null>(null);
   const [split, setSplit] = useState<CollectionListItem | null>(null);
-  // A payment voided inside the bill sheet is a row of THIS list, so patch it.
   const openBill = useOpenBill({
     onOpenSale,
     onChanged: (voided) => {
@@ -139,8 +133,6 @@ export function CollectionsPanel({ onOpenSale }: Props = {}) {
     void fetchCollections();
   }, [branchFilter, clearSelection, fetchCollections]);
 
-  // The received-by dropdown needs the user list (this screen loads nothing
-  // else). `getUsers` self-guards on the slice's `loaded` flag.
   useEffect(() => {
     void getUsers();
   }, [getUsers]);
@@ -167,7 +159,6 @@ export function CollectionsPanel({ onOpenSale }: Props = {}) {
     [t],
   );
 
-  // Only dates the hand-over owns — a due date is the bill's (gotcha #129).
   const sortFieldOptions: DropdownOption<CollectionSortField>[] = useMemo(
     () => [
       { label: t("ledger.sort_by_received"), value: "received_at" },
@@ -196,23 +187,17 @@ export function CollectionsPanel({ onOpenSale }: Props = {}) {
 
   const selected = items.filter((c) => selectedIds.has(c.id));
 
-  // The money in the CURRENT filter, not just the loaded page: the totals query
-  // is unpaginated, so these month sums already cover every matching row.
   const periodTotalUsd = useMemo(
     () => Object.values(monthlyTotals).reduce((sum, v) => sum + v, 0),
     [monthlyTotals],
   );
 
-  // Bucket the already-received_at-desc rows into month sections, each carrying
-  // that month's true total (USD, at each row's own frozen rate).
   const sections = useMemo(
     () =>
       groupByMonth(
         items,
         (c) => c.receivedAt,
         t,
-        // A voided hand-over stays visible but contributes nothing — the header
-        // is money collected, and the totals query skips them server-side too.
         (c) => (c.voidedAt ? 0 : c.amount / c.ratePerUsdSnapshot),
         monthlyTotals,
       ),
@@ -257,8 +242,6 @@ export function CollectionsPanel({ onOpenSale }: Props = {}) {
   function buildSelectionActions(
     rows: CollectionListItem[],
   ): SelectionAction[] {
-    // Already-voided rows are visible in the list, so a mixed selection must
-    // only void the live ones; an all-voided selection offers nothing.
     const live = rows.filter((c) => c.voidedAt === null);
     if (live.length === 0) return [];
     return [
@@ -336,7 +319,6 @@ export function CollectionsPanel({ onOpenSale }: Props = {}) {
                 placeholder={t("ledger.sort_label")}
                 options={sortOptions}
                 value={sortDirection}
-                // Not nullable: there is always an order, so null means "keep".
                 onChange={(d) => setSortDirection(d ?? "desc")}
                 triggerStyle="chip"
               />
@@ -457,8 +439,6 @@ export function CollectionsPanel({ onOpenSale }: Props = {}) {
           collectionIds={voidIds}
           voidedBy={user.id}
           onVoided={() => {
-            // The slice marks the rows voided and takes them out of the month
-            // totals — there is nothing left to re-read.
             setVoidIds(null);
             clearSelection();
           }}

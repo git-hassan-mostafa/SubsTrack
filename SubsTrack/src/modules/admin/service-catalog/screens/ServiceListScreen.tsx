@@ -136,8 +136,6 @@ export function ServiceListScreen() {
 
   const activeCount = services.filter((s) => s.active).length;
 
-  // Resolve selected ids against the VISIBLE list, so a selected-then-filtered-out
-  // service can never be acted on invisibly.
   const selectedServices = filtered.filter((s) => selectedIds.has(s.id));
 
   async function runBulkDelete(selected: Service[]) {

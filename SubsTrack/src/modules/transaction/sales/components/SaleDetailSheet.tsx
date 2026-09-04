@@ -33,14 +33,8 @@ interface Props {
   sale: Sale | null;
   onDismiss: () => void;
   onVoid?: (reason: string) => void;
-  // Opens the sale form on this sale. Omitted where correcting one makes no
-  // sense; never offered for a voided sale.
   onEdit?: (sale: Sale) => void;
   voidLoading?: boolean;
-  /**
-   * A payment on this sale was voided here. The row carries the split it had
-   * settled, so the caller takes that money back off its own list.
-   */
   onChanged?: (voided: Collection) => void;
 }
 
@@ -65,7 +59,6 @@ export function SaleDetailSheet({
   const [historyOpen, setHistoryOpen] = useState(false);
   const scrollBody = useRef<SheetScrollTo | null>(null);
 
-  // Only a typed reason is worth guarding — opening void mode loses nothing.
   const dirty = useDirtyForm({ voidReason });
 
   function handleDismiss() {
@@ -95,7 +88,6 @@ export function SaleDetailSheet({
   const heroSourceLabel = partiallyPaid
     ? formatPaidFraction(sale.amountPaid, sale.totalAmount, source, source)
     : totalSourceLabel;
-  // Everything but the receipt itself lives in the header menu — see gotcha #131.
   const menuActions: ActionMenuItem[] = [];
   if (!voided && !voidMode && onEdit) {
     menuActions.push({
@@ -127,8 +119,6 @@ export function SaleDetailSheet({
   }
   const items = sale.items;
   const multipleItems = items.length > 1;
-  // The frozen summary gets long with many products — the list below carries the
-  // detail, so the hero only needs a count once there is more than one line.
   const itemsLabel = multipleItems
     ? t("sales.items_count", { count: items.length })
     : sale.itemsSummary;

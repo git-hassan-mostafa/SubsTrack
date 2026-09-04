@@ -1,7 +1,3 @@
-// When is a service line's month started, owed, and late? These rules only ever
-// mean anything to the month grid + the customer-list aggregator, so they live
-// next to them instead of in core's generic date utils. Comparisons use integer
-// year+month arithmetic to avoid timezone issues.
 import type { UnpaidStartRule } from "@/src/core/types";
 import { getCurrentYearMonth } from "@/src/core/utils/date";
 
@@ -76,7 +72,6 @@ export function isNotLateYet(
 ): boolean {
   if (rule !== "customer_start_day") return false;
   const { year: cy, month: cm } = getCurrentYearMonth();
-  // Exactly one month back — this month's billing day is the one it waits on.
   if ((cy - year) * 12 + (cm - month) !== 1) return false;
   return !hasReachedStartDay(cy, cm, startDate);
 }

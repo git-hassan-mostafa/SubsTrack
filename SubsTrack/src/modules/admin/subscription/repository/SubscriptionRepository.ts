@@ -29,9 +29,6 @@ export class SubscriptionRepository extends BaseRepository implements ISubscript
     return data as DbTenant;
   }
 
-  // Count the calling tenant's current usage across each gated resource.
-  // RLS restricts the counts to the caller's tenant automatically, so no
-  // tenant_id filter is passed (and the count would be wrong without RLS).
   async countTenantUsage(): Promise<TenantUsage> {
     const [customers, users, plans, branches, currencies, products] = await Promise.all([
       this.db
@@ -91,7 +88,6 @@ export class SubscriptionRepository extends BaseRepository implements ISubscript
       .single();
     if (error) this.handleError(error);
     const upgraded = data as DbTenant;
-    // Tenant-wide — no branch dimension, so every admin sees the plan change.
     this.audit({
       table: "tenants",
       recordId: tenantId,
@@ -103,7 +99,6 @@ export class SubscriptionRepository extends BaseRepository implements ISubscript
   }
 }
 
-// Platform seam: web → Supabase directly (unchanged); native → offline SQLite.
 const impl: ISubscriptionRepository =
   Platform.OS === 'web' ? new SubscriptionRepository() : new OfflineSubscriptionRepository();
 

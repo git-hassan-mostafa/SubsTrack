@@ -7,27 +7,12 @@ function placeholders(n: number): string {
   return Array.from({ length: n }, () => '?').join(', ');
 }
 
-/**
- * Rows per batched statement. Every SQLite call crosses the JS↔native bridge, so
- * the pull merges a 1000-row page in a handful of statements instead of a few
- * thousand. Small enough that rows × columns stays far under SQLite's bound-
- * parameter limit even for the widest table.
- */
 const BATCH_ROWS = 200;
 
-/**
- * Tables that converge on a natural key ON TOP OF their id — the mirror's only
- * UNIQUE constraints besides the primary keys. A row can collide on either one,
- * and a SQLite UPSERT resolves only the single target it names (gotcha #49), so
- * both writers below check the key themselves.
- */
 const NATURAL_KEYS: Record<string, string[]> = {
-  // A month bill: two devices collecting the same month must converge on ONE
-  // row, or the same month would be billed twice.
   charges: ['customer_plan_id', 'billing_month'],
   skipped_months: ['customer_plan_id', 'billing_month'],
   tenant_settings: ['tenant_id', 'key'],
-  // One line per (hand-over, bill), so replaying a collection is idempotent.
   collection_items: ['collection_id', 'charge_id'],
 };
 
@@ -147,8 +132,6 @@ export async function clearNaturalKeyDuplicates(
   const tuple = `(${placeholders(key.length)})`;
   const stale: string[] = [];
   for (const batch of inBatches(rows, BATCH_ROWS)) {
-    // Row-value IN — SQLite answers it straight from the natural-key UNIQUE index.
-    // Every natural-key column is TEXT, so the server's raw value binds as-is.
     const dups = await db.getAllAsync<Record<string, unknown>>(
       `SELECT id, _dirty, ${cols} FROM ${table}
        WHERE (${cols}) IN (VALUES ${batch.map(() => tuple).join(', ')})`,

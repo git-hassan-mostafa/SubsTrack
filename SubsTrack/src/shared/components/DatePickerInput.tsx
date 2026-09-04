@@ -1,7 +1,4 @@
 import { useMemo, useState } from "react";
-// Plain RN FlatList, NOT Gorhom's: a Gorhom scrollable hijacks the content-height
-// measurement of a content-sized sheet — and with several side-by-side columns each
-// one fights the others for it, blowing the sheet up to full height (gotcha #47).
 import { FlatList, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { PressableOpacity } from "./PressableOpacity/PressableOpacity";
@@ -18,22 +15,16 @@ export type DatePickerTriggerStyle = "default" | "chip";
 
 interface Props {
   label?: string;
-  value: string; // YYYY-MM-DD or YYYY-MM-DD HH:mm
+  value: string;
   onChange: (value: string) => void;
   placeholder?: string;
-  minDate?: string; // YYYY-MM-DD
-  maxDate?: string; // YYYY-MM-DD
+  minDate?: string;
+  maxDate?: string;
   showTime?: boolean;
   triggerStyle?: DatePickerTriggerStyle;
-  // When true (chip style), shows a clear affordance to reset the value to "".
   clearable?: boolean;
-  // When true, picks a month only: the day column is hidden, the value is
-  // normalized to YYYY-MM-01, and the trigger renders "MMM YYYY".
   monthOnly?: boolean;
-  // When true, the trigger is read-only (muted, won't open the picker).
   disabled?: boolean;
-  // Why the field is read-only. Shown as a popup when the muted trigger is
-  // tapped, so the reason costs no vertical space in the form.
   disabledReason?: string;
 }
 
@@ -219,7 +210,6 @@ export function DatePickerInput({
 
   function handleOpen() {
     if (disabled) {
-      // A muted field with no explanation reads as a bug, so say why on tap.
       if (disabledReason) {
         void confirm({
           title: t("common.not_available"),
@@ -280,14 +270,11 @@ export function DatePickerInput({
 
   const yearItems = useMemo(() => range(minYear, maxYear), [minYear, maxYear]);
   const dayItems = useMemo(() => range(1, maxDay), [maxDay]);
-  // `withTime` must be a dep — memoizing on `[]` froze these to the value it had
-  // on first render.
   const hourItems = useMemo(() => (withTime ? range(0, 23) : []), [withTime]);
   const minuteItems = useMemo(() => (withTime ? range(0, 59) : []), [withTime]);
 
   const displayValue = value || null;
   const isActive = !!displayValue;
-  // Month-only chips/fields show "MMM YYYY" instead of the raw YYYY-MM-01.
   const formattedValue =
     monthOnly && parsed
       ? `${MONTH_NAMES[parsed.month - 1]} ${parsed.year}`
@@ -404,8 +391,6 @@ export function DatePickerInput({
       ) : null}
       <PressableOpacity
         onPress={handleOpen}
-        // Stays pressable while disabled when there is a reason to show — the
-        // tap is what opens the popup.
         disabled={disabled && !disabledReason}
         className={`border border-gray-300 rounded-lg px-4 py-3 flex-row items-center justify-between ${
           disabled ? "bg-gray-100" : "bg-white"

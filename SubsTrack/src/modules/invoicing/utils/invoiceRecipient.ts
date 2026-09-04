@@ -1,7 +1,3 @@
-// One receipt goes to ONE WhatsApp number, so every row of a multi-row invoice
-// must belong to the same reachable customer. Pure — callers map their own row
-// type (sale, payment, …) down to this shape and turn `reason` into a message.
-
 export interface InvoiceRecipientRow {
   customerId: string | null;
   customerName: string | null;

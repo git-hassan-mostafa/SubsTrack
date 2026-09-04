@@ -61,7 +61,7 @@ export function addMonthTotal(
 // window intuitive for both LTR and RTL locales.
 function weekStartDateString(): string {
   const now = new Date();
-  const day = now.getDay(); // 0 = Sunday … 6 = Saturday
+  const day = now.getDay();
   const daysSinceMonday = (day + 6) % 7;
   const monday = new Date(
     now.getFullYear(),
@@ -120,8 +120,6 @@ export function groupByMonth<T>(
 
   const sections: MonthSection<T>[] = [];
   let currentKey: string | null = null;
-  // How much USD each month key lost to the Today / This Week buckets, so its
-  // authoritative total can be corrected down to the remaining rows.
   const peeledUsdByMonth: Record<string, number> = {};
 
   // The bucket a row belongs to: "today", "this-week", or its "YYYY-MM" month.
@@ -163,16 +161,12 @@ export function groupByMonth<T>(
     if (getAmountUsd) {
       const usd = getAmountUsd(item);
       section.totalUsd = (section.totalUsd ?? 0) + usd;
-      // Track rows peeled out of their month into a day/week bucket.
       if (key === "today" || key === "this-week") {
         peeledUsdByMonth[monthKey] = (peeledUsdByMonth[monthKey] ?? 0) + usd;
       }
     }
   }
 
-  // Apply authoritative monthly totals where available, minus anything that was
-  // peeled into the Today / This Week buckets. Day/week buckets always keep
-  // their local sum (their newest rows are guaranteed loaded).
   if (getAmountUsd && totalsByMonth) {
     for (const section of sections) {
       if (section.key === "today" || section.key === "this-week") continue;

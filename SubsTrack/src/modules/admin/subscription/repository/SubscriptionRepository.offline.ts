@@ -34,8 +34,6 @@ export class OfflineSubscriptionRepository
     return tenant;
   }
 
-  // Local DB holds exactly one tenant's data, so counting all local rows equals
-  // the tenant's usage (RLS does the same server-side).
   async countTenantUsage(): Promise<TenantUsage> {
     const [customers, users, plans, branches, currencies, products] = await Promise.all([
       this.count('SELECT COUNT(*) AS n FROM customers WHERE active = 1'),
@@ -48,7 +46,6 @@ export class OfflineSubscriptionRepository
     return { customers, users, plans, branches, currencies, products };
   }
 
-  // The online sibling records the audit entry, so there is nothing to add here.
   async upgradeTenant(tenantId: string, tierId: string): Promise<DbTenant> {
     if (!(await isOnline())) throw new RequiresConnectionError();
     const tenant = await this.online.upgradeTenant(tenantId, tierId);

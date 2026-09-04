@@ -21,15 +21,11 @@ import { CustomDebtFormSheet } from "./CustomDebtFormSheet";
 interface Props {
   debtor: CustomerDebts;
   onDismiss: () => void;
-  /** Collect against this customer's whole pool, oldest bill first. */
   onCollectAll: (items: OpenItem[]) => void;
-  /** Collect against one bill only. */
   onCollectItem: (item: OpenItem) => void;
   onVoidItem?: (item: OpenItem) => void;
   onWriteOff?: (item: OpenItem) => void;
-  /** Tapping a row opens the record behind it — a bill, or a sale's receipt. */
   onOpenItem?: (item: OpenItem) => void;
-  /** Key of the row whose record is being fetched, so it shows a spinner. */
   openingItemKey?: string | null;
 }
 
@@ -57,7 +53,6 @@ export function DebtorDetailSheet({
   const target = findCurrency(currencies, displayCurrencyId);
 
   const [customDebtOpen, setCustomDebtOpen] = useState(false);
-  // The list can be long — keep it off the sheet's open path.
   const bodyReady = useAfterFirstFrame();
 
   const owed = [...debtor.items, ...debtor.unpaidMonths];

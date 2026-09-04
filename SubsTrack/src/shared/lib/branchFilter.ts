@@ -5,9 +5,6 @@ import {
 } from "@/src/core/constants";
 import { useUiPrefStore } from "./uiPrefStore";
 
-// ──────────────────────────────────────────────────────────────────────
-// Resolving the filter — what should we filter to?
-// ──────────────────────────────────────────────────────────────────────
 
 /**
  * Resolves the BranchFilter to apply to queries for the calling user.

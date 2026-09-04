@@ -8,7 +8,6 @@ import { COLORS } from "@/src/shared/constants";
 interface Props {
   title: string;
   subtitle?: string;
-  /** Optional trailing action (e.g. "Export"). */
   actionIcon?: keyof typeof Ionicons.glyphMap;
   actionLabel?: string;
   onAction?: () => void;

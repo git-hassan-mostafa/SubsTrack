@@ -29,10 +29,6 @@ export class OptionRepository extends BaseRepository implements IOptionRepositor
   }
 }
 
-// Platform seam: web talks to Supabase directly (unchanged); native reads the
-// local mirror. Services import this default, so neither services nor slices
-// change. The offline class is only constructed on native, so web never opens
-// a local DB.
 const impl: IOptionRepository =
   Platform.OS === 'web' ? new OptionRepository() : new OfflineOptionRepository();
 

@@ -46,12 +46,7 @@ function makeRow(suffix: number, date: string): PlanRow {
 
 interface Props {
   customer?: Customer | null;
-  // The customer's currently-selected branch. Scopes the PlanPicker and drops
-  // any row plan that no longer belongs to the branch when it changes.
   branchId: string | null;
-  // Reports whether the user has touched the plan rows, so the parent form can
-  // include them in its unsaved-changes check (the rows live here, not in the
-  // parent's form state, so a state diff up there would miss them).
   onDirtyChange?: (dirty: boolean) => void;
   ref: Ref<CustomerPlansEditorHandle>;
 }
@@ -74,12 +69,8 @@ export function CustomerPlansEditor({
   const hasPayments = useCustomerPlanSlice((s) => s.hasPayments);
   const getPaidLineIds = useCustomerPlanSlice((s) => s.getPaidLineIds);
 
-  // Suffix of the last row added in this session. Only ever touched from an event
-  // handler — never during render.
   const rowKey = useRef(0);
 
-  // Existing customer → one row per line (active + cancelled, so cancelled ones
-  // stay visible); new customer → one empty active row.
   const [rows, setRows] = useState<PlanRow[]>(() => {
     const lines = customer?.customerPlans ?? [];
     if (lines.length > 0) {
@@ -93,15 +84,11 @@ export function CustomerPlansEditor({
         status: l.active ? ("active" as const) : ("cancelled" as const),
       }));
     }
-    // A service line owns the only start date there is, so a fresh row starts today.
     return [makeRow(0, getTodayDateString())];
   });
   const [removed, setRemoved] = useState<RemovedLine[]>([]);
   const [reactivated, setReactivated] = useState<string[]>([]);
   const [addPlanOpen, setAddPlanOpen] = useState(false);
-  // Lines holding standing money — their start date is frozen (the service
-  // refuses the write either way). Loaded async, so it never feeds the dirty
-  // check (gotcha #55).
   const [lockedLineIds, setLockedLineIds] = useState<string[]>([]);
 
   const customerId = customer?.id;
@@ -116,17 +103,9 @@ export function CustomerPlansEditor({
     };
   }, [customerId, getPaidLineIds]);
 
-  // Baseline for the dirty check — the rows as first built, captured in a lazy
-  // initializer (never read a ref during render: gotcha #52).
   const [initialRows] = useState(() => rows);
-  // Rows whose plan the branch-reconciliation effect below cleared on its own.
-  // That is not a user edit, so their planId is excluded from the dirty compare —
-  // otherwise merely opening an existing customer whose line points at an
-  // out-of-branch plan raised the discard prompt once `plans` finished loading.
   const [autoCleared, setAutoCleared] = useState<string[]>([]);
 
-  // A removal/reactivation is a change by definition; otherwise compare the rows
-  // field-by-field. Reported upward so the parent's discard prompt covers plans.
   const plansDirty =
     removed.length > 0 ||
     reactivated.length > 0 ||
@@ -139,10 +118,6 @@ export function CustomerPlansEditor({
         (base.planId !== r.planId && !autoCleared.includes(r.key)) ||
         base.startDate !== r.startDate ||
         base.customPrice !== r.customPrice ||
-        // CurrencyInput self-seeds the last-used currency after mount, but ONLY
-        // while amount + currency are both null. Comparing the currency just for
-        // rows that carry an amount keeps that seed from raising a false discard
-        // prompt, without missing a real currency-only change (gotcha #55).
         (r.customPrice !== null && base.customCurrencyId !== r.customCurrencyId) ||
         base.status !== r.status
       );
@@ -153,13 +128,10 @@ export function CustomerPlansEditor({
   }, [plansDirty, onDirtyChange]);
 
   useImperativeHandle(ref, () => ({
-    // Only active rows become create/update drafts; cancelled rows are excluded.
     getLines: () =>
       rows
         .filter((r) => r.status === "active")
         .map((r) => {
-          // Normalize: a currency without an amount is meaningless, so neither
-          // is stored. Any plan length may carry a special price.
           const keep = r.customPrice !== null && r.customPrice > 0;
           return {
             id: r.id,
@@ -173,13 +145,6 @@ export function CustomerPlansEditor({
     getReactivated: () => reactivated,
   }));
 
-  // When the branch changes, drop any selected plan that's branch-specific to a
-  // different branch (shared plans — branchId null — stay valid everywhere).
-  // Cancelled rows are read-only, so leave them untouched.
-  //
-  // Returns `prev` untouched when nothing was dropped so React can bail out.
-  // `prev.map()` always allocates a new array, which made this effect force a
-  // second render of the whole customer form on every single open.
   useEffect(() => {
     const cleared: string[] = [];
     setRows((prev) => {
@@ -196,20 +161,15 @@ export function CustomerPlansEditor({
       });
       return changed ? next : prev;
     });
-    // Remember which rows WE cleared so the dirty check doesn't read it as an edit.
     if (cleared.length > 0) {
       setAutoCleared((prev) => [...new Set([...prev, ...cleared])]);
     }
   }, [branchId, plans]);
 
   function setRowPlan(key: string, planId: string | null) {
-    // The special price is the customer's negotiated figure, not the plan's, so
-    // it survives a plan change. Its meaning follows the new plan's billing span
-    // (see resolveLinePrice), which the price field's caption restates.
     setRows((prev) =>
       prev.map((r) => (r.key === key ? { ...r, planId } : r)),
     );
-    // A deliberate pick overrides the auto-clear, so this row counts as edited again.
     setAutoCleared((prev) => prev.filter((k) => k !== key));
   }
 
@@ -251,11 +211,10 @@ export function CustomerPlansEditor({
   // permanently) rides on a ref; "keep" soft-cancels (row stays as cancelled),
   // "delete" hard-deletes (row drops). A saved line with no payments hard-deletes.
   async function removeRow(key: string) {
-    if (activeCount <= 1) return; // keep at least one active line
+    if (activeCount <= 1) return;
     const target = rows.find((r) => r.key === key);
     if (!target || target.status !== "active") return;
 
-    // New (unsaved) row → just drop it; nothing recorded server-side yet.
     if (!target.id) {
       setRows((prev) => prev.filter((r) => r.key !== key));
       return;
@@ -274,20 +233,17 @@ export function CustomerPlansEditor({
           <RemovePlanChoice onChange={(v) => (hardRef.current = v)} />
         ),
       });
-      if (!ok) return; // user backed out — keep the plan active
+      if (!ok) return;
       const hardDelete = hardRef.current;
       setRemoved((prev) => [...prev, { id, hardDelete }]);
       if (hardDelete) {
-        // Permanent delete → the row disappears.
         setRows((prev) => prev.filter((r) => r.key !== key));
       } else {
-        // Soft-cancel → the row stays, shown as cancelled.
         setRows((prev) =>
           prev.map((r) => (r.key === key ? { ...r, status: "cancelled" } : r)),
         );
       }
     } else {
-      // No payments → hard-delete on save; the row disappears.
       setRemoved((prev) => [...prev, { id, hardDelete: true }]);
       setRows((prev) => prev.filter((r) => r.key !== key));
     }

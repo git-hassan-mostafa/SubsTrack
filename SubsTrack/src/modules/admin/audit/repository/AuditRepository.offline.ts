@@ -23,11 +23,8 @@ import { AuditRepository } from './AuditRepository';
 export class OfflineAuditRepository extends OfflineBaseRepository implements IAuditRepository {
   private online = new AuditRepository();
 
-  // Mirrors AuditRepository.BRANCH_SCOPE — a selected branch keeps its own rows
-  // plus the tenant-wide ones (branch_id IS NULL).
   private static readonly BRANCH_SCOPE = { kind: 'shared' } as const;
 
-  /** Newest first, de-duped by id — an un-pushed row can already be up there. */
   private static merge(server: DbAuditLog[], pending: DbAuditLog[]): DbAuditLog[] {
     if (pending.length === 0) return server;
     const seen = new Set(server.map((r) => r.id));
@@ -64,7 +61,6 @@ export class OfflineAuditRepository extends OfflineBaseRepository implements IAu
     return this.decodeAll<DbAuditLog>('audit_logs', rows);
   }
 
-  /** This device's entries that no push has delivered yet — they exist nowhere else. */
   private pending(filter: AuditFilter): Promise<DbAuditLog[]> {
     const { sql, params } = this.where(filter, [{ clause: '_dirty = 1', params: [] }]);
     return this.localRows(sql, params);
@@ -74,14 +70,9 @@ export class OfflineAuditRepository extends OfflineBaseRepository implements IAu
     if (await isOnline()) {
       try {
         const server = await this.online.findRecent(filter, page);
-        // Only page 0 gets the un-pushed rows: they are newer than the last
-        // successful push, so they belong at the top, and merging them into every
-        // page would repeat them.
         const pending = page === 0 ? await this.pending(filter) : [];
         return { ...server, rows: OfflineAuditRepository.merge(server.rows, pending) };
       } catch {
-        // Reachable network ≠ reachable server. Fall through to the local window
-        // rather than leaving an admin with an error where the trail should be.
       }
     }
     const { sql, params } = this.where(filter);
@@ -93,12 +84,6 @@ export class OfflineAuditRepository extends OfflineBaseRepository implements IAu
     return { rows, source: 'local', hasMore: rows.length === OFFLINE_PAGE_SIZE };
   }
 
-  /**
-   * The server's timeline for one entity plus this device's un-pushed rows for it,
-   * falling back to the local window. `clause` + `params` select the same entity
-   * locally that `fetchServer` selects remotely. Parenthesized on use, since a
-   * caller's clause can be an OR chain.
-   */
   private async timeline(
     fetchServer: () => Promise<AuditRows>,
     clause: string,
@@ -110,7 +95,6 @@ export class OfflineAuditRepository extends OfflineBaseRepository implements IAu
         const pending = await this.localRows(`WHERE (${clause}) AND _dirty = 1`, params);
         return { ...server, rows: OfflineAuditRepository.merge(server.rows, pending) };
       } catch {
-        // Same fallback as findRecent.
       }
     }
     return { rows: await this.localRows(`WHERE (${clause})`, params), source: 'local' };
@@ -126,8 +110,6 @@ export class OfflineAuditRepository extends OfflineBaseRepository implements IAu
 
   findForRecords(targets: AuditRecordTarget[]): Promise<AuditRows> {
     if (targets.length === 0) return Promise.resolve({ rows: [], source: 'server' });
-    // Pairs, not two INs: a plan line's id must not match under table_name
-    // 'customers'. Parameterized, so the ids are never interpolated.
     return this.timeline(
       () => this.online.findForRecords(targets),
       targets.map(() => '(table_name = ? AND record_id = ?)').join(' OR '),

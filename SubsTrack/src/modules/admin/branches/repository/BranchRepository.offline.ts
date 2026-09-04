@@ -21,7 +21,6 @@ export class OfflineBranchRepository extends OfflineBaseRepository implements IB
     const row: DbBranch = { id: newId(), created_at: now, updated_at: now, ...payload };
     await this.write(async (db) => {
       await insertDirty(db, 'branches', row);
-      // A branch IS a branch: the entry is scoped to the row's own id.
       await this.auditIn(db, {
         table: 'branches',
         recordId: row.id,
@@ -34,7 +33,6 @@ export class OfflineBranchRepository extends OfflineBaseRepository implements IB
   }
 
   async update(id: string, payload: Partial<Pick<DbBranch, 'name' | 'active'>>): Promise<DbBranch> {
-    // A branch IS a branch: `id` is its own branch scope.
     const row = await this.auditedUpdate<DbBranch>(
       'branches',
       id,

@@ -27,8 +27,6 @@ async function primePostAuth(get: () => GlobalState, user: AuthUser): Promise<vo
     get().branches.fetchBranches(),
     get().subscription.init(user.tenantId),
     get().options.fetchOptions(),
-    // Tenant settings gate the month-grid unpaid rule, so they must be loaded
-    // before the first customer-list / grid status computation.
     get().tenantSettings.fetchSettings(),
   ]);
 }
@@ -86,7 +84,6 @@ export const createAuthSlice: StateCreator<
     try {
       await authService.logout();
     } catch {
-      // ignore logout errors — clear state regardless
     }
     get().subscription.reset();
     set((state) => {

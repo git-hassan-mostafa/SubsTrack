@@ -6,15 +6,11 @@ import { Text } from "@/src/shared/components/Text";
 import { COLORS } from "@/src/shared/constants";
 
 interface Props {
-  // No dialable digits (or no customer at all) → the button greys out and the
-  // caption below says why, rather than opening a broken wa.me link.
   phone?: string | null;
   label: string;
   onPress: () => void;
   loading?: boolean;
-  // Form-level gating (e.g. the form isn't submittable yet). Shows no caption.
   disabled?: boolean;
-  // Caption override for "there is no customer at all" (walk-in sale).
   reason?: string;
   className?: string;
 }
@@ -33,8 +29,6 @@ export function SendOnWhatsAppButton({
   const { t } = useTranslation();
   const noPhone = (phone ?? "").replace(/\D/g, "").length === 0;
   const isDisabled = disabled || loading || noPhone;
-  // Only the phone reason earns a caption — a form-level block is already
-  // explained by the primary button being disabled too.
   const caption = noPhone ? (reason ?? t("invoice.no_phone")) : null;
 
   return (

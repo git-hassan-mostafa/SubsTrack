@@ -3,22 +3,13 @@ import { BackHandler } from "react-native";
 import { useFocusEffect } from "expo-router";
 
 export interface UseSelectionResult {
-  /** Selection mode is on whenever at least one item is selected. */
   active: boolean;
   selectedIds: ReadonlySet<string>;
   count: number;
   isSelected: (id: string) => boolean;
-  /** Add/remove an id. Removing the last id exits selection mode. */
   toggle: (id: string) => void;
-  /**
-   * Toggle a group of ids atomically: if every id is already selected they are
-   * all removed, otherwise they are all added. Lets a multi-month block flip as
-   * a single unit.
-   */
   toggleMany: (ids: string[]) => void;
-  /** Enter selection mode with one or more ids selected (long-press entry). */
   enterWith: (ids: string | string[]) => void;
-  /** Exit selection mode and clear all selected ids. */
   clear: () => void;
 }
 

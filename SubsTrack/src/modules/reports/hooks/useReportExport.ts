@@ -31,8 +31,6 @@ export function useReportExport() {
 
     setExporting(true);
     try {
-      // The period is in the filename so two exports of the same report don't
-      // overwrite each other in the share target.
       const name = `${t(`reports.csv_${section}`)}-${period.fromDate}-${period.toDate}`;
       return await exportCsv(name, table.headers, table.rows);
     } catch {

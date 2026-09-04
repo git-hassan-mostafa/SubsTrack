@@ -2,13 +2,7 @@ import type { ReactNode } from "react";
 import { View } from "react-native";
 
 interface Props {
-  /** True while the screen is in multi-select mode. */
   selecting: boolean;
-  /**
-   * Normal top controls (search, filters, tabs). Kept mounted while selecting so
-   * their layout space — and the scroll position of the list below — never
-   * changes; only their visibility and interactivity are toggled off.
-   */
   children: ReactNode;
 }
 

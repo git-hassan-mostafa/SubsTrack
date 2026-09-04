@@ -75,7 +75,6 @@ export function ExpensesPanel() {
 
   const target = findCurrency(currencies, displayCurrencyId);
 
-  // Search + category are client-side: the slice already holds the whole window.
   const visible = useMemo(() => {
     const q = debouncedSearch.trim().toLowerCase();
     return items.filter(
@@ -85,7 +84,6 @@ export function ExpensesPanel() {
     );
   }, [items, debouncedSearch, categoryFilter]);
 
-  // The headline follows the filters, so it always matches the rows on screen.
   const visibleTotalUsd = useMemo(
     () => visible.reduce((s, i) => s + i.amount / i.ratePerUsdSnapshot, 0),
     [visible],
@@ -123,7 +121,6 @@ export function ExpensesPanel() {
       destructive: true,
     });
     if (!ok) return;
-    // Strip the 'exp:' prefix the view model adds — the row id is what voids.
     await voidExpense(item.id.replace(/^exp:/, ""), user.id, null);
   }
 

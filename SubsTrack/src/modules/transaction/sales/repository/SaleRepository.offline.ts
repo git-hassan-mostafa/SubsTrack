@@ -47,8 +47,6 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
       sales.map((s) => s.id),
       'created_at',
     );
-    // A line sets only one of the two id columns — and a one-off typed service
-    // sets neither — so both lists are collected with a null guard.
     const productIds: string[] = [];
     const serviceIds: string[] = [];
     for (const arr of itemsByParent.values()) {
@@ -57,9 +55,6 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
         if (it.service_id) serviceIds.push(it.service_id);
       }
     }
-    // Three independent lookups over the ids just collected. These are plain
-    // reads (no transaction, so no `withDbLock`), which is what lets them
-    // overlap — inside `write()` they could not.
     const [products, services, customers] = await Promise.all([
       this.rowsById<DbProduct>('products', productIds),
       this.rowsById<DbService>('services', serviceIds),
@@ -163,20 +158,12 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
       written_off_by: null,
       write_off_reason: null,
     };
-    // Read before write() — the transaction must stay as short as possible.
     const subject = await this.customerSubject(saleRow.customer_id);
-    // Header + all lines + the stock decrements + the bill in one local
-    // transaction (atomic offline; the generic sync pushes them separately,
-    // parents-before-children).
     await this.write(async (db) => {
       await insertDirty(db, 'sales', saleRow);
       for (const it of itemRows) await insertDirty(db, 'sale_items', it);
       for (const m of movementRows) await insertDirty(db, 'stock_movements', m);
-      // The bill lands in the SAME transaction as the sale — a sale that exists
-      // but owes nothing would be invisible to every debt surface.
       await insertDirty(db, 'charges', chargeRow);
-      // One entry for the sale as a whole: the lines are already summarized on the
-      // header (items_summary) and the movements are their own ledger.
       await this.auditIn(db, {
         table: 'sales',
         recordId: saleId,
@@ -197,12 +184,7 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
       'sales',
       await this.first('SELECT * FROM sales WHERE id = ? AND voided_at IS NULL', [id]),
     );
-    // A voided sale is a closed record; the web path's `voided_at IS NULL` filter
-    // says the same thing by returning no row.
     if (!before) this.handleError(new Error('Sale not found'));
-    // Read before write() — the transaction must stay as short as possible. The
-    // two are unrelated reads, so they overlap; only work INSIDE the transaction
-    // has to stay sequential.
     const [subject, existing] = await Promise.all([
       this.customerSubject(header.customer_id),
       this.all<{ id: string }>(
@@ -211,14 +193,9 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
       ),
     ]);
 
-    // Header + lines + the replacement stock decrements in one local transaction,
-    // exactly like create.
     await this.write(async (db) => {
       await updateDirty(db, 'sales', id, { ...header, updated_at: now });
 
-      // Lines are matched to the existing rows by position, so an edited line
-      // keeps its id; only a dropped line is soft-voided (a delete would never
-      // reach another device — the engine has no tombstones for sale_items).
       for (let i = 0; i < items.length; i++) {
         if (i < existing.length) {
           await updateDirty(db, 'sale_items', existing[i].id, { ...items[i], updated_at: now });
@@ -237,10 +214,7 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
         await updateDirty(db, 'sale_items', row.id, { voided_at: now, updated_at: now });
       }
 
-      // null = the products and quantities are unchanged, so the ledger is left
-      // exactly as it is — a notes fix must not churn every product's history.
       if (movements) {
-        // Soft-void, never opposite rows — same reasoning as voidSale.
         await db.runAsync(
           `UPDATE stock_movements SET voided_at = ?, voided_by = ?, updated_at = ?, _dirty = 1
            WHERE sale_id = ? AND voided_at IS NULL`,
@@ -259,8 +233,6 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
         }
       }
 
-      // The bill follows the sale. Money already collected against it lives in
-      // its own rows and is untouched — only what is OWED can be re-priced.
       const bill = await this.first<{ id: string }>(
         'SELECT id FROM charges WHERE sale_id = ? AND voided_at IS NULL',
         [id],
@@ -290,9 +262,6 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
 
   async voidSale(id: string, voidedBy: string, reason: string): Promise<DbSale> {
     const now = nowIso();
-    // Read before write(), like create/update — a void never changes the
-    // customer, so the subject can be resolved outside the transaction instead
-    // of holding the one connection open for a second lookup.
     const subject = await this.customerSubject(
       (await this.first<{ customer_id: string | null }>(
         'SELECT customer_id FROM sales WHERE id = ?',
@@ -309,15 +278,11 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
          WHERE id = ? AND voided_at IS NULL`,
         [now, voidedBy, reason, now, id] as never[],
       );
-      // Give the stock back by voiding the sale's movements — `IS NULL` makes a
-      // repeat void a no-op instead of crediting the stock twice.
       await db.runAsync(
         `UPDATE stock_movements SET voided_at = ?, voided_by = ?, updated_at = ?, _dirty = 1
          WHERE sale_id = ? AND voided_at IS NULL`,
         [now, voidedBy, now, id] as never[],
       );
-      // Nothing may still be owed for a sale that never happened. Any money
-      // that WAS collected has already been voided by the service.
       await db.runAsync(
         `UPDATE charges SET voided_at = ?, voided_by = ?, void_reason = ?, updated_at = ?, _dirty = 1
          WHERE sale_id = ? AND voided_at IS NULL`,
@@ -358,13 +323,9 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
     return this.count(`SELECT COUNT(*) AS n FROM sales s ${sql}`, params);
   }
 
-  // Same filters as findAll but unpaginated + a lean projection — used to
-  // compute the true per-month total when a month holds more rows than one
-  // findAll page.
   async monthlyTotals(
     opts: FindSalesOptions = {},
   ): Promise<{ soldAt: string; amount: number; ratePerUsdSnapshot: number }[]> {
-    // A voided sale sold nothing, so a voided-only list has no value to total.
     if (opts.voidedOnly) return [];
     const parts: { clause: string; params: unknown[] }[] = [];
     if (!opts.includeVoided) parts.push({ clause: 's.voided_at IS NULL', params: [] });
@@ -388,7 +349,6 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
        ${sql}`,
       params,
     );
-    // VALUE SOLD, not cash — the sale document holds no money any more.
     return rows.map((r) => ({
       soldAt: r.sold_at,
       amount: Number(r.total_amount),

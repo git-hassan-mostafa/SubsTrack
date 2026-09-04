@@ -18,8 +18,6 @@ import {
   type InvoiceRecipientRow,
 } from "../utils/invoiceRecipient";
 
-// Why a selection can't be turned into one receipt. "empty" never reaches the
-// user — the action is not offered at all.
 const UNREACHABLE_MESSAGE = {
   mixed: "invoice.mixed_customers",
   no_customer: "invoice.no_customer",
@@ -70,9 +68,6 @@ export function useSendInvoice() {
 
   const canSend = useCallback(hasDialableDigits, []);
 
-  // Who a multi-row receipt goes to, or null after explaining why it can't be
-  // sent. The action stays visible and speaks up on press (same shape as the
-  // pay-order blockers) instead of vanishing as rows are ticked.
   const resolveRecipient = useCallback(
     async (rows: InvoiceRecipientRow[]) => {
       const result = resolveInvoiceRecipient(rows);
@@ -90,8 +85,6 @@ export function useSendInvoice() {
     [t],
   );
 
-  // One hand-over, one receipt — whatever mix of months, sales and fees the
-  // money settled. There is no longer any such thing as a per-month receipt.
   const sendCollectionInvoice = useCallback(
     (a: {
       phone: string | null | undefined;
@@ -101,9 +94,6 @@ export function useSendInvoice() {
     [ctx, send],
   );
 
-  // One receipt covering several sales (a sales-list multi-select). The builder
-  // falls back to the single-sale layout for one row, so both entry points below
-  // produce the same document a lone sale always did.
   const sendSalesInvoice = useCallback(
     (a: {
       phone: string | null | undefined;

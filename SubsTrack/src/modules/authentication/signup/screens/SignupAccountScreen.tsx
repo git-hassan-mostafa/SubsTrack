@@ -37,9 +37,6 @@ export function SignupAccountScreen() {
     if (!canSubmit) return;
     const credentials = await submit();
     if (!credentials) return;
-    // Edge function succeeded — try to auto-login. If the JWT/profile lookup
-    // races and login fails, fall back to the login screen with the organization
-    // code pre-filled rather than leaving the user staring at this form.
     await getStore()
       .getState()
       .auth.login(
@@ -53,8 +50,6 @@ export function SignupAccountScreen() {
     if (!auth.user) {
       router.replace("/(auth)/login" as Href);
     }
-    // On success the root (app)/_layout reacts to authSlice.user and routes
-    // into the app — no explicit navigation needed here.
   }
 
   return (

@@ -7,15 +7,10 @@ import type {
   AuditSource,
   AuditTable,
 } from '@/src/core/types';
-// Deep import (not the module barrel) — the barrel re-exports screens.
 import auditService from '@/src/modules/admin/audit/services/AuditService';
 import { resolveBranchFilter } from '@/src/shared/lib/branchFilter';
 import { getStore } from '@/src/state/globalStore';
 
-// A MODULE store, not a global slice: only the audit screen reads it, and no
-// slice reads it back. Holds the screen's FILTER SESSION (it survives
-// navigation); one record's timeline stays in the useRecordHistory hooks.
-// See CLAUDE.md → State Management.
 
 /**
  * The admin Audit Log screen's filter session + paged results.
@@ -34,10 +29,7 @@ export interface AuditState {
   loading: boolean;
   loadingMore: boolean;
   error: string | null;
-  // Bumped on every filter change so a slow in-flight fetch can't overwrite the
-  // results of a newer one.
   searchToken: number;
-  /** Where the loaded entries came from — reported, never chosen. */
   source: AuditSource;
   tableFilter: AuditTable | null;
   actionFilter: AuditAction | null;
@@ -65,7 +57,6 @@ function buildFilter(
     table: state.tableFilter ?? undefined,
     action: state.actionFilter ?? undefined,
     actorUserId: state.actorFilter ?? undefined,
-    // Day bounds → timestamp bounds, so `to` covers its whole day.
     from: state.from ? `${state.from}T00:00:00.000Z` : undefined,
     to: state.to ? `${state.to}T23:59:59.999Z` : undefined,
     branchFilter,
@@ -130,9 +121,6 @@ export const useAuditStore = create<AuditState>()(
         }
       },
 
-      // The branch chip changes the query just like a filter does, so it must
-      // invalidate the same way. Without the token bump the in-flight fetch for
-      // the OLD branch stays valid and can land last, overwriting the new rows.
       refetchForBranch: async () => {
         invalidate(() => {});
         await get().fetchEntries();
@@ -159,8 +147,6 @@ export const useAuditStore = create<AuditState>()(
           }
           set((state) => {
             state.items.push(...result.entries);
-            // The connection can drop between pages, so the note follows the last
-            // page that actually landed.
             state.source = result.source;
             state.hasMore = result.hasMore;
             state.page = nextPage;

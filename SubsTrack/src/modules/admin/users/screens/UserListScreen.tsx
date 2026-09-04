@@ -69,7 +69,6 @@ export function UserListScreen() {
   useSelectionBackHandler(selectionActive, clearSelection);
   const [bulkBusy, setBulkBusy] = useState(false);
 
-  // Loads on mount AND re-fetches when the user switches the branch chip.
   useEffect(() => {
     clearSelection();
     fetchUsers();
@@ -172,7 +171,6 @@ export function UserListScreen() {
       )
     : users;
 
-  // Resolve selected ids against the VISIBLE list.
   const selectedUsers = filtered.filter((u) => selectedIds.has(u.id));
 
   // Deletes every manageable user in the selection; non-manageable ones (own

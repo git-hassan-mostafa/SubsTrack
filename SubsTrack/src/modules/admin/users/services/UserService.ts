@@ -99,8 +99,6 @@ class UserService {
     }
   }
 
-  // Once a tenant has at least one branch, the 'user' role MUST be assigned
-  // to a branch. Admins can stay branch-less (tenant-wide).
   private validateBranchAssignment(
     role: 'admin' | 'user',
     branchId: string | null,
@@ -136,13 +134,6 @@ class UserService {
     }
   }
 
-  // Batch counterpart to deleteUser. Users with recorded payments are
-  // soft-deleted in ONE statement; the rest are hard-deleted. Hard deletes must
-  // go through the per-user `delete-user` edge function (it removes the auth
-  // user too), so that group is unavoidably sequential — but the payment lookup
-  // and every soft-delete collapse to single round-trips. Permission is checked
-  // per user (callers should pre-filter; this is the safety net). Returns the
-  // id split so the store can update its list without a refetch.
   async deleteUsers(
     targets: { id: string; role: UserRole }[],
     callerId: string,

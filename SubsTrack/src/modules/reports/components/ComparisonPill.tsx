@@ -7,7 +7,6 @@ import type { Delta } from "../utils/aggregate";
 
 interface Props {
   delta: Delta;
-  /** false when going UP is bad (spending) — flips only the colour, never the arrow. */
   higherIsBetter?: boolean;
 }
 

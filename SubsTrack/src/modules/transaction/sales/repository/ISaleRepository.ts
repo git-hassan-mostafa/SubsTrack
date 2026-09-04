@@ -41,10 +41,6 @@ export type CreateSalePayload = Omit<
 > & {
   items: CreateSaleItemPayload[];
   movements: Omit<CreateStockMovementPayload, 'sale_id'>[];
-  // What the sale OWES. It travels with the header for the same reason the
-  // movements do — offline the whole thing is one transaction, so a sale can
-  // never exist without the bill that makes it collectable. Money received is
-  // NOT here: that is a `collections` row, written by the normal collect path.
   charge: SaleChargePayload;
 };
 
@@ -69,10 +65,7 @@ export type UpdateSalePayload = Pick<
 > & {
   items: CreateSaleItemPayload[];
   movements: Omit<CreateStockMovementPayload, 'sale_id'>[] | null;
-  // The bill follows the sale: re-pricing a sale re-prices what is owed for it,
-  // in the same write. Money already collected against it is untouched.
   charge: UpdateChargePayload;
-  // Who is correcting the sale — stamped on the movements this edit voids.
   actorUserId: string | null;
 };
 
@@ -81,22 +74,11 @@ export interface ISaleRepository {
   findByCustomer(customerId: string, limit?: number): Promise<DbSale[]>;
   findById(id: string): Promise<DbSale | null>;
   create(payload: CreateSalePayload): Promise<DbSale>;
-  // Voided sales stay locked — both impls filter on `voided_at IS NULL`.
   update(id: string, payload: UpdateSalePayload): Promise<DbSale>;
-  // Voids the sale AND the bill it raised — nothing may still be owed for a
-  // sale that never happened. The service refuses this once money has been
-  // collected against that bill (void the collection first).
   voidSale(id: string, voidedBy: string, reason: string): Promise<DbSale>;
-  // Same filters as findAll but unpaginated + a lean projection (no product/
-  // customer joins) — computes the true per-month total for the Sales tab's
-  // section headers even when a month holds more rows than one findAll page.
-  // This is VALUE SOLD (total_amount), not cash: the sale document no longer
-  // holds money — what was collected is a `collections` row.
   monthlyTotals(
     opts?: FindSalesOptions,
   ): Promise<{ soldAt: string; amount: number; ratePerUsdSnapshot: number }[]>;
-  // How many sales happened in a window — the dashboard's activity count. Not a
-  // money figure: cash lives on `collections` now, but a sale is still an event.
   countInRange(
     startIso: string,
     endExclusiveIso: string,

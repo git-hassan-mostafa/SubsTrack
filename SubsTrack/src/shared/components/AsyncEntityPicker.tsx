@@ -21,22 +21,15 @@ interface AsyncEntityPickerProps<T> {
   placeholder?: string;
   value: T | null;
   onChange: (item: T | null) => void;
-  // Returns one page of results for the given search term + zero-indexed page.
-  // The caller decides what "search" means against their backing store
-  // (CustomerRepository, ProductRepository, etc.).
   loadPage: (search: string, page: number) => Promise<T[]>;
   renderItem: (item: T) => { label: string; sublabel?: string };
   getKey: (item: T) => string;
-  // Optional: render the trigger's selected-label differently (e.g., bold last name).
-  // Defaults to renderItem(value).label.
   formatSelectedLabel?: (item: T) => string;
   nullable?: boolean;
   nullLabel?: string;
   pageSize?: number;
   disabled?: boolean;
   triggerStyle?: AsyncEntityPickerTriggerStyle;
-  // Renders a "+" button beside the label (default trigger style only) that
-  // opens a form to create a new entity without leaving the current form.
   onAddNew?: () => void;
 }
 
@@ -212,9 +205,6 @@ function AsyncPickerModal<T>({
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Token cancels in-flight responses when the search term changes mid-fetch.
-  // Mirrors customerSlice.searchToken (CLAUDE.md §11) — without this, a slow
-  // first response can overwrite a faster second one.
   const requestTokenRef = useRef(0);
 
   const loadFirstPage = useCallback(async (term: string) => {
@@ -254,7 +244,6 @@ function AsyncPickerModal<T>({
     }
   }, [debouncedSearch, hasMore, loading, loadingMore, page]);
 
-  // Reset and reload whenever the modal opens or the search term changes.
   useEffect(() => {
     loadFirstPage(debouncedSearch);
   }, [debouncedSearch, loadFirstPage]);

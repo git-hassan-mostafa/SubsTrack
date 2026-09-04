@@ -6,9 +6,6 @@ import { readFunctionsErrorBody } from "./functionsError";
 import { logException } from "../errorLog/errorLogger";
 import { buildAuditRow, type AuditInput } from "../audit";
 
-// ──────────────────────────────────────────────────────────────────────
-// Applying the filter — branch-scope semantics per table
-// ──────────────────────────────────────────────────────────────────────
 
 /**
  * Describes how a row in a given table relates to a branch. There are exactly
@@ -37,12 +34,6 @@ export type BranchScope =
 export abstract class BaseRepository {
   protected readonly db: SupabaseClient = supabase;
 
-  /**
-   * Force a live access token before invoking an edge function. `getSession()`
-   * refreshes an expired token but only reports the failure through its error —
-   * an edge function otherwise receives the dead one and answers 401 "Auth
-   * session missing!". See gotcha #123.
-   */
   protected async ensureFreshSession(): Promise<void> {
     const { data, error } = await this.db.auth.getSession();
     if (error || !data.session) {
@@ -62,29 +53,12 @@ export abstract class BaseRepository {
     throw new Error(i18n.t("errors.unexpected"));
   }
 
-  /**
-   * Append one entry to the audit trail. Call it right after a write, from the
-   * method that already holds the row — see docs/features.md → Audit Trail.
-   *
-   * Fire-and-forget: returns `void` and inserts in the background, so the trail
-   * never sits between the user's save and the spinner stopping. Safe because the
-   * entry describes a write that already committed — nothing depends on its
-   * result, and it never threw even when awaited. Call it without `await`.
-   *
-   * The offline `auditIn()` is deliberately NOT detached (gotcha #72): it is
-   * local, and belongs inside the caller's transaction.
-   *
-   * A no-op edit (nothing actually changed) writes nothing.
-   */
   protected audit(input: AuditInput): void {
     void this.writeAudit(input);
   }
 
-  /** The detached body of `audit()`. Never throws — it has no caller to throw to. */
   private async writeAudit(input: AuditInput): Promise<void> {
     try {
-      // Resolved here, off the user's critical path — this lookup used to be
-      // awaited at the call site. Only fills what the caller didn't supply.
       const owner = input.customerId ? await this.customerAudit(input.customerId) : null;
       const row = buildAuditRow(
         owner
@@ -105,16 +79,6 @@ export abstract class BaseRepository {
     }
   }
 
-  /**
-   * The audit facts a child row inherits from its owning customer: the branch to
-   * file the entry under (a payment / skip / plan line has no branch_id of its
-   * own), the customer's name — frozen into the entry so the list can say WHO it
-   * was about after the customer is gone — and the id the entry files itself
-   * under. Spreadable straight into an `AuditInput`.
-   *
-   * One query for all three — the branch lookup was already being made at every
-   * one of these call sites, so naming the customer costs nothing extra.
-   */
   protected async customerAudit(
     customerId: string,
   ): Promise<{ branchId: string | null; subject: string | null; customerId: string }> {
@@ -127,29 +91,11 @@ export abstract class BaseRepository {
     return { branchId: row?.branch_id ?? null, subject: row?.name ?? null, customerId };
   }
 
-  /**
-   * Just the frozen customer name, for a table that already owns its branch_id
-   * (sales). `null` for a record with no customer — a walk-in sale.
-   */
   protected async customerSubject(customerId: string | null): Promise<string | null> {
     if (!customerId) return null;
     return (await this.customerAudit(customerId)).subject;
   }
 
-  /**
-   * `UPDATE` one row by id and record the diff. The extra read is unavoidable:
-   * PostgREST cannot return old values from an UPDATE. Covers the repeated
-   * read-patch-diff dance for tables whose branch is their own `branch_id`
-   * column (plans, products, branches, currencies, users, …).
-   *
-   * `branchColumn: null` marks a table with no branch dimension at all
-   * (currencies, tenant_settings) — the entry gets `branch_id = null`, meaning
-   * "tenant-wide", so every admin can see it.
-   *
-   * `audit` supplies the facts that don't live on the row itself, for a child row
-   * whose PARENT owns them (a stock movement's branch and product name). Its
-   * `branchId` wins over `branchColumn`.
-   */
   protected async auditedUpdate<T extends { id: string }>(
     table: AuditInput["table"],
     id: string,
@@ -174,8 +120,6 @@ export abstract class BaseRepository {
       .select(select)
       .single();
     if (error) this.handleError(error);
-    // Via `unknown`: `select` is a runtime string, so PostgREST cannot infer the
-    // row shape and widens it to its error union.
     const after = data as unknown as T;
     this.audit({
       table,
@@ -186,17 +130,11 @@ export abstract class BaseRepository {
       branchId:
         opts.audit?.branchId ??
         (branchColumn ? ((after[branchColumn] as string | null) ?? null) : null),
-      // undefined, not null, when unset — buildAuditRow's own fallback must still run.
       subject: opts.audit?.subject,
     });
     return after;
   }
 
-  /**
-   * Hard-delete rows by id, snapshotting them first — a delete's whole value in
-   * the trail is the copy of what was removed. `branchColumn` follows the same
-   * rule as `auditedUpdate`.
-   */
   protected async auditedDelete<T extends { id: string }>(
     table: AuditInput["table"],
     ids: string[],
@@ -218,12 +156,6 @@ export abstract class BaseRepository {
     }
   }
 
-  /**
-   * Edge-function counterpart to handleError. supabase-js hides the real error
-   * behind a generic "non-2xx status code" message; the function's own message
-   * lives in the JSON body on error.context.response. Surface that when present,
-   * otherwise fall back to the generic handling.
-   */
   protected async handleFunctionsError(error: unknown): Promise<never> {
     const body = await readFunctionsErrorBody(error);
     if (body?.error) {
@@ -233,11 +165,6 @@ export abstract class BaseRepository {
     this.handleError(error);
   }
 
-  /**
-   * Returns the subset of `ids` that appear in `table.<column>` — i.e. the rows
-   * still referenced by a child table. One query regardless of how many ids are
-   * passed; powers the hard-delete vs soft-delete split in bulk deletes.
-   */
   protected async referencedIdsIn(
     table: string,
     column: string,
@@ -252,10 +179,6 @@ export abstract class BaseRepository {
     );
   }
 
-  /**
- * The single source of truth for "how does each table relate to a branch?"
- * Adding a new branch-aware table means adding one line here.
- */
   protected BRANCH_SCOPES = {
     customers: { kind: "owned" },
     users: { kind: "owned" },
@@ -267,23 +190,9 @@ export abstract class BaseRepository {
     services: { kind: "shared" },
     sales: { kind: "owned" },
     expenses: { kind: "owned" },
-    // Money, not stock: a SHARED product's purchase is a company expense, so it
-    // must NOT be 'shared' here or every branch would count the same spend.
-    // (The RLS policy is deliberately wider — see gotcha #88.)
     stock_movements: { kind: "inherited", joinedTable: "products" },
   } satisfies Record<string, BranchScope>;
 
-  /**
- * Apply the active branch filter to a Supabase query builder.
- *
- *   null                             → no filter (RLS handles visibility)
- *   BRANCH_FILTER_UNASSIGNED         → <column> IS NULL
- *   <UUID>, scope 'owned'            → <column> = UUID
- *   <UUID>, scope 'shared'           → <column> IS NULL OR <column> = UUID
- *   <UUID>, scope 'inherited'        → <joinedTable>.<column> = UUID
- *
- * Mutates and returns the builder so callers can chain.
- */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   protected applyBranchFilter<T extends Record<string, any>>(
     query: T,
@@ -300,7 +209,6 @@ export abstract class BaseRepository {
       return query.is(path, null);
     }
     if (scope.kind === "shared") {
-      // Include shared rows (branch_id IS NULL) alongside this branch's rows.
       return query.or(`${column}.is.null,${column}.eq.${filter}`);
     }
     return query.eq(path, filter);

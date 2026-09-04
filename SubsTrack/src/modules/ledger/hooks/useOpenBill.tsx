@@ -4,13 +4,7 @@ import { chargeService } from "../services/ChargeService";
 import { BillSheet } from "../components/BillSheet";
 
 interface Options {
-  /**
-   * Opens a SALE's receipt. Injected, because the sale sheet lives in the sales
-   * module and sales depends on the ledger — never the other way round.
-   * Resolves once the receipt is open, so the row can stop its spinner.
-   */
   onOpenSale?: (saleId: string) => Promise<void> | void;
-  /** A hand-over on the open bill was voided from inside it. */
   onChanged?: (voided: Collection) => void;
 }
 

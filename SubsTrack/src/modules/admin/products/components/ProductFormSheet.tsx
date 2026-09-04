@@ -31,14 +31,9 @@ type FormState = {
   description: string;
   price: number | null;
   currencyId: string | null;
-  // What the product costs to BUY (vs `price`, what it sells for). Optional —
-  // it only pre-fills the restock sheet, where the real per-delivery cost is
-  // typed. Its own currency, since the selling currency can differ.
   costPrice: number | null;
   costCurrencyId: string | null;
   branchId: string | null;
-  // Create only — becomes the first ledger movement. Editing never touches
-  // stock; that goes through ProductStockSheet so every change is recorded.
   initialStock: string;
 };
 
@@ -57,8 +52,6 @@ export function ProductFormSheet({
   const tierLimitError = useProductSlice((s) => s.tierLimitError);
   const clearError = useProductSlice((s) => s.clearError);
   const clearTierLimitError = useProductSlice((s) => s.clearTierLimitError);
-  // Live from the list, so the figure follows an adjustment made in the stock
-  // sheet stacked on top of this form instead of showing the opening snapshot.
   const stockOnHand = useProductSlice(
     (s) =>
       s.items.find((p) => p.id === product?.id)?.stockOnHand ??
@@ -80,8 +73,6 @@ export function ProductFormSheet({
     return null;
   })();
 
-  // Tenant-wide admins can create SHARED products (null branch_id). Branch-scoped
-  // users always submit their own branch and the picker is locked + hidden.
   const branchPickerNullable = user?.branchId === null;
 
   const [form, setForm] = useState<FormState>({
@@ -95,8 +86,6 @@ export function ProductFormSheet({
     initialStock: "",
   });
 
-  // CurrencyInput self-seeds `currencyId` from the last-used currency after
-  // mount, so it changes with no user action — ignore it in the dirty check.
   const dirty = useDirtyForm(form, ["currencyId", "costCurrencyId"]);
 
   useEffect(() => {
@@ -117,8 +106,6 @@ export function ProductFormSheet({
     if (product) {
       await updateProduct(product.id, payload);
     } else {
-      // The opening stock is bought too: its cost (the product's cost price)
-      // rides along and becomes an expense today.
       await createProduct(
         { ...payload, initialStock: Number(form.initialStock) || 0 },
         user.tenantId,

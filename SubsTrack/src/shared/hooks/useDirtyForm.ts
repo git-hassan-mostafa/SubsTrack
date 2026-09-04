@@ -28,9 +28,6 @@ export function useDirtyForm(
   values: Record<string, unknown>,
   ignore?: readonly string[],
 ): boolean {
-  // The baseline is the FIRST render's values, captured in a lazy `useState`
-  // initializer — never updated, so it can't re-render. (A ref assigned during
-  // render would switch React Compiler off for the calling file — gotcha #52.)
   const [initial] = useState(() => ({ ...values }));
 
   for (const key of Object.keys(values)) {

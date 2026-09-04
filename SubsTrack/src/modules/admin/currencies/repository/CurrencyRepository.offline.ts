@@ -21,7 +21,6 @@ export class OfflineCurrencyRepository extends OfflineBaseRepository implements 
     const row: DbCurrency = { id: newId(), created_at: now, updated_at: now, ...payload };
     await this.write(async (db) => {
       await insertDirty(db, 'currencies', row);
-      // Currencies are tenant-wide — no branch dimension, so every admin sees it.
       await this.auditIn(db, {
         table: 'currencies',
         recordId: row.id,
@@ -70,8 +69,6 @@ export class OfflineCurrencyRepository extends OfflineBaseRepository implements 
 
   async referencedIds(ids: string[]): Promise<Set<string>> {
     if (ids.length === 0) return new Set();
-    // The bill and the hand-over that paid it each carry a currency — see the
-    // web twin.
     const [plans, charges, collections, lines] = await Promise.all([
       this.referencedIdsIn('plans', 'currency_id', ids),
       this.referencedIdsIn('charges', 'currency_id', ids),

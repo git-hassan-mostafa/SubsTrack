@@ -3,9 +3,6 @@ import { immer } from 'zustand/middleware/immer';
 import i18n from '@/src/core/i18n';
 import { signupService } from '@/src/modules/authentication/signup';
 
-// A MODULE store, not a global slice: only the signup flow reads it, and no
-// slice reads it back. Reads nothing else — signup runs before there is a session.
-// See CLAUDE.md → State Management.
 
 export interface SignupCredentials {
   username: string;

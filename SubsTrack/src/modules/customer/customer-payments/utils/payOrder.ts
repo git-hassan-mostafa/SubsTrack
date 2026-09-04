@@ -2,10 +2,6 @@ import { MONTHS } from "@/src/core/constants";
 import { toBillingMonth } from "@/src/core/utils/date";
 import i18n from "@/src/core/i18n";
 
-// "Pay the oldest month first", and its mirror "void the newest month first" —
-// the pure rules, shared by the UI gates and the service guards so each exists
-// exactly once. Billing months are always YYYY-MM-01, so plain string
-// comparison is chronological.
 
 /** Every billing month a payment covers (a multi-month block covers N of them). */
 export function coveredBillingMonths(

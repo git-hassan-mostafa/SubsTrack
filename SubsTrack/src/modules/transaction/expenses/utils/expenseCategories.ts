@@ -3,11 +3,6 @@ import type { ExpenseCategory } from '@/src/core/types';
 
 type IconName = keyof typeof Ionicons.glyphMap;
 
-/**
- * The one table every category label and icon reads — the dropdown, the list
- * card, and (later) the reporting page. Adding a category is one line here plus
- * its i18n key; the DB column is free text, so there is no migration.
- */
 export const EXPENSE_CATEGORIES: {
   code: ExpenseCategory;
   labelKey: string;
@@ -26,8 +21,6 @@ export const EXPENSE_CATEGORIES: {
   { code: 'other', labelKey: 'expenses.cat_other', icon: 'ellipsis-horizontal-outline' },
 ];
 
-/** Stock is derived from the ledger, never hand-picked, so it is kept out of
- *  EXPENSE_CATEGORIES (which is exactly what the form's dropdown offers). */
 export const STOCK_CATEGORY = {
   code: 'stock' as const,
   labelKey: 'expenses.cat_stock',

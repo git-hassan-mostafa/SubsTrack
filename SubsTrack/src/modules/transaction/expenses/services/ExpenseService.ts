@@ -2,8 +2,6 @@ import type { Expense, ExpenseItem, ExpensesView } from '@/src/core/types';
 import type { BranchFilter } from '@/src/core/constants';
 import i18n from '@/src/core/i18n';
 import { sumUsd } from '@/src/core/utils/currency';
-// Deep import (not the module barrel) — the barrel re-exports product screens,
-// and a service must not drag UI into its graph.
 import productService from '@/src/modules/admin/products/services/ProductService';
 import repository from '../repository/ExpenseRepository';
 import { expenseToItem, mapDbExpenseToExpense } from '../utils/mapper';
@@ -21,7 +19,6 @@ import type { CreateExpenseInput, ExpensesFilter } from '../utils/types';
  * summed in USD via each row's frozen rate; the screen formats for display.
  */
 class ExpenseService {
-  /** One fetch for the Expenses panel: both sources merged, newest first. */
   async getExpensesView(filter: ExpensesFilter): Promise<ExpensesView> {
     const branchFilter = filter.branchFilter ?? null;
     const [stored, stockCosts] = await Promise.all([
@@ -41,8 +38,6 @@ class ExpenseService {
       id: `stock:${s.movementId}`,
       source: 'stock',
       category: 'stock',
-      // A negative row is stock taken back out (wrong entry / returned), so it
-      // says so instead of printing "×-2".
       label:
         s.quantity < 0
           ? i18n.t('expenses.stock_returned_label', {
@@ -57,7 +52,6 @@ class ExpenseService {
       branchId: s.branchId,
       recordedByUserId: s.recordedByUserId,
       productId: s.productId,
-      // There is no expense row to void — correct the stock entry itself.
       canVoid: false,
     }));
 
@@ -70,11 +64,6 @@ class ExpenseService {
     };
   }
 
-  /**
-   * The dashboard aggregate — the same two sources, but only the USD totals.
-   * Kept separate from getExpensesView so the dashboard never builds view models
-   * it won't render.
-   */
   async getTotalsInRange(
     startIso: string,
     endExclusiveIso: string,

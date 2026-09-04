@@ -24,7 +24,6 @@ export class AuthRepository implements IAuthRepository {
   async getSession(): Promise<Session | null> {
     const { data, error } = await supabase.auth.getSession();
     if (error) {
-      // Stale/invalid token (e.g. after a DB reset) — clear it and treat as no session
       await supabase.auth.signOut().catch(() => { });
       return null;
     }
@@ -34,12 +33,10 @@ export class AuthRepository implements IAuthRepository {
   async getUserProfile(userId: string): Promise<DbUser | null> {
     const { data, error } = await supabase
       .from("users")
-      // join the user's branch so the header can show "Beirut" without an extra round-trip
       .select("*, branches(*)")
       .eq("id", userId)
       .single();
     if (error) {
-      // PGRST116 = no rows found — not a real error
       if (error.code === "PGRST116") return null;
       console.log("error ", error);
       throw new Error(error.message);
@@ -80,7 +77,6 @@ export class AuthRepository implements IAuthRepository {
   }
 }
 
-// Platform seam: web → Supabase directly (unchanged); native → offline cache.
 const impl: IAuthRepository =
   Platform.OS === 'web' ? new AuthRepository() : new OfflineAuthRepository();
 

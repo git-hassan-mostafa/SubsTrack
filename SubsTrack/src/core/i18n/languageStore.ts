@@ -42,7 +42,6 @@ export const useLanguageStore = create<LanguageState>()(
         I18nManager.forceRTL(isRTL);
         set({ language: lang });
 
-        // Persist before reload so the value is read on next boot
         await setLanguageStore(
           JSON.stringify({ state: { language: lang }, version: 0 }),
         );

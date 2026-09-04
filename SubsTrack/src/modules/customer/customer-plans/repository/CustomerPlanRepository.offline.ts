@@ -9,7 +9,6 @@ export class OfflineCustomerPlanRepository
   extends OfflineBaseRepository
   implements ICustomerPlanRepository
 {
-  /** Attach the joined plan (DbCustomerPlan.plans) from the local plans table. */
   private async hydrate(line: DbCustomerPlan): Promise<DbCustomerPlan> {
     if (!line.plan_id) return { ...line, plans: null };
     const plans = await this.rowsById<DbPlan>('plans', [line.plan_id]);
@@ -37,7 +36,6 @@ export class OfflineCustomerPlanRepository
       created_at: now,
       updated_at: now,
     };
-    // Read before write() — the transaction must stay as short as possible.
     const owner = await this.customerAudit(payload.customer_id);
     await this.write(async (db) => {
       await insertDirty(db, 'customer_plans', row);
@@ -52,7 +50,6 @@ export class OfflineCustomerPlanRepository
     return this.hydrate(row);
   }
 
-  // Both single-row patches funnel through here: read, patch, record the diff.
   private async patch(
     id: string,
     patch: Record<string, unknown>,
@@ -96,7 +93,6 @@ export class OfflineCustomerPlanRepository
       >
     >,
   ): Promise<DbCustomerPlan> {
-    // Re-activating a cancelled line reads as a restore, not a plain edit.
     const action = payload.active === true && payload.cancelled_at === null ? 'restore' : 'update';
     return this.patch(id, { ...payload, updated_at: nowIso() }, action);
   }
@@ -116,8 +112,6 @@ export class OfflineCustomerPlanRepository
         'customer_plans',
         await this.first('SELECT * FROM customer_plans WHERE id = ?', [id]),
       );
-      // Bills on this line cascade server-side; remove locally for consistency.
-      // Only the line id is logged — the server FK cascade removes its bills.
       await db.runAsync(
         `DELETE FROM collection_items
           WHERE charge_id IN (SELECT id FROM charges WHERE customer_plan_id = ?)`,
@@ -143,7 +137,6 @@ export class OfflineCustomerPlanRepository
   }
 
   async findPaidLineIds(customerId: string): Promise<string[]> {
-    // One collection_item row IS money standing on that line — see the web twin.
     const rows = await this.all<{ customer_plan_id: string }>(
       `SELECT DISTINCT c.customer_plan_id AS customer_plan_id
          FROM charges c

@@ -14,13 +14,7 @@ export type SkippedMonthPayload = Pick<
 >;
 
 export interface ISkippedMonthRepository {
-  // Active skips on every service line of one customer (all years) — the month
-  // grid rebuilds any year from this list, like it does with payments.
   findActiveByCustomer(customerId: string): Promise<DbSkippedMonth[]>;
-  // Every active skip in the tenant — the customer-list overdue scan needs them
-  // for all customers at once (mirrors findActivePayments).
   findActive(): Promise<DbSkippedMonth[]>;
-  // Upsert on the natural key (customer_plan_id, billing_month): skip, unskip,
-  // and edit-the-note are all the same write.
   upsertMany(payloads: SkippedMonthPayload[]): Promise<DbSkippedMonth[]>;
 }

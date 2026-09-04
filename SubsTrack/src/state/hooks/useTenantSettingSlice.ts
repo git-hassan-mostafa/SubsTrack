@@ -15,9 +15,6 @@ export function useTenantSettingSlice<T = TenantSettingSlice>(
   });
 }
 
-// ---- Reusable per-tenant setting readers --------------------------------
-// Values are stored as strings; these hooks are the single place that resolves
-// a raw value to a typed setting, so call sites never parse it themselves.
 
 /** Raw string value of a tenant setting, or `null` if unset. */
 export const useTenantSettingValue = (key: string): string | null =>

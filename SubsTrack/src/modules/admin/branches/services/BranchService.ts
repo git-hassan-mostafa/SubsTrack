@@ -42,8 +42,6 @@ class BranchService {
     }
   }
 
-  // Soft-delete if the branch is referenced; hard-delete otherwise.
-  // Returns the mode so the UI can communicate the outcome.
   async deleteBranch(id: string): Promise<'hard' | 'soft'> {
     const activeCount = await repository.countActive();
     if (activeCount <= 1) {
@@ -63,9 +61,6 @@ class BranchService {
     return mapDbBranchToBranch(row);
   }
 
-  // Batch counterpart to deleteBranch: referenced branches are soft-deleted,
-  // the rest hard-deleted — each group in a single statement. Guards the same
-  // "at least one active branch must survive" invariant as the single delete.
   async deleteManyBranches(
     ids: string[],
   ): Promise<{ hard: string[]; soft: string[] }> {

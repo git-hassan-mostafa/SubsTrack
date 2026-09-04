@@ -21,11 +21,6 @@ export function actionLabel(t: TFunction, action: AuditAction): string {
   return t(`audit.action.${action}`);
 }
 
-/**
- * What the frozen `subject` NAMES on a given table — the parent record the entry
- * belongs to. A customer for the money tables, the product for a stock movement.
- * Defaults to the customer, which is what almost every subject is.
- */
 const SUBJECT_LABEL: Partial<Record<AuditTable, string>> = {
   stock_movements: 'audit.field.product_id',
 };
@@ -70,14 +65,10 @@ export function formatValue(t: TFunction, value: unknown, locale = 'en-US'): str
   if (value === null || value === undefined || value === '') return t('audit.empty_value');
   if (typeof value === 'boolean') return value ? t('common.yes') : t('common.no');
   if (typeof value === 'number') return String(value);
-  // A structured value has no useful one-line rendering, and dumping its JSON
-  // filled the sheet with unreadable text. Say how much there is instead.
   if (Array.isArray(value)) return t('audit.items_count', { count: value.length });
   if (typeof value === 'object') return t('audit.structured_value');
 
   const s = String(value);
-  // ISO timestamp → local date+time. `isValidDateString` only accepts YYYY-MM-DD,
-  // so check the full timestamp shape separately.
   if (/^\d{4}-\d{2}-\d{2}T/.test(s)) return formatDateTime(s, locale);
   if (isValidDateString(s)) return s;
   return s;

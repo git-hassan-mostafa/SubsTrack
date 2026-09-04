@@ -30,14 +30,10 @@ export function mergeCollection(
     const charge = item.charge;
     if (charge && (charge.voidedAt || charge.writtenOffAt)) continue;
     paid.set(item.chargeId, (paid.get(item.chargeId) ?? 0) + sign * item.amount);
-    // A void can only empty a bill that is already held — it raises none.
     if (sign === 1 && charge?.kind === "month") raised.set(charge.id, { charge, collected: 0 });
   }
   const merged = bills.map((b) => {
     const extra = paid.get(b.charge.id);
-    // The write may have RE-PRICED an empty bill (#106b), so the row it returned
-    // wins over the stale one held here — otherwise a settled month reads
-    // "PARTIAL 25/30" until something forces a reload.
     const written = raised.get(b.charge.id)?.charge;
     raised.delete(b.charge.id);
     if (!extra) return written ? { ...b, charge: written } : b;
@@ -47,7 +43,6 @@ export function mergeCollection(
       collected: Math.max(0, b.collected + extra),
     };
   });
-  // Whatever is left was billed for the first time by this collect.
   for (const bill of raised.values()) {
     merged.push({ ...bill, collected: paid.get(bill.charge.id) ?? 0 });
   }

@@ -10,10 +10,6 @@ import { ownedRowMatchesFilter, resolveBranchFilter } from '@/src/shared/lib/bra
 import { currentMonthDays, rangeFromDays } from '@/src/core/utils/dateRange';
 import { getStore } from '@/src/state/globalStore';
 
-// A MODULE store, not a global slice: only the expenses module reads it, and no
-// slice reads it back. `auth` is read across through the global store — the one allowed
-// direction.
-// See CLAUDE.md → State Management.
 
 const EMPTY_SUMMARY: ExpenseSummary = { totalUsd: 0, manualUsd: 0, stockUsd: 0 };
 
@@ -40,17 +36,13 @@ function addToSummary(summary: ExpenseSummary, item: ExpenseItem, sign: 1 | -1):
 }
 
 export interface ExpenseState {
-  // Both sources merged (stored expenses + derived stock purchases), newest first.
   items: ExpenseItem[];
   summary: ExpenseSummary;
   loading: boolean;
   error: string | null;
   searchToken: number;
-  // The fetched window — 'YYYY-MM-DD' day bounds, both inclusive, as the date
-  // chips present them. Changing either re-fetches.
   fromDate: string;
   toDate: string;
-  // Client-side chips (no re-fetch).
   search: string;
   categoryFilter: ExpenseCategory | 'all';
   fetchExpenses: () => Promise<void>;
@@ -78,8 +70,6 @@ export const useExpenseStore = create<ExpenseState>()(
     fetchExpenses: async () => {
       const branchFilter = resolveBranchFilter(getStore().getState().auth.user);
       const { fromDate, toDate } = get();
-      // Self-bump the token so concurrent fetches (branch change + a mutation
-      // refresh) resolve last-write-wins.
       const token = get().searchToken + 1;
       set((state) => {
         state.searchToken = token;
@@ -114,7 +104,6 @@ export const useExpenseStore = create<ExpenseState>()(
       await get().fetchExpenses();
     },
 
-    // Client-side only — items already hold the whole fetched window.
     setSearch: (term) =>
       set((state) => {
         state.search = term;
@@ -147,8 +136,6 @@ export const useExpenseStore = create<ExpenseState>()(
         const branchFilter = resolveBranchFilter(getStore().getState().auth.user);
         set((state) => {
           state.loading = false;
-          // An expense dated outside the shown window, or belonging to a branch
-          // this view excludes, is written but has no place on this screen.
           if (!inWindow(item.date, state)) return;
           if (!ownedRowMatchesFilter(item.branchId, branchFilter)) return;
           state.items = insertByDateDesc(state.items, item);
@@ -176,7 +163,6 @@ export const useExpenseStore = create<ExpenseState>()(
           const itemId = `exp:${id}`;
           const gone = state.items.find((i) => i.id === itemId);
           if (!gone) return;
-          // A voided expense simply stops being money out — the list hides it.
           state.items = state.items.filter((i) => i.id !== itemId);
           addToSummary(state.summary, gone, -1);
         });

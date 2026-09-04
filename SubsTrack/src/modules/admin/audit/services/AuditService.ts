@@ -16,7 +16,6 @@ export interface AuditEntryPage extends AuditEntries {
 
 /** One day's entries, for a section-grouped list. */
 export interface AuditDayGroup {
-  /** YYYY-MM-DD, the local calendar day the entries happened on. */
   day: string;
   entries: AuditEntry[];
 }
@@ -36,37 +35,21 @@ class AuditService {
     return { entries: rows.map(mapDbAuditLogToAuditEntry), source, hasMore };
   }
 
-  /** One record's timeline, newest first. */
   async getRecordHistory(table: string, recordId: string): Promise<AuditEntries> {
     const { rows, source } = await repository.findForRecord(table, recordId);
     return { entries: rows.map(mapDbAuditLogToAuditEntry), source };
   }
 
-  /**
-   * The merged timeline of several rows that make up one entity — a customer plus
-   * its service lines and skipped months. Newest first across all of them, so the
-   * result reads as one story rather than per-table sections.
-   */
   async getRecordsHistory(targets: AuditRecordTarget[]): Promise<AuditEntries> {
     const { rows, source } = await repository.findForRecords(targets);
     return { entries: rows.map(mapDbAuditLogToAuditEntry), source };
   }
 
-  /**
-   * One customer's whole timeline — profile, service lines, month payments and
-   * skips — newest first. Filtered on the entry's frozen `subject_id`, so it needs
-   * no list of child ids and picks up rows whose record has since been deleted.
-   */
   async getCustomerHistory(customerId: string): Promise<AuditEntries> {
     const { rows, source } = await repository.findForCustomer(customerId, CUSTOMER_HISTORY_TABLES);
     return { entries: rows.map(mapDbAuditLogToAuditEntry), source };
   }
 
-  /**
-   * Group entries into calendar days, preserving the newest-first order they
-   * arrive in. Grouping by the LOCAL day (not the ISO prefix) so an entry made at
-   * 11pm doesn't jump to tomorrow for a viewer east of UTC.
-   */
   groupByDay(entries: AuditEntry[]): AuditDayGroup[] {
     const groups: AuditDayGroup[] = [];
     for (const entry of entries) {

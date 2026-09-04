@@ -52,14 +52,10 @@ export function BillSheet({
   const { language } = useLanguageStore();
   const locale = language === "ar" ? "ar" : "en-US";
 
-  // Reported by the payments list after every load, so the hero and the rows
-  // can never disagree about how much money reached this bill.
   const [collected, setCollected] = useState(0);
 
   const handleCollected = useCallback((v: number) => setCollected(v), []);
 
-  // A different bill has a different total — drop the old one rather than let
-  // the hero show last month's figure for the frame before the list loads.
   const chargeId = charge?.id ?? null;
   useEffect(() => setCollected(0), [chargeId]);
 
@@ -83,8 +79,6 @@ export function BillSheet({
     if (await onVoidBill(charge)) onDismiss();
   }
 
-  // Voiding the bill destroys the cash on it, so it sits in the header menu
-  // rather than as a second full-width bar under Collect — see gotcha #131.
   const menuActions: ActionMenuItem[] = onVoidBill
     ? [
         {

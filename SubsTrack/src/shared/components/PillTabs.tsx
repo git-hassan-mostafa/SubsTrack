@@ -11,7 +11,6 @@ interface PillTabsProps<T extends string> {
   value: T;
   onChange: (value: T) => void;
   tabs: PillTab<T>[];
-  /** Extra classes on the row (e.g. spacing). */
   className?: string;
 }
 

@@ -11,15 +11,11 @@ import { useLanguageStore } from "@/src/core/i18n/languageStore";
 import { keyOf } from "../utils/waterfall";
 
 interface Props {
-  /** Currency-scoped and ALREADY in waterfall order — a row's place IS its number. */
   items: OpenItem[];
-  /** What the money actually does, from the same order. */
   lines: AllocationLine[];
   excluded: ReadonlySet<string>;
   onToggle: (item: OpenItem) => void;
-  /** The sheet's formatter — every row here shares one currency. */
   money: (value: number) => string;
-  /** Still owed once this hand-over is saved. */
   remainingAfter: number;
 }
 
@@ -49,8 +45,6 @@ export function AllocationPreview({
     [lines],
   );
 
-  // Queue position per row. Skipped rows leave the queue entirely, so the
-  // numbering re-flows instead of leaving a gap.
   const positions = useMemo(() => {
     const out = new Map<string, number>();
     let n = 0;

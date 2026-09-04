@@ -1,6 +1,5 @@
 import type { StateCreator } from 'zustand';
 import type { TenantSetting, UnpaidStartRule } from '@/src/core/types';
-// Deep import (not the module barrel) — the barrel re-exports screens.
 import tenantSettingService from '@/src/modules/admin/tenant-settings/services/TenantSettingService';
 import type { GlobalState } from '@/src/state/globalStore';
 
@@ -80,8 +79,6 @@ export const createTenantSettingSlice: StateCreator<
       }
     },
 
-    // Guarded on the `loaded` flag, never items.length — a tenant that has never
-    // saved a setting has zero rows and would otherwise re-query on every caller.
     getSettings: async () => {
       const { loaded, loading } = get().tenantSettings;
       if (loaded || loading) return;
@@ -93,12 +90,9 @@ export const createTenantSettingSlice: StateCreator<
         tenantSettingService.setUnpaidStartRule(tenantId, rule),
       );
       if (!ok) return;
-      // The rule changes which months read as unpaid, so every cached customer
-      // badge is now stale — one call rebuilds them all.
       await get().payments.fetchCustomerStatuses(get().customers.items);
     },
 
-    // Display-only: amounts are converted at render time, so nothing to refresh.
     setDisplayCurrencyId: async (currencyId) => {
       await save((tenantId) =>
         tenantSettingService.setDisplayCurrencyId(tenantId, currencyId),

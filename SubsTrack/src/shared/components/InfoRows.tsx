@@ -3,7 +3,6 @@ import { Text } from "./Text";
 
 export interface InfoRow {
   label: string;
-  /** Empty, null or undefined drops the row — a blank line says nothing. */
   value: string | null | undefined;
 }
 

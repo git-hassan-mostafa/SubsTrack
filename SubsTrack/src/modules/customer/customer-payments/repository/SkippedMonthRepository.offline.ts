@@ -40,20 +40,15 @@ export class OfflineSkippedMonthRepository
         updated_at: now,
       });
     }
-    // One lookup per distinct customer, resolved before the transaction opens.
     const owners = new Map<string, { branchId: string | null; subject: string | null }>();
     for (const p of payloads) {
       if (!owners.has(p.customer_id)) owners.set(p.customer_id, await this.customerAudit(p.customer_id));
     }
-    // The mirror may already hold this line+month under another id (created on
-    // the web or another device) — echo back the id it actually stored.
     const storedIds = await this.write(async (db) => {
       const ids: string[] = [];
       for (const row of rows) {
         const stored = await upsertNaturalKeyDirty(db, 'skipped_months', row);
         ids.push(stored);
-        // One row covers both directions: `skipped: false` is an unskip, which
-        // reads as restoring the month to payable.
         await this.auditIn(db, {
           table: 'skipped_months',
           recordId: stored,

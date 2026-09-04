@@ -26,12 +26,9 @@ export type SupportedLanguage = (typeof SUPPORTED_LANGUAGES)[number];
 export async function reloadApp(): Promise<void> {
   try {
     const Updates = await import("expo-updates");
-    // Now that EAS Update is live this also applies any downloaded-but-pending
-    // OTA update — harmless, but it means a language switch can bring new JS.
     await Updates.reloadAsync();
     return;
   } catch {
-    // expo-updates not available (e.g. Expo Go) — fall through
   }
 
   if (Platform.OS !== "web") {
@@ -46,7 +43,6 @@ export async function reloadApp(): Promise<void> {
         return;
       }
     } catch {
-      // ignore
     }
   }
 
@@ -76,7 +72,6 @@ export async function initI18n(): Promise<void> {
       }
     }
   } catch {
-    // keep device language on any storage error
   }
 
   const isRTL = (RTL_LANGUAGES as readonly string[]).includes(language);

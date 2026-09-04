@@ -11,8 +11,6 @@ function cell(value: string | number | null | undefined): string {
 }
 
 export function toCsv(headers: string[], rows: (string | number | null)[][]): string {
-  // Leading BOM: without it Excel reads the file as the system codepage and
-  // Arabic names come out as mojibake.
   return (
     "﻿" +
     [headers, ...rows].map((r) => r.map(cell).join(",")).join("\r\n")
@@ -53,8 +51,6 @@ export async function exportCsv(
 
   if (!(await Sharing.isAvailableAsync())) return false;
 
-  // Cache, not documents: the file exists only to be handed to another app, and
-  // the OS is free to reclaim it afterwards.
   const dir = new Directory(Paths.cache, "exports");
   if (!dir.exists) dir.create({ intermediates: true });
   const file = new File(dir, name);

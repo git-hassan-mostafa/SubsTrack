@@ -12,7 +12,6 @@ interface Props {
   visible: boolean;
   onDismiss: () => void;
   title: string;
-  /** The figure that was tapped — the rows below must add up to it. */
   totalLabel: string;
   rows: RecordRow[];
   currencies: Currency[];
@@ -58,8 +57,6 @@ export function RecordsSheet({
           <EmptyState message={t("reports.no_records")} />
         ) : (
           rows.map((row) => {
-            // The row's OWN frozen rate, so the drill-down adds up to exactly
-            // the figure that was tapped.
             const source = findCurrency(currencies, row.currencyId);
             const frozen = source ? { ...source, ratePerUsd: row.ratePerUsdSnapshot } : null;
             return (

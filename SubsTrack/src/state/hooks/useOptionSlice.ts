@@ -13,10 +13,6 @@ export function useOptionSlice<T = OptionSlice>(
   });
 }
 
-// ---- Reusable global-option readers -------------------------------------
-// All option values are stored as strings in app_options. These small hooks
-// are the single place that resolves a raw value (and parses booleans), so
-// call sites read a typed, semantic flag instead of poking at `items`.
 
 function parseBool(value: string | null, fallback: boolean): boolean {
   if (value == null) return fallback;

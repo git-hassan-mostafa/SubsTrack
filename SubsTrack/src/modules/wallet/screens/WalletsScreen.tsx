@@ -30,7 +30,6 @@ import {
   type WalletActionMode,
 } from "../components/WalletDetailView";
 
-// Why a wallet's cash can't be taken, in the words the holder's colleague needs.
 const BLOCK_LABEL: Record<Exclude<ReceiveBlock, null>, string> = {
   self: "wallet.cannot_receive_self",
   rank: "wallet.cannot_receive_rank",
@@ -73,15 +72,11 @@ export function WalletsScreen() {
 
   const branchFilter = useEffectiveBranchFilter();
   const [openWallet, setOpenWallet] = useState<UserWallet | null>(null);
-  // Sheet is always mounted, so gate on its visibility — see useAfterFirstFrame.
   const detailReady = useAfterFirstFrame(!!openWallet);
   const [menuWallet, setMenuWallet] = useState<UserWallet | null>(null);
   const [busy, setBusy] = useState(false);
-  // Wallet whose bulk action is running from the list card (its card shows a
-  // spinner). Separate from `busy`, which drives the detail sheet.
   const [actingId, setActingId] = useState<string | null>(null);
 
-  // Refresh on focus + whenever the effective branch changes.
   useFocusEffect(
     useCallback(() => {
       void fetchWallets();
@@ -168,7 +163,6 @@ export function WalletsScreen() {
     if (!wallet) return [];
     const mode = modeFor(wallet);
     if (mode === "view") {
-      // Nothing to do here — say why rather than showing an empty menu.
       return [
         {
           key: "blocked",

@@ -10,11 +10,8 @@ import type { DashboardMetrics } from "@/src/core/types";
 
 interface Props {
   metrics: DashboardMetrics | null;
-  /** Formats a USD figure in the tenant's display currency. */
   fmt: (usd: number) => string;
-  /** Money out + Net — admin-only, and pointless when nothing was spent. */
   showExpenses?: boolean;
-  /** Opens the full report. Omitted → the card is not tappable. */
   onPress?: () => void;
 }
 
@@ -36,7 +33,6 @@ export function RevenueHeroCard({
   const monthlyExpenses = metrics?.monthlyExpenses ?? 0;
   const netIncome = metrics?.netIncome ?? 0;
 
-  // Month-over-month change (null when there's no prior month to compare).
   const prevMonthRevenue = metrics?.prevMonthRevenue ?? 0;
   const momPct =
     prevMonthRevenue > 0
@@ -46,10 +42,6 @@ export function RevenueHeroCard({
       : null;
   const momUp = (momPct ?? 0) >= 0;
 
-  // Revenue mix, keeping only the streams that earned something. A single stream
-  // needs no breakdown (it just repeats the total). Collected debts are
-  // deliberately NOT listed: the only debt figure the card shows is what
-  // customers still owe (the red chip below). They still count in the total.
   const revenueMix = [
     {
       key: "subscriptions",
@@ -64,14 +56,8 @@ export function RevenueHeroCard({
   ].filter((s) => s.value > 0);
   const showRevenueMix = revenueMix.length > 1;
 
-  // Money never collected — not part of the headline, so it reads as a
-  // separate red chip rather than another breakdown column.
   const totalDebt = metrics?.totalDebt ?? 0;
 
-  // Progress is measured against the customers this month actually bills
-  // (dueThisMonth) — never every active customer. A not-due-yet, skipped or
-  // occasional customer owes nothing, so counting it would cap the bar below
-  // 100% with nothing left to collect. Nothing due reads as fully collected.
   const dueCustomers = metrics?.dueThisMonth ?? 0;
   const paidCustomers = Math.max(
     0,
@@ -246,7 +232,6 @@ export function RevenueHeroCard({
 interface ChipProps {
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
-  /** Already formatted, sign included — the caller decides whether it carries one. */
   amount: string;
   className: string;
   textClassName: string;

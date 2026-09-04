@@ -21,15 +21,10 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   },
 });
 
-// `autoRefreshToken` is a foreground-only timer in React Native, so a token that
-// expires while the app is backgrounded is never renewed and the next edge
-// function call goes up dead ("Auth session missing!"). Drive it from AppState —
-// see gotcha #123. The browser keeps its own timer alive, hence native-only.
 if (Platform.OS !== "web") {
   AppState.addEventListener("change", (state) => {
     if (state === "active") supabase.auth.startAutoRefresh();
     else supabase.auth.stopAutoRefresh();
   });
-  // The listener only fires on a CHANGE, so start the timer for this launch.
   if (AppState.currentState === "active") void supabase.auth.startAutoRefresh();
 }

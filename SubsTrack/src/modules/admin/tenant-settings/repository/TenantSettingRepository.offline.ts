@@ -30,8 +30,6 @@ export class OfflineTenantSettingRepository
       updated_at: now,
     };
     const id = await this.write(async (db) => {
-      // Read first: an upsert hides whether this is a new option or a changed one,
-      // and "UnpaidStartRule: month_start → customer_start_day" is the useful entry.
       const before = this.decodeOne<DbTenantSetting>(
         'tenant_settings',
         await this.first('SELECT * FROM tenant_settings WHERE tenant_id = ? AND key = ?', [
@@ -40,7 +38,6 @@ export class OfflineTenantSettingRepository
         ]),
       );
       const stored = await upsertNaturalKeyDirty(db, 'tenant_settings', row);
-      // Tenant-wide setting — no branch dimension, so every admin sees it.
       await this.auditIn(db, {
         table: 'tenant_settings',
         recordId: stored,

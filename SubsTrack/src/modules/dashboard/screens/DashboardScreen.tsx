@@ -51,22 +51,16 @@ export function DashboardScreen() {
   const activeCustomers = metrics?.activeCustomers ?? 0;
   const hasDebt = (metrics?.totalDebt ?? 0) > 0;
 
-  // Collector wallets — admin overview of cash collected but not yet handed over.
   const isAdmin = user?.role === "admin" || user?.role === "superadmin";
   const walletCash = metrics?.walletCash ?? 0;
   const hasWalletCash = isAdmin && walletCash > 0;
 
-  // Money out this month. Admin-only (the service returns 0 for anyone else), so
-  // a collector's hero card and stat grid look exactly as they did before.
   const monthlyExpenses = metrics?.monthlyExpenses ?? 0;
   const netIncome = metrics?.netIncome ?? 0;
-  // With nothing spent, Net is just Revenue again — so the whole money-out
-  // section stays hidden rather than repeating the number next to a $0.00.
   const showExpenses = isAdmin && monthlyExpenses > 0;
 
   const monthlyRevenue = metrics?.monthlyRevenue ?? 0;
 
-  // Subscription payments collected this month.
   const paymentsCount = metrics?.paymentsCollectedCount ?? 0;
 
   return (

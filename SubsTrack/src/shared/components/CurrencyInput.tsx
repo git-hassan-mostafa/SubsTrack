@@ -1,6 +1,4 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-// Plain RN FlatList, NOT Gorhom's: a Gorhom scrollable hijacks the content-height
-// measurement of a content-sized sheet and clips the last rows (gotcha #47).
 import { FlatList, View } from "react-native";
 import { PressableOpacity } from "./PressableOpacity/PressableOpacity";
 import { Ionicons } from "@expo/vector-icons";
@@ -15,9 +13,7 @@ import { useSheetTextInput } from "./bottomSheetInputContext";
 
 interface CurrencyInputProps {
   label?: string;
-  // The literal amount the user typed (in the units of `currencyId`).
   amount: number | null;
-  // The currency that `amount` is denominated in. null = USD.
   currencyId: string | null;
   onChange: (next: {
     amount: number | null;
@@ -26,10 +22,7 @@ interface CurrencyInputProps {
   currencies: Currency[];
   error?: string | null;
   placeholder?: string;
-  // When true, only allow the read-only USD label (used in edge cases like
-  // form modes where the currency is fixed).
   lockCurrency?: boolean;
-  // Externally-controlled disable (e.g. partial-payment max balance lock).
   editable?: boolean;
   onFocus?: () => void;
 }
@@ -52,15 +45,12 @@ export function CurrencyInput({
   editable = true,
   onFocus,
 }: CurrencyInputProps) {
-  // Becomes BottomSheetTextInput when this field lives inside a form sheet.
   const TextInput = useSheetTextInput();
 
   const { t } = useTranslation();
   const { lastUsedCurrencyId, setLastUsedCurrencyId } = useUiPrefStore();
   const initialDefaultApplied = useRef(false);
 
-  // On first mount, if the caller didn't preselect a currency and didn't pass
-  // an amount, apply the user's last-used currency as the default.
   useEffect(() => {
     if (initialDefaultApplied.current) return;
     initialDefaultApplied.current = true;
@@ -70,7 +60,6 @@ export function CurrencyInput({
       );
       if (exists) onChange({ amount: null, currencyId: lastUsedCurrencyId });
     }
-    // Listing the deps is safe: the ref guard above makes every later run a no-op.
   }, [amount, currencyId, currencies, lastUsedCurrencyId, onChange]);
 
   const activeCurrencies = useMemo(
@@ -85,14 +74,12 @@ export function CurrencyInput({
   const [text, setText] = useState<string>(
     amount != null ? String(amount) : "",
   );
-  // Keep local text in sync when parent resets `amount` programmatically.
   useEffect(() => {
     const incoming = amount != null ? String(amount) : "";
     setText((prev) => (Number(prev) === amount ? prev : incoming));
   }, [amount]);
 
   function handleText(next: string) {
-    // Allow empty, partial decimal like "12." while typing.
     const cleaned = next.replace(/[^0-9.]/g, "");
     setText(cleaned);
     if (cleaned === "" || cleaned === ".") {

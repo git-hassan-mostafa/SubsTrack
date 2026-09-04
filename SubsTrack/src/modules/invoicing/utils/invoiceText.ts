@@ -1,14 +1,3 @@
-// Builds the plain-text invoice sent to a customer over WhatsApp. Pure — no
-// React, no store, no i18n singleton: `t` arrives in the context (the same
-// pattern as blockRangeLabel.ts). One file owns the whole message format, so a
-// payment receipt and a sale receipt always look like the same document.
-//
-// Format notes (WhatsApp markup):
-//   - only the org name is bolded (`*name*`); nothing that can hold user-typed
-//     `*`, `_` or `~` is ever wrapped, or the markup breaks.
-//   - list rows start with a literal `•`. A leading `*` or `-` would be read as
-//     markup by WhatsApp.
-
 import type { Charge, Collection, CollectionItem, Currency, Sale } from "@/src/core/types";
 import { formatDate } from "@/src/core/utils/date";
 import { receiptId } from "@/src/core/utils/receiptId";
@@ -17,8 +6,6 @@ import {
   formatMoney,
   snapshotCurrency,
 } from "@/src/core/utils/currency";
-// Deep import on purpose: the customer-payments barrel re-exports screens, and
-// pulling UI into a pure util would defeat the point.
 import { getBlockRangeLabel } from "@/src/modules/customer/customer-payments/utils/blockRangeLabel";
 
 type TFn = (key: string, opts?: Record<string, unknown>) => string;
@@ -26,11 +13,8 @@ type TFn = (key: string, opts?: Record<string, unknown>) => string;
 export interface InvoiceContext {
   t: TFn;
   orgName: string;
-  // For formatDate. Always the Latin locale — formatMoney hardcodes en-US, so an
-  // "ar" date would mix Arabic-Indic and Latin digits in one message.
   locale: string;
   currencies: Currency[];
-  // The optional "≈ …" target. null = USD.
   displayCurrencyId: string | null;
 }
 
@@ -77,8 +61,6 @@ export function buildCollectionInvoiceText(
     row(ctx.t("payments.paid_on"), formatDate(collection.receivedAt, ctx.locale)),
   ];
 
-  // One line, and it IS the whole hand-over → naming it above the amount reads
-  // better than a one-item list.
   if (items.length === 1) {
     header.splice(1, 0, row(ctx.t("payments.month_label"), chargeLine(ctx, items[0].charge)));
   }
@@ -162,8 +144,6 @@ export function buildSaleInvoiceText(
   const source = snapshotCurrency(sale, ctx.currencies);
   const remaining = sale.totalAmount - sale.amountPaid;
 
-  // sale.items is empty on lean reads — the frozen summary is the fallback.
-  // A service line prints as a flat fee: it has no unit count to multiply.
   const itemLines =
     sale.items.length > 0
       ? sale.items.map((it) =>
@@ -210,7 +190,6 @@ export function buildSalesInvoiceText(
     return buildSaleInvoiceText(ctx, rows[0], customerName);
   }
 
-  // Oldest sale first — the list hands us newest-first.
   const sales = [...rows].sort((a, b) => a.soldAt.localeCompare(b.soldAt));
   const currencyOf = (s: Sale) => snapshotCurrency(s, ctx.currencies);
   const remainingOf = (s: Sale) => s.totalAmount - s.amountPaid;

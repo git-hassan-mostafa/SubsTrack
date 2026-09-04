@@ -7,7 +7,6 @@ import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import type { SharedBill } from "../utils/sharedBills";
 
 interface Props {
-  /** The OTHER bills the hand-over settled. Renders nothing when empty. */
   bills: SharedBill[];
 }
 

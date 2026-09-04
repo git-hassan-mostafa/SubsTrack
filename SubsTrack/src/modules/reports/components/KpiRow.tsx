@@ -6,7 +6,6 @@ import { ComparisonPill } from "./ComparisonPill";
 export interface Kpi {
   key: string;
   label: string;
-  // Numbers are allowed (counts), matching StatTile.
   value: string | number;
   sub?: string;
   tone?: "default" | "danger" | "success" | "warning" | "primary";

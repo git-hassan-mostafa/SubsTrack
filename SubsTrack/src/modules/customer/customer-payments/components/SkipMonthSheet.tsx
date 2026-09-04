@@ -11,11 +11,9 @@ import { getStore } from "@/src/state/globalStore";
 import { COLORS } from "@/src/shared/constants";
 
 interface Props {
-  // The months being skipped / unskipped — one cell, or a bulk selection.
   entries: MonthEntry[];
   mode: "skip" | "unskip";
   customerId: string;
-  // The service line the months belong to (skips are per line, like payments).
   line: CustomerPlan;
   onDone: () => void;
   onDismiss: () => void;
@@ -45,7 +43,6 @@ export function SkipMonthSheet({
   const monthLabel = single
     ? `${t(`months.${single.label}`)} ${single.year}`
     : String(entries.length);
-  // On unskip, echo back the note the month was skipped with (single month only).
   const existingNote = single?.skip?.note ?? null;
 
   async function handleConfirm() {
@@ -55,7 +52,6 @@ export function SkipMonthSheet({
         customerId,
         customerPlanId: line.id,
         billingMonth: entry.billingMonth,
-        // Unskipping keeps whatever note the month already carried.
         note: isSkip ? note : (entry.skip?.note ?? null),
       })),
       isSkip,

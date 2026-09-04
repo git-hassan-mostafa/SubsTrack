@@ -33,28 +33,17 @@ export interface CreateManualChargeInput {
  * model, so no method here ever touches an amount received.
  */
 class ChargeService {
-  // ── Ids ───────────────────────────────────────────────────────────────────
 
-  /**
-   * A month bill's id is derived from its natural key, so two devices
-   * collecting the same month offline produce the SAME row and converge on sync
-   * instead of billing the customer twice.
-   */
   monthChargeId(customerPlanId: string, billingMonth: string): Promise<string> {
     return deterministicId(customerPlanId, billingMonth);
   }
 
-  // ── Reads ─────────────────────────────────────────────────────────────────
 
   async getById(id: string): Promise<Charge | null> {
     const row = await repository.findById(id);
     return row ? mapDbChargeToCharge(row) : null;
   }
 
-  /**
-   * The month bills for a set of service lines, paired with what has reached
-   * them — the ONLY shape `buildMonthGrid` accepts.
-   */
   async getMonthBillsForLines(customerPlanIds: string[]): Promise<Map<string, MonthBill[]>> {
     const rows = await repository.findMonthChargesForLines(customerPlanIds);
     const byLine = new Map<string, MonthBill[]>();
@@ -77,49 +66,25 @@ class ChargeService {
     }));
   }
 
-  /**
-   * Every STORED bill a customer still owes on, as OpenItems. Virtual unpaid
-   * months are added by LedgerService, which is the only place that can build
-   * them (it needs the month grid).
-   */
   async getOpenCharges(opts: {
     customerId?: string;
     customerIds?: string[];
     branchFilter?: BranchFilter;
   }): Promise<OpenItem[]> {
-    // ONE read. It used to walk every bill the tenant ever raised, binding an
-    // id per row into a second balances query, purely to keep the open few.
     const open = await repository.findOpenWithPaid(opts);
     return open.map(({ charge, paid }) =>
       openItemFromCharge(
         mapDbChargeToCharge(charge),
         paid,
         chargeLabel(charge),
-        // The debts list groups and titles by it; a walk-in has none.
         charge.customers?.name ?? '',
       ),
     );
   }
 
-  /**
-   * The Debts screen. ONE query over one table — no category merging, no
-   * `gross − payments` subtraction, and every row already carries its own
-   * balance, so the parts add up to the total exactly.
-   *
-   * It sees STORED bills only, so it can never list a plain unpaid month — a
-   * month has no row until money reaches it, and that is deliberate: an unpaid
-   * month is red in the grid, which is its own workflow. `unpaidMonths` fills
-   * only from months that were PARTLY paid, for a customer who has a real debt.
-   */
   buildDebtsView(open: OpenItem[]): DebtsView {
     const byCustomer = new Map<string, CustomerDebts>();
     for (const item of open) {
-      // An EMPTY month bill (paid, then the collection was voided) must read
-      // exactly like a month never touched — and a never-touched month has no
-      // row here at all. Without this, voiding a payment was the ONLY way a
-      // plain unpaid month reached this screen, so one voided month showed up
-      // while the customer's other unpaid months did not. Gotcha #106: key off
-      // MONEY, never off a row existing.
       if (item.kind === 'month' && item.paid <= 0) continue;
       let entry = byCustomer.get(item.customerId);
       if (!entry) {
@@ -150,8 +115,6 @@ class ChargeService {
     let salesUsd = 0;
     let manualUsd = 0;
     for (const entry of byCustomer.values()) {
-      // A customer with only plain unpaid months is not a debtor — the grid
-      // already shows him as overdue.
       if (entry.items.length === 0) continue;
       entry.items.sort((a, b) => a.dueDate.localeCompare(b.dueDate));
       entry.unpaidMonths.sort((a, b) => a.dueDate.localeCompare(b.dueDate));
@@ -179,9 +142,7 @@ class ChargeService {
     };
   }
 
-  // ── Writes ────────────────────────────────────────────────────────────────
 
-  /** A hand-typed debt: an installation fee, a penalty, anything with no record. */
   async addManualCharge(input: CreateManualChargeInput): Promise<Charge> {
     this.validateAmount(input.amount);
     if (!input.customerId) throw new Error(i18n.t('errors.debt_customer_required'));
@@ -219,14 +180,9 @@ class ChargeService {
     if (values.amount !== undefined) this.validateAmount(values.amount);
     const existing = await repository.findById(id);
     if (!existing) throw new Error(i18n.t('errors.charge_not_found'));
-    // A void or a write-off is a closed statement about the bill — the same
-    // lock a voided sale carries.
     if (existing.voided_at || existing.written_off_at) {
       throw new Error(i18n.t('errors.charge_not_editable'));
     }
-    // Re-pricing may not drop the bill below what has already been handed over.
-    // The twin of SaleService's sale_total_below_collected: money already taken
-    // is a fact, and a negative balance is invisible to every "still owed" read.
     if (values.amount !== undefined) {
       const [balance] = await repository.balances([id]);
       if (balance && values.amount + EPSILON < balance.paid) {
@@ -242,11 +198,6 @@ class ChargeService {
     return mapDbChargeToCharge(row);
   }
 
-  /**
-   * The bill was a MISTAKE. Refused once money sits on it — otherwise the cash
-   * would point at a bill that no longer exists. Void the collection first, or
-   * write the bill off.
-   */
   async voidCharge(id: string, voidedBy: string, reason: string | null): Promise<Charge> {
     const [balance] = await repository.balances([id]);
     if (balance && balance.paid > 0) throw new Error(i18n.t('errors.charge_void_has_money'));
@@ -254,49 +205,22 @@ class ChargeService {
     return mapDbChargeToCharge(row);
   }
 
-  /** Live hand-overs that put money against this bill — what a void must undo. */
   paymentIdsForCharge(chargeId: string): Promise<string[]> {
     return this.paymentIdsForCharges([chargeId]);
   }
 
-  /**
-   * The same for MANY bills, in one query. `findItemsForCharges` already takes
-   * an array, so voiding a whole selection of sales costs one read here rather
-   * than one per bill.
-   */
   async paymentIdsForCharges(chargeIds: string[]): Promise<string[]> {
     if (chargeIds.length === 0) return [];
     const items = await collectionRepository.findItemsForCharges(chargeIds);
     return [...new Set(items.map((i) => i.collection_id))];
   }
 
-  /**
-   * The bill AND the cash against it were a mistake — the whole record goes.
-   *
-   * `voidCharge` refuses a paid bill on purpose, because cash pointing at a
-   * deleted bill is worse than no void at all. This is the other answer to the
-   * same problem: undo the hand-overs FIRST, then the bill, so the money is
-   * never orphaned. The caller's confirm must therefore SAY that the money goes
-   * with it — but it does not need a figure, so nothing counts the hand-overs
-   * beforehand; this reads their ids anyway, in the one query it must do.
-   *
-   * Payments go first for a reason: should the bill's own void then fail, what
-   * is left is an unpaid bill the customer still owes — recoverable. The other
-   * order would leave live cash sitting on a voided bill.
-   *
-   * A hand-over that also settled OTHER bills is voided WHOLE — one physical
-   * handing-over of cash cannot be half-undone, which is the part the confirm
-   * message has to warn about.
-   */
   async voidChargeWithPayments(
     id: string,
     voidedBy: string,
     reason: string | null,
   ): Promise<Charge> {
-    // The only read: which hand-overs to undo. Nothing counts them beforehand —
-    // the confirm states that the money goes, without needing a figure.
     const paymentIds = await this.paymentIdsForCharge(id);
-    // ONE write for every hand-over, not one per row — see voidMany.
     if (paymentIds.length > 0) {
       await collectionRepository.voidMany(paymentIds, voidedBy, reason);
     }
@@ -304,10 +228,6 @@ class ChargeService {
     return mapDbChargeToCharge(row);
   }
 
-  /**
-   * The bill is REAL but will never be paid. Leaves "still owed" and is reported
-   * as a loss — the opposite statement to a void, which claims it never existed.
-   */
   async writeOff(id: string, writtenOffBy: string, reason: string | null): Promise<Charge> {
     const charge = await repository.findById(id);
     if (!charge) throw new Error(i18n.t('errors.charge_not_found'));
@@ -317,7 +237,6 @@ class ChargeService {
     return mapDbChargeToCharge(row);
   }
 
-  /** Money given up on in a window — the Reports "lost to unpaid debts" line. */
   async writtenOffUsdInRange(
     startIso: string,
     endExclusiveIso: string,
@@ -325,8 +244,6 @@ class ChargeService {
   ): Promise<number> {
     const rows = await repository.writtenOffInRange(startIso, endExclusiveIso, branchFilter);
     if (rows.length === 0) return 0;
-    // Only the part never collected is a loss — a bill written off after a
-    // partial payment lost only its remainder.
     const balances = await collectionRepository.findItemsForCharges(rows.map((r) => r.id));
     const paidBy = new Map<string, number>();
     for (const it of balances) {
@@ -345,7 +262,6 @@ class ChargeService {
   }
 }
 
-/** Money is NUMERIC(20,8); compare with a tolerance well below one cent. */
 const EPSILON = 1e-6;
 
 export const chargeService = new ChargeService();

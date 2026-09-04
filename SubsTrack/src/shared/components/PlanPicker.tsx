@@ -9,27 +9,14 @@ import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 interface PlanPickerProps {
   value: string | null;
   onChange: (planId: string | null) => void;
-  /**
-   * Restrict the list to plans matching this branch. Shared plans
-   * (branchId === null) are always included. Pass null to show every plan
-   * across the tenant.
-   */
   branchId?: string | null;
-  /** Defaults to t('customers.plan_label'). */
   label?: string;
-  /** Defaults to t('customers.select_plan'). */
   placeholder?: string;
-  /** Defaults to true. When true, exposes a "no plan" option. */
   nullable?: boolean;
-  /** Defaults to t('common.no_plan'). Only used when nullable. */
   nullLabel?: string;
-  /** Defaults to t('customers.custom_plan_sublabel'). Only used when nullable. */
   nullSublabel?: string;
-  /** Renders a "+" beside the label that opens a form to add a new plan. */
   onAddNew?: () => void;
-  /** Greys out and blocks the picker (e.g. until a branch is chosen). */
   disabled?: boolean;
-  /** Hint shown in place of the value while disabled. */
   disabledHint?: string;
 }
 

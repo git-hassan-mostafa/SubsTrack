@@ -3,7 +3,6 @@ import repository from '../repository/TenantSettingRepository';
 import { mapDbTenantSettingToTenantSetting } from '../utils/mapper';
 import { TENANT_SETTING_KEYS } from '../utils/constants';
 
-/** Behavior when the tenant has never set the option. Preserves the original app rule. */
 export const DEFAULT_UNPAID_START_RULE: UnpaidStartRule = 'month_start';
 
 const UNPAID_START_RULES: UnpaidStartRule[] = ['month_start', 'customer_start_day'];
@@ -43,13 +42,11 @@ class TenantSettingService {
     return mapDbTenantSettingToTenantSetting(row);
   }
 
-  /** Resolve the stored value to a valid rule; unknown/missing falls back to the default. */
   parseUnpaidStartRule(value: string | null | undefined): UnpaidStartRule {
     const v = value?.trim() as UnpaidStartRule | undefined;
     return v && UNPAID_START_RULES.includes(v) ? v : DEFAULT_UNPAID_START_RULE;
   }
 
-  /** Currency id amounts are displayed in; blank/missing means USD (the base). */
   parseDisplayCurrencyId(value: string | null | undefined): string | null {
     return value?.trim() || null;
   }

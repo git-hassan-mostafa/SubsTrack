@@ -1,13 +1,5 @@
 import type { Collection, Sale } from '@/src/core/types';
 
-/**
- * How a written sale changes a list of sales.
- *
- * Three surfaces show sales — the Transactions tab (the global slice) and the two
- * customer-scoped lists, which keep their own state so they never collide with
- * it. They must all react to a write identically, so the rules live here once and
- * nobody re-reads the table to find out what just happened.
- */
 
 /** Newest first, which is how every sales list is sorted. */
 export function addSale(items: Sale[], sale: Sale): Sale[] {
@@ -57,7 +49,6 @@ export function applyVoidedSales(
  */
 export function applyCollectionToSales(
   items: Sale[],
-  // Only the split matters, so a history row (which carries one) works too.
   collection: Pick<Collection, 'items'>,
   sign: 1 | -1 = 1,
 ): Sale[] {
@@ -88,7 +79,6 @@ export interface SalePatches {
   created: (sale: Sale) => void;
   updated: (sale: Sale) => void;
   collected: (collection: Collection) => void;
-  /** A hand-over against one of these sales was voided — its money goes back. */
   paymentVoided: (collection: Collection) => void;
 }
 

@@ -8,8 +8,6 @@ export function mapDbExpenseToExpense(db: DbExpense): Expense {
     id: db.id,
     tenantId: db.tenant_id,
     branchId: db.branch_id,
-    // The column is free text so a new category needs no migration; anything
-    // this build doesn't know falls back to "other" rather than breaking a label.
     category: (isExpenseCategory(db.category) ? db.category : 'other') as ExpenseCategory,
     description: db.description,
     amount: Number(db.amount),
@@ -36,7 +34,6 @@ export function expenseToItem(e: Expense): ExpenseItem {
     id: `exp:${e.id}`,
     source: 'manual',
     category: e.category,
-    // No description falls back to the category name, so a row is never blank.
     label: e.description?.trim() || i18n.t(expenseCategoryLabelKey(e.category)),
     amount: e.amount,
     currencyId: e.currencyId,

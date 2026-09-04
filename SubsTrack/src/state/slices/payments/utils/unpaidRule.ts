@@ -1,6 +1,4 @@
 import type { UnpaidStartRule } from "@/src/core/types";
-// Deep imports (not the module barrel) — the barrel re-exports screens, which
-// would make the state layer pull in UI and risk an import cycle.
 import tenantSettingService from "@/src/modules/admin/tenant-settings/services/TenantSettingService";
 import { TENANT_SETTING_KEYS } from "@/src/modules/admin/tenant-settings/utils/constants";
 import type { GlobalState } from "@/src/state/globalStore";

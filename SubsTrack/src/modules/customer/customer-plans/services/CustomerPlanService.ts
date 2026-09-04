@@ -10,7 +10,6 @@ export type CustomerPlanInput = {
   customerId: string;
   planId: string | null;
   startDate: string;
-  // A special price for this line, replacing the plan's. null = use the plan's.
   customPrice: number | null;
   customCurrencyId: string | null;
 };
@@ -46,8 +45,6 @@ class CustomerPlanService {
     return mapDbCustomerPlanToCustomerPlan(row);
   }
 
-  // `reactivate` also flips a soft-cancelled line back to active (clears
-  // cancelled_at) in the same write — the form's reactivate path.
   async updateLine(
     id: string,
     data: {
@@ -62,8 +59,6 @@ class CustomerPlanService {
     const row = await repository.update(id, {
       plan_id: data.planId,
       start_date: data.startDate,
-      // Always sent, never spread conditionally — otherwise turning a special
-      // price off could never clear the column.
       custom_price: data.customPrice,
       custom_currency_id: data.customCurrencyId,
       ...(reactivate ? { active: true, cancelled_at: null } : {}),
@@ -71,13 +66,6 @@ class CustomerPlanService {
     return mapDbCustomerPlanToCustomerPlan(row);
   }
 
-  // Removes a line. `hardDelete` (the form's checkbox) permanently deletes the
-  // line and cascade-deletes all its payments — an INTENTIONAL exception to
-  // rule #7 (no hard deletes); the user is warned it can't be undone. Otherwise
-  // it soft-cancels (active=false) so history is kept and the line stays visible
-  // in the form as cancelled with a reactivate option. A line with no payments
-  // is always hard-deleted (nothing to lose). Returns the cancelled line, or
-  // null when the row was deleted.
   async deleteLine(id: string, hardDelete = false): Promise<CustomerPlan | null> {
     const paymentCount = await repository.countPayments(id);
     if (hardDelete || paymentCount === 0) {
@@ -88,12 +76,6 @@ class CustomerPlanService {
     return mapDbCustomerPlanToCustomerPlan(row);
   }
 
-  // Applies the customer form's inline Plans editor in one pass. Removals,
-  // reactivations, and create/updates touch independent rows, so they all run
-  // concurrently; a kept line whose plan + start date are unchanged is carried
-  // over without a DB round-trip. Returns the resulting lines — active rows
-  // (kept, created, reactivated) plus any soft-cancelled removals — so the
-  // caller can patch state instead of re-fetching the customer.
   async syncLines(
     customerId: string,
     lines: LineDraft[],
@@ -111,9 +93,6 @@ class CustomerPlanService {
       removed.map((r) => this.deleteLine(r.id, r.hardDelete)),
     );
 
-    // A reactivated line is just an active row (`getLines` includes it), so it
-    // flows through this one upsert path — no separate reactivation write, which
-    // is what previously double-listed the line. Its update also re-activates it.
     const upserts = Promise.all(
       lines.map((line) => {
         if (!line.id) {
@@ -130,8 +109,6 @@ class CustomerPlanService {
         }
         const reactivate = reactivatedSet.has(line.id);
         const prev = existingById.get(line.id);
-        // Unchanged kept line — reuse the loaded row, skip the round-trip. Never
-        // skip a reactivation (it still needs active flipped back on).
         if (
           !reactivate &&
           prev &&
@@ -162,23 +139,14 @@ class CustomerPlanService {
     return { active, cancelled };
   }
 
-  // Whether a line has any recorded payments — the form uses it to decide if
-  // removing it needs the "void paid months?" prompt.
   async hasPayments(id: string): Promise<boolean> {
     return (await repository.countPayments(id)) > 0;
   }
 
-  // The customer's lines that hold standing money. The form reads it to lock
-  // their start-date input; `syncLines` re-checks it before writing.
   async getPaidLineIds(customerId: string): Promise<string[]> {
     return repository.findPaidLineIds(customerId);
   }
 
-  // A line's start date is FROZEN once it has a payment: moving it earlier
-  // invents unpaid months behind the paid ones (a customer who reads "✓ Paid"
-  // and "Overdue" at once), and moving it later hides months a payment already
-  // covers. Only lines whose date actually changed are checked, so the one query
-  // is skipped entirely for the common save.
   private async assertStartDatesUnlocked(
     customerId: string,
     lines: LineDraft[],
@@ -195,9 +163,6 @@ class CustomerPlanService {
     }
   }
 
-  // A special price replaces the plan's price for the plan's own billing span
-  // (one month, or a whole bundle), so any plan length is allowed — only the
-  // amount itself has to make sense.
   private assertCustomPricesAllowed(lines: LineDraft[]): void {
     if (lines.some((l) => l.customPrice !== null && !(l.customPrice > 0))) {
       throw new Error(i18n.t("errors.custom_price_positive"));

@@ -58,28 +58,12 @@ export interface IProductRepository {
   countAll(branchFilter?: BranchFilter): Promise<number>;
   countReferences(id: string): Promise<number>;
 
-  // ── Stock ledger ───────────────────────────────────────────────────────────
-  /** Stock on hand per product id: SUM over non-voided rows. Products with no
-   *  movements are absent from the map (the caller defaults them to 0). */
   stockOnHand(productIds?: string[]): Promise<Record<string, number>>;
-  /** Append 1..N ledger rows — one call so a sale's lines land together. */
   addMovements(payloads: CreateStockMovementPayload[]): Promise<void>;
-  /** One row by id — what ProductService guards a correction on. */
   findMovement(id: string): Promise<DbStockMovement | null>;
-  /** Correct one row in place, recording the diff in the audit trail. The entry is
-   *  filed under the parent PRODUCT's branch and name — a movement owns neither. */
   updateMovement(id: string, payload: UpdateStockMovementPayload): Promise<DbStockMovement>;
-  /** Reverse one row: soft-void it, so it drops out of the stock sum and — if it
-   *  carried a cost — out of Expenses for its own month. The row is KEPT rather
-   *  than deleted, so the history still shows that the entry was reverted — the
-   *  same soft-void rule the rest of the app follows. Audited as a 'void'. */
   voidMovement(id: string, voidedBy: string | null): Promise<DbStockMovement>;
-  /** Newest first, voided rows included so the history shows corrections. */
   movementsForProduct(productId: string, limit?: number): Promise<DbStockMovement[]>;
-  /** Stock bought in [start, endExclusive) — the derived half of the Expenses
-   *  view — plus the costed removals that give money back. Branch comes from the
-   *  parent product with OWNED semantics, so a shared product's purchase is a
-   *  company expense, not every branch's. */
   stockCostsInRange(
     startIso: string,
     endExclusiveIso: string,

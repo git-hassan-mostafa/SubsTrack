@@ -15,12 +15,6 @@ import type { GlobalState } from '@/src/state/globalStore';
  */
 export interface ServiceSlice {
   items: Service[];
-  /**
-   * A fetch has completed at least once. The "ensure loaded" guard keys off this,
-   * NOT `items.length` — an empty result is a valid loaded state, and a length-based
-   * guard re-queries on every caller (i.e. every sale-form open) for a tenant with
-   * no rows.
-   */
   loaded: boolean;
   loading: boolean;
   error: string | null;
@@ -48,8 +42,6 @@ export const createServiceSlice: StateCreator<
 
   getServices: async () => {
     const { loaded, loading } = get().services;
-    // Already loaded, or a fetch is already in flight — several components
-    // mount-fetch the same slice in one tick (see docs/gotchas.md).
     if (loaded || loading) return;
     await get().services.fetchServices();
   },

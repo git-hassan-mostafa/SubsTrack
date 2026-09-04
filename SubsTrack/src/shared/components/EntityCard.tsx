@@ -6,34 +6,23 @@ import { Checkbox } from "@/src/shared/components/Checkbox";
 import { COLORS } from "@/src/shared/constants";
 
 interface EntityCardProps {
-  /** Leading icon shown when not in selection mode. */
   icon: ComponentProps<typeof Ionicons>["name"];
-  /** Icon tint. Defaults to the primary brand color. */
   iconColor?: string;
-  /** Tailwind background class for the icon tile. Defaults to "bg-indigo-50". */
   iconBgClassName?: string;
 
-  /** Primary tap action (opens / edits the entity). */
   onPress?: () => void;
-  /** Opens the row's action menu. Omit to hide the trailing 3-dot button. */
   onMenu?: () => void;
-  /** Shows a spinner in place of the menu icon. */
   menuLoading?: boolean;
-  /** Keeps the trailing slot's width when this row has no menu but peers do. */
   reserveMenuSpace?: boolean;
 
-  /** Multi-select state — swaps the icon for a checkbox and hides the menu. */
   selectionMode?: boolean;
   selected?: boolean;
   onToggleSelect?: () => void;
   onEnterSelection?: () => void;
 
-  /** Renders the card dimmed (inactive / soft-deleted entities). */
   dimmed?: boolean;
-  /** Extra classes appended to the card wrapper. */
   className?: string;
 
-  /** Card body — everything between the leading icon and the trailing menu. */
   children: ReactNode;
 }
 

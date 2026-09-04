@@ -8,8 +8,6 @@ function computeOnline(s: NetInfoState): boolean {
 
 let current = true;
 
-// Keep a cheap synchronous snapshot for hot paths (offline writes check it
-// without awaiting). NetInfo pushes updates as connectivity changes.
 NetInfo.addEventListener((s) => {
   current = computeOnline(s);
 });

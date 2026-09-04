@@ -29,48 +29,24 @@ import { getUnpaidRule } from "./utils/unpaidRule";
  * bills and skips, and the three per-line derivations the UI gates on.
  */
 export interface PaymentSlice {
-  /** The viewed customer's month bills, paired with what has reached them. */
   bills: MonthBill[];
   skips: SkippedMonth[];
-  // Per service line, for the viewed year.
   monthGridsByLine: Record<string, MonthEntry[]>;
-  /**
-   * Months with nothing collected — overdue OR merely not due yet. Wider than
-   * "overdue" on purpose: paying ahead is fine, paying ahead OUT OF ORDER is
-   * not, so this is what the pay gate compares against (#81b).
-   */
   uncoveredMonthsByLine: Record<string, string[]>;
-  /** Months currently paid — what the void-newest-first gate compares against. */
   paidMonthsByLine: Record<string, string[]>;
-  /** The customer list's badge dataset. Absent = unknown, never "unpaid". */
   customerStatuses: Map<string, CustomerStatus>;
-  /** Whose bills are in the store — the "grids may be derived" signal (#130). */
   billsCustomerId: string | null;
   loading: boolean;
   loadingSkip: boolean;
   error: string | null;
 
   fetchCustomerStatuses: (customers: Customer[]) => Promise<void>;
-  /**
-   * Loads the customer's WHOLE bill history — never year-scoped, so navigating
-   * years is a `buildGrids` re-derivation and not a query (#121). It stores the
-   * rows only; the caller's year effect derives the grids from them.
-   */
   fetchBills: (customerId: string) => Promise<void>;
-  /**
-   * Merges a just-recorded hand-over into the bills already in the store — no
-   * re-query. The created `Collection` comes back with its items and each
-   * item's charge, which is everything a month cell needs, so paying repaints
-   * instantly instead of blinking through a reload.
-   */
   applyCollection: (
     collection: Collection,
-    /** -1 when that hand-over was VOIDED — the money comes back off its bills. */
     sign?: 1 | -1,
   ) => void;
-  /** Rebuilds the viewed year's grids from what is already in the store. */
   buildGrids: (lines: CustomerPlan[], year: number) => void;
-  /** Patches one customer's badge after a local mutation. */
   syncCustomerStatus: (customerId: string, lines: CustomerPlan[]) => Promise<void>;
   setMonthsSkipped: (
     inputs: SetSkipInput[],
@@ -78,11 +54,6 @@ export interface PaymentSlice {
     tenantId: string,
     userId: string | null,
   ) => Promise<void>;
-  /**
-   * Void a month bill and every payment on it. The ONE write here the store
-   * cannot patch: a hand-over it undoes may also have settled OTHER months, and
-   * the write deliberately never reads those back — so the caller re-reads.
-   */
   voidMonthBill: (
     chargeId: string,
     voidedBy: string,
@@ -111,8 +82,6 @@ export const createPaymentSlice: StateCreator<
 
   fetchCustomerStatuses: async (customers) => {
     if (customers.length === 0) return;
-    // One pass: every month bill and skip in the tenant, fetched once, then
-    // grouped per customer. There is no second, slower scan to contradict it.
     const lineIds = customers.flatMap((c) => (c.customerPlans ?? []).map((l) => l.id));
     const [billsByLine, skips] = await Promise.all([
       chargeService.getMonthBillsForLines(lineIds),
@@ -171,8 +140,6 @@ export const createPaymentSlice: StateCreator<
   },
 
   syncCustomerStatus: async (customerId, lines) => {
-    // Valid because the fetch is not year-scoped — the slice holds that
-    // customer's full history, which is what every count looks back over.
     const [billsByLine, skips] = await Promise.all([
       chargeService.getMonthBillsForLines(lines.map((l) => l.id)),
       skippedMonthService.getSkipsForCustomer(customerId),
@@ -195,8 +162,6 @@ export const createPaymentSlice: StateCreator<
       state.payments.error = null;
     });
     try {
-      // An unskip hands the month back as UNPAID, so it follows the void rule:
-      // refused while a later month of the same line is paid (#84).
       if (!skipped) {
         const { bills } = get().payments;
         for (const [lineId, months] of groupMonthsByLine(inputs)) {
@@ -223,8 +188,6 @@ export const createPaymentSlice: StateCreator<
   voidMonthBill: async (chargeId, voidedBy, reason) => {
     const { bills } = get().payments;
     const target = bills.find((b) => b.charge.id === chargeId);
-    // Not in the store (a bill from a customer that is not the viewed one) — the
-    // order rule cannot be judged from here, so let the ledger write proceed.
     if (target) {
       const lineId = target.charge.customerPlanId;
       const blockedBy = paymentService.billVoidOrderBlocker(

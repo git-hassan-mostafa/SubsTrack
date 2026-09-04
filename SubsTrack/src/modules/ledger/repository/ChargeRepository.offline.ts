@@ -11,10 +11,6 @@ import type {
   UpdateChargePayload,
 } from './IChargeRepository';
 
-// The sum `balances()` computes for one bill, as an aggregate over a whole set.
-// A voided hand-over pays nothing, and neither does an item whose collection
-// has not synced down yet — the INNER-join rule, written so a LEFT JOIN can
-// still return the bills that have no items at all.
 const PAID_SUM =
   `COALESCE(SUM(CASE WHEN co.id IS NOT NULL AND co.voided_at IS NULL
                      THEN CAST(i.amount AS REAL) ELSE 0 END), 0)`;
@@ -90,9 +86,6 @@ export class OfflineChargeRepository extends OfflineBaseRepository implements IC
     return this.monthChargesWithPaid('c.customer_id = ?', [customerId]);
   }
 
-  // The grid's input: the month bills AND what has reached each, in one query.
-  // Summing here rather than in a second `balances()` call is what keeps the
-  // customer list off one bound parameter per bill in the whole tenant.
   private async monthChargesWithPaid(
     scope: string,
     params: unknown[],
@@ -125,7 +118,6 @@ export class OfflineChargeRepository extends OfflineBaseRepository implements IC
     return (await this.hydrate([decoded]))[0];
   }
 
-  // The one place "no longer owed" is decided - a void AND a write-off (#115).
   private owedWhere(opts: FindChargesOptions): { sql: string; params: unknown[] } {
     const parts: { clause: string; params: unknown[] }[] = [
       { clause: 'c.voided_at IS NULL AND c.written_off_at IS NULL', params: [] },
@@ -147,12 +139,8 @@ export class OfflineChargeRepository extends OfflineBaseRepository implements IC
     return this.combineWhere(parts);
   }
 
-  // The open bills in ONE query: no param per bill, and only the rows that
-  // still owe something are decoded and hydrated.
   async findOpenWithPaid(opts: FindChargesOptions): Promise<DbChargeWithPaid[]> {
     const where = this.owedWhere(opts);
-    // Filtered OUTSIDE the aggregate, not in a HAVING, so the sum is written -
-    // and computed - exactly once.
     const rows = await this.all<Record<string, unknown>>(
       `SELECT * FROM (
          SELECT c.*, ${PAID_SUM} AS __paid
@@ -165,12 +153,10 @@ export class OfflineChargeRepository extends OfflineBaseRepository implements IC
       where.params,
     );
     const open = this.withPaid(rows);
-    // Only the bills that still owe something are hydrated for their labels.
     const hydrated = await this.hydrate(open.map((o) => o.charge));
     return hydrated.map((charge, i) => ({ charge, paid: open[i].paid }));
   }
 
-  // Off the RAW rows - `decodeAll` keeps only the table's own columns.
   private withPaid(rows: Record<string, unknown>[]): DbChargeWithPaid[] {
     const paid = rows.map((r) => Number(r.__paid ?? 0));
     return this.decodeAll<DbCharge>('charges', rows).map((charge, i) => ({
@@ -179,16 +165,6 @@ export class OfflineChargeRepository extends OfflineBaseRepository implements IC
     }));
   }
 
-  /**
-   * The local `charge_balances`. Same rule as `product_stock`: sum the ledger,
-   * never a counter — a voided collection simply stops contributing, so a
-   * balance corrects itself with nothing to recompute.
-   *
-   * A WRITTEN-OFF bill is included: a write-off gives up on the REMAINDER, it
-   * does not un-collect what was already handed over, so hiding it here made
-   * real money read as 0 in the grid (#115). "No longer owed" is decided by
-   * `find()`, which is what the debts screen and the waterfall go through.
-   */
   async balances(chargeIds: string[]): Promise<DbChargeBalance[]> {
     if (chargeIds.length === 0) return [];
     const ph = chargeIds.map(() => '?').join(',');
@@ -237,20 +213,9 @@ export class OfflineChargeRepository extends OfflineBaseRepository implements IC
         ...(row.customer_id ? await this.customerAudit(row.customer_id) : { branchId: row.branch_id }),
       });
     });
-    // Fully formed already - the joins a read-back would add are LABELS,
-    // and no writer's caller reads one.
     return row;
   }
 
-  /**
-   * Find-or-create on the natural key. An existing bill is returned UNTOUCHED —
-   * it keeps its frozen price, its id and its due date, because re-collecting a
-   * month must never re-price what the customer was originally billed.
-   *
-   * Deliberately NOT `upsertNaturalKeyDirty`: that writer patches every non-key
-   * column onto the existing row, which is right for a skip toggle and wrong
-   * here — it would overwrite a January bill of $20 with today's $25.
-   */
   async ensure(payload: CreateChargePayload): Promise<DbCharge> {
     const existing = payload.customer_plan_id
       ? await this.first<Record<string, unknown>>(
@@ -278,8 +243,6 @@ export class OfflineChargeRepository extends OfflineBaseRepository implements IC
   }
 
   async writeOff(id: string, writtenOffBy: string, reason: string | null): Promise<DbCharge> {
-    // 'update', not 'void': the bill was real. The trail must be able to tell a
-    // mistake apart from money the business gave up on.
     return this.patch(
       id,
       {
@@ -291,14 +254,6 @@ export class OfflineChargeRepository extends OfflineBaseRepository implements IC
     );
   }
 
-  /**
-   * Every column write on a bill: patch it, and record the diff.
-   *
-   * Three reads used to bracket two lines of work - a HYDRATED before, a
-   * re-SELECT inside the transaction and a HYDRATED after - for a value whose
-   * only consumer is `mapDbChargeToCharge`, which reads no join at all. The
-   * patch is known, so `after` is `before` plus the patch.
-   */
   private async patch(
     id: string,
     values: Record<string, unknown>,
@@ -323,7 +278,6 @@ export class OfflineChargeRepository extends OfflineBaseRepository implements IC
     return after;
   }
 
-  // The row plus the frozen customer name, in ONE read - all the trail needs.
   private async forAudit(
     id: string,
   ): Promise<{ row: DbCharge; subject: string | null } | null> {

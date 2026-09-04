@@ -16,21 +16,13 @@ interface HistoryListProps {
   loading: boolean;
   error?: string | null;
   onDismissError?: () => void;
-  /** Where the entries came from. Drives the note above the list. */
   source: AuditSource;
-  /** Pull-to-refresh. Omit inside a sheet — the gesture belongs to the sheet there. */
   onRefresh?: () => void;
-  /** Omit for a non-paged list (one record's timeline is short by nature). */
   onLoadMore?: () => void;
   loadingMore?: boolean;
-  /** Rendered above the list; use for filters. */
   header?: ReactElement;
   emptyTitle: string;
   emptyDescription: string;
-  /**
-   * Gorhom's list when inside a bottom sheet, RN's otherwise. A plain FlatList in a
-   * sheet cannot scroll, and a Gorhom list outside one has no sheet to attach to.
-   */
   inSheet?: boolean;
 }
 

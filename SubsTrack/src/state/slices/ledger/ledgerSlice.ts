@@ -38,26 +38,10 @@ const getUnpaidRule = (get: () => GlobalState) =>
  * the six create-payment variants the old payment slice carried.
  */
 export interface LedgerSlice {
-  /** The Debts screen for the active branch scope. */
   debts: DebtsView | null;
-  /** Everything ONE customer owes, unpaid months included — the collect sheet. */
   owed: OpenItem[];
-  /** The money-in history (all customers, one customer, or one wallet). */
   collections: CollectionListItem[];
-  /** customerId → USD still owed. Feeds the customer list's "Has debts" tab. */
   netByCustomer: Record<string, number>;
-  /**
-   * Bumped by EVERY write that changes what customers owe — a bill raised, moved
-   * or voided, and any cash for or against one.
-   *
-   * A debts view cannot be patched from the row a write returns: it is an
-   * aggregate (per-customer buckets, ageing, a summary) and it also holds
-   * VIRTUAL months that have no bill at all, so one written row does not
-   * describe it. Rather than have every debts surface guess when to re-read,
-   * the writes say so and the surfaces watch this number — including two panels
-   * sitting on the SAME screen as the write, which no focus event would reach.
-   * Read it through `useOwedChanged` (src/modules/ledger), never directly.
-   */
   owedVersion: number;
   loading: boolean;
   loadingOwed: boolean;
@@ -65,9 +49,7 @@ export interface LedgerSlice {
   error: string | null;
 
   fetchDebts: (branchFilter: BranchFilter) => Promise<void>;
-  /** The debt map alone, for surfaces that show a badge but not the screen. */
   fetchNetByCustomer: (branchFilter?: BranchFilter) => Promise<void>;
-  /** Loads what one customer owes, ready for the waterfall. */
   fetchOwed: (
     customer: Customer,
     lines: CustomerPlan[],
@@ -83,17 +65,7 @@ export interface LedgerSlice {
     searchTerm?: string;
   }) => Promise<void>;
 
-  /**
-   * Record one hand-over. Returns the created row so the caller can build a
-   * WhatsApp receipt from the REAL record; null = the write failed, check
-   * `error`.
-   */
   collect: (input: CollectInput) => Promise<Collection | null>;
-  /**
-   * Undo one hand-over. Takes the ROW, not just its id: the split it carries is
-   * what tells every list which bills just lost money, so nothing has to re-read
-   * to find out. Returns that same row marked voided — null = the write failed.
-   */
   voidCollection: (
     collection: Collection,
     voidedBy: string,
@@ -106,26 +78,13 @@ export interface LedgerSlice {
     values: { description?: string; amount?: number; dueDate?: string; notes?: string | null },
   ) => Promise<Charge | null>;
   voidCharge: (id: string, voidedBy: string, reason: string | null) => Promise<boolean>;
-  /**
-   * The bill and every payment on it — for a bill that should never have
-   * existed at all. `voidCharge` refuses a paid bill; this is the deliberate
-   * "take the cash with it" answer, so the caller's confirm must SAY that the
-   * money goes too (it does not need to know how much: the write finds the
-   * hand-overs itself, in the one read it has to do anyway).
-   */
   voidChargeWithPayments: (
     id: string,
     voidedBy: string,
     reason: string | null,
   ) => Promise<boolean>;
-  /** He owes it and will not pay — leaves "still owed", kept as a loss. */
   writeOffCharge: (id: string, writtenOffBy: string, reason: string | null) => Promise<boolean>;
 
-  /**
-   * Say that what customers owe has moved — see `owedVersion`. Every write in
-   * THIS slice does it for itself; the sales and money-in slices call it,
-   * because a sale raises its own bill and voiding cash gives one back.
-   */
   markOwedChanged: () => void;
 
   clearError: () => void;
@@ -207,7 +166,6 @@ export const createLedgerSlice: StateCreator<
           state.ledger.netByCustomer = netMap(debts);
         });
       } catch {
-        // A badge is not worth an error banner — the screen itself reports.
       }
     },
 
@@ -265,12 +223,7 @@ export const createLedgerSlice: StateCreator<
     collect: (input) =>
       run("loadingCollect", async () => {
         const collection = await collectionService.collect(input);
-        // The bills this touched moved, so the grid and the badges are stale.
         get().ledger.clearOwed();
-        // A sale is one of those bills, wherever the money was taken — the
-        // created row names every charge it settled, so the sales lists follow
-        // without re-reading. The month grid is patched by its own panel, which
-        // is the only place that knows the viewed lines and year.
         get().sales.applyCollection(collection);
         return collection;
       }),
@@ -280,11 +233,7 @@ export const createLedgerSlice: StateCreator<
         collectionService.voidCollection(collection.id, voidedBy, reason),
       );
       if (result === null) return null;
-      // The money came back off every bill it had settled — same fan-out as
-      // `collect`, in the other direction.
       get().sales.applyCollection(collection, -1);
-      // The write reads back lean (no split), so the caller gets the row it
-      // passed in, now stamped — everything a list needs to repaint.
       return {
         ...collection,
         voidedAt: result.voidedAt,
@@ -307,8 +256,6 @@ export const createLedgerSlice: StateCreator<
       const result = await run("loading", () =>
         chargeService.voidChargeWithPayments(id, voidedBy, reason),
       );
-      // The cash it undid was in someone's wallet and counted as revenue, so
-      // what one customer owes is no longer the only stale figure.
       if (result !== null) get().ledger.clearOwed();
       return result !== null;
     },
@@ -354,5 +301,4 @@ function netMap(view: DebtsView): Record<string, number> {
   return map;
 }
 
-/** Re-exported for the collect sheet's live split preview. */
 export type { AllocationLine };

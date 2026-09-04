@@ -7,22 +7,9 @@ import { useIsMultiBranchActive } from "@/src/modules/admin/branches/hooks/useIs
 interface BranchPickerProps {
   value: string | null;
   onChange: (branchId: string | null) => void;
-  /** Defaults to t('branches.branch_label'). */
   label?: string;
-  /**
-   * What "no branch" means in this context. Only surfaced when
-   * `nullable !== false`. Required because the semantic differs per entity:
-   *   users/admin → "Tenant-wide admin"
-   * Customers, plans, and staff users no longer accept a null branch — the
-   * picker is rendered with `nullable={false}` in those forms and this label
-   * is ignored.
-   */
   nullLabel: string;
   nullSublabel?: string;
-  /**
-   * When false, the picker omits the null option entirely — the user MUST
-   * pick a real branch. Defaults to true for backwards compatibility.
-   */
   nullable?: boolean;
 }
 

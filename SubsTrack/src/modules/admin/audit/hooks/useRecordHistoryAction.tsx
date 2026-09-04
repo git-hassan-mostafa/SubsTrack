@@ -5,9 +5,7 @@ import type { ActionMenuItem } from "@/src/shared/components/ActionMenu";
 import { RecordHistorySheet } from "../components/RecordHistorySheet";
 
 interface RecordHistoryAction {
-  /** The "History" row for one record's 3-dot menu. */
   action: (recordId: string, name?: string | null) => ActionMenuItem;
-  /** Render once in the screen — the sheet the row opens (null while closed). */
   sheet: ReactNode;
 }
 

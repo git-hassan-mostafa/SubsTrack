@@ -22,8 +22,6 @@ export function QuickActionSheets() {
   const openSheet = useUiStore((s) => s.openSheet);
   const close = useUiStore((s) => s.closeQuickAction);
 
-  // The money-in history can open a sale's receipt. The sheet lives here rather
-  // than in the ledger, which must not depend on the sales module.
   const saleDetail = useSaleDetailSheet();
 
   if (!openSheet) return null;

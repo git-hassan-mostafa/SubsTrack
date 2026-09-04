@@ -5,9 +5,7 @@ import { getBlockRangeLabel } from '@/src/modules/customer/customer-payments/uti
 export interface SharedBill {
   chargeId: string;
   label: string;
-  /** In the PARENT hand-over`s currency, which is what `snapshot` describes. */
   amount: number;
-  /** The parent hand-over`s frozen currency + rate — the amount is in it. */
   snapshot: { currencyId: string | null; ratePerUsdSnapshot: number };
 }
 
@@ -71,8 +69,6 @@ export function sharedBillsAcross(
   const merged = new Map<string, SharedBill>();
   for (const collection of collections) {
     for (const bill of sharedBillsOf(collection, exceptChargeId, t)) {
-      // Keyed by CURRENCY too: an amount is in its own hand-over's currency, so
-      // summing across two of them would print a figure in neither.
       const key = `${bill.chargeId}|${bill.snapshot.currencyId ?? 'USD'}`;
       const seen = merged.get(key);
       if (seen) seen.amount += bill.amount;

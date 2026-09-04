@@ -37,18 +37,12 @@ export function CustomerSalesPanel({ customer }: Props) {
   const { t } = useTranslation();
   const { user } = useAuth();
   const router = useRouter();
-  // Void via the canonical global slice action so the voided sale also drops
-  // out of the Sales tab's cached list, not just this preview.
   const voidSaleGlobal = useSaleSlice((s) => s.voidSale);
   const [sales, setSales] = useState<Sale[]>([]);
-  // Whether the LAST FETCH saw more than the preview holds. Kept apart from
-  // `sales.length` so a row removed locally cannot hide the "Show all" link to
-  // sales this preview was never going to list.
   const [serverHasMore, setServerHasMore] = useState(false);
   const [loading, setLoading] = useState(true);
   const [formOpen, setFormOpen] = useState(false);
   const [activeSale, setActiveSale] = useState<Sale | null>(null);
-  // The sale the form is correcting (see openEdit).
   const [editingSale, setEditingSale] = useState<Sale | null>(null);
   const [voidLoading, setVoidLoading] = useState(false);
   const selection = useSelection();
@@ -60,17 +54,13 @@ export function CustomerSalesPanel({ customer }: Props) {
     clear: clearSelection,
   } = selection;
   useSelectionBackHandler(selectionActive, clearSelection);
-  // Discards out-of-order responses if focus fires refresh while one is in flight.
   const tokenRef = useRef(0);
 
   const refresh = useCallback(async () => {
     const token = ++tokenRef.current;
     setLoading(true);
-    // The incoming rows may not contain the ticked ones (a new sale pushes the
-    // oldest out of the preview), so the selection starts over.
     clearSelection();
     try {
-      // Fetch one past the preview limit so we know whether to show "Show all".
       const items = await saleService.getSalesForCustomer(
         customer.id,
         PREVIEW_LIMIT + 1,
@@ -83,10 +73,8 @@ export function CustomerSalesPanel({ customer }: Props) {
     }
   }, [customer.id, clearSelection]);
 
-  // A write elsewhere moves this preview in place — the row is already in hand.
   const patch = useMemo(() => saleListPatches(setSales, customer.id), [customer.id]);
 
-  // `refresh` is already keyed on `customer.id`, so this is the same trigger.
   useEffect(() => {
     refresh();
   }, [refresh]);
@@ -97,9 +85,6 @@ export function CustomerSalesPanel({ customer }: Props) {
     try {
       await voidSaleGlobal(activeSale.id, user.id, reason);
       setActiveSale(null);
-      // Re-read, unlike every other write here: a void takes the sale's payments
-      // with it, and one of those may also have settled ANOTHER sale this list
-      // is showing — which the write never names.
       await refresh();
     } finally {
       setVoidLoading(false);
@@ -113,26 +98,16 @@ export function CustomerSalesPanel({ customer }: Props) {
   }
 
   function openAll() {
-    // Cast: the nested /customers/[id]/sales route is not yet in the (stale)
-    // generated router types; Expo regenerates them on the next dev-server run.
-    // Matches the existing `"..." as Href` convention used for newer routes.
     router.push(`/(app)/(tabs)/customers/${customer.id}/sales` as Href);
   }
 
   const preview = sales.slice(0, PREVIEW_LIMIT);
-  // …or a sale added locally has already pushed one past the preview.
   const hasMore = serverHasMore || sales.length > PREVIEW_LIMIT;
-  // Only the rendered rows can be ticked, so the selection is read off `preview`.
   const selectedSales = preview.filter((s) => selectedIds.has(s.id));
-  // One receipt covering every selected sale — the same action the full sales
-  // lists carry. No "select all" here: the panel is a 5-row preview.
   const invoiceAction = useSaleInvoiceAction(selectedSales, clearSelection);
-  // Every per-sale action (receipt / edit / send / history / void) — the same
-  // menu the two full sales lists offer.
   const saleActions = useSaleActions({
     onView: setActiveSale,
     onEdit: openEdit,
-    // See handleVoid: a void can move other sales too, so this one re-reads.
     onVoided: () => void refresh(),
     onCollected: patch.collected,
   });

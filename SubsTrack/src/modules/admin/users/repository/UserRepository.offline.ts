@@ -26,7 +26,6 @@ export class OfflineUserRepository extends OfflineBaseRepository implements IUse
     return this.decodeAll<DbUser>('users', rows);
   }
 
-  // Edge function — online only. The online sibling records the audit entry.
   async create(payload: CreateUserPayload): Promise<DbUser> {
     if (!(await isOnline())) throw new RequiresConnectionError();
     const user = await this.online.create(payload);
@@ -58,14 +57,12 @@ export class OfflineUserRepository extends OfflineBaseRepository implements IUse
   }
 
   async countPayments(id: string): Promise<number> {
-    // Cash they collected OR are holding — see IUserRepository.
     return this.count(
       'SELECT COUNT(*) AS n FROM collections WHERE received_by_user_id = ? OR held_by_user_id = ?',
       [id, id],
     );
   }
 
-  // The subset of the given users who have recorded payments or hold cash.
   async usersWithPayments(ids: string[]): Promise<Set<string>> {
     const [recorded, held] = await Promise.all([
       this.referencedIdsIn('collections', 'received_by_user_id', ids),
@@ -74,7 +71,6 @@ export class OfflineUserRepository extends OfflineBaseRepository implements IUse
     return new Set([...recorded, ...held]);
   }
 
-  // Soft-delete many users — one offline write each.
   async setActiveMany(ids: string[], active: boolean): Promise<void> {
     if (ids.length === 0) return;
     for (const id of ids) {
@@ -87,15 +83,12 @@ export class OfflineUserRepository extends OfflineBaseRepository implements IUse
     }
   }
 
-  // Edge function — online only. The online sibling records the audit entry, so
-  // there is nothing to add here (adding one would double-count the delete).
   async delete(id: string): Promise<void> {
     if (!(await isOnline())) throw new RequiresConnectionError();
     await this.online.delete(id);
     await this.db.runAsync('DELETE FROM users WHERE id = ?', [id] as never[]);
   }
 
-  // Edge function — online only.
   async updatePassword(userId: string, newPassword: string): Promise<void> {
     if (!(await isOnline())) throw new RequiresConnectionError();
     return this.online.updatePassword(userId, newPassword);

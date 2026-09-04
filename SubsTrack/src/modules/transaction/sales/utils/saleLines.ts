@@ -91,7 +91,6 @@ export function toItemPayload(
         tenant_id: tenantId,
         line_type: it.kind,
         product_id: it.kind === 'product' ? it.product.id : null,
-        // A one-off service has no catalog row to point at.
         service_id: it.kind === 'service' ? (it.service?.id ?? null) : null,
         item_name_snapshot: lineName(it),
         quantity: lineQuantity(it),

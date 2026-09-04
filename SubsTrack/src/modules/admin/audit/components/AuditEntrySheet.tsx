@@ -28,8 +28,6 @@ interface AuditEntrySheetProps {
 export function AuditEntrySheet({ entry, onDismiss }: AuditEntrySheetProps) {
   const { t } = useTranslation();
 
-  // Id columns (voided_by, currency_id, …) and coded values (month_start, admin)
-  // are rendered through the display registry, which needs the name lists.
   const lookups = useAuditLookups();
   const ctx = useMemo<AuditFieldContext>(
     () => ({
@@ -41,11 +39,8 @@ export function AuditEntrySheet({ entry, onDismiss }: AuditEntrySheetProps) {
     }),
     [t, entry.table, entry.context, lookups],
   );
-  // Names only — the values are right below, in the diff.
   const changedFields = changedFieldsLabel(entry, ctx);
 
-  // A create/delete has no diff — it carries the whole row instead, which we show
-  // as a plain field list (nothing "changed from", so no arrow).
   const snapshotRows = entry.snapshot
     ? Object.entries(entry.snapshot).filter(([k]) =>
         showsColumn(entry.table, k),

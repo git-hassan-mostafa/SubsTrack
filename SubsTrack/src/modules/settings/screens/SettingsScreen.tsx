@@ -80,7 +80,6 @@ export function SettingsScreen() {
   const logout = useAuthSlice((s) => s.logout);
   const [languagePickerOpen, setLanguagePickerOpen] = useState(false);
   const { syncing } = useSyncStatus();
-  // Transient one-off result shown briefly after a manual sync attempt.
   const [syncResult, setSyncResult] = useState<
     "done" | "offline" | "failed" | null
   >(null);

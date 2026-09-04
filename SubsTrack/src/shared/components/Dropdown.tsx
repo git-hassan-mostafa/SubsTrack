@@ -1,6 +1,4 @@
 import { useState } from "react";
-// Plain RN FlatList, NOT Gorhom's: a Gorhom scrollable hijacks the content-height
-// measurement of a content-sized sheet and clips the last rows (gotcha #47).
 import { FlatList, View } from "react-native";
 import { PressableOpacity } from "./PressableOpacity/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
@@ -15,8 +13,6 @@ export interface DropdownOption<T = string> {
   label: string;
   sublabel?: string;
   value: T;
-  // Listed but not pickable (e.g. an out-of-stock product) — greyed out. Shown
-  // rather than hidden so the user can see why the option is unavailable.
   disabled?: boolean;
 }
 
@@ -34,12 +30,7 @@ interface DropdownProps<T = string> {
   nullLabel?: string;
   nullSublabel?: string;
   triggerStyle?: DropdownTriggerStyle;
-  // Renders a "+" button beside the label (default trigger style only) that
-  // opens a form to create a new entity without leaving the current form.
   onAddNew?: () => void;
-  // When true the trigger is greyed out and can't be opened (e.g. a plan picker
-  // gated behind an unselected branch). An optional hint shows in place of the
-  // value while disabled.
   disabled?: boolean;
   disabledHint?: string;
 }

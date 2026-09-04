@@ -5,12 +5,6 @@ interface BottomSheetScaffoldProps {
   visible: boolean;
   onDismiss: () => void;
   children: ReactNode;
-  /**
-   * Pass `true` when the body is a long list that should own the sheet height —
-   * the sheet then opens at a fixed height and the list fills it (`flex:1`
-   * instead of a `maxHeight`). Content-sized popups (dropdowns, pickers,
-   * `ActionMenu`) omit it and hug their content.
-   */
   scrollable?: boolean;
 }
 

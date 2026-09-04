@@ -8,6 +8,5 @@ import type { DbTenantSetting } from '@/src/core/types/db';
  */
 export interface ITenantSettingRepository {
   findAll(): Promise<DbTenantSetting[]>;
-  /** Insert or replace the row for `key` within `tenantId`. */
   upsert(tenantId: string, key: string, value: string | null): Promise<DbTenantSetting>;
 }

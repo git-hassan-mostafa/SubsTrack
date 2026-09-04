@@ -2,9 +2,6 @@ import type { BranchFilter } from '@/src/core/constants';
 import type { CashRow, ExpenseItem, UnpaidStartRule } from '@/src/core/types';
 import { groupByCurrency } from '@/src/core/utils/currency';
 import { previousPeriod, toRange } from '@/src/core/utils/dateRange';
-// Deep imports, not the module barrels — every barrel re-exports its screens,
-// which would drag the whole UI graph into a service (the DashboardService
-// precedent).
 import customerRepo from '@/src/modules/customer/customers/repository/CustomerRepository';
 import { mapDbCustomerToCustomer } from '@/src/modules/customer/customers/utils/mapper';
 import paymentService from '@/src/modules/customer/customer-payments/services/PaymentService';
@@ -34,8 +31,6 @@ const usdOf = (r: { amount: number; ratePerUsdSnapshot: number }) => r.amount / 
  *     is ExpenseService's, and the debts view is the Debts screen's.
  */
 class ReportsService {
-  // Cash for a window, one row per bill settled and tagged with what that bill
-  // was. Every money figure in the app's reports comes from this one array.
   private getCashRows(
     startIso: string,
     endExclusiveIso: string,
@@ -89,7 +84,6 @@ class ReportsService {
 
     const lineIds = customers.flatMap((c) => (c.customerPlans ?? []).map((l) => l.id));
     const [view, cash, prevCash, writtenOffUsd, billsByLine, skips] = await Promise.all([
-      // No date scope — outstanding debt is all-time by design.
       ledgerService.getDebtsView(branchFilter),
       this.getCashRows(range.startIso, range.endExclusiveIso, branchFilter),
       this.getCashRows(prev.startIso, prev.endExclusiveIso, branchFilter),
@@ -98,16 +92,9 @@ class ReportsService {
       skippedMonthService.getActiveSkips(),
     ]);
 
-    // "Collected on debts" is the money that closed a DEBT — a partly-paid
-    // month, an open sale, a hand-typed fee. A first payment on a fresh month
-    // is not debt collection, so 'month' rows are excluded only when they were
-    // the month's first money; the ledger cannot tell that apart after the
-    // fact, so the honest cut is by kind: sales and manual fees.
     const collected = cash.filter((r) => r.stream !== 'month');
     const prevCollected = prevCash.filter((r) => r.stream !== 'month');
 
-    // Behind on payments — counted to TODAY, never to the period. Reuses the
-    // month grid, so the definition of "overdue" exists in exactly one place.
     const overdueCounts = paymentService.getOverdueMonthCounts(
       customers,
       [...billsByLine.values()].flat(),
@@ -129,8 +116,6 @@ class ReportsService {
       writtenOffUsd,
       debtorCount: view.summary.customerCount,
       topDebtors: view.customers.slice(0, 10),
-      // By kind — and unlike before these DO sum to the outstanding total,
-      // because every row carries its own balance.
       categoryEntries: topN(
         sumByKey(
           view.customers.flatMap((c) => c.items),

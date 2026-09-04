@@ -36,7 +36,6 @@ export function QuickActionsMenuButton() {
     {
       key: "sale",
       label: t("sales.record_button"),
-      // Same glyph as the dashboard's "Record sale" tile.
       icon: "receipt-outline",
       iconBadge: "add",
       onPress: () => openQuickAction("sale"),
@@ -57,9 +56,6 @@ export function QuickActionsMenuButton() {
     },
   ];
 
-  // Products are managed from the admin tab, which non-admins never see — so the
-  // restock shortcut stays admin-only too. Expenses are admin-only for a
-  // stronger reason: rent and salaries are not staff business (RLS enforces it).
   if (isAdmin) {
     actions.push({
       key: "expense",

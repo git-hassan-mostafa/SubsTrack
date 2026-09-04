@@ -11,14 +11,7 @@ import { customerFlags, type CustomerFlag } from "../utils/customerFlags";
 
 interface Props {
   customer: Customer;
-  /**
-   * The customer's settle status + whether older months are unpaid. `null` while
-   * the status is still loading — the card then shows no payment flag at all,
-   * which is why the red "Unpaid" pill can never appear on missing data
-   * (gotcha #56).
-   */
   status: CustomerStatus | null;
-  /** Formatted net debt (e.g. "150,000 ل.ل"), or null when the customer owes nothing. */
   debtLabel?: string | null;
   onPress: (customer: Customer) => void;
   onMenu: (customer: Customer) => void;
@@ -29,9 +22,6 @@ interface Props {
   onEnterSelection?: (customer: Customer) => void;
 }
 
-// Pill styling per flag — a lookup, not a ternary chain: a new flag is one row
-// here, and every flag is forced to have exactly one appearance. WHICH flags a
-// customer gets is decided by `customerFlags`, not here.
 const FLAG_STYLES: Record<
   CustomerFlag,
   {
@@ -69,8 +59,6 @@ const FLAG_STYLES: Record<
     textClassName: "text-gray-500",
     bgClassName: "bg-gray-100",
   },
-  // EARLIER months — a separate fact, so it sits beside the "N/M plans paid"
-  // flag instead of replacing it.
   overdue: {
     label: (t) => t("customers.overdue"),
     textClassName: "text-red-600",
@@ -127,9 +115,6 @@ export const CustomerCard = memo(function CustomerCard({
         ? activeLines[0].plan?.name || t("common.no_plan")
         : t("subscriptions.count_plans", { count: activeLines.length });
 
-  // The payment pills, straight from the shared helper the filter tabs also
-  // read — so the card and its tab can never disagree. Empty while the status
-  // is still loading.
   const flags = status ? flagPills(status, t) : [];
 
   return (
@@ -162,9 +147,6 @@ export const CustomerCard = memo(function CustomerCard({
               bgClassName="bg-amber-100"
             />
           ) : (
-            /* This month + earlier months, in the helper's order. Empty while
-               the status is still loading, so a red pill can never come from
-               missing data. */
             flags.map((flag) => (
               <Flag
                 key={flag.key}

@@ -12,11 +12,6 @@ import type { GlobalState } from '@/src/state/globalStore';
 
 export interface ProductSlice {
   items: Product[];
-  /**
-   * A fetch has completed at least once. The "ensure loaded" guard keys off this,
-   * NOT `items.length` — an empty result is a valid loaded state, and a length-based
-   * guard re-queries on every caller (i.e. every form open) for a tenant with no rows.
-   */
   loaded: boolean;
   loading: boolean;
   error: string | null;
@@ -29,15 +24,9 @@ export interface ProductSlice {
     tier: TierPlan,
     usage: TenantUsage,
     userId?: string | null,
-    // Carries the live rate the opening stock's cost is frozen at.
     costCurrency?: Currency | null,
   ) => Promise<void>;
   updateProduct: (id: string, data: ProductInput) => Promise<void>;
-  /**
-   * Signed on-hand change per product id — how a write elsewhere (a sale, its
-   * correction, its void) moves stock. Keeps the product list and the next sale
-   * form honest without re-reading the whole catalog.
-   */
   applyStockDelta: (deltaByProduct: Record<string, number>) => void;
   addStock: (
     id: string,
@@ -45,13 +34,8 @@ export interface ProductSlice {
     quantity: number,
     note?: string | null,
     userId?: string | null,
-    // What the stock cost to buy — that is what makes it an expense.
     cost?: { unitCost: number | null; currency: Currency | null } | null,
   ) => Promise<boolean>;
-  /**
-   * Correct one manual ledger row (the record was wrong). `quantity` is the
-   * magnitude — the direction stays whatever the row already was.
-   */
   updateStockMovement: (
     movementId: string,
     input: {
@@ -60,17 +44,12 @@ export interface ProductSlice {
       cost?: { unitCost: number | null; currency: Currency | null } | null;
     },
   ) => Promise<boolean>;
-  /**
-   * Reverse one manual ledger row — the entry should never have existed. It stops
-   * counting in stock and in Expenses; the row stays, marked reversed.
-   */
   revertStockMovement: (movementId: string, userId?: string | null) => Promise<boolean>;
   batchRestock: (
     entries: RestockEntry[],
     tenantId: string,
     note?: string | null,
     userId?: string | null,
-    // One delivery, one currency — shared by every entry's unitCost.
     currency?: Currency | null,
   ) => Promise<boolean>;
   deleteProduct: (id: string) => Promise<'hard' | 'soft' | null>;
@@ -94,8 +73,6 @@ export const createProductSlice: StateCreator<
   tierLimitError: null,
   getProducts: async () => {
     const { loaded, loading } = get().products;
-    // Already loaded, or a fetch is already in flight — several components
-    // mount-fetch the same slice in one tick (see docs/gotchas.md).
     if (loaded || loading) return;
     await get().products.fetchProducts();
   },

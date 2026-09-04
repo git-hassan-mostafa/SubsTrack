@@ -6,8 +6,6 @@ import { Checkbox } from "@/src/shared/components/Checkbox";
 import { Text } from "@/src/shared/components/Text";
 
 interface Props {
-  // Reports whether "delete permanently" is checked. The remove-plan flow reads
-  // the latest value through a closure ref after the confirm dialog resolves.
   onChange: (hardDelete: boolean) => void;
 }
 

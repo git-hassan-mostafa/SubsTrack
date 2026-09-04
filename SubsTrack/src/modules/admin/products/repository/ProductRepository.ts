@@ -63,12 +63,10 @@ export class ProductRepository extends BaseRepository implements IProductReposit
     await this.deleteMany([id]);
   }
 
-  // Hard-delete many products in one statement.
   async deleteMany(ids: string[]): Promise<void> {
     await this.auditedDelete<DbProduct>('products', ids);
   }
 
-  // Soft-delete many products in one statement.
   async deactivateMany(ids: string[]): Promise<void> {
     if (ids.length === 0) return;
     for (const id of ids) {
@@ -76,12 +74,10 @@ export class ProductRepository extends BaseRepository implements IProductReposit
     }
   }
 
-  // The subset of the given products that any sale line references — one query.
   async referencedIds(ids: string[]): Promise<Set<string>> {
     return this.referencedIdsIn('sale_items', 'product_id', ids);
   }
 
-  // Count active products only — soft-deleted ones don't consume tier slots.
   async countAll(branchFilter: BranchFilter = null): Promise<number> {
     let query = this.db
       .from('products')
@@ -93,9 +89,6 @@ export class ProductRepository extends BaseRepository implements IProductReposit
     return count ?? 0;
   }
 
-  // Sale lines referencing this product. Drives soft-delete vs hard-delete in
-  // ProductService. Counts lines an edit dropped too — `product_id` is
-  // ON DELETE RESTRICT, so a voided line would still block the hard delete.
   async countReferences(id: string): Promise<number> {
     const { count, error } = await this.db
       .from('sale_items')
@@ -105,8 +98,6 @@ export class ProductRepository extends BaseRepository implements IProductReposit
     return count ?? 0;
   }
 
-  // Reads the `product_stock` view (SUM of the non-voided ledger rows, grouped
-  // per product). The view is security_invoker, so tenant/branch RLS applies.
   async stockOnHand(productIds?: string[]): Promise<Record<string, number>> {
     if (productIds && productIds.length === 0) return {};
     let query = this.db.from('product_stock').select('product_id, on_hand');
@@ -152,8 +143,6 @@ export class ProductRepository extends BaseRepository implements IProductReposit
     payload: UpdateStockMovementPayload,
   ): Promise<DbStockMovement> {
     return this.auditedUpdate<DbStockMovement>('stock_movements', id, payload, {
-      // A movement has no branch and no name of its own — both come from the
-      // product, so the entry files itself where the product lives.
       branchColumn: null,
       audit: await this.movementAudit(id),
     });
@@ -168,8 +157,6 @@ export class ProductRepository extends BaseRepository implements IProductReposit
     );
   }
 
-  // The parent product's branch + name, frozen into the audit entry. One query,
-  // same shape and reason as BaseRepository.customerAudit.
   private async movementAudit(
     movementId: string,
   ): Promise<{ branchId: string | null; subject: string | null }> {
@@ -183,8 +170,6 @@ export class ProductRepository extends BaseRepository implements IProductReposit
     return { branchId: product?.branch_id ?? null, subject: product?.name ?? null };
   }
 
-  // The derived half of the Expenses view. `products!inner` both supplies the
-  // name and lets applyBranchFilter scope on the parent's branch.
   async stockCostsInRange(
     startIso: string,
     endExclusiveIso: string,
@@ -195,9 +180,6 @@ export class ProductRepository extends BaseRepository implements IProductReposit
       .select(
         'id, product_id, quantity_delta, unit_cost, currency_id, rate_per_usd_snapshot, occurred_at, recorded_by_user_id, products!inner(name, branch_id)',
       )
-      // Every costed row, either direction — a negative one is money coming
-      // back. 'sale' rows can never be costed, but exclude them explicitly so a
-      // legacy or hand-written row can't leak into the expenses.
       .neq('reason', 'sale')
       .not('unit_cost', 'is', null)
       .is('voided_at', null)
@@ -214,10 +196,6 @@ export class ProductRepository extends BaseRepository implements IProductReposit
   }
 }
 
-// Platform seam: web talks to Supabase directly (unchanged); native uses the
-// offline SQLite repository. Services import this default, so neither services
-// nor slices change. The offline class is only constructed on native, so web
-// never opens a local DB.
 const impl: IProductRepository =
   Platform.OS === 'web' ? new ProductRepository() : new OfflineProductRepository();
 

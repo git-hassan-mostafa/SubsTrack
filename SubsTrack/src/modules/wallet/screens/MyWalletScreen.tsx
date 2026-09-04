@@ -37,9 +37,6 @@ export function MyWalletScreen() {
 
   const mayCloseOut = user ? canCloseOut(user) : false;
 
-  // Refresh on focus + whenever the effective branch changes. `branchFilter` is
-  // an intentional dep even though the body doesn't read it — the slice action
-  // resolves it internally (same pattern as WalletsScreen).
   const userId = user?.id;
   useFocusEffect(
     useCallback(() => {

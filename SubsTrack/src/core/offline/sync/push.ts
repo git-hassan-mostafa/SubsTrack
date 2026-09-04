@@ -1,9 +1,3 @@
-// PUSH: local changes → Supabase.
-//
-// Every row flagged `_dirty` (created / edited / soft-deleted) goes up, then the
-// logged hard deletes are replayed. Nothing here throws: a row, table or delete
-// that fails is simply left in place and retried on the next cycle.
-
 import type { SQLiteDatabase } from "expo-sqlite";
 import { supabase } from "@/src/shared/lib/supabase";
 import { inBatches } from "../batch";
@@ -13,11 +7,8 @@ import { PUSH_WAVES, TABLE_BY_NAME } from "../db/tables";
 import { withDbLock } from "../dbLock";
 import { mapWithLimit, NETWORK_CONCURRENCY } from "./parallel";
 
-/** Rows per upsert request. A month-long backlog is thousands of rows; one
- *  unbounded request would fail on size or timeout and repeat every cycle. */
 const PUSH_ROWS = 250;
 
-/** Ids per delete request — keeps the query string inside any URL length cap. */
 const ID_BATCH = 100;
 
 /**
@@ -64,9 +55,6 @@ function conflictTarget(table: string, row: Record<string, unknown>): string {
 /** Send one table's dirty rows up. Never throws — a failure leaves them dirty. */
 async function pushTable(db: SQLiteDatabase, table: string): Promise<void> {
   const spec = TABLE_BY_NAME[table];
-  // Both local halves take the lock, the network call in between does not — so a
-  // wave still goes up in parallel, but we never read a repository transaction's
-  // uncommitted rows (and push a row a rollback then removes).
   const raw = await withDbLock(() =>
     db.getAllAsync<Record<string, unknown>>(
       `SELECT * FROM ${table} WHERE _dirty = 1`,
@@ -74,9 +62,6 @@ async function pushTable(db: SQLiteDatabase, table: string): Promise<void> {
   );
   if (raw.length === 0) return;
 
-  // One request can carry one conflict target, so rows are grouped by theirs
-  // before batching — `charges` is the only table where that is not the whole
-  // table at once.
   const groups = new Map<string, { id: string; row: Record<string, unknown> }[]>();
   for (const r of raw) {
     const row = stripForPush(table, decodeRow(table, r));
@@ -89,20 +74,15 @@ async function pushTable(db: SQLiteDatabase, table: string): Promise<void> {
 
   for (const [target, group] of groups) {
     for (const chunk of inBatches(group, PUSH_ROWS)) {
-      // appendOnly → ON CONFLICT DO NOTHING. `_dirty` clears only on a successful
-      // reply, so a push that committed but lost its response is re-sent; the
-      // DO UPDATE path of a plain upsert would then be refused forever by an
-      // insert-only RLS table (audit_logs) and wedge its queue. See TableSpec.
       const { error } = await supabase.from(table).upsert(
         chunk.map((c) => c.row),
         { onConflict: target, ignoreDuplicates: spec?.appendOnly === true },
       );
       if (error) {
-        console.warn(`[sync] push ${table} failed:`, error.message); // stays dirty → retried next sync
-        continue; // a later chunk may still get through
+        console.warn(`[sync] push ${table} failed:`, error.message);
+        continue;
       }
 
-      // Clear the flag only for the rows this chunk actually delivered.
       const ids = chunk.map((c) => c.id);
       await withDbLock(() =>
         db.runAsync(
@@ -155,9 +135,6 @@ async function pushDeletes(db: SQLiteDatabase): Promise<void> {
         await clearDeleteLog(db, table, ids);
         continue;
       }
-      // A single undeletable row (an ON DELETE RESTRICT reference still pointing
-      // at it) fails the whole batch, so fall back to one request per row —
-      // otherwise that one row would block every other delete forever.
       console.warn(`[sync] delete ${table} batch failed:`, error.message);
       for (const id of ids) {
         const { error: rowError } = await supabase
@@ -165,7 +142,7 @@ async function pushDeletes(db: SQLiteDatabase): Promise<void> {
           .delete()
           .eq("id", id);
         if (rowError) {
-          console.warn(`[sync] delete ${table} failed:`, rowError.message); // retried next sync
+          console.warn(`[sync] delete ${table} failed:`, rowError.message);
           continue;
         }
         await clearDeleteLog(db, table, [id]);
@@ -182,7 +159,6 @@ async function pushDeletes(db: SQLiteDatabase): Promise<void> {
 export async function pushDirty(): Promise<void> {
   const db = getDb();
   for (const wave of PUSH_WAVES) {
-    // 'global' tables (tier_plans, app_options) are read-only caches, never pushed.
     const tables = wave.filter((t) => TABLE_BY_NAME[t]?.scope === "tenant");
     await mapWithLimit(tables, NETWORK_CONCURRENCY, (t) => pushTable(db, t));
   }

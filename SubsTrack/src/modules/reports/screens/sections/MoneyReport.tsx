@@ -46,8 +46,6 @@ export function MoneyReport({ data, currencies, displayCurrency }: Props) {
       value: money(data.spentUsd),
       tone: "warning",
       delta: delta(data.spentUsd, data.prevSpentUsd),
-      // Spending more is not an improvement — only the colour flips; the arrow
-      // still points the way the number actually moved.
       higherIsBetter: false,
     },
     {
@@ -83,8 +81,6 @@ export function MoneyReport({ data, currencies, displayCurrency }: Props) {
     color: REPORT_COLORS.expense,
   }));
 
-  // Every drill-down is a FILTER over rows already in memory — never a query,
-  // which is also what guarantees the rows sum to the number that was tapped.
   const drilled = useMemo((): { title: string; rows: RecordRow[]; totalUsd: number } | null => {
     if (!drill) return null;
 
@@ -111,8 +107,6 @@ export function MoneyReport({ data, currencies, displayCurrency }: Props) {
       title: t(`reports.stream_${drill.stream}`),
       totalUsd: cash.reduce((s, r) => s + usdOf(r), 0),
       rows: cash.map((r) => ({
-        // Ids are only unique WITHIN a table, so the stream has to be part of
-        // the key or two sources can collide in one list.
         id: `${r.stream}:${r.id}`,
         title: r.customerName ?? r.label ?? t(`reports.stream_${r.stream}`),
         subtitle: r.customerName ? r.label : null,

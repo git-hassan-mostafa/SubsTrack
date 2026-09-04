@@ -4,11 +4,7 @@ export type ProductInput = Pick<
     Product,
     'name' | 'description' | 'price' | 'currencyId' | 'costPrice' | 'costCurrencyId' | 'branchId'
 > & {
-    // Opening stock, only read on create — it becomes the first 'initial' ledger
-    // movement. Editing a product never touches stock (use the stock sheet).
     initialStock?: number;
-    // What that opening stock cost per unit, in costCurrencyId. Optional: with
-    // no cost the movement records none and adds no expense.
     initialStockUnitCost?: number | null;
 };
 

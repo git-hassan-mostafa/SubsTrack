@@ -51,8 +51,6 @@ export class UserRepository extends BaseRepository implements IUserRepository {
     const [recorded, held] = await Promise.all([
       this.db.from('collections').select('id', { count: 'exact', head: true })
         .eq('received_by_user_id', id),
-      // Cash they are holding but did not collect (received up the chain) —
-      // deleting them would blank held_by_user_id and lose it.
       this.db.from('collections').select('id', { count: 'exact', head: true })
         .eq('held_by_user_id', id),
     ]);
@@ -61,8 +59,6 @@ export class UserRepository extends BaseRepository implements IUserRepository {
     return (recorded.count ?? 0) + (held.count ?? 0);
   }
 
-  // The subset of the given users who have recorded payments or are holding
-  // cash — one query each. Drives the soft-vs-hard delete split in bulk delete.
   async usersWithPayments(ids: string[]): Promise<Set<string>> {
     const [recorded, held] = await Promise.all([
       this.referencedIdsIn('collections', 'received_by_user_id', ids),
@@ -71,7 +67,6 @@ export class UserRepository extends BaseRepository implements IUserRepository {
     return new Set([...recorded, ...held]);
   }
 
-  // Soft-delete many users in one statement.
   async setActiveMany(ids: string[], active: boolean): Promise<void> {
     if (ids.length === 0) return;
     for (const id of ids) {
@@ -82,7 +77,6 @@ export class UserRepository extends BaseRepository implements IUserRepository {
   }
 
   async delete(id: string): Promise<void> {
-    // Snapshot before the edge function removes the row.
     const { data: prior } = await this.db.from('users').select('*').eq('id', id).maybeSingle();
     await this.ensureFreshSession();
     const { error } = await this.db.functions.invoke('delete-user', {
@@ -107,7 +101,6 @@ export class UserRepository extends BaseRepository implements IUserRepository {
       body: { userId, newPassword },
     });
     if (error) await this.handleFunctionsError(error);
-    // The password itself is never recorded — only that it was changed.
     this.audit({
       table: 'users',
       recordId: userId,
@@ -128,10 +121,6 @@ export class UserRepository extends BaseRepository implements IUserRepository {
   }
 }
 
-// Platform seam: web talks to Supabase directly (unchanged); native uses the
-// offline SQLite repository. Services import this default, so neither services
-// nor slices change. The offline class is only constructed on native, so web
-// never opens a local DB.
 const impl: IUserRepository =
   Platform.OS === "web" ? new UserRepository() : new OfflineUserRepository();
 

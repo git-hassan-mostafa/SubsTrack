@@ -6,9 +6,6 @@ import type { WalletActor } from '@/src/modules/wallet/utils/custody';
 import { resolveBranchFilter } from '@/src/shared/lib/branchFilter';
 import { getStore } from '@/src/state/globalStore';
 
-// A MODULE store, not a global slice: only this module reads a wallet, and no
-// slice reads it back. `auth` is read across through the global store — the one
-// allowed direction (see CLAUDE.md → State Management).
 
 // The signed-in user as the chain sees them. Role + branch decide every wallet
 // permission, so they travel together into the service (never re-derived there).
@@ -22,25 +19,18 @@ function viewer(): AuthUser | null {
 }
 
 export interface WalletState {
-  // Admin view: one entry per user holding cash. Sorted most-first.
   items: UserWallet[];
-  // The wallet currently open in the detail sheet (admin) or self-view.
   detail: UserWalletDetail | null;
   loading: boolean;
   detailLoading: boolean;
   error: string | null;
-  // Last-write-wins guard for concurrent detail fetches.
   detailToken: number;
 
   fetchWallets: () => Promise<void>;
   fetchDetail: (holderUserId: string) => Promise<void>;
   clearDetail: () => void;
-  // Per-transaction handover: takes the given hand-overs off `holderUserId` and
-  // puts them in the viewer's wallet (or out of the system for the owner).
   receiveFrom: (holderUserId: string, ids: string[]) => Promise<void>;
-  // "Receive everything from this holder" — empties their wallet into yours.
   receiveAllFrom: (holderUserId: string) => Promise<void>;
-  // Settle your OWN cash: banked, out of the system.
   closeOutItems: (ids: string[]) => Promise<void>;
   closeOutAll: () => Promise<void>;
   clearError: () => void;
@@ -118,7 +108,6 @@ export const useWalletStore = create<WalletState>()(
             resolveBranchFilter(user),
           );
           set((s) => {
-            // Ignore a stale response (a newer fetch started meanwhile).
             if (s.detailToken !== token) return;
             s.detail = detail;
             s.detailLoading = false;

@@ -1,13 +1,5 @@
 import type { AllocationLine, OpenItem } from '@/src/core/types';
 
-/**
- * Oldest-first allocation: the rule that turns "he gave me 55" into "20 to
- * January, 20 to February, 15 to the sale".
- *
- * Pure — no I/O, no dates read from the clock, no rounding surprises. The
- * collect sheet renders the result as a live preview, then saves exactly the
- * lines it showed.
- */
 
 /**
  * Order in which money settles bills. FOUR levels, on purpose:
@@ -44,7 +36,6 @@ export function keyOf(item: OpenItem): string {
 
 export interface AllocationResult {
   lines: AllocationLine[];
-  /** Money that found no bill. The caller REFUSES the save when this is > 0. */
   leftover: number;
 }
 

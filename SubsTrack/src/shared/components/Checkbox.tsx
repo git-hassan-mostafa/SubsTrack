@@ -8,7 +8,6 @@ interface CheckboxProps {
   size?: number;
   disabled?: boolean;
   accessibilityLabel?: string;
-  /** When omitted the checkbox is presentational and the parent owns the tap. */
   onPress?: () => void;
 }
 

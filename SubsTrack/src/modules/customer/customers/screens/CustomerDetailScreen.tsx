@@ -36,10 +36,7 @@ export function CustomerDetailScreen() {
 
   const [editVisible, setEditVisible] = useState(false);
   const [historyVisible, setHistoryVisible] = useState(false);
-  // Bumped on pull-to-refresh so the panels below re-read too. The customer row
-  // alone would not show a month paid or voided elsewhere and synced down.
   const [refreshToken, setRefreshToken] = useState(0);
-  // A debt row can BE a sale, and debts must not depend on the sales module.
   const saleDetail = useSaleDetailSheet();
 
   useEffect(() => {
@@ -80,8 +77,6 @@ export function CustomerDetailScreen() {
           },
         ]}
         hideBranchSelector
-        // The screen is about ONE customer; the global "quick add" shortcuts
-        // (add customer, record sale, …) belong to the list screens.
         hideQuickActions
       />
 

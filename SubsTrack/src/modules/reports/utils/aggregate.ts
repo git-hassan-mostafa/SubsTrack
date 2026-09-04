@@ -1,10 +1,3 @@
-// Pure aggregation over already-fetched rows. Every report figure is built from
-// these — no report issues a query of its own, and no aggregation is mirrored
-// in SQL, so a number can only ever have one implementation.
-//
-// "USD" is always `amount / ratePerUsdSnapshot` (the row's FROZEN rate). Callers
-// pass a `getUsd` so the same helpers work on CashRow and ExpenseItem alike.
-
 export function groupBy<T, K extends string>(rows: T[], key: (r: T) => K): Map<K, T[]> {
   const out = new Map<K, T[]>();
   for (const r of rows) {
@@ -66,7 +59,7 @@ export function shareOfTotal(entries: Entry[]): (Entry & { share: number })[] {
 
 export interface Delta {
   abs: number;
-  pct: number | null; // null when the previous period was zero — no % exists
+  pct: number | null;
 }
 
 export function delta(current: number, previous: number): Delta {

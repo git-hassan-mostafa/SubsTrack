@@ -29,7 +29,6 @@ export function buildGridsFor(
     const lineBills = bills.filter((b) => b.charge.customerPlanId === line.id);
     const lineSkips = skips.filter((s) => s.customerPlanId === line.id);
     grids[line.id] = paymentService.buildMonthGrid(line, lineBills, lineSkips, year, unpaidRule);
-    // Through the VIEWED year — that is the furthest month the user can tap.
     uncoveredMonths[line.id] = paymentService.uncoveredBillingMonths(
       line,
       lineBills,

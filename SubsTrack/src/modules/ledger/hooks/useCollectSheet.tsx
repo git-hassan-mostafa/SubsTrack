@@ -12,7 +12,6 @@ interface Target {
 }
 
 interface Options {
-  /** Fired after the money landed — the caller refreshes whatever it shows. */
   onCollected?: (collection: Collection) => void;
 }
 
@@ -71,8 +70,6 @@ export function useCollectSheet({ onCollected }: Options = {}) {
         const created = await collect({
           tenantId: user.tenantId,
           customerId: target.customerId,
-          // Off the bills being settled: the money belongs where they do, and a
-          // tenant-wide admin has no branch of their own to fall back on.
           branchId: values.lines[0]?.item.branchId ?? user.branchId,
           amount: values.amount,
           currencyId: values.currencyId,
@@ -87,8 +84,6 @@ export function useCollectSheet({ onCollected }: Options = {}) {
           })),
         });
         if (!created) return;
-        // Closed first, then the caller's follow-on work — whatever it repaints
-        // must not hold the JS thread while the sheet is trying to slide out.
         setTarget(null);
         onCollected?.(created);
       }}

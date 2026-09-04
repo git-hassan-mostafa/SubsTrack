@@ -7,28 +7,15 @@ import { compareOpenItems } from "@/src/modules/ledger/utils/waterfall";
 import { DebtItemCard } from "./DebtItemCard";
 
 interface Props {
-  /** Bills with money still owed on them — the debts proper. */
   items: OpenItem[];
-  /**
-   * Plain unpaid months: OWED, but not a debt. They get their own muted section
-   * because they belong to the month grid's workflow, not to chasing arrears.
-   */
   unpaidMonths?: OpenItem[];
   loading?: boolean;
-  // Message shown when there is nothing to list.
   emptyMessage?: string;
   onCollect?: (item: OpenItem) => void;
   onVoidItem?: (item: OpenItem) => void;
   onWriteOff?: (item: OpenItem) => void;
-  /** Tapping a row opens the record behind it. Omit for a read-only list. */
   onOpenItem?: (item: OpenItem) => void;
-  /** Key of the row whose record is being fetched, so it shows a spinner. */
   openingItemKey?: string | null;
-  /**
-   * Show the most recently raised bill first instead of the oldest due date.
-   * For a ONE-CUSTOMER sheet, where the question is "what happened lately?"
-   * rather than "what is the money going to settle next?".
-   */
   newestFirst?: boolean;
 }
 

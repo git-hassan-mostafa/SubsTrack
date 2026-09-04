@@ -3,9 +3,7 @@ import { View } from "react-native";
 
 interface Props {
   children: ReactNode;
-  /** Extra classes for the container (e.g. "flex-1"). */
   className?: string;
-  /** Tailwind max-width class that sets the cap. Defaults to max-w-3xl (768px). */
   maxWidth?: string;
 }
 

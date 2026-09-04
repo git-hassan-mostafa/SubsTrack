@@ -25,7 +25,6 @@ export function UpgradePromptModal({ payload, onClose }: Props) {
   const user = useAuthSlice((s) => s.user);
   const tiers = useSubscriptionSlice((s) => s.tiers);
 
-  // Web: browser Back closes the modal instead of navigating the route.
   useWebBackDismiss(!!payload, onClose);
 
   if (!payload) return null;
@@ -43,8 +42,6 @@ export function UpgradePromptModal({ payload, onClose }: Props) {
     router.push("/(app)/(tabs)/admin/subscription" as Href);
   }
 
-  // Branch-scoped admins / staff can't change subscriptions — show a simple
-  // notice instead of the upgrade CTA.
   if (!isTenantWideAdmin) {
     return (
       <Modal visible transparent animationType="fade" onRequestClose={onClose}>

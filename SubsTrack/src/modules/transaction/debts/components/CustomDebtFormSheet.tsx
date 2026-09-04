@@ -47,20 +47,13 @@ export function CustomDebtFormSheet({ initialCustomer, onDismiss }: Props) {
   const error = useLedgerSlice((s) => s.error);
   const clearError = useLedgerSlice((s) => s.clearError);
 
-  // When `initialCustomer` is passed the customer is locked (no picker). The
-  // picker path builds up a full Customer here; the effective target is either.
   const [picked, setPicked] = useState<Customer | null>(null);
   const [amount, setAmount] = useState<number | null>(null);
   const [currencyId, setCurrencyId] = useState<string | null>(null);
   const [description, setDescription] = useState("");
-  // When it is OWED. The waterfall sorts on this, so back-dating a fee puts it
-  // at the front of the queue — which is exactly what back-dating means.
   const [dueDate, setDueDate] = useState(getTodayDateString);
   const [addCustomerOpen, setAddCustomerOpen] = useState(false);
 
-  // `currencyId` is excluded: CurrencyInput self-seeds it from the last-used
-  // currency in a mount effect, so it changes with no user action. An amount is
-  // what makes the form dirty; a default currency alone is not an edit.
   const dirty = useDirtyForm({
     pickedId: picked?.id ?? null,
     amount,
@@ -91,7 +84,6 @@ export function CustomDebtFormSheet({ initialCustomer, onDismiss }: Props) {
     if (created) onDismiss();
   }
 
-  // A description is what a hand-typed fee IS — without it the row says nothing.
   const submitDisabled =
     !customer || amount == null || amount <= 0 || !description.trim() || loading;
 

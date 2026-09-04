@@ -28,8 +28,6 @@ export class ExpenseRepository extends BaseRepository implements IExpenseReposit
     return (data ?? []) as DbExpense[];
   }
 
-  // Not audited: append-only + voidable, so the Expenses list is already its own
-  // history — the same call as the debt tables. See docs/features.md → Audit Trail.
   async create(payload: CreateExpensePayload): Promise<DbExpense> {
     const { data, error } = await this.db
       .from('expenses')
@@ -76,7 +74,6 @@ export class ExpenseRepository extends BaseRepository implements IExpenseReposit
   }
 }
 
-// Platform seam: web → Supabase directly; native → offline SQLite.
 const impl: IExpenseRepository =
   Platform.OS === 'web' ? new ExpenseRepository() : new OfflineExpenseRepository();
 

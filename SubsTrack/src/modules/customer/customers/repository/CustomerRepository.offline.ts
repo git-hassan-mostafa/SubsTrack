@@ -17,7 +17,6 @@ import type {
 export class OfflineCustomerRepository
   extends OfflineBaseRepository
   implements ICustomerRepository {
-  /** Attach `customer_plans` (each with its joined `plans`) to a set of customers. */
   private async hydrateLines(customers: DbCustomer[]): Promise<CustomerWithLines[]> {
     if (customers.length === 0) return customers;
     const linesByCustomer = await this.childrenByParent<DbCustomerPlan>(
@@ -91,8 +90,6 @@ export class OfflineCustomerRepository
     return { ...row, customer_plans: [] };
   }
 
-  // Every single-row customer edit funnels through here: read the row, patch it,
-  // record the diff — all inside one transaction.
   private async patch(
     id: string,
     patch: Record<string, unknown>,
@@ -151,7 +148,6 @@ export class OfflineCustomerRepository
     );
   }
 
-  // A bill raised OR cash taken — see the web twin.
   async countPayments(id: string): Promise<number> {
     const [charges, collections] = await Promise.all([
       this.count('SELECT COUNT(*) AS n FROM charges WHERE customer_id = ?', [id]),
@@ -168,15 +164,10 @@ export class OfflineCustomerRepository
     if (ids.length === 0) return;
     await this.write(async (db) => {
       for (const id of ids) {
-        // Snapshot before the row is gone — a delete's whole value in the trail is
-        // the copy of what was removed. The cascaded children get no entry of
-        // their own; the customer entry is the record of the whole removal.
         const before = this.decodeOne<DbCustomer>(
           'customers',
           await this.first('SELECT * FROM customers WHERE id = ?', [id]),
         );
-        // Children cascade server-side; delete locally for immediate consistency.
-        // Only the customer id is logged — the server FK cascade removes children.
         await db.runAsync(
           `DELETE FROM collection_items
             WHERE collection_id IN (SELECT id FROM collections WHERE customer_id = ?)
@@ -276,8 +267,6 @@ export class OfflineCustomerRepository
     return this.count(`SELECT COUNT(*) AS n FROM customers ${sql}`, params);
   }
 
-  // Reuses the ONLINE JS aggregation verbatim; only the two fetches become local
-  // SQL (see CustomerRepository.countUnpaidForMonth). Must stay in sync with it.
   async countUnpaidForMonth(
     billingMonth: string,
     branchFilter: BranchFilter = null,
@@ -288,9 +277,6 @@ export class OfflineCustomerRepository
     const cutoff = `${cutoffDate.getFullYear()}-${String(cutoffDate.getMonth() + 1).padStart(2, '0')}-01`;
     const target = new Date(billingMonth);
 
-    // (a) Months MONEY actually reached — read from the item side, so a bill
-    // left empty by a void reads like a month never touched. Join customers for
-    // the inherited branch filter.
     const pBranch = this.branchWhere(branchFilter, this.BRANCH_SCOPES.charges, 'ch');
     const covered = await this.all<{
       customer_plan_id: string;
@@ -319,14 +305,12 @@ export class OfflineCustomerRepository
         .map((r) => r.customer_plan_id),
     );
 
-    // (a2) Lines whose month is skipped — nothing is owed, so they never count.
     const skipRows = await this.all<{ customer_plan_id: string }>(
       'SELECT customer_plan_id FROM skipped_months WHERE billing_month = ? AND skipped = 1',
       [billingMonth],
     );
     const skippedLineIds = new Set(skipRows.map((r) => r.customer_plan_id));
 
-    // (b) Active lines on active, regular customers — inherited branch filter.
     const lBranch = this.branchWhere(branchFilter, this.BRANCH_SCOPES.customer_plans, 'c');
     const lines = await this.all<{ id: string; customer_id: string; start_date: string }>(
       `SELECT cp.id, cp.customer_id, cp.start_date
@@ -340,9 +324,8 @@ export class OfflineCustomerRepository
     const dueCustomers = new Set<string>();
     for (const l of lines) {
       const [sy, sm] = l.start_date.split('-').map(Number);
-      if (new Date(`${sy}-${String(sm).padStart(2, '0')}-01`) > target) continue; // not started yet
-      if (skippedLineIds.has(l.id)) continue; // skipped month — not owed
-      // Billing day not reached yet — owes nothing this month, same as the grid.
+      if (new Date(`${sy}-${String(sm).padStart(2, '0')}-01`) > target) continue;
+      if (skippedLineIds.has(l.id)) continue;
       if (isNotDueYet(unpaidRule, year, monthStr, l.start_date)) continue;
       dueCustomers.add(l.customer_id);
       if (!coveredLineIds.has(l.id)) unpaidCustomers.add(l.customer_id);

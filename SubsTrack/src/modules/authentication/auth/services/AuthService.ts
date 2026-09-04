@@ -42,9 +42,6 @@ class AuthService {
     try {
       profile = await repository.getUserProfile(session.user.id);
     } catch (e) {
-      // Blocked tenant switch (unsynced writes on the previous tenant): undo the
-      // half-completed sign-in so we don't leave a dangling session, then surface
-      // the localized message.
       if (e instanceof OrganizationSwitchBlockedError) {
         await repository.signOut().catch(() => { });
       }
@@ -77,8 +74,6 @@ class AuthService {
     try {
       profile = await repository.getUserProfile(session.user.id);
     } catch (e) {
-      // Defensive: a blocked switch shouldn't happen on the same persisted
-      // session, but if it does, drop the session and fall back to the login screen.
       if (e instanceof OrganizationSwitchBlockedError) {
         await repository.signOut().catch(() => { });
         return null;

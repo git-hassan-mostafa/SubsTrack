@@ -25,7 +25,6 @@ export class BranchRepository extends BaseRepository implements IBranchRepositor
       .single();
     if (error) this.handleError(error);
     const created = data as DbBranch;
-    // A branch IS a branch: the entry is scoped to the row's own id.
     this.audit({
       table: 'branches',
       recordId: created.id,
@@ -40,7 +39,6 @@ export class BranchRepository extends BaseRepository implements IBranchRepositor
     id: string,
     payload: Partial<Pick<DbBranch, 'name' | 'active'>>,
   ): Promise<DbBranch> {
-    // A branch IS a branch: `id` is its own branch scope.
     return this.auditedUpdate<DbBranch>('branches', id, payload, {
       action: payload.active === true ? 'restore' : 'update',
       branchColumn: 'id',
@@ -51,13 +49,10 @@ export class BranchRepository extends BaseRepository implements IBranchRepositor
     await this.deleteMany([id]);
   }
 
-  // Hard-delete many branches in one statement. Referencing users/customers/plans
-  // fall back to "unassigned"/"shared" via their ON DELETE SET NULL constraints.
   async deleteMany(ids: string[]): Promise<void> {
     await this.auditedDelete<DbBranch>('branches', ids, { branchColumn: 'id' });
   }
 
-  // Soft-delete many branches in one statement.
   async deactivateMany(ids: string[]): Promise<void> {
     if (ids.length === 0) return;
     for (const id of ids) {
@@ -65,7 +60,6 @@ export class BranchRepository extends BaseRepository implements IBranchRepositor
     }
   }
 
-  // The subset of the given branches referenced by any user, customer, or plan.
   async referencedIds(ids: string[]): Promise<Set<string>> {
     if (ids.length === 0) return new Set();
     const [users, customers, plans] = await Promise.all([
@@ -85,8 +79,6 @@ export class BranchRepository extends BaseRepository implements IBranchRepositor
     return count ?? 0;
   }
 
-  // How many of the given branches are currently active — used by the bulk
-  // delete guard to ensure at least one active branch survives.
   async countActiveAmong(ids: string[]): Promise<number> {
     if (ids.length === 0) return 0;
     const { count, error } = await this.db
@@ -98,8 +90,6 @@ export class BranchRepository extends BaseRepository implements IBranchRepositor
     return count ?? 0;
   }
 
-  // Total references across users + customers + plans for this branch.
-  // Used by BranchService to choose hard-delete vs soft-delete.
   async countReferences(id: string): Promise<number> {
     const [users, customers, plans] = await Promise.all([
       this.db.from('users').select('id', { count: 'exact', head: true }).eq('branch_id', id),
@@ -113,10 +103,6 @@ export class BranchRepository extends BaseRepository implements IBranchRepositor
   }
 }
 
-// Platform seam: web talks to Supabase directly (unchanged); native uses the
-// offline SQLite repository. Services import this default, so neither services
-// nor slices change. The offline class is only constructed on native, so web
-// never opens a local DB.
 const impl: IBranchRepository =
   Platform.OS === 'web' ? new BranchRepository() : new OfflineBranchRepository();
 

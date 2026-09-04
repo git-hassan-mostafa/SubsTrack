@@ -26,21 +26,14 @@ export class OfflineAuthRepository extends OfflineBaseRepository implements IAut
   }
 
   async signOut(): Promise<void> {
-    // Best-effort: flush any un-pushed local writes while THIS session is still
-    // valid. After sign-out the session is gone, and a later different-tenant
-    // login can't push these rows (RLS) — so this is the one chance to force the
-    // "sync then switch". Only when something is actually pending (keeps a normal
-    // logout instant), and never let a sync failure block logout.
     try {
       if (await hasUnsyncedWrites(this.db)) await flushPendingWrites();
     } catch {
-      /* ignore — logout must still proceed even if the flush fails */
     }
     return this.online.signOut();
   }
 
   async getSession(): Promise<Session | null> {
-    // Reads the Supabase-persisted session from storage — works offline.
     return this.online.getSession();
   }
 
@@ -48,16 +41,7 @@ export class OfflineAuthRepository extends OfflineBaseRepository implements IAut
     if (await isOnline()) {
       const profile = await this.online.getUserProfile(userId);
       if (!profile) return profile;
-      // Scope the local DB to this tenant AND this user's branch view (wipe on a
-      // different-tenant OR different-branch-scope login), BEFORE caching the
-      // fresh profile. A tenant-wide admin (branch_id null) pulls every branch;
-      // a branch user pulls only their branch, so mixing them in one mirror
-      // would drop rows — re-scope instead.
       const scope = await ensureTenantScope(profile.tenant_id, profile.branch_id);
-      // A different tenant is logging in while the previous one still has un-pushed
-      // writes. We refuse rather than wipe (would lose money) or mix two tenants in
-      // one mirror. Thrown before caching anything so nothing is half-applied; the
-      // caller signs the new session back out.
       if (scope.blockedByPending) throw new OrganizationSwitchBlockedError();
       // Empty AFTER scoping — so a tenant switch (which just wiped) counts as empty
       // and blocks on the full pull below, instead of dropping the user into blank
@@ -66,14 +50,10 @@ export class OfflineAuthRepository extends OfflineBaseRepository implements IAut
       await upsertFromServer(this.db, 'users', profile);
       const branch = (profile as { branches?: DbBranch | null }).branches;
       if (branch) await upsertFromServer(this.db, 'branches', branch);
-      // Empty mirror (first login or just-wiped switch) → block on the initial pull;
-      // otherwise refresh in the background, and only if the mirror is a day stale
-      // (this runs on every session restore, i.e. every app open).
       if (wasEmpty) await runSync();
       else void runSyncIfDue();
       return profile;
     }
-    // Offline: serve the cached profile + hydrate its branch.
     const row = await this.first('SELECT * FROM users WHERE id = ?', [userId]);
     if (!row) return null;
     const user = this.decodeOne<DbUser>('users', row)!;

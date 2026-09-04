@@ -23,9 +23,6 @@ import {
 } from "@/src/core/offline";
 import { getDb } from "@/src/core/offline/db/sqlite";
 
-// Local-only bookkeeping tables that live outside the TABLES descriptor
-// (see src/core/offline/db/schema.ts) — included here so the Developer page
-// shows literally everything in the local SQLite file.
 const BOOKKEEPING_TABLES = ["sync_meta", "pending_deletes"];
 const ALL_TABLE_NAMES = [...TABLES.map((t) => t.name), ...BOOKKEEPING_TABLES];
 
@@ -41,8 +38,6 @@ export function DeveloperScreen() {
   const [resyncBusy, setResyncBusy] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
 
-  // Declared before the effect that depends on it (a `useCallback` isn't hoisted
-  // the way the old function declaration was).
   const refreshCounts = useCallback(async () => {
     const db = getDb();
     const next: Record<string, number> = {};
@@ -60,8 +55,6 @@ export function DeveloperScreen() {
     void refreshCounts();
   }, [refreshCounts]);
 
-  // Deep-linking could theoretically reach this route on web; there is
-  // nothing to show since web has no local SQLite mirror.
   if (!IS_OFFLINE_CAPABLE) {
     return (
       <SafeAreaView className="flex-1 bg-gray-50">
@@ -154,8 +147,6 @@ export function DeveloperScreen() {
     try {
       const db = getDb();
       await db.withTransactionAsync(async () => {
-        // "old data completely removed" — wipe every known table first,
-        // then insert only the rows the pasted JSON actually contains.
         for (const name of ALL_TABLE_NAMES) {
           await db.execAsync(`DELETE FROM ${name};`);
         }
@@ -312,8 +303,6 @@ export function DeveloperScreen() {
           placeholder={t("settings.developer_import_placeholder")}
           multiline
           numberOfLines={12}
-          // The one multiline box that keeps its own scroll: a pasted export can
-          // be thousands of lines, and letting it grow would blow up the page.
           scrollEnabled
           style={{ minHeight: 220, maxHeight: 220 }}
           autoCapitalize="none"

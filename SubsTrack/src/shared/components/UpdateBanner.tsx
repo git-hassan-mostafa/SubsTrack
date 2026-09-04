@@ -6,7 +6,6 @@ import { Text } from "./Text";
 import { PressableOpacity } from "./PressableOpacity/PressableOpacity";
 import { useAppUpdate } from "@/src/shared/hooks/useAppUpdate";
 
-// Clears the tab bar, whose height is `64 + bottom inset` in (tabs)/_layout.
 const TAB_BAR_HEIGHT = 64;
 
 /**

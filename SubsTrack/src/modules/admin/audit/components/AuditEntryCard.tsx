@@ -9,8 +9,6 @@ import { Text } from "@/src/shared/components/Text";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
 import { actionLabel, tableLabel } from "../utils/format";
 
-// Colour + icon per action, so the list scans by shape before you read it.
-// Tailwind classes (mirrors DebtItemCard) — there are no light danger/indigo tokens.
 const ACTION_STYLE: Record<
   AuditAction,
   {
@@ -77,10 +75,7 @@ export function AuditEntryCard({ entry, onPress }: AuditEntryCardProps) {
   const style = ACTION_STYLE[entry.action];
 
   const type = tableLabel(t, entry.table);
-  // Whose record it is, frozen at write time. Absent on records that belong to
-  // nobody (a plan, a setting) and on entries written before it existed.
   const subject = entry.subject;
-  // Almost always a customer; a stock movement's parent is its product.
   const subjectIcon =
     entry.table === "stock_movements" ? "cube-outline" : "person-outline";
 

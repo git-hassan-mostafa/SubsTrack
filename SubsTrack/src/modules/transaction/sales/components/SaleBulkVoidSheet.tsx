@@ -16,7 +16,6 @@ import {
 
 interface Props {
   saleIds: string[];
-  /** The sales' own bills — what a shared hand-over must be measured against. */
   chargeIds: string[];
   onVoided: (result: SaleVoidResult) => void;
   onDismiss: () => void;
@@ -37,15 +36,9 @@ export function SaleBulkVoidSheet({ saleIds, chargeIds, onVoided, onDismiss }: P
   const clearError = useSaleSlice((s) => s.clearError);
   const [reason, setReason] = useState("");
   const [shared, setShared] = useState<SharedBill[]>([]);
-  // The dialog is open while the lookup runs, so confirm must stay shut until
-  // it lands — otherwise Void is tappable before its gate has appeared.
   const [checking, setChecking] = useState(chargeIds.length > 0);
-  // Keyed on the ids themselves, so a new-but-equal array cannot re-run the read.
   const chargeKey = chargeIds.join(",");
 
-  // The OTHER bills these sales' hand-overs settled. A hand-over is voided
-  // whole, so voiding a sale can un-pay a month that shared the same cash —
-  // naming it is the only thing that makes that predictable.
   useEffect(() => {
     let live = true;
     const ids = chargeKey ? chargeKey.split(",") : [];
@@ -61,15 +54,12 @@ export function SaleBulkVoidSheet({ saleIds, chargeIds, onVoided, onDismiss }: P
           ids.map((id) => collectionService.getPaymentsForCharge(id)),
         );
         const payments = perCharge.flat().filter((c) => c.voidedAt === null);
-        // Deduped: one hand-over can settle several of the selected sales.
         const byId = new Map(payments.map((c) => [c.id, c]));
-        // Every selected sale is going, so its own bill is not collateral.
         const bills = sharedBillsAcross([...byId.values()], null, t).filter(
           (b) => !ids.includes(b.chargeId),
         );
         if (live) setShared(bills);
       } catch {
-        // A failed read must not block the void — the prose warning stands.
       } finally {
         if (live) setChecking(false);
       }
@@ -83,7 +73,7 @@ export function SaleBulkVoidSheet({ saleIds, chargeIds, onVoided, onDismiss }: P
     if (!user) return;
     clearError();
     const result = await voidSales(saleIds, user.id, reason);
-    if (result.ok === 0 && result.failed > 0) return; // total failure — keep open
+    if (result.ok === 0 && result.failed > 0) return;
     setReason("");
     onVoided(result);
   }

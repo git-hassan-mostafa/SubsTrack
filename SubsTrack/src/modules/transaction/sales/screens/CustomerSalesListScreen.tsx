@@ -50,8 +50,6 @@ export function CustomerSalesListScreen() {
   const customer = useCustomerSlice(
     (s) => s.items.find((c) => c.id === id) ?? null,
   );
-  // Void via the canonical global slice action so the voided sale also drops
-  // out of the Sales tab's cached list, not just this customer-scoped view.
   const voidSaleGlobal = useSaleSlice((s) => s.voidSale);
 
   const [searchText, setSearchText] = useState("");
@@ -70,7 +68,6 @@ export function CustomerSalesListScreen() {
 
   const [formOpen, setFormOpen] = useState(false);
   const [activeSale, setActiveSale] = useState<Sale | null>(null);
-  // The sale the form is correcting (see openEdit).
   const [editingSale, setEditingSale] = useState<Sale | null>(null);
   const [voidLoading, setVoidLoading] = useState(false);
   const selection = useSelection();
@@ -85,8 +82,6 @@ export function CustomerSalesListScreen() {
   useSelectionBackHandler(selectionActive, clearSelection);
   const [bulkNotice, setBulkNotice] = useState<string | null>(null);
 
-  // Every per-sale action (receipt / edit / send / history / void) — the same
-  // menu the Transactions tab and the customer panel offer.
   const saleActions = useSaleActions({
     onView: setActiveSale,
     onEdit: openEdit,
@@ -94,8 +89,6 @@ export function CustomerSalesListScreen() {
     onCollected: patch.collected,
   });
 
-  // Ensure the customer is loaded for the header + record-sale prefill when the
-  // page is reached without the detail screen having cached it first.
   useEffect(() => {
     if (id && !customer) void getCustomer(id);
   }, [id, customer, getCustomer]);
@@ -106,9 +99,6 @@ export function CustomerSalesListScreen() {
     try {
       await voidSaleGlobal(activeSale.id, user.id, reason);
       setActiveSale(null);
-      // Re-read, unlike every other write here: a void takes the sale's payments
-      // with it, and one of those may also have settled ANOTHER sale in this
-      // list — which the write never names.
       await refresh();
     } finally {
       setVoidLoading(false);
@@ -140,7 +130,6 @@ export function CustomerSalesListScreen() {
 
   async function handleVoided(result: SaleVoidResult) {
     clearSelection();
-    // See handleVoid: a void can move other sales too, so this one re-reads.
     await refresh();
     if (result.failed > 0) {
       setBulkNotice(

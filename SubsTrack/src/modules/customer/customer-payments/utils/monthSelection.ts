@@ -62,8 +62,6 @@ export function expandSelectionUnit(
       .map((m) => m.billingMonth);
   }
 
-  // A skipped month is never part of a payable block — selecting it only ever
-  // means "unskip this one".
   if (entry.status === "skipped") return [entry.billingMonth];
 
   if (!isPayable(entry)) return [];

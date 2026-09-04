@@ -1,10 +1,3 @@
-// Currency conversion + formatting. Pure utilities — no React, no Supabase.
-//
-// Convention everywhere in the app:
-//   - A "null" Currency means USD (the implicit base).
-//   - Stored amounts are literal numbers in their source currency (no canonical unit).
-//   - Conversion goes via USD: toUsd then fromUsd.
-
 import type { Currency } from '@/src/core/types';
 
 export function toUsd(amount: number, source: Currency | null): number {

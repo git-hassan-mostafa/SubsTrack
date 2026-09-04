@@ -21,20 +21,16 @@ export interface RecordRow {
 }
 
 export interface MoneyReport {
-  // Raw rows, kept so every drill-down is a filter — never a second query.
   cash: CashRow[];
   expenses: ExpenseItem[];
   collectedUsd: number;
   spentUsd: number;
   netUsd: number;
-  // Same three figures for the comparison period (same length, immediately
-  // before) — the only reason the previous window is fetched at all.
   prevCollectedUsd: number;
   prevSpentUsd: number;
   prevNetUsd: number;
   streamEntries: Entry[];
   categoryEntries: Entry[];
-  // What was PHYSICALLY collected, per currency.
   byCurrency: { currencyId: string | null; amount: number; usd: number }[];
 }
 
@@ -46,15 +42,11 @@ export interface AgingRow {
 }
 
 export interface DebtsReport {
-  // OUTSTANDING debt is ALL-TIME — DebtsFilter has no date scope and must not
-  // grow one. The period below applies only to debt COLLECTED.
   outstandingUsd: number;
-  // Money given up on in the period — a recorded loss, never counted as owed.
   writtenOffUsd: number;
   debtorCount: number;
   topDebtors: CustomerDebts[];
   categoryEntries: Entry[];
-  // Debt cash collected IN the period — the one period-scoped figure here.
   collected: CashRow[];
   collectedUsd: number;
   prevCollectedUsd: number;

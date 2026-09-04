@@ -26,7 +26,7 @@ interface LogExceptionInput {
  * itself and crash with "Cannot access '<var>' before initialization".
  */
 export async function logException(input: LogExceptionInput): Promise<void> {
-  if (!IS_OFFLINE_CAPABLE) return; // native only, per product decision
+  if (!IS_OFFLINE_CAPABLE) return;
 
   try {
     const { getStore } = require('@/src/state/globalStore') as { getStore: typeof GetStore };

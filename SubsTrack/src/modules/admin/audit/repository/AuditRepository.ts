@@ -14,8 +14,6 @@ import { OfflineAuditRepository } from './AuditRepository.offline';
  * selection has to narrow the query.
  */
 export class AuditRepository extends BaseRepository implements IAuditRepository {
-  // 'shared': a selected branch keeps its own rows AND the tenant-wide ones
-  // (branch_id IS NULL) — plans, settings and staff changes belong to no branch.
   private static readonly BRANCH_SCOPE = { kind: 'shared' } as const;
 
   private applyFilter<T extends Record<string, any>>(query: T, filter: AuditFilter): T {
@@ -34,8 +32,6 @@ export class AuditRepository extends BaseRepository implements IAuditRepository 
     let query = this.db
       .from('audit_logs')
       .select('*')
-      // occurred_at, never updated_at: the trail is ordered by when the staff
-      // member acted, not by when the row reached the server.
       .order('occurred_at', { ascending: false })
       .range(from, from + PAGE_SIZE - 1);
     query = this.applyFilter(query, filter);
@@ -58,8 +54,6 @@ export class AuditRepository extends BaseRepository implements IAuditRepository 
 
   async findForRecords(targets: AuditRecordTarget[]): Promise<AuditRows> {
     if (targets.length === 0) return { rows: [], source: 'server' };
-    // One OR of (table AND id) pairs. Two separate `.in()` calls would cross-match —
-    // a plan line's id would be accepted under table_name 'customers'.
     const clause = targets
       .map((tr) => `and(table_name.eq.${tr.table},record_id.eq.${tr.recordId})`)
       .join(',');
@@ -84,8 +78,6 @@ export class AuditRepository extends BaseRepository implements IAuditRepository 
   }
 }
 
-// Platform seam: web → Supabase directly; native → Supabase too, with this
-// device's un-pushed rows merged in and the local 30-day window as the fallback.
 const impl: IAuditRepository =
   Platform.OS === 'web' ? new AuditRepository() : new OfflineAuditRepository();
 

@@ -67,9 +67,6 @@ import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 
 interface CustomerPaymentPanelProps {
   customer: Customer;
-  // Bumped by the screen's pull-to-refresh. The grid is NOT reloaded on focus
-  // (that would re-query every time a sheet closes), so this is what picks up a
-  // month paid or voided on another device and synced down.
   refreshToken?: number;
 }
 
@@ -126,8 +123,6 @@ export function CustomerPaymentPanel({
   const clearPaymentError = usePaymentSlice((s) => s.clearError);
   const resetPayments = usePaymentSlice((s) => s.reset);
   const collect = useLedgerSlice((s) => s.collect);
-  // Not `ledger.voidChargeWithPayments` directly — a MONTH void must obey the
-  // newest-first order rule, which the payment slice owns (#79/#81).
   const voidMonthBill = usePaymentSlice((s) => s.voidMonthBill);
   const collecting = useLedgerSlice((s) => s.loadingCollect);
   const ledgerError = useLedgerSlice((s) => s.error);
@@ -137,8 +132,6 @@ export function CustomerPaymentPanel({
   const displayCurrencyId = useDisplayCurrencyId();
   const displayCurrency = findCurrency(currencies, displayCurrencyId);
 
-  // All of the customer's service lines (active + cancelled). Grids are built
-  // for every line so a cancelled line's history stays viewable.
   const lines = useMemo(
     () => customer.customerPlans ?? [],
     [customer.customerPlans],
@@ -152,12 +145,8 @@ export function CustomerPaymentPanel({
   const [year, setYear] = useState(getCurrentYearMonth().year);
   const [selectedLineId, setSelectedLineId] = useState<string | null>(null);
   const [menuEntry, setMenuEntry] = useState<MonthEntry | null>(null);
-  // The month a cell action is writing — swaps its 3-dot for a spinner.
   const [busyMonth, setBusyMonth] = useState<string | null>(null);
-  // The bill a "paid" cell opened — its own sheet lists every payment on it.
   const [billEntry, setBillEntry] = useState<MonthEntry | null>(null);
-  // What the collect sheet is about to take money for. One item = one month;
-  // several = a multi-select, split oldest-first by the waterfall.
   const [collectFor, setCollectFor] = useState<{
     items: OpenItem[];
     single: boolean;
@@ -167,15 +156,12 @@ export function CustomerPaymentPanel({
 
   const selection = useSelection();
   useSelectionBackHandler(selection.active, selection.clear);
-  // Set while a multi-select collect is in flight — the toolbar greys out.
   const bulkBusy = collecting;
-  // Months being skipped / unskipped (one cell, or a whole selection).
   const [skipRequest, setSkipRequest] = useState<{
     entries: MonthEntry[];
     mode: "skip" | "unskip";
   } | null>(null);
 
-  // Keep a valid line selected as lines load / change (prefer active lines).
   useEffect(() => {
     if (lines.length === 0) {
       setSelectedLineId(null);
@@ -185,33 +171,20 @@ export function CustomerPaymentPanel({
       const firstActive = lines.find((l) => l.active) ?? lines[0];
       setSelectedLineId(firstActive.id);
     }
-    // `linesKey` stays the content-based trigger; the rest are listed because the
-    // body is idempotent (a still-valid selection writes nothing).
   }, [linesKey, lines, selectedLineId]);
 
   const selectedLine = lines.find((l) => l.id === selectedLineId) ?? null;
   const plan = selectedLine?.plan ?? null;
-  // What this line costs — the plan's price, or the customer's own special price.
-  // Every amount and rate-snapshot currency below comes from here, never plan.price.
   const linePrice = resolveLinePrice(
     selectedLine ?? { customPrice: null, customCurrencyId: null, plan: null },
   );
   const grid = selectedLine
     ? (monthGridsByLine[selectedLine.id] ?? EMPTY_GRID)
     : EMPTY_GRID;
-  // First load is "no grid yet", NOT `loading` — the grid is derived a frame
-  // after the rows land (#130). A refresh keeps the built grid; an error drops
-  // the spinner so the banner is never left spinning.
   const gridPending = !paymentsError && (!billsReady || grid.length === 0);
-  // Every month this line has NOT covered, across ALL years — a backlog from a
-  // previous year blocks paying a later one even though the viewed grid can't
-  // show it, and a not-yet-due gap blocks a prepay jumping over it. Declared here
-  // because the quick-pay effect below depends on it.
   const lineUncoveredMonths = selectedLine
     ? (uncoveredMonthsByLine[selectedLine.id] ?? EMPTY_MONTHS)
     : EMPTY_MONTHS;
-  // The same, for the months this line HAS paid — a later paid month can sit
-  // outside the viewed year and still lock an unskip.
   const linePaidMonths = selectedLine
     ? (paidMonthsByLine[selectedLine.id] ?? EMPTY_MONTHS)
     : EMPTY_MONTHS;
@@ -227,36 +200,23 @@ export function CustomerPaymentPanel({
       findCurrency(currencies, linePrice.currencyId),
       displayCurrency,
     );
-    // `subscription.per_month` is already slash-prefixed ("/ month") in both locales.
     const withPeriod =
       linePrice.durationMonths > 1
         ? `${amount} / ${t("plans.n_months", { count: linePrice.durationMonths })}`
         : `${amount} ${t("subscription.per_month")}`;
-    // Flag a privately negotiated figure so it isn't read as the catalog price —
-    // for a bundle price too, which can now also be a line's own.
     return linePrice.kind === "special"
       ? `${withPeriod} · ${t("subscriptions.special_badge")}`
       : withPeriod;
   })();
 
-  // Loads the customer's WHOLE bill history — mount, customer change and
-  // pull-to-refresh only. Always a real read (no cached companion): a cache
-  // keyed on the customer id would keep serving the pre-sync grid after a
-  // month was paid or voided elsewhere.
   useEffect(() => {
     if (lines.length > 0) void fetchBills(customer.id);
   }, [customer.id, lines.length, fetchBills, refreshToken]);
 
-  // The grids are a pure derivation, so changing year re-derives — never
-  // re-queries (#121). Also covers the rows arriving and the lines changing.
-  // Gated on the rows having ARRIVED: deriving from an empty store paints a
-  // full year of red cells that reads as real data (#130).
   useEffect(() => {
     if (lines.length > 0 && billsReady) buildGrids(lines, year);
   }, [year, linesKey, lines, bills, skips, billsReady, buildGrids]);
 
-  // `selection.clear` (not `selection`) — the hook returns a fresh object each
-  // render, so depending on it would loop.
   const clearGridSelection = selection.clear;
   useEffect(() => {
     clearGridSelection();
@@ -355,7 +315,6 @@ export function CustomerPaymentPanel({
     );
   }
 
-  // ── Turning cells into collectable items ───────────────────────────────
 
   const monthLabelOf = useCallback(
     (entry: MonthEntry): string => {
@@ -369,9 +328,6 @@ export function CustomerPaymentPanel({
     [linePrice.durationMonths, plan?.name, t],
   );
 
-  // A cell as something money can be put against. Null only when no line is
-  // selected — a line with no set price still opens, with the amount left for
-  // staff to type (see `openAmount` on OpenItem).
   const itemFor = useCallback(
     (entry: MonthEntry): OpenItem | null => {
       if (!selectedLine) return null;
@@ -395,13 +351,6 @@ export function CustomerPaymentPanel({
     [selectedLine, customer, linePrice, currencies, monthLabelOf],
   );
 
-  /**
-   * The items a selection of payable cells becomes.
-   *
-   * On a multi-month plan the cells of one block share a single bill, so they
-   * collapse to ONE item per block — otherwise a 3-month plan would be billed
-   * three times for the same period.
-   */
   const itemsForEntries = useCallback(
     (entries: MonthEntry[]): OpenItem[] => {
       if (!selectedLine) return [];
@@ -413,7 +362,6 @@ export function CustomerPaymentPanel({
               entries.find((e) => e.billingMonth === b.startBillingMonth) ??
               entries.find((e) => e.billingMonth >= b.startBillingMonth);
             if (!cell) return null;
-            // The block is billed from its START month, whichever cell was tapped.
             return itemFor({ ...cell, billingMonth: b.startBillingMonth });
           })
           .filter((i): i is OpenItem => i !== null);
@@ -427,8 +375,6 @@ export function CustomerPaymentPanel({
     (entries: MonthEntry[], send = false) => {
       const items = itemsForEntries(entries);
       if (items.length === 0) return;
-      // A line with no set price has no amount to split, so each month needs its
-      // own typed figure — one at a time.
       if (items.length > 1 && items.some((i) => i.openAmount)) {
         void confirm({
           title: t("common.not_available"),
@@ -439,7 +385,6 @@ export function CustomerPaymentPanel({
         return;
       }
       setCollectFor({ items, single: items.length === 1, send });
-      // itemsForEntries is memoised by React Compiler; `t` is the only other read.
     },
     [itemsForEntries, t],
   );
@@ -455,27 +400,19 @@ export function CustomerPaymentPanel({
       return;
     }
 
-    // A skipped month is not payable — tapping it offers the unskip instead.
-    // Checked before the inactive gate: unskipping is not a payment, so it stays
-    // available on a cancelled plan / inactive customer. A locked skip has no
-    // unskip left, so it falls through to the collect path below.
     if (entry.status === "skipped" && !isLockedSkipped(entry)) {
       setSkipRequest({ entries: [entry], mode: "unskip" });
       return;
     }
 
-    // A month money has reached opens its BILL — which lists every payment made
-    // against it, and is where one of them can be voided.
     if (entry.status === "paid" && entry.charge) {
       setBillEntry(entry);
       return;
     }
 
-    // Future months are blocked when either the customer OR the line is inactive.
     if (isPayBlocked(entry)) {
       void confirm({
         title: t("common.not_available"),
-        // Customer-inactive takes priority; otherwise it's the plan that's cancelled.
         message: !customer.active
           ? t("payments.inactive_future_blocked")
           : t("payments.cancelled_plan_future_blocked"),
@@ -485,7 +422,6 @@ export function CustomerPaymentPanel({
       return;
     }
 
-    // Older month still open → collect that one first.
     const blocker = payOrderBlocker([entry]);
     if (blocker) {
       showPayOrderBlocked(blocker);
@@ -495,14 +431,10 @@ export function CustomerPaymentPanel({
     openCollect([entry]);
   }
 
-  // Re-arm once the param is cleared, so arriving here a second time on the
-  // same mounted screen still opens the sheet instead of doing nothing.
   useEffect(() => {
     if (quickPay !== "1") quickPayHandledRef.current = false;
   }, [quickPay]);
 
-  // ?quickPay=1 handshake from the customer list: collect the current month of
-  // the (first) selected line once its grid is ready. Fires at most once.
   useEffect(() => {
     if (quickPay !== "1" || quickPayHandledRef.current) return;
     if (paymentsLoading || grid.length === 0) return;
@@ -511,9 +443,6 @@ export function CustomerPaymentPanel({
     if (!currentEntry) return;
     quickPayHandledRef.current = true;
     router.setParams({ quickPay: undefined });
-    // A skipped month can't be paid — explain instead of opening the sheet.
-    // Unless a later paid month locked its unskip: collecting it is then the
-    // only way to settle it, so the sheet opens as usual.
     if (
       currentEntry.status === "skipped" &&
       blockingPaidMonths(linePaidMonths, [currentEntry.billingMonth]).length ===
@@ -527,8 +456,6 @@ export function CustomerPaymentPanel({
       });
       return;
     }
-    // Same oldest-first rule as a manual tap — the list can hand us a customer
-    // whose current month is unpaid but whose backlog is older still.
     const blocker = blockingUnpaidMonths(lineUncoveredMonths, [
       currentEntry.billingMonth,
     ])[0];
@@ -536,16 +463,10 @@ export function CustomerPaymentPanel({
       showPayOrderBlocked(blocker);
       return;
     }
-    // Wait for the push animation to finish before presenting the sheet: a
-    // bottom sheet presented mid-transition can end up never opening, which is
-    // why the plain-modal dialogs above always showed and this did not.
     const task = InteractionManager.runAfterInteractions(() =>
       openCollect([currentEntry]),
     );
     return () => task.cancel();
-    // The ref guard is what keeps this to a single firing; the deps are listed
-    // in full because React Compiler memoises the callbacks (never disable the
-    // hooks lint — it switches the compiler off for the whole file).
   }, [
     quickPay,
     paymentsLoading,
@@ -558,7 +479,6 @@ export function CustomerPaymentPanel({
     showPayOrderBlocked,
   ]);
 
-  // ── Collecting ─────────────────────────────────────────────────────────
 
   /**
    * Sends ONE receipt for a hand-over — the split it covers is listed inside.
@@ -639,8 +559,6 @@ export function CustomerPaymentPanel({
   async function voidBill(entry: MonthEntry): Promise<boolean> {
     const charge = entry.charge;
     if (!user || !charge) return false;
-    // Checked here as well as in the slice, so the "void August first" popup
-    // comes up INSTEAD of the destructive confirm, not after it.
     const blocker = voidOrderBlocker(
       coveredBillingMonths(
         charge.billingMonth ?? entry.billingMonth,
@@ -651,13 +569,7 @@ export function CustomerPaymentPanel({
       showVoidOrderBlocked(blocker);
       return false;
     }
-    // The hand-overs this month sits on, so the confirm can NAME the other
-    // bills they settled — a shared hand-over is voided whole, and prose alone
-    // read as boilerplate. The write reads their ids anyway; this is the same
-    // rows one step earlier, and only on a month that has a bill.
     let shared: SharedBill[] = [];
-    // The cell spins while this runs: it is a query before a dialog, so without
-    // it a tap looks ignored until the confirm appears.
     setBusyMonth(entry.billingMonth);
     try {
       const payments = await collectionService.getPaymentsForCharge(charge.id);
@@ -667,7 +579,6 @@ export function CustomerPaymentPanel({
         t,
       );
     } catch {
-      // A failed read must not block the void — the prose warning still stands.
     } finally {
       setBusyMonth(null);
     }
@@ -676,14 +587,12 @@ export function CustomerPaymentPanel({
       message: t("ledger.void_month_message", { month: monthLabelOf(entry) }),
       confirmLabel: t("ledger.void_month"),
       destructive: true,
-      // Shared cash: name the bills the void also un-pays.
       content:
         shared.length > 0
           ? () => <SharedBillsWarning bills={shared} />
           : undefined,
     });
     if (!ok) return false;
-    // Held past the re-read, so the cell stays busy until the grid is correct.
     setBusyMonth(entry.billingMonth);
     try {
       const result = await voidMonthBill(charge.id, user.id, null);
@@ -692,7 +601,6 @@ export function CustomerPaymentPanel({
         return false;
       }
       if (!result.ok) return false;
-      // Re-read, not patched — a voided hand-over may settle another month too.
       await fetchBills(customer.id);
       return true;
     } finally {
@@ -713,7 +621,6 @@ export function CustomerPaymentPanel({
   }
 
   async function handleQuickPay(entry: MonthEntry, send = false) {
-    // Quick pay skips openCollect, so the oldest-first gate is re-asserted here.
     const orderBlocker = payOrderBlocker([entry]);
     if (orderBlocker) {
       showPayOrderBlocked(orderBlocker);
@@ -794,8 +701,6 @@ export function CustomerPaymentPanel({
         caption: sendable ? undefined : t("invoice.no_phone"),
         onPress: () => void handleQuickPay(entry, true),
       });
-      // Part of the price now, the rest later — the sheet is where an amount
-      // below the full one is typed.
       items.push({
         key: "collect-part",
         label: t("ledger.collect_part"),
@@ -803,8 +708,6 @@ export function CustomerPaymentPanel({
         onPress: () => openCollect([entry]),
       });
     }
-    // Skip is offered on months with nothing to collect yet; a paid month must
-    // have its payment voided first, so the two actions never appear together.
     if (entry.status === "unpaid" || entry.status === "future") {
       items.push({
         key: "skip",
@@ -813,8 +716,6 @@ export function CustomerPaymentPanel({
         onPress: () => setSkipRequest({ entries: [entry], mode: "skip" }),
       });
     }
-    // Unskip is dropped once a later month is paid — the month can only be
-    // collected from here on, so the pay rows above are what's offered instead.
     if (entry.status === "skipped" && !isLockedSkipped(entry)) {
       items.push({
         key: "unskip",
@@ -823,9 +724,6 @@ export function CustomerPaymentPanel({
         onPress: () => setSkipRequest({ entries: [entry], mode: "unskip" }),
       });
     }
-    // A month money has reached: its bill lists every payment on it, and one
-    // payment is voided from there — the narrow correction, when only that cash
-    // was wrong.
     if (entry.status === "paid" && entry.charge) {
       items.push({
         key: "bill",
@@ -842,10 +740,6 @@ export function CustomerPaymentPanel({
         });
       }
     }
-    // Void the whole month — the wide correction, for a month that should never
-    // have been billed. Offered wherever a bill exists, which includes an UNPAID
-    // month still holding the bill a voided payment left behind (that bill keeps
-    // the frozen price, so removing it is a real decision, not a no-op).
     if (entry.charge) {
       items.push({
         key: "void-month",
@@ -858,21 +752,15 @@ export function CustomerPaymentPanel({
     return items;
   }
 
-  // --- Multi-select (bulk) ---------------------------------------------------
 
   const selectedEntries = grid.filter((m) =>
     selection.selectedIds.has(m.billingMonth),
   );
-  // Payable in bulk: unpaid, a future-status (prepay) slot, a skipped month
-  // whose unskip is locked, or a partly-paid month with a balance left — but
-  // never a calendar-future month on a cancelled plan / inactive customer.
   const payableEntries = selectedEntries.filter(
     (e) =>
       !isPayBlocked(e) &&
       (isPayableStatus(e) || (e.status === "paid" && e.balance > 0)),
   );
-  // Skippable = nothing collected yet on that month; unskippable = already
-  // skipped, minus the ones a later paid month locked (collect those instead).
   const skippableEntries = selectedEntries.filter(
     (e) => e.status === "unpaid" || e.status === "future",
   );
@@ -894,8 +782,6 @@ export function CustomerPaymentPanel({
 
   function runBulkPay(send = false) {
     if (bulkBusy || payableEntries.length === 0) return;
-    // The whole selection is judged at once, so a backlog selected together
-    // passes while cherry-picking a later month does not.
     const blocker = payOrderBlocker(payableEntries);
     if (blocker) {
       showPayOrderBlocked(blocker);
@@ -913,8 +799,6 @@ export function CustomerPaymentPanel({
       disabled: bulkBusy,
       onPress: () => runBulkPay(),
     });
-    // One receipt for the whole hand-over — hidden (not disabled) without a
-    // number, since the toolbar is icon-sized and has nowhere for a caption.
     if (canSend(customer.phoneNumber)) {
       selectionActions.push({
         key: "pay-whatsapp",
@@ -959,8 +843,6 @@ export function CustomerPaymentPanel({
   const paidCount = grid.filter((m) => m.status === "paid").length;
   const unpaidCount = grid.filter((m) => m.status === "unpaid").length;
   const skippedCount = grid.filter((m) => m.status === "skipped").length;
-  // Collected in the viewed year, from the bills themselves — each converted at
-  // the rate its own bill froze, so an edited rate never moves last year's total.
   const collectedTotalUsd = bills
     .filter(
       (b) =>
@@ -974,8 +856,6 @@ export function CustomerPaymentPanel({
     displayCurrency,
   );
 
-  // Back-limit for the year navigator: the selected line's start year, or —
-  // before a line is selected — the earliest of all the customer's lines.
   const minYear = selectedLine
     ? new Date(selectedLine.startDate).getFullYear()
     : Math.min(
@@ -983,8 +863,6 @@ export function CustomerPaymentPanel({
         getCurrentYearMonth().year,
       );
 
-  // Swipe left/right on the grid steps the year (forward = next year, back =
-  // previous, clamped at the line's start year like the chevron buttons).
   const stepYear = useCallback(
     (delta: number) =>
       setYear((y) => (delta < 0 && y <= minYear ? y : y + delta)),
@@ -995,16 +873,12 @@ export function CustomerPaymentPanel({
     onPrev: () => stepYear(-1),
   });
 
-  // The collect sheet shows the ledger error itself, right by its Save button,
-  // so the panel behind it must not print the same message twice.
   const error = paymentsError ?? (collectFor ? null : ledgerError);
   const clearErrors = () => {
     clearPaymentError();
     clearLedgerError();
   };
 
-  // Empty state — a customer with no service lines (rare: every customer keeps
-  // ≥1 line, managed from the customer form's Plans editor).
   if (lines.length === 0) {
     return (
       <View className="bg-white mx-4 mt-4 rounded-2xl border border-gray-100 px-4 py-8 items-center">
@@ -1257,8 +1131,6 @@ export function CustomerPaymentPanel({
               lines: values.lines,
             });
             if (!created) return;
-            // Closed BEFORE the grid patch, or the re-derive it triggers holds
-            // the JS thread and the sheet sits there finished but open (#122).
             setCollectFor(null);
             selection.clear();
             await afterCollect(created, send);
@@ -1282,8 +1154,6 @@ export function CustomerPaymentPanel({
             const entry = billEntry;
             return entry ? await voidBill(entry) : false;
           }}
-          // A hand-over was voided in the sheet — take its money back off the
-          // bills already in the store instead of re-reading the customer.
           onChanged={(voided) => applyCollection(voided, -1)}
           onDismiss={() => setBillEntry(null)}
         />

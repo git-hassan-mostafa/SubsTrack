@@ -8,9 +8,6 @@ import repository from '../repository/SubscriptionRepository';
 import { mapDbTenantToTenant, mapDbTierPlanToTierPlan } from '../utils/mapper';
 import { TierLimitError } from '../utils/tierLimitError';
 
-// Thrown when a service-level limit check fails. The store catches this
-// (instanceof check), reads the structured fields, and the UI swaps in
-// the UpgradePromptModal instead of an ErrorBanner. We do NOT parse strings.
 
 interface MaxField {
   customers: 'maxCustomers';
@@ -49,8 +46,6 @@ class TierService {
     return db ? mapDbTenantToTenant(db) : null;
   }
 
-  // Throws TierLimitError if the tenant has hit the limit for `resource`.
-  // Called from every feature Service.createX() right after its existing validate().
   assertCanCreate(tier: TierPlan, usage: TenantUsage, resource: TierResource): void {
     const limit = tier[MAX_FIELD[resource]];
     if (limit === null) return;
@@ -71,8 +66,6 @@ class TierService {
     }
   }
 
-  // Returns the list of resources/features that would exceed the target tier's
-  // limits if the tenant downgraded. Empty array = safe to downgrade.
   canDowngradeTo(
     targetTier: TierPlan,
     usage: TenantUsage,

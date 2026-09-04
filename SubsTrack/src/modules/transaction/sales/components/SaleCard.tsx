@@ -32,7 +32,6 @@ function stripCurrencyLabel(
 interface Props {
   sale: Sale;
   onPress: (sale: Sale) => void;
-  // Opens the row's 3-dot menu (every action the sale offers). Omit to hide it.
   onMenu?: (sale: Sale) => void;
   selectionMode?: boolean;
   selected?: boolean;
@@ -55,9 +54,6 @@ export function SaleCard({
   const { language } = useLanguageStore();
   const locale = language === "ar" ? "ar" : "en-US";
 
-  // snapshotCurrency works for any row carrying a `currencyId` +
-  // `ratePerUsdSnapshot` pair (it's not payment-specific despite the name).
-  // The Sale shape matches that contract.
   const source = snapshotCurrency(sale, currencies);
   const target = findCurrency(currencies, displayCurrencyId);
   const voided = sale.voidedAt !== null;

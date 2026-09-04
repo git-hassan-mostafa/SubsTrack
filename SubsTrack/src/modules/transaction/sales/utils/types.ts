@@ -6,13 +6,10 @@ export interface FindSalesOptions {
     searchQuery?: string;
     customerId?: string | null;
     productId?: string | null;
-    // Calendar-day bounds (YYYY-MM-DD), both inclusive. The repository converts
-    // them to sold_at timestamp bounds (end-of-day handled via next-day exclusive).
     fromDate?: string | null;
     toDate?: string | null;
     branchFilter?: BranchFilter;
     includeVoided?: boolean;
-    // Only the reversals. Needs includeVoided too, exactly like a collection.
     voidedOnly?: boolean;
 }
 
@@ -39,8 +36,6 @@ export interface CreateSaleInput {
     items: CreateSaleItemInput[];
     customerId: string | null;
     branchId: string | null;
-    // How much was collected at sale time (in `currency`). Must be 0..total.
-    // A value below the total leaves a "Sales" debt.
     amountPaid: number;
     currency: Currency | null;
     recordedByUserId: string | null;
@@ -66,8 +61,6 @@ export interface UpdateSaleInput {
     currency: Currency | null;
     notes: string | null;
     actorUserId: string | null;
-    // Extra cash handed over right now, on top of whatever was already
-    // collected. 0 / omitted for an edit that only corrects the sale.
     collectNow?: number;
 }
 

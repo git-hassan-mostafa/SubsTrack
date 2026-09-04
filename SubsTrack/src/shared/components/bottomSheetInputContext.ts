@@ -11,15 +11,6 @@ import {
   BottomSheetTextInput,
 } from "@gorhom/bottom-sheet";
 
-/**
- * True while the subtree is rendered inside a Gorhom bottom sheet
- * ({@link AppBottomSheet} provides `true`). Text inputs read this to decide
- * whether they must be Gorhom's `BottomSheetTextInput` — which is what lets the
- * sheet keep the focused field above the keyboard and stops the sheet's pan
- * gesture from stealing the tap. `BottomSheetTextInput` calls
- * `useBottomSheetInternal()` internally, so it MUST NOT be rendered outside a
- * sheet — hence the plain-`TextInput` fallback.
- */
 export const InsideBottomSheetContext = createContext(false);
 
 /**

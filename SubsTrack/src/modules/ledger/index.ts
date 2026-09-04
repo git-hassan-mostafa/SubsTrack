@@ -1,6 +1,3 @@
-// The money model: charges (what is owed) + collections (money handed over) +
-// collection_items (which bill that money paid). See docs/features.md → Ledger.
-
 export { chargeService } from './services/ChargeService';
 export { collectionService } from './services/CollectionService';
 export { ledgerService } from './services/LedgerService';

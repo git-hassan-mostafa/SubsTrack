@@ -38,12 +38,7 @@ export interface SaleCartDraft {
   total: number;
   currency: Currency | null;
   currencyId: string | null;
-  // true when there is ≥1 line and no half-filled row.
   ready: boolean;
-  // Whether the cart differs from what it was seeded with. The editor answers
-  // this itself because it owns the baseline: it re-reports the draft from an
-  // effect one render after mount, so the parent's `useDirtyForm` would read an
-  // empty cart as the baseline and call an untouched edit form dirty.
   dirty: boolean;
 }
 
@@ -63,12 +58,9 @@ export interface SaleEditorInitial {
 }
 
 interface Props {
-  // Called whenever the cart changes. Pass a stable setter (React setState).
   onChange: (draft: SaleCartDraft) => void;
   onFocusClearError?: () => void;
-  // Edit mode: seed the cart from a saved sale. Pass a stable object.
   initial?: SaleEditorInitial | null;
-  // Cash already collected freezes the sale currency — see gotcha #111.
   currencyLocked?: boolean;
 }
 
@@ -76,11 +68,8 @@ type Row = {
   key: string;
   lineType: SaleLineType;
   productId: string | null;
-  // null on a service row means the ONE-OFF: `customName` is then what is sold.
   serviceId: string | null;
   customName: string;
-  // Product rows only. A service is one job at one price, so a service row is
-  // pinned to 1 and shows no stepper.
   quantity: number;
   unitAmount: number | null;
 };
@@ -115,12 +104,8 @@ function buildInitialRows(initial?: SaleEditorInitial | null): Row[] {
     lineType: it.lineType,
     productId: it.productId,
     serviceId: it.serviceId,
-    // Only a one-off service keeps its name in the row; otherwise the catalog
-    // pick supplies it, and holding a copy here would fight a later rename.
     customName:
       it.lineType === "service" && it.serviceId === null ? it.name : "",
-    // A service line carries no count. Any stored value above 1 is legacy data,
-    // and the form's total re-reads it as 1 so what is shown is what will save.
     quantity: it.lineType === "service" ? 1 : it.quantity,
     unitAmount: it.unitAmount,
   }));
@@ -171,33 +156,20 @@ export function SaleItemsEditor({
   const { lastUsedCurrencyId } = useUiPrefStore();
 
   const [rows, setRows] = useState<Row[]>(() => buildInitialRows(initial));
-  // Suffix of the last row added in this session. Only ever touched from an event
-  // handler — never during render.
   const rowKey = useRef(rows.length - 1);
-  // The single currency for the whole sale. In edit mode it is the sale's own;
-  // otherwise last-used, until the first catalog item is picked (which adopts its
-  // currency, unless the user has already changed it manually).
   const [currencyId, setCurrencyId] = useState<string | null>(
     initial ? initial.currencyId : (lastUsedCurrencyId ?? null),
   );
-  // An edited sale already has its currency — nothing may hijack it.
   const [currencyTouched, setCurrencyTouched] = useState(initial != null);
   const [addProductOpen, setAddProductOpen] = useState(false);
-  // Which row asked for a new service, so the created one can be selected there.
   const [addServiceFor, setAddServiceFor] = useState<string | null>(null);
-  // Frozen on the first render, so "dirty" means the user changed something.
   const [baseline] = useState(() => signatureOf(rows, currencyId));
 
-  // Both self-guard on their slice's `loaded` flag — no length check, and no
-  // re-query on every sale-form open for a tenant with no rows yet.
   useEffect(() => {
     void getProducts();
     void getServices();
   }, [getProducts, getServices]);
 
-  // Units the sale being edited is holding. They come back to the pool as part
-  // of the same save, so they count as available here — otherwise re-pricing a
-  // sale that took the last unit would read as out of stock. Product lines only.
   const stockCredit = useMemo(() => {
     const credit = new Map<string, number>();
     for (const it of initial?.items ?? []) {
@@ -207,16 +179,11 @@ export function SaleItemsEditor({
     return credit;
   }, [initial]);
 
-  // Products this cart may hold: the catalog's active ones, plus any product
-  // already on the sale that has been deactivated since (or the edit could not
-  // even re-save the line it is standing on).
   const sellableProducts = useMemo(
     () => products.filter((p) => p.active || stockCredit.has(p.id)),
     [products, stockCredit],
   );
 
-  // Same rule for services: a retired one stays selectable on the line that
-  // already carries it.
   const usedServiceIds = useMemo(
     () =>
       new Set(
@@ -231,7 +198,6 @@ export function SaleItemsEditor({
     [services, usedServiceIds],
   );
 
-  // On-hand plus what this sale is giving back — the real ceiling for the cart.
   const poolFor = useCallback(
     (product: Product) => product.stockOnHand + (stockCredit.get(product.id) ?? 0),
     [stockCredit],
@@ -242,10 +208,6 @@ export function SaleItemsEditor({
 
   const saleCurrency = findCurrency(currencies, currencyId);
 
-  // Prices show in the sale currency so items priced in different currencies
-  // stay comparable — and match the unit amount the pick will prefill.
-  // Out-of-stock products stay listed but greyed out, so the user can see why
-  // they can't be sold. SaleService re-checks on submit — this is only a hint.
   const productOptions: DropdownOption<string>[] = sellableProducts.map((p) => {
     const pool = poolFor(p);
     return {
@@ -255,13 +217,10 @@ export function SaleItemsEditor({
           ? `${formatMoney(p.price, findCurrency(currencies, p.currencyId), saleCurrency)} · ${t("sales.stock_left", { quantity: pool })}`
           : t("products.out_of_stock"),
       value: p.id,
-      // A product retired since the sale was recorded can stay on its line but
-      // must not be picked for a new one.
       disabled: pool <= 0 || !p.active,
     };
   });
 
-  // No stock line and nothing to disable — labour never runs out.
   const serviceOptions: DropdownOption<string>[] = sellableServices.map((s) => ({
     label: s.name,
     sublabel: formatMoney(
@@ -315,7 +274,6 @@ export function SaleItemsEditor({
           ? {
               ...r,
               productId,
-              // A switch to a lower-stock product must not carry the old quantity over.
               quantity: product
                 ? Math.min(r.quantity, Math.max(1, availableIn(prev, key, productId)))
                 : r.quantity,
@@ -339,8 +297,6 @@ export function SaleItemsEditor({
           ? {
               ...r,
               serviceId: service?.id ?? null,
-              // Back to "Other": the typed name takes over, so drop the price the
-              // catalog pick filled in and let the user set it.
               customName: service ? "" : r.customName,
               unitAmount: service ? priceInCurrency(service, target) : null,
             }
@@ -363,8 +319,6 @@ export function SaleItemsEditor({
     setCurrencyTouched(true);
     setCurrencyId(nextId);
     const target = findCurrency(currencies, nextId);
-    // Re-price every catalog line from its own price into the new currency. A
-    // one-off service has no catalog price, so its typed amount is left alone.
     setRows((prev) =>
       prev.map((r) => {
         const catalogItem =
@@ -414,7 +368,6 @@ export function SaleItemsEditor({
     applyService(addServiceFor, service);
   }
 
-  // Resolve the cart draft and report it to the parent whenever it changes.
   useEffect(() => {
     const lines: SaleLineDraft[] = [];
     let incomplete = false;
@@ -442,9 +395,6 @@ export function SaleItemsEditor({
         incomplete = true;
       }
     }
-    // Sum per product, not per line — the same product can sit on two rows and
-    // only their total is what stock has to cover. Mirrors SaleService's check;
-    // service lines take no stock, so they are absent here.
     const perProduct = new Map<string, number>();
     for (const l of lines) {
       if (l.kind !== "product") continue;

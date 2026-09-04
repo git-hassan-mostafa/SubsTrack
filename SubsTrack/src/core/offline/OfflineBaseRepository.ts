@@ -15,13 +15,6 @@ export type OfflineBranchScope =
   | { kind: 'shared'; column?: string }
   | { kind: 'inherited'; joinedTable: string; column?: string };
 
-/**
- * The offline counterpart to BaseRepository. Holds the SQLite handle, an
- * error path that throws the SAME `Error(message)` shape services already
- * catch, the branch-scope SQL builder, generic read helpers, and the atomic
- * write+outbox transaction. Offline repos extend this so they read like the
- * Supabase ones.
- */
 export abstract class OfflineBaseRepository {
   protected get db(): SQLiteDatabase {
     return getDb();
@@ -39,35 +32,11 @@ export abstract class OfflineBaseRepository {
     throw new Error(i18n.t('errors.unexpected'));
   }
 
-  /**
-   * Append one entry to the audit trail, INSIDE the caller's `write()`
-   * transaction — pass the `db` handle `write()` gave you, never `this.db`. That
-   * is what guarantees a change and its trail commit or roll back together, and
-   * that both work with no network.
-   *
-   * A no-op edit (nothing actually changed) writes nothing. Unlike the online
-   * `audit()`, a failure here DOES propagate: it would roll back the surrounding
-   * transaction, which is the correct outcome — a local write we cannot account
-   * for is worse than a failed save the user can retry.
-   */
   protected async auditIn(db: SQLiteDatabase, input: AuditInput): Promise<void> {
     const row = buildAuditRow(input);
     if (row) await insertDirty(db, 'audit_logs', row);
   }
 
-  /**
-   * `UPDATE` one row by id and record the diff, in one transaction. Covers the
-   * repeated read-patch-diff dance for tables whose branch is their own
-   * `branch_id` column (plans, products, branches, currencies, users, …).
-   *
-   * `branchColumn: null` marks a table with no branch dimension at all
-   * (currencies, tenant_settings) — the entry gets `branch_id = null`, meaning
-   * "tenant-wide", so every admin can see it.
-   *
-   * `audit` supplies the facts that don't live on the row itself, for a child row
-   * whose PARENT owns them (a stock movement's branch and product name). Its
-   * `branchId` wins over `branchColumn`.
-   */
   protected async auditedUpdate<T extends { id: string }>(
     table: AuditInput['table'],
     id: string,
@@ -95,7 +64,6 @@ export abstract class OfflineBaseRepository {
           branchId:
             opts.audit?.branchId ??
             (branchColumn ? ((after[branchColumn] as string | null) ?? null) : null),
-          // undefined, not null, when unset — buildAuditRow's own fallback must still run.
           subject: opts.audit?.subject,
         });
       }
@@ -103,11 +71,6 @@ export abstract class OfflineBaseRepository {
     });
   }
 
-  /**
-   * Hard-delete rows by id, logging each for replay and snapshotting it first —
-   * a delete's whole value in the trail is the copy of what was removed.
-   * `branchColumn` follows the same rule as `auditedUpdate`.
-   */
   protected async auditedDelete<T extends { id: string }>(
     table: AuditInput['table'],
     ids: string[],
@@ -136,7 +99,6 @@ export abstract class OfflineBaseRepository {
     });
   }
 
-  // Same per-table branch semantics as BaseRepository.BRANCH_SCOPES.
   protected readonly BRANCH_SCOPES = {
     customers: { kind: 'owned' },
     users: { kind: 'owned' },
@@ -148,20 +110,9 @@ export abstract class OfflineBaseRepository {
     services: { kind: 'shared' },
     sales: { kind: 'owned' },
     expenses: { kind: 'owned' },
-    // Money, not stock: a SHARED product's purchase is a company expense, so it
-    // must NOT be 'shared' here or every branch would count the same spend.
     stock_movements: { kind: 'inherited', joinedTable: 'products' },
   } satisfies Record<string, OfflineBranchScope>;
 
-  /**
-   * Build a WHERE fragment + params reproducing `applyBranchFilter`:
-   *   null                     → '' (no filter)
-   *   UNASSIGNED               → <alias>.branch_id IS NULL
-   *   UUID, owned              → <alias>.branch_id = ?
-   *   UUID, shared             → (<alias>.branch_id IS NULL OR <alias>.branch_id = ?)
-   *   UUID, inherited          → caller JOINs the parent and passes its alias
-   * `alias` is the table/alias the branch column lives on.
-   */
   protected branchWhere(
     filter: BranchFilter,
     scope: OfflineBranchScope,
@@ -177,7 +128,6 @@ export abstract class OfflineBaseRepository {
     return { clause: `${col} = ?`, params: [filter] };
   }
 
-  /** Combine WHERE fragments (dropping empties) into a single clause + params. */
   protected combineWhere(
     parts: { clause: string; params: unknown[] }[],
   ): { sql: string; params: unknown[] } {
@@ -189,7 +139,6 @@ export abstract class OfflineBaseRepository {
     };
   }
 
-  /** A case-insensitive multi-column LIKE OR fragment (the `ilike` equivalent). */
   protected searchWhere(columns: string[], term?: string): { clause: string; params: unknown[] } {
     const q = sanitizeSearchTerm(term);
     if (!q) return { clause: '', params: [] };
@@ -200,7 +149,6 @@ export abstract class OfflineBaseRepository {
     };
   }
 
-  // ── low-level read ──────────────────────────────────────────────────────
   protected all<T = Record<string, unknown>>(sql: string, params: unknown[] = []): Promise<T[]> {
     return this.db.getAllAsync<T>(sql, params as never[]);
   }
@@ -212,10 +160,6 @@ export abstract class OfflineBaseRepository {
     return this.db.getFirstAsync<T>(sql, params as never[]);
   }
 
-  /**
-   * The audit facts a child row inherits from its owning customer — mirrors
-   * `BaseRepository.customerAudit`. See it for why both come from one query.
-   */
   protected async customerAudit(
     customerId: string,
   ): Promise<{ branchId: string | null; subject: string | null; customerId: string }> {
@@ -226,10 +170,6 @@ export abstract class OfflineBaseRepository {
     return { branchId: row?.branch_id ?? null, subject: row?.name ?? null, customerId };
   }
 
-  /**
-   * Just the frozen customer name, for a table that already owns its branch_id
-   * (sales). `null` for a record with no customer — a walk-in sale.
-   */
   protected async customerSubject(customerId: string | null): Promise<string | null> {
     if (!customerId) return null;
     return (await this.customerAudit(customerId)).subject;
@@ -243,7 +183,6 @@ export abstract class OfflineBaseRepository {
     return row ? decodeRow<T>(table, row) : null;
   }
 
-  /** Children of a parent set keyed by FK — the building block for join hydration. */
   protected async childrenByParent<T>(
     table: string,
     fkColumn: string,
@@ -267,7 +206,6 @@ export abstract class OfflineBaseRepository {
     return map;
   }
 
-  /** A single related row per id (e.g. plan for a line) keyed by id. */
   protected async rowsById<T>(table: string, ids: string[]): Promise<Map<string, T>> {
     const map = new Map<string, T>();
     const unique = [...new Set(ids.filter(Boolean))];
@@ -281,7 +219,6 @@ export abstract class OfflineBaseRepository {
     return map;
   }
 
-  /** Parity with BaseRepository.referencedIdsIn — subset of ids present in table.column. */
   protected async referencedIdsIn(
     table: string,
     column: string,
@@ -301,16 +238,7 @@ export abstract class OfflineBaseRepository {
     return r?.n ?? 0;
   }
 
-  // ── write (local mutation, atomic) ───────────────────────────────────────
-  /**
-   * Run one or more local mutations in a single transaction. The dml helpers
-   * (`insertDirty` / `updateDirty` / `upsertNaturalKeyDirty`) mark rows `_dirty = 1`
-   * so the next push sends them; hard deletes call `markDeleted(db, table, id)`.
-   * No outbox — the `_dirty` flag + `pending_deletes` are the whole write intent.
-   */
   protected write<T>(fn: (db: SQLiteDatabase) => Promise<T>): Promise<T> {
-    // `withDbLock` is shared with the sync engine — one connection, one queue, so
-    // a save during a running pull waits instead of throwing (see dbLock.ts).
     return withDbLock(async () => {
       let result!: T;
       await this.db.withTransactionAsync(async () => {

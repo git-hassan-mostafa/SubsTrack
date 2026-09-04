@@ -5,10 +5,8 @@ import { useRecordHistory } from "../hooks/useRecordHistory";
 import { HistorySheet } from "./HistorySheet";
 
 interface RecordHistorySheetProps {
-  /** The audited table the record belongs to, e.g. 'payments'. */
   table: AuditTable;
   recordId: string;
-  /** The record's own name, so the header says whose trail this is. */
   subtitle?: string | null;
   onDismiss: () => void;
 }
@@ -28,8 +26,6 @@ export function RecordHistorySheet({
   onDismiss,
 }: RecordHistorySheetProps) {
   const { t } = useTranslation();
-  // Local to this sheet, so closing it needs no cleanup and two open sheets can't
-  // overwrite each other's entries.
   const targets = useMemo(() => [{ table, recordId }], [table, recordId]);
   const timeline = useRecordHistory(targets);
 

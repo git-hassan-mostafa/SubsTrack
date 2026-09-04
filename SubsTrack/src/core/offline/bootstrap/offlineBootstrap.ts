@@ -8,7 +8,5 @@ import { pruneWindowedTables } from '../sync';
 export async function initOffline(): Promise<void> {
   if (!IS_OFFLINE_CAPABLE) return;
   await initOfflineDb();
-  // Also pruned after each sync cycle; doing it here too keeps a device that
-  // stays offline for months from growing its audit window without bound.
   await pruneWindowedTables(getDb());
 }

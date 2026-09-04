@@ -11,7 +11,6 @@ interface Props {
   error: string | null;
   onClearError: () => void;
   onRefresh: () => void;
-  /** True when the report loaded but holds nothing for this period. */
   empty?: boolean;
   emptyMessage?: string;
   emptySubMessage?: string;

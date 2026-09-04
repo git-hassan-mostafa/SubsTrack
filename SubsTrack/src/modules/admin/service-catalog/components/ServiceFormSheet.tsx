@@ -21,8 +21,6 @@ interface Props {
   service?: Service | null;
   onDismiss: () => void;
   onRequestDelete?: (service: Service) => void;
-  // Called with the saved row, so a caller that opened this from a sale line can
-  // select what it just created.
   onSaved?: (service: Service) => void;
 }
 
@@ -70,8 +68,6 @@ export function ServiceFormSheet({
     branchId: defaultBranchId,
   });
 
-  // CurrencyInput self-seeds `currencyId` from the last-used currency after
-  // mount, so it changes with no user action — ignore it in the dirty check.
   const dirty = useDirtyForm(form, ["currencyId"]);
 
   useEffect(() => {

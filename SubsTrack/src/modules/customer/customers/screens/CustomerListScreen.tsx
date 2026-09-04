@@ -126,11 +126,9 @@ export function CustomerListScreen() {
   );
   const [menuCustomer, setMenuCustomer] = useState<Customer | null>(null);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
-  // Quick-action sheets launched from the card menu, each scoped to one customer.
   const [customDebtCustomer, setCustomDebtCustomer] = useState<Customer | null>(
     null,
   );
-  // Whose pool the collect sheet is loading. It opens once `owed` lands.
   const [collectCustomer, setCollectCustomer] = useState<Customer | null>(null);
   const [saleCustomer, setSaleCustomer] = useState<Customer | null>(null);
   const [historyCustomer, setHistoryCustomer] = useState<Customer | null>(null);
@@ -153,23 +151,15 @@ export function CustomerListScreen() {
     setSearchQuery(debouncedSearch);
   }, [debouncedSearch]);
 
-  // Loads on mount AND re-fetches when the user switches the branch chip.
   useEffect(() => {
     clearSelection();
     fetchCustomers();
     void fetchNetDebtByCustomer();
   }, [branchFilter, clearSelection, fetchCustomers, fetchNetDebtByCustomer]);
 
-  // Rebuilds every badge on focus and whenever the loaded customer set changes
-  // (reload, pagination). ONE call covers this month AND older unpaid months, so
-  // the two facts always land together — the badge is never assembled from a
-  // half-loaded picture. Refreshing on focus keeps it correct after a month is
-  // paid from the detail panel.
   useFocusEffect(
     useCallback(() => {
       void fetchCustomerStatuses(customers);
-      // Refresh debt flags on return — debts change from the Debts tab, quick
-      // pay, and partial payments made in the detail panel.
       void fetchNetDebtByCustomer();
     }, [customers, fetchCustomerStatuses, fetchNetDebtByCustomer]),
   );
@@ -187,29 +177,20 @@ export function CustomerListScreen() {
     ];
   }, [t]);
 
-  // "Already has a payment recorded for this month" — some or all plans. Gates
-  // the menu's void-this-month row (there has to be something to void).
   const filtered = useMemo(() => {
     if (activeTab === "all") return customers;
     if (activeTab === "active") return customers.filter((c) => c.active);
     if (activeTab === "inactive") return customers.filter((c) => !c.active);
-    // Debt isn't a month status, so it reads the ledger the card's debt pill
-    // reads — and like that pill it ignores active / regular: a deactivated or
-    // occasional customer who still owes money is exactly who this tab is for.
     if (activeTab === "has_debt")
       return customers.filter((c) => hasDebtFlag(netDebtByCustomer[c.id]));
-    // Payment tabs are the card's flags: same helper, so a customer shows up in
-    // every tab whose pill they wear, and in none they don't.
     return customers.filter((c) => {
       if (!c.active || !c.isRegular) return false;
       const status = customerStatuses.get(c.id);
-      if (!status) return false; // not computed yet — don't guess either way
+      if (!status) return false;
       return customerFlags(status).includes(activeTab);
     });
   }, [activeTab, customers, customerStatuses, netDebtByCustomer]);
 
-  // Resolve selected ids against the VISIBLE list, so a selected-then-filtered-out
-  // customer can never be acted on invisibly.
   const selectedCustomers = useMemo(
     () => filtered.filter((c) => selectedIds.has(c.id)),
     [filtered, selectedIds],
@@ -263,8 +244,6 @@ export function CustomerListScreen() {
     return startedActiveLines(customer)
       .filter((l) => !notDue.has(l.id) && !uncovered.has(l.id))
       .map((l) => {
-        // One resolution per line, feeding BOTH the amount and the rate snapshot
-        // — separating them is how an LBP amount ends up frozen at a USD rate.
         const price = resolveLinePrice(l);
         const priced = price.isFixed && price.amount !== null && price.amount > 0;
         return virtualMonthItem({
@@ -277,7 +256,6 @@ export function CustomerListScreen() {
           planId: l.planId,
           label: planLabel(l, billingMonth),
           amount: priced ? price.amount! : 0,
-          // An open month has no currency of its own — the hand-over picks one.
           currencyId: priced ? price.currencyId : null,
           ratePerUsdSnapshot: priced
             ? (findCurrency(currencies, price.currencyId)?.ratePerUsd ?? 1)
@@ -366,8 +344,6 @@ export function CustomerListScreen() {
     }
 
     clearSelection();
-    // Only the customers just paid can have moved, so patch those badges rather
-    // than rebuilding the whole map (which re-reads every bill in the tenant).
     for (const customerId of new Set(created.map((c) => c.customerId))) {
       const paidCustomer = customerId
         ? customers.find((c) => c.id === customerId)
@@ -392,9 +368,6 @@ export function CustomerListScreen() {
     const items = currentMonthItems(customer);
     const requests = items.filter((i) => !i.openAmount);
     if (requests.length === 0) {
-      // Nothing can be charged without a figure. ONE price-less line is asked
-      // for right here — two would need two different amounts, and none at all
-      // means the month grid is the only place left to say what is wrong.
       const open = items.filter((i) => i.openAmount);
       if (open.length === 1) {
         openOneCollect(customer.name, open[0]);
@@ -407,8 +380,6 @@ export function CustomerListScreen() {
       return;
     }
     const multiCount = requests.filter((r) => r.durationMonths > 1).length;
-    // Confirm when paying several lines or a multi-month block; a single
-    // single-month line pays instantly (matches the old snappy quick pay).
     if (requests.length > 1 || multiCount > 0) {
       const ok = await confirm({
         title: t("payments.quick_pay.pay_now"),
@@ -424,8 +395,6 @@ export function CustomerListScreen() {
     setQuickPayCustomerId(customer.id);
     try {
       const created = await executePay(requests);
-      // ONE message per hand-over — a multi-plan customer in one currency gets a
-      // single chat listing every line, which is what the receipt already is.
       if (send) {
         for (const collection of created) {
           await sendCollectionInvoice({
@@ -456,7 +425,6 @@ export function CustomerListScreen() {
   } = useCollectSheet({
     onCollected: (collection) => {
       setCollectCustomer(null);
-      // One customer was paid, so only that badge is stale.
       const paid = collection.customerId
         ? customers.find((c) => c.id === collection.customerId)
         : null;
@@ -465,10 +433,6 @@ export function CustomerListScreen() {
     },
   });
 
-  // The pool is a round trip; open the sheet the moment it lands. The target is
-  // cleared straight away — both so re-picking the same customer opens it
-  // again, and so this can never re-fire. Depends on the STABLE callback, not
-  // on the hook's object (see useCollectSheet's doc).
   useEffect(() => {
     if (!collectCustomer || owed.length === 0) return;
     openCollectSheet(collectCustomer.id, collectCustomer.name, owed);
@@ -481,9 +445,6 @@ export function CustomerListScreen() {
 
   const renderItem = useCallback(
     ({ item }: { item: Customer }) => {
-      // The card decides its own flags from the status — no priority chain here.
-      // `undefined` (not yet computed) is passed through as null so the card
-      // renders no payment flag instead of guessing "unpaid".
       const status = customerStatuses.get(item.id) ?? null;
       const debtUsd = netDebtByCustomer[item.id] ?? 0;
       const debtLabel = hasDebtFlag(debtUsd)
@@ -686,9 +647,6 @@ export function CustomerListScreen() {
   function buildMenuActions(customer: Customer | null): ActionMenuItem[] {
     if (!customer) return [];
     const items: ActionMenuItem[] = [];
-    // A customer with 2+ plans in play this month gets the plan-aware wording
-    // ("Quick pay unpaid plans" / "Void paid plans"); a single-plan customer
-    // keeps the plain "Quick pay" / "Void current month" labels.
     const isMulti = startedActiveLines(customer).length >= 2;
     if (shouldShowQuickPay(customer)) {
       items.push({
@@ -699,9 +657,6 @@ export function CustomerListScreen() {
         icon: "flash-outline",
         onPress: () => handleQuickPay(customer),
       });
-      // Only when there is really something to one-tap pay: with no eligible
-      // fixed line, quick pay routes to the detail screen instead of paying, and
-      // that screen's form already carries its own "Save & send".
       if (eligibleFixedLines(customer).length > 0) {
         const sendable = canSend(customer.phoneNumber);
         items.push({
@@ -771,11 +726,6 @@ export function CustomerListScreen() {
     return items;
   }
 
-  // Memoized so opening a sheet (form / sale / debt / menu — all plain state on
-  // this screen) doesn't rebuild the list. Without this, every "Add customer" tap
-  // re-rendered the whole FlatList before the sheet could even start animating.
-  // React Compiler would do this for free, but it can't optimize this file — the
-  // bulk-pay handlers use `try/finally`, which the current version rejects.
   const listElement = useMemo(
     () => (
       <FlatList

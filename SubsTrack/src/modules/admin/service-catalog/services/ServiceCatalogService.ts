@@ -54,9 +54,6 @@ class ServiceCatalogService {
     }
   }
 
-  // Soft-delete if any sale line references the service (preserves history);
-  // otherwise hard-delete. Returns the mode so the UI can say what happened —
-  // mirrors ProductService.deleteProduct.
   async deleteService(id: string): Promise<'hard' | 'soft'> {
     const refs = await repository.countReferences(id);
     if (refs > 0) {
@@ -72,9 +69,6 @@ class ServiceCatalogService {
     return mapDbServiceToService(row);
   }
 
-  // Batch counterpart to deleteService: referenced services are soft-deleted, the
-  // rest hard-deleted — each group in a single statement. Returns the id split so
-  // the store can update its list without a refetch.
   async deleteManyServices(ids: string[]): Promise<{ hard: string[]; soft: string[] }> {
     if (ids.length === 0) return { hard: [], soft: [] };
     const referenced = await repository.referencedIds(ids);

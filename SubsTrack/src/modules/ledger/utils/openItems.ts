@@ -80,7 +80,6 @@ export function virtualMonthItem(args: {
   currencyId: string | null;
   ratePerUsdSnapshot: number;
   dueDate: string;
-  /** No set price: `amount` is 0 and whatever is handed over becomes the bill. */
   openAmount?: boolean;
 }): OpenItem {
   return {
@@ -103,7 +102,6 @@ export function virtualMonthItem(args: {
     dueDate: args.dueDate,
     issuedAt: args.dueDate,
     createdAt: args.dueDate,
-    // Nothing collected on a month → owed, but not a debt.
     isDebt: false,
     openAmount: args.openAmount ?? false,
   };
@@ -112,8 +110,6 @@ export function virtualMonthItem(args: {
 /** "Jan 2026 · Internet" | "#A1B2C3 · Router" | "Installation fee". */
 export function chargeLabel(row: DbCharge): string {
   if (row.kind === 'month') {
-    // Reuses the grid's own label builder, so a 3-month bundle reads
-    // "Apr – Jun 2026" here exactly as it does on the cells.
     const month = row.billing_month
       ? getBlockRangeLabel(row.billing_month, row.duration_months, i18n.t.bind(i18n))
       : '';
@@ -121,8 +117,6 @@ export function chargeLabel(row: DbCharge): string {
     return plan ? `${month} · ${plan}` : month;
   }
   if (row.kind === 'sale') {
-    // The receipt number leads: it is what a customer quotes back when asking
-    // about a payment, and the frozen summary alone cannot identify the sale.
     const summary = row.sales?.items_summary ?? i18n.t('debts.sale');
     if (!row.sale_id) return summary;
     return `#${receiptId(row.sale_id)} · ${summary}`;
@@ -148,17 +142,10 @@ export function monthItemFromEntry(args: {
   customerPlanId: string;
   planId: string | null;
   label: string;
-  /** The line's resolved price — ignored when the month already has a bill. */
   price: { amount: number | null; currencyId: string | null; durationMonths: number };
-  /** Today's rate for that currency; only a virtual month needs one. */
   ratePerUsd: number;
 }): OpenItem | null {
   const { entry } = args;
-  // Keys off MONEY, not on the bill existing. An EMPTY bill (its only
-  // collection was voided) must read exactly like a month never touched —
-  // including its price — so it is re-priced from the line's CURRENT price
-  // instead of keeping the figure it was first billed at. Only a bill money has
-  // actually reached keeps its frozen amount. See gotcha #106b.
   if (entry.charge && entry.collected > 0) {
     return openItemFromCharge(entry.charge, entry.collected, args.label, args.customerName);
   }
@@ -173,9 +160,7 @@ export function monthItemFromEntry(args: {
     planId: args.planId,
     label: args.label,
     amount: priced ? args.price.amount! : 0,
-    // An open month has no currency of its own either — the hand-over picks one.
     currencyId: priced ? args.price.currencyId : null,
-    // No frozen rate yet — it freezes for good when money lands on it.
     ratePerUsdSnapshot: args.ratePerUsd,
     dueDate: entry.billingMonth,
     openAmount: !priced,

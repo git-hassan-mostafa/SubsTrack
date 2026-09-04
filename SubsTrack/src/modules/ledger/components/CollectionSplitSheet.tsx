@@ -19,9 +19,7 @@ import { CollectionItemCard } from "./CollectionItemCard";
 interface Props {
   collection: CollectionListItem | null;
   onDismiss: () => void;
-  /** Opens the bill behind one line — the same sheets the list itself opens. */
   onOpenItem?: (item: CollectionItem) => void;
-  /** The line whose record is being fetched. */
   loadingItemId?: string | null;
 }
 

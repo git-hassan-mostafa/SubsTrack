@@ -9,15 +9,10 @@ import {
 import reportsService from '@/src/modules/reports/services/ReportsService';
 import type { DebtsReport, MoneyReport } from '@/src/modules/reports/utils/types';
 import { resolveBranchFilter } from '@/src/shared/lib/branchFilter';
-// Deep imports (not the module barrel) — the barrel re-exports screens.
 import tenantSettingService from '@/src/modules/admin/tenant-settings/services/TenantSettingService';
 import { TENANT_SETTING_KEYS } from '@/src/modules/admin/tenant-settings/utils/constants';
 import { getStore } from '@/src/state/globalStore';
 
-// A MODULE store, not a global slice: only the Reports screen reads it, and no slice reads
-// it back. `auth` + `tenantSettings` are read across through the global
-// store — the one allowed direction.
-// See CLAUDE.md → State Management.
 
 export type ReportSection = 'money' | 'debts';
 
@@ -29,15 +24,12 @@ const getUnpaidRule = (): UnpaidStartRule =>
   );
 
 export interface ReportsState {
-  // The filter session — survives navigating away, cleared on logout.
   period: ReportPeriod;
   section: ReportSection;
   money: MoneyReport | null;
   debts: DebtsReport | null;
   loading: boolean;
   error: string | null;
-  // Last-write-wins guard: a branch change and a period change can be in flight
-  // together, and the older answer must not overwrite the newer one.
   token: number;
   setPeriod: (period: ReportPeriod) => Promise<void>;
   setPreset: (preset: PeriodPreset) => Promise<void>;
@@ -58,8 +50,6 @@ export const useReportsStore = create<ReportsState>()(
     error: null,
     token: 0,
 
-    // Only the section on screen is fetched — the other one loads when it is
-    // opened, so a period change costs one report, not all of them.
     fetchSection: async () => {
       const { period, section } = get();
       const branchFilter = resolveBranchFilter(getStore().getState().auth.user);
@@ -96,9 +86,6 @@ export const useReportsStore = create<ReportsState>()(
     },
 
     setPeriod: async (period) => {
-      // Both reports are period-scoped, so the other section's cached answer is
-      // stale the moment the period moves — drop it rather than show old numbers
-      // under a new date range.
       set((state) => {
         state.period = period;
         state.money = null;

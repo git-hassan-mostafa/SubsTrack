@@ -61,8 +61,6 @@ const SOURCE_META: Record<
     bg: "bg-amber-50",
     labelKey: "wallet.source_debt",
   },
-  // One hand-over can settle a month AND a sale — no allocation could split
-  // the cash between them, so the row says so instead of picking one.
   mixed: {
     icon: "cash-outline",
     color: COLORS.success,
@@ -97,11 +95,7 @@ interface Props {
   detail: UserWalletDetail | null;
   loading: boolean;
   mode?: WalletActionMode;
-  // Whether an action is currently running (disables the buttons).
   busy?: boolean;
-  // Act on the given transactions — receive or close out, per `mode`. Resolves
-  // true when it went through (so the caller's confirm was accepted) — used to
-  // clear the selection afterward.
   onActItems?: (items: WalletItem[]) => Promise<boolean>;
   onActAll?: () => void;
 }
@@ -124,11 +118,8 @@ export function WalletDetailView({
   const target = findCurrency(currencies, displayCurrencyId);
   const { language } = useLanguageStore();
   const locale = language === "ar" ? "ar" : "en-US";
-  // BottomSheetScrollView inside the admin detail sheet, plain ScrollView on the
-  // standalone My-Wallet screen (see useSheetScrollView).
   const Scroll = useSheetScrollView();
 
-  // One flag for "the viewer can act here", one label for what the action says.
   const canAct = mode !== "view";
   const actionLabel = mode === "close_out" ? t("wallet.close_out") : t("wallet.receive");
   const actionAllLabel =
@@ -137,11 +128,6 @@ export function WalletDetailView({
   const selection = useSelection();
   const selecting = canAct && selection.active;
 
-  // While selecting, back (Android hardware / browser Back) exits selection
-  // instead of closing the parent sheet — like every other list screen. This
-  // view sits inside a SheetModal that already dismisses on back, so we register
-  // on top of it: native fires the newest BackHandler first, and the web
-  // dismiss stack is LIFO, so both clear the selection before the sheet closes.
   useSelectionBackHandler(selecting, selection.clear);
   useWebBackDismiss(selecting, selection.clear);
 
@@ -154,12 +140,8 @@ export function WalletDetailView({
   const allItems = detail?.items ?? [];
   const holderId = detail?.holderUserId ?? null;
 
-  // `selection.clear` (not `selection`) — the hook returns a fresh object each
-  // render, so depending on it would loop.
   const clearItemSelection = selection.clear;
 
-  // Switching to a different holder resets the view. Refetches for the SAME
-  // holder (e.g. after receiving) keep the id, so filters/selection persist.
   useEffect(() => {
     setFiltersOpen(false);
     setCustomerFilter(null);
@@ -176,7 +158,6 @@ export function WalletDetailView({
     return formatMoney(amount, cur, cur);
   };
 
-  // Customer options are just the distinct customers present in this wallet.
   const customerOptions: DropdownOption<string>[] = useMemo(() => {
     const map = new Map<string, string>();
     for (const it of allItems) {
@@ -410,8 +391,6 @@ export function WalletDetailView({
                   t(meta.labelKey),
                   item.label,
                   formatDate(item.date, locale),
-                  // Only set once the cash has moved up the chain — on an
-                  // untouched wallet the holder IS the collector.
                   item.collectorName
                     ? t("wallet.collected_by", { name: item.collectorName })
                     : null,

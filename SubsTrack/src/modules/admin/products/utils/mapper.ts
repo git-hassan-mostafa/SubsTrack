@@ -65,7 +65,6 @@ export function toStockCostRow(
         quantity,
         amount: quantity * Number(r.unit_cost),
         currencyId: r.currency_id,
-        // A costed row always carries its rate; 1 is the USD fallback.
         ratePerUsdSnapshot: Number(r.rate_per_usd_snapshot ?? 1) || 1,
         occurredAt: r.occurred_at,
         branchId: product?.branch_id ?? null,

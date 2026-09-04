@@ -37,10 +37,6 @@ export interface ICustomerRepository {
     searchQuery?: string,
     branchFilter?: BranchFilter,
   ): Promise<CustomerWithLines[]>;
-  // Every ACTIVE + REGULAR customer with its service lines, UNPAGINATED. The
-  // overdue-ageing report has to see the whole customer base, and those two
-  // flags are exactly the ones the month rules skip — so the filter belongs in
-  // SQL rather than in a full download the caller then throws most of away.
   findAllForStatus(branchFilter?: BranchFilter): Promise<CustomerWithLines[]>;
   findById(id: string): Promise<CustomerWithLines>;
   create(payload: CreateCustomerPayload): Promise<CustomerWithLines>;
@@ -67,8 +63,6 @@ export interface ICustomerRepository {
     branchFilter?: BranchFilter,
     unpaidRule?: UnpaidStartRule,
   ): Promise<UnpaidMonthCount>;
-  // Customers whose created_at / cancelled_at falls in [start, endExclusive) —
-  // the dashboard's "new" and "cancelled" this-month growth counters.
   countCreatedInRange(start: string, endExclusive: string, branchFilter?: BranchFilter): Promise<number>;
   countCancelledInRange(start: string, endExclusive: string, branchFilter?: BranchFilter): Promise<number>;
 }

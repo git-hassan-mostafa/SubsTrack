@@ -23,7 +23,6 @@ import { CustomDebtFormSheet } from "./CustomDebtFormSheet";
 
 interface Props {
   customer: Customer;
-  /** A sale's receipt — injected, so debts never depends on the sales module. */
   onOpenSale?: (saleId: string) => Promise<void> | void;
 }
 
@@ -43,15 +42,12 @@ export function CustomerDebtsPanel({ customer, onOpenSale }: Props) {
   const [items, setItems] = useState<OpenItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [customDebtOpen, setCustomDebtOpen] = useState(false);
-  // Discards out-of-order responses if focus fires refresh while one is in flight.
   const tokenRef = useRef(0);
 
   const refresh = useCallback(async () => {
     const token = ++tokenRef.current;
     setLoading(true);
     try {
-      // Not branch-scoped: show all of this customer's bills regardless of the
-      // admin's current branch view (mirrors CustomerSalesPanel).
       const open = await chargeService.getOpenCharges({ customerId: customer.id });
       if (tokenRef.current !== token) return;
       setItems(
@@ -66,18 +62,13 @@ export function CustomerDebtsPanel({ customer, onOpenSale }: Props) {
 
   const collectSheet = useCollectSheet();
   const { voidItem, writeOffItem } = useDebtRowActions();
-  // Voiding a payment inside the bill bumps owedVersion, which refreshes this list.
   const openBill = useOpenBill({ onOpenSale });
 
-  // Refresh on focus so bills raised elsewhere show on return...
   useFocusEffect(
     useCallback(() => {
       void refresh();
     }, [refresh]),
   );
-  // ...and whenever a write moves what is owed — which is how a sale recorded
-  // in the panel above, or a month part-paid in the grid, shows up here without
-  // a focus change and without each of those screens knowing this panel exists.
   useOwedChanged(refresh);
 
   const target = findCurrency(currencies, displayCurrencyId);

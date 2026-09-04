@@ -68,7 +68,6 @@ export class ServiceRepository extends BaseRepository implements IServiceReposit
     return this.referencedIdsIn('sale_items', 'service_id', ids);
   }
 
-  // Active services only, mirroring products — a soft-deleted one is history.
   async countAll(branchFilter: BranchFilter = null): Promise<number> {
     let query = this.db
       .from('services')
@@ -90,8 +89,6 @@ export class ServiceRepository extends BaseRepository implements IServiceReposit
   }
 }
 
-// Platform seam: web talks to Supabase directly; native uses the offline SQLite
-// repository. Callers import this default, so nothing above the repo layer knows.
 const impl: IServiceRepository =
   Platform.OS === 'web' ? new ServiceRepository() : new OfflineServiceRepository();
 

@@ -27,7 +27,6 @@ interface Props {
   visible: boolean;
   onDismiss: () => void;
   customerName: string;
-  /** Everything the customer owes — debts AND plain unpaid months. */
   owed: OpenItem[];
   loading: boolean;
   onSubmit: (args: {
@@ -38,7 +37,6 @@ interface Props {
     notes: string | null;
     lines: { item: OpenItem; amount: number }[];
   }) => void;
-  /** Single-item mode: only this bill is collectable, no split preview. */
   singleItem?: OpenItem | null;
 }
 
@@ -65,18 +63,13 @@ export function CollectSheet({
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
   const displayCurrencyId = useDisplayCurrencyId();
-  // A failed save belongs HERE, next to the button that caused it — not on
-  // whichever screen behind the sheet happens to render the slice's banner.
   const error = useLedgerSlice((s) => s.error);
   const clearError = useLedgerSlice((s) => s.clearError);
 
-  // A failure from a previous attempt must not greet the next open.
   useEffect(() => {
     if (visible) clearError();
   }, [visible, clearError]);
 
-  // Save sits at the bottom and the banner at the top, so on a long split
-  // preview a failed save would otherwise be announced off-screen.
   const scrollBody = useRef<SheetScrollTo | null>(null);
   useEffect(() => {
     if (error) scrollBody.current?.(0);
@@ -87,13 +80,8 @@ export function CollectSheet({
     [singleItem, owed],
   );
 
-  // A month on a line with no set price: nothing is owed yet, so there is no
-  // ceiling, no split and no locked currency — what is typed becomes the bill.
   const openItem = singleItem?.openAmount ? singleItem : null;
 
-  // A hand-over is ONE currency, and it must match the bills it pays — that is
-  // what lets a balance close at exactly zero. When a customer owes in two
-  // currencies he is collected from twice, so the picker only appears then.
   const currencyIds = useMemo(
     () => Array.from(new Set(pool.map((i) => i.currencyId))),
     [pool],
@@ -101,11 +89,7 @@ export function CollectSheet({
   const [currencyId, setCurrencyId] = useState<string | null>(() =>
     dominantCurrency(pool),
   );
-  // Open mode only: what this month costs. Typing it is what raises the bill.
   const [openBill, setOpenBill] = useState<number | null>(null);
-  // Sorted HERE, not trusted from the caller: the preview must be drawn in the
-  // very order allocate() fills the bills, or the rows say one thing and the
-  // money does another (the debts screen hands over two lists glued together).
   const scoped = useMemo(
     () => sortByDue(pool.filter((i) => i.currencyId === currencyId)),
     [pool, currencyId],
@@ -126,9 +110,6 @@ export function CollectSheet({
   const display = findCurrency(currencies, displayCurrencyId);
   const money = (value: number) => formatMoney(value, currency, display);
 
-  // The typed month amount turns the open item into an ordinary bill, so
-  // partial collection, the "leaves owing" hint and the overpay refusal below
-  // all work exactly as they do for a priced line.
   const billedOpenItem = useMemo(
     () =>
       openItem
@@ -148,7 +129,6 @@ export function CollectSheet({
     [scoped, excluded],
   );
   const { lines, leftover } = useMemo(() => {
-    // One line, no split: the month amount is its ceiling.
     if (billedOpenItem) {
       const value = amount ?? 0;
       const bill = billedOpenItem.balance;
@@ -168,7 +148,6 @@ export function CollectSheet({
   }, [billedOpenItem, amount, included]);
 
   const remainingAfter = maxAmount - (amount ?? 0);
-  // Overpay is refused: there is nowhere for unapplied cash to live.
   const overpaying = leftover > 0;
   const canSubmit =
     !loading && (amount ?? 0) > 0 && lines.length > 0 && !overpaying;
@@ -246,7 +225,6 @@ export function CollectSheet({
             onChange={(next) => {
               setOpenBill(next.amount);
               setCurrencyId(next.currencyId);
-              // Paid in full is the norm; staff lower it for a part payment.
               setAmount(next.amount);
             }}
           />
@@ -278,9 +256,6 @@ export function CollectSheet({
           amount={amount}
           currencyId={currencyId}
           currencies={currencies}
-          // The currency is decided by the bills being paid, never typed here —
-          // a hand-over must match what it settles. In open mode the month
-          // amount above is that bill, so the currency follows it.
           lockCurrency
           onChange={(next) => setAmount(next.amount)}
         />

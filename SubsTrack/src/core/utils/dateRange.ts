@@ -1,11 +1,3 @@
-// Date-range helpers for every "between two dates" read in the app, plus the
-// reporting period primitive.
-//
-// One convention app-wide: UI state holds INCLUSIVE 'YYYY-MM-DD' day strings,
-// repositories take { startIso, endExclusiveIso } instants. Every conversion is
-// LOCAL time, so a day bound means that day in the user's own timezone and a
-// month bucket agrees with the range that fetched it.
-
 export interface DateRange {
   startIso: string;
   endExclusiveIso: string;
@@ -55,7 +47,6 @@ export function rangeFromDays(from: string, to: string): DateRange {
   };
 }
 
-// ---------------------------------------------------------------- reporting
 
 export type PeriodPreset =
   | 'this_month'
@@ -78,8 +69,8 @@ export const PERIOD_PRESETS: PeriodPreset[] = [
 
 export interface ReportPeriod {
   preset: PeriodPreset;
-  fromDate: string; // 'YYYY-MM-DD', inclusive
-  toDate: string; // 'YYYY-MM-DD', inclusive
+  fromDate: string;
+  toDate: string;
 }
 
 // Whole calendar months / years, never a partial tail: a preset always ends on
@@ -135,7 +126,7 @@ export function previousPeriod(p: ReportPeriod): ReportPeriod {
     const months = monthIndex(p.toDate) - monthIndex(p.fromDate) + 1;
     const [fy, fm] = p.fromDate.split('-').map(Number);
     const start = new Date(fy, fm - 1 - months, 1);
-    const end = new Date(fy, fm - 1, 0); // day before this period starts
+    const end = new Date(fy, fm - 1, 0);
     return { preset: 'custom', fromDate: toDay(start), toDate: toDay(end) };
   }
   const [fy, fm, fd] = p.fromDate.split('-').map(Number);

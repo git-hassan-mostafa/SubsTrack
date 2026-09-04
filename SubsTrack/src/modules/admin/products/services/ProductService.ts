@@ -10,8 +10,6 @@ import { ProductInput, RestockEntry } from '../utils/types';
 
 
 class ProductService {
-  // The unscoped ledger read is a superset of `rows` (same RLS scope) but doesn't
-  // depend on it, so both go out together instead of one after the other.
   async getProducts(branchFilter: BranchFilter = null): Promise<Product[]> {
     const [rows, stock] = await Promise.all([
       repository.findAll(branchFilter),
@@ -26,8 +24,6 @@ class ProductService {
     tier: TierPlan,
     usage: TenantUsage,
     userId: string | null = null,
-    // Resolved from data.costCurrencyId by the caller — it carries the live rate
-    // the opening stock's cost is frozen at.
     costCurrency: Currency | null = null,
   ): Promise<Product> {
     this.validate(data);
@@ -44,7 +40,6 @@ class ProductService {
         cost_currency_id: data.costCurrencyId,
         active: true,
       });
-      // Opening balance becomes the first ledger entry (0 writes no row).
       const initial = data.initialStock ?? 0;
       if (initial > 0) {
         await repository.addMovements([
@@ -61,7 +56,6 @@ class ProductService {
     }
   }
 
-  // Editing a product never touches stock — addStock owns that.
   async updateProduct(id: string, data: ProductInput): Promise<Product> {
     this.validate(data);
     try {
@@ -81,8 +75,6 @@ class ProductService {
     }
   }
 
-  // Soft-delete if any sales reference the product (preserves history); otherwise hard-delete.
-  // Returns the mode so the UI can communicate the outcome — mirrors CurrencyService.deleteCurrency.
   async deleteProduct(id: string): Promise<'hard' | 'soft'> {
     const refs = await repository.countReferences(id);
     if (refs > 0) {
@@ -99,10 +91,6 @@ class ProductService {
     return mapDbProductToProduct(row, stock[id] ?? 0);
   }
 
-  // Batch counterpart to deleteProduct: products with sales are soft-deleted,
-  // the rest hard-deleted — each group in a single statement (≤3 round-trips
-  // total, independent of count). Returns the id split so the store can update
-  // its list without a refetch.
   async deleteManyProducts(
     ids: string[],
   ): Promise<{ hard: string[]; soft: string[] }> {
@@ -117,20 +105,12 @@ class ProductService {
     return { hard, soft };
   }
 
-  // ── Stock ────────────────────────────────────────────────────────────────
-  /**
-   * Add stock to one product — the ledger's only manual entry door, so a hand-made
-   * row is always positive ('restock'). Stock that never arrived, or went back, is
-   * corrected on the offending entry (updateMovement / revertMovement), which puts
-   * the fix in the month the mistake was made instead of today. See gotcha #94.
-   */
   async addStock(
     productId: string,
     tenantId: string,
     quantity: number,
     note: string | null = null,
     userId: string | null = null,
-    // What the stock cost to buy — that, and only that, makes it an expense.
     cost: { unitCost: number | null; currency: Currency | null } | null = null,
   ): Promise<number> {
     if (!Number.isInteger(quantity) || quantity <= 0) {
@@ -148,19 +128,6 @@ class ProductService {
     return stock[productId] ?? 0;
   }
 
-  /**
-   * Correct one MANUAL ledger row in place — the record itself was wrong (12 typed
-   * for a 10-unit delivery, a unit cost of 0.50 that the invoice says was 0.45).
-   *
-   * This is the door for a mistyped entry, and `revertMovement` the door for one
-   * that should not exist at all — both fix the month the entry belongs to, which
-   * is why a manual entry can no longer remove stock instead. See gotcha #96.
-   *
-   * `quantity` is a MAGNITUDE, never signed — the direction comes from the row, so
-   * a correction can never turn stock added into stock removed (that is a new
-   * movement). Oversell is NOT blocked here: the DB accepts negative stock on
-   * purpose (offline replay), so the sheet warns instead.
-   */
   async updateMovement(
     movementId: string,
     input: {
@@ -178,8 +145,6 @@ class ProductService {
       input.cost?.unitCost ?? null,
       input.cost?.currency ?? null,
     );
-    // Only a CHANGED cost re-freezes the rate: editing the quantity alone must not
-    // silently re-value an old purchase at today's exchange rate.
     if (
       cost.unit_cost != null &&
       Number(existing.unit_cost) === cost.unit_cost &&
@@ -199,15 +164,6 @@ class ProductService {
     };
   }
 
-  /**
-   * Reverse one MANUAL ledger row — the entry should never have existed at all
-   * (a delivery logged against the wrong product, a duplicate save). It stops
-   * counting in the stock sum and, if it carried a cost, in Expenses for its own
-   * month — the edit door's rule, not the costed-removal one (gotcha #96).
-   *
-   * A soft-void, not a delete: the row stays in the history marked reversed, so
-   * "where did the other 12 bottles go" still has an answer.
-   */
   async revertMovement(
     movementId: string,
     userId: string | null = null,
@@ -218,10 +174,6 @@ class ProductService {
     return { productId: row.product_id, onHand: stock[row.product_id] ?? 0 };
   }
 
-  // What both correction doors agree on: the row must exist, must not belong to a
-  // sale (SaleService swaps those when the sale is edited, so changing one here
-  // would leave the sale and the ledger disagreeing), and must still be live.
-  // In the SERVICE, not just hidden in the sheet's menu — see gotcha #96.
   private async liveManualMovement(movementId: string): Promise<DbStockMovement> {
     const existing = await repository.findMovement(movementId);
     if (!existing) throw new Error(i18n.t('errors.stock_movement_missing'));
@@ -232,11 +184,6 @@ class ProductService {
     return existing;
   }
 
-  // Batch counterpart to addStock: one 'restock' row per product, appended in
-  // a single write so a whole delivery lands together. Returns the new on-hand
-  // per product so the store can refresh its list without a refetch.
-  // One delivery = one currency, so `currency` is shared by every line and each
-  // entry only carries its own unit cost.
   async restockMany(
     entries: RestockEntry[],
     tenantId: string,
@@ -268,15 +215,6 @@ class ProductService {
     return rows.map(mapDbStockMovementToStockMovement);
   }
 
-  // One place that fills the ledger row's shape, so every writer stays in sync.
-  // Public because SaleService builds its own 'sale' rows to hand to the sale
-  // repository (they must be written in the same transaction as the sale).
-  //
-  // `unitCost` + `currency` are what make a purchase an expense; they are
-  // written together with a frozen rate, or all three stay null. 'sale' rows
-  // never carry one — stock leaving is not money leaving. A NEGATIVE costed row
-  // (only older data now, since a manual entry can no longer remove stock) reads
-  // as a credit: amount = delta * cost, so it subtracts.
   movement(
     tenantId: string,
     productId: string,
@@ -304,9 +242,6 @@ class ProductService {
     };
   }
 
-  // The cost trio, in the one place that decides it — written together with a
-  // frozen rate or all three null, and never on a 'sale' row (stock leaving is
-  // not money leaving). A correction re-uses this, so the two can't drift.
   private costFields(
     reason: CreateStockMovementPayload['reason'],
     unitCost: number | null,
@@ -323,8 +258,6 @@ class ProductService {
     };
   }
 
-  // The derived half of the Expenses view — stock bought in a date range, plus
-  // any older costed removals, which give money back (negative amounts).
   async getStockCostsInRange(
     startIso: string,
     endExclusiveIso: string,
@@ -339,7 +272,6 @@ class ProductService {
       throw new Error(i18n.t('errors.product_price_required'));
     }
     if (data.price <= 0) throw new Error(i18n.t('errors.product_price_positive'));
-    // Cost is optional, but a typed one must be a real amount.
     if (data.costPrice != null && !(data.costPrice > 0)) {
       throw new Error(i18n.t('errors.product_cost_positive'));
     }

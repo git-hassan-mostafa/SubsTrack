@@ -12,9 +12,7 @@ import { HistoryList } from "./HistoryList";
 
 interface HistorySheetProps {
   title: string;
-  /** Which record the trail belongs to — a product name, a customer name. */
   subtitle?: string | null;
-  /** A timeline from useRecordHistory / useCustomerHistory. */
   timeline: RecordHistoryState;
   onDismiss: () => void;
 }

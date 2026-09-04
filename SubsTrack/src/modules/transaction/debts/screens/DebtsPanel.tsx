@@ -28,7 +28,6 @@ import { DebtorDetailSheet } from "../components/DebtorDetailSheet";
 import { CustomDebtFormSheet } from "../components/CustomDebtFormSheet";
 
 interface Props {
-  /** A sale's receipt — injected, so debts never depends on the sales module. */
   onOpenSale?: (saleId: string) => Promise<void> | void;
 }
 
@@ -59,11 +58,7 @@ export function DebtsPanel({ onOpenSale }: Props = {}) {
 
   const collectSheet = useCollectSheet();
   const { voidItem, writeOffItem } = useDebtRowActions();
-  // Voiding a payment inside the bill bumps owedVersion, so this list follows.
   const openBill = useOpenBill({ onOpenSale });
-  // Every write that moves what is owed brings this list along — collecting
-  // here, but equally a sale recorded from the quick-actions menu while this
-  // tab is open. There is no per-action wiring left.
   useOwedChanged(refresh);
 
   const [debtorSearch, setDebtorSearch] = useState("");
@@ -77,19 +72,14 @@ export function DebtsPanel({ onOpenSale }: Props = {}) {
   }, [refresh]);
 
   const target = findCurrency(currencies, displayCurrencyId);
-  // Memoised because two useMemos below depend on it — a fresh [] each render
-  // would make both recompute on every keystroke.
   const debtors = useMemo(() => view?.customers ?? [], [view]);
 
-  // Debtors search is client-side, by customer name only.
   const visibleDebtors = useMemo(() => {
     const q = debouncedDebtorSearch.trim().toLowerCase();
     if (!q) return debtors;
     return debtors.filter((d) => d.customerName.toLowerCase().includes(q));
   }, [debtors, debouncedDebtorSearch]);
 
-  // Re-read from the slice each render so a collect / write-off inside the sheet
-  // is reflected live.
   const openDebtor = useMemo(
     () => debtors.find((d) => d.customerId === openDebtorId) ?? null,
     [debtors, openDebtorId],
@@ -186,8 +176,6 @@ export function DebtsPanel({ onOpenSale }: Props = {}) {
             key: "collect",
             label: t("payments.collect"),
             icon: "cash-outline",
-            // Everything owed, unpaid months included — the waterfall decides
-            // where the money goes and the sheet shows it before saving.
             onPress: () => {
               if (!menuDebtor) return;
               const debtor = menuDebtor;

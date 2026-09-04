@@ -28,20 +28,12 @@ import {
 
 interface Props {
   item: OpenItem;
-  /** Opens the collect sheet for THIS bill alone. */
   onCollect?: (item: OpenItem) => void;
-  /** The bill was a mistake. Only a hand-typed fee can be removed from here. */
   onVoid?: (item: OpenItem) => void;
-  /** The bill is real but lost — recorded as a loss, still shown as owed. */
   onWriteOff?: (item: OpenItem) => void;
-  /** Opens the record behind the row (a bill's payments, a sale's receipt). */
   onOpen?: (item: OpenItem) => void;
-  // On a single-customer surface the name is redundant on every row; when true
-  // the label becomes the primary line instead of the customer name.
   hideCustomerName?: boolean;
-  /** True while this row's record is being fetched (the card shows a spinner). */
   loading?: boolean;
-  /** Renders the row muted — used for the plain unpaid months section. */
   muted?: boolean;
 }
 
@@ -50,8 +42,6 @@ interface KindStyle {
   chipClassName: string;
 }
 
-// Month and sale share a tint, so the chip's WORD is what parts them — the
-// same rule as CollectionCard. Never emerald: that means money that arrived.
 const KIND_STYLE: Record<ChargeKind, KindStyle> = {
   month: {
     icon: "calendar-outline",
@@ -91,9 +81,7 @@ export function DebtItemCard({
 
   const source = snapshotCurrency(item, currencies);
   const display = findCurrency(currencies, displayCurrencyId);
-  // The bill's OWN currency — what the customer will hand over. See #128.
   const money = formatMoneyPair(item.balance, source, display);
-  // "20/50 $" — collected out of owed. Only once money has reached the bill.
   const paidFraction =
     item.paid > 0
       ? formatPaidFraction(item.paid, item.amount, source, source)
@@ -101,13 +89,10 @@ export function DebtItemCard({
   const style = KIND_STYLE[item.kind];
   const late = daysLate(item.dueDate);
   const writtenOff = item.charge?.writtenOffAt != null;
-  // Only a STORED bill has a real instant — a virtual month's `issuedAt` is
-  // just its billing month, so printing a time there would invent one.
   const billedAt = item.chargeId
     ? formatDateTimeShort(item.issuedAt, locale)
     : null;
 
-  // A virtual month has no stored bill, so there is no record to open.
   const handleOpen = onOpen && item.chargeId ? () => onOpen(item) : undefined;
 
   const actions: ActionMenuItem[] = [];
@@ -122,8 +107,6 @@ export function DebtItemCard({
       },
     });
   }
-  // A bill that exists can be written off; a virtual unpaid month has no row
-  // yet, so there is nothing to give up on.
   if (onWriteOff && item.chargeId) {
     actions.push({
       key: "write_off",

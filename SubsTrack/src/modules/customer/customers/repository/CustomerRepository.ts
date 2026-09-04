@@ -13,7 +13,6 @@ import type {
 } from './ICustomerRepository';
 import { OfflineCustomerRepository } from './CustomerRepository.offline';
 
-// Selects the customer plus its service lines and each line's plan.
 const SELECT = '*, customer_plans(*, plans(*))';
 
 export class CustomerRepository extends BaseRepository implements ICustomerRepository {
@@ -82,10 +81,6 @@ export class CustomerRepository extends BaseRepository implements ICustomerRepos
     return created;
   }
 
-  /**
-   * Every single-row customer patch funnels through here: read the row first (an
-   * UPDATE cannot return old values), apply the patch, record the diff.
-   */
   private async patch(
     id: string,
     values: Record<string, unknown>,
@@ -126,8 +121,6 @@ export class CustomerRepository extends BaseRepository implements ICustomerRepos
     return this.patch(id, { active: true, cancelled_at: null }, 'restore');
   }
 
-  // Any money history at all — a bill raised OR cash taken. Either one makes a
-  // hard delete lose a record the business needs.
   async countPayments(id: string): Promise<number> {
     const [charges, collections] = await Promise.all([
       this.db.from('charges').select('id', { count: 'exact', head: true }).eq('customer_id', id),
@@ -145,14 +138,8 @@ export class CustomerRepository extends BaseRepository implements ICustomerRepos
     await this.deleteMany([id]);
   }
 
-  // Hard-delete many customers in one statement (payments cascade via
-  // ON DELETE CASCADE). Callers must have already partitioned out the ones
-  // with payment history — those get soft-deleted instead.
   async deleteMany(ids: string[]): Promise<void> {
     if (ids.length === 0) return;
-    // Snapshot before the rows are gone — a delete's whole value in the trail is
-    // the copy of what was removed. The cascaded children get no entry of their
-    // own; the customer entry is the record of the whole removal.
     const { data: prior } = await this.db.from('customers').select('*').in('id', ids);
     const { error } = await this.db.from('customers').delete().in('id', ids);
     if (error) this.handleError(error);
@@ -167,7 +154,6 @@ export class CustomerRepository extends BaseRepository implements ICustomerRepos
     }
   }
 
-  // Soft-delete many customers in one statement — mirrors `deactivate`.
   async deactivateMany(ids: string[]): Promise<void> {
     if (ids.length === 0) return;
     const cancelledAt = new Date().toISOString();
@@ -189,8 +175,6 @@ export class CustomerRepository extends BaseRepository implements ICustomerRepos
     }
   }
 
-  // The subset of the given customers with any money history — a bill raised or
-  // cash taken.
   async customersWithPayments(ids: string[]): Promise<Set<string>> {
     const [charges, collections] = await Promise.all([
       this.referencedIdsIn('charges', 'customer_id', ids),
@@ -257,20 +241,11 @@ export class CustomerRepository extends BaseRepository implements ICustomerRepos
     branchFilter: BranchFilter = null,
     unpaidRule: UnpaidStartRule = 'month_start',
   ): Promise<UnpaidMonthCount> {
-    // Counts, over active regular customers with at least one active service
-    // line: how many are asked for money this month (`due`) and how many of
-    // those have had NO money reach it (`unpaid`). Lines (and the charges
-    // below) inherit the customer's branch via the inner join, so the branch
-    // filter scopes both. Includes multi-month bills still covering it.
     const [year, monthStr] = billingMonth.split('-').map(Number);
     const cutoffDate = new Date(year, monthStr - 1 - 12, 1);
     const cutoff = `${cutoffDate.getFullYear()}-${String(cutoffDate.getMonth() + 1).padStart(2, '0')}-01`;
     const target = new Date(billingMonth);
 
-    // Coverage is decided by MONEY, never by a bill existing: a charge sitting
-    // at 0 collected (a void emptied it) must read exactly like a month that was
-    // never touched. Reading from the ITEM side makes that automatic — every
-    // collection_item is > 0 by constraint, so one returned row IS the coverage.
     let coverQuery = this.db
       .from('collection_items')
       .select(
@@ -281,7 +256,6 @@ export class CustomerRepository extends BaseRepository implements ICustomerRepos
       .gte('charges.billing_month', cutoff)
       .is('charges.voided_at', null)
       .is('collections.voided_at', null);
-    // A charge owns its branch, so the filter rides the embed directly.
     coverQuery = this.applyBranchFilter(coverQuery, branchFilter, {
       ...this.BRANCH_SCOPES.charges,
       kind: 'inherited',
@@ -305,7 +279,6 @@ export class CustomerRepository extends BaseRepository implements ICustomerRepos
         .map((c) => c.customer_plan_id),
     );
 
-    // Lines whose month is skipped — nothing is owed, so they never count.
     const { data: skipRows, error: sErr } = await this.db
       .from('skipped_months')
       .select('customer_plan_id')
@@ -316,7 +289,6 @@ export class CustomerRepository extends BaseRepository implements ICustomerRepos
       ((skipRows as { customer_plan_id: string }[] | null) ?? []).map((r) => r.customer_plan_id),
     );
 
-    // Active lines on active, regular customers (started by this month).
     let linesQuery = this.db
       .from('customer_plans')
       .select('id, customer_id, start_date, customers!inner(active, is_regular, branch_id)')
@@ -331,9 +303,8 @@ export class CustomerRepository extends BaseRepository implements ICustomerRepos
     const dueCustomers = new Set<string>();
     for (const l of ((lines as { id: string; customer_id: string; start_date: string }[] | null) ?? [])) {
       const [sy, sm] = l.start_date.split('-').map(Number);
-      if (new Date(`${sy}-${String(sm).padStart(2, '0')}-01`) > target) continue; // not started yet
-      if (skippedLineIds.has(l.id)) continue; // skipped month — not owed
-      // Billing day not reached yet — owes nothing this month, same as the grid.
+      if (new Date(`${sy}-${String(sm).padStart(2, '0')}-01`) > target) continue;
+      if (skippedLineIds.has(l.id)) continue;
       if (isNotDueYet(unpaidRule, year, monthStr, l.start_date)) continue;
       dueCustomers.add(l.customer_id);
       if (!coveredLineIds.has(l.id)) unpaidCustomers.add(l.customer_id);
@@ -342,7 +313,6 @@ export class CustomerRepository extends BaseRepository implements ICustomerRepos
   }
 }
 
-// Platform seam: web → Supabase directly (unchanged); native → offline SQLite.
 const impl: ICustomerRepository =
   Platform.OS === 'web' ? new CustomerRepository() : new OfflineCustomerRepository();
 

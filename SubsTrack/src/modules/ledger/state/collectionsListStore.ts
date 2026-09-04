@@ -12,18 +12,7 @@ import { resolveBranchFilter } from '@/src/shared/lib/branchFilter';
 import { addMonthTotal } from '@/src/shared/lib/monthSections';
 import { getStore } from '@/src/state/globalStore';
 
-// A MODULE store, not a global slice: only the ledger module reads it, and
-// no slice reads it back. Its void FANS OUT to `sales` + `ledger` through the global store,
-// which is the allowed direction — no slice reads this store.
-// See CLAUDE.md → State Management.
 
-/**
- * The money-in history — one paginated list of hand-overs.
- *
- * It replaces the payments list AND the debt-payments list: a month, a sale and
- * a custom fee are all settled by collecting, so there is one stream to page
- * through instead of three to merge.
- */
 /** Money that still counts, or only the reversals. */
 export type CollectionStatus = 'live' | 'voided';
 
@@ -32,9 +21,6 @@ export const defaultCollectionsPeriod = (): ReportPeriod => periodFromPreset('th
 
 export interface CollectionsListState {
   items: CollectionListItem[];
-  // "YYYY-MM" → USD total for that month, across ALL rows matching the current
-  // filters (not just the loaded page) — the section headers' source of truth.
-  // Refetched whenever the filters change (see fetchCollections).
   monthlyTotals: Record<string, number>;
   page: number;
   hasMore: boolean;
@@ -44,13 +30,9 @@ export interface CollectionsListState {
   searchToken: number;
   customerFilter: Customer | null;
   receivedByUserId: string | null;
-  // The received-date window, exactly as the period chips present it.
   period: ReportPeriod;
-  // What the cash paid for. Null = every type.
   kind: WalletSource | null;
-  // Null = both live and voided rows.
   status: CollectionStatus | null;
-  // Which date the list is ordered by.
   sortField: CollectionSortField;
   sortDirection: SortDirection;
   fetchCollections: () => Promise<void>;
@@ -64,7 +46,6 @@ export interface CollectionsListState {
   setSortDirection: (direction: SortDirection) => Promise<void>;
   clearFilters: () => Promise<void>;
   voidCollections: (ids: string[], voidedBy: string, reason: string) => Promise<void>;
-  /** A hand-over voided elsewhere (a bill sheet opened from this list). */
   applyVoided: (voided: Collection) => void;
   clearError: () => void;
   reset: () => void;
@@ -75,8 +56,6 @@ function buildOptions(
   page: number,
   branchFilter: ReturnType<typeof resolveBranchFilter>,
 ) {
-  // A day bound is inclusive in the UI and an instant in the repository, and
-  // toRange is that one conversion — shared with Reports and Expenses.
   const range = toRange(state.period);
   return {
     limit: PAGE_SIZE,
@@ -89,8 +68,6 @@ function buildOptions(
     kind: state.kind ?? undefined,
     sortField: state.sortField,
     sortDirection: state.sortDirection,
-    // History is a record of what happened, so a voided hand-over stays visible
-    // (the card marks it). It is excluded from the section totals instead.
     includeVoided: state.status !== 'live',
     voidedOnly: state.status === 'voided',
   };
@@ -132,9 +109,6 @@ export const useCollectionsListStore = create<CollectionsListState>()(
       });
       try {
         const opts = buildOptions(get(), 0, branchFilter);
-        // The totals query is unpaginated but reuses the same filters — cheap
-        // (3 numeric columns) and gives the section headers the true per-month
-        // sum instead of only what has been paginated into `items`.
         const [items, monthlyTotals] = await Promise.all([
           collectionService.getHistory(opts),
           collectionService.getMonthlyTotals(opts),
@@ -256,7 +230,6 @@ export const useCollectionsListStore = create<CollectionsListState>()(
       await get().fetchCollections();
     },
 
-    // Resets to the default view: this month's money, newest first.
     clearFilters: async () => {
       set((state) => {
         state.customerFilter = null;
@@ -283,7 +256,6 @@ export const useCollectionsListStore = create<CollectionsListState>()(
         set((state) => {
           state.loading = false;
         });
-        // Every balance those rows touched came back — ONE read for the batch.
         const global = getStore().getState();
         void global.ledger.fetchNetByCustomer(resolveBranchFilter(global.auth.user));
       } catch (e) {
@@ -295,16 +267,9 @@ export const useCollectionsListStore = create<CollectionsListState>()(
     },
 
     applyVoided: (voided) => {
-      // Only a row that was still LIVE gives money back — re-voiding changes
-      // nothing, and this runs for hand-overs voided from a bill sheet too.
       const before = get().items.find((c) => c.id === voided.id);
       set((state) => {
-        // The row STAYS in the list, now marked as voided — history shows what
-        // happened, including reversals. Only its contribution to the section
-        // total drops (the totals query skips voided rows), and that is
-        // subtracted here rather than re-queried.
         state.items = state.items.map((c) =>
-          // Merge, not replace: `voided` carries no joined customer name.
           c.id === voided.id
             ? {
                 ...c,
@@ -323,12 +288,8 @@ export const useCollectionsListStore = create<CollectionsListState>()(
         }
       });
       if (before?.voidedAt) return;
-      // The row names the bills it had settled, so a sale it paid moves too.
       getStore().getState().sales.applyCollection(voided, -1);
-      // Those bills are owed again.
       getStore().getState().ledger.markOwedChanged();
-      // The debt badges are stale too, but that is ONE read per write — the
-      // caller fires it after the whole batch, never once per row.
     },
 
     clearError: () =>

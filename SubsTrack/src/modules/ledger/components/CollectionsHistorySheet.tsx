@@ -4,7 +4,6 @@ import { CollectionsPanel } from "../screens/CollectionsPanel";
 
 interface Props {
   onDismiss: () => void;
-  /** Opens a sale's receipt — see CollectionsPanel for why it is injected. */
   onOpenSale?: (saleId: string) => Promise<void> | void;
 }
 

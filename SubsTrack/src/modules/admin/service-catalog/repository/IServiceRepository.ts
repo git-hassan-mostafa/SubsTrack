@@ -22,11 +22,7 @@ export interface IServiceRepository {
   delete(id: string): Promise<void>;
   deleteMany(ids: string[]): Promise<void>;
   deactivateMany(ids: string[]): Promise<void>;
-  /** The subset of `ids` that any sale line references — drives soft-vs-hard delete. */
   referencedIds(ids: string[]): Promise<Set<string>>;
   countAll(branchFilter?: BranchFilter): Promise<number>;
-  /** Sale lines referencing this service, INCLUDING ones an edit dropped: the
-   *  server's `service_id` FK is ON DELETE RESTRICT, so a voided line still
-   *  blocks a hard delete. */
   countReferences(id: string): Promise<number>;
 }

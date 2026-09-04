@@ -20,8 +20,6 @@ export class SignupRepository implements ISignupRepository {
     >("create-tenant", { body: input });
 
     if (error) {
-      // supabase-js wraps non-2xx into a FunctionsHttpError whose context.response
-      // holds the parsed JSON body; surface the server-provided code when present.
       const parsed = await readFunctionsErrorBody(error);
       const serverMessage = parsed?.error ?? error.message;
       const wrapped: Error & { code?: string } = new Error(serverMessage);
@@ -35,9 +33,6 @@ export class SignupRepository implements ISignupRepository {
   }
 }
 
-// Platform seam: web talks to Supabase directly (unchanged); native uses the
-// offline wrapper (online-only — requires connectivity). Services import this
-// default, so neither services nor slices change.
 const impl: ISignupRepository =
   Platform.OS === "web" ? new SignupRepository() : new OfflineSignupRepository();
 

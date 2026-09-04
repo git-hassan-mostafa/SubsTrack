@@ -15,9 +15,7 @@ import { Text } from "./Text";
 // It's a real element, not a `border-t`, so it can be inset from both edges and
 // thicker than a hairline. Pass `first` on the top section to skip it.
 export interface SectionTotal {
-  /** Preformatted amount string. */
   text: string;
-  /** Tailwind text colour class, e.g. "text-red-600". */
   className: string;
 }
 

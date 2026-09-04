@@ -62,8 +62,6 @@ export class OfflineServiceRepository
     await this.deleteMany([id]);
   }
 
-  // A service owns no children (no stock ledger), so the generic helper is enough
-  // — unlike products, which must cascade their movements in the same transaction.
   async deleteMany(ids: string[]): Promise<void> {
     if (ids.length === 0) return;
     await this.write(async (db) => {
@@ -109,8 +107,6 @@ export class OfflineServiceRepository
     return this.count(`SELECT COUNT(*) AS n FROM services ${where.sql}`, where.params);
   }
 
-  // Counts lines an edit dropped too — the server's `service_id` FK is
-  // ON DELETE RESTRICT, so a voided line would still block the hard delete.
   async countReferences(id: string): Promise<number> {
     return this.count('SELECT COUNT(*) AS n FROM sale_items WHERE service_id = ?', [id]);
   }

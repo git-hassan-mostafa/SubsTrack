@@ -29,7 +29,6 @@ export function PeriodPicker({ value, onChange }: Props) {
   const pick = (preset: PeriodPreset) => {
     if (preset === "custom") {
       setCustomOpen(true);
-      // Keep the dates on screen; the user edits them below.
       onChange({ ...value, preset: "custom" });
       return;
     }

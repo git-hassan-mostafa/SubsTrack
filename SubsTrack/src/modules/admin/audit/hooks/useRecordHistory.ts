@@ -6,7 +6,6 @@ export interface RecordHistoryState {
   entries: AuditEntry[];
   loading: boolean;
   error: string | null;
-  /** Where the entries came from — the server, or the local window as a fallback. */
   source: AuditSource;
 }
 
@@ -46,7 +45,6 @@ function useAuditTimeline(key: string, load: Loader): RecordHistoryState {
     setError(null);
     load(key)
       .then((result) => {
-        // The sheet can close before a slow fetch lands.
         if (!active) return;
         setEntries(result.entries);
         setSource(result.source);
@@ -76,10 +74,6 @@ function useAuditTimeline(key: string, load: Loader): RecordHistoryState {
  * over, plus a manual clear on close that was easy to forget.
  */
 export function useRecordHistory(targets: AuditRecordTarget[]): RecordHistoryState {
-  // Callers build the array inline, so a new identity arrives every render. The
-  // key is its CONTENTS; `loadTargets` parses it back, so the effect depends only
-  // on real changes. (Not an eslint-disable: those switch React Compiler off for
-  // the whole file.)
   return useAuditTimeline(targets.map((tr) => `${tr.table}:${tr.recordId}`).join('|'), loadTargets);
 }
 

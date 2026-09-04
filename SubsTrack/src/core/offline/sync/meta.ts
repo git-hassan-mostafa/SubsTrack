@@ -1,12 +1,9 @@
-// The engine's entire bookkeeping: a tiny key/value table (`sync_meta`). No
-// outbox, no per-table cursor, no tombstone table.
-
 import type { SQLiteDatabase } from "expo-sqlite";
 
-export const META_ACTIVE_TENANT = "active_tenant_id"; // which tenant the mirror holds
-export const META_ACTIVE_BRANCH_SCOPE = "active_branch_scope"; // which branch view (tenant-wide vs one branch) the mirror was pulled under
-export const META_LAST_PULLED_AT = "last_pulled_at"; // newest server updated_at we've pulled
-export const META_LAST_SYNC_AT = "last_sync_at"; // when a cycle last COMPLETED — the `runSyncIfDue` gate
+export const META_ACTIVE_TENANT = "active_tenant_id";
+export const META_ACTIVE_BRANCH_SCOPE = "active_branch_scope";
+export const META_LAST_PULLED_AT = "last_pulled_at";
+export const META_LAST_SYNC_AT = "last_sync_at";
 
 /** Read a meta value (null if unset). */
 export async function getMeta(

@@ -35,8 +35,6 @@ interface Props {
   onDismiss: () => void;
 }
 
-// Icon per ledger reason; the tint comes from the direction, not the reason —
-// older 'adjustment' rows (and every sale) go the other way.
 const REASON_ICON: Record<StockReason, keyof typeof Ionicons.glyphMap> = {
   initial: "flag-outline",
   restock: "add-circle-outline",
@@ -71,7 +69,6 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
   const loading = useProductSlice((s) => s.loading);
   const error = useProductSlice((s) => s.error);
   const clearError = useProductSlice((s) => s.clearError);
-  // Read the live value from the list so it reflects the save without a refetch.
   const onHand = useProductSlice(
     (s) =>
       s.items.find((p) => p.id === product.id)?.stockOnHand ??
@@ -82,71 +79,40 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
 
   const [quantity, setQuantity] = useState("");
   const [note, setNote] = useState("");
-  // Buying stock spends money — the cost is what turns a restock into an
-  // expense. Pre-filled from the product's default cost, and optional: leaving
-  // it empty records the stock with no cost and adds no expense.
   const [unitCost, setUnitCost] = useState<number | null>(product.costPrice);
-  // The same money the other way round: a delivery is known either as "4.50
-  // each" or "45 for the lot", so both are typeable and each fills the other
-  // from the quantity. Only `unitCost` is ever saved.
   const [totalCost, setTotalCost] = useState<number | null>(null);
   const [costCurrencyId, setCostCurrencyId] = useState<string | null>(
     product.costCurrencyId,
   );
   const [history, setHistory] = useState<StockMovement[]>([]);
-  // The row being corrected, if any — the form doubles as the edit form, so the
-  // three fields staff may fix live in one place. null = recording a new change.
   const [editing, setEditing] = useState<StockMovement | null>(null);
   const [menuFor, setMenuFor] = useState<StockMovement | null>(null);
   const recordHistory = useRecordHistoryAction("stock_movements");
-  // The sheet's own scroll, so picking Edit on a history row far down the body
-  // can bring the form it fills back into view.
   const scrollBody = useRef<SheetScrollTo | null>(null);
-  // Which cost field was typed last. It stays as typed when the quantity
-  // changes and the other one is recomputed — re-deriving the number staff just
-  // entered would fight them.
   const costAnchor = useRef<"unit" | "total">("unit");
 
-  // `history` is background-loaded, so it stays out of the dirty check, and so
-  // is `costCurrencyId` (CurrencyInput self-seeds it after mount).
   const dirty = useDirtyForm({ quantity, note, unitCost, totalCost });
 
-  // Stable across renders so the mount effect below can depend on it.
   const loadHistory = useCallback(async () => {
     try {
       setHistory(await productService.getMovements(product.id));
     } catch {
-      // History is supporting detail — a failure here must not block adjusting.
     }
   }, [product.id]);
 
   useEffect(() => {
     clearError();
     void loadHistory();
-    // History names who changed the stock. `getUsers` self-guards on the slice's
-    // `loaded` flag, so this is a no-op when the list is already in memory.
     void getUsers();
-    // Clear on the way out too — the product form may still be open underneath
-    // and shares this slice's error, so a stock failure must not linger there.
     return clearError;
   }, [clearError, getUsers, loadHistory]);
 
   const parsed = Number(quantity);
   const validQuantity = Number.isInteger(parsed) && parsed > 0;
   const costCurrency = findCurrency(currencies, costCurrencyId);
-  // Which way the stock moves. A new manual change only ever ADDS — stock that
-  // went out is corrected on the entry itself (edit / revert), never by a second
-  // row. While correcting, the direction is the row's own, so an older negative
-  // entry still reads as one.
   const adding = editing ? editing.quantityDelta > 0 : true;
-  // What this change is worth in money — added to Expenses when adding, taken
-  // back off when the edited row was a removal. Only real once there is a
-  // quantity to price.
   const costEffect =
     validQuantity && totalCost != null && totalCost > 0 ? totalCost : null;
-  // Where the stock lands. Correcting a row swaps its old units for the new ones;
-  // a new change just adds them. Negative stock is allowed (two offline devices
-  // can both sell the last unit), so this only ever warns.
   const projected = validQuantity
     ? (editing ? onHand - editing.quantityDelta : onHand) +
       (adding ? parsed : -parsed)
@@ -166,7 +132,6 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
     setQuantity(digits);
     const qty = Number(digits);
     if (qty <= 0) return;
-    // The typed field stays put; the derived one follows the new quantity.
     if (costAnchor.current === "total") {
       if (totalCost != null) setUnitCost(round8(totalCost / qty));
     } else if (unitCost != null) {
@@ -176,13 +141,11 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
 
   function changeUnitCost({ amount, currencyId }: CostChange) {
     setCostCurrencyId(currencyId);
-    // Picking a currency is not a new amount — amounts are stored as typed.
     if (amount === unitCost) return;
     applyUnitCost(amount, parsed);
   }
 
   function changeTotalCost({ amount }: CostChange) {
-    // Also skips CurrencyInput's mount-time seed, which re-reports the amount.
     if (amount === totalCost) return;
     costAnchor.current = "total";
     setTotalCost(amount);
@@ -196,9 +159,6 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
     setEditing(null);
     setQuantity("");
     setNote("");
-    // The cost and its currency travel together — the pre-filled amount is the
-    // product's, so leaving the edited row's currency behind would re-price it.
-    // Quantity 0: with nothing to price there is no total either.
     applyUnitCost(product.costPrice, 0);
     setCostCurrencyId(product.costCurrencyId);
   }
@@ -211,9 +171,6 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
     setCostCurrencyId(m.currencyId);
     setNote(m.note ?? "");
     clearError();
-    // The tapped row is far below the form, so go back to the top of the body —
-    // otherwise the filled fields and the "Editing this entry" banner stay
-    // off-screen and the action looks like it did nothing.
     scrollBody.current?.(0);
   }
 
@@ -233,7 +190,6 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
     });
     if (!ok) return;
     if (!(await revertStockMovement(m.id, user?.id ?? null))) return;
-    // The form may be filled from the row that just stopped counting.
     if (editing?.id === m.id) resetForm();
     await loadHistory();
   }
@@ -241,7 +197,6 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
   function buildMenuActions(m: StockMovement | null): ActionMenuItem[] {
     if (!m) return [];
     const history = recordHistory.action(m.id, product.name);
-    // Nothing left to correct on a reverted row — only the trail of who did it.
     if (m.voidedAt) return [history];
     return [
       {
@@ -251,7 +206,6 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
         onPress: () => startEdit(m),
       },
       history,
-      // Destructive last, like every other card menu.
       {
         key: "revert",
         label: t("products.revert_stock_entry"),
@@ -271,7 +225,6 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
         cost: { unitCost, currency: costCurrency },
       });
       if (!ok) return;
-      // Stay open: the correction is only believable next to the history it fixed.
       resetForm();
       await loadHistory();
       return;
@@ -282,7 +235,6 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
       parsed,
       note,
       user.id,
-      // Buying the stock is what makes it an expense — no cost, no expense.
       { unitCost, currency: costCurrency },
     );
     if (!ok) return;
@@ -369,7 +321,6 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
             onChange={changeTotalCost}
             currencies={currencies}
             placeholder="0.00"
-            // One cost, one currency — the picker lives on the per-unit field.
             lockCurrency
             onFocus={clearError}
           />
@@ -448,9 +399,6 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
           {history.map((m, i) => {
             const added = m.quantityDelta > 0;
             const voided = m.voidedAt !== null;
-            // A sale's rows belong to the sale (it swaps them when edited), so they
-            // open no menu at all. A reverted row still does: its History is the
-            // only place that now says who reverted it.
             const hasMenu = m.reason !== "sale";
             const byName =
               users.find((u) => u.id === m.recordedByUserId)?.fullName ?? null;

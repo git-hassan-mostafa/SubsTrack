@@ -4,9 +4,7 @@ import saleService from "../services/SaleService";
 import { SaleDetailSheet } from "../components/SaleDetailSheet";
 
 export interface SaleDetailSheetHandle {
-  /** Loads the sale and shows its receipt. Resolves once it is on screen. */
   openSale: (saleId: string) => Promise<void>;
-  /** Render once per screen. */
   sheet: ReactNode;
 }
 

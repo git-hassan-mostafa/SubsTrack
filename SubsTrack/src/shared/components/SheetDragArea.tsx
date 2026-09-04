@@ -5,13 +5,7 @@ import { useBottomSheetGestureHandlers } from "@gorhom/bottom-sheet";
 
 interface SheetDragAreaProps {
   children: ReactNode;
-  /** Styles the wrapper — pass the row's own classes here. */
   className?: string;
-  /**
-   * Points the finger must travel vertically before the drag takes over.
-   * Set it when the area is covered in tap targets (a menu's rows) so a slightly
-   * sloppy tap still presses the button instead of nudging the sheet.
-   */
   activationDistance?: number;
 }
 

@@ -22,11 +22,6 @@ export interface CustomerSlice {
   activeCount: number;
   page: number;
   hasMore: boolean;
-  /**
-   * A fetch has completed at least once. The "ensure loaded" guard keys off this,
-   * NOT `items.length` — an empty result is a valid loaded state, and a length-based
-   * guard re-queries on every caller (i.e. every form open) for a tenant with no rows.
-   */
   loaded: boolean;
   loading: boolean;
   loadingMore: boolean;
@@ -77,8 +72,6 @@ export const createCustomerSlice: StateCreator<
 
   getCustomers: async () => {
     const { loaded, loading } = get().customers;
-    // Already loaded, or a fetch is already in flight — several components
-    // mount-fetch the same slice in one tick (see docs/gotchas.md).
     if (loaded || loading) return;
     await get().customers.fetchCustomers();
   },
@@ -210,8 +203,6 @@ export const createCustomerSlice: StateCreator<
       const customer = await customerService.createCustomer(data, tenantId, tier, usage);
       set((state) => {
         state.customers.items.unshift(customer);
-        // New customers are created active, but only count toward the subtitle
-        // when they belong to the currently filtered branch view.
         if (ownedRowMatchesFilter(customer.branchId, branchFilter))
           state.customers.activeCount += 1;
         state.customers.loading = false;
@@ -258,9 +249,6 @@ export const createCustomerSlice: StateCreator<
     }
   },
 
-  // Patches a customer's service lines in place after a plan sync — avoids
-  // re-fetching the whole customer. The customerPlans slice supplies the
-  // already-rebuilt line set (active + cancelled-for-history).
   setCustomerLines: (id, lines) =>
     set((state) => {
       const i = state.customers.items.findIndex((c) => c.id === id);
@@ -313,8 +301,6 @@ export const createCustomerSlice: StateCreator<
   },
 
   deleteCustomer: async (id) => {
-    // A hard delete removes the row; a soft delete deactivates it. Either way the
-    // active count drops only if the customer was active beforehand.
     const wasActive = get().customers.items.find((c) => c.id === id)?.active ?? false;
     set((state) => {
       state.customers.loading = true;
@@ -350,8 +336,6 @@ export const createCustomerSlice: StateCreator<
 
   bulkDeleteCustomers: async (ids) => {
     if (ids.length === 0) return true;
-    // Active count drops by however many of the deleted customers were active
-    // (both hard and soft removals leave the active set).
     const activeRemoved = get().customers.items.filter(
       (c) => ids.includes(c.id) && c.active,
     ).length;

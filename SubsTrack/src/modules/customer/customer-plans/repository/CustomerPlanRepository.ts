@@ -7,9 +7,6 @@ import type {
 } from './ICustomerPlanRepository';
 import { OfflineCustomerPlanRepository } from './CustomerPlanRepository.offline';
 
-// One row per service line. No branch_id of its own — RLS scopes lines via the
-// owning customer's branch (see the customer_plans_all policy), exactly like
-// payments. The joined plan is loaded for display + price snapshotting.
 const SELECT = '*, plans(*)';
 
 export class CustomerPlanRepository extends BaseRepository implements ICustomerPlanRepository {
@@ -31,8 +28,6 @@ export class CustomerPlanRepository extends BaseRepository implements ICustomerP
     return created;
   }
 
-  // Both single-row patches funnel through here: read first (an UPDATE cannot
-  // return old values), apply, record the diff.
   private async patch(
     id: string,
     values: Record<string, unknown>,
@@ -76,22 +71,15 @@ export class CustomerPlanRepository extends BaseRepository implements ICustomerP
       >
     >,
   ): Promise<DbCustomerPlan> {
-    // Re-activating a cancelled line reads as a restore, not a plain edit.
     const action = payload.active === true && payload.cancelled_at === null ? 'restore' : 'update';
     return this.patch(id, payload, action);
   }
 
-  // Soft-delete: keeps the row (and its payment history) but stops billing.
   async cancel(id: string): Promise<DbCustomerPlan> {
     return this.patch(id, { active: false, cancelled_at: new Date().toISOString() }, 'update');
   }
 
-  // Hard-delete a line. Its payments cascade-delete (FK ON DELETE CASCADE) —
-  // an intentional exception to the no-hard-deletes rule for the form's
-  // "delete permanently" checkbox; also used when a line has no payments.
   async delete(id: string): Promise<void> {
-    // Snapshot before the row is gone — a delete's whole value in the trail is
-    // the copy of what was removed.
     const { data: prior } = await this.db
       .from('customer_plans')
       .select('*')
@@ -121,8 +109,6 @@ export class CustomerPlanRepository extends BaseRepository implements ICustomerP
   }
 
   async findPaidLineIds(customerId: string): Promise<string[]> {
-    // Read from the ITEM side: every collection_item is > 0 by constraint, so
-    // one returned row IS money standing on that line — no amount test needed.
     const { data, error } = await this.db
       .from('collection_items')
       .select('charges!inner(customer_plan_id, customer_id), collections!inner(voided_at)')
@@ -138,7 +124,6 @@ export class CustomerPlanRepository extends BaseRepository implements ICustomerP
   }
 }
 
-// Platform seam: web → Supabase directly (unchanged); native → offline SQLite.
 const impl: ICustomerPlanRepository =
   Platform.OS === 'web' ? new CustomerPlanRepository() : new OfflineCustomerPlanRepository();
 

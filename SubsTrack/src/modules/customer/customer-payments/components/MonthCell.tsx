@@ -19,16 +19,12 @@ interface Props {
   connectRight?: boolean;
   wrapFromPrev?: boolean;
   wrapToNext?: boolean;
-  // Selection mode: tap toggles instead of opening, the 3-dot is replaced by a
-  // checkbox badge, and selected cells gain a primary ring.
   selectionMode?: boolean;
   selected?: boolean;
   onToggle?: (entry: MonthEntry) => void;
   onLongPress?: (entry: MonthEntry) => void;
 }
 
-// Skipped is the same muted slate for both customer kinds — it means "nothing
-// expected", which has nothing to do with being a regular customer.
 const regularBgColor: Record<MonthStatus, string> = {
   paid: "bg-green-500",
   unpaid: "bg-red-500",
@@ -80,23 +76,14 @@ export const MonthCell = memo(function MonthCell({
   const { year: cy, month: cm } = getCurrentYearMonth();
   const isCurrentMonth = entry.year === cy && entry.month === cm;
 
-  // before_start cells are never selectable; everything else can be picked.
   const selectable = entry.status !== "before_start";
 
-  // A partial payment still resolves to "paid" (rule #1), so only the ring and
-  // the label can tell a settled month from one that still owes. A multi-month
-  // block is marked on its FIRST cell only — ringing every segment would draw
-  // seams through the joined pill.
   const isPartial = entry.status === "paid" && entry.balance > 0;
   const showPartialRing = isPartial && !entry.isGroupSecondary;
 
   const bgColor = isRegular ? regularBgColor : nonRegularBgColor;
   const textColor = isRegular ? regularTextColor : nonRegularTextColor;
 
-  // A partial month wears its status colour under an amber ring — the same amber
-  // every other partial surface uses. A ring rather than a fill because a
-  // non-regular customer's "paid" is already yellow, so an amber fill would be
-  // invisible there.
   const containerBg =
     isRegular && isCurrentMonth && entry.status === "unpaid"
       ? "bg-red-100 border-2 border-red-500"
@@ -109,14 +96,9 @@ export const MonthCell = memo(function MonthCell({
       ? "text-red-600"
       : textColor[entry.status];
 
-  // The 3-dot menu only makes sense on months that can be acted on: record a
-  // payment (unpaid / future) or open / void an existing one (paid, incl. a
-  // partial payment). Only before-start cells stay tap-only. Hidden in
-  // selection mode — the checkbox badge takes its place.
   const showMenu =
     !selectionMode && !!onMenu && entry.status !== "before_start";
 
-  // Match the dots to the label colour so they stay visible on every cell type.
   const usesWhiteText =
     entry.status === "paid" ||
     entry.status === "skipped" ||
@@ -138,9 +120,6 @@ export const MonthCell = memo(function MonthCell({
     return null;
   })();
 
-  // In-row neighbours: drop the outer gap on the connecting side so cells touch.
-  // Cross-row neighbours: keep the gap but square the corner on that side and
-  // render a chevron, so the wrap reads as continuation rather than a separate pill.
   const padClass = `${connectLeft ? "ps-0" : "ps-1"} ${
     connectRight ? "pe-0" : "pe-1"
   } py-1`;
@@ -154,8 +133,6 @@ export const MonthCell = memo(function MonthCell({
   else if (rightSquare) roundClass = "rounded-tl-xl rounded-bl-xl";
   else roundClass = "rounded-xl";
 
-  // In selection mode a selected cell gets a primary ring; the status colour
-  // underneath stays visible.
   const ringClass = selectionMode && selected ? "border-2 border-primary" : "";
 
   function handlePress() {

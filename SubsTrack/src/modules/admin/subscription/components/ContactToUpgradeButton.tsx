@@ -4,8 +4,6 @@ import { SendOnWhatsAppButton } from "@/src/modules/invoicing";
 import { useSupportWhatsAppNumber } from "@/src/state/hooks/useOptionSlice";
 
 interface Props {
-  // Tier the user wants — included in the pre-filled message. Omit for a
-  // generic "upgrade my plan" request.
   tierName?: string;
   className?: string;
 }

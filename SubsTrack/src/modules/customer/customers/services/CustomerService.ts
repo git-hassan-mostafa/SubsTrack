@@ -53,14 +53,11 @@ class CustomerService {
       is_regular: data.isRegular,
       cancelled_at: null,
     });
-    // Service lines are created right after by the form's inline Plans editor
-    // (customerPlans.syncLines) — every customer ends up with ≥1 line.
     return mapDbCustomerToCustomer(row);
   }
 
   async updateCustomer(id: string, data: CustomerInput): Promise<Customer> {
     this.validateInput(data);
-    // Plan assignment is NOT edited here — service lines are managed separately.
     const row = await repository.update(id, {
       name: data.name.trim(),
       phone_number: data.phoneNumber?.trim() || null,
@@ -94,10 +91,6 @@ class CustomerService {
     return mapDbCustomerToCustomer(row);
   }
 
-  // Batch counterpart to deleteCustomer: customers with payment history are
-  // soft-deleted, the rest hard-deleted — each group in a single statement
-  // (≤3 round-trips total, independent of count). Returns the id split so the
-  // store can update its list + active count without a refetch.
   async deleteManyCustomers(
     ids: string[],
   ): Promise<{ hard: string[]; soft: string[] }> {

@@ -17,7 +17,6 @@ export type PlanRow = {
   id?: string;
   planId: string | null;
   startDate: string;
-  // null = charge the plan's price (or ask each month, with no plan price).
   customPrice: number | null;
   customCurrencyId: string | null;
   status: "active" | "cancelled";
@@ -29,10 +28,7 @@ interface Props {
   plan: Plan | null;
   branchId: string | null;
   currencies: Currency[];
-  // Once a month is paid on this line its start date is frozen: moving it would
-  // invent or hide months a payment already covers.
   dateLocked: boolean;
-  // Hidden while the customer has a single line, so the common case stays plain.
   showHeader: boolean;
   canRemove: boolean;
   onPlanChange: (planId: string | null) => void;
@@ -132,10 +128,6 @@ export function PlanLineCard({
             onChange={onStartDateChange}
             placeholder={t("customers.start_date_placeholder")}
             disabled={cancelled || dateLocked}
-            // Says WHY the date is greyed out, on tap rather than as a caption —
-            // a permanent line of text under every locked row costs height, and
-            // there is one card per service line. Not offered on a cancelled
-            // row: everything there is read-only, not just the date.
             disabledReason={
               dateLocked && !cancelled
                 ? t("subscriptions.start_date_locked")

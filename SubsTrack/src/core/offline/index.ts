@@ -1,6 +1,3 @@
-// Public surface of the offline-first infrastructure. Repositories import the
-// pieces they need from here; the rest of the app only touches `initOffline`.
-
 export { IS_OFFLINE_CAPABLE } from './platform';
 export { initOffline } from './bootstrap/offlineBootstrap';
 export { ensureTenantScope } from './bootstrap/tenant';

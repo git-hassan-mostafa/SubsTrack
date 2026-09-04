@@ -4,13 +4,9 @@ import { Gesture } from "react-native-gesture-handler";
 import { runOnJS } from "react-native-reanimated";
 
 interface Options {
-  /** Called when the user swipes toward the "next" item. */
   onNext: () => void;
-  /** Called when the user swipes toward the "previous" item. */
   onPrev: () => void;
-  /** Min horizontal travel (px) before a swipe counts. Default 50. */
   distance?: number;
-  /** Max vertical travel (px) allowed — filters out diagonal / scroll gestures. Default 60. */
   maxVertical?: number;
 }
 
@@ -35,14 +31,11 @@ export function useHorizontalSwipe({
   return useMemo(
     () =>
       Gesture.Pan()
-        // Only claim the gesture once it is clearly horizontal, so vertical
-        // list scrolling underneath keeps working.
         .activeOffsetX([-15, 15])
         .failOffsetY([-maxVertical, maxVertical])
         .onEnd((e) => {
           if (Math.abs(e.translationX) < distance) return;
           if (Math.abs(e.translationY) > maxVertical) return;
-          // translationX < 0 is a physical right→left flick.
           const forward = I18nManager.isRTL
             ? e.translationX > 0
             : e.translationX < 0;

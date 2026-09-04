@@ -9,7 +9,6 @@ export default function GlobalConfirmDialog() {
 
   if (!options) return null;
 
-  // Extra content (e.g. a checkbox) lives outside immer state — read it here.
   const content = getContent();
 
   return (

@@ -13,7 +13,6 @@ interface CustomerSalesList {
   refresh: () => Promise<void>;
   loadMore: () => Promise<void>;
   clearError: () => void;
-  /** A write landed elsewhere — patch this list instead of re-reading it. */
   patch: SalePatches;
 }
 
@@ -92,10 +91,6 @@ export function useCustomerSalesList(
 
   const clearError = useCallback(() => setError(null), []);
 
-  // `setItems` is stable, so the patches only change with the scope. While a
-  // SEARCH is on they are replaced by a re-read: whether the saved row still
-  // matches the term is the server's question, and answering it here would
-  // duplicate the query (same reasoning as the Sales tab's filters).
   const patch = useMemo<SalePatches>(() => {
     const base = saleListPatches(setItems, customerId);
     if (!search) return base;

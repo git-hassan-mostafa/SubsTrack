@@ -29,25 +29,12 @@ import { keyOf, sortByDue } from '../utils/waterfall';
  *         NOT a debt — it is red in the grid, which is its own workflow.
  */
 class LedgerService {
-  /**
-   * Everything a customer owes, oldest due date first.
-   *
-   * The two sources are deduped on `(customer_plan_id, billing_month)` — the
-   * same natural key the charge is unique on — and the STORED bill always wins.
-   * Miss that and an empty month charge (left behind by a voided collection)
-   * would be counted twice: once as a bill, once as a virtual month.
-   */
   async getOwed(args: {
     customer: Customer;
     lines: CustomerPlan[];
     skips: SkippedMonth[];
     unpaidRule: UnpaidStartRule;
-    /**
-     * The tenant's currencies. A virtual month has no frozen rate yet, so it is
-     * valued at the CURRENT rate and freezes only when money lands on it.
-     */
     currencies: Currency[];
-    /** Never reaches beyond today — prepaying stays a deliberate action. */
     today?: Date;
   }): Promise<OpenItem[]> {
     const { customer, lines, skips, unpaidRule, currencies } = args;
@@ -56,11 +43,6 @@ class LedgerService {
       customerName: customer.name,
     }));
 
-    // An EMPTY month bill (its only collection was voided) must read exactly
-    // like a month never touched — including its price. So only a bill money
-    // has actually reached wins the dedupe; an empty one falls through to the
-    // virtual path and is re-priced from the line's CURRENT price, and the
-    // collect write re-prices the stored row to match (gotcha #106b).
     const billed = new Set(
       stored
         .filter((i) => i.kind === 'month' && i.paid > 0)
@@ -76,8 +58,6 @@ class LedgerService {
       today: args.today ?? new Date(),
     });
 
-    // Drop the empty bills the virtual pass just replaced, or the month would
-    // appear twice (once at its stale price, once at the current one).
     const revalued = new Set(virtual.map((i) => `${i.customerPlanId}:${i.billingMonth}`));
     const kept = stored.filter(
       (i) =>
@@ -89,11 +69,6 @@ class LedgerService {
     return sortByDue([...kept, ...virtual]);
   }
 
-  /**
-   * Months a customer owes that have NO bill yet. Derived from the grid, so the
-   * month rules — skipped, before-start, not-due-yet — are honoured in exactly
-   * one place and never re-implemented here.
-   */
   private async virtualUnpaidMonths(args: {
     customer: Customer;
     lines: CustomerPlan[];
@@ -112,8 +87,6 @@ class LedgerService {
 
     for (const line of active) {
       const price = resolveLinePrice(line);
-      // A line with no fixed price cannot be billed without someone typing an
-      // amount, so it never joins a waterfall.
       if (!price.isFixed || price.amount === null || price.amount <= 0) continue;
       const ratePerUsd = findCurrency(currencies, price.currencyId)?.ratePerUsd ?? 1;
 
@@ -123,8 +96,6 @@ class LedgerService {
 
       for (let year = startYear; year <= today.getFullYear(); year++) {
         for (const entry of paymentService.buildMonthGrid(line, bills, lineSkips, year, unpaidRule)) {
-          // Only genuinely owed months: "unpaid" already excludes skipped,
-          // before-start, future and not-due-yet.
           if (entry.status !== 'unpaid') continue;
           if (alreadyBilled.has(`${line.id}:${entry.billingMonth}`)) continue;
           out.push(
@@ -139,8 +110,6 @@ class LedgerService {
               label: `${entry.label} ${entry.year}${line.plan?.name ? ` · ${line.plan.name}` : ''}`,
               amount: price.amount,
               currencyId: price.currencyId,
-              // No frozen rate yet: valued at the currency's CURRENT rate, and
-              // frozen for good the moment money lands on it.
               ratePerUsdSnapshot: ratePerUsd,
               dueDate: entry.billingMonth,
             }),
@@ -151,18 +120,15 @@ class LedgerService {
     return out;
   }
 
-  /** The Debts screen for a branch scope. */
   async getDebtsView(branchFilter: BranchFilter = null): Promise<DebtsView> {
     const open = await chargeService.getOpenCharges({ branchFilter });
     return chargeService.buildDebtsView(open);
   }
 
-  /** The bills for one line's grid, paired with what reached them. */
   getMonthBillsForLines(customerPlanIds: string[]): Promise<Map<string, MonthBill[]>> {
     return chargeService.getMonthBillsForLines(customerPlanIds);
   }
 
-  /** Stable identity for an item, virtual months included. */
   keyOf = keyOf;
 }
 

@@ -29,11 +29,8 @@ export function TransactionsScreen() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const [tab, setTab] = useState<TransactionsTab>("debts");
-  // A debt row can BE a sale, and debts must not depend on the sales module.
   const saleDetail = useSaleDetailSheet();
 
-  // Expenses are admin-only (rent/salaries), matching the RLS on the table —
-  // dropping the segment is what keeps it off a collector's screen.
   const isAdmin = user?.role === "admin" || user?.role === "superadmin";
 
   const segments: Segment<TransactionsTab>[] = useMemo(
@@ -47,7 +44,6 @@ export function TransactionsScreen() {
     [t, isAdmin],
   );
 
-  // Swipe left/right moves to the neighbouring tab (clamped at the ends).
   const step = useCallback(
     (delta: number) =>
       setTab((current) => {

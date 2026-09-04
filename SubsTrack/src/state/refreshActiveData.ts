@@ -1,20 +1,3 @@
-// Re-fetch the loaded stores after a sync brought fresh data down.
-//
-// The offline sync engine (core layer) pulls new rows into SQLite, but the
-// Zustand stores were already filled from the OLD local data when each screen
-// first loaded — nothing tells them to reload. This function is that signal.
-//
-// It is registered once at bootstrap via `setSyncRefreshHandler` and fired only
-// after a fully-successful pull on a **cold-start** or **manual** sync (never on
-// the calm 5-minute background ticks). Keeping it in the state layer means the
-// core sync engine never imports state — the dependency is inverted through the
-// registered callback.
-//
-// Scope: "only what's on screen". A slice is only populated once its screen was
-// opened, so re-fetching only the slices that already hold data refreshes exactly
-// the screens the user has visited. The dashboard always refreshes because home
-// is the landing screen. List fetches reset to page 1 (fresh, from the top).
-
 import { useAuditStore } from '@/src/modules/admin/audit/state/auditStore';
 import { useDashboardStore } from '@/src/modules/dashboard/state/dashboardStore';
 import { useCollectionsListStore } from '@/src/modules/ledger/state/collectionsListStore';
@@ -27,13 +10,8 @@ import { getStore } from './globalStore';
 export function refreshActiveData(): void {
   const s = getStore().getState();
 
-  // Home is the landing screen — always refresh its metrics + revenue trend.
   void useDashboardStore.getState().fetchMetrics();
 
-  // Each list refreshes only if it was ever loaded (its screen was opened).
-  // The slices with an "ensure loaded" action carry a `loaded` flag, so an
-  // empty-but-visited screen still refreshes; the rest have no such flag and
-  // fall back to `items.length`.
   if (s.customers.loaded) void s.customers.fetchCustomers();
   if (s.plans.loaded) void s.plans.fetchPlans();
   if (s.currencies.loaded) void s.currencies.fetchCurrencies();
@@ -43,30 +21,20 @@ export function refreshActiveData(): void {
   if (s.users.loaded) void s.users.fetchUsers();
   if (s.sales.items.length) void s.sales.fetchSales();
   if (s.ledger.debts) void s.ledger.fetchDebts(resolveBranchFilter(s.auth.user));
-  // Module stores sit outside GlobalState — reached through their own hook.
   const collections = useCollectionsListStore.getState();
   if (collections.items.length) void collections.fetchCollections();
   const expenses = useExpenseStore.getState();
   if (expenses.items.length) void expenses.fetchExpenses();
   const wallet = useWalletStore.getState();
   if (wallet.items.length) void wallet.fetchWallets();
-  // A pull brings other devices' audit entries into the local window.
   const audit = useAuditStore.getState();
   if (audit.items.length) void audit.fetchEntries();
 
-  // The customer-list badges (month status + overdue, net debt) are derived from
-  // the customer set, so refresh them whenever the customer list is loaded. The
-  // status map is built from the customers already in the store — the list
-  // screen rebuilds it again on focus once its own fetch lands.
   if (s.customers.loaded) {
     void s.payments.fetchCustomerStatuses(s.customers.items);
     void s.ledger.fetchNetByCustomer(resolveBranchFilter(s.auth.user));
   }
 
-  // NOT refreshed here: `payments.bills` (the open customer's month grid). The
-  // viewed YEAR lives in the panel, not the slice, so this could only guess it.
-  // Pull-to-refresh on the customer page reloads it instead.
 
-  // Tier usage counts (drives limit gating) — cheap and always relevant.
   void s.subscription.refreshUsage();
 }

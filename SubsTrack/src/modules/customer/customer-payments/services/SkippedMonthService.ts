@@ -18,22 +18,16 @@ export interface SetSkipInput {
  * in buildMonthGrid, so a skip left on a month that later gets paid is inert.
  */
 class SkippedMonthService {
-  // Active skips across all of a customer's lines (all years) — the panel loads
-  // this once and rebuilds each year's grid client-side, like payments.
   async getSkipsForCustomer(customerId: string): Promise<SkippedMonth[]> {
     const rows = await repository.findActiveByCustomer(customerId);
     return rows.map(mapDbSkippedMonthToSkippedMonth);
   }
 
-  // Every active skip in the tenant — the customer-list overdue scan needs all
-  // customers at once.
   async getActiveSkips(): Promise<SkippedMonth[]> {
     const rows = await repository.findActive();
     return rows.map(mapDbSkippedMonthToSkippedMonth);
   }
 
-  // Skip (or unskip) any number of months in one round-trip. `skippedByUserId`
-  // records who last changed the state.
   async setSkipped(
     inputs: SetSkipInput[],
     skipped: boolean,

@@ -44,8 +44,6 @@ export function ReportsScreen() {
   const [exportError, setExportError] = useState<string | null>(null);
   const { exporting, exportSection } = useReportExport();
 
-  // The branch chip rescopes every figure, so a change re-fetches — the same
-  // contract every other panel follows.
   useEffect(() => {
     void fetchSection();
   }, [branchFilter, fetchSection]);

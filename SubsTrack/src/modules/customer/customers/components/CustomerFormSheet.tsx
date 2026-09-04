@@ -92,8 +92,6 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
   const plansEditor = useRef<CustomerPlansEditorHandle>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  // The plan rows live inside CustomerPlansEditor, so it reports its own dirty
-  // state up — a diff of `form` alone would miss an added/changed plan line.
   const [plansDirty, setPlansDirty] = useState(false);
   const dirty = useDirtyForm(form) || plansDirty;
 
@@ -140,7 +138,7 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
           currentTier,
           usage,
         );
-        if (!created) return; // error / tier-limit surfaced via the banners/modal
+        if (!created) return;
         const ok = await syncLines(
           created.id,
           finalLines,

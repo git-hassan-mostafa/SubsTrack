@@ -49,12 +49,8 @@ export function ExpenseFormSheet({ onDismiss, onCreated }: Props) {
   const [currencyId, setCurrencyId] = useState<string | null>(null);
   const [description, setDescription] = useState("");
   const [day, setDay] = useState(today());
-  // A branch-scoped admin's expenses bind to their branch; a tenant-wide admin
-  // may leave it null, which means "company-wide, not charged to one branch".
   const [branchId, setBranchId] = useState<string | null>(user?.branchId ?? null);
 
-  // `currencyId` is excluded: CurrencyInput self-seeds it from the last-used
-  // currency in a mount effect, so it changes with no user action.
   const dirty = useDirtyForm({ category, amount, description, day, branchId });
 
   useEffect(() => {

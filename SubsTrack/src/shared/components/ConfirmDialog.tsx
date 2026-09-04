@@ -44,8 +44,6 @@ export function ConfirmDialog({
     if (!visible) setLoading(false);
   }, [visible]);
 
-  // Web: browser Back closes the dialog (mirrors native hardware-back). Guard
-  // loading so Back can't dismiss mid-confirm, matching onRequestClose below.
   useWebBackDismiss(visible, () => {
     if (!loading) onCancel();
   });

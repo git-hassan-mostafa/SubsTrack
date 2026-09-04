@@ -16,7 +16,6 @@ export class SkippedMonthRepository extends BaseRepository implements ISkippedMo
     return (data ?? []) as DbSkippedMonth[];
   }
 
-  // Branch scoping is left to RLS (skips inherit the customer's branch).
   async findActive(): Promise<DbSkippedMonth[]> {
     const { data, error } = await this.db
       .from('skipped_months')
@@ -35,8 +34,6 @@ export class SkippedMonthRepository extends BaseRepository implements ISkippedMo
     if (error) this.handleError(error);
     const saved = (data ?? []) as DbSkippedMonth[];
     for (const s of saved) {
-      // One row covers both directions: `skipped: false` is an unskip, which
-      // reads as restoring the month to payable.
       this.audit({
         table: 'skipped_months',
         recordId: s.id,
@@ -49,7 +46,6 @@ export class SkippedMonthRepository extends BaseRepository implements ISkippedMo
   }
 }
 
-// Platform seam: web → Supabase directly; native → offline SQLite.
 const impl: ISkippedMonthRepository =
   Platform.OS === 'web' ? new SkippedMonthRepository() : new OfflineSkippedMonthRepository();
 

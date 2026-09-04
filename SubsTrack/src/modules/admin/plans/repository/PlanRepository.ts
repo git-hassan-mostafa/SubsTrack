@@ -43,16 +43,10 @@ export class PlanRepository extends BaseRepository implements IPlanRepository {
     await this.deleteMany([id]);
   }
 
-  // Hard-delete many plans in one statement. Service lines on a deleted plan
-  // fall back to plan-less via the customer_plans.plan_id ON DELETE SET NULL
-  // constraint (payment history is preserved by the plan_id snapshot on payments).
   async deleteMany(ids: string[]): Promise<void> {
     await this.auditedDelete<DbPlan>('plans', ids);
   }
 
-  // Plans use the 'shared' scope: NULL means "available to every branch".
-  // Filtering by a specific branch therefore includes shared plans alongside
-  // that branch's plans. See BRANCH_SCOPES.plans.
   async countAll(branchFilter: BranchFilter = null): Promise<number> {
     let query = this.db
       .from('plans')
@@ -64,10 +58,6 @@ export class PlanRepository extends BaseRepository implements IPlanRepository {
   }
 }
 
-// Platform seam: web talks to Supabase directly (unchanged); native uses the
-// offline SQLite repository. Services import this default, so neither services
-// nor slices change. The offline class is only constructed on native, so web
-// never opens a local DB.
 const impl: IPlanRepository =
   Platform.OS === 'web' ? new PlanRepository() : new OfflinePlanRepository();
 

@@ -38,8 +38,6 @@ export class OfflineExpenseRepository
     return this.decodeAll<DbExpense>('expenses', rows);
   }
 
-  // Not audited: append-only + voidable, so the Expenses list is already its own
-  // history — the same call as the debt tables.
   async create(payload: CreateExpensePayload): Promise<DbExpense> {
     const now = nowIso();
     const row: DbExpense = {
@@ -60,7 +58,6 @@ export class OfflineExpenseRepository
   async void(id: string, voidedBy: string, reason: string | null): Promise<DbExpense> {
     const now = nowIso();
     await this.write(async (db) => {
-      // A raw UPDATE must set _dirty by hand — only the dml.ts helpers do it.
       await db.runAsync(
         `UPDATE expenses SET voided_at = ?, voided_by = ?, void_reason = ?, updated_at = ?, _dirty = 1
          WHERE id = ? AND voided_at IS NULL`,

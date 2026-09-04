@@ -1,6 +1,3 @@
-// DB row types — snake_case, mirrors SQL schema exactly.
-// These types MUST NEVER leave the repository layer.
-
 export interface DbTenant {
   id: string;
   name: string;
@@ -9,7 +6,6 @@ export interface DbTenant {
   tier_id: string;
   tier_upgraded_at: string | null;
   created_at: string;
-  // joined relation — present when .select('*, tier_plans(*)')
   tier_plans?: DbTierPlan | null;
 }
 
@@ -65,7 +61,6 @@ export interface DbUser {
   tenant_id: string;
   branch_id: string | null;
   created_at: string;
-  // joined relation — present when .select('*, branches(*)')
   branches?: DbBranch | null;
 }
 
@@ -96,7 +91,6 @@ export interface DbCustomer {
   cancelled_at: string | null;
   created_at: string;
   updated_at: string;
-  // joined relation — present when .select('*, customer_plans(*, plans(*))')
   customer_plans?: DbCustomerPlan[] | null;
 }
 
@@ -109,14 +103,11 @@ export interface DbCustomerPlan {
   start_date: string;
   cancelled_at: string | null;
   active: boolean;
-  // Special price for this line only, replacing the plan's price. NULL = use the plan's.
   custom_price: number | null;
-  // Currency of custom_price. NULL = USD.
   custom_currency_id: string | null;
   tenant_id: string;
   created_at: string;
   updated_at: string;
-  // joined relation — present when .select('*, plans(*)')
   plans?: DbPlan | null;
 }
 
@@ -144,8 +135,6 @@ export interface DbProduct {
   description: string | null;
   price: number;
   currency_id: string | null;
-  // What the product costs to BUY — the default that pre-fills a restock.
-  // null = unknown, and a restock then records no cost. cost_currency_id null = USD.
   cost_price: number | null;
   cost_currency_id: string | null;
   active: boolean;
@@ -173,11 +162,9 @@ export interface DbSale {
   id: string;
   tenant_id: string;
   branch_id: string | null;
-  // Frozen summary of every line — search + labels (no sale_items join needed).
   items_summary: string;
   customer_id: string | null;
   recorded_by_user_id: string | null;
-  // Sum of every line's (unit_amount * quantity). App-written (not generated).
   total_amount: number;
   currency_id: string | null;
   rate_per_usd_snapshot: number;
@@ -188,10 +175,6 @@ export interface DbSale {
   notes: string | null;
   created_at: string;
   updated_at: string;
-  // No money and no custody here: what is OWED for the sale is its charges row
-  // and what was COLLECTED is a collections row.
-  // joined relations — present when
-  // .select('*, sale_items(*, products(*), services(*)), customers(*)')
   sale_items?: DbSaleItem[];
   customers?: DbCustomer | null;
 }
@@ -202,22 +185,15 @@ export interface DbStockMovement {
   id: string;
   tenant_id: string;
   product_id: string;
-  // Signed: positive adds stock, negative removes it.
   quantity_delta: number;
   reason: DbStockReason;
-  // Set only for reason = 'sale'.
   sale_id: string | null;
-  // What one unit cost to buy, on a positive movement. The Expenses view derives
-  // one row per costed movement (quantity_delta * unit_cost). null = no cost
-  // recorded, so it contributes nothing — every legacy and every 'sale' row.
-  // The three always travel together; rate is frozen at buy time (1 for USD).
   unit_cost: number | null;
   currency_id: string | null;
   rate_per_usd_snapshot: number | null;
   note: string | null;
   recorded_by_user_id: string | null;
   occurred_at: string;
-  // Soft-void: voiding a sale voids its movements (never inserts opposite ones).
   voided_at: string | null;
   voided_by: string | null;
   created_at: string;
@@ -233,68 +209,48 @@ export interface DbSaleItem {
   id: string;
   sale_id: string;
   tenant_id: string;
-  // Which of the two id columns below is set. Enforced by chk_sale_items_line_ref.
   line_type: DbSaleLineType;
-  // Exactly one of these is set on a catalog line; a ONE-OFF typed service has
-  // neither, and item_name_snapshot is then the whole record of what was sold.
   product_id: string | null;
   service_id: string | null;
-  // The product's / service's name at sale time, or the typed one-off name.
   item_name_snapshot: string;
   quantity: number;
   unit_amount: number;
-  // Set when an EDIT dropped this line. Soft, not deleted — the offline sync has
-  // no tombstones for sale_items. The mapper filters these out.
   voided_at: string | null;
   created_at: string;
   updated_at: string;
-  // joined relations — present when .select('*, products(*), services(*)')
   products?: DbProduct | null;
   services?: DbService | null;
 }
 
-// ── Ledger rows ─────────────────────────────────────────────────────────────
-// charges = what is owed, collections = money handed over, collection_items =
-// which bill that money paid. What has been PAID is never a column on a charge;
-// it is SUM(collection_items), which is what DbChargeBalance carries.
 
 // One bill: a subscription month, a sale, or a hand-typed fee.
 export interface DbCharge {
   id: string;
   tenant_id: string;
-  // Read ONLY when customer_id is null (walk-in sale); otherwise the branch is
-  // the customer's.
   branch_id: string | null;
   customer_id: string | null;
   kind: 'month' | 'sale' | 'manual';
-  // kind = 'month'
   customer_plan_id: string | null;
   billing_month: string | null;
   duration_months: number;
   plan_id: string | null;
-  // kind = 'sale'
   sale_id: string | null;
-  // kind = 'manual'
   description: string | null;
   amount: number;
   currency_id: string | null;
   rate_per_usd_snapshot: number;
   issued_at: string;
-  // The waterfall sort key and the only source of ageing.
   due_date: string;
   recorded_by_user_id: string | null;
   notes: string | null;
   created_at: string;
   updated_at: string;
-  // The bill was a mistake — it never existed.
   voided_at: string | null;
   voided_by: string | null;
   void_reason: string | null;
-  // The bill is real but will never be paid — a recorded loss.
   written_off_at: string | null;
   written_off_by: string | null;
   write_off_reason: string | null;
-  // joined relations — present when .select('*, customers(*), customer_plans(*), sales(*)')
   customers?: DbCustomer | null;
   customer_plans?: DbCustomerPlan | null;
   sales?: DbSale | null;
@@ -322,7 +278,6 @@ export interface DbCollection {
   held_by_user_id: string | null;
   remitted_at: string | null;
   remitted_by: string | null;
-  // joined relations — present when .select('*, collection_items(*, charges(*)), customers(*)')
   collection_items?: DbCollectionItem[];
   customers?: DbCustomer | null;
 }
@@ -338,7 +293,6 @@ export interface DbCollectionItem {
   amount: number;
   created_at: string;
   updated_at: string;
-  // joined relation — present when .select('*, charges(*)')
   charges?: DbCharge | null;
 }
 
@@ -367,7 +321,6 @@ export interface DbExpense {
   currency_id: string | null;
   rate_per_usd_snapshot: number;
   recorded_by_user_id: string | null;
-  // When the money went out (user-picked) — what every month bucket keys off.
   incurred_at: string;
   created_at: string;
   updated_at: string;
@@ -406,7 +359,6 @@ export type DbAuditAction = 'create' | 'update' | 'delete' | 'void' | 'restore';
 export interface DbAuditLog {
   id: string;
   tenant_id: string;
-  // Denormalized from the changed row (or its parent). null = tenant-wide record.
   branch_id: string | null;
   table_name: string;
   record_id: string;
@@ -415,16 +367,10 @@ export interface DbAuditLog {
   after_data: Record<string, unknown> | null;
   changed: string[] | null;
   label: string | null;
-  // Who the record belongs to (the customer). Frozen like `label`, for the same
-  // reason: a deleted customer leaves no name to resolve an id to.
   subject: string | null;
-  // The same owner as an id — what "everything about this customer" filters on.
-  // Frozen too: it is never joined back to `customers`, only compared.
   subject_id: string | null;
   actor_user_id: string | null;
-  // Snapshot: survives the user row being deleted.
   actor_username: string | null;
-  // Device clock at the moment the staff member acted — NOT the sync moment.
   occurred_at: string;
   created_at: string;
   updated_at: string;

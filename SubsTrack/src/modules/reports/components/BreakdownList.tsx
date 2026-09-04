@@ -6,7 +6,7 @@ export interface BreakdownRow {
   key: string;
   label: string;
   amount: string;
-  share: number; // 0..1
+  share: number;
   color: string;
   count?: number;
 }
@@ -14,7 +14,6 @@ export interface BreakdownRow {
 interface Props {
   rows: BreakdownRow[];
   emptyLabel: string;
-  /** Tapping a row opens the records behind it. */
   onPressRow?: (key: string) => void;
 }
 
@@ -44,8 +43,6 @@ export function BreakdownList({ rows, emptyLabel, onPressRow }: Props) {
               <View
                 className="h-full rounded-full"
                 style={{
-                  // A non-zero row always shows a sliver, so "tiny" never reads
-                  // as "nothing".
                   width: `${row.share === 0 ? 0 : Math.max(row.share * 100, 2)}%`,
                   backgroundColor: row.color,
                 }}

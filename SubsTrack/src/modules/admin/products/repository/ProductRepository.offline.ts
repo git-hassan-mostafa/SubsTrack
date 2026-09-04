@@ -70,8 +70,6 @@ export class OfflineProductRepository extends OfflineBaseRepository implements I
     await this.deleteMany([id]);
   }
 
-  // Not auditedDelete: a product's own cascade (stock_movements) has to run in
-  // the same transaction, which the generic helper doesn't know about.
   async deleteMany(ids: string[]): Promise<void> {
     if (ids.length === 0) return;
     await this.write(async (db) => {
@@ -95,11 +93,6 @@ export class OfflineProductRepository extends OfflineBaseRepository implements I
     });
   }
 
-  // The server FK cascades stock_movements, but the mirror declares no FKs — so
-  // cascade by hand. A leftover dirty movement pointing at a product the server
-  // never saw would fail its push forever, and the push upserts a table's dirty
-  // rows as one batch, taking every other movement down with it. No
-  // markDeleted for the children: the server-side cascade covers them.
   private async deleteProductRow(db: SQLiteDatabase, id: string): Promise<void> {
     await db.runAsync('DELETE FROM stock_movements WHERE product_id = ?', [id] as never[]);
     await db.runAsync('DELETE FROM products WHERE id = ?', [id] as never[]);
@@ -127,15 +120,10 @@ export class OfflineProductRepository extends OfflineBaseRepository implements I
     return this.count(`SELECT COUNT(*) AS n FROM products ${where.sql}`, where.params);
   }
 
-  // Counts lines an edit dropped too — the server's `product_id` FK is
-  // ON DELETE RESTRICT, so a voided line would still block the hard delete.
   async countReferences(id: string): Promise<number> {
     return this.count('SELECT COUNT(*) AS n FROM sale_items WHERE product_id = ?', [id]);
   }
 
-  // Local twin of the `product_stock` view — the mirror has no views, so the
-  // aggregate runs here. quantity_delta is a real INTEGER column, so SUM() is
-  // exact and needs no CAST (unlike the money columns stored as TEXT).
   async stockOnHand(productIds?: string[]): Promise<Record<string, number>> {
     if (productIds && productIds.length === 0) return {};
     const idFilter = productIds
@@ -191,8 +179,6 @@ export class OfflineProductRepository extends OfflineBaseRepository implements I
       id,
       { ...payload, updated_at: nowIso() },
       {
-        // A movement has no branch and no name of its own — both come from the
-        // product, so the entry files itself where the product lives.
         branchColumn: null,
         audit: await this.movementAudit(id),
       },
@@ -213,8 +199,6 @@ export class OfflineProductRepository extends OfflineBaseRepository implements I
     return row;
   }
 
-  // The parent product's branch + name, frozen into the audit entry. Mirrors the
-  // online twin; both columns are TEXT, so no decode is needed.
   private async movementAudit(
     movementId: string,
   ): Promise<{ branchId: string | null; subject: string | null }> {
@@ -227,15 +211,12 @@ export class OfflineProductRepository extends OfflineBaseRepository implements I
     return { branchId: row?.branch_id ?? null, subject: row?.name ?? null };
   }
 
-  // Twin of the online stockCostsInRange. Money columns are TEXT in the mirror,
-  // so toStockCostRow does the Number() conversion (no SQL arithmetic here).
   async stockCostsInRange(
     startIso: string,
     endExclusiveIso: string,
     branchFilter: BranchFilter = null,
   ): Promise<StockCostRow[]> {
     const where = this.combineWhere([
-      // Costed rows in either direction — a negative one is money coming back.
       { clause: "m.reason <> 'sale'", params: [] },
       { clause: 'm.unit_cost IS NOT NULL', params: [] },
       { clause: 'm.voided_at IS NULL', params: [] },

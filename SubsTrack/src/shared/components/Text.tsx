@@ -15,10 +15,6 @@ export function Text({ style, ...props }: Props) {
           ? "-" + props.fontWeight?.replace("Regular", "")
           : ""),
     },
-    // On web, RN Web infers each Text's direction from its own content, so an
-    // Arabic string aligns/positions RTL even when the UI language is LTR (and
-    // vice versa) — e.g. an Arabic customer name floats to the right in English
-    // mode. Pin the writing direction to the UI language so web matches native.
     Platform.OS === "web"
       ? {
           writingDirection: "ltr" as const,

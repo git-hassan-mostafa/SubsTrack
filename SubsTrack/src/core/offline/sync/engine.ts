@@ -1,5 +1,3 @@
-// Orchestration + triggers: one cycle is push → pull → prune, serialized.
-
 import { supabase } from "@/src/shared/lib/supabase";
 import { getDb, isOfflineDbReady } from "../db/sqlite";
 import { nowIso } from "../ids";
@@ -15,7 +13,6 @@ import { pruneWindowedTables, pullChanges } from "./pull";
 import { pushDirty } from "./push";
 import { getSyncStatus, setStatus } from "./status";
 
-/** How stale the mirror may get before a background refresh re-syncs it. */
 const SYNC_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
 let running: Promise<void> | null = null;
@@ -24,27 +21,17 @@ let started = false;
 /** One sync cycle: push local changes up, then pull server changes down. Serialized. */
 export async function runSync(): Promise<void> {
   if (!IS_OFFLINE_CAPABLE) return;
-  if (running) return running; // only one cycle at a time
+  if (running) return running;
   running = (async () => {
-    if (!(await isOnline())) return; // nothing to do offline
-    // Never sync while signed out. A logged-out pull returns empty rows (RLS, no
-    // error), which would make reconcileDeletes read "everything was deleted" and
-    // wipe the whole local mirror. getSession() is a local read (no network).
+    if (!(await isOnline())) return;
     const { data: sess } = await supabase.auth.getSession();
     if (!sess.session) return;
     setStatus({ syncing: true, lastError: null });
     try {
       await pushDirty();
       const complete = await pullChanges();
-      // After push, so a pruned-away row was already sent up.
       await pruneWindowedTables(getDb());
-      // The durable twin of `lastSyncAt` below — it outlives the process, which is
-      // what `runSyncIfDue` gates on. Only a COMPLETE cycle counts, so a partial
-      // one is retried at the next app open instead of waiting out the interval.
       if (complete) await setMeta(getDb(), META_LAST_SYNC_AT, nowIso());
-      // Only stamp a successful lastSyncAt when the cycle fully completed; a
-      // partial cycle records `sync_incomplete` so the UI can stop claiming success
-      // and the next tick retries. Not localized — read via the `ok` flag, never shown raw.
       setStatus({
         syncing: false,
         lastSyncAt: complete ? nowIso() : getSyncStatus().lastSyncAt,
@@ -71,19 +58,12 @@ export async function runSync(): Promise<void> {
  * Manual sync (`syncNow` / `resyncFromScratch`) ignores this gate entirely.
  */
 export async function runSyncIfDue(): Promise<void> {
-  // Callers fire this and forget, so it must never reject: check the handle
-  // rather than letting getDb() throw at an unawaited call site.
   if (!IS_OFFLINE_CAPABLE || !isOfflineDbReady()) return;
   const last = await getMeta(getDb(), META_LAST_SYNC_AT);
-  // An unparseable stamp gives NaN, which fails this test and syncs — the safe way round.
   if (last && Date.now() - Date.parse(last) < SYNC_INTERVAL_MS) {
-    // Fresh enough to skip the PULL, never to skip the PUSH: an un-pushed row is
-    // the only copy of that money in existence, so it must not wait out the day.
-    // Costs nothing when nothing is dirty (pushTable returns on an empty select).
     try {
       await flushPendingWrites();
     } catch {
-      /* best-effort — the rows stay dirty and go up on the next cycle */
     }
     return;
   }
@@ -146,8 +126,6 @@ export async function resyncFromScratch(): Promise<{
 export async function startSync(cb: () => void): Promise<void> {
   if (!IS_OFFLINE_CAPABLE || started) return;
   started = true;
-  // The in-memory status starts blank each launch — seed it from the durable
-  // stamp so "last synced" survives a restart, like the gate it shares.
   if (isOfflineDbReady()) {
     setStatus({ lastSyncAt: await getMeta(getDb(), META_LAST_SYNC_AT) });
   }

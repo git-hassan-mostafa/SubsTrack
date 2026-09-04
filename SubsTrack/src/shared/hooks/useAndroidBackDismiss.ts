@@ -19,8 +19,6 @@ import { BackHandler, Platform } from "react-native";
  * it, without any shared stack bookkeeping.
  */
 export function useAndroidBackDismiss(active: boolean, onDismiss: () => void) {
-  // Keep the latest callback without re-running the effect (which would churn
-  // the listener order). Only `active` drives the lifecycle.
   const onDismissRef = useRef(onDismiss);
   onDismissRef.current = onDismiss;
 

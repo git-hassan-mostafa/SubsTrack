@@ -9,13 +9,7 @@ import { Checkbox } from "./Checkbox";
 export interface SelectionAction {
   key: string;
   icon: keyof typeof Ionicons.glyphMap;
-  /**
-   * Custom glyph replacing `icon` — for marks a single Ionicon can't express
-   * (e.g. the pay/report + WhatsApp combos). Gets the size the toolbar would
-   * have used; it owns its own colour.
-   */
   renderIcon?: (size: number) => React.ReactNode;
-  /** Used as the accessibility label — the toolbar renders icons only. */
   label: string;
   onPress: () => void;
   destructive?: boolean;
@@ -26,9 +20,7 @@ interface SelectionBarProps {
   count: number;
   actions: SelectionAction[];
   onClose: () => void;
-  /** True when every visible row is selected — drives the leading checkbox. */
   allSelected?: boolean;
-  /** Selects every visible row when not all selected; clears them when all are. */
   onToggleAll?: () => void;
 }
 

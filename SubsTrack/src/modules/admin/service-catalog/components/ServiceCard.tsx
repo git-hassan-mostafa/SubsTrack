@@ -34,8 +34,6 @@ export function ServiceCard({
   const target = findCurrency(currencies, displayCurrencyId);
   const priceLabel = formatMoney(service.price, source, target);
 
-  // No stock pill: labour is never in or out of stock — that absence is the whole
-  // difference between this card and ProductCard.
   return (
     <EntityCard
       icon="construct-outline"

@@ -155,8 +155,6 @@ export function ProductListScreen() {
 
   const activeCount = products.filter((p) => p.active).length;
 
-  // Resolve selected ids against the VISIBLE list, so a selected-then-filtered-out
-  // product can never be acted on invisibly.
   const selectedProducts = filtered.filter((p) => selectedIds.has(p.id));
 
   async function runBulkDelete(selected: Product[]) {

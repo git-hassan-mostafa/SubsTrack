@@ -11,14 +11,9 @@ import type {
 } from './IChargeRepository';
 import { OfflineChargeRepository } from './ChargeRepository.offline';
 
-// A bill with everything a label needs. The customer join is LEFT — a walk-in
-// sale charge has none.
 const CHARGE_SELECT = '*, customers(*), customer_plans(*, plans(*)), sales(*)';
 const CHARGE_SELECT_LEAN = '*, customers(*)';
 
-// `charge_balances` also exposes the bill's scoping columns (branch, customer,
-// line, kind, dates) so "which bills still owe?" is answered ON THE SERVER.
-// These five are the balance itself — the shape `DbChargeBalance` promises.
 const BALANCE_COLUMNS = 'id, tenant_id, amount, paid, balance';
 
 /** Pair each bill with what has reached it; a bill with no items paid nothing. */
@@ -53,15 +48,12 @@ export class ChargeRepository extends BaseRepository implements IChargeRepositor
 
   async findMonthChargesForLines(customerPlanIds: string[]): Promise<DbChargeWithPaid[]> {
     if (customerPlanIds.length === 0) return [];
-    // Two reads, in PARALLEL and scoped the same way — never one read feeding
-    // the other an id list. Both are reads, so there is no order to keep.
     const [{ data, error }, paid] = await Promise.all([
       this.db
         .from('charges')
         .select('*')
         .eq('kind', 'month')
         .in('customer_plan_id', customerPlanIds)
-        // A voided bill is invisible to the grid, exactly as a voided payment was.
         .is('voided_at', null)
         .order('billing_month', { ascending: true }),
       this.monthPaid('customer_plan_id', customerPlanIds),
@@ -105,20 +97,6 @@ export class ChargeRepository extends BaseRepository implements IChargeRepositor
     return (data as DbCharge) ?? null;
   }
 
-  /**
-   * What is STILL OWED, decided ON THE SERVER.
-   *
-   * A void ("never existed") and a write-off ("real, but given up on") both stop
-   * a bill being owed, so both are excluded here — the one place that decides it.
-   * `charge_balances` excludes only the void: money already collected stays
-   * collected (#115), so the write-off filter rides on top.
-   *
-   * Two round trips, and neither is unbounded. The old shape downloaded EVERY
-   * bill the tenant had ever raised — with four nested joins — and then posted
-   * every id back in an `in.(…)` query string just to keep the open few (#118).
-   * Now the view answers "which, and how much has reached them" from a filter,
-   * and only those bills are fetched with their labels.
-   */
   async findOpenWithPaid(opts: FindChargesOptions): Promise<DbChargeWithPaid[]> {
     let query = this.db
       .from('charge_balances')
@@ -134,16 +112,12 @@ export class ChargeRepository extends BaseRepository implements IChargeRepositor
     const open = (data ?? []) as { id: string; paid: number }[];
     if (open.length === 0) return [];
 
-    // `findByIds` promises no order, so the view's due-date order is re-applied
-    // here rather than sorted a second time.
     const byId = new Map((await this.findByIds(open.map((o) => o.id))).map((r) => [r.id, r]));
     return open
       .filter((o) => byId.has(o.id))
       .map((o) => ({ charge: byId.get(o.id)!, paid: Number(o.paid) }));
   }
 
-  // For a SMALL, known set of ids (one bill's void check). To ask "which of a
-  // whole scope still owe?", filter the view instead — never post every id back.
   async balances(chargeIds: string[]): Promise<DbChargeBalance[]> {
     if (chargeIds.length === 0) return [];
     const { data, error } = await this.db
@@ -154,8 +128,6 @@ export class ChargeRepository extends BaseRepository implements IChargeRepositor
     return (data ?? []) as DbChargeBalance[];
   }
 
-  /** The month bills' balances, scoped exactly as the bills were — `id → paid`.
-   *  Scoped, never listed by id: the id list is the whole problem (#118). */
   private async monthPaid(
     column: 'customer_plan_id' | 'customer_id',
     values: string[],
@@ -189,12 +161,6 @@ export class ChargeRepository extends BaseRepository implements IChargeRepositor
     return created;
   }
 
-  /**
-   * Upsert by id. A month bill's id is deterministic, so the device that gets
-   * there second reuses the row instead of colliding on uq_charges_line_month.
-   * `ignoreDuplicates` keeps the FIRST bill's frozen price — re-collecting a
-   * month must not silently re-price it at today's rate.
-   */
   async ensure(payload: CreateChargePayload): Promise<DbCharge> {
     const { data, error } = await this.db
       .from('charges')
@@ -215,7 +181,6 @@ export class ChargeRepository extends BaseRepository implements IChargeRepositor
       });
       return created;
     }
-    // Already existed — return what is on the server, price and all.
     const existing = await this.findById(payload.id);
     if (!existing) this.handleError(new Error('charge upsert returned nothing'));
     return existing;
@@ -241,22 +206,10 @@ export class ChargeRepository extends BaseRepository implements IChargeRepositor
         written_off_by: writtenOffBy,
         write_off_reason: reason,
       },
-      // Not a void: the bill was real. The trail must be able to tell a
-      // mistake from money the business gave up on.
       'update',
     );
   }
 
-  /**
-   * Every column write on a bill: patch it, and record the diff. The twin of
-   * the offline `patch` (#119), and the reason this is not `auditedUpdate`:
-   * that helper reads the prior row itself, so the extra `findById` these three
-   * used to make — purely for the branch and the customer's name — was a THIRD
-   * round trip for facts the UPDATE's own `select` already returns.
-   *
-   * The prior read cannot be parallelised with the UPDATE: it would race it and
-   * could snapshot the row already changed, which is a silently empty diff.
-   */
   private async patch(
     id: string,
     values: object,

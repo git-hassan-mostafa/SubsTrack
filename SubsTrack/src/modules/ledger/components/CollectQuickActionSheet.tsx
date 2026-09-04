@@ -36,8 +36,6 @@ export function CollectQuickActionSheet({ onDismiss }: Props) {
 
   const [customer, setCustomer] = useState<Customer | null>(null);
   const { open: openCollect, sheet } = useCollectSheet({ onCollected: onDismiss });
-  // Once the collect sheet is up it owns the ledger error (a failed save shows
-  // by its own Save button); this banner is only for the fetch that got here.
   const showError = error != null && sheet == null;
 
   useEffect(() => {
@@ -48,9 +46,6 @@ export function CollectQuickActionSheet({ onDismiss }: Props) {
     void fetchOwed(customer, customer.customerPlans ?? [], currencies);
   }, [customer, currencies, fetchOwed, clearOwed]);
 
-  // The pool is ready → hand straight over to the collect sheet. There is no
-  // second step to confirm: the sheet IS the confirmation, split and all.
-  // `openCollect` is the stable callback, NOT the hook's object — see its doc.
   useEffect(() => {
     if (customer && !loading && owed.length > 0) {
       openCollect(customer.id, customer.name, owed);

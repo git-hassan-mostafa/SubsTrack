@@ -2,7 +2,6 @@ import type { CollectionListItem } from '@/src/core/types';
 
 type TFn = (key: string, opts?: Record<string, unknown>) => string;
 
-/** How many bills a row names before it starts counting the rest. */
 const NAMED = 2;
 
 /**

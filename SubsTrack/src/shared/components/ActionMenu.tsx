@@ -11,18 +11,11 @@ export interface ActionMenuItem {
   key: string;
   label: string;
   icon?: keyof typeof Ionicons.glyphMap;
-  /** Small glyph punched into the icon's bottom corner (e.g. `add` on "record sale"). */
   iconBadge?: keyof typeof Ionicons.glyphMap;
-  /**
-   * Custom glyph replacing `icon`/`iconBadge` — for marks a single Ionicon
-   * can't express (e.g. the pay/report + WhatsApp combos). Gets the size the
-   * menu would have used; it owns its own colour.
-   */
   renderIcon?: (size: number) => React.ReactNode;
   onPress: () => void;
   destructive?: boolean;
   disabled?: boolean;
-  /** Small second line under the label — mainly why a disabled row is disabled. */
   caption?: string;
 }
 

@@ -18,18 +18,12 @@ export function resetAllDomainStores() {
   state.services.reset();
   state.sales.reset();
   state.ledger.reset();
-  // Tenant-scoped, unlike the global `options` slice — must not leak to the
-  // next tenant that logs in on this device.
   state.tenantSettings.reset();
 
-  // Module stores sit OUTSIDE GlobalState, so every one is reset by name here.
-  // Miss one and the next login on this device inherits the previous tenant's
-  // data — another organization's audit trail, wallet cash or collections.
   useDashboardStore.getState().reset();
   useCollectionsListStore.getState().reset();
   useExpenseStore.getState().reset();
   useWalletStore.getState().reset();
   useReportsStore.getState().reset();
-  // Holds another tenant's staff names and changed values — never leak it.
   useAuditStore.getState().reset();
 }

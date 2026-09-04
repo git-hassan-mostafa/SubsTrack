@@ -5,16 +5,9 @@ import { getMeta, setMeta, META_ACTIVE_TENANT, META_ACTIVE_BRANCH_SCOPE } from '
 
 export interface TenantScopeResult {
   wiped: boolean;
-  /** True when a different tenant/branch-scope logged in but the prior one still has un-synced writes. */
   blockedByPending: boolean;
 }
 
-/**
- * The mirror sentinel for a tenant-wide admin (users.branch_id IS NULL — sees
- * every branch). Any other value is a branch-scoped user's own branch id. RLS
- * returns a DIFFERENT row set for each, so the mirror must be re-scoped (wiped +
- * re-pulled) when this changes, exactly like a tenant switch.
- */
 export const BRANCH_SCOPE_TENANT_WIDE = '__all__';
 
 /** Normalize a user's branch_id into the branch-scope key stored in sync_meta. */

@@ -37,26 +37,18 @@ export function PlanLinePriceField({
   disabled = false,
 }: Props) {
   const { t } = useTranslation();
-  // Open once the user asks for it, even before an amount is typed. Kept local:
-  // it is pure UI, and the saved row still stores only the amount.
   const [opened, setOpened] = useState(false);
 
   const planCurrency = plan ? findCurrency(currencies, plan.currencyId) : null;
   const planPrice =
     plan && !plan.isCustomPrice && plan.price !== null ? plan.price : null;
-  // A special price replaces the plan's price for the plan's OWN billing span, so
-  // every label has to name that span — "100 per 3 months", never "100 a month".
   const durationMonths = plan?.durationMonths ?? 1;
   const period =
     durationMonths > 1
       ? t("subscriptions.per_n_months", { count: durationMonths })
       : t("subscriptions.per_month");
-  // Shown whenever the line already carries an amount, or the user just asked
-  // for the field. `opened` alone can't decide it — an existing special price
-  // must be visible the moment the form opens.
   const special = customPrice !== null || opened;
 
-  // Collapsed: state the effective price on one line, with the way to change it.
   if (!special) {
     return (
       <View className="flex-row items-center justify-between">

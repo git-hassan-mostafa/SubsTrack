@@ -11,9 +11,7 @@ function decodeValue(v: unknown, type: ColType): unknown {
     case 'num':
       return Number(v);
     case 'json':
-      // Never throw on a read: a corrupt/legacy value decodes to null rather
-      // than breaking every row in the query.
-      if (typeof v !== 'string') return v; // already an object (a just-built row)
+      if (typeof v !== 'string') return v;
       try {
         return JSON.parse(v);
       } catch {
@@ -30,12 +28,10 @@ function encodeValue(v: unknown, type: ColType): unknown {
     case 'bool':
       return v ? 1 : 0;
     case 'num':
-      return String(v); // exact decimal text — no SQLite REAL float drift
+      return String(v);
     case 'int':
       return typeof v === 'number' ? v : Number(v);
     case 'json':
-      // SQLite has no JSON type: store the text. The push decodes it back to a
-      // real object, which is what the server's jsonb column expects.
       return typeof v === 'string' ? v : JSON.stringify(v);
     default:
       return v;

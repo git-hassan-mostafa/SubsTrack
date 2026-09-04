@@ -8,7 +8,6 @@ import { BranchSelector } from "./BranchSelector";
 import { SelectionBar, type SelectionAction } from "./SelectionBar";
 import { QuickActionsMenuButton } from "./QuickActionsMenuButton";
 
-// Re-exported so existing importers keep working after the toolbar moved out.
 export type { SelectionAction } from "./SelectionBar";
 
 export interface PageHeaderSelection {
@@ -16,9 +15,7 @@ export interface PageHeaderSelection {
   count: number;
   actions: SelectionAction[];
   onClose: () => void;
-  /** True when every visible row is selected — drives the leading checkbox. */
   allSelected?: boolean;
-  /** Selects every visible row when not all selected; clears them when all are. */
   onToggleAll?: () => void;
 }
 
@@ -26,7 +23,6 @@ export interface PageHeaderSelection {
 export interface PageHeaderIconAction {
   key: string;
   icon: keyof typeof Ionicons.glyphMap;
-  /** Used as the accessibility label — the header renders the icon only. */
   label: string;
   onPress: () => void;
 }
@@ -36,12 +32,9 @@ interface PageHeaderProps {
   subtitle?: string;
   showBack?: boolean;
   onBack?: () => void;
-  /** Icon buttons for THIS screen, rendered before the branch chip. */
   iconActions?: PageHeaderIconAction[];
   hideBranchSelector?: boolean;
-  /** Hides the top-right quick-actions menu. */
   hideQuickActions?: boolean;
-  /** When `selection.active`, the whole header is replaced by a selection toolbar. */
   selection?: PageHeaderSelection;
 }
 
@@ -57,8 +50,6 @@ export function PageHeader({
 }: PageHeaderProps) {
   const selecting = selection?.active ?? false;
 
-  // The normal header stays mounted while selecting so its (taller) height is
-  // preserved and the list never shifts up; the selection toolbar overlays it.
   return (
     <View className="relative">
       <View

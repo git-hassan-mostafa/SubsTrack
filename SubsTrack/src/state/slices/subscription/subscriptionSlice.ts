@@ -39,9 +39,6 @@ export const createSubscriptionSlice: StateCreator<
   upgrading: false,
   error: null,
 
-  // Fetches the tenant's current tier directly from the DB on every app open
-  // so an upgrade made in a previous session is always reflected after restart.
-  // Also syncs auth.user.tenant.tier so consumers of that field stay in sync.
   init: async (tenantId) => {
     set((state) => {
       state.subscription.loading = true;

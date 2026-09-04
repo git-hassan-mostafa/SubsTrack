@@ -65,7 +65,6 @@ export function PlanListScreen() {
   useSelectionBackHandler(selectionActive, clearSelection);
   const [bulkBusy, setBulkBusy] = useState(false);
 
-  // Loads on mount AND re-fetches when the user switches the branch chip.
   useEffect(() => {
     clearSelection();
     fetchPlans();
@@ -119,7 +118,6 @@ export function PlanListScreen() {
       )
     : plans;
 
-  // Resolve selected ids against the VISIBLE list.
   const selectedPlans = filtered.filter((p) => selectedIds.has(p.id));
 
   async function runBulkDelete(selected: Plan[]) {

@@ -12,20 +12,11 @@ import {
 } from '../utils/custody';
 import { groupByCurrency, sumUsd } from '@/src/core/utils/currency';
 
-// A wallet is DERIVED, never stored: the hand-overs (`collections`) a user is
-// currently HOLDING (held_by_user_id), not the ones they collected — cash moves
-// up the chain (collector → branch admin → tenant-wide admin) and each handover
-// re-points that column. ONE source now: a month, a sale and a custom fee are
-// all settled by the same row, so there is nothing left to merge. Multi-currency:
-// each row is summed in its own currency (physical cash) AND in USD via its
-// frozen snapshot rate. Who may take cash from whom lives in utils/custody.ts.
 
 /** One holder, resolved from the user list — what the chain rules need. */
 type HolderInfo = WalletActor & { fullName: string; active: boolean };
 
 class WalletService {
-  // Every wallet in the branch scope, folded per holder + per currency, with the
-  // viewer's own permissions baked into each one. Sorted most-cash-first.
   async getWalletsView(
     viewer: WalletActor,
     branchFilter: BranchFilter = null,
@@ -44,8 +35,6 @@ class WalletService {
     const wallets: UserWallet[] = [];
     for (const [id, its] of byHolder) {
       const holder = holders.get(id);
-      // A holder the viewer can't even see (users are branch-scoped by RLS) has
-      // no name and no place in the chain, so there is nothing to show or act on.
       if (!holder) continue;
       wallets.push(this.foldWallet(holder, viewer, its));
     }
@@ -53,8 +42,6 @@ class WalletService {
     return wallets;
   }
 
-  // One wallet plus the individual transactions behind it (newest first). Used
-  // by the holder detail sheet and the self-view.
   async getWalletDetail(
     holderUserId: string,
     viewer: WalletActor,
@@ -71,9 +58,6 @@ class WalletService {
     return { ...wallet, items: sorted };
   }
 
-  // Take specific transactions off a holder (per-transaction settle). The cash
-  // moves into the viewer's wallet — or straight out of the system when the
-  // viewer is the owner, who has no wallet.
   async receiveFrom(
     holderUserId: string,
     ids: string[],
@@ -83,8 +67,6 @@ class WalletService {
     await this.moveCustody(ids, holderUserId, custodyTargetFor(viewer), viewer.id);
   }
 
-  // Take EVERYTHING a holder is carrying — the "receive all" button. Re-reads
-  // their current set first (fresh, avoids acting on a stale list).
   async receiveAllFrom(
     holderUserId: string,
     viewer: WalletActor,
@@ -100,8 +82,6 @@ class WalletService {
     );
   }
 
-  // Settle the viewer's OWN cash: banked, out of the system. The top of the
-  // chain needs this exit — nobody above them can take it.
   async closeOut(ids: string[], viewer: WalletActor): Promise<void> {
     this.assertCanCloseOut(viewer);
     await this.moveCustody(ids, viewer.id, null, viewer.id);
@@ -118,9 +98,7 @@ class WalletService {
     );
   }
 
-  // ── internals ────────────────────────────────────────────────────────────
 
-  // The one write — one table, one round-trip, guarded on the current holder.
   private async moveCustody(
     ids: string[],
     fromUserId: string,
@@ -130,9 +108,6 @@ class WalletService {
     await collectionService.transferCustody(ids, fromUserId, toUserId, actorUserId);
   }
 
-  // Every hand-over in scope that somebody is holding, as WalletItems. Rows
-  // nobody holds are already excluded by the query; a row with no recorder still
-  // resolves (the holder is what a wallet groups on).
   private async collectItems(
     branchFilter: BranchFilter,
     holderUserId: string | null,
@@ -145,11 +120,10 @@ class WalletService {
         id: c.id,
         source: c.kind,
         collectorUserId: c.receivedByUserId ?? c.heldByUserId,
-        collectorName: null, // filled by nameCollectors once the holders are known
+        collectorName: null,
         holderUserId: c.heldByUserId,
         customerId: c.customerId,
         customerName: c.customerName,
-        // What this cash settled — the same labels the history row shows.
         label: c.itemLabels.filter(Boolean).join(', ') || null,
         amount: c.amount,
         currencyId: c.currencyId,
@@ -160,8 +134,6 @@ class WalletService {
     return items;
   }
 
-  // Name the original collector, but only on cash that has already moved — on
-  // an untouched wallet the holder IS the collector and the line is noise.
   private nameCollectors(items: WalletItem[], holders: Map<string, HolderInfo>): void {
     for (const it of items) {
       if (it.collectorUserId === it.holderUserId) continue;
@@ -186,8 +158,6 @@ class WalletService {
     };
   }
 
-  // id → the holder facts the chain rules need, for every user visible to the
-  // caller (RLS-scoped), so a deactivated holder still resolves to a name.
   private async holderMap(): Promise<Map<string, HolderInfo>> {
     const users = await userService.getUsers(null);
     const map = new Map<string, HolderInfo>();
@@ -203,12 +173,10 @@ class WalletService {
     return map;
   }
 
-  // A holder the viewer can't resolve: named "Unknown" and, being rank-less,
-  // never receivable. Only reachable from the detail view (the list drops them).
   private unknownHolder(id: string): HolderInfo {
     return {
       id,
-      role: 'superadmin', // the top rank — nobody outranks it, so nobody can receive
+      role: 'superadmin',
       branchId: null,
       fullName: i18n.t('wallet.unknown_collector'),
       active: false,

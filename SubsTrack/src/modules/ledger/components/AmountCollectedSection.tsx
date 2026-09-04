@@ -14,18 +14,11 @@ interface Props {
   onPaymentModeChange: (mode: PaymentMode) => void;
   amountPaid: number | null;
   onAmountPaidChange: (amount: number | null) => void;
-  // Currency the Amount Paid input is locked to (same unit as Amount Due).
   currencyId: string | null;
-  // Used for the inline "balance remaining / cleared" hint. null disables it
-  // (e.g. when Amount Due is not yet entered).
   amountDue: number | null;
   formatAmount: (amount: number) => string;
   onFocusClearError?: () => void;
-  // True when an Amount Due is not yet known (custom-amount path with no
-  // value typed). Partial cannot be chosen without a due to validate against.
   partialDisabled?: boolean;
-  // Adds a third "debt" option (collect nothing now, whole amount is owed).
-  // Used by the sales flow; the regular payment sheet leaves it off.
   allowDebt?: boolean;
 }
 
@@ -108,9 +101,6 @@ export function AmountCollectedSection({
           {amountDue != null && amountPaid != null
             ? (() => {
                 const balance = amountDue - amountPaid;
-                // Reachable when the total shrinks under an already-typed amount
-                // — editing a sale's cart can do that. Saving is blocked, so say
-                // so instead of leaving a dead button.
                 if (balance < 0) {
                   return (
                     <Text className="text-sm font-semibold mt-1 text-danger">
@@ -125,8 +115,6 @@ export function AmountCollectedSection({
                     </Text>
                   );
                 }
-                // Partial: the month still counts as paid; the remaining amount
-                // becomes a debt shown on the Debts page.
                 return (
                   <View className="mt-2 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2.5 flex-row items-start gap-2">
                     <Ionicons

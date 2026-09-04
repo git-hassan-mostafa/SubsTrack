@@ -28,34 +28,12 @@ import { useAfterFirstFrame } from "@/src/shared/hooks/useAfterFirstFrame";
 export type SheetScrollTo = (y: number) => void;
 
 interface FormSheetProps {
-  /** Defaults to `true` — most form sheets are mounted only while open. */
   visible?: boolean;
   onDismiss: () => void;
-  /** Header title. */
   title: string;
-  /** Right-hand dismiss action label. Defaults to `common.cancel`. */
   dismissLabel?: string;
-  /**
-   * The form holds unsaved edits — closing it (header button, Back, drag-down,
-   * backdrop) asks to discard first. Wire it to a real dirty check; see
-   * {@link useDirtyForm}.
-   */
   dirty?: boolean;
-  /**
-   * Filled with the body's scroll function while the sheet is mounted — for a tap
-   * LOW in the form that changes something far UP it (the stock sheet's "Edit
-   * entry", filled from a history row far below the fields it fills). A ref and
-   * not a context, because the component that renders this sheet is its PARENT:
-   * a context published in here can only be read further down the body, so the
-   * caller would silently get a no-op.
-   */
   scrollRef?: RefObject<SheetScrollTo | null>;
-  /**
-   * Secondary actions on the record the sheet shows (edit, history, void),
-   * behind a 3-dot button in the header. Empty or omitted hides the button, so
-   * a caller builds the array conditionally the way every ActionMenu caller
-   * does. See gotcha #131 for why these left the body.
-   */
   menuActions?: ActionMenuItem[];
   fullBleed?: boolean;
   children: ReactNode;
@@ -143,10 +121,6 @@ function FormSheetBody({
   const dismiss = useSheetDismiss(onDismiss);
   const [menuOpen, setMenuOpen] = useState(false);
   const hasMenu = (menuActions?.length ?? 0) > 0;
-  // The actions the menu was opened with. An action may remove itself from the
-  // list (the sale receipt's void swaps the menu for a reason form), and letting
-  // the open menu re-render empty — or unmount mid-animation — wedges Gorhom and
-  // leaves the backdrop up. Frozen on open, so it closes showing what was tapped.
   const [openActions, setOpenActions] = useState<ActionMenuItem[]>([]);
 
   function openMenu() {
@@ -159,7 +133,6 @@ function FormSheetBody({
     bodyRef.current?.scrollTo({ y, animated: true });
   }, []);
 
-  // Hand the scroll to the caller, which is our parent — see `scrollRef`.
   useEffect(() => {
     if (!scrollRef) return;
     scrollRef.current = scrollTo;

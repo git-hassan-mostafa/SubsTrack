@@ -44,7 +44,7 @@ export function UnpaidRuleSection() {
         options={options}
         value={rule}
         onChange={(value) => {
-          if (value) void setUnpaidStartRule(value); // non-nullable dropdown
+          if (value) void setUnpaidStartRule(value);
         }}
         disabled={saving}
       />

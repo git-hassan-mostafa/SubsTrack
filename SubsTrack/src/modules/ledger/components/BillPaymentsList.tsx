@@ -22,23 +22,11 @@ import { collectionService } from "../services/CollectionService";
 import { VoidCollectionDialog } from "./VoidCollectionDialog";
 
 interface Props {
-  /** The bill to list hand-overs for. Null while it does not exist yet. */
   chargeId: string | null;
-  /** The bill's own currency + frozen rate — every amount is printed in it. */
   snapshot: { currencyId: string | null; ratePerUsdSnapshot: number };
-  /** Reload when the sheet holding this list opens. */
   visible: boolean;
-  /** Who the receipt goes to. Omit to hide the WhatsApp action. */
   recipient?: { name: string; phone: string | null } | null;
-  /**
-   * A hand-over was voided here. The row comes with the split it had settled, so
-   * the owner of the record patches its own view instead of re-reading.
-   */
   onChanged?: (voided: Collection) => void;
-  /**
-   * How much live money has reached this bill, reported after every load so the
-   * owner prints its own 'collected out of owed' hero without a second read.
-   */
   onCollectedChange?: (collected: number) => void;
 }
 
@@ -209,8 +197,6 @@ export function BillPaymentsList({
           onBillChargeId={chargeId}
           onDone={(voided) => {
             setVoidTarget(null);
-            // The stamped row is the whole change — swap it in rather than
-            // re-reading the bill's payments.
             setPayments((prev) =>
               prev.map((p) => (p.id === voided.id ? voided : p)),
             );

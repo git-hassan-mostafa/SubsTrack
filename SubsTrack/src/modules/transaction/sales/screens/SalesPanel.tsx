@@ -90,7 +90,6 @@ export function SalesPanel() {
   const branchFilter = useEffectiveBranchFilter();
   const [formOpen, setFormOpen] = useState(false);
   const [activeSale, setActiveSale] = useState<Sale | null>(null);
-  // The sale the form is correcting (see openEdit).
   const [editingSale, setEditingSale] = useState<Sale | null>(null);
   const [voidLoading, setVoidLoading] = useState(false);
   const selection = useSelection();
@@ -105,9 +104,6 @@ export function SalesPanel() {
   useSelectionBackHandler(selectionActive, clearSelection);
   const [bulkNotice, setBulkNotice] = useState<string | null>(null);
 
-  // Every per-sale action (receipt / edit / send / history / void) lives in one
-  // hook, so all three sales surfaces offer the same menu. This screen reads the
-  // slice, which patches itself on every write — so nothing here re-reads.
   const saleActions = useSaleActions({
     onView: setActiveSale,
     onEdit: openEdit,
@@ -119,8 +115,6 @@ export function SalesPanel() {
     fetchSales();
   }, [branchFilter, clearSelection, fetchSales]);
 
-  // Populate the product filter dropdown (products aren't loaded by this tab otherwise).
-  // `getProducts` self-guards on the slice's `loaded` flag — no length check here.
   useEffect(() => {
     void getProducts();
   }, [getProducts]);
@@ -133,9 +127,6 @@ export function SalesPanel() {
     [products],
   );
 
-  // `live` is the default, so it rides the dropdown's NULL slot: the chip then
-  // greys out until the reader actually asks to see voided sales, instead of
-  // sitting there in active indigo as though a filter were applied.
   const statusOptions: DropdownOption<SaleStatus>[] = useMemo(
     () => [
       { label: t("sales.status_voided"), value: "voided" },
@@ -151,10 +142,6 @@ export function SalesPanel() {
     !!toDate ||
     status !== "live";
 
-  // Bucket the already-date-desc sales into month sections (This Month / June 2026),
-  // each carrying the section's VALUE SOLD (USD, via each row's snapshot rate) —
-  // the same figure `monthlyTotals` sums, so the day/week buckets and the month
-  // headers below them cannot disagree.
   const sections = useMemo(
     () => groupByMonth(sales, (s) => s.soldAt, t, saleUsd, monthlyTotals),
     [sales, t, monthlyTotals],
@@ -188,8 +175,6 @@ export function SalesPanel() {
   // action that opens the shared-reason sheet for every selected sale.
   function buildSelectionActions(selected: Sale[]): SelectionAction[] {
     if (selected.length === 0) return [];
-    // Void is final, so an already-voided row is not voidable — with the status
-    // filter such rows can be in the list, and in the selection.
     const voidable = selected.filter((s) => s.voidedAt === null);
     return [
       ...(invoiceAction ? [invoiceAction] : []),

@@ -64,9 +64,6 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
     return null;
   })();
 
-  // Tenant-wide admins can create SHARED plans (null branch_id) visible to every
-  // branch. Branch-scoped users always submit their own branch and the picker is
-  // locked + hidden.
   const branchPickerNullable = user?.branchId === null;
 
   const [form, setForm] = useState<FormState>({
@@ -78,8 +75,6 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
     durationMonths: plan?.durationMonths ?? 1,
   });
 
-  // CurrencyInput self-seeds `currencyId` from the last-used currency after
-  // mount, so it changes with no user action — ignore it in the dirty check.
   const dirty = useDirtyForm(form, ["currencyId"]);
 
   useEffect(() => {
@@ -95,7 +90,7 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
         MAX_DURATION,
         Math.max(1, prev.durationMonths + delta),
       ),
-      isCustomPrice: false, // reset when changing duration
+      isCustomPrice: false,
     }));
   }
 

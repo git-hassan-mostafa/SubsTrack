@@ -134,7 +134,6 @@ export function BranchesScreen() {
 
   const activeCount = branches.filter((b) => b.active).length;
 
-  // Resolve selected ids against the VISIBLE list.
   const selectedBranches = branches.filter((b) => selectedIds.has(b.id));
 
   async function runBulkDelete(selected: Branch[]) {

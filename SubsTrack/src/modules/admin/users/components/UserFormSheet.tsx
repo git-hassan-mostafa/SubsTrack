@@ -82,7 +82,6 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
     confirmNewPassword: "",
   });
 
-  // The branch below is seeded by an effect, so it must not count as an edit.
   const [branchAutoSeeded, setBranchAutoSeeded] = useState(false);
   const dirty = useDirtyForm(form, branchAutoSeeded ? ["branchId"] : undefined);
 
@@ -133,8 +132,6 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
     clearError();
   }, [clearError]);
 
-  // Branches load in an effect, so the single-branch default above is computed
-  // before they arrive — re-seed it once they do, or staff go up with no branch.
   useEffect(() => {
     if (editUser || !branchesLoaded || activeBranches.length !== 1) return;
     if (form.branchId !== null || form.role !== "user") return;
@@ -142,9 +139,6 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
     setForm((prev) => ({ ...prev, branchId: activeBranches[0].id }));
   }, [editUser, branchesLoaded, activeBranches, form.branchId, form.role]);
 
-  // Staff users must be assigned to a branch once the tenant has any.
-  // BranchPicker hides itself when there are no branches, so this validation
-  // only fires in the "we have branches AND staff role AND no branch picked" case.
   const branchMissingForStaff =
     activeBranches.length > 0 && form.role === "user" && !form.branchId;
 

@@ -7,7 +7,6 @@ import { COLORS } from "@/src/shared/constants";
 import { useCollectionsListStore } from "@/src/modules/ledger/state/collectionsListStore";
 
 interface Props {
-  // One id for a single hand-over, or many for a bulk void.
   collectionIds: string[];
   voidedBy: string;
   onVoided: () => void;

@@ -68,8 +68,6 @@ export function AuditLogScreen() {
   const getUsers = useUserSlice((s) => s.getUsers);
   const branchFilter = useEffectiveBranchFilter();
 
-  // The staff dropdown needs the user list; `getUsers` self-guards on its
-  // `loaded` flag, so no length check here.
   useEffect(() => {
     void getUsers();
   }, [getUsers]);

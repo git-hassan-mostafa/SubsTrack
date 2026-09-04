@@ -12,9 +12,7 @@ import { SharedBillsWarning } from "./SharedBillsWarning";
 interface Props {
   collection: Collection;
   voidedBy: string;
-  /** The bill this was opened from — the one outcome the user already expects. */
   onBillChargeId?: string | null;
-  /** Fired only when the void actually landed, with the row now marked voided. */
   onDone: (voided: Collection) => void;
   onDismiss: () => void;
 }
@@ -41,7 +39,6 @@ export function VoidCollectionDialog({
   const clearError = useLedgerSlice((s) => s.clearError);
   const [reason, setReason] = useState("");
 
-  // The split is already hydrated on the row, so naming them costs no read.
   const shared = sharedBillsOf(collection, onBillChargeId, t);
 
   async function handleConfirm() {

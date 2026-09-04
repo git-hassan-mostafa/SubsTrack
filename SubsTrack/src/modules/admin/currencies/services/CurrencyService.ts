@@ -6,7 +6,6 @@ import { mapDbCurrencyToCurrency } from '../utils/mapper';
 import { CurrencyInput } from '../utils/types';
 
 
-
 class CurrencyService {
   async getCurrencies(): Promise<Currency[]> {
     const rows = await repository.findAll();
@@ -52,9 +51,6 @@ class CurrencyService {
     }
   }
 
-  // If the currency is referenced by any plan or payment, soft-delete it
-  // (mark active = false). Otherwise hard-delete. Returns the deletion mode
-  // so the UI can communicate the outcome.
   async deleteCurrency(id: string): Promise<'hard' | 'soft'> {
     const refs = await repository.countReferences(id);
     if (refs > 0) {
@@ -70,8 +66,6 @@ class CurrencyService {
     return mapDbCurrencyToCurrency(row);
   }
 
-  // Batch counterpart to deleteCurrency: currencies used by a plan or payment
-  // are soft-deleted, the rest hard-deleted — each group in a single statement.
   async deleteManyCurrencies(
     ids: string[],
   ): Promise<{ hard: string[]; soft: string[] }> {

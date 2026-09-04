@@ -2,7 +2,6 @@ import { Text } from "@/src/shared/components/Text";
 
 interface Props {
   text: string;
-  /** The tint, as Tailwind background + text, e.g. "bg-red-50 text-red-700". */
   className: string;
 }
 

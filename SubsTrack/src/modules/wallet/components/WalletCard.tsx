@@ -11,9 +11,7 @@ import type { UserWallet } from '@/src/core/types';
 interface Props {
   wallet: UserWallet;
   onPress: () => void;
-  /** Opens the row's action menu (e.g. "Receive all"). */
   onMenu?: () => void;
-  /** Shows a spinner in place of the menu icon while an action is in flight. */
   menuLoading?: boolean;
 }
 

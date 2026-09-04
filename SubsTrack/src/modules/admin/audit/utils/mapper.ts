@@ -52,12 +52,9 @@ export function mapDbAuditLogToAuditEntry(row: DbAuditLog): AuditEntry {
     recordId: row.record_id,
     action: row.action,
     changes: toChanges(row),
-    // create keeps the whole new row, delete the whole removed one; an edit keeps
-    // only the changed columns, which are already in `changes`.
     snapshot: row.changed ? null : (row.after_data ?? row.before_data),
     context: toContext(row),
     label: row.label,
-    // Entries written before `subject` existed have none — the card just omits it.
     subject: row.subject ?? null,
     subjectId: row.subject_id ?? null,
     actorUserId: row.actor_user_id,

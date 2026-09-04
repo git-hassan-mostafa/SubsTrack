@@ -6,11 +6,9 @@ export interface KindStyle {
   icon: keyof typeof Ionicons.glyphMap;
   color: string;
   bgClassName: string;
-  /** The kind CHIP — month and sale share a tint, so the WORD parts them. */
   chipClassName: string;
 }
 
-// Sale is emerald app-wide (SaleCard), so the GLYPH parts it from a month.
 export const KIND_STYLE: Record<WalletSource, KindStyle> = {
   month: {
     icon: 'calendar-outline',

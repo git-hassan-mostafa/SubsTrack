@@ -36,8 +36,6 @@ export function useUnsavedChangesGuard(
 ): [guardedDismiss: () => void, asking: boolean] {
   const { t } = useTranslation();
 
-  // Latest values without re-creating the callback (it feeds effect deps in
-  // AppBottomSheet's back handlers — churning it would rebind those listeners).
   const dirtyRef = useRef(dirty);
   dirtyRef.current = dirty;
   const onDismissRef = useRef(onDismiss);
@@ -48,9 +46,6 @@ export function useUnsavedChangesGuard(
   const askingRef = useRef(false);
   const [asking, setAsking] = useState(false);
 
-  // The owning sheet is gone (parent unmounted it, screen navigated away). The
-  // confirm dialog is a standalone store, so it outlives us — it must neither be
-  // left floating nor be opened on our way out.
   const deadRef = useRef(false);
   useEffect(
     () => () => {
@@ -65,14 +60,10 @@ export function useUnsavedChangesGuard(
       onDismissRef.current();
       return;
     }
-    // Asking on behalf of a sheet that no longer exists would strand the prompt
-    // on screen after the form closed — the user has nothing left to answer for.
     if (deadRef.current) return;
     if (askingRef.current) return;
     askingRef.current = true;
     setAsking(true);
-    // No try/finally — this compiler version rejects `finally` outright (gotcha
-    // #52) and `show()` never rejects, so a plain reset after the await is safe.
     const discard = await confirm({
       title: t("common.discard_changes_title"),
       message: t("common.discard_changes_message"),
@@ -83,13 +74,9 @@ export function useUnsavedChangesGuard(
     askingRef.current = false;
     if (discard) onDismissRef.current();
     else onKeepOpenRef.current?.();
-    // Cleared LAST, so the caller's Back handling stays off for the press that
-    // answered the dialog — re-enabling it earlier is what let one press both
-    // answer the prompt and close the sheet underneath.
     setAsking(false);
   }, [t]);
 
-  // The exposed callback returns void: it's an event handler, and nothing awaits it.
   const dismiss = useCallback(() => void guardedDismiss(), [guardedDismiss]);
 
   return [dismiss, asking];

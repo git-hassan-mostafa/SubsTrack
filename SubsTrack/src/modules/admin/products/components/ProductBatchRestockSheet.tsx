@@ -64,13 +64,7 @@ export function ProductBatchRestockSheet({ onDismiss }: Props) {
 
   const currencies = useCurrencySlice((s) => s.items);
 
-  // productId → units arriving. Absent / 0 means "not part of this restock".
   const [quantities, setQuantities] = useState<Record<string, number>>({});
-  // productId → cost per unit AS TYPED, in the ONE delivery currency below (a
-  // delivery is paid in a single currency, like a sale). Seeded from each
-  // product's cost price when its row is picked; empty = no cost, so that row
-  // adds no expense. Text, not a number: "0.3" parses to 0, and a numeric state
-  // would clear the field the moment you typed the leading zero.
   const [costs, setCosts] = useState<Record<string, string>>({});
   const [currencyId, setCurrencyId] = useState<string | null>(null);
   const [note, setNote] = useState("");
@@ -78,7 +72,6 @@ export function ProductBatchRestockSheet({ onDismiss }: Props) {
 
   useEffect(() => {
     clearError();
-    // Self-guards on the slice's `loaded` flag — no refetch when already in memory.
     void getProducts();
     return clearError;
   }, [clearError, getProducts]);
@@ -108,18 +101,12 @@ export function ProductBatchRestockSheet({ onDismiss }: Props) {
     [quantities, costs],
   );
   const totalUnits = entries.reduce((sum, e) => sum + e.quantity, 0);
-  // What the whole delivery costs, in the delivery currency — the amount that
-  // lands in Expenses. Rows with no cost simply contribute nothing.
   const totalCost = entries.reduce(
     (sum, e) => sum + (e.unitCost ?? 0) * e.quantity,
     0,
   );
   const hasProducts = activeProducts.length > 0;
 
-  // Quantity TOTALS, not the `quantities` map: "Clear" writes a fresh empty
-  // object, so an identity diff would keep the form dirty after clearing it.
-  // `search` is excluded — it only filters, nothing is lost by closing; so is
-  // `currencyId`, which is seeded from the first picked product, not by hand.
   const dirty = useDirtyForm({ lineCount: entries.length, totalUnits, totalCost, note });
 
   // A product's catalog cost, expressed in the delivery currency and rendered
@@ -139,9 +126,6 @@ export function ProductBatchRestockSheet({ onDismiss }: Props) {
     clearError();
     const next = Math.max(0, quantity);
     setQuantities((prev) => ({ ...prev, [productId]: next }));
-    // Picking a row for the first time seeds its cost from the catalog; the
-    // first picked product also decides the delivery currency (a sale does the
-    // same), until the user changes it.
     if (next > 0 && costs[productId] === undefined) {
       const product = activeProducts.find((p) => p.id === productId);
       if (!product) return;
@@ -344,7 +328,6 @@ export function ProductBatchRestockSheet({ onDismiss }: Props) {
 interface RowProps {
   product: Product;
   quantity: number;
-  // As typed, in the delivery currency (see the `costs` state).
   unitCost: string;
   currency: Currency | null;
   onChange: (quantity: number) => void;

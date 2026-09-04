@@ -24,10 +24,6 @@ export interface IUserRepository {
     payload: Partial<Pick<DbUser, 'username' | 'full_name' | 'phone_number' | 'role' | 'branch_id'>>,
   ): Promise<DbUser>;
   setActive(id: string, active: boolean): Promise<DbUser>;
-  // Whether a user still carries history that a hard delete would destroy:
-  // payments they recorded, OR cash they are currently holding (their wallet).
-  // A holder is not always a collector — an admin who received cash recorded
-  // none of it, and ON DELETE SET NULL would silently empty their wallet.
   countPayments(id: string): Promise<number>;
   usersWithPayments(ids: string[]): Promise<Set<string>>;
   setActiveMany(ids: string[], active: boolean): Promise<void>;

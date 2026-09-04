@@ -1,15 +1,11 @@
 import type { ReceiveBlock, UserRole } from '@/src/core/types';
 
-// Who may take cash from whom. Cash moves UP a four-rung chain and never
-// sideways, so one rank function answers every question the wallet asks.
-// Pure — no store, no i18n, no React. The service asserts with it before every
-// write and the UI reads it to disable an action, so the two can't disagree.
 
 /** The parts of a user that decide their place in the chain. */
 export interface WalletActor {
   id: string;
   role: UserRole;
-  branchId: string | null; // null = tenant-wide (or an unassigned collector)
+  branchId: string | null;
 }
 
 export const RANK_COLLECTOR = 0;
@@ -40,11 +36,7 @@ export function walletRank(u: WalletActor): WalletRank {
  */
 export function receiveBlock(receiver: WalletActor, holder: WalletActor): ReceiveBlock {
   if (receiver.id === holder.id) return 'self';
-  // Strictly lower only: a peer (two branch admins, two tenant-wide admins) is
-  // not "under" anyone, so neither can clear the other's accountability.
   if (walletRank(receiver) <= walletRank(holder)) return 'rank';
-  // A branch admin's reach stops at their own branch — an unassigned collector
-  // (branchId null) is therefore reachable only from rank 2 up.
   if (walletRank(receiver) === RANK_BRANCH_ADMIN && holder.branchId !== receiver.branchId) {
     return 'branch';
   }

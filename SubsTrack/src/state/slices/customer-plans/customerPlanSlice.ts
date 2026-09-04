@@ -20,10 +20,7 @@ export interface CustomerPlanSlice {
     reactivated: string[],
     tenantId: string,
   ) => Promise<boolean>;
-  // Whether a service line has recorded payments (drives the remove-plan prompt).
   hasPayments: (lineId: string) => Promise<boolean>;
-  // The customer's lines holding standing money — their start date is frozen.
-  // One query for the whole form; `syncLines` re-checks server-side anyway.
   getPaidLineIds: (customerId: string) => Promise<string[]>;
   clearError: () => void;
   reset: () => void;
@@ -56,11 +53,6 @@ export const createCustomerPlanSlice: StateCreator<
         tenantId,
         existing.filter((l) => l.active),
       );
-      // Rebuild the owning customer's lines locally instead of re-fetching. The
-      // service returns `active` (kept / created / reactivated) and `cancelled`
-      // (soft-cancelled removals). Add previously-cancelled lines the user left
-      // alone so their history stays viewable, excluding anything reactivated
-      // (now in `active`) or hard-deleted this session. The grids read from here.
       const reactivatedSet = new Set(reactivated);
       const removedSet = new Set(removed.map((r) => r.id));
       const keptCancelled = existing.filter(

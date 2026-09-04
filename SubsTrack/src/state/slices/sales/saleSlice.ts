@@ -27,9 +27,6 @@ export type SaleStatus = 'live' | 'voided' | 'all';
 
 export interface SaleSlice {
   items: Sale[];
-  // "YYYY-MM" → USD total for that month, across ALL rows matching the
-  // current filters (not just the loaded page) — the section headers' source
-  // of truth. Refetched whenever the filters change (see fetchSales).
   monthlyTotals: Record<string, number>;
   page: number;
   hasMore: boolean;
@@ -42,7 +39,6 @@ export interface SaleSlice {
   productFilter: Product | null;
   fromDate: string | null;
   toDate: string | null;
-  // 'live' unless the reader asked for the reversals — never null.
   status: SaleStatus;
   fetchSales: () => Promise<void>;
   fetchMoreSales: () => Promise<void>;
@@ -60,11 +56,6 @@ export interface SaleSlice {
     voidedBy: string,
     reason: string,
   ) => Promise<SaleVoidResult>;
-  /**
-   * A hand-over landed on (or was taken back off) some bills. A sale holds no
-   * money of its own, so only the rows whose bill it names move. Called by the
-   * ledger slice for EVERY collect, wherever it was taken from.
-   */
   applyCollection: (collection: Pick<Collection, 'items'>, sign?: 1 | -1) => void;
   clearError: () => void;
   reset: () => void;
@@ -134,9 +125,6 @@ export const createSaleSlice: StateCreator<
     });
     try {
       const filterOpts = filterOptions(get().sales, branchFilter);
-      // The totals query is unpaginated but reuses the same filters — cheap
-      // (no joins, 3 numeric columns) and gives the section headers the true
-      // per-month sum instead of only what's been paginated into `items`.
       const [items, monthlyTotals] = await Promise.all([
         saleService.getSales({ page: 0, ...filterOpts }),
         saleService.getMonthlyTotals(filterOpts),
@@ -293,10 +281,7 @@ export const createSaleSlice: StateCreator<
         addMonthTotal(state.sales.monthlyTotals, sale.soldAt, saleUsd(sale));
         state.sales.loading = false;
       });
-      // The units this sale took off the shelf, straight into the catalog the
-      // next sale form reads — the write already knows them.
       get().products.applyStockDelta(stockDelta(new Map(), cartUnits(input.items)));
-      // A sale raises its own bill, so a pay-later one is a new debt.
       get().ledger.markOwedChanged();
       if (isFiltered(get().sales)) void get().sales.fetchSales();
       return sale;
@@ -318,8 +303,6 @@ export const createSaleSlice: StateCreator<
       const updated = await saleService.updateSale(sale, input);
       set((state) => {
         state.sales.items = replaceSale(state.sales.items, updated);
-        // Re-pricing moves the month header by the difference, each side read
-        // at its own frozen rate (an edit may have changed the sale's currency).
         addMonthTotal(
           state.sales.monthlyTotals,
           updated.soldAt,
@@ -327,13 +310,10 @@ export const createSaleSlice: StateCreator<
         );
         state.sales.loading = false;
       });
-      // What the sale was holding comes back; what it now sells goes out.
       get().products.applyStockDelta(
         stockDelta(savedUnits(sale.items), cartUnits(input.items)),
       );
-      // Re-pricing moved what the sale's bill owes.
       get().ledger.markOwedChanged();
-      // An edit can move a sale out of a filter (its customer or its lines).
       if (isFiltered(get().sales)) void get().sales.fetchSales();
       return updated;
     } catch (e) {
@@ -353,7 +333,6 @@ export const createSaleSlice: StateCreator<
     try {
       const voided = await saleService.voidSale(id, voidedBy, reason);
       set((state) => {
-        // A list showing voided rows keeps it, marked; one hiding them drops it.
         state.sales.items = applyVoidedSales(
           state.sales.items,
           [voided],
@@ -362,9 +341,7 @@ export const createSaleSlice: StateCreator<
         addMonthTotal(state.sales.monthlyTotals, voided.soldAt, -saleUsd(voided));
         state.sales.loading = false;
       });
-      // The void gave the stock back — the voided row still carries its lines.
       get().products.applyStockDelta(stockDelta(savedUnits(voided.items), new Map()));
-      // Its bill went with it, so anything it still owed is no longer owed.
       get().ledger.markOwedChanged();
       return voided;
     } catch (e) {
@@ -376,19 +353,12 @@ export const createSaleSlice: StateCreator<
     }
   },
 
-  // Voids several sales with one shared reason. Each void is its own DB write
-  // (mirrors the per-row voidSale); voided rows drop out of the list and the
-  // last failure's message is surfaced. Returns the rows that actually went, so
-  // the customer-scoped lists drop the same ones, plus counts for the screen's
-  // "voided X · Y failed" notice.
   voidSales: async (ids, voidedBy, reason) => {
     if (ids.length === 0) return { ok: 0, failed: 0, voided: [] };
     set((state) => {
       state.sales.loading = true;
       state.sales.error = null;
     });
-    // One call for the whole selection: the service batches the payment voids
-    // and reports per-sale failures, so a bad row can't take the others down.
     const { voided, failed } = await saleService.voidSales(ids, voidedBy, reason);
     set((state) => {
       state.sales.items = applyVoidedSales(
@@ -402,8 +372,6 @@ export const createSaleSlice: StateCreator<
       state.sales.loading = false;
       state.sales.error = failed.at(-1)?.message ?? null;
     });
-    // The voids gave their stock back — one delta for the whole selection, so
-    // the catalog repaints once rather than per sale.
     const returned = new Map<string, number>();
     for (const s of voided) {
       for (const [id, units] of savedUnits(s.items)) {

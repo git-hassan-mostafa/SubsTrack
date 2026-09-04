@@ -1,10 +1,8 @@
-// Observable sync status — drives the UI "syncing" indicator (useSyncStatus).
-
 /** What the UI can show about the last/ongoing sync. */
 export interface SyncStatus {
   syncing: boolean;
-  lastSyncAt: string | null; // ISO of the last successful cycle
-  lastError: string | null; // message of the last failed cycle (cleared on success)
+  lastSyncAt: string | null;
+  lastError: string | null;
 }
 
 let status: SyncStatus = { syncing: false, lastSyncAt: null, lastError: null };

@@ -13,30 +13,15 @@ import { SaleBulkVoidSheet } from "../components/SaleBulkVoidSheet";
 import type { SaleVoidResult } from "../utils/types";
 
 interface Options {
-  /** Opens the receipt sheet. */
   onView: (sale: Sale) => void;
-  /** Opens the sale form on this sale. */
   onEdit: (sale: Sale) => void;
-  /**
-   * After a void. Carries the rows that actually went, so a screen holding its
-   * own list drops exactly those; the counts are for the "voided X · Y failed"
-   * notice.
-   */
   onVoided?: (result: SaleVoidResult) => void;
-  /**
-   * After money was collected against a sale. The global list is patched by the
-   * ledger slice; a screen with its own list uses the hand-over to move the
-   * sale's `amountPaid`.
-   */
   onCollected?: (collection: Collection) => void;
 }
 
 export interface SaleActions {
-  /** Opens one sale's 3-dot menu. */
   openMenu: (sale: Sale) => void;
-  /** The shared-reason void dialog, for one sale or a whole selection. */
   requestVoid: (sales: Sale[]) => void;
-  /** Render once per screen — the menu, the void dialog and the history sheet. */
   sheets: ReactNode;
 }
 
@@ -97,8 +82,6 @@ export function useSaleActions({
       },
     ];
 
-    // A voided sale is a closed record — void is final. It can still be read,
-    // never corrected, re-sent as a receipt, or voided again.
     if (!voided) {
       actions.push({
         key: "edit",
@@ -107,8 +90,6 @@ export function useSaleActions({
         onPress: () => onEdit(sale),
       });
 
-      // Only a sale that still owes something can be collected on — and only
-      // from a customer: a walk-in has nobody to chase.
       const owed = sale.totalAmount - sale.amountPaid;
       if (owed > 1e-9 && sale.customerId) {
         actions.push({
@@ -130,7 +111,6 @@ export function useSaleActions({
           <WhatsAppComboIcon variant="report" size={size} />
         ),
         disabled: !sendable,
-        // A walk-in has nobody to send to; a customer may just be missing a phone.
         caption: sendable
           ? undefined
           : sale.customer

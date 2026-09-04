@@ -49,39 +49,21 @@ export interface FindChargesOptions {
 export interface IChargeRepository {
   findById(id: string): Promise<DbCharge | null>;
   findByIds(ids: string[]): Promise<DbCharge[]>;
-  /** Every non-voided month bill for these service lines — the grid's input. */
   findMonthChargesForLines(customerPlanIds: string[]): Promise<DbChargeWithPaid[]>;
-  /** Every non-voided month bill for a customer, all years. */
   findMonthChargesForCustomer(customerId: string): Promise<DbChargeWithPaid[]>;
   findBySaleId(saleId: string): Promise<DbCharge | null>;
-  /** The bills of a page of sales — one read instead of one per row. */
   findBySaleIds(saleIds: string[]): Promise<DbCharge[]>;
-  /**
-   * Every bill with money still owed on it, each with what has been collected.
-   * The debts view and the waterfall read this — and it is the ONLY way to ask.
-   * Reading the bills and then asking a second query what was paid on each
-   * walked every bill the tenant ever raised to keep the open few (#118).
-   */
   findOpenWithPaid(opts: FindChargesOptions): Promise<DbChargeWithPaid[]>;
 
-  /**
-   * How much has been collected against these bills. Server: the
-   * `charge_balances` view. Offline: the same GROUP BY over the mirror. Both
-   * exclude voided bills at source, so a caller never filters.
-   */
   balances(chargeIds: string[]): Promise<DbChargeBalance[]>;
 
   create(payload: CreateChargePayload): Promise<DbCharge>;
-  /** Upsert by id — a month bill may already exist from another device. */
   ensure(payload: CreateChargePayload): Promise<DbCharge>;
   update(id: string, values: UpdateChargePayload): Promise<DbCharge>;
 
-  /** The bill was a mistake. Refused by the service when money sits on it. */
   void(id: string, voidedBy: string, reason: string | null): Promise<DbCharge>;
-  /** The bill is real but lost. Keeps the row and reports it as a loss. */
   writeOff(id: string, writtenOffBy: string, reason: string | null): Promise<DbCharge>;
 
-  /** Written-off bills in a period — the Reports "lost to unpaid debts" line. */
   writtenOffInRange(
     startIso: string,
     endExclusiveIso: string,

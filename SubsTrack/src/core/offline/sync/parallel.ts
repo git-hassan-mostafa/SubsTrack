@@ -1,13 +1,3 @@
-// The sync engine's fan-out primitive. Its counterpart — the lock that keeps
-// local SQLite work sequential — is `withDbLock` in `../dbLock`, shared with
-// every repository write because the whole app has one connection.
-
-/**
- * How many Supabase requests may be in flight at once. The engine fetches every
- * table concurrently, so this cap is what keeps a first full sync from holding
- * twenty 1000-row pages in memory (and twenty sockets open on a mobile radio)
- * at the same moment.
- */
 export const NETWORK_CONCURRENCY = 6;
 
 /**

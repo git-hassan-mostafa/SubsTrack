@@ -60,8 +60,6 @@ class PlanService {
     await repository.delete(id);
   }
 
-  // Batch hard-delete. Plans have no soft-delete; service lines on the plan fall
-  // back to plan-less via customer_plans.plan_id ON DELETE SET NULL. One statement.
   async deleteManyPlans(ids: string[]): Promise<void> {
     await repository.deleteMany(ids);
   }

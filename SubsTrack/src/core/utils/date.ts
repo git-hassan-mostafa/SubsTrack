@@ -1,7 +1,3 @@
-// Generic date utilities. Comparisons use integer year+month arithmetic to avoid
-// timezone issues. Rules that only mean something to a subscription month (is it
-// started / owed / late?) live in customer-payments' utils/monthDueRules.ts.
-
 export function getDateLocale(language: string): string {
   return "en-US";
 }

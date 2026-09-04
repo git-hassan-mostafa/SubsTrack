@@ -11,7 +11,6 @@ import type { CustomerDebts } from "@/src/core/types";
 interface Props {
   debtor: CustomerDebts;
   onPress: () => void;
-  /** Opens the row's action menu (Collect). Omit to hide the 3-dot menu. */
   onMenu?: () => void;
 }
 

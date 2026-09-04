@@ -136,7 +136,6 @@ export function CurrenciesScreen() {
 
   const activeCount = currencies.filter((c) => c.active).length;
 
-  // Resolve selected ids against the VISIBLE list.
   const selectedCurrencies = currencies.filter((c) => selectedIds.has(c.id));
 
   async function runBulkDelete(selected: Currency[]) {
@@ -259,9 +258,6 @@ export function CurrenciesScreen() {
             />
           }
           ListHeaderComponent={
-            // Keep the USD base card's space while selecting so the list never
-            // jumps; the selection toolbar (with the select-all checkbox) is
-            // overlaid on the header instead.
             <SelectionOverlaySlot selecting={selectionActive}>
               <UsdBaseCard />
             </SelectionOverlaySlot>

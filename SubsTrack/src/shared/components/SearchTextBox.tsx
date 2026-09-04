@@ -15,7 +15,6 @@ export default function SearchTextBox({
   setSearchText,
   placeholder = null,
 }: Props) {
-  // Becomes BottomSheetTextInput inside a sheet, so the sheet lifts for the keyboard.
   const TextInput = useSheetTextInput();
 
   const { t } = useTranslation();
