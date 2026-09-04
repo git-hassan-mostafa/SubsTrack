@@ -46,6 +46,7 @@ import { SaleDetailSheet } from "../components/SaleDetailSheet";
 import { useSaleActions } from "../hooks/useSaleActions";
 import { useSaleInvoiceAction } from "../hooks/useSaleInvoiceAction";
 import { useSaleSlice } from "@/src/state/hooks/useSaleSlice";
+import type { SaleStatus } from "@/src/state/slices/sales/saleSlice";
 import { useProductSlice } from "@/src/state/hooks/useProductSlice";
 import { useAuth } from "@/src/modules/authentication/auth";
 
@@ -71,6 +72,8 @@ export function SalesPanel() {
   const fromDate = useSaleSlice((s) => s.fromDate);
   const toDate = useSaleSlice((s) => s.toDate);
   const setDateRange = useSaleSlice((s) => s.setDateRange);
+  const status = useSaleSlice((s) => s.status);
+  const setStatus = useSaleSlice((s) => s.setStatus);
   const clearFilters = useSaleSlice((s) => s.clearFilters);
   const voidSale = useSaleSlice((s) => s.voidSale);
   const clearError = useSaleSlice((s) => s.clearError);
@@ -130,8 +133,23 @@ export function SalesPanel() {
     [products],
   );
 
+  // `live` is the default, so it rides the dropdown's NULL slot: the chip then
+  // greys out until the reader actually asks to see voided sales, instead of
+  // sitting there in active indigo as though a filter were applied.
+  const statusOptions: DropdownOption<SaleStatus>[] = useMemo(
+    () => [
+      { label: t("sales.status_voided"), value: "voided" },
+      { label: t("sales.status_all"), value: "all" },
+    ],
+    [t],
+  );
+
   const hasActiveFilters =
-    !!customerFilter || !!productFilter || !!fromDate || !!toDate;
+    !!customerFilter ||
+    !!productFilter ||
+    !!fromDate ||
+    !!toDate ||
+    status !== "live";
 
   // Bucket the already-date-desc sales into month sections (This Month / June 2026),
   // each carrying the section's VALUE SOLD (USD, via each row's snapshot rate) —
@@ -170,15 +188,22 @@ export function SalesPanel() {
   // action that opens the shared-reason sheet for every selected sale.
   function buildSelectionActions(selected: Sale[]): SelectionAction[] {
     if (selected.length === 0) return [];
+    // Void is final, so an already-voided row is not voidable — with the status
+    // filter such rows can be in the list, and in the selection.
+    const voidable = selected.filter((s) => s.voidedAt === null);
     return [
       ...(invoiceAction ? [invoiceAction] : []),
-      {
-        key: "void",
-        icon: "close-circle-outline",
-        label: t("sales.void_sale"),
-        destructive: true,
-        onPress: () => saleActions.requestVoid(selected),
-      },
+      ...(voidable.length > 0
+        ? [
+            {
+              key: "void",
+              icon: "close-circle-outline" as const,
+              label: t("sales.void_sale"),
+              destructive: true,
+              onPress: () => saleActions.requestVoid(voidable),
+            },
+          ]
+        : []),
     ];
   }
 
@@ -261,6 +286,15 @@ export function SalesPanel() {
                   minDate={fromDate ?? undefined}
                   triggerStyle="chip"
                   clearable
+                />
+                <Dropdown<SaleStatus>
+                  placeholder={t("sales.filter_by_status")}
+                  options={statusOptions}
+                  value={status === "live" ? null : status}
+                  onChange={(v) => setStatus(v ?? "live")}
+                  nullable
+                  nullLabel={t("sales.status_live")}
+                  triggerStyle="chip"
                 />
                 {hasActiveFilters ? (
                   <PressableOpacity

@@ -7,6 +7,7 @@ import {
 } from "@/src/shared/components/ActionMenu";
 import { openItemFromCharge, useCollectSheet } from "@/src/modules/ledger";
 import { useRecordHistoryAction } from "@/src/modules/admin/audit";
+import { saleTitle } from "@/src/core/utils/receiptId";
 import { useSendInvoice, WhatsAppComboIcon } from "@/src/modules/invoicing";
 import { SaleBulkVoidSheet } from "../components/SaleBulkVoidSheet";
 import type { SaleVoidResult } from "../utils/types";
@@ -144,7 +145,7 @@ export function useSaleActions({
       });
     }
 
-    actions.push(history.action(sale.id, sale.itemsSummary));
+    actions.push(history.action(sale.id, saleTitle(sale.id, sale.itemsSummary)));
 
     if (!voided) {
       actions.push({

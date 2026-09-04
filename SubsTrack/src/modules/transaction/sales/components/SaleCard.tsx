@@ -12,7 +12,9 @@ import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { useLanguageStore } from "@/src/core/i18n/languageStore";
 import { formatDate } from "@/src/core/utils/date";
+import { receiptId } from "@/src/core/utils/receiptId";
 import { EntityCard } from "@/src/shared/components/EntityCard";
+import { Chip } from "@/src/shared/components/Chip";
 
 // Strips the trailing currency symbol/code that formatMoney appends, so a
 // paid/total fraction shows the currency label once instead of twice.
@@ -58,6 +60,7 @@ export function SaleCard({
   // The Sale shape matches that contract.
   const source = snapshotCurrency(sale, currencies);
   const target = findCurrency(currencies, displayCurrencyId);
+  const voided = sale.voidedAt !== null;
   const fullyPaid = sale.amountPaid >= sale.totalAmount;
   const totalFormatted = formatMoney(sale.totalAmount, source, target);
   const totalLabel = fullyPaid
@@ -69,6 +72,7 @@ export function SaleCard({
       icon="receipt-outline"
       iconColor={COLORS.success}
       iconBgClassName="bg-emerald-50"
+      dimmed={voided}
       onPress={() => onPress(sale)}
       onMenu={onMenu ? () => onMenu(sale) : undefined}
       selectionMode={selectionMode}
@@ -83,6 +87,9 @@ export function SaleCard({
           className="text-base font-semibold text-gray-900"
           numberOfLines={1}
         >
+          #{receiptId(sale.id)}
+        </Text>
+        <Text className="text-xs text-gray-700 mt-0.5" numberOfLines={1}>
           {sale.itemsSummary}
         </Text>
         <Text className="text-xs text-gray-500 mt-0.5" numberOfLines={1}>
@@ -90,12 +97,30 @@ export function SaleCard({
           {" · "}
           {formatDate(sale.soldAt, locale)}
         </Text>
+        {voided ? (
+          <View className="mt-1 flex-row">
+            <Chip
+              text={
+                sale.voidReason
+                  ? `${t("sales.voided")} · ${sale.voidReason}`
+                  : t("sales.voided")
+              }
+              className="bg-red-50 text-red-700"
+            />
+          </View>
+        ) : null}
       </View>
 
       <View className="items-end ms-2">
         <Text
           fontWeight="Bold"
-          className={`text-sm ${fullyPaid ? "text-gray-900" : "text-red-600"}`}
+          className={`text-sm ${
+            voided
+              ? "text-gray-400 line-through"
+              : fullyPaid
+                ? "text-gray-900"
+                : "text-red-600"
+          }`}
         >
           {totalLabel}
         </Text>

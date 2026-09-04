@@ -6,6 +6,7 @@ import { decodeRow, decodeRows } from './db/codec';
 import { insertDirty, markDeleted, updateDirty } from './db/dml';
 import { withDbLock } from './dbLock';
 import { logException } from '../errorLog/errorLogger';
+import { sanitizeSearchTerm } from '../utils/searchTerm';
 import { buildAuditRow, type AuditInput } from '../audit';
 
 /** Mirror of BaseRepository.BranchScope — same three semantics, SQL-side. */
@@ -190,7 +191,7 @@ export abstract class OfflineBaseRepository {
 
   /** A case-insensitive multi-column LIKE OR fragment (the `ilike` equivalent). */
   protected searchWhere(columns: string[], term?: string): { clause: string; params: unknown[] } {
-    const q = (term ?? '').trim().replace(/[,()]/g, ''); // strip PostgREST-reserved chars (parity with online)
+    const q = sanitizeSearchTerm(term);
     if (!q) return { clause: '', params: [] };
     const like = `%${q}%`;
     return {

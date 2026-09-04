@@ -425,6 +425,7 @@ What this section tests is **readability**, not new money rules: nothing here ch
 19.1.1 The **customer's name** is the bold first line, left; the **amount** is bold on the right. (It used to be the other way round.)
 19.1.2 A walk-in hand-over (no customer) reads **Walk-in / no customer**, never a blank line.
 19.1.3 The second line **names the bills**: one bill prints its label, two print both separated by a comma, four print the first two then **+2 more**.
+19.1.3a A **sale** bill names its **receipt #** first — `#A1B2C3 · Router ×2`, never the items summary alone. Open that sale's receipt and confirm the six characters match. A month bill and a custom fee are unchanged (`Jan 2026 · Internet`, `Installation fee`).
 19.1.4 The third line is **who took the cash · the date and time** (to the minute — nothing on this page prints seconds).
 19.1.5 The kind is carried by the **icon colour** — month and sale green (a sale matches the Sales page exactly), custom violet, mixed indigo.
 19.1.5a A **kind chip** also names it in words: Month · Sale · Custom · Mixed, tinted to match its icon. Month and sale share the green tint, so the WORD is what tells them apart.
@@ -452,6 +453,7 @@ What this section tests is **readability**, not new money rules: nothing here ch
 19.4.2 A hand-over with no notes simply has no Notes row — never an empty one.
 19.4.3 A **voided** hand-over shows its void time and reason, and its total is struck through.
 19.4.4 Each bill card shows the bill's total and due date, and when it was billed. Those figures are the **bill's**, not this payment's — a bill of 50 settled by 20 here shows both numbers.
+19.4.4a A **sale** bill card is titled with its **receipt #** — `#A1B2C3 · Router ×2` — the same six characters the sale card and the receipt sheet print, and the same label the row above showed.
 19.4.5 A bill card does **not** claim a remaining balance. Tap it: the bill sheet is where "collected out of owed" is computed.
 
 ### 19.5 The month bill sheet shows the same depth

@@ -4,6 +4,7 @@ export type { CreateSaleInput, SaleVoidResult, UpdateSaleInput } from './utils/t
 export {
   addSale,
   applyCollectionToSales,
+  applyVoidedSales,
   removeSales,
   replaceSale,
   saleUsd,

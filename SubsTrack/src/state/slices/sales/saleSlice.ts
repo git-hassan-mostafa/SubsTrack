@@ -1,11 +1,11 @@
 import type { StateCreator } from 'zustand';
 import type { Collection, Customer, Product, Sale } from '@/src/core/types';
-import { PAGE_SIZE } from '@/src/core/constants';
+import { PAGE_SIZE, type BranchFilter } from '@/src/core/constants';
 import {
   addSale,
   applyCollectionToSales,
+  applyVoidedSales,
   cartUnits,
-  removeSales,
   replaceSale,
   saleService,
   saleUsd,
@@ -18,6 +18,12 @@ import {
 import { resolveBranchFilter } from '@/src/shared/lib/branchFilter';
 import { addMonthTotal } from '@/src/shared/lib/monthSections';
 import type { GlobalState } from '@/src/state/globalStore';
+
+/**
+ * Which sales the list may hold. `live` is the DEFAULT and the unfiltered
+ * state — a voided sale is only ever shown because someone asked for it.
+ */
+export type SaleStatus = 'live' | 'voided' | 'all';
 
 export interface SaleSlice {
   items: Sale[];
@@ -36,12 +42,15 @@ export interface SaleSlice {
   productFilter: Product | null;
   fromDate: string | null;
   toDate: string | null;
+  // 'live' unless the reader asked for the reversals — never null.
+  status: SaleStatus;
   fetchSales: () => Promise<void>;
   fetchMoreSales: () => Promise<void>;
   setSearchQuery: (q: string) => Promise<void>;
   setCustomerFilter: (customer: Customer | null) => Promise<void>;
   setProductFilter: (product: Product | null) => Promise<void>;
   setDateRange: (fromDate: string | null, toDate: string | null) => Promise<void>;
+  setStatus: (status: SaleStatus) => Promise<void>;
   clearFilters: () => Promise<void>;
   createSale: (input: CreateSaleInput) => Promise<Sale | null>;
   updateSale: (sale: Sale, input: UpdateSaleInput) => Promise<Sale | null>;
@@ -69,7 +78,30 @@ export interface SaleSlice {
  * normal, unfiltered one never does.
  */
 const isFiltered = (s: SaleSlice): boolean =>
-  !!(s.searchQuery || s.customerFilter || s.productFilter || s.fromDate || s.toDate);
+  !!(
+    s.searchQuery ||
+    s.customerFilter ||
+    s.productFilter ||
+    s.fromDate ||
+    s.toDate ||
+    s.status !== 'live'
+  );
+
+/**
+ * The filters both reads share. A voided sale is a record of what happened, so
+ * the list can show it — the section totals drop it instead (a voided sale sold
+ * nothing), which the repository's monthlyTotals enforces.
+ */
+const filterOptions = (s: SaleSlice, branchFilter: BranchFilter) => ({
+  searchQuery: s.searchQuery || undefined,
+  branchFilter,
+  customerId: s.customerFilter?.id ?? null,
+  productId: s.productFilter?.id ?? null,
+  fromDate: s.fromDate,
+  toDate: s.toDate,
+  includeVoided: s.status !== 'live',
+  voidedOnly: s.status === 'voided',
+});
 
 export const createSaleSlice: StateCreator<
   GlobalState,
@@ -90,25 +122,18 @@ export const createSaleSlice: StateCreator<
   productFilter: null,
   fromDate: null,
   toDate: null,
+  status: 'live',
 
   fetchSales: async () => {
     const token = get().sales.searchToken;
     const branchFilter = resolveBranchFilter(get().auth.user);
-    const { searchQuery, customerFilter, productFilter, fromDate, toDate } = get().sales;
     set((state) => {
       state.sales.loading = true;
       state.sales.error = null;
       state.sales.page = 0;
     });
     try {
-      const filterOpts = {
-        searchQuery: searchQuery || undefined,
-        branchFilter,
-        customerId: customerFilter?.id ?? null,
-        productId: productFilter?.id ?? null,
-        fromDate,
-        toDate,
-      };
+      const filterOpts = filterOptions(get().sales, branchFilter);
       // The totals query is unpaginated but reuses the same filters — cheap
       // (no joins, 3 numeric columns) and gives the section headers the true
       // per-month sum instead of only what's been paginated into `items`.
@@ -134,17 +159,7 @@ export const createSaleSlice: StateCreator<
   },
 
   fetchMoreSales: async () => {
-    const {
-      loadingMore,
-      hasMore,
-      page,
-      searchToken,
-      searchQuery,
-      customerFilter,
-      productFilter,
-      fromDate,
-      toDate,
-    } = get().sales;
+    const { loadingMore, hasMore, page, searchToken } = get().sales;
     if (loadingMore || !hasMore) return;
     const token = searchToken;
     const branchFilter = resolveBranchFilter(get().auth.user);
@@ -155,12 +170,7 @@ export const createSaleSlice: StateCreator<
       const nextPage = page + 1;
       const items = await saleService.getSales({
         page: nextPage,
-        searchQuery: searchQuery || undefined,
-        branchFilter,
-        customerId: customerFilter?.id ?? null,
-        productId: productFilter?.id ?? null,
-        fromDate,
-        toDate,
+        ...filterOptions(get().sales, branchFilter),
       });
       if (get().sales.searchToken !== token) {
         set((state) => {
@@ -241,14 +251,28 @@ export const createSaleSlice: StateCreator<
     await get().sales.fetchSales();
   },
 
+  setStatus: async (status) => {
+    if (get().sales.status === status) return;
+    set((state) => {
+      state.sales.status = status;
+      state.sales.searchToken += 1;
+      state.sales.page = 0;
+      state.sales.items = [];
+      state.sales.hasMore = true;
+    });
+    await get().sales.fetchSales();
+  },
+
   clearFilters: async () => {
-    const { customerFilter, productFilter, fromDate, toDate } = get().sales;
-    if (!customerFilter && !productFilter && !fromDate && !toDate) return;
+    const { customerFilter, productFilter, fromDate, toDate, status } = get().sales;
+    if (!customerFilter && !productFilter && !fromDate && !toDate && status === 'live')
+      return;
     set((state) => {
       state.sales.customerFilter = null;
       state.sales.productFilter = null;
       state.sales.fromDate = null;
       state.sales.toDate = null;
+      state.sales.status = 'live';
       state.sales.searchToken += 1;
       state.sales.page = 0;
       state.sales.items = [];
@@ -329,8 +353,12 @@ export const createSaleSlice: StateCreator<
     try {
       const voided = await saleService.voidSale(id, voidedBy, reason);
       set((state) => {
-        // The sales list excludes voided rows by default — drop it from view.
-        state.sales.items = removeSales(state.sales.items, [id]);
+        // A list showing voided rows keeps it, marked; one hiding them drops it.
+        state.sales.items = applyVoidedSales(
+          state.sales.items,
+          [voided],
+          state.sales.status !== 'live',
+        );
         addMonthTotal(state.sales.monthlyTotals, voided.soldAt, -saleUsd(voided));
         state.sales.loading = false;
       });
@@ -363,9 +391,10 @@ export const createSaleSlice: StateCreator<
     // and reports per-sale failures, so a bad row can't take the others down.
     const { voided, failed } = await saleService.voidSales(ids, voidedBy, reason);
     set((state) => {
-      state.sales.items = removeSales(
+      state.sales.items = applyVoidedSales(
         state.sales.items,
-        voided.map((s) => s.id),
+        voided,
+        state.sales.status !== 'live',
       );
       for (const s of voided) {
         addMonthTotal(state.sales.monthlyTotals, s.soldAt, -saleUsd(s));
@@ -409,5 +438,6 @@ export const createSaleSlice: StateCreator<
       state.sales.productFilter = null;
       state.sales.fromDate = null;
       state.sales.toDate = null;
+      state.sales.status = 'live';
     }),
 });

@@ -3,6 +3,7 @@ import { BaseRepository } from '@/src/core/utils/BaseRepository';
 import { PAGE_SIZE, type BranchFilter } from '@/src/core/constants';
 import type { CashRow, CashStream } from '@/src/core/types';
 import type { DbCharge, DbCollection, DbCollectionItem } from '@/src/core/types/db';
+import { sanitizeSearchTerm } from '@/src/core/utils/searchTerm';
 import { custodyValues } from '@/src/modules/wallet/utils/custodyValues';
 import type {
   CreateCollectionPayload,
@@ -91,7 +92,7 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
   async find(opts: FindCollectionsOptions): Promise<DbCollection[]> {
     const limit = opts.limit ?? PAGE_SIZE;
     const offset = opts.offset ?? 0;
-    const search = opts.searchTerm?.trim();
+    const search = sanitizeSearchTerm(opts.searchTerm);
     const asc = opts.sortDirection === 'asc';
     const sortField = opts.sortField ?? 'received_at';
     let query = this.db
@@ -121,7 +122,7 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
     if (opts.voidedOnly) return {};
     // Three numeric columns, unpaginated — cheap, and the only way a section
     // header can show the month's real total rather than the loaded page's.
-    const search = opts.searchTerm?.trim();
+    const search = sanitizeSearchTerm(opts.searchTerm);
     let query = this.db
       .from('collections')
       // The customer join exists ONLY for the search — `collections` owns its

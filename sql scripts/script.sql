@@ -781,6 +781,20 @@ CREATE INDEX IF NOT EXISTS idx_sales_customer
 CREATE INDEX IF NOT EXISTS idx_sales_branch
     ON sales (branch_id);
 
+-- The human receipt number staff read off a sale card, as a PostgREST computed
+-- field so the app can SEARCH on it. It STORES NOTHING: the number is just the
+-- tail of the id, and the app derives it the same way (core/utils/receiptId.ts —
+-- keep the length in step). A computed field is needed because Postgres has no
+-- ILIKE for uuid and PostgREST refuses to cast on the left side of a filter, so
+-- neither id.ilike nor id::text.ilike can ever work. The UNNAMED argument is what
+-- keeps it out of /rpc — it is a virtual column, not a callable function.
+CREATE OR REPLACE FUNCTION receipt_id(sales)
+RETURNS TEXT LANGUAGE SQL IMMUTABLE AS $$
+    SELECT UPPER(RIGHT($1.id::text, 6));
+$$;
+
+GRANT EXECUTE ON FUNCTION public.receipt_id(sales) TO authenticated;
+
 -- ============================================================
 -- SALE ITEMS (lines)
 -- One row per thing sold within a sale — a PRODUCT (goods, moves stock) or a

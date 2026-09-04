@@ -3,6 +3,7 @@ import { BaseRepository } from '@/src/core/utils/BaseRepository';
 import { PAGE_SIZE, type BranchFilter } from '@/src/core/constants';
 import type { UnpaidStartRule } from '@/src/core/types';
 import type { DbCustomer } from '@/src/core/types/db';
+import { sanitizeSearchTerm } from '@/src/core/utils/searchTerm';
 import { isNotDueYet } from '@/src/modules/customer/customer-payments/utils/monthDueRules';
 import type {
   CreateCustomerPayload,
@@ -23,8 +24,7 @@ export class CustomerRepository extends BaseRepository implements ICustomerRepos
   ): Promise<CustomerWithLines[]> {
     const from = page * PAGE_SIZE;
     const to = from + PAGE_SIZE - 1;
-    // Strip PostgREST-reserved chars that break .or() parsing.
-    const q = (searchQuery ?? '').trim().replace(/[,()]/g, '');
+    const q = sanitizeSearchTerm(searchQuery);
     let query = this.db
       .from('customers')
       .select(SELECT)

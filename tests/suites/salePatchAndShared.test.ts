@@ -1,6 +1,7 @@
 import {
   addSale,
   applyCollectionToSales,
+  applyVoidedSales,
   removeSales,
   replaceSale,
   saleUsd,
@@ -59,6 +60,30 @@ describe('sale list patches', () => {
   it('TC-SP-04 a void removes the row', () => {
     expect(removeSales([sale({ id: 'a' }), sale({ id: 'b' })], ['a']).map((s) => s.id))
       .toEqual(['b']);
+  });
+
+  it('TC-SP-04b a void drops the row from a list that hides voided sales', () => {
+    const items = [sale({ id: 'a' }), sale({ id: 'b' })];
+    const voided = sale({ id: 'a', voidedAt: '2026-02-02T00:00:00.000Z' });
+    expect(applyVoidedSales(items, [voided], false).map((s) => s.id)).toEqual(['b']);
+  });
+
+  it('TC-SP-04c a void KEEPS the row, marked, when the list shows voided sales', () => {
+    const items = [sale({ id: 'a' }), sale({ id: 'b' })];
+    const voided = sale({ id: 'a', voidedAt: '2026-02-02T00:00:00.000Z', voidReason: 'wrong item' });
+    const out = applyVoidedSales(items, [voided], true);
+    expect(out.map((s) => s.id)).toEqual(['a', 'b']);
+    expect(out[0].voidedAt).toBe('2026-02-02T00:00:00.000Z');
+    expect(out[0].voidReason).toBe('wrong item');
+    expect(out[1].voidedAt).toBeNull();
+  });
+
+  it('TC-SP-04d a whole selection is voided in one pass, order kept', () => {
+    const items = [sale({ id: 'a' }), sale({ id: 'b' }), sale({ id: 'c' })];
+    const voided = ['a', 'c'].map((id) => sale({ id, voidedAt: '2026-02-02T00:00:00.000Z' }));
+    expect(applyVoidedSales(items, voided, false).map((s) => s.id)).toEqual(['b']);
+    expect(applyVoidedSales(items, voided, true).filter((s) => s.voidedAt !== null).map((s) => s.id))
+      .toEqual(['a', 'c']);
   });
 
   it('TC-SP-05 money lands only on the sales the hand-over actually names', () => {

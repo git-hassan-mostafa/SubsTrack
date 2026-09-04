@@ -14,6 +14,27 @@ import { newId, nowIso } from '@/src/core/offline/ids';
 import type { FindSalesOptions } from '../utils/types';
 import type { CreateSalePayload, ISaleRepository, UpdateSalePayload } from './ISaleRepository';
 import { dayStartIso, nextDayStartIso } from '@/src/core/utils/dateRange';
+import { isReceiptIdTerm, receiptIdTerm, RECEIPT_ID_LENGTH } from '@/src/core/utils/receiptId';
+import { sanitizeSearchTerm } from '@/src/core/utils/searchTerm';
+
+// SQL can do here in one statement what PostgREST cannot express: the customer
+// name is reached over the caller's LEFT JOIN (so a WALK-IN sale, which has no
+// customer, still matches on its summary), and the receipt number is the id's
+// own tail because the mirror stores `id` as TEXT. The web sibling needs a
+// customer-id pre-query and the `receipt_id` computed field for the same result.
+// Shared by findAll and monthlyTotals so a page and its total agree.
+function saleSearchWhere(searchQuery?: string): { clause: string; params: unknown[] } {
+  const term = sanitizeSearchTerm(searchQuery);
+  if (!term) return { clause: '', params: [] };
+  const like = `%${term}%`;
+  const clauses = ['s.items_summary LIKE ? COLLATE NOCASE', 'c.name LIKE ? COLLATE NOCASE'];
+  const params: unknown[] = [like, like];
+  if (isReceiptIdTerm(term)) {
+    clauses.push(`SUBSTR(s.id, -${RECEIPT_ID_LENGTH}) LIKE ? COLLATE NOCASE`);
+    params.push(`%${receiptIdTerm(term)}%`);
+  }
+  return { clause: `(${clauses.join(' OR ')})`, params };
+}
 
 /** SQLite-backed sales repository. Reproduces
  *  `'*, sale_items(*, products(*), services(*)), customers(*)'`. */
@@ -62,6 +83,7 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
     const page = opts.page ?? 0;
     const parts: { clause: string; params: unknown[] }[] = [];
     if (!opts.includeVoided) parts.push({ clause: 's.voided_at IS NULL', params: [] });
+    if (opts.voidedOnly) parts.push({ clause: 's.voided_at IS NOT NULL', params: [] });
     if (opts.customerId !== undefined && opts.customerId !== null)
       parts.push({ clause: 's.customer_id = ?', params: [opts.customerId] });
     if (opts.productId)
@@ -72,14 +94,7 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
       });
     if (opts.fromDate) parts.push({ clause: 's.sold_at >= ?', params: [dayStartIso(opts.fromDate)] });
     if (opts.toDate) parts.push({ clause: 's.sold_at < ?', params: [nextDayStartIso(opts.toDate)] });
-    const term = opts.searchQuery?.trim().replace(/[,()]/g, '');
-    if (term) {
-      const like = `%${term}%`;
-      parts.push({
-        clause: '(s.items_summary LIKE ? COLLATE NOCASE OR c.name LIKE ? COLLATE NOCASE)',
-        params: [like, like],
-      });
-    }
+    parts.push(saleSearchWhere(opts.searchQuery));
     parts.push(this.branchWhere(opts.branchFilter ?? null, this.BRANCH_SCOPES.sales, 's'));
 
     const { sql, params } = this.combineWhere(parts);
@@ -349,6 +364,8 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
   async monthlyTotals(
     opts: FindSalesOptions = {},
   ): Promise<{ soldAt: string; amount: number; ratePerUsdSnapshot: number }[]> {
+    // A voided sale sold nothing, so a voided-only list has no value to total.
+    if (opts.voidedOnly) return [];
     const parts: { clause: string; params: unknown[] }[] = [];
     if (!opts.includeVoided) parts.push({ clause: 's.voided_at IS NULL', params: [] });
     if (opts.customerId !== undefined && opts.customerId !== null)
@@ -361,14 +378,7 @@ export class OfflineSaleRepository extends OfflineBaseRepository implements ISal
       });
     if (opts.fromDate) parts.push({ clause: 's.sold_at >= ?', params: [dayStartIso(opts.fromDate)] });
     if (opts.toDate) parts.push({ clause: 's.sold_at < ?', params: [nextDayStartIso(opts.toDate)] });
-    const term = opts.searchQuery?.trim().replace(/[,()]/g, '');
-    if (term) {
-      const like = `%${term}%`;
-      parts.push({
-        clause: '(s.items_summary LIKE ? COLLATE NOCASE OR c.name LIKE ? COLLATE NOCASE)',
-        params: [like, like],
-      });
-    }
+    parts.push(saleSearchWhere(opts.searchQuery));
     parts.push(this.branchWhere(opts.branchFilter ?? null, this.BRANCH_SCOPES.sales, 's'));
 
     const { sql, params } = this.combineWhere(parts);

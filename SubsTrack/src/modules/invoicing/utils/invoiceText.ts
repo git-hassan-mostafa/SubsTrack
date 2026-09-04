@@ -11,6 +11,7 @@
 
 import type { Charge, Collection, CollectionItem, Currency, Sale } from "@/src/core/types";
 import { formatDate } from "@/src/core/utils/date";
+import { receiptId } from "@/src/core/utils/receiptId";
 import {
   findCurrency,
   formatMoney,
@@ -133,10 +134,6 @@ function equivalent(
   const target = findCurrency(ctx.currencies, ctx.displayCurrencyId);
   if ((source?.id ?? null) === (target?.id ?? null)) return "";
   return ` (≈ ${formatMoney(amount, source, target)})`;
-}
-
-function receiptId(id: string): string {
-  return id.slice(-6).toUpperCase();
 }
 
 // Totals are grouped PER CURRENCY, never summed numerically: each row can carry

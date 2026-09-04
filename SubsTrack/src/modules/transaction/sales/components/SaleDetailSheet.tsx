@@ -22,6 +22,7 @@ import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { useLanguageStore } from "@/src/core/i18n/languageStore";
 import { formatDate } from "@/src/core/utils/date";
+import { receiptId, saleTitle } from "@/src/core/utils/receiptId";
 import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
 import { SendOnWhatsAppButton, useSendInvoice } from "@/src/modules/invoicing";
 import { useAuth } from "@/src/modules/authentication/auth";
@@ -94,7 +95,6 @@ export function SaleDetailSheet({
   const heroSourceLabel = partiallyPaid
     ? formatPaidFraction(sale.amountPaid, sale.totalAmount, source, source)
     : totalSourceLabel;
-  const receiptId = sale.id.slice(-6).toUpperCase();
   // Everything but the receipt itself lives in the header menu — see gotcha #131.
   const menuActions: ActionMenuItem[] = [];
   if (!voided && !voidMode && onEdit) {
@@ -335,7 +335,7 @@ export function SaleDetailSheet({
         />
         <Row
           label={t("sales.receipt_id_label")}
-          value={receiptId}
+          value={receiptId(sale.id)}
           last={!sale.notes && !(voided && sale.voidReason)}
         />
         {sale.notes ? (
@@ -377,7 +377,7 @@ export function SaleDetailSheet({
         <RecordHistorySheet
           table="sales"
           recordId={sale.id}
-          subtitle={sale.itemsSummary}
+          subtitle={saleTitle(sale.id, sale.itemsSummary)}
           onDismiss={() => setHistoryOpen(false)}
         />
       ) : null}

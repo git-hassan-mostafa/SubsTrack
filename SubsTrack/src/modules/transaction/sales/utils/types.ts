@@ -12,6 +12,8 @@ export interface FindSalesOptions {
     toDate?: string | null;
     branchFilter?: BranchFilter;
     includeVoided?: boolean;
+    // Only the reversals. Needs includeVoided too, exactly like a collection.
+    voidedOnly?: boolean;
 }
 
 // One line in the form's cart. `unitAmount` is already expressed in the sale's

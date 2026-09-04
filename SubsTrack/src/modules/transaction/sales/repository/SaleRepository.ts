@@ -12,6 +12,8 @@ import type {
 } from './ISaleRepository';
 import { OfflineSaleRepository } from './SaleRepository.offline';
 import { dayStartIso, nextDayStartIso } from '@/src/core/utils/dateRange';
+import { isReceiptIdTerm, receiptIdTerm } from '@/src/core/utils/receiptId';
+import { sanitizeSearchTerm } from '@/src/core/utils/searchTerm';
 
 // Header + its lines (each with whichever of product/service it sells) + the
 // customer. Both joins are LEFT — a line sets only one of the two id columns, and
@@ -22,6 +24,30 @@ const SALE_ITEM_SELECT = '*, products(*), services(*)';
 // Header only. Enough for aggregates/labels (items_summary carries every line's
 // name) and for create, which gets its lines back from their own insert.
 const SALE_SELECT_LEAN = '*, customers(*)';
+
+const SALE_TOTALS_SELECT = 'sold_at, total_amount, rate_per_usd_snapshot, customers(name)';
+
+// The frozen summary, the matching customers' ids, and — when the term reads
+// like a receipt number — `receipt_id`, the computed field over the id's tail.
+//
+// The customer half arrives as `customer_id.in.(…)` rather than an ilike on the
+// embed: a dotted embed path inside `or()` is a PostgREST parse error ("failed
+// to parse logic tree"), and `customers!inner` — the other way to filter a join
+// — would drop every WALK-IN sale, which has no customer at all. The ids come
+// from `customerIdsMatching`, the same pre-query shape the product filter uses.
+// Shared by findAll and monthlyTotals so a page and its total agree.
+function applySaleSearch<T extends { or(filters: string): T }>(
+  query: T,
+  searchQuery: string | undefined,
+  customerIds: string[],
+): T {
+  const term = sanitizeSearchTerm(searchQuery);
+  if (!term) return query;
+  const clauses = [`items_summary.ilike.%${term}%`];
+  if (customerIds.length > 0) clauses.push(`customer_id.in.(${customerIds.join(',')})`);
+  if (isReceiptIdTerm(term)) clauses.push(`receipt_id.ilike.%${receiptIdTerm(term)}%`);
+  return query.or(clauses.join(','));
+}
 
 export class SaleRepository extends BaseRepository implements ISaleRepository {
   // Sales that contain a given product — resolved from sale_items, so the
@@ -38,6 +64,19 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
     return Array.from(new Set((data ?? []).map((r: { sale_id: string }) => r.sale_id)));
   }
 
+  // Customers whose name matches the search term, so a sale can be found by who
+  // bought it without filtering on the joined table — see applySaleSearch.
+  private async customerIdsMatching(searchQuery?: string): Promise<string[]> {
+    const term = sanitizeSearchTerm(searchQuery);
+    if (!term) return [];
+    const { data, error } = await this.db
+      .from('customers')
+      .select('id')
+      .ilike('name', `%${term}%`);
+    if (error) this.handleError(error);
+    return (data ?? []).map((r: { id: string }) => r.id);
+  }
+
   async findAll(opts: FindSalesOptions = {}): Promise<DbSale[]> {
     const page = opts.page ?? 0;
     const from = page * PAGE_SIZE;
@@ -50,6 +89,7 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
       .range(from, to);
 
     if (!opts.includeVoided) query = query.is('voided_at', null);
+    if (opts.voidedOnly) query = query.not('voided_at', 'is', null);
     if (opts.customerId !== undefined && opts.customerId !== null) {
       query = query.eq('customer_id', opts.customerId);
     }
@@ -60,11 +100,7 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
     if (opts.fromDate) query = query.gte('sold_at', dayStartIso(opts.fromDate));
     if (opts.toDate) query = query.lt('sold_at', nextDayStartIso(opts.toDate));
 
-    // Search across the frozen items summary + customer name (via join).
-    if (opts.searchQuery?.trim()) {
-      const term = opts.searchQuery.trim();
-      query = query.or(`items_summary.ilike.%${term}%,customers.name.ilike.%${term}%`);
-    }
+    query = applySaleSearch(query, opts.searchQuery, await this.customerIdsMatching(opts.searchQuery));
 
     query = this.applyBranchFilter(query, opts.branchFilter ?? null, this.BRANCH_SCOPES.sales);
 
@@ -339,9 +375,11 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
   async monthlyTotals(
     opts: FindSalesOptions = {},
   ): Promise<{ soldAt: string; amount: number; ratePerUsdSnapshot: number }[]> {
+    // A voided sale sold nothing, so a voided-only list has no value to total.
+    if (opts.voidedOnly) return [];
     let query = this.db
       .from('sales')
-      .select('sold_at, total_amount, rate_per_usd_snapshot, customers(name)');
+      .select(SALE_TOTALS_SELECT);
 
     if (!opts.includeVoided) query = query.is('voided_at', null);
     if (opts.customerId !== undefined && opts.customerId !== null) {
@@ -350,10 +388,7 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
     if (opts.productId) query = query.in('id', await this.saleIdsForProduct(opts.productId));
     if (opts.fromDate) query = query.gte('sold_at', dayStartIso(opts.fromDate));
     if (opts.toDate) query = query.lt('sold_at', nextDayStartIso(opts.toDate));
-    if (opts.searchQuery?.trim()) {
-      const term = opts.searchQuery.trim();
-      query = query.or(`items_summary.ilike.%${term}%,customers.name.ilike.%${term}%`);
-    }
+    query = applySaleSearch(query, opts.searchQuery, await this.customerIdsMatching(opts.searchQuery));
     query = this.applyBranchFilter(query, opts.branchFilter ?? null, this.BRANCH_SCOPES.sales);
 
     const { data, error } = await query;

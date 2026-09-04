@@ -51,11 +51,29 @@ Covers the one-off sales ledger: recording a sale (with **one or more products a
 |---|----------|-------|-----------------|
 | 1.1 | Initial load | Navigate to Sales tab | Recent sales list loads with a loading spinner until ready |
 | 1.2 | Empty state | Tenant has no sales | "No sales yet" empty state; FAB still visible |
-| 1.3 | Sale card content | Look at a card | Product name snapshot, customer name (or "Walk-in" if null), total amount in stored currency, date |
+| 1.3 | Sale card content | Look at a card | **Receipt # (`#A1B2C3`) as the card title**, the frozen items summary as the subtitle, then customer name (or "Walk-in" if null) · date; total amount in stored currency on the right |
+| 1.3b | Receipt # matches the receipt sheet | Note a card's `#A1B2C3`, tap it | The sheet's "Receipt ID" row shows the SAME six characters (both derive from `sale.id`; no stored column) |
 | 1.4 | Pagination | Scroll to bottom of a long list | Next page loads (30 per page); no flicker |
 | 1.5 | Search by product name | Type partial product name | List filters to matching sales |
 | 1.6 | Search by customer name | Type customer name | Matching sales appear |
 | 1.7 | Search cleared | Clear the search box | Full unfiltered list restored |
+| 1.7a | Search by receipt # | Type a card's `A1B2C3` (no `#`) | That sale is found. Web filters the `receipt_id(sales)` computed field; native matches the id's tail in the mirror |
+| 1.7b | Search by receipt # with `#` | Type `#A1B2C3` | Same single result — the leading `#` is stripped before matching |
+| 1.7c | Receipt # is case-insensitive | Type `a1b2c3` | Same result as `A1B2C3` |
+| 1.7d | Partial receipt # matches ANYWHERE in the number | With receipts `#BF763E`, `#E0FB76`, `#1975D9` on screen, type `b` | **Both** `#BF763E` and `#E0FB76` are listed — the term matches any position, not just the end. Then type `763` → only `#BF763E`; `d9` → only `#1975D9` |
+| 1.7d-b | Match is confined to the 6 shown characters | Type a hex pair that appears in a sale's UUID but NOT in its printed receipt # | That sale is **not** returned — offline compares `SUBSTR(id,-6)`, so hex from the rest of the UUID can never match |
+| 1.7e | Non-hex term is NOT an id lookup | Search a product named e.g. "Router" | Normal item/customer search only; no id matching is attempted (term is not hex) |
+| 1.7h | **`%` does not break the search** | Type `f%`, then `50%`, then `%` alone | Results (or an empty list) — **never** the red `failed to parse logic tree` error. `%` is stripped before the filter is built; a term of only `%` searches nothing at all |
+| 1.7i | Brackets and commas | Search `Router (2)` and `a,b` | No error; the reserved characters are stripped and the remaining text is matched |
+| 1.7j | Same stripping offline | Repeat 1.7h/1.7i on the phone with sync off | Identical result sets to web — both platforms strip the same characters through one shared helper |
+| 1.7k | Other search boxes | Type `%` in the customers list and in Money received | Same: results or empty, never a parse error |
+| 1.7l | **Search by customer name (web)** | On the web build, type a customer's name | Their sales are listed. This was broken before — ANY term returned the red `failed to parse logic tree` error, because a joined column (`customers.name`) cannot appear inside a PostgREST `or()` |
+| 1.7m | **Walk-in sales survive a name search** | Search a term matching a product on a **walk-in** sale (no customer) | The walk-in sale is still listed. This is why `customers!inner` must NOT be used to filter the join — an inner join drops every sale with no customer |
+| 1.7n | Term matches a customer AND a product | Name one product like an existing customer, search that word | Both sets appear (one OR'd filter), with no duplicate rows |
+| 1.7o | Term matches no customer at all | Search a product-only term | Results still correct — with no matching customer the filter omits the `customer_id.in.()` clause entirely rather than sending an empty list |
+| 1.7p | Web/native parity on names | Same customer-name search on web and on the phone | Same sales in the same order — web resolves customer ids in a pre-query, native reads the name over its LEFT JOIN |
+| 1.7f | Hex-looking product name still searches text | Search a term that is both hex and a real product name (e.g. "ADD") | Matches BOTH the items summary and any receipt # ending in it (clauses are OR'd, never replaced) |
+| 1.7g | Receipt # + month totals agree | Search a receipt # on a month-sectioned list | The section header total counts only the matching sale — `findAll` and `monthlyTotals` share one search helper |
 | 1.8 | Pull-to-refresh | Pull down | List re-fetches from page 1 |
 | 1.9 | FAB / Add button | Tap | SaleFormSheet opens (create mode) |
 | 1.10 | Tap a sale card | Tap | SaleDetailSheet opens (receipt) |
@@ -88,6 +106,21 @@ Covers the one-off sales ledger: recording a sale (with **one or more products a
 | 1A.16 | Empty state with filters | Apply a filter that matches nothing | "No sales yet" empty state; "Record First Sale" action hidden (only shown when unfiltered) |
 | 1A.17 | Filters + pagination | Apply a filter on a large dataset, scroll | Next pages keep the same filter applied |
 | 1A.18 | Filters survive branch change | Set a filter, switch BranchSelector | Filter is re-applied against the new branch scope |
+| 1A.19 | **Status chip default is LIVE** | Open the Sales tab fresh, with voided sales present in the tenant | The list holds **only live** sales — no voided row appears until the reader asks. The chip reads "Not voided" in the **inactive grey** style (it is the default, not an applied filter) and the filter button shows **no** active dot |
+| 1A.20 | **Voided only** | Status chip → "Voided only" | The list holds ONLY voided sales; each row is dimmed, its amount struck through, and it wears a red **VOIDED** chip (with the reason when one was given) |
+| 1A.21 | **Back to Not voided** | From "Voided only", pick "Not voided" (the first, unmarked option) | Every voided sale disappears; only live rows remain, and the chip returns to the inactive grey style |
+| 1A.22 | **Live and voided** | Status chip → "Live and voided" | Both kinds list together, newest first; the voided ones are the marked rows |
+| 1A.23 | **Section totals exclude voided sales** | With "Voided only", read a month header | The header total is **$0.00** — a voided sale sold nothing. Under "Live and voided" the header equals the LIVE rows' value only, so it can be less than the rows listed beneath it. Under the default it is unchanged from before this filter existed |
+| 1A.24 | Status + other filters combine | "Voided only" + a customer filter | Only that customer's voided sales (AND) |
+| 1A.25 | Status + search combine | "Voided only" + type an item name | Only voided sales matching the term |
+| 1A.26 | Status + pagination | "Live and voided" on a large dataset, scroll | Later pages keep the status filter; no live row is skipped and no voided row is duplicated |
+| 1A.27 | Only a NON-default status counts as a filter | Pick "Voided only" or "Live and voided" | The filter button shows its active dot and the "Clear filters" chip appears. Picking "Not voided" (the default) shows **neither** — it is the unfiltered state |
+| 1A.28 | Clear filters resets status | "Voided only" + a date, tap "Clear filters" | Status returns to **"Not voided"** together with the other filters, in one tap — so clearing hides the voided rows again |
+| 1A.29 | Status survives branch change | "Voided only", switch BranchSelector | Still voided-only, re-scoped to the new branch |
+| 1A.30 | Status resets on logout | "Voided only", log out, log in as another user | The Sales tab opens back on **"Not voided"** (the slice's `reset`) — a voided row never greets a fresh session |
+| 1A.31 | Empty state | "Voided only" in a tenant that has never voided a sale | "No sales yet" empty state; the "Record First Sale" action is hidden (a filter is active) |
+| 1A.33 | **Default hides a sale voided elsewhere** | On the default status, void a sale from the customer panel, return to the Sales tab | The row is gone from the tab — the default never shows a voided sale, wherever it was voided |
+| 1A.32 | Offline parity | Repeat 1A.20–1A.23 on a native build with the network off | Identical results — the mirror filters `voided_at` the same way the server does |
 
 ---
 
@@ -390,6 +423,9 @@ The receipt's body used to end in **four** stacked full-width buttons (Send on W
 | 3A.7 | Colour vocabulary matches the row menu | Compare the 3-dot menu here with a sale card's 3-dot menu | Same glyphs and same colours for Edit / History / Void — both read `ICON_COLORS` |
 | 3A.8 | Edit | Menu → Edit sale | Menu closes, the sale form opens on this sale (same as the row menu's Edit) |
 | 3A.9 | History | Menu → History | Menu closes, the record history sheet opens over the receipt |
+| 3A.9a | History header names the receipt # | Menu → History | The sheet's header subtitle reads **`#A1B2C3 · Router ×2`** — the receipt # then the items summary, the same six characters the card title and the "Receipt ID" row show. It used to print the items summary alone, so two sales of the same product had identical history headers |
+| 3A.9b | Same header from the row menu | Sale card 3-dot → History | Identical subtitle to 3A.9a — both call sites share one `saleTitle()` helper |
+| 3A.9c | Audit Log screen is unchanged | Admin → Audit Log, find a sale entry | The chip beside "Sale" still shows the **customer's name** with a person icon, NOT the receipt # — that field is the subject (who the record belongs to), a different thing from the record's own name |
 | 3A.10 | **Void scrolls the form into view** | Scroll the receipt to the BOTTOM (a multi-line sale with payments), then Menu → Void sale | The body scrolls back to the top and the void **reason form** is visible right under the hero. It must not be left off-screen |
 | 3A.11 | Void form replaces the menu | After 3A.10, tap the 3-dot again | The button is **gone** while the reason form is open — every action is suppressed in void mode, so there is nothing to open |
 | 3A.12 | **Menu does not wedge on void** | Repeat 3A.10, then Cancel the reason form, then tap the 3-dot again | The menu opens normally. The backdrop must never be left stuck and no tap may be dead — the action removes itself from the list mid-close, which is what `openActions` freezes |
@@ -425,6 +461,12 @@ The receipt's body used to end in **four** stacked full-width buttons (Send on W
 | 4.18 | Audit after a paid void | Admin → Audit Log | A `sales` **void**, a `charges` **void** and a `collections` **void** entry per payment |
 | 4.19 | Offline paid void | Void a paid sale offline, then sync | Sale, bill and payments all arrive voided; no balance goes negative |
 | 4.20 | Bulk void speed | Select 10 paid sales → Void | Completes in roughly the time one takes — every hand-over goes in **one** write (`voidMany`), and the payments of the whole selection are gathered in one batch, not per sale |
+| 4.21 | **A void with voided rows SHOWN keeps the row** | Status = "Live and voided", void a sale from its row menu | The row does **not** vanish — it stays in place, now dimmed, struck through and chipped **VOIDED**. On the **default** ("Not voided") the same void removes it from the list, exactly as before this filter existed |
+| 4.22 | Month header after 4.21 | Read the section header before and after the void | It drops by that sale's value in both status modes — the sale no longer sold anything |
+| 4.23 | A voided row's own menu | 3-dot on a voided row | Only **View receipt** and **History** — no edit, no collect, no invoice, no second void |
+| 4.24 | Selecting a voided row | Status = "Live and voided", long-press a voided sale, then also select a live one | The toolbar's **Void** acts on the LIVE one only; the voided row is skipped, never re-voided |
+| 4.25 | A selection of only voided rows | Select two voided sales | No **Void** action is offered at all (nothing is voidable); the invoice action is likewise absent |
+| 4.26 | Bulk void with voided rows shown | Status = "Live and voided", select 3 live sales → Void | All three stay listed, each marked voided; the counts notice (if any failed) is unchanged |
 
 ---
 

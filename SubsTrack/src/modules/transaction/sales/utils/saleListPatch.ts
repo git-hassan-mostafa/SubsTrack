@@ -27,10 +27,25 @@ export function replaceSale(
   return items.map((s) => (s.id === sale.id ? sale : s));
 }
 
-/** A voided sale leaves the list — every sales list hides voided rows. */
+/** A voided sale leaves a list that hides voided rows. */
 export function removeSales(items: Sale[], ids: Iterable<string>): Sale[] {
   const gone = new Set(ids);
   return items.filter((s) => !gone.has(s.id));
+}
+
+/**
+ * What a void does to a list that may be SHOWING voided rows. The Sales tab's
+ * status filter decides: a list admitting them keeps the row in place, marked,
+ * so voiding it does not make the record vanish from under the reader.
+ */
+export function applyVoidedSales(
+  items: Sale[],
+  voided: Sale[],
+  keepVoided: boolean,
+): Sale[] {
+  if (!keepVoided) return removeSales(items, voided.map((s) => s.id));
+  const byId = new Map(voided.map((s) => [s.id, s]));
+  return items.map((s) => byId.get(s.id) ?? s);
 }
 
 /**

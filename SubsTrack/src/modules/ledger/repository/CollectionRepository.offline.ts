@@ -5,6 +5,7 @@ import type { DbCharge, DbCollection, DbCollectionItem, DbCustomer } from '@/src
 import { OfflineBaseRepository } from '@/src/core/offline/OfflineBaseRepository';
 import { insertDirty, updateDirty } from '@/src/core/offline/db/dml';
 import { newId, nowIso } from '@/src/core/offline/ids';
+import { sanitizeSearchTerm } from '@/src/core/utils/searchTerm';
 import { custodyValues } from '@/src/modules/wallet/utils/custodyValues';
 import type {
   CollectionSortField,
@@ -82,8 +83,8 @@ export class OfflineCollectionRepository
     if (opts.startIso) parts.push({ clause: 'c.received_at >= ?', params: [opts.startIso] });
     if (opts.endExclusiveIso)
       parts.push({ clause: 'c.received_at < ?', params: [opts.endExclusiveIso] });
-    if (opts.searchTerm?.trim())
-      parts.push({ clause: 'cu.name LIKE ?', params: [`%${opts.searchTerm.trim()}%`] });
+    const search = sanitizeSearchTerm(opts.searchTerm);
+    if (search) parts.push({ clause: 'cu.name LIKE ?', params: [`%${search}%`] });
     parts.push(this.branchWhere(opts.branchFilter ?? null, this.BRANCH_SCOPES.collections, 'c'));
 
     const where = this.combineWhere(parts);
@@ -112,8 +113,8 @@ export class OfflineCollectionRepository
     if (opts.startIso) parts.push({ clause: 'c.received_at >= ?', params: [opts.startIso] });
     if (opts.endExclusiveIso)
       parts.push({ clause: 'c.received_at < ?', params: [opts.endExclusiveIso] });
-    if (opts.searchTerm?.trim())
-      parts.push({ clause: 'cu.name LIKE ?', params: [`%${opts.searchTerm.trim()}%`] });
+    const search = sanitizeSearchTerm(opts.searchTerm);
+    if (search) parts.push({ clause: 'cu.name LIKE ?', params: [`%${search}%`] });
     parts.push(this.branchWhere(opts.branchFilter ?? null, this.BRANCH_SCOPES.collections, 'c'));
 
     const where = this.combineWhere(parts);

@@ -1,6 +1,7 @@
 import i18n from '@/src/core/i18n';
 import type { Charge, MonthBill, MonthEntry, OpenItem } from '@/src/core/types';
 import type { DbCharge } from '@/src/core/types/db';
+import { receiptId } from '@/src/core/utils/receiptId';
 import { getBlockRangeLabel } from '@/src/modules/customer/customer-payments/utils/blockRangeLabel';
 
 /**
@@ -108,7 +109,7 @@ export function virtualMonthItem(args: {
   };
 }
 
-/** "Jan 2026 · Internet" | "Sale #12 · Router" | "Installation fee". */
+/** "Jan 2026 · Internet" | "#A1B2C3 · Router" | "Installation fee". */
 export function chargeLabel(row: DbCharge): string {
   if (row.kind === 'month') {
     // Reuses the grid's own label builder, so a 3-month bundle reads
@@ -120,7 +121,11 @@ export function chargeLabel(row: DbCharge): string {
     return plan ? `${month} · ${plan}` : month;
   }
   if (row.kind === 'sale') {
-    return row.sales?.items_summary ?? i18n.t('debts.sale');
+    // The receipt number leads: it is what a customer quotes back when asking
+    // about a payment, and the frozen summary alone cannot identify the sale.
+    const summary = row.sales?.items_summary ?? i18n.t('debts.sale');
+    if (!row.sale_id) return summary;
+    return `#${receiptId(row.sale_id)} · ${summary}`;
   }
   return row.description ?? i18n.t('debts.custom');
 }
