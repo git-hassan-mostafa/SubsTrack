@@ -161,31 +161,6 @@ export class ChargeRepository extends BaseRepository implements IChargeRepositor
     return created;
   }
 
-  async ensure(payload: CreateChargePayload): Promise<DbCharge> {
-    const { data, error } = await this.db
-      .from('charges')
-      .upsert(payload, { onConflict: 'id', ignoreDuplicates: true })
-      .select(CHARGE_SELECT_LEAN)
-      .maybeSingle();
-    if (error) this.handleError(error);
-    if (data) {
-      const created = data as DbCharge;
-      this.audit({
-        table: 'charges',
-        recordId: created.id,
-        action: 'create',
-        after: created,
-        customerId: created.customer_id ?? undefined,
-        branchId: created.branch_id,
-        subject: created.customers?.name ?? null,
-      });
-      return created;
-    }
-    const existing = await this.findById(payload.id);
-    if (!existing) this.handleError(new Error('charge upsert returned nothing'));
-    return existing;
-  }
-
   async update(id: string, values: UpdateChargePayload): Promise<DbCharge> {
     return this.patch(id, values, 'update');
   }

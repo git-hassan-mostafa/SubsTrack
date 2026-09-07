@@ -14,7 +14,7 @@ import type {
   ICollectionRepository,
 } from './ICollectionRepository';
 import type { CreateChargePayload } from './IChargeRepository';
-import { isDeadBill, revivePatch, samePrice } from './chargeRevive';
+import { monthBillKey, patchForIncomingCash, resolveBillTarget } from './chargeRevive';
 import { sumByMonth } from '../utils/monthTotals';
 
 /** SQLite-backed hand-overs. Reproduces
@@ -151,20 +151,7 @@ export class OfflineCollectionRepository
     audit: { branchId: string | null; subject: string | null; customerId?: string },
   ): Promise<DbCharge> {
     const chargeId = before.id;
-    const revive = isDeadBill(before) ? revivePatch(next.issued_at) : {};
-
-    const reprice =
-      next.kind === 'month' && (await this.paidOn(db, chargeId)) <= 0 && !samePrice(before, next)
-        ? {
-          amount: next.amount,
-          currency_id: next.currency_id,
-          rate_per_usd_snapshot: next.rate_per_usd_snapshot,
-          duration_months: next.duration_months,
-          plan_id: next.plan_id,
-        }
-        : {};
-
-    const patch = { ...revive, ...reprice };
+    const patch = patchForIncomingCash(before, next, await this.paidOn(db, chargeId));
     if (Object.keys(patch).length === 0) return before;
     const after = { ...before, ...patch } as DbCharge;
     await updateDirty(db, 'charges', chargeId, patch);
@@ -215,20 +202,25 @@ export class OfflineCollectionRepository
 
     await this.write(async (db) => {
       for (const charge of charges) {
-        const existing = this.decodeOne<DbCharge>(
-          'charges',
-          charge.customer_plan_id
-            ? await db.getFirstAsync<Record<string, unknown>>(
+        const byKey = monthBillKey(charge)
+          ? this.decodeOne<DbCharge>(
+            'charges',
+            await db.getFirstAsync<Record<string, unknown>>(
               'SELECT * FROM charges WHERE customer_plan_id = ? AND billing_month = ?',
               [charge.customer_plan_id, charge.billing_month] as never[],
-            )
-            : await db.getFirstAsync<Record<string, unknown>>(
-              'SELECT * FROM charges WHERE id = ?',
-              [charge.id] as never[],
             ),
+          )
+          : null;
+        const byId = this.decodeOne<DbCharge>(
+          'charges',
+          await db.getFirstAsync<Record<string, unknown>>(
+            'SELECT * FROM charges WHERE id = ?',
+            [charge.id] as never[],
+          ),
         );
-        if (existing) {
-          targets.set(charge.id, await this.reviveTargetBill(db, existing, charge, audit));
+        const target = resolveBillTarget(charge, byKey, byId);
+        if ('reuse' in target) {
+          targets.set(charge.id, await this.reviveTargetBill(db, target.reuse, charge, audit));
           continue;
         }
         const chargeRow: DbCharge = {
@@ -242,11 +234,10 @@ export class OfflineCollectionRepository
           written_off_by: null,
           write_off_reason: null,
         };
-        const taken = await db.getFirstAsync<{ id: string }>(
-          'SELECT id FROM charges WHERE id = ?',
-          [chargeRow.id] as never[],
-        );
-        const stored: DbCharge = { ...chargeRow, id: taken ? newId() : chargeRow.id };
+        const stored: DbCharge = {
+          ...chargeRow,
+          id: target.idTaken ? newId() : chargeRow.id,
+        };
         await insertDirty(db, 'charges', stored);
         targets.set(charge.id, stored);
         await this.auditIn(db, {

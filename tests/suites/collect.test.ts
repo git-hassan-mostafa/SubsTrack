@@ -7,6 +7,7 @@ jest.mock('@/src/modules/ledger/repository/CollectionRepository', () => ({
   default: require('../helpers/fakeLedger').fakeCollectionRepository,
 }));
 
+import { chargeService } from '@/src/modules/ledger/services/ChargeService';
 import { collectionService } from '@/src/modules/ledger/services/CollectionService';
 import type { CollectInput } from '@/src/modules/ledger/services/CollectionService';
 import type { AllocationLine, OpenItem } from '@/src/core/types';
@@ -221,6 +222,39 @@ describe('collect: the written rows', () => {
     });
     await collectionService.collect(input({ lines: [lineOf(virtual, 20)] }));
     expect(store.charge(lost.id)!.written_off_at).toBeNull();
+  });
+
+  it('TC-CL-18 a bill raised under ANOTHER id is reused, not duplicated (#114)', async () => {
+    const legacy = store.seedCharge({
+      id: 'raised-elsewhere', customer_plan_id: 'line-1', billing_month: '2026-04-01',
+      amount: 20, due_date: '2026-04-01',
+    });
+    const virtual = openItem({
+      chargeId: null, customerPlanId: 'line-1', billingMonth: '2026-04-01',
+      amount: 20, balance: 20, dueDate: '2026-04-01',
+    });
+    const created = await collectionService.collect(input({ lines: [lineOf(virtual, 20)] }));
+    expect(store.charges.filter((c) => c.billing_month === '2026-04-01')).toHaveLength(1);
+    expect(created.items![0].chargeId).toBe(legacy.id);
+    expect((await fakeBalance(legacy.id)).paid).toBe(20);
+  });
+
+  it('TC-CL-19 a month whose deterministic id belongs to another bill gets a fresh one', async () => {
+    const taken = await chargeService.monthChargeId('line-1', '2026-04-01');
+    const unrelated = store.seedCharge({
+      id: taken, customer_plan_id: 'line-2', billing_month: '2026-05-01',
+      amount: 99, due_date: '2026-05-01',
+    });
+    const virtual = openItem({
+      chargeId: null, customerPlanId: 'line-1', billingMonth: '2026-04-01',
+      amount: 20, balance: 20, dueDate: '2026-04-01',
+    });
+    const created = await collectionService.collect(input({ lines: [lineOf(virtual, 20)] }));
+    const raised = store.charges.find((c) => c.billing_month === '2026-04-01')!;
+    expect(raised.id).not.toBe(taken);
+    expect(created.items![0].chargeId).toBe(raised.id);
+    expect(store.charge(unrelated.id)!.amount).toBe(99);
+    expect((await fakeBalance(unrelated.id)).paid).toBe(0);
   });
 });
 

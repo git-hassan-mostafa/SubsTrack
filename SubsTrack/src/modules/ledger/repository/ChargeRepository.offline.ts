@@ -216,20 +216,6 @@ export class OfflineChargeRepository extends OfflineBaseRepository implements IC
     return row;
   }
 
-  async ensure(payload: CreateChargePayload): Promise<DbCharge> {
-    const existing = payload.customer_plan_id
-      ? await this.first<Record<string, unknown>>(
-          'SELECT * FROM charges WHERE customer_plan_id = ? AND billing_month = ?',
-          [payload.customer_plan_id, payload.billing_month],
-        )
-      : null;
-    if (existing) {
-      const decoded = this.decodeOne<DbCharge>('charges', existing)!;
-      return (await this.hydrate([decoded]))[0];
-    }
-    return this.create(payload);
-  }
-
   async update(id: string, values: UpdateChargePayload): Promise<DbCharge> {
     return this.patch(id, values, 'update');
   }

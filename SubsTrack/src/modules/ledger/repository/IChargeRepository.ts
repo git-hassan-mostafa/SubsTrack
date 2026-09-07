@@ -58,7 +58,6 @@ export interface IChargeRepository {
   balances(chargeIds: string[]): Promise<DbChargeBalance[]>;
 
   create(payload: CreateChargePayload): Promise<DbCharge>;
-  ensure(payload: CreateChargePayload): Promise<DbCharge>;
   update(id: string, values: UpdateChargePayload): Promise<DbCharge>;
 
   void(id: string, voidedBy: string, reason: string | null): Promise<DbCharge>;

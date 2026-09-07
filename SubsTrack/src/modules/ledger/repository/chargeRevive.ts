@@ -47,3 +47,52 @@ export function samePrice(row: DbCharge, next: CreateChargePayload): boolean {
     row.plan_id === next.plan_id
   );
 }
+
+/** The natural key `uq_charges_line_month` owns — null for a sale/manual bill. */
+export function monthBillKey(
+  row: Pick<DbCharge, 'customer_plan_id' | 'billing_month'>,
+): string | null {
+  return row.customer_plan_id && row.billing_month
+    ? `${row.customer_plan_id}|${row.billing_month}`
+    : null;
+}
+
+/** Revive is unconditional, re-pricing only for an empty month bill (#115). */
+export function patchForIncomingCash(
+  row: DbCharge,
+  next: CreateChargePayload,
+  paid: number,
+): Partial<DbCharge> {
+  const revive = isDeadBill(row) ? revivePatch(next.issued_at) : {};
+  const reprice =
+    next.kind === 'month' && paid <= 0 && !samePrice(row, next)
+      ? {
+        amount: next.amount,
+        currency_id: next.currency_id,
+        rate_per_usd_snapshot: next.rate_per_usd_snapshot,
+        duration_months: next.duration_months,
+        plan_id: next.plan_id,
+      }
+      : {};
+  return { ...revive, ...reprice };
+}
+
+/**
+ * Which row the cash for one bill payload must land on — the whole of gotcha
+ * #114/#115 in one decision, so all three repositories share it.
+ *
+ * The NATURAL key wins over the id: a month's only possible row may have been
+ * raised under a different id (on another device, or by the mirror's own
+ * `newId()` fallback), and inserting the deterministic id beside it violates
+ * `uq_charges_line_month`. A row owning only the id is a DIFFERENT bill, so the
+ * payload is raised under a fresh id rather than taking that bill's money.
+ */
+export function resolveBillTarget(
+  next: Pick<CreateChargePayload, 'customer_plan_id' | 'billing_month'>,
+  byKey: DbCharge | null | undefined,
+  byId: DbCharge | null | undefined,
+): { reuse: DbCharge } | { idTaken: boolean } {
+  const owner = byKey ?? byId;
+  if (owner && monthBillKey(owner) === monthBillKey(next)) return { reuse: owner };
+  return { idTaken: !!owner };
+}

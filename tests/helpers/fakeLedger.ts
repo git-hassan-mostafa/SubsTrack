@@ -11,9 +11,9 @@ import type {
   FindCollectionsOptions,
 } from '@/src/modules/ledger/repository/ICollectionRepository';
 import {
-  isDeadBill,
-  revivePatch,
-  samePrice,
+  monthBillKey,
+  patchForIncomingCash,
+  resolveBillTarget,
 } from '@/src/modules/ledger/repository/chargeRevive';
 import { collectionKind } from '@/src/modules/ledger/utils/collectionKind';
 import { sumByMonth } from '@/src/modules/ledger/utils/monthTotals';
@@ -26,8 +26,9 @@ import { sumByMonth } from '@/src/modules/ledger/utils/monthTotals';
  *  - `charge_balances` excludes a VOIDED bill, and a voided hand-over pays
  *    nothing. A WRITTEN-OFF bill keeps its collected money (#115).
  *  - "still owed" = not voided, not written off, balance > 0.
- *  - `create` revives a dead target bill and re-prices an empty one before the
- *    cash lands, then upserts by id ignoring duplicates.
+ *  - `create` resolves each target bill on its NATURAL key, revives a dead one
+ *    and re-prices an empty one before the cash lands, then remaps its items to
+ *    the id that really exists (#114).
  *
  * It is deliberately NOT a second implementation of any money rule: no waterfall,
  * no month status, no validation. Those stay in the code under test.
@@ -208,14 +209,6 @@ export const fakeChargeRepository = {
   async create(payload: CreateChargePayload): Promise<DbCharge> {
     return store.seedCharge({ ...payload });
   },
-  async ensure(payload: CreateChargePayload): Promise<DbCharge> {
-    const existing = charges.find(
-      (c) =>
-        c.customer_plan_id === payload.customer_plan_id &&
-        c.billing_month === payload.billing_month,
-    );
-    return existing ?? store.seedCharge({ ...payload });
-  },
   async update(id: string, values: UpdateChargePayload): Promise<DbCharge> {
     const row = charges.find((c) => c.id === id)!;
     Object.assign(row, values, { updated_at: new Date().toISOString() });
@@ -311,31 +304,21 @@ export const fakeCollectionRepository = {
     const targets = new Map<string, DbCharge>();
 
     for (const next of newCharges) {
-      const existing =
-        charges.find(
-          (c) =>
-            next.customer_plan_id !== null &&
-            c.customer_plan_id === next.customer_plan_id &&
-            c.billing_month === next.billing_month,
-        ) ?? charges.find((c) => c.id === next.id);
-      if (existing) {
-        // 1. revive (unconditional when dead) 2. re-price (only when empty)
-        const revive = isDeadBill(existing) ? revivePatch(next.issued_at) : {};
-        const reprice =
-          next.kind === 'month' && paidOn(existing.id) <= 0 && !samePrice(existing, next)
-            ? {
-                amount: next.amount,
-                currency_id: next.currency_id,
-                rate_per_usd_snapshot: next.rate_per_usd_snapshot,
-                duration_months: next.duration_months,
-                plan_id: next.plan_id,
-              }
-            : {};
-        Object.assign(existing, revive, reprice);
-        targets.set(next.id, existing);
+      const key = monthBillKey(next);
+      const target = resolveBillTarget(
+        next,
+        key ? charges.find((c) => monthBillKey(c) === key) : null,
+        charges.find((c) => c.id === next.id),
+      );
+      if ('reuse' in target) {
+        Object.assign(target.reuse, patchForIncomingCash(target.reuse, next, paidOn(target.reuse.id)));
+        targets.set(next.id, target.reuse);
         continue;
       }
-      targets.set(next.id, store.seedCharge({ ...next }));
+      targets.set(
+        next.id,
+        store.seedCharge(target.idTaken ? { ...next, id: nextId('chg') } : { ...next }),
+      );
     }
 
     const row: DbCollection = {

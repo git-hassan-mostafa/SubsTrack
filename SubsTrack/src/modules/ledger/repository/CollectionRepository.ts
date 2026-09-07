@@ -3,6 +3,7 @@ import { BaseRepository } from '@/src/core/utils/BaseRepository';
 import { PAGE_SIZE, type BranchFilter } from '@/src/core/constants';
 import type { CashRow, CashStream } from '@/src/core/types';
 import type { DbCharge, DbCollection, DbCollectionItem } from '@/src/core/types/db';
+import { newId } from '@/src/core/offline/ids';
 import { sanitizeSearchTerm } from '@/src/core/utils/searchTerm';
 import { custodyValues } from '@/src/modules/wallet/utils/custodyValues';
 import type {
@@ -11,7 +12,7 @@ import type {
   ICollectionRepository,
 } from './ICollectionRepository';
 import type { CreateChargePayload } from './IChargeRepository';
-import { isDeadBill, revivePatch, samePrice } from './chargeRevive';
+import { monthBillKey, patchForIncomingCash, resolveBillTarget } from './chargeRevive';
 import { OfflineCollectionRepository } from './CollectionRepository.offline';
 import { sumByMonth } from '../utils/monthTotals';
 
@@ -151,60 +152,116 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
     return (data ?? []) as DbCollectionItem[];
   }
 
-  private async reviveTargetBills(
+  /** Both sides `resolveBillTarget` weighs: who holds the month, who holds the id. */
+  private async findBillOwners(
     charges: CreateChargePayload[],
-  ): Promise<Map<string, DbCharge>> {
-    const current = new Map<string, DbCharge>();
-    if (charges.length === 0) return current;
-
-    const { data: existing, error } = await this.db
+  ): Promise<{ byKey: Map<string, DbCharge>; byId: Map<string, DbCharge> }> {
+    const { data: idRows, error: idError } = await this.db
       .from('charges')
       .select('*')
       .in('id', charges.map((c) => c.id));
+    if (idError) this.handleError(idError);
+    const byId = new Map(((idRows ?? []) as DbCharge[]).map((r) => [r.id, r]));
+
+    const byKey = new Map<string, DbCharge>();
+    const keyed = charges.filter((c) => monthBillKey(c) !== null);
+    if (keyed.length === 0) return { byKey, byId };
+
+    const { data: keyRows, error: keyError } = await this.db
+      .from('charges')
+      .select('*')
+      .in('customer_plan_id', [...new Set(keyed.map((c) => c.customer_plan_id as string))])
+      .in('billing_month', [...new Set(keyed.map((c) => c.billing_month as string))]);
+    if (keyError) this.handleError(keyError);
+    for (const row of (keyRows ?? []) as DbCharge[]) byKey.set(monthBillKey(row) as string, row);
+    return { byKey, byId };
+  }
+
+  private async reviveTargetBill(
+    row: DbCharge,
+    next: CreateChargePayload,
+    paid: number,
+  ): Promise<DbCharge> {
+    const patch = patchForIncomingCash(row, next, paid);
+    if (Object.keys(patch).length === 0) return row;
+
+    const { data, error } = await this.db
+      .from('charges')
+      .update(patch)
+      .eq('id', row.id)
+      .select('*, customers(*)')
+      .single();
+    if (error) this.handleError(error);
+    const after = data as DbCharge;
+    this.audit({
+      table: 'charges',
+      recordId: row.id,
+      action: 'update',
+      before: row,
+      after,
+      branchId: after.branch_id,
+      customerId: after.customer_id ?? undefined,
+    });
+    return after;
+  }
+
+  private async raiseTargetBills(
+    raise: { payloadId: string; payload: CreateChargePayload }[],
+    into: Map<string, DbCharge>,
+  ): Promise<void> {
+    if (raise.length === 0) return;
+    const { data, error } = await this.db
+      .from('charges')
+      .upsert(raise.map((r) => r.payload), { onConflict: 'id', ignoreDuplicates: true })
+      .select();
     if (error) this.handleError(error);
 
-    const rows = (existing ?? []) as DbCharge[];
-    if (rows.length === 0) return current;
-    for (const row of rows) current.set(row.id, row);
-    const paidById = await this.paidByCharge(rows.map((r) => r.id));
-
-    for (const row of rows) {
-      const next = charges.find((c) => c.id === row.id)!;
-      const revive = isDeadBill(row) ? revivePatch(next.issued_at) : {};
-      const reprice =
-        next.kind === 'month' && (paidById.get(row.id) ?? 0) <= 0 && !samePrice(row, next)
-          ? {
-            amount: next.amount,
-            currency_id: next.currency_id,
-            rate_per_usd_snapshot: next.rate_per_usd_snapshot,
-            duration_months: next.duration_months,
-            plan_id: next.plan_id,
-          }
-          : {};
-
-      const patch = { ...revive, ...reprice };
-      if (Object.keys(patch).length === 0) continue;
-
-      const { data: updated, error: updateError } = await this.db
-        .from('charges')
-        .update(patch)
-        .eq('id', row.id)
-        .select('*, customers(*)')
-        .single();
-      if (updateError) this.handleError(updateError);
-      const after = updated as DbCharge;
-      current.set(after.id, after);
+    const rows = new Map(((data ?? []) as DbCharge[]).map((r) => [r.id, r]));
+    for (const row of rows.values()) {
       this.audit({
         table: 'charges',
         recordId: row.id,
-        action: 'update',
-        before: row,
-        after,
-        branchId: after.branch_id,
-        customerId: after.customer_id ?? undefined,
+        action: 'create',
+        after: row,
+        branchId: row.branch_id,
+        customerId: row.customer_id ?? undefined,
       });
     }
-    return current;
+    for (const { payloadId, payload } of raise) {
+      const row = rows.get(payload.id);
+      if (row) into.set(payloadId, row);
+    }
+  }
+
+  /** Payload id → the bill that really exists; the items MUST point at those. */
+  private async resolveTargetBills(
+    charges: CreateChargePayload[],
+  ): Promise<Map<string, DbCharge>> {
+    const resolved = new Map<string, DbCharge>();
+    if (charges.length === 0) return resolved;
+
+    const { byKey, byId } = await this.findBillOwners(charges);
+    const paidById = await this.paidByCharge([
+      ...new Set([...byKey.values(), ...byId.values()].map((r) => r.id)),
+    ]);
+
+    const raise: { payloadId: string; payload: CreateChargePayload }[] = [];
+    for (const next of charges) {
+      const key = monthBillKey(next);
+      const target = resolveBillTarget(next, key ? byKey.get(key) : null, byId.get(next.id));
+      if ('reuse' in target) {
+        const row = target.reuse;
+        resolved.set(next.id, await this.reviveTargetBill(row, next, paidById.get(row.id) ?? 0));
+        continue;
+      }
+      raise.push({
+        payloadId: next.id,
+        payload: target.idTaken ? { ...next, id: newId() } : next,
+      });
+    }
+
+    await this.raiseTargetBills(raise, resolved);
+    return resolved;
   }
 
   private async paidByCharge(chargeIds: string[]): Promise<Map<string, number>> {
@@ -219,26 +276,13 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
   async create(payload: CreateCollectionPayload): Promise<DbCollection> {
     const { items, charges, ...header } = payload;
 
-    let targets = new Map<string, DbCharge>();
-    if (charges.length > 0) {
-      targets = await this.reviveTargetBills(charges);
-      const { data: inserted, error } = await this.db
-        .from('charges')
-        .upsert(charges, { onConflict: 'id', ignoreDuplicates: true })
-        .select();
-      if (error) this.handleError(error);
-      for (const row of (inserted ?? []) as DbCharge[]) {
-        targets.set(row.id, row);
-        this.audit({
-          table: 'charges',
-          recordId: row.id,
-          action: 'create',
-          after: row,
-          branchId: row.branch_id,
-          customerId: row.customer_id ?? undefined,
-        });
-      }
-    }
+    const bills = await this.resolveTargetBills(charges);
+    const targets = new Map<string, DbCharge>();
+    for (const row of bills.values()) targets.set(row.id, row);
+    const itemPayloads = items.map((it) => ({
+      ...it,
+      charge_id: bills.get(it.charge_id)?.id ?? it.charge_id,
+    }));
 
     const { data, error } = await this.db
       .from('collections')
@@ -250,7 +294,7 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
 
     const { data: itemData, error: itemsError } = await this.db
       .from('collection_items')
-      .insert(items.map((it) => ({ ...it, collection_id: created.id })))
+      .insert(itemPayloads.map((it) => ({ ...it, collection_id: created.id })))
       .select();
     if (itemsError) this.handleError(itemsError);
     const itemRows = (itemData ?? []) as DbCollectionItem[];
@@ -259,7 +303,7 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
       table: 'collections',
       recordId: created.id,
       action: 'create',
-      after: { ...created, collection_items: items },
+      after: { ...created, collection_items: itemPayloads },
       branchId: created.branch_id,
       customerId: created.customer_id ?? undefined,
       subject: created.customers?.name ?? null,
