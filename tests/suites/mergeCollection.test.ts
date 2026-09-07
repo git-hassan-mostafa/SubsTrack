@@ -107,4 +107,19 @@ describe('mergeCollection', () => {
     // Without this the grid reads "PARTIAL 25/30" on a month that is settled.
     expect(merged[0].charge.amount).toBe(25);
   });
+
+  it('TC-MC-09 topping up a PARTLY paid month settles it', () => {
+    // The debts panel collects the rest of a month that already took $12 of
+    // $30. The grid must lose its PARTIAL ring off this patch alone — the bug
+    // was that only the grid's own collect door patched, so collecting the
+    // same month from debts left the cell amber until a manual refresh.
+    const bills = [bill('2026-01-01', 12, { id: 'chg-jan', amount: 30 })];
+    const col = collection({
+      amount: 18,
+      items: [collectionItem({ chargeId: 'chg-jan', amount: 18 })],
+    });
+    const merged = mergeCollection(bills, col);
+    expect(merged).toHaveLength(1);
+    expect(merged[0].collected).toBe(30);
+  });
 });

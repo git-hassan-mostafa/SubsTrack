@@ -122,7 +122,6 @@ export function CustomerPaymentPanel({
   const paymentsError = usePaymentSlice((s) => s.error);
   const fetchBills = usePaymentSlice((s) => s.fetchBills);
   const buildGrids = usePaymentSlice((s) => s.buildGrids);
-  const applyCollection = usePaymentSlice((s) => s.applyCollection);
   const clearPaymentError = usePaymentSlice((s) => s.clearError);
   const resetPayments = usePaymentSlice((s) => s.reset);
   const collect = useLedgerSlice((s) => s.collect);
@@ -539,13 +538,10 @@ export function CustomerPaymentPanel({
   /**
    * The rest of a successful collect, run AFTER the sheet was told to close.
    *
-   * The created row carries its split and each bill it settled, so the grid
-   * repaints from what is already in hand — no reload, no blink. But that
-   * re-derives every line's months synchronously, so doing it before the close
-   * blocks the dismiss animation from ever starting (gotcha #122).
+   * The grid needs nothing done here: the ledger slice patched the bills from
+   * the created row as part of the write, so this only sends the receipt.
    */
   async function afterCollect(created: Collection, send: boolean) {
-    applyCollection(created);
     if (send) await sendReceipt(created);
   }
 
@@ -1190,7 +1186,6 @@ export function CustomerPaymentPanel({
             const entry = billEntry;
             return entry ? await voidBill(entry) : false;
           }}
-          onChanged={(voided) => applyCollection(voided, -1)}
           onDismiss={() => setBillEntry(null)}
         />
       )}

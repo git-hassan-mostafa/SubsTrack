@@ -42,10 +42,8 @@ export interface PaymentSlice {
 
   fetchCustomerStatuses: (customers: Customer[]) => Promise<void>;
   fetchBills: (customerId: string) => Promise<void>;
-  applyCollection: (
-    collection: Collection,
-    sign?: 1 | -1,
-  ) => void;
+  // No-op unless that hand-over belongs to the customer whose bills are loaded.
+  applyCollection: (collection: Collection, sign?: 1 | -1) => void;
   buildGrids: (lines: CustomerPlan[], year: number) => void;
   syncCustomerStatus: (customerId: string, lines: CustomerPlan[]) => Promise<void>;
   setMonthsSkipped: (
@@ -123,9 +121,12 @@ export const createPaymentSlice: StateCreator<
   },
 
   applyCollection: (collection, sign = 1) => {
-    const bills = mergeCollection(get().payments.bills, collection, sign);
+    const { billsCustomerId, bills } = get().payments;
+    if (!billsCustomerId) return;
+    if (collection.customerId && collection.customerId !== billsCustomerId) return;
+    const merged = mergeCollection(bills, collection, sign);
     set((state) => {
-      state.payments.bills = bills;
+      state.payments.bills = merged;
     });
   },
 

@@ -289,6 +289,7 @@ export const useCollectionsListStore = create<CollectionsListState>()(
       });
       if (before?.voidedAt) return;
       getStore().getState().sales.applyCollection(voided, -1);
+      getStore().getState().payments.applyCollection(voided, -1);
       getStore().getState().ledger.markOwedChanged();
     },
 

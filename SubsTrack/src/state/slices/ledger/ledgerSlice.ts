@@ -225,6 +225,7 @@ export const createLedgerSlice: StateCreator<
         const collection = await collectionService.collect(input);
         get().ledger.clearOwed();
         get().sales.applyCollection(collection);
+        get().payments.applyCollection(collection);
         return collection;
       }),
 
@@ -234,6 +235,7 @@ export const createLedgerSlice: StateCreator<
       );
       if (result === null) return null;
       get().sales.applyCollection(collection, -1);
+      get().payments.applyCollection(collection, -1);
       return {
         ...collection,
         voidedAt: result.voidedAt,
