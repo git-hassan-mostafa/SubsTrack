@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { View } from "react-native";
 import { COLORS } from "@/src/shared/constants";
+import { useTextField } from "@/src/shared/hooks/useTextField";
 import { useSheetTextInput } from "./bottomSheetInputContext";
 
 interface Props {
@@ -16,6 +17,7 @@ export default function SearchTextBox({
   placeholder = null,
 }: Props) {
   const TextInput = useSheetTextInput();
+  const field = useTextField(searchText, setSearchText);
 
   const { t } = useTranslation();
   return (
@@ -25,8 +27,7 @@ export default function SearchTextBox({
         className="flex-1 ms-2 text-sm text-gray-900"
         placeholder={placeholder || t("common.input_search")}
         placeholderTextColor={COLORS.gray400}
-        value={searchText}
-        onChangeText={setSearchText}
+        {...field}
         style={{ fontFamily: "Cairo" }}
       />
     </View>

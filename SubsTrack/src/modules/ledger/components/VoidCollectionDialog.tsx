@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { ConfirmDialog } from "@/src/shared/components/ConfirmDialog";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { COLORS } from "@/src/shared/constants";
+import { useTextField } from "@/src/shared/hooks/useTextField";
 import type { Collection } from "@/src/core/types";
 import { useLedgerSlice } from "@/src/state/hooks/useLedgerSlice";
 import { sharedBillsOf } from "../utils/sharedBills";
@@ -38,6 +39,7 @@ export function VoidCollectionDialog({
   const error = useLedgerSlice((s) => s.error);
   const clearError = useLedgerSlice((s) => s.clearError);
   const [reason, setReason] = useState("");
+  const field = useTextField(reason, setReason);
 
   const shared = sharedBillsOf(collection, onBillChargeId, t);
 
@@ -80,8 +82,7 @@ export function VoidCollectionDialog({
         </View>
       ) : null}
       <TextInput
-        value={reason}
-        onChangeText={setReason}
+        {...field}
         placeholder={t("payments.void_reason_placeholder")}
         multiline
         numberOfLines={3}

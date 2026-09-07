@@ -9,6 +9,7 @@ import { useAuth } from "@/src/modules/authentication/auth";
 import { usePaymentSlice } from "@/src/state/hooks/usePaymentSlice";
 import { getStore } from "@/src/state/globalStore";
 import { COLORS } from "@/src/shared/constants";
+import { useTextField } from "@/src/shared/hooks/useTextField";
 
 interface Props {
   entries: MonthEntry[];
@@ -37,6 +38,7 @@ export function SkipMonthSheet({
   const error = usePaymentSlice((s) => s.error);
   const clearError = usePaymentSlice((s) => s.clearError);
   const [note, setNote] = useState("");
+  const field = useTextField(note, setNote);
 
   const isSkip = mode === "skip";
   const single = entries.length === 1 ? entries[0] : null;
@@ -94,8 +96,7 @@ export function SkipMonthSheet({
       ) : null}
       {isSkip ? (
         <TextInput
-          value={note}
-          onChangeText={setNote}
+          {...field}
           placeholder={t("payments.skip.note_placeholder")}
           multiline
           numberOfLines={3}

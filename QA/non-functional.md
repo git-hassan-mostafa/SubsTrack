@@ -218,3 +218,27 @@ Regression cover for gotcha #78 — a multiline `TextInput` inside a scroll view
 | 13.12 | RTL | Arabic | Text stays top-aligned and end-anchored; scrolling behaves identically |
 | 13.13 | Growing box does not flicker | Type a long note one word at a time | The box grows line by line, no jump/flicker, caret stays visible |
 | 13.14 | Known remainder — single-line field | Give a customer a very long address, then drag starting on the **Address** box (single line) | The page may not scroll (Android keeps the drag for a horizontally scrollable field). Documented in gotcha #78, not a regression |
+
+## 14. Typing in a field — no lost letters, no jumping caret
+
+Regression cover for gotcha #134 — the field owns the text being typed (`useTextField`), so a `value` prop arriving one render late can no longer retype the field. Run each on **both** Android and web; every field below goes through `Input`, `SearchTextBox`, `CurrencyInput` or one of the five raw `TextInput`s.
+
+| # | Scenario | Steps | Expected result |
+|---|----------|-------|-----------------|
+| 14.1 | Caret stays where it was put (the reported bug) | Add Customer → Name → type `acd`, tap between `a` and `c`, type `b` | Text reads `abcd` **and the caret sits right after the `b`**; typing `e` gives `abecd` |
+| 14.2 | Fast typing keeps every letter | Type a 25–30 character name as fast as possible | Every character appears, in order, no duplicates |
+| 14.3 | Backspace in the middle | Put the caret mid-word in a long address and hold Backspace | Characters disappear one by one from that spot; the caret never jumps to the end |
+| 14.4 | Select and replace | Select the middle word of Notes and type over it | Only that word is replaced; the caret lands after what was typed |
+| 14.5 | Every field of one form | Add Customer: Name, Phone, Address, Area, Location URL, Notes | All behave the same — 14.1 passes in each |
+| 14.6 | Prefill still lands | Edit an existing customer | Every field opens with the saved value |
+| 14.7 | Clear button still clears | Edit a customer with a Location URL, focus the URL field, tap the **X** | The field empties (this is the owner speaking, not an echo) |
+| 14.8 | Amount field keeps a typed decimal | Collect → type `12.` then `5` | The field shows `12.` while typing and ends at `12.5` — never snaps back to `12` |
+| 14.9 | "Full amount" chip wins over typing | Collect → type `30` in the amount, then tap the full-amount chip | The field shows the full amount |
+| 14.10 | Cap dialog wins too | Collect → type more than the bill, dismiss the "cannot exceed" banner | The field shows the maximum |
+| 14.11 | Digits-only filter | Currency form → decimals / rate; Product → initial stock | Letters are refused **as typed** (nothing appears), the caret stays put |
+| 14.12 | Stepper and typing agree | Batch restock → type `4` in a row's quantity, then tap **+** twice | The field reads `6`; typing after that continues from `6` |
+| 14.13 | Search box unchanged | Customer list search: type a name fast, then clear it | Results follow the text; no lost letters; clearing shows the full list |
+| 14.14 | Void reason boxes | Payment void / sale bulk void / skip month | Type a two-sentence reason mid-word edits included — 14.1 and 14.3 pass |
+| 14.15 | RTL | Arabic — repeat 14.1 and 14.3 in Name and Notes | Same behavior; the caret stays at the edit point |
+| 14.16 | Sheet lift still works (native) | Focus each field with the keyboard open | Field stays above the keyboard, text visible while typing |
+| 14.17 | Submit sends what is on screen | Fill a form doing mid-word edits, save, reopen | Saved values match exactly what the fields showed |

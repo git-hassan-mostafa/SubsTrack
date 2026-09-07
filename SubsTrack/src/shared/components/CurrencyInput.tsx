@@ -10,6 +10,18 @@ import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
 import { BottomSheetScaffold } from "./BottomSheetScaffold";
 import { SheetDragArea } from "./SheetDragArea";
 import { useSheetTextInput } from "./bottomSheetInputContext";
+import { useTextField } from "@/src/shared/hooks/useTextField";
+import { decimalDigitsOnly } from "@/src/core/utils/inputText";
+
+function amountText(amount: number | null): string {
+  return amount != null ? String(amount) : "";
+}
+
+function parseAmount(text: string): number | null {
+  if (text === "" || text === ".") return null;
+  const parsed = parseFloat(text);
+  return Number.isFinite(parsed) ? parsed : null;
+}
 
 interface CurrencyInputProps {
   label?: string;
@@ -71,24 +83,14 @@ export function CurrencyInput({
     [activeCurrencies, currencyId],
   );
 
-  const [text, setText] = useState<string>(
-    amount != null ? String(amount) : "",
+  const field = useTextField(
+    amountText(amount),
+    (next) => onChange({ amount: parseAmount(next), currencyId }),
+    {
+      sanitize: decimalDigitsOnly,
+      expectedEcho: (next) => amountText(parseAmount(next)),
+    },
   );
-  useEffect(() => {
-    const incoming = amount != null ? String(amount) : "";
-    setText((prev) => (Number(prev) === amount ? prev : incoming));
-  }, [amount]);
-
-  function handleText(next: string) {
-    const cleaned = next.replace(/[^0-9.]/g, "");
-    setText(cleaned);
-    if (cleaned === "" || cleaned === ".") {
-      onChange({ amount: null, currencyId });
-      return;
-    }
-    const parsed = parseFloat(cleaned);
-    onChange({ amount: Number.isFinite(parsed) ? parsed : null, currencyId });
-  }
 
   function handleCurrencyChange(nextId: string | null) {
     setLastUsedCurrencyId(nextId);
@@ -111,8 +113,7 @@ export function CurrencyInput({
         }`}
       >
         <TextInput
-          value={text}
-          onChangeText={handleText}
+          {...field}
           onFocus={onFocus}
           placeholder={placeholder ?? "0.00"}
           placeholderTextColor={COLORS.gray400}

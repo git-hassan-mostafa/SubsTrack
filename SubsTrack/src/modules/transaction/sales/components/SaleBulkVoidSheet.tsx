@@ -7,6 +7,7 @@ import { useAuth } from "@/src/modules/authentication/auth";
 import { useSaleSlice } from "@/src/state/hooks/useSaleSlice";
 import type { SaleVoidResult } from "../utils/types";
 import { COLORS } from "@/src/shared/constants";
+import { useTextField } from "@/src/shared/hooks/useTextField";
 import {
   collectionService,
   SharedBillsWarning,
@@ -35,6 +36,7 @@ export function SaleBulkVoidSheet({ saleIds, chargeIds, onVoided, onDismiss }: P
   const error = useSaleSlice((s) => s.error);
   const clearError = useSaleSlice((s) => s.clearError);
   const [reason, setReason] = useState("");
+  const field = useTextField(reason, setReason);
   const [shared, setShared] = useState<SharedBill[]>([]);
   const [checking, setChecking] = useState(chargeIds.length > 0);
   const chargeKey = chargeIds.join(",");
@@ -111,8 +113,7 @@ export function SaleBulkVoidSheet({ saleIds, chargeIds, onVoided, onDismiss }: P
         </View>
       ) : null}
       <TextInput
-        value={reason}
-        onChangeText={setReason}
+        {...field}
         placeholder={t("sales.void_reason_placeholder")}
         multiline
         numberOfLines={3}

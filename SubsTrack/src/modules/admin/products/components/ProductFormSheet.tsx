@@ -6,6 +6,7 @@ import { PressableOpacity } from "@/src/shared/components/PressableOpacity/Press
 import { Text } from "@/src/shared/components/Text";
 import { Button } from "@/src/shared/components/Button";
 import { Input } from "@/src/shared/components/Input";
+import { digitsOnly } from "@/src/core/utils/inputText";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { CurrencyInput } from "@/src/shared/components/CurrencyInput";
 import { BranchPicker } from "@/src/shared/components/BranchPicker";
@@ -211,9 +212,8 @@ export function ProductFormSheet({
           <Input
             label={t("products.initial_stock_label")}
             value={form.initialStock}
-            onChangeText={(v) =>
-              setForm((p) => ({ ...p, initialStock: v.replace(/[^0-9]/g, "") }))
-            }
+            onChangeText={(v) => setForm((p) => ({ ...p, initialStock: v }))}
+            sanitize={digitsOnly}
             keyboardType="number-pad"
             placeholder="0"
             onFocus={clearError}

@@ -2,14 +2,26 @@ import { TextInputProps, View } from "react-native";
 import { Text } from "@/src/shared/components/Text";
 import { COLORS } from "@/src/shared/constants";
 import { useSheetTextInput } from "@/src/shared/components/bottomSheetInputContext";
+import { useTextField } from "@/src/shared/hooks/useTextField";
 
-interface InputProps extends TextInputProps {
+interface InputProps extends Omit<TextInputProps, "value"> {
+  value: string;
   label?: string;
   error?: string | null;
+  sanitize?: (next: string) => string;
 }
 
-export function Input({ label, error, style, ...props }: InputProps) {
+export function Input({
+  label,
+  error,
+  style,
+  value,
+  onChangeText,
+  sanitize,
+  ...props
+}: InputProps) {
   const TextInput = useSheetTextInput();
+  const field = useTextField(value, onChangeText, { sanitize });
   return (
     <View className="mb-4">
       {label ? (
@@ -19,6 +31,7 @@ export function Input({ label, error, style, ...props }: InputProps) {
       ) : null}
       <TextInput
         {...props}
+        {...field}
         className={`border rounded-xl px-4 py-3 text-base text-gray-900 bg-white ${
           error ? "border-danger" : "border-gray-200"
         }`}

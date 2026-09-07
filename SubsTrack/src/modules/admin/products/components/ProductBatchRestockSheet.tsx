@@ -16,6 +16,11 @@ import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { Dropdown } from "@/src/shared/components/Dropdown";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
 import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
+import { useTextField } from "@/src/shared/hooks/useTextField";
+import {
+  decimalDigitsOnly,
+  digitsOnly,
+} from "@/src/core/utils/inputText";
 import { COLORS } from "@/src/shared/constants";
 import type { Currency, Product } from "@/src/core/types";
 import { convert, findCurrency, formatMoney } from "@/src/core/utils/currency";
@@ -325,6 +330,10 @@ export function ProductBatchRestockSheet({ onDismiss }: Props) {
   );
 }
 
+function quantityText(quantity: number): string {
+  return quantity > 0 ? String(quantity) : "";
+}
+
 interface RowProps {
   product: Product;
   quantity: number;
@@ -349,6 +358,17 @@ function RestockRow({
 }: RowProps) {
   const { t } = useTranslation();
   const picked = quantity > 0;
+  const quantityField = useTextField(
+    quantityText(quantity),
+    (next) => onChange(Number(next) || 0),
+    {
+      sanitize: digitsOnly,
+      expectedEcho: (next) => quantityText(Number(next) || 0),
+    },
+  );
+  const costField = useTextField(unitCost, onCostChange, {
+    sanitize: decimalDigitsOnly,
+  });
 
   return (
     <View
@@ -399,8 +419,7 @@ function RestockRow({
             />
           </PressableOpacity>
           <TextInput
-            value={picked ? String(quantity) : ""}
-            onChangeText={(v) => onChange(Number(v.replace(/[^0-9]/g, "")) || 0)}
+            {...quantityField}
             keyboardType="number-pad"
             placeholder="0"
             placeholderTextColor={COLORS.gray400}
@@ -425,8 +444,7 @@ function RestockRow({
           </Text>
           <View className="flex-row items-center">
             <TextInput
-              value={unitCost}
-              onChangeText={(v) => onCostChange(v.replace(/[^0-9.]/g, ""))}
+              {...costField}
               keyboardType="decimal-pad"
               placeholder="0.00"
               placeholderTextColor={COLORS.gray400}

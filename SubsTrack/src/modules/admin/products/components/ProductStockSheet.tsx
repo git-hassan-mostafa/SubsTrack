@@ -10,6 +10,7 @@ import { PressableOpacity } from "@/src/shared/components/PressableOpacity/Press
 import { Text } from "@/src/shared/components/Text";
 import { Button } from "@/src/shared/components/Button";
 import { Input } from "@/src/shared/components/Input";
+import { digitsOnly } from "@/src/core/utils/inputText";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { CurrencyInput } from "@/src/shared/components/CurrencyInput";
 import {
@@ -128,9 +129,8 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
   }
 
   function changeQuantity(text: string) {
-    const digits = text.replace(/[^0-9]/g, "");
-    setQuantity(digits);
-    const qty = Number(digits);
+    setQuantity(text);
+    const qty = Number(text);
     if (qty <= 0) return;
     if (costAnchor.current === "total") {
       if (totalCost != null) setUnitCost(round8(totalCost / qty));
@@ -293,6 +293,7 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
         label={t("products.stock_quantity_label") + " *"}
         value={quantity}
         onChangeText={changeQuantity}
+        sanitize={digitsOnly}
         keyboardType="number-pad"
         placeholder="0"
         onFocus={clearError}

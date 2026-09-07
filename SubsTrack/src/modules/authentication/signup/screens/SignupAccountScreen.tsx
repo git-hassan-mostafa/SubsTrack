@@ -7,6 +7,7 @@ import { Text } from "@/src/shared/components/Text";
 import { Button } from "@/src/shared/components/Button";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { Input } from "@/src/shared/components/Input";
+import { handleText } from "@/src/core/utils/inputText";
 import { useSignupStore } from "@/src/modules/authentication/signup/state/signupStore";
 import { getStore } from "@/src/state/globalStore";
 import { StepIndicator } from "../components/StepIndicator";
@@ -85,11 +86,8 @@ export function SignupAccountScreen() {
               <Input
                 label={t("signup.username_label")}
                 value={adminUserName}
-                onChangeText={(v) =>
-                  setAccount({
-                    adminUserName: v.toLowerCase().replace(/\s+/g, ""),
-                  })
-                }
+                onChangeText={(v) => setAccount({ adminUserName: v })}
+                sanitize={handleText}
                 placeholder={t("signup.username_placeholder")}
                 autoCapitalize="none"
                 autoCorrect={false}

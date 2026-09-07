@@ -6,6 +6,11 @@ import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
 import { Button } from "@/src/shared/components/Button";
 import { Input } from "@/src/shared/components/Input";
+import {
+  decimalDigitsOnly,
+  digitsOnly,
+  upperCaseText,
+} from "@/src/core/utils/inputText";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { useAuth } from "@/src/modules/authentication/auth";
 import type { Currency } from "@/src/core/types";
@@ -117,9 +122,8 @@ export function CurrencyFormSheet({
         <Input
           label={t("tenant_settings.code_label") + " *"}
           value={form.code}
-          onChangeText={(v) =>
-            setForm((p) => ({ ...p, code: v.toUpperCase() }))
-          }
+          onChangeText={(v) => setForm((p) => ({ ...p, code: v }))}
+          sanitize={upperCaseText}
           placeholder={t("tenant_settings.code_placeholder")}
           autoCapitalize="characters"
           maxLength={8}
@@ -150,9 +154,8 @@ export function CurrencyFormSheet({
             }) + " *"
           }
           value={form.rateText}
-          onChangeText={(v) =>
-            setForm((p) => ({ ...p, rateText: v.replace(/[^0-9.]/g, "") }))
-          }
+          onChangeText={(v) => setForm((p) => ({ ...p, rateText: v }))}
+          sanitize={decimalDigitsOnly}
           placeholder="0"
           keyboardType="decimal-pad"
           onFocus={clearError}
@@ -164,12 +167,8 @@ export function CurrencyFormSheet({
         <Input
           label={t("tenant_settings.decimals_label") + " *"}
           value={form.decimalsText}
-          onChangeText={(v) =>
-            setForm((p) => ({
-              ...p,
-              decimalsText: v.replace(/[^0-9]/g, "").slice(0, 1),
-            }))
-          }
+          onChangeText={(v) => setForm((p) => ({ ...p, decimalsText: v }))}
+          sanitize={(v) => digitsOnly(v).slice(0, 1)}
           placeholder="2"
           keyboardType="number-pad"
           onFocus={clearError}

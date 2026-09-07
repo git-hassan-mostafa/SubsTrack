@@ -130,6 +130,10 @@ implementation detail unless explicitly requested.
   non-technical staff on phones; every screen immediately understandable. No
   animations, no decorative elements, no unnecessary complexity.
   Priority: clarity → speed → correctness → completeness.
+- **Text fields**: a field owns the text being typed. `Input` / `SearchTextBox` /
+  `CurrencyInput` route it through `useTextField`; a controlled `TextInput` wired
+  straight to form or store state is banned — a `value` one render late loses
+  letters and throws the caret to the end (gotcha #134).
 - **Error handling**: async store actions wrap try/catch → `error: string | null`.
   Screens show `<ErrorBanner>` inline, **never** toast/alert. `clearError()` on
   user input or form unmount. Repositories convert raw Supabase errors to friendly

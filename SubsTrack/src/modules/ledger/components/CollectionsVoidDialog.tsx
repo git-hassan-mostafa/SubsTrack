@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { ConfirmDialog } from "@/src/shared/components/ConfirmDialog";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { COLORS } from "@/src/shared/constants";
+import { useTextField } from "@/src/shared/hooks/useTextField";
 import { useCollectionsListStore } from "@/src/modules/ledger/state/collectionsListStore";
 
 interface Props {
@@ -27,6 +28,7 @@ export function CollectionsVoidDialog({
   const error = useCollectionsListStore((s) => s.error);
   const clearError = useCollectionsListStore((s) => s.clearError);
   const [reason, setReason] = useState("");
+  const field = useTextField(reason, setReason);
 
   const count = collectionIds.length;
 
@@ -61,8 +63,7 @@ export function CollectionsVoidDialog({
         </View>
       ) : null}
       <TextInput
-        value={reason}
-        onChangeText={setReason}
+        {...field}
         placeholder={t("payments.void_reason_placeholder")}
         multiline
         numberOfLines={3}
