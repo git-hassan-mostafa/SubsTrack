@@ -5,6 +5,14 @@ export { ledgerService } from './services/LedgerService';
 export { allocate, allocateExcluding, keyOf, sortByDue, totalOwed } from './utils/waterfall';
 export type { AllocationResult } from './utils/waterfall';
 export {
+  fundedPlans,
+  groupKey,
+  groupOwedByCurrency,
+  planCollection,
+  totalCollectingUsd,
+} from './utils/currencyGroups';
+export type { CurrencyGroup, CurrencyPlan } from './utils/currencyGroups';
+export {
   billForMonth,
   chargeLabel,
   isDebtItem,
@@ -19,11 +27,12 @@ export {
 } from './utils/mapper';
 
 export type { CreateManualChargeInput } from './services/ChargeService';
-export type { CollectInput } from './services/CollectionService';
+export type { CollectInput, MultiCollectResult } from './services/CollectionService';
 export type { IChargeRepository } from './repository/IChargeRepository';
 export type { ICollectionRepository } from './repository/ICollectionRepository';
 
 export { CollectSheet } from './components/CollectSheet';
+export type { CollectGroupSubmit } from './components/CollectSheet';
 export { useCollectSheet } from './hooks/useCollectSheet';
 export { useOwedChanged } from './hooks/useOwedChanged';
 export { CollectQuickActionSheet } from './components/CollectQuickActionSheet';

@@ -17,6 +17,7 @@ import {
   ledgerService,
   type CollectInput,
   type CreateManualChargeInput,
+  type MultiCollectResult,
 } from "@/src/modules/ledger";
 import { skippedMonthService } from "@/src/modules/customer/customer-payments";
 import tenantSettingService from "@/src/modules/admin/tenant-settings/services/TenantSettingService";
@@ -66,6 +67,7 @@ export interface LedgerSlice {
   }) => Promise<void>;
 
   collect: (input: CollectInput) => Promise<Collection | null>;
+  collectMulti: (inputs: CollectInput[]) => Promise<MultiCollectResult>;
   voidCollection: (
     collection: Collection,
     voidedBy: string,
@@ -228,6 +230,25 @@ export const createLedgerSlice: StateCreator<
         get().payments.applyCollection(collection);
         return collection;
       }),
+
+    collectMulti: async (inputs) => {
+      set((state) => {
+        state.ledger.loadingCollect = true;
+        state.ledger.error = null;
+      });
+      const { collections, failed } = await collectionService.collectMulti(inputs);
+      for (const collection of collections) {
+        get().sales.applyCollection(collection);
+        get().payments.applyCollection(collection);
+      }
+      if (collections.length > 0) get().ledger.clearOwed();
+      set((state) => {
+        state.ledger.loadingCollect = false;
+        state.ledger.error = failed ? failed.message : null;
+        if (collections.length > 0) state.ledger.owedVersion += 1;
+      });
+      return { collections, failed };
+    },
 
     voidCollection: async (collection, voidedBy, reason) => {
       const result = await run("loading", () =>

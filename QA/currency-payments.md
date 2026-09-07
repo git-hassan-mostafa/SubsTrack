@@ -27,7 +27,7 @@ These are non-negotiable and must be re-verified after any release touching paym
 3. **Plan prices use the live rate** — plan.price is forward-looking; its USD equivalent updates whenever the currency's `rate_per_usd` is edited. No snapshot is stored on the plan row.
 4. **`rate_per_usd_snapshot = 1` for USD payments** — USD payments (`currency_id = NULL`) must store exactly `1`, not null or any other value.
 5. **Editing a payment re-snapshots** — `PaymentService.updatePayment()` re-reads the live `ratePerUsd` of the (possibly changed) currency and writes a new `rate_per_usd_snapshot`. This is the "correcting the record" semantic.
-6. **A hand-over is single-currency, and it must match every bill it pays** — which is why `collection_items` carries no currency of its own, and why a balance closes at exactly zero with no conversion. A customer owing in two currencies is collected from twice.
+6. **A hand-over is single-currency, and it must match every bill it pays** — which is why `collection_items` carries no currency of its own, and why a balance closes at exactly zero with no conversion. A customer owing in two currencies produces two rows — but from **one Save**: the collect sheet lists every currency at once and writes one collection per currency (§ 14b). The amount for each is typed in that currency's own units and is **never** converted from a total, or the wallet would claim cash nobody handed over and a bill would sit a few units short for ever.
 7. **Soft-deleted currencies are preserved on historical rows** — plans and payments that reference an inactive currency must continue to display correctly. Pickers exclude inactive currencies for new entries only.
 8. **Display currency is per-tenant** — one `tenant_settings` row (key `DisplayCurrencyId`), admin-writable, applied to every user. No `display_currency_id` column on `users` or `tenants`.
 
@@ -269,6 +269,31 @@ The panel shows per-year totals below the payment grid, aggregated from all non-
 | 14.4 | Collect the rest | Collect the remaining LBP on a partly-paid month | Balance → 0; the ring disappears; the bill sheet now lists TWO payments |
 | 14.5 | **A hand-over's currency cannot be changed** | Look for an edit | There is none — void it and collect again. A hand-over is a physical event, not a form value |
 | 14.6 | Zero is not a collection | Type 0 | Save disabled — a month nothing was collected for is simply left unpaid, with no row at all |
+
+---
+
+## 14b. Collecting a customer who owes in TWO currencies
+
+Setup for every row: Ali owes **50 USD** (sale, due 12 Aug) and **2,000,000 LBP** (sale, due 03 Sep). Live rate 90,000 LBP = 1 USD, so the total is ≈ 72.22 USD. Display currency USD. Open the collect sheet on the whole customer (Debts → debtor → Collect, the customer-list quick pay, or the "Collect money" quick action). See gotcha #108b.
+
+| # | Scenario | Steps | Expected result |
+|---|----------|-------|-----------------|
+| 14b.1 | Both currencies are listed at once | Open the sheet | TWO sections, one per currency, biggest debt in USD terms first (USD, then LBP). Each shows what is owed in **its own** units — `50.00 $` and `2,000,000` — and its own oldest-first preview. No currency dropdown gating the list |
+| 14b.2 | Total converts, boxes do not | Read the header | Header total ≈ `72.22 $`, converted at each group's live rate. The amount boxes still read `50.00` and `2,000,000` |
+| 14b.3 | Totals follow the org display currency | Set the tenant display currency to LBP, reopen | Header total and footer "Total collecting" read ≈ `6,500,000 L` (50 × 90,000 + 2,000,000). Every amount box and every preview row is in its **own** currency, unchanged. There is **no** currency picker on the sheet |
+| 14b.5 | **Pay everything in one Save** | Change nothing (boxes are pre-filled), tap Save | **TWO** `collections` rows: one `amount = 50, currency_id = NULL, rate = 1`; one `amount = 2000000, currency_id = LBP, rate = 90000`. Both bills close at **exactly zero** — no residual 20 LBP, no residual cent. Sheet closes once |
+| 14b.6 | Pay only the dollars | Clear the LBP box, tap Save | ONE collection (50 USD). The USD bill closes; the LBP bill still fully owed and still on the Debts screen |
+| 14b.7 | Pay a bit of each | USD box `30`, LBP box `1,000,000`, Save | TWO collections (30 USD, 1,000,000 LBP). Both bills partly paid. **This is the case the old picker could not do in one Save** |
+| 14b.8 | Over-typing is capped per currency | USD box `80` | That section warns "the most that can be collected is 50.00 $"; Save disabled. The LBP section is unaffected |
+| 14b.9 | Untick inside a group | Give a customer two USD bills; untick the older one | The USD money moves down to the next USD bill only. **No LBP row is ever reachable by USD money** |
+| 14b.10 | Nothing typed | Clear both boxes | Save disabled |
+| 14b.11 | Wallet count matches the physical cash | After 14b.5, open the collector's wallet | Wallet holds **two** entries: 50 USD and 2,000,000 LBP — never one converted 72.22 USD entry. Remitting counts both piles separately |
+| 14b.12 | Receipts | After 14b.5, check money-in history | TWO hand-over rows, each with its own currency, own frozen rate and own receipt. Voiding one leaves the other standing |
+| 14b.13 | Revenue reconciles | Dashboard/Reports for the day | Cash collected = 50 USD + 2,000,000 LBP converted at each row's frozen rate ≈ 72.22 USD. Matches the sheet's header total |
+| 14b.14 | Partial failure keeps the good half | Force the second write to fail (e.g. kill the network mid-Save on native) | The first hand-over is **kept**, not rolled back; an error banner shows; reopening the sheet shows only the remaining currency still owed. No money is lost |
+| 14b.15 | Single-currency customer is unchanged | A customer owing only USD | ONE section, no visible behavior change from before; one collection row on Save |
+| 14b.16 | Single-bill collect is unchanged | Debts row → Collect (one bill) | The old single-bill sheet: one amount box in the bill's currency, `All` button, partial warning. One collection row |
+| 14b.17 | Open-amount month is unchanged | Collect a month on a line with no set price | "Amount for this month" still sets both the bill and the currency; one collection row (gotcha #112) |
 
 ---
 

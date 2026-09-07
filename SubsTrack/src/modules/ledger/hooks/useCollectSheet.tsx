@@ -34,7 +34,7 @@ interface Options {
  */
 export function useCollectSheet({ onCollected }: Options = {}) {
   const { user } = useAuth();
-  const collect = useLedgerSlice((s) => s.collect);
+  const collectMulti = useLedgerSlice((s) => s.collectMulti);
   const loading = useLedgerSlice((s) => s.loadingCollect);
   const [target, setTarget] = useState<Target | null>(null);
 
@@ -67,25 +67,27 @@ export function useCollectSheet({ onCollected }: Options = {}) {
       onDismiss={close}
       onSubmit={async (values) => {
         if (!user) return;
-        const created = await collect({
-          tenantId: user.tenantId,
-          customerId: target.customerId,
-          branchId: values.lines[0]?.item.branchId ?? user.branchId,
-          amount: values.amount,
-          currencyId: values.currencyId,
-          ratePerUsdSnapshot: values.ratePerUsdSnapshot,
-          receivedAt: values.receivedAt,
-          receivedByUserId: user.id,
-          notes: values.notes,
-          lines: values.lines.map((l) => ({
-            item: l.item,
-            amount: l.amount,
-            settles: l.amount >= l.item.balance,
+        const { collections, failed } = await collectMulti(
+          values.groups.map((group) => ({
+            tenantId: user.tenantId,
+            customerId: target.customerId,
+            branchId: group.lines[0]?.item.branchId ?? user.branchId,
+            amount: group.amount,
+            currencyId: group.currencyId,
+            ratePerUsdSnapshot: group.ratePerUsdSnapshot,
+            receivedAt: values.receivedAt,
+            receivedByUserId: user.id,
+            notes: values.notes,
+            lines: group.lines.map((l) => ({
+              item: l.item,
+              amount: l.amount,
+              settles: l.amount >= l.item.balance,
+            })),
           })),
-        });
-        if (!created) return;
+        );
+        if (failed) return;
         setTarget(null);
-        onCollected?.(created);
+        for (const created of collections) onCollected?.(created);
       }}
     />
   ) : null;

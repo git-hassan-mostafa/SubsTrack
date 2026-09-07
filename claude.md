@@ -262,7 +262,10 @@ second payment had nowhere to go):
 - **`collections`** = ONE physical hand-over of cash. **One currency per
   hand-over**, equal to every charge it pays — which is why `collection_items` has
   no currency of its own, and why "collect all due" can be two writes for one
-  customer (gotcha #108). Carries the only custody in the schema
+  customer (gotcha #108). The collect sheet still shows **every** currency owed
+  at once — one amount box per currency, typed in that currency's OWN units and
+  **never converted** — and `collectMulti` turns one Save into one row per
+  currency (gotcha #108b). Carries the only custody in the schema
   (`held_by_user_id`, `remitted_at`/`remitted_by`).
 - **`collection_items`** = which bill each slice of a hand-over paid.
 - **Waterfall** (`ledger/utils/waterfall.ts`, pure): fills bills **oldest

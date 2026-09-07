@@ -35,6 +35,11 @@ export interface CollectInput {
   lines: AllocationLine[];
 }
 
+export interface MultiCollectResult {
+  collections: Collection[];
+  failed: Error | null;
+}
+
 /**
  * Money: taking it, correcting it, undoing it.
  *
@@ -99,6 +104,26 @@ class CollectionService {
       charges,
     });
     return mapDbCollectionToCollection(row);
+  }
+
+  /**
+   * One customer, several currencies, one tap — a hand-over per currency.
+   *
+   * Sequential and NOT atomic on purpose: each group is its own physical
+   * hand-over, so a group that succeeded is real money and is kept. The caller
+   * gets what was written plus the first failure, and re-collects only the rest.
+   */
+  async collectMulti(inputs: CollectInput[]): Promise<MultiCollectResult> {
+    if (inputs.length === 0) throw new Error(i18n.t('errors.collect_no_lines'));
+    const collections: Collection[] = [];
+    for (const input of inputs) {
+      try {
+        collections.push(await this.collect(input));
+      } catch (e) {
+        return { collections, failed: e instanceof Error ? e : new Error(String(e)) };
+      }
+    }
+    return { collections, failed: null };
   }
 
   private async materialize(
@@ -189,7 +214,7 @@ class CollectionService {
       .map(mapDbCollectionToCollection)
       .sort(
         (a, b) =>
-          a.receivedAt.localeCompare(b.receivedAt) || a.createdAt.localeCompare(b.createdAt),
+          b.receivedAt.localeCompare(a.receivedAt) || b.createdAt.localeCompare(a.createdAt),
       );
   }
 

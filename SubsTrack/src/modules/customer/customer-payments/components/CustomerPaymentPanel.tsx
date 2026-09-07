@@ -63,7 +63,7 @@ import {
   SharedBillsWarning,
   sharedBillsAcross,
 } from "@/src/modules/ledger";
-import type { SharedBill } from "@/src/modules/ledger";
+import type { CollectGroupSubmit, SharedBill } from "@/src/modules/ledger";
 import { usePaymentSlice } from "@/src/state/hooks/usePaymentSlice";
 import { useLedgerSlice } from "@/src/state/hooks/useLedgerSlice";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
@@ -125,6 +125,7 @@ export function CustomerPaymentPanel({
   const clearPaymentError = usePaymentSlice((s) => s.clearError);
   const resetPayments = usePaymentSlice((s) => s.reset);
   const collect = useLedgerSlice((s) => s.collect);
+  const collectMulti = useLedgerSlice((s) => s.collectMulti);
   const voidMonthBill = usePaymentSlice((s) => s.voidMonthBill);
   const collecting = useLedgerSlice((s) => s.loadingCollect);
   const ledgerError = useLedgerSlice((s) => s.error);
@@ -533,6 +534,36 @@ export function CustomerPaymentPanel({
         settles: l.amount >= l.item.balance,
       })),
     });
+  }
+
+  /**
+   * The sheet's door: one hand-over per currency the customer paid in (#108).
+   */
+  async function runCollectGroups(args: {
+    receivedAt: string;
+    notes: string | null;
+    groups: CollectGroupSubmit[];
+  }): Promise<Collection[]> {
+    if (!user) return [];
+    const { collections } = await collectMulti(
+      args.groups.map((group) => ({
+        tenantId: user.tenantId,
+        customerId: customer.id,
+        branchId: customer.branchId,
+        amount: group.amount,
+        currencyId: group.currencyId,
+        ratePerUsdSnapshot: group.ratePerUsdSnapshot,
+        receivedAt: args.receivedAt,
+        receivedByUserId: user.id,
+        notes: args.notes,
+        lines: group.lines.map((l) => ({
+          item: l.item,
+          amount: l.amount,
+          settles: l.amount >= l.item.balance,
+        })),
+      })),
+    );
+    return collections;
   }
 
   /**
@@ -1153,19 +1184,15 @@ export function CustomerPaymentPanel({
           loading={collecting}
           onSubmit={async (values) => {
             const send = collectFor.send;
-            const created = await runCollect({
-              items: collectFor.items,
-              amount: values.amount,
-              currencyId: values.currencyId,
-              ratePerUsdSnapshot: values.ratePerUsdSnapshot,
+            const created = await runCollectGroups({
               receivedAt: values.receivedAt,
               notes: values.notes,
-              lines: values.lines,
+              groups: values.groups,
             });
-            if (!created) return;
+            if (created.length === 0) return;
             setCollectFor(null);
             selection.clear();
-            await afterCollect(created, send);
+            for (const row of created) await afterCollect(row, send);
           }}
           onDismiss={() => setCollectFor(null)}
         />
