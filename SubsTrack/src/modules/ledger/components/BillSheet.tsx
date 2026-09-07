@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { View } from "react-native";
+import { ActivityIndicator, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
 import { FormSheet } from "@/src/shared/components/FormSheet";
@@ -21,6 +21,7 @@ import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { useUserSlice } from "@/src/state/hooks/useUserSlice";
 import { useLanguageStore } from "@/src/core/i18n/languageStore";
 import { useAuth } from "@/src/modules/authentication/auth";
+import { COLORS } from "@/src/shared/constants";
 import { BillPaymentsList } from "./BillPaymentsList";
 import { BillHistorySheet } from "./BillHistorySheet";
 
@@ -57,11 +58,16 @@ export function BillSheet({
   const [historyOpen, setHistoryOpen] = useState(false);
 
   const [collected, setCollected] = useState(0);
+  const [paymentsLoading, setPaymentsLoading] = useState(true);
 
   const handleCollected = useCallback((v: number) => setCollected(v), []);
+  const handleLoading = useCallback((v: boolean) => setPaymentsLoading(v), []);
 
   const chargeId = charge?.id ?? null;
-  useEffect(() => setCollected(0), [chargeId]);
+  useEffect(() => {
+    setCollected(0);
+    setPaymentsLoading(true);
+  }, [chargeId]);
 
   if (!charge) return null;
 
@@ -109,85 +115,102 @@ export function BillSheet({
       title={label}
       menuActions={menuActions}
     >
-      <View className="gap-5 pb-8">
-        {/* Collected out of owed — the running total, not a one-off snapshot. */}
-        <View className="items-center gap-1 py-2">
-          <Text className="text-3xl font-bold text-slate-900">
-            {settled
-              ? money(charge.amount)
-              : formatPaidFraction(collected, charge.amount, source, source)}
-          </Text>
-          {approx ? (
-            <Text className="text-xs text-slate-400">{approx}</Text>
-          ) : null}
-          {!settled && (
-            <Text className="text-sm text-slate-600">
-              {t("ledger.remaining")} {money(balance)}
-            </Text>
-          )}
-          <View
-            className={`mt-1 rounded-full px-3 py-1 ${
-              settled ? "bg-emerald-50" : partial ? "bg-amber-50" : "bg-red-50"
-            }`}
-          >
-            <Text
-              className={`text-xs font-semibold ${
-                settled
-                  ? "text-emerald-700"
-                  : partial
-                    ? "text-amber-700"
-                    : "text-red-700"
-              }`}
-            >
-              {settled
-                ? t("ledger.settled")
-                : partial
-                  ? t("ledger.partial")
-                  : t("ledger.open")}
-            </Text>
+      <View className="pb-8">
+        {paymentsLoading ? (
+          <View className="items-center py-16">
+            <ActivityIndicator color={COLORS.primary} />
           </View>
-        </View>
+        ) : (
+          <View className="gap-5">
+            <View className="items-center gap-1 py-2">
+              <Text className="text-3xl font-bold text-slate-900">
+                {settled
+                  ? money(charge.amount)
+                  : formatPaidFraction(collected, charge.amount, source, source)}
+              </Text>
+              {approx ? (
+                <Text className="text-xs text-slate-400">{approx}</Text>
+              ) : null}
+              {!settled && (
+                <Text className="text-sm text-slate-600">
+                  {t("ledger.remaining")} {money(balance)}
+                </Text>
+              )}
+              <View
+                className={`mt-1 rounded-full px-3 py-1 ${
+                  settled
+                    ? "bg-emerald-50"
+                    : partial
+                      ? "bg-amber-50"
+                      : "bg-red-50"
+                }`}
+              >
+                <Text
+                  className={`text-xs font-semibold ${
+                    settled
+                      ? "text-emerald-700"
+                      : partial
+                        ? "text-amber-700"
+                        : "text-red-700"
+                  }`}
+                >
+                  {settled
+                    ? t("ledger.settled")
+                    : partial
+                      ? t("ledger.partial")
+                      : t("ledger.open")}
+                </Text>
+              </View>
+            </View>
 
-        <InfoRows
-          rows={[
-            {
-              label: t("ledger.customer_label"),
-              value: customerName ?? recipient?.name,
-            },
-            { label: t("ledger.billing_month"), value: monthLabel },
-            { label: t("ledger.bill_total"), value: money(charge.amount) },
-            {
-              label: t("ledger.due_date"),
-              value: formatDate(charge.dueDate, locale),
-            },
-            {
-              label: t("ledger.issued_at"),
-              value: formatDateTime(charge.issuedAt, locale),
-            },
-            {
-              label: t("ledger.recorded_by"),
-              value: users.find((u) => u.id === charge.recordedByUserId)
-                ?.fullName,
-            },
-            { label: t("ledger.notes"), value: charge.notes },
-          ]}
-        />
-
-        <BillPaymentsList
-          chargeId={charge.id}
-          snapshot={charge}
-          visible={visible}
-          recipient={recipient}
-          onChanged={onChanged}
-          onCollectedChange={handleCollected}
-        />
-
-        {!settled && onCollect && (
-          <Button
-            label={t("ledger.collect_remaining", { amount: money(balance) })}
-            onPress={() => onCollect(charge)}
-          />
+            <InfoRows
+              rows={[
+                {
+                  label: t("ledger.customer_label"),
+                  value: customerName ?? recipient?.name,
+                },
+                { label: t("ledger.billing_month"), value: monthLabel },
+                { label: t("ledger.bill_total"), value: money(charge.amount) },
+                {
+                  label: t("ledger.due_date"),
+                  value: formatDate(charge.dueDate, locale),
+                },
+                {
+                  label: t("ledger.issued_at"),
+                  value: formatDateTime(charge.issuedAt, locale),
+                },
+                {
+                  label: t("ledger.recorded_by"),
+                  value: users.find((u) => u.id === charge.recordedByUserId)
+                    ?.fullName,
+                },
+                { label: t("ledger.notes"), value: charge.notes },
+              ]}
+            />
+          </View>
         )}
+
+        <View
+          className="gap-5 pt-5"
+          style={paymentsLoading ? { display: "none" } : undefined}
+        >
+          <BillPaymentsList
+            chargeId={charge.id}
+            snapshot={charge}
+            visible={visible}
+            recipient={recipient}
+            onChanged={onChanged}
+            onCollectedChange={handleCollected}
+            onLoadingChange={handleLoading}
+          />
+
+          {!settled && onCollect && (
+            <Button
+              label={t("ledger.collect_remaining", { amount: money(balance) })}
+              onPress={() => onCollect(charge)}
+            />
+          )}
+        </View>
 
         {historyOpen ? (
           <BillHistorySheet

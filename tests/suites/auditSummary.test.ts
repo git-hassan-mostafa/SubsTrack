@@ -550,4 +550,45 @@ describe('buildAuditSummary', () => {
     });
     expect(sentence(e)).toBe('Super Admin voided a payment of 30.00 $ from John Doe');
   });
+
+  it('TC-AS-44 a custom debt is named a custom debt, never a bare bill', () => {
+    const e = entry({
+      table: 'charges',
+      action: 'create',
+      subject: 'John Doe',
+      snapshot: { kind: 'manual', description: 'Router repair', amount: 20, currency_id: USD.id },
+    });
+    expect(sentence(e)).toBe('Super Admin added a new custom debt Router repair for John Doe');
+  });
+
+  it('TC-AS-45 a custom debt void reads the same noun as its create', () => {
+    const e = entry({
+      table: 'charges',
+      action: 'void',
+      subject: 'John Doe',
+      changes: [change('voided_at', null, 'x')],
+      context: { kind: 'manual', description: 'Router repair' },
+    });
+    expect(sentence(e)).toBe('Super Admin voided the custom debt Router repair for John Doe');
+  });
+
+  it('TC-AS-46 a described-less custom debt falls back to its amount', () => {
+    const e = entry({
+      table: 'charges',
+      action: 'create',
+      subject: 'John Doe',
+      snapshot: { kind: 'manual', amount: 20, currency_id: USD.id },
+    });
+    expect(sentence(e)).toBe('Super Admin added a new custom debt $20.00 for John Doe');
+  });
+
+  it('TC-AS-47 a month bill keeps the bare word — its month already names it', () => {
+    const e = entry({
+      table: 'charges',
+      action: 'create',
+      subject: 'John Doe',
+      snapshot: { kind: 'month', billing_month: '2026-03-01' },
+    });
+    expect(sentence(e)).toBe('Super Admin added a new March 2026 bill for John Doe');
+  });
 });

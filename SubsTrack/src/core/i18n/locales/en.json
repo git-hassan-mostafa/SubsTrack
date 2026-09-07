@@ -1158,6 +1158,9 @@
         "month": "subscription payment",
         "sale": "sale payment",
         "manual": "debt payment"
+      },
+      "bill": {
+        "manual": "custom debt"
       }
     },
     "filter_by_table": "Record type",

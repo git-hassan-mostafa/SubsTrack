@@ -8,12 +8,40 @@ export interface AuditSummaryOptions {
   showSubject?: boolean;
 }
 
+type RecordStyle = 'type_first' | 'detail_first' | 'of_detail';
+
 // How a record names itself: "the March 2026 bill" / "a payment of 30.00 $" / "the plan Gold".
-const RECORD_STYLE: Partial<Record<AuditTable, 'detail_first' | 'of_detail'>> = {
+const RECORD_STYLE: Partial<Record<AuditTable, RecordStyle>> = {
   charges: 'detail_first',
   sales: 'detail_first',
   collections: 'of_detail',
 };
+
+// A charge's detail is its MONTH, except a manual one, whose detail is a free-text
+// description — "the fix router custom debt" reads backwards, so the noun leads.
+const KIND_STYLE: Partial<Record<AuditTable, Record<string, RecordStyle>>> = {
+  charges: { manual: 'type_first' },
+};
+
+// What the row IS, per `kind`: a hand-over by what it PAID FOR, a charge by what
+// it owes. A kind with no word here keeps the plain table label — 'mixed' settled
+// several, and a month/sale bill is already named by its month or receipt.
+const KIND_TYPE: Partial<Record<AuditTable, Record<string, string>>> = {
+  collections: {
+    month: 'audit.summary.payment.month',
+    sale: 'audit.summary.payment.sale',
+    manual: 'audit.summary.payment.manual',
+  },
+  charges: {
+    manual: 'audit.summary.bill.manual',
+  },
+};
+
+// A void carries `kind` in the diff's context; a create only has the whole row.
+function recordKind(entry: AuditEntry): string | null {
+  const kind = entry.context.kind ?? entry.snapshot?.kind;
+  return typeof kind === 'string' && kind !== '' ? kind : null;
+}
 
 // Booleans whose NAME means nothing to a reader — "changed regular customer from
 // No to Yes" has to become a verb. `active` is not here: it is table-dependent.
@@ -50,20 +78,11 @@ function changeOf(entry: AuditEntry, field: string): AuditChange | undefined {
   return entry.changes.find((c) => c.field === field);
 }
 
-// What a hand-over PAID FOR, so a void says "a sale payment", never a bare
-// amount. 'mixed' settled more than one kind, so it keeps the plain word.
-const COLLECTION_TYPE: Record<string, string> = {
-  month: 'audit.summary.payment.month',
-  sale: 'audit.summary.payment.sale',
-  manual: 'audit.summary.payment.manual',
-};
-
-/** The record's noun — a collection is named by the kind of bill it settled. */
+/** The record's noun, named by its `kind` where the table has kinds. */
 function recordType(entry: AuditEntry, ctx: AuditFieldContext): string {
-  const plain = tableLabel(ctx.t, entry.table).toLowerCase();
-  if (entry.table !== 'collections') return plain;
-  const key = COLLECTION_TYPE[String(entry.context.kind ?? '')];
-  return key ? ctx.t(key) : plain;
+  const kind = recordKind(entry);
+  const key = kind ? KIND_TYPE[entry.table]?.[kind] : undefined;
+  return key ? ctx.t(key) : tableLabel(ctx.t, entry.table).toLowerCase();
 }
 
 /**
@@ -77,7 +96,11 @@ function recordPhrase(
   detail: RecordDetail,
   type: string,
 ): string {
-  const style = RECORD_STYLE[entry.table] ?? 'type_first';
+  const kind = recordKind(entry);
+  const style =
+    (kind ? KIND_STYLE[entry.table]?.[kind] : undefined) ??
+    RECORD_STYLE[entry.table] ??
+    'type_first';
   const fresh = entry.action === 'create' && style !== 'of_detail';
   if (!detail.text) {
     return ctx.t(fresh ? 'audit.summary.record.bare_new' : 'audit.summary.record.bare', { type });

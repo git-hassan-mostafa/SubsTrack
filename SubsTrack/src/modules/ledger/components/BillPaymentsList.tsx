@@ -28,6 +28,7 @@ interface Props {
   recipient?: { name: string; phone: string | null } | null;
   onChanged?: (voided: Collection) => void;
   onCollectedChange?: (collected: number) => void;
+  onLoadingChange?: (loading: boolean) => void;
 }
 
 /**
@@ -46,6 +47,7 @@ export function BillPaymentsList({
   recipient,
   onChanged,
   onCollectedChange,
+  onLoadingChange,
 }: Props) {
   const { t } = useTranslation();
   const { user } = useAuth();
@@ -55,25 +57,27 @@ export function BillPaymentsList({
   const locale = language === "ar" ? "ar" : "en-US";
   const { canSend, sendCollectionInvoice } = useSendInvoice();
 
-  const [payments, setPayments] = useState<Collection[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [payments, setPayments] = useState<Collection[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [menuFor, setMenuFor] = useState<Collection | null>(null);
   const [voidTarget, setVoidTarget] = useState<Collection | null>(null);
+  const loading = payments === null;
 
   const load = useCallback(async () => {
     if (!chargeId) {
       setPayments([]);
       return;
     }
-    setLoading(true);
     try {
       setPayments(await collectionService.getPaymentsForCharge(chargeId));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setLoading(false);
+      setPayments([]);
     }
+  }, [chargeId]);
+
+  useEffect(() => {
+    setPayments(null);
   }, [chargeId]);
 
   useEffect(() => {
@@ -83,12 +87,17 @@ export function BillPaymentsList({
   const source = snapshotCurrency(snapshot, currencies);
   const money = (v: number) => formatMoney(v, source, source);
 
-  const live = payments.filter((p) => p.voidedAt === null);
+  const rows = payments ?? [];
+  const live = rows.filter((p) => p.voidedAt === null);
   const collected = live.reduce((sum, p) => sum + itemAmount(p, chargeId), 0);
 
   useEffect(() => {
     onCollectedChange?.(collected);
   }, [collected, onCollectedChange]);
+
+  useEffect(() => {
+    onLoadingChange?.(loading);
+  }, [loading, onLoadingChange]);
 
   const userName = (id: string | null) =>
     users.find((u) => u.id === id)?.fullName ?? t("common.unknown");
@@ -142,12 +151,12 @@ export function BillPaymentsList({
 
       {loading ? (
         <ActivityIndicator />
-      ) : payments.length === 0 ? (
+      ) : rows.length === 0 ? (
         <Text className="py-2 text-sm text-slate-500">
           {t("ledger.no_payments_yet")}
         </Text>
       ) : (
-        payments.map((p) => {
+        rows.map((p) => {
           const paidHere = itemAmount(p, chargeId);
           const coversMore = (p.items?.length ?? 0) > 1;
           const voided = p.voidedAt !== null;
@@ -198,7 +207,7 @@ export function BillPaymentsList({
           onDone={(voided) => {
             setVoidTarget(null);
             setPayments((prev) =>
-              prev.map((p) => (p.id === voided.id ? voided : p)),
+              (prev ?? []).map((p) => (p.id === voided.id ? voided : p)),
             );
             onChanged?.(voided);
           }}
