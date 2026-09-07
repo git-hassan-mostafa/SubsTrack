@@ -6,7 +6,10 @@ import { Text } from "@/src/shared/components/Text";
 import type { TFunction } from "i18next";
 import type { Customer, CustomerStatus } from "@/src/core/types";
 import { COLORS } from "../../../../shared/constants";
-import { EntityCard } from "@/src/shared/components/EntityCard";
+import {
+  EntityCard,
+  type EntityCardFlag,
+} from "@/src/shared/components/EntityCard";
 import { customerFlags, type CustomerFlag } from "../utils/customerFlags";
 
 interface Props {
@@ -26,14 +29,12 @@ const FLAG_STYLES: Record<
   CustomerFlag,
   {
     label: (t: TFunction, s: CustomerStatus) => string;
-    textClassName: string;
-    bgClassName: string;
+    className: string;
   }
 > = {
   paid: {
     label: (t) => `✓ ${t("common.paid")}`,
-    textClassName: "text-green-700",
-    bgClassName: "bg-green-100",
+    className: "bg-green-500 text-white",
   },
   mixed: {
     label: (t, s) =>
@@ -41,54 +42,67 @@ const FLAG_STYLES: Record<
         paid: s.planCount.paid,
         total: s.planCount.total,
       }),
-    textClassName: "text-amber-600",
-    bgClassName: "bg-amber-100",
+    className: "bg-amber-500 text-white",
   },
   unpaid: {
     label: (t) => t("dashboard.unpaid"),
-    textClassName: "text-red-500",
-    bgClassName: "bg-red-100",
+    className: "bg-red-500 text-white",
   },
   skipped: {
     label: (t) => t("payments.skip.skipped_label"),
-    textClassName: "text-slate-600",
-    bgClassName: "bg-slate-200",
+    className: "bg-slate-400 text-white",
   },
   not_due_yet: {
     label: (t) => t("payments.not_due_yet_label"),
-    textClassName: "text-gray-500",
-    bgClassName: "bg-gray-100",
+    className: "bg-gray-400 text-white",
   },
   overdue: {
     label: (t) => t("customers.overdue"),
-    textClassName: "text-red-600",
-    bgClassName: "bg-red-100",
+    className: "bg-red-500 text-white",
   },
 };
 
-// Pill props for each flag this customer wears, in the helper's display order.
-function flagPills(status: CustomerStatus, t: TFunction) {
-  return customerFlags(status).map((flag) => {
-    const style = FLAG_STYLES[flag];
-    return { ...style, key: flag, text: style.label(t, status) };
-  });
-}
+// Inactive and non-regular REPLACE the payment flags; debt always rides along.
+function buildFlags(
+  customer: Customer,
+  status: CustomerStatus | null,
+  debtLabel: string | null,
+  t: TFunction,
+): EntityCardFlag[] {
+  const flags: EntityCardFlag[] = [];
 
-// A single pill badge. Rendered on the card's top flags row.
-function Flag({
-  text,
-  textClassName,
-  bgClassName,
-}: {
-  text: string;
-  textClassName: string;
-  bgClassName: string;
-}) {
-  return (
-    <View className={`rounded-lg px-2 py-0.5 ${bgClassName}`}>
-      <Text className={`text-xs font-semibold ${textClassName}`}>{text}</Text>
-    </View>
-  );
+  if (!customer.active) {
+    flags.push({
+      key: "inactive",
+      text: t("common.inactive"),
+      className: "bg-gray-400 text-white",
+    });
+  } else if (!customer.isRegular) {
+    flags.push({
+      key: "non_regular",
+      text: t("customers.non_regular"),
+      className: "bg-amber-500 text-white",
+    });
+  } else if (status) {
+    for (const flag of customerFlags(status)) {
+      const style = FLAG_STYLES[flag];
+      flags.push({
+        key: flag,
+        text: style.label(t, status),
+        className: style.className,
+      });
+    }
+  }
+
+  if (debtLabel) {
+    flags.push({
+      key: "debt",
+      text: `${t("customers.debt")} ${debtLabel}`,
+      className: "bg-red-500 text-white",
+    });
+  }
+
+  return flags;
 }
 
 export const CustomerCard = memo(function CustomerCard({
@@ -115,11 +129,13 @@ export const CustomerCard = memo(function CustomerCard({
         ? activeLines[0].plan?.name || t("common.no_plan")
         : t("subscriptions.count_plans", { count: activeLines.length });
 
-  const flags = status ? flagPills(status, t) : [];
+  const flags = buildFlags(customer, status, debtLabel, t);
 
   return (
     <EntityCard
       icon="person-outline"
+      flags={flags}
+      reserveFlagSpace
       onPress={() => onPress(customer)}
       onMenu={() => onMenu(customer)}
       menuLoading={menuLoading}
@@ -131,43 +147,6 @@ export const CustomerCard = memo(function CustomerCard({
       }
     >
       <View className="flex-1 me-2">
-        {/* Flags — their own line at the top right of the card. The min height
-            keeps the row from collapsing while the status is still loading. */}
-        <View className="flex-row items-center justify-end gap-1.5 mb-1 min-h-[20px]">
-          {!customer.active ? (
-            <Flag
-              text={t("common.inactive")}
-              textClassName="text-gray-500"
-              bgClassName="bg-gray-100"
-            />
-          ) : !customer.isRegular ? (
-            <Flag
-              text={t("customers.non_regular")}
-              textClassName="text-amber-600"
-              bgClassName="bg-amber-100"
-            />
-          ) : (
-            flags.map((flag) => (
-              <Flag
-                key={flag.key}
-                text={flag.text}
-                textClassName={flag.textClassName}
-                bgClassName={flag.bgClassName}
-              />
-            ))
-          )}
-
-          {/* Debt flag — shown whenever the customer has a net outstanding debt. */}
-          {debtLabel ? (
-            <Flag
-              text={`${t("customers.debt")} ${debtLabel}`}
-              textClassName="text-red-600"
-              bgClassName="bg-red-100"
-            />
-          ) : null}
-        </View>
-
-        {/* Name + Date on one line */}
         <View className="flex-row items-center">
           <Text
             className="flex-1 text-base font-semibold text-gray-900"
