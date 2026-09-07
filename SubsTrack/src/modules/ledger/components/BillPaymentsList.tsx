@@ -25,6 +25,7 @@ interface Props {
   chargeId: string | null;
   snapshot: { currencyId: string | null; ratePerUsdSnapshot: number };
   visible: boolean;
+  billVoided?: boolean;
   recipient?: { name: string; phone: string | null } | null;
   onChanged?: (voided: Collection) => void;
   onCollectedChange?: (collected: number) => void;
@@ -39,11 +40,15 @@ interface Props {
  * sale are the same thing to the ledger: one `charges` row that any number of
  * `collections` can settle. Voiding a row here says THAT hand-over was wrong and
  * leaves the bill owed — voiding the bill itself is the owner's own action.
+ *
+ * `billVoided` makes the whole list a record: voiding the bill already took its
+ * cash, so every row reads voided and nothing here can be acted on again.
  */
 export function BillPaymentsList({
   chargeId,
   snapshot,
   visible,
+  billVoided = false,
   recipient,
   onChanged,
   onCollectedChange,
@@ -146,8 +151,16 @@ export function BillPaymentsList({
       ) : null}
 
       <Text className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-        {t("ledger.payments_count", { count: live.length })}
+        {t("ledger.payments_count", {
+          count: billVoided ? rows.length : live.length,
+        })}
       </Text>
+
+      {billVoided && rows.length > 0 ? (
+        <Text className="text-xs text-slate-500">
+          {t("ledger.bill_voided_payments_hint")}
+        </Text>
+      ) : null}
 
       {loading ? (
         <ActivityIndicator />
@@ -159,7 +172,7 @@ export function BillPaymentsList({
         rows.map((p) => {
           const paidHere = itemAmount(p, chargeId);
           const coversMore = (p.items?.length ?? 0) > 1;
-          const voided = p.voidedAt !== null;
+          const voided = billVoided || p.voidedAt !== null;
           return (
             <View
               key={p.id}
@@ -167,9 +180,17 @@ export function BillPaymentsList({
                 voided ? "opacity-50" : ""
               }`}
             >
-              <Ionicons name="cash-outline" size={18} color={COLORS.success} />
+              <Ionicons
+                name="cash-outline"
+                size={18}
+                color={voided ? COLORS.gray500 : COLORS.success}
+              />
               <View className="flex-1">
-                <Text className="text-sm font-semibold text-slate-900">
+                <Text
+                  className={`text-sm font-semibold ${
+                    voided ? "text-slate-400 line-through" : "text-slate-900"
+                  }`}
+                >
                   {money(paidHere)}
                 </Text>
                 <Text className="text-xs text-slate-500">

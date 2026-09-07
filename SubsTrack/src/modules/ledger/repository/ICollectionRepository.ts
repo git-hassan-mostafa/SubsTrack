@@ -61,7 +61,10 @@ export interface ICollectionRepository {
   findById(id: string): Promise<DbCollection | null>;
   findByIds(ids: string[]): Promise<DbCollection[]>;
   find(opts: FindCollectionsOptions): Promise<DbCollection[]>;
-  findItemsForCharges(chargeIds: string[]): Promise<DbCollectionItem[]>;
+  findItemsForCharges(
+    chargeIds: string[],
+    includeVoided?: boolean,
+  ): Promise<DbCollectionItem[]>;
   monthlyTotals(opts: FindCollectionsOptions): Promise<Record<string, number>>;
 
   create(payload: CreateCollectionPayload): Promise<DbCollection>;

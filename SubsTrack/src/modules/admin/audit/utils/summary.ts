@@ -1,7 +1,7 @@
 import type { AuditAction, AuditChange, AuditEntry, AuditTable } from '@/src/core/types';
 import { formatField, formatFieldLabel, tableLabel } from './format';
 import { recordDetail, type RecordDetail } from './recordDetail';
-import { bold, toParts, type SentencePart } from './sentence';
+import { bold, isolate, toParts, type SentencePart } from './sentence';
 import type { AuditFieldContext } from './valueDisplay';
 
 export interface AuditSummaryOptions {
@@ -223,7 +223,7 @@ function specialSentence(entry: AuditEntry, ctx: AuditFieldContext, p: Phrases):
     return t('audit.summary.special.stock_edit', {
       actor,
       field: fieldName(c.field, ctx),
-      before: formatField(c.field, c.before, ctx),
+      before: isolate(formatField(c.field, c.before, ctx)),
       after: bold(formatField(c.field, c.after, ctx)),
     });
   }
@@ -233,7 +233,7 @@ function specialSentence(entry: AuditEntry, ctx: AuditFieldContext, p: Phrases):
     return t('audit.summary.special.renamed', {
       actor,
       type,
-      before: formatField(c.field, c.before, ctx),
+      before: isolate(formatField(c.field, c.before, ctx)),
       after: bold(formatField(c.field, c.after, ctx)),
     });
   }
@@ -253,7 +253,7 @@ function genericSentence(entry: AuditEntry, ctx: AuditFieldContext, p: Phrases):
       actor: p.actor,
       field: fieldName(c.field, ctx),
       record: p.record,
-      before: formatField(c.field, c.before, ctx),
+      before: isolate(formatField(c.field, c.before, ctx)),
       after: bold(formatField(c.field, c.after, ctx)),
     });
   }

@@ -132,12 +132,16 @@ export class OfflineCollectionRepository
     return sumByMonth(rows);
   }
 
-  async findItemsForCharges(chargeIds: string[]): Promise<DbCollectionItem[]> {
+  // `includeVoided` is for DISPLAY only — every money path must leave it off.
+  async findItemsForCharges(
+    chargeIds: string[],
+    includeVoided = false,
+  ): Promise<DbCollectionItem[]> {
     if (chargeIds.length === 0) return [];
     const rows = await this.all(
       `SELECT i.* FROM collection_items i
          JOIN collections co ON co.id = i.collection_id
-        WHERE co.voided_at IS NULL
+        WHERE ${includeVoided ? '1=1' : 'co.voided_at IS NULL'}
           AND i.charge_id IN (${chargeIds.map(() => '?').join(',')})`,
       chargeIds,
     );

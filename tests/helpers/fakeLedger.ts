@@ -277,11 +277,16 @@ export const fakeCollectionRepository = {
     rows.sort((a, b) => (asc ? key(a).localeCompare(key(b)) : key(b).localeCompare(key(a))));
     return fakeCollectionRepository.findByIds(rows.map((r) => r.id));
   },
-  async findItemsForCharges(chargeIds: string[]): Promise<DbCollectionItem[]> {
-    // A voided hand-over paid nothing, so its lines are not payments.
-    return items
-      .filter((i) => chargeIds.includes(i.charge_id))
-      .filter((i) => collections.find((c) => c.id === i.collection_id)?.voided_at === null);
+  // A voided hand-over pays nothing; only a DISPLAY caller asks to see it.
+  async findItemsForCharges(
+    chargeIds: string[],
+    includeVoided = false,
+  ): Promise<DbCollectionItem[]> {
+    const rows = items.filter((i) => chargeIds.includes(i.charge_id));
+    if (includeVoided) return rows;
+    return rows.filter(
+      (i) => collections.find((c) => c.id === i.collection_id)?.voided_at === null,
+    );
   },
   async monthlyTotals(opts: FindCollectionsOptions): Promise<Record<string, number>> {
     // Both repositories: voided money is not money, so it has no total.

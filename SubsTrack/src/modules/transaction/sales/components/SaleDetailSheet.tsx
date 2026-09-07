@@ -302,6 +302,7 @@ export function SaleDetailSheet({
             chargeId={sale.chargeId}
             snapshot={sale}
             visible
+            billVoided={voided}
             recipient={
               sale.customer
                 ? { name: sale.customer.name, phone: sale.customer.phoneNumber }

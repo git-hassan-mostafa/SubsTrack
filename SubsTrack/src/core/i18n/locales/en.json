@@ -1433,6 +1433,7 @@
     "voided_by": "Voided by",
     "this_paid": "This had paid",
     "voided_hint": "These bills are owed again.",
+    "bill_voided_payments_hint": "This bill was voided, so this money was voided with it and is no longer collected.",
     "void_reason_label": "Void reason",
     "bill_total": "Bill total",
     "billing_month": "Month billed",

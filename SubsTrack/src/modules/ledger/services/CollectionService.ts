@@ -206,7 +206,7 @@ class CollectionService {
   }
 
   async getPaymentsForCharge(chargeId: string): Promise<Collection[]> {
-    const items = await repository.findItemsForCharges([chargeId]);
+    const items = await repository.findItemsForCharges([chargeId], true);
     const collections = await repository.findByIds([
       ...new Set(items.map((i) => i.collection_id)),
     ]);
@@ -220,7 +220,7 @@ class CollectionService {
 
   /** Every hand-over that ever touched one bill, as audit targets. */
   async getPaymentTargets(chargeId: string): Promise<AuditRecordTarget[]> {
-    const items = await repository.findItemsForCharges([chargeId]);
+    const items = await repository.findItemsForCharges([chargeId], true);
     return [...new Set(items.map((i) => i.collection_id))].map((recordId) => ({
       table: 'collections' as const,
       recordId,

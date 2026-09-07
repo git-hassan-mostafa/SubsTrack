@@ -16,7 +16,7 @@ jest.mock('@/src/core/i18n', () => ({
 
 import type { AuditChange, AuditEntry, AuditTable, Currency } from '@/src/core/types';
 import { buildAuditSummary } from '@/src/modules/admin/audit/utils/summary';
-import { bold, toParts } from '@/src/modules/admin/audit/utils/sentence';
+import { bold, isolate, toParts } from '@/src/modules/admin/audit/utils/sentence';
 import type { AuditFieldContext, AuditLookups } from '@/src/modules/admin/audit/utils/valueDisplay';
 
 function lookupKey(key: string): string | undefined {
@@ -84,16 +84,23 @@ function ctxFor(e: AuditEntry): AuditFieldContext {
   return { t, locale: 'en-US', table: e.table, row: e.context, lookups };
 }
 
+// Bidi isolates are invisible formatting a reader never sees - gotcha #137.
+function readable(text: string): string {
+  return text.replace(/[\u2066-\u2069]/g, '');
+}
+
 function sentence(e: AuditEntry, showSubject = true): string {
-  return buildAuditSummary(e, ctxFor(e), { showSubject })
-    .map((p) => p.text)
-    .join('');
+  return readable(
+    buildAuditSummary(e, ctxFor(e), { showSubject })
+      .map((p) => p.text)
+      .join(''),
+  );
 }
 
 function bolded(e: AuditEntry): string[] {
   return buildAuditSummary(e, ctxFor(e))
     .filter((p) => p.bold)
-    .map((p) => p.text);
+    .map((p) => readable(p.text));
 }
 
 function change(field: string, before: unknown, after: unknown): AuditChange {
@@ -590,5 +597,47 @@ describe('buildAuditSummary', () => {
       snapshot: { kind: 'month', billing_month: '2026-03-01' },
     });
     expect(sentence(e)).toBe('Super Admin added a new March 2026 bill for John Doe');
+  });
+});
+
+// TC-AS-BIDI-* — an Arabic sentence reorders around an un-isolated Latin or
+// numeric run, so every spliced value carries its own isolate pair. See #137.
+describe('bidi isolation', () => {
+  it('TC-AS-48 every bold run is wrapped in its own isolate pair', () => {
+    const e = entry({
+      table: 'collections',
+      action: 'create',
+      subject: 'John Doe',
+      context: { kind: 'sale', amount: 5, currency_id: USD.id },
+    });
+    const runs = buildAuditSummary(e, ctxFor(e)).filter((p) => p.bold);
+    expect(runs.length).toBeGreaterThan(0);
+    for (const run of runs) {
+      expect(run.text.startsWith('\u2068')).toBe(true);
+      expect(run.text.endsWith('\u2069')).toBe(true);
+    }
+  });
+
+  it('TC-AS-49 an isolate pair never straddles a bold split', () => {
+    const e = entry({
+      table: 'collections',
+      action: 'create',
+      subject: 'John Doe',
+      context: { kind: 'sale', amount: 5, currency_id: USD.id },
+    });
+    for (const part of buildAuditSummary(e, ctxFor(e))) {
+      const opens = (part.text.match(/\u2068/g) ?? []).length;
+      const closes = (part.text.match(/\u2069/g) ?? []).length;
+      expect(opens).toBe(closes);
+    }
+  });
+
+  it('TC-AS-50 isolating is idempotent and leaves an empty value untouched', () => {
+    expect(isolate('')).toBe('');
+    expect(isolate(isolate('Super Admin'))).toBe(isolate('Super Admin'));
+  });
+
+  it('TC-AS-51 a value cannot smuggle in an isolate of its own', () => {
+    expect(isolate('a\u2068b\u2069c')).toBe(isolate('abc'));
   });
 });

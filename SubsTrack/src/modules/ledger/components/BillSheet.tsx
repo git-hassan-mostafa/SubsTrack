@@ -75,9 +75,10 @@ export function BillSheet({
   const display = findCurrency(currencies, displayCurrencyId);
   const money = (v: number) => formatMoney(v, source, source);
 
+  const voided = charge.voidedAt !== null;
   const balance = charge.amount - collected;
-  const settled = balance <= 0;
-  const partial = collected > 0 && balance > 0;
+  const settled = !voided && balance <= 0;
+  const partial = !voided && collected > 0 && balance > 0;
   const approx = formatMoneyPair(charge.amount, source, display).approx;
   const monthLabel =
     charge.kind === "month" && charge.billingMonth
@@ -98,7 +99,7 @@ export function BillSheet({
       onPress: () => setHistoryOpen(true),
     });
   }
-  if (onVoidBill) {
+  if (onVoidBill && !voided) {
     menuActions.push({
       key: "void",
       label: t("ledger.void_month"),
@@ -123,15 +124,19 @@ export function BillSheet({
         ) : (
           <View className="gap-5">
             <View className="items-center gap-1 py-2">
-              <Text className="text-3xl font-bold text-slate-900">
-                {settled
+              <Text
+                className={`text-3xl font-bold ${
+                  voided ? "text-slate-400 line-through" : "text-slate-900"
+                }`}
+              >
+                {voided || settled
                   ? money(charge.amount)
                   : formatPaidFraction(collected, charge.amount, source, source)}
               </Text>
               {approx ? (
                 <Text className="text-xs text-slate-400">{approx}</Text>
               ) : null}
-              {!settled && (
+              {!voided && !settled && (
                 <Text className="text-sm text-slate-600">
                   {t("ledger.remaining")} {money(balance)}
                 </Text>
@@ -154,11 +159,13 @@ export function BillSheet({
                         : "text-red-700"
                   }`}
                 >
-                  {settled
-                    ? t("ledger.settled")
-                    : partial
-                      ? t("ledger.partial")
-                      : t("ledger.open")}
+                  {voided
+                    ? t("ledger.voided")
+                    : settled
+                      ? t("ledger.settled")
+                      : partial
+                        ? t("ledger.partial")
+                        : t("ledger.open")}
                 </Text>
               </View>
             </View>
@@ -185,6 +192,22 @@ export function BillSheet({
                     ?.fullName,
                 },
                 { label: t("ledger.notes"), value: charge.notes },
+                {
+                  label: t("ledger.voided_at"),
+                  value: charge.voidedAt
+                    ? formatDateTime(charge.voidedAt, locale)
+                    : null,
+                },
+                {
+                  label: t("ledger.voided_by"),
+                  value: charge.voidedBy
+                    ? users.find((u) => u.id === charge.voidedBy)?.fullName
+                    : null,
+                },
+                {
+                  label: t("ledger.void_reason_label"),
+                  value: charge.voidReason,
+                },
               ]}
             />
           </View>
@@ -198,13 +221,14 @@ export function BillSheet({
             chargeId={charge.id}
             snapshot={charge}
             visible={visible}
+            billVoided={voided}
             recipient={recipient}
             onChanged={onChanged}
             onCollectedChange={handleCollected}
             onLoadingChange={handleLoading}
           />
 
-          {!settled && onCollect && (
+          {!voided && !settled && onCollect && (
             <Button
               label={t("ledger.collect_remaining", { amount: money(balance) })}
               onPress={() => onCollect(charge)}

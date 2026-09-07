@@ -442,14 +442,25 @@ describe('what the cash paid for', () => {
 });
 
 describe('a bill`s payments list', () => {
-  it('TC-CL-40 lists live hand-overs newest first and drops voided ones', async () => {
+  it('TC-CL-40 lists every hand-over newest first, voided ones marked not dropped', async () => {
     const chg = store.seedCharge({ amount: 60 });
     store.seedCollection(chg.id, 20, { id: 'c-late', received_at: '2026-03-01T00:00:00.000Z' });
     store.seedCollection(chg.id, 20, { id: 'c-early', received_at: '2026-02-01T00:00:00.000Z' });
     const dead = store.seedCollection(chg.id, 20, { id: 'c-dead', received_at: '2026-01-01T00:00:00.000Z' });
     await collectionService.voidCollection(dead.id, 'user-1', null);
     const payments = await collectionService.getPaymentsForCharge(chg.id);
-    expect(payments.map((p) => p.id)).toEqual(['c-late', 'c-early']);
+    expect(payments.map((p) => p.id)).toEqual(['c-late', 'c-early', 'c-dead']);
+    expect(payments.find((p) => p.id === 'c-dead')?.voidedAt).not.toBeNull();
+  });
+
+  it('TC-CL-41 a voided bill still shows the money the void took away', async () => {
+    const chg = store.seedCharge({ amount: 40 });
+    store.seedCollection(chg.id, 40, { id: 'c-gone' });
+    await chargeService.voidChargeWithPayments(chg.id, 'user-1', 'wrong bill');
+    const payments = await collectionService.getPaymentsForCharge(chg.id);
+    expect(payments.map((p) => p.id)).toEqual(['c-gone']);
+    expect(payments[0].voidedAt).not.toBeNull();
+    expect(await fakeBalance(chg.id)).toBeUndefined();
   });
 });
 

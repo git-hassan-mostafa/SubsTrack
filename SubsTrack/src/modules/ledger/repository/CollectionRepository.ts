@@ -141,13 +141,18 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
     );
   }
 
-  async findItemsForCharges(chargeIds: string[]): Promise<DbCollectionItem[]> {
+  // `includeVoided` is for DISPLAY only — every money path must leave it off.
+  async findItemsForCharges(
+    chargeIds: string[],
+    includeVoided = false,
+  ): Promise<DbCollectionItem[]> {
     if (chargeIds.length === 0) return [];
-    const { data, error } = await this.db
+    let query = this.db
       .from('collection_items')
       .select('*, collections!inner(*)')
-      .in('charge_id', chargeIds)
-      .is('collections.voided_at', null);
+      .in('charge_id', chargeIds);
+    if (!includeVoided) query = query.is('collections.voided_at', null);
+    const { data, error } = await query;
     if (error) this.handleError(error);
     return (data ?? []) as DbCollectionItem[];
   }
