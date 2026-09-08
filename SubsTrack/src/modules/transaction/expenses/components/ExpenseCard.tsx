@@ -16,7 +16,6 @@ import {
 import { outflowLabel } from "../utils/outflow";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
-import { useLanguageStore } from "@/src/core/i18n/languageStore";
 import { formatDate } from "@/src/core/utils/date";
 import {
   expenseCategoryIcon,
@@ -33,8 +32,6 @@ export function ExpenseCard({ item, onVoid, onOpenProduct }: Props) {
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
   const displayCurrencyId = useDisplayCurrencyId();
-  const { language } = useLanguageStore();
-  const locale = language === "ar" ? "ar" : "en-US";
   const [menuOpen, setMenuOpen] = useState(false);
 
   const source = snapshotCurrency(item, currencies);
@@ -79,7 +76,7 @@ export function ExpenseCard({ item, onVoid, onOpenProduct }: Props) {
             {item.label}
           </Text>
           <Text className="text-xs text-gray-500 mt-0.5" numberOfLines={1}>
-            {formatDate(item.date, locale)}
+            {formatDate(item.date)}
           </Text>
         </View>
 

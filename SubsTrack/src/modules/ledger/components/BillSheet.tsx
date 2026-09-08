@@ -19,7 +19,6 @@ import { getBlockRangeLabel } from "@/src/modules/customer/customer-payments/uti
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { useUserSlice } from "@/src/state/hooks/useUserSlice";
-import { useLanguageStore } from "@/src/core/i18n/languageStore";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { COLORS } from "@/src/shared/constants";
 import { BillPaymentsList } from "./BillPaymentsList";
@@ -52,8 +51,6 @@ export function BillSheet({
   const currencies = useCurrencySlice((s) => s.items);
   const users = useUserSlice((s) => s.items);
   const displayCurrencyId = useDisplayCurrencyId();
-  const { language } = useLanguageStore();
-  const locale = language === "ar" ? "ar" : "en-US";
   const { isAdmin } = useAuth();
   const [historyOpen, setHistoryOpen] = useState(false);
 
@@ -180,11 +177,11 @@ export function BillSheet({
                 { label: t("ledger.bill_total"), value: money(charge.amount) },
                 {
                   label: t("ledger.due_date"),
-                  value: formatDate(charge.dueDate, locale),
+                  value: formatDate(charge.dueDate),
                 },
                 {
                   label: t("ledger.issued_at"),
-                  value: formatDateTime(charge.issuedAt, locale),
+                  value: formatDateTime(charge.issuedAt),
                 },
                 {
                   label: t("ledger.recorded_by"),
@@ -195,7 +192,7 @@ export function BillSheet({
                 {
                   label: t("ledger.voided_at"),
                   value: charge.voidedAt
-                    ? formatDateTime(charge.voidedAt, locale)
+                    ? formatDateTime(charge.voidedAt)
                     : null,
                 },
                 {

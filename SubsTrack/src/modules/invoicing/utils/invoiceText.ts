@@ -13,7 +13,6 @@ type TFn = (key: string, opts?: Record<string, unknown>) => string;
 export interface InvoiceContext {
   t: TFn;
   orgName: string;
-  locale: string;
   currencies: Currency[];
   displayCurrencyId: string | null;
 }
@@ -58,7 +57,7 @@ export function buildCollectionInvoiceText(
       money(collection.amount, source) +
         equivalent(ctx, collection.amount, source),
     ),
-    row(ctx.t("payments.paid_on"), formatDate(collection.receivedAt, ctx.locale)),
+    row(ctx.t("payments.paid_on"), formatDate(collection.receivedAt)),
   ];
 
   if (items.length === 1) {
@@ -165,7 +164,7 @@ export function buildSaleInvoiceText(
     totals.push(row(ctx.t("sales.remaining_label"), money(remaining, source)));
   }
   totals.push(
-    row(ctx.t("sales.sold_at_label"), formatDate(sale.soldAt, ctx.locale)),
+    row(ctx.t("sales.sold_at_label"), formatDate(sale.soldAt)),
     row(ctx.t("sales.receipt_id_label"), receiptId(sale.id)),
   );
 
@@ -201,7 +200,7 @@ export function buildSalesInvoiceText(
       remaining > 0
         ? ` (${ctx.t("sales.remaining_label")}: ${money(remaining, source)})`
         : "";
-    return `${BULLET} ${formatDate(sale.soldAt, ctx.locale)} · ${sale.itemsSummary}: ${money(sale.totalAmount, source)}${owed}`;
+    return `${BULLET} ${formatDate(sale.soldAt)} · ${sale.itemsSummary}: ${money(sale.totalAmount, source)}${owed}`;
   });
 
   const totals = [

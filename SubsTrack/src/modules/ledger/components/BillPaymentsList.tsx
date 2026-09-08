@@ -14,7 +14,6 @@ import type { Collection } from "@/src/core/types";
 import { formatDateTime } from "@/src/core/utils/date";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { formatMoney, snapshotCurrency } from "@/src/core/utils/currency";
-import { useLanguageStore } from "@/src/core/i18n/languageStore";
 import { useUserSlice } from "@/src/state/hooks/useUserSlice";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { useSendInvoice } from "@/src/modules/invoicing";
@@ -58,8 +57,6 @@ export function BillPaymentsList({
   const { user } = useAuth();
   const currencies = useCurrencySlice((s) => s.items);
   const users = useUserSlice((s) => s.items);
-  const { language } = useLanguageStore();
-  const locale = language === "ar" ? "ar" : "en-US";
   const { canSend, sendCollectionInvoice } = useSendInvoice();
 
   const [payments, setPayments] = useState<Collection[] | null>(null);
@@ -194,7 +191,7 @@ export function BillPaymentsList({
                   {money(paidHere)}
                 </Text>
                 <Text className="text-xs text-slate-500">
-                  {formatDateTime(p.receivedAt, locale)} ·{" "}
+                  {formatDateTime(p.receivedAt)} ·{" "}
                   {userName(p.receivedByUserId)}
                   {coversMore ? ` · ${t("ledger.covers_others")}` : ""}
                   {voided ? ` · ${t("ledger.voided")}` : ""}

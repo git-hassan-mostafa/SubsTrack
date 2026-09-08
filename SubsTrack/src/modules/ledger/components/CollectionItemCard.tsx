@@ -12,7 +12,6 @@ import {
 import { formatDate, formatDateTime } from "@/src/core/utils/date";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
-import { useLanguageStore } from "@/src/core/i18n/languageStore";
 import { KIND_STYLE } from "../utils/kindStyle";
 
 interface Props {
@@ -33,8 +32,6 @@ export function CollectionItemCard({
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
   const displayCurrencyId = useDisplayCurrencyId();
-  const { language } = useLanguageStore();
-  const locale = language === "ar" ? "ar" : "en-US";
 
   const source = snapshotCurrency(snapshot, currencies);
   const display = findCurrency(currencies, displayCurrencyId);
@@ -66,10 +63,10 @@ export function CollectionItemCard({
           <>
             <Text className="text-xs text-slate-600">
               {t("ledger.bill_total")} {money(charge.amount)} ·{" "}
-              {t("ledger.due_on", { date: formatDate(charge.dueDate, locale) })}
+              {t("ledger.due_on", { date: formatDate(charge.dueDate) })}
             </Text>
             <Text className="text-[11px] text-slate-500">
-              {t("ledger.issued_at")} {formatDateTime(charge.issuedAt, locale)}
+              {t("ledger.issued_at")} {formatDateTime(charge.issuedAt)}
             </Text>
           </>
         ) : null}

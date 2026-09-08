@@ -13,7 +13,6 @@ import { formatDateTime } from "@/src/core/utils/date";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { useUserSlice } from "@/src/state/hooks/useUserSlice";
-import { useLanguageStore } from "@/src/core/i18n/languageStore";
 import { CollectionItemCard } from "./CollectionItemCard";
 
 interface Props {
@@ -33,8 +32,6 @@ export function CollectionSplitSheet({
   const currencies = useCurrencySlice((s) => s.items);
   const users = useUserSlice((s) => s.items);
   const displayCurrencyId = useDisplayCurrencyId();
-  const { language } = useLanguageStore();
-  const locale = language === "ar" ? "ar" : "en-US";
 
   if (!collection) return null;
 
@@ -78,7 +75,7 @@ export function CollectionSplitSheet({
             },
             {
               label: t("ledger.received_at"),
-              value: formatDateTime(collection.receivedAt, locale),
+              value: formatDateTime(collection.receivedAt),
             },
             {
               label: t("ledger.collected_by"),
@@ -96,7 +93,7 @@ export function CollectionSplitSheet({
             {
               label: t("ledger.voided_at"),
               value: collection.voidedAt
-                ? formatDateTime(collection.voidedAt, locale)
+                ? formatDateTime(collection.voidedAt)
                 : null,
             },
             {

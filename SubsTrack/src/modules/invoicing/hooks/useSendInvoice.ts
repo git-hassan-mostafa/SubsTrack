@@ -1,7 +1,6 @@
 import { useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import type { Collection, Sale } from "@/src/core/types";
-import { getDateLocale } from "@/src/core/utils/date";
 import { useLanguageStore } from "@/src/core/i18n/languageStore";
 import { confirm } from "@/src/shared/lib/confirm";
 import { openWhatsApp } from "@/src/shared/lib/whatsapp";
@@ -43,7 +42,6 @@ export function useSendInvoice() {
     () => ({
       t,
       orgName,
-      locale: getDateLocale(language),
       currencies,
       displayCurrencyId,
     }),

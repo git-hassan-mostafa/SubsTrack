@@ -43,7 +43,11 @@ export function TenantCard({
             </Text>
           </View>
           <Text style={styles.date}>
-            {new Date(tenant.createdAt).toLocaleDateString()}
+            {new Date(tenant.createdAt).toLocaleDateString("en-US", {
+              month: "numeric",
+              day: "numeric",
+              year: "numeric",
+            })}
           </Text>
         </View>
       </Pressable>

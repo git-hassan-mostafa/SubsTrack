@@ -1,6 +1,6 @@
-export function getDateLocale(language: string): string {
-  return "en-US";
-}
+// Every date is formatted in this locale, never the UI language, so Arabic
+// shows English digits.
+const DATE_LOCALE = "en-US";
 
 export function toBillingMonth(year: number, month: number): string {
   const mm = String(month).padStart(2, "0");
@@ -16,18 +16,18 @@ function noCommas(s: string): string {
   return s.replace(/,/g, "");
 }
 
-export function formatDate(iso: string, locale = "en-US", options: Intl.DateTimeFormatOptions = {
-  month: "short",
+export function formatDate(iso: string, options: Intl.DateTimeFormatOptions = {
+  month: "numeric",
   day: "numeric",
   year: "numeric",
 }): string {
-  return noCommas(new Date(iso).toLocaleDateString(locale, options));
+  return noCommas(new Date(iso).toLocaleDateString(DATE_LOCALE, options));
 }
 
-export function formatDateTime(iso: string, locale = "en-US"): string {
+export function formatDateTime(iso: string): string {
   return noCommas(
-    new Date(iso).toLocaleString(locale, {
-      month: "short",
+    new Date(iso).toLocaleString(DATE_LOCALE, {
+      month: "numeric",
       day: "numeric",
       year: "numeric",
       hour: "numeric",
@@ -36,12 +36,12 @@ export function formatDateTime(iso: string, locale = "en-US"): string {
   );
 }
 
-export function formatDateTimeShort(iso: string, locale = "en-US"): string {
+export function formatDateTimeShort(iso: string): string {
   const d = new Date(iso);
   const thisYear = d.getFullYear() === new Date().getFullYear();
   return noCommas(
-    d.toLocaleString(locale, {
-      month: "short",
+    d.toLocaleString(DATE_LOCALE, {
+      month: "numeric",
       day: "numeric",
       ...(thisYear ? {} : { year: "numeric" }),
       hour: "numeric",

@@ -7,7 +7,6 @@ import { PressableOpacity } from "@/src/shared/components/PressableOpacity/Press
 import { COLORS } from "@/src/shared/constants";
 import type { AllocationLine, OpenItem } from "@/src/core/types";
 import { daysLate, formatDate } from "@/src/core/utils/date";
-import { useLanguageStore } from "@/src/core/i18n/languageStore";
 import { keyOf } from "../utils/waterfall";
 
 interface Props {
@@ -37,8 +36,6 @@ export function AllocationPreview({
   remainingAfter,
 }: Props) {
   const { t } = useTranslation();
-  const { language } = useLanguageStore();
-  const locale = language === "ar" ? "ar" : "en-US";
 
   const byKey = useMemo(
     () => new Map(lines.map((l) => [keyOf(l.item), l])),
@@ -110,7 +107,7 @@ export function AllocationPreview({
               </Text>
               <Text className="text-xs text-slate-500" numberOfLines={1}>
                 {t("ledger.due_on", {
-                  date: formatDate(item.dueDate, locale),
+                  date: formatDate(item.dueDate),
                 })}
                 {late > 0 ? ` · ${t("ledger.days_late", { count: late })}` : ""}
                 {/* Only where the row is not settled by this money: then the

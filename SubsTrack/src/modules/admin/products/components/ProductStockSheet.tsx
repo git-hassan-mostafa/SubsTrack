@@ -21,7 +21,6 @@ import { confirm } from "@/src/shared/lib/confirm";
 import { useRecordHistoryAction } from "@/src/modules/admin/audit";
 import { COLORS } from "@/src/shared/constants";
 import { formatDateTime } from "@/src/core/utils/date";
-import { useLanguageStore } from "@/src/core/i18n/languageStore";
 import type { Product, StockMovement, StockReason } from "@/src/core/types";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { useAuth } from "@/src/modules/authentication/auth";
@@ -60,8 +59,6 @@ type CostChange = { amount: number | null; currencyId: string | null };
 export function ProductStockSheet({ product, onDismiss }: Props) {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const { language } = useLanguageStore();
-  const locale = language === "ar" ? "ar" : "en-US";
   const users = useUserSlice((s) => s.items);
   const getUsers = useUserSlice((s) => s.getUsers);
   const addStock = useProductSlice((s) => s.addStock);
@@ -277,7 +274,7 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
             <Text className="text-xs text-gray-600 mt-0.5">
               {`${t(`products.stock_reason_${editing.reason}`)} · ${
                 adding ? `+${editing.quantityDelta}` : editing.quantityDelta
-              } · ${formatDateTime(editing.occurredAt, locale)}`}
+              } · ${formatDateTime(editing.occurredAt)}`}
             </Text>
             <Text className="text-xs text-gray-500 mt-1">
               {t("products.editing_entry_hint")}
@@ -471,7 +468,7 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
                   </View>
 
                   <Text className="text-xs text-gray-500 mt-0.5">
-                    {formatDateTime(m.occurredAt, locale)}
+                    {formatDateTime(m.occurredAt)}
                   </Text>
 
                   {/* The money side, so it's visible which rows moved Expenses

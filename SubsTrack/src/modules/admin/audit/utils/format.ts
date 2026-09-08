@@ -35,7 +35,7 @@ export function subjectLabel(t: TFunction, table: AuditTable | string): string {
  * A column with no registered display therefore still renders, unchanged.
  */
 export function formatField(field: string, value: unknown, ctx: AuditFieldContext): string {
-  return displayValue(field, value, ctx) ?? formatValue(ctx.t, value, ctx.locale);
+  return displayValue(field, value, ctx) ?? formatValue(ctx.t, value);
 }
 
 /**
@@ -61,7 +61,7 @@ export function changedFieldsLabel(entry: AuditEntry, ctx: AuditFieldContext): s
  * there is no per-field casing here beyond the obvious shapes — that belongs in
  * the display registry (valueDisplay.ts).
  */
-export function formatValue(t: TFunction, value: unknown, locale = 'en-US'): string {
+export function formatValue(t: TFunction, value: unknown): string {
   if (value === null || value === undefined || value === '') return t('audit.empty_value');
   if (typeof value === 'boolean') return value ? t('common.yes') : t('common.no');
   if (typeof value === 'number') return String(value);
@@ -69,7 +69,7 @@ export function formatValue(t: TFunction, value: unknown, locale = 'en-US'): str
   if (typeof value === 'object') return t('audit.structured_value');
 
   const s = String(value);
-  if (/^\d{4}-\d{2}-\d{2}T/.test(s)) return formatDateTime(s, locale);
+  if (/^\d{4}-\d{2}-\d{2}T/.test(s)) return formatDateTime(s);
   if (isValidDateString(s)) return s;
   return s;
 }

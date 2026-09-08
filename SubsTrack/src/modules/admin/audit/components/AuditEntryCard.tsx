@@ -1,7 +1,6 @@
 import { memo, useMemo } from "react";
 import { View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import i18n from "@/src/core/i18n";
 import type { AuditAction, AuditEntry } from "@/src/core/types";
 import { formatDateTimeShort } from "@/src/core/utils/date";
 import { COLORS } from "@/src/shared/constants";
@@ -69,7 +68,7 @@ function AuditEntryCardComponent({
           numberOfLines={3}
         />
         <Text className="text-[11px] text-gray-400 mt-1" numberOfLines={1}>
-          {formatDateTimeShort(entry.occurredAt, i18n.language)}
+          {formatDateTimeShort(entry.occurredAt)}
         </Text>
       </View>
     </PressableOpacity>

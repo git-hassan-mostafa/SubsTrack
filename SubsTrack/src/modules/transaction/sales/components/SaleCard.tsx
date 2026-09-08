@@ -10,7 +10,6 @@ import {
 } from "@/src/core/utils/currency";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
-import { useLanguageStore } from "@/src/core/i18n/languageStore";
 import { formatDate } from "@/src/core/utils/date";
 import { receiptId } from "@/src/core/utils/receiptId";
 import { EntityCard } from "@/src/shared/components/EntityCard";
@@ -51,8 +50,6 @@ export function SaleCard({
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
   const displayCurrencyId = useDisplayCurrencyId();
-  const { language } = useLanguageStore();
-  const locale = language === "ar" ? "ar" : "en-US";
 
   const source = snapshotCurrency(sale, currencies);
   const target = findCurrency(currencies, displayCurrencyId);
@@ -91,7 +88,7 @@ export function SaleCard({
         <Text className="text-xs text-gray-500 mt-0.5" numberOfLines={1}>
           {sale.customer?.name ?? t("sales.walk_in")}
           {" · "}
-          {formatDate(sale.soldAt, locale)}
+          {formatDate(sale.soldAt)}
         </Text>
         {voided ? (
           <View className="mt-1 flex-row">

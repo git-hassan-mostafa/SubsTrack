@@ -19,7 +19,6 @@ import {
 } from "@/src/core/utils/currency";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
-import { useLanguageStore } from "@/src/core/i18n/languageStore";
 import {
   daysLate,
   formatDate,
@@ -75,8 +74,6 @@ export function DebtItemCard({
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
   const displayCurrencyId = useDisplayCurrencyId();
-  const { language } = useLanguageStore();
-  const locale = language === "ar" ? "ar" : "en-US";
   const [menuOpen, setMenuOpen] = useState(false);
 
   const source = snapshotCurrency(item, currencies);
@@ -90,7 +87,7 @@ export function DebtItemCard({
   const late = daysLate(item.dueDate);
   const writtenOff = item.charge?.writtenOffAt != null;
   const billedAt = item.chargeId
-    ? formatDateTimeShort(item.issuedAt, locale)
+    ? formatDateTimeShort(item.issuedAt)
     : null;
 
   const handleOpen = onOpen && item.chargeId ? () => onOpen(item) : undefined;
@@ -172,7 +169,7 @@ export function DebtItemCard({
             className="text-[11px] leading-[15px] text-slate-500"
             numberOfLines={1}
           >
-            {t("ledger.due_date")} {formatDate(item.dueDate, locale)}
+            {t("ledger.due_date")} {formatDate(item.dueDate)}
           </Text>
           {billedAt ? (
             <Text

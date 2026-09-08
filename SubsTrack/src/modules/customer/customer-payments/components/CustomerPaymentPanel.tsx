@@ -28,7 +28,7 @@ import type {
   MonthEntry,
   OpenItem,
 } from "@/src/core/types";
-import { getCurrentYearMonth, getDateLocale } from "@/src/core/utils/date";
+import { getCurrentYearMonth, toBillingMonth } from "@/src/core/utils/date";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { COLORS } from "@/src/shared/constants";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
@@ -108,7 +108,6 @@ export function CustomerPaymentPanel({
   refreshToken = 0,
 }: CustomerPaymentPanelProps) {
   const { t, i18n } = useTranslation();
-  const locale = getDateLocale(i18n.language);
   const router = useRouter();
   const { quickPay } = useLocalSearchParams<{ quickPay?: string }>();
   const { user, isAdmin } = useAuth();
@@ -1147,10 +1146,7 @@ export function CustomerPaymentPanel({
           <Text className="text-base me-2">⚠️</Text>
           <View className="flex-1">
             <Text className="text-sm font-semibold text-red-600">
-              {new Date().toLocaleDateString(locale, {
-                month: "long",
-                year: "numeric",
-              })}{" "}
+              {billingMonthLabel(toBillingMonth(cy, cm))}{" "}
               {t("dashboard.unpaid")}
             </Text>
             <Text className="text-xs text-gray-500 mt-0.5">

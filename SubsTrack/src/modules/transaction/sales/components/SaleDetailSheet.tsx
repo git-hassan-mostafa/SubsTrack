@@ -20,7 +20,6 @@ import {
 } from "@/src/core/utils/currency";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
-import { useLanguageStore } from "@/src/core/i18n/languageStore";
 import { formatDate } from "@/src/core/utils/date";
 import { receiptId, saleTitle } from "@/src/core/utils/receiptId";
 import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
@@ -48,8 +47,6 @@ export function SaleDetailSheet({
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
   const displayCurrencyId = useDisplayCurrencyId();
-  const { language } = useLanguageStore();
-  const locale = language === "ar" ? "ar" : "en-US";
   const { sendSaleInvoice } = useSendInvoice();
   const { isAdmin } = useAuth();
 
@@ -321,7 +318,7 @@ export function SaleDetailSheet({
         />
         <Row
           label={t("sales.sold_at_label")}
-          value={formatDate(sale.soldAt, locale)}
+          value={formatDate(sale.soldAt)}
         />
         <Row
           label={t("sales.receipt_id_label")}

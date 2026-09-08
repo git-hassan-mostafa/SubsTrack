@@ -2,7 +2,6 @@ import { useMemo, useState, type ReactElement } from "react";
 import { ActivityIndicator, FlatList, RefreshControl, View } from "react-native";
 import { BottomSheetFlatList } from "@gorhom/bottom-sheet";
 import { useTranslation } from "react-i18next";
-import i18n from "@/src/core/i18n";
 import type { AuditEntry, AuditSource } from "@/src/core/types";
 import { IS_OFFLINE_CAPABLE } from "@/src/core/offline";
 import { COLORS } from "@/src/shared/constants";
@@ -51,7 +50,7 @@ export function HistoryList({
 
   const lookups = useAuditLookups();
   const base = useMemo<AuditContextBase>(
-    () => ({ t, locale: i18n.language, lookups }),
+    () => ({ t, lookups }),
     [t, lookups],
   );
 

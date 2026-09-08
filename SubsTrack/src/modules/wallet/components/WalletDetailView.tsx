@@ -28,7 +28,6 @@ import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { formatDate } from "@/src/core/utils/date";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
-import { useLanguageStore } from "@/src/core/i18n/languageStore";
 import type {
   UserWalletDetail,
   WalletItem,
@@ -117,8 +116,6 @@ export function WalletDetailView({
   const currencies = useCurrencySlice((s) => s.items);
   const displayCurrencyId = useDisplayCurrencyId();
   const target = findCurrency(currencies, displayCurrencyId);
-  const { language } = useLanguageStore();
-  const locale = language === "ar" ? "ar" : "en-US";
   const Scroll = useSheetScrollView();
 
   const canAct = mode !== "view";
@@ -381,7 +378,7 @@ export function WalletDetailView({
                 const subline = [
                   t(meta.labelKey),
                   item.label,
-                  formatDate(item.date, locale),
+                  formatDate(item.date),
                   item.collectorName
                     ? t("wallet.collected_by", { name: item.collectorName })
                     : null,

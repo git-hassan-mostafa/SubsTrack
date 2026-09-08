@@ -1,7 +1,6 @@
 import { useMemo } from "react";
 import { View } from "react-native";
 import { useTranslation } from "react-i18next";
-import i18n from "@/src/core/i18n";
 import type { AuditEntry } from "@/src/core/types";
 import { formatDateTime } from "@/src/core/utils/date";
 import { COLORS } from "@/src/shared/constants";
@@ -71,7 +70,7 @@ export function AuditEntrySheet({
         />
         <Row
           label={t("audit.occurred_at")}
-          value={formatDateTime(entry.occurredAt, i18n.language)}
+          value={formatDateTime(entry.occurredAt)}
           last={!changedFields}
         />
         {changedFields ? (

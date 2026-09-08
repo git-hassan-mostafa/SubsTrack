@@ -16,7 +16,6 @@ export interface AuditLookups {
 /** Everything a field's display needs that is the same for every entry on screen. */
 export interface AuditContextBase {
   t: TFunction;
-  locale: string;
   lookups: AuditLookups;
 }
 

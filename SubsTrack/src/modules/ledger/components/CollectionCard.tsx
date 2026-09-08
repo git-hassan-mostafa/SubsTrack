@@ -18,7 +18,6 @@ import { formatDateTime } from "@/src/core/utils/date";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { useUserSlice } from "@/src/state/hooks/useUserSlice";
-import { useLanguageStore } from "@/src/core/i18n/languageStore";
 import { KIND_STYLE } from "../utils/kindStyle";
 import { collectionLabel } from "../utils/collectionLabel";
 
@@ -51,8 +50,6 @@ export function CollectionCard({
   const currencies = useCurrencySlice((s) => s.items);
   const users = useUserSlice((s) => s.items);
   const displayCurrencyId = useDisplayCurrencyId();
-  const { language } = useLanguageStore();
-  const locale = language === "ar" ? "ar" : "en-US";
   const [menuOpen, setMenuOpen] = useState(false);
 
   const source = snapshotCurrency(item, currencies);
@@ -144,7 +141,7 @@ export function CollectionCard({
 
         <Text className="text-[11px] text-slate-500" numberOfLines={1}>
           {collector ? `${collector} · ` : ""}
-          {formatDateTime(item.receivedAt, locale)}
+          {formatDateTime(item.receivedAt)}
         </Text>
 
         <View className="mt-1 flex-row flex-wrap items-center gap-1">
