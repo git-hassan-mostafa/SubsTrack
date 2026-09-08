@@ -111,6 +111,7 @@ export function BillSheet({
       visible={visible}
       onDismiss={onDismiss}
       title={label}
+      subject={customerName ?? recipient?.name}
       menuActions={menuActions}
     >
       <View className="pb-8">
@@ -171,10 +172,6 @@ export function BillSheet({
 
             <InfoRows
               rows={[
-                {
-                  label: t("ledger.customer_label"),
-                  value: customerName ?? recipient?.name,
-                },
                 { label: t("ledger.billing_month"), value: monthLabel },
                 { label: t("ledger.bill_total"), value: money(charge.amount) },
                 {

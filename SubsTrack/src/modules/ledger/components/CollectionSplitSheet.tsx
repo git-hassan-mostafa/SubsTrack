@@ -44,7 +44,12 @@ export function CollectionSplitSheet({
     users.find((u) => u.id === id)?.fullName ?? t("common.unknown");
 
   return (
-    <FormSheet visible onDismiss={onDismiss} title={t("ledger.split_title")}>
+    <FormSheet
+      visible
+      onDismiss={onDismiss}
+      title={t("ledger.split_title")}
+      subject={collection.customerName ?? t("ledger.walk_in")}
+    >
       <View className="items-center gap-1 pb-4 pt-2">
         <Text
           fontWeight="Bold"
@@ -72,10 +77,6 @@ export function CollectionSplitSheet({
       <View>
         <InfoRows
           rows={[
-            {
-              label: t("ledger.customer_label"),
-              value: collection.customerName ?? t("ledger.walk_in"),
-            },
             {
               label: t("ledger.received_at"),
               value: formatDateTime(collection.receivedAt),

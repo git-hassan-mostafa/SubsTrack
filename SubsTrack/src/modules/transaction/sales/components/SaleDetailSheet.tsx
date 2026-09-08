@@ -126,6 +126,7 @@ export function SaleDetailSheet({
       onDismiss={handleDismiss}
       dirty={dirty}
       title={t("sales.receipt_title")}
+      subject={sale.customer?.name ?? t("sales.walk_in")}
       dismissLabel={t("common.close")}
       menuActions={menuActions}
       scrollRef={scrollBody}
@@ -318,10 +319,6 @@ export function SaleDetailSheet({
 
       {/* Detail rows card */}
       <View className={`${CARD_SURFACE} overflow-hidden mb-4`}>
-        <Row
-          label={t("sales.customer_label")}
-          value={sale.customer?.name ?? t("sales.walk_in")}
-        />
         <Row
           label={t("sales.sold_at_label")}
           value={formatDate(sale.soldAt)}

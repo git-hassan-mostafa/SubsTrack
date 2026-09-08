@@ -31,6 +31,7 @@ interface FormSheetProps {
   visible?: boolean;
   onDismiss: () => void;
   title: string;
+  subject?: string | null;
   dismissLabel?: string;
   dirty?: boolean;
   scrollRef?: RefObject<SheetScrollTo | null>;
@@ -62,6 +63,7 @@ export function FormSheet({
   visible = true,
   onDismiss,
   title,
+  subject,
   dismissLabel,
   dirty = false,
   scrollRef,
@@ -79,6 +81,7 @@ export function FormSheet({
       <FormSheetBody
         visible={visible}
         title={title}
+        subject={subject}
         dismissLabel={dismissLabel}
         onDismiss={onDismiss}
         scrollRef={scrollRef}
@@ -99,6 +102,7 @@ export function FormSheet({
 function FormSheetBody({
   visible,
   title,
+  subject,
   dismissLabel,
   onDismiss,
   scrollRef,
@@ -108,6 +112,7 @@ function FormSheetBody({
 }: {
   visible: boolean;
   title: string;
+  subject?: string | null;
   dismissLabel?: string;
   onDismiss: () => void;
   scrollRef?: RefObject<SheetScrollTo | null>;
@@ -144,9 +149,29 @@ function FormSheetBody({
   return (
     <ResponsiveContainer className="flex-1">
       <SheetDragArea className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
-        <Text fontWeight="Bold" className="flex-1 me-3 text-lg text-gray-900">
-          {title}
-        </Text>
+        {subject ? (
+          <View className="flex-1 me-3 flex-row items-center gap-2.5">
+            <View className="h-9 w-9 items-center justify-center rounded-full bg-indigo-50">
+              <Ionicons name="person-outline" size={18} color={COLORS.primary} />
+            </View>
+            <View className="flex-1">
+              <Text
+                fontWeight="Bold"
+                numberOfLines={1}
+                className="text-lg text-gray-900"
+              >
+                {subject}
+              </Text>
+              <Text numberOfLines={1} className="text-xs text-gray-500">
+                {title}
+              </Text>
+            </View>
+          </View>
+        ) : (
+          <Text fontWeight="Bold" className="flex-1 me-3 text-lg text-gray-900">
+            {title}
+          </Text>
+        )}
         <View className="flex-row items-center gap-4">
           {hasMenu ? (
             <PressableOpacity
