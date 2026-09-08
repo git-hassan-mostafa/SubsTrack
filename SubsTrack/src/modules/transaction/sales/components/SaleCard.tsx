@@ -1,10 +1,11 @@
 import { View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { COLORS } from "@/src/shared/constants";
-import type { Currency, Sale } from "@/src/core/types";
+import type { Sale } from "@/src/core/types";
 import {
   findCurrency,
   formatMoney,
+  formatPaidFraction,
   snapshotCurrency,
 } from "@/src/core/utils/currency";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
@@ -19,19 +20,6 @@ import {
   CardTitle,
 } from "@/src/shared/components/CardText";
 import { Chip } from "@/src/shared/components/Chip";
-
-// Strips the trailing currency symbol/code that formatMoney appends, so a
-// paid/total fraction shows the currency label once instead of twice.
-function stripCurrencyLabel(
-  formatted: string,
-  target: Currency | null,
-): string {
-  if (!target) return formatted.replace(/^\$/, "");
-  const suffix = ` ${target.symbol || target.code}`;
-  return formatted.endsWith(suffix)
-    ? formatted.slice(0, -suffix.length)
-    : formatted;
-}
 
 interface Props {
   sale: Sale;
@@ -60,10 +48,9 @@ export function SaleCard({
   const target = findCurrency(currencies, displayCurrencyId);
   const voided = sale.voidedAt !== null;
   const fullyPaid = sale.amountPaid >= sale.totalAmount;
-  const totalFormatted = formatMoney(sale.totalAmount, source, target);
   const totalLabel = fullyPaid
-    ? totalFormatted
-    : `${stripCurrencyLabel(formatMoney(sale.amountPaid, source, target), target)}/${totalFormatted}`;
+    ? formatMoney(sale.totalAmount, source, target)
+    : formatPaidFraction(sale.amountPaid, sale.totalAmount, source, target);
 
   return (
     <EntityCard

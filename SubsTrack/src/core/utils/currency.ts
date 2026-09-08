@@ -1,3 +1,4 @@
+import { isolate } from '@/src/core/utils/bidi';
 import type { Currency } from '@/src/core/types';
 
 export function toUsd(amount: number, source: Currency | null): number {
@@ -108,7 +109,7 @@ export function formatPaidFraction(
   target: Currency | null,
 ): string {
   const paidLabel = stripCurrencyLabel(formatMoney(paid, source, target), target);
-  return `${paidLabel}/${formatMoney(due, source, target)}`;
+  return isolate(`${paidLabel}/${formatMoney(due, source, target)}`);
 }
 
 export function formatMoneyPair(

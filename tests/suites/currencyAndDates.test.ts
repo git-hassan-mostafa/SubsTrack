@@ -67,8 +67,8 @@ describe('currency', () => {
     ]);
   });
 
-  it('TC-CU-07 formatPaidFraction prints the label once', () => {
-    expect(formatPaidFraction(20, 50, null, null)).toBe('20.00/$50.00');
+  it('TC-CU-07 formatPaidFraction prints the label once, bidi-isolated', () => {
+    expect(formatPaidFraction(20, 50, null, null)).toBe('\u2068' + '20.00/$50.00' + '\u2069');
   });
 
   it('TC-CU-08 formatMoneyPair leads with the currency COLLECTED, converting only the hint', () => {

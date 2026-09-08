@@ -1,7 +1,8 @@
 import type { AuditAction, AuditChange, AuditEntry, AuditTable } from '@/src/core/types';
 import { formatField, formatFieldLabel, tableLabel } from './format';
 import { recordDetail, type RecordDetail } from './recordDetail';
-import { bold, isolate, toParts, type SentencePart } from './sentence';
+import { isolate } from '@/src/core/utils/bidi';
+import { bold, toParts, type SentencePart } from './sentence';
 import type { AuditFieldContext } from './valueDisplay';
 
 export interface AuditSummaryOptions {

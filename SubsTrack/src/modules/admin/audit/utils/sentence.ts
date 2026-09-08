@@ -1,3 +1,5 @@
+import { isolate } from '@/src/core/utils/bidi';
+
 export interface SentencePart {
   text: string;
   bold: boolean;
@@ -6,16 +8,6 @@ export interface SentencePart {
 const OPEN = '\uE000';
 const CLOSE = '\uE001';
 const MARKERS = /[\uE000\uE001]/g;
-
-const FSI = '\u2068';
-const PDI = '\u2069';
-const ISOLATES = /[\u2066-\u2069]/g;
-
-// Isolates a value so its own direction cannot reorder the sentence — gotcha #137.
-export function isolate(value: string): string {
-  const clean = value.replace(ISOLATES, '');
-  return clean === '' ? clean : `${FSI}${clean}${PDI}`;
-}
 
 // Bold survives translation as a marker pair, not <Trans> — see gotcha #132.
 export function bold(value: string): string {

@@ -16,7 +16,8 @@ jest.mock('@/src/core/i18n', () => ({
 
 import type { AuditChange, AuditEntry, AuditTable, Currency } from '@/src/core/types';
 import { buildAuditSummary } from '@/src/modules/admin/audit/utils/summary';
-import { bold, isolate, toParts } from '@/src/modules/admin/audit/utils/sentence';
+import { isolate } from '@/src/core/utils/bidi';
+import { bold, toParts } from '@/src/modules/admin/audit/utils/sentence';
 import type { AuditFieldContext, AuditLookups } from '@/src/modules/admin/audit/utils/valueDisplay';
 
 function lookupKey(key: string): string | undefined {
