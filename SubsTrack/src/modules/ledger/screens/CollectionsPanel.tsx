@@ -73,6 +73,7 @@ export function CollectionsPanel({ onOpenSale }: Props = {}) {
   const items = useCollectionsListStore((s) => s.items);
   const monthlyTotals = useCollectionsListStore((s) => s.monthlyTotals);
   const loading = useCollectionsListStore((s) => s.loading);
+  const loaded = useCollectionsListStore((s) => s.loaded);
   const loadingMore = useCollectionsListStore((s) => s.loadingMore);
   const error = useCollectionsListStore((s) => s.error);
   const hasMore = useCollectionsListStore((s) => s.hasMore);
@@ -253,6 +254,14 @@ export function CollectionsPanel({ onOpenSale }: Props = {}) {
         onPress: () => setVoidIds(live.map((c) => c.id)),
       },
     ];
+  }
+
+  if (!loaded) {
+    return (
+      <View className="flex-1 items-center justify-center py-3">
+        <ActivityIndicator color={COLORS.primary} />
+      </View>
+    );
   }
 
   return (
