@@ -1,6 +1,9 @@
 import { useRef } from "react";
 import { cssInterop } from "nativewind";
-import { Pressable, type PressableProps } from "react-native-gesture-handler";
+import {
+  LegacyPressable as Pressable,
+  type PressableProps,
+} from "react-native-gesture-handler";
 cssInterop(Pressable, { className: "style" });
 
 type PressEvent = Parameters<NonNullable<PressableProps["onPress"]>>[0];
