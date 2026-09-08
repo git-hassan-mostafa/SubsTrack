@@ -9,7 +9,7 @@ import {
   CardTitle,
 } from "@/src/shared/components/CardText";
 import { COLORS } from "@/src/shared/constants";
-import { Chip, type ChipTone } from "@/src/shared/components/Chip";
+import { Chip } from "@/src/shared/components/Chip";
 import { EntityCard } from "@/src/shared/components/EntityCard";
 import {
   ActionMenu,
@@ -24,11 +24,7 @@ import {
 } from "@/src/core/utils/currency";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
-import {
-  daysLate,
-  formatDate,
-  formatDateTimeShort,
-} from "@/src/core/utils/date";
+import { daysLate, formatDate } from "@/src/core/utils/date";
 
 interface Props {
   item: OpenItem;
@@ -41,30 +37,17 @@ interface Props {
   muted?: boolean;
 }
 
-interface KindStyle {
-  icon: keyof typeof Ionicons.glyphMap;
-  chipTone: ChipTone;
-}
-
-const KIND_STYLE: Record<ChargeKind, KindStyle> = {
-  month: {
-    icon: "calendar-outline",
-    chipTone: "teal",
-  },
-  sale: { icon: "receipt-outline", chipTone: "teal" },
-  manual: {
-    icon: "document-text-outline",
-    chipTone: "violet",
-  },
+const KIND_ICON: Record<ChargeKind, keyof typeof Ionicons.glyphMap> = {
+  month: "calendar-outline",
+  sale: "receipt-outline",
+  manual: "document-text-outline",
 };
 
 /**
  * ONE bill that still owes money — the debts twin of `CollectionCard`.
  *
- * Read top-down it answers what a debts list is opened with: what is owed, how
- * much, when it was due, and what state the bill is in. The facts that used to
- * be crammed into one grey micro-line are chips now, because "40 days late" is
- * the point of the row and was the easiest thing on it to miss.
+ * The kind is the icon, so it wears no chip; a chip here means something is
+ * WRONG with the bill — late, part paid, written off — so a clean row is bare.
  */
 export function DebtItemCard({
   item,
@@ -88,12 +71,11 @@ export function DebtItemCard({
     item.paid > 0
       ? formatPaidFraction(item.paid, item.amount, source, source)
       : null;
-  const style = KIND_STYLE[item.kind];
   const late = daysLate(item.dueDate);
   const writtenOff = item.charge?.writtenOffAt != null;
-  const billedAt = item.chargeId
-    ? formatDateTimeShort(item.issuedAt)
-    : null;
+
+  const titlesCustomer = !hideCustomerName || item.kind === "manual";
+  const subtitle = titlesCustomer ? item.label : null;
 
   const handleOpen = onOpen && item.chargeId ? () => onOpen(item) : undefined;
 
@@ -136,7 +118,7 @@ export function DebtItemCard({
 
   return (
     <EntityCard
-      icon={style.icon}
+      icon={KIND_ICON[item.kind]}
       iconColor={muted ? COLORS.gray500 : COLORS.danger}
       iconBgClassName={muted ? "bg-gray-100" : "bg-red-50"}
       dimmed={muted}
@@ -148,7 +130,7 @@ export function DebtItemCard({
       <View className="flex-1 gap-0.5">
         <View className="flex-row items-start justify-between gap-2">
           <CardTitle className="flex-1" numberOfLines={1}>
-            {hideCustomerName ? item.label : item.customerName}
+            {titlesCustomer ? item.customerName : item.label}
           </CardTitle>
           <View className="items-end">
             <CardAmount>{money.primary}</CardAmount>
@@ -156,37 +138,25 @@ export function DebtItemCard({
           </View>
         </View>
 
-        {hideCustomerName ? null : (
-          <CardSubtitle numberOfLines={1}>{item.label}</CardSubtitle>
-        )}
-        <View>
-          <CardMeta className="leading-[15px]" numberOfLines={1}>
-            {t("ledger.due_date")} {formatDate(item.dueDate)}
-          </CardMeta>
-          {billedAt ? (
-            <CardMeta className="leading-[15px]" numberOfLines={1}>
-              {t("ledger.issued_at")} {billedAt}
-            </CardMeta>
-          ) : null}
-        </View>
-        <View className="mt-1 flex-row flex-wrap items-center gap-1">
-          <Chip text={t(`ledger.kind_${item.kind}`)} tone={style.chipTone} />
-          {late > 0 ? (
-            <Chip
-              text={t("ledger.days_late", { count: late })}
-              tone="red"
-            />
-          ) : null}
-          {paidFraction ? (
-            <Chip text={paidFraction} tone="amber" />
-          ) : null}
-          {writtenOff ? (
-            <Chip
-              text={t("ledger.written_off")}
-              tone="orange"
-            />
-          ) : null}
-        </View>
+        {subtitle ? (
+          <CardSubtitle numberOfLines={1}>{subtitle}</CardSubtitle>
+        ) : null}
+
+        <CardMeta numberOfLines={1}>
+          {t("ledger.due_date")} {formatDate(item.dueDate)}
+        </CardMeta>
+
+        {late > 0 || paidFraction || writtenOff ? (
+          <View className="mt-1 flex-row flex-wrap items-center gap-1">
+            {late > 0 ? (
+              <Chip text={t("ledger.days_late", { count: late })} tone="red" />
+            ) : null}
+            {paidFraction ? <Chip text={paidFraction} tone="amber" /> : null}
+            {writtenOff ? (
+              <Chip text={t("ledger.written_off")} tone="orange" />
+            ) : null}
+          </View>
+        ) : null}
       </View>
 
       <ActionMenu

@@ -699,8 +699,7 @@
     "sale_total_below_collected": "The new total is less than what has already been collected on this sale.",
     "sale_currency_locked": "Money has already been collected on this sale, so its currency cannot change. Void the payment first.",
     "charge_amount_below_collected": "The new amount is less than what has already been collected on this bill.",
-    "charge_not_editable": "This bill was voided or written off, so it can no longer be edited.",
-    "debt_description_required": "Write what this charge is for."
+    "charge_not_editable": "This bill was voided or written off, so it can no longer be edited."
   },
   "subscription": {
     "title": "Subscription",

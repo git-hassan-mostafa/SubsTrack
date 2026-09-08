@@ -74,7 +74,7 @@ export function CustomDebtFormSheet({ initialCustomer, onDismiss }: Props) {
       tenantId: user.tenantId,
       customerId: customer.id,
       branchId: branchOf(customer) ?? user.branchId,
-      description: description.trim(),
+      description: description.trim() || null,
       amount,
       currencyId: currency?.id ?? null,
       ratePerUsdSnapshot: currency?.ratePerUsd ?? 1,
@@ -84,8 +84,7 @@ export function CustomDebtFormSheet({ initialCustomer, onDismiss }: Props) {
     if (created) onDismiss();
   }
 
-  const submitDisabled =
-    !customer || amount == null || amount <= 0 || !description.trim() || loading;
+  const submitDisabled = !customer || amount == null || amount <= 0 || loading;
 
   return (
     <>
@@ -131,7 +130,7 @@ export function CustomDebtFormSheet({ initialCustomer, onDismiss }: Props) {
             />
 
             <Input
-              label={t("debts.description_label") + " *"}
+              label={t("debts.description_label")}
               value={description}
               onChangeText={setDescription}
               placeholder={t("debts.description_placeholder")}

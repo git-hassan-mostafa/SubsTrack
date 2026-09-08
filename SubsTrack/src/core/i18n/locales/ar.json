@@ -699,8 +699,7 @@
     "sale_total_below_collected": "المجموع الجديد أقل مما تم تحصيله على هذا المبيع.",
     "sale_currency_locked": "تم تحصيل مبلغ على هذا المبيع، لذا لا يمكن تغيير عملته. ألغِ الدفعة أولاً.",
     "charge_amount_below_collected": "المبلغ الجديد أقل مما تم تحصيله على هذه الفاتورة.",
-    "charge_not_editable": "هذه الفاتورة ملغاة أو مشطوبة، فلا يمكن تعديلها.",
-    "debt_description_required": "اكتب سبب هذا المبلغ."
+    "charge_not_editable": "هذه الفاتورة ملغاة أو مشطوبة، فلا يمكن تعديلها."
   },
   "subscription": {
     "title": "الاشتراك",

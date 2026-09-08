@@ -30,7 +30,7 @@ function chargeLine(ctx: InvoiceContext, charge: Charge | null | undefined): str
     return getBlockRangeLabel(charge.billingMonth, charge.durationMonths, ctx.t);
   }
   if (charge.kind === "sale") return ctx.t("debts.sale");
-  return charge.description ?? ctx.t("debts.custom");
+  return charge.description?.trim() || ctx.t("debts.custom");
 }
 
 /**

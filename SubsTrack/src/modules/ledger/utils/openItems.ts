@@ -121,7 +121,7 @@ export function chargeLabel(row: DbCharge): string {
     if (!row.sale_id) return summary;
     return `#${receiptId(row.sale_id)} · ${summary}`;
   }
-  return row.description ?? i18n.t('debts.custom');
+  return row.description?.trim() || i18n.t('debts.custom');
 }
 
 /**

@@ -18,7 +18,7 @@ export interface CreateManualChargeInput {
   tenantId: string;
   customerId: string;
   branchId: string | null;
-  description: string;
+  description?: string | null;
   amount: number;
   currencyId: string | null;
   ratePerUsdSnapshot: number;
@@ -146,7 +146,6 @@ class ChargeService {
   async addManualCharge(input: CreateManualChargeInput): Promise<Charge> {
     this.validateAmount(input.amount);
     if (!input.customerId) throw new Error(i18n.t('errors.debt_customer_required'));
-    if (!input.description?.trim()) throw new Error(i18n.t('errors.debt_description_required'));
     if (!(input.ratePerUsdSnapshot > 0)) throw new Error(i18n.t('errors.rate_snapshot_positive'));
 
     const now = nowIso();
@@ -161,7 +160,7 @@ class ChargeService {
       duration_months: 1,
       plan_id: null,
       sale_id: null,
-      description: input.description.trim(),
+      description: input.description?.trim() || null,
       amount: input.amount,
       currency_id: input.currencyId,
       rate_per_usd_snapshot: input.ratePerUsdSnapshot,

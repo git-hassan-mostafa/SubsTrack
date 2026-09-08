@@ -1077,7 +1077,7 @@ ALTER TABLE charges ADD COLUMN IF NOT EXISTS customer_id UUID
     CONSTRAINT fk_charges_customer REFERENCES customers(id) ON DELETE CASCADE;
 
 -- 'month' | 'sale' | 'manual'. Free text in the DB — the app owns the code list,
--- so a new kind needs no migration. chk_charges_kind_ref below keeps the
+-- so a new kind needs no migration. chk_charges_kind_ref2 below keeps the
 -- kind-specific columns honest.
 ALTER TABLE charges ADD COLUMN IF NOT EXISTS kind TEXT NOT NULL;
 
@@ -1173,7 +1173,6 @@ DO $$ BEGIN
                 OR
                 (kind = 'manual'
                     AND customer_id IS NOT NULL
-                    AND description IS NOT NULL
                     AND customer_plan_id IS NULL AND billing_month IS NULL
                     AND sale_id IS NULL)
             );

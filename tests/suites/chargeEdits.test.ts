@@ -37,11 +37,14 @@ describe('addManualCharge', () => {
     }
   });
 
-  it('TC-CH-02 refuses a missing customer or description', async () => {
+  it('TC-CH-02 refuses a missing customer', async () => {
     await expect(chargeService.addManualCharge({ ...base, customerId: '' }))
       .rejects.toThrow(/errors\.debt_customer_required/);
-    await expect(chargeService.addManualCharge({ ...base, description: '   ' }))
-      .rejects.toThrow(/errors\.debt_description_required/);
+  });
+
+  it('TC-CH-02b stores a blank description as null', async () => {
+    const charge = await chargeService.addManualCharge({ ...base, description: '   ' });
+    expect(charge.description).toBeNull();
   });
 
   it('TC-CH-03 refuses a rate snapshot that is not positive', async () => {
