@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { TextInputProps, View } from "react-native";
 import { Text } from "@/src/shared/components/Text";
 import { COLORS } from "@/src/shared/constants";
@@ -9,6 +10,7 @@ interface InputProps extends Omit<TextInputProps, "value"> {
   label?: string;
   error?: string | null;
   sanitize?: (next: string) => string;
+  trailing?: ReactNode;
 }
 
 export function Input({
@@ -18,6 +20,7 @@ export function Input({
   value,
   onChangeText,
   sanitize,
+  trailing,
   ...props
 }: InputProps) {
   const TextInput = useSheetTextInput();
@@ -32,15 +35,18 @@ export function Input({
           {label}
         </Text>
       ) : null}
-      <TextInput
-        {...props}
-        {...field}
-        className={`border rounded-xl px-4 py-3 text-base text-gray-900 bg-white ${
-          error ? "border-danger" : "border-gray-200"
-        }`}
-        style={[{ fontFamily: "Cairo" }, style]}
-        placeholderTextColor={COLORS.gray400}
-      />
+      <View className="flex-row items-center gap-2">
+        <TextInput
+          {...props}
+          {...field}
+          className={`flex-1 border rounded-xl px-4 py-3 text-base text-gray-900 bg-white ${
+            error ? "border-danger" : "border-gray-200"
+          }`}
+          style={[{ fontFamily: "Cairo" }, style]}
+          placeholderTextColor={COLORS.gray400}
+        />
+        {trailing}
+      </View>
       {error ? <Text className="text-sm text-danger mt-1">{error}</Text> : null}
     </View>
   );
