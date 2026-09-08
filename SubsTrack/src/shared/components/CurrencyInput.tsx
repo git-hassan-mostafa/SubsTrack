@@ -102,7 +102,10 @@ export function CurrencyInput({
   return (
     <View className="mb-4">
       {label ? (
-        <Text className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+        <Text
+          fontWeight="SemiBold"
+          className="text-xs text-gray-500 uppercase tracking-wide mb-1.5"
+        >
           {label}
         </Text>
       ) : null}
@@ -151,11 +154,11 @@ export function CurrencyInput({
         onDismiss={() => setPickerOpen(false)}
       >
         <SheetDragArea className="flex-row items-center justify-between px-5 py-3 border-b border-gray-100">
-          <Text className="text-base font-semibold text-gray-900">
+          <Text fontWeight="SemiBold" className="text-base text-gray-900">
             {t("tenant_settings.currencies_section_title")}
           </Text>
           <PressableOpacity onPress={() => setPickerOpen(false)}>
-            <Text className="text-base text-primary font-medium">
+            <Text fontWeight="Medium" className="text-base text-primary">
               {t("common.cancel")}
             </Text>
           </PressableOpacity>
@@ -192,7 +195,8 @@ export function CurrencyInput({
               >
                 <View className="flex-1">
                   <Text
-                    className={`text-base font-semibold ${
+                    fontWeight="SemiBold"
+                    className={`text-base ${
                       isSelected ? "text-primary" : "text-gray-900"
                     }`}
                   >

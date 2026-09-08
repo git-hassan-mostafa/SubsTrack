@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { FormSheet } from "@/src/shared/components/FormSheet";
 import { Text } from "@/src/shared/components/Text";
 import { InfoRows } from "@/src/shared/components/InfoRows";
+import { Chip } from "@/src/shared/components/Chip";
 import type { CollectionItem, CollectionListItem } from "@/src/core/types";
 import {
   findCurrency,
@@ -46,22 +47,24 @@ export function CollectionSplitSheet({
     <FormSheet visible onDismiss={onDismiss} title={t("ledger.split_title")}>
       <View className="items-center gap-1 pb-4 pt-2">
         <Text
-          className={`text-3xl font-bold ${
-            voided ? "text-slate-400 line-through" : "text-slate-900"
+          fontWeight="Bold"
+          className={`text-3xl ${
+            voided ? "text-gray-400 line-through" : "text-gray-900"
           }`}
         >
           {money.primary}
         </Text>
         {money.approx ? (
-          <Text className="text-sm text-slate-500">{money.approx}</Text>
+          <Text className="text-sm text-gray-500">{money.approx}</Text>
         ) : null}
-        {/* The kind survives a void: what it PAID FOR is still what it was. */}
         <View className="mt-1 flex-row items-center gap-1.5">
-          <Pill className="bg-slate-100 text-slate-700">
-            {t(`ledger.kind_${collection.kind}`)}
-          </Pill>
+          <Chip
+            text={t(`ledger.kind_${collection.kind}`)}
+            tone="gray"
+            size="md"
+          />
           {voided ? (
-            <Pill className="bg-red-50 text-red-700">{t("ledger.voided")}</Pill>
+            <Chip text={t("ledger.voided")} tone="red" size="md" />
           ) : null}
         </View>
       </View>
@@ -109,11 +112,14 @@ export function CollectionSplitSheet({
       </View>
 
       <View className="pb-6 pt-5">
-        <Text className="pb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
+        <Text
+          fontWeight="SemiBold"
+          className="pb-2 text-xs uppercase tracking-wide text-gray-500"
+        >
           {voided ? t("ledger.this_paid") : t("ledger.this_pays")}
         </Text>
         {voided ? (
-          <Text className="pb-2 text-xs text-slate-500">
+          <Text className="pb-2 text-xs text-gray-500">
             {t("ledger.voided_hint")}
           </Text>
         ) : null}
@@ -132,18 +138,3 @@ export function CollectionSplitSheet({
   );
 }
 
-function Pill({
-  children,
-  className,
-}: {
-  children: string;
-  className: string;
-}) {
-  return (
-    <Text
-      className={`rounded-full px-3 py-1 text-xs font-semibold ${className}`}
-    >
-      {children}
-    </Text>
-  );
-}

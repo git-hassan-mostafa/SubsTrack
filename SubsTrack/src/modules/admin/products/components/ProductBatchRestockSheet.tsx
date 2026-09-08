@@ -200,7 +200,7 @@ export function ProductBatchRestockSheet({ onDismiss }: Props) {
             </Text>
             {entries.length > 0 ? (
               <PressableOpacity onPress={clearAll} hitSlop={8}>
-                <Text className="text-xs text-primary font-medium">
+                <Text fontWeight="Medium" className="text-xs text-primary">
                   {t("common.clear")}
                 </Text>
               </PressableOpacity>
@@ -294,7 +294,7 @@ export function ProductBatchRestockSheet({ onDismiss }: Props) {
             {t("products.batch_restock_title")}
           </Text>
           <PressableOpacity onPress={onDismiss}>
-            <Text className="text-base text-primary font-medium">
+            <Text fontWeight="Medium" className="text-base text-primary">
               {t("common.close")}
             </Text>
           </PressableOpacity>

@@ -1116,7 +1116,8 @@
         "detail_first_new": "a new {{detail}} {{type}}",
         "of_detail": "a {{type}} of {{detail}}",
         "bare": "a {{type}}",
-        "bare_new": "a new {{type}}"
+        "bare_new": "a new {{type}}",
+        "with_plan": "{{record}} (plan {{plan}})"
       },
       "create": "{{actor}} added {{record}}",
       "update": "{{actor}} updated {{record}}",

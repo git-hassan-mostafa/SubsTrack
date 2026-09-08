@@ -103,14 +103,20 @@ export function AmountCollectedSection({
                 const balance = amountDue - amountPaid;
                 if (balance < 0) {
                   return (
-                    <Text className="text-sm font-semibold mt-1 text-danger">
+                    <Text
+                      fontWeight="SemiBold"
+                      className="text-sm mt-1 text-danger"
+                    >
                       {t("errors.amount_paid_exceeds_due")}
                     </Text>
                   );
                 }
                 if (balance <= 0) {
                   return (
-                    <Text className="text-sm font-semibold mt-1 text-green-600">
+                    <Text
+                      fontWeight="SemiBold"
+                      className="text-sm mt-1 text-green-600"
+                    >
                       {t("payments.balance_cleared")}
                     </Text>
                   );

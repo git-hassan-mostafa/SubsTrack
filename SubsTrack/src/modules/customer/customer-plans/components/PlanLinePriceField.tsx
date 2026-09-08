@@ -79,7 +79,10 @@ export function PlanLinePriceField({
       <View className="flex-row items-center justify-between mb-1.5">
         {/* The period rides in the label: this is where the figure is typed, so
             "per 3 months" must be unmissable to avoid a 3x under-charge. */}
-        <Text className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+        <Text
+          fontWeight="SemiBold"
+          className="text-xs text-gray-500 uppercase tracking-wide"
+        >
           {t("subscriptions.price_special_per", { period })}
         </Text>
         <PressableOpacity

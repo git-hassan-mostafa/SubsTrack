@@ -275,7 +275,10 @@ export function CustomerPlansEditor({
           actually holds more than one line, so it waits until then. */}
       <View className="flex-row items-center mb-2">
         <Ionicons name="layers-outline" size={16} color={COLORS.gray500} />
-        <Text fontWeight="SemiBold" className="ms-2 flex-1 text-sm text-gray-900">
+        <Text
+          fontWeight="SemiBold"
+          className="ms-2 flex-1 text-sm text-gray-900"
+        >
           {t("subscriptions.section_title")}
         </Text>
         {multiple ? (
@@ -314,7 +317,7 @@ export function CustomerPlansEditor({
         className="flex-row items-center justify-center rounded-xl border border-dashed border-gray-300 py-2"
       >
         <Ionicons name="add" size={16} color={COLORS.primary} />
-        <Text className="text-primary text-xs font-semibold ms-1">
+        <Text fontWeight="SemiBold" className="text-primary text-xs ms-1">
           {t("subscriptions.add_plan")}
         </Text>
       </PressableOpacity>

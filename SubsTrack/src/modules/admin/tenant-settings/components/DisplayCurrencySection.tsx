@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { CARD_SURFACE } from "@/src/shared/constants";
 import { View } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { Text } from '@/src/shared/components/Text';
@@ -25,8 +26,11 @@ export function DisplayCurrencySection() {
   );
 
   return (
-    <View className="bg-white rounded-2xl border border-gray-100 p-4 mb-4">
-      <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">
+    <View className={`${CARD_SURFACE} p-4 mb-4`}>
+      <Text
+        fontWeight="SemiBold"
+        className="text-xs text-gray-400 uppercase tracking-wide mb-1"
+      >
         {t('tenant_settings.display_section_title')}
       </Text>
       <Text className="text-xs text-gray-500 mb-3">

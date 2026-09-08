@@ -73,9 +73,8 @@ export function Dropdown<T extends string | number | null = string>({
           }`}
         >
           <Text
-            className={`text-sm font-medium ${
-              isActive ? "text-primary" : "text-gray-500"
-            }`}
+            fontWeight="Medium"
+            className={`text-sm ${isActive ? "text-primary" : "text-gray-500"}`}
             numberOfLines={1}
           >
             {displayLabel ?? placeholder ?? t("customers.select_plan")}
@@ -107,7 +106,10 @@ export function Dropdown<T extends string | number | null = string>({
       {label || onAddNew ? (
         <View className="flex-row items-center justify-between mb-1.5">
           {label ? (
-            <Text className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+            <Text
+              fontWeight="SemiBold"
+              className="text-xs text-gray-500 uppercase tracking-wide"
+            >
               {label}
             </Text>
           ) : (
@@ -237,9 +239,11 @@ export function DropdownModal<T extends string | number | null = string>({
   return (
     <BottomSheetScaffold visible={visible} onDismiss={handleClose}>
       <SheetDragArea className="flex-row items-center justify-between px-5 py-3 border-b border-gray-100">
-        <Text className="text-base font-semibold text-gray-900">{title}</Text>
+        <Text fontWeight="SemiBold" className="text-base text-gray-900">
+          {title}
+        </Text>
         <PressableOpacity onPress={handleClose}>
-          <Text className="text-base text-primary font-medium">
+          <Text fontWeight="Medium" className="text-base text-primary">
             {t("common.cancel")}
           </Text>
         </PressableOpacity>
@@ -281,7 +285,8 @@ export function DropdownModal<T extends string | number | null = string>({
             >
               <View className="flex-1">
                 <Text
-                  className={`text-base font-semibold ${
+                  fontWeight="SemiBold"
+                  className={`text-base ${
                     item.disabled
                       ? "text-gray-400"
                       : isSelected

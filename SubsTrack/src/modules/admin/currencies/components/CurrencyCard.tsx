@@ -2,7 +2,13 @@ import { View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import type { Currency } from "@/src/core/types";
-import { Text } from "@/src/shared/components/Text";
+import {
+  CardAmount,
+  CardMeta,
+  CardSubtitle,
+  CardTitle,
+} from "@/src/shared/components/CardText";
+import { Chip } from "@/src/shared/components/Chip";
 import { COLORS } from "@/src/shared/constants";
 import { EntityCard } from "@/src/shared/components/EntityCard";
 
@@ -46,29 +52,23 @@ export function CurrencyCard({
     >
       <View className="flex-1">
         <View className="flex-row items-center">
-          <Text className="text-base font-semibold text-gray-900">
-            {currency.code}
-          </Text>
+          <CardTitle>{currency.code}</CardTitle>
           {!currency.active ? (
-            <View className="bg-gray-100 rounded-lg px-2 py-0.5 ms-2">
-              <Text className="text-[10px] font-semibold text-gray-500 uppercase">
-                {t("common.inactive")}
-              </Text>
+            <View className="ms-2">
+              <Chip text={t("common.inactive")} tone="gray" />
             </View>
           ) : null}
         </View>
-        <Text className="text-xs text-gray-400 mt-0.5" numberOfLines={1}>
+        <CardSubtitle className="mt-0.5" numberOfLines={1}>
           {currency.name}
-        </Text>
+        </CardSubtitle>
       </View>
 
       <View className="items-end me-2">
-        <Text fontWeight="Bold" className="text-base text-gray-900">
-          {rateLabel}
-        </Text>
-        <Text className="text-xs text-gray-400">
+        <CardAmount>{rateLabel}</CardAmount>
+        <CardMeta>
           {t("tenant_settings.rate_per_usd", { code: currency.code })}
-        </Text>
+        </CardMeta>
       </View>
     </EntityCard>
   );
@@ -83,18 +83,14 @@ export function UsdBaseCard() {
         <Ionicons name="star" size={18} color={COLORS.primary} />
       </View>
       <View className="flex-1">
-        <Text className="text-base font-semibold text-gray-900">USD</Text>
-        <Text className="text-xs text-gray-500 mt-0.5">
+        <CardTitle>USD</CardTitle>
+        <CardSubtitle className="mt-0.5">
           {t("tenant_settings.usd_base_note")}
-        </Text>
+        </CardSubtitle>
       </View>
       <View className="items-end">
-        <Text fontWeight="Bold" className="text-base text-gray-900">
-          1
-        </Text>
-        <Text className="text-xs text-gray-400">
-          {t("tenant_settings.base")}
-        </Text>
+        <CardAmount>1</CardAmount>
+        <CardMeta>{t("tenant_settings.base")}</CardMeta>
       </View>
     </View>
   );

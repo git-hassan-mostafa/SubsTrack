@@ -11,6 +11,7 @@ import { chargeService } from '@/src/modules/ledger/services/ChargeService';
 import { collectionService } from '@/src/modules/ledger/services/CollectionService';
 import type { CollectInput } from '@/src/modules/ledger/services/CollectionService';
 import type { AllocationLine, OpenItem } from '@/src/core/types';
+import { collectionPlanId } from '@/src/modules/ledger/utils/collectionPlan';
 import { store } from '../helpers/fakeLedger';
 import { openItem } from '../helpers/factories';
 
@@ -438,6 +439,22 @@ describe('what the cash paid for', () => {
     expect(byReceived[0].id).toBe('newest');
     const byUpdated = await collectionService.getHistory({ sortField: 'updated_at' });
     expect(byUpdated[0].id).toBe('oldest');
+  });
+
+  it('TC-CL-57 names the one plan every bill it settled shares', () => {
+    expect(collectionPlanId(['plan-1', 'plan-1'])).toBe('plan-1');
+    expect(collectionPlanId(['plan-1'])).toBe('plan-1');
+  });
+
+  it('TC-CL-58 names no plan when the bills belong to two of them', () => {
+    expect(collectionPlanId(['plan-1', 'plan-2'])).toBeNull();
+  });
+
+  it('TC-CL-59 a bill with no plan of its own leaves the hand-over unnamed', () => {
+    expect(collectionPlanId(['plan-1', null])).toBeNull();
+    expect(collectionPlanId([null, 'plan-1'])).toBeNull();
+    expect(collectionPlanId([null, undefined])).toBeNull();
+    expect(collectionPlanId([])).toBeNull();
   });
 });
 

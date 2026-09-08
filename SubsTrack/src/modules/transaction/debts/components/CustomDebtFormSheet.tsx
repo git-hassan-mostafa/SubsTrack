@@ -103,7 +103,7 @@ export function CustomDebtFormSheet({ initialCustomer, onDismiss }: Props) {
                 <Text className="text-xs text-gray-500 uppercase tracking-wide mb-1">
                   {t("debts.customer_label")}
                 </Text>
-                <Text className="text-base text-gray-900 font-medium">
+                <Text fontWeight="Medium" className="text-base text-gray-900">
                   {customer?.name}
                 </Text>
               </View>

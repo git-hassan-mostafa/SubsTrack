@@ -337,7 +337,7 @@ export function CollectionsPanel({ onOpenSale }: Props = {}) {
                   className="flex-row items-center gap-x-1 rounded-full px-3 py-1.5"
                 >
                   <Ionicons name="close" size={14} color={COLORS.gray500} />
-                  <Text className="text-sm font-medium text-gray-500">
+                  <Text fontWeight="Medium" className="text-sm text-gray-500">
                     {t("common.clear_filters")}
                   </Text>
                 </PressableOpacity>

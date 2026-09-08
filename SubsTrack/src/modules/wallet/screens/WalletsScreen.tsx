@@ -249,7 +249,7 @@ export function WalletsScreen() {
               {openWallet?.holderName ?? ""}
             </Text>
             <PressableOpacity onPress={closeHolder}>
-              <Text className="text-base text-primary font-medium">
+              <Text fontWeight="Medium" className="text-base text-primary">
                 {t("common.close")}
               </Text>
             </PressableOpacity>

@@ -30,7 +30,7 @@ import type {
 } from "@/src/core/types";
 import { getCurrentYearMonth, toBillingMonth } from "@/src/core/utils/date";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
-import { COLORS } from "@/src/shared/constants";
+import { CARD_SURFACE, COLORS } from "@/src/shared/constants";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { getBlockRangeLabel } from "../utils/blockRangeLabel";
@@ -943,7 +943,7 @@ export function CustomerPaymentPanel({
 
   if (lines.length === 0) {
     return (
-      <View className="bg-white mx-4 mt-4 rounded-2xl border border-gray-100 px-4 py-8 items-center">
+      <View className={`${CARD_SURFACE} mx-4 mt-4 px-4 py-8 items-center`}>
         <Ionicons name="albums-outline" size={28} color={COLORS.gray400} />
         <Text className="text-sm text-gray-500 mt-2 text-center">
           {t("subscriptions.empty")}
@@ -1007,7 +1007,7 @@ export function CustomerPaymentPanel({
 
       {/* Year card */}
       <GestureDetector gesture={yearSwipe}>
-        <View className="bg-white mx-4 mt-3 rounded-2xl border border-gray-100 overflow-hidden">
+        <View className={`${CARD_SURFACE} mx-4 mt-3 overflow-hidden`}>
           <View className="relative">
             <View className="px-4 pt-4 pb-2">
               {/* Selected line header — the plan this grid is for, plus its price. */}
@@ -1145,7 +1145,7 @@ export function CustomerPaymentPanel({
         <View className="mx-4 mt-3 bg-red-50 border border-red-200 rounded-2xl px-4 py-3 flex-row items-center">
           <Text className="text-base me-2">⚠️</Text>
           <View className="flex-1">
-            <Text className="text-sm font-semibold text-red-600">
+            <Text fontWeight="SemiBold" className="text-sm text-red-600">
               {billingMonthLabel(toBillingMonth(cy, cm))}{" "}
               {t("dashboard.unpaid")}
             </Text>
@@ -1163,7 +1163,7 @@ export function CustomerPaymentPanel({
             {busyMonth === currentMonthEntry.billingMonth ? (
               <ActivityIndicator size="small" color="#fff" />
             ) : (
-              <Text className="text-white text-sm font-semibold">
+              <Text fontWeight="SemiBold" className="text-white text-sm">
                 {t("payments.collect")}
               </Text>
             )}

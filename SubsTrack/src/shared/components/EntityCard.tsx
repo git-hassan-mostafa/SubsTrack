@@ -3,15 +3,11 @@ import { ActivityIndicator, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
 import { Checkbox } from "@/src/shared/components/Checkbox";
-import { Chip } from "@/src/shared/components/Chip";
-import { COLORS } from "@/src/shared/constants";
-
-// One chip in a card's flag row; `className` carries its bg + text colours.
-export interface EntityCardFlag {
-  key: string;
-  text: string;
-  className: string;
-}
+import {
+  CARD_SURFACE,
+  CARD_SURFACE_DIMMED,
+  COLORS,
+} from "@/src/shared/constants";
 
 interface EntityCardProps {
   icon: ComponentProps<typeof Ionicons>["name"];
@@ -29,21 +25,13 @@ interface EntityCardProps {
   onEnterSelection?: () => void;
 
   dimmed?: boolean;
+  disabled?: boolean;
   className?: string;
-
-  flags?: EntityCardFlag[];
-  reserveFlagSpace?: boolean;
 
   children: ReactNode;
 }
 
-/**
- * Shared shell for every entity list row (customers, users, plans, branches,
- * currencies, products, sales). Owns the common card chrome — wrapper styling,
- * the tap/long-press selection handshake, the icon-tile↔checkbox swap, and the
- * trailing 3-dot menu, and the flag chips floating above it — so each card only
- * supplies its own body.
- */
+// Shared shell for every list row: chrome, selection handshake, 3-dot menu.
 export function EntityCard({
   icon,
   iconColor = COLORS.primary,
@@ -57,23 +45,19 @@ export function EntityCard({
   onToggleSelect,
   onEnterSelection,
   dimmed = false,
+  disabled = false,
   className = "",
-  flags,
-  reserveFlagSpace = false,
   children,
 }: EntityCardProps) {
-  const shownFlags = flags ?? [];
-  const showFlagRow = shownFlags.length > 0 || reserveFlagSpace;
-
-  const card = (
+  return (
     <PressableOpacity
       onPress={() => (selectionMode ? onToggleSelect?.() : onPress?.())}
       onLongPress={selectionMode ? undefined : (onEnterSelection ?? onMenu)}
-      className={`bg-white border rounded-2xl px-4 py-2 flex-row items-center ${
-        showFlagRow ? "" : "mb-2.5"
-      } ${dimmed ? "border-gray-200 opacity-60" : "border-gray-100"} ${className}`}
+      disabled={disabled}
+      className={`${
+        dimmed ? CARD_SURFACE_DIMMED : CARD_SURFACE
+      } px-4 py-2 flex-row items-center mb-2.5 ${className}`}
     >
-      {/* Leading: icon tile, or a checkbox while selecting (same footprint). */}
       {selectionMode ? (
         <View className="w-10 h-10 items-center justify-center me-3 flex-shrink-0">
           <Checkbox checked={selected} />
@@ -88,7 +72,6 @@ export function EntityCard({
 
       {children}
 
-      {/* Trailing 3-dot menu — hidden while selecting. */}
       {onMenu && !selectionMode ? (
         <PressableOpacity
           onPress={onMenu}
@@ -110,18 +93,5 @@ export function EntityCard({
         <View className="ms-1 w-9 h-9" />
       ) : null}
     </PressableOpacity>
-  );
-
-  if (!showFlagRow) return card;
-
-  return (
-    <View className="mb-2.5">
-      <View className="flex-row flex-wrap items-center justify-end gap-1 pe-1 pb-1 min-h-[19px]">
-        {shownFlags.map((flag) => (
-          <Chip key={flag.key} text={flag.text} className={flag.className} />
-        ))}
-      </View>
-      {card}
-    </View>
   );
 }

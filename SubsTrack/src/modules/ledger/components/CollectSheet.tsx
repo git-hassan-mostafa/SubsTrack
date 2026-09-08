@@ -226,21 +226,21 @@ export function CollectSheet({
         {singleItem ? (
           <>
             {openItem ? (
-              <Text className="rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600">
+              <Text className="rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-600">
                 {t("ledger.open_amount_hint")}
               </Text>
             ) : (
-              <View className="flex-row items-center justify-between rounded-xl bg-slate-50 px-4 py-3">
-                <Text className="text-slate-600">{t("ledger.owed")}</Text>
+              <View className="flex-row items-center justify-between rounded-xl bg-gray-50 px-4 py-3">
+                <Text className="text-gray-600">{t("ledger.owed")}</Text>
                 <View className="flex-row items-center gap-3">
-                  <Text className="text-lg font-semibold text-slate-900">
+                  <Text fontWeight="SemiBold" className="text-lg text-gray-900">
                     {money(singleMax)}
                   </Text>
                   <PressableOpacity
                     onPress={() => setSingleAmount(singleMax)}
                     className="rounded-lg bg-white px-3 py-1.5"
                   >
-                    <Text className="text-xs font-medium text-primary">
+                    <Text fontWeight="Medium" className="text-xs text-primary">
                       {t("ledger.collect_all")}
                     </Text>
                   </PressableOpacity>
@@ -286,11 +286,11 @@ export function CollectSheet({
           </>
         ) : (
           <>
-            <View className="gap-2 rounded-xl bg-slate-50 px-4 py-3">
+            <View className="gap-2 rounded-xl bg-gray-50 px-4 py-3">
               <View className="flex-row items-center justify-between">
-                <Text className="text-slate-600">{t("ledger.owed")}</Text>
+                <Text className="text-gray-600">{t("ledger.owed")}</Text>
                 <View className="flex-row items-center gap-3">
-                  <Text className="text-lg font-semibold text-slate-900">
+                  <Text fontWeight="SemiBold" className="text-lg text-gray-900">
                     {formatMoney(owedUsd, null, display)}
                   </Text>
                   {groups.length > 1 && (
@@ -298,7 +298,10 @@ export function CollectSheet({
                       onPress={collectEverything}
                       className="rounded-lg bg-white px-3 py-1.5"
                     >
-                      <Text className="text-xs font-medium text-primary">
+                      <Text
+                        fontWeight="Medium"
+                        className="text-xs text-primary"
+                      >
                         {t("ledger.collect_all")}
                       </Text>
                     </PressableOpacity>
@@ -306,7 +309,7 @@ export function CollectSheet({
                 </View>
               </View>
               {groups.length > 1 && (
-                <Text className="text-xs text-slate-500">
+                <Text className="text-xs text-gray-500">
                   {t("ledger.multi_currency_hint")}
                 </Text>
               )}
@@ -324,11 +327,11 @@ export function CollectSheet({
               />
             ))}
 
-            <View className="flex-row items-center justify-between border-t border-slate-200 pt-3">
-              <Text fontWeight="Bold" className="text-sm text-slate-900">
+            <View className="flex-row items-center justify-between border-t border-gray-200 pt-3">
+              <Text fontWeight="Bold" className="text-sm text-gray-900">
                 {t("ledger.total_collecting")}
               </Text>
-              <Text fontWeight="Bold" className="text-base text-slate-900">
+              <Text fontWeight="Bold" className="text-base text-gray-900">
                 {formatMoney(collectingUsd, null, display)}
               </Text>
             </View>

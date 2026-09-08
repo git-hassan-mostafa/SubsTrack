@@ -13,7 +13,10 @@ export function TierBadge({ tier }: { tier: TierPlan | null | undefined }) {
   const style = STYLES[tier.code];
   return (
     <View className={`${style.bg} rounded-full px-2.5 py-0.5`}>
-      <Text className={`text-[10px] font-semibold uppercase ${style.text}`}>
+      <Text
+        fontWeight="SemiBold"
+        className={`text-[10px] uppercase ${style.text}`}
+      >
         {tier.name}
       </Text>
     </View>

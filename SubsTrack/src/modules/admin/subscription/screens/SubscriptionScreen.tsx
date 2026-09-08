@@ -11,7 +11,7 @@ import { confirm } from "@/src/shared/lib/confirm";
 import { ConfirmDialog } from "@/src/shared/components/ConfirmDialog";
 import { LoadingScreen } from "@/src/shared/components/LoadingScreen";
 import { Text } from "@/src/shared/components/Text";
-import { COLORS } from "@/src/shared/constants";
+import { CARD_SURFACE, COLORS } from "@/src/shared/constants";
 import { useAuthSlice } from "@/src/state/hooks/useAuthSlice";
 import { useSubscriptionSlice } from "@/src/state/hooks/useSubscriptionSlice";
 import tierService from "../services/TierService";
@@ -109,7 +109,7 @@ export function SubscriptionScreen() {
           ) : null}
 
           {currentTier ? (
-            <View className="bg-white rounded-2xl mb-4 overflow-hidden border border-gray-100">
+            <View className={`${CARD_SURFACE} mb-4 overflow-hidden`}>
               <View className="bg-primary px-5 pt-4 pb-5">
                 <View className="flex-row items-center justify-between mb-3">
                   <View className="bg-white/20 rounded-full px-2.5 py-0.5 flex-row items-center">
@@ -118,7 +118,10 @@ export function SubscriptionScreen() {
                       size={11}
                       color={COLORS.white}
                     />
-                    <Text className="text-[10px] font-semibold uppercase text-white ms-1">
+                    <Text
+                      fontWeight="SemiBold"
+                      className="text-[10px] uppercase text-white ms-1"
+                    >
                       {t("subscription.current_plan")}
                     </Text>
                   </View>

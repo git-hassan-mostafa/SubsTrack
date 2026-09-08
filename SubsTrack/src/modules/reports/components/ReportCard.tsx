@@ -3,7 +3,7 @@ import { View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/src/shared/components/Text";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
-import { COLORS } from "@/src/shared/constants";
+import { CARD_SURFACE, COLORS } from "@/src/shared/constants";
 
 interface Props {
   title: string;
@@ -24,7 +24,7 @@ export function ReportCard({
   children,
 }: Props) {
   return (
-    <View className="bg-white border border-gray-100 rounded-2xl p-4">
+    <View className={`${CARD_SURFACE} p-4`}>
       <View className="flex-row items-center gap-2">
         <View className="flex-1 min-w-0">
           <Text fontWeight="Bold" className="text-sm text-gray-900">

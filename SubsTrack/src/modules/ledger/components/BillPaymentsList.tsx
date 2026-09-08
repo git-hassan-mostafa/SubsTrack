@@ -147,14 +147,17 @@ export function BillPaymentsList({
         <ErrorBanner message={error} onDismiss={() => setError(null)} />
       ) : null}
 
-      <Text className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+      <Text
+        fontWeight="SemiBold"
+        className="text-xs uppercase tracking-wide text-gray-500"
+      >
         {t("ledger.payments_count", {
           count: billVoided ? rows.length : live.length,
         })}
       </Text>
 
       {billVoided && rows.length > 0 ? (
-        <Text className="text-xs text-slate-500">
+        <Text className="text-xs text-gray-500">
           {t("ledger.bill_voided_payments_hint")}
         </Text>
       ) : null}
@@ -162,7 +165,7 @@ export function BillPaymentsList({
       {loading ? (
         <ActivityIndicator />
       ) : rows.length === 0 ? (
-        <Text className="py-2 text-sm text-slate-500">
+        <Text className="py-2 text-sm text-gray-500">
           {t("ledger.no_payments_yet")}
         </Text>
       ) : (
@@ -173,7 +176,7 @@ export function BillPaymentsList({
           return (
             <View
               key={p.id}
-              className={`flex-row items-center gap-3 rounded-xl border border-slate-200 px-3 py-2.5 ${
+              className={`flex-row items-center gap-3 rounded-xl border border-gray-200 px-3 py-2.5 ${
                 voided ? "opacity-50" : ""
               }`}
             >
@@ -184,13 +187,14 @@ export function BillPaymentsList({
               />
               <View className="flex-1">
                 <Text
-                  className={`text-sm font-semibold ${
-                    voided ? "text-slate-400 line-through" : "text-slate-900"
+                  fontWeight="SemiBold"
+                  className={`text-sm ${
+                    voided ? "text-gray-400 line-through" : "text-gray-900"
                   }`}
                 >
                   {money(paidHere)}
                 </Text>
-                <Text className="text-xs text-slate-500">
+                <Text className="text-xs text-gray-500">
                   {formatDateTime(p.receivedAt)} ·{" "}
                   {userName(p.receivedByUserId)}
                   {coversMore ? ` · ${t("ledger.covers_others")}` : ""}

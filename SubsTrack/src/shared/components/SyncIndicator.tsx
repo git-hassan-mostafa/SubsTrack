@@ -27,7 +27,7 @@ export function SyncIndicator() {
     >
       <View className="flex-row items-center gap-2 rounded-full bg-gray-800 px-3.5 py-1.5 shadow-sm">
         <ActivityIndicator size="small" color="#fff" />
-        <Text className="text-xs font-medium text-white">
+        <Text fontWeight="Medium" className="text-xs text-white">
           {t("settings.syncing")}
         </Text>
       </View>

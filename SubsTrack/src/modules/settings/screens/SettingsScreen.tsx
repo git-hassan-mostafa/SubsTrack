@@ -9,7 +9,7 @@ import { useRouter, type Href } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
 import { DropdownModal } from "@/src/shared/components/Dropdown";
-import { COLORS } from "@/src/shared/constants";
+import { CARD_SURFACE, COLORS } from "@/src/shared/constants";
 import { confirm } from "@/src/shared/lib/confirm";
 import {
   useLanguageStore,
@@ -55,7 +55,8 @@ function SettingsRow({
           color={destructive ? COLORS.danger : COLORS.gray500}
         />
         <Text
-          className={`text-sm font-medium ${destructive ? "text-red-500" : "text-gray-900"}`}
+          fontWeight="Medium"
+          className={`text-sm ${destructive ? "text-red-500" : "text-gray-900"}`}
         >
           {label}
         </Text>
@@ -144,12 +145,14 @@ export function SettingsScreen() {
 
           {/* Profile card */}
           {user ? (
-            <View className="mx-4 mb-5 bg-white rounded-2xl border border-gray-100 px-4 py-4 flex-row items-center">
+            <View
+              className={`${CARD_SURFACE} mx-4 mb-5 px-4 py-4 flex-row items-center`}
+            >
               <View className="w-10 h-10 rounded-xl bg-success-light items-center justify-center me-3">
                 <Ionicons name="person" size={18} color={COLORS.success} />
               </View>
               <View className="flex-1">
-                <Text className="text-base font-semibold text-gray-900">
+                <Text fontWeight="SemiBold" className="text-base text-gray-900">
                   {user.fullName}
                 </Text>
                 <Text className="text-xs text-gray-400 mt-0.5">
@@ -166,7 +169,7 @@ export function SettingsScreen() {
 
           {/* My wallet — cash this user has collected but not handed over yet. */}
           <View className="mx-4 mb-5">
-            <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+            <View className={`${CARD_SURFACE} overflow-hidden`}>
               <SettingsRow
                 icon="wallet-outline"
                 label={t("wallet.my_title")}
@@ -180,10 +183,13 @@ export function SettingsScreen() {
 
           {/* Preferences */}
           <View className="mx-4 mb-5">
-            <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2 px-1">
+            <Text
+              fontWeight="SemiBold"
+              className="text-xs text-gray-400 uppercase tracking-wide mb-2 px-1"
+            >
               {t("settings.preferences_section")}
             </Text>
-            <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+            <View className={`${CARD_SURFACE} overflow-hidden`}>
               <PressableOpacity
                 onPress={() => setLanguagePickerOpen(true)}
                 className="flex-row items-center justify-between px-4 py-3.5"
@@ -194,7 +200,7 @@ export function SettingsScreen() {
                     size={18}
                     color={COLORS.gray500}
                   />
-                  <Text className="text-sm font-medium text-gray-900">
+                  <Text fontWeight="Medium" className="text-sm text-gray-900">
                     {t("settings.language_section")}
                   </Text>
                 </View>
@@ -214,10 +220,13 @@ export function SettingsScreen() {
 
           {/* Organization */}
           <View className="mx-4 mb-5">
-            <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2 px-1">
+            <Text
+              fontWeight="SemiBold"
+              className="text-xs text-gray-400 uppercase tracking-wide mb-2 px-1"
+            >
               {t("settings.organization")}
             </Text>
-            <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+            <View className={`${CARD_SURFACE} overflow-hidden`}>
               <SettingsRow
                 icon="grid-outline"
                 label={t("settings.organization")}
@@ -239,10 +248,13 @@ export function SettingsScreen() {
           {/* Data / sync — native only (web talks to Supabase directly) */}
           {IS_OFFLINE_CAPABLE ? (
             <View className="mx-4 mb-5">
-              <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2 px-1">
+              <Text
+                fontWeight="SemiBold"
+                className="text-xs text-gray-400 uppercase tracking-wide mb-2 px-1"
+              >
                 {t("settings.data_section")}
               </Text>
-              <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+              <View className={`${CARD_SURFACE} overflow-hidden`}>
                 <PressableOpacity
                   onPress={() => void handleSyncPress()}
                   disabled={syncing}
@@ -254,7 +266,7 @@ export function SettingsScreen() {
                       size={18}
                       color={COLORS.gray500}
                     />
-                    <Text className="text-sm font-medium text-gray-900">
+                    <Text fontWeight="Medium" className="text-sm text-gray-900">
                       {t("settings.sync_now")}
                     </Text>
                   </View>
@@ -282,7 +294,7 @@ export function SettingsScreen() {
 
           {/* Logout */}
           <View className="mx-4 mb-8">
-            <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+            <View className={`${CARD_SURFACE} overflow-hidden`}>
               <SettingsRow
                 icon="log-out-outline"
                 label={t("settings.logout")}
@@ -310,7 +322,7 @@ export function SettingsScreen() {
                 size={18}
                 color="#fff"
               />
-              <Text className="flex-1 text-sm font-medium text-white">
+              <Text fontWeight="Medium" className="flex-1 text-sm text-white">
                 {syncResult === "done"
                   ? t("settings.sync_done")
                   : syncResult === "offline"

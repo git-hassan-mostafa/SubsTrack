@@ -28,7 +28,7 @@ export function UpdateBanner() {
     >
       <View className="flex-row items-center gap-2.5 rounded-full bg-gray-800 ps-3.5 pe-1.5 py-1.5 shadow-sm">
         <Ionicons name="arrow-down-circle-outline" size={16} color="#fff" />
-        <Text className="text-xs font-medium text-white">
+        <Text fontWeight="Medium" className="text-xs text-white">
           {t("update.ready")}
         </Text>
         <PressableOpacity

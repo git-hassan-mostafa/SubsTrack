@@ -1,7 +1,13 @@
 import type { Service } from "@/src/core/types";
 import { View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { Text } from "@/src/shared/components/Text";
+import {
+  CardAmount,
+  CardMeta,
+  CardSubtitle,
+  CardTitle,
+} from "@/src/shared/components/CardText";
+import { Chip } from "@/src/shared/components/Chip";
 import { COLORS } from "@/src/shared/constants";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
@@ -50,26 +56,22 @@ export function ServiceCard({
       }
     >
       <View className="flex-1">
-        <Text className="text-base font-semibold text-gray-900">
-          {service.name}
-        </Text>
+        <CardTitle>{service.name}</CardTitle>
         {service.description ? (
-          <Text className="text-xs text-gray-400 mt-0.5" numberOfLines={1}>
+          <CardSubtitle className="mt-0.5" numberOfLines={1}>
             {service.description}
-          </Text>
+          </CardSubtitle>
         ) : null}
         {!service.active ? (
-          <Text className="text-xs text-gray-400 mt-0.5">
-            {t("services.inactive_badge")}
-          </Text>
+          <View className="mt-1.5 flex-row">
+            <Chip text={t("services.inactive_badge")} tone="gray" />
+          </View>
         ) : null}
       </View>
 
       <View className="items-end me-2">
-        <Text fontWeight="Bold" className="text-base text-gray-900">
-          {priceLabel}
-        </Text>
-        <Text className="text-xs text-gray-400">{t("services.per_job")}</Text>
+        <CardAmount>{priceLabel}</CardAmount>
+        <CardMeta>{t("services.per_job")}</CardMeta>
       </View>
     </EntityCard>
   );

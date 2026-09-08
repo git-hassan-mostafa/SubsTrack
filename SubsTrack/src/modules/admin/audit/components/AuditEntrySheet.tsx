@@ -3,7 +3,7 @@ import { View } from "react-native";
 import { useTranslation } from "react-i18next";
 import type { AuditEntry } from "@/src/core/types";
 import { formatDateTime } from "@/src/core/utils/date";
-import { COLORS } from "@/src/shared/constants";
+import { CARD_SURFACE, COLORS } from "@/src/shared/constants";
 import { Text } from "@/src/shared/components/Text";
 import { FormSheet } from "@/src/shared/components/FormSheet";
 import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
@@ -53,14 +53,14 @@ export function AuditEntrySheet({
       title={`${actionLabel(t, entry.action)} · ${tableLabel(t, entry.table)}`}
       dismissLabel={t("common.close")}
     >
-      <View className="bg-white rounded-2xl border border-gray-100 px-4 py-3.5 mb-4">
+      <View className={`${CARD_SURFACE} px-4 py-3.5 mb-4`}>
         <AuditSummaryText
           parts={summary}
           className="text-[15px] leading-6 text-gray-900"
         />
       </View>
 
-      <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden mb-4">
+      <View className={`${CARD_SURFACE} overflow-hidden mb-4`}>
         {entry.subject ? (
           <Row label={subjectLabel(t, entry.table)} value={entry.subject} />
         ) : null}
@@ -79,7 +79,7 @@ export function AuditEntrySheet({
       </View>
 
       {entry.changes.length > 0 ? (
-        <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden mb-4">
+        <View className={`${CARD_SURFACE} overflow-hidden mb-4`}>
           {entry.changes.map((c, i) => (
             <View
               key={c.field}
@@ -101,7 +101,8 @@ export function AuditEntrySheet({
                   color={COLORS.gray400}
                 />
                 <Text
-                  className="text-sm font-semibold text-gray-900 flex-1"
+                  fontWeight="SemiBold"
+                  className="text-sm text-gray-900 flex-1"
                   numberOfLines={2}
                 >
                   {formatField(c.field, c.after, ctx)}
@@ -113,7 +114,7 @@ export function AuditEntrySheet({
       ) : null}
 
       {snapshotRows.length > 0 ? (
-        <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden mb-4">
+        <View className={`${CARD_SURFACE} overflow-hidden mb-4`}>
           {snapshotRows.map(([key, value], i) => (
             <Row
               key={key}
@@ -149,7 +150,8 @@ function Row({
     >
       <Text className="text-sm text-gray-400">{label}</Text>
       <Text
-        className="text-sm font-semibold text-gray-900 flex-1 ms-4 text-right"
+        fontWeight="SemiBold"
+        className="text-sm text-gray-900 flex-1 ms-4 text-right"
         numberOfLines={3}
       >
         {value}

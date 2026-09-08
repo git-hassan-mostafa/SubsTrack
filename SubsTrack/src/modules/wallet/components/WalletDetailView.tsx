@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
 import { EmptyState } from "@/src/shared/components/EmptyState";
-import { Checkbox } from "@/src/shared/components/Checkbox";
+import { EntityCard } from "@/src/shared/components/EntityCard";
 import {
   SelectionBar,
   type SelectionAction,
@@ -268,7 +268,7 @@ export function WalletDetailView({
                 <Text className="text-sm text-gray-500">
                   {findCurrency(currencies, ct.currencyId)?.code ?? "USD"}
                 </Text>
-                <Text className="text-sm font-semibold text-gray-900">
+                <Text fontWeight="SemiBold" className="text-sm text-gray-900">
                   {inOwnCurrency(ct.amount, ct.currencyId)}
                 </Text>
               </View>
@@ -286,7 +286,7 @@ export function WalletDetailView({
             }`}
           >
             <Ionicons name="checkmark-done-outline" size={18} color="#fff" />
-            <Text className="text-sm font-semibold text-white">
+            <Text fontWeight="SemiBold" className="text-sm text-white">
               {actionAllLabel}
             </Text>
           </PressableOpacity>
@@ -302,7 +302,10 @@ export function WalletDetailView({
             {/* Section header + filter toggle — hidden while selecting. */}
             {!selecting ? (
               <View className="flex-row items-center justify-between mb-2">
-                <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
+                <Text
+                  fontWeight="SemiBold"
+                  className="text-xs text-gray-400 uppercase tracking-wide"
+                >
                   {t("wallet.transactions_section")}
                 </Text>
                 <FilterToggleButton
@@ -357,7 +360,7 @@ export function WalletDetailView({
                     className="flex-row items-center gap-x-1 rounded-full px-3 py-1.5"
                   >
                     <Ionicons name="close" size={14} color={COLORS.gray500} />
-                    <Text className="text-sm font-medium text-gray-500">
+                    <Text fontWeight="Medium" className="text-sm text-gray-500">
                       {t("common.clear_filters")}
                     </Text>
                   </PressableOpacity>
@@ -386,35 +389,23 @@ export function WalletDetailView({
                   .filter(Boolean)
                   .join(" · ");
                 return (
-                  <PressableOpacity
+                  <EntityCard
                     key={k}
                     disabled={!canAct}
-                    onPress={selecting ? () => selection.toggle(k) : undefined}
-                    onLongPress={
-                      canAct && !selecting
-                        ? () => selection.enterWith(k)
-                        : undefined
+                    icon={meta.icon}
+                    iconColor={meta.color}
+                    iconBgClassName={meta.bg}
+                    selectionMode={selecting}
+                    selected={checked}
+                    onToggleSelect={() => selection.toggle(k)}
+                    onEnterSelection={
+                      canAct ? () => selection.enterWith(k) : undefined
                     }
-                    className="bg-white border border-gray-100 rounded-2xl px-4 py-3 mb-2.5 flex-row items-center"
                   >
-                    {selecting ? (
-                      <View className="w-9 h-9 items-center justify-center me-3">
-                        <Checkbox checked={checked} />
-                      </View>
-                    ) : (
-                      <View
-                        className={`w-9 h-9 rounded-xl items-center justify-center me-3 ${meta.bg}`}
-                      >
-                        <Ionicons
-                          name={meta.icon}
-                          size={16}
-                          color={meta.color}
-                        />
-                      </View>
-                    )}
                     <View className="flex-1">
                       <Text
-                        className="text-sm font-semibold text-gray-900"
+                        fontWeight="SemiBold"
+                        className="text-sm text-gray-900"
                         numberOfLines={1}
                       >
                         {item.customerName ?? t("wallet.walk_in")}
@@ -427,7 +418,10 @@ export function WalletDetailView({
                       </Text>
                     </View>
                     <View className="items-end ms-2">
-                      <Text className="text-sm font-semibold text-gray-900">
+                      <Text
+                        fontWeight="SemiBold"
+                        className="text-sm text-gray-900"
+                      >
                         {inOwnCurrency(item.amount, item.currencyId)}
                       </Text>
                       {canAct && !selecting ? (
@@ -437,13 +431,16 @@ export function WalletDetailView({
                           hitSlop={6}
                           className="mt-1"
                         >
-                          <Text className="text-xs font-semibold text-primary">
+                          <Text
+                            fontWeight="SemiBold"
+                            className="text-xs text-primary"
+                          >
                             {actionLabel}
                           </Text>
                         </PressableOpacity>
                       ) : null}
                     </View>
-                  </PressableOpacity>
+                  </EntityCard>
                 );
               })
             )}

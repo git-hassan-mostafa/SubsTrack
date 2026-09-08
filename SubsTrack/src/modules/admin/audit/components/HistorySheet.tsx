@@ -54,7 +54,7 @@ export function HistorySheet({
             ) : null}
           </View>
           <PressableOpacity onPress={onDismiss}>
-            <Text className="text-base text-primary font-medium">
+            <Text fontWeight="Medium" className="text-base text-primary">
               {t("common.close")}
             </Text>
           </PressableOpacity>

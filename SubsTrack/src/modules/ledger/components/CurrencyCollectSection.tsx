@@ -40,20 +40,20 @@ export function CurrencyCollectSection({
   const code = plan.currency?.code ?? "USD";
 
   return (
-    <View className="gap-3 rounded-2xl border border-slate-200 p-3">
+    <View className="gap-3 rounded-2xl border border-gray-200 p-3">
       <View className="flex-row items-center justify-between">
-        <Text fontWeight="Bold" className="text-sm text-slate-900">
+        <Text fontWeight="Bold" className="text-sm text-gray-900">
           {code}
         </Text>
         <View className="flex-row items-center gap-3">
-          <Text className="text-xs text-slate-500">
+          <Text className="text-xs text-gray-500">
             {t("ledger.amount_owed", { amount: money(plan.owed) })}
           </Text>
           <PressableOpacity
             onPress={() => onChangeAmount(plan.owed)}
-            className="rounded-lg bg-slate-100 px-3 py-1.5"
+            className="rounded-lg bg-gray-100 px-3 py-1.5"
           >
-            <Text className="text-xs font-medium text-primary">
+            <Text fontWeight="Medium" className="text-xs text-primary">
               {t("ledger.collect_all")}
             </Text>
           </PressableOpacity>
@@ -70,7 +70,7 @@ export function CurrencyCollectSection({
       />
 
       {collecting > 0 && !sameAsDisplay && (
-        <Text className="text-xs text-slate-500">
+        <Text className="text-xs text-gray-500">
           {`≈ ${formatMoney(collecting, plan.currency, display)}`}
         </Text>
       )}

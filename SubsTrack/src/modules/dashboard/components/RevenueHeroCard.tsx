@@ -171,7 +171,7 @@ export function RevenueHeroCard({
             <OutflowChip
               icon="hourglass-outline"
               label={t("dashboard.owed_by_customers")}
-              amount={`−${fmt(totalDebt)}`}
+              amount={`${fmt(totalDebt)}`}
               className="bg-red-400/20"
               textClassName="text-red-100"
               iconColor="#fca5a5"

@@ -1,7 +1,7 @@
 import { View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/src/shared/components/Text";
-import { COLORS } from "@/src/shared/constants";
+import { CARD_SURFACE, COLORS } from "@/src/shared/constants";
 
 type Tone = "default" | "danger" | "success" | "warning" | "primary";
 
@@ -33,7 +33,7 @@ const iconColor: Record<Tone, string> = {
 // The shared building block for every stat grid (dashboard + reports).
 export function StatTile({ label, value, sub, tone = "default", icon }: Props) {
   return (
-    <View className="flex-1 bg-white border border-gray-100 rounded-2xl p-4">
+    <View className={`${CARD_SURFACE} flex-1 p-4`}>
       <View className="flex-row items-center gap-1.5 mb-3">
         {icon ? (
           <Ionicons name={icon} size={13} color={iconColor[tone]} />

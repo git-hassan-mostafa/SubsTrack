@@ -79,9 +79,8 @@ export function BranchSelector({
       >
         <Ionicons name="git-branch-outline" size={12} color={tint} />
         <Text
-          className={`text-xs font-semibold ${
-            isFiltered ? "text-primary" : "text-gray-600"
-          }`}
+          fontWeight="SemiBold"
+          className={`text-xs ${isFiltered ? "text-primary" : "text-gray-600"}`}
         >
           {selectedLabel}
         </Text>

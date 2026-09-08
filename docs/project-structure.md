@@ -180,7 +180,6 @@ SubsTrack/
 │   │   ├── dashboard/
 │   │   │   ├── services/DashboardService.ts    # Promise.all() for metrics including monthly sales sum (USD)
 │   │   │   ├── screens/DashboardScreen.tsx     # Revenue card now combines subscriptions + sales with sub-breakdown
-│   │   │   └── components/MetricCard.tsx
 │   │   │
 │   │   ├── reports/                             # Reports tab (admin-only) — app/(app)/(tabs)/reports/
 │   │   │   ├── services/ReportsService.ts      # composes existing services/repos; one query per stream per window

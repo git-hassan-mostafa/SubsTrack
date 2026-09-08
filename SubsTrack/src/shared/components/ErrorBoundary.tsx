@@ -46,7 +46,7 @@ export class ErrorBoundary extends Component<Props, State> {
       if (this.props.fallback) return this.props.fallback;
       return (
         <View className="flex-1 items-center justify-center px-8 bg-white">
-          <Text className="text-xl font-semibold text-gray-900 mb-2">
+          <Text fontWeight="SemiBold" className="text-xl text-gray-900 mb-2">
             {i18n.t("common.something_went_wrong")}
           </Text>
           <Text className="text-sm text-gray-500 text-center mb-6">
@@ -56,7 +56,7 @@ export class ErrorBoundary extends Component<Props, State> {
             onPress={this.handleReset}
             className="bg-primary px-6 py-3 rounded-lg"
           >
-            <Text className="text-white font-medium">
+            <Text fontWeight="Medium" className="text-white">
               {i18n.t("common.try_again")}
             </Text>
           </PressableOpacity>

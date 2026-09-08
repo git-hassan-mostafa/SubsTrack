@@ -25,7 +25,10 @@ export function Input({
   return (
     <View className="mb-4">
       {label ? (
-        <Text className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+        <Text
+          fontWeight="SemiBold"
+          className="text-xs text-gray-500 uppercase tracking-wide mb-1.5"
+        >
           {label}
         </Text>
       ) : null}

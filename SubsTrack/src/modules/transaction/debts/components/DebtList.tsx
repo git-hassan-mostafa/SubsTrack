@@ -93,7 +93,10 @@ export function DebtList({
 
       {unpaidMonths.length > 0 && (
         <>
-          <Text className="mt-4 mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+          <Text
+            fontWeight="SemiBold"
+            className="mt-4 mb-2 text-xs uppercase tracking-wide text-gray-400"
+          >
             {t("ledger.unpaid_months_section")}
           </Text>
           {monthRows.map((item) => (

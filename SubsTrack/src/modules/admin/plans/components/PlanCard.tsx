@@ -1,7 +1,12 @@
 import type { Plan } from "@/src/core/types";
 import { View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { Text } from "@/src/shared/components/Text";
+import {
+  CardAmount,
+  CardMeta,
+  CardTitle,
+} from "@/src/shared/components/CardText";
+import { Chip } from "@/src/shared/components/Chip";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
@@ -45,31 +50,21 @@ export function PlanCard({
         onEnterSelection ? () => onEnterSelection(plan) : undefined
       }
     >
-      {/* Name */}
       <View className="flex-1">
-        <Text className="text-base font-semibold text-gray-900">
-          {plan.name}
-        </Text>
+        <CardTitle>{plan.name}</CardTitle>
       </View>
 
-      {/* Price */}
       <View className="items-end me-2">
         {plan.isCustomPrice ? (
-          <View className="bg-indigo-50 rounded-lg px-2.5 py-1">
-            <Text fontWeight="SemiBold" className="text-xs text-indigo-500">
-              {t("common.custom")}
-            </Text>
-          </View>
+          <Chip text={t("common.custom")} tone="indigo" size="md" />
         ) : (
           <>
-            <Text fontWeight="Bold" className="text-base text-gray-900">
-              {priceLabel}
-            </Text>
-            <Text className="text-xs text-gray-400">
+            <CardAmount>{priceLabel}</CardAmount>
+            <CardMeta>
               {plan.durationMonths > 1
                 ? t("plans.n_months", { count: plan.durationMonths })
                 : t("plans.per_month")}
-            </Text>
+            </CardMeta>
           </>
         )}
       </View>

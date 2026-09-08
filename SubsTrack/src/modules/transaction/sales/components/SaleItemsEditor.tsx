@@ -513,7 +513,7 @@ export function SaleItemsEditor({
               className="flex-row items-center px-2 py-1 -me-1"
             >
               <Ionicons name="trash-outline" size={15} color={COLORS.danger} />
-              <Text className="ms-1 text-xs text-danger font-medium">
+              <Text fontWeight="Medium" className="ms-1 text-xs text-danger">
                 {t("sales.remove_item")}
               </Text>
             </PressableOpacity>
@@ -558,7 +558,10 @@ export function SaleItemsEditor({
             {/* Quantity stepper — products only; labour is one job, one price */}
             {row.lineType === "product" ? (
               <View className="mb-4">
-                <Text className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+                <Text
+                  fontWeight="SemiBold"
+                  className="text-xs text-gray-500 uppercase tracking-wide mb-1.5"
+                >
                   {t("sales.quantity_label")}
                 </Text>
                 <View className="flex-row items-center border border-gray-200 rounded-xl bg-white px-2 py-1.5">
@@ -568,7 +571,10 @@ export function SaleItemsEditor({
                   >
                     <Ionicons name="remove" size={16} color={COLORS.gray700} />
                   </PressableOpacity>
-                  <Text className="text-base font-semibold text-gray-900 w-9 text-center">
+                  <Text
+                    fontWeight="SemiBold"
+                    className="text-base text-gray-900 w-9 text-center"
+                  >
                     {row.quantity}
                   </Text>
                   <PressableOpacity

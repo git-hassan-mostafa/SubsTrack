@@ -26,8 +26,8 @@ const IGNORED_FIELDS = new Set(['updated_at', 'balance']);
 
 // Identity columns carried into after_data even when unchanged — see gotcha #132.
 const CONTEXT_FIELDS: Partial<Record<AuditTable, string[]>> = {
-  charges: ['billing_month', 'kind', 'description', 'currency_id'],
-  collections: ['amount', 'currency_id', 'kind'],
+  charges: ['billing_month', 'kind', 'description', 'currency_id', 'plan_id'],
+  collections: ['amount', 'currency_id', 'kind', 'plan_id'],
   plans: ['name', 'currency_id'],
   products: ['name', 'currency_id'],
   services: ['name'],

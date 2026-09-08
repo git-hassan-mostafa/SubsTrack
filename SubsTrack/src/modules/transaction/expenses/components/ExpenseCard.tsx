@@ -1,9 +1,14 @@
 import { useState } from "react";
 import { View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { Text } from "@/src/shared/components/Text";
 import { COLORS } from "@/src/shared/constants";
 import { EntityCard } from "@/src/shared/components/EntityCard";
+import {
+  CardAmount,
+  CardSubtitle,
+  CardTitle,
+} from "@/src/shared/components/CardText";
+import { Chip } from "@/src/shared/components/Chip";
 import {
   ActionMenu,
   type ActionMenuItem,
@@ -69,30 +74,20 @@ export function ExpenseCard({ item, onVoid, onOpenProduct }: Props) {
         reserveMenuSpace
       >
         <View className="flex-1">
-          <Text
-            className="text-base font-semibold text-gray-900"
-            numberOfLines={1}
-          >
-            {item.label}
-          </Text>
-          <Text className="text-xs text-gray-500 mt-0.5" numberOfLines={1}>
+          <CardTitle numberOfLines={1}>{item.label}</CardTitle>
+          <CardSubtitle className="mt-0.5" numberOfLines={1}>
             {formatDate(item.date)}
-          </Text>
+          </CardSubtitle>
         </View>
 
         <View className="items-end ms-2">
-          <Text fontWeight="Bold" className={"text-base text-gray-900"}>
-            {amountLabel}
-          </Text>
-          <Text
-            className={`text-[10px] font-semibold uppercase tracking-wide mt-1 px-1.5 py-0.5 rounded ${
-              isStock
-                ? "bg-indigo-50 text-indigo-700"
-                : "bg-amber-50 text-amber-700"
-            }`}
-          >
-            {t(expenseCategoryLabelKey(item.category))}
-          </Text>
+          <CardAmount>{amountLabel}</CardAmount>
+          <View className="mt-1">
+            <Chip
+              text={t(expenseCategoryLabelKey(item.category))}
+              tone={isStock ? "indigo" : "amber"}
+            />
+          </View>
         </View>
       </EntityCard>
 

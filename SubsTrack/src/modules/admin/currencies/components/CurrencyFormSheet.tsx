@@ -191,7 +191,7 @@ export function CurrencyFormSheet({
             onPress={() => onRequestDelete(currency)}
             className="border border-red-200 rounded-xl py-3.5 items-center mt-3"
           >
-            <Text className="text-red-500 font-semibold">
+            <Text fontWeight="SemiBold" className="text-red-500">
               {t("common.delete")}
             </Text>
           </PressableOpacity>
@@ -202,7 +202,7 @@ export function CurrencyFormSheet({
             onPress={handleReactivate}
             className="border border-indigo-200 rounded-xl py-3.5 items-center mt-3"
           >
-            <Text className="text-primary font-semibold">
+            <Text fontWeight="SemiBold" className="text-primary">
               {t("tenant_settings.reactivate")}
             </Text>
           </PressableOpacity>

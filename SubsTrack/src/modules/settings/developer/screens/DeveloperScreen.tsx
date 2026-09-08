@@ -14,7 +14,7 @@ import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
 import { DbTableViewer } from "@/src/shared/components/DbTableViewer";
 import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
-import { COLORS } from "@/src/shared/constants";
+import { CARD_SURFACE, COLORS } from "@/src/shared/constants";
 import { confirm } from "@/src/shared/lib/confirm";
 import {
   IS_OFFLINE_CAPABLE,
@@ -235,10 +235,13 @@ export function DeveloperScreen() {
           </View>
 
           <View className="mx-4 mb-8">
-            <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2 px-1">
+            <Text
+              fontWeight="SemiBold"
+              className="text-xs text-gray-400 uppercase tracking-wide mb-2 px-1"
+            >
               {t("settings.developer_tables_section")}
             </Text>
-            <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+            <View className={`${CARD_SURFACE} overflow-hidden`}>
               {ALL_TABLE_NAMES.map((name, index) => (
                 <PressableOpacity
                   key={name}
@@ -249,7 +252,7 @@ export function DeveloperScreen() {
                       : "border-b border-gray-100"
                   }`}
                 >
-                  <Text className="text-sm font-medium text-gray-900">
+                  <Text fontWeight="Medium" className="text-sm text-gray-900">
                     {name}
                   </Text>
                   <View className="flex-row items-center gap-1">
@@ -271,7 +274,10 @@ export function DeveloperScreen() {
         {flash ? (
           <View className="absolute inset-x-0 bottom-0 px-4 pb-4">
             <View className="bg-success rounded-xl px-4 py-3">
-              <Text className="text-sm font-medium text-white text-center">
+              <Text
+                fontWeight="Medium"
+                className="text-sm text-white text-center"
+              >
                 {flash}
               </Text>
             </View>

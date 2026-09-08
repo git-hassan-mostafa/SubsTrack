@@ -43,7 +43,7 @@ export function SendOnWhatsAppButton({
         ) : (
           <>
             <Ionicons name="logo-whatsapp" size={18} color={COLORS.white} />
-            <Text className="text-base font-semibold text-white ms-2">
+            <Text fontWeight="SemiBold" className="text-base text-white ms-2">
               {label}
             </Text>
           </>

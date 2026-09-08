@@ -72,7 +72,8 @@ export function DebtorDetailSheet({
                 {debtor.customerName}
               </Text>
               <Text
-                className="text-sm font-semibold text-gray-500 mt-0.5"
+                fontWeight="SemiBold"
+                className="text-sm text-gray-500 mt-0.5"
                 numberOfLines={1}
               >
                 {formatMoney(totalUsd, null, target)} ·{" "}
@@ -88,7 +89,7 @@ export function DebtorDetailSheet({
                 <Ionicons name="add" size={18} color={COLORS.primary} />
               </PressableOpacity>
               <PressableOpacity onPress={onDismiss}>
-                <Text className="text-base text-primary font-medium">
+                <Text fontWeight="Medium" className="text-base text-primary">
                   {t("common.close")}
                 </Text>
               </PressableOpacity>

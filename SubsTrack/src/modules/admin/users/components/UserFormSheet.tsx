@@ -273,7 +273,9 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
                 }`}
               >
                 {form.changePassword ? (
-                  <Text className="text-white text-xs font-bold">✓</Text>
+                  <Text fontWeight="Bold" className="text-white text-xs">
+                    ✓
+                  </Text>
                 ) : null}
               </View>
             </PressableOpacity>
@@ -329,7 +331,7 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
           nullable={form.role === "admin"}
         />
 
-        <Text className="text-sm font-medium text-gray-700 mb-2">
+        <Text fontWeight="Medium" className="text-sm text-gray-700 mb-2">
           {t("users.role_label")}
         </Text>
         <View className="flex-row gap-3 mb-6">
@@ -346,7 +348,8 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
               } ${isOwnAccount ? "opacity-40" : ""}`}
             >
               <Text
-                className={`font-medium capitalize ${form.role === r ? "text-primary" : "text-gray-600"}`}
+                fontWeight="Medium"
+                className={`capitalize ${form.role === r ? "text-primary" : "text-gray-600"}`}
               >
                 {t(`users.${r}`)}
               </Text>

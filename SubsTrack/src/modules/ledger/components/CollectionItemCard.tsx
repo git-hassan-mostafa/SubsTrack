@@ -1,6 +1,11 @@
 import { ActivityIndicator, View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { Text } from "@/src/shared/components/Text";
+import {
+  CardAmount,
+  CardMeta,
+  CardSubtitle,
+  CardTitle,
+} from "@/src/shared/components/CardText";
 import { EntityCard } from "@/src/shared/components/EntityCard";
 import { COLORS } from "@/src/shared/constants";
 import type { CollectionItem } from "@/src/core/types";
@@ -48,26 +53,21 @@ export function CollectionItemCard({
     >
       <View className="flex-1 gap-0.5">
         <View className="flex-row items-start justify-between gap-2">
-          <Text
-            className="flex-1 text-sm font-semibold text-slate-900"
-            numberOfLines={2}
-          >
+          <CardTitle className="flex-1" numberOfLines={2}>
             {label || t("ledger.payment")}
-          </Text>
-          <Text className="text-base font-semibold text-slate-900">
-            {money(item.amount)}
-          </Text>
+          </CardTitle>
+          <CardAmount>{money(item.amount)}</CardAmount>
         </View>
 
         {charge ? (
           <>
-            <Text className="text-xs text-slate-600">
+            <CardSubtitle>
               {t("ledger.bill_total")} {money(charge.amount)} ·{" "}
               {t("ledger.due_on", { date: formatDate(charge.dueDate) })}
-            </Text>
-            <Text className="text-[11px] text-slate-500">
+            </CardSubtitle>
+            <CardMeta>
               {t("ledger.issued_at")} {formatDateTime(charge.issuedAt)}
-            </Text>
+            </CardMeta>
           </>
         ) : null}
       </View>

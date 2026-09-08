@@ -135,7 +135,7 @@ export function LoginScreen() {
               <Text className="text-sm text-gray-400">
                 {t("auth.lost_organization_id")}{" "}
               </Text>
-              <Text className="text-sm text-primary font-semibold">
+              <Text fontWeight="SemiBold" className="text-sm text-primary">
                 {t("auth.get_help")}
               </Text>
             </View>

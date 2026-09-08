@@ -30,7 +30,7 @@ const regularBgColor: Record<MonthStatus, string> = {
   unpaid: "bg-red-500",
   future: "bg-gray-100",
   before_start: "bg-gray-100",
-  skipped: "bg-slate-400",
+  skipped: "bg-gray-400",
 };
 
 const nonRegularBgColor: Record<MonthStatus, string> = {
@@ -38,7 +38,7 @@ const nonRegularBgColor: Record<MonthStatus, string> = {
   unpaid: "bg-gray-200",
   future: "bg-gray-100",
   before_start: "bg-gray-100",
-  skipped: "bg-slate-400",
+  skipped: "bg-gray-400",
 };
 
 const regularTextColor: Record<MonthStatus, string> = {
@@ -158,7 +158,10 @@ export const MonthCell = memo(function MonthCell({
         <Text fontWeight="SemiBold" className={`text-sm ${labelColor}`}>
           {t(`months.${entry.label}`)}
         </Text>
-        <Text className={`text-[8px] font-semibold mt-0.5 ${labelColor}`}>
+        <Text
+          fontWeight="SemiBold"
+          className={`text-[8px] mt-0.5 ${labelColor}`}
+        >
           {sublabel ?? " "}
         </Text>
         {wrapFromPrev ? (

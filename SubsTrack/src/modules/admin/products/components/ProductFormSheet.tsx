@@ -202,7 +202,7 @@ export function ProductFormSheet({
             </View>
             {onAdjustStock ? (
               <PressableOpacity onPress={() => onAdjustStock(product)}>
-                <Text className="text-sm text-primary font-semibold">
+                <Text fontWeight="SemiBold" className="text-sm text-primary">
                   {t("products.adjust_stock_title")}
                 </Text>
               </PressableOpacity>
@@ -234,7 +234,7 @@ export function ProductFormSheet({
               onPress={() => onRequestDelete(product)}
               className="border border-red-200 rounded-xl py-3.5 items-center mt-3"
             >
-              <Text className="text-red-500 font-semibold">
+              <Text fontWeight="SemiBold" className="text-red-500">
                 {t("common.delete")}
               </Text>
             </PressableOpacity>

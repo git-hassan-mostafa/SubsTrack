@@ -1116,7 +1116,8 @@
         "detail_first_new": "{{type}} {{detail}}",
         "of_detail": "{{type}} بقيمة {{detail}}",
         "bare": "{{type}}",
-        "bare_new": "{{type}}"
+        "bare_new": "{{type}}",
+        "with_plan": "{{record}} (خطة {{plan}})"
       },
       "create": "{{actor}} أضاف {{record}}",
       "update": "{{actor}} عدّل {{record}}",

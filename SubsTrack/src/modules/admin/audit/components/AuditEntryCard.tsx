@@ -4,8 +4,8 @@ import { Ionicons } from "@expo/vector-icons";
 import type { AuditAction, AuditEntry } from "@/src/core/types";
 import { formatDateTimeShort } from "@/src/core/utils/date";
 import { COLORS } from "@/src/shared/constants";
-import { Text } from "@/src/shared/components/Text";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
+import { EntityCard } from "@/src/shared/components/EntityCard";
+import { CardMeta } from "@/src/shared/components/CardText";
 import { buildAuditSummary } from "../utils/summary";
 import { fieldContext, type AuditContextBase } from "../utils/valueDisplay";
 import { AuditSummaryText } from "./AuditSummaryText";
@@ -51,27 +51,23 @@ function AuditEntryCardComponent({
   );
 
   return (
-    <PressableOpacity
+    <EntityCard
+      icon={style.icon}
+      iconColor={style.color}
+      iconBgClassName={style.tile}
       onPress={onPress}
-      className="bg-white border border-gray-100 rounded-2xl px-4 py-3 mb-2 flex-row items-start"
     >
-      <View
-        className={`w-9 h-9 rounded-xl items-center justify-center me-3 mt-0.5 ${style.tile}`}
-      >
-        <Ionicons name={style.icon} size={17} color={style.color} />
-      </View>
-
       <View className="flex-1">
         <AuditSummaryText
           parts={parts}
-          className="text-[14px] leading-5 text-gray-900"
+          className="text-sm leading-5 text-gray-900"
           numberOfLines={3}
         />
-        <Text className="text-[11px] text-gray-400 mt-1" numberOfLines={1}>
+        <CardMeta className="mt-1" numberOfLines={1}>
           {formatDateTimeShort(entry.occurredAt)}
-        </Text>
+        </CardMeta>
       </View>
-    </PressableOpacity>
+    </EntityCard>
   );
 }
 

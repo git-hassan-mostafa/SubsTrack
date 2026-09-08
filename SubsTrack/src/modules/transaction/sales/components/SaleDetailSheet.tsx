@@ -10,7 +10,7 @@ import { useTranslation } from "react-i18next";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { Input } from "@/src/shared/components/Input";
-import { COLORS } from "@/src/shared/constants";
+import { CARD_SURFACE, COLORS } from "@/src/shared/constants";
 import type { Collection, Sale, SaleItem } from "@/src/core/types";
 import {
   findCurrency,
@@ -149,7 +149,7 @@ export function SaleDetailSheet({
           <Text className="text-sm text-gray-400 mt-1">{itemsLabel}</Text>
           {voided ? (
             <View className="mt-2 bg-red-100 rounded-full px-3 py-1">
-              <Text className="text-xs text-red-600 font-semibold">
+              <Text fontWeight="SemiBold" className="text-xs text-red-600">
                 {t("sales.voided")}
               </Text>
             </View>
@@ -194,7 +194,7 @@ export function SaleDetailSheet({
               }}
               className="flex-1 border border-gray-200 rounded-xl py-3 items-center"
             >
-              <Text className="text-gray-600 font-medium">
+              <Text fontWeight="Medium" className="text-gray-600">
                 {t("common.cancel")}
               </Text>
             </PressableOpacity>
@@ -205,7 +205,7 @@ export function SaleDetailSheet({
                 voidLoading ? "bg-red-200" : "bg-red-500"
               }`}
             >
-              <Text className="text-white font-semibold">
+              <Text fontWeight="SemiBold" className="text-white">
                 {t("sales.confirm_void")}
               </Text>
             </PressableOpacity>
@@ -224,7 +224,7 @@ export function SaleDetailSheet({
 
       {/* Products card — one row per line, with a totals footer */}
       {items.length > 0 ? (
-        <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden mb-4">
+        <View className={`${CARD_SURFACE} overflow-hidden mb-4`}>
           <View className="flex-row items-center bg-gray-50 px-4 py-3 border-b border-gray-100">
             <Ionicons name="cart-outline" size={16} color={COLORS.gray500} />
             <Text
@@ -271,7 +271,10 @@ export function SaleDetailSheet({
                     <Text className="text-xs text-gray-400">
                       {t("sales.paid_label")}
                     </Text>
-                    <Text className="text-xs font-semibold text-gray-700">
+                    <Text
+                      fontWeight="SemiBold"
+                      className="text-xs text-gray-700"
+                    >
                       {fmtSource(sale.amountPaid)}
                     </Text>
                   </View>
@@ -279,7 +282,10 @@ export function SaleDetailSheet({
                     <Text className="text-xs text-amber-600">
                       {t("sales.remaining_label")}
                     </Text>
-                    <Text className="text-xs font-semibold text-amber-600">
+                    <Text
+                      fontWeight="SemiBold"
+                      className="text-xs text-amber-600"
+                    >
                       {fmtSource(remaining)}
                     </Text>
                   </View>
@@ -311,7 +317,7 @@ export function SaleDetailSheet({
       ) : null}
 
       {/* Detail rows card */}
-      <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden mb-4">
+      <View className={`${CARD_SURFACE} overflow-hidden mb-4`}>
         <Row
           label={t("sales.customer_label")}
           value={sale.customer?.name ?? t("sales.walk_in")}
@@ -451,7 +457,8 @@ function Row({
     >
       <Text className="text-sm text-gray-400">{label}</Text>
       <Text
-        className={`text-sm font-semibold flex-1 ms-4 text-right ${valueColor}`}
+        fontWeight="SemiBold"
+        className={`text-sm flex-1 ms-4 text-right ${valueColor}`}
       >
         {value}
       </Text>

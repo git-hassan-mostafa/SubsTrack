@@ -74,7 +74,7 @@ export function ConfirmDialog({
     >
       <View className="flex-1 bg-black/50 items-center justify-center px-8">
         <View className="bg-white rounded-2xl p-6 w-full max-w-sm">
-          <Text className="text-lg font-semibold text-gray-900 mb-2">
+          <Text fontWeight="SemiBold" className="text-lg text-gray-900 mb-2">
             {title}
           </Text>
           <Text className="text-sm text-gray-600 mb-4">{message}</Text>
@@ -86,7 +86,7 @@ export function ConfirmDialog({
                 disabled={cancelIsDisabled}
                 className={`flex-1 border border-gray-300 rounded-lg py-3 items-center ${cancelIsDisabled ? "opacity-40" : ""}`}
               >
-                <Text className="text-gray-700 font-medium">
+                <Text fontWeight="Medium" className="text-gray-700">
                   {cancelLabel ?? t("common.cancel")}
                 </Text>
               </PressableOpacity>
@@ -99,7 +99,7 @@ export function ConfirmDialog({
               {loading ? (
                 <ActivityIndicator color={COLORS.white} size="small" />
               ) : (
-                <Text className="text-white font-medium">
+                <Text fontWeight="Medium" className="text-white">
                   {confirmLabel ?? t("common.confirm")}
                 </Text>
               )}

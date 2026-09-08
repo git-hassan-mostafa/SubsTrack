@@ -151,7 +151,10 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
         {/* Duration picker — multi-month UI hidden behind tier flag */}
         {multiMonthAllowed ? (
           <View className="mb-4">
-            <Text className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">
+            <Text
+              fontWeight="SemiBold"
+              className="text-xs text-gray-500 uppercase tracking-wide mb-2"
+            >
               {t("plans.duration_label")}
             </Text>
 
@@ -200,16 +203,23 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
                   onPress={() => setDuration(-1)}
                   className="w-9 h-9 rounded-lg bg-gray-100 items-center justify-center"
                 >
-                  <Text className="text-gray-700 text-lg font-bold">−</Text>
+                  <Text fontWeight="Bold" className="text-gray-700 text-lg">
+                    −
+                  </Text>
                 </PressableOpacity>
-                <Text className="text-base font-semibold text-gray-900 w-10 text-center">
+                <Text
+                  fontWeight="SemiBold"
+                  className="text-base text-gray-900 w-10 text-center"
+                >
                   {form.durationMonths}
                 </Text>
                 <PressableOpacity
                   onPress={() => setDuration(1)}
                   className="w-9 h-9 rounded-lg bg-gray-100 items-center justify-center"
                 >
-                  <Text className="text-gray-700 text-lg font-bold">+</Text>
+                  <Text fontWeight="Bold" className="text-gray-700 text-lg">
+                    +
+                  </Text>
                 </PressableOpacity>
               </View>
             </View>
@@ -252,7 +262,7 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
         {!isMultiMonth ? (
           <View className="flex-row items-center justify-between py-4 border border-gray-100 rounded-xl px-4 mb-6">
             <View>
-              <Text className="text-sm font-semibold text-gray-900">
+              <Text fontWeight="SemiBold" className="text-sm text-gray-900">
                 {t("plans.custom_pricing_label")}
               </Text>
               <Text className="text-xs text-gray-400 mt-0.5">
@@ -288,7 +298,7 @@ export function PlanFormSheet({ plan, onDismiss, onRequestDelete }: Props) {
               }}
               className="border border-red-200 rounded-xl py-3.5 items-center mt-3"
             >
-              <Text className="text-red-500 font-semibold">
+              <Text fontWeight="SemiBold" className="text-red-500">
                 {t("common.delete")}
               </Text>
             </PressableOpacity>

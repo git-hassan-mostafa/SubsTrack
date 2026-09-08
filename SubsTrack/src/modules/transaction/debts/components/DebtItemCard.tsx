@@ -2,9 +2,14 @@ import { useState } from "react";
 import { View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
-import { Text } from "@/src/shared/components/Text";
+import {
+  CardAmount,
+  CardMeta,
+  CardSubtitle,
+  CardTitle,
+} from "@/src/shared/components/CardText";
 import { COLORS } from "@/src/shared/constants";
-import { Chip } from "@/src/shared/components/Chip";
+import { Chip, type ChipTone } from "@/src/shared/components/Chip";
 import { EntityCard } from "@/src/shared/components/EntityCard";
 import {
   ActionMenu,
@@ -38,18 +43,18 @@ interface Props {
 
 interface KindStyle {
   icon: keyof typeof Ionicons.glyphMap;
-  chipClassName: string;
+  chipTone: ChipTone;
 }
 
 const KIND_STYLE: Record<ChargeKind, KindStyle> = {
   month: {
     icon: "calendar-outline",
-    chipClassName: "bg-teal-50 text-teal-700",
+    chipTone: "teal",
   },
-  sale: { icon: "receipt-outline", chipClassName: "bg-teal-50 text-teal-700" },
+  sale: { icon: "receipt-outline", chipTone: "teal" },
   manual: {
     icon: "document-text-outline",
-    chipClassName: "bg-violet-50 text-violet-700",
+    chipTone: "violet",
   },
 };
 
@@ -142,62 +147,43 @@ export function DebtItemCard({
     >
       <View className="flex-1 gap-0.5">
         <View className="flex-row items-start justify-between gap-2">
-          <Text
-            className="flex-1 text-base font-semibold text-slate-900"
-            numberOfLines={1}
-          >
+          <CardTitle className="flex-1" numberOfLines={1}>
             {hideCustomerName ? item.label : item.customerName}
-          </Text>
+          </CardTitle>
           <View className="items-end">
-            <Text className="text-base font-semibold text-slate-900">
-              {money.primary}
-            </Text>
-            {money.approx ? (
-              <Text className="text-[11px] text-slate-400">{money.approx}</Text>
-            ) : null}
+            <CardAmount>{money.primary}</CardAmount>
+            {money.approx ? <CardMeta>{money.approx}</CardMeta> : null}
           </View>
         </View>
 
         {hideCustomerName ? null : (
-          <Text className="text-xs text-slate-600" numberOfLines={1}>
-            {item.label}
-          </Text>
+          <CardSubtitle numberOfLines={1}>{item.label}</CardSubtitle>
         )}
-        {/* Both dates the bill owns — tight leading keeps them one block. */}
         <View>
-          <Text
-            className="text-[11px] leading-[15px] text-slate-500"
-            numberOfLines={1}
-          >
+          <CardMeta className="leading-[15px]" numberOfLines={1}>
             {t("ledger.due_date")} {formatDate(item.dueDate)}
-          </Text>
+          </CardMeta>
           {billedAt ? (
-            <Text
-              className="text-[11px] leading-[15px] text-slate-500"
-              numberOfLines={1}
-            >
+            <CardMeta className="leading-[15px]" numberOfLines={1}>
               {t("ledger.issued_at")} {billedAt}
-            </Text>
+            </CardMeta>
           ) : null}
         </View>
         <View className="mt-1 flex-row flex-wrap items-center gap-1">
-          <Chip
-            text={t(`ledger.kind_${item.kind}`)}
-            className={style.chipClassName}
-          />
+          <Chip text={t(`ledger.kind_${item.kind}`)} tone={style.chipTone} />
           {late > 0 ? (
             <Chip
               text={t("ledger.days_late", { count: late })}
-              className="bg-red-50 text-red-700"
+              tone="red"
             />
           ) : null}
           {paidFraction ? (
-            <Chip text={paidFraction} className="bg-amber-50 text-amber-700" />
+            <Chip text={paidFraction} tone="amber" />
           ) : null}
           {writtenOff ? (
             <Chip
               text={t("ledger.written_off")}
-              className="bg-orange-50 text-orange-700"
+              tone="orange"
             />
           ) : null}
         </View>

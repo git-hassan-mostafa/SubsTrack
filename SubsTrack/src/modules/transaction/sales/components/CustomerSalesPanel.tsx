@@ -136,7 +136,10 @@ export function CustomerSalesPanel({ customer }: Props) {
               className="flex-row items-center bg-emerald-50 rounded-full px-3 py-1.5"
             >
               <Ionicons name="add" size={14} color={COLORS.success} />
-              <Text className="text-xs font-semibold text-emerald-700 ms-1">
+              <Text
+                fontWeight="SemiBold"
+                className="text-xs text-emerald-700 ms-1"
+              >
                 {t("sales.record_button")}
               </Text>
             </PressableOpacity>
@@ -173,7 +176,7 @@ export function CustomerSalesPanel({ customer }: Props) {
               onPress={openAll}
               className="flex-row items-center justify-center py-3"
             >
-              <Text className="text-sm font-semibold text-primary me-1">
+              <Text fontWeight="SemiBold" className="text-sm text-primary me-1">
                 {t("sales.show_all")}
               </Text>
               <DirectionalIcon

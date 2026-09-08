@@ -1,5 +1,9 @@
 import { View } from "react-native";
-import { Text } from "@/src/shared/components/Text";
+import {
+  CardSubtitle,
+  CardTitle,
+} from "@/src/shared/components/CardText";
+import { Chip, type ChipTone } from "@/src/shared/components/Chip";
 import type { AppUser } from "@/src/core/types";
 import { useTranslation } from "react-i18next";
 import { EntityCard } from "@/src/shared/components/EntityCard";
@@ -15,13 +19,10 @@ interface Props {
   onEnterSelection?: (user: AppUser) => void;
 }
 
-const roleBadgeStyle: Record<
-  string,
-  { bg: string; text: string; label: string }
-> = {
-  admin: { bg: "bg-indigo-100", text: "text-indigo-700", label: "Admin" },
-  user: { bg: "bg-gray-100", text: "text-gray-600", label: "Staff" },
-  superadmin: { bg: "bg-purple-100", text: "text-purple-700", label: "Super" },
+const roleBadgeStyle: Record<string, { tone: ChipTone; label: string }> = {
+  admin: { tone: "indigo", label: "Admin" },
+  user: { tone: "gray", label: "Staff" },
+  superadmin: { tone: "violet", label: "Super" },
 };
 
 export function UserCard({
@@ -50,32 +51,22 @@ export function UserCard({
         onEnterSelection ? () => onEnterSelection(user) : undefined
       }
     >
-      {/* Name + handle + phone */}
       <View className="flex-1">
         <View className="flex-row items-center gap-2">
-          <Text className="text-base font-semibold text-gray-900">
-            {user.fullName}
-          </Text>
-          {!user.active && (
-            <View className="rounded-full px-2 py-0.5 bg-red-100">
-              <Text className="text-xs font-semibold text-red-600">
-                {t("users.inactive")}
-              </Text>
-            </View>
-          )}
+          <CardTitle>{user.fullName}</CardTitle>
+          {!user.active && <Chip text={t("users.inactive")} tone="gray" />}
         </View>
-        <Text className="text-xs text-gray-400 mt-0.5">
+        <CardSubtitle className="mt-0.5">
           @{user.username}
           {user.phoneNumber ? ` · ${user.phoneNumber}` : ""}
-        </Text>
+        </CardSubtitle>
       </View>
 
-      {/* Role badge */}
-      <View className={`rounded-full px-3 py-1 ${badge.bg}`}>
-        <Text className={`text-xs font-semibold ${badge.text}`}>
-          {t(`users.${badge.label.toLowerCase()}`)}
-        </Text>
-      </View>
+      <Chip
+        text={t(`users.${badge.label.toLowerCase()}`)}
+        tone={badge.tone}
+        size="md"
+      />
     </EntityCard>
   );
 }

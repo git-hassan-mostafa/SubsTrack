@@ -75,7 +75,10 @@ function ScrollColumn({
 
   return (
     <View className="flex-1">
-      <Text className="text-xs text-center text-gray-400 mb-1 font-medium">
+      <Text
+        fontWeight="Medium"
+        className="text-xs text-center text-gray-400 mb-1"
+      >
         {label}
       </Text>
       <FlatList
@@ -96,7 +99,8 @@ function ScrollColumn({
             className={`rounded-lg items-center justify-center ${selected === v ? "bg-primary" : ""}`}
           >
             <Text
-              className={`text-sm font-medium ${selected === v ? "text-white" : "text-gray-800"}`}
+              fontWeight="Medium"
+              className={`text-sm ${selected === v ? "text-white" : "text-gray-800"}`}
             >
               {renderItem ? renderItem(v) : pad(v)}
             </Text>
@@ -121,7 +125,10 @@ function MonthScrollColumn({
 
   return (
     <View style={{ flex: 2 }}>
-      <Text className="text-xs text-center text-gray-400 mb-1 font-medium">
+      <Text
+        fontWeight="Medium"
+        className="text-xs text-center text-gray-400 mb-1"
+      >
         {t("date_picker.month")}
       </Text>
       <FlatList
@@ -144,7 +151,8 @@ function MonthScrollColumn({
               className={`rounded-lg items-center justify-center ${selected === m ? "bg-primary" : ""}`}
             >
               <Text
-                className={`text-sm font-medium ${selected === m ? "text-white" : "text-gray-800"}`}
+                fontWeight="Medium"
+                className={`text-sm ${selected === m ? "text-white" : "text-gray-800"}`}
               >
                 {name}
               </Text>
@@ -285,15 +293,15 @@ export function DatePickerInput({
       {/* Header */}
       <SheetDragArea className="flex-row justify-between items-center px-5 py-3 border-b border-gray-100">
         <PressableOpacity onPress={() => setOpen(false)}>
-          <Text className="text-base text-primary font-medium">
+          <Text fontWeight="Medium" className="text-base text-primary">
             {t("common.cancel")}
           </Text>
         </PressableOpacity>
-        <Text className="text-base font-semibold text-gray-900">
+        <Text fontWeight="SemiBold" className="text-base text-gray-900">
           {label ?? t("customers.start_date_label")}
         </Text>
         <PressableOpacity onPress={handleConfirm}>
-          <Text className="text-base font-semibold text-primary">
+          <Text fontWeight="SemiBold" className="text-base text-primary">
             {t("common.confirm")}
           </Text>
         </PressableOpacity>
@@ -344,7 +352,7 @@ export function DatePickerInput({
           onPress={handleClear}
           className="py-3.5 items-center border-t border-gray-100"
         >
-          <Text className="text-base font-medium text-red-500">
+          <Text fontWeight="Medium" className="text-base text-red-500">
             {t("common.clear")}
           </Text>
         </PressableOpacity>
@@ -369,7 +377,8 @@ export function DatePickerInput({
             color={isActive ? COLORS.primary : COLORS.gray400}
           />
           <Text
-            className={`text-sm font-medium ${
+            fontWeight="Medium"
+            className={`text-sm ${
               isActive ? "text-primary" : "text-gray-500"
             }`}
             numberOfLines={1}
@@ -387,7 +396,12 @@ export function DatePickerInput({
   return (
     <View className="mb-4">
       {label ? (
-        <Text className="text-sm font-medium text-gray-700 mb-1">{label}</Text>
+        <Text
+          fontWeight="Medium"
+          className="text-sm text-gray-700 mb-1"
+        >
+          {label}
+        </Text>
       ) : null}
       <PressableOpacity
         onPress={handleOpen}

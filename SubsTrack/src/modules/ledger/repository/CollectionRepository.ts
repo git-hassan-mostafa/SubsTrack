@@ -7,6 +7,7 @@ import { newId } from '@/src/core/offline/ids';
 import { sanitizeSearchTerm } from '@/src/core/utils/searchTerm';
 import { custodyValues } from '@/src/modules/wallet/utils/custodyValues';
 import type {
+  CreateCollectionItemPayload,
   CreateCollectionPayload,
   FindCollectionsOptions,
   ICollectionRepository,
@@ -14,10 +15,17 @@ import type {
 import type { CreateChargePayload } from './IChargeRepository';
 import { monthBillKey, patchForIncomingCash, resolveBillTarget } from './chargeRevive';
 import { OfflineCollectionRepository } from './CollectionRepository.offline';
+import { collectionPlanId } from '../utils/collectionPlan';
 import { sumByMonth } from '../utils/monthTotals';
 
 const COLLECTION_SELECT = '*, collection_items(*, charges(*)), customers(*)';
 const COLLECTION_SELECT_SEARCH = '*, collection_items(*, charges(*)), customers!inner(*)';
+const COLLECTION_SELECT_PLAN = '*, collection_items(charges(plan_id))';
+
+// The plan named on a hand-over's audit row, off the bills its items point at.
+function collectionPlanOf(row: DbCollection | null): string | null {
+  return collectionPlanId((row?.collection_items ?? []).map((it) => it.charges?.plan_id));
+}
 
 // The joined shape `collectedInRange` reads — one settled bill plus the
 // hand-over it came in on.
@@ -278,16 +286,32 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
     return paid;
   }
 
+  /** Every bill the items point at: the ones just raised plus the ones already there. */
+  private async settledBills(
+    bills: Map<string, DbCharge>,
+    items: CreateCollectionItemPayload[],
+  ): Promise<Map<string, DbCharge>> {
+    const targets = new Map<string, DbCharge>();
+    for (const row of bills.values()) targets.set(row.id, row);
+    const missing = [
+      ...new Set(items.map((it) => it.charge_id).filter((cid) => !targets.has(cid))),
+    ];
+    if (missing.length === 0) return targets;
+    const { data, error } = await this.db.from('charges').select('*').in('id', missing);
+    if (error) this.handleError(error);
+    for (const row of (data ?? []) as DbCharge[]) targets.set(row.id, row);
+    return targets;
+  }
+
   async create(payload: CreateCollectionPayload): Promise<DbCollection> {
     const { items, charges, ...header } = payload;
 
     const bills = await this.resolveTargetBills(charges);
-    const targets = new Map<string, DbCharge>();
-    for (const row of bills.values()) targets.set(row.id, row);
     const itemPayloads = items.map((it) => ({
       ...it,
       charge_id: bills.get(it.charge_id)?.id ?? it.charge_id,
     }));
+    const targets = await this.settledBills(bills, itemPayloads);
 
     const { data, error } = await this.db
       .from('collections')
@@ -308,21 +332,15 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
       table: 'collections',
       recordId: created.id,
       action: 'create',
-      after: { ...created, collection_items: itemPayloads },
+      after: {
+        ...created,
+        collection_items: itemPayloads,
+        plan_id: collectionPlanId(itemPayloads.map((it) => targets.get(it.charge_id)?.plan_id)),
+      },
       branchId: created.branch_id,
       customerId: created.customer_id ?? undefined,
       subject: created.customers?.name ?? null,
     });
-
-    const missing = itemRows.map((it) => it.charge_id).filter((cid) => !targets.has(cid));
-    if (missing.length > 0) {
-      const { data: rest, error: restError } = await this.db
-        .from('charges')
-        .select('*')
-        .in('id', missing);
-      if (restError) this.handleError(restError);
-      for (const row of (rest ?? []) as DbCharge[]) targets.set(row.id, row);
-    }
 
     return {
       ...created,
@@ -334,11 +352,13 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
   }
 
   async void(id: string, voidedBy: string, reason: string | null): Promise<DbCollection> {
-    const { data: prior } = await this.db
+    const { data: priorData } = await this.db
       .from('collections')
-      .select('*')
+      .select(COLLECTION_SELECT_PLAN)
       .eq('id', id)
       .maybeSingle();
+    const prior = (priorData as DbCollection) ?? null;
+    const planId = collectionPlanOf(prior);
     const { data, error } = await this.db
       .from('collections')
       .update({ voided_at: new Date().toISOString(), voided_by: voidedBy, void_reason: reason })
@@ -352,8 +372,8 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
       table: 'collections',
       recordId: id,
       action: 'void',
-      before: prior,
-      after: voided,
+      before: prior ? { ...prior, plan_id: planId } : prior,
+      after: { ...voided, plan_id: planId },
       customerId: voided.customer_id ?? undefined,
       branchId: voided.branch_id,
       subject: voided.customers?.name ?? null,
@@ -369,7 +389,7 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
     if (ids.length === 0) return [];
     const { data: priors } = await this.db
       .from('collections')
-      .select(COLLECTION_SELECT_LEAN)
+      .select(COLLECTION_SELECT_PLAN)
       .in('id', ids);
     const priorById = new Map(((priors ?? []) as DbCollection[]).map((c) => [c.id, c]));
     const { data, error } = await this.db
@@ -381,12 +401,14 @@ export class CollectionRepository extends BaseRepository implements ICollectionR
     if (error) this.handleError(error);
     const voided = (data ?? []) as DbCollection[];
     for (const row of voided) {
+      const prior = priorById.get(row.id) ?? null;
+      const planId = collectionPlanOf(prior);
       this.audit({
         table: 'collections',
         recordId: row.id,
         action: 'void',
-        before: priorById.get(row.id),
-        after: row,
+        before: prior ? { ...prior, plan_id: planId } : prior,
+        after: { ...row, plan_id: planId },
         customerId: row.customer_id ?? undefined,
         branchId: row.branch_id,
         subject: row.customers?.name ?? null,

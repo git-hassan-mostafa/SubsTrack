@@ -1,7 +1,12 @@
 import { useState } from "react";
 import { View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { Text } from "@/src/shared/components/Text";
+import {
+  CardAmount,
+  CardMeta,
+  CardSubtitle,
+  CardTitle,
+} from "@/src/shared/components/CardText";
 import { EntityCard } from "@/src/shared/components/EntityCard";
 import { Chip } from "@/src/shared/components/Chip";
 import {
@@ -111,52 +116,38 @@ export function CollectionCard({
     >
       <View className="flex-1 gap-0.5">
         <View className="flex-row items-start justify-between gap-2">
-          <Text
-            className="flex-1 text-base font-semibold text-slate-900"
-            numberOfLines={1}
-          >
+          <CardTitle className="flex-1" numberOfLines={1}>
             {hideCustomerName
               ? paidFor
               : (item.customerName ?? t("ledger.walk_in"))}
-          </Text>
+          </CardTitle>
           <View className="items-end">
-            <Text
-              className={`text-base font-semibold ${
-                voided ? "text-slate-400 line-through" : "text-slate-900"
-              }`}
-            >
+            <CardAmount tone={voided ? "muted" : "default"}>
               {money.primary}
-            </Text>
-            {money.approx ? (
-              <Text className="text-[11px] text-slate-400">{money.approx}</Text>
-            ) : null}
+            </CardAmount>
+            {money.approx ? <CardMeta>{money.approx}</CardMeta> : null}
           </View>
         </View>
 
         {hideCustomerName ? null : (
-          <Text className="text-xs text-slate-600" numberOfLines={1}>
-            {paidFor}
-          </Text>
+          <CardSubtitle numberOfLines={1}>{paidFor}</CardSubtitle>
         )}
 
-        <Text className="text-[11px] text-slate-500" numberOfLines={1}>
+        <CardMeta numberOfLines={1}>
           {collector ? `${collector} · ` : ""}
           {formatDateTime(item.receivedAt)}
-        </Text>
+        </CardMeta>
 
         <View className="mt-1 flex-row flex-wrap items-center gap-1">
-          <Chip
-            text={t(`ledger.kind_${item.kind}`)}
-            className={style.chipClassName}
-          />
+          <Chip text={t(`ledger.kind_${item.kind}`)} tone={style.chipTone} />
           {item.itemCount > 1 ? (
             <Chip
               text={t("ledger.n_items", { count: item.itemCount })}
-              className="bg-slate-100 text-slate-600"
+              tone="gray"
             />
           ) : null}
           {holder && !voided ? (
-            <Chip text={holder} className="bg-amber-50 text-amber-700" />
+            <Chip text={holder} tone="amber" />
           ) : null}
           {voided ? (
             <Chip
@@ -165,7 +156,7 @@ export function CollectionCard({
                   ? `${t("ledger.voided")} · ${item.voidReason}`
                   : t("ledger.voided")
               }
-              className="bg-red-50 text-red-700"
+              tone="red"
             />
           ) : null}
         </View>

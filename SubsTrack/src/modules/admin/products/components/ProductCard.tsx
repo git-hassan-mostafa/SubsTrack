@@ -1,7 +1,13 @@
 import type { Product } from "@/src/core/types";
 import { View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { Text } from "@/src/shared/components/Text";
+import {
+  CardAmount,
+  CardMeta,
+  CardSubtitle,
+  CardTitle,
+} from "@/src/shared/components/CardText";
+import { Chip } from "@/src/shared/components/Chip";
 import { COLORS } from "@/src/shared/constants";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
@@ -56,40 +62,28 @@ export function ProductCard({
       }
     >
       <View className="flex-1">
-        <Text className="text-base font-semibold text-gray-900">
-          {product.name}
-        </Text>
+        <CardTitle>{product.name}</CardTitle>
         {product.description ? (
-          <Text className="text-xs text-gray-400 mt-0.5" numberOfLines={1}>
+          <CardSubtitle className="mt-0.5" numberOfLines={1}>
             {product.description}
-          </Text>
-        ) : null}
-        {!product.active ? (
-          <Text className="text-xs text-gray-400 mt-0.5">
-            {t("products.inactive_badge")}
-          </Text>
+          </CardSubtitle>
         ) : null}
 
-        {/* Stock can read negative if two devices sold the last unit offline. */}
-        <View className="flex-row mt-1.5">
-          <View
-            className={`rounded-full px-2 py-0.5 ${inStock ? "bg-emerald-50" : "bg-red-50"}`}
-          >
-            <Text
-              fontWeight="SemiBold"
-              className={`text-xs ${inStock ? "text-success" : "text-danger"}`}
-            >
-              {stockLabel}
-            </Text>
-          </View>
+        <View className="mt-1.5 flex-row flex-wrap items-center gap-1">
+          {!product.active ? (
+            <Chip text={t("products.inactive_badge")} tone="gray" />
+          ) : null}
+          <Chip
+            text={stockLabel}
+            tone={inStock ? "emerald" : "red"}
+            size="md"
+          />
         </View>
       </View>
 
       <View className="items-end me-2">
-        <Text fontWeight="Bold" className="text-base text-gray-900">
-          {priceLabel}
-        </Text>
-        <Text className="text-xs text-gray-400">{t("products.per_unit")}</Text>
+        <CardAmount>{priceLabel}</CardAmount>
+        <CardMeta>{t("products.per_unit")}</CardMeta>
       </View>
     </EntityCard>
   );

@@ -46,7 +46,7 @@ export function Button({
           size="small"
         />
       ) : (
-        <Text className={`text-base font-semibold ${styles.text}`}>
+        <Text fontWeight="SemiBold" className={`text-base ${styles.text}`}>
           {label}
         </Text>
       )}

@@ -122,8 +122,9 @@ export function BillSheet({
           <View className="gap-5">
             <View className="items-center gap-1 py-2">
               <Text
-                className={`text-3xl font-bold ${
-                  voided ? "text-slate-400 line-through" : "text-slate-900"
+                fontWeight="Bold"
+                className={`text-3xl ${
+                  voided ? "text-gray-400 line-through" : "text-gray-900"
                 }`}
               >
                 {voided || settled
@@ -131,10 +132,10 @@ export function BillSheet({
                   : formatPaidFraction(collected, charge.amount, source, source)}
               </Text>
               {approx ? (
-                <Text className="text-xs text-slate-400">{approx}</Text>
+                <Text className="text-xs text-gray-400">{approx}</Text>
               ) : null}
               {!voided && !settled && (
-                <Text className="text-sm text-slate-600">
+                <Text className="text-sm text-gray-600">
                   {t("ledger.remaining")} {money(balance)}
                 </Text>
               )}
@@ -148,7 +149,8 @@ export function BillSheet({
                 }`}
               >
                 <Text
-                  className={`text-xs font-semibold ${
+                  fontWeight="SemiBold"
+                  className={`text-xs ${
                     settled
                       ? "text-emerald-700"
                       : partial

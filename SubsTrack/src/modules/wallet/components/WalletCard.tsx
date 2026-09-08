@@ -1,8 +1,14 @@
 import { View } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { Text } from '@/src/shared/components/Text';
 import { COLORS } from '@/src/shared/constants';
 import { EntityCard } from '@/src/shared/components/EntityCard';
+import {
+  CardAmount,
+  CardMeta,
+  CardSubtitle,
+  CardTitle,
+} from '@/src/shared/components/CardText';
+import { Chip } from '@/src/shared/components/Chip';
 import { findCurrency, formatMoney } from '@/src/core/utils/currency';
 import { useCurrencySlice } from '@/src/state/hooks/useCurrencySlice';
 import { useDisplayCurrencyId } from '@/src/state/hooks/useTenantSettingSlice';
@@ -39,28 +45,22 @@ export function WalletCard({ wallet, onPress, onMenu, menuLoading }: Props) {
     >
       <View className="flex-1">
         <View className="flex-row items-center gap-x-2">
-          <Text className="text-base font-semibold text-gray-900 shrink" numberOfLines={1}>
+          <CardTitle className="shrink" numberOfLines={1}>
             {wallet.holderName}
-          </Text>
-          {wallet.isSelf ? (
-            <View className="rounded-full bg-gray-100 px-2 py-0.5">
-              <Text className="text-[10px] font-semibold text-gray-500">{t('wallet.you')}</Text>
-            </View>
-          ) : null}
+          </CardTitle>
+          {wallet.isSelf ? <Chip text={t('wallet.you')} tone="gray" /> : null}
         </View>
-        <Text className="text-xs text-gray-400 mt-0.5" numberOfLines={1}>
+        <CardSubtitle className="mt-0.5" numberOfLines={1}>
           {t('wallet.transactions_count', { count: wallet.itemCount })}
-        </Text>
+        </CardSubtitle>
       </View>
 
       <View className="items-end ms-2">
-        <Text fontWeight="Bold" className="text-base text-gray-900">
-          {formatMoney(wallet.totalUsd, null, target)}
-        </Text>
+        <CardAmount>{formatMoney(wallet.totalUsd, null, target)}</CardAmount>
         {wallet.byCurrency.length > 1 ? (
-          <Text className="text-[11px] text-gray-400 mt-0.5">
+          <CardMeta className="mt-0.5">
             {t('wallet.currencies_count', { count: wallet.byCurrency.length })}
-          </Text>
+          </CardMeta>
         ) : null}
       </View>
     </EntityCard>

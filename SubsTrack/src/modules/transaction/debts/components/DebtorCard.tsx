@@ -1,8 +1,12 @@
 import { View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { Text } from "@/src/shared/components/Text";
 import { COLORS } from "@/src/shared/constants";
 import { EntityCard } from "@/src/shared/components/EntityCard";
+import {
+  CardAmount,
+  CardSubtitle,
+  CardTitle,
+} from "@/src/shared/components/CardText";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
@@ -38,10 +42,8 @@ export function DebtorCard({ debtor, onPress, onMenu }: Props) {
       onMenu={onMenu}
     >
       <View className="flex-1">
-        <Text className="text-base font-semibold text-gray-900" numberOfLines={1}>
-          {debtor.customerName}
-        </Text>
-        <Text className="text-xs text-gray-500 mt-0.5" numberOfLines={1}>
+        <CardTitle numberOfLines={1}>{debtor.customerName}</CardTitle>
+        <CardSubtitle className="mt-0.5" numberOfLines={1}>
           {debtor.oldestDaysLate > 0
             ? t("ledger.oldest_days_late", { count: debtor.oldestDaysLate })
             : t("ledger.not_late_yet")}
@@ -51,13 +53,13 @@ export function DebtorCard({ debtor, onPress, onMenu }: Props) {
                 amount: formatMoney(debtor.unpaidMonthsUsd, null, target),
               })}`
             : ""}
-        </Text>
+        </CardSubtitle>
       </View>
 
       <View className="items-end ms-2">
-        <Text fontWeight="Bold" className="text-base text-red-700">
+        <CardAmount tone="danger">
           {formatMoney(debtor.debtUsd, null, target)}
-        </Text>
+        </CardAmount>
       </View>
     </EntityCard>
   );

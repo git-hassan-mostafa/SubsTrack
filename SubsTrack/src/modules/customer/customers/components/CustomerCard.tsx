@@ -2,14 +2,15 @@ import { memo } from "react";
 import { View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
-import { Text } from "@/src/shared/components/Text";
+import {
+  CardMeta,
+  CardTitle,
+} from "@/src/shared/components/CardText";
 import type { TFunction } from "i18next";
 import type { Customer, CustomerStatus } from "@/src/core/types";
 import { COLORS } from "../../../../shared/constants";
-import {
-  EntityCard,
-  type EntityCardFlag,
-} from "@/src/shared/components/EntityCard";
+import { EntityCard } from "@/src/shared/components/EntityCard";
+import { Chip, type ChipTone } from "@/src/shared/components/Chip";
 import { customerFlags, type CustomerFlag } from "../utils/customerFlags";
 
 interface Props {
@@ -25,16 +26,22 @@ interface Props {
   onEnterSelection?: (customer: Customer) => void;
 }
 
+interface CardChip {
+  key: string;
+  text: string;
+  tone: ChipTone;
+}
+
 const FLAG_STYLES: Record<
   CustomerFlag,
   {
     label: (t: TFunction, s: CustomerStatus) => string;
-    className: string;
+    tone: ChipTone;
   }
 > = {
   paid: {
-    label: (t) => `✓ ${t("common.paid")}`,
-    className: "bg-green-500 text-white",
+    label: (t) => t("common.paid"),
+    tone: "emerald",
   },
   mixed: {
     label: (t, s) =>
@@ -42,67 +49,67 @@ const FLAG_STYLES: Record<
         paid: s.planCount.paid,
         total: s.planCount.total,
       }),
-    className: "bg-amber-500 text-white",
+    tone: "amber",
   },
   unpaid: {
     label: (t) => t("dashboard.unpaid"),
-    className: "bg-red-500 text-white",
+    tone: "red",
   },
   skipped: {
     label: (t) => t("payments.skip.skipped_label"),
-    className: "bg-slate-400 text-white",
+    tone: "gray",
   },
   not_due_yet: {
     label: (t) => t("payments.not_due_yet_label"),
-    className: "bg-gray-400 text-white",
+    tone: "sky",
   },
   overdue: {
     label: (t) => t("customers.overdue"),
-    className: "bg-red-500 text-white",
+    tone: "red",
   },
 };
 
 // Inactive and non-regular REPLACE the payment flags; debt always rides along.
-function buildFlags(
+function buildChips(
   customer: Customer,
   status: CustomerStatus | null,
   debtLabel: string | null,
   t: TFunction,
-): EntityCardFlag[] {
-  const flags: EntityCardFlag[] = [];
+): CardChip[] {
+  const chips: CardChip[] = [];
 
   if (!customer.active) {
-    flags.push({
+    chips.push({
       key: "inactive",
       text: t("common.inactive"),
-      className: "bg-gray-400 text-white",
+      tone: "gray",
     });
   } else if (!customer.isRegular) {
-    flags.push({
+    chips.push({
       key: "non_regular",
       text: t("customers.non_regular"),
-      className: "bg-amber-500 text-white",
+      tone: "indigo",
     });
   } else if (status) {
     for (const flag of customerFlags(status)) {
       const style = FLAG_STYLES[flag];
-      flags.push({
+      chips.push({
         key: flag,
         text: style.label(t, status),
-        className: style.className,
+        tone: style.tone,
       });
     }
   }
 
   if (debtLabel) {
-    flags.push({
+    chips.push({
       key: "debt",
       text: `${t("customers.debt")} ${debtLabel}`,
-      className: "bg-red-500 text-white",
+      tone: "orange",
     });
   }
 
-  return flags;
+  return chips;
 }
 
 export const CustomerCard = memo(function CustomerCard({
@@ -119,8 +126,6 @@ export const CustomerCard = memo(function CustomerCard({
 }: Props) {
   const { t } = useTranslation();
 
-  // Summarize the customer's active service lines: the single line's label/plan,
-  // or "N plans" when they hold several.
   const activeLines = (customer.customerPlans ?? []).filter((l) => l.active);
   const planSummary =
     activeLines.length === 0
@@ -129,13 +134,11 @@ export const CustomerCard = memo(function CustomerCard({
         ? activeLines[0].plan?.name || t("common.no_plan")
         : t("subscriptions.count_plans", { count: activeLines.length });
 
-  const flags = buildFlags(customer, status, debtLabel, t);
+  const chips = buildChips(customer, status, debtLabel, t);
 
   return (
     <EntityCard
       icon="person-outline"
-      flags={flags}
-      reserveFlagSpace
       onPress={() => onPress(customer)}
       onMenu={() => onMenu(customer)}
       menuLoading={menuLoading}
@@ -148,22 +151,24 @@ export const CustomerCard = memo(function CustomerCard({
     >
       <View className="flex-1 me-2">
         <View className="flex-row items-center">
-          <Text
-            className="flex-1 text-base font-semibold text-gray-900"
-            numberOfLines={1}
-          >
+          <CardTitle className="flex-1" numberOfLines={1}>
             {customer.name}
-          </Text>
-          <Text className="text-xs text-gray-400">{planSummary}</Text>
+          </CardTitle>
+          <CardMeta>{planSummary}</CardMeta>
         </View>
         {!!customer.phoneNumber && (
           <View className="flex-row items-center mt-1">
             <Ionicons name="call" size={12} color={COLORS.gray400} />
-            <Text className="text-xs text-gray-400 ms-1" numberOfLines={1}>
+            <CardMeta className="ms-1" numberOfLines={1}>
               {customer.phoneNumber}
-            </Text>
+            </CardMeta>
           </View>
         )}
+        <View className="mt-1 flex-row flex-wrap items-center gap-1 min-h-[19px]">
+          {chips.map((chip) => (
+            <Chip key={chip.key} text={chip.text} tone={chip.tone} />
+          ))}
+        </View>
       </View>
     </EntityCard>
   );

@@ -43,6 +43,16 @@ function recordKind(entry: AuditEntry): string | null {
   return typeof kind === 'string' && kind !== '' ? kind : null;
 }
 
+// Tables whose row BELONGS to a plan; on `plans`/`customer_plans` it IS the record.
+const PLAN_QUALIFIED = new Set<AuditTable>(['charges', 'collections']);
+
+/** The plan a bill or hand-over is about, or null when it names none. */
+function recordPlan(entry: AuditEntry, ctx: AuditFieldContext): string | null {
+  if (!PLAN_QUALIFIED.has(entry.table)) return null;
+  const id = entry.context.plan_id ?? entry.snapshot?.plan_id;
+  return typeof id === 'string' && id !== '' ? ctx.lookups.plan(id) : null;
+}
+
 // Booleans whose NAME means nothing to a reader — "changed regular customer from
 // No to Yes" has to become a verb. `active` is not here: it is table-dependent.
 const FLAG_FIELDS: Partial<Record<AuditTable, string>> = {
@@ -102,13 +112,16 @@ function recordPhrase(
     RECORD_STYLE[entry.table] ??
     'type_first';
   const fresh = entry.action === 'create' && style !== 'of_detail';
-  if (!detail.text) {
-    return ctx.t(fresh ? 'audit.summary.record.bare_new' : 'audit.summary.record.bare', { type });
-  }
-  return ctx.t(`audit.summary.record.${style}${fresh ? '_new' : ''}`, {
-    type,
-    detail: bold(detail.text),
-  });
+  const named = !detail.text
+    ? ctx.t(fresh ? 'audit.summary.record.bare_new' : 'audit.summary.record.bare', { type })
+    : ctx.t(`audit.summary.record.${style}${fresh ? '_new' : ''}`, {
+      type,
+      detail: bold(detail.text),
+    });
+
+  const plan = recordPlan(entry, ctx);
+  if (!plan) return named;
+  return ctx.t('audit.summary.record.with_plan', { record: named, plan: bold(plan) });
 }
 
 // A field label mid-sentence, not as a table heading — "Voided at" reads as a name.

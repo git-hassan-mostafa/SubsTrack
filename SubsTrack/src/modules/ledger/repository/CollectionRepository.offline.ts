@@ -15,6 +15,7 @@ import type {
 } from './ICollectionRepository';
 import type { CreateChargePayload } from './IChargeRepository';
 import { monthBillKey, patchForIncomingCash, resolveBillTarget } from './chargeRevive';
+import { collectionPlanId } from '../utils/collectionPlan';
 import { sumByMonth } from '../utils/monthTotals';
 
 /** SQLite-backed hand-overs. Reproduces
@@ -203,6 +204,7 @@ export class OfflineCollectionRepository
 
     const targets = new Map<string, DbCharge>();
     const itemRows: DbCollectionItem[] = [];
+    const settled = new Map<string, DbCharge>();
 
     await this.write(async (db) => {
       for (const charge of charges) {
@@ -267,25 +269,33 @@ export class OfflineCollectionRepository
         await insertDirty(db, 'collection_items', itemRow);
       }
 
+      for (const c of targets.values()) settled.set(c.id, c);
+      const missing = itemRows
+        .map((it) => it.charge_id)
+        .filter((chargeId) => !settled.has(chargeId));
+      for (const c of (await this.rowsById<DbCharge>('charges', missing)).values()) {
+        settled.set(c.id, c);
+      }
+
       await this.auditIn(db, {
         table: 'collections',
         recordId: id,
         action: 'create',
-        after: { ...row, collection_items: items },
+        after: {
+          ...row,
+          collection_items: items,
+          plan_id: collectionPlanId(itemRows.map((it) => settled.get(it.charge_id)?.plan_id)),
+        },
         ...audit,
       });
     });
 
-    const raised = new Set([...targets.values()].map((c) => c.id));
-    const byId = await this.rowsById<DbCharge>(
-      'charges',
-      itemRows.map((it) => it.charge_id).filter((cid) => !raised.has(cid)),
-    );
-    for (const c of targets.values()) byId.set(c.id, c);
-
     return {
       ...row,
-      collection_items: itemRows.map((it) => ({ ...it, charges: byId.get(it.charge_id) ?? null })),
+      collection_items: itemRows.map((it) => ({
+        ...it,
+        charges: settled.get(it.charge_id) ?? null,
+      })),
     };
   }
 
@@ -306,8 +316,8 @@ export class OfflineCollectionRepository
         table: 'collections',
         recordId: id,
         action: 'void',
-        before: prior.row,
-        after,
+        before: { ...prior.row, plan_id: prior.planId },
+        after: { ...after, plan_id: prior.planId },
         customerId: prior.row.customer_id ?? undefined,
         branchId: prior.row.branch_id,
         subject: prior.subject,
@@ -318,7 +328,7 @@ export class OfflineCollectionRepository
 
   private async forAudit(
     id: string,
-  ): Promise<{ row: DbCollection; subject: string | null } | null> {
+  ): Promise<{ row: DbCollection; subject: string | null; planId: string | null } | null> {
     const raw = await this.first<Record<string, unknown>>(
       `SELECT c.*, cu.name AS __subject FROM collections c
          LEFT JOIN customers cu ON cu.id = c.customer_id
@@ -326,7 +336,34 @@ export class OfflineCollectionRepository
       [id],
     );
     const row = this.decodeOne<DbCollection>('collections', raw);
-    return row ? { row, subject: (raw?.__subject as string | null) ?? null } : null;
+    if (!row) return null;
+    const plans = await this.planIdsByCollection([id]);
+    return {
+      row,
+      subject: (raw?.__subject as string | null) ?? null,
+      planId: plans.get(id) ?? null,
+    };
+  }
+
+  /** Each hand-over's plan, off the bills its items point at — see gotcha #141. */
+  private async planIdsByCollection(ids: string[]): Promise<Map<string, string | null>> {
+    const plans = new Map<string, string | null>();
+    if (ids.length === 0) return plans;
+    const rows = await this.all<{ collection_id: string; plan_id: string | null }>(
+      `SELECT i.collection_id, ch.plan_id
+         FROM collection_items i
+         JOIN charges ch ON ch.id = i.charge_id
+        WHERE i.collection_id IN (${ids.map(() => '?').join(',')})`,
+      ids,
+    );
+    const grouped = new Map<string, (string | null)[]>();
+    for (const r of rows) {
+      grouped.set(r.collection_id, [...(grouped.get(r.collection_id) ?? []), r.plan_id]);
+    }
+    for (const [collectionId, planIds] of grouped) {
+      plans.set(collectionId, collectionPlanId(planIds));
+    }
+    return plans;
   }
 
   async voidMany(
@@ -349,6 +386,7 @@ export class OfflineCollectionRepository
     const priors = this.decodeAll<DbCollection>('collections', raw);
     const live = priors.filter((p) => !p.voided_at);
     if (live.length === 0) return [];
+    const plans = await this.planIdsByCollection(live.map((p) => p.id));
     await this.write(async (db) => {
       await db.runAsync(
         `UPDATE collections
@@ -357,12 +395,19 @@ export class OfflineCollectionRepository
         [now, voidedBy, reason, now, ...ids] as never[],
       );
       for (const prior of live) {
+        const planId = plans.get(prior.id) ?? null;
         await this.auditIn(db, {
           table: 'collections',
           recordId: prior.id,
           action: 'void',
-          before: prior,
-          after: { ...prior, voided_at: now, voided_by: voidedBy, void_reason: reason },
+          before: { ...prior, plan_id: planId },
+          after: {
+            ...prior,
+            voided_at: now,
+            voided_by: voidedBy,
+            void_reason: reason,
+            plan_id: planId,
+          },
           customerId: prior.customer_id ?? undefined,
           branchId: prior.branch_id ?? null,
           subject: subjects.get(prior.id) ?? null,

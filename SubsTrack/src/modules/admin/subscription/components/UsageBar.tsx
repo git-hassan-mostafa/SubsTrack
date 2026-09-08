@@ -29,7 +29,7 @@ export function UsageBar({ resource, current, limit }: Props) {
         <Text className="text-xs text-gray-600 capitalize">
           {t(`subscription.resource.${resource}`)}
         </Text>
-        <Text className="text-xs font-semibold text-gray-900">
+        <Text fontWeight="SemiBold" className="text-xs text-gray-900">
           {isUnlimited
             ? `${current} / ∞`
             : `${current} / ${limit}`}

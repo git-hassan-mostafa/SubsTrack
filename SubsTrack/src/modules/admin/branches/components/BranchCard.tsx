@@ -1,7 +1,8 @@
 import { View } from "react-native";
 import { useTranslation } from "react-i18next";
 import type { Branch } from "@/src/core/types";
-import { Text } from "@/src/shared/components/Text";
+import { CardTitle } from "@/src/shared/components/CardText";
+import { Chip } from "@/src/shared/components/Chip";
 import { EntityCard } from "@/src/shared/components/EntityCard";
 
 interface Props {
@@ -39,14 +40,10 @@ export function BranchCard({
     >
       <View className="flex-1">
         <View className="flex-row items-center">
-          <Text className="text-base font-semibold text-gray-900">
-            {branch.name}
-          </Text>
+          <CardTitle>{branch.name}</CardTitle>
           {!branch.active ? (
-            <View className="bg-gray-100 rounded-lg px-2 py-0.5 ms-2">
-              <Text className="text-[10px] font-semibold text-gray-500 uppercase">
-                {t("common.inactive")}
-              </Text>
+            <View className="ms-2">
+              <Chip text={t("common.inactive")} tone="gray" />
             </View>
           ) : null}
         </View>

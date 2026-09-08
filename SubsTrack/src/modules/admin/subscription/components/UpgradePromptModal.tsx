@@ -66,7 +66,7 @@ export function UpgradePromptModal({ payload, onClose }: Props) {
                 onPress={onClose}
                 className="bg-primary rounded-xl py-3 items-center"
               >
-                <Text className="text-white font-medium">
+                <Text fontWeight="Medium" className="text-white">
                   {t("common.close")}
                 </Text>
               </PressableOpacity>
@@ -127,7 +127,7 @@ export function UpgradePromptModal({ payload, onClose }: Props) {
               onPress={onClose}
               className="flex-1 border border-gray-200 rounded-xl py-3 items-center"
             >
-              <Text className="text-gray-700 font-medium text-sm">
+              <Text fontWeight="Medium" className="text-gray-700 text-sm">
                 {t("subscription.not_now")}
               </Text>
             </PressableOpacity>
@@ -143,7 +143,7 @@ export function UpgradePromptModal({ payload, onClose }: Props) {
                 onPress={handleViewPlans}
                 className="flex-[1.4] bg-primary rounded-xl py-3 flex-row items-center justify-center"
               >
-                <Text className="text-white font-medium text-sm">
+                <Text fontWeight="Medium" className="text-white text-sm">
                   {t("subscription.view_plans")}
                 </Text>
                 <View className="ms-1.5">

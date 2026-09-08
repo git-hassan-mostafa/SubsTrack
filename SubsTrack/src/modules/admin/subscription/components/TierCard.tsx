@@ -80,13 +80,14 @@ export function TierCard({
       }`}
     >
       <Text
-        className={`font-semibold ${
+        fontWeight="SemiBold"
+        className={
           disabled
             ? "text-gray-400"
             : direction === "upgrade"
               ? "text-white"
               : "text-gray-700"
-        }`}
+        }
       >
         {direction === "upgrade"
           ? t("subscription.upgrade_to", { name: tier.name })
@@ -104,11 +105,19 @@ export function TierCard({
       }`}
     >
       <View className="flex-row items-center justify-between mb-2">
-        <Text className="text-xl font-semibold text-gray-900">{tier.name}</Text>
+        <Text
+          fontWeight="SemiBold"
+          className="text-xl text-gray-900"
+        >
+          {tier.name}
+        </Text>
         {isCurrent ? (
           <View className="bg-primary rounded-full px-2.5 py-0.5 flex-row items-center">
             <Ionicons name="checkmark" size={12} color={COLORS.white} />
-            <Text className="text-[10px] font-semibold uppercase text-white ms-1">
+            <Text
+              fontWeight="SemiBold"
+              className="text-[10px] uppercase text-white ms-1"
+            >
               {t("subscription.current_plan")}
             </Text>
           </View>
@@ -116,7 +125,7 @@ export function TierCard({
       </View>
 
       <View className="flex-row items-baseline mb-4">
-        <Text className="text-3xl font-bold text-gray-900">
+        <Text fontWeight="Bold" className="text-3xl text-gray-900">
           ${tier.priceMonthlyUsd}
         </Text>
         <Text className="text-sm text-gray-500 ms-1">
@@ -130,7 +139,12 @@ export function TierCard({
           className="flex-row items-center justify-between py-1"
         >
           <Text className="text-sm text-gray-600">{f.label}</Text>
-          <Text className="text-sm font-semibold text-gray-900">{f.value}</Text>
+          <Text
+            fontWeight="SemiBold"
+            className="text-sm text-gray-900"
+          >
+            {f.value}
+          </Text>
         </View>
       ))}
 

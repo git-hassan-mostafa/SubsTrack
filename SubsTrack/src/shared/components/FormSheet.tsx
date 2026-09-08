@@ -162,7 +162,7 @@ function FormSheetBody({
             </PressableOpacity>
           ) : null}
           <PressableOpacity onPress={dismiss}>
-            <Text className="text-base text-primary font-medium">
+            <Text fontWeight="Medium" className="text-base text-primary">
               {dismissLabel ?? t("common.cancel")}
             </Text>
           </PressableOpacity>

@@ -598,6 +598,76 @@ describe('buildAuditSummary', () => {
     });
     expect(sentence(e)).toBe('Super Admin added a new March 2026 bill for John Doe');
   });
+
+  it('TC-AS-52 a month bill names the service line it belongs to', () => {
+    const e = entry({
+      table: 'charges',
+      action: 'create',
+      subject: 'John Doe',
+      snapshot: { kind: 'month', billing_month: '2026-03-01', plan_id: 'p1' },
+    });
+    expect(sentence(e)).toBe('Super Admin added a new March 2026 bill (plan Gold) for John Doe');
+    expect(bolded(e)).toEqual(['Super Admin', 'March 2026', 'Gold', 'John Doe']);
+  });
+
+  it('TC-AS-53 a subscription payment names the plan it was collected for', () => {
+    const e = entry({
+      table: 'collections',
+      action: 'create',
+      subject: 'John Doe',
+      context: { amount: 20, currency_id: USD.id, kind: 'month', plan_id: 'p1' },
+    });
+    expect(sentence(e)).toBe(
+      'Super Admin recorded a subscription payment of 20.00 $ (plan Gold) from John Doe',
+    );
+  });
+
+  it('TC-AS-54 voiding that payment says which plan lost the money', () => {
+    const e = entry({
+      table: 'collections',
+      action: 'void',
+      subject: 'John Doe',
+      changes: [change('voided_at', null, 'x')],
+      context: { amount: 20, currency_id: USD.id, kind: 'month', plan_id: 'p1' },
+    });
+    expect(sentence(e)).toBe(
+      'Super Admin voided a subscription payment of 20.00 $ (plan Gold) from John Doe',
+    );
+  });
+
+  it('TC-AS-55 a hand-over spanning two plans names none, like a mixed kind', () => {
+    const e = entry({
+      table: 'collections',
+      action: 'create',
+      subject: 'John Doe',
+      context: { amount: 50, currency_id: USD.id, kind: 'month', plan_id: null },
+    });
+    expect(sentence(e)).toBe(
+      'Super Admin recorded a subscription payment of 50.00 $ from John Doe',
+    );
+  });
+
+  it('TC-AS-56 a deleted plan adds no clause, never "(deleted record)"', () => {
+    const e = entry({
+      table: 'charges',
+      action: 'void',
+      subject: 'John Doe',
+      changes: [change('voided_at', null, 'x')],
+      context: { kind: 'month', billing_month: '2026-03-01', plan_id: 'gone' },
+    });
+    expect(sentence(e)).toBe('Super Admin voided the March 2026 bill for John Doe');
+  });
+
+  it('TC-AS-57 a plan line names the plan ONCE — it is the record, not a qualifier', () => {
+    const e = entry({
+      table: 'customer_plans',
+      action: 'create',
+      subject: 'John Doe',
+      snapshot: { plan_id: 'p1', start_date: '2026-03-01' },
+      context: { plan_id: 'p1' },
+    });
+    expect(sentence(e)).toBe('Super Admin added the plan Gold for John Doe');
+  });
 });
 
 // TC-AS-BIDI-* — an Arabic sentence reorders around an un-isolated Latin or

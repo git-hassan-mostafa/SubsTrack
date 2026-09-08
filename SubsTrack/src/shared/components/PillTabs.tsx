@@ -45,7 +45,8 @@ export function PillTabs<T extends string>({
             className={`rounded-full px-3 py-1.5 ${active ? "bg-gray-900" : "bg-gray-100"}`}
           >
             <Text
-              className={`text-xs font-semibold ${active ? "text-white" : "text-gray-600"}`}
+              fontWeight="SemiBold"
+              className={`text-xs ${active ? "text-white" : "text-gray-600"}`}
             >
               {tab.label}
             </Text>

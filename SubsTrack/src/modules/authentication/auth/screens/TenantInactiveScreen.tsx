@@ -38,7 +38,9 @@ export function TenantInactiveScreen() {
           onPress={handleLogout}
           className="border border-gray-300 rounded-lg px-6 py-3"
         >
-          <Text className="text-gray-700 font-medium">{t("common.back")}</Text>
+          <Text fontWeight="Medium" className="text-gray-700">
+            {t("common.back")}
+          </Text>
         </PressableOpacity>
       </ResponsiveContainer>
     </SafeAreaView>

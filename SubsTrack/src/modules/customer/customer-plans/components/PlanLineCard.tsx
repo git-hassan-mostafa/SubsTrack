@@ -75,7 +75,10 @@ export function PlanLineCard({
             </Text>
             {cancelled ? (
               <View className="ms-2 rounded-full bg-gray-200 px-2 py-0.5">
-                <Text fontWeight="SemiBold" className="text-[10px] text-gray-500">
+                <Text
+                  fontWeight="SemiBold"
+                  className="text-[10px] text-gray-500"
+                >
                   {t("subscriptions.cancelled_badge")}
                 </Text>
               </View>
@@ -89,7 +92,7 @@ export function PlanLineCard({
               className="flex-row items-center px-2 py-1 -me-1"
             >
               <Ionicons name="refresh" size={15} color={COLORS.primary} />
-              <Text className="ms-1 text-xs text-primary font-medium">
+              <Text fontWeight="Medium" className="ms-1 text-xs text-primary">
                 {t("subscriptions.reactivate_plan")}
               </Text>
             </PressableOpacity>

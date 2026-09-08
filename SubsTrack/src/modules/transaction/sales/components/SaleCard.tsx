@@ -1,6 +1,5 @@
 import { View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { Text } from "@/src/shared/components/Text";
 import { COLORS } from "@/src/shared/constants";
 import type { Currency, Sale } from "@/src/core/types";
 import {
@@ -13,6 +12,12 @@ import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { formatDate } from "@/src/core/utils/date";
 import { receiptId } from "@/src/core/utils/receiptId";
 import { EntityCard } from "@/src/shared/components/EntityCard";
+import {
+  CardAmount,
+  CardMeta,
+  CardSubtitle,
+  CardTitle,
+} from "@/src/shared/components/CardText";
 import { Chip } from "@/src/shared/components/Chip";
 
 // Strips the trailing currency symbol/code that formatMoney appends, so a
@@ -76,20 +81,15 @@ export function SaleCard({
       }
     >
       <View className="flex-1">
-        <Text
-          className="text-base font-semibold text-gray-900"
-          numberOfLines={1}
-        >
-          #{receiptId(sale.id)}
-        </Text>
-        <Text className="text-xs text-gray-700 mt-0.5" numberOfLines={1}>
+        <CardTitle numberOfLines={1}>#{receiptId(sale.id)}</CardTitle>
+        <CardSubtitle className="mt-0.5" numberOfLines={1}>
           {sale.itemsSummary}
-        </Text>
-        <Text className="text-xs text-gray-500 mt-0.5" numberOfLines={1}>
+        </CardSubtitle>
+        <CardMeta className="mt-0.5" numberOfLines={1}>
           {sale.customer?.name ?? t("sales.walk_in")}
           {" · "}
           {formatDate(sale.soldAt)}
-        </Text>
+        </CardMeta>
         {voided ? (
           <View className="mt-1 flex-row">
             <Chip
@@ -98,25 +98,16 @@ export function SaleCard({
                   ? `${t("sales.voided")} · ${sale.voidReason}`
                   : t("sales.voided")
               }
-              className="bg-red-50 text-red-700"
+              tone="red"
             />
           </View>
         ) : null}
       </View>
 
       <View className="items-end ms-2">
-        <Text
-          fontWeight="Bold"
-          className={`text-sm ${
-            voided
-              ? "text-gray-400 line-through"
-              : fullyPaid
-                ? "text-gray-900"
-                : "text-red-600"
-          }`}
-        >
+        <CardAmount tone={voided ? "muted" : fullyPaid ? "default" : "danger"}>
           {totalLabel}
-        </Text>
+        </CardAmount>
       </View>
     </EntityCard>
   );

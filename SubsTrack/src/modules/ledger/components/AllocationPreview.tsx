@@ -54,10 +54,13 @@ export function AllocationPreview({
 
   return (
     <View className="gap-2">
-      <Text className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+      <Text
+        fontWeight="SemiBold"
+        className="text-xs uppercase tracking-wide text-gray-500"
+      >
         {t("ledger.this_pays")}
       </Text>
-      <Text className="text-xs leading-4 text-slate-500">
+      <Text className="text-xs leading-4 text-gray-500">
         {t("ledger.waterfall_hint")}
       </Text>
 
@@ -72,24 +75,24 @@ export function AllocationPreview({
             key={key}
             onPress={() => onToggle(item)}
             className={`flex-row items-center gap-3 rounded-xl border px-3 py-2.5 ${
-              skipped ? "border-slate-200 bg-slate-50" : "border-slate-200"
+              skipped ? "border-gray-200 bg-gray-50" : "border-gray-200"
             }`}
           >
             {/* The number IS the order — filled once money reaches the bill,
                 hollow while it is still waiting behind the ones above it. */}
             {skipped ? (
-              <View className="h-7 w-7 items-center justify-center rounded-full bg-slate-200">
+              <View className="h-7 w-7 items-center justify-center rounded-full bg-gray-200">
                 <Ionicons name="close" size={14} color={COLORS.gray500} />
               </View>
             ) : (
               <View
                 className={`h-7 w-7 items-center justify-center rounded-full ${
-                  line ? "bg-primary" : "border border-slate-300"
+                  line ? "bg-primary" : "border border-gray-300"
                 }`}
               >
                 <Text
                   fontWeight="Bold"
-                  className={`text-xs ${line ? "text-white" : "text-slate-400"}`}
+                  className={`text-xs ${line ? "text-white" : "text-gray-400"}`}
                 >
                   {position}
                 </Text>
@@ -99,13 +102,13 @@ export function AllocationPreview({
             <View className="flex-1">
               <Text
                 className={`text-sm ${
-                  skipped ? "text-slate-400 line-through" : "text-slate-900"
+                  skipped ? "text-gray-400 line-through" : "text-gray-900"
                 }`}
                 numberOfLines={1}
               >
                 {item.label}
               </Text>
-              <Text className="text-xs text-slate-500" numberOfLines={1}>
+              <Text className="text-xs text-gray-500" numberOfLines={1}>
                 {t("ledger.due_on", {
                   date: formatDate(item.dueDate),
                 })}
@@ -121,7 +124,7 @@ export function AllocationPreview({
             <View className="ms-2 items-end">
               <Text
                 fontWeight={line ? "Bold" : "Regular"}
-                className={`text-sm ${line ? "text-slate-900" : "text-slate-300"}`}
+                className={`text-sm ${line ? "text-gray-900" : "text-gray-300"}`}
               >
                 {line ? money(line.amount) : "—"}
               </Text>
@@ -141,11 +144,11 @@ export function AllocationPreview({
         );
       })}
 
-      <View className="flex-row items-center justify-between border-t border-slate-200 pt-2">
-        <Text className="text-sm text-slate-600">
+      <View className="flex-row items-center justify-between border-t border-gray-200 pt-2">
+        <Text className="text-sm text-gray-600">
           {t("ledger.still_owed_after")}
         </Text>
-        <Text fontWeight="Bold" className="text-sm text-slate-900">
+        <Text fontWeight="Bold" className="text-sm text-gray-900">
           {money(Math.max(0, remainingAfter))}
         </Text>
       </View>
@@ -155,6 +158,6 @@ export function AllocationPreview({
 
 /** Green = closed, amber = part paid, grey = nothing reached it. */
 function statusClass(skipped: boolean, line?: AllocationLine): string {
-  if (skipped || !line) return "text-slate-400";
+  if (skipped || !line) return "text-gray-400";
   return line.settles ? "text-green-700" : "text-amber-700";
 }

@@ -16,11 +16,11 @@ export function InfoRows({ rows }: { rows: InfoRow[] }) {
   const filled = rows.filter((r) => !!r.value);
   if (filled.length === 0) return null;
   return (
-    <View className="gap-2 rounded-xl bg-slate-50 px-4 py-3">
+    <View className="gap-2 rounded-xl bg-gray-50 px-4 py-3">
       {filled.map((row) => (
         <View key={row.label} className="flex-row items-start justify-between gap-3">
-          <Text className="text-sm text-slate-600">{row.label}</Text>
-          <Text className="flex-1 text-end text-sm text-slate-900">{row.value}</Text>
+          <Text className="text-sm text-gray-600">{row.label}</Text>
+          <Text className="flex-1 text-end text-sm text-gray-900">{row.value}</Text>
         </View>
       ))}
     </View>

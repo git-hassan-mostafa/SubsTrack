@@ -202,7 +202,10 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
 
         {/* Location — paste a Google Maps share link. */}
         <View className="mb-4">
-          <Text className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+          <Text
+            fontWeight="SemiBold"
+            className="text-xs text-gray-500 uppercase tracking-wide mb-1.5"
+          >
             {t("customers.location_label")}
           </Text>
           <PressableOpacity
@@ -210,7 +213,7 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
             className="flex-row items-center justify-center gap-2 rounded-xl py-3 px-4 border border-gray-300 mb-2"
           >
             <Ionicons name="map-outline" size={18} color={COLORS.primary} />
-            <Text className="text-sm font-semibold text-primary">
+            <Text fontWeight="SemiBold" className="text-sm text-primary">
               {t("customers.location_open_maps")}
             </Text>
           </PressableOpacity>

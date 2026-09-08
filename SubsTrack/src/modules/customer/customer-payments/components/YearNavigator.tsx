@@ -21,8 +21,9 @@ export function YearNavigator({ year, minYear, onPrev, onNext }: Props) {
         className={`w-10 h-10 items-center justify-center rounded-full ${canGoPrev ? "bg-gray-100" : "opacity-30"}`}
       >
         <Text
+          fontWeight="SemiBold"
           style={{ transform: [{ scaleX: flip }] }}
-          className="text-gray-700 text-lg font-semibold"
+          className="text-gray-700 text-lg"
         >
           {"<"}
         </Text>
@@ -35,8 +36,9 @@ export function YearNavigator({ year, minYear, onPrev, onNext }: Props) {
         className="w-10 h-10 items-center justify-center rounded-full bg-gray-100"
       >
         <Text
+          fontWeight="SemiBold"
           style={{ transform: [{ scaleX: flip }] }}
-          className="text-gray-700 text-lg font-semibold"
+          className="text-gray-700 text-lg"
         >
           ›
         </Text>

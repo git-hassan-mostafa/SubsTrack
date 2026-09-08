@@ -20,7 +20,7 @@ import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { BranchSelector } from "@/src/shared/components/BranchSelector";
 import { QuickActionsMenuButton } from "@/src/shared/components/QuickActionsMenuButton";
-import { COLORS } from "@/src/shared/constants";
+import { CARD_SURFACE, COLORS } from "@/src/shared/constants";
 import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
 import { CustomerFormSheet } from "@/src/modules/customer/customers/components/CustomerFormSheet";
 import { SaleFormSheet } from "@/src/modules/transaction/sales/components/SaleFormSheet";
@@ -94,7 +94,9 @@ export function DashboardScreen() {
           <View className="flex-row mx-4 gap-3 mb-4">
             <PressableOpacity
               onPress={() => setCustomerFormOpen(true)}
-              className="flex-1 flex-row items-center gap-3 bg-white border border-gray-100 rounded-2xl px-4 py-3"
+              className={
+                `${CARD_SURFACE} flex-1 flex-row items-center gap-3 px-4 py-3`
+              }
             >
               <View className="w-9 h-9 rounded-xl bg-indigo-50 items-center justify-center">
                 <Ionicons
@@ -110,7 +112,9 @@ export function DashboardScreen() {
 
             <PressableOpacity
               onPress={() => setSaleFormOpen(true)}
-              className="flex-1 flex-row items-center gap-3 bg-white border border-gray-100 rounded-2xl px-4 py-3"
+              className={
+                `${CARD_SURFACE} flex-1 flex-row items-center gap-3 px-4 py-3`
+              }
             >
               <View className="w-9 h-9 rounded-xl bg-emerald-50 items-center justify-center">
                 <Ionicons

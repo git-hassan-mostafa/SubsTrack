@@ -12,7 +12,12 @@ interface EmptyStateProps {
 export function EmptyState({ message, subMessage, actionLabel, onAction }: EmptyStateProps) {
   return (
     <View className="flex-1 items-center justify-center py-16 px-8">
-      <Text className="text-lg font-semibold text-gray-500 text-center">{message}</Text>
+      <Text
+        fontWeight="SemiBold"
+        className="text-lg text-gray-500 text-center"
+      >
+        {message}
+      </Text>
       {subMessage ? (
         <Text className="text-sm text-gray-400 text-center mt-2">{subMessage}</Text>
       ) : null}

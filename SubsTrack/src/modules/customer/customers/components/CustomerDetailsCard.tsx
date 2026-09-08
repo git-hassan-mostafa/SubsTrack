@@ -7,7 +7,7 @@ import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
 import { confirm } from "@/src/shared/lib/confirm";
 import { openLocation } from "@/src/shared/lib/maps";
 import type { Customer } from "@/src/core/types";
-import { COLORS } from "@/src/shared/constants";
+import { CARD_SURFACE, COLORS } from "@/src/shared/constants";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { useBranchSlice } from "@/src/state/hooks/useBranchSlice";
 import { useCustomerSlice } from "@/src/state/hooks/useCustomerSlice";
@@ -61,10 +61,13 @@ export function CustomerDetailsCard({
 
   return (
     <View className="mx-4 mt-4">
-      <Text className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2 px-1">
+      <Text
+        fontWeight="SemiBold"
+        className="text-xs text-gray-400 uppercase tracking-wide mb-2 px-1"
+      >
         {t("customers.details_section")}
       </Text>
-      <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+      <View className={`${CARD_SURFACE} overflow-hidden`}>
         {customer.phoneNumber ? (
           <View className="flex-row items-center justify-between px-4 py-3.5 border-b border-gray-100">
             <View className="flex-row items-center gap-3">
@@ -77,7 +80,7 @@ export function CustomerDetailsCard({
                 {t("customers.phone_label")}
               </Text>
             </View>
-            <Text className="text-sm font-semibold text-gray-900">
+            <Text fontWeight="SemiBold" className="text-sm text-gray-900">
               {customer.phoneNumber}
             </Text>
           </View>
@@ -95,7 +98,7 @@ export function CustomerDetailsCard({
                 {t("branches.branch_label")}
               </Text>
             </View>
-            <Text className="text-sm font-semibold text-gray-900">
+            <Text fontWeight="SemiBold" className="text-sm text-gray-900">
               {branch.name}
             </Text>
           </View>
@@ -114,7 +117,8 @@ export function CustomerDetailsCard({
               </Text>
             </View>
             <Text
-              className="text-sm font-semibold text-gray-900 flex-1 ms-4 text-right"
+              fontWeight="SemiBold"
+              className="text-sm text-gray-900 flex-1 ms-4 text-right"
               numberOfLines={2}
             >
               {customer.address}
@@ -131,7 +135,8 @@ export function CustomerDetailsCard({
               </Text>
             </View>
             <Text
-              className="text-sm font-semibold text-gray-900 flex-1 ms-4 text-right"
+              fontWeight="SemiBold"
+              className="text-sm text-gray-900 flex-1 ms-4 text-right"
               numberOfLines={1}
             >
               {customer.area}
@@ -150,7 +155,7 @@ export function CustomerDetailsCard({
                 size={16}
                 color={COLORS.primary}
               />
-              <Text className="text-sm font-semibold text-primary">
+              <Text fontWeight="SemiBold" className="text-sm text-primary">
                 {t("customers.location_open")}
               </Text>
             </View>
@@ -177,7 +182,10 @@ export function CustomerDetailsCard({
                 {t("customers.notes_label")}
               </Text>
             </View>
-            <Text className="text-sm font-medium text-gray-900 leading-5">
+            <Text
+              fontWeight="Medium"
+              className="text-sm text-gray-900 leading-5"
+            >
               {customer.notes}
             </Text>
           </View>
@@ -209,7 +217,8 @@ export function CustomerDetailsCard({
           </View>
           <View className="flex-row items-center gap-1.5">
             <Text
-              className="text-sm font-semibold"
+              fontWeight="SemiBold"
+              className="text-sm"
               style={{
                 color: customer.active ? COLORS.success : COLORS.warning,
               }}

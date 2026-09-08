@@ -196,7 +196,7 @@ export function SaleFormSheet({
             <Text className="text-xs text-gray-500 uppercase tracking-wide mb-1">
               {t("sales.customer_label")}
             </Text>
-            <Text className="text-base text-gray-900 font-medium">
+            <Text fontWeight="Medium" className="text-base text-gray-900">
               {customer?.name}
             </Text>
           </View>
@@ -213,10 +213,10 @@ export function SaleFormSheet({
         {/* Sale total */}
         {total > 0 ? (
           <View className="mb-4 px-4 py-2.5 rounded-xl bg-emerald-50 flex-row items-center justify-between">
-            <Text className="text-sm text-emerald-700 font-medium">
+            <Text fontWeight="Medium" className="text-sm text-emerald-700">
               {t("sales.total_label")}
             </Text>
-            <Text className="text-base text-emerald-700 font-bold">
+            <Text fontWeight="Bold" className="text-base text-emerald-700">
               {formatMoney(total, cart.currency, cart.currency)}
             </Text>
           </View>
@@ -228,7 +228,7 @@ export function SaleFormSheet({
         {editing && collectedOnSale > 0 ? (
           <View className="mb-4 px-4 py-2.5 rounded-xl bg-gray-50 flex-row items-center justify-between">
             <Text className="text-sm text-gray-500">{t("sales.paid_label")}</Text>
-            <Text className="text-sm text-gray-900 font-medium">
+            <Text fontWeight="Medium" className="text-sm text-gray-900">
               {formatMoney(collectedOnSale, cart.currency, cart.currency)}
             </Text>
           </View>
@@ -241,7 +241,10 @@ export function SaleFormSheet({
         {hasCustomer && (!editing || owing > 0) ? (
           <>
             {editing ? (
-              <Text className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
+              <Text
+                fontWeight="SemiBold"
+                className="mb-2 text-xs uppercase tracking-wide text-gray-500"
+              >
                 {t("sales.collect_now_label", {
                   amount: formatMoney(owing, cart.currency, cart.currency),
                 })}
