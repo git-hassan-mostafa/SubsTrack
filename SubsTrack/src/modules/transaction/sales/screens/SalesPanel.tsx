@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type RefObject } from "react";
 import {
   ActivityIndicator,
   RefreshControl,
-  ScrollView,
   SectionList,
   View,
+  type ScrollView,
 } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
@@ -23,6 +23,7 @@ import { FAB } from "@/src/shared/components/FAB";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { MonthSectionHeader } from "@/src/shared/components/MonthSectionHeader";
 import { FilterToggleButton } from "@/src/shared/components/FilterToggleButton";
+import { FilterChipsRow } from "@/src/shared/components/FilterChipsRow";
 import { groupByMonth } from "@/src/shared/lib/monthSections";
 import {
   useSelection,
@@ -50,10 +51,14 @@ import type { SaleStatus } from "@/src/state/slices/sales/saleSlice";
 import { useProductSlice } from "@/src/state/hooks/useProductSlice";
 import { useAuth } from "@/src/modules/authentication/auth";
 
+interface Props {
+  filterRowRef?: RefObject<ScrollView | null>;
+}
+
 // The Sales segment of the Transactions hub. Owns its body (search, filters, list,
 // FAB, sheets, selection) but not the page chrome — the parent TransactionsScreen
 // provides the SafeAreaView, title, and the segmented tab switcher.
-export function SalesPanel() {
+export function SalesPanel({ filterRowRef }: Props = {}) {
   const { t } = useTranslation();
   const { user } = useAuth();
   const sales = useSaleSlice((s) => s.items);
@@ -226,17 +231,7 @@ export function SalesPanel() {
               />
             </View>
             {filtersOpen ? (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
-                className="-mx-4"
-                contentContainerStyle={{
-                  paddingHorizontal: 16,
-                  gap: 8,
-                  alignItems: "center",
-                }}
-              >
+              <FilterChipsRow scrollRef={filterRowRef}>
                 <CustomerPicker
                   placeholder={t("sales.filter_by_customer")}
                   value={customerFilter}
@@ -292,7 +287,7 @@ export function SalesPanel() {
                     </Text>
                   </PressableOpacity>
                 ) : null}
-              </ScrollView>
+              </FilterChipsRow>
             ) : null}
           </View>
         ) : (

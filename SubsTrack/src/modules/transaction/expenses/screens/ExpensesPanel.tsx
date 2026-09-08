@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type RefObject } from "react";
 import {
   ActivityIndicator,
   RefreshControl,
-  ScrollView,
   SectionList,
   View,
+  type ScrollView,
 } from "react-native";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
@@ -18,6 +18,7 @@ import { FAB } from "@/src/shared/components/FAB";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { MonthSectionHeader } from "@/src/shared/components/MonthSectionHeader";
 import { FilterToggleButton } from "@/src/shared/components/FilterToggleButton";
+import { FilterChipsRow } from "@/src/shared/components/FilterChipsRow";
 import { groupByMonth } from "@/src/shared/lib/monthSections";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
 import { useDebounce } from "@/src/shared/hooks/useDebounce";
@@ -36,13 +37,17 @@ import { ExpenseCard } from "../components/ExpenseCard";
 import { ExpenseFormSheet } from "../components/ExpenseFormSheet";
 import { EXPENSE_CATEGORIES, STOCK_CATEGORY } from "../utils/expenseCategories";
 
+interface Props {
+  filterRowRef?: RefObject<ScrollView | null>;
+}
+
 /**
  * The Expenses segment of the Transactions hub — money OUT, admin-only.
  * One list merging both sources: hand-typed expenses and the derived cost of
  * stock bought in the window. Reads a date window (this month by default)
  * rather than paginating, so section totals are always the local sum.
  */
-export function ExpensesPanel() {
+export function ExpensesPanel({ filterRowRef }: Props = {}) {
   const { t } = useTranslation();
   const { user } = useAuth();
   const router = useRouter();
@@ -166,13 +171,7 @@ export function ExpensesPanel() {
             />
           </View>
           {filtersOpen ? (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
-              className="-mx-4"
-              contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}
-            >
+            <FilterChipsRow scrollRef={filterRowRef}>
               <Dropdown<ExpenseCategory>
                 placeholder={t("expenses.filter_by_category")}
                 options={categoryOptions}
@@ -205,7 +204,7 @@ export function ExpensesPanel() {
                   {t("common.clear_filters")}
                 </Text>
               </PressableOpacity>
-            </ScrollView>
+            </FilterChipsRow>
           ) : null}
         </View>
 

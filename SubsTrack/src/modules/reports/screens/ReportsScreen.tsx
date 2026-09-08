@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { View } from "react-native";
+import { GestureDetector } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { PageHeader } from "@/src/shared/components/PageHeader";
+import { useSwipeableTabs } from "@/src/shared/hooks/useSwipeableTabs";
 import { PeriodPicker } from "@/src/shared/components/PeriodPicker";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { SegmentedTabs, type Segment } from "@/src/shared/components/SegmentedTabs";
@@ -62,6 +64,12 @@ export function ReportsScreen() {
     [t],
   );
 
+  const { swipe, tabsProps } = useSwipeableTabs({
+    segments,
+    value: section,
+    onChange: setSection,
+  });
+
   const data = section === "money" ? money : debts;
 
   const onExport = async () => {
@@ -92,34 +100,34 @@ export function ReportsScreen() {
         <View className="py-3 gap-3">
           <PeriodPicker value={period} onChange={setPeriod} />
           <View className="px-4">
-            <SegmentedTabs<SectionKey>
-              value={section}
-              onChange={setSection}
-              segments={segments}
-            />
+            <SegmentedTabs<SectionKey> {...tabsProps} />
           </View>
         </View>
       </ResponsiveContainer>
 
       {/* Before the first answer arrives there is no data AND no error — that is
           still loading, not an empty period. */}
-      <ReportSection
-        loading={loading || (!data && !error)}
-        error={exportError ?? error}
-        onClearError={() => {
-          setExportError(null);
-          clearError();
-        }}
-        onRefresh={refresh}
-        empty={!data}
-      >
-        {section === "money" && money ? (
-          <MoneyReport data={money} currencies={currencies} displayCurrency={displayCurrency} />
-        ) : null}
-        {section === "debts" && debts ? (
-          <DebtsReport data={debts} currencies={currencies} displayCurrency={displayCurrency} />
-        ) : null}
-      </ReportSection>
+      <GestureDetector gesture={swipe}>
+        <View className="flex-1">
+          <ReportSection
+            loading={loading || (!data && !error)}
+            error={exportError ?? error}
+            onClearError={() => {
+              setExportError(null);
+              clearError();
+            }}
+            onRefresh={refresh}
+            empty={!data}
+          >
+            {section === "money" && money ? (
+              <MoneyReport data={money} currencies={currencies} displayCurrency={displayCurrency} />
+            ) : null}
+            {section === "debts" && debts ? (
+              <DebtsReport data={debts} currencies={currencies} displayCurrency={displayCurrency} />
+            ) : null}
+          </ReportSection>
+        </View>
+      </GestureDetector>
     </SafeAreaView>
   );
 }

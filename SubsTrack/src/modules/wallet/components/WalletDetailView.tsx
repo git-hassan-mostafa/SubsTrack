@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, ScrollView, View } from "react-native";
+import { ActivityIndicator, View } from "react-native";
 import { useSheetScrollView } from "@/src/shared/components/bottomSheetInputContext";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
@@ -12,6 +12,7 @@ import {
   type SelectionAction,
 } from "@/src/shared/components/SelectionBar";
 import { FilterToggleButton } from "@/src/shared/components/FilterToggleButton";
+import { FilterChipsRow } from "@/src/shared/components/FilterChipsRow";
 import {
   Dropdown,
   type DropdownOption,
@@ -316,17 +317,7 @@ export function WalletDetailView({
             ) : null}
 
             {!selecting && filtersOpen ? (
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                keyboardShouldPersistTaps="handled"
-                className="-mx-6 mb-3"
-                contentContainerStyle={{
-                  paddingHorizontal: 24,
-                  gap: 8,
-                  alignItems: "center",
-                }}
-              >
+              <FilterChipsRow inset={24} className="mb-3">
                 {customerOptions.length > 0 ? (
                   <Dropdown<string>
                     placeholder={t("wallet.filter_by_customer")}
@@ -374,7 +365,7 @@ export function WalletDetailView({
                     </Text>
                   </PressableOpacity>
                 ) : null}
-              </ScrollView>
+              </FilterChipsRow>
             ) : null}
 
             {filtered.length === 0 ? (

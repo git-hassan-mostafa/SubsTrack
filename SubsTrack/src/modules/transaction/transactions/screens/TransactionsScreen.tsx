@@ -1,10 +1,10 @@
-import { useCallback, useMemo, useState } from "react";
-import { View } from "react-native";
+import { useMemo, useRef, useState } from "react";
+import { View, type ScrollView } from "react-native";
 import { GestureDetector } from "react-native-gesture-handler";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
-import { useHorizontalSwipe } from "@/src/shared/hooks/useHorizontalSwipe";
+import { useSwipeableTabs } from "@/src/shared/hooks/useSwipeableTabs";
 import {
   SegmentedTabs,
   type Segment,
@@ -44,19 +44,13 @@ export function TransactionsScreen() {
     [t, isAdmin],
   );
 
-  const step = useCallback(
-    (delta: number) =>
-      setTab((current) => {
-        const i = segments.findIndex((s) => s.key === current);
-        const next = i + delta;
-        if (next < 0 || next >= segments.length) return current;
-        return segments[next].key;
-      }),
-    [segments],
-  );
-  const swipe = useHorizontalSwipe({
-    onNext: () => step(1),
-    onPrev: () => step(-1),
+  const filterRowRef = useRef<ScrollView | null>(null);
+  const blockedBy = useMemo(() => [filterRowRef], []);
+  const { swipe, tabsProps } = useSwipeableTabs({
+    segments,
+    value: tab,
+    onChange: setTab,
+    blockedBy,
   });
 
   return (
@@ -65,21 +59,19 @@ export function TransactionsScreen() {
 
       <ResponsiveContainer>
         <View className="px-4 py-3">
-          <SegmentedTabs<TransactionsTab>
-            value={tab}
-            onChange={setTab}
-            segments={segments}
-          />
+          <SegmentedTabs<TransactionsTab> {...tabsProps} />
         </View>
       </ResponsiveContainer>
 
       <GestureDetector gesture={swipe}>
         <View className="flex-1">
-          {tab === "sales" ? <SalesPanel /> : null}
+          {tab === "sales" ? <SalesPanel filterRowRef={filterRowRef} /> : null}
           {tab === "debts" ? (
             <DebtsPanel onOpenSale={saleDetail.openSale} />
           ) : null}
-          {tab === "expenses" && isAdmin ? <ExpensesPanel /> : null}
+          {tab === "expenses" && isAdmin ? (
+            <ExpensesPanel filterRowRef={filterRowRef} />
+          ) : null}
         </View>
       </GestureDetector>
 
