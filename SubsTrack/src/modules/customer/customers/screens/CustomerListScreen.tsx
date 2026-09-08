@@ -24,6 +24,7 @@ import { useSendInvoice, WhatsAppComboIcon } from "@/src/modules/invoicing";
 import { CustomerCard } from "../components/CustomerCard";
 import {
   customerFlags,
+  hasAnythingOwed,
   hasDebtFlag,
   type CustomerFlag,
 } from "../utils/customerFlags";
@@ -34,6 +35,7 @@ import {
   useCollectSheet,
   virtualMonthItem,
 } from "@/src/modules/ledger";
+import { getStore } from "@/src/state/globalStore";
 import { useCustomerSlice } from "@/src/state/hooks/useCustomerSlice";
 import { usePaymentSlice } from "@/src/state/hooks/usePaymentSlice";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
@@ -53,7 +55,7 @@ import { FAB } from "@/src/shared/components/FAB";
 import { SelectionOverlaySlot } from "@/src/shared/components/SelectionOverlaySlot";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { FilterToggleButton } from "@/src/shared/components/FilterToggleButton";
-import { MONTHS } from "@/src/core/constants";
+import { billingMonthLabel } from "@/src/core/utils/billingMonth";
 import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
 import {
   useSelection,
@@ -113,7 +115,6 @@ export function CustomerListScreen() {
   const fetchNetDebtByCustomer = useLedgerSlice((s) => s.fetchNetByCustomer);
   const collect = useLedgerSlice((s) => s.collect);
   const fetchOwed = useLedgerSlice((s) => s.fetchOwed);
-  const owed = useLedgerSlice((s) => s.owed);
   const { canSend, sendCollectionInvoice } = useSendInvoice();
   const displayCurrencyId = useDisplayCurrencyId();
   const displayCurrency = findCurrency(currencies, displayCurrencyId);
@@ -129,7 +130,7 @@ export function CustomerListScreen() {
   const [customDebtCustomer, setCustomDebtCustomer] = useState<Customer | null>(
     null,
   );
-  const [collectCustomer, setCollectCustomer] = useState<Customer | null>(null);
+  const [collectBusyId, setCollectBusyId] = useState<string | null>(null);
   const [saleCustomer, setSaleCustomer] = useState<Customer | null>(null);
   const [historyCustomer, setHistoryCustomer] = useState<Customer | null>(null);
   const selection = useSelection();
@@ -271,10 +272,9 @@ export function CustomerListScreen() {
     return currentMonthItems(customer).filter((i) => !i.openAmount);
   }
 
-  /** "Jan 2026 · Internet" — what the receipt and the split preview show. */
+  // "3/2026 · Internet" — what the receipt and the split preview show.
   function planLabel(line: CustomerPlan, billingMonth: string): string {
-    const [y, m] = billingMonth.split("-").map(Number);
-    const base = `${t(`months.${MONTHS[m - 1]}`)} ${y}`;
+    const base = billingMonthLabel(billingMonth);
     return line.plan?.name ? `${base} · ${line.plan.name}` : base;
   }
 
@@ -424,7 +424,6 @@ export function CustomerListScreen() {
     sheet: collectSheet,
   } = useCollectSheet({
     onCollected: (collection) => {
-      setCollectCustomer(null);
       const paid = collection.customerId
         ? customers.find((c) => c.id === collection.customerId)
         : null;
@@ -432,12 +431,6 @@ export function CustomerListScreen() {
       void fetchNetDebtByCustomer(branchFilter);
     },
   });
-
-  useEffect(() => {
-    if (!collectCustomer || owed.length === 0) return;
-    openCollectSheet(collectCustomer.id, collectCustomer.name, owed);
-    setCollectCustomer(null);
-  }, [collectCustomer, owed, openCollectSheet]);
 
   const openMenu = useCallback((customer: Customer) => {
     setMenuCustomer(customer);
@@ -457,7 +450,9 @@ export function CustomerListScreen() {
           debtLabel={debtLabel}
           onPress={openDetail}
           onMenu={openMenu}
-          menuLoading={quickPayCustomerId === item.id}
+          menuLoading={
+            quickPayCustomerId === item.id || collectBusyId === item.id
+          }
           selectionMode={selectionActive}
           selected={selectedIds.has(item.id)}
           onToggleSelect={handleToggleSelect}
@@ -472,6 +467,7 @@ export function CustomerListScreen() {
       openDetail,
       openMenu,
       quickPayCustomerId,
+      collectBusyId,
       selectionActive,
       selectedIds,
       handleToggleSelect,
@@ -636,12 +632,21 @@ export function CustomerListScreen() {
     return actions;
   }
 
-  // Collect against everything a customer owes — the waterfall settles it
-  // oldest-first and the sheet shows the split before anything is written.
-  // Loading their pool is a round trip, so the sheet opens once it lands.
+  // Collect everything a customer owes — waterfall settles it oldest-first.
   async function handleCollectDebt(customer: Customer) {
-    setCollectCustomer(customer);
-    await fetchOwed(customer, customer.customerPlans ?? [], currencies);
+    setCollectBusyId(customer.id);
+    try {
+      await fetchOwed(customer, customer.customerPlans ?? [], currencies);
+      const ledger = getStore().getState().ledger;
+      if (ledger.error) return;
+      if (ledger.owed.length === 0) {
+        setBulkNotice(t("ledger.nothing_owed"));
+        return;
+      }
+      openCollectSheet(customer.id, customer.name, ledger.owed);
+    } finally {
+      setCollectBusyId(null);
+    }
   }
 
   function buildMenuActions(customer: Customer | null): ActionMenuItem[] {
@@ -686,13 +691,20 @@ export function CustomerListScreen() {
       iconBadge: "add",
       onPress: () => setCustomDebtCustomer(customer),
     });
-    items.push({
-      key: "collect",
-      label: t("ledger.collect_money"),
-      icon: "cash-outline",
-      iconBadge: "add",
-      onPress: () => void handleCollectDebt(customer),
-    });
+    if (
+      hasAnythingOwed(
+        customerStatuses.get(customer.id) ?? null,
+        netDebtByCustomer[customer.id],
+      )
+    ) {
+      items.push({
+        key: "collect",
+        label: t("ledger.collect_money"),
+        icon: "cash-outline",
+        iconBadge: "add",
+        onPress: () => void handleCollectDebt(customer),
+      });
+    }
     items.push({
       key: "edit",
       label: t("common.edit"),

@@ -37,3 +37,12 @@ export function customerFlags(status: CustomerStatus | null): CustomerFlag[] {
 export function hasDebtFlag(netUsd: number | undefined): boolean {
   return (netUsd ?? 0) > 0;
 }
+
+/** OWED = unpaid months OR ledger debt; an uncomputed status hides nothing. */
+export function hasAnythingOwed(
+  status: CustomerStatus | null,
+  netUsd: number | undefined,
+): boolean {
+  if (hasDebtFlag(netUsd)) return true;
+  return status ? status.status !== "paid" : true;
+}

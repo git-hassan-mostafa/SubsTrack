@@ -38,19 +38,24 @@ class LedgerService {
     today?: Date;
   }): Promise<OpenItem[]> {
     const { customer, lines, skips, unpaidRule, currencies } = args;
-    const stored = (await chargeService.getOpenCharges({ customerId: customer.id })).map((i) => ({
-      ...i,
-      customerName: customer.name,
-    }));
+    const active = lines.filter((l) => l.active);
+    const [open, billsByLine] = await Promise.all([
+      chargeService.getOpenCharges({ customerId: customer.id }),
+      active.length > 0
+        ? chargeService.getMonthBillsForLines(active.map((l) => l.id))
+        : Promise.resolve(new Map<string, MonthBill[]>()),
+    ]);
+    const stored = open.map((i) => ({ ...i, customerName: customer.name }));
 
     const billed = new Set(
       stored
         .filter((i) => i.kind === 'month' && i.paid > 0)
         .map((i) => `${i.customerPlanId}:${i.billingMonth}`),
     );
-    const virtual = await this.virtualUnpaidMonths({
+    const virtual = this.virtualUnpaidMonths({
       customer,
-      lines,
+      activeLines: active,
+      billsByLine,
       skips,
       unpaidRule,
       currencies,
@@ -69,23 +74,29 @@ class LedgerService {
     return sortByDue([...kept, ...virtual]);
   }
 
-  private async virtualUnpaidMonths(args: {
+  private virtualUnpaidMonths(args: {
     customer: Customer;
-    lines: CustomerPlan[];
+    activeLines: CustomerPlan[];
+    billsByLine: Map<string, MonthBill[]>;
     skips: SkippedMonth[];
     unpaidRule: UnpaidStartRule;
     currencies: Currency[];
     alreadyBilled: ReadonlySet<string>;
     today: Date;
-  }): Promise<OpenItem[]> {
-    const { customer, lines, skips, unpaidRule, currencies, alreadyBilled, today } = args;
-    const active = lines.filter((l) => l.active);
-    if (active.length === 0) return [];
-
-    const billsByLine = await chargeService.getMonthBillsForLines(active.map((l) => l.id));
+  }): OpenItem[] {
+    const {
+      customer,
+      activeLines,
+      billsByLine,
+      skips,
+      unpaidRule,
+      currencies,
+      alreadyBilled,
+      today,
+    } = args;
     const out: OpenItem[] = [];
 
-    for (const line of active) {
+    for (const line of activeLines) {
       const price = resolveLinePrice(line);
       if (!price.isFixed || price.amount === null || price.amount <= 0) continue;
       const ratePerUsd = findCurrency(currencies, price.currencyId)?.ratePerUsd ?? 1;
