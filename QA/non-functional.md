@@ -120,20 +120,19 @@ Cross-cutting concerns that don't fit a single feature: performance, error handl
 
 ## 9b. Web browser Back button (web build only)
 
-On web, browser Back closes a **centered dialog** (confirm / upgrade prompt / location help) and clears an active **selection bar**. It does **not** close a bottom sheet or a popup — those navigate the route instead, on purpose: closing a sheet from a Back press left the page dead to clicks (gotcha #44). Sheets close by their header button, the backdrop or a drag. Run these in a desktop browser.
+On web, **browser Back is never a close button.** Nothing in the app listens to it — no sheet, no popup, no dialog, no selection bar — so it always navigates the route, and the app touches browser history not at all (gotcha #44). Everything closes by its own affordances: header button, backdrop, drag, or the dialog's own buttons. These scenarios exist to prove the app does not fight the browser and that no overlay is left stuck or unclickable. Run them in a desktop browser.
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
 | 9b.1 | **Reported bug — clicks die after closing a sheet** | Open any form sheet, close it (header ✕ / backdrop / drag), then click any button on the screen | Every button responds on the FIRST click. Repeat with all three close paths |
-| 9b.2 | A sheet ignores Back | Open any form sheet (e.g. Customer form), press browser Back | The sheet does **not** close by Back; the route navigates as normal. A sheet owned by that screen unmounts with it, and the page is still fully clickable |
-| 9b.3 | Back closes a dialog over a sheet | Admin → Wallets → open a collector wallet (sheet) → "Receive all" (confirm dialog); press Back | Only the confirm dialog closes; the wallet sheet stays open; route unchanged |
-| 9b.4 | Back after the dialog is gone | From 9b.3, press Back again | Normal route navigation. The site must NOT close or jump to another page. Repeat pressing Back fast several times |
-| 9b.5 | Other dialogs close on Back | Open the upgrade prompt (hit a tier limit) or the location help modal; press Back | The dialog closes; route unchanged |
-| 9b.6 | Dialog handoff keeps history sane | Open a 3-dot menu → choose a destructive action so its confirm dialog replaces the menu → press Back twice | 1st Back closes the confirm; 2nd Back navigates normally. The site must not jump pages |
-| 9b.7 | Confirm can't be dismissed mid-action | Start a confirm action that shows a spinner; press Back while it runs | Back is ignored until the action finishes |
-| 9b.8 | Pickers and menus close by clicking outside | Open a dropdown / currency / date picker inside a form, or a row's 3-dot menu; click the dark backdrop | It closes; the form sheet under it stays open |
-| 9b.9 | Selection bar clears on Back | Admin → Wallets → open a collector wallet → select a few rows; press Back | The selection clears; the sheet stays open and the route does not change |
-| 9b.10 | Router history survives an open sheet | Customers → customer detail → open a sheet → close it with Cancel → press Back | Goes back to the customer list exactly once (router history is intact) |
+| 9b.2 | A sheet ignores Back | Open any form sheet (e.g. Customer form), press browser Back | The sheet does **not** close by Back; the route navigates as normal. A sheet owned by that screen goes away with it, and the page is still fully clickable |
+| 9b.3 | A dialog ignores Back | Admin → Wallets → open a collector wallet → "Receive all" (confirm dialog); press Back | The dialog does **not** close by Back; the route navigates. The dialog is still answerable by its own buttons and the page under it is clickable afterwards |
+| 9b.4 | Back never traps the user | With any sheet / popup / dialog open, press Back several times fast | Plain browser navigation each time; the site must never wedge, and one Back must never need two presses |
+| 9b.5 | Dialogs close by their buttons | Open the upgrade prompt (hit a tier limit) or the location help modal; use its ✕ / Close / Cancel | The dialog closes; route unchanged; the screen stays clickable |
+| 9b.6 | Confirm can't be dismissed mid-action | Start a confirm action that shows a spinner; press Back while it runs | The action finishes normally; Back only navigates and never cancels it halfway |
+| 9b.7 | Pickers and menus close by clicking outside | Open a dropdown / currency / date picker inside a form, or a row's 3-dot menu; click the dark backdrop | It closes; the form sheet under it stays open |
+| 9b.8 | Selection bar clears by its own ✕ | Admin → Wallets → open a collector wallet → select a few rows → tap the toolbar's ✕ | The selection clears; the sheet stays open |
+| 9b.9 | Router history is untouched | Customers → customer detail → open a sheet → close it with Cancel → press Back | Goes back to the customer list exactly once — no swallowed press, no double step |
 
 ## 9c. Bottom sheets — Android Back, scrolling, keyboard (native build only)
 

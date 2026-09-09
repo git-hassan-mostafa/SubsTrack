@@ -5,7 +5,6 @@ import { Text } from "@/src/shared/components/Text";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { COLORS } from "@/src/shared/constants";
 import { openMapsApp } from "@/src/shared/lib/maps";
-import { useWebBackDismiss } from "@/src/shared/hooks/useWebBackDismiss";
 
 interface Props {
   visible: boolean;
@@ -17,8 +16,6 @@ const STEPS = [1, 2, 3, 4];
 // Keeps the "how to copy a map link" steps out of the form they belong to.
 export function LocationHelpModal({ visible, onClose }: Props) {
   const { t } = useTranslation();
-
-  useWebBackDismiss(visible, onClose);
 
   return (
     <Modal

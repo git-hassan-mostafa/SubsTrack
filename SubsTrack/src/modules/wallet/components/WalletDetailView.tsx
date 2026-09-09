@@ -22,7 +22,6 @@ import {
   useSelection,
   useSelectionBackHandler,
 } from "@/src/shared/hooks/useSelection";
-import { useWebBackDismiss } from "@/src/shared/hooks/useWebBackDismiss";
 import { COLORS } from "@/src/shared/constants";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { formatDate } from "@/src/core/utils/date";
@@ -127,7 +126,6 @@ export function WalletDetailView({
   const selecting = canAct && selection.active;
 
   useSelectionBackHandler(selecting, selection.clear);
-  useWebBackDismiss(selecting, selection.clear);
 
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [customerFilter, setCustomerFilter] = useState<string | null>(null);

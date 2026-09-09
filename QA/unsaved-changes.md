@@ -21,7 +21,7 @@ Covers the app-wide "Discard changes?" confirmation shown when a **dirty** form 
 3. **"Keep editing" preserves every entered value** — including values held by child editors (plan lines, sale cart) and the scroll position is not required to persist, but data must be.
 4. **"Discard" closes and loses the edits** — nothing is saved.
 5. **Saving is never blocked.** A successful Save closes the form directly, with no discard prompt (the form closes because the caller set it closed, not through the guard).
-6. **The prompt owns Back while it is open.** One Back press must answer only the dialog — it must never also close the sheet or change the route.
+6. **The prompt owns Android Back while it is open.** One Back press must answer only the dialog — it must never also close the sheet or change the route. On web Back is not involved at all: it just navigates.
 7. **The drag gesture snaps back, it does not flash away.** On a dirty form the sheet returns to its open position while the dialog shows.
 
 ---

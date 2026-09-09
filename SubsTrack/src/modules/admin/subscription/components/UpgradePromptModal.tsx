@@ -12,7 +12,6 @@ import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
 import { CanUpgrade } from "@/src/shared/components/FeatureGate";
 import { TierLimitErrorPayload } from "../utils/types";
 import { ContactToUpgradeButton } from "./ContactToUpgradeButton";
-import { useWebBackDismiss } from "@/src/shared/hooks/useWebBackDismiss";
 
 interface Props {
   payload: TierLimitErrorPayload | null;
@@ -24,8 +23,6 @@ export function UpgradePromptModal({ payload, onClose }: Props) {
   const router = useRouter();
   const user = useAuthSlice((s) => s.user);
   const tiers = useSubscriptionSlice((s) => s.tiers);
-
-  useWebBackDismiss(!!payload, onClose);
 
   if (!payload) return null;
 
