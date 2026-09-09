@@ -124,7 +124,8 @@ On web, **browser Back is never a close button.** Nothing in the app listens to 
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 9b.1 | **Reported bug — clicks die after closing a sheet** | Open any form sheet, close it (header ✕ / backdrop / drag), then click any button on the screen | Every button responds on the FIRST click. Repeat with all three close paths |
+| 9b.1 | **Reported bug — clicks die after closing a sheet** | Open any form sheet, close it with the header ✕, then click any button on the screen. Repeat closing via the backdrop | Every button responds on the FIRST click, both ways |
+| 9b.1b | A web sheet cannot be dragged | Open any sheet and try to drag it down — by the grey handle bar AND by the title bar | Nothing moves and the sheet does not close (drag is native-only, gotcha #46). The handle bar is still drawn but inert |
 | 9b.2 | A sheet ignores Back | Open any form sheet (e.g. Customer form), press browser Back | The sheet does **not** close by Back; the route navigates as normal. A sheet owned by that screen goes away with it, and the page is still fully clickable |
 | 9b.3 | A dialog ignores Back | Admin → Wallets → open a collector wallet → "Receive all" (confirm dialog); press Back | The dialog does **not** close by Back; the route navigates. The dialog is still answerable by its own buttons and the page under it is clickable afterwards |
 | 9b.4 | Back never traps the user | With any sheet / popup / dialog open, press Back several times fast | Plain browser navigation each time; the site must never wedge, and one Back must never need two presses |

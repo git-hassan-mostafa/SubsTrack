@@ -45,6 +45,9 @@ const ANIMATION_CONFIGS: WithTimingConfig | undefined =
     ? { duration: 180, easing: Easing.out(Easing.cubic) }
     : undefined;
 
+// off on web — a drag-close eats the next click there, see gotcha #46
+export const SHEET_DRAG_ENABLED = Platform.OS !== "web";
+
 // the app's only bottom sheet — see gotchas #44 / #45 / #47
 export function AppBottomSheet({
   visible,
@@ -149,7 +152,8 @@ export function AppBottomSheet({
       onAnimate={handleAnimate}
       onDismiss={handleDismiss}
       stackBehavior="push"
-      enablePanDownToClose
+      enablePanDownToClose={SHEET_DRAG_ENABLED}
+      enableHandlePanningGesture={SHEET_DRAG_ENABLED}
       animationConfigs={ANIMATION_CONFIGS}
       enableDynamicSizing={!useFixedSnap}
       maxDynamicContentSize={!useFixedSnap ? frameHeight * 0.9 : undefined}

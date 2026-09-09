@@ -16,7 +16,7 @@ Covers the app-wide "Discard changes?" confirmation shown when a **dirty** form 
 
 ## 0. Critical invariants
 
-1. **All four close paths ask** — header Cancel/Close button, Android hardware Back, drag-down gesture, backdrop tap. Missing any one is a bug. Browser Back is **not** a close path: a sheet ignores it (gotcha #44).
+1. **All four close paths ask** — header Cancel/Close button, Android hardware Back, drag-down gesture, backdrop tap. Missing any one is a bug. **On web only two of the four exist**: browser Back is ignored (gotcha #44) and a sheet cannot be dragged at all (gotcha #46), so every Back row and every drag row below is native-only.
 2. **A clean form never asks.** Opening a form and closing it without typing must close immediately, with no dialog. This is the invariant most likely to regress (see §3) and the one that destroys trust in the feature.
 3. **"Keep editing" preserves every entered value** — including values held by child editors (plan lines, sale cart) and the scroll position is not required to persist, but data must be.
 4. **"Discard" closes and loses the edits** — nothing is saved.
@@ -48,7 +48,7 @@ Use **Add customer** (Customers → +) as the reference form unless stated other
 
 ## 2. Repeated / sequential interactions (regression-prone)
 
-This section reproduces two fixed bugs that presented almost identically. **Every Back row is Android-only** — a sheet ignores browser Back (gotcha #44) — so on web run the button / drag / backdrop rows instead:
+This section reproduces two fixed bugs that presented almost identically. **Every Back row and every drag row is native-only** — on web a sheet ignores browser Back (gotcha #44) and cannot be dragged (gotcha #46) — so on web run the button / backdrop rows instead:
 
 - **Android** — one Back press answered the dialog **and** re-closed the sheet, so a second attempt showed an extra dialog and eventually navigated away.
 - **Web** — no extra dialog, but Discard popped one history entry too many and landed on the previous page. The sheet no longer touches history at all, so any variant that still ends on the wrong route is a regression even when the dialogs themselves look right.
@@ -72,7 +72,7 @@ The dirty baseline is captured on first render. Values that a **child** seeds on
 | --- | --------------------------------- | -------------------------------------------------------------------------------------- | -------------------------------------------------- |
 | 3.1 | Open + close, no edits            | Open any form → immediately Cancel                                                     | Closes at once, **no dialog**                      |
 | 3.2 | Open + close, Back                | Open any form → Back                                                                   | Closes at once, no dialog                          |
-| 3.3 | Open + drag close                 | Open any form → drag down                                                              | Closes normally, no dialog, no snap-back           |
+| 3.3 | Open + drag close (native)        | Open any form → drag down                                                              | Closes normally, no dialog, no snap-back           |
 | 3.4 | Last-used currency default        | Record a payment/sale/custom debt in a non-USD currency; reopen that form → Cancel      | No dialog (the auto-filled currency is not an edit) |
 | 3.5 | Sale form, products load          | Products → open **Record sale** → wait for products to load → Cancel                   | No dialog (cart draft self-report is not an edit)  |
 | 3.6 | Batch restock, clear              | Batch restock → type a quantity → **Clear** (back to zero) → Cancel                    | No dialog — clearing returns the form to clean     |

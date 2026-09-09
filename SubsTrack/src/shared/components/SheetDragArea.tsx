@@ -2,6 +2,7 @@ import { useMemo, type ReactNode } from "react";
 import { View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { useBottomSheetGestureHandlers } from "@gorhom/bottom-sheet";
+import { SHEET_DRAG_ENABLED } from "./AppBottomSheet";
 
 interface SheetDragAreaProps {
   children: ReactNode;
@@ -9,25 +10,7 @@ interface SheetDragAreaProps {
   activationDistance?: number;
 }
 
-/**
- * Turns a strip of sheet CONTENT into a second drag handle: dragging it moves
- * (and pans down to close) the sheet exactly like Gorhom's handle bar does.
- *
- * Why this exists: `AppBottomSheet` disables Gorhom's *content* pan gesture for
- * every variant — it freezes plain RN scrollables and locks Gorhom's own
- * (gotchas #45/#47) — which left the tiny handle bar as the only drag target.
- * This re-attaches the **handle** gesture (`GESTURE_SOURCE.HANDLE`, the same one
- * `BottomSheetHandleContainer` uses) to a region we know holds no scrollable, so
- * nothing can be stolen from a list. Use it on sheet HEADERS only.
- *
- * A pan only activates on movement, so taps on buttons inside still fire.
- * Must be rendered inside a sheet — the hook throws outside one.
- *
- * **Never wrap a scrollable in it.** The handle gesture ignores the list's
- * scroll offset (only Gorhom's CONTENT source reads it), so it would both
- * swallow the scroll and drag the sheet from the middle of a list. A body with
- * NO scrollable (`ActionMenu`'s rows) is fine — pass `activationDistance` there.
- */
+// headers only, never around a scrollable — see docs/ui-patterns.md
 export function SheetDragArea({
   children,
   className,
@@ -53,6 +36,8 @@ export function SheetDragArea({
     handlePanGestureHandler.handleOnEnd,
     handlePanGestureHandler.handleOnFinalize,
   ]);
+
+  if (!SHEET_DRAG_ENABLED) return <View className={className}>{children}</View>;
 
   return (
     <GestureDetector gesture={gesture}>
