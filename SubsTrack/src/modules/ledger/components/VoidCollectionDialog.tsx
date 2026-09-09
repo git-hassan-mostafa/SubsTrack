@@ -1,5 +1,9 @@
 import { useState } from "react";
-import { TextInput, View } from "react-native";
+import { View } from "react-native";
+import {
+  AppTextInput,
+  NOTE_FIELD_STYLE,
+} from "@/src/shared/components/AppTextInput";
 import { useTranslation } from "react-i18next";
 import { ConfirmDialog } from "@/src/shared/components/ConfirmDialog";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
@@ -21,8 +25,8 @@ interface Props {
 /**
  * Undo ONE hand-over of cash.
  *
- * Every bill it touched gets its balance back on its own — a balance is a sum
- * over live items and this row stops being one — so the warning names how many
+ * Every bill it touched gets its balance back on its own — a balance is a sum
+ * over live items and this row stops being one — so the warning names how many
  * bills that is. A month bill left at zero collected is deliberately kept: it
  * holds the frozen price, and it reads as plain "unpaid" everywhere because
  * nothing in the app asks whether a bill row exists, only how much money came.
@@ -81,24 +85,13 @@ export function VoidCollectionDialog({
           <ErrorBanner message={error} onDismiss={clearError} />
         </View>
       ) : null}
-      <TextInput
+      <AppTextInput
         {...field}
         placeholder={t("payments.void_reason_placeholder")}
         multiline
         numberOfLines={3}
         onFocus={clearError}
-        style={{
-          fontFamily: "Cairo",
-          borderWidth: 1,
-          borderColor: COLORS.gray200 ?? "#E5E7EB",
-          borderRadius: 12,
-          paddingHorizontal: 16,
-          paddingVertical: 12,
-          fontSize: 14,
-          color: "#111827",
-          backgroundColor: "#fff",
-          textAlignVertical: "top",
-        }}
+        style={NOTE_FIELD_STYLE}
         placeholderTextColor={COLORS.gray400}
       />
     </ConfirmDialog>

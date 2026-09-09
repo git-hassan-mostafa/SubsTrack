@@ -1,5 +1,9 @@
 import { useState } from "react";
-import { TextInput, View } from "react-native";
+import { View } from "react-native";
+import {
+  AppTextInput,
+  NOTE_FIELD_STYLE,
+} from "@/src/shared/components/AppTextInput";
 import { useTranslation } from "react-i18next";
 import { ConfirmDialog } from "@/src/shared/components/ConfirmDialog";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
@@ -95,24 +99,13 @@ export function SkipMonthSheet({
         </View>
       ) : null}
       {isSkip ? (
-        <TextInput
+        <AppTextInput
           {...field}
           placeholder={t("payments.skip.note_placeholder")}
           multiline
           numberOfLines={3}
           onFocus={clearError}
-          style={{
-            fontFamily: "Cairo",
-            borderWidth: 1,
-            borderColor: COLORS.gray200 ?? "#E5E7EB",
-            borderRadius: 12,
-            paddingHorizontal: 16,
-            paddingVertical: 12,
-            fontSize: 14,
-            color: "#111827",
-            backgroundColor: "#fff",
-            textAlignVertical: "top",
-          }}
+          style={NOTE_FIELD_STYLE}
           placeholderTextColor={COLORS.gray400}
         />
       ) : existingNote ? (

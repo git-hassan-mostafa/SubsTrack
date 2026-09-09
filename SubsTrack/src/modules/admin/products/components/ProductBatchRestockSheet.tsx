@@ -16,7 +16,7 @@ import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { Dropdown } from "@/src/shared/components/Dropdown";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
 import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
-import { useSheetTextInput } from "@/src/shared/components/bottomSheetInputContext";
+import { AppTextInput } from "@/src/shared/components/AppTextInput";
 import { useTextField } from "@/src/shared/hooks/useTextField";
 import {
   decimalDigitsOnly,
@@ -358,7 +358,6 @@ function RestockRow({
   onCostChange,
 }: RowProps) {
   const { t } = useTranslation();
-  const TextInput = useSheetTextInput();
   const picked = quantity > 0;
   const quantityField = useTextField(
     quantityText(quantity),
@@ -420,13 +419,13 @@ function RestockRow({
               color={picked ? COLORS.gray700 : COLORS.gray300}
             />
           </PressableOpacity>
-          <TextInput
+          <AppTextInput
             {...quantityField}
             keyboardType="number-pad"
             placeholder="0"
             placeholderTextColor={COLORS.gray400}
-            className="w-10 text-center text-base text-gray-900"
-            style={{ fontFamily: "Cairo" }}
+            containerClassName="w-10"
+            className="text-center text-base text-gray-900"
           />
           <PressableOpacity
             onPress={() => onChange(quantity + 1)}
@@ -445,13 +444,13 @@ function RestockRow({
             {t("products.cost_per_unit_label")}
           </Text>
           <View className="flex-row items-center">
-            <TextInput
+            <AppTextInput
               {...costField}
               keyboardType="decimal-pad"
               placeholder="0.00"
               placeholderTextColor={COLORS.gray400}
-              className="w-20 text-end text-sm text-gray-900"
-              style={{ fontFamily: "Cairo" }}
+              containerClassName="w-20"
+              className="text-end text-sm text-gray-900"
             />
             <Text className="text-xs text-gray-400 ms-1">
               {currency?.symbol ?? currency?.code ?? "$"}

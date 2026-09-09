@@ -1,5 +1,9 @@
 import { useEffect, useState } from "react";
-import { ActivityIndicator, TextInput, View } from "react-native";
+import { ActivityIndicator, View } from "react-native";
+import {
+  AppTextInput,
+  NOTE_FIELD_STYLE,
+} from "@/src/shared/components/AppTextInput";
 import { useTranslation } from "react-i18next";
 import { ConfirmDialog } from "@/src/shared/components/ConfirmDialog";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
@@ -27,7 +31,7 @@ interface Props {
 // and reports counts back to the screen.
 //
 // The message states that any money collected goes with the sale. It never
-// COUNTS the hand-overs — a bare number warns nobody; it names the other bills
+// COUNTS the hand-overs — a bare number warns nobody; it names the other bills
 // they also settled instead, since a shared hand-over is voided whole (#125).
 export function SaleBulkVoidSheet({ saleIds, chargeIds, onVoided, onDismiss }: Props) {
   const { t } = useTranslation();
@@ -112,24 +116,13 @@ export function SaleBulkVoidSheet({ saleIds, chargeIds, onVoided, onDismiss }: P
           <ErrorBanner message={error} onDismiss={clearError} />
         </View>
       ) : null}
-      <TextInput
+      <AppTextInput
         {...field}
         placeholder={t("sales.void_reason_placeholder")}
         multiline
         numberOfLines={3}
         onFocus={clearError}
-        style={{
-          fontFamily: "Cairo",
-          borderWidth: 1,
-          borderColor: COLORS.gray200 ?? "#E5E7EB",
-          borderRadius: 12,
-          paddingHorizontal: 16,
-          paddingVertical: 12,
-          fontSize: 14,
-          color: "#111827",
-          backgroundColor: "#fff",
-          textAlignVertical: "top",
-        }}
+        style={NOTE_FIELD_STYLE}
         placeholderTextColor={COLORS.gray400}
       />
     </ConfirmDialog>

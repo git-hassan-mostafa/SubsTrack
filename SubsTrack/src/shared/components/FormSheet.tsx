@@ -50,7 +50,7 @@ interface FormSheetProps {
  * width is capped on wide viewports via {@link ResponsiveContainer}.
  *
  * Text inputs rendered inside automatically become `BottomSheetTextInput`
- * (see {@link useSheetTextInput}), so the keyboard pushes the focused field
+ * (see {@link AppTextInput}), so the keyboard pushes the focused field
  * into view — no per-field wiring needed. Replaces the old `SheetModal`.
  *
  * The body is rendered one frame after the chrome ({@link useAfterFirstFrame}):

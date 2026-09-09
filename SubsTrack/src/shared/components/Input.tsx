@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { TextInputProps, View } from "react-native";
 import { Text } from "@/src/shared/components/Text";
 import { COLORS } from "@/src/shared/constants";
-import { useSheetTextInput } from "@/src/shared/components/bottomSheetInputContext";
+import { AppTextInput } from "@/src/shared/components/AppTextInput";
 import { useTextField } from "@/src/shared/hooks/useTextField";
 
 interface InputProps extends Omit<TextInputProps, "value"> {
@@ -23,7 +23,6 @@ export function Input({
   trailing,
   ...props
 }: InputProps) {
-  const TextInput = useSheetTextInput();
   const field = useTextField(value, onChangeText, { sanitize });
   return (
     <View className="mb-4">
@@ -36,13 +35,14 @@ export function Input({
         </Text>
       ) : null}
       <View className="flex-row items-center gap-2">
-        <TextInput
+        <AppTextInput
           {...props}
           {...field}
-          className={`flex-1 border rounded-xl px-4 py-3 text-base text-gray-900 bg-white ${
+          containerClassName="flex-1"
+          className={`border rounded-xl px-4 py-3 text-base text-gray-900 bg-white ${
             error ? "border-danger" : "border-gray-200"
           }`}
-          style={[{ fontFamily: "Cairo" }, style]}
+          style={style}
           placeholderTextColor={COLORS.gray400}
         />
         {trailing}

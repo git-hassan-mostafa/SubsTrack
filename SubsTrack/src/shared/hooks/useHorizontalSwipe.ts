@@ -1,6 +1,6 @@
 import { useMemo, type RefObject } from "react";
 import { I18nManager } from "react-native";
-import { Gesture, type LegacyPanGesture } from "react-native-gesture-handler";
+import { Gesture, type PanGesture } from "react-native-gesture-handler";
 import { runOnJS } from "react-native-reanimated";
 
 type ScrollableRef = RefObject<unknown>;
@@ -8,7 +8,7 @@ type ScrollableRef = RefObject<unknown>;
 // RNGH types this as a gesture/ComponentType ref, never a component INSTANCE
 // ref, so a ScrollView ref needs the cast — see gotcha #138.
 type ExternalGestureRef = Parameters<
-  LegacyPanGesture["blocksExternalGesture"]
+  PanGesture["blocksExternalGesture"]
 >[number];
 
 interface Options {

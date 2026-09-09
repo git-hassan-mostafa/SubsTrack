@@ -14,7 +14,7 @@ interface BottomSheetScaffoldProps {
  * {@link AppBottomSheet} (`variant="auto"`): the sheet sizes itself to its
  * content, drags down / taps-backdrop / hardware-back to close, and keeps its
  * own keyboard handling (text inputs inside auto-swap to `BottomSheetTextInput`
- * via {@link useSheetTextInput}), so callers no longer need a `wrap` prop.
+ * via {@link AppTextInput}), so callers no longer need a `wrap` prop.
  *
  * Without `scrollable` the sheet is sized to its content, so the body must use
  * PLAIN RN scrollables (`FlatList` / `ScrollView`) — a Gorhom scrollable

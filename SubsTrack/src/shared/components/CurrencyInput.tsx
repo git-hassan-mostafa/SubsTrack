@@ -9,7 +9,7 @@ import type { Currency } from "@/src/core/types";
 import { useUiPrefStore } from "@/src/shared/lib/uiPrefStore";
 import { BottomSheetScaffold } from "./BottomSheetScaffold";
 import { SheetDragArea } from "./SheetDragArea";
-import { useSheetTextInput } from "./bottomSheetInputContext";
+import { AppTextInput } from "./AppTextInput";
 import { useTextField } from "@/src/shared/hooks/useTextField";
 import { decimalDigitsOnly } from "@/src/core/utils/inputText";
 
@@ -57,8 +57,6 @@ export function CurrencyInput({
   editable = true,
   onFocus,
 }: CurrencyInputProps) {
-  const TextInput = useSheetTextInput();
-
   const { t } = useTranslation();
   const { lastUsedCurrencyId, setLastUsedCurrencyId } = useUiPrefStore();
   const initialDefaultApplied = useRef(false);
@@ -115,15 +113,15 @@ export function CurrencyInput({
           error ? "border-danger" : "border-gray-200"
         }`}
       >
-        <TextInput
+        <AppTextInput
           {...field}
           onFocus={onFocus}
           placeholder={placeholder ?? "0.00"}
           placeholderTextColor={COLORS.gray400}
           keyboardType="decimal-pad"
           editable={editable}
-          className="flex-1 py-3 text-base text-gray-900"
-          style={{ fontFamily: "Cairo" }}
+          containerClassName="flex-1"
+          className="py-3 text-base text-gray-900"
         />
 
         <PressableOpacity
