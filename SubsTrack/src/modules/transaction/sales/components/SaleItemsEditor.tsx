@@ -31,8 +31,8 @@ import type { CreateSaleItemInput } from "../utils/types";
 // service consumes, so the cart hands its lines straight through.
 export type SaleLineDraft = CreateSaleItemInput;
 
-// The live cart state the parent form needs: the resolved lines, the summed
-// total, the single sale currency, and whether the cart is submittable.
+// `total` only SUGGESTS — the form owns the real one, and an empty cart is ready
+// (gotcha #142).
 export interface SaleCartDraft {
   lines: SaleLineDraft[];
   total: number;
@@ -96,7 +96,8 @@ function signatureOf(rows: Row[], currencyId: string | null): string {
 }
 
 // A new sale starts with NO rows: the two add buttons are how the first line's
-// kind is chosen, so there is never a blank row of the wrong kind to undo.
+// kind is chosen, so there is never a blank row of the wrong kind to undo. Zero
+// rows is also a valid FINAL state — see gotcha #142.
 function buildInitialRows(initial?: SaleEditorInitial | null): Row[] {
   if (!initial || initial.items.length === 0) return [];
   return initial.items.map((it, i) => ({
@@ -413,7 +414,7 @@ export function SaleItemsEditor({
       total,
       currency: saleCurrency,
       currencyId,
-      ready: lines.length > 0 && !incomplete && !oversold,
+      ready: !incomplete && !oversold,
       dirty: signatureOf(rows, currencyId) !== baseline,
     });
   }, [

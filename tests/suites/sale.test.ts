@@ -61,9 +61,13 @@ beforeEach(() => {
 });
 
 describe('createSale: validation', () => {
-  it('TC-SL-01 refuses an empty cart', async () => {
+  it('TC-SL-01 refuses an empty cart with no typed total', async () => {
     await expect(saleService.createSale(input({ items: [] })))
-      .rejects.toThrow(/errors\.sale_items_required/);
+      .rejects.toThrow(/errors\.sale_total_positive/);
+    for (const totalAmount of [0, -5]) {
+      await expect(saleService.createSale(input({ items: [], totalAmount })))
+        .rejects.toThrow(/errors\.sale_total_positive/);
+    }
   });
 
   it('TC-SL-02 refuses a non-integer or non-positive product quantity', async () => {
@@ -194,6 +198,90 @@ describe('createSale: the bill and the till', () => {
   });
 });
 
+// TC-SL-5* — the total is TYPED, and it outranks the lines. Staff may bill a
+// figure the items cannot reach (a discount, a bundle), or bill with no items at
+// all. Whatever it says has to reach the header, the bill and the till together.
+describe('createSale: a manually entered total', () => {
+  it('TC-SL-50 a typed total overrides the line sum on the header AND the bill', async () => {
+    const sale = await saleService.createSale(
+      input({ items: [productLine(2)], totalAmount: 45, amountPaid: 0 }),
+    );
+    const bill = store.charges.find((c) => c.sale_id === sale.id)!;
+    expect(sale.totalAmount).toBe(45);
+    expect(bill.amount).toBe(45);
+  });
+
+  it('TC-SL-51 a total ABOVE the line sum is billed too — a surcharge is not an overpay', async () => {
+    const sale = await saleService.createSale(
+      input({ items: [productLine(1)], totalAmount: 50, amountPaid: 0 }),
+    );
+    expect(sale.totalAmount).toBe(50);
+    expect(store.charges.find((c) => c.sale_id === sale.id)!.amount).toBe(50);
+  });
+
+  it('TC-SL-52 the lines are still sold at their own prices, untouched by the total', async () => {
+    const sale = await saleService.createSale(
+      input({ items: [productLine(2)], totalAmount: 45, amountPaid: 0 }),
+    );
+    expect(sale.items.map((it) => [it.unitAmount, it.quantity])).toEqual([[30, 2]]);
+    expect(sale.itemsSummary).toBe('Router ×2');
+  });
+
+  it('TC-SL-53 an omitted total still falls back to the line sum', async () => {
+    const sale = await saleService.createSale(input({ items: [productLine(2)] }));
+    expect(sale.totalAmount).toBe(60);
+  });
+
+  it('TC-SL-54 a sale with NO items is the typed total alone, and moves no stock', async () => {
+    const sale = await saleService.createSale(
+      input({ items: [], totalAmount: 45, amountPaid: 0 }),
+    );
+    expect(sale.totalAmount).toBe(45);
+    expect(sale.items).toHaveLength(0);
+    expect(store.charges.find((c) => c.sale_id === sale.id)!.amount).toBe(45);
+    expect(saleStore.movements).toHaveLength(0);
+  });
+
+  it('TC-SL-55 a no-items sale is labelled generically, so every reader has a name', async () => {
+    const sale = await saleService.createSale(
+      input({ items: [], totalAmount: 45, amountPaid: 0 }),
+    );
+    expect(sale.itemsSummary).toBe('sales.no_items_summary');
+  });
+
+  it('TC-SL-56 paying a typed total in full settles the bill, not the line sum', async () => {
+    const sale = await saleService.createSale(
+      input({ items: [productLine(2)], totalAmount: 45, amountPaid: 45 }),
+    );
+    const [balance] = await require('../helpers/fakeLedger')
+      .fakeChargeRepository.balances([sale.chargeId]);
+    expect(balance.paid).toBe(45);
+    expect(balance.balance).toBe(0);
+  });
+
+  it('TC-SL-57 amountPaid is capped by the TYPED total, not the line sum', async () => {
+    await expect(
+      saleService.createSale(input({ items: [productLine(2)], totalAmount: 45, amountPaid: 50 })),
+    ).rejects.toThrow(/errors\.sale_amount_paid_invalid/);
+    await expect(
+      saleService.createSale(input({ items: [productLine(2)], totalAmount: 45, amountPaid: 45 })),
+    ).resolves.toBeTruthy();
+  });
+
+  it('TC-SL-58 a WALK-IN is measured against the typed total', async () => {
+    await expect(
+      saleService.createSale(
+        input({ items: [productLine(2)], totalAmount: 45, customerId: null, amountPaid: 30 }),
+      ),
+    ).rejects.toThrow(/errors\.sale_walkin_must_be_paid/);
+    await expect(
+      saleService.createSale(
+        input({ items: [productLine(2)], totalAmount: 45, customerId: null, amountPaid: 45 }),
+      ),
+    ).resolves.toBeTruthy();
+  });
+});
+
 describe('updateSale', () => {
   it('TC-SL-30 refuses to edit a voided sale', async () => {
     const sale = await saleService.createSale(input({ amountPaid: 0 }));
@@ -282,6 +370,36 @@ describe('updateSale', () => {
         currency: null, notes: null, actorUserId: 'user-1',
       }),
     ).rejects.toThrow(/errors\.sale_walkin_must_be_paid/);
+  });
+
+  it('TC-SL-39 an edit re-prices the bill to the TYPED total, lines untouched', async () => {
+    const sale = await saleService.createSale(input({ items: [productLine(2)], amountPaid: 0 }));
+    const updated = await saleService.updateSale(sale, {
+      items: [productLine(2)], totalAmount: 45, customerId: 'cust-1', branchId: null,
+      currency: null, notes: null, actorUserId: 'user-1',
+    });
+    expect(updated.totalAmount).toBe(45);
+    expect(store.charges.find((c) => c.sale_id === sale.id)!.amount).toBe(45);
+  });
+
+  it('TC-SL-39b a typed total below what was collected is still refused', async () => {
+    const sale = await saleService.createSale(input({ items: [productLine(2)], amountPaid: 60 }));
+    await expect(
+      saleService.updateSale(sale, {
+        items: [productLine(2)], totalAmount: 45, customerId: 'cust-1', branchId: null,
+        currency: null, notes: null, actorUserId: 'user-1',
+      }),
+    ).rejects.toThrow(/errors\.sale_total_below_collected/);
+  });
+
+  it('TC-SL-39c an edit may drop every line, leaving a bare typed total', async () => {
+    const sale = await saleService.createSale(input({ items: [productLine(2)], amountPaid: 0 }));
+    const updated = await saleService.updateSale(sale, {
+      items: [], totalAmount: 45, customerId: 'cust-1', branchId: null,
+      currency: null, notes: null, actorUserId: 'user-1',
+    });
+    expect(updated.totalAmount).toBe(45);
+    expect(updated.items).toHaveLength(0);
   });
 
   it('TC-SL-38 REGRESSION: the currency may not move once money has been collected', async () => {

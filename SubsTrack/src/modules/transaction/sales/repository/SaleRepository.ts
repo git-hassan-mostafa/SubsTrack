@@ -128,10 +128,12 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
     const created = sale as DbSale;
 
     const [itemsResult, stockResult, chargeResult] = await Promise.all([
-      this.db
-        .from('sale_items')
-        .insert(items.map((it) => ({ ...it, sale_id: created.id })))
-        .select(SALE_ITEM_SELECT),
+      items.length > 0
+        ? this.db
+          .from('sale_items')
+          .insert(items.map((it) => ({ ...it, sale_id: created.id })))
+          .select(SALE_ITEM_SELECT)
+        : null,
       movements.length > 0
         ? this.db
           .from('stock_movements')
@@ -139,7 +141,7 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
         : null,
       this.db.from('charges').insert({ ...charge, sale_id: created.id }),
     ]);
-    if (itemsResult.error) this.handleError(itemsResult.error);
+    if (itemsResult?.error) this.handleError(itemsResult.error);
     if (stockResult?.error) this.handleError(stockResult.error);
     if (chargeResult.error) this.handleError(chargeResult.error);
 
@@ -152,7 +154,7 @@ export class SaleRepository extends BaseRepository implements ISaleRepository {
       subject: created.customers?.name ?? null,
     });
 
-    return { ...created, sale_items: (itemsResult.data ?? []) as DbSaleItem[] };
+    return { ...created, sale_items: (itemsResult?.data ?? []) as DbSaleItem[] };
   }
 
   async update(id: string, payload: UpdateSalePayload): Promise<DbSale> {

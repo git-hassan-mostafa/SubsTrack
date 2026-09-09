@@ -699,7 +699,8 @@
     "sale_total_below_collected": "The new total is less than what has already been collected on this sale.",
     "sale_currency_locked": "Money has already been collected on this sale, so its currency cannot change. Void the payment first.",
     "charge_amount_below_collected": "The new amount is less than what has already been collected on this bill.",
-    "charge_not_editable": "This bill was voided or written off, so it can no longer be edited."
+    "charge_not_editable": "This bill was voided or written off, so it can no longer be edited.",
+    "sale_total_positive": "Enter a total greater than 0 for this sale"
   },
   "subscription": {
     "title": "Subscription",
@@ -905,7 +906,16 @@
     "bulk_void_title": "Void {{count}} sales",
     "bulk_void_message_one": "Void this sale? Any money collected on it is voided too, and goes back to being uncollected. The records stay in the audit log — voids cannot be undone.",
     "bulk_void_message": "Void {{count}} selected sale(s)? Any money collected on them is voided too, and goes back to being uncollected. The records stay in the audit log — voids cannot be undone.",
-    "partial_debt_notice": "This sale is not fully paid. The remaining balance appears in the Debts tab."
+    "partial_debt_notice": "This sale is not fully paid. The remaining balance appears in the Debts tab.",
+    "total_label_editable": "Total",
+    "total_hint": "Calculated from the items — type over it to set your own",
+    "no_items_summary": "Sale",
+    "no_items_chip": "No items",
+    "confirm_manual_total_title": "Save this total?",
+    "confirm_manual_total_message": "The items add up to {{calculated}}, but this sale will be saved as {{typed}}.",
+    "confirm_no_items_title": "Save without items?",
+    "confirm_no_items_message": "This sale has no products or services — it will be recorded as {{typed}} only.",
+    "total_differs_hint": "Items add up to {{calculated}} — this total is set manually"
   },
   "invoice": {
     "send_whatsapp": "Send on WhatsApp",

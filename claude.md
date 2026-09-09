@@ -345,6 +345,15 @@ Facts that change how you code and are easy to get wrong:
   narrow through `productLines()` / `savedProductLines()` — never a nullable-id
   test (gotcha #97). Editing a sale touches three tables with three different rules
   (gotcha #90); what was already collected cannot change (gotcha #111).
+- **A sale's total is TYPED; the lines only SUGGEST it** (gotcha #142).
+  `SaleService.totalOf(input)` = `input.totalAmount ?? lineSumOf(items)` is the one
+  place the money is decided — header, bill and every cap read it, and nothing that
+  writes money may call `lineSumOf`. Line prices are never rewritten to match, so a
+  receipt may legitimately not add up (that is the discount). A sale may hold
+  **ZERO** lines: `validate` guards a positive TOTAL, not a non-empty cart, and
+  `items_summary` falls back to `sales.no_items_summary`. Save always **confirms** a
+  total that is not the line sum — nothing is refused, because no rule can tell a
+  discount from a typo.
 - **A sale is identified by its RECEIPT NUMBER** — last 6 chars of `id`,
   uppercased, via `receiptId()` in `src/core/utils/receiptId.ts`. There is **no
   sequence column and must not be one** (an offline device raises a sale with no

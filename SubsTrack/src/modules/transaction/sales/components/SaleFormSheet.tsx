@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { View } from "react-native";
 import { FormSheet } from "@/src/shared/components/FormSheet";
 import { useTranslation } from "react-i18next";
@@ -12,10 +12,13 @@ import {
 } from "@/src/modules/customer/customers";
 import { AmountCollectedSection } from "@/src/modules/ledger";
 import { SendOnWhatsAppButton, useSendInvoice } from "@/src/modules/invoicing";
+import { CurrencyInput } from "@/src/shared/components/CurrencyInput";
 import type { Customer, Sale } from "@/src/core/types";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { useSaleSlice } from "@/src/state/hooks/useSaleSlice";
+import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { formatMoney } from "@/src/core/utils/currency";
+import { confirm } from "@/src/shared/lib/confirm";
 import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
 import {
   SaleItemsEditor,
@@ -41,6 +44,7 @@ interface Props {
   onUpdated?: (sale: Sale) => void;
 }
 
+// Total is typed and re-seeded from the lines on every change — see gotcha #142.
 export function SaleFormSheet({
   initialCustomer,
   sale = null,
@@ -50,6 +54,7 @@ export function SaleFormSheet({
 }: Props) {
   const { t } = useTranslation();
   const { user } = useAuth();
+  const currencies = useCurrencySlice((s) => s.items);
   const createSale = useSaleSlice((s) => s.createSale);
   const updateSale = useSaleSlice((s) => s.updateSale);
   const error = useSaleSlice((s) => s.error);
@@ -58,6 +63,7 @@ export function SaleFormSheet({
   const editing = sale != null;
 
   const [cart, setCart] = useState<SaleCartDraft>(EMPTY_CART);
+  const [total, setTotal] = useState<number | null>(sale?.totalAmount ?? null);
   const [busyOn, setBusyOn] = useState<"save" | "send" | null>(null);
   const busy = busyOn !== null;
   const [customer, setCustomer] = useState<Customer | null>(
@@ -93,6 +99,7 @@ export function SaleFormSheet({
     customerId: customer?.id ?? null,
     paymentMode,
     amountPaid,
+    total,
     notes,
   });
 
@@ -100,11 +107,24 @@ export function SaleFormSheet({
     clearError();
   }, [clearError]);
 
-  const total = cart.total;
+  const lineSum = cart.total;
+  const lineCount = cart.lines.length;
+
+  const seeded = useRef(!editing);
+  useEffect(() => {
+    if (!seeded.current) {
+      seeded.current = true;
+      return;
+    }
+    if (lineCount === 0) return;
+    setTotal(lineSum);
+  }, [lineSum, lineCount]);
+
   const hasCustomer = customer != null;
 
+  const saleTotal = total ?? 0;
   const collectedOnSale = sale?.amountPaid ?? 0;
-  const owing = Math.max(0, total - collectedOnSale);
+  const owing = Math.max(0, saleTotal - collectedOnSale);
 
   const resolvedAmountPaid = !hasCustomer
     ?
@@ -115,8 +135,30 @@ export function SaleFormSheet({
         ? (amountPaid ?? 0)
         : owing;
 
+  // Only the person saving can tell a deliberate discount from a fat finger.
+  async function confirmedTotal(): Promise<boolean> {
+    const money = (a: number) => formatMoney(a, cart.currency, cart.currency);
+    if (lineCount === 0) {
+      return confirm({
+        title: t("sales.confirm_no_items_title"),
+        message: t("sales.confirm_no_items_message", { typed: money(saleTotal) }),
+        confirmLabel: t("common.save"),
+      });
+    }
+    if (Math.abs(saleTotal - lineSum) < 1e-9) return true;
+    return confirm({
+      title: t("sales.confirm_manual_total_title"),
+      message: t("sales.confirm_manual_total_message", {
+        calculated: money(lineSum),
+        typed: money(saleTotal),
+      }),
+      confirmLabel: t("common.save"),
+    });
+  }
+
   async function handleSubmit(send = false) {
     if (!user || !cart.ready || busy) return;
+    if (!(await confirmedTotal())) return;
     setBusyOn(send ? "send" : "save");
     try {
       await submit(send);
@@ -131,6 +173,7 @@ export function SaleFormSheet({
       customer?.branchId ?? (sale ? sale.branchId : (user.branchId ?? null));
     const common = {
       items: cart.lines,
+      totalAmount: saleTotal,
       customerId: customer?.id ?? null,
       branchId,
       currency: cart.currency,
@@ -165,7 +208,8 @@ export function SaleFormSheet({
 
   const submitDisabled =
     !cart.ready ||
-    (editing && total + 1e-9 < collectedOnSale) ||
+    saleTotal <= 0 ||
+    (editing && saleTotal + 1e-9 < collectedOnSale) ||
     (paymentMode === "partial" &&
       hasCustomer &&
       (amountPaid == null || amountPaid < 0 || amountPaid > owing));
@@ -210,17 +254,23 @@ export function SaleFormSheet({
           currencyLocked={collectedOnSale > 0}
         />
 
-        {/* Sale total */}
-        {total > 0 ? (
-          <View className="mb-4 px-4 py-2.5 rounded-xl bg-emerald-50 flex-row items-center justify-between">
-            <Text fontWeight="Medium" className="text-sm text-emerald-700">
-              {t("sales.total_label")}
-            </Text>
-            <Text fontWeight="Bold" className="text-base text-emerald-700">
-              {formatMoney(total, cart.currency, cart.currency)}
-            </Text>
-          </View>
-        ) : null}
+        <CurrencyInput
+          label={t("sales.total_label_editable") + " *"}
+          amount={total}
+          currencyId={cart.currencyId}
+          onChange={({ amount }) => setTotal(amount)}
+          currencies={currencies}
+          placeholder="0.00"
+          lockCurrency
+          onFocus={clearError}
+        />
+        <Text className="-mt-2 mb-4 text-xs text-gray-400">
+          {lineCount > 0 && Math.abs(saleTotal - lineSum) > 1e-9
+            ? t("sales.total_differs_hint", {
+                calculated: formatMoney(lineSum, cart.currency, cart.currency),
+              })
+            : t("sales.total_hint")}
+        </Text>
 
         {/* Already collected — read-only, because a hand-over is a physical
             event with its own date and collector. Undoing one is a void, in the

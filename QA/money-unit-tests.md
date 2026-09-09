@@ -44,7 +44,7 @@ The automated safety net under every rule that touches money. It runs on a lapto
 | `collect.test.ts` | TC-CL-* | Every refusal on the one write that takes money; a virtual month materialising its bill; two devices converging on one bill; revive + re-price before cash lands; the open-amount month |
 | `chargeEdits.test.ts` | TC-CH-* | Raising / voiding / writing off a bill, and the two edit locks (below-collected, voided-or-written-off) |
 | `owed.test.ts` | TC-OW-* | "What does this customer owe?" — the stored-vs-virtual dedupe, and the Debts view's parts adding to its total exactly |
-| `sale.test.ts` | TC-SL-* | Sale validation, stock, the bill it raises, cash at the till, editing (including the currency lock), voiding with its cash |
+| `sale.test.ts` | TC-SL-* | Sale validation, stock, the bill it raises, cash at the till, the **typed total** and itemless sales (TC-SL-50…58, gotcha #142), editing (including the currency lock and re-pricing to a typed total), voiding with its cash |
 | `invariants.test.ts` | TC-IV-* | End-to-end money conservation — see section 3 |
 | `mergeCollection.test.ts` | TC-MC-* | The month grid's patch-from-the-write, including a re-priced bill |
 | `salePatchAndShared.test.ts` | TC-SP-*, TC-SS-* | The sales-list patches, the product-vs-service line split, and naming the other bills a shared void un-pays |

@@ -27,7 +27,7 @@ Covers the one-off sales ledger: recording a sale (with **one or more products a
 2. **Snapshots are frozen at sale time.**
    - `sale_items.item_name_snapshot` — frozen name per line (a product's, a catalog service's, or the typed one-off), survives renames and soft-deletes. Renamed from `product_name_snapshot`.
    - `sale_items.unit_amount` — frozen per-line price at sale time (defaults to the product's price converted into the sale currency, but is editable — discounts).
-   - `sales.total_amount` — **app-written** sum of every line's `unit_amount * quantity` (no longer a generated column). Snapshot, read-only after create.
+   - `sales.total_amount` — **app-written and TYPEABLE**: seeded from the sum of every line's `unit_amount * quantity`, re-seeded whenever a line changes, but the person recording the sale may type any figure over it (§2E). It is the sale's money — the `charges` row is raised for it, not for the line sum. Snapshot after create, changeable only by an edit.
    - `sales.items_summary` — frozen summary of every line (e.g. `"Water ×2, Installation"`); powers search + list/debt/wallet labels.
    - `sales.rate_per_usd_snapshot` — frozen currency rate at sale time. Use `paymentSnapshotCurrency(sale, currencies)` for display.
 3. **One currency per sale.** Every line's `unit_amount` is in the sale's `currency_id`. Products priced in another currency are auto-converted into the sale currency (live rate) as the editable prefill.
@@ -38,7 +38,7 @@ Covers the one-off sales ledger: recording a sale (with **one or more products a
 6. **Dashboard revenue includes sales, as CASH.** There is ONE cash read (`collectedInRange`), and each row is tagged with the bill it settled — so cash against a sale counts as **sales** revenue whether it arrived at the till or three months later. A partial sale contributes only what was collected. `salesCount` counts sale headers, paid or not.
 7. **Product delete-reference counts key off `sale_items.product_id`.** A product used by any sale line soft-deletes (kept), else hard-deletes. Services follow the same rule off `sale_items.service_id`.
 8. **Tenant isolation via RLS.** `sale_items` inherits its branch from the parent sale.
-9. **A SERVICE line moves no stock, costs nothing, and has NO quantity.** No `stock_movements` row, no oversell check, no Expenses entry, and no stepper — just a **Price**, which is the whole line total (`quantity` stores 1). That absence is the whole difference from a product line. Two jobs are two lines. A sale must still hold **at least one** line of some kind.
+9. **A SERVICE line moves no stock, costs nothing, and has NO quantity.** No `stock_movements` row, no oversell check, no Expenses entry, and no stepper — just a **Price**, which is the whole line total (`quantity` stores 1). That absence is the whole difference from a product line. Two jobs are two lines. A sale may hold **zero** lines (§2E) — then the typed total is the whole sale and `items_summary` falls back to a generic word.
 9b. **A line's KIND is chosen when the line is added** — **+ Add product** / **+ Add service** in the cart footer — and the card only labels it. There is no per-row switch to change it (that shape read as a page tab bar and wiped the line, gotcha #101); removing the row and adding the other kind is the way. A new sale therefore opens with **zero** rows and any row, including the last, is removable.
 10. **A one-off service has no catalog row.** `line_type = 'service'` with `service_id IS NULL`; `item_name_snapshot` is the entire record of what was sold. `chk_sale_items_line_ref` allows exactly this gap and nothing looser.
 11. **Services are not a separate money stream.** A sale raises ONE bill whatever its lines sell, so Reports keeps one "Sales" stream — a mixed sale's cash cannot be split between goods and labour without inventing an allocation.
@@ -370,6 +370,36 @@ Covers the one-off sales ledger: recording a sale (with **one or more products a
 | 2D-b.8 | Wallet | Collect as a collector | The cash appears in that collector's wallet |
 | 2D-b.9 | Voiding it | Void that hand-over | The sale owes again; revenue and the wallet both drop |
 
+
+---
+
+## 2E. Manually entered total, and a sale with no items
+
+> The **Total** field is an input, not a readout. It is seeded from the items and re-seeded on every line change, but staff may type over it — and a sale may have no items at all, in which case the typed total IS the sale. What the field says is what the `charges` row is raised for.
+
+| # | Scenario | Steps | Expected result |
+|---|----------|-------|-----------------|
+| 2E.1 | Seeded from the items | Add a product ×2 at 30 | Total reads 60; the hint says it is calculated from the items |
+| 2E.2 | Typeable over | With the above, type 45 into Total | Field holds 45; the hint changes to "Items add up to $60.00 — this total is set manually" |
+| 2E.3 | A line change re-prices it | After 2E.2, change the quantity to 3 | Total is overwritten to 90 — the typed 45 is gone, by design |
+| 2E.4 | Confirm on save | With a typed 45 against items of 60, tap Record Sale | A confirm asks "Save this total?" and names both figures; Cancel returns to the form with nothing saved |
+| 2E.5 | Confirmed total is what is billed | Confirm 2E.4 | `sales.total_amount` = 45 and the sale's `charges.amount` = 45; the lines keep their own 30 each |
+| 2E.6 | No confirm when it matches | Leave the total at the calculated 60 and save | Saves straight away, no dialog |
+| 2E.7 | A total ABOVE the items | Items 30, type 50, save + confirm | Bill is 50 — a surcharge, refused nowhere |
+| 2E.8 | Zero blocks submit | Clear the Total field | Save and Send are both disabled |
+| 2E.9 | No items at all | Open the form, add NO lines, type 45 | Save is enabled; a confirm asks "Save without items?" |
+| 2E.10 | A no-items sale is labelled | Save 2E.9 | Card subtitle reads "Sale" and carries a **violet** `No items` chip — the same tone `KIND_STYLE` gives a **manual** charge, because a typed total is the same idea (gray means inactive, indigo means mixed); the receipt shows the amount with no items card |
+| 2E.11 | Emptying the cart keeps the total | Add a line, remove it, note the Total | The figure stays — it is not reset to 0 |
+| 2E.12 | Walk-in measured on the typed total | Walk-in, items 60, type 45 | It must be paid in full at **45**, not 60 |
+| 2E.13 | Collect capped by the typed total | Customer sale, items 60, type 45, partial | The partial amount cannot exceed 45 |
+| 2E.14 | A saved manual total survives reopening | Save 2E.5, reopen it for edit | Total shows 45, NOT the 60 the lines sum to, and the form is not "dirty" |
+| 2E.15 | Editing re-prices the bill | In 2E.14 type 50, save + confirm | Header and `charges.amount` both move to 50 |
+| 2E.16 | Edit may drop every line | Edit a sale, remove all lines, keep a total, save | Saves; every line is soft-voided, the total stands, the card gains the **No items** chip |
+| 2E.17 | Still floored by collected cash | A sale with 60 collected; type 45 | Refused: "The new total is less than what has already been collected" |
+| 2E.18 | A no-items sale still collects normally | Collect against 2E.10 from the row menu | Behaves like any sale bill — it is one `charges` row like any other |
+| 2E.19 | Partial no-items receipt shows the split | Part-pay a no-items sale, open the receipt | Total / Paid / Remaining still shown, in their own card (there is no items card to hold them) |
+| 2E.20 | WhatsApp invoice of a no-items sale | Send 2E.10 on WhatsApp | One bullet reading "Sale", and the correct total |
+| 2E.21 | Stock untouched by a no-items sale | Save 2E.9 and check the stock history | No `stock_movements` row is written at all |
 
 ---
 

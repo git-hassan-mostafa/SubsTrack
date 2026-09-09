@@ -88,6 +88,10 @@ export function SaleCard({
               tone="red"
             />
           </View>
+        ) : sale.items.length === 0 ? (
+          <View className="mt-1 flex-row">
+            <Chip text={t("sales.no_items_chip")} tone="violet" />
+          </View>
         ) : null}
       </View>
 

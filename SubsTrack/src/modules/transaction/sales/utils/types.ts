@@ -28,12 +28,18 @@ export type CreateSaleItemInput =
     | { kind: 'product'; product: Product; quantity: number; unitAmount: number }
     | { kind: 'service'; service: Service | null; name: string; unitAmount: number };
 
-// Input shape from the form. A sale holds one or more lines — products, services,
-// or both — all in a single `currency` (chosen non-USD Currency or null for USD —
-// we snapshot ratePerUsd from it). The total is the sum of every line's
-// unitAmount × lineQuantity (which is 1 on a service line).
+// Input shape from the form. A sale holds zero or more lines — products,
+// services, or both — all in a single `currency` (chosen non-USD Currency or null
+// for USD — we snapshot ratePerUsd from it).
+//
+// `totalAmount` is the money, and it OVERRIDES the lines. The form seeds it from
+// the line sum and recalculates on every line change, but staff may type any
+// figure over it (a discount, a bundle) — and a sale with NO lines is that field
+// alone, which is why `items` may be empty and `items_summary` then falls back to
+// a generic word. `null`/absent means "whatever the lines add up to".
 export interface CreateSaleInput {
     items: CreateSaleItemInput[];
+    totalAmount?: number | null;
     customerId: string | null;
     branchId: string | null;
     amountPaid: number;
@@ -56,6 +62,7 @@ export interface CreateSaleInput {
 // `collectNow`).
 export interface UpdateSaleInput {
     items: CreateSaleItemInput[];
+    totalAmount?: number | null;
     customerId: string | null;
     branchId: string | null;
     currency: Currency | null;

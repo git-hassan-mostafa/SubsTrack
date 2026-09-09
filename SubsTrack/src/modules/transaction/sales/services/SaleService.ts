@@ -32,8 +32,10 @@ import {
 // Frozen human summary of everything in a sale, e.g. "Water ×2, Installation".
 // Contains every line's name — products and services alike — so the Sales-tab
 // search, the debt label and the wallet label can all match on it. A service
-// never shows a count (it is always one job), so it prints as a bare name.
+// never shows a count (it is always one job), so it prints as a bare name. A
+// sale with no lines is a bare typed total, so it falls back to a generic word.
 function buildItemsSummary(items: CreateSaleItemInput[]): string {
+  if (items.length === 0) return i18n.t('sales.no_items_summary');
   return items
     .map((it) => {
       const name = lineName(it);
@@ -43,8 +45,17 @@ function buildItemsSummary(items: CreateSaleItemInput[]): string {
     .join(', ');
 }
 
-function totalOf(items: CreateSaleItemInput[]): number {
+// Only the DEFAULT total — never what a sale is billed for (gotcha #142).
+export function lineSumOf(items: CreateSaleItemInput[]): number {
   return items.reduce((sum, it) => sum + it.unitAmount * lineQuantity(it), 0);
+}
+
+// The sale's money, decided in ONE place so bill and header cannot disagree.
+function totalOf(input: {
+  items: CreateSaleItemInput[];
+  totalAmount?: number | null;
+}): number {
+  return input.totalAmount ?? lineSumOf(input.items);
 }
 
 // The bill a sale just raised, as a domain Charge — built from what was
@@ -116,7 +127,7 @@ class SaleService {
     if (!(ratePerUsdSnapshot > 0)) {
       throw new Error(i18n.t('errors.rate_snapshot_positive'));
     }
-    const total = totalOf(input.items);
+    const total = totalOf(input);
     if (!input.customerId && input.amountPaid + 1e-9 < total) {
       throw new Error(i18n.t('errors.sale_walkin_must_be_paid'));
     }
@@ -205,7 +216,7 @@ class SaleService {
     if (!(ratePerUsdSnapshot > 0)) {
       throw new Error(i18n.t('errors.rate_snapshot_positive'));
     }
-    const total = totalOf(input.items);
+    const total = totalOf(input);
     if (total + 1e-9 < sale.amountPaid) {
       throw new Error(i18n.t('errors.sale_total_below_collected'));
     }
@@ -363,8 +374,12 @@ class SaleService {
     }
   }
 
-  private validate(input: { items: CreateSaleItemInput[]; amountPaid?: number }): void {
-    if (!Array.isArray(input.items) || input.items.length === 0) {
+  private validate(input: {
+    items: CreateSaleItemInput[];
+    totalAmount?: number | null;
+    amountPaid?: number;
+  }): void {
+    if (!Array.isArray(input.items)) {
       throw new Error(i18n.t('errors.sale_items_required'));
     }
     for (const it of input.items) {
@@ -380,8 +395,11 @@ class SaleService {
         throw new Error(i18n.t('errors.sale_amount_positive'));
       }
     }
+    const total = totalOf(input);
+    if (typeof total !== 'number' || Number.isNaN(total) || total <= 0) {
+      throw new Error(i18n.t('errors.sale_total_positive'));
+    }
     if (input.amountPaid === undefined) return;
-    const total = totalOf(input.items);
     if (
       typeof input.amountPaid !== 'number' ||
       Number.isNaN(input.amountPaid) ||

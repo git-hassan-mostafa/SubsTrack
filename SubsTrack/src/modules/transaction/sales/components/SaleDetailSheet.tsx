@@ -120,6 +120,7 @@ export function SaleDetailSheet({
     : sale.itemsSummary;
   const remaining = sale.totalAmount - sale.amountPaid;
   const showTotals = multipleItems || partiallyPaid;
+  const totalsOutsideItems = items.length === 0 && partiallyPaid;
 
   return (
     <FormSheet
@@ -254,46 +255,23 @@ export function SaleDetailSheet({
             />
           ))}
 
-          {/* Totals — redundant noise on a single fully-paid line, so only shown
-              when it adds information. */}
           {showTotals ? (
-            <View className="bg-gray-50 px-4 py-3">
-              <View className="flex-row items-center justify-between">
-                <Text className="text-sm text-gray-500">
-                  {t("sales.total_label")}
-                </Text>
-                <Text fontWeight="Bold" className="text-base text-gray-900">
-                  {totalSourceLabel}
-                </Text>
-              </View>
-              {partiallyPaid ? (
-                <>
-                  <View className="flex-row items-center justify-between mt-2">
-                    <Text className="text-xs text-gray-400">
-                      {t("sales.paid_label")}
-                    </Text>
-                    <Text
-                      fontWeight="SemiBold"
-                      className="text-xs text-gray-700"
-                    >
-                      {fmtSource(sale.amountPaid)}
-                    </Text>
-                  </View>
-                  <View className="flex-row items-center justify-between mt-1">
-                    <Text className="text-xs text-amber-600">
-                      {t("sales.remaining_label")}
-                    </Text>
-                    <Text
-                      fontWeight="SemiBold"
-                      className="text-xs text-amber-600"
-                    >
-                      {fmtSource(remaining)}
-                    </Text>
-                  </View>
-                </>
-              ) : null}
-            </View>
+            <TotalsFooter
+              total={totalSourceLabel}
+              paid={partiallyPaid ? fmtSource(sale.amountPaid) : null}
+              remaining={partiallyPaid ? fmtSource(remaining) : null}
+            />
           ) : null}
+        </View>
+      ) : null}
+
+      {totalsOutsideItems ? (
+        <View className={`${CARD_SURFACE} overflow-hidden mb-4`}>
+          <TotalsFooter
+            total={totalSourceLabel}
+            paid={fmtSource(sale.amountPaid)}
+            remaining={fmtSource(remaining)}
+          />
         </View>
       ) : null}
 
@@ -374,6 +352,49 @@ export function SaleDetailSheet({
 
       <View className="h-8" />
     </FormSheet>
+  );
+}
+
+// Its own component because an itemless sale has no items card to sit in (#142).
+function TotalsFooter({
+  total,
+  paid,
+  remaining,
+}: {
+  total: string;
+  paid: string | null;
+  remaining: string | null;
+}) {
+  const { t } = useTranslation();
+  return (
+    <View className="bg-gray-50 px-4 py-3">
+      <View className="flex-row items-center justify-between">
+        <Text className="text-sm text-gray-500">{t("sales.total_label")}</Text>
+        <Text fontWeight="Bold" className="text-base text-gray-900">
+          {total}
+        </Text>
+      </View>
+      {paid != null && remaining != null ? (
+        <>
+          <View className="flex-row items-center justify-between mt-2">
+            <Text className="text-xs text-gray-400">
+              {t("sales.paid_label")}
+            </Text>
+            <Text fontWeight="SemiBold" className="text-xs text-gray-700">
+              {paid}
+            </Text>
+          </View>
+          <View className="flex-row items-center justify-between mt-1">
+            <Text className="text-xs text-amber-600">
+              {t("sales.remaining_label")}
+            </Text>
+            <Text fontWeight="SemiBold" className="text-xs text-amber-600">
+              {remaining}
+            </Text>
+          </View>
+        </>
+      ) : null}
+    </View>
   );
 }
 
