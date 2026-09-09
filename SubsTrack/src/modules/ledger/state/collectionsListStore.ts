@@ -25,7 +25,6 @@ export interface CollectionsListState {
   page: number;
   hasMore: boolean;
   loading: boolean;
-  loaded: boolean;
   loadingMore: boolean;
   error: string | null;
   searchToken: number;
@@ -89,7 +88,6 @@ export const useCollectionsListStore = create<CollectionsListState>()(
     page: 0,
     hasMore: true,
     loading: false,
-    loaded: false,
     loadingMore: false,
     error: null,
     searchToken: 0,
@@ -122,14 +120,12 @@ export const useCollectionsListStore = create<CollectionsListState>()(
           state.hasMore = items.length === PAGE_SIZE;
           state.page = 0;
           state.loading = false;
-          state.loaded = true;
         });
       } catch (e) {
         if (get().searchToken !== token) return;
         set((state) => {
           state.error = (e as Error).message;
           state.loading = false;
-          state.loaded = true;
         });
       }
     },
@@ -309,7 +305,6 @@ export const useCollectionsListStore = create<CollectionsListState>()(
         state.page = 0;
         state.hasMore = true;
         state.loading = false;
-        state.loaded = false;
         state.loadingMore = false;
         state.error = null;
         state.searchToken += 1;

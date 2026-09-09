@@ -73,7 +73,6 @@ export function CollectionsPanel({ onOpenSale }: Props = {}) {
   const items = useCollectionsListStore((s) => s.items);
   const monthlyTotals = useCollectionsListStore((s) => s.monthlyTotals);
   const loading = useCollectionsListStore((s) => s.loading);
-  const loaded = useCollectionsListStore((s) => s.loaded);
   const loadingMore = useCollectionsListStore((s) => s.loadingMore);
   const error = useCollectionsListStore((s) => s.error);
   const hasMore = useCollectionsListStore((s) => s.hasMore);
@@ -110,6 +109,7 @@ export function CollectionsPanel({ onOpenSale }: Props = {}) {
 
   const [voidIds, setVoidIds] = useState<string[] | null>(null);
   const [split, setSplit] = useState<CollectionListItem | null>(null);
+  const [ready, setReady] = useState(false);
   const openBill = useOpenBill({
     onOpenSale,
     onChanged: (voided) => {
@@ -130,8 +130,15 @@ export function CollectionsPanel({ onOpenSale }: Props = {}) {
   useSelectionBackHandler(selectionActive, clearSelection);
 
   useEffect(() => {
+    let active = true;
     clearSelection();
-    void fetchCollections();
+    setReady(false);
+    void fetchCollections().finally(() => {
+      if (active) setReady(true);
+    });
+    return () => {
+      active = false;
+    };
   }, [branchFilter, clearSelection, fetchCollections]);
 
   useEffect(() => {
@@ -256,7 +263,7 @@ export function CollectionsPanel({ onOpenSale }: Props = {}) {
     ];
   }
 
-  if (!loaded) {
+  if (!ready) {
     return (
       <View className="flex-1 items-center justify-center py-3">
         <ActivityIndicator color={COLORS.primary} />
