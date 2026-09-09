@@ -285,48 +285,50 @@ export function ProductBatchRestockSheet({ onDismiss }: Props) {
 
   return (
     <AppBottomSheet visible onDismiss={onDismiss} variant="full" dirty={dirty}>
-      <ResponsiveContainer className="flex-1">
-        <SheetDragArea className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
-          <Text
-            fontWeight="Bold"
-            className="text-lg text-gray-900"
-            numberOfLines={1}
-          >
-            {t("products.batch_restock_title")}
-          </Text>
-          <PressableOpacity onPress={onDismiss}>
-            <Text fontWeight="Medium" className="text-base text-primary">
-              {t("common.close")}
+      {(dismiss) => (
+        <ResponsiveContainer className="flex-1">
+          <SheetDragArea className="flex-row items-center justify-between px-6 py-3 border-b border-gray-100">
+            <Text
+              fontWeight="Bold"
+              className="text-lg text-gray-900"
+              numberOfLines={1}
+            >
+              {t("products.batch_restock_title")}
             </Text>
-          </PressableOpacity>
-        </SheetDragArea>
+            <PressableOpacity onPress={dismiss}>
+              <Text fontWeight="Medium" className="text-base text-primary">
+                {t("common.close")}
+              </Text>
+            </PressableOpacity>
+          </SheetDragArea>
 
-        <BottomSheetFlatList
-          data={visible}
-          keyExtractor={(p) => p.id}
-          keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{
-            paddingHorizontal: 24,
-            paddingTop: 24,
-            paddingBottom: 48 + insets.bottom,
-          }}
-          ListHeaderComponent={header}
-          ListFooterComponent={footer}
-          ListEmptyComponent={empty}
-          renderItem={({ item }) => (
-            <RestockRow
-              product={item}
-              quantity={quantities[item.id] ?? 0}
-              unitCost={costs[item.id] ?? ""}
-              currency={deliveryCurrency}
-              onChange={(q) => setQuantity(item.id, q)}
-              onCostChange={(c) =>
-                setCosts((prev) => ({ ...prev, [item.id]: c }))
-              }
-            />
-          )}
-        />
-      </ResponsiveContainer>
+          <BottomSheetFlatList
+            data={visible}
+            keyExtractor={(p) => p.id}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={{
+              paddingHorizontal: 24,
+              paddingTop: 24,
+              paddingBottom: 48 + insets.bottom,
+            }}
+            ListHeaderComponent={header}
+            ListFooterComponent={footer}
+            ListEmptyComponent={empty}
+            renderItem={({ item }) => (
+              <RestockRow
+                product={item}
+                quantity={quantities[item.id] ?? 0}
+                unitCost={costs[item.id] ?? ""}
+                currency={deliveryCurrency}
+                onChange={(q) => setQuantity(item.id, q)}
+                onCostChange={(c) =>
+                  setCosts((prev) => ({ ...prev, [item.id]: c }))
+                }
+              />
+            )}
+          />
+        </ResponsiveContainer>
+      )}
     </AppBottomSheet>
   );
 }

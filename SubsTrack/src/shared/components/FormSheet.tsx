@@ -15,7 +15,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { AppBottomSheet } from "./AppBottomSheet";
-import { useSheetDismiss } from "./sheetDismissContext";
 import { ResponsiveContainer } from "./ResponsiveContainer";
 import { SheetDragArea } from "./SheetDragArea";
 import { PressableOpacity } from "./PressableOpacity";
@@ -40,25 +39,7 @@ interface FormSheetProps {
   children: ReactNode;
 }
 
-/**
- * Full-height form / detail bottom sheet. Wraps {@link AppBottomSheet}
- * (`variant="full"`) with the shared chrome every form used to hand-roll: a
- * Gorhom drag handle, a header (title + one dismiss action), and a scrollable
- * body ({@link BottomSheetScrollView}). `full` sheets turn Gorhom's content pan
- * off (gotcha #45), so the body scrolls freely and the sheet is dragged by its
- * handle — plus the whole header row, which is a {@link SheetDragArea}. Body
- * width is capped on wide viewports via {@link ResponsiveContainer}.
- *
- * Text inputs rendered inside automatically become `BottomSheetTextInput`
- * (see {@link AppTextInput}), so the keyboard pushes the focused field
- * into view — no per-field wiring needed. Replaces the old `SheetModal`.
- *
- * The body is rendered one frame after the chrome ({@link useAfterFirstFrame}):
- * a form is by far the most expensive part of an open, and rendering it in the
- * same commit holds back the native layout the slide-up animation waits on. The
- * header appears immediately, the fields land during the slide. Safe because a
- * `full` sheet has a FIXED snap point — its height never depends on the body.
- */
+// full-height form / detail sheet + shared chrome — see docs/ui-patterns.md
 export function FormSheet({
   visible = true,
   onDismiss,
@@ -78,27 +59,25 @@ export function FormSheet({
       variant="full"
       dirty={dirty}
     >
-      <FormSheetBody
-        visible={visible}
-        title={title}
-        subject={subject}
-        dismissLabel={dismissLabel}
-        onDismiss={onDismiss}
-        scrollRef={scrollRef}
-        menuActions={menuActions}
-        fullBleed={fullBleed}
-      >
-        {children}
-      </FormSheetBody>
+      {(dismiss) => (
+        <FormSheetBody
+          visible={visible}
+          title={title}
+          subject={subject}
+          dismissLabel={dismissLabel}
+          onDismiss={dismiss}
+          scrollRef={scrollRef}
+          menuActions={menuActions}
+          fullBleed={fullBleed}
+        >
+          {children}
+        </FormSheetBody>
+      )}
     </AppBottomSheet>
   );
 }
 
-/**
- * Split out so it renders INSIDE the sheet and can read the guarded dismiss from
- * {@link SheetDismissContext} — the header button must go through the same
- * unsaved-changes check as Back and the drag gesture.
- */
+// its own component because a render-prop function cannot hold hooks
 function FormSheetBody({
   visible,
   title,
@@ -123,7 +102,6 @@ function FormSheetBody({
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const bodyReady = useAfterFirstFrame(visible);
-  const dismiss = useSheetDismiss(onDismiss);
   const [menuOpen, setMenuOpen] = useState(false);
   const hasMenu = (menuActions?.length ?? 0) > 0;
   const [openActions, setOpenActions] = useState<ActionMenuItem[]>([]);
@@ -186,7 +164,7 @@ function FormSheetBody({
               />
             </PressableOpacity>
           ) : null}
-          <PressableOpacity onPress={dismiss}>
+          <PressableOpacity onPress={onDismiss}>
             <Text fontWeight="Medium" className="text-base text-primary">
               {dismissLabel ?? t("common.cancel")}
             </Text>

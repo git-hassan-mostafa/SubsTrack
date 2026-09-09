@@ -7,7 +7,7 @@ Covers the app-wide "Discard changes?" confirmation shown when a **dirty** form 
 - Core seam: [AppBottomSheet.tsx](../SubsTrack/src/shared/components/AppBottomSheet.tsx) (`dirty` prop, `onAnimate` drag interception, backdrop `onPress`)
 - Guard hook: [useUnsavedChangesGuard.ts](../SubsTrack/src/shared/hooks/useUnsavedChangesGuard.ts) (awaits the global confirm dialog; returns `[guardedDismiss, asking]`)
 - Dirty check: [useDirtyForm.ts](../SubsTrack/src/shared/hooks/useDirtyForm.ts) (first-render baseline + `ignore` list)
-- Header button seam: [FormSheet.tsx](../SubsTrack/src/shared/components/FormSheet.tsx), [sheetDismissContext.ts](../SubsTrack/src/shared/components/sheetDismissContext.ts)
+- Header button seam: `AppBottomSheet`’s **function child** — `children` may be `(dismiss) => ReactNode`, handing the header its guarded dismiss ([FormSheet.tsx](../SubsTrack/src/shared/components/FormSheet.tsx), [ProductBatchRestockSheet.tsx](../SubsTrack/src/modules/admin/products/components/ProductBatchRestockSheet.tsx))
 - Back handling: [useAndroidBackDismiss.ts](../SubsTrack/src/shared/hooks/useAndroidBackDismiss.ts) — Android only; a sheet is not a browser-Back target
 - Dialog: [ConfirmDialog.tsx](../SubsTrack/src/shared/components/ConfirmDialog.tsx) via [confirmSlice.ts](../SubsTrack/src/state/slices/confirm/confirmSlice.ts)
 - Strings: `common.discard_changes_title` / `_message` / `common.discard` / `common.keep_editing`
@@ -42,6 +42,7 @@ Use **Add customer** (Customers → +) as the reference form unless stated other
 | 1.8 | Drag down → discard     | From 1.6 → **Discard**                                     | Sheet closes                                                           |
 | 1.9 | Backdrop tap, dirty     | Open form → make dirty → tap the dim area above the sheet   | Discard dialog appears; sheet stays open (**not** silently ignored)    |
 | 1.10 | Header drag area       | Make dirty → drag down **by the title bar** (not the handle) | Same as 1.6 — the header is a drag handle too                        |
+| 1.11 | Header button, hand-rolled sheet | Batch restock → type a quantity → tap **Close** in the header | Discard dialog appears — a sheet that builds its own header must still route Close through the guarded dismiss |
 
 ---
 

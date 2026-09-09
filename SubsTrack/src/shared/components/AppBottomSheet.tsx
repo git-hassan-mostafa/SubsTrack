@@ -17,18 +17,19 @@ import {
   BottomSheetView,
   type BottomSheetBackdropProps,
 } from "@gorhom/bottom-sheet";
-import { InsideBottomSheetContext } from "./bottomSheetInputContext";
-import { SheetDismissContext } from "./sheetDismissContext";
 import { useAndroidBackDismiss } from "@/src/shared/hooks/useAndroidBackDismiss";
 import { useUnsavedChangesGuard } from "@/src/shared/hooks/useUnsavedChangesGuard";
 import { COLORS } from "@/src/shared/constants";
 
 export type BottomSheetVariant = "auto" | "full";
 
+// a function child is handed the guarded dismiss — see gotcha #54
+export type SheetChildren = ReactNode | ((dismiss: () => void) => ReactNode);
+
 interface AppBottomSheetProps {
   visible: boolean;
   onDismiss: () => void;
-  children: ReactNode;
+  children: SheetChildren;
   variant?: BottomSheetVariant;
   scrollable?: boolean;
   dirty?: boolean;
@@ -130,6 +131,9 @@ export function AppBottomSheet({
       ? { width: WEB_MAX_WIDTH, marginHorizontal: "auto" }
       : undefined;
 
+  const body =
+    typeof children === "function" ? children(guardedDismiss) : children;
+
   const useFixedSnap = variant === "full" || scrollable;
   const snapPoints = useFixedSnap
     ? variant === "full"
@@ -158,24 +162,20 @@ export function AppBottomSheet({
       backgroundStyle={styles.background}
       handleIndicatorStyle={styles.handleIndicator}
     >
-      <InsideBottomSheetContext.Provider value={true}>
-        <SheetDismissContext.Provider value={guardedDismiss}>
-          {useFixedSnap ? (
-            <View
-              style={{
-                flex: 1,
-                paddingBottom: variant === "full" ? 0 : insets.bottom,
-              }}
-            >
-              {children}
-            </View>
-          ) : (
-            <BottomSheetView style={{ paddingBottom: insets.bottom }}>
-              {children}
-            </BottomSheetView>
-          )}
-        </SheetDismissContext.Provider>
-      </InsideBottomSheetContext.Provider>
+      {useFixedSnap ? (
+        <View
+          style={{
+            flex: 1,
+            paddingBottom: variant === "full" ? 0 : insets.bottom,
+          }}
+        >
+          {body}
+        </View>
+      ) : (
+        <BottomSheetView style={{ paddingBottom: insets.bottom }}>
+          {body}
+        </BottomSheetView>
+      )}
     </BottomSheetModal>
   );
 }

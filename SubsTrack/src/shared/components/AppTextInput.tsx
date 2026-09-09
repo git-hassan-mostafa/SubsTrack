@@ -1,4 +1,4 @@
-import { useContext, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import {
   Platform,
   Pressable,
@@ -8,9 +8,11 @@ import {
   type TextInputProps,
   type TextStyle,
 } from "react-native";
-import { BottomSheetTextInput } from "@gorhom/bottom-sheet";
+import {
+  BottomSheetTextInput,
+  useBottomSheetInternal,
+} from "@gorhom/bottom-sheet";
 import { COLORS } from "@/src/shared/constants";
-import { InsideBottomSheetContext } from "./bottomSheetInputContext";
 
 interface AppTextInputProps extends TextInputProps {
   containerClassName?: string;
@@ -42,7 +44,7 @@ export function AppTextInput({
   style,
   ...props
 }: AppTextInputProps) {
-  const insideSheet = useContext(InsideBottomSheetContext);
+  const insideSheet = useBottomSheetInternal(true) !== null;
   const ref = useRef<TextInput>(null);
   const [focused, setFocused] = useState(false);
 

@@ -1,6 +1,16 @@
-import { useEffect, useMemo, useState } from "react";
-import { ActivityIndicator, View } from "react-native";
-import { useSheetScrollView } from "@/src/shared/components/bottomSheetInputContext";
+import {
+  useEffect,
+  useMemo,
+  useState,
+  type ComponentType,
+  type ReactNode,
+} from "react";
+import {
+  ActivityIndicator,
+  ScrollView,
+  View,
+  type ScrollViewProps,
+} from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
@@ -90,6 +100,11 @@ function localDay(iso: string): string {
  */
 export type WalletActionMode = "view" | "receive" | "close_out";
 
+// Gorhom's scroll view requires children; RN's ScrollView class cannot type it
+type ScrollBody = ComponentType<ScrollViewProps & { children: ReactNode }>;
+
+const PlainScroll: ScrollBody = (props) => <ScrollView {...props} />;
+
 interface Props {
   detail: UserWalletDetail | null;
   loading: boolean;
@@ -97,12 +112,10 @@ interface Props {
   busy?: boolean;
   onActItems?: (items: WalletItem[]) => Promise<boolean>;
   onActAll?: () => void;
+  Scroll?: ScrollBody;
 }
 
-// The body of a wallet: the per-currency cash breakdown, an optional bulk
-// action, filters, and the list of individual transactions held. Each
-// transaction can be acted on its own, or several selected at once. Used by the
-// admin detail sheet and the self-view; `mode` is the only difference.
+// dual-context: a fixed-height sheet must pass Gorhom's scroll view (gotcha #47)
 export function WalletDetailView({
   detail,
   loading,
@@ -110,12 +123,12 @@ export function WalletDetailView({
   busy = false,
   onActItems,
   onActAll,
+  Scroll = PlainScroll,
 }: Props) {
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
   const displayCurrencyId = useDisplayCurrencyId();
   const target = findCurrency(currencies, displayCurrencyId);
-  const Scroll = useSheetScrollView();
 
   const canAct = mode !== "view";
   const actionLabel = mode === "close_out" ? t("wallet.close_out") : t("wallet.receive");

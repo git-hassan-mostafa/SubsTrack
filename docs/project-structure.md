@@ -265,7 +265,6 @@ SubsTrack/
 │       │   ├── AppBottomSheet.tsx # @gorhom/bottom-sheet core — declarative visible/onDismiss bridge (variant "auto"|"full")
 │       │   ├── BottomSheetScaffold.tsx # Auto-height popup shell (dropdowns/pickers/menus) on AppBottomSheet
 │       │   ├── FormSheet.tsx      # Full-height form/detail sheet shell on AppBottomSheet (replaced the deleted SheetModal)
-│       │   ├── bottomSheetInputContext.ts # InsideBottomSheetContext / useSheetScrollView — swap to Gorhom variants inside a sheet
 │       │   ├── InfoRows.tsx      # A record's label→value block for the detail sheets; empty values drop out
 │       │   ├── ErrorBanner.tsx    # Inline error display (never toast/alert)
 │       │   ├── Dropdown.tsx, DatePickerInput.tsx

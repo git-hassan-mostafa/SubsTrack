@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from "react";
 import { FlatList, RefreshControl, View } from "react-native";
+import { BottomSheetScrollView } from "@gorhom/bottom-sheet";
 import { AppBottomSheet } from "@/src/shared/components/AppBottomSheet";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
@@ -260,6 +261,7 @@ export function WalletsScreen() {
               loading={detailLoading}
               mode={modeFor(openWallet)}
               busy={busy}
+              Scroll={BottomSheetScrollView}
               onActItems={(selected) => handleActItems(openWallet, selected)}
               onActAll={() => void actAllFor(openWallet, true)}
             />
