@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { COLORS } from "@/src/shared/constants";
 import { useUiStore } from "@/src/shared/lib/uiStore";
 import { useAuthSlice } from "@/src/state/hooks/useAuthSlice";
-import { PressableOpacity } from "./PressableOpacity/PressableOpacity";
+import { PressableOpacity } from "./PressableOpacity";
 import { ActionMenu, type ActionMenuItem } from "./ActionMenu";
 
 // The top-right 3-dot menu: a global "quick add" shortcut list available on every

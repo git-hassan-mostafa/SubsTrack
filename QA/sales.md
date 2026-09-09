@@ -352,7 +352,7 @@ Covers the one-off sales ledger: recording a sale (with **one or more products a
 | 2D.19 | Same menu everywhere | Repeat 2D.3 from the Sales tab, the customer panel, and the per-customer page | Identical rows in identical order |
 | 2D.20 | List refreshes after a menu void | Void from the menu on the customer panel / per-customer page | The local list refreshes and the row disappears without a manual pull-to-refresh |
 | 2D.21 | Arabic / RTL | Switch to Arabic and open the menu | All labels translated; rows and icons mirror; the WhatsApp badge does **not** mirror |
-| 2D.22 | Menu closes on Back | Open the menu and press Android Back (or browser Back) | The menu closes; the screen behind it does **not** change |
+| 2D.22 | Menu closes on Back | Open the menu and press Android Back (native only — a sheet ignores browser Back) | The menu closes; the screen behind it does **not** change |
 
 ### 2D-b. Collect what a sale still owes
 

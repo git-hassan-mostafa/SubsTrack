@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { CurrencyInput } from "@/src/shared/components/CurrencyInput";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";

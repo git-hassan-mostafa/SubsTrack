@@ -6,7 +6,7 @@ import {
   FormSheet,
   type SheetScrollTo,
 } from "@/src/shared/components/FormSheet";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { Button } from "@/src/shared/components/Button";
 import { Input } from "@/src/shared/components/Input";

@@ -1,6 +1,6 @@
 import { ScrollView } from "react-native";
 import { Text } from "@/src/shared/components/Text";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 
 export interface PillTab<T extends string> {
   key: T;

@@ -11,7 +11,7 @@ import { CurrencyInput } from "@/src/shared/components/CurrencyInput";
 import { DatePickerInput } from "@/src/shared/components/DatePickerInput";
 import { Input } from "@/src/shared/components/Input";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
 import type { AllocationLine, OpenItem } from "@/src/core/types";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";

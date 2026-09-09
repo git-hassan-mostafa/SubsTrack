@@ -2,7 +2,7 @@ import { View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
 import { CurrencyInput } from "@/src/shared/components/CurrencyInput";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import type { Currency, OpenItem } from "@/src/core/types";
 import { formatMoney } from "@/src/core/utils/currency";
 import type { CurrencyPlan } from "../utils/currencyGroups";

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Switch, View } from "react-native";
 import { FormSheet } from "@/src/shared/components/FormSheet";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/src/shared/components/Button";

@@ -1,22 +1,16 @@
 import { useRef } from "react";
-import { cssInterop } from "nativewind";
-import {
-  Pressable,
-  type PressableProps,
-} from "react-native-gesture-handler";
-cssInterop(Pressable, { className: "style" });
+import { Pressable, type PressableProps } from "react-native";
 
 type PressEvent = Parameters<NonNullable<PressableProps["onPress"]>>[0];
 
-type PressableOpacityProps = PressableProps;
-
+// swallows the stray onPress Android fires after a long press — see gotcha #46
 export function PressableOpacity({
   onPress,
   onLongPress,
   onPressIn,
   className,
   ...props
-}: PressableOpacityProps) {
+}: PressableProps) {
   const longPressed = useRef(false);
 
   const handlePressIn = (e: PressEvent) => {

@@ -7,7 +7,7 @@ import {
 } from "@/src/shared/components/FormSheet";
 import type { ActionMenuItem } from "@/src/shared/components/ActionMenu";
 import { useTranslation } from "react-i18next";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { Input } from "@/src/shared/components/Input";
 import { CARD_SURFACE, COLORS } from "@/src/shared/constants";

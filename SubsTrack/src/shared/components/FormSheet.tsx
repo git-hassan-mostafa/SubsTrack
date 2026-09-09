@@ -18,7 +18,7 @@ import { AppBottomSheet } from "./AppBottomSheet";
 import { useSheetDismiss } from "./sheetDismissContext";
 import { ResponsiveContainer } from "./ResponsiveContainer";
 import { SheetDragArea } from "./SheetDragArea";
-import { PressableOpacity } from "./PressableOpacity/PressableOpacity";
+import { PressableOpacity } from "./PressableOpacity";
 import { Text } from "./Text";
 import { ActionMenu, type ActionMenuItem } from "./ActionMenu";
 import { COLORS } from "@/src/shared/constants";

@@ -11,7 +11,7 @@ import { SheetDragArea } from "@/src/shared/components/SheetDragArea";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { EmptyState } from "@/src/shared/components/EmptyState";
 import { Text } from "@/src/shared/components/Text";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import {
   ActionMenu,
   type ActionMenuItem,

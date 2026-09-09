@@ -1,7 +1,7 @@
 import { type ComponentProps, type ReactNode } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Checkbox } from "@/src/shared/components/Checkbox";
 import {
   CARD_SURFACE,

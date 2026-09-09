@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { SheetDragArea } from "@/src/shared/components/SheetDragArea";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { Button } from "@/src/shared/components/Button";
 import { COLORS } from "@/src/shared/constants";

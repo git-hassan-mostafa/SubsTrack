@@ -1,7 +1,7 @@
 import { memo } from "react";
 import { ActivityIndicator, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { useTranslation } from "react-i18next";
 import { getCurrentYearMonth } from "@/src/core/utils/date";

@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { FlatList, View } from "react-native";
-import { PressableOpacity } from "./PressableOpacity/PressableOpacity";
+import { PressableOpacity } from "./PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";

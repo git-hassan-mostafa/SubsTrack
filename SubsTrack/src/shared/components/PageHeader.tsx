@@ -3,7 +3,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/src/shared/components/Text";
 import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
 import { COLORS } from "@/src/shared/constants";
-import { PressableOpacity } from "./PressableOpacity/PressableOpacity";
+import { PressableOpacity } from "./PressableOpacity";
 import { BranchSelector } from "./BranchSelector";
 import { SelectionBar, type SelectionAction } from "./SelectionBar";
 import { QuickActionsMenuButton } from "./QuickActionsMenuButton";

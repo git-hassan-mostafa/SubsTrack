@@ -3,7 +3,7 @@ import { View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/src/shared/components/Text";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
 import { MONTHS } from "@/src/core/constants";
 import type { DashboardMetrics } from "@/src/core/types";

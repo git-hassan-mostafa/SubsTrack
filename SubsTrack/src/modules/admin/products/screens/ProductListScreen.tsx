@@ -11,7 +11,7 @@ import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
 import { COLORS } from "@/src/shared/constants";
 import { Text } from "@/src/shared/components/Text";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { confirm } from "@/src/shared/lib/confirm";
 import { EmptyState } from "@/src/shared/components/EmptyState";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";

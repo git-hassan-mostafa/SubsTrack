@@ -2,7 +2,7 @@ import { Modal, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { COLORS } from "@/src/shared/constants";
 import { openMapsApp } from "@/src/shared/lib/maps";
 import { useWebBackDismiss } from "@/src/shared/hooks/useWebBackDismiss";

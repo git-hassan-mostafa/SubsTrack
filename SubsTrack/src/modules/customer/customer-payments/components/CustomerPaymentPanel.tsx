@@ -7,7 +7,7 @@ import {
 } from "react-native";
 import { GestureDetector } from "react-native-gesture-handler";
 import { Ionicons } from "@expo/vector-icons";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { useHorizontalSwipe } from "@/src/shared/hooks/useHorizontalSwipe";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";

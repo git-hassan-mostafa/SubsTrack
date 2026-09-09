@@ -7,7 +7,7 @@ import { useTranslation } from "react-i18next";
 import { AppBottomSheet } from "@/src/shared/components/AppBottomSheet";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { SheetDragArea } from "@/src/shared/components/SheetDragArea";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
 import { Text } from "@/src/shared/components/Text";
 import { Button } from "@/src/shared/components/Button";

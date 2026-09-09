@@ -6,7 +6,7 @@ import { Text } from "@/src/shared/components/Text";
 import { Button } from "@/src/shared/components/Button";
 import { Input } from "@/src/shared/components/Input";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { useAuth } from "@/src/modules/authentication/auth";
 import type { Branch } from "@/src/core/types";
 import { useBranchSlice } from "@/src/state/hooks/useBranchSlice";

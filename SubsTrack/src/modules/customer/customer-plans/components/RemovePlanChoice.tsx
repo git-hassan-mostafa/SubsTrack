@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { View } from "react-native";
 import { useTranslation } from "react-i18next";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Checkbox } from "@/src/shared/components/Checkbox";
 import { Text } from "@/src/shared/components/Text";
 

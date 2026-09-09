@@ -13,7 +13,7 @@ import { COLORS } from "@/src/shared/constants";
 import { EmptyState } from "@/src/shared/components/EmptyState";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { Text } from "@/src/shared/components/Text";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { FAB } from "@/src/shared/components/FAB";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { MonthSectionHeader } from "@/src/shared/components/MonthSectionHeader";

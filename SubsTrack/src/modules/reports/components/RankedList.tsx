@@ -1,7 +1,7 @@
 import { View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/src/shared/components/Text";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { COLORS } from "@/src/shared/constants";
 
 export interface RankedRow {

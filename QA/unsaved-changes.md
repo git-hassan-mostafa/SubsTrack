@@ -8,7 +8,7 @@ Covers the app-wide "Discard changes?" confirmation shown when a **dirty** form 
 - Guard hook: [useUnsavedChangesGuard.ts](../SubsTrack/src/shared/hooks/useUnsavedChangesGuard.ts) (awaits the global confirm dialog; returns `[guardedDismiss, asking]`)
 - Dirty check: [useDirtyForm.ts](../SubsTrack/src/shared/hooks/useDirtyForm.ts) (first-render baseline + `ignore` list)
 - Header button seam: [FormSheet.tsx](../SubsTrack/src/shared/components/FormSheet.tsx), [sheetDismissContext.ts](../SubsTrack/src/shared/components/sheetDismissContext.ts)
-- Back handling: [useAndroidBackDismiss.ts](../SubsTrack/src/shared/hooks/useAndroidBackDismiss.ts), [useWebBackDismiss.ts](../SubsTrack/src/shared/hooks/useWebBackDismiss.ts)
+- Back handling: [useAndroidBackDismiss.ts](../SubsTrack/src/shared/hooks/useAndroidBackDismiss.ts) — Android only; a sheet is not a browser-Back target
 - Dialog: [ConfirmDialog.tsx](../SubsTrack/src/shared/components/ConfirmDialog.tsx) via [confirmSlice.ts](../SubsTrack/src/state/slices/confirm/confirmSlice.ts)
 - Strings: `common.discard_changes_title` / `_message` / `common.discard` / `common.keep_editing`
 
@@ -16,7 +16,7 @@ Covers the app-wide "Discard changes?" confirmation shown when a **dirty** form 
 
 ## 0. Critical invariants
 
-1. **All four close paths ask** — header Cancel/Close button, Android hardware Back / browser Back, drag-down gesture, backdrop tap. Missing any one is a bug.
+1. **All four close paths ask** — header Cancel/Close button, Android hardware Back, drag-down gesture, backdrop tap. Missing any one is a bug. Browser Back is **not** a close path: a sheet ignores it (gotcha #44).
 2. **A clean form never asks.** Opening a form and closing it without typing must close immediately, with no dialog. This is the invariant most likely to regress (see §3) and the one that destroys trust in the feature.
 3. **"Keep editing" preserves every entered value** — including values held by child editors (plan lines, sale cart) and the scroll position is not required to persist, but data must be.
 4. **"Discard" closes and loses the edits** — nothing is saved.
@@ -36,7 +36,7 @@ Use **Add customer** (Customers → +) as the reference form unless stated other
 | 1.2 | Header button → discard | From 1.1 → tap **Discard**                                 | Dialog closes, sheet closes, nothing saved                             |
 | 1.3 | Header button → keep    | From 1.1 → tap **Keep Editing**                            | Dialog closes, sheet stays open, **typed values still there**          |
 | 1.4 | Android Back, dirty     | Open form → make dirty → press hardware **Back**           | Discard dialog appears; sheet still open; route unchanged              |
-| 1.5 | Browser Back, dirty     | Web: open form → make dirty → browser **Back**             | Discard dialog appears; sheet still open; **URL/route unchanged**      |
+| 1.5 | Browser Back, dirty     | Web: open form → make dirty → browser **Back**             | **No** discard dialog — the route navigates instead; the sheet is not a Back target |
 | 1.6 | Drag down, dirty        | Open form → make dirty → drag the sheet down to close      | Sheet **snaps back up** and the discard dialog appears over it         |
 | 1.7 | Drag down → keep        | From 1.6 → **Keep Editing**                                | Sheet remains open at full height, values intact                       |
 | 1.8 | Drag down → discard     | From 1.6 → **Discard**                                     | Sheet closes                                                           |
@@ -47,10 +47,10 @@ Use **Add customer** (Customers → +) as the reference form unless stated other
 
 ## 2. Repeated / sequential interactions (regression-prone)
 
-This section reproduces two fixed bugs that presented almost identically, so run it on **both** Android and web:
+This section reproduces two fixed bugs that presented almost identically. **Every Back row is Android-only** — a sheet ignores browser Back (gotcha #44) — so on web run the button / drag / backdrop rows instead:
 
 - **Android** — one Back press answered the dialog **and** re-closed the sheet, so a second attempt showed an extra dialog and eventually navigated away.
-- **Web** — no extra dialog, but Discard popped one history entry too many and landed on the previous page. Any variant here that ends on the wrong route is a regression even when the dialogs themselves look right.
+- **Web** — no extra dialog, but Discard popped one history entry too many and landed on the previous page. The sheet no longer touches history at all, so any variant that still ends on the wrong route is a regression even when the dialogs themselves look right.
 
 | #   | Scenario                     | Steps                                                                              | Expected result                                                                         |
 | --- | ---------------------------- | ---------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
@@ -59,7 +59,7 @@ This section reproduces two fixed bugs that presented almost identically, so run
 | 2.3 | Keep → close again (button)  | Dirty form → Cancel → Keep Editing → Cancel again → Discard                          | Same as 2.2                                                                             |
 | 2.4 | Mixed paths                  | Dirty form → drag down → Keep Editing → Back → Keep Editing → tap backdrop → Discard | Each attempt shows exactly one dialog; final Discard closes once, route unchanged       |
 | 2.5 | Double Back, fast            | Dirty form → press Back **twice quickly**                                            | Only **one** dialog; the second press does not reach the sheet or the router            |
-| 2.6 | Web: repeat then discard     | Web: repeat 2.1–2.2 three times                                                     | After the final Discard you are on the originating route — history is not over-popped   |
+| 2.6 | Web: repeat then discard     | Web: repeat 2.3 three times (Cancel → Keep Editing → … → Discard)                   | After the final Discard you are on the originating route — history is not over-popped   |
 
 ---
 

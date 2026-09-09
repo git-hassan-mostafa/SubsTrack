@@ -4,7 +4,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
 import { Input } from "@/src/shared/components/Input";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { LocationHelpModal } from "@/src/shared/components/LocationHelpModal";
 import { COLORS } from "@/src/shared/constants";
 

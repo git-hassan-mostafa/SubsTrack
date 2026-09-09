@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { useAuth } from "@/src/modules/authentication/auth/hooks/useAuth";
 import { AppBottomSheet } from "@/src/shared/components/AppBottomSheet";
 import { EmptyState } from "@/src/shared/components/EmptyState";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { SheetDragArea } from "@/src/shared/components/SheetDragArea";
 import { Text } from "@/src/shared/components/Text";

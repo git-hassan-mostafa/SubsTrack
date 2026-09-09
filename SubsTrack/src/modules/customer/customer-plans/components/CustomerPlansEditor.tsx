@@ -2,7 +2,7 @@ import { Ref, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { COLORS } from "@/src/shared/constants";
 import type { Customer } from "@/src/core/types";

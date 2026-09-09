@@ -3,7 +3,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "./Text";
-import { PressableOpacity } from "./PressableOpacity/PressableOpacity";
+import { PressableOpacity } from "./PressableOpacity";
 import { useAppUpdate } from "@/src/shared/hooks/useAppUpdate";
 
 const TAB_BAR_HEIGHT = 64;

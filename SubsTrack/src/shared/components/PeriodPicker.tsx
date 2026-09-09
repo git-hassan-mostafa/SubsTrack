@@ -2,7 +2,7 @@ import { useState } from "react";
 import { ScrollView, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
-import { PressableOpacity } from "./PressableOpacity/PressableOpacity";
+import { PressableOpacity } from "./PressableOpacity";
 import { DatePickerInput } from "./DatePickerInput";
 import { formatDate } from "@/src/core/utils/date";
 import {

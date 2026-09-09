@@ -148,7 +148,7 @@ Covers the Products catalog: a list of one-off sellable items (not subscriptions
 | 6A.21 | Existing install schema reconcile | Update the app on a device that already had local data | `applySchema` creates `stock_movements` (and adds any new column on an existing table) at startup — no "no such table" / "no such column" error, no wipe needed |
 | 6A.22 | Stock sheet stacks on the form | Open a product for edit → tap "Adjust Stock" | The stock sheet opens **on top**; the edit form stays open underneath and is still there (with its typed values) after closing the stock sheet |
 | 6A.23 | Form follows the adjustment | From the edit form, adjust stock +5 and save | The stock sheet closes back to the edit form, whose read-only stock now reads the new total |
-| 6A.24 | Back closes one sheet at a time | With both sheets open, press Back (Android) / browser Back (web) | Only the stock sheet closes; the edit form stays open and the route does not change |
+| 6A.24 | Back closes one sheet at a time | With both sheets open, press hardware Back (Android only — a sheet ignores browser Back) | Only the stock sheet closes; the edit form stays open and the route does not change |
 | 6A.25 | History shows date + time | Restock twice within the same hour | Both rows carry the date **and** hour:minute, so the two changes are told apart and stay newest-first |
 | 6A.26 | History names the user | Restock as user A, then as user B, and reopen the sheet as an admin | Each row shows the full name of the user who recorded it (person icon + name); a row with no recorded user simply omits that line |
 | 6A.27 | Reason icon + direction color | Compare a `Starting stock`, `Stock added`, an older `Correction` (negative, from data recorded before the Remove mode was taken out) and `Sold` row | Each has its own icon (flag / plus / pencil / cart); the tile and amount are green when the change adds stock and red when it removes |
@@ -187,7 +187,7 @@ Covers the Products catalog: a list of one-off sellable items (not subscriptions
 | 6B.15 | Offline batch restock syncs | Airplane mode → restock 3 products → reconnect | All movements push in one go; a second device shows the same on-hand after its pull |
 | 6B.16 | Branch scoping | As a branch-scoped admin, open the sheet | Only the products that user can see are listed (their branch + SHARED), and restocking a SHARED one moves the single shared pool |
 | 6B.17 | Keyboard + sheet | Tap the search box, then a quantity box, on a phone | The sheet lifts so the focused field stays visible; the sheet still drags closed from its header |
-| 6B.18 | Back closes the sheet | Press Back (Android) / browser Back (web) with the sheet open | Only the sheet closes; the route does not change |
+| 6B.18 | Back closes the sheet | Press hardware Back with the sheet open (Android only — a sheet ignores browser Back) | Only the sheet closes; the route does not change |
 
 ---
 

@@ -11,7 +11,7 @@ import { Text } from "@/src/shared/components/Text";
 import { Button } from "@/src/shared/components/Button";
 import { Input } from "@/src/shared/components/Input";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity/PressableOpacity";
+import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { DbTableViewer } from "@/src/shared/components/DbTableViewer";
 import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
 import { CARD_SURFACE, COLORS } from "@/src/shared/constants";
