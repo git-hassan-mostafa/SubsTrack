@@ -90,6 +90,7 @@ export function AppBottomSheet({
       Keyboard.dismiss();
       ref.current?.present();
     } else if (!visible && openRef.current) {
+      Keyboard.dismiss();
       ref.current?.dismiss();
     }
   }, [visible]);
@@ -106,6 +107,7 @@ export function AppBottomSheet({
 
   const handleDismiss = useCallback(() => {
     openRef.current = false;
+    Keyboard.dismiss();
     if (asking || unmountingRef.current) return;
     if (visible) guardedDismiss();
   }, [asking, guardedDismiss, visible]);
