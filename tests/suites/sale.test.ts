@@ -295,14 +295,50 @@ describe('updateSale', () => {
     ).rejects.toThrow(/errors\.sale_voided_not_editable/);
   });
 
-  it('TC-SL-31 refuses a total below what was already collected', async () => {
+  it('TC-SL-31 refuses a collected figure above the new total', async () => {
     const sale = await saleService.createSale(input({ items: [productLine(2)], amountPaid: 60 }));
     await expect(
       saleService.updateSale(sale, {
         items: [productLine(1)], customerId: 'cust-1', branchId: null,
-        currency: null, notes: null, actorUserId: 'user-1',
+        currency: null, notes: null, actorUserId: 'user-1', collectedTotal: 60,
       }),
-    ).rejects.toThrow(/errors\.sale_total_below_collected/);
+    ).rejects.toThrow(/errors\.sale_amount_paid_invalid/);
+  });
+
+  it('TC-SL-31b lowering the total AND the cash rebuilds the hand-over', async () => {
+    const sale = await saleService.createSale(input({ items: [productLine(2)], amountPaid: 60 }));
+    const updated = await saleService.updateSale(sale, {
+      items: [productLine(1)], customerId: 'cust-1', branchId: null,
+      currency: null, notes: null, actorUserId: 'user-1', collectedTotal: 30,
+    });
+    expect(updated.totalAmount).toBe(30);
+    expect(updated.amountPaid).toBe(30);
+    const live = store.collections.filter((c) => c.voided_at === null);
+    expect(live).toHaveLength(1);
+    expect(live[0].amount).toBe(30);
+    expect(store.collections.filter((c) => c.voided_at !== null)).toHaveLength(1);
+  });
+
+  it('TC-SL-31c the rebuilt hand-over keeps the ORIGINAL date and collector', async () => {
+    const sale = await saleService.createSale(input({ items: [productLine(2)], amountPaid: 60 }));
+    const before = store.collections[0];
+    await saleService.updateSale(sale, {
+      items: [productLine(1)], customerId: 'cust-1', branchId: null,
+      currency: null, notes: null, actorUserId: 'user-9', collectedTotal: 30,
+    });
+    const live = store.collections.filter((c) => c.voided_at === null);
+    expect(live[0].received_at).toBe(before.received_at);
+    expect(live[0].received_by_user_id).toBe(before.received_by_user_id);
+  });
+
+  it('TC-SL-31d dropping the cash to zero leaves the sale wholly unpaid', async () => {
+    const sale = await saleService.createSale(input({ items: [productLine(2)], amountPaid: 60 }));
+    const updated = await saleService.updateSale(sale, {
+      items: [productLine(2)], customerId: 'cust-1', branchId: null,
+      currency: null, notes: null, actorUserId: 'user-1', collectedTotal: 0,
+    });
+    expect(updated.amountPaid).toBe(0);
+    expect(store.collections.every((c) => c.voided_at !== null)).toBe(true);
   });
 
   it('TC-SL-32 re-pricing gives the sale`s OWN units back before the stock check', async () => {
@@ -338,21 +374,21 @@ describe('updateSale', () => {
     expect(saleStore.movements).toHaveLength(before);
   });
 
-  it('TC-SL-35 collectNow is capped at what is still owed', async () => {
+  it('TC-SL-35 collectedTotal is capped at the sale total', async () => {
     const sale = await saleService.createSale(input({ items: [productLine(1)], amountPaid: 10 }));
     await expect(
       saleService.updateSale(sale, {
         items: [productLine(1)], customerId: 'cust-1', branchId: null,
-        currency: null, notes: null, actorUserId: 'user-1', collectNow: 25,
+        currency: null, notes: null, actorUserId: 'user-1', collectedTotal: 35,
       }),
-    ).rejects.toThrow(/errors\.collect_exceeds_balance/);
+    ).rejects.toThrow(/errors\.sale_amount_paid_invalid/);
   });
 
-  it('TC-SL-36 collectNow writes a NEW hand-over and never edits the old one', async () => {
+  it('TC-SL-36 RAISING the cash adds a hand-over and never edits the old one', async () => {
     const sale = await saleService.createSale(input({ items: [productLine(1)], amountPaid: 10 }));
     const updated = await saleService.updateSale(sale, {
       items: [productLine(1)], customerId: 'cust-1', branchId: null,
-      currency: null, notes: null, actorUserId: 'user-2', collectNow: 20,
+      currency: null, notes: null, actorUserId: 'user-2', collectedTotal: 30,
     });
     expect(store.collections).toHaveLength(2);
     expect(store.collections[0].amount).toBe(10);
@@ -382,14 +418,20 @@ describe('updateSale', () => {
     expect(store.charges.find((c) => c.sale_id === sale.id)!.amount).toBe(45);
   });
 
-  it('TC-SL-39b a typed total below what was collected is still refused', async () => {
+  it('TC-SL-39b a typed total below what was collected needs the cash lowered too', async () => {
     const sale = await saleService.createSale(input({ items: [productLine(2)], amountPaid: 60 }));
     await expect(
       saleService.updateSale(sale, {
         items: [productLine(2)], totalAmount: 45, customerId: 'cust-1', branchId: null,
         currency: null, notes: null, actorUserId: 'user-1',
       }),
-    ).rejects.toThrow(/errors\.sale_total_below_collected/);
+    ).rejects.toThrow(/errors\.sale_amount_paid_invalid/);
+    const updated = await saleService.updateSale(sale, {
+      items: [productLine(2)], totalAmount: 45, customerId: 'cust-1', branchId: null,
+      currency: null, notes: null, actorUserId: 'user-1', collectedTotal: 45,
+    });
+    expect(updated.totalAmount).toBe(45);
+    expect(updated.amountPaid).toBe(45);
   });
 
   it('TC-SL-39c an edit may drop every line, leaving a bare typed total', async () => {
@@ -402,16 +444,17 @@ describe('updateSale', () => {
     expect(updated.items).toHaveLength(0);
   });
 
-  it('TC-SL-38 REGRESSION: the currency may not move once money has been collected', async () => {
-    // 30 USD collected. Switching the sale to LBP re-freezes the BILL's currency
-    // while the hand-over stays in USD — a balance that can never close.
+  it('TC-SL-38 moving the currency rebuilds the cash in the NEW one', async () => {
     const sale = await saleService.createSale(input({ items: [productLine(1)], amountPaid: 10 }));
-    await expect(
-      saleService.updateSale(sale, {
-        items: [productLine(1, 2700000)], customerId: 'cust-1', branchId: null,
-        currency: LBP, notes: null, actorUserId: 'user-1',
-      }),
-    ).rejects.toThrow();
+    const updated = await saleService.updateSale(sale, {
+      items: [productLine(1, 2700000)], customerId: 'cust-1', branchId: null,
+      currency: LBP, notes: null, actorUserId: 'user-1', collectedTotal: 900000,
+    });
+    expect(updated.currencyId).toBe(LBP.id);
+    expect(updated.amountPaid).toBe(900000);
+    const live = store.collections.filter((c) => c.voided_at === null);
+    expect(live).toHaveLength(1);
+    expect(live[0].currency_id).toBe(LBP.id);
   });
 });
 

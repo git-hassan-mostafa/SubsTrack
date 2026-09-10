@@ -120,6 +120,13 @@ class SaleService {
     return new Map(balances.map((b) => [b.id, b.paid]));
   }
 
+  private async chargeIdOf(sale: Sale): Promise<string> {
+    if (sale.chargeId) return sale.chargeId;
+    const charge = await chargeRepository.findBySaleId(sale.id);
+    if (!charge) throw new Error(i18n.t('errors.collect_unknown_item'));
+    return charge.id;
+  }
+
   async createSale(input: CreateSaleInput): Promise<Sale> {
     this.validate(input);
     await this.assertStockAvailable(productLines(input.items));
@@ -203,6 +210,7 @@ class SaleService {
     };
   }
 
+  // `collectedTotal` is absolute, and lowering it rebuilds the cash — gotcha #111.
   async updateSale(sale: Sale, input: UpdateSaleInput): Promise<Sale> {
     if (sale.voidedAt !== null) {
       throw new Error(i18n.t('errors.sale_voided_not_editable'));
@@ -217,17 +225,27 @@ class SaleService {
       throw new Error(i18n.t('errors.rate_snapshot_positive'));
     }
     const total = totalOf(input);
-    if (total + 1e-9 < sale.amountPaid) {
-      throw new Error(i18n.t('errors.sale_total_below_collected'));
-    }
     const nextCurrencyId = input.currency?.id ?? null;
-    if (sale.amountPaid > 0 && nextCurrencyId !== sale.currencyId) {
-      throw new Error(i18n.t('errors.sale_currency_locked'));
+    const collected = input.collectedTotal ?? sale.amountPaid;
+    if (!Number.isFinite(collected) || collected < 0 || collected > total + EPSILON) {
+      throw new Error(i18n.t('errors.sale_amount_paid_invalid'));
     }
-    const collectNow = input.collectNow ?? 0;
-    if (!input.customerId && sale.amountPaid + collectNow + 1e-9 < total) {
+    if (!input.customerId && collected + EPSILON < total) {
       throw new Error(i18n.t('errors.sale_walkin_must_be_paid'));
     }
+    const rebuild =
+      sale.amountPaid > 0 &&
+      (collected + EPSILON < sale.amountPaid || nextCurrencyId !== sale.currencyId);
+    if (rebuild && !input.actorUserId) {
+      throw new Error(i18n.t('errors.sale_edit_actor_required'));
+    }
+    const unpaid = rebuild
+      ? await collectionService.unpayCharge(
+        await this.chargeIdOf(sale),
+        input.actorUserId!,
+        i18n.t('sales.void_reason_edited'),
+      )
+      : null;
     const row = await repository.update(sale.id, {
       branch_id: input.branchId,
       items_summary: buildItemsSummary(input.items),
@@ -252,32 +270,30 @@ class SaleService {
       actorUserId: input.actorUserId,
     });
 
-    if (collectNow > 0) {
+    const alreadyOn = unpaid ? 0 : sale.amountPaid;
+    const takeNow = collected - alreadyOn;
+    if (takeNow > EPSILON) {
       const charge = await chargeRepository.findBySaleId(sale.id);
       if (!charge) throw new Error(i18n.t('errors.collect_unknown_item'));
-      const owing = total - sale.amountPaid;
-      if (collectNow > owing + 1e-9) {
-        throw new Error(i18n.t('errors.collect_exceeds_balance'));
-      }
       await collectionService.collect({
         tenantId: sale.tenantId,
         customerId: input.customerId,
         branchId: input.branchId,
-        amount: collectNow,
-        currencyId: input.currency?.id ?? null,
+        amount: takeNow,
+        currencyId: nextCurrencyId,
         ratePerUsdSnapshot,
-        receivedAt: nowIso(),
-        receivedByUserId: input.actorUserId,
+        receivedAt: unpaid?.receivedAt ?? nowIso(),
+        receivedByUserId: unpaid?.receivedByUserId ?? input.actorUserId,
         notes: null,
         lines: [
           {
             item: openItemFromCharge(
               mapDbChargeToCharge(charge),
-              sale.amountPaid,
+              alreadyOn,
               buildItemsSummary(input.items),
             ),
-            amount: collectNow,
-            settles: collectNow >= owing - 1e-9,
+            amount: takeNow,
+            settles: collected >= total - EPSILON,
           },
         ],
       });
@@ -410,5 +426,7 @@ class SaleService {
     }
   }
 }
+
+const EPSILON = 1e-9;
 
 export default new SaleService()

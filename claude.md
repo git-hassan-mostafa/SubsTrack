@@ -347,7 +347,10 @@ Facts that change how you code and are easy to get wrong:
   via `lineQuantity()`), and is **never a separate money stream**. Stock paths
   narrow through `productLines()` / `savedProductLines()` — never a nullable-id
   test (gotcha #97). Editing a sale touches three tables with three different rules
-  (gotcha #90); what was already collected cannot change (gotcha #111).
+  (gotcha #90). What it collected is an ABSOLUTE input on the edit form, and
+  lowering it **rebuilds** the cash — void every live hand-over, re-create the
+  slices that paid other bills, re-record the new figure at the ORIGINAL date
+  and collector. Never an edited payment, always a void plus a write (#111).
 - **A sale's total is TYPED; the lines only SUGGEST it** (gotcha #142).
   `SaleService.totalOf(input)` = `input.totalAmount ?? lineSumOf(items)` is the one
   place the money is decided — header, bill and every cap read it, and nothing that

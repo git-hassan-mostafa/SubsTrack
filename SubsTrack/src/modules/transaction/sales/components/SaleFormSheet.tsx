@@ -35,6 +35,12 @@ const EMPTY_CART: SaleCartDraft = {
   dirty: false,
 };
 
+// An edit opens on what the sale ALREADY collected, so saving changes nothing.
+function initialPaymentMode(sale: Sale): "full" | "partial" | "debt" {
+  if (sale.amountPaid <= 0) return "debt";
+  return sale.amountPaid + 1e-9 >= sale.totalAmount ? "full" : "partial";
+}
+
 
 interface Props {
   initialCustomer?: Customer | null;
@@ -70,9 +76,11 @@ export function SaleFormSheet({
     sale?.customer ?? initialCustomer ?? null,
   );
   const [paymentMode, setPaymentMode] = useState<"full" | "partial" | "debt">(
-    sale ? "debt" : "full",
+    sale ? initialPaymentMode(sale) : "full",
   );
-  const [amountPaid, setAmountPaid] = useState<number | null>(null);
+  const [amountPaid, setAmountPaid] = useState<number | null>(
+    sale ? sale.amountPaid : null,
+  );
   const [notes, setNotes] = useState(sale?.notes ?? "");
   const [addCustomerOpen, setAddCustomerOpen] = useState(false);
 
@@ -124,16 +132,20 @@ export function SaleFormSheet({
 
   const saleTotal = total ?? 0;
   const collectedOnSale = sale?.amountPaid ?? 0;
-  const owing = Math.max(0, saleTotal - collectedOnSale);
+  const saleCurrency =
+    currencies.find((c) => c.id === sale?.currencyId) ?? cart.currency;
 
-  const resolvedAmountPaid = !hasCustomer
-    ?
-      owing
+  const resolvedCollected = !hasCustomer
+    ? saleTotal
     : paymentMode === "debt"
       ? 0
       : paymentMode === "partial"
-        ? (amountPaid ?? 0)
-        : owing;
+        ? Math.min(amountPaid ?? 0, saleTotal)
+        : saleTotal;
+  const rebuildsCash =
+    collectedOnSale > 0 &&
+    (resolvedCollected + 1e-9 < collectedOnSale ||
+      (cart.currencyId ?? null) !== (sale?.currencyId ?? null));
 
   // Only the person saving can tell a deliberate discount from a fat finger.
   async function confirmedTotal(): Promise<boolean> {
@@ -156,9 +168,25 @@ export function SaleFormSheet({
     });
   }
 
+  // Cash already handed over is about to be cancelled and re-recorded (#111).
+  async function confirmedCashRebuild(): Promise<boolean> {
+    if (!rebuildsCash) return true;
+    const money = (a: number) => formatMoney(a, cart.currency, cart.currency);
+    return confirm({
+      title: t("sales.confirm_rebuild_cash_title"),
+      message: t("sales.confirm_rebuild_cash_message", {
+        collected: formatMoney(collectedOnSale, saleCurrency, saleCurrency),
+        replacement: money(resolvedCollected),
+      }),
+      confirmLabel: t("common.save"),
+      destructive: true,
+    });
+  }
+
   async function handleSubmit(send = false) {
     if (!user || !cart.ready || busy) return;
     if (!(await confirmedTotal())) return;
+    if (!(await confirmedCashRebuild())) return;
     setBusyOn(send ? "send" : "save");
     try {
       await submit(send);
@@ -184,11 +212,11 @@ export function SaleFormSheet({
         await updateSale(sale, {
           ...common,
           actorUserId: user.id,
-          collectNow: resolvedAmountPaid,
+          collectedTotal: resolvedCollected,
         })
       : await createSale({
           ...common,
-          amountPaid: resolvedAmountPaid,
+          amountPaid: resolvedCollected,
           recordedByUserId: user.id,
           tenantId: user.tenantId,
         });
@@ -209,10 +237,9 @@ export function SaleFormSheet({
   const submitDisabled =
     !cart.ready ||
     saleTotal <= 0 ||
-    (editing && saleTotal + 1e-9 < collectedOnSale) ||
     (paymentMode === "partial" &&
       hasCustomer &&
-      (amountPaid == null || amountPaid < 0 || amountPaid > owing));
+      (amountPaid == null || amountPaid < 0 || amountPaid > saleTotal));
 
   return (
     <>
@@ -246,12 +273,10 @@ export function SaleFormSheet({
           </View>
         )}
 
-        {/* Items cart: product and/or service lines, one sale currency. */}
         <SaleItemsEditor
           onChange={setCart}
           onFocusClearError={clearError}
           initial={initialCart}
-          currencyLocked={collectedOnSale > 0}
         />
 
         <CurrencyInput
@@ -272,31 +297,15 @@ export function SaleFormSheet({
             : t("sales.total_hint")}
         </Text>
 
-        {/* Already collected — read-only, because a hand-over is a physical
-            event with its own date and collector. Undoing one is a void, in the
-            bill sheet that owns it. */}
-        {editing && collectedOnSale > 0 ? (
-          <View className="mb-4 px-4 py-2.5 rounded-xl bg-gray-50 flex-row items-center justify-between">
-            <Text className="text-sm text-gray-500">{t("sales.paid_label")}</Text>
-            <Text fontWeight="Medium" className="text-sm text-gray-900">
-              {formatMoney(collectedOnSale, cart.currency, cart.currency)}
-            </Text>
-          </View>
-        ) : null}
-
-        {/* Cash taken by THIS save: all of what is owed, part of it, or nothing.
-            Partial and "pay later" both leave a "Sales" debt on the customer, so
-            they're only offered when a customer is selected. On an edit the
-            money is strictly additive and the heading says so. */}
-        {hasCustomer && (!editing || owing > 0) ? (
+        {hasCustomer ? (
           <>
             {editing ? (
               <Text
                 fontWeight="SemiBold"
                 className="mb-2 text-xs uppercase tracking-wide text-gray-500"
               >
-                {t("sales.collect_now_label", {
-                  amount: formatMoney(owing, cart.currency, cart.currency),
+                {t("sales.collected_total_label", {
+                  amount: formatMoney(collectedOnSale, saleCurrency, saleCurrency),
                 })}
               </Text>
             ) : null}
@@ -306,10 +315,10 @@ export function SaleFormSheet({
               amountPaid={amountPaid}
               onAmountPaidChange={setAmountPaid}
               currencyId={cart.currencyId}
-              amountDue={owing > 0 ? owing : null}
+              amountDue={saleTotal > 0 ? saleTotal : null}
               formatAmount={(a: number) => formatMoney(a, cart.currency, cart.currency)}
               onFocusClearError={clearError}
-              partialDisabled={owing <= 0}
+              partialDisabled={saleTotal <= 0}
               allowDebt
             />
           </>

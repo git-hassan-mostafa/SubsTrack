@@ -291,14 +291,18 @@ Covers the one-off sales ledger: recording a sale (with **one or more products a
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
 | 2C.26 | Currency change re-freezes the rate | Sale in USD; switch to LBP and save | Lines re-price into LBP; `rate_per_usd_snapshot` is the **current** LBP rate, and the receipt's ≈ USD value follows it |
-| 2C.27 | Collect-now cannot exceed what is owed | Partial sale 100 of 130; pick Partial and type 40 | Save disabled with "Amount paid cannot exceed amount due" — the ceiling is the **30** still owed, not the 130 total |
+| 2C.27 | The collected figure cannot exceed the total | Partial sale 100 of 130; pick Partial and type 140 | Save disabled — the ceiling is the sale **total**, because the field states everything collected on the sale, not a top-up |
 | 2C.28 | Re-pricing above what was collected | Fully paid sale; raise a quantity | The BILL rises, so the sale now owes the difference and appears in Debts. The payment is untouched |
 | 2C.29 | Debt follows | Partial sale; raise the total | Transactions → Debts shows the larger Sales debt for that customer |
-| 2C.30 | Debt cleared by collecting the rest | Partial sale; pick **Full payment** under Collect now and save | The Sales debt disappears — and a **new** `collections` row dated today, by the editing staff member, is what cleared it (the original payment keeps its own date) |
-| 2C.30a | Part of the rest | Partial sale 100 of 130; pick Partial, type 20 | Two payments now sit on the bill (100 and 20); 10 still owed; the bill sheet lists both |
+| 2C.30 | Debt cleared by collecting the rest | Partial sale; pick **Full payment** and save | The Sales debt disappears — and a **new** `collections` row dated today, by the editing staff member, is what cleared it (the original payment keeps its own date) |
+| 2C.30a | Part of the rest | Partial sale 100 of 130; pick Partial, type 120 | Two payments now sit on the bill (100 and 20); 10 still owed; the bill sheet lists both |
 | 2C.30b | Collecting seeds the editor's wallet | Do 2C.30 as a collector | The new hand-over appears in **that collector's** wallet, not the original recorder's |
-| 2C.31 | **What was already collected is read-only** | Open the form on a partly-paid sale | The Paid figure shows and cannot be edited — undoing a hand-over is a **void**, in the bill sheet that owns it. The form can only ADD to it |
-| 2C.32 | Re-pricing below what was collected is refused | Cut the cart under the collected amount | Save is disabled, and the service refuses it (`errors.sale_total_below_collected`) |
+| 2C.31 | **The form opens on what the sale already collected** | Open the form on a partly-paid sale | Partial is preselected with the collected figure typed in. Saving without touching it writes no money at all |
+| 2C.32 | Re-pricing below what was collected | Fully paid sale of 100; type a total of 80 | Save asks to confirm, then the 100 hand-over is **voided** and an 80 one takes its place, keeping the ORIGINAL date and collector. The old row stays visible as voided |
+| 2C.32a | Lowering only the cash | Fully paid sale of 100; pick Partial and type 60 | Confirm, then the sale owes 40 and appears in Debts; one live 60 hand-over, one voided 100 |
+| 2C.32b | A shared hand-over survives | One payment settled this sale AND a month; lower the sale's cash | The month stays paid — a replacement hand-over holds its slice at the original date. Only the sale's slice changed |
+| 2C.32c | Currency may now move | Fully paid USD sale; switch to LBP and type the LBP figures | Confirm, then bill and cash are both LBP; the USD hand-over is voided |
+| 2C.32d | Dropping the cash to zero | Fully paid sale; pick **Pay later** | Confirm, then the sale is wholly unpaid and its full total shows in Debts |
 | 2C.33 | Revenue does not move on an edit | Edit a sale in the current month | Revenue is unchanged — only the bill moved. The DEBT moves |
 | 2C.33 | No custody lock (accepted) | Edit a sale whose cash was already handed to an admin | Edit is allowed; the changed amount sits with the **current** holder |
 | 2C.34 | Move to another customer | Change the customer and save | The sale (and any debt it carries) moves to the new customer |

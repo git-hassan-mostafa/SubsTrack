@@ -481,6 +481,53 @@ describe('a bill`s payments list', () => {
   });
 });
 
+describe('unpayCharge', () => {
+  const live = () => store.collections.filter((c) => c.voided_at === null);
+
+  it('TC-CL-60 voids the hand-over and reports what it took off the bill', async () => {
+    const chg = store.seedCharge({ id: 'chg-solo', amount: 40 });
+    store.seedCollection(chg.id, 40, { id: 'c-solo' });
+    const result = await collectionService.unpayCharge(chg.id, 'user-1', 'corrected');
+    expect(result.amount).toBe(40);
+    expect(result.receivedAt).toBe('2026-02-01T10:00:00.000Z');
+    expect(live()).toHaveLength(0);
+    expect(await fakeBalance(chg.id)).toMatchObject({ paid: 0 });
+  });
+
+  it('TC-CL-61 a SHARED hand-over is rebuilt, leaving the other bill paid', async () => {
+    store.seedCharge({ id: 'chg-x', amount: 10 });
+    store.seedCharge({ id: 'chg-y', amount: 10 });
+    await collectionService.collect(
+      input({
+        amount: 20,
+        lines: [
+          lineOf(openItem({ chargeId: 'chg-x', amount: 10 }), 10),
+          lineOf(openItem({ chargeId: 'chg-y', amount: 10 }), 10),
+        ],
+      }),
+    );
+    const result = await collectionService.unpayCharge('chg-x', 'user-1', 'corrected');
+    expect(result.amount).toBe(10);
+    expect(live()).toHaveLength(1);
+    expect(live()[0].amount).toBe(10);
+    expect(live()[0].received_at).toBe('2026-02-01T10:00:00.000Z');
+    expect(await fakeBalance('chg-x')).toMatchObject({ paid: 0 });
+    expect(await fakeBalance('chg-y')).toMatchObject({ paid: 10 });
+  });
+
+  it('TC-CL-62 a bill nobody has paid is a no-op', async () => {
+    const chg = store.seedCharge({ id: 'chg-free', amount: 40 });
+    const result = await collectionService.unpayCharge(chg.id, 'user-1', null);
+    expect(result).toEqual({
+      amount: 0,
+      receivedAt: null,
+      receivedByUserId: null,
+      branchId: null,
+    });
+    expect(store.collections).toHaveLength(0);
+  });
+});
+
 async function fakeBalance(chargeId: string) {
   const { fakeChargeRepository } = require('../helpers/fakeLedger');
   const [b] = await fakeChargeRepository.balances([chargeId]);

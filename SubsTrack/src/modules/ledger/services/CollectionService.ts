@@ -40,6 +40,14 @@ export interface MultiCollectResult {
   failed: Error | null;
 }
 
+/** What `unpayCharge` pulled back off one bill, and where that cash came from. */
+export interface UnpaidCash {
+  amount: number;
+  receivedAt: string | null;
+  receivedByUserId: string | null;
+  branchId: string | null;
+}
+
 /**
  * Money: taking it, correcting it, undoing it.
  *
@@ -246,6 +254,55 @@ class CollectionService {
     return rows.map(mapDbCollectionToCollection);
   }
 
+  /** Un-pays ONE bill, leaving every other bill it shared cash with — #111. */
+  async unpayCharge(
+    chargeId: string,
+    voidedBy: string,
+    reason: string | null,
+  ): Promise<UnpaidCash> {
+    const payments = (await this.getPaymentsForCharge(chargeId)).filter(
+      (payment) => payment.voidedAt === null,
+    );
+    if (payments.length === 0) return EMPTY_UNPAID;
+    await repository.voidMany(
+      payments.map((payment) => payment.id),
+      voidedBy,
+      reason,
+    );
+    let amount = 0;
+    for (const payment of payments) {
+      const slices = payment.items ?? [];
+      amount += sumItems(slices.filter((item) => item.chargeId === chargeId));
+      const kept = slices.filter((item) => item.chargeId !== chargeId);
+      if (kept.length === 0) continue;
+      await repository.create({
+        tenant_id: payment.tenantId,
+        branch_id: payment.branchId,
+        customer_id: payment.customerId,
+        amount: sumItems(kept),
+        currency_id: payment.currencyId,
+        rate_per_usd_snapshot: payment.ratePerUsdSnapshot,
+        received_at: payment.receivedAt,
+        received_by_user_id: payment.receivedByUserId,
+        notes: payment.notes,
+        kind: collectionKind(kept.map((item) => item.charge?.kind)),
+        items: kept.map((item) => ({
+          tenant_id: payment.tenantId,
+          charge_id: item.chargeId,
+          amount: item.amount,
+        })),
+        charges: [],
+      });
+    }
+    const oldest = payments.reduce((a, b) => (a.receivedAt <= b.receivedAt ? a : b));
+    return {
+      amount,
+      receivedAt: oldest.receivedAt,
+      receivedByUserId: oldest.receivedByUserId,
+      branchId: oldest.branchId,
+    };
+  }
+
 
   collectedInRange(
     startIso: string,
@@ -279,6 +336,17 @@ class CollectionService {
 function ceilingOf(line: AllocationLine): number {
   return line.item.openAmount && line.item.balance <= 0 ? line.amount : line.item.balance;
 }
+
+function sumItems(items: { amount: number }[]): number {
+  return items.reduce((sum, item) => sum + item.amount, 0);
+}
+
+const EMPTY_UNPAID: UnpaidCash = {
+  amount: 0,
+  receivedAt: null,
+  receivedByUserId: null,
+  branchId: null,
+};
 
 const EPSILON = 1e-6;
 
