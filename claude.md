@@ -137,7 +137,9 @@ implementation detail unless explicitly requested.
   `AppTextInput`, never `TextInput` from `react-native`: a plain RN input grabs
   the Android touch lock, so the page will not scroll under a finger resting on
   a field. Layout (`flex-1`, `w-10`) goes on its `containerClassName`, the
-  border / padding / text on `className` (gotcha #78).
+  border / padding / text on `className`. Its unfocused tap shield must stay a
+  gesture-handler `Gesture.Tap()` — an RN `Pressable` loses to the field's own
+  GH handler inside a sheet (gotchas #78, #140).
 - **Error handling**: async store actions wrap try/catch → `error: string | null`.
   Screens show `<ErrorBanner>` inline, **never** toast/alert. `clearError()` on
   user input or form unmount. Repositories convert raw Supabase errors to friendly
@@ -163,7 +165,8 @@ Two Expo apps: `SubsTrack/` (tenant-facing; admin + user roles) and `SuperAdmin/
 **Stack**: RN 0.81.5 + Expo SDK 54 · Expo Router 6 (file-based, typed routes) ·
 Zustand 5.0.12 + immer · NativeWind 4.2.3 · Supabase (PostgreSQL + RLS + Auth) ·
 TypeScript strict · i18next (en/ar, RTL) · @gorhom/bottom-sheet · import alias
-`@/*` → repo root. Every dependency sits on the version Expo SDK 54 pins.
+`@/*` → repo root. `react-native-gesture-handler` is intentionally **3.x**,
+ahead of the SDK 54 pin, and guarded by `expo.install.exclude` (gotcha #140).
 
 Quick commands (full detail in `docs/build-and-release.md`): `npm install` then
 `npx expo run:android` — **a dev client is required, Expo Go redboxes** (native
