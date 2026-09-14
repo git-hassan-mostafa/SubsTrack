@@ -4010,7 +4010,7 @@ see Multiple Plans per Customer → Per-line special price). "Fixed" below means
 | --- | --- | --- |
 | A — Fixed | `resolveLinePrice(line).isFixed`, `durationMonths = 1` | The cell's item carries the remembered amount. **Quick pay** collects it in one tap; the sheet is only needed for less than the full amount. |
 | B — Part of it | Same as A | The sheet's amount is editable — type 12 of the 20 and the preview says *"leaves 8 owing"*. |
-| C — Custom | `!isFixed` — a custom-price plan or no plan, and no special price | There is nothing to collect automatically: the cell has no price, so the menu offers no quick pay and the sheet explains why. Give the line a special price, or bill it as a hand-typed fee. |
+| C — Custom | `!isFixed` — a custom-price plan or no plan, and no special price | There is nothing to collect automatically, so **quick pay opens the sheet** instead of charging (the row is captioned *"No set price — type the amount"*, and **Collect part** is dropped — the typed amount IS the bill). **Pay & send on WhatsApp** takes the same door and sends once the sheet saves. |
 | D — Multi-month | `durationMonths > 1` | The cells of one block collapse to **ONE** item billed from the block's first month — otherwise a 3-month plan would be billed three times for the same period. Quick pay confirms the range first. |
 
 **Full vs partial is just the amount typed.** There is no mode switch on a month

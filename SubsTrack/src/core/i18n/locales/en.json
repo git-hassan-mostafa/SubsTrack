@@ -402,6 +402,7 @@
       "pay_now": "Pay",
       "menu_label": "Quick pay",
       "pay_unpaid_plans": "Quick pay unpaid plans",
+      "type_amount": "No set price — type the amount",
       "confirm_multi_month_title": "Record bundle payment?",
       "confirm_multi_month_message": "This will record a payment of {{amount}} covering {{months}}.",
       "confirm": "Record"

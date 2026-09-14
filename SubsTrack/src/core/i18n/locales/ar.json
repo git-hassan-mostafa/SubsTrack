@@ -402,6 +402,7 @@
       "pay_now": "ادفع",
       "menu_label": "دفع سريع",
       "pay_unpaid_plans": "دفع الخطط غير المدفوعة",
+      "type_amount": "لا يوجد سعر محدد — أدخل المبلغ",
       "confirm_multi_month_title": "تسجيل دفعة الباقة؟",
       "confirm_multi_month_message": "سيتم تسجيل دفعة بقيمة {{amount}} تشمل {{months}}.",
       "confirm": "تسجيل"

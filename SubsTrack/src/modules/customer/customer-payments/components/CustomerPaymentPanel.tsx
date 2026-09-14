@@ -642,18 +642,16 @@ export function CustomerPaymentPanel({
     }
   }
 
-  // Quick Pay: the full price of the month, in one tap. Available on unpaid +
-  // future-status (prepay) months of a fixed-price line — a custom-price line
-  // falls back to the sheet, which is where an amount can be typed.
+  // A custom-price line qualifies too — it opens the sheet instead of charging.
   function canQuickPay(entry: MonthEntry): boolean {
     return (
       !isPayBlocked(entry) &&
       payOrderBlocker([entry]) === null &&
-      isPayableStatus(entry) &&
-      linePrice.isFixed
+      isPayableStatus(entry)
     );
   }
 
+  // Charges a remembered price outright; a custom one hands off to the sheet.
   async function handleQuickPay(entry: MonthEntry, send = false) {
     const orderBlocker = payOrderBlocker([entry]);
     if (orderBlocker) {
@@ -738,6 +736,9 @@ export function CustomerPaymentPanel({
         key: "quick-pay",
         label: t("payments.quick_pay.pay_now"),
         icon: "flash-outline",
+        caption: linePrice.isFixed
+          ? undefined
+          : t("payments.quick_pay.type_amount"),
         onPress: () => void handleQuickPay(entry),
       });
       const sendable = canSend(customer.phoneNumber);
@@ -752,12 +753,14 @@ export function CustomerPaymentPanel({
         caption: sendable ? undefined : t("invoice.no_phone"),
         onPress: () => void handleQuickPay(entry, true),
       });
-      items.push({
-        key: "collect-part",
-        label: t("ledger.collect_part"),
-        icon: "cash-outline",
-        onPress: () => openCollect([entry]),
-      });
+      if (linePrice.isFixed) {
+        items.push({
+          key: "collect-part",
+          label: t("ledger.collect_part"),
+          icon: "cash-outline",
+          onPress: () => openCollect([entry]),
+        });
+      }
     }
     if (entry.status === "unpaid" || entry.status === "future") {
       items.push({
