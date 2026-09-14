@@ -20,6 +20,7 @@ import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { useUserNames } from "@/src/shared/hooks/useUserNames";
 import { useAuth } from "@/src/modules/authentication/auth";
+import { SendOnWhatsAppButton, useSendInvoice } from "@/src/modules/invoicing";
 import { COLORS } from "@/src/shared/constants";
 import { BillPaymentsList } from "./BillPaymentsList";
 import { BillHistorySheet } from "./BillHistorySheet";
@@ -52,17 +53,21 @@ export function BillSheet({
   const userName = useUserNames();
   const displayCurrencyId = useDisplayCurrencyId();
   const { isAdmin } = useAuth();
+  const { sendBillInvoice } = useSendInvoice();
   const [historyOpen, setHistoryOpen] = useState(false);
 
   const [collected, setCollected] = useState(0);
+  const [payments, setPayments] = useState<Collection[]>([]);
   const [paymentsLoading, setPaymentsLoading] = useState(true);
 
   const handleCollected = useCallback((v: number) => setCollected(v), []);
+  const handlePayments = useCallback((v: Collection[]) => setPayments(v), []);
   const handleLoading = useCallback((v: boolean) => setPaymentsLoading(v), []);
 
   const chargeId = charge?.id ?? null;
   useEffect(() => {
     setCollected(0);
+    setPayments([]);
     setPaymentsLoading(true);
   }, [chargeId]);
 
@@ -218,6 +223,7 @@ export function BillSheet({
             recipient={recipient}
             onChanged={onChanged}
             onCollectedChange={handleCollected}
+            onPaymentsChange={handlePayments}
             onLoadingChange={handleLoading}
           />
 
@@ -227,6 +233,21 @@ export function BillSheet({
               onPress={() => onCollect(charge)}
             />
           )}
+
+          {!voided && recipient ? (
+            <SendOnWhatsAppButton
+              phone={recipient.phone}
+              label={t("invoice.send_bill_whatsapp")}
+              onPress={() =>
+                void sendBillInvoice({
+                  phone: recipient.phone,
+                  customerName: recipient.name,
+                  charge,
+                  payments,
+                })
+              }
+            />
+          ) : null}
         </View>
 
         {historyOpen ? (

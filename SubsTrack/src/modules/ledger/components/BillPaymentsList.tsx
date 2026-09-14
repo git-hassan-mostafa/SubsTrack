@@ -17,6 +17,7 @@ import { formatMoney, snapshotCurrency } from "@/src/core/utils/currency";
 import { useUserNames } from "@/src/shared/hooks/useUserNames";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { useSendInvoice } from "@/src/modules/invoicing";
+import { paidToCharge } from "../utils/paidToCharge";
 import { collectionService } from "../services/CollectionService";
 import { VoidCollectionDialog } from "./VoidCollectionDialog";
 
@@ -28,6 +29,7 @@ interface Props {
   recipient?: { name: string; phone: string | null } | null;
   onChanged?: (voided: Collection) => void;
   onCollectedChange?: (collected: number) => void;
+  onPaymentsChange?: (payments: Collection[]) => void;
   onLoadingChange?: (loading: boolean) => void;
 }
 
@@ -51,6 +53,7 @@ export function BillPaymentsList({
   recipient,
   onChanged,
   onCollectedChange,
+  onPaymentsChange,
   onLoadingChange,
 }: Props) {
   const { t } = useTranslation();
@@ -91,7 +94,7 @@ export function BillPaymentsList({
 
   const rows = payments ?? [];
   const live = rows.filter((p) => p.voidedAt === null);
-  const collected = live.reduce((sum, p) => sum + itemAmount(p, chargeId), 0);
+  const collected = live.reduce((sum, p) => sum + paidToCharge(p, chargeId), 0);
 
   useEffect(() => {
     onCollectedChange?.(collected);
@@ -100,6 +103,10 @@ export function BillPaymentsList({
   useEffect(() => {
     onLoadingChange?.(loading);
   }, [loading, onLoadingChange]);
+
+  useEffect(() => {
+    if (payments) onPaymentsChange?.(payments);
+  }, [payments, onPaymentsChange]);
 
   const sendable = !!recipient && canSend(recipient.phone);
 
@@ -167,7 +174,7 @@ export function BillPaymentsList({
         </Text>
       ) : (
         rows.map((p) => {
-          const paidHere = itemAmount(p, chargeId);
+          const paidHere = paidToCharge(p, chargeId);
           const coversMore = (p.items?.length ?? 0) > 1;
           const voided = billVoided || p.voidedAt !== null;
           return (
@@ -243,11 +250,4 @@ export function BillPaymentsList({
       )}
     </View>
   );
-}
-
-/** What one hand-over put against THIS bill — it may have covered others too. */
-function itemAmount(collection: Collection, chargeId: string | null): number {
-  return (collection.items ?? [])
-    .filter((i) => i.chargeId === chargeId)
-    .reduce((sum, i) => sum + i.amount, 0);
 }

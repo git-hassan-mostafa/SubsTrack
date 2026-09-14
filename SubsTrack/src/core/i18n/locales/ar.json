@@ -931,7 +931,10 @@
     "total_paid": "إجمالي المدفوع",
     "thank_you": "شكراً لك!",
     "whatsapp_failed": "تعذّر فتح واتساب",
-    "whatsapp_failed_message": "لم نتمكن من فتح واتساب على هذا الجهاز. تم حفظ السجل على أي حال."
+    "whatsapp_failed_message": "لم نتمكن من فتح واتساب على هذا الجهاز. تم حفظ السجل على أي حال.",
+    "bill_receipt_title": "إيصال الفاتورة",
+    "send_bill_whatsapp": "إرسال الفاتورة على واتساب",
+    "payments_heading": "الدفعات المستلمة"
   },
   "transactions": {
     "title": "المعاملات",

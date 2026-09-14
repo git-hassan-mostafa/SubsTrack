@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from "react";
 import { useTranslation } from "react-i18next";
-import type { Collection, Sale } from "@/src/core/types";
+import type { Charge, Collection, Sale } from "@/src/core/types";
 import { useLanguageStore } from "@/src/core/i18n/languageStore";
 import { confirm } from "@/src/shared/lib/confirm";
 import { openWhatsApp } from "@/src/shared/lib/whatsapp";
@@ -8,6 +8,7 @@ import { useAuthSlice } from "@/src/state/hooks/useAuthSlice";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import {
+  buildBillInvoiceText,
   buildCollectionInvoiceText,
   buildSalesInvoiceText,
   type InvoiceContext,
@@ -92,6 +93,20 @@ export function useSendInvoice() {
     [ctx, send],
   );
 
+  const sendBillInvoice = useCallback(
+    (a: {
+      phone: string | null | undefined;
+      customerName: string;
+      charge: Charge;
+      payments: Collection[];
+    }) =>
+      send(
+        a.phone,
+        buildBillInvoiceText(ctx, a.customerName, a.charge, a.payments),
+      ),
+    [ctx, send],
+  );
+
   const sendSalesInvoice = useCallback(
     (a: {
       phone: string | null | undefined;
@@ -113,6 +128,7 @@ export function useSendInvoice() {
   return {
     canSend,
     resolveRecipient,
+    sendBillInvoice,
     sendCollectionInvoice,
     sendSaleInvoice,
     sendSalesInvoice,

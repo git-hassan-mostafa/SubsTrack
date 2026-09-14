@@ -7,6 +7,7 @@ import {
   snapshotCurrency,
 } from "@/src/core/utils/currency";
 import { getBlockRangeLabel } from "@/src/modules/customer/customer-payments/utils/blockRangeLabel";
+import { paidToCharge } from "@/src/modules/ledger/utils/paidToCharge";
 
 type TFn = (key: string, opts?: Record<string, unknown>) => string;
 
@@ -230,4 +231,55 @@ export function buildSalesInvoiceText(
     bullets.join("\n"),
     totals.join("\n"),
   ]);
+}
+
+// The receipt for ONE bill: what it owes, what reached it and what is left —
+// the hand-over receipt reversed, so a customer paying in instalments gets the
+// whole story rather than the one slice they just handed over.
+export function buildBillInvoiceText(
+  ctx: InvoiceContext,
+  customerName: string,
+  charge: Charge,
+  payments: Collection[],
+): string {
+  const source = snapshotCurrency(charge, ctx.currencies);
+  const live = payments.filter((p) => p.voidedAt === null);
+  const collected = live.reduce((sum, p) => sum + paidToCharge(p, charge.id), 0);
+  const remaining = charge.amount - collected;
+
+  const header = [
+    row(ctx.t("sales.customer_label"), customerName),
+    row(ctx.t("payments.month_label"), chargeLine(ctx, charge)),
+    row(
+      ctx.t("ledger.bill_total"),
+      money(charge.amount, source) +
+        equivalent(ctx, charge.amount, source),
+    ),
+    row(ctx.t("invoice.total_paid"), money(collected, source)),
+  ];
+  if (remaining > 0) {
+    header.push(row(ctx.t("ledger.remaining"), money(remaining, source)));
+  }
+
+  const blocks = [header.join("\n")];
+  if (live.length > 0) {
+    blocks.push(
+      [
+        ctx.t("invoice.payments_heading"),
+        ...sortedPayments(live).map(
+          (p) =>
+            `${BULLET} ${formatDate(p.receivedAt)}: ${money(paidToCharge(p, charge.id), source)}`,
+        ),
+      ].join("\n"),
+    );
+  }
+  blocks.push(row(ctx.t("payments.receipt_id"), receiptId(charge.id)));
+
+  return assemble(ctx, ctx.t("invoice.bill_receipt_title"), blocks);
+}
+
+
+// Oldest hand-over first, so the list reads as the account's history.
+function sortedPayments(payments: Collection[]): Collection[] {
+  return [...payments].sort((a, b) => a.receivedAt.localeCompare(b.receivedAt));
 }
