@@ -197,6 +197,14 @@ export function BillPaymentsList({
                   {coversMore ? ` · ${t("ledger.covers_others")}` : ""}
                   {voided ? ` · ${t("ledger.voided")}` : ""}
                 </Text>
+                {p.notes ? (
+                  <Text
+                    numberOfLines={2}
+                    className="mt-1 text-xs text-gray-500"
+                  >
+                    {p.notes}
+                  </Text>
+                ) : null}
               </View>
               {!voided && (
                 <PressableOpacity onPress={() => setMenuFor(p)} className="p-1">
