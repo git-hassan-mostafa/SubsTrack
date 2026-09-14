@@ -236,6 +236,17 @@ class ChargeService {
     return mapDbChargeToCharge(row);
   }
 
+  // Skips what is already dead rather than refusing — see gotcha #143.
+  async writeOffMany(
+    ids: string[],
+    writtenOffBy: string,
+    reason: string | null,
+  ): Promise<Charge[]> {
+    if (ids.length === 0) return [];
+    const rows = await repository.writeOffMany([...new Set(ids)], writtenOffBy, reason);
+    return rows.map(mapDbChargeToCharge);
+  }
+
   async writtenOffUsdInRange(
     startIso: string,
     endExclusiveIso: string,

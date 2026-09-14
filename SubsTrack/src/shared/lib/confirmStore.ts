@@ -11,6 +11,7 @@ export interface ConfirmOptions {
   destructive?: boolean;
   hideCancel?: boolean;
   content?: () => ReactNode;
+  onConfirm?: () => Promise<void>;
 }
 
 export interface ConfirmState {
@@ -19,10 +20,12 @@ export interface ConfirmState {
   show: (options: ConfirmOptions) => Promise<boolean>;
   settle: (result: boolean) => void;
   getContent: () => (() => ReactNode) | null;
+  getOnConfirm: () => (() => Promise<void>) | null;
 }
 
 let pendingResolve: ((v: boolean) => void) | null = null;
 let pendingContent: (() => ReactNode) | null = null;
+let pendingOnConfirm: (() => Promise<void>) | null = null;
 
 export const useConfirmStore = create<ConfirmState>()(
   immer((set) => ({
@@ -34,9 +37,10 @@ export const useConfirmStore = create<ConfirmState>()(
         pendingResolve?.(false);
         pendingResolve = resolve;
         pendingContent = options.content ?? null;
+        pendingOnConfirm = options.onConfirm ?? null;
         set((s) => {
           s.visible = true;
-          s.options = { ...options, content: undefined };
+          s.options = { ...options, content: undefined, onConfirm: undefined };
         });
       }),
 
@@ -48,8 +52,11 @@ export const useConfirmStore = create<ConfirmState>()(
       pendingResolve?.(result);
       pendingResolve = null;
       pendingContent = null;
+      pendingOnConfirm = null;
     },
 
     getContent: () => pendingContent,
+
+    getOnConfirm: () => pendingOnConfirm,
   })),
 );

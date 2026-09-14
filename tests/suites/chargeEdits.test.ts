@@ -182,6 +182,58 @@ describe('writeOff (real, but lost)', () => {
   });
 });
 
+describe('writeOffMany (give up on everything one customer owes)', () => {
+  it('TC-CH-35 writes off every bill handed to it', async () => {
+    const a = store.seedCharge({ amount: 20, billing_month: '2026-01-01' });
+    const b = store.seedCharge({ kind: 'sale', amount: 30, billing_month: null });
+    const written = await chargeService.writeOffMany([a.id, b.id], 'user-1', 'gone');
+    expect(written).toHaveLength(2);
+    expect(store.charge(a.id)!.written_off_at).not.toBeNull();
+    expect(store.charge(b.id)!.written_off_at).not.toBeNull();
+    expect(store.charge(b.id)!.write_off_reason).toBe('gone');
+  });
+
+  it('TC-CH-36 money already collected stays collected', async () => {
+    const chg = store.seedCharge({ amount: 20 });
+    store.seedCollection(chg.id, 5);
+    await chargeService.writeOffMany([chg.id], 'user-1', null);
+    expect((await balanceOf(chg.id)).paid).toBe(5);
+  });
+
+  it('TC-CH-37 only the uncollected remainder counts as a loss', async () => {
+    const a = store.seedCharge({ amount: 20 });
+    const b = store.seedCharge({ amount: 30 });
+    store.seedCollection(a.id, 5);
+    await chargeService.writeOffMany([a.id, b.id], 'user-1', null);
+    const lost = await chargeService.writtenOffUsdInRange(
+      '1970-01-01T00:00:00.000Z', '2999-01-01T00:00:00.000Z', null,
+    );
+    expect(lost).toBe(45);
+  });
+
+  it('TC-CH-38 skips an already-dead bill instead of refusing the whole batch', async () => {
+    const voided = store.seedCharge({ amount: 20, voided_at: '2026-02-01T00:00:00.000Z' });
+    const lost = store.seedCharge({ amount: 30, written_off_at: '2026-02-01T00:00:00.000Z' });
+    const live = store.seedCharge({ amount: 40 });
+    const written = await chargeService.writeOffMany(
+      [voided.id, lost.id, live.id], 'user-1', null,
+    );
+    expect(written.map((c) => c.id)).toEqual([live.id]);
+    expect(store.charge(voided.id)!.written_off_at).toBeNull();
+    expect(store.charge(lost.id)!.written_off_at).toBe('2026-02-01T00:00:00.000Z');
+  });
+
+  it('TC-CH-39 a repeated id is written off once', async () => {
+    const chg = store.seedCharge({ amount: 20 });
+    const written = await chargeService.writeOffMany([chg.id, chg.id], 'user-1', null);
+    expect(written).toHaveLength(1);
+  });
+
+  it('TC-CH-39b an empty list writes nothing', async () => {
+    await expect(chargeService.writeOffMany([], 'user-1', null)).resolves.toEqual([]);
+  });
+});
+
 describe('updateManualCharge', () => {
   it('TC-CH-40 refuses a non-positive amount', async () => {
     const chg = store.seedCharge({ kind: 'manual', amount: 20 });

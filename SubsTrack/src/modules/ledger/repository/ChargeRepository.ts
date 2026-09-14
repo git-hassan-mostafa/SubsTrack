@@ -185,6 +185,45 @@ export class ChargeRepository extends BaseRepository implements IChargeRepositor
     );
   }
 
+  async writeOffMany(
+    ids: string[],
+    writtenOffBy: string,
+    reason: string | null,
+  ): Promise<DbCharge[]> {
+    if (ids.length === 0) return [];
+    const { data: priors } = await this.db
+      .from('charges')
+      .select('*')
+      .in('id', ids);
+    const priorById = new Map(((priors ?? []) as DbCharge[]).map((c) => [c.id, c]));
+    const { data, error } = await this.db
+      .from('charges')
+      .update({
+        written_off_at: new Date().toISOString(),
+        written_off_by: writtenOffBy,
+        write_off_reason: reason,
+      })
+      .in('id', ids)
+      .is('voided_at', null)
+      .is('written_off_at', null)
+      .select(CHARGE_SELECT_LEAN);
+    if (error) this.handleError(error);
+    const written = (data ?? []) as DbCharge[];
+    for (const after of written) {
+      this.audit({
+        table: 'charges',
+        recordId: after.id,
+        action: 'update',
+        before: priorById.get(after.id) ?? null,
+        after,
+        customerId: after.customer_id ?? undefined,
+        branchId: after.branch_id,
+        subject: after.customers?.name ?? null,
+      });
+    }
+    return written;
+  }
+
   private async patch(
     id: string,
     values: object,

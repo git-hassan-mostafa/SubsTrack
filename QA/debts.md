@@ -97,6 +97,17 @@ Covers the **Debts** screen (Transactions → Debts — a single debtors list, n
 | 3.6 | A bill with money cannot be removed | Try to remove a fee that has been partly collected | Refused, telling you to void the payment first or write it off |
 | 3.7 | Void and write-off are exclusive | Try both on one bill | The second is refused (DB constraint) |
 | 3.8 | **There is no "Complete"** | Check every menu | The action is gone — collecting the rest is the real action, and it is one tap away |
+| 3.9 | **Write off all** is offered per customer | A debtor card's 3-dot, and the debtor sheet's header 3-dot | "Write off all" with the caption "Give up on everything this customer owes" |
+| 3.10 | Write off all | Confirm the dialog | It names the customer, the number of bills and the total; every bill of that customer leaves the list and the debtor disappears |
+| 3.11 | Collected money survives | A customer with a 50 bill that had 20 collected, plus a clean 30 bill | Both are written off; Reports → Written off shows 60 (30 + 30), and the 20 stays collected in the wallet and in revenue |
+| 3.12 | An already-dead bill does not block the rest | Write off one bill, then "Write off all" on the same customer | The rest are written off; the already-written-off bill is left as it was, and nothing is refused |
+| 3.13 | Hidden when nothing is owed | A customer whose debts are all settled | The action does not appear (the sheet's 3-dot is absent) |
+| 3.14 | **The confirm button spins** | Tap Write off / Write off all and watch the button | The button shows a spinner, both buttons go un-tappable, and the dialog closes only once the write has finished — not instantly |
+| 3.15 | Slow or offline write | Turn airplane mode on (native) and write off | The dialog stays open and spinning until the local write settles; it cannot be double-tapped while it runs |
+| 3.16 | **Also on the customer list** | Customers → a customer who owes → the card's 3-dot | "Write off all" sits under "Collect money", and only for a customer who owes something |
+| 3.17 | The card spins while bills load | Tap it and watch the card | The card shows its menu spinner until the confirm appears (the bills are read first) |
+| 3.18 | Only real bills can be written off | A customer whose ONLY debt is fully-unpaid months (never collected) | A notice says there is nothing to write off — unpaid months are not billed yet — and no confirm appears |
+| 3.19 | The card refreshes after | Write off all from the list | The debt figure and the status pill on that card update; cancelling the confirm changes nothing |
 
 ---
 
@@ -108,6 +119,7 @@ Covers the **Debts** screen (Transactions → Debts — a single debtors list, n
 | 4.2 | Not branch-scoped | As a branch admin, open a customer of another branch (if reachable) | All of that customer's bills show, regardless of the header chip — same rule as the sales panel |
 | 4.3 | **Unpaid months are NOT listed here** | A customer with unpaid months | Only debts appear — the month grid is right above, so listing them twice is noise |
 | 4.4 | Same actions | A row's 3-dot | Collect / Write off / (Remove on a fee) — the same set as the Debts screen |
+| 4.4b | **Write off all** here too | Header 3-dot, beside the **+** | Writes off every bill this panel lists; it appears only while the panel has rows |
 | 4.5 | Refresh on focus | Raise a bill elsewhere, come back | The panel re-reads and shows it |
 | 4.6 | Add a fee | Header **+** | Pre-scoped to this customer; the panel refreshes on save |
 

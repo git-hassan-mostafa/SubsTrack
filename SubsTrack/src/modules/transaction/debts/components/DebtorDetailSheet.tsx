@@ -9,6 +9,7 @@ import { SheetDragArea } from "@/src/shared/components/SheetDragArea";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { Text } from "@/src/shared/components/Text";
 import { Button } from "@/src/shared/components/Button";
+import { ActionMenu } from "@/src/shared/components/ActionMenu";
 import { COLORS } from "@/src/shared/constants";
 import type { CustomerDebts, OpenItem } from "@/src/core/types";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
@@ -25,6 +26,7 @@ interface Props {
   onCollectItem: (item: OpenItem) => void;
   onVoidItem?: (item: OpenItem) => void;
   onWriteOff?: (item: OpenItem) => void;
+  onWriteOffAll?: (debtor: CustomerDebts) => void;
   onOpenItem?: (item: OpenItem) => void;
   openingItemKey?: string | null;
 }
@@ -44,6 +46,7 @@ export function DebtorDetailSheet({
   onCollectItem,
   onVoidItem,
   onWriteOff,
+  onWriteOffAll,
   onOpenItem,
   openingItemKey,
 }: Props) {
@@ -53,6 +56,7 @@ export function DebtorDetailSheet({
   const target = findCurrency(currencies, displayCurrencyId);
 
   const [customDebtOpen, setCustomDebtOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const bodyReady = useAfterFirstFrame();
 
   const owed = [...debtor.items, ...debtor.unpaidMonths];
@@ -88,6 +92,19 @@ export function DebtorDetailSheet({
               >
                 <Ionicons name="add" size={18} color={COLORS.primary} />
               </PressableOpacity>
+              {onWriteOffAll && owed.length > 0 ? (
+                <PressableOpacity
+                  onPress={() => setMenuOpen(true)}
+                  accessibilityLabel={t("common.more_actions")}
+                  className="w-8 h-8 rounded-full items-center justify-center"
+                >
+                  <Ionicons
+                    name="ellipsis-vertical"
+                    size={18}
+                    color={COLORS.gray500}
+                  />
+                </PressableOpacity>
+              ) : null}
               <PressableOpacity onPress={onDismiss}>
                 <Text fontWeight="Medium" className="text-base text-primary">
                   {t("common.close")}
@@ -130,6 +147,22 @@ export function DebtorDetailSheet({
           </BottomSheetScrollView>
         </ResponsiveContainer>
       </AppBottomSheet>
+
+      <ActionMenu
+        visible={menuOpen}
+        title={debtor.customerName}
+        onDismiss={() => setMenuOpen(false)}
+        actions={[
+          {
+            key: "write-off-all",
+            label: t("ledger.write_off_all"),
+            caption: t("ledger.write_off_all_caption"),
+            icon: "remove-circle-outline",
+            destructive: true,
+            onPress: () => onWriteOffAll?.(debtor),
+          },
+        ]}
+      />
 
       {customDebtOpen && (
         <CustomDebtFormSheet

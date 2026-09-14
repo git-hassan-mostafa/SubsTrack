@@ -62,6 +62,11 @@ export interface IChargeRepository {
 
   void(id: string, voidedBy: string, reason: string | null): Promise<DbCharge>;
   writeOff(id: string, writtenOffBy: string, reason: string | null): Promise<DbCharge>;
+  writeOffMany(
+    ids: string[],
+    writtenOffBy: string,
+    reason: string | null,
+  ): Promise<DbCharge[]>;
 
   writtenOffInRange(
     startIso: string,

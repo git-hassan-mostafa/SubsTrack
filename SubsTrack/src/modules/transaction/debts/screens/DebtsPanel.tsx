@@ -57,7 +57,7 @@ export function DebtsPanel({ onOpenSale }: Props = {}) {
   );
 
   const collectSheet = useCollectSheet();
-  const { voidItem, writeOffItem } = useDebtRowActions();
+  const { voidItem, writeOffItem, writeOffDebtor } = useDebtRowActions();
   const openBill = useOpenBill({ onOpenSale });
   useOwedChanged(refresh);
 
@@ -186,6 +186,19 @@ export function DebtsPanel({ onOpenSale }: Props = {}) {
               ]);
             },
           },
+          {
+            key: "write-off-all",
+            label: t("ledger.write_off_all"),
+            caption: t("ledger.write_off_all_caption"),
+            icon: "remove-circle-outline",
+            destructive: true,
+            onPress: () => {
+              if (!menuDebtor) return;
+              const debtor = menuDebtor;
+              setMenuDebtor(null);
+              void writeOffDebtor(debtor);
+            },
+          },
         ]}
       />
 
@@ -205,6 +218,7 @@ export function DebtsPanel({ onOpenSale }: Props = {}) {
           }
           onVoidItem={voidItem}
           onWriteOff={writeOffItem}
+          onWriteOffAll={writeOffDebtor}
           onOpenItem={openBill.openOwed}
           openingItemKey={openBill.loadingId}
         />

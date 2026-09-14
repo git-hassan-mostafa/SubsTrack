@@ -42,7 +42,7 @@ The automated safety net under every rule that touches money. It runs on a lapto
 | `payOrder.test.ts` | TC-PO-* | Pay oldest-first / void newest-first, months inside one write never blocking each other, a previous year's backlog still blocking, prepaying out of order refused |
 | `customerStatus.test.ts` | TC-CS-* | The five badge rules — chiefly that "✓ Paid" and "Overdue" can never appear together, and that an absent status renders **no** pill |
 | `collect.test.ts` | TC-CL-* | Every refusal on the one write that takes money; a virtual month materialising its bill; two devices converging on one bill; revive + re-price before cash lands; the open-amount month |
-| `chargeEdits.test.ts` | TC-CH-* | Raising / voiding / writing off a bill, and the two edit locks (below-collected, voided-or-written-off) |
+| `chargeEdits.test.ts` | TC-CH-* | Raising / voiding / writing off a bill, writing off a whole debtor in one call (TC-CH-35…39b, gotcha #143), and the two edit locks (below-collected, voided-or-written-off) |
 | `owed.test.ts` | TC-OW-* | "What does this customer owe?" — the stored-vs-virtual dedupe, and the Debts view's parts adding to its total exactly |
 | `sale.test.ts` | TC-SL-* | Sale validation, stock, the bill it raises, cash at the till, the **typed total** and itemless sales (TC-SL-50…58, gotcha #142), editing (including the currency lock and re-pricing to a typed total), voiding with its cash |
 | `invariants.test.ts` | TC-IV-* | End-to-end money conservation — see section 3 |

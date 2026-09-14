@@ -232,6 +232,20 @@ export const fakeChargeRepository = {
     });
     return hydrateCharge(row);
   },
+  async writeOffMany(ids: string[], by: string, reason: string | null): Promise<DbCharge[]> {
+    const live = charges.filter(
+      (c) => ids.includes(c.id) && c.voided_at === null && c.written_off_at === null,
+    );
+    for (const row of live) {
+      Object.assign(row, {
+        written_off_at: new Date().toISOString(),
+        written_off_by: by,
+        write_off_reason: reason,
+        updated_at: new Date().toISOString(),
+      });
+    }
+    return live.map((r) => hydrateCharge(r));
+  },
   async writtenOffInRange(startIso: string, endExclusiveIso: string): Promise<DbCharge[]> {
     return charges
       .filter((c) => c.written_off_at !== null)

@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { useTranslation } from "react-i18next";
-import type { OpenItem } from "@/src/core/types";
+import type { CustomerDebts, OpenItem } from "@/src/core/types";
 import { confirm } from "@/src/shared/lib/confirm";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
@@ -17,6 +17,7 @@ export function useDebtRowActions() {
   const displayCurrencyId = useDisplayCurrencyId();
   const voidCharge = useLedgerSlice((s) => s.voidCharge);
   const writeOffCharge = useLedgerSlice((s) => s.writeOffCharge);
+  const writeOffCharges = useLedgerSlice((s) => s.writeOffCharges);
 
   const target = findCurrency(currencies, displayCurrencyId);
 
@@ -24,7 +25,8 @@ export function useDebtRowActions() {
     async (item: OpenItem) => {
       if (!user || !item.chargeId) return;
       const source = findCurrency(currencies, item.currencyId);
-      const ok = await confirm({
+      const chargeId = item.chargeId;
+      await confirm({
         title: t("ledger.write_off_title"),
         message: t("ledger.write_off_message", {
           amount: formatMoney(item.balance, source, target),
@@ -32,11 +34,50 @@ export function useDebtRowActions() {
         }),
         confirmLabel: t("ledger.write_off"),
         destructive: true,
+        onConfirm: async () => {
+          await writeOffCharge(chargeId, user.id, null);
+        },
       });
-      if (!ok) return;
-      await writeOffCharge(item.chargeId, user.id, null);
     },
     [user, currencies, target, t, writeOffCharge],
+  );
+
+  const writeOffAll = useCallback(
+    async (customerName: string, items: OpenItem[]): Promise<boolean> => {
+      if (!user) return false;
+      const billed = items.filter((i) => !!i.chargeId);
+      const ids = [...new Set(billed.map((i) => i.chargeId as string))];
+      if (ids.length === 0) return false;
+      const totalUsd = billed.reduce(
+        (sum, i) => sum + i.balance / i.ratePerUsdSnapshot,
+        0,
+      );
+      let wrote = false;
+      await confirm({
+        title: t("ledger.write_off_all_title"),
+        message: t("ledger.write_off_all_message", {
+          amount: formatMoney(totalUsd, null, target),
+          customer: customerName,
+          count: ids.length,
+        }),
+        confirmLabel: t("ledger.write_off_all"),
+        destructive: true,
+        onConfirm: async () => {
+          wrote = await writeOffCharges(ids, user.id, null);
+        },
+      });
+      return wrote;
+    },
+    [user, target, t, writeOffCharges],
+  );
+
+  const writeOffDebtor = useCallback(
+    (debtor: CustomerDebts) =>
+      writeOffAll(debtor.customerName, [
+        ...debtor.items,
+        ...debtor.unpaidMonths,
+      ]),
+    [writeOffAll],
   );
 
   const voidItem = useCallback(
@@ -54,5 +95,5 @@ export function useDebtRowActions() {
     [user, t, voidCharge],
   );
 
-  return { voidItem, writeOffItem };
+  return { voidItem, writeOffItem, writeOffAll, writeOffDebtor };
 }

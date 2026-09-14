@@ -240,6 +240,50 @@ export class OfflineChargeRepository extends OfflineBaseRepository implements IC
     );
   }
 
+  async writeOffMany(
+    ids: string[],
+    writtenOffBy: string,
+    reason: string | null,
+  ): Promise<DbCharge[]> {
+    if (ids.length === 0) return [];
+    const now = nowIso();
+    const holes = ids.map(() => '?').join(',');
+    const raw = await this.all<Record<string, unknown>>(
+      `SELECT c.*, cu.name AS __subject FROM charges c
+         LEFT JOIN customers cu ON cu.id = c.customer_id
+        WHERE c.id IN (${holes})`,
+      ids,
+    );
+    const subjects = new Map(
+      raw.map((r) => [r.id as string, (r.__subject as string | null) ?? null]),
+    );
+    const priors = this.decodeAll<DbCharge>('charges', raw);
+    const live = priors.filter((p) => !p.voided_at && !p.written_off_at);
+    if (live.length === 0) return [];
+    const changes = {
+      written_off_at: now,
+      written_off_by: writtenOffBy,
+      write_off_reason: reason,
+      updated_at: now,
+    };
+    await this.write(async (db) => {
+      for (const prior of live) {
+        await updateDirty(db, 'charges', prior.id, changes);
+        await this.auditIn(db, {
+          table: 'charges',
+          recordId: prior.id,
+          action: 'update',
+          before: prior,
+          after: { ...prior, ...changes } as DbCharge,
+          customerId: prior.customer_id ?? undefined,
+          branchId: prior.branch_id,
+          subject: subjects.get(prior.id) ?? null,
+        });
+      }
+    });
+    return live.map((p) => ({ ...p, ...changes }) as DbCharge);
+  }
+
   private async patch(
     id: string,
     values: Record<string, unknown>,

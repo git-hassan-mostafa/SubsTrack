@@ -5,6 +5,7 @@ import { useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/src/shared/components/Text";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
+import { ActionMenu } from "@/src/shared/components/ActionMenu";
 import { COLORS } from "@/src/shared/constants";
 import type { Customer, OpenItem } from "@/src/core/types";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
@@ -42,6 +43,7 @@ export function CustomerDebtsPanel({ customer, onOpenSale }: Props) {
   const [items, setItems] = useState<OpenItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [customDebtOpen, setCustomDebtOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const tokenRef = useRef(0);
 
   const refresh = useCallback(async () => {
@@ -61,7 +63,7 @@ export function CustomerDebtsPanel({ customer, onOpenSale }: Props) {
   }, [customer.id, customer.name]);
 
   const collectSheet = useCollectSheet();
-  const { voidItem, writeOffItem } = useDebtRowActions();
+  const { voidItem, writeOffItem, writeOffAll } = useDebtRowActions();
   const openBill = useOpenBill({ onOpenSale });
 
   useFocusEffect(
@@ -93,6 +95,19 @@ export function CustomerDebtsPanel({ customer, onOpenSale }: Props) {
           >
             <Ionicons name="add" size={18} color={COLORS.primary} />
           </PressableOpacity>
+          {items.length > 0 ? (
+            <PressableOpacity
+              onPress={() => setMenuOpen(true)}
+              accessibilityLabel={t("common.more_actions")}
+              className="w-8 h-8 rounded-full items-center justify-center"
+            >
+              <Ionicons
+                name="ellipsis-vertical"
+                size={18}
+                color={COLORS.gray500}
+              />
+            </PressableOpacity>
+          ) : null}
         </View>
       </View>
 
@@ -104,6 +119,22 @@ export function CustomerDebtsPanel({ customer, onOpenSale }: Props) {
         onWriteOff={writeOffItem}
         onOpenItem={openBill.openOwed}
         openingItemKey={openBill.loadingId}
+      />
+
+      <ActionMenu
+        visible={menuOpen}
+        title={customer.name}
+        onDismiss={() => setMenuOpen(false)}
+        actions={[
+          {
+            key: "write-off-all",
+            label: t("ledger.write_off_all"),
+            caption: t("ledger.write_off_all_caption"),
+            icon: "remove-circle-outline",
+            destructive: true,
+            onPress: () => void writeOffAll(customer.name, items),
+          },
+        ]}
       />
 
       {customDebtOpen && (

@@ -31,6 +31,7 @@ import {
 import { CustomerHistorySheet } from "../components/CustomerHistorySheet";
 import { CustomerFormSheet } from "../components/CustomerFormSheet";
 import { CustomDebtFormSheet } from "@/src/modules/transaction/debts/components/CustomDebtFormSheet";
+import { useDebtRowActions } from "@/src/modules/transaction/debts/hooks/useDebtRowActions";
 import {
   useCollectSheet,
   virtualMonthItem,
@@ -116,6 +117,7 @@ export function CustomerListScreen() {
   const collect = useLedgerSlice((s) => s.collect);
   const fetchOwed = useLedgerSlice((s) => s.fetchOwed);
   const { canSend, sendCollectionInvoice } = useSendInvoice();
+  const { writeOffAll } = useDebtRowActions();
   const displayCurrencyId = useDisplayCurrencyId();
   const displayCurrency = findCurrency(currencies, displayCurrencyId);
   const [formVisible, setFormVisible] = useState(false);
@@ -649,6 +651,25 @@ export function CustomerListScreen() {
     }
   }
 
+  async function handleWriteOffAll(customer: Customer) {
+    setCollectBusyId(customer.id);
+    try {
+      await fetchOwed(customer, customer.customerPlans ?? [], currencies);
+      const ledger = getStore().getState().ledger;
+      if (ledger.error) return;
+      const billed = ledger.owed.filter((i) => !!i.chargeId);
+      if (billed.length === 0) {
+        setBulkNotice(t("ledger.nothing_to_write_off"));
+        return;
+      }
+      if (!(await writeOffAll(customer.name, billed))) return;
+      void syncCustomerStatus(customer.id, customer.customerPlans ?? []);
+      void fetchNetDebtByCustomer(branchFilter);
+    } finally {
+      setCollectBusyId(null);
+    }
+  }
+
   function buildMenuActions(customer: Customer | null): ActionMenuItem[] {
     if (!customer) return [];
     const items: ActionMenuItem[] = [];
@@ -703,6 +724,14 @@ export function CustomerListScreen() {
         icon: "cash-outline",
         iconBadge: "add",
         onPress: () => void handleCollectDebt(customer),
+      });
+      items.push({
+        key: "write-off-all",
+        label: t("ledger.write_off_all"),
+        caption: t("ledger.write_off_all_caption"),
+        icon: "remove-circle-outline",
+        destructive: true,
+        onPress: () => void handleWriteOffAll(customer),
       });
     }
     items.push({
