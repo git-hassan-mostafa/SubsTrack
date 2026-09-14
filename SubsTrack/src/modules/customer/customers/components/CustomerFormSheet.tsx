@@ -172,6 +172,7 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
           value={form.name}
           onChangeText={(v) => setForm((prev) => ({ ...prev, name: v }))}
           placeholder={t("customers.name_placeholder")}
+          autoCapitalize="words"
           onFocus={clearError}
         />
 
