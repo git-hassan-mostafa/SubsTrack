@@ -42,7 +42,7 @@
 --    sync it. That side self-heals the same way (ADD COLUMN on next app start).
 --
 --  ORDER MATTERS: an inline REFERENCES needs its target table to already exist,
---  so tables stay in dependency order (tier_plans → tenants → branches → …).
+--  so tables stay in dependency order (tenants → branches → …).
 -- ============================================================
 
 -- ============================================================
@@ -52,69 +52,12 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- ============================================================
--- TIER PLANS
--- Global subscription tier catalog (Free, Pro, Business).
--- A fixed, small set of rows shared across all tenants — each
--- tenant.tier_id points at one. Managed by the SaaS owner via
--- SuperAdmin (service role). Mobile app reads via RLS; signup
--- screen reads as anon to display pricing.
--- NULL on any *max_ column means "unlimited".
+-- TIER PLANS — REMOVED
+-- Pricing is now per-customer, per-tenant: tenants.customer_allowance and
+-- tenants.price_per_customer_usd, raised by the SaaS owner or by accepting a
+-- customer_requests row. The teardown lives at the end of the TENANTS block,
+-- because tier_plans cannot be dropped until tenants.tier_id lets go of it.
 -- ============================================================
-
-CREATE TABLE IF NOT EXISTS tier_plans ();
-
--- ---- Columns --------------------------------------------------------------
-
-ALTER TABLE tier_plans ADD COLUMN IF NOT EXISTS id UUID PRIMARY KEY DEFAULT uuid_generate_v4();
-ALTER TABLE tier_plans ADD COLUMN IF NOT EXISTS code TEXT NOT NULL UNIQUE
-    CHECK (code IN ('free', 'pro', 'business'));
-ALTER TABLE tier_plans ADD COLUMN IF NOT EXISTS name TEXT NOT NULL;
-ALTER TABLE tier_plans ADD COLUMN IF NOT EXISTS sort_order INT NOT NULL;
-
--- Numeric limits (NULL = unlimited)
-ALTER TABLE tier_plans ADD COLUMN IF NOT EXISTS max_customers INT
-    CHECK (max_customers IS NULL OR max_customers >= 0);
-ALTER TABLE tier_plans ADD COLUMN IF NOT EXISTS max_users INT
-    CHECK (max_users IS NULL OR max_users >= 0);
-ALTER TABLE tier_plans ADD COLUMN IF NOT EXISTS max_plans INT
-    CHECK (max_plans IS NULL OR max_plans >= 0);
-ALTER TABLE tier_plans ADD COLUMN IF NOT EXISTS max_branches INT
-    CHECK (max_branches IS NULL OR max_branches >= 0);
-ALTER TABLE tier_plans ADD COLUMN IF NOT EXISTS max_currencies INT
-    CHECK (max_currencies IS NULL OR max_currencies >= 0);
-ALTER TABLE tier_plans ADD COLUMN IF NOT EXISTS max_products INT
-    CHECK (max_products IS NULL OR max_products >= 0);
-
--- Feature flags
-ALTER TABLE tier_plans ADD COLUMN IF NOT EXISTS multi_currency_enabled BOOLEAN NOT NULL DEFAULT FALSE;
-ALTER TABLE tier_plans ADD COLUMN IF NOT EXISTS multi_month_plans_enabled BOOLEAN NOT NULL DEFAULT FALSE;
-
--- Pricing (USD). Stripe price IDs can be added later as nullable columns.
-ALTER TABLE tier_plans ADD COLUMN IF NOT EXISTS price_monthly_usd NUMERIC(10,2) NOT NULL DEFAULT 0
-    CHECK (price_monthly_usd >= 0);
-ALTER TABLE tier_plans ADD COLUMN IF NOT EXISTS price_yearly_usd NUMERIC(10,2)
-    CHECK (price_yearly_usd IS NULL OR price_yearly_usd >= 0);
-
-ALTER TABLE tier_plans ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT TRUE;
-ALTER TABLE tier_plans ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
-ALTER TABLE tier_plans ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
-
--- Seed the three tiers. Idempotent via ON CONFLICT — re-runs of the script
--- preserve any limit/price tweaks made later via SuperAdmin.
-INSERT INTO tier_plans (
-    code, name, sort_order,
-    max_customers, max_users, max_plans, max_branches, max_currencies, max_products,
-    multi_currency_enabled, multi_month_plans_enabled,
-    price_monthly_usd
-) VALUES
-    ('free',     'Free',     0,   30,   1,    3,    1,    0,    5, FALSE, FALSE,  0),
-    ('pro',      'Pro',      1,  300,   5, NULL,    3, NULL, NULL, TRUE,  TRUE,   9),
-    ('business', 'Business', 2, NULL, NULL, NULL, NULL, NULL, NULL, TRUE,  TRUE,  29)
-ON CONFLICT (code) DO NOTHING;
-
--- Grace days were removed from the product: a month is unpaid from its first
--- day. Idempotent, so existing databases lose the column on the next run.
-ALTER TABLE tier_plans DROP COLUMN IF EXISTS grace_days;
 
 -- ============================================================
 -- APP OPTIONS
@@ -142,9 +85,8 @@ ALTER TABLE app_options ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL
 -- tenant's auto-created LBP currency.
 INSERT INTO app_options (key, value, description) VALUES
     ('LiraRate', '89000', 'Default USD→LBP exchange rate (LBP per 1 USD) seeded onto each new tenant''s Lebanese Pound currency.'),
-    ('AllowPlanUpgrade', 'true', 'When ''false'', tenants cannot self-upgrade in-app; the upgrade button is replaced by a WhatsApp "contact to upgrade" button (uses SupportWhatsAppNumber).'),
     ('AllowSelfServiceSignup', 'true', 'When ''false'', the login screen hides the "Create organization" button and the create-tenant Edge Function rejects new signups.'),
-    ('SupportWhatsAppNumber', '', 'Support WhatsApp number in international format (digits only, e.g. 9613123456). Used by the "contact to upgrade" button when AllowPlanUpgrade is false.')
+    ('SupportWhatsAppNumber', '', 'Owner WhatsApp number in international format (digits only, e.g. 9613123456). Used by the "request more customers" flow in Organization Settings.')
 ON CONFLICT (key) DO NOTHING;
 
 -- ============================================================
@@ -154,15 +96,6 @@ ON CONFLICT (key) DO NOTHING;
 -- (service role, server-side). The SubsTrack mobile app never
 -- writes to this table with the anon key.
 -- ============================================================
-
-CREATE OR REPLACE FUNCTION get_free_tier_id()
-RETURNS UUID
-LANGUAGE SQL
-AS $$
-    SELECT id
-    FROM tier_plans
-    WHERE code = 'free'
-$$;
 
 CREATE TABLE IF NOT EXISTS tenants ();
 
@@ -174,17 +107,63 @@ ALTER TABLE tenants ADD COLUMN IF NOT EXISTS tenant_code TEXT NOT NULL UNIQUE
     CHECK (tenant_code ~ '^[a-z0-9]+$');
 ALTER TABLE tenants ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT TRUE;
 
--- Subscription tier. Defaults to Free; SuperAdmin or in-app upgrade flow
--- swaps it. ON DELETE RESTRICT — never lose tier association silently.
-ALTER TABLE tenants ADD COLUMN IF NOT EXISTS tier_id UUID NOT NULL DEFAULT get_free_tier_id()
-    CONSTRAINT fk_tenants_tier REFERENCES tier_plans(id) ON DELETE RESTRICT;
+-- How many ACTIVE customers this tenant may hold. Owner-only: raised from
+-- SuperAdmin or by accepting a customer_requests row. Guarded against
+-- tenant-side writes by trg_tenants_guard_billing.
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS customer_allowance INT NOT NULL DEFAULT 30
+    CONSTRAINT chk_tenants_customer_allowance CHECK (customer_allowance >= 0);
 
-ALTER TABLE tenants ADD COLUMN IF NOT EXISTS tier_upgraded_at TIMESTAMPTZ;
+-- USD charged per ACTIVE customer per month. Owner-only, same guard.
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS price_per_customer_usd NUMERIC(10,4) NOT NULL DEFAULT 0.15
+    CONSTRAINT chk_tenants_price_per_customer CHECK (price_per_customer_usd >= 0);
+
 ALTER TABLE tenants ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 ALTER TABLE tenants ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 
-CREATE INDEX IF NOT EXISTS idx_tenants_tier_id
-    ON tenants (tier_id);
+
+-- ============================================================
+-- CUSTOMER REQUESTS
+-- A tenant admin asks the SaaS owner for N more customers. Exactly ONE
+-- pending row per tenant (partial unique index below); the admin may edit or
+-- cancel it while pending. Accepting adds granted_count to
+-- tenants.customer_allowance via accept_customer_request(), which is the only
+-- way the two writes happen together.
+-- A separate table rather than columns on tenants, because the admin must be
+-- able to write the request but must NEVER touch the allowance, and RLS is
+-- row-level, not column-level.
+-- Deliberately NOT mirrored offline — see docs/offline.md.
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS customer_requests ();
+
+-- ---- Columns --------------------------------------------------------------
+
+ALTER TABLE customer_requests ADD COLUMN IF NOT EXISTS id UUID PRIMARY KEY DEFAULT uuid_generate_v4();
+ALTER TABLE customer_requests ADD COLUMN IF NOT EXISTS tenant_id UUID NOT NULL
+    CONSTRAINT fk_customer_requests_tenant REFERENCES tenants(id) ON DELETE CASCADE;
+ALTER TABLE customer_requests ADD COLUMN IF NOT EXISTS requested_count INT NOT NULL
+    CONSTRAINT chk_customer_requests_min CHECK (requested_count >= 10);
+ALTER TABLE customer_requests ADD COLUMN IF NOT EXISTS granted_count INT
+    CONSTRAINT chk_customer_requests_granted CHECK (granted_count IS NULL OR granted_count >= 0);
+ALTER TABLE customer_requests ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'pending'
+    CONSTRAINT chk_customer_requests_status CHECK (status IN ('pending', 'accepted', 'declined', 'cancelled'));
+-- Actor ids are unconstrained UUIDs like audit_logs.actor_user_id — users does
+-- not exist yet at this point in the script.
+ALTER TABLE customer_requests ADD COLUMN IF NOT EXISTS requested_by UUID;
+ALTER TABLE customer_requests ADD COLUMN IF NOT EXISTS decided_by UUID;
+ALTER TABLE customer_requests ADD COLUMN IF NOT EXISTS decided_at TIMESTAMPTZ;
+ALTER TABLE customer_requests ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE customer_requests ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+-- Exactly one pending request per tenant. Partial, because the uniqueness only
+-- applies while the row is pending — a tenant may have many decided rows.
+CREATE UNIQUE INDEX IF NOT EXISTS uq_customer_requests_one_pending
+    ON customer_requests (tenant_id)
+    WHERE status = 'pending';
+
+-- SuperAdmin renders every tenant's pending pill in one pass.
+CREATE INDEX IF NOT EXISTS idx_customer_requests_pending
+    ON customer_requests (tenant_id, status);
 
 -- ============================================================
 -- TENANT SETTINGS
@@ -319,7 +298,6 @@ CREATE INDEX IF NOT EXISTS idx_users_tenant_id
 -- ============================================================
 -- PLANS
 -- Customer subscription packages defined per tenant.
--- NOT the same as tier_plans (SaaS subscription tiers) — completely separate concept.
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS plans ();
@@ -562,8 +540,8 @@ CREATE OR REPLACE TRIGGER trg_app_options_updated_at
 -- Server-authoritative updated_at on the remaining synced tables. Drives the
 -- offline client's incremental pull (WHERE updated_at > cursor) and is immune to
 -- client clock skew — see docs/offline.md.
-CREATE OR REPLACE TRIGGER trg_tier_plans_updated_at
-    BEFORE UPDATE ON tier_plans
+CREATE OR REPLACE TRIGGER trg_customer_requests_updated_at
+    BEFORE UPDATE ON customer_requests
     FOR EACH ROW
     EXECUTE FUNCTION set_updated_at();
 
@@ -571,6 +549,30 @@ CREATE OR REPLACE TRIGGER trg_tenants_updated_at
     BEFORE UPDATE ON tenants
     FOR EACH ROW
     EXECUTE FUNCTION set_updated_at();
+
+-- Second lock on the billing columns. The first is the absence of any UPDATE
+-- policy on tenants; this one survives an accidental CREATE POLICY. The service
+-- role and the Edge Functions carry no auth.uid(), so they pass.
+CREATE OR REPLACE FUNCTION guard_tenant_billing_columns()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+    IF auth.uid() IS NOT NULL
+       AND (NEW.customer_allowance IS DISTINCT FROM OLD.customer_allowance
+            OR NEW.price_per_customer_usd IS DISTINCT FROM OLD.price_per_customer_usd)
+    THEN
+        RAISE EXCEPTION 'customer_allowance and price_per_customer_usd are owner-only';
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+CREATE OR REPLACE TRIGGER trg_tenants_guard_billing
+    BEFORE UPDATE ON tenants
+    FOR EACH ROW
+    EXECUTE FUNCTION guard_tenant_billing_columns();
 
 CREATE OR REPLACE TRIGGER trg_tenant_settings_updated_at
     BEFORE UPDATE ON tenant_settings
@@ -1753,7 +1755,7 @@ CREATE INDEX IF NOT EXISTS idx_audit_logs_subject
 -- ============================================================
 
 ALTER TABLE tenants     ENABLE ROW LEVEL SECURITY;
-ALTER TABLE tier_plans  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE customer_requests ENABLE ROW LEVEL SECURITY;
 ALTER TABLE app_options ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tenant_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE currencies  ENABLE ROW LEVEL SECURITY;
@@ -1775,15 +1777,44 @@ ALTER TABLE skipped_months ENABLE ROW LEVEL SECURITY;
 ALTER TABLE exception_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
 
--- ==============================================================
-CREATE OR REPLACE FUNCTION get_free_tier_id()
-RETURNS UUID
-LANGUAGE SQL
+-- ============================================================
+-- ACCEPT A CUSTOMER REQUEST
+-- Marking the request and raising the allowance are two writes, and this is
+-- money — a torn write mis-bills a tenant. SuperAdmin talks plain PostgREST
+-- with no transaction, so both writes live here instead.
+-- REVOKEd from every tenant role: without that, an admin could accept their
+-- own request. Only service_role keeps EXECUTE.
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION accept_customer_request(p_request_id UUID, p_granted INT)
+RETURNS customer_requests
+LANGUAGE plpgsql
+SECURITY DEFINER
 AS $$
-    SELECT id
-    FROM tier_plans
-    WHERE code = 'free'
+DECLARE
+    v_row customer_requests;
+BEGIN
+    UPDATE customer_requests
+    SET status = 'accepted',
+        granted_count = p_granted,
+        decided_at = NOW()
+    WHERE id = p_request_id
+      AND status = 'pending'
+    RETURNING * INTO v_row;
+
+    IF v_row.id IS NULL THEN
+        RAISE EXCEPTION 'Request is not pending';
+    END IF;
+
+    UPDATE tenants
+    SET customer_allowance = customer_allowance + p_granted
+    WHERE id = v_row.tenant_id;
+
+    RETURN v_row;
+END;
 $$;
+
+REVOKE EXECUTE ON FUNCTION accept_customer_request(UUID, INT) FROM anon, authenticated, public;
 
 -- ============================================================
 -- HELPER FUNCTION
@@ -1869,15 +1900,54 @@ DO $$ BEGIN
             FOR SELECT USING (id = current_tenant_id());
     END IF;
 
-    -- Admins and superadmins can update their own tenant (e.g. tier upgrades).
+    -- No UPDATE policy: tenants is read-only to the app. customer_allowance
+    -- and price_per_customer_usd move only through the service role.
+
+    -- ── CUSTOMER REQUESTS ────────────────────────────────────
+    -- Every member reads, so the settings card can show the pending row.
     IF NOT EXISTS (
         SELECT 1 FROM pg_policies
-        WHERE tablename = 'tenants' AND policyname = 'tenants_update'
+        WHERE tablename = 'customer_requests' AND policyname = 'customer_requests_select'
     ) THEN
-        CREATE POLICY tenants_update ON tenants
+        CREATE POLICY customer_requests_select ON customer_requests
+            FOR SELECT USING (tenant_id = current_tenant_id());
+    END IF;
+
+    -- Admins raise a request for their own tenant. It may only ever be born
+    -- pending and undecided; the partial unique index caps it at one.
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE tablename = 'customer_requests' AND policyname = 'customer_requests_insert'
+    ) THEN
+        CREATE POLICY customer_requests_insert ON customer_requests
+            FOR INSERT
+            WITH CHECK (
+                tenant_id = current_tenant_id()
+                AND status = 'pending'
+                AND granted_count IS NULL
+                AND decided_at IS NULL
+                AND decided_by IS NULL
+                AND EXISTS (
+                    SELECT 1 FROM public.users u
+                    WHERE u.id = auth.uid()
+                      AND u.role IN ('admin', 'superadmin')
+                      AND u.active = true
+                )
+            );
+    END IF;
+
+    -- Edit the pending number, or cancel it. USING says WHICH rows may be
+    -- touched (only still-pending ones); WITH CHECK says what they may BECOME —
+    -- an edit or a cancel, never a self-accept.
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies
+        WHERE tablename = 'customer_requests' AND policyname = 'customer_requests_update'
+    ) THEN
+        CREATE POLICY customer_requests_update ON customer_requests
             FOR UPDATE
             USING (
-                id = current_tenant_id()
+                tenant_id = current_tenant_id()
+                AND status = 'pending'
                 AND EXISTS (
                     SELECT 1 FROM public.users u
                     WHERE u.id = auth.uid()
@@ -1885,22 +1955,12 @@ DO $$ BEGIN
                       AND u.active = true
                 )
             )
-            WITH CHECK (id = current_tenant_id());
-    END IF;
-
-    -- ── TIER PLANS ───────────────────────────────────────────
-    -- Readable by everyone (anon + authenticated) so the signup screen
-    -- can display pricing/limits and the in-app Subscription screen can
-    -- show the tier comparison. Mutations are denied to all roles via
-    -- the absence of any other policy — only service_role bypasses RLS.
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_policies
-        WHERE tablename = 'tier_plans' AND policyname = 'tier_plans_select'
-    ) THEN
-        CREATE POLICY tier_plans_select ON tier_plans
-            FOR SELECT
-            TO anon, authenticated
-            USING (TRUE);
+            WITH CHECK (
+                tenant_id = current_tenant_id()
+                AND status IN ('pending', 'cancelled')
+                AND granted_count IS NULL
+                AND decided_by IS NULL
+            );
     END IF;
 
     -- ── APP OPTIONS ──────────────────────────────────────────
@@ -2587,11 +2647,28 @@ GRANT EXECUTE ON FUNCTION public.is_tenant_code_available(TEXT) TO anon, authent
 --    The hook should look up auth.uid() in public.users and return tenant_id.
 --    Without this, RLS will block all queries silently (returns empty, not error).
 
--- 2. NAMING (READ)
---    tier_plans = SaaS subscription tiers (3 global rows: Free, Pro, Business).
---                 Each tenant.tier_id points at one. SuperAdmin edits limits/prices.
---    plans      = customer subscription packages (tenant's staff manage this).
---    These are entirely different concepts. Do not confuse them.
+-- 1b. ONE-OFF AFTER THE PER-CUSTOMER PRICING CHANGE (RUN ONCE, NOT PART OF THIS
+--    SCRIPT). customer_allowance defaults to 30, so a live tenant that already
+--    has more active customers than that would be hard-blocked the moment this
+--    ships. Lift every allowance to at least the current count, once:
+--
+--        UPDATE tenants t
+--        SET customer_allowance = GREATEST(
+--                t.customer_allowance,
+--                (SELECT COUNT(*) FROM customers c
+--                  WHERE c.tenant_id = t.id AND c.active));
+--
+--    Do NOT re-run it: it would silently re-raise the allowance of any tenant
+--    that has grown past it since.
+
+-- 2. SAAS BILLING (READ)
+--    The tenant pays the SaaS owner per ACTIVE customer per month:
+--    tenants.customer_allowance caps how many they may hold,
+--    tenants.price_per_customer_usd is the rate. Both are owner-only — no
+--    UPDATE policy on tenants, plus trg_tenants_guard_billing.
+--    To grow, an admin inserts a customer_requests row (min 10, one pending at
+--    a time); the owner grants it with accept_customer_request().
+--    `plans` is unrelated: those are the tenant's own customer packages.
 
 -- 3. LEDGER INTEGRITY (charges + collections + collection_items)
 --    A CHARGE is what is owed; a COLLECTION is money handed over; a

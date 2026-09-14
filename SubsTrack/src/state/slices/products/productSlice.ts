@@ -1,13 +1,11 @@
 import type { StateCreator } from 'zustand';
-import type { Currency, Product, TierPlan, TenantUsage } from '@/src/core/types';
+import type { Currency, Product } from '@/src/core/types';
 import {
   productService,
   type ProductInput,
   type RestockEntry,
 } from '@/src/modules/admin/products';
 import { resolveBranchFilter } from '@/src/shared/lib/branchFilter';
-import { TierLimitError } from '@/src/modules/admin/subscription';
-import type { TierLimitErrorPayload } from '@/src/modules/admin/subscription';
 import type { GlobalState } from '@/src/state/globalStore';
 
 export interface ProductSlice {
@@ -15,14 +13,11 @@ export interface ProductSlice {
   loaded: boolean;
   loading: boolean;
   error: string | null;
-  tierLimitError: TierLimitErrorPayload | null;
   getProducts: () => Promise<void>;
   fetchProducts: () => Promise<void>;
   createProduct: (
     data: ProductInput,
     tenantId: string,
-    tier: TierPlan,
-    usage: TenantUsage,
     userId?: string | null,
     costCurrency?: Currency | null,
   ) => Promise<void>;
@@ -56,7 +51,6 @@ export interface ProductSlice {
   bulkDeleteProducts: (ids: string[]) => Promise<boolean>;
   reactivateProduct: (id: string) => Promise<void>;
   clearError: () => void;
-  clearTierLimitError: () => void;
   reset: () => void;
 }
 
@@ -70,7 +64,6 @@ export const createProductSlice: StateCreator<
   loaded: false,
   loading: false,
   error: null,
-  tierLimitError: null,
   getProducts: async () => {
     const { loaded, loading } = get().products;
     if (loaded || loading) return;
@@ -97,18 +90,15 @@ export const createProductSlice: StateCreator<
     }
   },
 
-  createProduct: async (data, tenantId, tier, usage, userId, costCurrency = null) => {
+  createProduct: async (data, tenantId, userId, costCurrency = null) => {
     set((state) => {
       state.products.loading = true;
       state.products.error = null;
-      state.products.tierLimitError = null;
     });
     try {
       const product = await productService.createProduct(
         data,
         tenantId,
-        tier,
-        usage,
         userId ?? get().auth.user?.id ?? null,
         costCurrency,
       );
@@ -116,23 +106,11 @@ export const createProductSlice: StateCreator<
         state.products.items.unshift(product);
         state.products.loading = false;
       });
-      void get().subscription.refreshUsage();
     } catch (e) {
-      if (e instanceof TierLimitError) {
-        set((state) => {
-          state.products.tierLimitError = {
-            resource: e.resource,
-            limit: e.limit,
-            tierCode: e.tierCode,
-          };
-          state.products.loading = false;
-        });
-      } else {
-        set((state) => {
-          state.products.error = (e as Error).message;
-          state.products.loading = false;
-        });
-      }
+      set((state) => {
+        state.products.error = (e as Error).message;
+        state.products.loading = false;
+      });
     }
   },
 
@@ -159,13 +137,13 @@ export const createProductSlice: StateCreator<
   applyStockDelta: (deltaByProduct) =>
     set((state) => {
       for (const p of state.products.items) {
-        const delta = deltaByProduct[p.id];
-        if (delta) p.stockOnHand += delta;
+      const delta = deltaByProduct[p.id];
+      if (delta) p.stockOnHand += delta;
       }
-    }),
+      }),
 
-  addStock: async (id, tenantId, quantity, note = null, userId = null, cost = null) => {
-    set((state) => {
+      addStock: async (id, tenantId, quantity, note = null, userId = null, cost = null) => {
+      set((state) => {
       state.products.loading = true;
       state.products.error = null;
     });
@@ -253,7 +231,7 @@ export const createProductSlice: StateCreator<
       );
       set((state) => {
         for (const p of state.products.items) {
-          if (p.id in onHand) p.stockOnHand = onHand[p.id];
+        if (p.id in onHand) p.stockOnHand = onHand[p.id];
         }
         state.products.loading = false;
       });
@@ -276,14 +254,13 @@ export const createProductSlice: StateCreator<
       const mode = await productService.deleteProduct(id);
       set((state) => {
         if (mode === 'hard') {
-          state.products.items = state.products.items.filter((p) => p.id !== id);
+        state.products.items = state.products.items.filter((p) => p.id !== id);
         } else {
-          const i = state.products.items.findIndex((p) => p.id === id);
-          if (i !== -1) state.products.items[i].active = false;
+        const i = state.products.items.findIndex((p) => p.id === id);
+        if (i !== -1) state.products.items[i].active = false;
         }
         state.products.loading = false;
       });
-      void get().subscription.refreshUsage();
       return mode;
     } catch (e) {
       set((state) => {
@@ -307,11 +284,10 @@ export const createProductSlice: StateCreator<
         const softened = new Set(soft);
         state.products.items = state.products.items.filter((p) => !removed.has(p.id));
         for (const p of state.products.items) {
-          if (softened.has(p.id)) p.active = false;
+        if (softened.has(p.id)) p.active = false;
         }
         state.products.loading = false;
       });
-      void get().subscription.refreshUsage();
       return true;
     } catch (e) {
       set((state) => {
@@ -334,7 +310,6 @@ export const createProductSlice: StateCreator<
         if (i !== -1) state.products.items[i] = updated;
         state.products.loading = false;
       });
-      void get().subscription.refreshUsage();
     } catch (e) {
       set((state) => {
         state.products.error = (e as Error).message;
@@ -347,16 +322,11 @@ export const createProductSlice: StateCreator<
     set((state) => {
       state.products.error = null;
     }),
-  clearTierLimitError: () =>
-    set((state) => {
-      state.products.tierLimitError = null;
-    }),
   reset: () =>
     set((state) => {
       state.products.items = [];
       state.products.loaded = false;
       state.products.loading = false;
       state.products.error = null;
-      state.products.tierLimitError = null;
     }),
 });

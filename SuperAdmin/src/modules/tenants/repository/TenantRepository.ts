@@ -1,33 +1,63 @@
 import { BaseRepository } from "@/src/core/utils/BaseRepository";
-import type { DbTenant } from "@/src/core/types/db";
+import type { DbCustomerRequest, DbTenant } from "@/src/core/types/db";
+
+// Billing columns are optional on insert so a new tenant can take the schema
+// defaults rather than the app restating them.
+export type CreateTenantPayload = Pick<DbTenant, "name" | "tenant_code"> &
+  Partial<Pick<DbTenant, "customer_allowance" | "price_per_customer_usd">>;
 
 export class TenantRepository extends BaseRepository {
   async findAll(): Promise<DbTenant[]> {
     const { data, error } = await this.db
       .from("tenants")
-      .select("*, tier_plans(*)")
+      .select("*")
       .order("name");
     if (error) this.handleError(error);
     return (data ?? []) as DbTenant[];
   }
 
-  async getFreeTierId(): Promise<string> {
+  // One query for the whole list; the service zips them onto their tenants.
+  // An embed would drag every historical request along with them.
+  async findPendingRequests(): Promise<DbCustomerRequest[]> {
     const { data, error } = await this.db
-      .from("tier_plans")
-      .select("id")
-      .eq("code", "free")
-      .single();
+      .from("customer_requests")
+      .select("*")
+      .eq("status", "pending");
     if (error) this.handleError(error);
-    return (data as { id: string }).id;
+    return (data ?? []) as DbCustomerRequest[];
   }
 
-  async create(
-    payload: Pick<DbTenant, "name" | "tenant_code" | "tier_id">,
-  ): Promise<DbTenant> {
+  // Raising the allowance and closing the request must not tear apart, so both
+  // live in the accept_customer_request function.
+  async acceptRequest(
+    requestId: string,
+    grantedCount: number,
+  ): Promise<DbCustomerRequest> {
+    const { data, error } = await this.db.rpc("accept_customer_request", {
+      p_request_id: requestId,
+      p_granted: grantedCount,
+    });
+    if (error) this.handleError(error);
+    return data as DbCustomerRequest;
+  }
+
+  async declineRequest(requestId: string): Promise<DbCustomerRequest> {
+    const { data, error } = await this.db
+      .from("customer_requests")
+      .update({ status: "declined", decided_at: new Date().toISOString() })
+      .eq("id", requestId)
+      .eq("status", "pending")
+      .select("*")
+      .single();
+    if (error) this.handleError(error);
+    return data as DbCustomerRequest;
+  }
+
+  async create(payload: CreateTenantPayload): Promise<DbTenant> {
     const { data, error } = await this.db
       .from("tenants")
       .insert(payload)
-      .select("*, tier_plans(*)")
+      .select("*")
       .single();
     if (error) this.handleError(error);
     return data as DbTenant;
@@ -35,13 +65,18 @@ export class TenantRepository extends BaseRepository {
 
   async update(
     id: string,
-    payload: Partial<Pick<DbTenant, "name" | "active" | "tier_id" | "tier_upgraded_at">>,
+    payload: Partial<
+      Pick<
+        DbTenant,
+        "name" | "active" | "customer_allowance" | "price_per_customer_usd"
+      >
+    >,
   ): Promise<DbTenant> {
     const { data, error } = await this.db
       .from("tenants")
       .update(payload)
       .eq("id", id)
-      .select("*, tier_plans(*)")
+      .select("*")
       .single();
     if (error) this.handleError(error);
     return data as DbTenant;

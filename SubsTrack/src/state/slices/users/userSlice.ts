@@ -1,9 +1,7 @@
 import type { StateCreator } from 'zustand';
-import type { AppUser, UserRole, TierPlan, TenantUsage } from '@/src/core/types';
+import type { AppUser, UserRole } from '@/src/core/types';
 import { userService } from '@/src/modules/admin/users';
 import { resolveBranchFilter } from '@/src/shared/lib/branchFilter';
-import { TierLimitError } from '@/src/modules/admin/subscription';
-import type { TierLimitErrorPayload } from '@/src/modules/admin/subscription';
 import type { GlobalState } from '@/src/state/globalStore';
 
 interface UserCreateInput {
@@ -29,15 +27,9 @@ export interface UserSlice {
   loaded: boolean;
   loading: boolean;
   error: string | null;
-  tierLimitError: TierLimitErrorPayload | null;
   getUsers: () => Promise<void>;
   fetchUsers: () => Promise<void>;
-  createUser: (
-    data: UserCreateInput,
-    tenantId: string,
-    tier: TierPlan,
-    usage: TenantUsage,
-  ) => Promise<void>;
+  createUser: (data: UserCreateInput, tenantId: string) => Promise<void>;
   updateUser: (
     id: string,
     currentUserId: string,
@@ -53,7 +45,6 @@ export interface UserSlice {
     callerRole: UserRole,
   ) => Promise<boolean>;
   clearError: () => void;
-  clearTierLimitError: () => void;
   reset: () => void;
 }
 
@@ -70,7 +61,6 @@ export const createUserSlice: StateCreator<
     loaded: false,
     loading: false,
     error: null,
-    tierLimitError: null,
 
     getUsers: async () => {
       const { loaded, loading } = get().users;
@@ -99,35 +89,22 @@ export const createUserSlice: StateCreator<
       }
     },
 
-    createUser: async (data, tenantId, tier, usage) => {
+    createUser: async (data, tenantId) => {
       set((state) => {
         state.users.loading = true;
         state.users.error = null;
-        state.users.tierLimitError = null;
       });
       try {
-        const user = await userService.createUser(data, tenantId, tenantHasBranches(), tier, usage);
+        const user = await userService.createUser(data, tenantId, tenantHasBranches());
         set((state) => {
           state.users.items.push(user);
           state.users.loading = false;
         });
-        void get().subscription.refreshUsage();
       } catch (e) {
-        if (e instanceof TierLimitError) {
-          set((state) => {
-            state.users.tierLimitError = {
-              resource: e.resource,
-              limit: e.limit,
-              tierCode: e.tierCode,
-            };
-            state.users.loading = false;
-          });
-        } else {
-          set((state) => {
-            state.users.error = (e as Error).message;
-            state.users.loading = false;
-          });
-        }
+        set((state) => {
+          state.users.error = (e as Error).message;
+          state.users.loading = false;
+        });
       }
     },
 
@@ -243,7 +220,7 @@ export const createUserSlice: StateCreator<
           const softened = new Set(soft);
           state.users.items = state.users.items.filter((u) => !removed.has(u.id));
           for (const u of state.users.items) {
-            if (softened.has(u.id)) u.active = false;
+          if (softened.has(u.id)) u.active = false;
           }
           state.users.loading = false;
         });
@@ -261,17 +238,12 @@ export const createUserSlice: StateCreator<
       set((state) => {
         state.users.error = null;
       }),
-    clearTierLimitError: () =>
-      set((state) => {
-        state.users.tierLimitError = null;
-      }),
     reset: () =>
       set((state) => {
         state.users.items = [];
         state.users.loaded = false;
         state.users.loading = false;
         state.users.error = null;
-        state.users.tierLimitError = null;
       }),
   };
 };

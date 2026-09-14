@@ -1,19 +1,9 @@
 import type { ReactNode } from 'react';
-import {
-  useCanUpgradePlan,
-  useSelfServiceSignupEnabled,
-} from '@/src/state/hooks/useOptionSlice';
+import { useSelfServiceSignupEnabled } from '@/src/state/hooks/useOptionSlice';
 
 interface GateProps {
   children: ReactNode;
   fallback?: ReactNode;
-}
-
-
-/** Gates self-serve plan upgrades (option `AllowPlanUpgrade`). */
-export function CanUpgrade({ children, fallback = null }: GateProps) {
-  const enabled = useCanUpgradePlan();
-  return <>{enabled ? children : fallback}</>;
 }
 
 /** Gates self-service organization creation (option `AllowSelfServiceSignup`). */

@@ -16,8 +16,6 @@ import { useAuth } from "@/src/modules/authentication/auth";
 import type { Currency } from "@/src/core/types";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { getStore } from "@/src/state/globalStore";
-import { useSubscriptionSlice } from "@/src/state/hooks/useSubscriptionSlice";
-import { UpgradePromptModal } from "@/src/modules/admin/subscription";
 import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
 
 interface Props {
@@ -47,9 +45,6 @@ export function CurrencyFormSheet({
   const loading = useCurrencySlice((s) => s.loading);
   const error = useCurrencySlice((s) => s.error);
   const clearError = useCurrencySlice((s) => s.clearError);
-  const tierLimitError = useCurrencySlice((s) => s.tierLimitError);
-  const clearTierLimitError = useCurrencySlice((s) => s.clearTierLimitError);
-  const currentTier = useSubscriptionSlice((s) => s.currentTier);
 
   const [form, setForm] = useState<FormState>({
     code: currency?.code ?? "",
@@ -77,12 +72,9 @@ export function CurrencyFormSheet({
     if (currency) {
       await updateCurrency(currency.id, data);
     } else {
-      if (!currentTier) return;
-      await createCurrency(data, user.tenantId, currentTier);
+      await createCurrency(data, user.tenantId);
     }
-    const { error: nextError, tierLimitError: nextTierLimit } =
-      getStore().getState().currencies;
-    if (!nextError && !nextTierLimit) onDismiss();
+    if (!getStore().getState().currencies.error) onDismiss();
   }
 
   async function handleReactivate() {
@@ -99,124 +91,115 @@ export function CurrencyFormSheet({
     loading;
 
   return (
-    <>
-      <FormSheet
-        onDismiss={onDismiss}
-        dirty={dirty}
-        title={
+    <FormSheet
+      onDismiss={onDismiss}
+      dirty={dirty}
+      title={
+        currency
+          ? t("tenant_settings.edit_currency")
+          : t("tenant_settings.add_currency")
+      }
+    >
+      {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}
+
+      {currency && !currency.active ? (
+        <View className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-4">
+          <Text className="text-sm text-amber-800">
+            {t("tenant_settings.inactive_currency_note")}
+          </Text>
+        </View>
+      ) : null}
+
+      <Input
+        label={t("tenant_settings.code_label") + " *"}
+        value={form.code}
+        onChangeText={(v) => setForm((p) => ({ ...p, code: v }))}
+        sanitize={upperCaseText}
+        placeholder={t("tenant_settings.code_placeholder")}
+        autoCapitalize="characters"
+        maxLength={8}
+        onFocus={clearError}
+      />
+
+      <Input
+        label={t("tenant_settings.name_label") + " *"}
+        value={form.name}
+        onChangeText={(v) => setForm((p) => ({ ...p, name: v }))}
+        placeholder={t("tenant_settings.name_placeholder")}
+        onFocus={clearError}
+      />
+
+      <Input
+        label={t("tenant_settings.symbol_label")}
+        value={form.symbol}
+        onChangeText={(v) => setForm((p) => ({ ...p, symbol: v }))}
+        placeholder={t("tenant_settings.symbol_placeholder")}
+        maxLength={6}
+        onFocus={clearError}
+      />
+
+      <Input
+        label={
+          t("tenant_settings.rate_label", {
+            code: form.code || t("tenant_settings.rate_label_fallback"),
+          }) + " *"
+        }
+        value={form.rateText}
+        onChangeText={(v) => setForm((p) => ({ ...p, rateText: v }))}
+        sanitize={decimalDigitsOnly}
+        placeholder="0"
+        keyboardType="decimal-pad"
+        onFocus={clearError}
+      />
+      <Text className="text-xs text-gray-400 -mt-3 mb-4">
+        {t("tenant_settings.rate_hint", { code: form.code || "XXX" })}
+      </Text>
+
+      <Input
+        label={t("tenant_settings.decimals_label") + " *"}
+        value={form.decimalsText}
+        onChangeText={(v) => setForm((p) => ({ ...p, decimalsText: v }))}
+        sanitize={(v) => digitsOnly(v).slice(0, 1)}
+        placeholder="2"
+        keyboardType="number-pad"
+        onFocus={clearError}
+      />
+
+      <Button
+        label={
           currency
-            ? t("tenant_settings.edit_currency")
+            ? t("common.save_changes")
             : t("tenant_settings.add_currency")
         }
-      >
-        {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}
-
-        {currency && !currency.active ? (
-          <View className="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-4">
-            <Text className="text-sm text-amber-800">
-              {t("tenant_settings.inactive_currency_note")}
-            </Text>
-          </View>
-        ) : null}
-
-        <Input
-          label={t("tenant_settings.code_label") + " *"}
-          value={form.code}
-          onChangeText={(v) => setForm((p) => ({ ...p, code: v }))}
-          sanitize={upperCaseText}
-          placeholder={t("tenant_settings.code_placeholder")}
-          autoCapitalize="characters"
-          maxLength={8}
-          onFocus={clearError}
-        />
-
-        <Input
-          label={t("tenant_settings.name_label") + " *"}
-          value={form.name}
-          onChangeText={(v) => setForm((p) => ({ ...p, name: v }))}
-          placeholder={t("tenant_settings.name_placeholder")}
-          onFocus={clearError}
-        />
-
-        <Input
-          label={t("tenant_settings.symbol_label")}
-          value={form.symbol}
-          onChangeText={(v) => setForm((p) => ({ ...p, symbol: v }))}
-          placeholder={t("tenant_settings.symbol_placeholder")}
-          maxLength={6}
-          onFocus={clearError}
-        />
-
-        <Input
-          label={
-            t("tenant_settings.rate_label", {
-              code: form.code || t("tenant_settings.rate_label_fallback"),
-            }) + " *"
-          }
-          value={form.rateText}
-          onChangeText={(v) => setForm((p) => ({ ...p, rateText: v }))}
-          sanitize={decimalDigitsOnly}
-          placeholder="0"
-          keyboardType="decimal-pad"
-          onFocus={clearError}
-        />
-        <Text className="text-xs text-gray-400 -mt-3 mb-4">
-          {t("tenant_settings.rate_hint", { code: form.code || "XXX" })}
-        </Text>
-
-        <Input
-          label={t("tenant_settings.decimals_label") + " *"}
-          value={form.decimalsText}
-          onChangeText={(v) => setForm((p) => ({ ...p, decimalsText: v }))}
-          sanitize={(v) => digitsOnly(v).slice(0, 1)}
-          placeholder="2"
-          keyboardType="number-pad"
-          onFocus={clearError}
-        />
-
-        <Button
-          label={
-            currency
-              ? t("common.save_changes")
-              : t("tenant_settings.add_currency")
-          }
-          onPress={handleSubmit}
-          loading={loading}
-          disabled={submitDisabled}
-          fullWidth
-        />
-
-        {currency && currency.active && onRequestDelete ? (
-          <PressableOpacity
-            onPress={() => onRequestDelete(currency)}
-            className="border border-red-200 rounded-xl py-3.5 items-center mt-3"
-          >
-            <Text fontWeight="SemiBold" className="text-red-500">
-              {t("common.delete")}
-            </Text>
-          </PressableOpacity>
-        ) : null}
-
-        {currency && !currency.active ? (
-          <PressableOpacity
-            onPress={handleReactivate}
-            className="border border-indigo-200 rounded-xl py-3.5 items-center mt-3"
-          >
-            <Text fontWeight="SemiBold" className="text-primary">
-              {t("tenant_settings.reactivate")}
-            </Text>
-          </PressableOpacity>
-        ) : null}
-
-        <View className="h-6" />
-      </FormSheet>
-      <UpgradePromptModal
-        payload={tierLimitError}
-        onClose={() => {
-          clearTierLimitError();
-          onDismiss();
-        }}
+        onPress={handleSubmit}
+        loading={loading}
+        disabled={submitDisabled}
+        fullWidth
       />
-    </>
+
+      {currency && currency.active && onRequestDelete ? (
+        <PressableOpacity
+          onPress={() => onRequestDelete(currency)}
+          className="border border-red-200 rounded-xl py-3.5 items-center mt-3"
+        >
+          <Text fontWeight="SemiBold" className="text-red-500">
+            {t("common.delete")}
+          </Text>
+        </PressableOpacity>
+      ) : null}
+
+      {currency && !currency.active ? (
+        <PressableOpacity
+          onPress={handleReactivate}
+          className="border border-indigo-200 rounded-xl py-3.5 items-center mt-3"
+        >
+          <Text fontWeight="SemiBold" className="text-primary">
+            {t("tenant_settings.reactivate")}
+          </Text>
+        </PressableOpacity>
+      ) : null}
+
+      <View className="h-6" />
+    </FormSheet>
   );
 }

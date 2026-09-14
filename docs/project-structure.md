@@ -46,7 +46,6 @@ SubsTrack/
 │           │   ├── products.tsx       # Products catalog route (admin-only)
 │           │   ├── services.tsx       # Service price list route
 │           │   ├── users.tsx          # Users list route
-│           │   ├── subscription.tsx   # Tier comparison + usage + upgrade route
 │           │   └── index.tsx          # Admin menu (manage section)
 │           ├── customers/
 │           │   ├── index.tsx      # Customer list
@@ -82,7 +81,7 @@ SubsTrack/
 │   │   │   └── use<Feature>Slice.ts × 15  # Per-slice overloaded hooks (e.g. useCustomerSlice)
 │   │   └── slices/                # 15 slices — each read by a peer slice or by 2+ modules
 │   │       ├── auth/authSlice.ts
-│   │       ├── subscription/subscriptionSlice.ts    # tier gating — read by 7 peer slices
+│   │       ├── billing/billingSlice.ts               # customer allowance + price + the pending request
 │   │       ├── customers/customerSlice.ts
 │   │       ├── customer-plans/customerPlanSlice.ts
 │   │       ├── payments/paymentSlice.ts            # per-customer month-GRID state only (bills + skips + the gate lists)
@@ -124,11 +123,6 @@ SubsTrack/
 │   │   │   ├── components/StepIndicator.tsx    # fillable dot progress (1/2, 2/2)
 │   │   │   └── screens/{SignupOrganizationScreen, SignupAccountScreen}.tsx
 │   │   │
-│   │   ├── subscription/                       # Tier limits + upgrade flow
-│   │   │   ├── repository/SubscriptionRepository.ts  # findAllTiers, getTenantWithTier, countTenantUsage, upgradeTenant
-│   │   │   ├── services/TierService.ts         # assertCanCreate/assertMultiCurrency/assertMultiMonth, TierLimitError, canDowngradeTo
-│   │   │   ├── screens/SubscriptionScreen.tsx  # 3 tier cards + usage bars + upgrade/downgrade buttons
-│   │   │   └── components/{TierCard, UsageBar, TierBadge, UpgradePromptModal}.tsx
 │   │   │
 │   │   ├── currencies/
 │   │   │   ├── repository/CurrencyRepository.ts  # CRUD + countReferences (joins plans + payments)
@@ -141,6 +135,10 @@ SubsTrack/
 │   │   │   ├── hooks/{useActiveBranches, useIsMultiBranchActive}.ts
 │   │   │   └── components/{BranchCard, BranchFormSheet}.tsx
 │   │   │
+│   │   ├── billing/                            # what the tenant pays the SaaS owner
+│   │   │   ├── repository/CustomerRequestRepository.ts  # findLatest/create/updateCount/cancel — online-only
+│   │   │   ├── services/BillingService.ts     # monthlyAmountUsd, assertCanCreateCustomer, validateRequest
+│   │   │   └── components/{CustomerAllowanceSection, CustomerRequestSheet, CustomerLimitReachedModal}.tsx
 │   │   ├── tenant-settings/
 │   │   │   └── screens/TenantSettingsScreen.tsx  # admin-only: display currency + branches CRUD + currencies CRUD
 │   │   │
@@ -191,13 +189,13 @@ SubsTrack/
 │   │   │
 │   │   ├── products/                            # One-off sellable items catalog
 │   │   │   ├── repository/ProductRepository.ts # CRUD + countAll + countReferences (sales)
-│   │   │   ├── services/ProductService.ts      # validate, createProduct (tier-gated), deleteProduct (soft if referenced)
+│   │   │   ├── services/ProductService.ts      # validate, createProduct, deleteProduct (soft if referenced)
 │   │   │   ├── screens/ProductListScreen.tsx   # admin-only at app/(app)/(tabs)/admin/products.tsx
 │   │   │   └── components/{ProductCard, ProductFormSheet}.tsx
 │   │   │
 │   │   ├── service-catalog/                     # The LABOUR price list — products' twin, no stock and no cost
 │   │   │   ├── repository/ServiceRepository.ts # CRUD + countAll + countReferences (sale_items.service_id) (+ .offline)
-│   │   │   ├── services/ServiceCatalogService.ts # validate, create/update, deleteService (soft if referenced). NOT tier-gated
+│   │   │   ├── services/ServiceCatalogService.ts # validate, create/update, deleteService (soft if referenced)
 │   │   │   ├── screens/ServiceListScreen.tsx   # at app/(app)/(tabs)/admin/services.tsx
 │   │   │   └── components/{ServiceCard, ServiceFormSheet}.tsx  # ServiceFormSheet is also opened inline from a sale line
 │   │   │
@@ -303,7 +301,6 @@ SuperAdmin/
 │   ├── _layout.tsx
 │   └── (tabs)/
 │       ├── index.tsx          # Tenants list
-│       ├── tier-plans.tsx     # Global Free / Pro / Business tier editor
 │       ├── options.tsx        # Global app options (key/value) editor — add/update/delete
 │       └── _layout.tsx
 └── src/
@@ -311,7 +308,6 @@ SuperAdmin/
     ├── core/utils/BaseRepository.ts
     ├── modules/
     │   ├── tenants/{repository,services,store,screens,components}
-    │   ├── tier-plans/{repository,services,store,screens,components}  # SaaS owner edits the global tier catalog
     │   └── options/{repository,services,store,screens,components}     # global app_options key/value CRUD (e.g. LiraRate)
     └── shared/
         ├── components/{Button,Input,ErrorBanner,LoadingScreen,EmptyState,ConfirmDialog}

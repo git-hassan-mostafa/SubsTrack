@@ -29,9 +29,6 @@ export const useBooleanOption = (key: string, fallback = false): boolean =>
 
 // Semantic flag hooks — defaults preserve existing behavior when the SaaS
 // owner has not configured the option yet.
-export const useCanUpgradePlan = (): boolean =>
-  useBooleanOption(OPTION_KEYS.allowPlanUpgrade, false);
-
 export const useSelfServiceSignupEnabled = (): boolean =>
   useBooleanOption(OPTION_KEYS.allowSelfServiceSignup, false);
 

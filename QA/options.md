@@ -35,7 +35,7 @@ A single **global** key/value table `app_options` (NOT tenant-scoped) holds app-
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 1.1 | Tab exists | Open SuperAdmin app | A third bottom tab "Options" (gear icon) appears after "Tenants" and "Tier Plans" |
+| 1.1 | Tab exists | Open SuperAdmin app | The bottom bar has exactly two tabs — "Tenants" then "Options" (gear icon). There is no Tier Plans tab |
 | 1.2 | Tab renders screen | Tap "Options" | OptionsScreen renders with title "Options" and a `+ Add` action in the header |
 | 1.3 | Seeded row visible | Fresh DB after running `script.sql` | `LiraRate` row is listed showing value `89000` and its description |
 | 1.4 | Refresh on focus | Leave and return to the tab | `fetchOptions` re-runs (RefreshControl spinner on pull-to-refresh) |
@@ -88,7 +88,7 @@ A single **global** key/value table `app_options` (NOT tenant-scoped) holds app-
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
 | 6.1 | Self-service signup | In SubsTrack, "Create a new organization" → complete both steps | New tenant created and auto-logged in; the tenant has an `LBP` currency seeded from `LiraRate` |
-| 6.2 | LBP visible in app | After signup, open Tenant Settings → Currencies | `LBP` listed (note: visible only if the tier permits multi-currency display; the row exists in DB regardless) |
+| 6.2 | LBP visible in app | After signup, open Tenant Settings → Currencies | `LBP` listed — multi-currency is always available, there is no gate |
 | 6.3 | Fallback on signup | Delete `LiraRate`, then self-service sign up | Signup succeeds; LBP seeded at `89000` (a misconfigured option never blocks signup) |
 | 6.4 | Idempotent re-run of script.sql | Re-run `script.sql` after editing `LiraRate` | `INSERT … ON CONFLICT (key) DO NOTHING` preserves the edited value (does not reset to `89000`) |
 
@@ -106,22 +106,21 @@ A single **global** key/value table `app_options` (NOT tenant-scoped) holds app-
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
 | 8.1 | Authenticated read | As a logged-in SubsTrack user, query `app_options` | Rows returned |
-| 8.2 | Anon read allowed | With only the anon key and no session, query `app_options` | Rows returned (RLS now grants anon `SELECT`, like `tier_plans`) so pre-auth UI can read flags |
+| 8.2 | Anon read allowed | With only the anon key and no session, query `app_options` | Rows returned (RLS grants anon `SELECT`) so pre-auth UI can read flags |
 | 8.3 | Authenticated write blocked | Attempt an insert/update/delete on `app_options` with a normal user JWT | Denied (no write policy; only service role bypasses RLS) |
 | 8.4 | Service role write | SuperAdmin (service key) and the `create-tenant` edge function | Can read + write freely |
 
-## 9. Plan-upgrade flag (`AllowPlanUpgrade`)
+## 9. Support number (`SupportWhatsAppNumber`)
 
-Default `true`. WhatsApp button uses `SupportWhatsAppNumber` (digits, international format). Reference: [TierCard.tsx](SubsTrack/src/modules/subscription/components/TierCard.tsx), [UpgradePromptModal.tsx](SubsTrack/src/modules/subscription/components/UpgradePromptModal.tsx), [ContactToUpgradeButton.tsx](SubsTrack/src/modules/subscription/components/ContactToUpgradeButton.tsx), [useOptionSlice.ts](SubsTrack/src/state/hooks/useOptionSlice.ts), [whatsapp.ts](SubsTrack/src/shared/lib/whatsapp.ts).
+Digits, international format. Its only consumer is the **"Send request + WhatsApp"** button on the customer-allowance request sheet — the option is read through `useSupportWhatsAppNumber()`, and a blank/absent value hides that button rather than producing a dead link. Reference: [CustomerRequestSheet.tsx](SubsTrack/src/modules/admin/billing/components/CustomerRequestSheet.tsx), [useOptionSlice.ts](SubsTrack/src/state/hooks/useOptionSlice.ts), [whatsapp.ts](SubsTrack/src/shared/lib/whatsapp.ts). The flow itself is [customer-allowance.md](customer-allowance.md) §3.
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 9.1 | Enabled (default) | `AllowPlanUpgrade` = `true` (or row absent), open Subscription screen as tenant-wide admin | Upgrade tier cards show the normal "Upgrade to X" primary button; upgrade flow works as before |
-| 9.2 | Disabled → WhatsApp on cards | Set `AllowPlanUpgrade` = `false`, set `SupportWhatsAppNumber`, reopen Subscription screen | Each upgrade-direction card shows a green "Contact to upgrade" WhatsApp button instead of the upgrade button |
-| 9.3 | WhatsApp deep-link | Tap "Contact to upgrade" for tier "Pro" | Opens WhatsApp chat to `SupportWhatsAppNumber` with the pre-filled message naming "Pro" |
-| 9.4 | Disabled in upgrade prompt modal | With flag `false`, trigger a tier-limit (e.g. add customer past Free limit) | `UpgradePromptModal` shows "Contact to upgrade" WhatsApp button in place of "View plans" |
-| 9.5 | Missing WhatsApp number | Flag `false`, `SupportWhatsAppNumber` blank | `ContactToUpgradeButton` renders nothing (no broken link); cards simply omit the action |
-| 9.6 | Downgrade unaffected | Flag `false`, open Subscription as admin on a paid tier | Downgrade-direction cards still show the normal downgrade button (flag gates upgrades only) |
+| 9.1 | Set (normal case) | `SupportWhatsAppNumber` = a valid number, open Admin → Organization Settings → Request more customers | The sheet shows **Send request** plus the green **Send request + WhatsApp** |
+| 9.2 | Deep-link content | Tap Send request + WhatsApp | The request is saved first, then WhatsApp opens on that number with a message naming the organization and the requested count |
+| 9.3 | Blank value | Set `SupportWhatsAppNumber` to an empty value, relaunch, reopen the sheet | Only **Send request** renders — no broken link |
+| 9.4 | Row absent | Delete the `SupportWhatsAppNumber` row entirely | Same as 9.3; no crash |
+| 9.5 | Edited value takes effect | Change the number in SuperAdmin, relaunch SubsTrack, send a request over WhatsApp | The new number is used |
 
 ## 10. Self-service signup flag (`AllowSelfServiceSignup`)
 

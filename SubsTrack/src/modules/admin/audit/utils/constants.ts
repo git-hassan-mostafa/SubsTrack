@@ -23,5 +23,5 @@ export const AUDITED_TABLES: AuditTable[] = [
   'branches',
   'currencies',
   'tenant_settings',
-  'tenants',
+  'customer_requests',
 ];

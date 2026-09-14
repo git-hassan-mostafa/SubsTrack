@@ -8,6 +8,7 @@ import { PageHeader } from "@/src/shared/components/PageHeader";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { useAuthSlice } from "@/src/state/hooks/useAuthSlice";
 import { useTenantSettingSlice } from "@/src/state/hooks/useTenantSettingSlice";
+import { CustomerAllowanceSection } from "@/src/modules/admin/billing";
 import { DisplayCurrencySection } from "../components/DisplayCurrencySection";
 import { UnpaidRuleSection } from "../components/UnpaidRuleSection";
 
@@ -38,6 +39,7 @@ export function TenantSettingsScreen() {
           contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
         >
           {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}
+          <CustomerAllowanceSection />
           <DisplayCurrencySection />
           <UnpaidRuleSection />
         </ScrollView>

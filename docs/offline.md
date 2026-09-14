@@ -91,7 +91,7 @@ Two primitives, and the rule that decides which one a piece of work needs.
 
 | Wave | Tables |
 | --- | --- |
-| 0 | `tenants` (+ the read-only globals `tier_plans`, `app_options`, which the push skips on `scope`) |
+| 0 | `tenants` (+ the read-only global `app_options`, which the push skips on `scope`) |
 | 1 | `tenant_settings`, `currencies`, `branches` |
 | 2 | `users`, `plans`, `customers`, `products`, `services` |
 | 3 | `customer_plans`, `sales`, `expenses`, `collections`, `exception_logs`, `audit_logs` |
@@ -151,7 +151,7 @@ Sync pulls fresh rows into SQLite, but the **Zustand stores** were already fille
 - **Cold start** — `app/_layout.tsx` passes it to `startSync(cb)`, which calls it after the first cycle.
 - **Manual sync** — `SettingsScreen` calls it itself after `syncNow()` resolves.
 
-Nothing fires it on the background `runSyncIfDue()` path — reloading the screen under the user's fingers is worse than a few stale rows, and the next screen focus re-fetches anyway. `refreshActiveData()` always refreshes the dashboard (the landing screen) and re-fetches every list slice that already holds data (a slice is only populated if its screen was opened, so this is "only what's on screen"), plus current-month payment flags / net-debt when customers are loaded, and tier usage. List fetches reset to page 1.
+Nothing fires it on the background `runSyncIfDue()` path — reloading the screen under the user's fingers is worse than a few stale rows, and the next screen focus re-fetches anyway. `refreshActiveData()` always refreshes the dashboard (the landing screen) and re-fetches every list slice that already holds data (a slice is only populated if its screen was opened, so this is "only what's on screen"), plus current-month payment flags / net-debt when customers are loaded, and the tenant-wide active-customer count the allowance is measured against. List fetches reset to page 1.
 
 ## Manual sync + observable status
 
@@ -166,7 +166,9 @@ Nothing fires it on the background `runSyncIfDue()` path — reloading the scree
 
 ## Online-only (native)
 
-`signIn` / `getTenantByCode`, `User.create`/`delete`/`updatePassword` (edge fns), all `Signup.*`, `Subscription.upgradeTenant`: throw `RequiresConnectionError` (localized, flows through the normal ErrorBanner) when offline, else delegate to the Supabase sibling and cache the result locally. `Auth.getSession`/`getUserProfile`/`getTenant` are a **read-through cache** — online they fetch + cache (profile, branch, tenant, tier); offline they serve the cache, so the app boots offline after the **first online login** (which blocks on an initial full pull when the local DB is empty).
+`signIn` / `getTenantByCode`, `User.create`/`delete`/`updatePassword` (edge fns), all `Signup.*`, every `CustomerRequest.*` method: throw `RequiresConnectionError` (localized, flows through the normal ErrorBanner) when offline, else delegate to the Supabase sibling and cache the result locally. `Auth.getSession`/`getUserProfile`/`getTenant` are a **read-through cache** — online they fetch + cache (profile, branch, tenant); offline they serve the cache, so the app boots offline after the **first online login** (which blocks on an initial full pull when the local DB is empty).
+
+**`customer_requests` is not in `TABLES` or `PUSH_WAVES` at all** — it is the one tenant table the mirror deliberately does not carry. "Exactly one pending request per tenant" is a partial unique index the client cannot evaluate: two offline devices would each insert a pending row, and the loser would wedge its wave on every push from then on. The allowance itself *does* sync (it is a column on the mirrored `tenants` row), so **the customer cap still blocks offline** — only asking for a bigger one needs a connection. On a branch-admin device the mirror is branch-scoped, so the offline count behind that cap is advisory, the same compromise as `SaleService`'s oversell guard.
 
 ## Required Postgres changes — in `sql scripts/script.sql`
 

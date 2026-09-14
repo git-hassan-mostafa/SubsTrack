@@ -8,8 +8,7 @@ import { resolveBranchFilter } from '@/src/shared/lib/branchFilter';
 import type { GlobalState } from '@/src/state/globalStore';
 
 /**
- * The service price list. The products slice minus every stock action and minus
- * the tier gate — services are uncapped, so there is no `tierLimitError` here.
+ * The service price list. The products slice minus every stock action.
  * `createService` / `updateService` return the saved row so a caller that opened
  * the form from a sale line can select what it just created.
  */

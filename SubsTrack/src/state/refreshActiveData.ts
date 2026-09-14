@@ -36,5 +36,5 @@ export function refreshActiveData(): void {
   }
 
 
-  void s.subscription.refreshUsage();
+  void s.billing.refreshCounts();
 }

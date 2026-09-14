@@ -1,32 +1,25 @@
-export type TierCode = 'free' | 'pro' | 'business';
-
+// pendingRequest is zipped on by TenantService.getTenants, not a DB column.
 export interface Tenant {
   id: string;
   name: string;
   tenantCode: string;
   active: boolean;
-  tierId: string;
-  tier?: TierPlan | null;
-  tierUpgradedAt: string | null;
+  customerAllowance: number;
+  pricePerCustomerUsd: number;
+  pendingRequest: CustomerRequest | null;
   createdAt: string;
 }
 
-export interface TierPlan {
+export type CustomerRequestStatus = 'pending' | 'accepted' | 'declined' | 'cancelled';
+
+export interface CustomerRequest {
   id: string;
-  code: TierCode;
-  name: string;
-  sortOrder: number;
-  maxCustomers: number | null;
-  maxUsers: number | null;
-  maxPlans: number | null;
-  maxBranches: number | null;
-  maxCurrencies: number | null;
-  maxProducts: number | null;
-  multiCurrencyEnabled: boolean;
-  multiMonthPlansEnabled: boolean;
-  priceMonthlyUsd: number;
-  priceYearlyUsd: number | null;
-  active: boolean;
+  tenantId: string;
+  requestedCount: number;
+  grantedCount: number | null;
+  status: CustomerRequestStatus;
+  decidedAt: string | null;
+  createdAt: string;
 }
 
 // Global app-wide key/value config (NOT tenant-scoped), managed by the SaaS

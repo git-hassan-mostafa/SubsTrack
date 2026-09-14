@@ -210,7 +210,7 @@ export function CustomerPaymentPanel({
     const withPeriod =
       linePrice.durationMonths > 1
         ? `${amount} / ${t("plans.n_months", { count: linePrice.durationMonths })}`
-        : `${amount} ${t("subscription.per_month")}`;
+        : `${amount} ${t("plans.per_month_suffix")}`;
     return linePrice.kind === "special"
       ? `${withPeriod} · ${t("subscriptions.special_badge")}`
       : withPeriod;

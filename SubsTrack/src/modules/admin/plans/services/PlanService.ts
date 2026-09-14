@@ -1,8 +1,7 @@
-import type { Plan, TierPlan, TenantUsage } from '@/src/core/types';
+import type { Plan } from '@/src/core/types';
 import type { BranchFilter } from '@/src/core/constants';
 import i18n from '@/src/core/i18n';
 import repository from '../repository/PlanRepository';
-import { tierService } from '@/src/modules/admin/subscription';
 import { mapDbPlanToPlan } from '../utils/mapper';
 
 type PlanInput = Pick<Plan, 'name' | 'isCustomPrice' | 'price' | 'durationMonths' | 'currencyId' | 'branchId'>
@@ -13,15 +12,8 @@ class PlanService {
     return rows.map(mapDbPlanToPlan);
   }
 
-  async createPlan(
-    data: PlanInput,
-    tenantId: string,
-    tier: TierPlan,
-    usage: TenantUsage,
-  ): Promise<Plan> {
+  async createPlan(data: PlanInput, tenantId: string): Promise<Plan> {
     this.validate(data);
-    tierService.assertCanCreate(tier, usage, 'plans');
-    if (data.durationMonths > 1) tierService.assertMultiMonth(tier);
     try {
       const row = await repository.create({
         name: data.name.trim(),
@@ -38,9 +30,8 @@ class PlanService {
     }
   }
 
-  async updatePlan(id: string, data: PlanInput, tier: TierPlan): Promise<Plan> {
+  async updatePlan(id: string, data: PlanInput): Promise<Plan> {
     this.validate(data);
-    if (data.durationMonths > 1) tierService.assertMultiMonth(tier);
     try {
       const row = await repository.update(id, {
         name: data.name.trim(),

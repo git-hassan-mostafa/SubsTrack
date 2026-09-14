@@ -9,13 +9,15 @@ interface TenantState {
   fetchTenants: () => Promise<void>;
   createTenant: (data: CreateTenantInput) => Promise<boolean>;
   updateTenant: (id: string, data: UpdateTenantInput) => Promise<boolean>;
+  acceptRequest: (tenantId: string, requestId: string, granted: number) => Promise<boolean>;
+  declineRequest: (tenantId: string, requestId: string) => Promise<boolean>;
   deleteTenant: (id: string) => Promise<void>;
   clearError: () => void;
 }
 
 const tenantService = new TenantService();
 
-export const useTenantStore = create<TenantState>((set) => ({
+export const useTenantStore = create<TenantState>((set, get) => ({
   tenants: [],
   loading: false,
   error: null,
@@ -48,6 +50,48 @@ export const useTenantStore = create<TenantState>((set) => ({
       const updated = await tenantService.updateTenant(id, data);
       set((state) => ({
         tenants: state.tenants.map((t) => (t.id === id ? updated : t)),
+        loading: false,
+      }));
+      return true;
+    } catch (e) {
+      set({ error: (e as Error).message, loading: false });
+      return false;
+    }
+  },
+
+  // Patches the raised allowance in from what the write returned.
+  acceptRequest: async (tenantId, requestId, granted) => {
+    set({ loading: true, error: null });
+    try {
+      const current = get().tenants.find((t) => t.id === tenantId);
+      const { allowance } = await tenantService.acceptRequest(
+        requestId,
+        granted,
+        current?.customerAllowance ?? 0,
+      );
+      set((state) => ({
+        tenants: state.tenants.map((t) =>
+          t.id === tenantId
+            ? { ...t, customerAllowance: allowance, pendingRequest: null }
+            : t,
+        ),
+        loading: false,
+      }));
+      return true;
+    } catch (e) {
+      set({ error: (e as Error).message, loading: false });
+      return false;
+    }
+  },
+
+  declineRequest: async (tenantId, requestId) => {
+    set({ loading: true, error: null });
+    try {
+      await tenantService.declineRequest(requestId);
+      set((state) => ({
+        tenants: state.tenants.map((t) =>
+          t.id === tenantId ? { ...t, pendingRequest: null } : t,
+        ),
         loading: false,
       }));
       return true;

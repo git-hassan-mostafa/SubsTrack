@@ -34,7 +34,7 @@ const CONTEXT_FIELDS: Partial<Record<AuditTable, string[]>> = {
   users: ['full_name'],
   branches: ['name'],
   currencies: ['code'],
-  tenants: ['name'],
+  customer_requests: ['requested_count', 'status'],
   skipped_months: ['billing_month', 'skipped'],
   customer_plans: ['plan_id'],
   tenant_settings: ['key'],

@@ -1,10 +1,9 @@
-import type { Currency, Product, StockMovement, TierPlan, TenantUsage } from '@/src/core/types';
+import type { Currency, Product, StockMovement } from '@/src/core/types';
 import type { DbStockMovement } from '@/src/core/types/db';
 import type { BranchFilter } from '@/src/core/constants';
 import i18n from '@/src/core/i18n';
 import repository from '../repository/ProductRepository';
 import type { CreateStockMovementPayload, StockCostRow } from '../repository/IProductRepository';
-import { tierService } from '@/src/modules/admin/subscription';
 import { mapDbProductToProduct, mapDbStockMovementToStockMovement } from '../utils/mapper';
 import { ProductInput, RestockEntry } from '../utils/types';
 
@@ -21,13 +20,10 @@ class ProductService {
   async createProduct(
     data: ProductInput,
     tenantId: string,
-    tier: TierPlan,
-    usage: TenantUsage,
     userId: string | null = null,
     costCurrency: Currency | null = null,
   ): Promise<Product> {
     this.validate(data);
-    tierService.assertCanCreate(tier, usage, 'products');
     try {
       const row = await repository.create({
         tenant_id: tenantId,

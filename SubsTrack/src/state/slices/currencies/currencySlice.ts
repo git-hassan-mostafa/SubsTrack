@@ -1,8 +1,6 @@
 import type { StateCreator } from 'zustand';
-import type { Currency, TierPlan } from '@/src/core/types';
+import type { Currency } from '@/src/core/types';
 import { currencyService, type CurrencyInput } from '@/src/modules/admin/currencies';
-import { TierLimitError } from '@/src/modules/admin/subscription';
-import type { TierLimitErrorPayload } from '@/src/modules/admin/subscription';
 import type { GlobalState } from '@/src/state/globalStore';
 
 export interface CurrencySlice {
@@ -10,16 +8,14 @@ export interface CurrencySlice {
   loaded: boolean;
   loading: boolean;
   error: string | null;
-  tierLimitError: TierLimitErrorPayload | null;
   getCurrencies: () => Promise<void>;
   fetchCurrencies: () => Promise<void>;
-  createCurrency: (data: CurrencyInput, tenantId: string, tier: TierPlan) => Promise<void>;
+  createCurrency: (data: CurrencyInput, tenantId: string) => Promise<void>;
   updateCurrency: (id: string, data: CurrencyInput) => Promise<void>;
   deleteCurrency: (id: string) => Promise<'hard' | 'soft' | null>;
   bulkDeleteCurrencies: (ids: string[]) => Promise<boolean>;
   reactivateCurrency: (id: string) => Promise<void>;
   clearError: () => void;
-  clearTierLimitError: () => void;
   reset: () => void;
 }
 
@@ -33,7 +29,6 @@ export const createCurrencySlice: StateCreator<
   loaded: false,
   loading: false,
   error: null,
-  tierLimitError: null,
 
   getCurrencies: async () => {
     const { loaded, loading } = get().currencies;
@@ -61,36 +56,23 @@ export const createCurrencySlice: StateCreator<
     }
   },
 
-  createCurrency: async (data, tenantId, tier) => {
+  createCurrency: async (data, tenantId) => {
     if (get().currencies.loading) return;
     set((state) => {
       state.currencies.loading = true;
       state.currencies.error = null;
-      state.currencies.tierLimitError = null;
     });
     try {
-      const currency = await currencyService.createCurrency(data, tenantId, tier);
+      const currency = await currencyService.createCurrency(data, tenantId);
       set((state) => {
         state.currencies.items.push(currency);
         state.currencies.loading = false;
       });
-      void get().subscription.refreshUsage();
     } catch (e) {
-      if (e instanceof TierLimitError) {
-        set((state) => {
-          state.currencies.tierLimitError = {
-            resource: e.resource,
-            limit: e.limit,
-            tierCode: e.tierCode,
-          };
-          state.currencies.loading = false;
-        });
-      } else {
-        set((state) => {
-          state.currencies.error = (e as Error).message;
-          state.currencies.loading = false;
-        });
-      }
+      set((state) => {
+        state.currencies.error = (e as Error).message;
+        state.currencies.loading = false;
+      });
     }
   },
 
@@ -135,7 +117,6 @@ export const createCurrencySlice: StateCreator<
           state.currencies.loading = false;
         });
       }
-      void get().subscription.refreshUsage();
       return mode;
     } catch (e) {
       set((state) => {
@@ -159,14 +140,13 @@ export const createCurrencySlice: StateCreator<
         const removed = new Set(hard);
         const softened = new Set(soft);
         state.currencies.items = state.currencies.items.filter(
-          (c) => !removed.has(c.id),
+        (c) => !removed.has(c.id),
         );
         for (const c of state.currencies.items) {
-          if (softened.has(c.id)) c.active = false;
+        if (softened.has(c.id)) c.active = false;
         }
         state.currencies.loading = false;
       });
-      void get().subscription.refreshUsage();
       return true;
     } catch (e) {
       set((state) => {
@@ -202,16 +182,11 @@ export const createCurrencySlice: StateCreator<
     set((state) => {
       state.currencies.error = null;
     }),
-  clearTierLimitError: () =>
-    set((state) => {
-      state.currencies.tierLimitError = null;
-    }),
   reset: () =>
     set((state) => {
       state.currencies.items = [];
       state.currencies.loaded = false;
       state.currencies.loading = false;
       state.currencies.error = null;
-      state.currencies.tierLimitError = null;
     }),
 });

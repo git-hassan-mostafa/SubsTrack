@@ -255,7 +255,6 @@ Both new tables: branch-via-customer RLS (like `payments`), `set_updated_at` + `
 **Schema:**
 
 ```sql
-ALTER TABLE tier_plans ADD COLUMN max_products INT;  -- Free: 5, Pro/Business: NULL
 
 CREATE TABLE products (
   id, tenant_id, branch_id (NULL = SHARED — mirrors plans),
@@ -291,7 +290,6 @@ CREATE TABLE sales (
 
 - Sales are tied to a customer optionally — walk-in sales are supported.
 - No stock tracking in v1 — just a price catalog + sale log.
-- Tier-gated via `tier_plans.max_products` (Free: 5, Pro/Business: unlimited).
 - Dashboard `monthlyRevenue` now = subscription revenue + sales revenue, with a sub-breakdown rendered when sales are non-zero.
 - Snapshot principle (CLAUDE.md gotcha #21) applies: `product_name_snapshot`, `unit_amount`, and `rate_per_usd_snapshot` are frozen at sale time so receipts and historical USD totals never drift.
 - Branch-scoped semantics mirror plans: `branch_id IS NULL` = SHARED catalog item visible to every branch.
@@ -528,41 +526,51 @@ CREATE TABLE audit_logs (  -- append-only; the app writes it, no triggers
 
 ## 10. SaaS / Billing
 
-### 10.0 Subscription Tiers (Free / Pro / Business) ✅
+### 10.0 Per-Customer Pricing + Customer Requests ✅
 
 **Priority:** 🔴 High
 
-**Purpose:** Monetize the platform. Free tier hooks small businesses for word-of-mouth growth, Pro / Business unlock higher limits and premium features (multi-branch, multi-currency, multi-month plans). Replaces the never-wired `saas_tiers` placeholder.
+**Purpose:** Monetize the platform by what the tenant actually uses — one price per active customer, per month — instead of a tier catalogue nobody was billed against. Replaces the Free / Pro / Business tiers and every non-customer limit, which are all gone: branches, users, plans, products and currencies are unlimited, and multi-currency and multi-month plans are always on.
 
 **Schema changes:**
 
 ```sql
--- Global catalog of 3 tier templates (seeded by script.sql)
-CREATE TABLE tier_plans (
+-- What the SaaS owner charges this tenant. Owner-only: no UPDATE policy on
+-- tenants, plus trg_tenants_guard_billing refusing any authenticated session.
+ALTER TABLE tenants
+  ADD COLUMN customer_allowance INT NOT NULL DEFAULT 30,
+  ADD COLUMN price_per_customer_usd NUMERIC(10,4) NOT NULL DEFAULT 0.15;
+
+-- An admin asking the owner for more slots. Exactly one may be open:
+-- uq_customer_requests_one_pending is partial, ON (tenant_id) WHERE pending.
+CREATE TABLE customer_requests (
   id UUID PK,
-  code TEXT UNIQUE ('free' | 'pro' | 'business'),
-  name TEXT,
-  sort_order INT,
-  max_customers / max_users / max_plans / max_branches / max_currencies INT NULL,  -- NULL = unlimited
-  multi_currency_enabled / multi_month_plans_enabled BOOLEAN,
-  price_monthly_usd / price_yearly_usd NUMERIC,
-  active BOOLEAN
+  tenant_id UUID REFERENCES tenants(id) ON DELETE CASCADE,
+  requested_count INT CHECK (requested_count >= 10),
+  granted_count INT,
+  status TEXT ('pending' | 'accepted' | 'declined' | 'cancelled'),
+  requested_by UUID, decided_by UUID, decided_at TIMESTAMPTZ
 );
 
--- Per-tenant FK
-ALTER TABLE tenants
-  ADD COLUMN tier_id UUID NOT NULL REFERENCES tier_plans(id) DEFAULT (Free),
-  ADD COLUMN tier_upgraded_at TIMESTAMPTZ;
+-- Closing the request and raising the allowance is ONE call, because a torn
+-- write mis-bills a tenant. REVOKEd from anon/authenticated.
+CREATE FUNCTION accept_customer_request(p_request_id UUID, p_granted INT);
+
+DROP TABLE tier_plans;  -- with tenants.tier_id / tier_upgraded_at
 ```
 
 **Implementation:**
 
-- New `src/modules/subscription/` module: TierService (limit enforcement + typed `TierLimitError`), SubscriptionRepository (fetch tiers + tenant usage + upgrade), subscriptionStore (state + `init` + `upgrade` + `refreshUsage`), SubscriptionScreen (usage bars + tier cards), `UpgradePromptModal` (block dialog when a limit is hit).
-- Each feature Service (`createCustomer` / `createUser` / `createPlan` / `createBranch` / `createCurrency` / `createMultiMonthPayment`) now calls `tierService.assertCanCreate(tier, usage, resource)` after its `validate()`.
-- SuperAdmin: `saas-tiers` module deleted; replaced by `tier-plans` module that lets the SaaS owner edit limits / prices on the 3 global tier rows. The Tenant edit form now has a tier picker for manual upgrades (out-of-band billing).
-- Upgrade flow performs an instant tier swap today (no billing). Stripe integration is the documented future hook — `tier_plans` has room for `stripe_price_id_*` columns and `tenants` for `stripe_customer_id` without touching call sites.
+- New `src/modules/admin/billing/`: `BillingService` (`monthlyAmountUsd`, `assertCanCreateCustomer`, `validateRequest`), the `CustomerRequestRepository` trio (online-only — the table is not mirrored), `CustomerLimitError`, and the three components below. Global `billingSlice` replaces `subscriptionSlice`; `TierService` and the whole `admin/subscription` module are deleted.
+- **Tenant admin:** Organization Settings gains a card showing allowed customers, current customers and the monthly amount (active × price). "Request more customers" opens a sheet with a minimum of 10 and two buttons — **Send request** and **Send request + WhatsApp**, the second deep-linking `SupportWhatsAppNumber`. While one is pending the card offers Edit and Cancel; a declined one shows a note and the admin can ask again.
+- **The amount is always USD** and must never go through the tenant's display-currency formatter — `currencies.rate_per_usd` is tenant-editable, so converting would let a tenant rewrite their own bill.
+- **The cap** is the only quantity limit left: `CustomerService.createCustomer` refuses at the allowance (active customers only, tenant-wide) and `CustomerFormSheet` shows `CustomerLimitReachedModal`, which sends a tenant-wide admin to Organization Settings.
+- **SuperAdmin:** the tier-plans module and tab are deleted. The tenant card carries an orange **Requested +N** pill; the tenant sheet gained Customer Allowance and Price Per Customer inputs (the owner's direct edit path) plus an Accept / Decline block with an editable granted number.
+- **Offline:** the allowance rides on the synced tenant row, so the cap still blocks with no connection; requests throw `RequiresConnectionError`.
+- The `AllowPlanUpgrade` option, `useCanUpgradePlan` and `<CanUpgrade>` are gone with the tiers; `SupportWhatsAppNumber` now serves the request flow.
 
 ---
+
 
 ## 11. Long-Term / Strategic Features
 
@@ -653,8 +661,8 @@ RLS: `app_options_select` → `SELECT` to `authenticated` only. No write policy 
 **Implementation:**
 
 - RLS on `app_options` widened to `anon` + `authenticated` (the signup flag must be readable pre-auth). Options now fetched at app bootstrap (`app/_layout.tsx`) and no longer reset on logout.
-- Reusable readers: typed hooks in `useOptionSlice.ts` (`useOptionValue` / `useBooleanOption` + semantic `useCanUpgradePlan` / `useSelfServiceSignupEnabled` / `useSupportWhatsAppNumber`); declarative UI gates `<CanUpgrade>` / `<CanCreateOrganization>` in `shared/components/FeatureGate.tsx`; `openWhatsApp()` deep-link helper in `shared/lib/whatsapp.ts`; shared `ContactToUpgradeButton` component.
-- **Plan upgrade:** `TierCard` + `UpgradePromptModal` render `ContactToUpgradeButton` (WhatsApp, pre-filled message) instead of the upgrade CTA when `AllowPlanUpgrade = false`.
+- Reusable readers: typed hooks in `useOptionSlice.ts` (`useOptionValue` / `useBooleanOption` + semantic `useSelfServiceSignupEnabled` / `useSupportWhatsAppNumber`); the declarative UI gate `<CanCreateOrganization>` in `shared/components/FeatureGate.tsx`; `openWhatsApp()` deep-link helper in `shared/lib/whatsapp.ts`.
+- **Customer requests:** `CustomerRequestSheet` offers a "Send request + WhatsApp" button that deep-links `SupportWhatsAppNumber` with a pre-filled message after the request is saved.
 - **Self-service signup:** `LoginScreen` hides "Create organization"; the public `create-tenant` edge function rejects signups with `403 { code: 'signup_disabled' }` (authoritative server-side gate).
 - Configurable from SuperAdmin's existing **Options** tab (generic key/value CRUD) — no SuperAdmin code change.
 

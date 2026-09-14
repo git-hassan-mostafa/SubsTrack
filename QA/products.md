@@ -1,6 +1,6 @@
 # Products — QA Scenarios
 
-Covers the Products catalog: a list of one-off sellable items (not subscriptions) that staff can reference when recording sales. Products are admin-only, tier-gated, and scoped per tenant. They share the same branch semantics as plans (`branch_id IS NULL` = SHARED, visible to every branch).
+Covers the Products catalog: a list of one-off sellable items (not subscriptions) that staff can reference when recording sales. Products are admin-only, uncapped, and scoped per tenant. They share the same branch semantics as plans (`branch_id IS NULL` = SHARED, visible to every branch).
 
 **Reference code:**
 - Screen: [ProductListScreen.tsx](SubsTrack/src/modules/products/screens/ProductListScreen.tsx)
@@ -9,7 +9,6 @@ Covers the Products catalog: a list of one-off sellable items (not subscriptions
 - Form sheet: [ProductFormSheet.tsx](SubsTrack/src/modules/products/components/ProductFormSheet.tsx)
 - Card: [ProductCard.tsx](SubsTrack/src/modules/products/components/ProductCard.tsx)
 - Route: [admin/products.tsx](SubsTrack/app/(app)/(tabs)/admin/products.tsx)
-- Tier enforcement: [TierService.ts](SubsTrack/src/modules/subscription/services/TierService.ts)
 
 ---
 
@@ -17,7 +16,7 @@ Covers the Products catalog: a list of one-off sellable items (not subscriptions
 
 1. **Products are never hard-deleted when referenced by a sale line.** `ProductService.deleteProduct()` checks `countReferences(id)` — the count of `sale_items` rows (sale lines) using the product. If any sale line references it, it sets `active = false` (soft-delete). Hard-delete only when no sale line exists.
 2. **`branch_id IS NULL` means SHARED** — visible to every branch, same as plans.
-3. **Tier-gated creation.** `ProductService.createProduct()` calls `tierService.assertCanCreate(tier, usage, 'products')` after validation. Free tier: max 5 products. Pro / Business: unlimited.
+3. **Uncapped creation.** There is no product limit — `ProductService.createProduct()` validates and writes. The only quantity limit in the product is on active customers ([customer-allowance.md](customer-allowance.md)).
 4. **`null currency_id` means USD** throughout — same rule as payments and plans.
 5. **Admin-only.** The Products screen and all mutations are inaccessible to the `user` role.
 6. **Stock is a ledger sum, never a stored counter.** `Product.stockOnHand = SUM(stock_movements.quantity_delta)` over non-voided rows. Rows are never deleted, and voiding a sale soft-voids the sale's movements. **Editing** a sale does the same swap: its live `'sale'` movements are soft-voided and new ones inserted (never opposite correction rows), and only when the sale's per-product unit count actually changed — see [sales.md](sales.md) §2C. A **manual** row (`initial` / `restock` / `adjustment`) can be **corrected in place** — quantity, cost and note only, audited — for a wrongly *written* entry; something that really happened later is a new movement instead (§6C).
@@ -92,18 +91,16 @@ Covers the Products catalog: a list of one-off sellable items (not subscriptions
 
 ---
 
-## 5. Tier gating
+## 5. No cap on products
+
+Products are **unlimited**. The only quantity limit left in the product is on active customers — see [customer-allowance.md](customer-allowance.md).
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 5.1 | Free tier: 5-product limit | Add 5 products on Free tier | 5th product created successfully |
-| 5.2 | Free tier: limit hit | Try to add 6th product on Free tier | `TierLimitError` → `UpgradePromptModal` shown. Product NOT created |
-| 5.3 | Pro / Business: unlimited | Add products on Pro or Business tier | No cap; products created freely |
-| 5.4 | UpgradePromptModal actions | Tenant-wide admin sees modal | Compact upgrade tier cards + "View plans" CTA; tapping navigates to Subscription screen |
-| 5.5 | Branch-scoped admin limit reached | Branch admin hits Free limit | Stripped modal: "Limit reached — contact your administrator." Close button only |
-| 5.6 | Upgrade then retry | Upgrade from Free to Pro, retry the create | Product created successfully; no modal |
-| 5.7 | Usage count after creation | Create a product, check subscription usage | `products` usage counter increments |
-| 5.8 | Usage count after soft-delete | Soft-delete a product | Usage counter decrements (or verify behavior — soft-deleted products may or may not count against limit) |
+| 5.1 | Many products | Create 20+ products on a brand-new tenant | All created; no cap, no prompt at any count |
+| 5.2 | No upgrade prompt | Create products repeatedly and watch | No limit modal of any kind ever appears; the only blockers are validation errors |
+| 5.3 | Branch-scoped admin | Branch admin creates many products | Same — no cap, no "contact your administrator" dialog |
+| 5.4 | No usage counter | Open Admin → Products | The menu row shows a plain description — no "N / 5" style counter anywhere |
 
 ---
 

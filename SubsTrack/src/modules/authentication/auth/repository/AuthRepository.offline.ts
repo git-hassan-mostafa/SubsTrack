@@ -1,6 +1,6 @@
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '@/src/shared/lib/supabase';
-import type { DbBranch, DbTenant, DbTierPlan, DbUser } from '@/src/core/types/db';
+import type { DbBranch, DbTenant, DbUser } from '@/src/core/types/db';
 import { OfflineBaseRepository } from '@/src/core/offline/OfflineBaseRepository';
 import { upsertFromServer } from '@/src/core/offline/db/dml';
 import { isOnline } from '@/src/core/offline/net/connectivity';
@@ -84,18 +84,11 @@ export class OfflineAuthRepository extends OfflineBaseRepository implements IAut
 
   private async cacheTenant(tenant: DbTenant): Promise<void> {
     await upsertFromServer(this.db, 'tenants', tenant);
-    const tier = (tenant as { tier_plans?: DbTierPlan | null }).tier_plans;
-    if (tier) await upsertFromServer(this.db, 'tier_plans', tier);
   }
 
   private async readCachedTenant(tenantId: string): Promise<DbTenant | null> {
     const row = await this.first('SELECT * FROM tenants WHERE id = ?', [tenantId]);
     if (!row) return null;
-    const tenant = this.decodeOne<DbTenant>('tenants', row)!;
-    if (tenant.tier_id) {
-      const tiers = await this.rowsById<DbTierPlan>('tier_plans', [tenant.tier_id]);
-      tenant.tier_plans = tiers.get(tenant.tier_id) ?? null;
-    }
-    return tenant;
+    return this.decodeOne<DbTenant>('tenants', row);
   }
 }

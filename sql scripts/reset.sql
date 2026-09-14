@@ -7,7 +7,8 @@
 -- ── TRIGGERS ─────────────────────────────────────────────────
 -- One per table carrying updated_at. The DROP TABLE ... CASCADE below would
 -- sweep these anyway; listed for clarity and for a partial reset.
-DROP TRIGGER IF EXISTS trg_tier_plans_updated_at ON tier_plans;
+DROP TRIGGER IF EXISTS trg_customer_requests_updated_at ON customer_requests;
+DROP TRIGGER IF EXISTS trg_tenants_guard_billing ON tenants;
 DROP TRIGGER IF EXISTS trg_tenants_updated_at    ON tenants;
 DROP TRIGGER IF EXISTS trg_customers_updated_at  ON customers;
 DROP TRIGGER IF EXISTS trg_customer_plans_updated_at ON customer_plans;
@@ -60,7 +61,9 @@ DROP POLICY IF EXISTS branches_all      ON branches;
 DROP POLICY IF EXISTS users_update      ON users;
 DROP POLICY IF EXISTS users_insert      ON users;
 DROP POLICY IF EXISTS users_select      ON users;
-DROP POLICY IF EXISTS tier_plans_select ON tier_plans;
+DROP POLICY IF EXISTS customer_requests_update ON customer_requests;
+DROP POLICY IF EXISTS customer_requests_insert ON customer_requests;
+DROP POLICY IF EXISTS customer_requests_select ON customer_requests;
 DROP POLICY IF EXISTS app_options_select ON app_options;
 DROP POLICY IF EXISTS tenant_settings_write  ON tenant_settings;
 DROP POLICY IF EXISTS tenant_settings_select ON tenant_settings;
@@ -87,6 +90,7 @@ DROP TABLE IF EXISTS users      CASCADE;
 DROP TABLE IF EXISTS branches   CASCADE;
 DROP TABLE IF EXISTS currencies CASCADE;
 DROP TABLE IF EXISTS tenant_settings CASCADE;
+DROP TABLE IF EXISTS customer_requests CASCADE;
 DROP TABLE IF EXISTS tenants     CASCADE;
 DROP TABLE IF EXISTS tier_plans  CASCADE;
 DROP TABLE IF EXISTS app_options CASCADE;
@@ -95,6 +99,8 @@ DROP TABLE IF EXISTS app_options CASCADE;
 DROP FUNCTION IF EXISTS public.custom_access_token_hook(jsonb);
 DROP FUNCTION IF EXISTS public.is_tenant_code_available(TEXT);
 DROP FUNCTION IF EXISTS public.get_free_tier_id();
+DROP FUNCTION IF EXISTS public.accept_customer_request(UUID, INT);
+DROP FUNCTION IF EXISTS public.guard_tenant_billing_columns();
 DROP FUNCTION IF EXISTS public.current_user_role();
 DROP FUNCTION IF EXISTS public.current_tenant_id();
 DROP FUNCTION IF EXISTS public.current_branch_id();

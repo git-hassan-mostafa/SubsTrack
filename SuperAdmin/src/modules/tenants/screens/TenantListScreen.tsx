@@ -2,25 +2,20 @@ import { useCallback, useState } from 'react';
 import { ActivityIndicator, FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from 'expo-router';
-import { ConfirmDialog } from '@/src/shared/components/ConfirmDialog';
 import { EmptyState } from '@/src/shared/components/EmptyState';
 import { ErrorBanner } from '@/src/shared/components/ErrorBanner';
 import type { Tenant } from '@/src/core/types';
 import { TenantCard } from '../components/TenantCard';
 import { TenantFormSheet } from '../components/TenantFormSheet';
 import { useTenantStore } from '../store/tenantStore';
-import { useTierPlanStore } from '@/src/modules/tier-plans/store/tierPlanStore';
 
 export function TenantListScreen() {
-  const { tierPlans, fetchTierPlans } = useTierPlanStore();
-  const { tenants, loading, error, fetchTenants, deleteTenant, clearError } = useTenantStore();
+  const { tenants, loading, error, fetchTenants, clearError } = useTenantStore();
   const [formVisible, setFormVisible] = useState(false);
   const [editingTenant, setEditingTenant] = useState<Tenant | null>(null);
-  const [deletingTenant, setDeletingTenant] = useState<Tenant | null>(null);
 
   useFocusEffect(useCallback(() => {
     fetchTenants();
-    fetchTierPlans();
   }, []));
 
   function openCreate() {
@@ -31,12 +26,6 @@ export function TenantListScreen() {
   function openEdit(tenant: Tenant) {
     setEditingTenant(tenant);
     setFormVisible(true);
-  }
-
-  async function confirmDelete() {
-    if (!deletingTenant) return;
-    await deleteTenant(deletingTenant.id);
-    setDeletingTenant(null);
   }
 
   return (
@@ -65,11 +54,7 @@ export function TenantListScreen() {
           contentContainerStyle={styles.list}
           refreshControl={<RefreshControl refreshing={loading} onRefresh={fetchTenants} />}
           renderItem={({ item }) => (
-            <TenantCard
-              tenant={item}
-              onEdit={openEdit}
-              onDelete={setDeletingTenant}
-            />
+            <TenantCard tenant={item} onEdit={openEdit} />
           )}
           ListEmptyComponent={
             <EmptyState
@@ -86,15 +71,6 @@ export function TenantListScreen() {
         onDismiss={() => setFormVisible(false)}
       />
 
-      <ConfirmDialog
-        visible={!!deletingTenant}
-        title="Delete Tenant"
-        message={`Delete "${deletingTenant?.name}"? This will remove the tenant and all associated data.`}
-        confirmLabel="Delete"
-        destructive
-        onConfirm={confirmDelete}
-        onCancel={() => setDeletingTenant(null)}
-      />
     </SafeAreaView>
   );
 }

@@ -105,17 +105,8 @@ Deno.serve(async (req) => {
     }
 
     // ---- 1. tenants ----
-    // Look up the Free tier id. The tenants.tier_id column has a default that
-    // resolves to Free, but we set it explicitly so the future paid-plan flow
-    // can swap in a different tier without changing the schema.
-    const { data: freeTier, error: freeTierErr } = await serviceClient
-      .from("tier_plans")
-      .select("id")
-      .eq("code", "free")
-      .single();
-    if (freeTierErr || !freeTier) {
-      return jsonResponse({ error: "Free tier is not configured" }, 500);
-    }
+    // customer_allowance and price_per_customer_usd are omitted on purpose so
+    // the schema DEFAULTs decide the starting deal in exactly one place.
 
     // ---- read the global default LBP rate (seeded in app_options) ----
     // Done before any tenant rows exist so a missing/invalid value can fall
@@ -132,7 +123,7 @@ Deno.serve(async (req) => {
 
     const { data: tenantRow, error: tenantErr } = await serviceClient
       .from("tenants")
-      .insert({ name, tenant_code: tenantCode, tier_id: freeTier.id })
+      .insert({ name, tenant_code: tenantCode })
       .select("id, tenant_code")
       .single();
 

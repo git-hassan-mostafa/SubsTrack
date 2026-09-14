@@ -267,7 +267,8 @@
     "bundle_price_label": "Bundle Price",
     "bundle_price_hint": "Total price for all months in this block",
     "bulk_delete_title": "Delete {{count}} plans",
-    "bulk_delete_message": "Delete {{count}} selected plan(s)? Customers assigned to them will have their plan removed."
+    "bulk_delete_message": "Delete {{count}} selected plan(s)? Customers assigned to them will have their plan removed.",
+    "per_month_suffix": "/ month"
   },
   "users": {
     "title": "Staff",
@@ -676,9 +677,6 @@
     "debt_customer_required": "Pick a customer for this debt",
     "debt_payment_no_debt": "This customer has no outstanding debt to pay",
     "debt_payment_exceeds_debt": "Amount is more than the customer owes",
-    "tier_limit_reached": "You've reached the {{resource}} limit ({{limit}}) for your current plan",
-    "tier_multi_currency_locked": "Multiple currencies are not available on your current plan",
-    "tier_multi_month_locked": "Multi-month plans are not available on your current plan",
     "sale_missing": "This sale no longer exists",
     "payment_missing": "This payment no longer exists",
     "payment_voided_not_editable": "A voided payment cannot be changed. Record a new payment instead.",
@@ -700,57 +698,8 @@
     "sale_edit_actor_required": "Sign in again before correcting money on this sale.",
     "charge_amount_below_collected": "The new amount is less than what has already been collected on this bill.",
     "charge_not_editable": "This bill was voided or written off, so it can no longer be edited.",
-    "sale_total_positive": "Enter a total greater than 0 for this sale"
-  },
-  "subscription": {
-    "title": "Subscription",
-    "menu_sub": "View limits, usage, and upgrade",
-    "your_usage": "Your usage",
-    "current_plan": "Current",
-    "per_month": "/ month",
-    "upgrade_to": "Upgrade to {{name}}",
-    "downgrade_to": "Downgrade to {{name}}",
-    "view_plans": "View plans",
-    "not_now": "Not now",
-    "contact_to_upgrade": "Contact to upgrade",
-    "whatsapp_upgrade_message": "Hello, I'd like to upgrade my SubsTrack plan to {{name}}.",
-    "whatsapp_upgrade_message_generic": "Hello, I'd like to upgrade my SubsTrack plan.",
-    "next_tier": "the next tier",
-    "confirm_upgrade_title": "Upgrade to {{name}}?",
-    "confirm_upgrade_body": "Your account will switch to the new plan immediately. You can change plans again later.",
-    "confirm_upgrade": "Upgrade",
-    "confirm_downgrade_title": "Downgrade to {{name}}?",
-    "confirm_downgrade_body": "You'll keep all your existing data but will be limited by the new plan going forward.",
-    "confirm_downgrade": "Downgrade",
-    "downgrade_blocked_title": "Cannot downgrade yet",
-    "downgrade_blocked_body": "Your current usage exceeds what {{name}} allows. Adjust the items below first:",
-    "resource": {
-      "customers": "Customers",
-      "users": "Users",
-      "plans": "Plans",
-      "branches": "Branches",
-      "currencies": "Currencies",
-      "products": "Products",
-      "multi_currency": "Multiple currencies",
-      "multi_month": "Multi-month plans"
-    },
-    "feature": {
-      "multi_currency": "Multi-currency",
-      "multi_month": "Multi-month plans"
-    },
-    "locked": {
-      "upgrade_title": "Upgrade your plan",
-      "limit_reached_title": "You've reached your {{resource}} limit",
-      "limit_reached_body": "Your {{tierName}} plan allows up to {{limit}}. Upgrade to {{nextTierName}} to add more.",
-      "multi_currency_title": "Multi-currency is a paid feature",
-      "multi_currency_body": "Upgrade to {{nextTierName}} to manage currencies other than USD.",
-      "multi_month_title": "Multi-month plans are a paid feature",
-      "multi_month_body": "Upgrade to {{nextTierName}} to bundle multiple months into a single payment.",
-      "contact_admin_title": "Limit reached",
-      "contact_admin_body": "This plan's limit has been reached. Contact your administrator to upgrade."
-    },
-    "unlimited": "Unlimited",
-    "up_to": "Up to {{count}}"
+    "sale_total_positive": "Enter a total greater than 0 for this sale",
+    "customer_limit_reached": "Customer limit reached: {{count}} of {{allowance}} used."
   },
   "products": {
     "title": "Products",
@@ -1165,7 +1114,6 @@
         "subscribed": "{{actor}} added the plan {{detail}}",
         "unsubscribed": "{{actor}} removed the plan {{detail}}",
         "stock_edit": "{{actor}} changed {{field}} on a stock entry from {{before}} to {{after}}",
-        "tier_changed": "{{actor}} moved {{record}} to the {{after}} plan",
         "is_regular_on": "{{actor}} marked {{record}} as a regular customer",
         "is_regular_off": "{{actor}} removed the regular customer mark from {{record}}",
         "is_custom_price_on": "{{actor}} turned on a per-customer price for {{record}}",
@@ -1210,7 +1158,7 @@
       "currencies": "Currency",
       "users": "Staff member",
       "tenant_settings": "Setting",
-      "tenants": "Organization"
+      "customer_requests": "Customer request"
     },
     "field": {
       "name": "Name",
@@ -1267,8 +1215,6 @@
       "skipped_by_user_id": "Skipped by",
       "key": "Setting",
       "value": "Value",
-      "tier_id": "Plan",
-      "tier_upgraded_at": "Plan changed at",
       "password": "Password",
       "issued_at": "billed on",
       "due_date": "due date",
@@ -1463,5 +1409,34 @@
   },
   "invoicing": {
     "send_on_whatsapp": "Send on WhatsApp"
+  },
+  "billing": {
+    "section_title": "CUSTOMERS & BILLING",
+    "section_hint": "You are billed for each active customer every month.",
+    "allowed_customers": "Allowed customers",
+    "current_customers": "Current customers",
+    "monthly_amount": "Monthly amount",
+    "amount_note": "{{count}} active × ${{price}} per customer",
+    "request_more": "Request more customers",
+    "request_title": "Request more customers",
+    "request_hint": "How many extra customers do you need? Minimum {{min}}.",
+    "request_label": "Extra customers",
+    "request_min_error": "Please request at least {{min}} more customers.",
+    "send_request": "Send request",
+    "send_request_whatsapp": "Send request + WhatsApp",
+    "whatsapp_request_message": "Hello, {{org}} would like {{count}} more customers on SubsTrack.",
+    "pending_title": "Request pending",
+    "pending_body": "You asked for {{count}} more customers. Your allowance will change once it is approved.",
+    "edit_request": "Edit request",
+    "save_request": "Save request",
+    "cancel_request": "Cancel request",
+    "cancel_confirm_title": "Cancel this request?",
+    "cancel_confirm_body": "Your pending request for {{count}} more customers will be withdrawn.",
+    "declined_title": "Request declined",
+    "declined_body": "Your request for {{count}} more customers was declined. You can send a new one.",
+    "limit_reached_title": "Customer limit reached",
+    "limit_reached_body": "You are using {{count}} of your {{allowance}} customers. Request more to keep adding.",
+    "limit_reached_contact_admin": "Ask your administrator to request more customers.",
+    "go_to_settings": "Organization settings"
   }
 }

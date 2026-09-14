@@ -4,14 +4,11 @@ import type { Tenant } from "@/src/core/types";
 interface TenantCardProps {
   tenant: Tenant;
   onEdit: (tenant: Tenant) => void;
-  onDelete: (tenant: Tenant) => void;
 }
 
-export function TenantCard({
-  tenant,
-  onEdit,
-  onDelete,
-}: TenantCardProps) {
+export function TenantCard({ tenant, onEdit }: TenantCardProps) {
+  const pending = tenant.pendingRequest;
+
   return (
     <View style={styles.card}>
       <Pressable style={styles.body} onPress={() => onEdit(tenant)}>
@@ -37,9 +34,9 @@ export function TenantCard({
         </View>
 
         <View style={styles.meta}>
-          <View style={styles.tierBadge}>
-            <Text style={styles.tierText}>
-              {tenant.tier ? `Tier: ${tenant.tier.name}` : "No tier assigned"}
+          <View style={styles.allowanceBadge}>
+            <Text style={styles.allowanceText}>
+              {`${tenant.customerAllowance} customers · $${tenant.pricePerCustomerUsd} each`}
             </Text>
           </View>
           <Text style={styles.date}>
@@ -50,6 +47,14 @@ export function TenantCard({
             })}
           </Text>
         </View>
+
+        {pending ? (
+          <View style={styles.requestPill}>
+            <Text style={styles.requestPillText}>
+              {`Requested +${pending.requestedCount}`}
+            </Text>
+          </View>
+        ) : null}
       </Pressable>
     </View>
   );
@@ -90,14 +95,21 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  tierBadge: {
+  allowanceBadge: {
     backgroundColor: "#f0f9ff",
     borderRadius: 6,
     paddingHorizontal: 8,
     paddingVertical: 2,
   },
-  tierText: { fontSize: 12, color: "#0a7ea4", fontWeight: "500" },
+  allowanceText: { fontSize: 12, color: "#0a7ea4", fontWeight: "500" },
   date: { fontSize: 12, color: "#94a3b8" },
-  deleteBtn: { paddingHorizontal: 16, paddingVertical: 20 },
-  deleteText: { fontSize: 13, color: "#ef4444", fontWeight: "500" },
+  requestPill: {
+    alignSelf: "flex-start",
+    backgroundColor: "#ffedd5",
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    marginTop: 10,
+  },
+  requestPillText: { fontSize: 12, color: "#ea580c", fontWeight: "600" },
 });
