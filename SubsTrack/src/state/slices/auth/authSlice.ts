@@ -1,5 +1,5 @@
 import type { StateCreator } from 'zustand';
-import type { AuthUser, TierPlan } from '@/src/core/types';
+import type { AuthUser } from '@/src/core/types';
 import { authService } from '@/src/modules/authentication/auth';
 import type { GlobalState } from '@/src/state/globalStore';
 
@@ -11,21 +11,16 @@ export interface AuthSlice {
   login: (username: string, tenantCode: string, password: string) => Promise<void>;
   restoreSession: () => Promise<void>;
   logout: () => Promise<void>;
-  setUserTier: (tier: TierPlan) => void;
   clearError: () => void;
 }
 
 // After a successful auth (login or session restore), prime supporting slices
 // in parallel so all downstream pickers/formatters have data ready.
-// subscription.init re-fetches the tenant's tier from the DB itself — this
-// keeps the active tier fresh after a previous-session upgrade, even if
-// user.tenant.tier (resolved via the auth-time tenants/tier_plans join) is
-// somehow stale.
 async function primePostAuth(get: () => GlobalState, user: AuthUser): Promise<void> {
   await Promise.all([
     get().currencies.fetchCurrencies(),
     get().branches.fetchBranches(),
-    get().subscription.init(user.tenantId),
+    get().billing.init(user.tenantId),
     get().options.fetchOptions(),
     get().tenantSettings.fetchSettings(),
   ]);
@@ -85,7 +80,7 @@ export const createAuthSlice: StateCreator<
       await authService.logout();
     } catch {
     }
-    get().subscription.reset();
+    get().billing.reset();
     set((state) => {
       state.auth.user = null;
       state.auth.tenantActive = true;
@@ -93,14 +88,6 @@ export const createAuthSlice: StateCreator<
       state.auth.error = null;
     });
   },
-
-  setUserTier: (tier) =>
-    set((state) => {
-      if (state.auth.user) {
-        state.auth.user.tenant.tierId = tier.id;
-        state.auth.user.tenant.tier = tier;
-      }
-    }),
 
   clearError: () =>
     set((state) => {

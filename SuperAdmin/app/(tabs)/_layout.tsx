@@ -23,13 +23,6 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="tier-plans"
-        options={{
-          title: 'Tier Plans',
-          tabBarIcon: ({ color }) => <IconSymbol size={26} name="list.star" color={color} />,
-        }}
-      />
-      <Tabs.Screen
         name="options"
         options={{
           title: 'Options',

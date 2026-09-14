@@ -20,8 +20,7 @@ import { useCustomerSlice } from "@/src/state/hooks/useCustomerSlice";
 import { useCustomerPlanSlice } from "@/src/state/hooks/useCustomerPlanSlice";
 import { getStore } from "@/src/state/globalStore";
 import { useActiveBranches } from "@/src/modules/admin/branches";
-import { useSubscriptionSlice } from "@/src/state/hooks/useSubscriptionSlice";
-import { UpgradePromptModal } from "@/src/modules/admin/subscription";
+import { CustomerLimitReachedModal } from "@/src/modules/admin/billing";
 import { LocationField } from "@/src/shared/components/LocationField";
 import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
 
@@ -48,13 +47,11 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
   const updateCustomer = useCustomerSlice((s) => s.updateCustomer);
   const error = useCustomerSlice((s) => s.error);
   const clearError = useCustomerSlice((s) => s.clearError);
-  const tierLimitError = useCustomerSlice((s) => s.tierLimitError);
-  const clearTierLimitError = useCustomerSlice((s) => s.clearTierLimitError);
+  const customerLimitError = useCustomerSlice((s) => s.customerLimitError);
+  const clearCustomerLimitError = useCustomerSlice((s) => s.clearCustomerLimitError);
   const syncLines = useCustomerPlanSlice((s) => s.syncLines);
   const planError = useCustomerPlanSlice((s) => s.error);
   const clearPlanError = useCustomerPlanSlice((s) => s.clearError);
-  const currentTier = useSubscriptionSlice((s) => s.currentTier);
-  const usage = useSubscriptionSlice((s) => s.usage);
   const getPlans = usePlanSlice((s) => s.getPlans);
   const { currentBranchId } = useUiPrefStore();
   const activeBranches = useActiveBranches();
@@ -128,13 +125,7 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
         );
         if (ok) onDismiss();
       } else {
-        if (!currentTier) return;
-        const created = await createCustomer(
-          payload,
-          user.tenantId,
-          currentTier,
-          usage,
-        );
+        const created = await createCustomer(payload, user.tenantId);
         if (!created) return;
         const ok = await syncLines(
           created.id,
@@ -255,10 +246,10 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
         />
         <View className="h-24" />
       </FormSheet>
-      <UpgradePromptModal
-        payload={tierLimitError}
+      <CustomerLimitReachedModal
+        payload={customerLimitError}
         onClose={() => {
-          clearTierLimitError();
+          clearCustomerLimitError();
           onDismiss();
         }}
       />

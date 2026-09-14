@@ -1,7 +1,7 @@
 import { AuthUser } from "@/src/core/types";
 import type { DbTenant, DbUser } from "@/src/core/types/db";
 import { mapDbBranchToBranch } from "@/src/modules/admin/branches";
-import { mapDbTenantToTenant } from "@/src/modules/admin/subscription";
+import { mapDbTenantToTenant } from "@/src/modules/admin/billing/utils/mapper";
 
 export function mapDbUserToAuthUser(db: DbUser, tenant: DbTenant): AuthUser {
     return {

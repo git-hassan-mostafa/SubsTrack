@@ -1,8 +1,7 @@
-import type { AppUser, UserRole, TierPlan, TenantUsage } from '@/src/core/types';
+import type { AppUser, UserRole } from '@/src/core/types';
 import type { BranchFilter } from '@/src/core/constants';
 import i18n from '@/src/core/i18n';
 import repository from '../repository/UserRepository';
-import { tierService } from '@/src/modules/admin/subscription';
 import { mapDbUserToAppUser } from '../utils/mapper';
 
 interface CreateUserInput {
@@ -40,15 +39,12 @@ class UserService {
     data: CreateUserInput,
     tenantId: string,
     tenantHasBranches: boolean,
-    tier: TierPlan,
-    usage: TenantUsage,
   ): Promise<AppUser> {
     this.validateUsername(data.username);
     if (!data.fullName.trim()) throw new Error(i18n.t('errors.fullname_required'));
     if (data.password.length < 8) throw new Error(i18n.t('errors.password_too_short'));
     if (!['admin', 'user'].includes(data.role)) throw new Error(i18n.t('errors.role_invalid'));
     this.validateBranchAssignment(data.role, data.branchId, tenantHasBranches);
-    tierService.assertCanCreate(tier, usage, 'users');
 
     try {
       const row = await repository.create({

@@ -1,9 +1,7 @@
 import type { StateCreator } from 'zustand';
-import type { Plan, TierPlan, TenantUsage } from '@/src/core/types';
+import type { Plan } from '@/src/core/types';
 import { planService } from '@/src/modules/admin/plans';
 import { resolveBranchFilter } from '@/src/shared/lib/branchFilter';
-import { TierLimitError } from '@/src/modules/admin/subscription';
-import type { TierLimitErrorPayload } from '@/src/modules/admin/subscription';
 import type { GlobalState } from '@/src/state/globalStore';
 
 interface PlanInput {
@@ -20,15 +18,13 @@ export interface PlanSlice {
   loaded: boolean;
   loading: boolean;
   error: string | null;
-  tierLimitError: TierLimitErrorPayload | null;
   getPlans: () => Promise<void>;
   fetchPlans: () => Promise<void>;
-  createPlan: (data: PlanInput, tenantId: string, tier: TierPlan, usage: TenantUsage) => Promise<void>;
-  updatePlan: (id: string, data: PlanInput, tier: TierPlan) => Promise<void>;
+  createPlan: (data: PlanInput, tenantId: string) => Promise<void>;
+  updatePlan: (id: string, data: PlanInput) => Promise<void>;
   deletePlan: (id: string) => Promise<boolean>;
   bulkDeletePlans: (ids: string[]) => Promise<boolean>;
   clearError: () => void;
-  clearTierLimitError: () => void;
   reset: () => void;
 }
 
@@ -42,7 +38,6 @@ export const createPlanSlice: StateCreator<
   loaded: false,
   loading: false,
   error: null,
-  tierLimitError: null,
 
   getPlans: async () => {
     const { loaded, loading } = get().plans;
@@ -71,67 +66,42 @@ export const createPlanSlice: StateCreator<
     }
   },
 
-  createPlan: async (data, tenantId, tier, usage) => {
+  createPlan: async (data, tenantId) => {
     set((state) => {
       state.plans.loading = true;
       state.plans.error = null;
-      state.plans.tierLimitError = null;
     });
     try {
-      const plan = await planService.createPlan(data, tenantId, tier, usage);
+      const plan = await planService.createPlan(data, tenantId);
       set((state) => {
         state.plans.items.push(plan);
         state.plans.loading = false;
       });
-      void get().subscription.refreshUsage();
     } catch (e) {
-      if (e instanceof TierLimitError) {
-        set((state) => {
-          state.plans.tierLimitError = {
-            resource: e.resource,
-            limit: e.limit,
-            tierCode: e.tierCode,
-          };
-          state.plans.loading = false;
-        });
-      } else {
-        set((state) => {
-          state.plans.error = (e as Error).message;
-          state.plans.loading = false;
-        });
-      }
+      set((state) => {
+        state.plans.error = (e as Error).message;
+        state.plans.loading = false;
+      });
     }
   },
 
-  updatePlan: async (id, data, tier) => {
+  updatePlan: async (id, data) => {
     set((state) => {
       state.plans.loading = true;
       state.plans.error = null;
-      state.plans.tierLimitError = null;
     });
     try {
-      const updated = await planService.updatePlan(id, data, tier);
+      const updated = await planService.updatePlan(id, data);
       set((state) => {
         const i = state.plans.items.findIndex((p) => p.id === id);
         if (i !== -1) state.plans.items[i] = updated;
         state.plans.loading = false;
       });
     } catch (e) {
-      if (e instanceof TierLimitError) {
-        set((state) => {
-          state.plans.tierLimitError = {
-            resource: e.resource,
-            limit: e.limit,
-            tierCode: e.tierCode,
-          };
-          state.plans.loading = false;
-        });
-      } else {
-        set((state) => {
-          state.plans.error = (e as Error).message;
-          state.plans.loading = false;
-        });
-      }
+      set((state) => {
+        state.plans.error = (e as Error).message;
+        state.plans.loading = false;
+      });
     }
   },
 
@@ -146,7 +116,6 @@ export const createPlanSlice: StateCreator<
         state.plans.items = state.plans.items.filter((p) => p.id !== id);
         state.plans.loading = false;
       });
-      void get().subscription.refreshUsage();
       return true;
     } catch (e) {
       set((state) => {
@@ -170,7 +139,6 @@ export const createPlanSlice: StateCreator<
         state.plans.items = state.plans.items.filter((p) => !removed.has(p.id));
         state.plans.loading = false;
       });
-      void get().subscription.refreshUsage();
       return true;
     } catch (e) {
       set((state) => {
@@ -185,16 +153,11 @@ export const createPlanSlice: StateCreator<
     set((state) => {
       state.plans.error = null;
     }),
-  clearTierLimitError: () =>
-    set((state) => {
-      state.plans.tierLimitError = null;
-    }),
   reset: () =>
     set((state) => {
       state.plans.items = [];
       state.plans.loaded = false;
       state.plans.loading = false;
       state.plans.error = null;
-      state.plans.tierLimitError = null;
     }),
 });

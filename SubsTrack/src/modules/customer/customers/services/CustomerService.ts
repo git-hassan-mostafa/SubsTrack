@@ -1,8 +1,8 @@
-import type { Customer, TierPlan, TenantUsage } from "@/src/core/types";
+import type { Customer } from "@/src/core/types";
 import { PAGE_SIZE, type BranchFilter } from "@/src/core/constants";
 import i18n from "@/src/core/i18n";
 import repository from "../repository/CustomerRepository";
-import { tierService } from "@/src/modules/admin/subscription";
+import { billingService } from "@/src/modules/admin/billing";
 import { mapDbCustomerToCustomer } from "../utils/mapper";
 
 type CustomerInput = Pick<
@@ -32,14 +32,19 @@ class CustomerService {
     return mapDbCustomerToCustomer(row);
   }
 
+  // A null filter is tenant-wide, which is the scope the allowance caps.
+  async countActive(branchFilter: BranchFilter = null): Promise<number> {
+    return repository.countActive(branchFilter);
+  }
+
   async createCustomer(
     data: CustomerInput,
     tenantId: string,
-    tier: TierPlan,
-    usage: TenantUsage,
+    allowance: number,
+    activeCount: number,
   ): Promise<Customer> {
     this.validateInput(data);
-    tierService.assertCanCreate(tier, usage, 'customers');
+    billingService.assertCanCreateCustomer(allowance, activeCount);
     const row = await repository.create({
       name: data.name.trim(),
       phone_number: data.phoneNumber?.trim() || null,

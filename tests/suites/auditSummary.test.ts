@@ -464,15 +464,6 @@ describe('buildAuditSummary', () => {
     expect(sentence(e)).toBe('Super Admin turned on a per-customer price for the plan Gold');
   });
 
-  it('TC-AS-36 a tier upgrade names the new plan', () => {
-    const e = entry({
-      table: 'tenants',
-      changes: [change('tier_id', 'old', 'new'), change('tier_upgraded_at', null, 'x')],
-      context: { name: 'Acme' },
-    });
-    expect(sentence(e)).toBe('Super Admin moved the organization Acme to the new plan');
-  });
-
   it('TC-AS-37 an unskip is read from the flag, not only from the action', () => {
     const e = entry({
       table: 'skipped_months',
@@ -496,7 +487,6 @@ describe('buildAuditSummary', () => {
       ['plans', 'is_custom_price', true, false],
       ['charges', 'written_off_at', null, 'x'],
       ['users', 'password', '***', '***changed***'],
-      ['tenants', 'tier_id', 'a', 'b'],
     ];
     for (const [table, field, before, after] of spoken) {
       const e = entry({ table, changes: [change(field, before, after)], context: { name: 'X' } });

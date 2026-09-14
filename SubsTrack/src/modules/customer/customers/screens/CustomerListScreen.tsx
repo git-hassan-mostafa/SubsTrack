@@ -18,7 +18,6 @@ import {
 } from "@/src/shared/components/ActionMenu";
 import { useDebounce } from "@/src/shared/hooks/useDebounce";
 import { COLORS } from "@/src/shared/constants";
-import { useSubscriptionSlice } from "@/src/state/hooks/useSubscriptionSlice";
 import type { Collection, Customer, CustomerPlan, OpenItem } from "@/src/core/types";
 import { useSendInvoice, WhatsAppComboIcon } from "@/src/modules/invoicing";
 import { CustomerCard } from "../components/CustomerCard";
@@ -92,7 +91,6 @@ export function CustomerListScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const { user, isAdmin } = useAuth();
-  const currentTier = useSubscriptionSlice((s) => s.currentTier);
   const customers = useCustomerSlice((s) => s.items);
   const activeCount = useCustomerSlice((s) => s.activeCount);
   const loading = useCustomerSlice((s) => s.loading);
@@ -545,7 +543,7 @@ export function CustomerListScreen() {
         (warnings.length > 0 ? "\n\n" + warnings.join("\n") : ""),
       confirmLabel: t("payments.quick_pay.pay_now"),
     });
-    if (!ok || !currentTier) return;
+    if (!ok) return;
 
     setBulkBusy(true);
     try {

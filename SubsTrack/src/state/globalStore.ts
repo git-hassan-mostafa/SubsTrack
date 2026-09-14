@@ -2,7 +2,7 @@ import type { StoreApi } from 'zustand';
 import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { createAuthSlice, type AuthSlice } from './slices/auth/authSlice';
-import { createSubscriptionSlice, type SubscriptionSlice } from './slices/subscription/subscriptionSlice';
+import { createBillingSlice, type BillingSlice } from './slices/billing/billingSlice';
 import { createCustomerSlice, type CustomerSlice } from './slices/customers/customerSlice';
 import { createCustomerPlanSlice, type CustomerPlanSlice } from './slices/customer-plans/customerPlanSlice';
 import { createPaymentSlice, type PaymentSlice } from './slices/payments/paymentSlice';
@@ -19,7 +19,7 @@ import { createTenantSettingSlice, type TenantSettingSlice } from './slices/tena
 
 export interface GlobalState {
   auth: AuthSlice;
-  subscription: SubscriptionSlice;
+  billing: BillingSlice;
   customers: CustomerSlice;
   customerPlans: CustomerPlanSlice;
   payments: PaymentSlice;
@@ -41,7 +41,7 @@ const initStore = (): StoreApi<GlobalState> =>
   create<GlobalState>()(
     immer((set, get, store) => ({
       auth: createAuthSlice(set, get, store),
-      subscription: createSubscriptionSlice(set, get, store),
+      billing: createBillingSlice(set, get, store),
       customers: createCustomerSlice(set, get, store),
       customerPlans: createCustomerPlanSlice(set, get, store),
       payments: createPaymentSlice(set, get, store),

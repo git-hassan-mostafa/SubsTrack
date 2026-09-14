@@ -9,51 +9,32 @@ export type UserRole = 'superadmin' | 'admin' | 'user';
 // payable — the month must be unskipped first.
 export type MonthStatus = 'paid' | 'unpaid' | 'future' | 'before_start' | 'skipped';
 
+// customerAllowance / pricePerCustomerUsd are what the SaaS owner charges for;
+// both are read-only to the app — see docs/features.md.
 export interface Tenant {
   id: string;
   name: string;
   tenantCode: string;
   active: boolean;
-  tierId: string;
-  tier?: TierPlan | null;
-  tierUpgradedAt: string | null;
+  customerAllowance: number;
+  pricePerCustomerUsd: number;
   createdAt: string;
 }
 
-export type TierCode = 'free' | 'pro' | 'business';
+export type CustomerRequestStatus = 'pending' | 'accepted' | 'declined' | 'cancelled';
 
-// Subscription tier definition (Free / Pro / Business). Read-only from the app;
-// edits happen via SuperAdmin. Numeric *max_ columns are null = unlimited.
-export interface TierPlan {
+// An admin asking the owner for more customer slots. One pending row per
+// tenant; accepting it raises the tenant's allowance by grantedCount.
+export interface CustomerRequest {
   id: string;
-  code: TierCode;
-  name: string;
-  sortOrder: number;
-  maxCustomers: number | null;
-  maxUsers: number | null;
-  maxPlans: number | null;
-  maxBranches: number | null;
-  maxCurrencies: number | null;
-  maxProducts: number | null;
-  multiCurrencyEnabled: boolean;
-  multiMonthPlansEnabled: boolean;
-  priceMonthlyUsd: number;
-  priceYearlyUsd: number | null;
-  active: boolean;
+  tenantId: string;
+  requestedCount: number;
+  grantedCount: number | null;
+  status: CustomerRequestStatus;
+  requestedBy: string | null;
+  decidedAt: string | null;
+  createdAt: string;
 }
-
-// Current usage counts for a tenant, paired with TierPlan limits to drive
-// enforcement and the Subscription screen usage bars.
-export interface TenantUsage {
-  customers: number;
-  users: number;
-  plans: number;
-  branches: number;
-  currencies: number;
-  products: number;
-}
-
-export type TierResource = 'customers' | 'users' | 'plans' | 'branches' | 'currencies' | 'products';
 
 // Per-tenant non-USD currency. USD is implicit (never stored as a row).
 // Convention everywhere in the app: a null Currency reference means USD.
@@ -739,7 +720,7 @@ export type AuditTable =
   | 'currencies'
   | 'users'
   | 'tenant_settings'
-  | 'tenants';
+  | 'customer_requests';
 
 // Where a set of audit rows actually came from — an OUTCOME, never a user choice.
 //   'server' — the complete history (plus this device's un-pushed rows merged in)

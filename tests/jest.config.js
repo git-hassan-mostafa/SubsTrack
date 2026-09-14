@@ -19,10 +19,11 @@ module.exports = {
     // The real client imports react-native-url-polyfill, AppState and
     // AsyncStorage at module load — cut the chain here, not one link at a time.
     '^@/src/shared/lib/supabase$': stub('supabase-client.ts'),
-    // These two barrels export SCREENS next to their mappers, so importing one
+    // These barrels export SCREENS next to their mappers, so importing one
     // pulls React + NativeWind + expo-router into a service test. The stubs
     // re-export the same non-UI members from their deep paths.
     '^@/src/modules/admin/products$': stub('products-barrel.ts'),
+    '^@/src/modules/admin/billing$': stub('billing-barrel.ts'),
     '^@/src/modules/customer/customers$': stub('customers-barrel.ts'),
     '^@/src/modules/customer/customer-plans$': stub('customer-plans-barrel.ts'),
     '^@/(.*)$': `${app}/$1`,

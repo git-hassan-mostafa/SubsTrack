@@ -24,19 +24,8 @@ export const TABLES: TableSpec[] = [
     scope: 'tenant',
     columns: {
       id: 'text', name: 'text', tenant_code: 'text', active: 'bool',
-      tier_id: 'text', tier_upgraded_at: 'text', created_at: 'text', updated_at: 'text',
-    },
-  },
-  {
-    name: 'tier_plans',
-    scope: 'global',
-    columns: {
-      id: 'text', code: 'text', name: 'text', sort_order: 'int',
-      max_customers: 'int', max_users: 'int', max_plans: 'int', max_branches: 'int',
-      max_currencies: 'int', max_products: 'int',
-      multi_currency_enabled: 'bool', multi_month_plans_enabled: 'bool',
-      price_monthly_usd: 'num', price_yearly_usd: 'num',
-      active: 'bool', created_at: 'text', updated_at: 'text',
+      customer_allowance: 'int', price_per_customer_usd: 'num',
+      created_at: 'text', updated_at: 'text',
     },
   },
   {
@@ -255,7 +244,7 @@ export const TABLE_BY_NAME: Record<string, TableSpec> = Object.fromEntries(
 );
 
 export const PUSH_WAVES: readonly (readonly string[])[] = [
-  ['tenants', 'tier_plans', 'app_options'],
+  ['tenants', 'app_options'],
   ['tenant_settings', 'currencies', 'branches'],
   ['users', 'plans', 'customers', 'products', 'services'],
   ['customer_plans', 'sales', 'expenses', 'collections',

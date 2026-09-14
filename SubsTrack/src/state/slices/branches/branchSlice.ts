@@ -1,8 +1,6 @@
 import type { StateCreator } from "zustand";
-import type { Branch, TierPlan, TenantUsage } from "@/src/core/types";
+import type { Branch } from "@/src/core/types";
 import { branchService, type BranchInput } from "@/src/modules/admin/branches";
-import { TierLimitError } from "@/src/modules/admin/subscription";
-import type { TierLimitErrorPayload } from "@/src/modules/admin/subscription";
 import type { GlobalState } from "@/src/state/globalStore";
 
 export interface BranchSlice {
@@ -10,21 +8,14 @@ export interface BranchSlice {
   loaded: boolean;
   loading: boolean;
   error: string | null;
-  tierLimitError: TierLimitErrorPayload | null;
   getBranches: () => Promise<void>;
   fetchBranches: () => Promise<void>;
-  createBranch: (
-    data: BranchInput,
-    tenantId: string,
-    tier: TierPlan,
-    usage: TenantUsage,
-  ) => Promise<void>;
+  createBranch: (data: BranchInput, tenantId: string) => Promise<void>;
   updateBranch: (id: string, data: BranchInput) => Promise<void>;
   deleteBranch: (id: string) => Promise<"hard" | "soft" | null>;
   bulkDeleteBranches: (ids: string[]) => Promise<boolean>;
   reactivateBranch: (id: string) => Promise<void>;
   clearError: () => void;
-  clearTierLimitError: () => void;
   reset: () => void;
 }
 
@@ -38,7 +29,6 @@ export const createBranchSlice: StateCreator<
   loaded: false,
   loading: false,
   error: null,
-  tierLimitError: null,
 
   getBranches: async () => {
     const { loaded, loading } = get().branches;
@@ -66,41 +56,23 @@ export const createBranchSlice: StateCreator<
     }
   },
 
-  createBranch: async (data, tenantId, tier, usage) => {
+  createBranch: async (data, tenantId) => {
     if (get().branches.loading) return;
     set((state) => {
       state.branches.loading = true;
       state.branches.error = null;
-      state.branches.tierLimitError = null;
     });
     try {
-      const branch = await branchService.createBranch(
-        data,
-        tenantId,
-        tier,
-        usage,
-      );
+      const branch = await branchService.createBranch(data, tenantId);
       set((state) => {
         state.branches.items.push(branch);
         state.branches.loading = false;
       });
-      void get().subscription.refreshUsage();
     } catch (e) {
-      if (e instanceof TierLimitError) {
-        set((state) => {
-          state.branches.tierLimitError = {
-            resource: e.resource,
-            limit: e.limit,
-            tierCode: e.tierCode,
-          };
-          state.branches.loading = false;
-        });
-      } else {
-        set((state) => {
-          state.branches.error = (e as Error).message;
-          state.branches.loading = false;
-        });
-      }
+      set((state) => {
+        state.branches.error = (e as Error).message;
+        state.branches.loading = false;
+      });
     }
   },
 
@@ -136,7 +108,7 @@ export const createBranchSlice: StateCreator<
       if (mode === "hard") {
         set((state) => {
           state.branches.items = state.branches.items.filter(
-            (b) => b.id !== id,
+          (b) => b.id !== id,
           );
           state.branches.loading = false;
         });
@@ -147,7 +119,6 @@ export const createBranchSlice: StateCreator<
           state.branches.loading = false;
         });
       }
-      void get().subscription.refreshUsage();
       return mode;
     } catch (e) {
       set((state) => {
@@ -171,14 +142,13 @@ export const createBranchSlice: StateCreator<
         const removed = new Set(hard);
         const softened = new Set(soft);
         state.branches.items = state.branches.items.filter(
-          (b) => !removed.has(b.id),
+        (b) => !removed.has(b.id),
         );
         for (const b of state.branches.items) {
-          if (softened.has(b.id)) b.active = false;
+        if (softened.has(b.id)) b.active = false;
         }
         state.branches.loading = false;
       });
-      void get().subscription.refreshUsage();
       return true;
     } catch (e) {
       set((state) => {
@@ -214,16 +184,11 @@ export const createBranchSlice: StateCreator<
     set((state) => {
       state.branches.error = null;
     }),
-  clearTierLimitError: () =>
-    set((state) => {
-      state.branches.tierLimitError = null;
-    }),
   reset: () =>
     set((state) => {
       state.branches.items = [];
       state.branches.loaded = false;
       state.branches.loading = false;
       state.branches.error = null;
-      state.branches.tierLimitError = null;
     }),
 });

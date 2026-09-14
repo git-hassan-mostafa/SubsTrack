@@ -20,11 +20,11 @@ This flow uses the `create-tenant` Edge Function (no JWT required — deployed w
 ## 0. Critical invariants
 
 1. **Edge Function is the sole creation path.** No direct `INSERT` on `tenants`, `branches`, or `auth.users` from the mobile app. Verify no RLS INSERT policy on these tables for `anon`.
-2. **Atomic creation with cascading rollback.** The Edge Function sequence: `tier_plans (Free id lookup)` → `tenants` → `branches (Default Branch)` → `auth.users` → `public.users (role=superadmin, branch_id=null)`. Any failure rolls back all preceding steps.
+2. **Atomic creation with cascading rollback.** The Edge Function sequence: `tenants` → `branches (Default Branch)` → `auth.users` → `public.users (role=superadmin, branch_id=null)`. Any failure rolls back all preceding steps.
 3. **Owner role = `superadmin`.** The new tenant owner gets `role = superadmin` in `public.users`. This is the same role assignment SuperAdmin uses for tenant owners — the owner does NOT appear in their own Staff list (per-app role filter).
 4. **Tenant code pre-check** uses `is_tenant_code_available` RPC — a `SECURITY DEFINER` function granted to `anon`. It returns a boolean (no row data). The mobile app never sees a list of existing tenant codes.
 5. **Default Branch auto-created.** Every new tenant gets a "Default Branch" row immediately after the tenant row.
-6. **New tenant defaults to Free tier.** `tier_id` is resolved server-side to the Free tier's id — client cannot set a paid tier via this flow.
+6. **New tenant lands on the schema billing defaults — 30 customers at $0.15.** The Edge Function deliberately omits `customer_allowance` and `price_per_customer_usd` from its `tenants` insert so the column defaults apply; the client can never send either one.
 7. **Auto-login after signup.** On Edge Function success, `signupSlice.submit()` immediately calls `authSlice.login()` with the entered credentials. User lands in the app without a manual login step.
 
 ---
@@ -86,15 +86,15 @@ This flow uses the `create-tenant` Edge Function (no JWT required — deployed w
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 4.1 | Tenant created | After signup | New row in `tenants` with `tier_id = Free`, `active = true` |
+| 4.1 | Tenant created | After signup | New row in `tenants` with `active = true`, `customer_allowance = 30`, `price_per_customer_usd = 0.15` |
 | 4.2 | Default branch created | After signup | `branches` row with name "Default Branch" and `tenant_id` of the new tenant |
 | 4.3 | Owner account created | After signup | `auth.users` row + `public.users` row with `role = superadmin`, `branch_id = null` |
 | 4.4 | Owner in-app role | Log in as new owner | App treats them as admin (superadmin filtered from Staff list) |
-| 4.5 | Free tier limits apply | Try to create more customers than Free allows | Tier limit enforcement active from day 1 |
+| 4.5 | Customer allowance applies | Try to create a 31st customer | Blocked by the "Customer limit reached" modal — the cap is live from day 1 with no setup step ([customer-allowance.md](customer-allowance.md) §7.16) |
 | 4.6 | Currency list empty | New tenant, open Currencies settings | Only USD base card shown (no tenant currencies yet) |
 | 4.7 | Staff list empty | New tenant, open Staff | No users shown (owner's superadmin role is filtered from the list) |
 | 4.8 | Session persistence | Kill app after signup, reopen | Session restored; user stays logged in |
-| 4.9 | Subscription screen | Open Admin → Subscription | Shows Free tier active; Pro and Business available for upgrade |
+| 4.9 | Billing card | Open Admin → Organization Settings | "Customers & billing" card reads 30 allowed, 0 current, $0.00 monthly. There is no Subscription screen |
 
 ---
 
@@ -104,7 +104,7 @@ This flow uses the `create-tenant` Edge Function (no JWT required — deployed w
 |---|----------|-------|-----------------|
 | 5.1 | No direct tenant INSERT | Try to POST directly to `/rest/v1/tenants` with anon key | Supabase RLS rejects (no INSERT policy for `anon`) |
 | 5.2 | tenant_id from server only | Inspect the created tenant row | `tenant_id` on all child rows set server-side in the Edge Function, never from client input |
-| 5.3 | Tier set server-side | Inspect tenant row | `tier_id` resolves to Free server-side; client cannot override it to Pro/Business |
+| 5.3 | Billing set server-side | Send a signup payload carrying `customerAllowance` / `pricePerCustomerUsd`, then inspect the tenant row | Both ignored — the row takes the schema defaults 30 / 0.15; a client can never choose its own allowance or price |
 | 5.4 | Role set server-side | Inspect `public.users` row | `role = superadmin` set in Edge Function; client cannot inject a different role |
 | 5.5 | `paymentToken` field accepted but ignored | Send payload with a `paymentToken` field | Edge Function ignores it; no billing side-effect |
 

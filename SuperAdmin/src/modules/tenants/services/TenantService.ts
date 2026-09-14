@@ -1,42 +1,40 @@
-import type { Tenant, TierPlan } from "@/src/core/types";
-import type { DbTenant, DbTierPlan } from "@/src/core/types/db";
+import type { CustomerRequest, Tenant } from "@/src/core/types";
+import type { DbCustomerRequest, DbTenant } from "@/src/core/types/db";
 import { supabaseAdmin } from "@/src/shared/lib/supabaseAdmin";
-import { TenantRepository } from "../repository/TenantRepository";
+import {
+  TenantRepository,
+  type CreateTenantPayload,
+} from "../repository/TenantRepository";
 
 // Fallback USD→LBP rate (LBP per 1 USD) used only when the global
 // app_options.LiraRate row is missing or invalid. A misconfigured option
 // must never block tenant creation.
 const DEFAULT_LIRA_RATE = 89000;
 
-function mapDbTierPlanToTierPlan(db: DbTierPlan): TierPlan {
+function mapDbCustomerRequest(db: DbCustomerRequest): CustomerRequest {
   return {
     id: db.id,
-    code: db.code,
-    name: db.name,
-    sortOrder: db.sort_order,
-    maxCustomers: db.max_customers,
-    maxUsers: db.max_users,
-    maxPlans: db.max_plans,
-    maxBranches: db.max_branches,
-    maxCurrencies: db.max_currencies,
-    multiCurrencyEnabled: db.multi_currency_enabled,
-    multiMonthPlansEnabled: db.multi_month_plans_enabled,
-    priceMonthlyUsd: Number(db.price_monthly_usd),
-    priceYearlyUsd: db.price_yearly_usd === null ? null : Number(db.price_yearly_usd),
-    active: db.active,
-    maxProducts: db.max_products,
+    tenantId: db.tenant_id,
+    requestedCount: db.requested_count,
+    grantedCount: db.granted_count,
+    status: db.status,
+    decidedAt: db.decided_at,
+    createdAt: db.created_at,
   };
 }
 
-function mapDbTenantToTenant(db: DbTenant): Tenant {
+function mapDbTenantToTenant(
+  db: DbTenant,
+  pendingRequest: CustomerRequest | null = null,
+): Tenant {
   return {
     id: db.id,
     name: db.name,
     tenantCode: db.tenant_code,
     active: db.active,
-    tierId: db.tier_id,
-    tier: db.tier_plans ? mapDbTierPlanToTierPlan(db.tier_plans) : null,
-    tierUpgradedAt: db.tier_upgraded_at,
+    customerAllowance: Number(db.customer_allowance),
+    pricePerCustomerUsd: Number(db.price_per_customer_usd),
+    pendingRequest,
     createdAt: db.created_at,
   };
 }
@@ -47,25 +45,36 @@ export interface CreateTenantInput {
   adminUserName: string;
   adminFullName: string;
   adminPassword: string;
-  // Optional override for manual paid-tenant creation by the SaaS owner.
-  // Defaults to Free when omitted.
-  tierId?: string;
+  // Omitted values fall back to the tenants column defaults.
+  customerAllowance?: number;
+  pricePerCustomerUsd?: number;
 }
 
 export interface UpdateTenantInput {
   name: string;
   active: boolean;
-  // When provided, performs a manual upgrade/downgrade. tier_upgraded_at is
-  // touched on every tier change so we can audit when the swap happened.
-  tierId?: string;
+  customerAllowance: number;
+  pricePerCustomerUsd: number;
+}
+
+function validateBilling(allowance: number, price: number): void {
+  if (!Number.isInteger(allowance) || allowance < 0)
+    throw new Error("Customer allowance must be a whole number of 0 or more");
+  if (!Number.isFinite(price) || price < 0)
+    throw new Error("Price per customer must be 0 or more");
 }
 
 export class TenantService {
   private repository = new TenantRepository();
 
   async getTenants(): Promise<Tenant[]> {
-    const rows = await this.repository.findAll();
-    return rows.map(mapDbTenantToTenant);
+    const [rows, requests] = await Promise.all([
+      this.repository.findAll(),
+      this.repository.findPendingRequests(),
+    ]);
+    const byTenant = new Map<string, CustomerRequest>();
+    for (const r of requests) byTenant.set(r.tenant_id, mapDbCustomerRequest(r));
+    return rows.map((row) => mapDbTenantToTenant(row, byTenant.get(row.id) ?? null));
   }
 
   async createTenant(data: CreateTenantInput): Promise<Tenant> {
@@ -75,13 +84,16 @@ export class TenantService {
     if (data.adminPassword.length < 8)
       throw new Error("Password must be at least 8 characters");
 
-    const tierId = data.tierId ?? (await this.repository.getFreeTierId());
-
-    const row = await this.repository.create({
+    const payload: CreateTenantPayload = {
       name: data.name.trim(),
       tenant_code: data.tenantCode.toLowerCase().trim(),
-      tier_id: tierId,
-    });
+    };
+    if (data.customerAllowance !== undefined)
+      payload.customer_allowance = data.customerAllowance;
+    if (data.pricePerCustomerUsd !== undefined)
+      payload.price_per_customer_usd = data.pricePerCustomerUsd;
+
+    const row = await this.repository.create(payload);
     const tenant = mapDbTenantToTenant(row);
 
     try {
@@ -134,16 +146,34 @@ export class TenantService {
 
   async updateTenant(id: string, data: UpdateTenantInput): Promise<Tenant> {
     if (!data.name.trim()) throw new Error("Tenant name is required");
-    const payload: Partial<Pick<DbTenant, "name" | "active" | "tier_id" | "tier_upgraded_at">> = {
+    validateBilling(data.customerAllowance, data.pricePerCustomerUsd);
+    const row = await this.repository.update(id, {
       name: data.name.trim(),
       active: data.active,
-    };
-    if (data.tierId) {
-      payload.tier_id = data.tierId;
-      payload.tier_upgraded_at = new Date().toISOString();
-    }
-    const row = await this.repository.update(id, payload);
+      customer_allowance: data.customerAllowance,
+      price_per_customer_usd: data.pricePerCustomerUsd,
+    });
     return mapDbTenantToTenant(row);
+  }
+
+  // Returns the new allowance so the caller can patch the row it already holds.
+  async acceptRequest(
+    requestId: string,
+    grantedCount: number,
+    currentAllowance: number,
+  ): Promise<{ request: CustomerRequest; allowance: number }> {
+    if (!Number.isInteger(grantedCount) || grantedCount < 1)
+      throw new Error("Granted customers must be a whole number of 1 or more");
+    const row = await this.repository.acceptRequest(requestId, grantedCount);
+    return {
+      request: mapDbCustomerRequest(row),
+      allowance: currentAllowance + grantedCount,
+    };
+  }
+
+  async declineRequest(requestId: string): Promise<CustomerRequest> {
+    const row = await this.repository.declineRequest(requestId);
+    return mapDbCustomerRequest(row);
   }
 
   async deleteTenant(id: string): Promise<void> {

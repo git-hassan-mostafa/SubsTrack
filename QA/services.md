@@ -21,7 +21,7 @@ A service is **sold as a line on a sale**, never as its own record. Recording, e
 1b. **The price is per JOB, not per unit.** A service line on a sale has no quantity at all — one price, one line, and two jobs are two lines. So this list's price is the whole fee for doing the thing once (see [sales.md](sales.md) §2A-b).
 2. **Never hard-deleted when referenced by a sale line.** `deleteService()` checks `countReferences(id)` over `sale_items.service_id` — **including lines an edit soft-voided**, because the FK is `ON DELETE RESTRICT`. Any reference → `active = false`; none → hard delete.
 3. **`branch_id IS NULL` means SHARED** — visible to every branch, same as plans and products.
-4. **NOT tier-gated.** Unlike products (`max_products`), services are uncapped. There is no usage bar and no upgrade prompt.
+4. **Uncapped.** Services have no limit of any kind — no usage bar and no block dialog. Neither do products. The only cap in the product is on active customers ([customer-allowance.md](customer-allowance.md)).
 5. **`null currency_id` means USD** throughout — same rule as payments, plans and products.
 6. **Writable by ANY tenant member, not just admins.** RLS (`services_modify`) copies `products_modify` verbatim, which is what lets a collector add a service from the sale form. The *screen* sits under Admin, but the permission does not.
 7. **`UNIQUE(tenant_id, branch_id, name)`** — a shared and a branch-specific service may share a name (NULLs compare unequal in Postgres).

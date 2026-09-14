@@ -31,17 +31,16 @@ Located at `SubsTrack/supabase/functions/update-user-password/index.ts`.
 
 Located at `SubsTrack/supabase/functions/create-tenant/index.ts`.
 
-- **Public** edge function — deployed with `--no-verify-jwt` (no JWT required). The **sole** anon-accessible path for creating a tenant (the app ships only the anon key, and there is no INSERT policy on `tenants`/`branches`/`tier_plans`).
+- **Public** edge function — deployed with `--no-verify-jwt` (no JWT required). The **sole** anon-accessible path for creating a tenant (the app ships only the anon key, and there is no INSERT policy on `tenants`/`branches`).
 - **Signup gate:** before any work, reads `app_options.AllowSelfServiceSignup`; an explicit `'false'` returns `403 { error, code: 'signup_disabled' }`. A missing/blank row defaults to allowed (a misconfigured option must never lock out signup). This is the authoritative enforcement — the login screen also hides the entry point, but the server is the source of truth.
 - Uses the service-role key to perform the full sequence with cascading rollback on any step:
-  1. Lookup the Free tier id.
-  2. `tenants` (with `tier_id = Free`).
-  3. `branches` ('Default Branch').
-  4. Auto-seed an `LBP` currency (`decimals 0`, symbol `ل.ل`) using `app_options.LiraRate` (fallback `DEFAULT_LIRA_RATE = 89000`).
-  5. `auth.users`.
-  6. `public.users` (role = `superadmin`, `branch_id = null`).
+  1. `tenants` — `customer_allowance` and `price_per_customer_usd` are **omitted on purpose** so the schema defaults (30 at $0.15) decide the starting deal in exactly one place.
+  2. `branches` ('Default Branch').
+  3. Auto-seed an `LBP` currency (`decimals 0`, symbol `ل.ل`) using `app_options.LiraRate` (fallback `DEFAULT_LIRA_RATE = 89000`).
+  4. `auth.users`.
+  5. `public.users` (role = `superadmin`, `branch_id = null`).
 - The pre-check on the organization signup screen uses the `is_tenant_code_available` SECURITY DEFINER RPC (granted to `anon`) — returns a boolean only, no row data.
 - Accepts (but currently ignores) a `paymentToken` field in the request body — the hook point for future paid-plan gating.
-- Deploy: `yarn deploy-create-tenant-edge-function` (from inside `SubsTrack/`).
+- Deploy: `yarn deploy-create-tenant-edge-function` (from inside `SubsTrack/`). An edge function does **not** ship over OTA, so after the per-customer-pricing change it must be redeployed **before** `script.sql` runs — deploying first is safe (an insert without the dropped `tier_id` still works while the column has a default), the reverse order 500s every signup in between.
 
 See `docs/features.md` → Authentication Flow for how signup drives this, and gotcha #33 for the full anon-path rationale.

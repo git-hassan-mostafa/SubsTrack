@@ -25,7 +25,7 @@ Covers the **Debts** screen (Transactions → Debts — a single debtors list, n
 6. **Currency:** every bill freezes `rate_per_usd_snapshot` when it is raised. Totals are summed in USD via each row's own snapshot, then formatted into the display currency — they never drift when the live rate changes.
 7. **No hard delete.** A bill is voided (a mistake) or written off (a loss); either way the row stays.
 8. **Branch scoping is the bill's own `branch_id`** (gotcha #103), always stamped from the customer.
-9. **No tier gating** — raising and collecting bills is unlimited.
+9. **No gating** — raising and collecting bills is unlimited. The only cap in the product is on active customers ([customer-allowance.md](customer-allowance.md)).
 
 ---
 

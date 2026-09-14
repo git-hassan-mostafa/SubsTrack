@@ -176,14 +176,14 @@ The header shows the selected service line's plan name and its price. It renders
 
 ## 6. Current month turns unpaid on day 1 (no grace period)
 
-There is no grace setting anywhere — no tier, no tenant option. The current month is UNPAID as soon as it starts and has no payment.
+There is no grace setting anywhere. The current month is UNPAID as soon as it starts and has no payment.
 
 | #   | Scenario                     | Steps                                        | Expected result                                                                                                        |
 | --- | ---------------------------- | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | 6.1 | Day 1, no payment            | Set the device date to the 1st               | Cell UNPAID with the current-month highlight                                                                            |
 | 6.2 | Mid-month, no payment        | Day 10, still unpaid                         | Cell UNPAID (unchanged — nothing flips part-way through the month)                                                       |
 | 6.3 | Card matches grid            | Day 1, no payment                            | Customer-list pill red "Unpaid" and the grid cell red — never one red and the other grey (see [customers.md § 1.15b](customers.md)) |
-| 6.4 | Any tier behaves the same    | Repeat 6.1 on Free, Pro and Business tenants | Identical result — the tier no longer affects month status                                                               |
+| 6.4 | Any tenant behaves the same  | Repeat 6.1 on two tenants with different customer allowances and prices | Identical result — billing never affects month status                                                    |
 
 ## 7. Date / timezone correctness
 

@@ -47,7 +47,7 @@ export class AuthRepository implements IAuthRepository {
   async getTenant(tenantId: string): Promise<DbTenant | null> {
     const { data, error } = await supabase
       .from("tenants")
-      .select("*, tier_plans(*)")
+      .select("*")
       .eq("id", tenantId)
       .single();
     if (error) {
@@ -60,7 +60,7 @@ export class AuthRepository implements IAuthRepository {
   async getTenantByCode(tenantCode: string): Promise<DbTenant | null> {
     const { data, error } = await supabase
       .from("tenants")
-      .select("*, tier_plans(*)")
+      .select("*")
       .eq("tenant_code", tenantCode.trim().toLowerCase())
       .single();
     if (error) {

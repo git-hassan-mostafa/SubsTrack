@@ -1,16 +1,11 @@
-import { useCallback, useMemo } from "react";
 import { Ionicons } from "@expo/vector-icons";
-import { Href, router, useFocusEffect } from "expo-router";
+import { Href, router } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { Pressable, ScrollView, View } from "react-native";
 import { Text } from "@/src/shared/components/Text";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useSubscriptionSlice } from "@/src/state/hooks/useSubscriptionSlice";
-import { useAuth } from "@/src/modules/authentication/auth";
 import { COLORS } from "@/src/shared/constants";
 import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
-
-type CountKey = "users" | "plans" | "branches" | "currencies" | "products";
 
 type MenuItem = {
   labelKey: string;
@@ -19,7 +14,6 @@ type MenuItem = {
   iconBg: string;
   iconColor: string;
   route: string;
-  countKey?: CountKey;
 };
 
 const MENU_ITEMS: MenuItem[] = [
@@ -30,7 +24,6 @@ const MENU_ITEMS: MenuItem[] = [
     iconBg: COLORS.successLight,
     iconColor: COLORS.success,
     route: "/(app)/(tabs)/admin/users",
-    countKey: "users",
   },
   {
     labelKey: "wallet.title",
@@ -47,7 +40,6 @@ const MENU_ITEMS: MenuItem[] = [
     iconBg: COLORS.warningLight,
     iconColor: COLORS.warning,
     route: "/(app)/(tabs)/admin/plans",
-    countKey: "plans",
   },
   {
     labelKey: "products.title",
@@ -56,10 +48,8 @@ const MENU_ITEMS: MenuItem[] = [
     iconBg: COLORS.successLight,
     iconColor: COLORS.success,
     route: "/(app)/(tabs)/admin/products",
-    countKey: "products",
   },
   {
-    // No countKey: services are uncapped, so TenantUsage has no figure for them.
     labelKey: "services.title",
     subtitleKey: "admin.services_sub",
     icon: "construct-outline",
@@ -74,7 +64,6 @@ const MENU_ITEMS: MenuItem[] = [
     iconBg: COLORS.warningLight,
     iconColor: COLORS.warning,
     route: "/(app)/(tabs)/admin/currencies",
-    countKey: "currencies",
   },
   {
     labelKey: "branches.section_title",
@@ -83,7 +72,6 @@ const MENU_ITEMS: MenuItem[] = [
     iconBg: COLORS.successLight,
     iconColor: COLORS.success,
     route: "/(app)/(tabs)/admin/branches",
-    countKey: "branches",
   },
   {
     labelKey: "tenant_settings.title",
@@ -101,41 +89,10 @@ const MENU_ITEMS: MenuItem[] = [
     iconColor: COLORS.warning,
     route: "/(app)/(tabs)/admin/audit",
   },
-  {
-    labelKey: "subscription.title",
-    subtitleKey: "subscription.menu_sub",
-    icon: "diamond-outline",
-    iconBg: COLORS.primaryLight,
-    iconColor: COLORS.primary,
-    route: "/(app)/(tabs)/admin/subscription",
-  },
 ];
 
 export default function AdminMenuScreen() {
   const { t } = useTranslation();
-  const { user } = useAuth();
-  const usage = useSubscriptionSlice((s) => s.usage);
-  const refreshUsage = useSubscriptionSlice((s) => s.refreshUsage);
-
-  const isTenantWideAdmin = user?.branchId === null;
-  const menuItems = useMemo(
-    () =>
-      isTenantWideAdmin
-        ? MENU_ITEMS
-        : MENU_ITEMS.filter(
-            (item) => item.route !== "/(app)/(tabs)/admin/subscription",
-          ),
-    [isTenantWideAdmin],
-  );
-
-  // Keep the per-resource counts current without touching the dashboard slice —
-  // navigating here must never trigger a Home-screen metrics refresh.
-  useFocusEffect(
-    useCallback(() => {
-      refreshUsage();
-    }, [refreshUsage]),
-  );
-
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
       <ScrollView>
@@ -154,11 +111,11 @@ export default function AdminMenuScreen() {
             {t("admin.manage_section")}
           </Text>
           <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-            {menuItems.map((item, index) => (
+            {MENU_ITEMS.map((item, index) => (
               <Pressable
                 key={item.route}
                 onPress={() => router.push(item.route as Href)}
-                className={`flex-row items-center justify-between px-4 py-4 ${index < menuItems.length - 1 ? "border-b border-gray-100" : ""}`}
+                className={`flex-row items-center justify-between px-4 py-4 ${index < MENU_ITEMS.length - 1 ? "border-b border-gray-100" : ""}`}
               >
                 <View className="flex-row items-center gap-3">
                   <View
@@ -176,9 +133,7 @@ export default function AdminMenuScreen() {
                       {t(item.labelKey)}
                     </Text>
                     <Text className="text-xs text-gray-400 mt-0.5">
-                      {t(item.subtitleKey, {
-                        count: item.countKey ? usage[item.countKey] : undefined,
-                      })}
+                      {t(item.subtitleKey)}
                     </Text>
                   </View>
                 </View>

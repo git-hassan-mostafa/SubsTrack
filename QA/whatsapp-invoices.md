@@ -46,7 +46,7 @@ Customers → a customer → tap an unpaid month.
 | 1.7 | No phone | Clear the customer's phone → reopen the form | Green button greyed out with "No phone number for this customer"; plain Save still works |
 | 1.8 | Form not ready | Custom-price plan with the amount empty | **Both** buttons disabled; no caption (the block isn't about the phone) |
 | 1.9 | Double tap | Tap Save & send twice fast | Exactly one payment row; no duplicate |
-| 1.10 | Tier limit | On a tier at its limit → Save & send | Upgrade prompt appears, no payment, **no** WhatsApp |
+| 1.10 | No limit on paying | Record payments repeatedly on any tenant → Save & send | Never blocked — there is no cap on payments, months or plans. Only the customer **count** is capped ([customer-allowance.md](customer-allowance.md)) |
 
 ---
 
@@ -96,7 +96,7 @@ Customer detail → long-press a month to enter selection, then tap more months.
 | 3b.8 | Mixed selection | Select 2 unpaid + 1 already-paid month → WhatsApp action | Only the payable months are paid and only they appear in the message |
 | 3b.9 | Skipped month in selection | Include a skipped month | Unchanged from before: it isn't paid, and it isn't in the message |
 | 3b.10 | Two currencies | Not reachable from one line (a line has one plan/currency) — confirm the multi-plan case in 5.5 instead | — |
-| 3b.11 | Tier limit, multi-month blocks | Multi-month selection on a tier without multi-month | Upgrade prompt, nothing paid, **no** WhatsApp |
+| 3b.11 | Multi-month always allowed | Multi-month selection on any tenant | Pays and sends normally — multi-month is always available, there is no gate to trip |
 | 3b.12 | Write fails | Force an error during a selection pay | Error banner shows; **no** WhatsApp attempt; selection stays |
 | 3b.13 | Toolbar fits | Selection with all 4 actions available (pay + pay & send + skip + void), narrow phone | All 4 are **icon-only round buttons** on one row, none clipped; the "N selected" count stays on **one line** (it was wrapping one character per line while the pills were labelled) |
 | 3b.14 | Icons are distinguishable | Same | Pay = lightning, Pay & send = WhatsApp logo, Skip = skip-forward, Void = red X. Long-press / screen-reader still announces the full label ("Pay & send on WhatsApp") |
@@ -223,9 +223,9 @@ These paths changed shape and are the likeliest place for a silent break.
 | --- | --- | --- | --- |
 | 9.1 | Bulk pay summary | Select customers where some can't pay → bulk Quick pay | The "N paid · N failed" notice still shows the right counts (`bulkPayCustomers` now returns an array) |
 | 9.2 | Multi-month conflicts | Quick-pay a 3-month block where a middle month is already paid | The block still shifts/shortens as before; the conflict behaviour is unchanged (`createMultiMonthPayment` now returns an object) |
-| 9.3 | Tier-limit path | Hit the payment tier limit from the form | Upgrade prompt still appears (success is still judged by the store's `error`, not the returned record) |
+| 9.3 | Failure path still judged by the store | Force a write error from the payment form | The error banner still appears and no WhatsApp opens — success is judged by the store's `error`, not the returned record |
 | 9.4 | Existing menu rows | Open any 3-dot ActionMenu in the app | Rows look unchanged (the new `caption` field is optional); label alignment not shifted |
-| 9.5 | Contact to upgrade | Admin → Subscription with `AllowPlanUpgrade = false` | The green "Contact to upgrade" button still renders and opens the support number (it now reuses `SendOnWhatsAppButton`) |
+| 9.5 | Request more customers over WhatsApp | Admin → Organization Settings → Request more customers, with `SupportWhatsAppNumber` set | The green "Send request + WhatsApp" button renders and opens the support number; blank number hides it ([customer-allowance.md](customer-allowance.md) §3) |
 | 9.6 | Payments list unchanged | Transactions → Payments: search, filters, pagination | All still work (the list select gained one column) |
 | 9.7 | Discard guard | Type in the payment form, then close without saving | "Discard changes?" appears exactly once; saving via **either** button never prompts |
 | 9.8 | Spinner ownership | Press "Save & send on WhatsApp" on the payment form and on the sale form | The spinner appears on the **green** button only; pressing plain Save spins the primary button only. Neither press greys the other out into a spinnerless state |

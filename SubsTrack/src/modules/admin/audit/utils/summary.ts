@@ -200,17 +200,6 @@ function specialSentence(entry: AuditEntry, ctx: AuditFieldContext, p: Phrases):
     return t('audit.summary.special.password', { actor, record });
   }
 
-  if (entry.table === 'tenants') {
-    const tier = changeOf(entry, 'tier_id');
-    if (tier) {
-      return t('audit.summary.special.tier_changed', {
-        actor,
-        record,
-        after: bold(formatField('tier_id', tier.after, ctx)),
-      });
-    }
-  }
-
   const flag = FLAG_FIELDS[entry.table];
   const flagChange = flag ? changeOf(entry, flag) : undefined;
   if (flag && flagChange) {

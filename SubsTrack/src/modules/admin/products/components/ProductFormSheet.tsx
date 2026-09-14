@@ -14,10 +14,8 @@ import type { Product } from "@/src/core/types";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { useProductSlice } from "@/src/state/hooks/useProductSlice";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
-import { useSubscriptionSlice } from "@/src/state/hooks/useSubscriptionSlice";
 import { useActiveBranches } from "@/src/modules/admin/branches";
 import { getStore } from "@/src/state/globalStore";
-import { UpgradePromptModal } from "@/src/modules/admin/subscription";
 import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
 
 interface Props {
@@ -50,9 +48,7 @@ export function ProductFormSheet({
   const updateProduct = useProductSlice((s) => s.updateProduct);
   const loading = useProductSlice((s) => s.loading);
   const error = useProductSlice((s) => s.error);
-  const tierLimitError = useProductSlice((s) => s.tierLimitError);
   const clearError = useProductSlice((s) => s.clearError);
-  const clearTierLimitError = useProductSlice((s) => s.clearTierLimitError);
   const stockOnHand = useProductSlice(
     (s) =>
       s.items.find((p) => p.id === product?.id)?.stockOnHand ??
@@ -60,8 +56,6 @@ export function ProductFormSheet({
       0,
   );
   const currencies = useCurrencySlice((s) => s.items);
-  const currentTier = useSubscriptionSlice((s) => s.currentTier);
-  const usage = useSubscriptionSlice((s) => s.usage);
   const activeBranches = useActiveBranches();
 
   // For new products: branch-scoped admin's products bind to their branch;
@@ -94,7 +88,7 @@ export function ProductFormSheet({
   }, [clearError]);
 
   async function handleSubmit() {
-    if (!user || !currentTier) return;
+    if (!user) return;
     const payload = {
       name: form.name,
       description: form.description.trim() || null,
@@ -110,149 +104,136 @@ export function ProductFormSheet({
       await createProduct(
         { ...payload, initialStock: Number(form.initialStock) || 0 },
         user.tenantId,
-        currentTier,
-        usage,
         user.id,
         currencies.find((c) => c.id === form.costCurrencyId) ?? null,
       );
     }
-    const { error: nextError, tierLimitError: nextTier } =
-      getStore().getState().products;
-    if (!nextError && !nextTier) onDismiss();
+    if (!getStore().getState().products.error) onDismiss();
   }
 
   const submitDisabled =
     !form.name.trim() || form.price == null || form.price <= 0 || loading;
 
   return (
-    <>
-      <FormSheet
-        onDismiss={onDismiss}
-        dirty={dirty}
-        title={product ? t("products.edit_title") : t("products.add_title")}
-      >
-        {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}
+    <FormSheet
+      onDismiss={onDismiss}
+      dirty={dirty}
+      title={product ? t("products.edit_title") : t("products.add_title")}
+    >
+      {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}
 
-        <Input
-          label={t("products.name_label") + " *"}
-          value={form.name}
-          onChangeText={(v) => setForm((p) => ({ ...p, name: v }))}
-          placeholder={t("products.name_placeholder")}
-          onFocus={clearError}
-        />
+      <Input
+        label={t("products.name_label") + " *"}
+        value={form.name}
+        onChangeText={(v) => setForm((p) => ({ ...p, name: v }))}
+        placeholder={t("products.name_placeholder")}
+        onFocus={clearError}
+      />
 
-        <Input
-          label={t("products.description_label")}
-          value={form.description}
-          onChangeText={(v) => setForm((p) => ({ ...p, description: v }))}
-          placeholder={t("products.description_placeholder")}
-          multiline
-        />
+      <Input
+        label={t("products.description_label")}
+        value={form.description}
+        onChangeText={(v) => setForm((p) => ({ ...p, description: v }))}
+        placeholder={t("products.description_placeholder")}
+        multiline
+      />
 
-        <BranchPicker
-          label={
-            t("branches.branch_label") + (branchPickerNullable ? "" : " *")
-          }
-          value={form.branchId}
-          onChange={(v) => setForm((p) => ({ ...p, branchId: v }))}
-          nullable={branchPickerNullable}
-          nullLabel={t("branches.shared_all_branches")}
-        />
+      <BranchPicker
+        label={
+          t("branches.branch_label") + (branchPickerNullable ? "" : " *")
+        }
+        value={form.branchId}
+        onChange={(v) => setForm((p) => ({ ...p, branchId: v }))}
+        nullable={branchPickerNullable}
+        nullLabel={t("branches.shared_all_branches")}
+      />
 
-        <CurrencyInput
-          label={t("products.price_label") + " *"}
-          amount={form.price}
-          currencyId={form.currencyId}
-          onChange={({ amount, currencyId }) =>
-            setForm((p) => ({ ...p, price: amount, currencyId }))
-          }
-          currencies={currencies}
-          placeholder="0.00"
-          onFocus={clearError}
-        />
+      <CurrencyInput
+        label={t("products.price_label") + " *"}
+        amount={form.price}
+        currencyId={form.currencyId}
+        onChange={({ amount, currencyId }) =>
+          setForm((p) => ({ ...p, price: amount, currencyId }))
+        }
+        currencies={currencies}
+        placeholder="0.00"
+        onFocus={clearError}
+      />
 
-        {/* What it costs to buy — optional. It pre-fills the restock sheet, and
-            on create it prices the opening stock into Expenses. */}
-        <CurrencyInput
-          label={t("products.cost_price_label")}
-          amount={form.costPrice}
-          currencyId={form.costCurrencyId}
-          onChange={({ amount, currencyId }) =>
-            setForm((p) => ({ ...p, costPrice: amount, costCurrencyId: currencyId }))
-          }
-          currencies={currencies}
-          placeholder="0.00"
-          onFocus={clearError}
-        />
+      {/* What it costs to buy — optional. It pre-fills the restock sheet, and
+          on create it prices the opening stock into Expenses. */}
+      <CurrencyInput
+        label={t("products.cost_price_label")}
+        amount={form.costPrice}
+        currencyId={form.costCurrencyId}
+        onChange={({ amount, currencyId }) =>
+          setForm((p) => ({ ...p, costPrice: amount, costCurrencyId: currencyId }))
+        }
+        currencies={currencies}
+        placeholder="0.00"
+        onFocus={clearError}
+      />
 
-        {/* Stock: typed once on create, then only ever changed through the
-            stock sheet so every movement is on the record. */}
-        {product ? (
-          <View className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 mb-4 flex-row items-center justify-between">
-            <View>
-              <Text className="text-xs text-gray-400">
-                {t("products.stock_on_hand")}
-              </Text>
-              <Text
-                fontWeight="Bold"
-                className={`text-lg ${stockOnHand > 0 ? "text-gray-900" : "text-danger"}`}
-              >
-                {stockOnHand}
-              </Text>
-            </View>
-            {onAdjustStock ? (
-              <PressableOpacity onPress={() => onAdjustStock(product)}>
-                <Text fontWeight="SemiBold" className="text-sm text-primary">
-                  {t("products.adjust_stock_title")}
-                </Text>
-              </PressableOpacity>
-            ) : null}
-          </View>
-        ) : (
-          <Input
-            label={t("products.initial_stock_label")}
-            value={form.initialStock}
-            onChangeText={(v) => setForm((p) => ({ ...p, initialStock: v }))}
-            sanitize={digitsOnly}
-            keyboardType="number-pad"
-            placeholder="0"
-            onFocus={clearError}
-          />
-        )}
-
-        <Button
-          label={product ? t("common.save_changes") : t("products.add_title")}
-          onPress={handleSubmit}
-          loading={loading}
-          disabled={submitDisabled}
-          fullWidth
-        />
-
-        {product && onRequestDelete ? (
-          <>
-            <PressableOpacity
-              onPress={() => onRequestDelete(product)}
-              className="border border-red-200 rounded-xl py-3.5 items-center mt-3"
+      {/* Stock: typed once on create, then only ever changed through the
+          stock sheet so every movement is on the record. */}
+      {product ? (
+        <View className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 mb-4 flex-row items-center justify-between">
+          <View>
+            <Text className="text-xs text-gray-400">
+              {t("products.stock_on_hand")}
+            </Text>
+            <Text
+              fontWeight="Bold"
+              className={`text-lg ${stockOnHand > 0 ? "text-gray-900" : "text-danger"}`}
             >
-              <Text fontWeight="SemiBold" className="text-red-500">
-                {t("common.delete")}
+              {stockOnHand}
+            </Text>
+          </View>
+          {onAdjustStock ? (
+            <PressableOpacity onPress={() => onAdjustStock(product)}>
+              <Text fontWeight="SemiBold" className="text-sm text-primary">
+                {t("products.adjust_stock_title")}
               </Text>
             </PressableOpacity>
-            <Text className="text-xs text-gray-400 text-center mt-3">
-              {t("products.delete_warning")}
-            </Text>
-          </>
-        ) : null}
+          ) : null}
+        </View>
+      ) : (
+        <Input
+          label={t("products.initial_stock_label")}
+          value={form.initialStock}
+          onChangeText={(v) => setForm((p) => ({ ...p, initialStock: v }))}
+          sanitize={digitsOnly}
+          keyboardType="number-pad"
+          placeholder="0"
+          onFocus={clearError}
+        />
+      )}
 
-        <View className="h-24" />
-      </FormSheet>
-      <UpgradePromptModal
-        payload={tierLimitError}
-        onClose={() => {
-          clearTierLimitError();
-          onDismiss();
-        }}
+      <Button
+        label={product ? t("common.save_changes") : t("products.add_title")}
+        onPress={handleSubmit}
+        loading={loading}
+        disabled={submitDisabled}
+        fullWidth
       />
-    </>
+
+      {product && onRequestDelete ? (
+        <>
+          <PressableOpacity
+            onPress={() => onRequestDelete(product)}
+            className="border border-red-200 rounded-xl py-3.5 items-center mt-3"
+          >
+            <Text fontWeight="SemiBold" className="text-red-500">
+              {t("common.delete")}
+            </Text>
+          </PressableOpacity>
+          <Text className="text-xs text-gray-400 text-center mt-3">
+            {t("products.delete_warning")}
+          </Text>
+        </>
+      ) : null}
+
+      <View className="h-24" />
+    </FormSheet>
   );
 }

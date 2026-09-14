@@ -267,7 +267,8 @@
     "bundle_price_hint": "السعر الإجمالي لجميع أشهر هذه الباقة",
     "bulk_delete_title": "حذف {{count}} خطط",
     "bulk_delete_message": "حذف {{count}} من الخطط المحددة؟ سيتم إزالة الخطة من العملاء المرتبطين بها.",
-    "create_first_plan": "+ أضف أول خطة"
+    "create_first_plan": "+ أضف أول خطة",
+    "per_month_suffix": "/ شهرياً"
   },
   "users": {
     "title": "الموظفون",
@@ -676,9 +677,6 @@
     "debt_customer_required": "اختر عميلاً لهذا الدين",
     "debt_payment_no_debt": "هذا العميل ليس عليه دين لسداده",
     "debt_payment_exceeds_debt": "المبلغ أكبر مما يدين به العميل",
-    "tier_limit_reached": "لقد وصلت إلى الحد الأقصى لـ {{resource}} ({{limit}}) في باقتك الحالية",
-    "tier_multi_currency_locked": "العملات المتعددة غير متاحة في باقتك الحالية",
-    "tier_multi_month_locked": "الخطط متعددة الأشهر غير متاحة في باقتك الحالية",
     "sale_missing": "عملية البيع هذه لم تعد موجودة",
     "payment_missing": "هذه الدفعة لم تعد موجودة",
     "payment_voided_not_editable": "لا يمكن تعديل دفعة ملغاة. سجّل دفعة جديدة بدلاً من ذلك.",
@@ -700,57 +698,8 @@
     "sale_edit_actor_required": "سجّل الدخول مرة أخرى قبل تعديل المبالغ على هذا المبيع.",
     "charge_amount_below_collected": "المبلغ الجديد أقل مما تم تحصيله على هذه الفاتورة.",
     "charge_not_editable": "هذه الفاتورة ملغاة أو مشطوبة، فلا يمكن تعديلها.",
-    "sale_total_positive": "أدخل مجموعاً أكبر من 0 لهذا المبيع"
-  },
-  "subscription": {
-    "title": "الاشتراك",
-    "menu_sub": "عرض الحدود والاستخدام والترقية",
-    "your_usage": "استخدامك الحالي",
-    "current_plan": "الحالية",
-    "per_month": "/ شهرياً",
-    "upgrade_to": "الترقية إلى {{name}}",
-    "downgrade_to": "التراجع إلى {{name}}",
-    "view_plans": "عرض الباقات",
-    "not_now": "ليس الآن",
-    "contact_to_upgrade": "تواصل للترقية",
-    "whatsapp_upgrade_message": "مرحبًا، أرغب في ترقية اشتراكي في SubsTrack إلى {{name}}.",
-    "whatsapp_upgrade_message_generic": "مرحبًا، أرغب في ترقية اشتراكي في SubsTrack.",
-    "next_tier": "الباقة التالية",
-    "confirm_upgrade_title": "الترقية إلى {{name}}؟",
-    "confirm_upgrade_body": "سيتم تبديل حسابك إلى الباقة الجديدة فوراً. يمكنك تغيير الباقة لاحقاً.",
-    "confirm_upgrade": "ترقية",
-    "confirm_downgrade_title": "التراجع إلى {{name}}؟",
-    "confirm_downgrade_body": "ستحتفظ بجميع بياناتك الحالية لكن سيتم تطبيق حدود الباقة الجديدة من الآن فصاعداً.",
-    "confirm_downgrade": "تراجع",
-    "downgrade_blocked_title": "لا يمكن التراجع الآن",
-    "downgrade_blocked_body": "استخدامك الحالي يتجاوز ما تسمح به باقة {{name}}. قم بتعديل العناصر التالية أولاً:",
-    "resource": {
-      "customers": "العملاء",
-      "users": "المستخدمون",
-      "plans": "الخطط",
-      "branches": "الفروع",
-      "currencies": "العملات",
-      "products": "المنتجات",
-      "multi_currency": "العملات المتعددة",
-      "multi_month": "الخطط متعددة الأشهر"
-    },
-    "feature": {
-      "multi_currency": "تعدد العملات",
-      "multi_month": "خطط متعددة الأشهر"
-    },
-    "locked": {
-      "upgrade_title": "ترقية باقتك",
-      "limit_reached_title": "لقد وصلت إلى الحد الأقصى لـ {{resource}}",
-      "limit_reached_body": "تسمح باقة {{tierName}} بحد أقصى {{limit}}. قم بالترقية إلى {{nextTierName}} لإضافة المزيد.",
-      "multi_currency_title": "العملات المتعددة ميزة مدفوعة",
-      "multi_currency_body": "قم بالترقية إلى {{nextTierName}} لإدارة عملات أخرى غير الدولار الأمريكي.",
-      "multi_month_title": "الخطط متعددة الأشهر ميزة مدفوعة",
-      "multi_month_body": "قم بالترقية إلى {{nextTierName}} لتجميع أشهر متعددة في دفعة واحدة.",
-      "contact_admin_title": "تم بلوغ الحد الأقصى",
-      "contact_admin_body": "تم بلوغ الحد الأقصى لهذه الباقة. تواصل مع المسؤول للترقية."
-    },
-    "unlimited": "غير محدود",
-    "up_to": "حتى {{count}}"
+    "sale_total_positive": "أدخل مجموعاً أكبر من 0 لهذا المبيع",
+    "customer_limit_reached": "تم الوصول إلى حد العملاء: {{count}} من أصل {{allowance}}."
   },
   "products": {
     "title": "المنتجات",
@@ -1165,7 +1114,6 @@
         "subscribed": "{{actor}} أضاف خطة {{detail}}",
         "unsubscribed": "{{actor}} أزال خطة {{detail}}",
         "stock_edit": "{{actor}} غيّر {{field}} في حركة مخزون من {{before}} إلى {{after}}",
-        "tier_changed": "{{actor}} نقل {{record}} إلى باقة {{after}}",
         "is_regular_on": "{{actor}} عيّن {{record}} كعميل دائم",
         "is_regular_off": "{{actor}} ألغى تعيين {{record}} كعميل دائم",
         "is_custom_price_on": "{{actor}} فعّل سعرًا خاصًا لـ {{record}}",
@@ -1210,7 +1158,7 @@
       "currencies": "عملة",
       "users": "موظف",
       "tenant_settings": "إعداد",
-      "tenants": "المؤسسة"
+      "customer_requests": "طلب عملاء"
     },
     "field": {
       "name": "الاسم",
@@ -1267,7 +1215,6 @@
       "skipped_by_user_id": "تجاوزه",
       "key": "الإعداد",
       "value": "القيمة",
-      "tier_id": "الخطة",
       "tier_upgraded_at": "تاريخ تغيير الخطة",
       "password": "كلمة المرور",
       "issued_at": "تاريخ الإصدار",
@@ -1463,5 +1410,34 @@
   },
   "invoicing": {
     "send_on_whatsapp": "إرسال عبر واتساب"
+  },
+  "billing": {
+    "section_title": "العملاء والفوترة",
+    "section_hint": "تتم محاسبتك عن كل عميل نشط كل شهر.",
+    "allowed_customers": "العملاء المسموح بهم",
+    "current_customers": "العملاء الحاليون",
+    "monthly_amount": "المبلغ الشهري",
+    "amount_note": "{{count}} نشط × ${{price}} لكل عميل",
+    "request_more": "طلب عملاء إضافيين",
+    "request_title": "طلب عملاء إضافيين",
+    "request_hint": "كم عميلاً إضافياً تحتاج؟ الحد الأدنى {{min}}.",
+    "request_label": "عملاء إضافيون",
+    "request_min_error": "الرجاء طلب {{min}} عملاء إضافيين على الأقل.",
+    "send_request": "إرسال الطلب",
+    "send_request_whatsapp": "إرسال الطلب + واتساب",
+    "whatsapp_request_message": "مرحباً، {{org}} يرغب بإضافة {{count}} عميلاً على SubsTrack.",
+    "pending_title": "الطلب قيد المراجعة",
+    "pending_body": "لقد طلبت {{count}} عميلاً إضافياً. سيتغير الحد المسموح به بعد الموافقة.",
+    "edit_request": "تعديل الطلب",
+    "save_request": "حفظ الطلب",
+    "cancel_request": "إلغاء الطلب",
+    "cancel_confirm_title": "إلغاء هذا الطلب؟",
+    "cancel_confirm_body": "سيتم سحب طلبك لـ {{count}} عميلاً إضافياً.",
+    "declined_title": "تم رفض الطلب",
+    "declined_body": "تم رفض طلبك لـ {{count}} عميلاً إضافياً. يمكنك إرسال طلب جديد.",
+    "limit_reached_title": "تم الوصول إلى حد العملاء",
+    "limit_reached_body": "أنت تستخدم {{count}} من أصل {{allowance}} عميلاً. اطلب المزيد للمتابعة.",
+    "limit_reached_contact_admin": "اطلب من المسؤول طلب عملاء إضافيين.",
+    "go_to_settings": "إعدادات المؤسسة"
   }
 }

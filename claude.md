@@ -53,14 +53,16 @@ matching `docs/` file. Dev phase: architecture + DB schema are open to change.
    8c. **Everything keys off MONEY, never off a row existing** (gotcha #106).
 9. Cross-module state → global Zustand store (`src/state/slices/`). Slices import
    peer-slice **types** only, never their creators/hooks; cross-slice reads via
-   `get().<otherSlice>` inside actions. Caller-supplied data (tier, usage,
+   `get().<otherSlice>` inside actions. Caller-supplied data (allowance, counts,
    currency) flows in as parameters from the component. Single-module state →
    **module store** under `src/modules/<module>/state/`, kept out of `GlobalState`.
 10. All errors caught and stored in state — never surface raw Supabase messages.
-11. Tier limits enforced at the **service** layer: every `Service.createX()` calls
-    `tierService.assertCanCreate(tier, usage, resource)` after `validate()`.
-    `TierLimitError` flows through stores as a structured `tierLimitError` field;
-    never parse error strings.
+11. The customer allowance is the **only quantity limit in the product**, enforced
+    at the **service** layer: `CustomerService.createCustomer()` calls
+    `billingService.assertCanCreateCustomer(allowance, activeCount)` after
+    `validate()`. `CustomerLimitError` flows through the customers slice as a
+    structured `customerLimitError` field; never parse error strings. Branches,
+    users, plans, products and currencies are uncapped.
 
 ### 1.3 QA / tests
 
@@ -158,7 +160,7 @@ lists, assign plans, record monthly payments. Paid vs overdue is shown through a
 payments are.**
 
 Two Expo apps: `SubsTrack/` (tenant-facing; admin + user roles) and `SuperAdmin/`
-(internal, for the SaaS owner: tenants + tier plans). Also in the workspace:
+(internal, for the SaaS owner: tenants + global options). Also in the workspace:
 `sql scripts/` (`script.sql` schema+RLS, `reset.sql` teardown), `new-features.md`
 (backlog), `Design/`, `QA/`, `tests/` (Jest, money rules).
 
@@ -189,7 +191,7 @@ Presentation → State → Business Logic → Repository → Database
 - **L1 Presentation** — screens, UI components, UI-only hooks. Read store state,
   dispatch store actions. Zero business logic, zero direct Supabase calls.
 - **L2 State** — Zustand slices (`src/state/slices/`) + immer. Hold data +
-  `loading`/`error`/`tierLimitError`. Async actions call **services, never
+  `loading`/`error`/`customerLimitError`. Async actions call **services, never
   repositories**. Components read via per-slice hooks **always with a selector**.
 - **L3 Services** — pure TS classes. No React, no Supabase. All validation,
   transformation, decision/algorithm logic. Domain models in, domain models or
@@ -216,7 +218,7 @@ goes up the dependency waves of `PUSH_WAVES`, and every SQLite write queues behi
 `withDbLock` (expo-sqlite gives the app one connection). **Online-only** (throw
 `RequiresConnectionError` offline, delegate online): auth `signIn` /
 `getTenantByCode`, `User.create`/`delete`/`updatePassword`, `Signup.*`,
-`Subscription.upgradeTenant`. Auth `getSession`/`getUserProfile`/`getTenant` are a
+`CustomerRequest.*` (not mirrored at all). Auth `getSession`/`getUserProfile`/`getTenant` are a
 read-through cache so the app boots offline after the first online login.
 **Read `docs/offline.md` before touching any repository or the sync engine.**
 
@@ -321,7 +323,7 @@ Type names to know: `Charge`, `Collection`, `CollectionItem`, `ChargeBalance`,
 `Customer`, `CustomerPlan`, `Plan`, `Product`, `Service`, `SaleItem`,
 `StockMovement`, `Expense`/`ExpenseItem`/`ExpenseSummary`, `SkippedMonth`,
 `MonthEntry`, `TenantSetting`, `UnpaidStartRule`, `Branch`, `Tenant`, `Currency`,
-`TierPlan`/`TenantUsage`/`TierResource`, `AuthUser`/`AppUser`, `UserRole`,
+`CustomerRequest`, `AuthUser`/`AppUser`, `UserRole`,
 `MonthStatus`, `ChargeKind`, `SaleLineType`, wallet types (`WalletItem`,
 `UserWallet`, `UserWalletDetail`, `WalletSource`, `ReceiveBlock`).
 

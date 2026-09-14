@@ -12,7 +12,7 @@
 - [Multi-Currency](#multi-currency)
 - [App Options (Global Config)](#app-options-global-config)
 - [Tenant Settings (Per-Tenant Config)](#tenant-settings-per-tenant-config)
-- [Subscription Tiers](#subscription-tiers)
+- [Customer Allowance & Requests](#customer-allowance--requests)
 - [Products & One-Off Sales](#products--one-off-sales)
   - [Services](#services)
 - [Reports](#reports)
@@ -90,17 +90,16 @@ LoginScreen
   → AuthService: email = `${username}@${tenantCode}.com`
   → AuthRepository.signIn(email, password)   [Supabase Auth]
   → AuthRepository.getUserProfile(userId)    [public.users]
-  → AuthRepository.getTenant(tenantId)       [tenants joined with tier_plans]
+  → AuthRepository.getTenant(tenantId)       [tenants row: allowance + price]
   → stores AuthUser + tenantActive in authSlice
   → primePostAuth(user) — Promise.all of:
        get().currencies.fetchCurrencies()
        get().branches.fetchBranches()
        get().options.fetchOptions()         (loads global app_options — e.g. LiraRate)
-       get().subscription.init(tenantId)
-         → tierService.fetchTiers() (3 tier_plans rows)
-         → tierService.fetchUsage() (counts customers/users/plans/branches/currencies)
-         → tierService.getTenantWithTier(tenantId) — fresh tenant + joined tier
-           → also writes back via authSlice.setUserTier so user.tenant.tier stays in sync
+       get().billing.init(tenantId)
+         → seeds allowance + pricePerCustomerUsd from the auth-time tenant row
+         → customerService.countActive(null) — TENANT-WIDE active customer count
+         → refreshRequest() — the one pending customer_requests row, if any
 
 LoginScreen also exposes "Create a new organization" → signupSlice (2-step form):
   Step 1 (SignupOrganizationScreen)
@@ -111,7 +110,7 @@ LoginScreen also exposes "Create a new organization" → signupSlice (2-step for
     → signupSlice.submit()
     → SignupService.createTenant() → SignupRepository.createTenant()
     → supabase.functions.invoke('create-tenant') [service-role server-side]
-       atomically: tier_plans (lookup Free id) → tenants(tier_id=Free) →
+       atomically: tenants(billing columns omitted → schema DEFAULTs) →
        branches('Default Branch') → auth.users → public.users(role=superadmin, branch_id=null)
        cascading rollback on any step
     → auto-login via authSlice.login(...) with the just-entered credentials
@@ -123,7 +122,7 @@ app/(app)/_layout.tsx
   → otherwise → render tabs
 ```
 
-**Hydration note:** `authSlice` exports an internal `primePostAuth(get, user)` helper called by `login` and `restoreSession`. It runs `get().currencies.fetchCurrencies()`, `get().branches.fetchBranches()`, `get().options.fetchOptions()`, and `get().subscription.init(tenantId)` in parallel via `Promise.all`. `subscription.init` is the **source of truth** for the active tier (see Subscription Tiers below).
+**Hydration note:** `authSlice` exports an internal `primePostAuth(get, user)` helper called by `login` and `restoreSession`. It runs `get().currencies.fetchCurrencies()`, `get().branches.fetchBranches()`, `get().options.fetchOptions()`, and `get().billing.init(tenantId)` in parallel via `Promise.all`. `billing.init` seeds the allowance and per-customer price from the tenant row already in hand, then reads the tenant-wide active-customer count and any pending request (see Customer Allowance & Requests below).
 
 See `docs/edge-functions.md` for `create-tenant` internals and gotcha #33 for the anon-path rationale.
 
@@ -201,13 +200,12 @@ See gotchas #18, #19, #21, #22, #24, #36 for the snapshot/conversion rules.
 `app_options` is a **global, app-wide** key/value table (NOT tenant-scoped — no `tenant_id`). Columns: `id`, `key` (unique), `value` (text), `description`, timestamps. It holds cross-tenant configuration the SaaS owner controls. Seeded keys today:
 
 - `LiraRate` — default USD→LBP rate (LBP per 1 USD) used when seeding each new tenant's LBP currency.
-- `AllowPlanUpgrade` (`'true'`/`'false'`, default true) — when `false`, the in-app upgrade buttons (`TierCard`, `UpgradePromptModal`) are replaced by a "contact to upgrade" WhatsApp button that deep-links to `SupportWhatsAppNumber` with a pre-filled message. Purely a UX gate.
 - `AllowSelfServiceSignup` (`'true'`/`'false'`, default true) — when `false`, the login screen hides the "Create organization" button **and** the `create-tenant` edge function rejects signups (`403`, `code: signup_disabled`) — server-side is authoritative.
-- `SupportWhatsAppNumber` — support WhatsApp number (international format, digits only) used by the upgrade WhatsApp deep-link.
+- `SupportWhatsAppNumber` — support WhatsApp number (international format, digits only) used by `CustomerRequestSheet`'s "Send request + WhatsApp" deep-link. Blank hides that button.
 
 - **RLS:** `app_options_select` grants `SELECT` to **`anon` + `authenticated`** (anon is required because some flags gate pre-auth UI, e.g. self-service signup on the login screen). There is **no** write policy, so only the **service role** (SuperAdmin app + the `create-tenant` edge function) can insert/update/delete — RLS bypass is the write path.
-- **SuperAdmin** owns full CRUD via the **Options** tab ([app/(tabs)/options.tsx](<../SuperAdmin/app/(tabs)/options.tsx>) → `OptionsScreen`). The `options` module mirrors `tier-plans` (repository + service + standalone `optionStore` + screen + `OptionFormSheet`) but adds create + delete. The option **key is immutable after creation** (only `value` + `description` are editable), so well-known keys can't be renamed out from under the code that reads them.
-- **SubsTrack** has a **read-only** `options` module (repository `findAll`/`findByKey` + `OptionService.getOptions`/`getOptionValue` + `optionSlice` + `useOptionSlice`). It never writes. Options are fetched **at app bootstrap** (`app/_layout.tsx`, so the pre-auth login screen can read flags) and re-primed on login/restore via `primePostAuth`; they are intentionally **not** reset on `logout`. Reference keys through `OPTION_KEYS`, never magic strings. Read values through the typed selector hooks in [useOptionSlice.ts](../SubsTrack/src/state/hooks/useOptionSlice.ts): generic `useOptionValue(key)` / `useBooleanOption(key, fallback)`, and semantic `useCanUpgradePlan()` / `useSelfServiceSignupEnabled()` / `useSupportWhatsAppNumber()`. For **conditional UI**, prefer the declarative gate components in [FeatureGate.tsx](../SubsTrack/src/shared/components/FeatureGate.tsx) — `<CanUpgrade fallback={…}>` and `<CanCreateOrganization>` — which wrap the gated element and render `children` when enabled, else `fallback`; this keeps flag ternaries out of the screens. WhatsApp deep-links go through `openWhatsApp()` in [shared/lib/whatsapp.ts](../SubsTrack/src/shared/lib/whatsapp.ts).
+- **SuperAdmin** owns full CRUD via the **Options** tab ([app/(tabs)/options.tsx](<../SuperAdmin/app/(tabs)/options.tsx>) → `OptionsScreen`). The `options` module is the usual shape (repository + service + standalone `optionStore` + screen + `OptionFormSheet`) with create + delete. The option **key is immutable after creation** (only `value` + `description` are editable), so well-known keys can't be renamed out from under the code that reads them.
+- **SubsTrack** has a **read-only** `options` module (repository `findAll`/`findByKey` + `OptionService.getOptions`/`getOptionValue` + `optionSlice` + `useOptionSlice`). It never writes. Options are fetched **at app bootstrap** (`app/_layout.tsx`, so the pre-auth login screen can read flags) and re-primed on login/restore via `primePostAuth`; they are intentionally **not** reset on `logout`. Reference keys through `OPTION_KEYS`, never magic strings. Read values through the typed selector hooks in [useOptionSlice.ts](../SubsTrack/src/state/hooks/useOptionSlice.ts): generic `useOptionValue(key)` / `useBooleanOption(key, fallback)`, and semantic `useSelfServiceSignupEnabled()` / `useSupportWhatsAppNumber()`. For **conditional UI**, prefer the declarative gate component in [FeatureGate.tsx](../SubsTrack/src/shared/components/FeatureGate.tsx) — `<CanCreateOrganization>` — which wraps the gated element and renders `children` when enabled, else `fallback`; this keeps flag ternaries out of the screens. WhatsApp deep-links go through `openWhatsApp()` in [shared/lib/whatsapp.ts](../SubsTrack/src/shared/lib/whatsapp.ts).
 
 See gotcha #38.
 
@@ -231,66 +229,138 @@ See gotcha #38.
 
 ---
 
-## Subscription Tiers
+## Customer Allowance & Requests
 
-Every tenant lives on one of three global `tier_plans` rows: **Free**, **Pro**, **Business**. The catalog is small and fixed (3 rows seeded by `script.sql`, editable by the SaaS owner via SuperAdmin's tier-plans module). Each tier defines numeric limits (`max_customers`, `max_users`, `max_plans`, `max_branches`, `max_currencies` — NULL means unlimited), feature flags (`multi_currency_enabled`, `multi_month_plans_enabled`), and a USD monthly price.
+There are no tiers. A tenant is billed on **one number of customers it is allowed to hold**, at **one agreed price per customer**, and every other resource — users, branches, plans, products, currencies, sales, stock — is **unlimited**. Two columns on `tenants` carry the whole commercial relationship:
 
-**Enforcement is service-layer.** Every feature `Service.createX()` calls `tierService.assertCanCreate(tier, usage, resource)` immediately after its existing `validate()`. Failures throw a typed `TierLimitError` (from [TierService.ts](../SubsTrack/src/modules/subscription/services/TierService.ts)) carrying `{resource, limit, tierCode}`. Slice actions catch via `instanceof` and set a structured `tierLimitError` field next to the standard `error: string`. Form sheets check `tierLimitError` and render an `UpgradePromptModal` (the existing `ErrorBanner` path stays for regular validation errors). This avoids parsing error strings.
+- `customer_allowance INT NOT NULL DEFAULT 30` — how many **active** customers this tenant may hold.
+- `price_per_customer_usd NUMERIC(10,4) NOT NULL DEFAULT 0.15` — USD charged per active customer per month. `NUMERIC(10,4)` because a per-customer price is fractions of a cent wide; rounding happens only at the total.
 
-**Tier and usage are passed in as parameters from components**, not read across slices in actions (slice actions still touch `get().subscription.refreshUsage()` after creates, but the _input_ tier/usage comes from the caller). The pattern in slices:
+**Both columns are OWNER-ONLY, locked twice.** They decide what the tenant pays, so the tenant must not be able to touch them:
 
-```ts
-createCustomer: async (data, tenantId, tier, usage) => {
-  set((s) => {
-    s.customers.loading = true;
-    s.customers.error = null;
-    s.customers.tierLimitError = null;
-  });
-  try {
-    const customer = await customerService.createCustomer(
-      data,
-      tenantId,
-      tier,
-      usage,
-    );
-    set((s) => {
-      s.customers.items.unshift(customer);
-      s.customers.loading = false;
-    });
-    void get().subscription.refreshUsage(); // ← cross-slice via get()
-  } catch (e) {
-    if (e instanceof TierLimitError) {
-      set((s) => {
-        s.customers.tierLimitError = {
-          resource: e.resource,
-          limit: e.limit,
-          tierCode: e.tierCode,
-        };
-        s.customers.loading = false;
-      });
-    } else {
-      set((s) => {
-        s.customers.error = (e as Error).message;
-        s.customers.loading = false;
-      });
-    }
-  }
-};
+1. **No UPDATE policy on `tenants` at all** — the old `tenants_update` policy was dropped. The app never writes the table, so nothing is lost.
+2. **`trg_tenants_guard_billing`** — a trigger that RAISEs when a session with `auth.uid() IS NOT NULL` changes either column. The belt to the RLS braces: it survives someone re-adding a permissive policy later, and it is what stops a tenant admin raising their own allowance through a leaked token.
+
+Only the **service role** writes them — SuperAdmin and the edge functions, both of which bypass RLS and carry no `auth.uid()`.
+
+**The numbers ride in on the auth-time tenant row.** `AuthRepository.getTenant` already returns the tenant, so allowance and price cost **no extra fetch**. Only the active-customer count and the pending request touch the network.
+
+**Module:** `src/modules/admin/billing/` — `services/BillingService.ts`, the `ICustomerRequestRepository` / `CustomerRequestRepository` / `CustomerRequestRepository.offline` trio, `utils/` (`customerLimitError.ts`, `types.ts`, `mapper.ts` — which owns `mapDbTenantToTenant`, moved here from the old subscription module, plus `mapDbCustomerRequestToCustomerRequest`), and three components. **State** is the global `billing` slice at [src/state/slices/billing/billingSlice.ts](../SubsTrack/src/state/slices/billing/billingSlice.ts) (`allowance`, `pricePerCustomerUsd`, `activeCustomers`, `request`, `loading`, `saving`, `error`, plus `init` / `refreshCounts` / `refreshRequest` / `setActiveCustomers` / `requestMore` / `editRequest` / `cancelRequest` / `clearError` / `reset`), read through `useBillingSlice`. `authSlice.primePostAuth` calls `billing.init(tenantId)`; `logout` calls `billing.reset()`.
+
+---
+
+### The customer cap
+
+**Enforcement is service-layer**, the same shape the old tier check had: `CustomerService.createCustomer()` calls `billingService.assertCanCreateCustomer(allowance, activeCount)` immediately after its existing `validate()`. It throws a typed `CustomerLimitError` (from [utils/customerLimitError.ts](../SubsTrack/src/modules/admin/billing/utils/customerLimitError.ts)) carrying `{allowance, activeCount}` when `activeCount >= allowance` — the cap blocks **at** the allowance, not one past it. `customerSlice` catches via `instanceof` and sets a structured `customerLimitError: CustomerLimitErrorPayload | null` next to the standard `error: string`, cleared by `clearCustomerLimitError()`. No error string is ever parsed.
+
+**Only `CustomerFormSheet` renders a limit modal.** The other five form sheets (users, branches, plans, products, currencies) render none — their resources are uncapped, so there is nothing to explain.
+
+**Unlike the old tier check, the numbers are NOT parameters.** `createCustomer(data, tenantId)` reads `allowance` and `activeCustomers` from `get().billing` **inside the action** — a cross-slice read via `get()`, per the slice rules. Nothing is threaded through the component.
+
+**The count that matters is TENANT-WIDE.** The cap reads `customerService.countActive(null)` — a `null` branch filter that skips the branch clause on both platforms. The `customers` slice keeps its own `activeCount`, but that one is **branch-filtered** and must never drive the cap: a branch admin would otherwise be told they have room the tenant does not have.
+
+**The count is write-patched, never re-fetched.** Create / deactivate / reactivate / delete / bulk-delete each hand `billing.setActiveCustomers` the new figure. There is no `refreshUsage()` anywhere — all 19 of the old calls are gone. `refreshActiveData.ts` calls `s.billing.refreshCounts()` on an arrival, which is the only re-read.
+
+---
+
+### `CustomerLimitReachedModal`
+
+Replaces the old `UpgradePromptModal`. It says the allowance is full and offers the one action actually available to whoever is looking:
+
+- **Tenant-wide admins** (`user.branchId === null`) get a button into **Organization Settings**, where the request lives.
+- **Branch admins and staff** get "ask your administrator" — they cannot raise the allowance, so offering them a button would be a dead end.
+
+---
+
+### The settings card
+
+`<CustomerAllowanceSection />` ([components/CustomerAllowanceSection.tsx](../SubsTrack/src/modules/admin/billing/components/CustomerAllowanceSection.tsx)) renders **above** `<DisplayCurrencySection />` on `TenantSettingsScreen`. It shows:
+
+- **Allowed customers** — `customer_allowance`.
+- **Current customers** — the tenant-wide active count.
+- **Monthly amount** — `BillingService.monthlyAmountUsd(activeCustomers, pricePerCustomerUsd)`, rounded to 2dp. 100 customers × $0.15 = **$15.00**. The rounding is deliberate and tested: `7 × 0.15` must print `1.05`, not `1.0499999…`.
+- Then one of three states: a **"Request more customers"** button, an **amber pending block** with Edit / Cancel, or a **red "declined"** note.
+
+It refreshes the request **on focus**, because the owner may have accepted or declined it while the screen sat open.
+
+**The amount is ALWAYS rendered in USD** — a literal `$` plus `toFixed(2)`. It must **never** go through the tenant's display-currency formatter. `currencies.rate_per_usd` is tenant-editable, so a tenant that could format its own bill could rewrite it.
+
+---
+
+### `customer_requests` — the lifecycle
+
+A tenant does not change its allowance; it **asks**, and the owner grants. One table carries the conversation:
+
+`customer_requests` — `id`, `tenant_id`, `requested_count` (`CHECK >= 10`), `granted_count`, `status` (`pending` \| `accepted` \| `declined` \| `cancelled`), `requested_by`, `decided_by`, `decided_at`, `created_at`, `updated_at`.
+
+**Exactly one pending request per tenant**, enforced by a **partial unique index** rather than app logic:
+
+```sql
+CREATE UNIQUE INDEX uq_customer_requests_one_pending
+  ON customer_requests (tenant_id) WHERE status = 'pending';
 ```
 
-Components read `currentTier` and `usage` from `useSubscriptionSlice` and forward them into the action.
+A partial index is the right tool: historical `accepted` / `declined` / `cancelled` rows stay, unlimited, and only the live one is unique. A second request cannot be born even from a second device.
 
-**Hydration:** `authSlice` exports an internal `primePostAuth(get, user)` helper called by `login` and `restoreSession`. It runs `get().currencies.fetchCurrencies()`, `get().branches.fetchBranches()`, `get().options.fetchOptions()`, and `get().subscription.init(tenantId)` in parallel via `Promise.all`. `subscription.init` is the **source of truth** for the active tier: it concurrently fetches the tier catalog, the tenant's usage, and the tenant row with its joined tier (`tierService.getTenantWithTier`), then writes the resolved tier back to `auth.user.tenant.tier` via `authSlice.setUserTier` so the auth slice stays in sync. This is why a tier upgrade made in a previous session is reflected immediately on app restart — the subscription slice never trusts a parameter-passed tier; it always re-queries the DB.
+**RLS says who may move it where:**
 
-**Upgrade UX:** dedicated screen at [SubscriptionScreen.tsx](../SubsTrack/src/modules/subscription/screens/SubscriptionScreen.tsx) (routed at `/(app)/(tabs)/admin/subscription`). Shows 3 stacked TierCards with usage bars for the current tier and Upgrade/Downgrade buttons for the others. Upgrades are instant swaps via `subscriptionSlice.upgrade(tenantId, tierId)` — no billing wired up yet. Downgrades call `TierService.canDowngradeTo(targetTier, usage)` first; if usage exceeds the target tier's limits the dialog lists blockers ("42 / 30 customers") and refuses to swap. The `UpgradePromptModal` is also triggered inline whenever a form sheet hits a `TierLimitError`. The "Subscription" entry in the admin menu ([admin/index.tsx](<../SubsTrack/app/(app)/(tabs)/admin/index.tsx>)) is rendered only for tenant-wide admins (`user.branchId === null`) — branch-scoped admins don't see it.
+- **Every tenant member SELECTs** — staff should be able to see that more customers are on the way.
+- **Admins INSERT**, and the row must be born **pending and undecided**.
+- **Admins UPDATE only still-pending rows**, and may set the status only to `'pending'` (an edit of the number) or `'cancelled'`. A tenant can **never** write `'accepted'` — that is the whole point.
 
-**`UpgradePromptModal` design:** for tenant-wide admins, the modal renders compact preview cards for the available upgrade tiers (every tier with `sortOrder > currentTier.sortOrder`), each showing name, monthly price, and a few key perks (customer/user caps, multi-month/multi-currency flags). The footer has "Not now" + "View plans"; "View plans" pushes `/(app)/(tabs)/admin/subscription`. Branch-scoped admins and staff see a stripped-down "Limit reached — contact your administrator" notice with just a Close button (they can't change the tier themselves).
+**Accepting is ONE Postgres call.** `accept_customer_request(p_request_id UUID, p_granted INT)` — `SECURITY DEFINER`, `REVOKE`d from `anon` / `authenticated` / `public`, so only the service role reaches it. It marks the request accepted **and** raises `tenants.customer_allowance` by the granted amount in a single call, because a torn write here mis-bills a tenant: the raise without the accept leaves the request live and re-grantable, the accept without the raise gives the tenant nothing. **Declining is a plain single update** — nothing else moves, so it needs no function.
 
-**Soft UX gates** beyond the hard service-layer block: PlanFormSheet hides multi-month duration UI when `tier.multiMonthPlansEnabled === false`; CurrencyFormSheet hides itself behind the same `assertMultiCurrency` check; the Add buttons on list screens stay enabled so the user always reaches an explanation.
+**The minimum ask is 10.** `BillingService.validateRequest(extra)` throws below `MIN_CUSTOMER_REQUEST = 10` ([utils/types.ts](../SubsTrack/src/modules/admin/billing/utils/types.ts)), matching the DB `CHECK` — a request for one more customer is not worth a round trip to a human.
 
-**Tenant creation defaults to Free.** Both the public `create-tenant` edge function and SuperAdmin's `TenantService.createTenant` look up the Free tier id and stamp it on the new `tenants` row. SuperAdmin's `TenantFormSheet` exposes a tier dropdown so the SaaS owner can onboard paid tenants directly or change a tenant's tier later (the manual paid-upgrade path). `tier_upgraded_at` is touched on every change.
+---
 
-**Future-proofing:** to add Stripe, append nullable `stripe_price_id_monthly` / `stripe_price_id_yearly` to `tier_plans` and `stripe_customer_id` / `stripe_subscription_id` to `tenants`. Only `subscriptionSlice.upgrade()` changes — it redirects to a Checkout session, the webhook updates `tier_id`. Every other call site already reads from `currentTier`.
+### `CustomerRequestSheet`
+
+One numeric field (minimum 10) and two buttons: **"Send request"** and **"Send request + WhatsApp"**. The second deep-links `app_options.SupportWhatsAppNumber` through `openWhatsApp` **after the write succeeds** — the request is the record, the message only nudges — and is **hidden entirely when the number is blank**. In edit mode the labels become **Save** / **Save + WhatsApp**.
+
+---
+
+### SuperAdmin side
+
+- **`TenantCard`** shows `{allowance} customers · ${price} each`, and an **ORANGE `Requested +N` pill** when that tenant has a pending request — so the owner sees the queue without opening anything.
+- **`TenantFormSheet`** gained numeric **"Customer Allowance"** and **"Price Per Customer (USD)"** inputs on **both create and edit** — the owner's direct path, for onboarding an agreed deal or correcting one without a request.
+- When a request is pending, an **Accept / Decline block** sits at the top of the sheet, with an editable **"Grant"** field defaulting to the requested count (the owner may grant fewer).
+- **Trap:** after accepting, the local **allowance input is re-synced from the accepted amount**. Without it the input still holds the pre-accept number, and the next press of Save writes that number straight back over the raise the owner just granted.
+- **`TenantService.getTenants()`** is `Promise.all([findAll(), findPendingRequests()])`, zipping the pending request onto each tenant. `findPendingRequests` is **one flat query, not a PostgREST embed** — an embed would drag every historical request row for every tenant across the wire to surface at most one live row each.
+- SuperAdmin has **2 tabs** now: **Tenants** and **Options**. The whole `tier-plans` module and its tab are gone.
+
+---
+
+### Offline
+
+**The allowance syncs; the requests do not.**
+
+- `customer_allowance` and `price_per_customer_usd` live on the `tenants` row, which is already part of the read-through auth cache — so **the cap still works offline**, and a device that has logged in once refuses to create the 31st customer with no network.
+- `customer_requests` is **deliberately not mirrored**. `CustomerRequestRepository.offline` throws `RequiresConnectionError` from **every** method. A request is a message to a human that needs an answer from a human; queueing it offline would show a tenant a pending block nobody can see, and two offline requests merging would fight the one-pending index.
+
+---
+
+### Audit trail
+
+`AuditTable` swapped `'tenants'` for `'customer_requests'` — the app no longer writes `tenants` at all, and the request is now the tenant-side record worth a trail. Label key `audit.table.customer_requests` = "Customer request". The `tier_changed` summary branch and `audit.field.tier_id` are gone.
+
+---
+
+### Tenant creation
+
+The `create-tenant` edge function **no longer looks up a tier**. It simply **omits both billing columns** so the schema `DEFAULT`s apply — a new tenant starts at **30 customers at $0.15 each**. Because those defaults are now the contract, the function must be **redeployed before the SQL runs**:
+
+```
+supabase functions deploy create-tenant --no-verify-jwt
+```
+
+Edge functions **do not ship over OTA**.
+
+---
+
+### Tests
+
+`tests/suites/customerAllowance.test.ts` (TC-CA-01..11) covers the monthly amount, its 2dp rounding (`7 × 0.15` → `1.05`), the cap blocking **at** the allowance rather than past it, and the min-10 request rule. `tests/stubs/billing-barrel.ts` plus a `jest.config.js` `moduleNameMapper` entry exist because the billing barrel exports components, which Jest cannot load.
 
 ---
 
@@ -298,7 +368,7 @@ Components read `currentTier` and `usage` from `useSubscriptionSlice` and forwar
 
 `products` + `services` + `sales` extend SubsTrack beyond recurring subscriptions. `payments` (subscriptions) and `sales` are deliberately separate ledgers — they don't share schema or service code. Subscription month-grid logic is untouched.
 
-**Products** mirror `plans` exactly: per-tenant catalog, optional currency, `branch_id IS NULL` = SHARED, soft-delete via `active = false` when a product has historical sales (hard-delete otherwise — mirrors `CurrencyService.deleteCurrency`). Tier-gated through `tier_plans.max_products` (Free: 5, Pro/Business: unlimited). Soft-vs-hard delete keys off **`sale_items.product_id`** references (not `sales`).
+**Products** mirror `plans` exactly: per-tenant catalog, optional currency, `branch_id IS NULL` = SHARED, soft-delete via `active = false` when a product has historical sales (hard-delete otherwise — mirrors `CurrencyService.deleteCurrency`). **Uncapped** — a tenant may hold any number of products. Soft-vs-hard delete keys off **`sale_items.product_id`** references (not `sales`).
 
 **A sale is a header + lines, and a line sells a product OR a service.** One sale can hold **several lines** in any mix (a small "cart") — products only, services only, or both, but at least one of something. The account/transaction lives on the `sales` header; each thing sold is a `sale_items` row. This mirrors the `customers` → `customer_plans` header/line split. See **Services** below for what a service line is and is not.
 
@@ -323,7 +393,7 @@ A **service** is labour the tenant charges for — an installation, a repair vis
 
 **What a service is NOT:** stocked or costed. No `stock_movements` row, no oversell check, no expense. Staff pay is still typed by hand under the `salaries` expense category. Because a service line moves no stock, every stock path narrows through `productLines()` / `savedProductLines()` in `sales/utils/saleLines.ts` — never a nullable-id test (gotcha #97).
 
-**The price list (`services`).** Admin → Services, reached from the admin menu. The products screen minus stock and cost: name, description, price + currency, branch (`branch_id IS NULL` = SHARED), `active`. `UNIQUE(tenant_id, branch_id, name)` and the RLS pair `services_select` / `services_modify` are copied from `products` verbatim — so a **collector** can add one from the sale form the same way they can add a product, and a branch-scoped user can only write in their own branch. **No tier limit** (unlike `max_products`): services are uncapped. Soft-delete when any sale line references it (counting voided lines, since the FK is `ON DELETE RESTRICT`), hard-delete otherwise — the same two-mode `deleteService` as products, with a batch counterpart. Audited like products, with **History** on the card menu via `useRecordHistoryAction('services')`.
+**The price list (`services`).** Admin → Services, reached from the admin menu. The products screen minus stock and cost: name, description, price + currency, branch (`branch_id IS NULL` = SHARED), `active`. `UNIQUE(tenant_id, branch_id, name)` and the RLS pair `services_select` / `services_modify` are copied from `products` verbatim — so a **collector** can add one from the sale form the same way they can add a product, and a branch-scoped user can only write in their own branch. **Uncapped**, like products: services take no slot. Soft-delete when any sale line references it (counting voided lines, since the FK is `ON DELETE RESTRICT`), hard-delete otherwise — the same two-mode `deleteService` as products, with a batch counterpart. Audited like products, with **History** on the card menu via `useRecordHistoryAction('services')`.
 
 Layers: `src/modules/admin/service-catalog/` — repository (+ `.offline`, platform switch), `ServiceCatalogService`, `ServiceListScreen`, `ServiceCard`, `ServiceFormSheet`, and a `services` slice with the standard `loaded` guard. The business-logic class is named `ServiceCatalogService`, not `ServiceService`, because "service" is also this app's name for that whole layer — and the module folder is `service-catalog` so the file is not `admin/services/services/…`.
 
@@ -389,7 +459,7 @@ Both customer surfaces also carry **multi-select → one WhatsApp receipt** (`us
 
 Presentation: the screen uses a shared `StatTile` (label / big value / sub-line / tone / optional icon) for the stat grid (Active, Unpaid, New, Cancelled, Payments, Sales) and the total-debt money tile. Every repo range query has a Supabase + Offline SQLite implementation behind the `ICollectionRepository` / `IChargeRepository` / `ISaleRepository` / `ICustomerRepository` seam.
 
-**Tier-gating** is sale-blind: products consume a slot (gated by `max_products`), but recording sales is unlimited on every tier. Stock is not gated at all — restocking is unlimited.
+**Nothing here is capped**: products, services, sales and stock movements are all unlimited. The only cap in the app is the customer allowance (see Customer Allowance & Requests).
 
 ### Stock
 
@@ -929,7 +999,7 @@ the **charge's** (what he was billed).
 - [Multi-Currency](#multi-currency)
 - [App Options (Global Config)](#app-options-global-config)
 - [Tenant Settings (Per-Tenant Config)](#tenant-settings-per-tenant-config)
-- [Subscription Tiers](#subscription-tiers)
+- [Customer Allowance & Requests](#customer-allowance--requests)
 - [Products & One-Off Sales](#products--one-off-sales)
   - [Services](#services)
 - [Reports](#reports)
@@ -1007,17 +1077,16 @@ LoginScreen
   → AuthService: email = `${username}@${tenantCode}.com`
   → AuthRepository.signIn(email, password)   [Supabase Auth]
   → AuthRepository.getUserProfile(userId)    [public.users]
-  → AuthRepository.getTenant(tenantId)       [tenants joined with tier_plans]
+  → AuthRepository.getTenant(tenantId)       [tenants row: allowance + price]
   → stores AuthUser + tenantActive in authSlice
   → primePostAuth(user) — Promise.all of:
        get().currencies.fetchCurrencies()
        get().branches.fetchBranches()
        get().options.fetchOptions()         (loads global app_options — e.g. LiraRate)
-       get().subscription.init(tenantId)
-         → tierService.fetchTiers() (3 tier_plans rows)
-         → tierService.fetchUsage() (counts customers/users/plans/branches/currencies)
-         → tierService.getTenantWithTier(tenantId) — fresh tenant + joined tier
-           → also writes back via authSlice.setUserTier so user.tenant.tier stays in sync
+       get().billing.init(tenantId)
+         → seeds allowance + pricePerCustomerUsd from the auth-time tenant row
+         → customerService.countActive(null) — TENANT-WIDE active customer count
+         → refreshRequest() — the one pending customer_requests row, if any
 
 LoginScreen also exposes "Create a new organization" → signupSlice (2-step form):
   Step 1 (SignupOrganizationScreen)
@@ -1028,7 +1097,7 @@ LoginScreen also exposes "Create a new organization" → signupSlice (2-step for
     → signupSlice.submit()
     → SignupService.createTenant() → SignupRepository.createTenant()
     → supabase.functions.invoke('create-tenant') [service-role server-side]
-       atomically: tier_plans (lookup Free id) → tenants(tier_id=Free) →
+       atomically: tenants(billing columns omitted → schema DEFAULTs) →
        branches('Default Branch') → auth.users → public.users(role=superadmin, branch_id=null)
        cascading rollback on any step
     → auto-login via authSlice.login(...) with the just-entered credentials
@@ -1040,7 +1109,7 @@ app/(app)/_layout.tsx
   → otherwise → render tabs
 ```
 
-**Hydration note:** `authSlice` exports an internal `primePostAuth(get, user)` helper called by `login` and `restoreSession`. It runs `get().currencies.fetchCurrencies()`, `get().branches.fetchBranches()`, `get().options.fetchOptions()`, and `get().subscription.init(tenantId)` in parallel via `Promise.all`. `subscription.init` is the **source of truth** for the active tier (see Subscription Tiers below).
+**Hydration note:** `authSlice` exports an internal `primePostAuth(get, user)` helper called by `login` and `restoreSession`. It runs `get().currencies.fetchCurrencies()`, `get().branches.fetchBranches()`, `get().options.fetchOptions()`, and `get().billing.init(tenantId)` in parallel via `Promise.all`. `billing.init` seeds the allowance and per-customer price from the tenant row already in hand, then reads the tenant-wide active-customer count and any pending request (see Customer Allowance & Requests below).
 
 See `docs/edge-functions.md` for `create-tenant` internals and gotcha #33 for the anon-path rationale.
 
@@ -1118,13 +1187,12 @@ See gotchas #18, #19, #21, #22, #24, #36 for the snapshot/conversion rules.
 `app_options` is a **global, app-wide** key/value table (NOT tenant-scoped — no `tenant_id`). Columns: `id`, `key` (unique), `value` (text), `description`, timestamps. It holds cross-tenant configuration the SaaS owner controls. Seeded keys today:
 
 - `LiraRate` — default USD→LBP rate (LBP per 1 USD) used when seeding each new tenant's LBP currency.
-- `AllowPlanUpgrade` (`'true'`/`'false'`, default true) — when `false`, the in-app upgrade buttons (`TierCard`, `UpgradePromptModal`) are replaced by a "contact to upgrade" WhatsApp button that deep-links to `SupportWhatsAppNumber` with a pre-filled message. Purely a UX gate.
 - `AllowSelfServiceSignup` (`'true'`/`'false'`, default true) — when `false`, the login screen hides the "Create organization" button **and** the `create-tenant` edge function rejects signups (`403`, `code: signup_disabled`) — server-side is authoritative.
-- `SupportWhatsAppNumber` — support WhatsApp number (international format, digits only) used by the upgrade WhatsApp deep-link.
+- `SupportWhatsAppNumber` — support WhatsApp number (international format, digits only) used by `CustomerRequestSheet`'s "Send request + WhatsApp" deep-link. Blank hides that button.
 
 - **RLS:** `app_options_select` grants `SELECT` to **`anon` + `authenticated`** (anon is required because some flags gate pre-auth UI, e.g. self-service signup on the login screen). There is **no** write policy, so only the **service role** (SuperAdmin app + the `create-tenant` edge function) can insert/update/delete — RLS bypass is the write path.
-- **SuperAdmin** owns full CRUD via the **Options** tab ([app/(tabs)/options.tsx](<../SuperAdmin/app/(tabs)/options.tsx>) → `OptionsScreen`). The `options` module mirrors `tier-plans` (repository + service + standalone `optionStore` + screen + `OptionFormSheet`) but adds create + delete. The option **key is immutable after creation** (only `value` + `description` are editable), so well-known keys can't be renamed out from under the code that reads them.
-- **SubsTrack** has a **read-only** `options` module (repository `findAll`/`findByKey` + `OptionService.getOptions`/`getOptionValue` + `optionSlice` + `useOptionSlice`). It never writes. Options are fetched **at app bootstrap** (`app/_layout.tsx`, so the pre-auth login screen can read flags) and re-primed on login/restore via `primePostAuth`; they are intentionally **not** reset on `logout`. Reference keys through `OPTION_KEYS`, never magic strings. Read values through the typed selector hooks in [useOptionSlice.ts](../SubsTrack/src/state/hooks/useOptionSlice.ts): generic `useOptionValue(key)` / `useBooleanOption(key, fallback)`, and semantic `useCanUpgradePlan()` / `useSelfServiceSignupEnabled()` / `useSupportWhatsAppNumber()`. For **conditional UI**, prefer the declarative gate components in [FeatureGate.tsx](../SubsTrack/src/shared/components/FeatureGate.tsx) — `<CanUpgrade fallback={…}>` and `<CanCreateOrganization>` — which wrap the gated element and render `children` when enabled, else `fallback`; this keeps flag ternaries out of the screens. WhatsApp deep-links go through `openWhatsApp()` in [shared/lib/whatsapp.ts](../SubsTrack/src/shared/lib/whatsapp.ts).
+- **SuperAdmin** owns full CRUD via the **Options** tab ([app/(tabs)/options.tsx](<../SuperAdmin/app/(tabs)/options.tsx>) → `OptionsScreen`). The `options` module is the usual shape (repository + service + standalone `optionStore` + screen + `OptionFormSheet`) with create + delete. The option **key is immutable after creation** (only `value` + `description` are editable), so well-known keys can't be renamed out from under the code that reads them.
+- **SubsTrack** has a **read-only** `options` module (repository `findAll`/`findByKey` + `OptionService.getOptions`/`getOptionValue` + `optionSlice` + `useOptionSlice`). It never writes. Options are fetched **at app bootstrap** (`app/_layout.tsx`, so the pre-auth login screen can read flags) and re-primed on login/restore via `primePostAuth`; they are intentionally **not** reset on `logout`. Reference keys through `OPTION_KEYS`, never magic strings. Read values through the typed selector hooks in [useOptionSlice.ts](../SubsTrack/src/state/hooks/useOptionSlice.ts): generic `useOptionValue(key)` / `useBooleanOption(key, fallback)`, and semantic `useSelfServiceSignupEnabled()` / `useSupportWhatsAppNumber()`. For **conditional UI**, prefer the declarative gate component in [FeatureGate.tsx](../SubsTrack/src/shared/components/FeatureGate.tsx) — `<CanCreateOrganization>` — which wraps the gated element and renders `children` when enabled, else `fallback`; this keeps flag ternaries out of the screens. WhatsApp deep-links go through `openWhatsApp()` in [shared/lib/whatsapp.ts](../SubsTrack/src/shared/lib/whatsapp.ts).
 
 See gotcha #38.
 
@@ -1148,66 +1216,138 @@ See gotcha #38.
 
 ---
 
-## Subscription Tiers
+## Customer Allowance & Requests
 
-Every tenant lives on one of three global `tier_plans` rows: **Free**, **Pro**, **Business**. The catalog is small and fixed (3 rows seeded by `script.sql`, editable by the SaaS owner via SuperAdmin's tier-plans module). Each tier defines numeric limits (`max_customers`, `max_users`, `max_plans`, `max_branches`, `max_currencies` — NULL means unlimited), feature flags (`multi_currency_enabled`, `multi_month_plans_enabled`), and a USD monthly price.
+There are no tiers. A tenant is billed on **one number of customers it is allowed to hold**, at **one agreed price per customer**, and every other resource — users, branches, plans, products, currencies, sales, stock — is **unlimited**. Two columns on `tenants` carry the whole commercial relationship:
 
-**Enforcement is service-layer.** Every feature `Service.createX()` calls `tierService.assertCanCreate(tier, usage, resource)` immediately after its existing `validate()`. Failures throw a typed `TierLimitError` (from [TierService.ts](../SubsTrack/src/modules/subscription/services/TierService.ts)) carrying `{resource, limit, tierCode}`. Slice actions catch via `instanceof` and set a structured `tierLimitError` field next to the standard `error: string`. Form sheets check `tierLimitError` and render an `UpgradePromptModal` (the existing `ErrorBanner` path stays for regular validation errors). This avoids parsing error strings.
+- `customer_allowance INT NOT NULL DEFAULT 30` — how many **active** customers this tenant may hold.
+- `price_per_customer_usd NUMERIC(10,4) NOT NULL DEFAULT 0.15` — USD charged per active customer per month. `NUMERIC(10,4)` because a per-customer price is fractions of a cent wide; rounding happens only at the total.
 
-**Tier and usage are passed in as parameters from components**, not read across slices in actions (slice actions still touch `get().subscription.refreshUsage()` after creates, but the _input_ tier/usage comes from the caller). The pattern in slices:
+**Both columns are OWNER-ONLY, locked twice.** They decide what the tenant pays, so the tenant must not be able to touch them:
 
-```ts
-createCustomer: async (data, tenantId, tier, usage) => {
-  set((s) => {
-    s.customers.loading = true;
-    s.customers.error = null;
-    s.customers.tierLimitError = null;
-  });
-  try {
-    const customer = await customerService.createCustomer(
-      data,
-      tenantId,
-      tier,
-      usage,
-    );
-    set((s) => {
-      s.customers.items.unshift(customer);
-      s.customers.loading = false;
-    });
-    void get().subscription.refreshUsage(); // ← cross-slice via get()
-  } catch (e) {
-    if (e instanceof TierLimitError) {
-      set((s) => {
-        s.customers.tierLimitError = {
-          resource: e.resource,
-          limit: e.limit,
-          tierCode: e.tierCode,
-        };
-        s.customers.loading = false;
-      });
-    } else {
-      set((s) => {
-        s.customers.error = (e as Error).message;
-        s.customers.loading = false;
-      });
-    }
-  }
-};
+1. **No UPDATE policy on `tenants` at all** — the old `tenants_update` policy was dropped. The app never writes the table, so nothing is lost.
+2. **`trg_tenants_guard_billing`** — a trigger that RAISEs when a session with `auth.uid() IS NOT NULL` changes either column. The belt to the RLS braces: it survives someone re-adding a permissive policy later, and it is what stops a tenant admin raising their own allowance through a leaked token.
+
+Only the **service role** writes them — SuperAdmin and the edge functions, both of which bypass RLS and carry no `auth.uid()`.
+
+**The numbers ride in on the auth-time tenant row.** `AuthRepository.getTenant` already returns the tenant, so allowance and price cost **no extra fetch**. Only the active-customer count and the pending request touch the network.
+
+**Module:** `src/modules/admin/billing/` — `services/BillingService.ts`, the `ICustomerRequestRepository` / `CustomerRequestRepository` / `CustomerRequestRepository.offline` trio, `utils/` (`customerLimitError.ts`, `types.ts`, `mapper.ts` — which owns `mapDbTenantToTenant`, moved here from the old subscription module, plus `mapDbCustomerRequestToCustomerRequest`), and three components. **State** is the global `billing` slice at [src/state/slices/billing/billingSlice.ts](../SubsTrack/src/state/slices/billing/billingSlice.ts) (`allowance`, `pricePerCustomerUsd`, `activeCustomers`, `request`, `loading`, `saving`, `error`, plus `init` / `refreshCounts` / `refreshRequest` / `setActiveCustomers` / `requestMore` / `editRequest` / `cancelRequest` / `clearError` / `reset`), read through `useBillingSlice`. `authSlice.primePostAuth` calls `billing.init(tenantId)`; `logout` calls `billing.reset()`.
+
+---
+
+### The customer cap
+
+**Enforcement is service-layer**, the same shape the old tier check had: `CustomerService.createCustomer()` calls `billingService.assertCanCreateCustomer(allowance, activeCount)` immediately after its existing `validate()`. It throws a typed `CustomerLimitError` (from [utils/customerLimitError.ts](../SubsTrack/src/modules/admin/billing/utils/customerLimitError.ts)) carrying `{allowance, activeCount}` when `activeCount >= allowance` — the cap blocks **at** the allowance, not one past it. `customerSlice` catches via `instanceof` and sets a structured `customerLimitError: CustomerLimitErrorPayload | null` next to the standard `error: string`, cleared by `clearCustomerLimitError()`. No error string is ever parsed.
+
+**Only `CustomerFormSheet` renders a limit modal.** The other five form sheets (users, branches, plans, products, currencies) render none — their resources are uncapped, so there is nothing to explain.
+
+**Unlike the old tier check, the numbers are NOT parameters.** `createCustomer(data, tenantId)` reads `allowance` and `activeCustomers` from `get().billing` **inside the action** — a cross-slice read via `get()`, per the slice rules. Nothing is threaded through the component.
+
+**The count that matters is TENANT-WIDE.** The cap reads `customerService.countActive(null)` — a `null` branch filter that skips the branch clause on both platforms. The `customers` slice keeps its own `activeCount`, but that one is **branch-filtered** and must never drive the cap: a branch admin would otherwise be told they have room the tenant does not have.
+
+**The count is write-patched, never re-fetched.** Create / deactivate / reactivate / delete / bulk-delete each hand `billing.setActiveCustomers` the new figure. There is no `refreshUsage()` anywhere — all 19 of the old calls are gone. `refreshActiveData.ts` calls `s.billing.refreshCounts()` on an arrival, which is the only re-read.
+
+---
+
+### `CustomerLimitReachedModal`
+
+Replaces the old `UpgradePromptModal`. It says the allowance is full and offers the one action actually available to whoever is looking:
+
+- **Tenant-wide admins** (`user.branchId === null`) get a button into **Organization Settings**, where the request lives.
+- **Branch admins and staff** get "ask your administrator" — they cannot raise the allowance, so offering them a button would be a dead end.
+
+---
+
+### The settings card
+
+`<CustomerAllowanceSection />` ([components/CustomerAllowanceSection.tsx](../SubsTrack/src/modules/admin/billing/components/CustomerAllowanceSection.tsx)) renders **above** `<DisplayCurrencySection />` on `TenantSettingsScreen`. It shows:
+
+- **Allowed customers** — `customer_allowance`.
+- **Current customers** — the tenant-wide active count.
+- **Monthly amount** — `BillingService.monthlyAmountUsd(activeCustomers, pricePerCustomerUsd)`, rounded to 2dp. 100 customers × $0.15 = **$15.00**. The rounding is deliberate and tested: `7 × 0.15` must print `1.05`, not `1.0499999…`.
+- Then one of three states: a **"Request more customers"** button, an **amber pending block** with Edit / Cancel, or a **red "declined"** note.
+
+It refreshes the request **on focus**, because the owner may have accepted or declined it while the screen sat open.
+
+**The amount is ALWAYS rendered in USD** — a literal `$` plus `toFixed(2)`. It must **never** go through the tenant's display-currency formatter. `currencies.rate_per_usd` is tenant-editable, so a tenant that could format its own bill could rewrite it.
+
+---
+
+### `customer_requests` — the lifecycle
+
+A tenant does not change its allowance; it **asks**, and the owner grants. One table carries the conversation:
+
+`customer_requests` — `id`, `tenant_id`, `requested_count` (`CHECK >= 10`), `granted_count`, `status` (`pending` \| `accepted` \| `declined` \| `cancelled`), `requested_by`, `decided_by`, `decided_at`, `created_at`, `updated_at`.
+
+**Exactly one pending request per tenant**, enforced by a **partial unique index** rather than app logic:
+
+```sql
+CREATE UNIQUE INDEX uq_customer_requests_one_pending
+  ON customer_requests (tenant_id) WHERE status = 'pending';
 ```
 
-Components read `currentTier` and `usage` from `useSubscriptionSlice` and forward them into the action.
+A partial index is the right tool: historical `accepted` / `declined` / `cancelled` rows stay, unlimited, and only the live one is unique. A second request cannot be born even from a second device.
 
-**Hydration:** `authSlice` exports an internal `primePostAuth(get, user)` helper called by `login` and `restoreSession`. It runs `get().currencies.fetchCurrencies()`, `get().branches.fetchBranches()`, `get().options.fetchOptions()`, and `get().subscription.init(tenantId)` in parallel via `Promise.all`. `subscription.init` is the **source of truth** for the active tier: it concurrently fetches the tier catalog, the tenant's usage, and the tenant row with its joined tier (`tierService.getTenantWithTier`), then writes the resolved tier back to `auth.user.tenant.tier` via `authSlice.setUserTier` so the auth slice stays in sync. This is why a tier upgrade made in a previous session is reflected immediately on app restart — the subscription slice never trusts a parameter-passed tier; it always re-queries the DB.
+**RLS says who may move it where:**
 
-**Upgrade UX:** dedicated screen at [SubscriptionScreen.tsx](../SubsTrack/src/modules/subscription/screens/SubscriptionScreen.tsx) (routed at `/(app)/(tabs)/admin/subscription`). Shows 3 stacked TierCards with usage bars for the current tier and Upgrade/Downgrade buttons for the others. Upgrades are instant swaps via `subscriptionSlice.upgrade(tenantId, tierId)` — no billing wired up yet. Downgrades call `TierService.canDowngradeTo(targetTier, usage)` first; if usage exceeds the target tier's limits the dialog lists blockers ("42 / 30 customers") and refuses to swap. The `UpgradePromptModal` is also triggered inline whenever a form sheet hits a `TierLimitError`. The "Subscription" entry in the admin menu ([admin/index.tsx](<../SubsTrack/app/(app)/(tabs)/admin/index.tsx>)) is rendered only for tenant-wide admins (`user.branchId === null`) — branch-scoped admins don't see it.
+- **Every tenant member SELECTs** — staff should be able to see that more customers are on the way.
+- **Admins INSERT**, and the row must be born **pending and undecided**.
+- **Admins UPDATE only still-pending rows**, and may set the status only to `'pending'` (an edit of the number) or `'cancelled'`. A tenant can **never** write `'accepted'` — that is the whole point.
 
-**`UpgradePromptModal` design:** for tenant-wide admins, the modal renders compact preview cards for the available upgrade tiers (every tier with `sortOrder > currentTier.sortOrder`), each showing name, monthly price, and a few key perks (customer/user caps, multi-month/multi-currency flags). The footer has "Not now" + "View plans"; "View plans" pushes `/(app)/(tabs)/admin/subscription`. Branch-scoped admins and staff see a stripped-down "Limit reached — contact your administrator" notice with just a Close button (they can't change the tier themselves).
+**Accepting is ONE Postgres call.** `accept_customer_request(p_request_id UUID, p_granted INT)` — `SECURITY DEFINER`, `REVOKE`d from `anon` / `authenticated` / `public`, so only the service role reaches it. It marks the request accepted **and** raises `tenants.customer_allowance` by the granted amount in a single call, because a torn write here mis-bills a tenant: the raise without the accept leaves the request live and re-grantable, the accept without the raise gives the tenant nothing. **Declining is a plain single update** — nothing else moves, so it needs no function.
 
-**Soft UX gates** beyond the hard service-layer block: PlanFormSheet hides multi-month duration UI when `tier.multiMonthPlansEnabled === false`; CurrencyFormSheet hides itself behind the same `assertMultiCurrency` check; the Add buttons on list screens stay enabled so the user always reaches an explanation.
+**The minimum ask is 10.** `BillingService.validateRequest(extra)` throws below `MIN_CUSTOMER_REQUEST = 10` ([utils/types.ts](../SubsTrack/src/modules/admin/billing/utils/types.ts)), matching the DB `CHECK` — a request for one more customer is not worth a round trip to a human.
 
-**Tenant creation defaults to Free.** Both the public `create-tenant` edge function and SuperAdmin's `TenantService.createTenant` look up the Free tier id and stamp it on the new `tenants` row. SuperAdmin's `TenantFormSheet` exposes a tier dropdown so the SaaS owner can onboard paid tenants directly or change a tenant's tier later (the manual paid-upgrade path). `tier_upgraded_at` is touched on every change.
+---
 
-**Future-proofing:** to add Stripe, append nullable `stripe_price_id_monthly` / `stripe_price_id_yearly` to `tier_plans` and `stripe_customer_id` / `stripe_subscription_id` to `tenants`. Only `subscriptionSlice.upgrade()` changes — it redirects to a Checkout session, the webhook updates `tier_id`. Every other call site already reads from `currentTier`.
+### `CustomerRequestSheet`
+
+One numeric field (minimum 10) and two buttons: **"Send request"** and **"Send request + WhatsApp"**. The second deep-links `app_options.SupportWhatsAppNumber` through `openWhatsApp` **after the write succeeds** — the request is the record, the message only nudges — and is **hidden entirely when the number is blank**. In edit mode the labels become **Save** / **Save + WhatsApp**.
+
+---
+
+### SuperAdmin side
+
+- **`TenantCard`** shows `{allowance} customers · ${price} each`, and an **ORANGE `Requested +N` pill** when that tenant has a pending request — so the owner sees the queue without opening anything.
+- **`TenantFormSheet`** gained numeric **"Customer Allowance"** and **"Price Per Customer (USD)"** inputs on **both create and edit** — the owner's direct path, for onboarding an agreed deal or correcting one without a request.
+- When a request is pending, an **Accept / Decline block** sits at the top of the sheet, with an editable **"Grant"** field defaulting to the requested count (the owner may grant fewer).
+- **Trap:** after accepting, the local **allowance input is re-synced from the accepted amount**. Without it the input still holds the pre-accept number, and the next press of Save writes that number straight back over the raise the owner just granted.
+- **`TenantService.getTenants()`** is `Promise.all([findAll(), findPendingRequests()])`, zipping the pending request onto each tenant. `findPendingRequests` is **one flat query, not a PostgREST embed** — an embed would drag every historical request row for every tenant across the wire to surface at most one live row each.
+- SuperAdmin has **2 tabs** now: **Tenants** and **Options**. The whole `tier-plans` module and its tab are gone.
+
+---
+
+### Offline
+
+**The allowance syncs; the requests do not.**
+
+- `customer_allowance` and `price_per_customer_usd` live on the `tenants` row, which is already part of the read-through auth cache — so **the cap still works offline**, and a device that has logged in once refuses to create the 31st customer with no network.
+- `customer_requests` is **deliberately not mirrored**. `CustomerRequestRepository.offline` throws `RequiresConnectionError` from **every** method. A request is a message to a human that needs an answer from a human; queueing it offline would show a tenant a pending block nobody can see, and two offline requests merging would fight the one-pending index.
+
+---
+
+### Audit trail
+
+`AuditTable` swapped `'tenants'` for `'customer_requests'` — the app no longer writes `tenants` at all, and the request is now the tenant-side record worth a trail. Label key `audit.table.customer_requests` = "Customer request". The `tier_changed` summary branch and `audit.field.tier_id` are gone.
+
+---
+
+### Tenant creation
+
+The `create-tenant` edge function **no longer looks up a tier**. It simply **omits both billing columns** so the schema `DEFAULT`s apply — a new tenant starts at **30 customers at $0.15 each**. Because those defaults are now the contract, the function must be **redeployed before the SQL runs**:
+
+```
+supabase functions deploy create-tenant --no-verify-jwt
+```
+
+Edge functions **do not ship over OTA**.
+
+---
+
+### Tests
+
+`tests/suites/customerAllowance.test.ts` (TC-CA-01..11) covers the monthly amount, its 2dp rounding (`7 × 0.15` → `1.05`), the cap blocking **at** the allowance rather than past it, and the min-10 request rule. `tests/stubs/billing-barrel.ts` plus a `jest.config.js` `moduleNameMapper` entry exist because the billing barrel exports components, which Jest cannot load.
 
 ---
 
@@ -1215,7 +1355,7 @@ Components read `currentTier` and `usage` from `useSubscriptionSlice` and forwar
 
 `products` + `services` + `sales` extend SubsTrack beyond recurring subscriptions. `payments` (subscriptions) and `sales` are deliberately separate ledgers — they don't share schema or service code. Subscription month-grid logic is untouched.
 
-**Products** mirror `plans` exactly: per-tenant catalog, optional currency, `branch_id IS NULL` = SHARED, soft-delete via `active = false` when a product has historical sales (hard-delete otherwise — mirrors `CurrencyService.deleteCurrency`). Tier-gated through `tier_plans.max_products` (Free: 5, Pro/Business: unlimited). Soft-vs-hard delete keys off **`sale_items.product_id`** references (not `sales`).
+**Products** mirror `plans` exactly: per-tenant catalog, optional currency, `branch_id IS NULL` = SHARED, soft-delete via `active = false` when a product has historical sales (hard-delete otherwise — mirrors `CurrencyService.deleteCurrency`). **Uncapped** — a tenant may hold any number of products. Soft-vs-hard delete keys off **`sale_items.product_id`** references (not `sales`).
 
 **A sale is a header + lines, and a line sells a product OR a service.** One sale can hold **several lines** in any mix (a small "cart") — products only, services only, or both, but at least one of something. The account/transaction lives on the `sales` header; each thing sold is a `sale_items` row. This mirrors the `customers` → `customer_plans` header/line split. See **Services** below for what a service line is and is not.
 
@@ -1240,7 +1380,7 @@ A **service** is labour the tenant charges for — an installation, a repair vis
 
 **What a service is NOT:** stocked or costed. No `stock_movements` row, no oversell check, no expense. Staff pay is still typed by hand under the `salaries` expense category. Because a service line moves no stock, every stock path narrows through `productLines()` / `savedProductLines()` in `sales/utils/saleLines.ts` — never a nullable-id test (gotcha #97).
 
-**The price list (`services`).** Admin → Services, reached from the admin menu. The products screen minus stock and cost: name, description, price + currency, branch (`branch_id IS NULL` = SHARED), `active`. `UNIQUE(tenant_id, branch_id, name)` and the RLS pair `services_select` / `services_modify` are copied from `products` verbatim — so a **collector** can add one from the sale form the same way they can add a product, and a branch-scoped user can only write in their own branch. **No tier limit** (unlike `max_products`): services are uncapped. Soft-delete when any sale line references it (counting voided lines, since the FK is `ON DELETE RESTRICT`), hard-delete otherwise — the same two-mode `deleteService` as products, with a batch counterpart. Audited like products, with **History** on the card menu via `useRecordHistoryAction('services')`.
+**The price list (`services`).** Admin → Services, reached from the admin menu. The products screen minus stock and cost: name, description, price + currency, branch (`branch_id IS NULL` = SHARED), `active`. `UNIQUE(tenant_id, branch_id, name)` and the RLS pair `services_select` / `services_modify` are copied from `products` verbatim — so a **collector** can add one from the sale form the same way they can add a product, and a branch-scoped user can only write in their own branch. **Uncapped**, like products: services take no slot. Soft-delete when any sale line references it (counting voided lines, since the FK is `ON DELETE RESTRICT`), hard-delete otherwise — the same two-mode `deleteService` as products, with a batch counterpart. Audited like products, with **History** on the card menu via `useRecordHistoryAction('services')`.
 
 Layers: `src/modules/admin/service-catalog/` — repository (+ `.offline`, platform switch), `ServiceCatalogService`, `ServiceListScreen`, `ServiceCard`, `ServiceFormSheet`, and a `services` slice with the standard `loaded` guard. The business-logic class is named `ServiceCatalogService`, not `ServiceService`, because "service" is also this app's name for that whole layer — and the module folder is `service-catalog` so the file is not `admin/services/services/…`.
 
@@ -1304,7 +1444,7 @@ Both customer surfaces also carry **multi-select → one WhatsApp receipt** (`us
 
 Presentation: the screen uses a shared `StatTile` (label / big value / sub-line / tone / optional icon) for the stat grid (Active, Unpaid, New, Cancelled, Payments, Sales) and the total-debt money tile. Every repo range query has a Supabase + Offline SQLite implementation behind the `ICollectionRepository` / `IChargeRepository` / `ISaleRepository` / `ICustomerRepository` seam.
 
-**Tier-gating** is sale-blind: products consume a slot (gated by `max_products`), but recording sales is unlimited on every tier. Stock is not gated at all — restocking is unlimited.
+**Nothing here is capped**: products, services, sales and stock movements are all unlimited. The only cap in the app is the customer allowance (see Customer Allowance & Requests).
 
 ### Stock
 
@@ -1878,7 +2018,7 @@ the **charge's** (what he was billed).
 - [Multi-Currency](#multi-currency)
 - [App Options (Global Config)](#app-options-global-config)
 - [Tenant Settings (Per-Tenant Config)](#tenant-settings-per-tenant-config)
-- [Subscription Tiers](#subscription-tiers)
+- [Customer Allowance & Requests](#customer-allowance--requests)
 - [Products & One-Off Sales](#products--one-off-sales)
   - [Services](#services)
 - [Reports](#reports)
@@ -1956,17 +2096,16 @@ LoginScreen
   → AuthService: email = `${username}@${tenantCode}.com`
   → AuthRepository.signIn(email, password)   [Supabase Auth]
   → AuthRepository.getUserProfile(userId)    [public.users]
-  → AuthRepository.getTenant(tenantId)       [tenants joined with tier_plans]
+  → AuthRepository.getTenant(tenantId)       [tenants row: allowance + price]
   → stores AuthUser + tenantActive in authSlice
   → primePostAuth(user) — Promise.all of:
        get().currencies.fetchCurrencies()
        get().branches.fetchBranches()
        get().options.fetchOptions()         (loads global app_options — e.g. LiraRate)
-       get().subscription.init(tenantId)
-         → tierService.fetchTiers() (3 tier_plans rows)
-         → tierService.fetchUsage() (counts customers/users/plans/branches/currencies)
-         → tierService.getTenantWithTier(tenantId) — fresh tenant + joined tier
-           → also writes back via authSlice.setUserTier so user.tenant.tier stays in sync
+       get().billing.init(tenantId)
+         → seeds allowance + pricePerCustomerUsd from the auth-time tenant row
+         → customerService.countActive(null) — TENANT-WIDE active customer count
+         → refreshRequest() — the one pending customer_requests row, if any
 
 LoginScreen also exposes "Create a new organization" → signupSlice (2-step form):
   Step 1 (SignupOrganizationScreen)
@@ -1977,7 +2116,7 @@ LoginScreen also exposes "Create a new organization" → signupSlice (2-step for
     → signupSlice.submit()
     → SignupService.createTenant() → SignupRepository.createTenant()
     → supabase.functions.invoke('create-tenant') [service-role server-side]
-       atomically: tier_plans (lookup Free id) → tenants(tier_id=Free) →
+       atomically: tenants(billing columns omitted → schema DEFAULTs) →
        branches('Default Branch') → auth.users → public.users(role=superadmin, branch_id=null)
        cascading rollback on any step
     → auto-login via authSlice.login(...) with the just-entered credentials
@@ -1989,7 +2128,7 @@ app/(app)/_layout.tsx
   → otherwise → render tabs
 ```
 
-**Hydration note:** `authSlice` exports an internal `primePostAuth(get, user)` helper called by `login` and `restoreSession`. It runs `get().currencies.fetchCurrencies()`, `get().branches.fetchBranches()`, `get().options.fetchOptions()`, and `get().subscription.init(tenantId)` in parallel via `Promise.all`. `subscription.init` is the **source of truth** for the active tier (see Subscription Tiers below).
+**Hydration note:** `authSlice` exports an internal `primePostAuth(get, user)` helper called by `login` and `restoreSession`. It runs `get().currencies.fetchCurrencies()`, `get().branches.fetchBranches()`, `get().options.fetchOptions()`, and `get().billing.init(tenantId)` in parallel via `Promise.all`. `billing.init` seeds the allowance and per-customer price from the tenant row already in hand, then reads the tenant-wide active-customer count and any pending request (see Customer Allowance & Requests below).
 
 See `docs/edge-functions.md` for `create-tenant` internals and gotcha #33 for the anon-path rationale.
 
@@ -2067,13 +2206,12 @@ See gotchas #18, #19, #21, #22, #24, #36 for the snapshot/conversion rules.
 `app_options` is a **global, app-wide** key/value table (NOT tenant-scoped — no `tenant_id`). Columns: `id`, `key` (unique), `value` (text), `description`, timestamps. It holds cross-tenant configuration the SaaS owner controls. Seeded keys today:
 
 - `LiraRate` — default USD→LBP rate (LBP per 1 USD) used when seeding each new tenant's LBP currency.
-- `AllowPlanUpgrade` (`'true'`/`'false'`, default true) — when `false`, the in-app upgrade buttons (`TierCard`, `UpgradePromptModal`) are replaced by a "contact to upgrade" WhatsApp button that deep-links to `SupportWhatsAppNumber` with a pre-filled message. Purely a UX gate.
 - `AllowSelfServiceSignup` (`'true'`/`'false'`, default true) — when `false`, the login screen hides the "Create organization" button **and** the `create-tenant` edge function rejects signups (`403`, `code: signup_disabled`) — server-side is authoritative.
-- `SupportWhatsAppNumber` — support WhatsApp number (international format, digits only) used by the upgrade WhatsApp deep-link.
+- `SupportWhatsAppNumber` — support WhatsApp number (international format, digits only) used by `CustomerRequestSheet`'s "Send request + WhatsApp" deep-link. Blank hides that button.
 
 - **RLS:** `app_options_select` grants `SELECT` to **`anon` + `authenticated`** (anon is required because some flags gate pre-auth UI, e.g. self-service signup on the login screen). There is **no** write policy, so only the **service role** (SuperAdmin app + the `create-tenant` edge function) can insert/update/delete — RLS bypass is the write path.
-- **SuperAdmin** owns full CRUD via the **Options** tab ([app/(tabs)/options.tsx](<../SuperAdmin/app/(tabs)/options.tsx>) → `OptionsScreen`). The `options` module mirrors `tier-plans` (repository + service + standalone `optionStore` + screen + `OptionFormSheet`) but adds create + delete. The option **key is immutable after creation** (only `value` + `description` are editable), so well-known keys can't be renamed out from under the code that reads them.
-- **SubsTrack** has a **read-only** `options` module (repository `findAll`/`findByKey` + `OptionService.getOptions`/`getOptionValue` + `optionSlice` + `useOptionSlice`). It never writes. Options are fetched **at app bootstrap** (`app/_layout.tsx`, so the pre-auth login screen can read flags) and re-primed on login/restore via `primePostAuth`; they are intentionally **not** reset on `logout`. Reference keys through `OPTION_KEYS`, never magic strings. Read values through the typed selector hooks in [useOptionSlice.ts](../SubsTrack/src/state/hooks/useOptionSlice.ts): generic `useOptionValue(key)` / `useBooleanOption(key, fallback)`, and semantic `useCanUpgradePlan()` / `useSelfServiceSignupEnabled()` / `useSupportWhatsAppNumber()`. For **conditional UI**, prefer the declarative gate components in [FeatureGate.tsx](../SubsTrack/src/shared/components/FeatureGate.tsx) — `<CanUpgrade fallback={…}>` and `<CanCreateOrganization>` — which wrap the gated element and render `children` when enabled, else `fallback`; this keeps flag ternaries out of the screens. WhatsApp deep-links go through `openWhatsApp()` in [shared/lib/whatsapp.ts](../SubsTrack/src/shared/lib/whatsapp.ts).
+- **SuperAdmin** owns full CRUD via the **Options** tab ([app/(tabs)/options.tsx](<../SuperAdmin/app/(tabs)/options.tsx>) → `OptionsScreen`). The `options` module is the usual shape (repository + service + standalone `optionStore` + screen + `OptionFormSheet`) with create + delete. The option **key is immutable after creation** (only `value` + `description` are editable), so well-known keys can't be renamed out from under the code that reads them.
+- **SubsTrack** has a **read-only** `options` module (repository `findAll`/`findByKey` + `OptionService.getOptions`/`getOptionValue` + `optionSlice` + `useOptionSlice`). It never writes. Options are fetched **at app bootstrap** (`app/_layout.tsx`, so the pre-auth login screen can read flags) and re-primed on login/restore via `primePostAuth`; they are intentionally **not** reset on `logout`. Reference keys through `OPTION_KEYS`, never magic strings. Read values through the typed selector hooks in [useOptionSlice.ts](../SubsTrack/src/state/hooks/useOptionSlice.ts): generic `useOptionValue(key)` / `useBooleanOption(key, fallback)`, and semantic `useSelfServiceSignupEnabled()` / `useSupportWhatsAppNumber()`. For **conditional UI**, prefer the declarative gate component in [FeatureGate.tsx](../SubsTrack/src/shared/components/FeatureGate.tsx) — `<CanCreateOrganization>` — which wraps the gated element and renders `children` when enabled, else `fallback`; this keeps flag ternaries out of the screens. WhatsApp deep-links go through `openWhatsApp()` in [shared/lib/whatsapp.ts](../SubsTrack/src/shared/lib/whatsapp.ts).
 
 See gotcha #38.
 
@@ -2097,66 +2235,138 @@ See gotcha #38.
 
 ---
 
-## Subscription Tiers
+## Customer Allowance & Requests
 
-Every tenant lives on one of three global `tier_plans` rows: **Free**, **Pro**, **Business**. The catalog is small and fixed (3 rows seeded by `script.sql`, editable by the SaaS owner via SuperAdmin's tier-plans module). Each tier defines numeric limits (`max_customers`, `max_users`, `max_plans`, `max_branches`, `max_currencies` — NULL means unlimited), feature flags (`multi_currency_enabled`, `multi_month_plans_enabled`), and a USD monthly price.
+There are no tiers. A tenant is billed on **one number of customers it is allowed to hold**, at **one agreed price per customer**, and every other resource — users, branches, plans, products, currencies, sales, stock — is **unlimited**. Two columns on `tenants` carry the whole commercial relationship:
 
-**Enforcement is service-layer.** Every feature `Service.createX()` calls `tierService.assertCanCreate(tier, usage, resource)` immediately after its existing `validate()`. Failures throw a typed `TierLimitError` (from [TierService.ts](../SubsTrack/src/modules/subscription/services/TierService.ts)) carrying `{resource, limit, tierCode}`. Slice actions catch via `instanceof` and set a structured `tierLimitError` field next to the standard `error: string`. Form sheets check `tierLimitError` and render an `UpgradePromptModal` (the existing `ErrorBanner` path stays for regular validation errors). This avoids parsing error strings.
+- `customer_allowance INT NOT NULL DEFAULT 30` — how many **active** customers this tenant may hold.
+- `price_per_customer_usd NUMERIC(10,4) NOT NULL DEFAULT 0.15` — USD charged per active customer per month. `NUMERIC(10,4)` because a per-customer price is fractions of a cent wide; rounding happens only at the total.
 
-**Tier and usage are passed in as parameters from components**, not read across slices in actions (slice actions still touch `get().subscription.refreshUsage()` after creates, but the _input_ tier/usage comes from the caller). The pattern in slices:
+**Both columns are OWNER-ONLY, locked twice.** They decide what the tenant pays, so the tenant must not be able to touch them:
 
-```ts
-createCustomer: async (data, tenantId, tier, usage) => {
-  set((s) => {
-    s.customers.loading = true;
-    s.customers.error = null;
-    s.customers.tierLimitError = null;
-  });
-  try {
-    const customer = await customerService.createCustomer(
-      data,
-      tenantId,
-      tier,
-      usage,
-    );
-    set((s) => {
-      s.customers.items.unshift(customer);
-      s.customers.loading = false;
-    });
-    void get().subscription.refreshUsage(); // ← cross-slice via get()
-  } catch (e) {
-    if (e instanceof TierLimitError) {
-      set((s) => {
-        s.customers.tierLimitError = {
-          resource: e.resource,
-          limit: e.limit,
-          tierCode: e.tierCode,
-        };
-        s.customers.loading = false;
-      });
-    } else {
-      set((s) => {
-        s.customers.error = (e as Error).message;
-        s.customers.loading = false;
-      });
-    }
-  }
-};
+1. **No UPDATE policy on `tenants` at all** — the old `tenants_update` policy was dropped. The app never writes the table, so nothing is lost.
+2. **`trg_tenants_guard_billing`** — a trigger that RAISEs when a session with `auth.uid() IS NOT NULL` changes either column. The belt to the RLS braces: it survives someone re-adding a permissive policy later, and it is what stops a tenant admin raising their own allowance through a leaked token.
+
+Only the **service role** writes them — SuperAdmin and the edge functions, both of which bypass RLS and carry no `auth.uid()`.
+
+**The numbers ride in on the auth-time tenant row.** `AuthRepository.getTenant` already returns the tenant, so allowance and price cost **no extra fetch**. Only the active-customer count and the pending request touch the network.
+
+**Module:** `src/modules/admin/billing/` — `services/BillingService.ts`, the `ICustomerRequestRepository` / `CustomerRequestRepository` / `CustomerRequestRepository.offline` trio, `utils/` (`customerLimitError.ts`, `types.ts`, `mapper.ts` — which owns `mapDbTenantToTenant`, moved here from the old subscription module, plus `mapDbCustomerRequestToCustomerRequest`), and three components. **State** is the global `billing` slice at [src/state/slices/billing/billingSlice.ts](../SubsTrack/src/state/slices/billing/billingSlice.ts) (`allowance`, `pricePerCustomerUsd`, `activeCustomers`, `request`, `loading`, `saving`, `error`, plus `init` / `refreshCounts` / `refreshRequest` / `setActiveCustomers` / `requestMore` / `editRequest` / `cancelRequest` / `clearError` / `reset`), read through `useBillingSlice`. `authSlice.primePostAuth` calls `billing.init(tenantId)`; `logout` calls `billing.reset()`.
+
+---
+
+### The customer cap
+
+**Enforcement is service-layer**, the same shape the old tier check had: `CustomerService.createCustomer()` calls `billingService.assertCanCreateCustomer(allowance, activeCount)` immediately after its existing `validate()`. It throws a typed `CustomerLimitError` (from [utils/customerLimitError.ts](../SubsTrack/src/modules/admin/billing/utils/customerLimitError.ts)) carrying `{allowance, activeCount}` when `activeCount >= allowance` — the cap blocks **at** the allowance, not one past it. `customerSlice` catches via `instanceof` and sets a structured `customerLimitError: CustomerLimitErrorPayload | null` next to the standard `error: string`, cleared by `clearCustomerLimitError()`. No error string is ever parsed.
+
+**Only `CustomerFormSheet` renders a limit modal.** The other five form sheets (users, branches, plans, products, currencies) render none — their resources are uncapped, so there is nothing to explain.
+
+**Unlike the old tier check, the numbers are NOT parameters.** `createCustomer(data, tenantId)` reads `allowance` and `activeCustomers` from `get().billing` **inside the action** — a cross-slice read via `get()`, per the slice rules. Nothing is threaded through the component.
+
+**The count that matters is TENANT-WIDE.** The cap reads `customerService.countActive(null)` — a `null` branch filter that skips the branch clause on both platforms. The `customers` slice keeps its own `activeCount`, but that one is **branch-filtered** and must never drive the cap: a branch admin would otherwise be told they have room the tenant does not have.
+
+**The count is write-patched, never re-fetched.** Create / deactivate / reactivate / delete / bulk-delete each hand `billing.setActiveCustomers` the new figure. There is no `refreshUsage()` anywhere — all 19 of the old calls are gone. `refreshActiveData.ts` calls `s.billing.refreshCounts()` on an arrival, which is the only re-read.
+
+---
+
+### `CustomerLimitReachedModal`
+
+Replaces the old `UpgradePromptModal`. It says the allowance is full and offers the one action actually available to whoever is looking:
+
+- **Tenant-wide admins** (`user.branchId === null`) get a button into **Organization Settings**, where the request lives.
+- **Branch admins and staff** get "ask your administrator" — they cannot raise the allowance, so offering them a button would be a dead end.
+
+---
+
+### The settings card
+
+`<CustomerAllowanceSection />` ([components/CustomerAllowanceSection.tsx](../SubsTrack/src/modules/admin/billing/components/CustomerAllowanceSection.tsx)) renders **above** `<DisplayCurrencySection />` on `TenantSettingsScreen`. It shows:
+
+- **Allowed customers** — `customer_allowance`.
+- **Current customers** — the tenant-wide active count.
+- **Monthly amount** — `BillingService.monthlyAmountUsd(activeCustomers, pricePerCustomerUsd)`, rounded to 2dp. 100 customers × $0.15 = **$15.00**. The rounding is deliberate and tested: `7 × 0.15` must print `1.05`, not `1.0499999…`.
+- Then one of three states: a **"Request more customers"** button, an **amber pending block** with Edit / Cancel, or a **red "declined"** note.
+
+It refreshes the request **on focus**, because the owner may have accepted or declined it while the screen sat open.
+
+**The amount is ALWAYS rendered in USD** — a literal `$` plus `toFixed(2)`. It must **never** go through the tenant's display-currency formatter. `currencies.rate_per_usd` is tenant-editable, so a tenant that could format its own bill could rewrite it.
+
+---
+
+### `customer_requests` — the lifecycle
+
+A tenant does not change its allowance; it **asks**, and the owner grants. One table carries the conversation:
+
+`customer_requests` — `id`, `tenant_id`, `requested_count` (`CHECK >= 10`), `granted_count`, `status` (`pending` \| `accepted` \| `declined` \| `cancelled`), `requested_by`, `decided_by`, `decided_at`, `created_at`, `updated_at`.
+
+**Exactly one pending request per tenant**, enforced by a **partial unique index** rather than app logic:
+
+```sql
+CREATE UNIQUE INDEX uq_customer_requests_one_pending
+  ON customer_requests (tenant_id) WHERE status = 'pending';
 ```
 
-Components read `currentTier` and `usage` from `useSubscriptionSlice` and forward them into the action.
+A partial index is the right tool: historical `accepted` / `declined` / `cancelled` rows stay, unlimited, and only the live one is unique. A second request cannot be born even from a second device.
 
-**Hydration:** `authSlice` exports an internal `primePostAuth(get, user)` helper called by `login` and `restoreSession`. It runs `get().currencies.fetchCurrencies()`, `get().branches.fetchBranches()`, `get().options.fetchOptions()`, and `get().subscription.init(tenantId)` in parallel via `Promise.all`. `subscription.init` is the **source of truth** for the active tier: it concurrently fetches the tier catalog, the tenant's usage, and the tenant row with its joined tier (`tierService.getTenantWithTier`), then writes the resolved tier back to `auth.user.tenant.tier` via `authSlice.setUserTier` so the auth slice stays in sync. This is why a tier upgrade made in a previous session is reflected immediately on app restart — the subscription slice never trusts a parameter-passed tier; it always re-queries the DB.
+**RLS says who may move it where:**
 
-**Upgrade UX:** dedicated screen at [SubscriptionScreen.tsx](../SubsTrack/src/modules/subscription/screens/SubscriptionScreen.tsx) (routed at `/(app)/(tabs)/admin/subscription`). Shows 3 stacked TierCards with usage bars for the current tier and Upgrade/Downgrade buttons for the others. Upgrades are instant swaps via `subscriptionSlice.upgrade(tenantId, tierId)` — no billing wired up yet. Downgrades call `TierService.canDowngradeTo(targetTier, usage)` first; if usage exceeds the target tier's limits the dialog lists blockers ("42 / 30 customers") and refuses to swap. The `UpgradePromptModal` is also triggered inline whenever a form sheet hits a `TierLimitError`. The "Subscription" entry in the admin menu ([admin/index.tsx](<../SubsTrack/app/(app)/(tabs)/admin/index.tsx>)) is rendered only for tenant-wide admins (`user.branchId === null`) — branch-scoped admins don't see it.
+- **Every tenant member SELECTs** — staff should be able to see that more customers are on the way.
+- **Admins INSERT**, and the row must be born **pending and undecided**.
+- **Admins UPDATE only still-pending rows**, and may set the status only to `'pending'` (an edit of the number) or `'cancelled'`. A tenant can **never** write `'accepted'` — that is the whole point.
 
-**`UpgradePromptModal` design:** for tenant-wide admins, the modal renders compact preview cards for the available upgrade tiers (every tier with `sortOrder > currentTier.sortOrder`), each showing name, monthly price, and a few key perks (customer/user caps, multi-month/multi-currency flags). The footer has "Not now" + "View plans"; "View plans" pushes `/(app)/(tabs)/admin/subscription`. Branch-scoped admins and staff see a stripped-down "Limit reached — contact your administrator" notice with just a Close button (they can't change the tier themselves).
+**Accepting is ONE Postgres call.** `accept_customer_request(p_request_id UUID, p_granted INT)` — `SECURITY DEFINER`, `REVOKE`d from `anon` / `authenticated` / `public`, so only the service role reaches it. It marks the request accepted **and** raises `tenants.customer_allowance` by the granted amount in a single call, because a torn write here mis-bills a tenant: the raise without the accept leaves the request live and re-grantable, the accept without the raise gives the tenant nothing. **Declining is a plain single update** — nothing else moves, so it needs no function.
 
-**Soft UX gates** beyond the hard service-layer block: PlanFormSheet hides multi-month duration UI when `tier.multiMonthPlansEnabled === false`; CurrencyFormSheet hides itself behind the same `assertMultiCurrency` check; the Add buttons on list screens stay enabled so the user always reaches an explanation.
+**The minimum ask is 10.** `BillingService.validateRequest(extra)` throws below `MIN_CUSTOMER_REQUEST = 10` ([utils/types.ts](../SubsTrack/src/modules/admin/billing/utils/types.ts)), matching the DB `CHECK` — a request for one more customer is not worth a round trip to a human.
 
-**Tenant creation defaults to Free.** Both the public `create-tenant` edge function and SuperAdmin's `TenantService.createTenant` look up the Free tier id and stamp it on the new `tenants` row. SuperAdmin's `TenantFormSheet` exposes a tier dropdown so the SaaS owner can onboard paid tenants directly or change a tenant's tier later (the manual paid-upgrade path). `tier_upgraded_at` is touched on every change.
+---
 
-**Future-proofing:** to add Stripe, append nullable `stripe_price_id_monthly` / `stripe_price_id_yearly` to `tier_plans` and `stripe_customer_id` / `stripe_subscription_id` to `tenants`. Only `subscriptionSlice.upgrade()` changes — it redirects to a Checkout session, the webhook updates `tier_id`. Every other call site already reads from `currentTier`.
+### `CustomerRequestSheet`
+
+One numeric field (minimum 10) and two buttons: **"Send request"** and **"Send request + WhatsApp"**. The second deep-links `app_options.SupportWhatsAppNumber` through `openWhatsApp` **after the write succeeds** — the request is the record, the message only nudges — and is **hidden entirely when the number is blank**. In edit mode the labels become **Save** / **Save + WhatsApp**.
+
+---
+
+### SuperAdmin side
+
+- **`TenantCard`** shows `{allowance} customers · ${price} each`, and an **ORANGE `Requested +N` pill** when that tenant has a pending request — so the owner sees the queue without opening anything.
+- **`TenantFormSheet`** gained numeric **"Customer Allowance"** and **"Price Per Customer (USD)"** inputs on **both create and edit** — the owner's direct path, for onboarding an agreed deal or correcting one without a request.
+- When a request is pending, an **Accept / Decline block** sits at the top of the sheet, with an editable **"Grant"** field defaulting to the requested count (the owner may grant fewer).
+- **Trap:** after accepting, the local **allowance input is re-synced from the accepted amount**. Without it the input still holds the pre-accept number, and the next press of Save writes that number straight back over the raise the owner just granted.
+- **`TenantService.getTenants()`** is `Promise.all([findAll(), findPendingRequests()])`, zipping the pending request onto each tenant. `findPendingRequests` is **one flat query, not a PostgREST embed** — an embed would drag every historical request row for every tenant across the wire to surface at most one live row each.
+- SuperAdmin has **2 tabs** now: **Tenants** and **Options**. The whole `tier-plans` module and its tab are gone.
+
+---
+
+### Offline
+
+**The allowance syncs; the requests do not.**
+
+- `customer_allowance` and `price_per_customer_usd` live on the `tenants` row, which is already part of the read-through auth cache — so **the cap still works offline**, and a device that has logged in once refuses to create the 31st customer with no network.
+- `customer_requests` is **deliberately not mirrored**. `CustomerRequestRepository.offline` throws `RequiresConnectionError` from **every** method. A request is a message to a human that needs an answer from a human; queueing it offline would show a tenant a pending block nobody can see, and two offline requests merging would fight the one-pending index.
+
+---
+
+### Audit trail
+
+`AuditTable` swapped `'tenants'` for `'customer_requests'` — the app no longer writes `tenants` at all, and the request is now the tenant-side record worth a trail. Label key `audit.table.customer_requests` = "Customer request". The `tier_changed` summary branch and `audit.field.tier_id` are gone.
+
+---
+
+### Tenant creation
+
+The `create-tenant` edge function **no longer looks up a tier**. It simply **omits both billing columns** so the schema `DEFAULT`s apply — a new tenant starts at **30 customers at $0.15 each**. Because those defaults are now the contract, the function must be **redeployed before the SQL runs**:
+
+```
+supabase functions deploy create-tenant --no-verify-jwt
+```
+
+Edge functions **do not ship over OTA**.
+
+---
+
+### Tests
+
+`tests/suites/customerAllowance.test.ts` (TC-CA-01..11) covers the monthly amount, its 2dp rounding (`7 × 0.15` → `1.05`), the cap blocking **at** the allowance rather than past it, and the min-10 request rule. `tests/stubs/billing-barrel.ts` plus a `jest.config.js` `moduleNameMapper` entry exist because the billing barrel exports components, which Jest cannot load.
 
 ---
 
@@ -2164,7 +2374,7 @@ Components read `currentTier` and `usage` from `useSubscriptionSlice` and forwar
 
 `products` + `services` + `sales` extend SubsTrack beyond recurring subscriptions. `payments` (subscriptions) and `sales` are deliberately separate ledgers — they don't share schema or service code. Subscription month-grid logic is untouched.
 
-**Products** mirror `plans` exactly: per-tenant catalog, optional currency, `branch_id IS NULL` = SHARED, soft-delete via `active = false` when a product has historical sales (hard-delete otherwise — mirrors `CurrencyService.deleteCurrency`). Tier-gated through `tier_plans.max_products` (Free: 5, Pro/Business: unlimited). Soft-vs-hard delete keys off **`sale_items.product_id`** references (not `sales`).
+**Products** mirror `plans` exactly: per-tenant catalog, optional currency, `branch_id IS NULL` = SHARED, soft-delete via `active = false` when a product has historical sales (hard-delete otherwise — mirrors `CurrencyService.deleteCurrency`). **Uncapped** — a tenant may hold any number of products. Soft-vs-hard delete keys off **`sale_items.product_id`** references (not `sales`).
 
 **A sale is a header + lines, and a line sells a product OR a service.** One sale can hold **several lines** in any mix (a small "cart") — products only, services only, or both, but at least one of something. The account/transaction lives on the `sales` header; each thing sold is a `sale_items` row. This mirrors the `customers` → `customer_plans` header/line split. See **Services** below for what a service line is and is not.
 
@@ -2189,7 +2399,7 @@ A **service** is labour the tenant charges for — an installation, a repair vis
 
 **What a service is NOT:** stocked or costed. No `stock_movements` row, no oversell check, no expense. Staff pay is still typed by hand under the `salaries` expense category. Because a service line moves no stock, every stock path narrows through `productLines()` / `savedProductLines()` in `sales/utils/saleLines.ts` — never a nullable-id test (gotcha #97).
 
-**The price list (`services`).** Admin → Services, reached from the admin menu. The products screen minus stock and cost: name, description, price + currency, branch (`branch_id IS NULL` = SHARED), `active`. `UNIQUE(tenant_id, branch_id, name)` and the RLS pair `services_select` / `services_modify` are copied from `products` verbatim — so a **collector** can add one from the sale form the same way they can add a product, and a branch-scoped user can only write in their own branch. **No tier limit** (unlike `max_products`): services are uncapped. Soft-delete when any sale line references it (counting voided lines, since the FK is `ON DELETE RESTRICT`), hard-delete otherwise — the same two-mode `deleteService` as products, with a batch counterpart. Audited like products, with **History** on the card menu via `useRecordHistoryAction('services')`.
+**The price list (`services`).** Admin → Services, reached from the admin menu. The products screen minus stock and cost: name, description, price + currency, branch (`branch_id IS NULL` = SHARED), `active`. `UNIQUE(tenant_id, branch_id, name)` and the RLS pair `services_select` / `services_modify` are copied from `products` verbatim — so a **collector** can add one from the sale form the same way they can add a product, and a branch-scoped user can only write in their own branch. **Uncapped**, like products: services take no slot. Soft-delete when any sale line references it (counting voided lines, since the FK is `ON DELETE RESTRICT`), hard-delete otherwise — the same two-mode `deleteService` as products, with a batch counterpart. Audited like products, with **History** on the card menu via `useRecordHistoryAction('services')`.
 
 Layers: `src/modules/admin/service-catalog/` — repository (+ `.offline`, platform switch), `ServiceCatalogService`, `ServiceListScreen`, `ServiceCard`, `ServiceFormSheet`, and a `services` slice with the standard `loaded` guard. The business-logic class is named `ServiceCatalogService`, not `ServiceService`, because "service" is also this app's name for that whole layer — and the module folder is `service-catalog` so the file is not `admin/services/services/…`.
 
@@ -2255,7 +2465,7 @@ Both customer surfaces also carry **multi-select → one WhatsApp receipt** (`us
 
 Presentation: the screen uses a shared `StatTile` (label / big value / sub-line / tone / optional icon) for the stat grid (Active, Unpaid, New, Cancelled, Payments, Sales) and the total-debt money tile. Every repo range query has a Supabase + Offline SQLite implementation behind the `ICollectionRepository` / `IChargeRepository` / `ISaleRepository` / `ICustomerRepository` seam.
 
-**Tier-gating** is sale-blind: products consume a slot (gated by `max_products`), but recording sales is unlimited on every tier. Stock is not gated at all — restocking is unlimited.
+**Nothing here is capped**: products, services, sales and stock movements are all unlimited. The only cap in the app is the customer allowance (see Customer Allowance & Requests).
 
 ### Stock
 
@@ -2795,7 +3005,7 @@ the **charge's** (what he was billed).
 - [Multi-Currency](#multi-currency)
 - [App Options (Global Config)](#app-options-global-config)
 - [Tenant Settings (Per-Tenant Config)](#tenant-settings-per-tenant-config)
-- [Subscription Tiers](#subscription-tiers)
+- [Customer Allowance & Requests](#customer-allowance--requests)
 - [Products & One-Off Sales](#products--one-off-sales)
   - [Services](#services)
 - [Reports](#reports)
@@ -2873,17 +3083,16 @@ LoginScreen
   → AuthService: email = `${username}@${tenantCode}.com`
   → AuthRepository.signIn(email, password)   [Supabase Auth]
   → AuthRepository.getUserProfile(userId)    [public.users]
-  → AuthRepository.getTenant(tenantId)       [tenants joined with tier_plans]
+  → AuthRepository.getTenant(tenantId)       [tenants row: allowance + price]
   → stores AuthUser + tenantActive in authSlice
   → primePostAuth(user) — Promise.all of:
        get().currencies.fetchCurrencies()
        get().branches.fetchBranches()
        get().options.fetchOptions()         (loads global app_options — e.g. LiraRate)
-       get().subscription.init(tenantId)
-         → tierService.fetchTiers() (3 tier_plans rows)
-         → tierService.fetchUsage() (counts customers/users/plans/branches/currencies)
-         → tierService.getTenantWithTier(tenantId) — fresh tenant + joined tier
-           → also writes back via authSlice.setUserTier so user.tenant.tier stays in sync
+       get().billing.init(tenantId)
+         → seeds allowance + pricePerCustomerUsd from the auth-time tenant row
+         → customerService.countActive(null) — TENANT-WIDE active customer count
+         → refreshRequest() — the one pending customer_requests row, if any
 
 LoginScreen also exposes "Create a new organization" → signupSlice (2-step form):
   Step 1 (SignupOrganizationScreen)
@@ -2894,7 +3103,7 @@ LoginScreen also exposes "Create a new organization" → signupSlice (2-step for
     → signupSlice.submit()
     → SignupService.createTenant() → SignupRepository.createTenant()
     → supabase.functions.invoke('create-tenant') [service-role server-side]
-       atomically: tier_plans (lookup Free id) → tenants(tier_id=Free) →
+       atomically: tenants(billing columns omitted → schema DEFAULTs) →
        branches('Default Branch') → auth.users → public.users(role=superadmin, branch_id=null)
        cascading rollback on any step
     → auto-login via authSlice.login(...) with the just-entered credentials
@@ -2906,7 +3115,7 @@ app/(app)/_layout.tsx
   → otherwise → render tabs
 ```
 
-**Hydration note:** `authSlice` exports an internal `primePostAuth(get, user)` helper called by `login` and `restoreSession`. It runs `get().currencies.fetchCurrencies()`, `get().branches.fetchBranches()`, `get().options.fetchOptions()`, and `get().subscription.init(tenantId)` in parallel via `Promise.all`. `subscription.init` is the **source of truth** for the active tier (see Subscription Tiers below).
+**Hydration note:** `authSlice` exports an internal `primePostAuth(get, user)` helper called by `login` and `restoreSession`. It runs `get().currencies.fetchCurrencies()`, `get().branches.fetchBranches()`, `get().options.fetchOptions()`, and `get().billing.init(tenantId)` in parallel via `Promise.all`. `billing.init` seeds the allowance and per-customer price from the tenant row already in hand, then reads the tenant-wide active-customer count and any pending request (see Customer Allowance & Requests below).
 
 See `docs/edge-functions.md` for `create-tenant` internals and gotcha #33 for the anon-path rationale.
 
@@ -2984,13 +3193,12 @@ See gotchas #18, #19, #21, #22, #24, #36 for the snapshot/conversion rules.
 `app_options` is a **global, app-wide** key/value table (NOT tenant-scoped — no `tenant_id`). Columns: `id`, `key` (unique), `value` (text), `description`, timestamps. It holds cross-tenant configuration the SaaS owner controls. Seeded keys today:
 
 - `LiraRate` — default USD→LBP rate (LBP per 1 USD) used when seeding each new tenant's LBP currency.
-- `AllowPlanUpgrade` (`'true'`/`'false'`, default true) — when `false`, the in-app upgrade buttons (`TierCard`, `UpgradePromptModal`) are replaced by a "contact to upgrade" WhatsApp button that deep-links to `SupportWhatsAppNumber` with a pre-filled message. Purely a UX gate.
 - `AllowSelfServiceSignup` (`'true'`/`'false'`, default true) — when `false`, the login screen hides the "Create organization" button **and** the `create-tenant` edge function rejects signups (`403`, `code: signup_disabled`) — server-side is authoritative.
-- `SupportWhatsAppNumber` — support WhatsApp number (international format, digits only) used by the upgrade WhatsApp deep-link.
+- `SupportWhatsAppNumber` — support WhatsApp number (international format, digits only) used by `CustomerRequestSheet`'s "Send request + WhatsApp" deep-link. Blank hides that button.
 
 - **RLS:** `app_options_select` grants `SELECT` to **`anon` + `authenticated`** (anon is required because some flags gate pre-auth UI, e.g. self-service signup on the login screen). There is **no** write policy, so only the **service role** (SuperAdmin app + the `create-tenant` edge function) can insert/update/delete — RLS bypass is the write path.
-- **SuperAdmin** owns full CRUD via the **Options** tab ([app/(tabs)/options.tsx](<../SuperAdmin/app/(tabs)/options.tsx>) → `OptionsScreen`). The `options` module mirrors `tier-plans` (repository + service + standalone `optionStore` + screen + `OptionFormSheet`) but adds create + delete. The option **key is immutable after creation** (only `value` + `description` are editable), so well-known keys can't be renamed out from under the code that reads them.
-- **SubsTrack** has a **read-only** `options` module (repository `findAll`/`findByKey` + `OptionService.getOptions`/`getOptionValue` + `optionSlice` + `useOptionSlice`). It never writes. Options are fetched **at app bootstrap** (`app/_layout.tsx`, so the pre-auth login screen can read flags) and re-primed on login/restore via `primePostAuth`; they are intentionally **not** reset on `logout`. Reference keys through `OPTION_KEYS`, never magic strings. Read values through the typed selector hooks in [useOptionSlice.ts](../SubsTrack/src/state/hooks/useOptionSlice.ts): generic `useOptionValue(key)` / `useBooleanOption(key, fallback)`, and semantic `useCanUpgradePlan()` / `useSelfServiceSignupEnabled()` / `useSupportWhatsAppNumber()`. For **conditional UI**, prefer the declarative gate components in [FeatureGate.tsx](../SubsTrack/src/shared/components/FeatureGate.tsx) — `<CanUpgrade fallback={…}>` and `<CanCreateOrganization>` — which wrap the gated element and render `children` when enabled, else `fallback`; this keeps flag ternaries out of the screens. WhatsApp deep-links go through `openWhatsApp()` in [shared/lib/whatsapp.ts](../SubsTrack/src/shared/lib/whatsapp.ts).
+- **SuperAdmin** owns full CRUD via the **Options** tab ([app/(tabs)/options.tsx](<../SuperAdmin/app/(tabs)/options.tsx>) → `OptionsScreen`). The `options` module is the usual shape (repository + service + standalone `optionStore` + screen + `OptionFormSheet`) with create + delete. The option **key is immutable after creation** (only `value` + `description` are editable), so well-known keys can't be renamed out from under the code that reads them.
+- **SubsTrack** has a **read-only** `options` module (repository `findAll`/`findByKey` + `OptionService.getOptions`/`getOptionValue` + `optionSlice` + `useOptionSlice`). It never writes. Options are fetched **at app bootstrap** (`app/_layout.tsx`, so the pre-auth login screen can read flags) and re-primed on login/restore via `primePostAuth`; they are intentionally **not** reset on `logout`. Reference keys through `OPTION_KEYS`, never magic strings. Read values through the typed selector hooks in [useOptionSlice.ts](../SubsTrack/src/state/hooks/useOptionSlice.ts): generic `useOptionValue(key)` / `useBooleanOption(key, fallback)`, and semantic `useSelfServiceSignupEnabled()` / `useSupportWhatsAppNumber()`. For **conditional UI**, prefer the declarative gate component in [FeatureGate.tsx](../SubsTrack/src/shared/components/FeatureGate.tsx) — `<CanCreateOrganization>` — which wraps the gated element and renders `children` when enabled, else `fallback`; this keeps flag ternaries out of the screens. WhatsApp deep-links go through `openWhatsApp()` in [shared/lib/whatsapp.ts](../SubsTrack/src/shared/lib/whatsapp.ts).
 
 See gotcha #38.
 
@@ -3014,66 +3222,138 @@ See gotcha #38.
 
 ---
 
-## Subscription Tiers
+## Customer Allowance & Requests
 
-Every tenant lives on one of three global `tier_plans` rows: **Free**, **Pro**, **Business**. The catalog is small and fixed (3 rows seeded by `script.sql`, editable by the SaaS owner via SuperAdmin's tier-plans module). Each tier defines numeric limits (`max_customers`, `max_users`, `max_plans`, `max_branches`, `max_currencies` — NULL means unlimited), feature flags (`multi_currency_enabled`, `multi_month_plans_enabled`), and a USD monthly price.
+There are no tiers. A tenant is billed on **one number of customers it is allowed to hold**, at **one agreed price per customer**, and every other resource — users, branches, plans, products, currencies, sales, stock — is **unlimited**. Two columns on `tenants` carry the whole commercial relationship:
 
-**Enforcement is service-layer.** Every feature `Service.createX()` calls `tierService.assertCanCreate(tier, usage, resource)` immediately after its existing `validate()`. Failures throw a typed `TierLimitError` (from [TierService.ts](../SubsTrack/src/modules/subscription/services/TierService.ts)) carrying `{resource, limit, tierCode}`. Slice actions catch via `instanceof` and set a structured `tierLimitError` field next to the standard `error: string`. Form sheets check `tierLimitError` and render an `UpgradePromptModal` (the existing `ErrorBanner` path stays for regular validation errors). This avoids parsing error strings.
+- `customer_allowance INT NOT NULL DEFAULT 30` — how many **active** customers this tenant may hold.
+- `price_per_customer_usd NUMERIC(10,4) NOT NULL DEFAULT 0.15` — USD charged per active customer per month. `NUMERIC(10,4)` because a per-customer price is fractions of a cent wide; rounding happens only at the total.
 
-**Tier and usage are passed in as parameters from components**, not read across slices in actions (slice actions still touch `get().subscription.refreshUsage()` after creates, but the _input_ tier/usage comes from the caller). The pattern in slices:
+**Both columns are OWNER-ONLY, locked twice.** They decide what the tenant pays, so the tenant must not be able to touch them:
 
-```ts
-createCustomer: async (data, tenantId, tier, usage) => {
-  set((s) => {
-    s.customers.loading = true;
-    s.customers.error = null;
-    s.customers.tierLimitError = null;
-  });
-  try {
-    const customer = await customerService.createCustomer(
-      data,
-      tenantId,
-      tier,
-      usage,
-    );
-    set((s) => {
-      s.customers.items.unshift(customer);
-      s.customers.loading = false;
-    });
-    void get().subscription.refreshUsage(); // ← cross-slice via get()
-  } catch (e) {
-    if (e instanceof TierLimitError) {
-      set((s) => {
-        s.customers.tierLimitError = {
-          resource: e.resource,
-          limit: e.limit,
-          tierCode: e.tierCode,
-        };
-        s.customers.loading = false;
-      });
-    } else {
-      set((s) => {
-        s.customers.error = (e as Error).message;
-        s.customers.loading = false;
-      });
-    }
-  }
-};
+1. **No UPDATE policy on `tenants` at all** — the old `tenants_update` policy was dropped. The app never writes the table, so nothing is lost.
+2. **`trg_tenants_guard_billing`** — a trigger that RAISEs when a session with `auth.uid() IS NOT NULL` changes either column. The belt to the RLS braces: it survives someone re-adding a permissive policy later, and it is what stops a tenant admin raising their own allowance through a leaked token.
+
+Only the **service role** writes them — SuperAdmin and the edge functions, both of which bypass RLS and carry no `auth.uid()`.
+
+**The numbers ride in on the auth-time tenant row.** `AuthRepository.getTenant` already returns the tenant, so allowance and price cost **no extra fetch**. Only the active-customer count and the pending request touch the network.
+
+**Module:** `src/modules/admin/billing/` — `services/BillingService.ts`, the `ICustomerRequestRepository` / `CustomerRequestRepository` / `CustomerRequestRepository.offline` trio, `utils/` (`customerLimitError.ts`, `types.ts`, `mapper.ts` — which owns `mapDbTenantToTenant`, moved here from the old subscription module, plus `mapDbCustomerRequestToCustomerRequest`), and three components. **State** is the global `billing` slice at [src/state/slices/billing/billingSlice.ts](../SubsTrack/src/state/slices/billing/billingSlice.ts) (`allowance`, `pricePerCustomerUsd`, `activeCustomers`, `request`, `loading`, `saving`, `error`, plus `init` / `refreshCounts` / `refreshRequest` / `setActiveCustomers` / `requestMore` / `editRequest` / `cancelRequest` / `clearError` / `reset`), read through `useBillingSlice`. `authSlice.primePostAuth` calls `billing.init(tenantId)`; `logout` calls `billing.reset()`.
+
+---
+
+### The customer cap
+
+**Enforcement is service-layer**, the same shape the old tier check had: `CustomerService.createCustomer()` calls `billingService.assertCanCreateCustomer(allowance, activeCount)` immediately after its existing `validate()`. It throws a typed `CustomerLimitError` (from [utils/customerLimitError.ts](../SubsTrack/src/modules/admin/billing/utils/customerLimitError.ts)) carrying `{allowance, activeCount}` when `activeCount >= allowance` — the cap blocks **at** the allowance, not one past it. `customerSlice` catches via `instanceof` and sets a structured `customerLimitError: CustomerLimitErrorPayload | null` next to the standard `error: string`, cleared by `clearCustomerLimitError()`. No error string is ever parsed.
+
+**Only `CustomerFormSheet` renders a limit modal.** The other five form sheets (users, branches, plans, products, currencies) render none — their resources are uncapped, so there is nothing to explain.
+
+**Unlike the old tier check, the numbers are NOT parameters.** `createCustomer(data, tenantId)` reads `allowance` and `activeCustomers` from `get().billing` **inside the action** — a cross-slice read via `get()`, per the slice rules. Nothing is threaded through the component.
+
+**The count that matters is TENANT-WIDE.** The cap reads `customerService.countActive(null)` — a `null` branch filter that skips the branch clause on both platforms. The `customers` slice keeps its own `activeCount`, but that one is **branch-filtered** and must never drive the cap: a branch admin would otherwise be told they have room the tenant does not have.
+
+**The count is write-patched, never re-fetched.** Create / deactivate / reactivate / delete / bulk-delete each hand `billing.setActiveCustomers` the new figure. There is no `refreshUsage()` anywhere — all 19 of the old calls are gone. `refreshActiveData.ts` calls `s.billing.refreshCounts()` on an arrival, which is the only re-read.
+
+---
+
+### `CustomerLimitReachedModal`
+
+Replaces the old `UpgradePromptModal`. It says the allowance is full and offers the one action actually available to whoever is looking:
+
+- **Tenant-wide admins** (`user.branchId === null`) get a button into **Organization Settings**, where the request lives.
+- **Branch admins and staff** get "ask your administrator" — they cannot raise the allowance, so offering them a button would be a dead end.
+
+---
+
+### The settings card
+
+`<CustomerAllowanceSection />` ([components/CustomerAllowanceSection.tsx](../SubsTrack/src/modules/admin/billing/components/CustomerAllowanceSection.tsx)) renders **above** `<DisplayCurrencySection />` on `TenantSettingsScreen`. It shows:
+
+- **Allowed customers** — `customer_allowance`.
+- **Current customers** — the tenant-wide active count.
+- **Monthly amount** — `BillingService.monthlyAmountUsd(activeCustomers, pricePerCustomerUsd)`, rounded to 2dp. 100 customers × $0.15 = **$15.00**. The rounding is deliberate and tested: `7 × 0.15` must print `1.05`, not `1.0499999…`.
+- Then one of three states: a **"Request more customers"** button, an **amber pending block** with Edit / Cancel, or a **red "declined"** note.
+
+It refreshes the request **on focus**, because the owner may have accepted or declined it while the screen sat open.
+
+**The amount is ALWAYS rendered in USD** — a literal `$` plus `toFixed(2)`. It must **never** go through the tenant's display-currency formatter. `currencies.rate_per_usd` is tenant-editable, so a tenant that could format its own bill could rewrite it.
+
+---
+
+### `customer_requests` — the lifecycle
+
+A tenant does not change its allowance; it **asks**, and the owner grants. One table carries the conversation:
+
+`customer_requests` — `id`, `tenant_id`, `requested_count` (`CHECK >= 10`), `granted_count`, `status` (`pending` \| `accepted` \| `declined` \| `cancelled`), `requested_by`, `decided_by`, `decided_at`, `created_at`, `updated_at`.
+
+**Exactly one pending request per tenant**, enforced by a **partial unique index** rather than app logic:
+
+```sql
+CREATE UNIQUE INDEX uq_customer_requests_one_pending
+  ON customer_requests (tenant_id) WHERE status = 'pending';
 ```
 
-Components read `currentTier` and `usage` from `useSubscriptionSlice` and forward them into the action.
+A partial index is the right tool: historical `accepted` / `declined` / `cancelled` rows stay, unlimited, and only the live one is unique. A second request cannot be born even from a second device.
 
-**Hydration:** `authSlice` exports an internal `primePostAuth(get, user)` helper called by `login` and `restoreSession`. It runs `get().currencies.fetchCurrencies()`, `get().branches.fetchBranches()`, `get().options.fetchOptions()`, and `get().subscription.init(tenantId)` in parallel via `Promise.all`. `subscription.init` is the **source of truth** for the active tier: it concurrently fetches the tier catalog, the tenant's usage, and the tenant row with its joined tier (`tierService.getTenantWithTier`), then writes the resolved tier back to `auth.user.tenant.tier` via `authSlice.setUserTier` so the auth slice stays in sync. This is why a tier upgrade made in a previous session is reflected immediately on app restart — the subscription slice never trusts a parameter-passed tier; it always re-queries the DB.
+**RLS says who may move it where:**
 
-**Upgrade UX:** dedicated screen at [SubscriptionScreen.tsx](../SubsTrack/src/modules/subscription/screens/SubscriptionScreen.tsx) (routed at `/(app)/(tabs)/admin/subscription`). Shows 3 stacked TierCards with usage bars for the current tier and Upgrade/Downgrade buttons for the others. Upgrades are instant swaps via `subscriptionSlice.upgrade(tenantId, tierId)` — no billing wired up yet. Downgrades call `TierService.canDowngradeTo(targetTier, usage)` first; if usage exceeds the target tier's limits the dialog lists blockers ("42 / 30 customers") and refuses to swap. The `UpgradePromptModal` is also triggered inline whenever a form sheet hits a `TierLimitError`. The "Subscription" entry in the admin menu ([admin/index.tsx](<../SubsTrack/app/(app)/(tabs)/admin/index.tsx>)) is rendered only for tenant-wide admins (`user.branchId === null`) — branch-scoped admins don't see it.
+- **Every tenant member SELECTs** — staff should be able to see that more customers are on the way.
+- **Admins INSERT**, and the row must be born **pending and undecided**.
+- **Admins UPDATE only still-pending rows**, and may set the status only to `'pending'` (an edit of the number) or `'cancelled'`. A tenant can **never** write `'accepted'` — that is the whole point.
 
-**`UpgradePromptModal` design:** for tenant-wide admins, the modal renders compact preview cards for the available upgrade tiers (every tier with `sortOrder > currentTier.sortOrder`), each showing name, monthly price, and a few key perks (customer/user caps, multi-month/multi-currency flags). The footer has "Not now" + "View plans"; "View plans" pushes `/(app)/(tabs)/admin/subscription`. Branch-scoped admins and staff see a stripped-down "Limit reached — contact your administrator" notice with just a Close button (they can't change the tier themselves).
+**Accepting is ONE Postgres call.** `accept_customer_request(p_request_id UUID, p_granted INT)` — `SECURITY DEFINER`, `REVOKE`d from `anon` / `authenticated` / `public`, so only the service role reaches it. It marks the request accepted **and** raises `tenants.customer_allowance` by the granted amount in a single call, because a torn write here mis-bills a tenant: the raise without the accept leaves the request live and re-grantable, the accept without the raise gives the tenant nothing. **Declining is a plain single update** — nothing else moves, so it needs no function.
 
-**Soft UX gates** beyond the hard service-layer block: PlanFormSheet hides multi-month duration UI when `tier.multiMonthPlansEnabled === false`; CurrencyFormSheet hides itself behind the same `assertMultiCurrency` check; the Add buttons on list screens stay enabled so the user always reaches an explanation.
+**The minimum ask is 10.** `BillingService.validateRequest(extra)` throws below `MIN_CUSTOMER_REQUEST = 10` ([utils/types.ts](../SubsTrack/src/modules/admin/billing/utils/types.ts)), matching the DB `CHECK` — a request for one more customer is not worth a round trip to a human.
 
-**Tenant creation defaults to Free.** Both the public `create-tenant` edge function and SuperAdmin's `TenantService.createTenant` look up the Free tier id and stamp it on the new `tenants` row. SuperAdmin's `TenantFormSheet` exposes a tier dropdown so the SaaS owner can onboard paid tenants directly or change a tenant's tier later (the manual paid-upgrade path). `tier_upgraded_at` is touched on every change.
+---
 
-**Future-proofing:** to add Stripe, append nullable `stripe_price_id_monthly` / `stripe_price_id_yearly` to `tier_plans` and `stripe_customer_id` / `stripe_subscription_id` to `tenants`. Only `subscriptionSlice.upgrade()` changes — it redirects to a Checkout session, the webhook updates `tier_id`. Every other call site already reads from `currentTier`.
+### `CustomerRequestSheet`
+
+One numeric field (minimum 10) and two buttons: **"Send request"** and **"Send request + WhatsApp"**. The second deep-links `app_options.SupportWhatsAppNumber` through `openWhatsApp` **after the write succeeds** — the request is the record, the message only nudges — and is **hidden entirely when the number is blank**. In edit mode the labels become **Save** / **Save + WhatsApp**.
+
+---
+
+### SuperAdmin side
+
+- **`TenantCard`** shows `{allowance} customers · ${price} each`, and an **ORANGE `Requested +N` pill** when that tenant has a pending request — so the owner sees the queue without opening anything.
+- **`TenantFormSheet`** gained numeric **"Customer Allowance"** and **"Price Per Customer (USD)"** inputs on **both create and edit** — the owner's direct path, for onboarding an agreed deal or correcting one without a request.
+- When a request is pending, an **Accept / Decline block** sits at the top of the sheet, with an editable **"Grant"** field defaulting to the requested count (the owner may grant fewer).
+- **Trap:** after accepting, the local **allowance input is re-synced from the accepted amount**. Without it the input still holds the pre-accept number, and the next press of Save writes that number straight back over the raise the owner just granted.
+- **`TenantService.getTenants()`** is `Promise.all([findAll(), findPendingRequests()])`, zipping the pending request onto each tenant. `findPendingRequests` is **one flat query, not a PostgREST embed** — an embed would drag every historical request row for every tenant across the wire to surface at most one live row each.
+- SuperAdmin has **2 tabs** now: **Tenants** and **Options**. The whole `tier-plans` module and its tab are gone.
+
+---
+
+### Offline
+
+**The allowance syncs; the requests do not.**
+
+- `customer_allowance` and `price_per_customer_usd` live on the `tenants` row, which is already part of the read-through auth cache — so **the cap still works offline**, and a device that has logged in once refuses to create the 31st customer with no network.
+- `customer_requests` is **deliberately not mirrored**. `CustomerRequestRepository.offline` throws `RequiresConnectionError` from **every** method. A request is a message to a human that needs an answer from a human; queueing it offline would show a tenant a pending block nobody can see, and two offline requests merging would fight the one-pending index.
+
+---
+
+### Audit trail
+
+`AuditTable` swapped `'tenants'` for `'customer_requests'` — the app no longer writes `tenants` at all, and the request is now the tenant-side record worth a trail. Label key `audit.table.customer_requests` = "Customer request". The `tier_changed` summary branch and `audit.field.tier_id` are gone.
+
+---
+
+### Tenant creation
+
+The `create-tenant` edge function **no longer looks up a tier**. It simply **omits both billing columns** so the schema `DEFAULT`s apply — a new tenant starts at **30 customers at $0.15 each**. Because those defaults are now the contract, the function must be **redeployed before the SQL runs**:
+
+```
+supabase functions deploy create-tenant --no-verify-jwt
+```
+
+Edge functions **do not ship over OTA**.
+
+---
+
+### Tests
+
+`tests/suites/customerAllowance.test.ts` (TC-CA-01..11) covers the monthly amount, its 2dp rounding (`7 × 0.15` → `1.05`), the cap blocking **at** the allowance rather than past it, and the min-10 request rule. `tests/stubs/billing-barrel.ts` plus a `jest.config.js` `moduleNameMapper` entry exist because the billing barrel exports components, which Jest cannot load.
 
 ---
 
@@ -3081,7 +3361,7 @@ Components read `currentTier` and `usage` from `useSubscriptionSlice` and forwar
 
 `products` + `services` + `sales` extend SubsTrack beyond recurring subscriptions. `payments` (subscriptions) and `sales` are deliberately separate ledgers — they don't share schema or service code. Subscription month-grid logic is untouched.
 
-**Products** mirror `plans` exactly: per-tenant catalog, optional currency, `branch_id IS NULL` = SHARED, soft-delete via `active = false` when a product has historical sales (hard-delete otherwise — mirrors `CurrencyService.deleteCurrency`). Tier-gated through `tier_plans.max_products` (Free: 5, Pro/Business: unlimited). Soft-vs-hard delete keys off **`sale_items.product_id`** references (not `sales`).
+**Products** mirror `plans` exactly: per-tenant catalog, optional currency, `branch_id IS NULL` = SHARED, soft-delete via `active = false` when a product has historical sales (hard-delete otherwise — mirrors `CurrencyService.deleteCurrency`). **Uncapped** — a tenant may hold any number of products. Soft-vs-hard delete keys off **`sale_items.product_id`** references (not `sales`).
 
 **A sale is a header + lines, and a line sells a product OR a service.** One sale can hold **several lines** in any mix (a small "cart") — products only, services only, or both, but at least one of something. The account/transaction lives on the `sales` header; each thing sold is a `sale_items` row. This mirrors the `customers` → `customer_plans` header/line split. See **Services** below for what a service line is and is not.
 
@@ -3106,7 +3386,7 @@ A **service** is labour the tenant charges for — an installation, a repair vis
 
 **What a service is NOT:** stocked or costed. No `stock_movements` row, no oversell check, no expense. Staff pay is still typed by hand under the `salaries` expense category. Because a service line moves no stock, every stock path narrows through `productLines()` / `savedProductLines()` in `sales/utils/saleLines.ts` — never a nullable-id test (gotcha #97).
 
-**The price list (`services`).** Admin → Services, reached from the admin menu. The products screen minus stock and cost: name, description, price + currency, branch (`branch_id IS NULL` = SHARED), `active`. `UNIQUE(tenant_id, branch_id, name)` and the RLS pair `services_select` / `services_modify` are copied from `products` verbatim — so a **collector** can add one from the sale form the same way they can add a product, and a branch-scoped user can only write in their own branch. **No tier limit** (unlike `max_products`): services are uncapped. Soft-delete when any sale line references it (counting voided lines, since the FK is `ON DELETE RESTRICT`), hard-delete otherwise — the same two-mode `deleteService` as products, with a batch counterpart. Audited like products, with **History** on the card menu via `useRecordHistoryAction('services')`.
+**The price list (`services`).** Admin → Services, reached from the admin menu. The products screen minus stock and cost: name, description, price + currency, branch (`branch_id IS NULL` = SHARED), `active`. `UNIQUE(tenant_id, branch_id, name)` and the RLS pair `services_select` / `services_modify` are copied from `products` verbatim — so a **collector** can add one from the sale form the same way they can add a product, and a branch-scoped user can only write in their own branch. **Uncapped**, like products: services take no slot. Soft-delete when any sale line references it (counting voided lines, since the FK is `ON DELETE RESTRICT`), hard-delete otherwise — the same two-mode `deleteService` as products, with a batch counterpart. Audited like products, with **History** on the card menu via `useRecordHistoryAction('services')`.
 
 Layers: `src/modules/admin/service-catalog/` — repository (+ `.offline`, platform switch), `ServiceCatalogService`, `ServiceListScreen`, `ServiceCard`, `ServiceFormSheet`, and a `services` slice with the standard `loaded` guard. The business-logic class is named `ServiceCatalogService`, not `ServiceService`, because "service" is also this app's name for that whole layer — and the module folder is `service-catalog` so the file is not `admin/services/services/…`.
 
@@ -3170,7 +3450,7 @@ Both customer surfaces also carry **multi-select → one WhatsApp receipt** (`us
 
 Presentation: the screen uses a shared `StatTile` (label / big value / sub-line / tone / optional icon) for the stat grid (Active, Unpaid, New, Cancelled, Payments, Sales) and the total-debt money tile. Every repo range query has a Supabase + Offline SQLite implementation behind the `ICollectionRepository` / `IChargeRepository` / `ISaleRepository` / `ICustomerRepository` seam.
 
-**Tier-gating** is sale-blind: products consume a slot (gated by `max_products`), but recording sales is unlimited on every tier. Stock is not gated at all — restocking is unlimited.
+**Nothing here is capped**: products, services, sales and stock movements are all unlimited. The only cap in the app is the customer allowance (see Customer Allowance & Requests).
 
 ### Stock
 
@@ -4119,11 +4399,11 @@ An **append-only** record of who changed what, when, and what the value was befo
 - **No UPDATE and no DELETE policy, on purpose** — append-only from the client; only `service_role` can rewrite or purge (the same "absence of a policy = service_role only" idiom as `app_options`).
 - Consequence worth knowing, not a bug: a staff device's pull returns no audit rows, so its local table only ever holds its own un-pushed ones.
 
-**Audited tables** (`AUDITED_TABLES` in `src/modules/admin/audit/utils/constants.ts`) — 13: `payments`, `sales`, `customers`, `customer_plans`, `skipped_months`, `plans`, `products`, `stock_movements`, `branches`, `currencies`, `users`, `tenant_settings`, `tenants`.
+**Audited tables** (`AUDITED_TABLES` in `src/modules/admin/audit/utils/constants.ts`) — 13: `payments`, `sales`, `customers`, `customer_plans`, `skipped_months`, `plans`, `products`, `stock_movements`, `branches`, `currencies`, `users`, `tenant_settings`, `customer_requests`.
 
 **`stock_movements` is audited for CHANGES ONLY — an edit or a revert, never the insert.** The ledger row already names the actor, the note and the time, so auditing the insert would duplicate the stock history — but a manual row can now be **corrected in place** ([Editing a stock entry](#editing-a-stock-entry)) or **reverted** ([Reverting a stock entry](#reverting-a-stock-entry)), and nothing else would remember that it once said 12, or who decided it never happened. So `addMovements` writes no entry, while `updateMovement` (an `update`) and `voidMovement` (a `void`) each write one. Two details are specific to it: the entry is filed under the parent **product's** `branch_id` and **name** (a movement owns neither — supplied through `auditedUpdate`'s `audit` option, the general seam for a child row whose parent owns those facts), and `subject` therefore holds a **product** rather than a customer, so `subjectLabel()` / the card's subject icon key off the table instead of assuming a person.
 
-**Deliberately not audited:** `sale_items` (no independent life — the parent sale covers it, and its `items_summary` is already frozen there). **`collection_items`** is out because it has no life of its own: the parent collection's `after_data` carries the whole split, so the trail literally reads "55 → 20 Jan, 20 Feb, 15 Sale #13". Also out: the log tables themselves (`exception_logs`, `audit_logs`) and `app_options` / `tier_plans`, which this app never writes (`scope: 'global'`).
+**Deliberately not audited:** `sale_items` (no independent life — the parent sale covers it, and its `items_summary` is already frozen there). **`collection_items`** is out because it has no life of its own: the parent collection's `after_data` carries the whole split, so the trail literally reads "55 → 20 Jan, 20 Feb, 15 Sale #13". Also out: the log tables themselves (`exception_logs`, `audit_logs`) and `app_options` / `tenants`, which this app never writes (`scope: 'global'`).
 
 Rows written before these two were dropped stay in `audit_logs` and still render (the table label keys are kept in the locales for exactly that); only the filter no longer offers them.
 

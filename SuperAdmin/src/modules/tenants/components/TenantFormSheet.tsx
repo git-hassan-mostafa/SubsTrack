@@ -13,7 +13,6 @@ import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { Input } from "@/src/shared/components/Input";
 import type { Tenant } from "@/src/core/types";
 import { useTenantStore } from "../store/tenantStore";
-import { useTierPlanStore } from "@/src/modules/tier-plans/store/tierPlanStore";
 
 interface Props {
   visible: boolean;
@@ -21,32 +20,52 @@ interface Props {
   onDismiss: () => void;
 }
 
+const DEFAULT_ALLOWANCE = "30";
+const DEFAULT_PRICE = "0.15";
+
 export function TenantFormSheet({ visible, tenant, onDismiss }: Props) {
-  const { createTenant, updateTenant, loading, error, clearError } =
-    useTenantStore();
-  const { tierPlans, fetchTierPlans } = useTierPlanStore();
+  const {
+    createTenant,
+    updateTenant,
+    acceptRequest,
+    declineRequest,
+    loading,
+    error,
+    clearError,
+  } = useTenantStore();
 
   const isEditing = !!tenant;
 
   const [name, setName] = useState("");
   const [tenantCode, setTenantCode] = useState("");
   const [active, setActive] = useState(true);
-  const [tierId, setTierId] = useState<string | null>(null);
+  const [allowance, setAllowance] = useState(DEFAULT_ALLOWANCE);
+  const [price, setPrice] = useState(DEFAULT_PRICE);
+  const [granted, setGranted] = useState("");
   const [adminUserName, setAdminUserName] = useState("");
   const [adminFullName, setAdminFullName] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
+
+  const pending = tenant?.pendingRequest ?? null;
 
   useEffect(() => {
     if (visible) {
       setName(tenant?.name ?? "");
       setTenantCode(tenant?.tenantCode ?? "");
       setActive(tenant?.active ?? true);
-      setTierId(tenant?.tierId ?? null);
+      setAllowance(
+        tenant ? String(tenant.customerAllowance) : DEFAULT_ALLOWANCE,
+      );
+      setPrice(tenant ? String(tenant.pricePerCustomerUsd) : DEFAULT_PRICE);
+      setGranted(
+        tenant?.pendingRequest
+          ? String(tenant.pendingRequest.requestedCount)
+          : "",
+      );
       setAdminUserName("");
       setAdminFullName("");
       setAdminPassword("");
       clearError();
-      if (tierPlans.length === 0) fetchTierPlans();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible, tenant]);
@@ -54,12 +73,11 @@ export function TenantFormSheet({ visible, tenant, onDismiss }: Props) {
   async function handleSubmit() {
     let success: boolean;
     if (isEditing) {
-      // Only send tierId if it actually changed — preserves tier_upgraded_at otherwise.
-      const tierChanged = tierId && tierId !== tenant!.tierId;
       success = await updateTenant(tenant!.id, {
         name,
         active,
-        tierId: tierChanged ? tierId! : undefined,
+        customerAllowance: Number(allowance),
+        pricePerCustomerUsd: Number(price),
       });
     } else {
       success = await createTenant({
@@ -68,19 +86,42 @@ export function TenantFormSheet({ visible, tenant, onDismiss }: Props) {
         adminUserName,
         adminFullName,
         adminPassword,
-        tierId: tierId ?? undefined,
+        customerAllowance: Number(allowance),
+        pricePerCustomerUsd: Number(price),
       });
     }
     if (success) onDismiss();
   }
 
+  // The allowance field must follow the accepted raise, or pressing Save next
+  // would write the pre-accept number straight back over it.
+  async function handleAccept() {
+    if (!tenant || !pending) return;
+    const grantedCount = Number(granted);
+    const ok = await acceptRequest(tenant.id, pending.id, grantedCount);
+    if (ok) setAllowance(String(Number(allowance) + grantedCount));
+  }
+
+  async function handleDecline() {
+    if (!tenant || !pending) return;
+    await declineRequest(tenant.id, pending.id);
+  }
+
+  const grantedValid = Number.isInteger(Number(granted)) && Number(granted) >= 1;
+  const billingValid =
+    Number.isInteger(Number(allowance)) &&
+    Number(allowance) >= 0 &&
+    Number.isFinite(Number(price)) &&
+    Number(price) >= 0;
+
   const canSubmit = isEditing
-    ? !!name.trim() && !!tenantCode.trim()
+    ? !!name.trim() && !!tenantCode.trim() && billingValid
     : !!name.trim() &&
       !!tenantCode.trim() &&
       !!adminUserName.trim() &&
       !!adminFullName.trim() &&
-      adminPassword.length >= 8;
+      adminPassword.length >= 8 &&
+      billingValid;
 
   return (
     <Modal
@@ -100,6 +141,46 @@ export function TenantFormSheet({ visible, tenant, onDismiss }: Props) {
         </View>
 
         <ScrollView style={styles.body} keyboardShouldPersistTaps="handled">
+          {pending ? (
+            <View style={styles.requestBox}>
+              <Text style={styles.requestTitle}>
+                {`Requested +${pending.requestedCount} customers`}
+              </Text>
+              <Text style={styles.requestDate}>
+                {new Date(pending.createdAt).toLocaleDateString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                })}
+              </Text>
+              <Input
+                label="Grant"
+                value={granted}
+                onChangeText={setGranted}
+                keyboardType="number-pad"
+                onFocus={clearError}
+              />
+              <View style={styles.requestActions}>
+                <View style={styles.requestAction}>
+                  <Button
+                    label="Accept"
+                    onPress={handleAccept}
+                    loading={loading}
+                    disabled={!grantedValid}
+                    fullWidth
+                  />
+                </View>
+                <Pressable
+                  style={styles.declineBtn}
+                  onPress={handleDecline}
+                  disabled={loading}
+                >
+                  <Text style={styles.declineText}>Decline</Text>
+                </Pressable>
+              </View>
+            </View>
+          ) : null}
+
           {error ? (
             <ErrorBanner message={error} onDismiss={clearError} />
           ) : null}
@@ -122,33 +203,23 @@ export function TenantFormSheet({ visible, tenant, onDismiss }: Props) {
             />
           )}
 
-          <Text style={styles.fieldLabel}>Tier</Text>
-          <View style={styles.tierRow}>
-            {tierPlans.map((tp) => {
-              const selected = tierId === tp.id;
-              return (
-                <Pressable
-                  key={tp.id}
-                  onPress={() => setTierId(tp.id)}
-                  style={[styles.tierChip, selected && styles.tierChipSelected]}
-                >
-                  <Text
-                    style={[
-                      styles.tierChipText,
-                      selected && styles.tierChipTextSelected,
-                    ]}
-                  >
-                    {tp.name}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-          <Text style={styles.tierHint}>
-            {isEditing
-              ? "Changing the tier swaps it immediately for manual / out-of-band billing."
-              : "Defaults to Free. Set higher to onboard a paying tenant directly."}
-          </Text>
+          <Input
+            label="Customer Allowance"
+            value={allowance}
+            onChangeText={setAllowance}
+            keyboardType="number-pad"
+            placeholder={DEFAULT_ALLOWANCE}
+            onFocus={clearError}
+          />
+
+          <Input
+            label="Price Per Customer (USD)"
+            value={price}
+            onChangeText={setPrice}
+            keyboardType="decimal-pad"
+            placeholder={DEFAULT_PRICE}
+            onFocus={clearError}
+          />
 
           {isEditing ? (
             <View style={styles.switchRow}>
@@ -237,6 +308,31 @@ const styles = StyleSheet.create({
   title: { fontSize: 18, fontWeight: "600", color: "#1e293b" },
   cancel: { fontSize: 16, color: "#0a7ea4", fontWeight: "500" },
   body: { flex: 1, paddingHorizontal: 24, paddingTop: 24 },
+  requestBox: {
+    backgroundColor: "#fff7ed",
+    borderWidth: 1,
+    borderColor: "#fed7aa",
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 20,
+  },
+  requestTitle: { fontSize: 15, fontWeight: "600", color: "#9a3412" },
+  requestDate: {
+    fontSize: 12,
+    color: "#c2410c",
+    marginTop: 2,
+    marginBottom: 12,
+  },
+  requestActions: { flexDirection: "row", alignItems: "center", gap: 12 },
+  requestAction: { flex: 1 },
+  declineBtn: {
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#fecaca",
+  },
+  declineText: { fontSize: 14, color: "#ef4444", fontWeight: "600" },
   switchRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -263,23 +359,4 @@ const styles = StyleSheet.create({
   sectionHint: { fontSize: 13, color: "#64748b" },
   hint: { fontSize: 13, color: "#f59e0b", marginTop: -8, marginBottom: 12 },
   submitRow: { marginTop: 8, marginBottom: 32 },
-  fieldLabel: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: "#374151",
-    marginBottom: 8,
-  },
-  tierRow: { flexDirection: "row", gap: 8, marginBottom: 8 },
-  tierChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-    backgroundColor: "#fff",
-  },
-  tierChipSelected: { backgroundColor: "#0a7ea4", borderColor: "#0a7ea4" },
-  tierChipText: { fontSize: 13, color: "#374151", fontWeight: "500" },
-  tierChipTextSelected: { color: "#fff" },
-  tierHint: { fontSize: 12, color: "#94a3b8", marginBottom: 16 },
 });

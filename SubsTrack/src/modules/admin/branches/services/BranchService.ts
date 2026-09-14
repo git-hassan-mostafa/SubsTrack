@@ -1,7 +1,6 @@
-import type { Branch, TierPlan, TenantUsage } from '@/src/core/types';
+import type { Branch } from '@/src/core/types';
 import i18n from '@/src/core/i18n';
 import repository from '../repository/BranchRepository';
-import { tierService } from '@/src/modules/admin/subscription';
 import { mapDbBranchToBranch } from '../utils/mapper';
 import { BranchInput } from '../utils/types';
 
@@ -12,14 +11,8 @@ class BranchService {
     return rows.map(mapDbBranchToBranch);
   }
 
-  async createBranch(
-    data: BranchInput,
-    tenantId: string,
-    tier: TierPlan,
-    usage: TenantUsage,
-  ): Promise<Branch> {
+  async createBranch(data: BranchInput, tenantId: string): Promise<Branch> {
     const normalized = this.validate(data);
-    tierService.assertCanCreate(tier, usage, 'branches');
     try {
       const row = await repository.create({
         tenant_id: tenantId,

@@ -7,7 +7,7 @@ The automated safety net under every rule that touches money. It runs on a lapto
 **Reference code:**
 - Runner + config: [tests/](../tests/) — `jest.config.js`, `tsconfig.json`, `babel.config.js`, `stubs/`, `helpers/`
 - Suites: `tests/suites/*.test.ts` (one file per area, every case numbered `TC-XX-nn`)
-- Under test: `waterfall.ts`, `openItems.ts`, `PaymentService.ts`, `payOrder.ts`, `monthDueRules.ts`, `linePrice.ts`, `ChargeService.ts`, `CollectionService.ts`, `LedgerService.ts`, `SaleService.ts`, `saleLines.ts`, `saleListPatch.ts`, `sharedBills.ts`, `mergeCollection.ts`, `custody.ts`, `currency.ts`, `date.ts`, `monthTotals.ts`
+- Under test: `waterfall.ts`, `openItems.ts`, `BillingService.ts`, `PaymentService.ts`, `payOrder.ts`, `monthDueRules.ts`, `linePrice.ts`, `ChargeService.ts`, `CollectionService.ts`, `LedgerService.ts`, `SaleService.ts`, `saleLines.ts`, `saleListPatch.ts`, `sharedBills.ts`, `mergeCollection.ts`, `custody.ts`, `currency.ts`, `date.ts`, `monthTotals.ts`
 
 ---
 
@@ -51,6 +51,29 @@ The automated safety net under every rule that touches money. It runs on a lapto
 | `selectionAndCustody.test.ts` | TC-MS-*, TC-WA-* | Which cells select together on a multi-month plan; who may take whose cash |
 | `linePrice.test.ts` | TC-LP-* | A special price replaces the plan's for the **same span** — "100 per 3 months", never 100 a month |
 | `currencyAndDates.test.ts` | TC-CU-*, TC-DT-* | USD always via the row's **frozen** rate; a hand-over bucketed into its **local** month |
+| `customerAllowance.test.ts` | TC-CA-* | What the tenant is billed and whether they may add a customer — see section 2b |
+
+---
+
+## 2b. The customer allowance (`customerAllowance.test.ts`)
+
+The tenant's own bill and the one quantity limit left in the product. There are **no tiers**: branches, users, plans, products and currencies are unlimited, and only the number of **active customers** is capped. The on-device behaviour — the settings card, the request flow, the block modal and the owner-side accept / decline — is [customer-allowance.md](customer-allowance.md).
+
+| Case | What it asserts |
+|---|---|
+| TC-CA-01 | `monthlyAmountUsd(100, 0.15)` = **15** — the amount is active customers × price per customer, **always in USD**, never the tenant's display currency |
+| TC-CA-02 | **Rounds to cents.** `7 × 0.15` must read **1.05**, not `1.0499999999999998`; `3 × 0.3333` reads `1` |
+| TC-CA-03 | A tenant with no customers owes **0** |
+| TC-CA-04 | A **zero price** owes 0 however many customers — a tenant the owner does not charge |
+| TC-CA-05 | A create **below** the allowance is allowed (30 allowed, 29 active) |
+| TC-CA-06 | **Blocks AT the allowance, not one past it** — 30 active against 30 allowed throws `CustomerLimitError`, and the error carries both numbers so the modal can name them |
+| TC-CA-07 | Still blocks when the tenant is already **over** cap, i.e. after the owner lowered the allowance under the live count |
+| TC-CA-08 | A **zero allowance** blocks everything, including the very first customer |
+| TC-CA-09 | A request **below 10** is refused (9, 0 and a negative) |
+| TC-CA-10 | 10 and above are accepted — the minimum is inclusive |
+| TC-CA-11 | A **fraction** of a customer (10.5) is refused |
+
+These are pure-function assertions on `BillingService`. The server-side half of the same rules — the partial unique index behind "one pending request", the missing UPDATE policy on `tenants`, the billing-column trigger, and the `REVOKE` on `accept_customer_request` — is **not** reachable from here and stays a manual check: [customer-allowance.md](customer-allowance.md) §9, a release blocker.
 
 ---
 

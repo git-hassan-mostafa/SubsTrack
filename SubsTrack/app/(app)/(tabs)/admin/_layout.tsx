@@ -22,7 +22,6 @@ export default function AdminLayout() {
       <Stack.Screen name="audit" options={{ headerShown: false }} />
       <Stack.Screen name="currencies" options={{ headerShown: false }} />
       <Stack.Screen name="branches" options={{ headerShown: false }} />
-      <Stack.Screen name="subscription" options={{ headerShown: false }} />
     </Stack>
   );
 }

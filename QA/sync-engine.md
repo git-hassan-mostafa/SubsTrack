@@ -67,7 +67,8 @@ Covers the native offline-first sync engine: local writes, push, pull, delete re
 | 2.13b | One undeletable row in a delete batch | Queue 5 product deletes offline; one is still referenced by a `sale_items` row (`ON DELETE RESTRICT`) → sync | The other 4 are deleted; only the referenced one stays logged | ✅ — the batch fails, then falls back to one request per row |
 | 2.14 | Hard delete refused by RLS | Non-admin's queued delete → sync | Entry kept and surfaced | ❌ **[B12]** — an RLS-filtered delete returns success/0 rows; the entry is dropped and the row silently survives on the server |
 | 2.15 | Delete of a never-pushed row | Create then delete offline → sync | Delete affects 0 rows, entry dropped, no error | ✅ |
-| 2.16 | Global tables not pushed | Any sync | `tier_plans` / `app_options` skipped (`scope: 'global'`) | ✅ |
+| 2.16 | Global tables not pushed | Any sync | `app_options` skipped (`scope: 'global'`) | ✅ |
+| 2.16b | `customer_requests` is not mirrored | Any sync | The table appears in no push wave and in no pull list — requesting more customers is online-only ([customer-allowance.md](customer-allowance.md) §8) | ✅ |
 | 2.17 | `exception_logs` push-only | Crash offline → sync | Pushed, never pulled back | ✅ |
 
 ---

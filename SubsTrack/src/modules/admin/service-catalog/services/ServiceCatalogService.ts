@@ -11,8 +11,7 @@ import { ServiceInput } from '../utils/types';
  *
  * Named ServiceCatalogService, not ServiceService: "service" is also this app's
  * name for the business-logic layer itself, so the symmetric name would read as
- * the layer rather than the thing. There is NO tier gate here — services are
- * uncapped, unlike products (`max_products`).
+ * the layer rather than the thing.
  */
 class ServiceCatalogService {
   async getServices(branchFilter: BranchFilter = null): Promise<Service[]> {

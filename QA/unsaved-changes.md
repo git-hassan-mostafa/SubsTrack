@@ -133,7 +133,7 @@ Sheet stacking is real: Record sale → Add customer; Customer form → Add plan
 | --- | ------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------- |
 | 6.1 | Successful save           | Any form → fill → **Save**                                         | Saves and closes; **no** discard dialog                             |
 | 6.2 | Validation error          | Submit an invalid form → then Cancel                                | Error banner shows; Cancel then asks to discard (edits still there) |
-| 6.3 | Server/tier error         | Trigger a tier-limit error → close the upgrade prompt              | Form closes per its existing behavior; no double discard dialog     |
+| 6.3 | Server/limit error        | Hit the customer allowance → close the "Customer limit reached" modal | Form closes per its existing behavior; no double discard dialog     |
 | 6.4 | Save while prompt open    | Not reachable by design — confirm the dialog blocks the form behind | No way to tap Save while the discard dialog is up                   |
 
 ---

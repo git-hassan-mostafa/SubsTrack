@@ -1,9 +1,9 @@
 import type { StateCreator } from 'zustand';
-import type { Customer, CustomerPlan, TierPlan, TenantUsage } from '@/src/core/types';
+import type { Customer, CustomerPlan } from '@/src/core/types';
 import { customerService } from '@/src/modules/customer/customers';
 import { resolveBranchFilter, ownedRowMatchesFilter } from '@/src/shared/lib/branchFilter';
-import { TierLimitError } from '@/src/modules/admin/subscription';
-import type { TierLimitErrorPayload } from '@/src/modules/admin/subscription';
+import { CustomerLimitError } from '@/src/modules/admin/billing';
+import type { CustomerLimitErrorPayload } from '@/src/modules/admin/billing';
 import type { GlobalState } from '@/src/state/globalStore';
 
 interface CustomerInput {
@@ -26,7 +26,7 @@ export interface CustomerSlice {
   loading: boolean;
   loadingMore: boolean;
   error: string | null;
-  tierLimitError: TierLimitErrorPayload | null;
+  customerLimitError: CustomerLimitErrorPayload | null;
   searchQuery: string;
   searchToken: number;
   getCustomers: () => Promise<void>;
@@ -35,12 +35,7 @@ export interface CustomerSlice {
   setSearchQuery: (q: string) => Promise<void>;
   getCustomer: (id: string) => Promise<Customer | null>;
   fetchCustomer: (id: string) => Promise<Customer | null>;
-  createCustomer: (
-    data: CustomerInput,
-    tenantId: string,
-    tier: TierPlan,
-    usage: TenantUsage,
-  ) => Promise<Customer | null>;
+  createCustomer: (data: CustomerInput, tenantId: string) => Promise<Customer | null>;
   updateCustomer: (id: string, data: CustomerInput) => Promise<void>;
   setCustomerLines: (id: string, lines: CustomerPlan[]) => void;
   deactivateCustomer: (id: string) => Promise<void>;
@@ -48,7 +43,7 @@ export interface CustomerSlice {
   deleteCustomer: (id: string) => Promise<'hard' | 'soft' | null>;
   bulkDeleteCustomers: (ids: string[]) => Promise<boolean>;
   clearError: () => void;
-  clearTierLimitError: () => void;
+  clearCustomerLimitError: () => void;
   reset: () => void;
 }
 
@@ -66,7 +61,7 @@ export const createCustomerSlice: StateCreator<
   loading: false,
   loadingMore: false,
   error: null,
-  tierLimitError: null,
+  customerLimitError: null,
   searchQuery: '',
   searchToken: 0,
 
@@ -192,30 +187,37 @@ export const createCustomerSlice: StateCreator<
     }
   },
 
-  createCustomer: async (data, tenantId, tier, usage) => {
+  // The cap is tenant-wide, so it reads billing.activeCustomers — this slice's
+  // own activeCount is branch-filtered and would under-count for a branch admin.
+  createCustomer: async (data, tenantId) => {
     const branchFilter = resolveBranchFilter(get().auth.user);
+    const { allowance, activeCustomers } = get().billing;
     set((state) => {
       state.customers.loading = true;
       state.customers.error = null;
-      state.customers.tierLimitError = null;
+      state.customers.customerLimitError = null;
     });
     try {
-      const customer = await customerService.createCustomer(data, tenantId, tier, usage);
+      const customer = await customerService.createCustomer(
+        data,
+        tenantId,
+        allowance,
+        activeCustomers,
+      );
       set((state) => {
         state.customers.items.unshift(customer);
         if (ownedRowMatchesFilter(customer.branchId, branchFilter))
           state.customers.activeCount += 1;
         state.customers.loading = false;
       });
-      void get().subscription.refreshUsage();
+      get().billing.setActiveCustomers(activeCustomers + 1);
       return customer;
     } catch (e) {
-      if (e instanceof TierLimitError) {
+      if (e instanceof CustomerLimitError) {
         set((state) => {
-          state.customers.tierLimitError = {
-            resource: e.resource,
-            limit: e.limit,
-            tierCode: e.tierCode,
+          state.customers.customerLimitError = {
+            allowance: e.allowance,
+            activeCount: e.activeCount,
           };
           state.customers.loading = false;
         });
@@ -270,6 +272,7 @@ export const createCustomerSlice: StateCreator<
           state.customers.activeCount = Math.max(0, state.customers.activeCount - 1);
         state.customers.loading = false;
       });
+      if (wasActive) get().billing.setActiveCustomers(get().billing.activeCustomers - 1);
     } catch (e) {
       set((state) => {
         state.customers.error = (e as Error).message;
@@ -292,6 +295,7 @@ export const createCustomerSlice: StateCreator<
         if (!wasActive) state.customers.activeCount += 1;
         state.customers.loading = false;
       });
+      if (!wasActive) get().billing.setActiveCustomers(get().billing.activeCustomers + 1);
     } catch (e) {
       set((state) => {
         state.customers.error = (e as Error).message;
@@ -324,6 +328,7 @@ export const createCustomerSlice: StateCreator<
           state.customers.loading = false;
         });
       }
+      if (wasActive) get().billing.setActiveCustomers(get().billing.activeCustomers - 1);
       return result.mode;
     } catch (e) {
       set((state) => {
@@ -363,6 +368,8 @@ export const createCustomerSlice: StateCreator<
         );
         state.customers.loading = false;
       });
+      if (activeRemoved)
+        get().billing.setActiveCustomers(get().billing.activeCustomers - activeRemoved);
       return true;
     } catch (e) {
       set((state) => {
@@ -377,9 +384,9 @@ export const createCustomerSlice: StateCreator<
     set((state) => {
       state.customers.error = null;
     }),
-  clearTierLimitError: () =>
+  clearCustomerLimitError: () =>
     set((state) => {
-      state.customers.tierLimitError = null;
+      state.customers.customerLimitError = null;
     }),
   reset: () =>
     set((state) => {
@@ -388,7 +395,7 @@ export const createCustomerSlice: StateCreator<
       state.customers.activeCount = 0;
       state.customers.page = 0;
       state.customers.hasMore = true;
-      state.customers.tierLimitError = null;
+      state.customers.customerLimitError = null;
       state.customers.searchQuery = '';
       state.customers.searchToken += 1;
     }),

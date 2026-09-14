@@ -44,8 +44,8 @@ export function describeAudit(table: AuditTable, row: Record<string, unknown> | 
       return s('billing_month');
     case 'tenant_settings':
       return join(s('key'), s('value'));
-    case 'tenants':
-      return s('name');
+    case 'customer_requests':
+      return join(s('requested_count'), s('status'));
     default:
       return null;
   }
