@@ -13,7 +13,7 @@ import {
 import { formatDateTime } from "@/src/core/utils/date";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
-import { useUserSlice } from "@/src/state/hooks/useUserSlice";
+import { useUserNames } from "@/src/shared/hooks/useUserNames";
 import { CollectionItemCard } from "./CollectionItemCard";
 
 interface Props {
@@ -31,7 +31,7 @@ export function CollectionSplitSheet({
 }: Props) {
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
-  const users = useUserSlice((s) => s.items);
+  const userName = useUserNames();
   const displayCurrencyId = useDisplayCurrencyId();
 
   if (!collection) return null;
@@ -40,8 +40,6 @@ export function CollectionSplitSheet({
   const display = findCurrency(currencies, displayCurrencyId);
   const money = formatMoneyPair(collection.amount, source, display);
   const voided = collection.voidedAt !== null;
-  const userName = (id: string | null) =>
-    users.find((u) => u.id === id)?.fullName ?? t("common.unknown");
 
   return (
     <FormSheet
@@ -83,7 +81,8 @@ export function CollectionSplitSheet({
             },
             {
               label: t("ledger.collected_by"),
-              value: userName(collection.receivedByUserId),
+              value:
+                userName(collection.receivedByUserId) ?? t("common.unknown"),
             },
             {
               label: t("ledger.held_by"),
@@ -91,7 +90,7 @@ export function CollectionSplitSheet({
                 ? null
                 : collection.heldByUserId === null
                   ? t("ledger.banked")
-                  : userName(collection.heldByUserId),
+                  : (userName(collection.heldByUserId) ?? t("common.unknown")),
             },
             { label: t("ledger.notes"), value: collection.notes },
             {
@@ -102,7 +101,7 @@ export function CollectionSplitSheet({
             },
             {
               label: t("ledger.voided_by"),
-              value: collection.voidedBy ? userName(collection.voidedBy) : null,
+              value: userName(collection.voidedBy),
             },
             {
               label: t("ledger.void_reason_label"),

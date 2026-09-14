@@ -18,7 +18,7 @@ import { formatDate, formatDateTime } from "@/src/core/utils/date";
 import { getBlockRangeLabel } from "@/src/modules/customer/customer-payments/utils/blockRangeLabel";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
-import { useUserSlice } from "@/src/state/hooks/useUserSlice";
+import { useUserNames } from "@/src/shared/hooks/useUserNames";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { COLORS } from "@/src/shared/constants";
 import { BillPaymentsList } from "./BillPaymentsList";
@@ -49,7 +49,7 @@ export function BillSheet({
 }: Props) {
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
-  const users = useUserSlice((s) => s.items);
+  const userName = useUserNames();
   const displayCurrencyId = useDisplayCurrencyId();
   const { isAdmin } = useAuth();
   const [historyOpen, setHistoryOpen] = useState(false);
@@ -184,8 +184,7 @@ export function BillSheet({
                 },
                 {
                   label: t("ledger.recorded_by"),
-                  value: users.find((u) => u.id === charge.recordedByUserId)
-                    ?.fullName,
+                  value: userName(charge.recordedByUserId),
                 },
                 { label: t("ledger.notes"), value: charge.notes },
                 {
@@ -196,9 +195,7 @@ export function BillSheet({
                 },
                 {
                   label: t("ledger.voided_by"),
-                  value: charge.voidedBy
-                    ? users.find((u) => u.id === charge.voidedBy)?.fullName
-                    : null,
+                  value: userName(charge.voidedBy),
                 },
                 {
                   label: t("ledger.void_reason_label"),

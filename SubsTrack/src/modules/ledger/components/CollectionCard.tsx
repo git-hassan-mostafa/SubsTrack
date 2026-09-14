@@ -22,7 +22,7 @@ import {
 import { formatDateTime } from "@/src/core/utils/date";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
-import { useUserSlice } from "@/src/state/hooks/useUserSlice";
+import { useUserNames } from "@/src/shared/hooks/useUserNames";
 import { KIND_STYLE } from "../utils/kindStyle";
 import { collectionLabel } from "../utils/collectionLabel";
 
@@ -53,7 +53,7 @@ export function CollectionCard({
 }: Props) {
   const { t } = useTranslation();
   const currencies = useCurrencySlice((s) => s.items);
-  const users = useUserSlice((s) => s.items);
+  const userName = useUserNames();
   const displayCurrencyId = useDisplayCurrencyId();
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -64,12 +64,12 @@ export function CollectionCard({
   const voided = item.voidedAt !== null;
   const style = KIND_STYLE[item.kind];
   const paidFor = collectionLabel(item, t);
-  const collector = users.find((u) => u.id === item.receivedByUserId)?.fullName;
+  const collector = userName(item.receivedByUserId);
   const holder =
     item.heldByUserId === null
       ? t("ledger.banked")
       : item.heldByUserId !== item.receivedByUserId
-        ? users.find((u) => u.id === item.heldByUserId)?.fullName
+        ? userName(item.heldByUserId)
         : undefined;
 
   const actions: ActionMenuItem[] = [];

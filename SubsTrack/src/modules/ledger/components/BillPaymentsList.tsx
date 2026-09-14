@@ -14,7 +14,7 @@ import type { Collection } from "@/src/core/types";
 import { formatDateTime } from "@/src/core/utils/date";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { formatMoney, snapshotCurrency } from "@/src/core/utils/currency";
-import { useUserSlice } from "@/src/state/hooks/useUserSlice";
+import { useUserNames } from "@/src/shared/hooks/useUserNames";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { useSendInvoice } from "@/src/modules/invoicing";
 import { collectionService } from "../services/CollectionService";
@@ -56,7 +56,7 @@ export function BillPaymentsList({
   const { t } = useTranslation();
   const { user } = useAuth();
   const currencies = useCurrencySlice((s) => s.items);
-  const users = useUserSlice((s) => s.items);
+  const userName = useUserNames();
   const { canSend, sendCollectionInvoice } = useSendInvoice();
 
   const [payments, setPayments] = useState<Collection[] | null>(null);
@@ -100,9 +100,6 @@ export function BillPaymentsList({
   useEffect(() => {
     onLoadingChange?.(loading);
   }, [loading, onLoadingChange]);
-
-  const userName = (id: string | null) =>
-    users.find((u) => u.id === id)?.fullName ?? t("common.unknown");
 
   const sendable = !!recipient && canSend(recipient.phone);
 
@@ -196,7 +193,7 @@ export function BillPaymentsList({
                 </Text>
                 <Text className="text-xs text-gray-500">
                   {formatDateTime(p.receivedAt)} ·{" "}
-                  {userName(p.receivedByUserId)}
+                  {userName(p.receivedByUserId) ?? t("common.unknown")}
                   {coversMore ? ` · ${t("ledger.covers_others")}` : ""}
                   {voided ? ` · ${t("ledger.voided")}` : ""}
                 </Text>

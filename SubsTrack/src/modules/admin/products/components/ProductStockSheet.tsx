@@ -26,7 +26,7 @@ import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { useProductSlice } from "@/src/state/hooks/useProductSlice";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
-import { useUserSlice } from "@/src/state/hooks/useUserSlice";
+import { useUserNames } from "@/src/shared/hooks/useUserNames";
 import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
 import productService from "../services/ProductService";
 
@@ -59,8 +59,7 @@ type CostChange = { amount: number | null; currencyId: string | null };
 export function ProductStockSheet({ product, onDismiss }: Props) {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const users = useUserSlice((s) => s.items);
-  const getUsers = useUserSlice((s) => s.getUsers);
+  const userName = useUserNames();
   const addStock = useProductSlice((s) => s.addStock);
   const updateStockMovement = useProductSlice((s) => s.updateStockMovement);
   const revertStockMovement = useProductSlice((s) => s.revertStockMovement);
@@ -101,9 +100,8 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
   useEffect(() => {
     clearError();
     void loadHistory();
-    void getUsers();
     return clearError;
-  }, [clearError, getUsers, loadHistory]);
+  }, [clearError, loadHistory]);
 
   const parsed = Number(quantity);
   const validQuantity = Number.isInteger(parsed) && parsed > 0;
@@ -398,8 +396,7 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
             const added = m.quantityDelta > 0;
             const voided = m.voidedAt !== null;
             const hasMenu = m.reason !== "sale";
-            const byName =
-              users.find((u) => u.id === m.recordedByUserId)?.fullName ?? null;
+            const byName = userName(m.recordedByUserId);
             return (
               <View
                 key={m.id}
