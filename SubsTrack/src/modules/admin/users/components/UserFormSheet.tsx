@@ -16,6 +16,7 @@ import { getStore } from "@/src/state/globalStore";
 import { useActiveBranches } from "@/src/modules/admin/branches";
 import { useBranchSlice } from "@/src/state/hooks/useBranchSlice";
 import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
+import { canManageUser } from "../utils/userPermissions";
 
 interface Props {
   user?: AppUser | null;
@@ -82,10 +83,7 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
   const isOwnAccount = editUser?.id === currentUser?.id;
 
   const canToggleActive =
-    !!editUser &&
-    !!currentUser &&
-    ((currentUser.role === "superadmin" && !isOwnAccount) ||
-      (currentUser.role === "admin" && editUser.role === "user"));
+    !!editUser && !!currentUser && canManageUser(currentUser, editUser);
 
   const canDelete = canToggleActive;
 

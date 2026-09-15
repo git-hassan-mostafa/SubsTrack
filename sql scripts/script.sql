@@ -2121,10 +2121,14 @@ DO $$ BEGIN
     END IF;
 
     -- ── USERS ────────────────────────────────────────────────
-    -- Branch-aware:
-    --   tenant-wide user (current_branch_id() IS NULL) sees ALL users in tenant
-    --   branch-scoped user sees ONLY users in their own branch (incl. self)
-    --   Unassigned users (branch_id IS NULL) are visible ONLY to tenant-wide.
+    -- SELECT is branch-SHARED, like products_select: a branch-scoped user sees
+    -- their own branch PLUS the unassigned (branch_id IS NULL) tenant-wide
+    -- admins and the owner. Those people collect money inside every branch, so
+    -- hiding their rows left every bill they settled crediting nobody: the
+    -- collector name, the money-received card, the collector filter, the audit
+    -- actor filter and the wallet holder all read "Unknown".
+    -- INSERT/UPDATE stay branch-OWNED: reading a tenant-wide colleague is not
+    -- permission to create or edit one.
     IF NOT EXISTS (
         SELECT 1 FROM pg_policies
         WHERE tablename = 'users' AND policyname = 'users_select'
@@ -2134,6 +2138,7 @@ DO $$ BEGIN
                 tenant_id = current_tenant_id()
                 AND (
                     current_branch_id() IS NULL
+                    OR branch_id IS NULL
                     OR branch_id = current_branch_id()
                 )
             );

@@ -26,7 +26,8 @@ A user creation creates a paired `auth.users` + `public.users` row via the `crea
 1. **Tenant isolation.** Cross-tenant user creation/listing is blocked by RLS. The Edge Function additionally re-derives `tenant_id` from the caller's JWT.
 2. **Cannot change your own role.** Enforced in UI (tiles disabled) and in `UserService`.
 3. **Cannot delete yourself.** Enforced — verify in service and UI.
-4. **Cannot delete other admins (unless caller is superadmin).** Admin can manage `user`-role accounts. Verify `canManage` rule in `UserListScreen.buildMenuActions`.
+4. **Cannot delete other admins (unless caller is superadmin).** Admin can manage `user`-role accounts. Verify `canManageUser` in `users/utils/userPermissions.ts` — the one rule, shared by `UserListScreen.buildMenuActions` and `UserFormSheet`.
+4b. **Reading a user is branch-SHARED, writing one is branch-OWNED.** `users_select` lets a branch-scoped user read their own branch **plus** every unassigned (`branch_id IS NULL`) tenant-wide admin and the owner, so the people who collect money inside their branch have a name everywhere it is shown. `users_insert` / `users_update` stay branch-owned, and `canEditUser` mirrors that clause in the UI.
 5. **Staff users require a branch.** Once tenant has ≥1 active branch, role=user without branch_id is rejected by `UserService.validateBranchAssignment` AND by the Edge Function.
 
 ---
@@ -123,6 +124,7 @@ Reachable from the action menu (Edit item).
 | 5.17 | Admin changes ANOTHER admin's password | Admin A edits Admin B (not self), change password | Forbidden — ErrorBanner shows the server message "admins can only change passwords of staff users" (no longer the generic non-2xx text) |
 | 5.18 | Superadmin changes any password | Superadmin edits any same-tenant user, change password | Succeeds |
 | 5.19 | Cross-tenant password change | Caller targets a user in another tenant (via API) | Forbidden — "cannot modify users from another tenant" surfaces in the ErrorBanner |
+| 5.20 | Branch admin taps a tenant-wide admin | Beirut admin taps the card of an admin with `branch_id = NULL` | No edit sheet. The action menu opens instead, offering History only |
 
 ## 6. Action menu (per user card)
 
@@ -133,6 +135,7 @@ Reachable from the action menu (Edit item).
 | 6.3 | Items — admin managing a user | Admin opens menu on a `user`-role account | Edit + Toggle Active + Delete |
 | 6.4 | Items — admin viewing another admin | Admin opens menu on another admin | Edit only (admin can't manage other admins; superadmin can) |
 | 6.5 | Items — superadmin | Superadmin opens menu on any other user | Edit + Toggle Active + Delete |
+| 6.5b | Items — branch admin viewing a tenant-wide admin | Beirut admin opens menu on an unassigned admin / the owner | History only — no Edit, no Toggle Active, no Delete |
 | 6.6 | Tap Edit | Opens UserFormSheet in edit mode |
 | 6.7 | Tap Toggle Active | Opens ConfirmDialog "Deactivate <fullName>?" or "Activate <fullName>?" |
 | 6.8 | Tap Delete | Opens ConfirmDialog destructive "Delete <fullName>? This cannot be undone." |
@@ -171,7 +174,9 @@ Reachable from the action menu (Edit item).
 | 9.2 | Admin tab hidden for user | Login as user | Admin tab null/hidden |
 | 9.3 | Superadmin treated as admin | Login as superadmin | Admin tab visible |
 | 9.4 | Tenant scoping | Admin of tenant A | Cannot see tenant B users (RLS) |
-| 9.5 | Branch admin sees own branch users | Beirut admin | Only Beirut users + tenant-wide admins (if visible) |
+| 9.5 | Branch admin sees own branch users | Beirut admin | Beirut users **plus** every unassigned tenant-wide admin and the owner. No user of another branch |
+| 9.6 | Branch admin cannot write what it can read | Beirut admin PATCHes an unassigned admin via the API | RLS `users_update` rejects it — reading a tenant-wide colleague is not permission to edit one |
+| 9.7 | Collector name resolves everywhere | Tenant-wide admin (or the owner) collects a bill in Beirut, then a Beirut staff user opens it | Bill sheet payment row, money-received card, split sheet, collector filter, audit actor filter and the wallet all show that person's name — never "Unknown" |
 
 ## 10. Edge cases
 
@@ -190,7 +195,8 @@ Reachable from the action menu (Edit item).
 | 10.11 | Created user login fails when tenant_code missing | If migration not applied | Edge Function errors |
 | 10.12 | Logged-in user is deleted out of band | Admin deletes a user while they are logged in | Their next request fails (RLS denies); bounced to login |
 | 10.13 | Display when phone is null | Card layout doesn't break |
-| 10.14 | User without branch in multi-branch tenant | Pre-existing user with `branch_id = NULL` and role=user | Visible only to tenant-wide admins. Edit forces a branch assignment before save |
+| 10.14 | User without branch in multi-branch tenant | Pre-existing user with `branch_id = NULL` and role=user | Visible to everyone in the tenant, editable only by a tenant-wide admin (who is forced to assign a branch before save) |
+| 10.15 | Native mirror after the policy widens | Existing install, RLS changed, no user row touched since | The tenant-wide admins stay missing until their `updated_at` moves — the pull is incremental. Bump it once server-side, then sync |
 
 ## 11. Security checks
 

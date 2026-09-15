@@ -150,7 +150,11 @@ export function SettingsScreen() {
               className={`${CARD_SURFACE} mx-4 mb-5 px-4 py-4 flex-row items-center`}
             >
               <View className="w-10 h-10 rounded-xl bg-success-light items-center justify-center me-3">
-                <Ionicons name="person" size={18} color={COLORS.success} />
+                <Ionicons
+                  name="person-outline"
+                  size={18}
+                  color={COLORS.success}
+                />
               </View>
               <View className="flex-1">
                 <Text fontWeight="SemiBold" className="text-base text-gray-900">

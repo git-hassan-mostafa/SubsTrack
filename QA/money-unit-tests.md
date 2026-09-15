@@ -7,7 +7,7 @@ The automated safety net under every rule that touches money. It runs on a lapto
 **Reference code:**
 - Runner + config: [tests/](../tests/) — `jest.config.js`, `tsconfig.json`, `babel.config.js`, `stubs/`, `helpers/`
 - Suites: `tests/suites/*.test.ts` (one file per area, every case numbered `TC-XX-nn`)
-- Under test: `waterfall.ts`, `openItems.ts`, `BillingService.ts`, `PaymentService.ts`, `payOrder.ts`, `monthDueRules.ts`, `linePrice.ts`, `ChargeService.ts`, `CollectionService.ts`, `LedgerService.ts`, `SaleService.ts`, `saleLines.ts`, `saleListPatch.ts`, `sharedBills.ts`, `mergeCollection.ts`, `custody.ts`, `currency.ts`, `date.ts`, `monthTotals.ts`
+- Under test: `waterfall.ts`, `openItems.ts`, `BillingService.ts`, `PaymentService.ts`, `payOrder.ts`, `monthDueRules.ts`, `linePrice.ts`, `ChargeService.ts`, `CollectionService.ts`, `LedgerService.ts`, `SaleService.ts`, `saleLines.ts`, `saleListPatch.ts`, `sharedBills.ts`, `mergeCollection.ts`, `custody.ts`, `userPermissions.ts`, `currency.ts`, `date.ts`, `monthTotals.ts`
 
 ---
 
@@ -49,6 +49,7 @@ The automated safety net under every rule that touches money. It runs on a lapto
 | `mergeCollection.test.ts` | TC-MC-* | The month grid's patch-from-the-write, including a re-priced bill |
 | `salePatchAndShared.test.ts` | TC-SP-*, TC-SS-* | The sales-list patches, the product-vs-service line split, and naming the other bills a shared void un-pays |
 | `selectionAndCustody.test.ts` | TC-MS-*, TC-WA-* | Which cells select together on a multi-month plan; who may take whose cash |
+| `userPermissions.test.ts` | TC-UP-* | Who may edit or deactivate whom now that every branch can **read** the tenant-wide admins — writing a user stays branch-owned, exactly as `users_update` says |
 | `linePrice.test.ts` | TC-LP-* | A special price replaces the plan's for the **same span** — "100 per 3 months", never 100 a month |
 | `currencyAndDates.test.ts` | TC-CU-*, TC-DT-* | USD always via the row's **frozen** rate; a hand-over bucketed into its **local** month |
 | `customerAllowance.test.ts` | TC-CA-*, TC-CD-*, TC-CS-* | What the tenant is billed, whether they may add a customer, and the two floors under a lowered limit — see section 2b |

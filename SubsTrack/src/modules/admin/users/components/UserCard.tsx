@@ -1,8 +1,5 @@
 import { View } from "react-native";
-import {
-  CardSubtitle,
-  CardTitle,
-} from "@/src/shared/components/CardText";
+import { CardSubtitle, CardTitle } from "@/src/shared/components/CardText";
 import { Chip, type ChipTone } from "@/src/shared/components/Chip";
 import type { AppUser } from "@/src/core/types";
 import { useTranslation } from "react-i18next";
@@ -39,7 +36,7 @@ export function UserCard({
 
   return (
     <EntityCard
-      icon="person"
+      icon="person-outline"
       iconColor={COLORS.success}
       iconBgClassName="bg-success-light"
       onPress={() => onEdit(user)}

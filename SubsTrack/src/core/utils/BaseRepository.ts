@@ -14,17 +14,14 @@ import { buildAuditRow, type AuditInput } from "../audit";
  *
  *   'owned'     — row has its OWN branch_id column. NULL means UNASSIGNED
  *                 (visible only to tenant-wide admins).
- *                 Used by: customers, users, expenses, charges, collections.
  *
  *   'shared'    — row has its own branch_id column. NULL means SHARED across
  *                 every branch (visible to all). When filtering to a specific
  *                 branch, shared rows are INCLUDED alongside that branch's rows.
- *                 Used by: plans.
  *
  *   'inherited' — row has no branch_id of its own; the branch is read from a
  *                 joined parent table. Always use `.select('..., parent!inner(branch_id)')`
  *                 in the query so PostgREST can apply the filter on the join.
- *                 Used by: customer_plans, sale_items (inherit from a parent).
  */
 export type BranchScope =
   | { kind: "owned"; column?: string }
@@ -181,7 +178,7 @@ export abstract class BaseRepository {
 
   protected BRANCH_SCOPES = {
     customers: { kind: "owned" },
-    users: { kind: "owned" },
+    users: { kind: "shared" },
     plans: { kind: "shared" },
     charges: { kind: "owned" },
     collections: { kind: "owned" },

@@ -101,7 +101,7 @@ export abstract class OfflineBaseRepository {
 
   protected readonly BRANCH_SCOPES = {
     customers: { kind: 'owned' },
-    users: { kind: 'owned' },
+    users: { kind: 'shared' },
     plans: { kind: 'shared' },
     charges: { kind: 'owned' },
     collections: { kind: 'owned' },

@@ -21,6 +21,7 @@ import type { AppUser } from "@/src/core/types";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { useRecordHistoryAction } from "@/src/modules/admin/audit";
 import { UserCard } from "../components/UserCard";
+import { canEditUser, canManageUser } from "../utils/userPermissions";
 import { UserFormSheet } from "../components/UserFormSheet";
 import { useUserSlice } from "@/src/state/hooks/useUserSlice";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
@@ -74,14 +75,8 @@ export function UserListScreen() {
     fetchUsers();
   }, [branchFilter, clearSelection, fetchUsers]);
 
-  // A user can be managed (toggled/deleted) by the current user when it's not
-  // their own account and the role hierarchy allows it.
   function canManage(target: AppUser): boolean {
-    if (!currentUser || target.id === currentUser.id) return false;
-    return (
-      currentUser.role === "superadmin" ||
-      (currentUser.role === "admin" && target.role === "user")
-    );
+    return !!currentUser && canManageUser(currentUser, target);
   }
 
   function openCreate() {
@@ -89,7 +84,12 @@ export function UserListScreen() {
     setFormVisible(true);
   }
 
+  // A row outside the viewer's branch is readable but not writable.
   function openEdit(user: AppUser) {
+    if (!currentUser || !canEditUser(currentUser, user)) {
+      setMenuUser(user);
+      return;
+    }
     setEditingUser(user);
     setFormVisible(true);
   }
@@ -137,15 +137,16 @@ export function UserListScreen() {
 
   function buildMenuActions(user: AppUser | null): ActionMenuItem[] {
     if (!user || !currentUser) return [];
-    const items: ActionMenuItem[] = [
-      {
+    const items: ActionMenuItem[] = [];
+    if (canEditUser(currentUser, user)) {
+      items.push({
         key: "edit",
         label: t("common.edit"),
         icon: "create-outline",
         onPress: () => openEdit(user),
-      },
-      history.action(user.id, user.fullName),
-    ];
+      });
+    }
+    items.push(history.action(user.id, user.fullName));
     if (canManage(user)) {
       items.push({
         key: "toggle-active",
