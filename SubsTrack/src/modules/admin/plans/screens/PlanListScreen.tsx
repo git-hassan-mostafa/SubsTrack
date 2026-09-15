@@ -80,16 +80,20 @@ export function PlanListScreen() {
     setFormVisible(true);
   }
 
-  async function handleDeletePlan(plan: Plan) {
-    const ok = await confirm({
+  async function handleDeletePlan(plan: Plan): Promise<boolean> {
+    let deleted = false;
+    await confirm({
       title: t("plans.delete_title"),
       message: t("plans.delete_message", { name: plan.name }),
       confirmLabel: t("common.delete"),
       destructive: true,
+      onConfirm: async () => {
+        await deletePlan(plan.id);
+        deleted = true;
+      },
     });
-    if (!ok) return;
-    await deletePlan(plan.id);
-    setFormVisible(false);
+    if (deleted) setFormVisible(false);
+    return deleted;
   }
 
   function buildMenuActions(plan: Plan | null): ActionMenuItem[] {
@@ -123,24 +127,26 @@ export function PlanListScreen() {
   async function runBulkDelete(selected: Plan[]) {
     if (bulkBusy || selected.length === 0) return;
     if (selected.length === 1) {
-      await handleDeletePlan(selected[0]);
-      clearSelection();
+      if (await handleDeletePlan(selected[0])) clearSelection();
       return;
     }
-    const ok = await confirm({
+    let deleted = false;
+    await confirm({
       title: t("plans.bulk_delete_title", { count: selected.length }),
       message: t("plans.bulk_delete_message", { count: selected.length }),
       confirmLabel: t("common.delete"),
       destructive: true,
+      onConfirm: async () => {
+        setBulkBusy(true);
+        try {
+          await bulkDeletePlans(selected.map((p) => p.id));
+          deleted = true;
+        } finally {
+          setBulkBusy(false);
+        }
+      },
     });
-    if (!ok) return;
-    setBulkBusy(true);
-    try {
-      await bulkDeletePlans(selected.map((p) => p.id));
-    } finally {
-      setBulkBusy(false);
-    }
-    clearSelection();
+    if (deleted) clearSelection();
   }
 
   // Toolbar actions for the selection header. 1 selected → edit + delete;

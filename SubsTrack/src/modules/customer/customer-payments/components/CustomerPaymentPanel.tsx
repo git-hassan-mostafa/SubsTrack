@@ -616,7 +616,9 @@ export function CustomerPaymentPanel({
     } finally {
       setBusyMonth(null);
     }
-    const ok = await confirm({
+    let voided = false;
+    let blockedAfterVoid: string | null = null;
+    await confirm({
       title: t("ledger.void_month_title"),
       message: t("ledger.void_month_message", { month: monthLabelOf(entry) }),
       confirmLabel: t("ledger.void_month"),
@@ -625,21 +627,21 @@ export function CustomerPaymentPanel({
         shared.length > 0
           ? () => <SharedBillsWarning bills={shared} />
           : undefined,
+      onConfirm: async () => {
+        setBusyMonth(entry.billingMonth);
+        try {
+          const result = await voidMonthBill(charge.id, user.id, null);
+          blockedAfterVoid = result.blockedBy ?? null;
+          if (blockedAfterVoid || !result.ok) return;
+          await fetchBills(customer.id);
+          voided = true;
+        } finally {
+          setBusyMonth(null);
+        }
+      },
     });
-    if (!ok) return false;
-    setBusyMonth(entry.billingMonth);
-    try {
-      const result = await voidMonthBill(charge.id, user.id, null);
-      if (result.blockedBy) {
-        showVoidOrderBlocked(result.blockedBy);
-        return false;
-      }
-      if (!result.ok) return false;
-      await fetchBills(customer.id);
-      return true;
-    } finally {
-      setBusyMonth(null);
-    }
+    if (blockedAfterVoid) showVoidOrderBlocked(blockedAfterVoid);
+    return voided;
   }
 
   // A custom-price line qualifies too — it opens the sheet instead of charging.
@@ -668,8 +670,26 @@ export function CustomerPaymentPanel({
       openCollect([entry], send);
       return;
     }
+    async function collect() {
+      setBusyMonth(entry.billingMonth);
+      try {
+        const created = await runCollect({
+          items,
+          amount: item.balance,
+          currencyId: item.currencyId,
+          ratePerUsdSnapshot: item.ratePerUsdSnapshot,
+          receivedAt: new Date().toISOString(),
+          notes: null,
+          lines: [{ item, amount: item.balance }],
+        });
+        if (created) await afterCollect(created, send);
+      } finally {
+        setBusyMonth(null);
+      }
+    }
+
     if (linePrice.durationMonths > 1) {
-      const ok = await confirm({
+      await confirm({
         title: t("payments.quick_pay.confirm_multi_month_title"),
         message: t("payments.quick_pay.confirm_multi_month_message", {
           amount: formatMoney(
@@ -684,24 +704,11 @@ export function CustomerPaymentPanel({
           ),
         }),
         confirmLabel: t("payments.quick_pay.confirm"),
+        onConfirm: collect,
       });
-      if (!ok) return;
+      return;
     }
-    setBusyMonth(entry.billingMonth);
-    try {
-      const created = await runCollect({
-        items,
-        amount: item.balance,
-        currencyId: item.currencyId,
-        ratePerUsdSnapshot: item.ratePerUsdSnapshot,
-        receivedAt: new Date().toISOString(),
-        notes: null,
-        lines: [{ item, amount: item.balance }],
-      });
-      if (created) await afterCollect(created, send);
-    } finally {
-      setBusyMonth(null);
-    }
+    await collect();
   }
 
   // A VOIDED month keeps its trail but loses its charge — the grid's read drops

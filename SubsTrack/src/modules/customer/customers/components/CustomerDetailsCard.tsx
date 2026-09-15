@@ -29,7 +29,7 @@ export function CustomerDetailsCard({
   );
 
   async function handleToggleActive() {
-    const ok = await confirm({
+    await confirm({
       title: customer.active
         ? t("customers.deactivate_title")
         : t("customers.reactivate_title"),
@@ -37,26 +37,28 @@ export function CustomerDetailsCard({
         ? t("customers.deactivate_message", { name: customer.name })
         : t("customers.reactivate_message", { name: customer.name }),
       destructive: customer.active,
+      onConfirm: async () => {
+        if (customer.active) {
+          await customerStore.deactivateCustomer(customer.id);
+        } else {
+          await customerStore.reactivateCustomer(customer.id);
+        }
+      },
     });
-    if (!ok) return;
-    if (customer.active) {
-      await customerStore.deactivateCustomer(customer.id);
-    } else {
-      await customerStore.reactivateCustomer(customer.id);
-    }
   }
 
   async function handleDelete() {
-    const ok = await confirm({
+    let hardDeleted = false;
+    await confirm({
       title: t("customers.delete_title"),
       message: t("customers.delete_message", { name: customer.name }),
       destructive: true,
+      onConfirm: async () => {
+        hardDeleted =
+          (await customerStore.deleteCustomer(customer.id)) === "hard";
+      },
     });
-    if (!ok) return;
-    const result = await customerStore.deleteCustomer(customer.id);
-    if (result === "hard") {
-      onDeleted?.();
-    }
+    if (hardDeleted) onDeleted?.();
   }
 
   return (

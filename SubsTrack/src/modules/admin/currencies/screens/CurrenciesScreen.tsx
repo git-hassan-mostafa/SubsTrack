@@ -77,24 +77,29 @@ export function CurrenciesScreen() {
   }
 
   async function handleDeactivateCurrency(currency: Currency) {
-    const ok = await confirm({
+    await confirm({
       title: t("tenant_settings.deactivate_title"),
       message: t("tenant_settings.deactivate_message", { code: currency.code }),
       destructive: true,
+      onConfirm: async () => {
+        await deleteCurrency(currency.id);
+      },
     });
-    if (!ok) return;
-    await deleteCurrency(currency.id);
   }
 
-  async function handleDeleteCurrency(currency: Currency) {
-    const ok = await confirm({
+  async function handleDeleteCurrency(currency: Currency): Promise<boolean> {
+    let deleted = false;
+    await confirm({
       title: t("tenant_settings.delete_title"),
       message: t("tenant_settings.delete_message", { code: currency.code }),
       confirmLabel: t("common.delete"),
       destructive: true,
+      onConfirm: async () => {
+        await deleteCurrency(currency.id);
+        deleted = true;
+      },
     });
-    if (!ok) return;
-    await deleteCurrency(currency.id);
+    return deleted;
   }
 
   function buildMenuActions(currency: Currency | null): ActionMenuItem[] {
@@ -141,26 +146,28 @@ export function CurrenciesScreen() {
   async function runBulkDelete(selected: Currency[]) {
     if (bulkBusy || selected.length === 0) return;
     if (selected.length === 1) {
-      await handleDeleteCurrency(selected[0]);
-      clearSelection();
+      if (await handleDeleteCurrency(selected[0])) clearSelection();
       return;
     }
-    const ok = await confirm({
+    let deleted = false;
+    await confirm({
       title: t("tenant_settings.bulk_delete_title", { count: selected.length }),
       message: t("tenant_settings.bulk_delete_message", {
         count: selected.length,
       }),
       confirmLabel: t("common.delete"),
       destructive: true,
+      onConfirm: async () => {
+        setBulkBusy(true);
+        try {
+          await bulkDeleteCurrencies(selected.map((c) => c.id));
+          deleted = true;
+        } finally {
+          setBulkBusy(false);
+        }
+      },
     });
-    if (!ok) return;
-    setBulkBusy(true);
-    try {
-      await bulkDeleteCurrencies(selected.map((c) => c.id));
-    } finally {
-      setBulkBusy(false);
-    }
-    clearSelection();
+    if (deleted) clearSelection();
   }
 
   // Toolbar actions for the selection header. 1 selected → edit + deactivate

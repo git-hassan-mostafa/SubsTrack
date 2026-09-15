@@ -135,14 +135,16 @@ export function DeveloperScreen() {
       return;
     }
 
-    const ok = await confirm({
+    await confirm({
       title: t("settings.developer_import_confirm_title"),
       message: t("settings.developer_import_confirm_message"),
       confirmLabel: t("settings.developer_import_confirm_action"),
       destructive: true,
+      onConfirm: () => runImport(data),
     });
-    if (!ok) return;
+  }
 
+  async function runImport(data: Record<string, unknown>) {
     setImportBusy(true);
     try {
       const db = getDb();

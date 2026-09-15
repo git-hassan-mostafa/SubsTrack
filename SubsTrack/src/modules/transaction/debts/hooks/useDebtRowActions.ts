@@ -83,14 +83,16 @@ export function useDebtRowActions() {
   const voidItem = useCallback(
     async (item: OpenItem) => {
       if (!user || !item.chargeId || item.kind !== "manual") return;
-      const ok = await confirm({
+      const chargeId = item.chargeId;
+      await confirm({
         title: t("debts.void_custom_title"),
         message: t("debts.void_custom_message"),
         confirmLabel: t("common.delete"),
         destructive: true,
+        onConfirm: async () => {
+          await voidCharge(chargeId, user.id, null);
+        },
       });
-      if (!ok) return;
-      await voidCharge(item.chargeId, user.id, null);
     },
     [user, t, voidCharge],
   );

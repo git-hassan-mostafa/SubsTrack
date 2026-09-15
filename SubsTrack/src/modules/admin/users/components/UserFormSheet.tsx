@@ -91,19 +91,22 @@ export function UserFormSheet({ user: editUser, onDismiss }: Props) {
 
   async function handleDeletePress() {
     if (!editUser || !currentUser) return;
-    const ok = await confirm({
+    let deleted = false;
+    await confirm({
       title: t("users.delete_title"),
       message: t("users.delete_message", { name: editUser.fullName }),
       destructive: true,
+      onConfirm: async () => {
+        deleted =
+          (await deleteUser(
+            editUser.id,
+            currentUser.id,
+            currentUser.role,
+            editUser.role,
+          )) !== null;
+      },
     });
-    if (!ok) return;
-    const result = await deleteUser(
-      editUser.id,
-      currentUser.id,
-      currentUser.role,
-      editUser.role,
-    );
-    if (result !== null) onDismiss();
+    if (deleted) onDismiss();
   }
 
   const usernameInvalid =

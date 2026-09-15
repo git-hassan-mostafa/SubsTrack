@@ -169,10 +169,14 @@ export function SaleFormSheet({
   }
 
   // Cash already handed over is about to be cancelled and re-recorded (#111).
-  async function confirmedCashRebuild(): Promise<boolean> {
-    if (!rebuildsCash) return true;
+  // Holds the dialog open on the save itself, so the last gate shows the work.
+  async function confirmedCashRebuild(run: () => Promise<void>) {
+    if (!rebuildsCash) {
+      await run();
+      return;
+    }
     const money = (a: number) => formatMoney(a, cart.currency, cart.currency);
-    return confirm({
+    await confirm({
       title: t("sales.confirm_rebuild_cash_title"),
       message: t("sales.confirm_rebuild_cash_message", {
         collected: formatMoney(collectedOnSale, saleCurrency, saleCurrency),
@@ -180,19 +184,21 @@ export function SaleFormSheet({
       }),
       confirmLabel: t("common.save"),
       destructive: true,
+      onConfirm: run,
     });
   }
 
   async function handleSubmit(send = false) {
     if (!user || !cart.ready || busy) return;
     if (!(await confirmedTotal())) return;
-    if (!(await confirmedCashRebuild())) return;
-    setBusyOn(send ? "send" : "save");
-    try {
-      await submit(send);
-    } finally {
-      setBusyOn(null);
-    }
+    await confirmedCashRebuild(async () => {
+      setBusyOn(send ? "send" : "save");
+      try {
+        await submit(send);
+      } finally {
+        setBusyOn(null);
+      }
+    });
   }
 
   async function submit(send: boolean) {

@@ -95,16 +95,20 @@ export function ProductListScreen() {
     setStockFor(product);
   }
 
-  async function handleDelete(product: Product) {
-    const ok = await confirm({
+  async function handleDelete(product: Product): Promise<boolean> {
+    let deleted = false;
+    await confirm({
       title: t("products.delete_title"),
       message: t("products.delete_message", { name: product.name }),
       confirmLabel: t("common.delete"),
       destructive: true,
+      onConfirm: async () => {
+        await deleteProduct(product.id);
+        deleted = true;
+      },
     });
-    if (!ok) return;
-    await deleteProduct(product.id);
-    setFormVisible(false);
+    if (deleted) setFormVisible(false);
+    return deleted;
   }
 
   async function handleReactivate(product: Product) {
@@ -160,24 +164,26 @@ export function ProductListScreen() {
   async function runBulkDelete(selected: Product[]) {
     if (bulkBusy || selected.length === 0) return;
     if (selected.length === 1) {
-      await handleDelete(selected[0]);
-      clearSelection();
+      if (await handleDelete(selected[0])) clearSelection();
       return;
     }
-    const ok = await confirm({
+    let deleted = false;
+    await confirm({
       title: t("products.bulk_delete_title", { count: selected.length }),
       message: t("products.bulk_delete_message", { count: selected.length }),
       confirmLabel: t("common.delete"),
       destructive: true,
+      onConfirm: async () => {
+        setBulkBusy(true);
+        try {
+          await bulkDeleteProducts(selected.map((p) => p.id));
+          deleted = true;
+        } finally {
+          setBulkBusy(false);
+        }
+      },
     });
-    if (!ok) return;
-    setBulkBusy(true);
-    try {
-      await bulkDeleteProducts(selected.map((p) => p.id));
-    } finally {
-      setBulkBusy(false);
-    }
-    clearSelection();
+    if (deleted) clearSelection();
   }
 
   // Toolbar actions for the selection header. 1 selected → edit + delete (active)

@@ -119,14 +119,15 @@ export function ExpensesPanel({ filterRowRef }: Props = {}) {
 
   async function handleVoid(item: ExpenseItem) {
     if (!user) return;
-    const ok = await confirm({
+    await confirm({
       title: t("expenses.remove_title"),
       message: t("expenses.remove_message", { label: item.label }),
       confirmLabel: t("expenses.remove"),
       destructive: true,
+      onConfirm: async () => {
+        await voidExpense(item.id.replace(/^exp:/, ""), user.id, null);
+      },
     });
-    if (!ok) return;
-    await voidExpense(item.id.replace(/^exp:/, ""), user.id, null);
   }
 
   return (

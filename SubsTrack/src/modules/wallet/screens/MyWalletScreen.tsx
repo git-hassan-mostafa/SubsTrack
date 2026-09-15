@@ -47,34 +47,38 @@ export function MyWalletScreen() {
 
   async function handleCloseOutItems(selected: WalletItem[]): Promise<boolean> {
     if (selected.length === 0) return false;
-    const ok = await confirm({
+    let acted = false;
+    await confirm({
       title: t("wallet.close_out_confirm_title"),
       message: t("wallet.close_out_confirm_message", { count: selected.length }),
       confirmLabel: t("wallet.close_out"),
+      onConfirm: async () => {
+        setBusy(true);
+        try {
+          await closeOutItems(selected.map((i) => i.id));
+          acted = true;
+        } finally {
+          setBusy(false);
+        }
+      },
     });
-    if (!ok) return false;
-    setBusy(true);
-    try {
-      await closeOutItems(selected.map((i) => i.id));
-      return true;
-    } finally {
-      setBusy(false);
-    }
+    return acted;
   }
 
   async function handleCloseOutAll() {
-    const ok = await confirm({
+    await confirm({
       title: t("wallet.close_out_all_confirm_title"),
       message: t("wallet.close_out_all_confirm_message"),
       confirmLabel: t("wallet.close_out_all"),
+      onConfirm: async () => {
+        setBusy(true);
+        try {
+          await closeOutAll();
+        } finally {
+          setBusy(false);
+        }
+      },
     });
-    if (!ok) return;
-    setBusy(true);
-    try {
-      await closeOutAll();
-    } finally {
-      setBusy(false);
-    }
   }
 
   return (

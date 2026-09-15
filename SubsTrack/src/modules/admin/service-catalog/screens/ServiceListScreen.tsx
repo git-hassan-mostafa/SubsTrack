@@ -82,16 +82,20 @@ export function ServiceListScreen() {
     setFormVisible(true);
   }
 
-  async function handleDelete(service: Service) {
-    const ok = await confirm({
+  async function handleDelete(service: Service): Promise<boolean> {
+    let deleted = false;
+    await confirm({
       title: t("services.delete_title"),
       message: t("services.delete_message", { name: service.name }),
       confirmLabel: t("common.delete"),
       destructive: true,
+      onConfirm: async () => {
+        await deleteService(service.id);
+        deleted = true;
+      },
     });
-    if (!ok) return;
-    await deleteService(service.id);
-    setFormVisible(false);
+    if (deleted) setFormVisible(false);
+    return deleted;
   }
 
   async function handleReactivate(service: Service) {
@@ -141,24 +145,26 @@ export function ServiceListScreen() {
   async function runBulkDelete(selected: Service[]) {
     if (bulkBusy || selected.length === 0) return;
     if (selected.length === 1) {
-      await handleDelete(selected[0]);
-      clearSelection();
+      if (await handleDelete(selected[0])) clearSelection();
       return;
     }
-    const ok = await confirm({
+    let deleted = false;
+    await confirm({
       title: t("services.bulk_delete_title", { count: selected.length }),
       message: t("services.bulk_delete_message", { count: selected.length }),
       confirmLabel: t("common.delete"),
       destructive: true,
+      onConfirm: async () => {
+        setBulkBusy(true);
+        try {
+          await bulkDeleteServices(selected.map((s) => s.id));
+          deleted = true;
+        } finally {
+          setBulkBusy(false);
+        }
+      },
     });
-    if (!ok) return;
-    setBulkBusy(true);
-    try {
-      await bulkDeleteServices(selected.map((s) => s.id));
-    } finally {
-      setBulkBusy(false);
-    }
-    clearSelection();
+    if (deleted) clearSelection();
   }
 
   // Toolbar actions for the selection header. 1 selected → edit + delete (active)

@@ -108,7 +108,8 @@ export function WalletsScreen() {
   ): Promise<boolean> {
     if (selected.length === 0) return false;
     const closing = modeFor(wallet) === "close_out";
-    const ok = await confirm({
+    let acted = false;
+    await confirm({
       title: closing
         ? t("wallet.close_out_confirm_title")
         : t("wallet.receive_confirm_title"),
@@ -120,17 +121,19 @@ export function WalletsScreen() {
               count: selected.length,
             }),
       confirmLabel: closing ? t("wallet.close_out") : t("wallet.receive"),
+      onConfirm: async () => {
+        const payload = selected.map((i) => i.id);
+        setBusy(true);
+        try {
+          if (closing) await closeOutItems(payload);
+          else await receiveFrom(wallet.holderUserId, payload);
+          acted = true;
+        } finally {
+          setBusy(false);
+        }
+      },
     });
-    if (!ok) return false;
-    const payload = selected.map((i) => i.id);
-    setBusy(true);
-    try {
-      if (closing) await closeOutItems(payload);
-      else await receiveFrom(wallet.holderUserId, payload);
-      return true;
-    } finally {
-      setBusy(false);
-    }
+    return acted;
   }
 
   // Shared "empty this whole wallet" flow — used by both the detail sheet's
@@ -138,7 +141,7 @@ export function WalletsScreen() {
   // wallet drops off the list afterward).
   async function actAllFor(wallet: UserWallet, fromSheet: boolean) {
     const closing = modeFor(wallet) === "close_out";
-    const ok = await confirm({
+    await confirm({
       title: closing
         ? t("wallet.close_out_all_confirm_title")
         : t("wallet.receive_all_confirm_title"),
@@ -146,18 +149,19 @@ export function WalletsScreen() {
         ? t("wallet.close_out_all_confirm_message")
         : t("wallet.receive_all_confirm_message", { name: wallet.holderName }),
       confirmLabel: closing ? t("wallet.close_out_all") : t("wallet.receive_all"),
+      onConfirm: async () => {
+        if (fromSheet) setBusy(true);
+        else setActingId(wallet.holderUserId);
+        try {
+          if (closing) await closeOutAll();
+          else await receiveAllFrom(wallet.holderUserId);
+          if (fromSheet) closeHolder();
+        } finally {
+          if (fromSheet) setBusy(false);
+          else setActingId(null);
+        }
+      },
     });
-    if (!ok) return;
-    if (fromSheet) setBusy(true);
-    else setActingId(wallet.holderUserId);
-    try {
-      if (closing) await closeOutAll();
-      else await receiveAllFrom(wallet.holderUserId);
-      if (fromSheet) closeHolder();
-    } finally {
-      if (fromSheet) setBusy(false);
-      else setActingId(null);
-    }
   }
 
   function buildMenuActions(wallet: UserWallet | null): ActionMenuItem[] {

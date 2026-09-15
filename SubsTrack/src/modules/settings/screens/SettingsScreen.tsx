@@ -123,15 +123,16 @@ export function SettingsScreen() {
   }
 
   async function handleLogoutPress() {
-    const ok = await confirm({
+    await confirm({
       title: t("settings.logout"),
       message: t("settings.logout_confirm"),
       confirmLabel: t("settings.logout"),
       destructive: true,
+      onConfirm: async () => {
+        await logout();
+        resetAllDomainStores();
+      },
     });
-    if (!ok) return;
-    await logout();
-    resetAllDomainStores();
   }
   return (
     <SafeAreaView className="flex-1 bg-gray-50">

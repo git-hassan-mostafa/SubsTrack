@@ -75,24 +75,29 @@ export function BranchesScreen() {
   }
 
   async function handleDeactivateBranch(branch: Branch) {
-    const ok = await confirm({
+    await confirm({
       title: t("branches.deactivate_title"),
       message: t("branches.deactivate_message", { name: branch.name }),
       destructive: true,
+      onConfirm: async () => {
+        await deleteBranch(branch.id);
+      },
     });
-    if (!ok) return;
-    await deleteBranch(branch.id);
   }
 
-  async function handleDeleteBranch(branch: Branch) {
-    const ok = await confirm({
+  async function handleDeleteBranch(branch: Branch): Promise<boolean> {
+    let deleted = false;
+    await confirm({
       title: t("branches.delete_title"),
       message: t("branches.delete_message", { name: branch.name }),
       confirmLabel: t("common.delete"),
       destructive: true,
+      onConfirm: async () => {
+        await deleteBranch(branch.id);
+        deleted = true;
+      },
     });
-    if (!ok) return;
-    await deleteBranch(branch.id);
+    return deleted;
   }
 
   function buildMenuActions(branch: Branch | null): ActionMenuItem[] {
@@ -139,24 +144,26 @@ export function BranchesScreen() {
   async function runBulkDelete(selected: Branch[]) {
     if (bulkBusy || selected.length === 0) return;
     if (selected.length === 1) {
-      await handleDeleteBranch(selected[0]);
-      clearSelection();
+      if (await handleDeleteBranch(selected[0])) clearSelection();
       return;
     }
-    const ok = await confirm({
+    let deleted = false;
+    await confirm({
       title: t("branches.bulk_delete_title", { count: selected.length }),
       message: t("branches.bulk_delete_message", { count: selected.length }),
       confirmLabel: t("common.delete"),
       destructive: true,
+      onConfirm: async () => {
+        setBulkBusy(true);
+        try {
+          await bulkDeleteBranches(selected.map((b) => b.id));
+          deleted = true;
+        } finally {
+          setBulkBusy(false);
+        }
+      },
     });
-    if (!ok) return;
-    setBulkBusy(true);
-    try {
-      await bulkDeleteBranches(selected.map((b) => b.id));
-    } finally {
-      setBulkBusy(false);
-    }
-    clearSelection();
+    if (deleted) clearSelection();
   }
 
   // Toolbar actions for the selection header. 1 selected → edit + deactivate

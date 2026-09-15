@@ -173,7 +173,7 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
   // counting in stock and in Expenses for its OWN month, and stays in the
   // history marked reversed — see docs/features.md → Reverting a stock entry.
   async function handleRevert(m: StockMovement) {
-    const ok = await confirm({
+    await confirm({
       title: t("products.revert_stock_title"),
       message: t("products.revert_stock_message", {
         entry: `${t(`products.stock_reason_${m.reason}`)} ${
@@ -182,11 +182,12 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
       }),
       confirmLabel: t("products.revert_stock_confirm"),
       destructive: true,
+      onConfirm: async () => {
+        if (!(await revertStockMovement(m.id, user?.id ?? null))) return;
+        if (editing?.id === m.id) resetForm();
+        await loadHistory();
+      },
     });
-    if (!ok) return;
-    if (!(await revertStockMovement(m.id, user?.id ?? null))) return;
-    if (editing?.id === m.id) resetForm();
-    await loadHistory();
   }
 
   function buildMenuActions(m: StockMovement | null): ActionMenuItem[] {

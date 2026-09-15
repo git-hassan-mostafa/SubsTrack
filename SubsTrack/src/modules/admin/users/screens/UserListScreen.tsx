@@ -96,36 +96,43 @@ export function UserListScreen() {
 
   async function handleToggleActiveUser(user: AppUser) {
     if (!currentUser) return;
-    const ok = await confirm({
+    await confirm({
       title: user.active ? t("users.deactivate") : t("users.activate"),
       message: user.active
         ? t("customers.deactivate_message", { name: user.fullName })
         : t("customers.reactivate_message", { name: user.fullName }),
       destructive: user.active,
+      onConfirm: async () => {
+        if (user.active) {
+          await deactivateUser(
+            user.id,
+            currentUser.id,
+            currentUser.role,
+            user.role,
+          );
+        } else {
+          await activateUser(
+            user.id,
+            currentUser.id,
+            currentUser.role,
+            user.role,
+          );
+        }
+      },
     });
-    if (!ok) return;
-    if (user.active) {
-      await deactivateUser(
-        user.id,
-        currentUser.id,
-        currentUser.role,
-        user.role,
-      );
-    } else {
-      await activateUser(user.id, currentUser.id, currentUser.role, user.role);
-    }
   }
 
   async function handleDeleteUser(user: AppUser) {
     if (!currentUser) return;
-    const ok = await confirm({
+    await confirm({
       title: t("users.delete_title"),
       message: t("users.delete_message", { name: user.fullName }),
       confirmLabel: t("common.delete"),
       destructive: true,
+      onConfirm: async () => {
+        await deleteUser(user.id, currentUser.id, currentUser.role, user.role);
+      },
     });
-    if (!ok) return;
-    await deleteUser(user.id, currentUser.id, currentUser.role, user.role);
   }
 
   function buildMenuActions(user: AppUser | null): ActionMenuItem[] {
@@ -196,7 +203,8 @@ export function UserListScreen() {
       return;
     }
 
-    const ok = await confirm({
+    let deleted = false;
+    await confirm({
       title: t("users.bulk_delete_title", { count: manageable.length }),
       message:
         t("users.bulk_delete_message", { count: manageable.length }) +
@@ -205,19 +213,21 @@ export function UserListScreen() {
           : ""),
       confirmLabel: t("common.delete"),
       destructive: true,
+      onConfirm: async () => {
+        setBulkBusy(true);
+        try {
+          await bulkDeleteUsers(
+            manageable.map((u) => ({ id: u.id, role: u.role })),
+            currentUser.id,
+            currentUser.role,
+          );
+          deleted = true;
+        } finally {
+          setBulkBusy(false);
+        }
+      },
     });
-    if (!ok) return;
-    setBulkBusy(true);
-    try {
-      await bulkDeleteUsers(
-        manageable.map((u) => ({ id: u.id, role: u.role })),
-        currentUser.id,
-        currentUser.role,
-      );
-    } finally {
-      setBulkBusy(false);
-    }
-    clearSelection();
+    if (deleted) clearSelection();
   }
 
   // Toolbar actions for the selection header. 1 selected → edit + (toggle +

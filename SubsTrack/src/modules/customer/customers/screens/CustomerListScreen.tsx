@@ -380,8 +380,27 @@ export function CustomerListScreen() {
       return;
     }
     const multiCount = requests.filter((r) => r.durationMonths > 1).length;
+
+    async function pay() {
+      setQuickPayCustomerId(customer.id);
+      try {
+        const created = await executePay(requests);
+        if (send) {
+          for (const collection of created) {
+            await sendCollectionInvoice({
+              phone: customer.phoneNumber,
+              customerName: customer.name,
+              collection,
+            });
+          }
+        }
+      } finally {
+        setQuickPayCustomerId(null);
+      }
+    }
+
     if (requests.length > 1 || multiCount > 0) {
-      const ok = await confirm({
+      await confirm({
         title: t("payments.quick_pay.pay_now"),
         message:
           t("customers.bulk_pay_lines_message", { count: requests.length }) +
@@ -389,24 +408,11 @@ export function CustomerListScreen() {
             ? "\n\n" + t("customers.bulk_pay_warn_multi", { count: multiCount })
             : ""),
         confirmLabel: t("payments.quick_pay.pay_now"),
+        onConfirm: pay,
       });
-      if (!ok) return;
+      return;
     }
-    setQuickPayCustomerId(customer.id);
-    try {
-      const created = await executePay(requests);
-      if (send) {
-        for (const collection of created) {
-          await sendCollectionInvoice({
-            phone: customer.phoneNumber,
-            customerName: customer.name,
-            collection,
-          });
-        }
-      }
-    } finally {
-      setQuickPayCustomerId(null);
-    }
+    await pay();
   }
 
   // Show quick pay whenever a started line is still unpaid this month — for a
@@ -476,7 +482,7 @@ export function CustomerListScreen() {
   );
 
   async function handleToggleActiveCustomer(customer: Customer) {
-    const ok = await confirm({
+    await confirm({
       title: customer.active
         ? t("customers.deactivate_title")
         : t("customers.reactivate_title"),
@@ -484,24 +490,29 @@ export function CustomerListScreen() {
         ? t("customers.deactivate_message", { name: customer.name })
         : t("customers.reactivate_message", { name: customer.name }),
       destructive: customer.active,
+      onConfirm: async () => {
+        if (customer.active) {
+          await deactivateCustomer(customer.id);
+        } else {
+          await reactivateCustomer(customer.id);
+        }
+      },
     });
-    if (!ok) return;
-    if (customer.active) {
-      await deactivateCustomer(customer.id);
-    } else {
-      await reactivateCustomer(customer.id);
-    }
   }
 
-  async function handleDeleteCustomer(customer: Customer) {
-    const ok = await confirm({
+  async function handleDeleteCustomer(customer: Customer): Promise<boolean> {
+    let deleted = false;
+    await confirm({
       title: t("customers.delete_title"),
       message: t("customers.delete_message", { name: customer.name }),
       confirmLabel: t("common.delete"),
       destructive: true,
+      onConfirm: async () => {
+        await deleteCustomer(customer.id);
+        deleted = true;
+      },
     });
-    if (!ok) return;
-    await deleteCustomer(customer.id);
+    return deleted;
   }
 
   // Bulk quick pay ("collect all due"): pay every eligible fixed-price line of
@@ -536,44 +547,46 @@ export function CustomerListScreen() {
       warnings.push(
         t("customers.bulk_pay_skip_custom", { count: customCount }),
       );
-    const ok = await confirm({
+    await confirm({
       title: t("payments.quick_pay.pay_now"),
       message:
         t("customers.bulk_pay_lines_message", { count: requests.length }) +
         (warnings.length > 0 ? "\n\n" + warnings.join("\n") : ""),
       confirmLabel: t("payments.quick_pay.pay_now"),
+      onConfirm: async () => {
+        setBulkBusy(true);
+        try {
+          await executePay(requests);
+        } finally {
+          setBulkBusy(false);
+        }
+      },
     });
-    if (!ok) return;
-
-    setBulkBusy(true);
-    try {
-      await executePay(requests);
-    } finally {
-      setBulkBusy(false);
-    }
   }
 
   async function runBulkDelete(selected: Customer[]) {
     if (bulkBusy || selected.length === 0) return;
     if (selected.length === 1) {
-      await handleDeleteCustomer(selected[0]);
-      clearSelection();
+      if (await handleDeleteCustomer(selected[0])) clearSelection();
       return;
     }
-    const ok = await confirm({
+    let deleted = false;
+    await confirm({
       title: t("customers.bulk_delete_title", { count: selected.length }),
       message: t("customers.bulk_delete_message", { count: selected.length }),
       confirmLabel: t("common.delete"),
       destructive: true,
+      onConfirm: async () => {
+        setBulkBusy(true);
+        try {
+          await bulkDeleteCustomers(selected.map((c) => c.id));
+          deleted = true;
+        } finally {
+          setBulkBusy(false);
+        }
+      },
     });
-    if (!ok) return;
-    setBulkBusy(true);
-    try {
-      await bulkDeleteCustomers(selected.map((c) => c.id));
-    } finally {
-      setBulkBusy(false);
-    }
-    clearSelection();
+    if (deleted) clearSelection();
   }
 
   // Toolbar actions for the selection header. 1 selected → edit / toggle / delete
