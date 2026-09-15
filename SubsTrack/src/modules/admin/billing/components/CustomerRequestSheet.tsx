@@ -12,14 +12,13 @@ import { useBillingSlice } from "@/src/state/hooks/useBillingSlice";
 import { useSupportWhatsAppNumber } from "@/src/state/hooks/useOptionSlice";
 import { openWhatsApp } from "@/src/shared/lib/whatsapp";
 import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
+import { digitsOnly } from "@/src/core/utils/inputText";
 import { MIN_CUSTOMER_REQUEST } from "../utils/types";
 
 interface Props {
   editing?: boolean;
   onDismiss: () => void;
 }
-
-const digitsOnly = (next: string): string => next.replace(/[^0-9]/g, "");
 
 export function CustomerRequestSheet({ editing = false, onDismiss }: Props) {
   const { t } = useTranslation();

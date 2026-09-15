@@ -13,6 +13,7 @@ import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { Input } from "@/src/shared/components/Input";
 import type { Tenant } from "@/src/core/types";
 import { useTenantStore } from "../store/tenantStore";
+import { MIN_CUSTOMER_ALLOWANCE } from "../services/TenantService";
 
 interface Props {
   visible: boolean;
@@ -20,7 +21,7 @@ interface Props {
   onDismiss: () => void;
 }
 
-const DEFAULT_ALLOWANCE = "30";
+const DEFAULT_ALLOWANCE = String(MIN_CUSTOMER_ALLOWANCE);
 const DEFAULT_PRICE = "0.15";
 
 export function TenantFormSheet({ visible, tenant, onDismiss }: Props) {
@@ -110,7 +111,7 @@ export function TenantFormSheet({ visible, tenant, onDismiss }: Props) {
   const grantedValid = Number.isInteger(Number(granted)) && Number(granted) >= 1;
   const billingValid =
     Number.isInteger(Number(allowance)) &&
-    Number(allowance) >= 0 &&
+    Number(allowance) >= MIN_CUSTOMER_ALLOWANCE &&
     Number.isFinite(Number(price)) &&
     Number(price) >= 0;
 
@@ -210,6 +211,11 @@ export function TenantFormSheet({ visible, tenant, onDismiss }: Props) {
             keyboardType="number-pad"
             placeholder={DEFAULT_ALLOWANCE}
             onFocus={clearError}
+            error={
+              allowance && Number(allowance) < MIN_CUSTOMER_ALLOWANCE
+                ? `Minimum ${MIN_CUSTOMER_ALLOWANCE} customers`
+                : null
+            }
           />
 
           <Input

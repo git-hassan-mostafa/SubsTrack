@@ -109,9 +109,23 @@ ALTER TABLE tenants ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT TRU
 
 -- How many ACTIVE customers this tenant may hold. Owner-only: raised from
 -- SuperAdmin or by accepting a customer_requests row. Guarded against
--- tenant-side writes by trg_tenants_guard_billing.
-ALTER TABLE tenants ADD COLUMN IF NOT EXISTS customer_allowance INT NOT NULL DEFAULT 30
-    CONSTRAINT chk_tenants_customer_allowance CHECK (customer_allowance >= 0);
+-- tenant-side writes by trg_tenants_guard_billing. 30 is the floor every
+-- tenant starts on and none may go below — see MIN_CUSTOMER_ALLOWANCE.
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS customer_allowance INT NOT NULL DEFAULT 30;
+
+-- The floor moved 0 -> 30, and a CHECK on the line above would not be
+-- re-evaluated on a live DB, so it lives here instead: drop the old
+-- constraint by name, lift any tenant sitting under the new floor, then add
+-- the new one. Runs clean on a fresh database too.
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'chk_tenants_customer_allowance_min'
+    ) THEN
+        ALTER TABLE tenants ADD CONSTRAINT chk_tenants_customer_allowance_min
+            CHECK (customer_allowance >= 30);
+    END IF;
+END $$;
 
 -- USD charged per ACTIVE customer per month. Owner-only, same guard.
 ALTER TABLE tenants ADD COLUMN IF NOT EXISTS price_per_customer_usd NUMERIC(10,4) NOT NULL DEFAULT 0.15
@@ -1840,6 +1854,72 @@ CREATE OR REPLACE FUNCTION current_branch_id()
 RETURNS UUID AS $$
     SELECT branch_id FROM public.users WHERE id = auth.uid();
 $$ LANGUAGE SQL STABLE SECURITY DEFINER;
+
+-- ============================================================
+-- LOWER A TENANT'S OWN CUSTOMER ALLOWANCE
+-- Raising is owner-only (a request the owner accepts), but LOWERING only ever
+-- saves the tenant money, so an admin does it themselves and it applies at
+-- once. SECURITY DEFINER because trg_tenants_guard_billing and the missing
+-- UPDATE policy both block a tenant-side write to customer_allowance.
+-- The active-customer floor is counted HERE, never taken from the client — a
+-- forged count would strand the tenant over their own cap.
+-- ============================================================
+
+CREATE OR REPLACE FUNCTION lower_customer_allowance(p_new_allowance INT)
+RETURNS tenants
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+    v_tenant_id UUID := current_tenant_id();
+    v_current INT;
+    v_active INT;
+    v_row tenants;
+BEGIN
+    IF v_tenant_id IS NULL THEN
+        RAISE EXCEPTION 'No tenant on this session';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM public.users u
+        WHERE u.id = auth.uid()
+          AND u.role IN ('admin', 'superadmin')
+          AND u.active = true
+    ) THEN
+        RAISE EXCEPTION 'Only an admin may change the customer limit';
+    END IF;
+
+    IF p_new_allowance IS NULL OR p_new_allowance < 30 THEN
+        RAISE EXCEPTION 'The customer limit cannot go below 30';
+    END IF;
+
+    SELECT customer_allowance INTO v_current FROM tenants WHERE id = v_tenant_id;
+
+    IF p_new_allowance >= v_current THEN
+        RAISE EXCEPTION 'This door only lowers the limit; request more to raise it';
+    END IF;
+
+    SELECT COUNT(*) INTO v_active
+    FROM customers
+    WHERE tenant_id = v_tenant_id AND active = true;
+
+    IF p_new_allowance < v_active THEN
+        RAISE EXCEPTION 'active_customers_exceed_limit:%:%', v_active, p_new_allowance;
+    END IF;
+
+    UPDATE tenants
+    SET customer_allowance = p_new_allowance
+    WHERE id = v_tenant_id
+    RETURNING * INTO v_row;
+
+    RETURN v_row;
+END;
+$$;
+
+-- Deliberately the OPPOSITE of accept_customer_request above: tenant admins are
+-- meant to call this one, and every refusal is inside the body.
+GRANT EXECUTE ON FUNCTION lower_customer_allowance(INT) TO authenticated;
+REVOKE EXECUTE ON FUNCTION lower_customer_allowance(INT) FROM anon;
 
 -- ============================================================
 -- CUSTOM ACCESS TOKEN HOOK

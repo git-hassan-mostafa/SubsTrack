@@ -1,23 +1,24 @@
 # QA — Customer Allowance & Billing
 
-Covers per-customer pricing: the **Customers & billing** card in Organization Settings, the monthly amount, the "request more customers" flow (send / edit / cancel), the SaaS owner accepting or declining a request from SuperAdmin, the hard cap on creating customers, and the server-side locks that stop a tenant admin raising their own allowance.
+Covers per-customer pricing: the **Customers & billing** card in Organization Settings, the monthly amount, the "request more customers" flow (send / edit / cancel), the SaaS owner accepting or declining a request from SuperAdmin, the hard cap on creating customers, the single **Update customer number** sheet that raises by request and lowers instantly (§13), and the server-side locks that stop a tenant admin raising it.
 
 There are **no tiers**. Branches, users, plans, products and currencies are unlimited, multi-currency and multi-month plans are always on, and the only quantity limit left in the product is **how many active customers a tenant may hold**.
 
 ## Reference code
 
 - Module: [SubsTrack/src/modules/admin/billing/](../SubsTrack/src/modules/admin/billing/)
-- Service: [BillingService.ts](../SubsTrack/src/modules/admin/billing/services/BillingService.ts) (`monthlyAmountUsd`, `assertCanCreateCustomer`, `validateRequest`)
+- Service: [BillingService.ts](../SubsTrack/src/modules/admin/billing/services/BillingService.ts) (`monthlyAmountUsd`, `assertCanCreateCustomer`, `validateRequest`, `validateDecrease`, `lowerAllowance`)
 - Settings card: [CustomerAllowanceSection.tsx](../SubsTrack/src/modules/admin/billing/components/CustomerAllowanceSection.tsx)
 - Request sheet: [CustomerRequestSheet.tsx](../SubsTrack/src/modules/admin/billing/components/CustomerRequestSheet.tsx)
+- Update sheet (both directions): [UpdateAllowanceSheet.tsx](../SubsTrack/src/modules/admin/billing/components/UpdateAllowanceSheet.tsx) · usage bar: [UsageBar.tsx](../SubsTrack/src/modules/admin/billing/components/UsageBar.tsx) · sign helper: [allowanceChange.ts](../SubsTrack/src/modules/admin/billing/utils/allowanceChange.ts)
 - Block modal: [CustomerLimitReachedModal.tsx](../SubsTrack/src/modules/admin/billing/components/CustomerLimitReachedModal.tsx)
-- Typed error: [customerLimitError.ts](../SubsTrack/src/modules/admin/billing/utils/customerLimitError.ts) · min constant: [types.ts](../SubsTrack/src/modules/admin/billing/utils/types.ts) (`MIN_CUSTOMER_REQUEST = 10`)
-- Repositories: [CustomerRequestRepository.ts](../SubsTrack/src/modules/admin/billing/repository/CustomerRequestRepository.ts) (web) · [CustomerRequestRepository.offline.ts](../SubsTrack/src/modules/admin/billing/repository/CustomerRequestRepository.offline.ts) (native, online-only)
+- Typed errors: [customerLimitError.ts](../SubsTrack/src/modules/admin/billing/utils/customerLimitError.ts), [allowanceFloorError.ts](../SubsTrack/src/modules/admin/billing/utils/allowanceFloorError.ts) · min constant: [types.ts](../SubsTrack/src/modules/admin/billing/utils/types.ts) (`MIN_CUSTOMER_REQUEST = 10`)
+- Repositories: [CustomerRequestRepository.ts](../SubsTrack/src/modules/admin/billing/repository/CustomerRequestRepository.ts) (web) · [CustomerRequestRepository.offline.ts](../SubsTrack/src/modules/admin/billing/repository/CustomerRequestRepository.offline.ts) (native, online-only) · [AllowanceRepository.ts](../SubsTrack/src/modules/admin/billing/repository/AllowanceRepository.ts) + [.offline](../SubsTrack/src/modules/admin/billing/repository/AllowanceRepository.offline.ts) (the `lower_customer_allowance` RPC, online-only)
 - Slice: [billingSlice.ts](../SubsTrack/src/state/slices/billing/billingSlice.ts) · hook `useBillingSlice`
 - Cap enforcement: [CustomerService.createCustomer](../SubsTrack/src/modules/customer/customers/services/CustomerService.ts) → [customerSlice.ts](../SubsTrack/src/state/slices/customers/customerSlice.ts)
 - Host screen: [TenantSettingsScreen.tsx](../SubsTrack/src/modules/admin/tenant-settings/screens/TenantSettingsScreen.tsx)
 - SuperAdmin: [TenantCard.tsx](../SuperAdmin/src/modules/tenants/components/TenantCard.tsx), [TenantFormSheet.tsx](../SuperAdmin/src/modules/tenants/components/TenantFormSheet.tsx), [TenantService.ts](../SuperAdmin/src/modules/tenants/services/TenantService.ts), [TenantRepository.ts](../SuperAdmin/src/modules/tenants/repository/TenantRepository.ts)
-- SQL: `tenants.customer_allowance` / `tenants.price_per_customer_usd`, table `customer_requests`, index `uq_customer_requests_one_pending`, trigger `trg_tenants_guard_billing`, function `accept_customer_request()` in [sql scripts/script.sql](../sql%20scripts/script.sql)
+- SQL: `tenants.customer_allowance` / `tenants.price_per_customer_usd`, table `customer_requests`, index `uq_customer_requests_one_pending`, trigger `trg_tenants_guard_billing`, functions `accept_customer_request()` / `lower_customer_allowance()` in [sql scripts/script.sql](../sql%20scripts/script.sql)
 - Local mirror columns: [tables.ts](../SubsTrack/src/core/offline/db/tables.ts) (`tenants.customer_allowance`, `tenants.price_per_customer_usd`)
 - Unit tests: `tests/suites/customerAllowance.test.ts` (TC-CA-01…11) — see [money-unit-tests.md](money-unit-tests.md)
 
@@ -25,7 +26,7 @@ There are **no tiers**. Branches, users, plans, products and currencies are unli
 
 **DB constraints:**
 
-- `chk_tenants_customer_allowance` — `customer_allowance >= 0`.
+- `chk_tenants_customer_allowance_min` — `customer_allowance >= 30`. **Renamed** from `chk_tenants_customer_allowance` (`>= 0`); `script.sql` drops the old one, lifts any tenant under 30 onto 30, then adds the new one.
 - `chk_tenants_price_per_customer` — `price_per_customer_usd >= 0`, `NUMERIC(10,4)`.
 - `chk_customer_requests_min` — `requested_count >= 10`.
 - `chk_customer_requests_status` — `status IN ('pending','accepted','declined','cancelled')`.
@@ -162,7 +163,7 @@ Enforced in `CustomerService.createCustomer` via `billingService.assertCanCreate
 | 7.1 | Under the cap | Allowance 30, 29 active, add a customer | Saved normally; count becomes 30 |
 | 7.2 | **At the cap** | Allowance 30, 30 active, submit the Add Customer form | "Customer limit reached" modal; **no row inserted**; the form stays open behind it |
 | 7.3 | Over the cap | Owner lowers the allowance to 20 while 30 are active, try to add | Blocked the same way — the modal reports 30 of 20 |
-| 7.4 | Zero allowance | Owner sets allowance `0`, try to add the first customer | Blocked |
+| 7.4 | Allowance at the floor | Owner sets allowance `30`, tenant fills all 30, try to add the 31st | Blocked — `0` is no longer settable, 30 is the product minimum |
 | 7.5 | Deactivating frees a slot | At the cap, deactivate one customer, retry the create | Succeeds — the cap counts active rows only |
 | 7.6 | Reactivating re-fills it | At allowance, reactivate a previously deactivated customer, then try to add a new one | Blocked again |
 | 7.7 | **Tenant-wide admin gets a way out** | Hit the cap as an admin with `branch_id = null` | Modal shows the count vs allowance and a primary button to Organization Settings |
@@ -225,10 +226,11 @@ Enforced in `CustomerService.createCustomer` via `billingService.assertCanCreate
 | 10.2 | Raise the allowance directly | No pending request; set allowance 30 → 500, Save | Saved; the tenant card's billing line updates; no request row created |
 | 10.3 | Lower the allowance | Set allowance below the tenant's current active count, Save | Allowed — existing customers are untouched, but the tenant can create no more (§7.3) |
 | 10.4 | Change the price | Set price `0.15` → `0.25`, Save | Saved; the tenant's monthly amount recomputes on their next read |
-| 10.5 | Allowance validation | Enter `-1` or `12.5` | Save disabled / "Customer allowance must be a whole number of 0 or more" |
+| 10.5 | Allowance validation | Enter `-1`, `12.5` or `29` | Save disabled / "Customer allowance must be a whole number of 30 or more" |
 | 10.6 | Price validation | Enter a negative price | Refused by validation and by `chk_tenants_price_per_customer` |
-| 10.7 | Zero allowance | Set allowance `0`, Save | Saved; that tenant can create no customers at all |
-| 10.8 | New tenant defaults | SuperAdmin → + Add Tenant, leave both fields at their placeholders | Tenant created with 30 / 0.15 |
+| 10.7 | Below the minimum | Set allowance `29` or `0`, Save | Refused — "Minimum 30 customers" under the field, Save disabled, and `chk_tenants_customer_allowance_min` would refuse it anyway |
+| 10.8 | New tenant defaults | SuperAdmin → + Add Tenant, leave both fields at their placeholders | Tenant created with 30 / 0.15 — the schema DEFAULT, the placeholder and `MIN_CUSTOMER_ALLOWANCE` all agree |
+| 10.8b | Self-service signup | Sign up a brand-new tenant from the SubsTrack app | Allowance is **30**: `create-tenant` omits the column on purpose, so the schema DEFAULT decides it in one place |
 | 10.9 | New tenant with overrides | Set 200 / 0.10 before submitting | Tenant created with those values |
 | 10.10 | Editing name only | Change only the tenant name, Save | Allowance and price come back unchanged (the form sends what it holds) |
 | 10.11 | Two tabs only | Look at the SuperAdmin tab bar | **Tenants** and **Options** — there is no Tier Plans tab |
@@ -265,3 +267,43 @@ Enforced in `CustomerService.createCustomer` via `billingService.assertCanCreate
 | 12.8 | Slow network on Accept | Throttle, tap Accept | Button shows a loading state and cannot be double-fired; exactly one raise lands |
 | 12.9 | Accept race | Owner accepts while the admin cancels at the same moment | Whichever lands first wins; the second fails cleanly ("Request is not pending" / no pending row) with no allowance drift |
 | 12.10 | Unit tests green | `cd tests && npm test -- suites/customerAllowance.test.ts` | TC-CA-01…11 all pass — see [money-unit-tests.md](money-unit-tests.md) |
+
+## 13. Update customer number — one door, both directions
+
+**Organization Settings → Customers & billing** now carries a **single** button, **Update customer number**, which opens `<UpdateAllowanceSheet />`. The sheet holds **two fields for one number**: the **Allowed customers** total on the left, and a **signed Change** stepper (− / value / +) on the right. Typing in either rewrites the other — `total` is the only state, the change field is a view over it (`total − allowance`), so they cannot drift apart.
+
+**The sign decides which path the Save takes.** A **negative** change lowers the allowance **at once** (the `lower_customer_allowance` RPC). A **positive** change sends a **request** for the owner to accept, exactly as before.
+
+**A decrease has TWO floors and the HIGHER one binds:** the product minimum of **30** (`MIN_CUSTOMER_ALLOWANCE`, mirrored by `chk_tenants_customer_allowance_min` and by the RPC) and the tenant's **active customer count**, re-counted server-side. 30 is also the allowance every tenant is created with, from SuperAdmin and from self-service signup alike.
+
+| # | Scenario | Steps | Expected result |
+|---|----------|-------|-----------------|
+| 13.1 | Two fields, one number | Allowance 100. Open the sheet | Total reads `100`, Change is **empty** (not `+0`), Save disabled |
+| 13.2 | Total drives Change (up) | Type `120` in the total | Change shows **`+20` in green**; the button reads "Send request" |
+| 13.3 | Total drives Change (down) | Type `80` in the total | Change shows **`-20` in red**; the button reads "Lower limit" |
+| 13.4 | Change drives Total (up) | Type `20` in the change field | Total becomes `120` |
+| 13.5 | Change drives Total (down) | Type `-20` in the change field | Total becomes `80` |
+| 13.6 | Plus / minus steppers | Tap **+** three times, then **−** once | Total `103`, change `+3` then `+2`; both fields stay in step |
+| 13.7 | Back to the start | Move the number away and back to `100` | Change empties, Save goes disabled — a no-op change is not saveable |
+| 13.8 | Typing is never eaten | Type `120` quickly, then `95` | Every keystroke lands; the caret never jumps (both fields go through `useTextField`) |
+| 13.9 | Minus cannot reach the total | Try to type `-5` in the **total** field | Refused — only the change field takes a sign |
+| 13.10 | Floor blocks the cut | 40 active, allowance 60 → total `39` | Field turns red, amber "Deactivate 1 customers" panel, Save disabled |
+| 13.11 | Cut to exactly the active count | 40 active → total `40` | Allowed and saved instantly |
+| 13.12 | Minimum on a raise | Allowance 100 → total `105` (change `+5`) | "Please request at least 10 more customers"; Save disabled |
+| 13.13 | Raise at the minimum | Total `110` (change `+10`) | Allowed; a pending request for **10** is created |
+| 13.14 | Raise sends a request, not a change | Save a `+20` | The allowance is **unchanged**; the amber pending block appears on the card |
+| 13.15 | WhatsApp only on a raise | Compare a `+20` and a `-20` | "Send request + WhatsApp" shows only for the raise (and only when a support number is set) |
+| 13.16 | Lowering confirms first | Enter `-20`, Save, then Cancel the dialog | Nothing is written |
+| 13.17 | Stepper stops at the minimum | Hold **−** past 30 | Total stops at `30`; the minus button greys out |
+| 13.18 | Monthly amount does not move | Lower 60 → 45 with 40 active | Still `40 × price` — billing follows **active customers**, never the limit |
+| 13.19 | Survives a restart | Lower the limit, force-quit, reopen | The new limit is still shown (`auth.user.tenant` is patched too) |
+| 13.20 | Offline | Turn the network off, try to lower | `RequiresConnectionError` in the sheet's `ErrorBanner`; nothing changes |
+| 13.21 | Server has the last word | Let another device add customers so the local count is stale, then cut to the stale floor | The RPC refuses and the sheet shows "deactivate first" built from the **server's** count |
+| 13.22 | Pending request edits elsewhere | With a request pending, open the card | The pending block's **Edit request** still opens `CustomerRequestSheet`; the update button is hidden while one is pending |
+| 13.23 | Guard still holds | As a tenant admin, `UPDATE tenants SET customer_allowance = 999` | Refused by `trg_tenants_guard_billing` — the RPC is the only door, and it only goes down |
+| 13.24 | Usage bar colours | Watch the card's bar at 50%, 85% and 100% | Indigo, amber from 80%, red at or over the limit |
+| 13.25 | Unit tests green | `cd tests && npm test -- suites/customerAllowance.test.ts` | TC-CA-01…11, TC-CD-01…07 and TC-CS-01…03 all pass |
+| 13.26 | Typed below the minimum | 0 active, allowance 100 → total `29` | "The customer limit cannot go below 30"; Save disabled |
+| 13.27 | Cut to exactly the minimum | 0 active, allowance 100 → total `30` | Allowed and saved |
+| 13.28 | Active count outranks the minimum | 45 active → total `30` | The **floor** message wins: it asks to deactivate 15, rather than naming the 30 minimum |
+| 13.29 | Server refuses too | Call the RPC directly with `29` | RAISEs "The customer limit cannot go below 30" — the UI is not the only guard |

@@ -57,9 +57,15 @@ export interface UpdateTenantInput {
   pricePerCustomerUsd: number;
 }
 
+// The allowance every tenant starts on and none may go below. Mirrored by
+// chk_tenants_customer_allowance_min and by the tenant app's own constant.
+export const MIN_CUSTOMER_ALLOWANCE = 30;
+
 function validateBilling(allowance: number, price: number): void {
-  if (!Number.isInteger(allowance) || allowance < 0)
-    throw new Error("Customer allowance must be a whole number of 0 or more");
+  if (!Number.isInteger(allowance) || allowance < MIN_CUSTOMER_ALLOWANCE)
+    throw new Error(
+      `Customer allowance must be a whole number of ${MIN_CUSTOMER_ALLOWANCE} or more`,
+    );
   if (!Number.isFinite(price) || price < 0)
     throw new Error("Price per customer must be 0 or more");
 }
@@ -83,6 +89,12 @@ export class TenantService {
     if (!data.adminFullName.trim()) throw new Error("Admin full name is required");
     if (data.adminPassword.length < 8)
       throw new Error("Password must be at least 8 characters");
+    // Only what was actually typed is checked; an omitted field takes the
+    // schema default, which already sits on the floor.
+    validateBilling(
+      data.customerAllowance ?? MIN_CUSTOMER_ALLOWANCE,
+      data.pricePerCustomerUsd ?? 0,
+    );
 
     const payload: CreateTenantPayload = {
       name: data.name.trim(),

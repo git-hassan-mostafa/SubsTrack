@@ -233,7 +233,7 @@ See gotcha #38.
 
 There are no tiers. A tenant is billed on **one number of customers it is allowed to hold**, at **one agreed price per customer**, and every other resource — users, branches, plans, products, currencies, sales, stock — is **unlimited**. Two columns on `tenants` carry the whole commercial relationship:
 
-- `customer_allowance INT NOT NULL DEFAULT 30` — how many **active** customers this tenant may hold.
+- `customer_allowance INT NOT NULL DEFAULT 30` — how many **active** customers this tenant may hold. 30 is both the starting deal and a hard **floor** (`chk_tenants_customer_allowance_min`), so every tenant — SuperAdmin-created or self-service — begins there and none may go under it.
 - `price_per_customer_usd NUMERIC(10,4) NOT NULL DEFAULT 0.15` — USD charged per active customer per month. `NUMERIC(10,4)` because a per-customer price is fractions of a cent wide; rounding happens only at the total.
 
 **Both columns are OWNER-ONLY, locked twice.** They decide what the tenant pays, so the tenant must not be able to touch them:
@@ -243,9 +243,11 @@ There are no tiers. A tenant is billed on **one number of customers it is allowe
 
 Only the **service role** writes them — SuperAdmin and the edge functions, both of which bypass RLS and carry no `auth.uid()`.
 
+**One exception, and it only ever goes DOWN:** `lower_customer_allowance(p_new_allowance INT)` — `SECURITY DEFINER`, so it passes the guard, but it refuses anything that is not a cut (`p_new_allowance >= current` RAISEs), refuses a caller who is not an active `admin`/`superadmin`, and refuses to drop below the tenant's **own live active-customer count**, which it `SELECT COUNT(*)`s itself rather than trusting a number from the client. Raising still costs a request the owner accepts; lowering only ever saves the tenant money, so there is nothing to approve. See **Lowering the allowance** below.
+
 **The numbers ride in on the auth-time tenant row.** `AuthRepository.getTenant` already returns the tenant, so allowance and price cost **no extra fetch**. Only the active-customer count and the pending request touch the network.
 
-**Module:** `src/modules/admin/billing/` — `services/BillingService.ts`, the `ICustomerRequestRepository` / `CustomerRequestRepository` / `CustomerRequestRepository.offline` trio, `utils/` (`customerLimitError.ts`, `types.ts`, `mapper.ts` — which owns `mapDbTenantToTenant`, moved here from the old subscription module, plus `mapDbCustomerRequestToCustomerRequest`), and three components. **State** is the global `billing` slice at [src/state/slices/billing/billingSlice.ts](../SubsTrack/src/state/slices/billing/billingSlice.ts) (`allowance`, `pricePerCustomerUsd`, `activeCustomers`, `request`, `loading`, `saving`, `error`, plus `init` / `refreshCounts` / `refreshRequest` / `setActiveCustomers` / `requestMore` / `editRequest` / `cancelRequest` / `clearError` / `reset`), read through `useBillingSlice`. `authSlice.primePostAuth` calls `billing.init(tenantId)`; `logout` calls `billing.reset()`.
+**Module:** `src/modules/admin/billing/` — `services/BillingService.ts`, the `ICustomerRequestRepository` / `CustomerRequestRepository` / `CustomerRequestRepository.offline` trio plus the matching `IAllowanceRepository` / `AllowanceRepository` / `AllowanceRepository.offline` trio for the lowering RPC, `utils/allowanceChange.ts` (`signedText`), `utils/` (`customerLimitError.ts`, `types.ts`, `mapper.ts` — which owns `mapDbTenantToTenant`, moved here from the old subscription module, plus `mapDbCustomerRequestToCustomerRequest`), and three components. **State** is the global `billing` slice at [src/state/slices/billing/billingSlice.ts](../SubsTrack/src/state/slices/billing/billingSlice.ts) (`allowance`, `pricePerCustomerUsd`, `activeCustomers`, `request`, `loading`, `saving`, `error`, `floorError`, plus `init` / `refreshCounts` / `refreshRequest` / `setActiveCustomers` / `lowerAllowance` / `requestMore` / `editRequest` / `cancelRequest` / `clearError` / `reset`), read through `useBillingSlice`. `authSlice.primePostAuth` calls `billing.init(tenantId)`; `logout` calls `billing.reset()`.
 
 ---
 
@@ -276,10 +278,9 @@ Replaces the old `UpgradePromptModal`. It says the allowance is full and offers 
 
 `<CustomerAllowanceSection />` ([components/CustomerAllowanceSection.tsx](../SubsTrack/src/modules/admin/billing/components/CustomerAllowanceSection.tsx)) renders **above** `<DisplayCurrencySection />` on `TenantSettingsScreen`. It shows:
 
-- **Allowed customers** — `customer_allowance`.
-- **Current customers** — the tenant-wide active count.
-- **Monthly amount** — `BillingService.monthlyAmountUsd(activeCustomers, pricePerCustomerUsd)`, rounded to 2dp. 100 customers × $0.15 = **$15.00**. The rounding is deliberate and tested: `7 × 0.15` must print `1.05`, not `1.0499999…`.
-- Then one of three states: a **"Request more customers"** button, an **amber pending block** with Edit / Cancel, or a **red "declined"** note.
+- A **`<UsageBar />`** at the top — `used / total` as one big figure, a filled track, and a "N more customers available" line (or "you have used your whole limit"). The fill is indigo, **amber from 80%** of the allowance and **red at or over** it, so the wall is visible before it is hit. This replaced the old plain "Allowed customers" / "Current customers" rows.
+- **Monthly amount** — `BillingService.monthlyAmountUsd(activeCustomers, pricePerCustomerUsd)`, rounded to 2dp, with the `N active × $price` note under it. 100 customers × $0.15 = **$15.00**. The rounding is deliberate and tested: `7 × 0.15` must print `1.05`, not `1.0499999…`.
+- Then either a **single "Update customer number"** button, an **amber pending block** with Edit / Cancel, or a **red "declined"** note above that button.
 
 It refreshes the request **on focus**, because the owner may have accepted or declined it while the screen sat open.
 
@@ -287,9 +288,40 @@ It refreshes the request **on focus**, because the owner may have accepted or de
 
 ---
 
+### Update customer number — one sheet, both directions
+
+`<UpdateAllowanceSheet />` ([components/UpdateAllowanceSheet.tsx](../SubsTrack/src/modules/admin/billing/components/UpdateAllowanceSheet.tsx)) is the card's **only** button. It shows **two fields for one number**, laid out like `ProductStockSheet`'s paired cost fields and carrying the same stepper as `ProductBatchRestockSheet`:
+
+- **Allowed customers** — the new total.
+- **Change** — the signed movement, between a **−** and a **+** button. `+20` renders green, `-20` red, and no change at all renders **empty**, not `+0` (`signedText` in [utils/allowanceChange.ts](../SubsTrack/src/modules/admin/billing/utils/allowanceChange.ts)).
+
+**There is ONE piece of state, `total`.** The change field is a **view** over it (`total − allowance`), and writing to it sets `total` back — so the two can never drift apart no matter which one is typed in. Both go through `useTextField` with an `expectedEcho`, because a field that is rewritten by its twin is exactly the late-`value` case that eats letters (gotcha #134).
+
+**The sign chooses the path at Save**, which is what lets one button do both jobs:
+
+- **Negative** → `lowerAllowance` → the `lower_customer_allowance` RPC, applied **at once** behind a confirm. No request row, no owner decision, because a smaller allowance only ever costs the tenant less.
+- **Positive** → `requestMore` → the same `customer_requests` row as before, still for the owner to accept, still floored at `MIN_CUSTOMER_REQUEST`. The "Send request + WhatsApp" door appears only on this branch.
+
+**The floor on a cut is the ACTIVE CUSTOMER COUNT, checked twice.**
+
+1. **In the sheet / service**, so the admin gets an answer with no round trip: `BillingService.validateDecrease(newAllowance, current, activeCount)` throws a typed `AllowanceFloorError` (from [utils/allowanceFloorError.ts](../SubsTrack/src/modules/admin/billing/utils/allowanceFloorError.ts)) carrying `{requested, activeCount}`. The sheet turns that into an amber **"Deactivate N customers first"** panel and disables Save.
+2. **In Postgres, which wins**: `lower_customer_allowance()` re-counts `customers WHERE active` for the JWT's tenant. The client figure is a cached number another device can have moved, and a forged one would strand the tenant over its own cap.
+
+The server reports that refusal as a **coded** message — `active_customers_exceed_limit:<active>:<requested>`, matched against `ALLOWANCE_FLOOR_CODE` in `utils/types.ts` — so `BillingService` rebuilds the same typed error instead of anyone parsing a sentence. `billingSlice` holds the structured twin as `floorError: AllowanceFloorPayload | null` next to the usual `error: string`, the same shape `customerLimitError` already uses.
+
+**There are TWO floors, and the higher one binds:** the product minimum `MIN_CUSTOMER_ALLOWANCE = 30` (the allowance every tenant is born with) and the active customer count. Cutting to exactly either is legal; one below is not. So a tenant with 0 active customers still stops at 30, and a tenant with 45 active stops at 45.
+
+**The write patches TWO places.** `billing.allowance` is what the card reads, but `billing.init` re-seeds it from `auth.user.tenant.customerAllowance` on every session restore — so `lowerAllowance` patches the auth tenant as well, or the old number comes back on the next launch.
+
+**Online-only.** `AllowanceRepository.offline` throws `RequiresConnectionError`: the floor is the server's live count, which an unsynced mirror cannot answer.
+
+**The RPC still cannot raise.** `p_new_allowance >= current` RAISEs inside the function — the request flow is the only way up, whichever field the admin typed in.
+
+---
+
 ### `customer_requests` — the lifecycle
 
-A tenant does not change its allowance; it **asks**, and the owner grants. One table carries the conversation:
+A tenant cannot RAISE its own allowance; it **asks**, and the owner grants (lowering is its own door — see above). One table carries the conversation:
 
 `customer_requests` — `id`, `tenant_id`, `requested_count` (`CHECK >= 10`), `granted_count`, `status` (`pending` \| `accepted` \| `declined` \| `cancelled`), `requested_by`, `decided_by`, `decided_at`, `created_at`, `updated_at`.
 

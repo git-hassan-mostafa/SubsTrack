@@ -1,6 +1,8 @@
 import type { StateCreator } from 'zustand';
 import type { CustomerRequest } from '@/src/core/types';
 import billingService from '@/src/modules/admin/billing/services/BillingService';
+import { AllowanceFloorError } from '@/src/modules/admin/billing/utils/allowanceFloorError';
+import type { AllowanceFloorPayload } from '@/src/modules/admin/billing/utils/types';
 import customerService from '@/src/modules/customer/customers/services/CustomerService';
 import type { GlobalState } from '@/src/state/globalStore';
 
@@ -12,10 +14,12 @@ export interface BillingSlice {
   loading: boolean;
   saving: boolean;
   error: string | null;
+  floorError: AllowanceFloorPayload | null;
   init: (tenantId: string) => Promise<void>;
   refreshCounts: () => Promise<void>;
   refreshRequest: (tenantId: string) => Promise<void>;
   setActiveCustomers: (count: number) => void;
+  lowerAllowance: (newAllowance: number) => Promise<boolean>;
   requestMore: (tenantId: string, extra: number, userId: string | null) => Promise<boolean>;
   editRequest: (extra: number) => Promise<boolean>;
   cancelRequest: () => Promise<boolean>;
@@ -36,6 +40,7 @@ export const createBillingSlice: StateCreator<
   loading: false,
   saving: false,
   error: null,
+  floorError: null,
 
   // The allowance and price ride in on the auth-time tenant row; only the
   // count and the request need the network.
@@ -84,6 +89,44 @@ export const createBillingSlice: StateCreator<
     set((state) => {
       state.billing.activeCustomers = Math.max(0, count);
     }),
+
+  // Patches the auth tenant too — billing.init re-reads it on every session
+  // restore, so a stale copy there would undo the change on next launch.
+  lowerAllowance: async (newAllowance) => {
+    const { allowance, activeCustomers } = get().billing;
+    set((state) => {
+      state.billing.saving = true;
+      state.billing.error = null;
+      state.billing.floorError = null;
+    });
+    try {
+      const tenant = await billingService.lowerAllowance(
+        newAllowance,
+        allowance,
+        activeCustomers,
+      );
+      set((state) => {
+        state.billing.allowance = tenant.customerAllowance;
+        state.billing.saving = false;
+        if (state.auth.user) {
+          state.auth.user.tenant.customerAllowance = tenant.customerAllowance;
+        }
+      });
+      return true;
+    } catch (e) {
+      set((state) => {
+        if (e instanceof AllowanceFloorError) {
+          state.billing.floorError = {
+            requested: e.requested,
+            activeCount: e.activeCount,
+          };
+        }
+        state.billing.error = (e as Error).message;
+        state.billing.saving = false;
+      });
+      return false;
+    }
+  },
 
   requestMore: async (tenantId, extra, userId) => {
     set((state) => {
@@ -155,6 +198,7 @@ export const createBillingSlice: StateCreator<
   clearError: () =>
     set((state) => {
       state.billing.error = null;
+      state.billing.floorError = null;
     }),
 
   reset: () =>
@@ -166,5 +210,6 @@ export const createBillingSlice: StateCreator<
       state.billing.loading = false;
       state.billing.saving = false;
       state.billing.error = null;
+      state.billing.floorError = null;
     }),
 });

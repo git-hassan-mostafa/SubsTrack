@@ -51,7 +51,8 @@ The automated safety net under every rule that touches money. It runs on a lapto
 | `selectionAndCustody.test.ts` | TC-MS-*, TC-WA-* | Which cells select together on a multi-month plan; who may take whose cash |
 | `linePrice.test.ts` | TC-LP-* | A special price replaces the plan's for the **same span** — "100 per 3 months", never 100 a month |
 | `currencyAndDates.test.ts` | TC-CU-*, TC-DT-* | USD always via the row's **frozen** rate; a hand-over bucketed into its **local** month |
-| `customerAllowance.test.ts` | TC-CA-* | What the tenant is billed and whether they may add a customer — see section 2b |
+| `customerAllowance.test.ts` | TC-CA-*, TC-CD-*, TC-CS-* | What the tenant is billed, whether they may add a customer, and the two floors under a lowered limit — see section 2b |
+| `translations.test.ts` | TC-TR-* | en/ar stay the same SHAPE — same keys, same `{{placeholders}}`, nothing blank. Not money, but a missing placeholder renders raw braces to the user |
 
 ---
 
@@ -68,7 +69,7 @@ The tenant's own bill and the one quantity limit left in the product. There are 
 | TC-CA-05 | A create **below** the allowance is allowed (30 allowed, 29 active) |
 | TC-CA-06 | **Blocks AT the allowance, not one past it** — 30 active against 30 allowed throws `CustomerLimitError`, and the error carries both numbers so the modal can name them |
 | TC-CA-07 | Still blocks when the tenant is already **over** cap, i.e. after the owner lowered the allowance under the live count |
-| TC-CA-08 | A **zero allowance** blocks everything, including the very first customer |
+| TC-CA-08 | A **zero allowance** blocks everything, including the very first customer. Unreachable in the product since the floor became 30, but the cap must not depend on that |
 | TC-CA-09 | A request **below 10** is refused (9, 0 and a negative) |
 | TC-CA-10 | 10 and above are accepted — the minimum is inclusive |
 | TC-CA-11 | A **fraction** of a customer (10.5) is refused |
@@ -126,3 +127,23 @@ Each one failed before it was fixed. If one starts failing again, the bug is bac
 5.3 **Screens.** No component renders. The pay/void order gates are asserted at the service, but the panel re-asserts them for its popups and that copy is manual (`monthly-grid.md`).
 
 5.4 **The audit trail.** Repository-level, so it is not exercised — see [audit-log.md](audit-log.md).
+
+---
+
+## 2c. Lowering the allowance (`customerAllowance.test.ts`)
+
+`validateDecrease(newAllowance, current, activeCount)` guards the one door a tenant admin may push without the owner. Two floors apply and **the higher one binds**.
+
+| Case | What it asserts |
+| --- | --- |
+| TC-CD-01 | A cut down to **exactly** the active count is allowed |
+| TC-CD-02 | One **below** the active count throws `AllowanceFloorError`, carrying both numbers so the sheet can say how many to deactivate |
+| TC-CD-03 | A **raise** through the lowering door is refused, equal-to-current included — the request flow is the only way up |
+| TC-CD-04 | A fraction (40.5) or a negative is refused |
+| TC-CD-05 | **Never below 30**, even with 0 active customers — the product floor, not just the active count |
+| TC-CD-05b | A cut to **exactly** 30 is allowed |
+| TC-CD-05c | With 45 active, 30 is still refused — the **active count outranks** the product floor when it is higher |
+| TC-CD-06 | When both the raise check and the floor would fire, the **floor** is what throws |
+| TC-CD-07 | A tenant already over cap can still cut down to its own active count |
+| TC-CD-08 | The floor is read from `MIN_CUSTOMER_ALLOWANCE`, not a literal 30 sprinkled around |
+| TC-CS-01…03 | The signed change field: `+20` keeps its plus, `-20` its minus, and **no change renders empty**, never `+0` |
