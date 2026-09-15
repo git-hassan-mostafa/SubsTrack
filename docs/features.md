@@ -201,7 +201,7 @@ See gotchas #18, #19, #21, #22, #24, #36 for the snapshot/conversion rules.
 
 - `LiraRate` — default USD→LBP rate (LBP per 1 USD) used when seeding each new tenant's LBP currency.
 - `AllowSelfServiceSignup` (`'true'`/`'false'`, default true) — when `false`, the login screen hides the "Create organization" button **and** the `create-tenant` edge function rejects signups (`403`, `code: signup_disabled`) — server-side is authoritative.
-- `SupportWhatsAppNumber` — support WhatsApp number (international format, digits only) used by `CustomerRequestSheet`'s "Send request + WhatsApp" deep-link. Blank hides that button.
+- `SupportWhatsAppNumber` — support WhatsApp number (international format, digits only) used by `UpdateAllowanceSheet`'s "Send request + WhatsApp" deep-link. Blank hides that button.
 
 - **RLS:** `app_options_select` grants `SELECT` to **`anon` + `authenticated`** (anon is required because some flags gate pre-auth UI, e.g. self-service signup on the login screen). There is **no** write policy, so only the **service role** (SuperAdmin app + the `create-tenant` edge function) can insert/update/delete — RLS bypass is the write path.
 - **SuperAdmin** owns full CRUD via the **Options** tab ([app/(tabs)/options.tsx](<../SuperAdmin/app/(tabs)/options.tsx>) → `OptionsScreen`). The `options` module is the usual shape (repository + service + standalone `optionStore` + screen + `OptionFormSheet`) with create + delete. The option **key is immutable after creation** (only `value` + `description` are editable), so well-known keys can't be renamed out from under the code that reads them.
@@ -346,10 +346,11 @@ A partial index is the right tool: historical `accepted` / `declined` / `cancell
 
 ---
 
-### `CustomerRequestSheet`
+### Editing a pending request
 
-One numeric field (minimum 10) and two buttons: **"Send request"** and **"Send request + WhatsApp"**. The second deep-links `app_options.SupportWhatsAppNumber` through `openWhatsApp` **after the write succeeds** — the request is the record, the message only nudges — and is **hidden entirely when the number is blank**. In edit mode the labels become **Save** / **Save + WhatsApp**.
+There is **no separate request sheet** — `CustomerRequestSheet` was deleted. **Edit request** opens the same `<UpdateAllowanceSheet editing />`, so asking for more customers looks identical whether it is the first ask or a correction of one already sent.
 
+In `editing` mode the sheet is a **raise-only** twin of itself: it opens on `allowance + request.requestedCount` (the number already asked for), the lowering floor becomes the current allowance rather than `MIN_CUSTOMER_ALLOWANCE`, the decrease branches (`lowering`, `belowFloor`, `belowMinimum`) are switched off, and Save routes to `editRequest(delta)` instead of `requestMore`. The title reads **Edit request** and the button **Save request**; "Send request + WhatsApp" stays, because a corrected number is still worth sending to support.
 ---
 
 ### SuperAdmin side

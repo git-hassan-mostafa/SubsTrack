@@ -10,6 +10,7 @@ import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { AppTextInput } from "@/src/shared/components/AppTextInput";
 import { useTextField } from "@/src/shared/hooks/useTextField";
 import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
+import { useHoldRepeat } from "@/src/shared/hooks/useHoldRepeat";
 import { digitsOnly } from "@/src/core/utils/inputText";
 import { COLORS } from "@/src/shared/constants";
 import { confirm } from "@/src/shared/lib/confirm";
@@ -22,6 +23,7 @@ import { MIN_CUSTOMER_ALLOWANCE, MIN_CUSTOMER_REQUEST } from "../utils/types";
 import { signedText } from "../utils/allowanceChange";
 
 interface Props {
+  editing?: boolean;
   onDismiss: () => void;
 }
 
@@ -33,9 +35,11 @@ const signedDigits = (next: string): string =>
 // field's text to the top without this.
 const CENTERED_FIELD_TEXT: TextStyle = { textAlignVertical: "center" };
 
-export function UpdateAllowanceSheet({ onDismiss }: Props) {
+export function UpdateAllowanceSheet({ editing = false, onDismiss }: Props) {
   const { t } = useTranslation();
   const { user } = useAuth();
+  const request = useBillingSlice((s) => s.request);
+  const editRequest = useBillingSlice((s) => s.editRequest);
   const allowance = useBillingSlice((s) => s.allowance);
   const activeCustomers = useBillingSlice((s) => s.activeCustomers);
   const price = useBillingSlice((s) => s.pricePerCustomerUsd);
@@ -46,17 +50,24 @@ export function UpdateAllowanceSheet({ onDismiss }: Props) {
   const requestMore = useBillingSlice((s) => s.requestMore);
   const supportNumber = useSupportWhatsAppNumber();
 
-  const [total, setTotal] = useState(allowance);
+  // Editing a pending request re-opens on the number already asked for; the
+  // allowance itself has not moved, so that path can only ever be a raise.
+  const pendingCount = request?.requestedCount ?? MIN_CUSTOMER_REQUEST;
+  const [total, setTotal] = useState(
+    editing ? allowance + pendingCount : allowance,
+  );
   const dirty = useDirtyForm({ total });
 
+  const floor = editing ? allowance : MIN_CUSTOMER_ALLOWANCE;
   const delta = total - allowance;
   const raising = delta > 0;
-  const lowering = delta < 0;
-  const belowFloor = total < activeCustomers;
-  const belowMinimum = total < MIN_CUSTOMER_ALLOWANCE;
-  const atMinimum = total <= MIN_CUSTOMER_ALLOWANCE;
-  const tooSmallRaise = raising && delta < MIN_CUSTOMER_REQUEST;
-  const valid = delta !== 0 && !belowFloor && !belowMinimum && !tooSmallRaise;
+  const lowering = !editing && delta < 0;
+  const atMinimum = total <= floor;
+  const belowFloor = !editing && total < activeCustomers;
+  const belowMinimum = !editing && total < MIN_CUSTOMER_ALLOWANCE;
+  const tooSmallRaise = (editing || raising) && delta < MIN_CUSTOMER_REQUEST;
+  const valid =
+    (editing || delta !== 0) && !belowFloor && !belowMinimum && !tooSmallRaise;
 
   // Each field writes the OTHER one's source of truth, so they can never drift:
   // `total` is the only state, and the change field is a view over it.
@@ -71,19 +82,20 @@ export function UpdateAllowanceSheet({ onDismiss }: Props) {
   const deltaField = useTextField(
     signedText(delta),
     (next) => {
-      setTotal(Math.max(MIN_CUSTOMER_ALLOWANCE, allowance + (Number(next) || 0)));
+      setTotal(Math.max(floor, allowance + (Number(next) || 0)));
     },
     {
       sanitize: signedDigits,
       expectedEcho: (next) =>
         signedText(
-          Math.max(MIN_CUSTOMER_ALLOWANCE, allowance + (Number(next) || 0)) - allowance,
+          Math.max(floor, allowance + (Number(next) || 0)) - allowance,
         ),
     },
   );
 
-  const step = (by: number) =>
-    setTotal((n) => Math.max(MIN_CUSTOMER_ALLOWANCE, n + by));
+  const step = (by: number) => setTotal((n) => Math.max(floor, n + by));
+  const holdDown = useHoldRepeat(() => step(-1));
+  const holdUp = useHoldRepeat(() => step(1));
 
   function fieldError(): string | null {
     if (belowFloor)
@@ -114,7 +126,10 @@ export function UpdateAllowanceSheet({ onDismiss }: Props) {
 
   async function submitRaise(alsoWhatsApp: boolean) {
     if (!user) return;
-    if (!(await requestMore(user.tenantId, delta, user.id))) return;
+    const ok = editing
+      ? await editRequest(delta)
+      : await requestMore(user.tenantId, delta, user.id);
+    if (!ok) return;
     if (alsoWhatsApp && supportNumber) {
       void openWhatsApp(
         supportNumber,
@@ -131,7 +146,7 @@ export function UpdateAllowanceSheet({ onDismiss }: Props) {
     <FormSheet
       onDismiss={onDismiss}
       dirty={dirty}
-      title={t("billing.update_number")}
+      title={editing ? t("billing.edit_request") : t("billing.update_number")}
     >
       {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}
 
@@ -180,6 +195,7 @@ export function UpdateAllowanceSheet({ onDismiss }: Props) {
           <View className="h-12 flex-row items-center rounded-xl border border-gray-200 bg-white px-1">
             <PressableOpacity
               onPress={() => step(-1)}
+              {...holdDown}
               disabled={atMinimum}
               className={`w-10 h-10 rounded-lg items-center justify-center ${
                 atMinimum ? "bg-gray-50" : "bg-gray-100"
@@ -210,6 +226,7 @@ export function UpdateAllowanceSheet({ onDismiss }: Props) {
             />
             <PressableOpacity
               onPress={() => step(1)}
+              {...holdUp}
               className="w-10 h-10 rounded-lg bg-gray-100 items-center justify-center"
             >
               <Ionicons name="add" size={16} color={COLORS.gray700} />
@@ -222,10 +239,12 @@ export function UpdateAllowanceSheet({ onDismiss }: Props) {
         <Text className="mb-3 text-sm text-danger">{fieldError()}</Text>
       ) : (
         <Text className="text-xs text-gray-400 mb-3">
-          {t("billing.update_number_explainer", {
-            min: MIN_CUSTOMER_REQUEST,
-            floor: MIN_CUSTOMER_ALLOWANCE,
-          })}
+          {editing
+            ? t("billing.request_hint", { min: MIN_CUSTOMER_REQUEST })
+            : t("billing.update_number_explainer", {
+                min: MIN_CUSTOMER_REQUEST,
+                floor: MIN_CUSTOMER_ALLOWANCE,
+              })}
         </Text>
       )}
 
@@ -260,15 +279,21 @@ export function UpdateAllowanceSheet({ onDismiss }: Props) {
 
       <Button
         label={
-          raising ? t("billing.send_request") : t("billing.decrease_save")
+          editing
+            ? t("billing.save_request")
+            : raising
+              ? t("billing.send_request")
+              : t("billing.decrease_save")
         }
-        onPress={() => void (raising ? submitRaise(false) : submitLower())}
+        onPress={() =>
+          void (editing || raising ? submitRaise(false) : submitLower())
+        }
         loading={saving}
         disabled={!valid || saving}
         fullWidth
       />
 
-      {raising && supportNumber ? (
+      {(editing || raising) && supportNumber ? (
         <PressableOpacity
           onPress={() => void submitRaise(true)}
           disabled={!valid || saving}

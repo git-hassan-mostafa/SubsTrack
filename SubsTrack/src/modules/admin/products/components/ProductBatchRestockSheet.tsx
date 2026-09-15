@@ -18,6 +18,7 @@ import SearchTextBox from "@/src/shared/components/SearchTextBox";
 import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
 import { AppTextInput } from "@/src/shared/components/AppTextInput";
 import { useTextField } from "@/src/shared/hooks/useTextField";
+import { useHoldRepeat } from "@/src/shared/hooks/useHoldRepeat";
 import {
   decimalDigitsOnly,
   digitsOnly,
@@ -372,6 +373,8 @@ function RestockRow({
   const costField = useTextField(unitCost, onCostChange, {
     sanitize: decimalDigitsOnly,
   });
+  const holdDown = useHoldRepeat(() => onChange(quantity - 1));
+  const holdUp = useHoldRepeat(() => onChange(quantity + 1));
 
   return (
     <View
@@ -410,6 +413,7 @@ function RestockRow({
         <View className="flex-row items-center rounded-xl border border-gray-200 bg-white px-1 py-1">
           <PressableOpacity
             onPress={() => onChange(quantity - 1)}
+            {...holdDown}
             disabled={!picked}
             className={`w-8 h-8 rounded-lg items-center justify-center ${
               picked ? "bg-gray-100" : "bg-gray-50"
@@ -431,6 +435,7 @@ function RestockRow({
           />
           <PressableOpacity
             onPress={() => onChange(quantity + 1)}
+            {...holdUp}
             className="w-8 h-8 rounded-lg bg-gray-100 items-center justify-center"
           >
             <Ionicons name="add" size={16} color={COLORS.gray700} />

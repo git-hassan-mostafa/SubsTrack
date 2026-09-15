@@ -9,7 +9,6 @@ There are **no tiers**. Branches, users, plans, products and currencies are unli
 - Module: [SubsTrack/src/modules/admin/billing/](../SubsTrack/src/modules/admin/billing/)
 - Service: [BillingService.ts](../SubsTrack/src/modules/admin/billing/services/BillingService.ts) (`monthlyAmountUsd`, `assertCanCreateCustomer`, `validateRequest`, `validateDecrease`, `lowerAllowance`)
 - Settings card: [CustomerAllowanceSection.tsx](../SubsTrack/src/modules/admin/billing/components/CustomerAllowanceSection.tsx)
-- Request sheet: [CustomerRequestSheet.tsx](../SubsTrack/src/modules/admin/billing/components/CustomerRequestSheet.tsx)
 - Update sheet (both directions): [UpdateAllowanceSheet.tsx](../SubsTrack/src/modules/admin/billing/components/UpdateAllowanceSheet.tsx) · usage bar: [UsageBar.tsx](../SubsTrack/src/modules/admin/billing/components/UsageBar.tsx) · sign helper: [allowanceChange.ts](../SubsTrack/src/modules/admin/billing/utils/allowanceChange.ts)
 - Block modal: [CustomerLimitReachedModal.tsx](../SubsTrack/src/modules/admin/billing/components/CustomerLimitReachedModal.tsx)
 - Typed errors: [customerLimitError.ts](../SubsTrack/src/modules/admin/billing/utils/customerLimitError.ts), [allowanceFloorError.ts](../SubsTrack/src/modules/admin/billing/utils/allowanceFloorError.ts) · min constant: [types.ts](../SubsTrack/src/modules/admin/billing/utils/types.ts) (`MIN_CUSTOMER_REQUEST = 10`)
@@ -299,7 +298,10 @@ Enforced in `CustomerService.createCustomer` via `billingService.assertCanCreate
 | 13.19 | Survives a restart | Lower the limit, force-quit, reopen | The new limit is still shown (`auth.user.tenant` is patched too) |
 | 13.20 | Offline | Turn the network off, try to lower | `RequiresConnectionError` in the sheet's `ErrorBanner`; nothing changes |
 | 13.21 | Server has the last word | Let another device add customers so the local count is stale, then cut to the stale floor | The RPC refuses and the sheet shows "deactivate first" built from the **server's** count |
-| 13.22 | Pending request edits elsewhere | With a request pending, open the card | The pending block's **Edit request** still opens `CustomerRequestSheet`; the update button is hidden while one is pending |
+| 13.22 | Edit request uses the SAME sheet | With a request pending, tap **Edit request** | The same two-field sheet opens, titled **Edit request**, showing the number already asked for; the update button is hidden while a request is pending |
+| 13.30 | Edit request is raise-only | In the edit sheet, press **−** below the current allowance | The minus stops at the allowance — there is no lowering path while a request is pending |
+| 13.31 | Edit keeps the 10 minimum | Edit a pending request down to `+5` | "You can request at least 10 more customers"; Save disabled |
+| 13.32 | Editing saves a request, not a change | Edit `+20` to `+35`, Save | The pending row now reads 35; the allowance itself is untouched |
 | 13.23 | Guard still holds | As a tenant admin, `UPDATE tenants SET customer_allowance = 999` | Refused by `trg_tenants_guard_billing` — the RPC is the only door, and it only goes down |
 | 13.24 | Usage bar colours | Watch the card's bar at 50%, 85% and 100% | Indigo, amber from 80%, red at or over the limit |
 | 13.25 | Unit tests green | `cd tests && npm test -- suites/customerAllowance.test.ts` | TC-CA-01…11, TC-CD-01…07 and TC-CS-01…03 all pass |

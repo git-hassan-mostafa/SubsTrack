@@ -10,7 +10,6 @@ export {
 export { signedText } from './utils/allowanceChange';
 export type { AllowanceFloorPayload, CustomerLimitErrorPayload } from './utils/types';
 export { CustomerAllowanceSection } from './components/CustomerAllowanceSection';
-export { CustomerRequestSheet } from './components/CustomerRequestSheet';
 export { UpdateAllowanceSheet } from './components/UpdateAllowanceSheet';
 export { UsageBar } from './components/UsageBar';
 export { CustomerLimitReachedModal } from './components/CustomerLimitReachedModal';

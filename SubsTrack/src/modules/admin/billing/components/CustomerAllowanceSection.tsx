@@ -10,7 +10,6 @@ import { useAuth } from "@/src/modules/authentication/auth";
 import { useBillingSlice } from "@/src/state/hooks/useBillingSlice";
 import { confirm } from "@/src/shared/lib/confirm";
 import billingService from "../services/BillingService";
-import { CustomerRequestSheet } from "./CustomerRequestSheet";
 import { UpdateAllowanceSheet } from "./UpdateAllowanceSheet";
 import { UsageBar } from "./UsageBar";
 
@@ -141,7 +140,7 @@ export function CustomerAllowanceSection() {
         <UpdateAllowanceSheet onDismiss={() => setSheet(null)} />
       ) : null}
       {sheet === "edit" ? (
-        <CustomerRequestSheet editing onDismiss={() => setSheet(null)} />
+        <UpdateAllowanceSheet editing onDismiss={() => setSheet(null)} />
       ) : null}
     </View>
   );
