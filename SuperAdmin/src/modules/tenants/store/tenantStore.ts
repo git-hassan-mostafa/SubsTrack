@@ -1,12 +1,15 @@
 import { create } from 'zustand';
-import type { Tenant } from '@/src/core/types';
+import type { Tenant, TenantCounts } from '@/src/core/types';
 import { TenantService, type CreateTenantInput, type UpdateTenantInput } from '../services/TenantService';
 
 interface TenantState {
   tenants: Tenant[];
+  counts: TenantCounts | null;
   loading: boolean;
+  countsLoading: boolean;
   error: string | null;
   fetchTenants: () => Promise<void>;
+  fetchCounts: (tenantId: string) => Promise<void>;
   createTenant: (data: CreateTenantInput) => Promise<boolean>;
   updateTenant: (id: string, data: UpdateTenantInput) => Promise<boolean>;
   acceptRequest: (tenantId: string, requestId: string, granted: number) => Promise<boolean>;
@@ -19,7 +22,9 @@ const tenantService = new TenantService();
 
 export const useTenantStore = create<TenantState>((set, get) => ({
   tenants: [],
+  counts: null,
   loading: false,
+  countsLoading: false,
   error: null,
 
   fetchTenants: async () => {
@@ -29,6 +34,17 @@ export const useTenantStore = create<TenantState>((set, get) => ({
       set({ tenants, loading: false });
     } catch (e) {
       set({ error: (e as Error).message, loading: false });
+    }
+  },
+
+  // Cleared up front so a reopened sheet can never show another tenant's counts.
+  fetchCounts: async (tenantId) => {
+    set({ counts: null, countsLoading: true, error: null });
+    try {
+      const counts = await tenantService.getTenantCounts(tenantId);
+      set({ counts, countsLoading: false });
+    } catch (e) {
+      set({ error: (e as Error).message, countsLoading: false });
     }
   },
 

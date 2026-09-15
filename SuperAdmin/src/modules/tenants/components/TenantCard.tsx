@@ -1,17 +1,20 @@
 import { Pressable, StyleSheet, Text, View } from "react-native";
+import { IconSymbol } from "@/components/ui/icon-symbol";
+import { formatShortDate } from "@/src/core/utils/formatDate";
 import type { Tenant } from "@/src/core/types";
 
 interface TenantCardProps {
   tenant: Tenant;
+  onPress: (tenant: Tenant) => void;
   onEdit: (tenant: Tenant) => void;
 }
 
-export function TenantCard({ tenant, onEdit }: TenantCardProps) {
+export function TenantCard({ tenant, onPress, onEdit }: TenantCardProps) {
   const pending = tenant.pendingRequest;
 
   return (
     <View style={styles.card}>
-      <Pressable style={styles.body} onPress={() => onEdit(tenant)}>
+      <Pressable style={styles.body} onPress={() => onPress(tenant)}>
         <View style={styles.header}>
           <Text style={styles.name}>{tenant.name}</Text>
           <View
@@ -40,11 +43,7 @@ export function TenantCard({ tenant, onEdit }: TenantCardProps) {
             </Text>
           </View>
           <Text style={styles.date}>
-            {new Date(tenant.createdAt).toLocaleDateString("en-US", {
-              month: "numeric",
-              day: "numeric",
-              year: "numeric",
-            })}
+            {formatShortDate(tenant.createdAt)}
           </Text>
         </View>
 
@@ -55,6 +54,14 @@ export function TenantCard({ tenant, onEdit }: TenantCardProps) {
             </Text>
           </View>
         ) : null}
+      </Pressable>
+
+      <Pressable
+        style={styles.editBtn}
+        onPress={() => onEdit(tenant)}
+        hitSlop={8}
+      >
+        <IconSymbol name="pencil" size={20} color="#0a7ea4" />
       </Pressable>
     </View>
   );
@@ -71,6 +78,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   body: { flex: 1, padding: 16 },
+  editBtn: {
+    alignSelf: "stretch",
+    justifyContent: "center",
+    paddingHorizontal: 16,
+    borderLeftWidth: 1,
+    borderLeftColor: "#f1f5f9",
+  },
   header: {
     flexDirection: "row",
     alignItems: "center",

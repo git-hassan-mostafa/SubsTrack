@@ -21,6 +21,7 @@ const MAPPING = {
   'building.2.fill': 'apartment',
   'list.star': 'list-alt',
   'gearshape.fill': 'settings',
+  pencil: 'edit',
 } as IconMapping;
 
 /**

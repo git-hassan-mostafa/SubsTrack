@@ -6,6 +6,26 @@ import type { DbCustomerRequest, DbTenant } from "@/src/core/types/db";
 export type CreateTenantPayload = Pick<DbTenant, "name" | "tenant_code"> &
   Partial<Pick<DbTenant, "customer_allowance" | "price_per_customer_usd">>;
 
+// true = the table carries an active flag; plans is the only one without.
+export const COUNTED_TABLES = {
+  users: true,
+  branches: true,
+  customers: true,
+  customer_plans: true,
+  plans: false,
+  products: true,
+  services: true,
+  currencies: true,
+} as const;
+
+export type CountedTable = keyof typeof COUNTED_TABLES;
+
+// active stays null for a table with no active flag.
+export interface TableCount {
+  total: number;
+  active: number | null;
+}
+
 export class TenantRepository extends BaseRepository {
   async findAll(): Promise<DbTenant[]> {
     const { data, error } = await this.db
@@ -25,6 +45,38 @@ export class TenantRepository extends BaseRepository {
       .eq("status", "pending");
     if (error) this.handleError(error);
     return (data ?? []) as DbCustomerRequest[];
+  }
+
+  // HEAD counts, so a tenant holding thousands of rows still costs one number.
+  async countRows(tenantId: string): Promise<Record<CountedTable, TableCount>> {
+    const tables = Object.keys(COUNTED_TABLES) as CountedTable[];
+    const entries = await Promise.all(
+      tables.map(async (table) => {
+        const [total, active] = await Promise.all([
+          this.countTable(table, tenantId, false),
+          COUNTED_TABLES[table]
+            ? this.countTable(table, tenantId, true)
+            : Promise.resolve(null),
+        ]);
+        return [table, { total, active }] as const;
+      }),
+    );
+    return Object.fromEntries(entries) as Record<CountedTable, TableCount>;
+  }
+
+  private async countTable(
+    table: CountedTable,
+    tenantId: string,
+    activeOnly: boolean,
+  ): Promise<number> {
+    let query = this.db
+      .from(table)
+      .select("*", { count: "exact", head: true })
+      .eq("tenant_id", tenantId);
+    if (activeOnly) query = query.eq("active", true);
+    const { count, error } = await query;
+    if (error) this.handleError(error);
+    return count ?? 0;
   }
 
   // Raising the allowance and closing the request must not tear apart, so both

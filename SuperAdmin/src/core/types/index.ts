@@ -33,3 +33,21 @@ export interface AppOption {
   createdAt: string;
   updatedAt: string;
 }
+
+// active is null for a table that has no active flag (plans).
+export interface TenantCount {
+  total: number;
+  active: number | null;
+}
+
+// Row counts the tenant details sheet lists — no money, no statistics.
+export interface TenantCounts {
+  users: TenantCount;
+  branches: TenantCount;
+  customers: TenantCount;
+  serviceLines: TenantCount;
+  plans: TenantCount;
+  products: TenantCount;
+  services: TenantCount;
+  currencies: TenantCount;
+}

@@ -6,6 +6,7 @@ import { EmptyState } from '@/src/shared/components/EmptyState';
 import { ErrorBanner } from '@/src/shared/components/ErrorBanner';
 import type { Tenant } from '@/src/core/types';
 import { TenantCard } from '../components/TenantCard';
+import { TenantDetailsSheet } from '../components/TenantDetailsSheet';
 import { TenantFormSheet } from '../components/TenantFormSheet';
 import { useTenantStore } from '../store/tenantStore';
 
@@ -13,6 +14,8 @@ export function TenantListScreen() {
   const { tenants, loading, error, fetchTenants, clearError } = useTenantStore();
   const [formVisible, setFormVisible] = useState(false);
   const [editingTenant, setEditingTenant] = useState<Tenant | null>(null);
+  const [detailsVisible, setDetailsVisible] = useState(false);
+  const [detailsTenant, setDetailsTenant] = useState<Tenant | null>(null);
 
   useFocusEffect(useCallback(() => {
     fetchTenants();
@@ -26,6 +29,11 @@ export function TenantListScreen() {
   function openEdit(tenant: Tenant) {
     setEditingTenant(tenant);
     setFormVisible(true);
+  }
+
+  function openDetails(tenant: Tenant) {
+    setDetailsTenant(tenant);
+    setDetailsVisible(true);
   }
 
   return (
@@ -54,7 +62,7 @@ export function TenantListScreen() {
           contentContainerStyle={styles.list}
           refreshControl={<RefreshControl refreshing={loading} onRefresh={fetchTenants} />}
           renderItem={({ item }) => (
-            <TenantCard tenant={item} onEdit={openEdit} />
+            <TenantCard tenant={item} onPress={openDetails} onEdit={openEdit} />
           )}
           ListEmptyComponent={
             <EmptyState
@@ -64,6 +72,12 @@ export function TenantListScreen() {
           }
         />
       )}
+
+      <TenantDetailsSheet
+        visible={detailsVisible}
+        tenant={detailsTenant}
+        onDismiss={() => setDetailsVisible(false)}
+      />
 
       <TenantFormSheet
         visible={formVisible}

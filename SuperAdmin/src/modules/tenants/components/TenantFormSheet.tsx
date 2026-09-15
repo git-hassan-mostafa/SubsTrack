@@ -11,6 +11,7 @@ import {
 import { Button } from "@/src/shared/components/Button";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { Input } from "@/src/shared/components/Input";
+import { formatShortDate } from "@/src/core/utils/formatDate";
 import type { Tenant } from "@/src/core/types";
 import { useTenantStore } from "../store/tenantStore";
 import { MIN_CUSTOMER_ALLOWANCE } from "../services/TenantService";
@@ -148,11 +149,7 @@ export function TenantFormSheet({ visible, tenant, onDismiss }: Props) {
                 {`Requested +${pending.requestedCount} customers`}
               </Text>
               <Text style={styles.requestDate}>
-                {new Date(pending.createdAt).toLocaleDateString("en-US", {
-                  month: "short",
-                  day: "numeric",
-                  year: "numeric",
-                })}
+                {formatShortDate(pending.createdAt)}
               </Text>
               <Input
                 label="Grant"

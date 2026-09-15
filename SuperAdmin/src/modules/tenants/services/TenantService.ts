@@ -1,9 +1,11 @@
-import type { CustomerRequest, Tenant } from "@/src/core/types";
+import type { CustomerRequest, Tenant, TenantCounts } from "@/src/core/types";
 import type { DbCustomerRequest, DbTenant } from "@/src/core/types/db";
 import { supabaseAdmin } from "@/src/shared/lib/supabaseAdmin";
 import {
   TenantRepository,
+  type CountedTable,
   type CreateTenantPayload,
+  type TableCount,
 } from "../repository/TenantRepository";
 
 // Fallback USD→LBP rate (LBP per 1 USD) used only when the global
@@ -36,6 +38,20 @@ function mapDbTenantToTenant(
     pricePerCustomerUsd: Number(db.price_per_customer_usd),
     pendingRequest,
     createdAt: db.created_at,
+  };
+}
+
+// Table names stop here — the sheet reads the domain names.
+function mapTableCounts(rows: Record<CountedTable, TableCount>): TenantCounts {
+  return {
+    users: rows.users,
+    branches: rows.branches,
+    customers: rows.customers,
+    serviceLines: rows.customer_plans,
+    plans: rows.plans,
+    products: rows.products,
+    services: rows.services,
+    currencies: rows.currencies,
   };
 }
 
@@ -81,6 +97,10 @@ export class TenantService {
     const byTenant = new Map<string, CustomerRequest>();
     for (const r of requests) byTenant.set(r.tenant_id, mapDbCustomerRequest(r));
     return rows.map((row) => mapDbTenantToTenant(row, byTenant.get(row.id) ?? null));
+  }
+
+  async getTenantCounts(tenantId: string): Promise<TenantCounts> {
+    return mapTableCounts(await this.repository.countRows(tenantId));
   }
 
   async createTenant(data: CreateTenantInput): Promise<Tenant> {
