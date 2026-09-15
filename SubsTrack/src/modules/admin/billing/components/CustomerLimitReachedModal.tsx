@@ -5,7 +5,7 @@ import { useRouter, type Href } from "expo-router";
 import { Text } from "@/src/shared/components/Text";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { COLORS } from "@/src/shared/constants";
-import { useAuthSlice } from "@/src/state/hooks/useAuthSlice";
+import { useAuth } from "@/src/modules/authentication/auth";
 import type { CustomerLimitErrorPayload } from "../utils/types";
 
 interface Props {
@@ -16,11 +16,9 @@ interface Props {
 export function CustomerLimitReachedModal({ payload, onClose }: Props) {
   const { t } = useTranslation();
   const router = useRouter();
-  const user = useAuthSlice((s) => s.user);
+  const { isTenantWideAdmin } = useAuth();
 
   if (!payload) return null;
-
-  const isTenantWideAdmin = user?.branchId === null;
 
   function handleGoToSettings() {
     onClose();

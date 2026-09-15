@@ -6,6 +6,7 @@ import { Text } from "@/src/shared/components/Text";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { COLORS } from "@/src/shared/constants";
 import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
+import { useAuth } from "@/src/modules/authentication/auth";
 
 type MenuItem = {
   labelKey: string;
@@ -14,6 +15,7 @@ type MenuItem = {
   iconBg: string;
   iconColor: string;
   route: string;
+  tenantWideOnly?: boolean;
 };
 
 const MENU_ITEMS: MenuItem[] = [
@@ -80,6 +82,7 @@ const MENU_ITEMS: MenuItem[] = [
     iconBg: COLORS.primaryLight,
     iconColor: COLORS.primary,
     route: "/(app)/(tabs)/admin/tenant-settings",
+    tenantWideOnly: true,
   },
   {
     labelKey: "audit.title",
@@ -93,6 +96,10 @@ const MENU_ITEMS: MenuItem[] = [
 
 export default function AdminMenuScreen() {
   const { t } = useTranslation();
+  const { isTenantWideAdmin } = useAuth();
+  const menuItems = MENU_ITEMS.filter(
+    (item) => isTenantWideAdmin || !item.tenantWideOnly,
+  );
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
       <ScrollView>
@@ -111,11 +118,11 @@ export default function AdminMenuScreen() {
             {t("admin.manage_section")}
           </Text>
           <View className="bg-white rounded-2xl border border-gray-100 overflow-hidden">
-            {MENU_ITEMS.map((item, index) => (
+            {menuItems.map((item, index) => (
               <Pressable
                 key={item.route}
                 onPress={() => router.push(item.route as Href)}
-                className={`flex-row items-center justify-between px-4 py-4 ${index < MENU_ITEMS.length - 1 ? "border-b border-gray-100" : ""}`}
+                className={`flex-row items-center justify-between px-4 py-4 ${index < menuItems.length - 1 ? "border-b border-gray-100" : ""}`}
               >
                 <View className="flex-row items-center gap-3">
                   <View

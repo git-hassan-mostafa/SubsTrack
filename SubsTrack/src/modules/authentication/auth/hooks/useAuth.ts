@@ -5,5 +5,7 @@ export function useAuth() {
   return {
     user,
     isAdmin: user?.role === 'admin' || user?.role === 'superadmin',
+    isTenantWideAdmin:
+      user?.role === 'superadmin' || (user?.role === 'admin' && user.branchId === null),
   };
 }
