@@ -60,7 +60,7 @@ export function OptionFormSheet({ visible, option, onDismiss }: Props) {
             {isEdit ? `Edit — ${option?.key}` : "New Option"}
           </Text>
           <Pressable onPress={onDismiss}>
-            <Text style={styles.cancel}>Cancel</Text>
+            <Text style={styles.close}>Close</Text>
           </Pressable>
         </View>
 
@@ -126,7 +126,7 @@ const styles = StyleSheet.create({
     borderBottomColor: "#f1f5f9",
   },
   title: { fontSize: 18, fontWeight: "600", color: "#1e293b" },
-  cancel: { fontSize: 16, color: "#0a7ea4", fontWeight: "500" },
+  close: { fontSize: 16, color: "#0a7ea4", fontWeight: "500" },
   body: { flex: 1, paddingHorizontal: 24, paddingTop: 24 },
   hint: { fontSize: 12, color: "#94a3b8", marginTop: -8, marginBottom: 8 },
   submitRow: { marginTop: 16, marginBottom: 32 },

@@ -51,7 +51,6 @@ export function AuditEntrySheet({
     <FormSheet
       onDismiss={onDismiss}
       title={`${actionLabel(t, entry.action)} · ${tableLabel(t, entry.table)}`}
-      dismissLabel={t("common.close")}
     >
       <View className={`${CARD_SURFACE} px-4 py-3.5 mb-4`}>
         <AuditSummaryText

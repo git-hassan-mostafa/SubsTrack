@@ -294,7 +294,7 @@ export function DatePickerInput({
       <SheetDragArea className="flex-row justify-between items-center px-5 py-3 border-b border-gray-100">
         <PressableOpacity onPress={() => setOpen(false)}>
           <Text fontWeight="Medium" className="text-base text-primary">
-            {t("common.cancel")}
+            {t("common.close")}
           </Text>
         </PressableOpacity>
         <Text fontWeight="SemiBold" className="text-base text-gray-900">

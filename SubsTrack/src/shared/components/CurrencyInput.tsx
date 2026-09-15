@@ -157,7 +157,7 @@ export function CurrencyInput({
           </Text>
           <PressableOpacity onPress={() => setPickerOpen(false)}>
             <Text fontWeight="Medium" className="text-base text-primary">
-              {t("common.cancel")}
+              {t("common.close")}
             </Text>
           </PressableOpacity>
         </SheetDragArea>

@@ -44,21 +44,27 @@ export function ActionMenu({
 
   return (
     <BottomSheetScaffold visible={visible} onDismiss={onDismiss}>
-      {/* The WHOLE menu drags the sheet, not just its title: the body is a plain
-          column of buttons with no scrollable, so nothing can be stolen from a
-          list. The 12pt threshold keeps a slightly sloppy tap a tap. */}
       <SheetDragArea activationDistance={12}>
-        {title ? (
-          <View className="px-5 pt-2 pb-3 border-b border-gray-100">
+        <View className="flex-row items-center justify-between px-5 pt-2 pb-3 border-b border-gray-100">
+          {title ? (
             <Text
-              className="text-base text-gray-900"
-              fontWeight="SemiBold"
+              className="flex-1 me-3 text-base text-gray-900"
+              fontWeight="Bold"
               numberOfLines={1}
             >
               {title}
             </Text>
-          </View>
-        ) : null}
+          ) : (
+            <View className="flex-1" />
+          )}
+          <PressableOpacity
+            onPress={onDismiss}
+            hitSlop={8}
+            accessibilityLabel={t("common.close")}
+          >
+            <Ionicons name="close" size={22} color={COLORS.gray500} />
+          </PressableOpacity>
+        </View>
 
         {actions.length === 0 ? (
           <View className="px-5 py-6 items-center">

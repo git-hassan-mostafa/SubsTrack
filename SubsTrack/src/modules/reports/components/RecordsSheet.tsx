@@ -40,7 +40,6 @@ export function RecordsSheet({
       visible={visible}
       onDismiss={onDismiss}
       title={title}
-      dismissLabel={t("common.close")}
     >
       <View className="pb-8">
         <View className="flex-row items-baseline gap-2 pb-3 border-b border-gray-100">

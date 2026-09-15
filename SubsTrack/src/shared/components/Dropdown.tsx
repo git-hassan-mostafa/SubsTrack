@@ -244,7 +244,7 @@ export function DropdownModal<T extends string | number | null = string>({
         </Text>
         <PressableOpacity onPress={handleClose}>
           <Text fontWeight="Medium" className="text-base text-primary">
-            {t("common.cancel")}
+            {t("common.close")}
           </Text>
         </PressableOpacity>
       </SheetDragArea>

@@ -31,7 +31,6 @@ interface FormSheetProps {
   onDismiss: () => void;
   title: string;
   subject?: string | null;
-  dismissLabel?: string;
   dirty?: boolean;
   scrollRef?: RefObject<SheetScrollTo | null>;
   menuActions?: ActionMenuItem[];
@@ -45,7 +44,6 @@ export function FormSheet({
   onDismiss,
   title,
   subject,
-  dismissLabel,
   dirty = false,
   scrollRef,
   menuActions,
@@ -64,7 +62,6 @@ export function FormSheet({
           visible={visible}
           title={title}
           subject={subject}
-          dismissLabel={dismissLabel}
           onDismiss={dismiss}
           scrollRef={scrollRef}
           menuActions={menuActions}
@@ -82,7 +79,6 @@ function FormSheetBody({
   visible,
   title,
   subject,
-  dismissLabel,
   onDismiss,
   scrollRef,
   menuActions,
@@ -92,7 +88,6 @@ function FormSheetBody({
   visible: boolean;
   title: string;
   subject?: string | null;
-  dismissLabel?: string;
   onDismiss: () => void;
   scrollRef?: RefObject<SheetScrollTo | null>;
   menuActions?: ActionMenuItem[];
@@ -166,7 +161,7 @@ function FormSheetBody({
           ) : null}
           <PressableOpacity onPress={onDismiss}>
             <Text fontWeight="Medium" className="text-base text-primary">
-              {dismissLabel ?? t("common.cancel")}
+              {t("common.close")}
             </Text>
           </PressableOpacity>
         </View>

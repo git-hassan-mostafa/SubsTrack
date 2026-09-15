@@ -242,7 +242,6 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
       onDismiss={onDismiss}
       dirty={dirty}
       title={t("products.adjust_stock_title")}
-      dismissLabel={t("common.close")}
       scrollRef={scrollBody}
     >
       {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}

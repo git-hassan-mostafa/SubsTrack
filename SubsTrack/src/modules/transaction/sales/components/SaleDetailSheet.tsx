@@ -128,7 +128,6 @@ export function SaleDetailSheet({
       dirty={dirty}
       title={t("sales.receipt_title")}
       subject={sale.customer?.name ?? t("sales.walk_in")}
-      dismissLabel={t("common.close")}
       menuActions={menuActions}
       scrollRef={scrollBody}
     >
