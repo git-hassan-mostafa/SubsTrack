@@ -123,6 +123,15 @@ const DISPLAY: Record<string, AuditValueFormatter> = {
     mixed: 'wallet.source_mixed',
   }),
 
+  'customer_requests.status': enumLabel({
+    pending: 'audit.request_status.pending',
+    accepted: 'audit.request_status.accepted',
+    declined: 'audit.request_status.declined',
+    cancelled: 'audit.request_status.cancelled',
+  }),
+  'customer_requests.requested_by': person,
+  'customer_requests.decided_by': person,
+
   'users.role': enumLabel({ admin: 'users.admin', user: 'users.user', superadmin: 'users.super' }),
   'users.branch_id': idRef('branch', { blank: 'branches.tenant_wide_admin' }),
   'plans.branch_id': idRef('branch', { blank: 'branches.shared_all_branches' }),

@@ -1230,11 +1230,23 @@
       "cost_price": "سعر التكلفة",
       "cost_currency_id": "عملة التكلفة",
       "occurred_at": "التاريخ",
-      "received_at": "تاريخ الاستلام"
+      "received_at": "تاريخ الاستلام",
+      "requested_count": "عدد العملاء المطلوب",
+      "granted_count": "عدد العملاء الموافق عليه",
+      "status": "الحالة",
+      "requested_by": "مقدّم الطلب",
+      "decided_by": "صاحب القرار",
+      "decided_at": "تاريخ القرار"
     },
     "setting": {
       "UnpaidStartRule": "قاعدة الأشهر غير المدفوعة",
       "DisplayCurrencyId": "عملة العرض"
+    },
+    "request_status": {
+      "pending": "بانتظار الموافقة",
+      "accepted": "تمت الموافقة",
+      "declined": "مرفوض",
+      "cancelled": "ملغى"
     }
   },
   "reports": {

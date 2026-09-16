@@ -1230,11 +1230,23 @@
       "cost_price": "cost price",
       "cost_currency_id": "cost currency",
       "occurred_at": "date",
-      "received_at": "received on"
+      "received_at": "received on",
+      "requested_count": "requested customers",
+      "granted_count": "approved customers",
+      "status": "status",
+      "requested_by": "requested by",
+      "decided_by": "decided by",
+      "decided_at": "decided at"
     },
     "setting": {
       "UnpaidStartRule": "Unpaid months rule",
       "DisplayCurrencyId": "Display currency"
+    },
+    "request_status": {
+      "pending": "Waiting for approval",
+      "accepted": "Approved",
+      "declined": "Declined",
+      "cancelled": "Cancelled"
     }
   },
   "reports": {
