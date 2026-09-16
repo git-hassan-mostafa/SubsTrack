@@ -2,12 +2,10 @@ import i18n from '@/src/core/i18n';
 import type { Currency } from '@/src/core/types';
 import { findCurrency } from '@/src/core/utils/currency';
 import { expenseCategoryLabelKey } from '@/src/modules/transaction/expenses/utils/expenseCategories';
+import type { CsvTable } from '@/src/shared/lib/csv';
 import type { DebtsReport, MoneyReport } from './types';
 
-export interface CsvTable {
-  headers: string[];
-  rows: (string | number | null)[][];
-}
+export type { CsvTable };
 
 const code = (currencies: Currency[], id: string | null): string =>
   findCurrency(currencies, id)?.code ?? 'USD';

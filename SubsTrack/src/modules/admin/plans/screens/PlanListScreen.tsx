@@ -31,6 +31,7 @@ import { FAB } from "@/src/shared/components/FAB";
 import { SelectionOverlaySlot } from "@/src/shared/components/SelectionOverlaySlot";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
+import { useExportRows } from "@/src/shared/hooks/useExportRows";
 import {
   useSelection,
   useSelectionBackHandler,
@@ -122,6 +123,12 @@ export function PlanListScreen() {
       )
     : plans;
 
+  const {
+    iconActions: exportIconActions,
+    exportError,
+    clearExportError,
+  } = useExportRows("plans.title", filtered);
+
   const selectedPlans = filtered.filter((p) => selectedIds.has(p.id));
 
   async function runBulkDelete(selected: Plan[]) {
@@ -180,6 +187,7 @@ export function PlanListScreen() {
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
       <PageHeader
+        iconActions={exportIconActions}
         title={t("plans.title")}
         subtitle={t("plans.active_count", { count: plans.length })}
         showBack
@@ -210,6 +218,11 @@ export function PlanListScreen() {
       {error ? (
         <View className="px-4 pt-4">
           <ErrorBanner message={error} onDismiss={clearError} />
+        </View>
+      ) : null}
+      {exportError ? (
+        <View className="px-4 pt-4">
+          <ErrorBanner message={exportError} onDismiss={clearExportError} />
         </View>
       ) : null}
 

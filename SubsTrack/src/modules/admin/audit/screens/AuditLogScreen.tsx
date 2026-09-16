@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { ScrollView, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -18,6 +18,10 @@ import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { useAuditStore } from "@/src/modules/admin/audit/state/auditStore";
 import { useUserSlice } from "@/src/state/hooks/useUserSlice";
 import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
+import { useExportRows } from "@/src/shared/hooks/useExportRows";
+import { loadAllPages } from "@/src/shared/hooks/loadAllPages";
+import { currentMonthDays } from "@/src/core/utils/dateRange";
+import { showsOlderThanThisMonth } from "../utils/exportWindow";
 import { HistoryList } from "../components/HistoryList";
 import { AUDITED_TABLES } from "../utils/constants";
 import { actionLabel, tableLabel } from "../utils/format";
@@ -67,6 +71,35 @@ export function AuditLogScreen() {
   const users = useUserSlice((s) => s.items);
   const getUsers = useUserSlice((s) => s.getUsers);
   const branchFilter = useEffectiveBranchFilter();
+  // The trail has no natural end, so the most an export offers to fetch is THIS
+  // MONTH. Once scrolling has already pulled in something older, the screen is
+  // showing more than that anyway — so there is nothing left to offer and the
+  // export simply takes what is on screen.
+  const loadThisMonth = useCallback(async () => {
+    const { fromDate, toDate } = currentMonthDays();
+    await setFrom(fromDate);
+    await setTo(toDate);
+    return loadAllPages(
+      () => useAuditStore.getState().items,
+      () => useAuditStore.getState().hasMore,
+      fetchMoreEntries,
+    );
+  }, [setFrom, setTo, fetchMoreEntries]);
+
+  const { iconActions: exportIconActions, exportSheet } = useExportRows(
+    "audit.title",
+    items,
+    showsOlderThanThisMonth(items)
+      ? {}
+      : {
+          loadMore: {
+            hasMore,
+            loadAll: loadThisMonth,
+            allLabelKey: "export.this_month",
+            allHintKey: "export.this_month_hint",
+          },
+        },
+  );
 
   useEffect(() => {
     void getUsers();
@@ -171,6 +204,7 @@ export function AuditLogScreen() {
         title={t("audit.title")}
         showBack
         onBack={() => router.back()}
+        iconActions={exportIconActions}
       />
 
       <ResponsiveContainer className="flex-1">
@@ -194,6 +228,7 @@ export function AuditLogScreen() {
           )}
         />
       </ResponsiveContainer>
+      {exportSheet}
     </SafeAreaView>
   );
 }

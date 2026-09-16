@@ -29,6 +29,7 @@ import { FAB } from "@/src/shared/components/FAB";
 import { SelectionOverlaySlot } from "@/src/shared/components/SelectionOverlaySlot";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { useEffectiveBranchFilter } from "@/src/shared/hooks/useEffectiveBranchFilter";
+import { useExportRows } from "@/src/shared/hooks/useExportRows";
 import {
   useSelection,
   useSelectionBackHandler,
@@ -157,6 +158,12 @@ export function ProductListScreen() {
       )
     : products;
 
+  const {
+    iconActions: exportIconActions,
+    exportError,
+    clearExportError,
+  } = useExportRows("products.title", filtered);
+
   const activeCount = products.filter((p) => p.active).length;
 
   const selectedProducts = filtered.filter((p) => selectedIds.has(p.id));
@@ -225,6 +232,7 @@ export function ProductListScreen() {
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
       <PageHeader
+        iconActions={exportIconActions}
         title={t("products.title")}
         subtitle={t("products.active_count", { count: activeCount })}
         showBack
@@ -272,6 +280,11 @@ export function ProductListScreen() {
       {error ? (
         <View className="px-4 pt-4">
           <ErrorBanner message={error} onDismiss={clearError} />
+        </View>
+      ) : null}
+      {exportError ? (
+        <View className="px-4 pt-4">
+          <ErrorBanner message={exportError} onDismiss={clearExportError} />
         </View>
       ) : null}
 

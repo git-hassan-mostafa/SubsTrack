@@ -2,6 +2,14 @@ import { Platform } from "react-native";
 import { Directory, File, Paths } from "expo-file-system";
 import * as Sharing from "expo-sharing";
 
+export type CsvValue = string | number | null;
+
+/** A sheet ready to write: one header row plus its rows, already stringified. */
+export interface CsvTable {
+  headers: string[];
+  rows: CsvValue[][];
+}
+
 // RFC-4180 quoting. A customer name with a comma, a quote or a newline in it is
 // what corrupts a hand-rolled CSV, so every cell goes through this.
 function cell(value: string | number | null | undefined): string {

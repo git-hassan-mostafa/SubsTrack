@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -11,6 +11,8 @@ import { useFocusEffect, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { EmptyState } from "@/src/shared/components/EmptyState";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
+import { useExportRows } from "@/src/shared/hooks/useExportRows";
+import { loadAllPages } from "@/src/shared/hooks/loadAllPages";
 import { confirm } from "@/src/shared/lib/confirm";
 import {
   ActionMenu,
@@ -18,7 +20,13 @@ import {
 } from "@/src/shared/components/ActionMenu";
 import { useDebounce } from "@/src/shared/hooks/useDebounce";
 import { COLORS } from "@/src/shared/constants";
-import type { Collection, Customer, CustomerPlan, OpenItem } from "@/src/core/types";
+import type {
+  Collection,
+  Customer,
+  CustomerPlan,
+  CustomerStatus,
+  OpenItem,
+} from "@/src/core/types";
 import { useSendInvoice, WhatsAppComboIcon } from "@/src/modules/invoicing";
 import { CustomerCard } from "../components/CustomerCard";
 import {
@@ -95,6 +103,7 @@ export function CustomerListScreen() {
   const activeCount = useCustomerSlice((s) => s.activeCount);
   const loading = useCustomerSlice((s) => s.loading);
   const loadingMore = useCustomerSlice((s) => s.loadingMore);
+  const hasMore = useCustomerSlice((s) => s.hasMore);
   const error = useCustomerSlice((s) => s.error);
   const fetchCustomers = useCustomerSlice((s) => s.fetchCustomers);
   const fetchMoreCustomers = useCustomerSlice((s) => s.fetchMoreCustomers);
@@ -178,19 +187,55 @@ export function CustomerListScreen() {
     ];
   }, [t]);
 
-  const filtered = useMemo(() => {
-    if (activeTab === "all") return customers;
-    if (activeTab === "active") return customers.filter((c) => c.active);
-    if (activeTab === "inactive") return customers.filter((c) => !c.active);
-    if (activeTab === "has_debt")
-      return customers.filter((c) => hasDebtFlag(netDebtByCustomer[c.id]));
-    return customers.filter((c) => {
-      if (!c.active || !c.isRegular) return false;
-      const status = customerStatuses.get(c.id);
-      if (!status) return false;
-      return customerFlags(status).includes(activeTab);
-    });
-  }, [activeTab, customers, customerStatuses, netDebtByCustomer]);
+  // The pill rule, in one place: the list uses it for THIS render and the
+  // export re-runs it over the store after loading the rest of the pages.
+  const applyTab = useCallback(
+    (list: Customer[], statuses: Map<string, CustomerStatus>) => {
+      if (activeTab === "all") return list;
+      if (activeTab === "active") return list.filter((c) => c.active);
+      if (activeTab === "inactive") return list.filter((c) => !c.active);
+      if (activeTab === "has_debt")
+        return list.filter((c) => hasDebtFlag(netDebtByCustomer[c.id]));
+      return list.filter((c) => {
+        if (!c.active || !c.isRegular) return false;
+        const status = statuses.get(c.id);
+        if (!status) return false;
+        return customerFlags(status).includes(activeTab);
+      });
+    },
+    [activeTab, netDebtByCustomer],
+  );
+
+  const filtered = useMemo(
+    () => applyTab(customers, customerStatuses),
+    [applyTab, customers, customerStatuses],
+  );
+
+  const filterRef = useRef(applyTab);
+  filterRef.current = applyTab;
+
+  // A status pill is decided from `customerStatuses`, which only covers the
+  // customers fetched so far — so the rows that arrive here need their statuses
+  // computed before `filtered` can judge them.
+  const loadAllCustomers = useCallback(async () => {
+    const all = await loadAllPages(
+      () => getStore().getState().customers.items,
+      () => getStore().getState().customers.hasMore,
+      fetchMoreCustomers,
+    );
+    await fetchCustomerStatuses(all as Customer[]);
+    const state = getStore().getState();
+    return filterRef.current(state.customers.items, state.payments.customerStatuses);
+  }, [fetchMoreCustomers, fetchCustomerStatuses]);
+
+  const {
+    iconActions: exportIconActions,
+    exportError,
+    clearExportError,
+    exportSheet,
+  } = useExportRows("customers.title", filtered, {
+    loadMore: { hasMore, loadAll: loadAllCustomers },
+  });
 
   const selectedCustomers = useMemo(
     () => filtered.filter((c) => selectedIds.has(c.id)),
@@ -849,6 +894,7 @@ export function CustomerListScreen() {
       <PageHeader
         title={t("customers.title")}
         subtitle={t("customers.active_count", { count: activeCount })}
+        iconActions={exportIconActions}
         selection={{
           active: selectionActive,
           count: selection.count,
@@ -903,6 +949,11 @@ export function CustomerListScreen() {
         {paymentError ? (
           <View className="px-4 pt-4">
             <ErrorBanner message={paymentError} onDismiss={clearPaymentError} />
+          </View>
+        ) : null}
+        {exportError ? (
+          <View className="px-4 pt-4">
+            <ErrorBanner message={exportError} onDismiss={clearExportError} />
           </View>
         ) : null}
         {bulkNotice ? (
@@ -968,6 +1019,7 @@ export function CustomerListScreen() {
         />
       )}
       {collectSheet}
+      {exportSheet}
     </SafeAreaView>
   );
 }

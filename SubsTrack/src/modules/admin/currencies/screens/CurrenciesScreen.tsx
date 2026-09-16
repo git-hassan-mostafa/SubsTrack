@@ -17,6 +17,7 @@ import { FAB } from "@/src/shared/components/FAB";
 import { SelectionOverlaySlot } from "@/src/shared/components/SelectionOverlaySlot";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
+import { useExportRows } from "@/src/shared/hooks/useExportRows";
 import { EmptyState } from "@/src/shared/components/EmptyState";
 import { confirm } from "@/src/shared/lib/confirm";
 import {
@@ -215,9 +216,16 @@ export function CurrenciesScreen() {
     return actions;
   }
 
+  const {
+    iconActions: exportIconActions,
+    exportError,
+    clearExportError,
+  } = useExportRows("tenant_settings.currencies_section_title", currencies);
+
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
       <PageHeader
+        iconActions={exportIconActions}
         title={t("tenant_settings.currencies_section_title")}
         subtitle={t("tenant_settings.currencies_count", { count: activeCount })}
         showBack
@@ -238,6 +246,12 @@ export function CurrenciesScreen() {
       {error ? (
         <View className="px-4 pt-4">
           <ErrorBanner message={error} onDismiss={clearError} />
+        </View>
+      ) : null}
+
+      {exportError ? (
+        <View className="px-4 pt-4">
+          <ErrorBanner message={exportError} onDismiss={clearExportError} />
         </View>
       ) : null}
 

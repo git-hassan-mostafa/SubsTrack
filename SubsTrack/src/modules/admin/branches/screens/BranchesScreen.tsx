@@ -15,6 +15,7 @@ import {
 } from "@/src/shared/components/PageHeader";
 import { FAB } from "@/src/shared/components/FAB";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
+import { useExportRows } from "@/src/shared/hooks/useExportRows";
 import { EmptyState } from "@/src/shared/components/EmptyState";
 import { confirm } from "@/src/shared/lib/confirm";
 import {
@@ -211,9 +212,16 @@ export function BranchesScreen() {
     return actions;
   }
 
+  const {
+    iconActions: exportIconActions,
+    exportError,
+    clearExportError,
+  } = useExportRows("branches.section_title", branches);
+
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
       <PageHeader
+        iconActions={exportIconActions}
         title={t("branches.section_title")}
         subtitle={t("branches.count", { count: activeCount })}
         showBack
@@ -232,6 +240,12 @@ export function BranchesScreen() {
       {error ? (
         <View className="px-4 pt-4">
           <ErrorBanner message={error} onDismiss={clearError} />
+        </View>
+      ) : null}
+
+      {exportError ? (
+        <View className="px-4 pt-4">
+          <ErrorBanner message={exportError} onDismiss={clearExportError} />
         </View>
       ) : null}
 

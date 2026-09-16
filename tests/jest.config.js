@@ -32,6 +32,8 @@ module.exports = {
     '^expo-crypto$': stub('expo-crypto.ts'),
     '^expo-sqlite$': stub('expo-sqlite.ts'),
     '^expo-localization$': stub('empty.ts'),
+    '^expo-file-system$': stub('expo-file-system.ts'),
+    '^expo-sharing$': stub('expo-sharing.ts'),
     '^expo-updates$': stub('empty.ts'),
     '^@supabase/supabase-js$': stub('supabase.ts'),
     '^@react-native-async-storage/async-storage$': stub('empty.ts'),
