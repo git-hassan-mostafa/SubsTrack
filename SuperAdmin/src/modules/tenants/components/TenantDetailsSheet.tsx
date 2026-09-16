@@ -93,6 +93,10 @@ export function TenantDetailsSheet({ visible, tenant, onDismiss }: Props) {
       label: "Price per customer",
       value: `$${tenant.pricePerCustomerUsd}`,
     },
+    {
+      label: "Total Price",
+      value: `$${tenant.customerAllowance * tenant.pricePerCustomerUsd}`,
+    },
   ];
 
   if (pending)
@@ -138,7 +142,9 @@ export function TenantDetailsSheet({ visible, tenant, onDismiss }: Props) {
             </View>
           </View>
 
-          {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}
+          {error ? (
+            <ErrorBanner message={error} onDismiss={clearError} />
+          ) : null}
 
           <Text style={styles.sectionTitle}>Account</Text>
           <DetailCard rows={accountRows} />
