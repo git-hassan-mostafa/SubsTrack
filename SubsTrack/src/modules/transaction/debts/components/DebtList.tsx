@@ -12,6 +12,7 @@ interface Props {
   loading?: boolean;
   emptyMessage?: string;
   onCollect?: (item: OpenItem) => void;
+  onEditItem?: (item: OpenItem) => void;
   onVoidItem?: (item: OpenItem) => void;
   onWriteOff?: (item: OpenItem) => void;
   onOpenItem?: (item: OpenItem) => void;
@@ -47,6 +48,7 @@ export function DebtList({
   loading = false,
   emptyMessage,
   onCollect,
+  onEditItem,
   onVoidItem,
   onWriteOff,
   onOpenItem,
@@ -84,6 +86,7 @@ export function DebtList({
           item={item}
           hideCustomerName
           onCollect={onCollect}
+          onEdit={onEditItem}
           onVoid={onVoidItem}
           onWriteOff={onWriteOff}
           onOpen={onOpenItem}

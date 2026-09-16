@@ -24,6 +24,7 @@ interface Props {
   onDismiss: () => void;
   onCollectAll: (items: OpenItem[]) => void;
   onCollectItem: (item: OpenItem) => void;
+  onEditItem?: (item: OpenItem) => void;
   onVoidItem?: (item: OpenItem) => void;
   onWriteOff?: (item: OpenItem) => void;
   onWriteOffAll?: (debtor: CustomerDebts) => void;
@@ -44,6 +45,7 @@ export function DebtorDetailSheet({
   onDismiss,
   onCollectAll,
   onCollectItem,
+  onEditItem,
   onVoidItem,
   onWriteOff,
   onWriteOffAll,
@@ -137,6 +139,7 @@ export function DebtorDetailSheet({
                   unpaidMonths={debtor.unpaidMonths}
                   newestFirst
                   onCollect={onCollectItem}
+                  onEditItem={onEditItem}
                   onVoidItem={onVoidItem}
                   onWriteOff={onWriteOff}
                   onOpenItem={onOpenItem}

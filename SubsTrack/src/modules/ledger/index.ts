@@ -26,7 +26,10 @@ export {
   mapDbCollectionItemToCollectionItem,
 } from './utils/mapper';
 
-export type { CreateManualChargeInput } from './services/ChargeService';
+export type {
+  CreateManualChargeInput,
+  UpdateManualChargeInput,
+} from './services/ChargeService';
 export type { CollectInput, MultiCollectResult } from './services/CollectionService';
 export type { IChargeRepository } from './repository/IChargeRepository';
 export type { ICollectionRepository } from './repository/ICollectionRepository';

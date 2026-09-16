@@ -27,6 +27,15 @@ export interface CreateManualChargeInput {
   notes?: string | null;
 }
 
+export interface UpdateManualChargeInput {
+  description?: string;
+  amount?: number;
+  currencyId?: string | null;
+  ratePerUsdSnapshot?: number;
+  dueDate?: string;
+  notes?: string | null;
+}
+
 /**
  * Bills: raising them, correcting them, and answering "what does this customer
  * owe?". Money is CollectionService's job — the split is the whole point of the
@@ -172,25 +181,32 @@ class ChargeService {
     return mapDbChargeToCharge(row);
   }
 
-  async updateManualCharge(
-    id: string,
-    values: { description?: string; amount?: number; dueDate?: string; notes?: string | null },
-  ): Promise<Charge> {
+  /** Amount, currency and rate are ONE frozen unit once money lands — gotcha #126. */
+  async updateManualCharge(id: string, values: UpdateManualChargeInput): Promise<Charge> {
     if (values.amount !== undefined) this.validateAmount(values.amount);
     const existing = await repository.findById(id);
     if (!existing) throw new Error(i18n.t('errors.charge_not_found'));
     if (existing.voided_at || existing.written_off_at) {
       throw new Error(i18n.t('errors.charge_not_editable'));
     }
-    if (values.amount !== undefined) {
-      const [balance] = await repository.balances([id]);
-      if (balance && values.amount + EPSILON < balance.paid) {
-        throw new Error(i18n.t('errors.charge_amount_below_collected'));
-      }
+
+    const movesCurrency =
+      values.currencyId !== undefined && values.currencyId !== existing.currency_id;
+    const needsBalance = values.amount !== undefined || movesCurrency;
+    const paid = needsBalance ? ((await repository.balances([id]))[0]?.paid ?? 0) : 0;
+
+    if (movesCurrency && paid > 0) throw new Error(i18n.t('errors.charge_currency_locked'));
+    if (values.amount !== undefined && values.amount + EPSILON < paid) {
+      throw new Error(i18n.t('errors.charge_amount_below_collected'));
     }
+
     const row = await repository.update(id, {
       ...(values.description !== undefined ? { description: values.description.trim() } : {}),
       ...(values.amount !== undefined ? { amount: values.amount } : {}),
+      ...(values.currencyId !== undefined ? { currency_id: values.currencyId } : {}),
+      ...(values.ratePerUsdSnapshot !== undefined
+        ? { rate_per_usd_snapshot: values.ratePerUsdSnapshot }
+        : {}),
       ...(values.dueDate !== undefined ? { due_date: values.dueDate } : {}),
       ...(values.notes !== undefined ? { notes: values.notes } : {}),
     });

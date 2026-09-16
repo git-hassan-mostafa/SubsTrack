@@ -63,7 +63,8 @@ export function CustomerDebtsPanel({ customer, onOpenSale }: Props) {
   }, [customer.id, customer.name]);
 
   const collectSheet = useCollectSheet();
-  const { voidItem, writeOffItem, writeOffAll } = useDebtRowActions();
+  const { voidItem, writeOffItem, writeOffAll, editItem, editSheet } =
+    useDebtRowActions();
   const openBill = useOpenBill({ onOpenSale });
 
   useFocusEffect(
@@ -115,6 +116,7 @@ export function CustomerDebtsPanel({ customer, onOpenSale }: Props) {
         items={items}
         loading={loading}
         onCollect={(item) => collectSheet.openOne(customer.name, item)}
+        onEditItem={editItem}
         onVoidItem={voidItem}
         onWriteOff={writeOffItem}
         onOpenItem={openBill.openOwed}
@@ -144,6 +146,7 @@ export function CustomerDebtsPanel({ customer, onOpenSale }: Props) {
         />
       )}
 
+      {editSheet}
       {collectSheet.sheet}
       {openBill.sheet}
     </View>

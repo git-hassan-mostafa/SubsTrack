@@ -17,6 +17,7 @@ import {
   ledgerService,
   type CollectInput,
   type CreateManualChargeInput,
+  type UpdateManualChargeInput,
   type MultiCollectResult,
 } from "@/src/modules/ledger";
 import { skippedMonthService } from "@/src/modules/customer/customer-payments";
@@ -75,10 +76,7 @@ export interface LedgerSlice {
   ) => Promise<Collection | null>;
 
   addManualCharge: (input: CreateManualChargeInput) => Promise<Charge | null>;
-  updateManualCharge: (
-    id: string,
-    values: { description?: string; amount?: number; dueDate?: string; notes?: string | null },
-  ) => Promise<Charge | null>;
+  updateManualCharge: (id: string, values: UpdateManualChargeInput) => Promise<Charge | null>;
   voidCharge: (id: string, voidedBy: string, reason: string | null) => Promise<boolean>;
   voidChargeWithPayments: (
     id: string,

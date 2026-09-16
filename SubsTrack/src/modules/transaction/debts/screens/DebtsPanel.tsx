@@ -57,7 +57,8 @@ export function DebtsPanel({ onOpenSale }: Props = {}) {
   );
 
   const collectSheet = useCollectSheet();
-  const { voidItem, writeOffItem, writeOffDebtor } = useDebtRowActions();
+  const { voidItem, writeOffItem, writeOffDebtor, editItem, editSheet } =
+    useDebtRowActions();
   const openBill = useOpenBill({ onOpenSale });
   useOwedChanged(refresh);
 
@@ -216,6 +217,7 @@ export function DebtsPanel({ onOpenSale }: Props = {}) {
           onCollectItem={(item) =>
             collectSheet.openOne(openDebtor.customerName, item)
           }
+          onEditItem={editItem}
           onVoidItem={voidItem}
           onWriteOff={writeOffItem}
           onWriteOffAll={writeOffDebtor}
@@ -228,6 +230,7 @@ export function DebtsPanel({ onOpenSale }: Props = {}) {
         <CustomDebtFormSheet onDismiss={() => setCustomDebtOpen(false)} />
       )}
 
+      {editSheet}
       {collectSheet.sheet}
       {openBill.sheet}
     </View>

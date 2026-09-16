@@ -29,6 +29,7 @@ import { daysLate, formatDate } from "@/src/core/utils/date";
 interface Props {
   item: OpenItem;
   onCollect?: (item: OpenItem) => void;
+  onEdit?: (item: OpenItem) => void;
   onVoid?: (item: OpenItem) => void;
   onWriteOff?: (item: OpenItem) => void;
   onOpen?: (item: OpenItem) => void;
@@ -52,6 +53,7 @@ const KIND_ICON: Record<ChargeKind, keyof typeof Ionicons.glyphMap> = {
 export function DebtItemCard({
   item,
   onCollect,
+  onEdit,
   onVoid,
   onWriteOff,
   onOpen,
@@ -88,6 +90,17 @@ export function DebtItemCard({
       onPress: () => {
         setMenuOpen(false);
         onCollect(item);
+      },
+    });
+  }
+  if (onEdit && item.kind === "manual" && item.chargeId) {
+    actions.push({
+      key: "edit",
+      label: t("common.edit"),
+      icon: "create-outline",
+      onPress: () => {
+        setMenuOpen(false);
+        onEdit(item);
       },
     });
   }

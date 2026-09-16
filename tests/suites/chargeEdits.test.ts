@@ -259,4 +259,60 @@ describe('updateManualCharge', () => {
     const voided = store.seedCharge({ kind: 'manual', amount: 50, voided_at: '2026-02-01T00:00:00.000Z' });
     await expect(chargeService.updateManualCharge(voided.id, { amount: 20 })).rejects.toThrow();
   });
+
+  it('TC-CH-44 moves the currency and its rate together while nothing is collected', async () => {
+    const chg = store.seedCharge({ kind: 'manual', amount: 20, currency_id: null });
+    const updated = await chargeService.updateManualCharge(chg.id, {
+      amount: 1800000,
+      currencyId: 'cur-lbp',
+      ratePerUsdSnapshot: 90000,
+    });
+    expect(updated.currencyId).toBe('cur-lbp');
+    expect(updated.ratePerUsdSnapshot).toBe(90000);
+    expect(updated.amount).toBe(1800000);
+  });
+
+  it('TC-CH-45 refuses a currency move once money has landed (#126)', async () => {
+    const chg = store.seedCharge({ kind: 'manual', amount: 50, currency_id: null });
+    store.seedCollection(chg.id, 20);
+    await expect(
+      chargeService.updateManualCharge(chg.id, {
+        currencyId: 'cur-lbp',
+        ratePerUsdSnapshot: 90000,
+      }),
+    ).rejects.toThrow(/errors.charge_currency_locked/);
+    expect(store.charge(chg.id)!.currency_id).toBeNull();
+    expect(store.charge(chg.id)!.rate_per_usd_snapshot).toBe(1);
+  });
+
+  it('TC-CH-45b re-sending the SAME currency is not a move, so a paid bill still edits', async () => {
+    const chg = store.seedCharge({ kind: 'manual', amount: 50, currency_id: null });
+    store.seedCollection(chg.id, 20);
+    const updated = await chargeService.updateManualCharge(chg.id, {
+      currencyId: null,
+      amount: 40,
+      description: 'Router',
+    });
+    expect(updated.amount).toBe(40);
+    expect(updated.description).toBe('Router');
+  });
+
+  it('TC-CH-46 the amount may fall exactly to what was collected, never below', async () => {
+    const chg = store.seedCharge({ kind: 'manual', amount: 50 });
+    store.seedCollection(chg.id, 20);
+    await expect(chargeService.updateManualCharge(chg.id, { amount: 20 }))
+      .resolves.toMatchObject({ amount: 20 });
+    await expect(chargeService.updateManualCharge(chg.id, { amount: 19.99 }))
+      .rejects.toThrow(/errors.charge_amount_below_collected/);
+  });
+
+  it('TC-CH-47 a voided hand-over frees the currency again', async () => {
+    const chg = store.seedCharge({ kind: 'manual', amount: 50, currency_id: null });
+    store.seedCollection(chg.id, 20, { voided_at: '2026-02-09T00:00:00.000Z' });
+    const updated = await chargeService.updateManualCharge(chg.id, {
+      currencyId: 'cur-lbp',
+      ratePerUsdSnapshot: 90000,
+    });
+    expect(updated.currencyId).toBe('cur-lbp');
+  });
 });

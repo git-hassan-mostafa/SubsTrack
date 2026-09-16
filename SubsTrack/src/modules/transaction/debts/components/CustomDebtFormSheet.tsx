@@ -11,11 +11,15 @@ import {
   CustomerPicker,
   CustomerFormSheet,
 } from "@/src/modules/customer/customers";
-import type { Customer } from "@/src/core/types";
+import type { Customer, OpenItem } from "@/src/core/types";
 import { useAuth } from "@/src/modules/authentication/auth";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useLedgerSlice } from "@/src/state/hooks/useLedgerSlice";
-import { findCurrency } from "@/src/core/utils/currency";
+import {
+  findCurrency,
+  formatMoney,
+  snapshotCurrency,
+} from "@/src/core/utils/currency";
 import { getTodayDateString } from "@/src/core/utils/date";
 import { DatePickerInput } from "@/src/shared/components/DatePickerInput";
 import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
@@ -35,33 +39,53 @@ function branchOf(customer: CustomerRef): string | null | undefined {
 // and every surface that shows owed money watches it (`useOwedChanged`).
 interface Props {
   initialCustomer?: CustomerRef | null;
+  item?: OpenItem | null;
   onDismiss: () => void;
 }
 
-export function CustomDebtFormSheet({ initialCustomer, onDismiss }: Props) {
+export function CustomDebtFormSheet({
+  initialCustomer,
+  item,
+  onDismiss,
+}: Props) {
   const { t } = useTranslation();
   const { user } = useAuth();
   const currencies = useCurrencySlice((s) => s.items);
   const addManualCharge = useLedgerSlice((s) => s.addManualCharge);
+  const updateManualCharge = useLedgerSlice((s) => s.updateManualCharge);
   const loading = useLedgerSlice((s) => s.loading);
   const error = useLedgerSlice((s) => s.error);
   const clearError = useLedgerSlice((s) => s.clearError);
 
+  const editing = item ?? null;
+  const collected = editing?.paid ?? 0;
+  const currencyLocked = collected > 0;
+
   const [picked, setPicked] = useState<Customer | null>(null);
-  const [amount, setAmount] = useState<number | null>(null);
-  const [currencyId, setCurrencyId] = useState<string | null>(null);
-  const [description, setDescription] = useState("");
-  const [dueDate, setDueDate] = useState(getTodayDateString);
+  const [amount, setAmount] = useState<number | null>(editing?.amount ?? null);
+  const [currencyId, setCurrencyId] = useState<string | null>(
+    editing?.currencyId ?? null,
+  );
+  const [description, setDescription] = useState(
+    editing?.charge?.description ?? "",
+  );
+  const [dueDate, setDueDate] = useState(
+    () => editing?.dueDate ?? getTodayDateString(),
+  );
   const [addCustomerOpen, setAddCustomerOpen] = useState(false);
 
   const dirty = useDirtyForm({
     pickedId: picked?.id ?? null,
     amount,
+    currencyId,
     description,
     dueDate,
   });
 
-  const customer: CustomerRef | null = initialCustomer ?? picked;
+  const lockedCustomer: CustomerRef | null = editing
+    ? { id: editing.customerId, name: editing.customerName, branchId: editing.branchId }
+    : (initialCustomer ?? null);
+  const customer: CustomerRef | null = lockedCustomer ?? picked;
 
   useEffect(() => {
     clearError();
@@ -70,6 +94,17 @@ export function CustomDebtFormSheet({ initialCustomer, onDismiss }: Props) {
   async function handleSubmit() {
     if (!user || !customer || amount == null || amount <= 0) return;
     const currency = findCurrency(currencies, currencyId);
+    if (editing?.chargeId) {
+      const saved = await updateManualCharge(editing.chargeId, {
+        description: description.trim(),
+        amount,
+        currencyId: currency?.id ?? null,
+        ratePerUsdSnapshot: currency?.ratePerUsd ?? 1,
+        dueDate,
+      });
+      if (saved) onDismiss();
+      return;
+    }
     const created = await addManualCharge({
       tenantId: user.tenantId,
       customerId: customer.id,
@@ -84,20 +119,27 @@ export function CustomDebtFormSheet({ initialCustomer, onDismiss }: Props) {
     if (created) onDismiss();
   }
 
-  const submitDisabled = !customer || amount == null || amount <= 0 || loading;
+  const belowCollected = amount != null && amount < collected;
+  const submitDisabled =
+    !customer || amount == null || amount <= 0 || belowCollected || loading;
+
+  const billCurrency = editing ? snapshotCurrency(editing, currencies) : null;
+  const collectedLabel = editing
+    ? formatMoney(collected, billCurrency, billCurrency)
+    : "";
 
   return (
     <>
       <FormSheet
         onDismiss={onDismiss}
         dirty={dirty}
-        title={t("debts.add_custom_debt")}
+        title={editing ? t("debts.edit_custom_debt") : t("debts.add_custom_debt")}
       >
             {error ? (
               <ErrorBanner message={error} onDismiss={clearError} />
             ) : null}
 
-            {initialCustomer ? (
+            {lockedCustomer ? (
               <View className="mb-4 px-4 py-3 rounded-xl border border-gray-200 bg-gray-50">
                 <Text className="text-xs text-gray-500 uppercase tracking-wide mb-1">
                   {t("debts.customer_label")}
@@ -126,8 +168,20 @@ export function CustomDebtFormSheet({ initialCustomer, onDismiss }: Props) {
               }}
               currencies={currencies}
               placeholder="0.00"
+              lockCurrency={currencyLocked}
+              error={
+                belowCollected
+                  ? t("debts.amount_floor_hint", { amount: collectedLabel })
+                  : null
+              }
               onFocus={clearError}
             />
+
+            {currencyLocked && !belowCollected ? (
+              <Text className="-mt-2 mb-4 text-xs text-gray-500">
+                {t("debts.currency_locked_hint", { amount: collectedLabel })}
+              </Text>
+            ) : null}
 
             <Input
               label={t("debts.description_label")}
@@ -144,7 +198,9 @@ export function CustomDebtFormSheet({ initialCustomer, onDismiss }: Props) {
             />
 
             <Button
-              label={t("debts.add_custom_debt")}
+              label={
+                editing ? t("debts.save_changes") : t("debts.add_custom_debt")
+              }
               onPress={handleSubmit}
               loading={loading}
               disabled={submitDisabled}

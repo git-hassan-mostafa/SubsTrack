@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import type { CustomerDebts, OpenItem } from "@/src/core/types";
 import { confirm } from "@/src/shared/lib/confirm";
@@ -7,6 +7,7 @@ import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
 import { useLedgerSlice } from "@/src/state/hooks/useLedgerSlice";
 import { useAuth } from "@/src/modules/authentication/auth";
+import { CustomDebtFormSheet } from "../components/CustomDebtFormSheet";
 
 // No "changed" callback: both writes go through the ledger slice, which bumps
 // `owedVersion`, and every debts surface watches it (`useOwedChanged`).
@@ -97,5 +98,23 @@ export function useDebtRowActions() {
     [user, t, voidCharge],
   );
 
-  return { voidItem, writeOffItem, writeOffAll, writeOffDebtor };
+  const [editing, setEditing] = useState<OpenItem | null>(null);
+
+  const editItem = useCallback((item: OpenItem) => {
+    if (item.kind !== "manual" || !item.chargeId) return;
+    setEditing(item);
+  }, []);
+
+  const editSheet = editing ? (
+    <CustomDebtFormSheet item={editing} onDismiss={() => setEditing(null)} />
+  ) : null;
+
+  return {
+    voidItem,
+    writeOffItem,
+    writeOffAll,
+    writeOffDebtor,
+    editItem,
+    editSheet,
+  };
 }
