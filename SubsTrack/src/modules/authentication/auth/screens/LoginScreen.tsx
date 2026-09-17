@@ -53,7 +53,7 @@ export function LoginScreen() {
     <SafeAreaView className="flex-1 bg-white">
       <KeyboardAwareScrollView
         contentContainerStyle={{ flexGrow: 1, justifyContent: "center" }}
-        keyboardShouldPersistTaps="handled"
+        keyboardShouldPersistTaps="always"
         showsVerticalScrollIndicator={false}
         bottomOffset={24}
       >

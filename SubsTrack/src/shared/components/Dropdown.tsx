@@ -266,7 +266,7 @@ export function DropdownModal<T extends string | number | null = string>({
         data={listItems}
         keyExtractor={(item) => String(item.value ?? "__null__")}
         style={{ maxHeight: 360 }}
-        keyboardShouldPersistTaps="handled"
+        keyboardShouldPersistTaps="always"
         renderItem={({ item }) => {
           const isSelected = item.isNull
             ? value === null

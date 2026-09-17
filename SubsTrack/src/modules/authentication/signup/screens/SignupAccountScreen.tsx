@@ -60,7 +60,7 @@ export function SignupAccountScreen() {
           <ScrollView
             className="flex-1"
             contentContainerStyle={{ flexGrow: 1 }}
-            keyboardShouldPersistTaps="handled"
+            keyboardShouldPersistTaps="always"
             showsVerticalScrollIndicator={false}
           >
             <View className="flex-1 px-6 py-8">

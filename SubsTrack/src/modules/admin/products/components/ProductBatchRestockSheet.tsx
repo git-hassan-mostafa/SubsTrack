@@ -306,7 +306,7 @@ export function ProductBatchRestockSheet({ onDismiss }: Props) {
           <BottomSheetFlatList
             data={visible}
             keyExtractor={(p) => p.id}
-            keyboardShouldPersistTaps="handled"
+            keyboardShouldPersistTaps="always"
             contentContainerStyle={{
               paddingHorizontal: 24,
               paddingTop: 24,

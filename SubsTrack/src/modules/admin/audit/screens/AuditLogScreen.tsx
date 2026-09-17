@@ -133,7 +133,7 @@ export function AuditLogScreen() {
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
+        keyboardShouldPersistTaps="always"
         contentContainerStyle={{
           paddingHorizontal: 16,
           gap: 8,

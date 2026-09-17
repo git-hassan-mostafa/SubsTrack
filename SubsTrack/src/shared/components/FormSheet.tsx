@@ -170,7 +170,7 @@ function FormSheetBody({
       <BottomSheetScrollView
         ref={bodyRef}
         style={{ flex: 1 }}
-        keyboardShouldPersistTaps="handled"
+        keyboardShouldPersistTaps="always"
         contentContainerStyle={{
           paddingHorizontal: fullBleed ? 0 : 24,
           paddingTop: fullBleed ? 0 : 24,

@@ -329,7 +329,7 @@ function AsyncPickerModal<T>({
         style={{ flex: 1 }}
         onEndReached={loadNextPage}
         onEndReachedThreshold={0.3}
-        keyboardShouldPersistTaps="handled"
+        keyboardShouldPersistTaps="always"
         ListEmptyComponent={
           loading ? (
             <View className="py-8 items-center">

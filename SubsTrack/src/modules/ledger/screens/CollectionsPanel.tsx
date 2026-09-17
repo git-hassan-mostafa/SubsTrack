@@ -281,7 +281,7 @@ export function CollectionsPanel({ onOpenSale }: Props = {}) {
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
-              keyboardShouldPersistTaps="handled"
+              keyboardShouldPersistTaps="always"
               className="mt-2"
               contentContainerStyle={{
                 paddingHorizontal: 16,
