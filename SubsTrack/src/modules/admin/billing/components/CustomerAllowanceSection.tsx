@@ -10,6 +10,7 @@ import { useAuth } from "@/src/modules/authentication/auth";
 import { useBillingSlice } from "@/src/state/hooks/useBillingSlice";
 import { confirm } from "@/src/shared/lib/confirm";
 import billingService from "../services/BillingService";
+import { askText, requestedPair } from "../utils/requestAsk";
 import { UpdateAllowanceSheet } from "./UpdateAllowanceSheet";
 import { UsageBar } from "./UsageBar";
 
@@ -18,9 +19,9 @@ type Sheet = "edit" | "update";
 export function CustomerAllowanceSection() {
   const { t } = useTranslation();
   const { user } = useAuth();
-  const allowance = useBillingSlice((s) => s.allowance);
-  const price = useBillingSlice((s) => s.pricePerCustomerUsd);
-  const activeCustomers = useBillingSlice((s) => s.activeCustomers);
+  const limits = useBillingSlice((s) => s.limits);
+  const price = useBillingSlice((s) => s.pricePerPlanUsd);
+  const active = useBillingSlice((s) => s.active);
   const request = useBillingSlice((s) => s.request);
   const saving = useBillingSlice((s) => s.saving);
   const refreshRequest = useBillingSlice((s) => s.refreshRequest);
@@ -36,16 +37,18 @@ export function CustomerAllowanceSection() {
     }, [tenantId, refreshRequest, refreshCounts]),
   );
 
-  const amount = billingService.monthlyAmountUsd(activeCustomers, price);
-  const remaining = Math.max(0, allowance - activeCustomers);
+  const amount = billingService.monthlyAmountUsd(active.plans, price);
+  const remaining = Math.max(0, limits.plans - active.plans);
   const pending = request?.status === "pending" ? request : null;
   const declined = request?.status === "declined" ? request : null;
+  const pendingAsk = pending ? askText(t, requestedPair(pending)) : "";
+  const declinedAsk = declined ? askText(t, requestedPair(declined)) : "";
 
   async function handleCancel() {
     if (!pending) return;
     await confirm({
       title: t("billing.cancel_confirm_title"),
-      message: t("billing.cancel_confirm_body", { count: pending.requestedCount }),
+      message: t("billing.cancel_confirm_body", { ask: pendingAsk }),
       confirmLabel: t("billing.cancel_request"),
       destructive: true,
       onConfirm: async () => {
@@ -63,7 +66,11 @@ export function CustomerAllowanceSection() {
         {t("billing.section_title")}
       </Text>
 
-      <UsageBar used={activeCustomers} total={allowance} />
+      <UsageBar kind="customers" used={active.customers} total={limits.customers} />
+
+      <View className="mt-4 pt-4 border-t border-gray-100">
+        <UsageBar kind="plans" used={active.plans} total={limits.plans} />
+      </View>
 
       <View className="flex-row items-center justify-between mt-4 pt-3 border-t border-gray-100">
         <View>
@@ -72,7 +79,7 @@ export function CustomerAllowanceSection() {
           </Text>
           <Text className="text-[11px] text-gray-400 mt-0.5">
             {t("billing.amount_note", {
-              count: activeCustomers,
+              count: active.plans,
               price: price.toString(),
             })}
           </Text>
@@ -88,7 +95,7 @@ export function CustomerAllowanceSection() {
             {t("billing.pending_title")}
           </Text>
           <Text className="text-xs text-amber-800 mb-3">
-            {t("billing.pending_body", { count: pending.requestedCount })}
+            {t("billing.pending_body", { ask: pendingAsk })}
           </Text>
           <View className="flex-row gap-3">
             <PressableOpacity
@@ -119,7 +126,7 @@ export function CustomerAllowanceSection() {
                 {t("billing.declined_title")}
               </Text>
               <Text className="text-xs text-red-700">
-                {t("billing.declined_body", { count: declined.requestedCount })}
+                {t("billing.declined_body", { ask: declinedAsk })}
               </Text>
             </View>
           ) : null}

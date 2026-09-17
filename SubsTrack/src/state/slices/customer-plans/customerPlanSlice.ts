@@ -4,6 +4,7 @@ import {
   type LineDraft,
   type RemovedLine,
 } from '@/src/modules/customer/customer-plans';
+import { QuotaExceededError } from '@/src/modules/admin/billing/utils/quotaError';
 import type { GlobalState } from '@/src/state/globalStore';
 
 // Thin slice for the customer form's inline Plans editor. Service lines are the
@@ -37,6 +38,8 @@ export const createCustomerPlanSlice: StateCreator<
 
   syncLines: async (customerId, lines, removed, reactivated, tenantId) => {
     if (get().customerPlans.loading) return false;
+    const { limits, active: activeCounts } = get().billing;
+    get().billing.clearQuotaError();
     set((state) => {
       state.customerPlans.loading = true;
       state.customerPlans.error = null;
@@ -45,13 +48,16 @@ export const createCustomerPlanSlice: StateCreator<
       const existing =
         get().customers.items.find((c) => c.id === customerId)?.customerPlans ??
         [];
+      const existingActive = existing.filter((l) => l.active);
       const { active, cancelled } = await customerPlanService.syncLines(
         customerId,
         lines,
         removed,
         reactivated,
         tenantId,
-        existing.filter((l) => l.active),
+        existingActive,
+        limits,
+        activeCounts,
       );
       const reactivatedSet = new Set(reactivated);
       const removedSet = new Set(removed.map((r) => r.id));
@@ -67,10 +73,13 @@ export const createCustomerPlanSlice: StateCreator<
       set((state) => {
         state.customerPlans.loading = false;
       });
+      get().billing.bumpActive({ plans: lines.length - existingActive.length });
       return true;
     } catch (e) {
+      if (e instanceof QuotaExceededError) get().billing.setQuotaError(e);
       set((state) => {
-        state.customerPlans.error = (e as Error).message;
+        state.customerPlans.error =
+          e instanceof QuotaExceededError ? null : (e as Error).message;
         state.customerPlans.loading = false;
       });
       return false;

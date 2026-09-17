@@ -1,5 +1,6 @@
 import type { DbTenant } from '@/src/core/types/db';
+import type { QuotaPair } from '../utils/types';
 
 export interface IAllowanceRepository {
-  lowerAllowance(newAllowance: number): Promise<DbTenant>;
+  lowerAllowances(next: QuotaPair): Promise<DbTenant>;
 }

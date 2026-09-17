@@ -23,6 +23,7 @@ export interface ICustomerPlanRepository {
   ): Promise<DbCustomerPlan>;
   cancel(id: string): Promise<DbCustomerPlan>;
   delete(id: string): Promise<void>;
+  countActive(): Promise<number>;
   countPayments(id: string): Promise<number>;
   findPaidLineIds(customerId: string): Promise<string[]>;
 }

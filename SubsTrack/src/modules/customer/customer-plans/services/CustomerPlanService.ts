@@ -1,6 +1,8 @@
 import type { CustomerPlan } from "@/src/core/types";
 import { isValidDateString } from "@/src/core/utils/date";
 import i18n from "@/src/core/i18n";
+import billingService from "@/src/modules/admin/billing/services/BillingService";
+import type { QuotaPair } from "@/src/modules/admin/billing/utils/types";
 import repository from "../repository/CustomerPlanRepository";
 import { mapDbCustomerPlanToCustomerPlan } from "../utils/mapper";
 
@@ -76,16 +78,28 @@ class CustomerPlanService {
     return mapDbCustomerPlanToCustomerPlan(row);
   }
 
+  async countActive(): Promise<number> {
+    return repository.countActive();
+  }
+
+  // `lines` is the final list, so removals and reactivations net out against
+  // this customer's own share of the tenant-wide count.
   async syncLines(
     customerId: string,
     lines: LineDraft[],
     removed: RemovedLine[],
     reactivated: string[],
     tenantId: string,
-    existingLines: CustomerPlan[] = [],
+    existingLines: CustomerPlan[],
+    limits: QuotaPair,
+    activeCounts: QuotaPair,
   ): Promise<{ active: CustomerPlan[]; cancelled: CustomerPlan[] }> {
     const existingById = new Map(existingLines.map((l) => [l.id, l]));
     const reactivatedSet = new Set(reactivated);
+    billingService.assertQuotas(limits, activeCounts, {
+      customers: activeCounts.customers,
+      plans: activeCounts.plans - existingLines.length + lines.length,
+    });
     await this.assertStartDatesUnlocked(customerId, lines, existingById);
     this.assertCustomPricesAllowed(lines);
 

@@ -4,7 +4,8 @@ export interface DbTenant {
   tenant_code: string;
   active: boolean;
   customer_allowance: number;
-  price_per_customer_usd: number;
+  plan_allowance: number;
+  price_per_plan_usd: number;
   created_at: string;
 }
 
@@ -13,6 +14,8 @@ export interface DbCustomerRequest {
   tenant_id: string;
   requested_count: number;
   granted_count: number | null;
+  requested_plans: number | null;
+  granted_plans: number | null;
   status: 'pending' | 'accepted' | 'declined' | 'cancelled';
   requested_by: string | null;
   decided_by: string | null;

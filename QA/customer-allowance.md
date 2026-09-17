@@ -1,50 +1,55 @@
-# QA — Customer Allowance & Billing
+# QA — Allowances & Billing
 
-Covers per-customer pricing: the **Customers & billing** card in Organization Settings, the monthly amount, the "request more customers" flow (send / edit / cancel), the SaaS owner accepting or declining a request from SuperAdmin, the hard cap on creating customers, the single **Update customer number** sheet that raises by request and lowers instantly (§13), and the server-side locks that stop a tenant admin raising it.
+Covers the two limits and per-service-line pricing: the **Limits & billing** card in Organization Settings, the monthly amount, the "ask for more" flow (send / edit / cancel), the SaaS owner accepting or declining a request from SuperAdmin, the hard caps on creating customers and service lines, the single **Update your limits** sheet that raises by request and lowers instantly (§13), and the server-side locks that stop a tenant admin raising either.
 
-There are **no tiers**. Branches, users, plans, products and currencies are unlimited, multi-currency and multi-month plans are always on, and the only quantity limit left in the product is **how many active customers a tenant may hold**.
+There are **no tiers**. Branches, users, plans, products and currencies are unlimited, multi-currency and multi-month plans are always on, and the product has exactly **two** quantity limits: how many **active customers** a tenant may hold, and how many **active service lines** — the second being the number the bill is counted on.
 
 ## Reference code
 
 - Module: [SubsTrack/src/modules/admin/billing/](../SubsTrack/src/modules/admin/billing/)
-- Service: [BillingService.ts](../SubsTrack/src/modules/admin/billing/services/BillingService.ts) (`monthlyAmountUsd`, `assertCanCreateCustomer`, `validateRequest`, `validateDecrease`, `lowerAllowance`)
+- Service: [BillingService.ts](../SubsTrack/src/modules/admin/billing/services/BillingService.ts) (`monthlyAmountUsd`, `assertQuotas`, `validateRequest`, `validateDecrease`, `lowerAllowances`)
 - Settings card: [CustomerAllowanceSection.tsx](../SubsTrack/src/modules/admin/billing/components/CustomerAllowanceSection.tsx)
-- Update sheet (both directions): [UpdateAllowanceSheet.tsx](../SubsTrack/src/modules/admin/billing/components/UpdateAllowanceSheet.tsx) · usage bar: [UsageBar.tsx](../SubsTrack/src/modules/admin/billing/components/UsageBar.tsx) · sign helper: [allowanceChange.ts](../SubsTrack/src/modules/admin/billing/utils/allowanceChange.ts)
-- Block modal: [CustomerLimitReachedModal.tsx](../SubsTrack/src/modules/admin/billing/components/CustomerLimitReachedModal.tsx)
-- Typed errors: [customerLimitError.ts](../SubsTrack/src/modules/admin/billing/utils/customerLimitError.ts), [allowanceFloorError.ts](../SubsTrack/src/modules/admin/billing/utils/allowanceFloorError.ts) · min constant: [types.ts](../SubsTrack/src/modules/admin/billing/utils/types.ts) (`MIN_CUSTOMER_REQUEST = 10`)
-- Repositories: [CustomerRequestRepository.ts](../SubsTrack/src/modules/admin/billing/repository/CustomerRequestRepository.ts) (web) · [CustomerRequestRepository.offline.ts](../SubsTrack/src/modules/admin/billing/repository/CustomerRequestRepository.offline.ts) (native, online-only) · [AllowanceRepository.ts](../SubsTrack/src/modules/admin/billing/repository/AllowanceRepository.ts) + [.offline](../SubsTrack/src/modules/admin/billing/repository/AllowanceRepository.offline.ts) (the `lower_customer_allowance` RPC, online-only)
-- Slice: [billingSlice.ts](../SubsTrack/src/state/slices/billing/billingSlice.ts) · hook `useBillingSlice`
-- Cap enforcement: [CustomerService.createCustomer](../SubsTrack/src/modules/customer/customers/services/CustomerService.ts) → [customerSlice.ts](../SubsTrack/src/state/slices/customers/customerSlice.ts)
+- Update sheet (both limits, both directions): [UpdateAllowanceSheet.tsx](../SubsTrack/src/modules/admin/billing/components/UpdateAllowanceSheet.tsx) · one limit's field pair: [AllowanceField.tsx](../SubsTrack/src/modules/admin/billing/components/AllowanceField.tsx) · usage bar: [UsageBar.tsx](../SubsTrack/src/modules/admin/billing/components/UsageBar.tsx) · sign helper: [allowanceChange.ts](../SubsTrack/src/modules/admin/billing/utils/allowanceChange.ts) · ask wording: [requestAsk.ts](../SubsTrack/src/modules/admin/billing/utils/requestAsk.ts)
+- Block modal: [QuotaReachedModal.tsx](../SubsTrack/src/modules/admin/billing/components/QuotaReachedModal.tsx)
+- Typed errors: [quotaError.ts](../SubsTrack/src/modules/admin/billing/utils/quotaError.ts), [allowanceFloorError.ts](../SubsTrack/src/modules/admin/billing/utils/allowanceFloorError.ts) · constants: [types.ts](../SubsTrack/src/modules/admin/billing/utils/types.ts) (`MIN_CUSTOMER_REQUEST = 10`, `MIN_CUSTOMER_ALLOWANCE = 30`, `QUOTA_KINDS`, `ALLOWANCE_FLOOR_CODES`)
+- Repositories: [CustomerRequestRepository.ts](../SubsTrack/src/modules/admin/billing/repository/CustomerRequestRepository.ts) (web) · [CustomerRequestRepository.offline.ts](../SubsTrack/src/modules/admin/billing/repository/CustomerRequestRepository.offline.ts) (native, online-only) · [AllowanceRepository.ts](../SubsTrack/src/modules/admin/billing/repository/AllowanceRepository.ts) + [.offline](../SubsTrack/src/modules/admin/billing/repository/AllowanceRepository.offline.ts) (the `lower_allowances` RPC, online-only)
+- Slice: [billingSlice.ts](../SubsTrack/src/state/slices/billing/billingSlice.ts) · hook `useBillingSlice` — `limits` / `active` are `QuotaPair`s, `quotaError` is where both caps report
+- Cap enforcement: [CustomerService.createCustomer](../SubsTrack/src/modules/customer/customers/services/CustomerService.ts) and [CustomerPlanService.syncLines](../SubsTrack/src/modules/customer/customer-plans/services/CustomerPlanService.ts) → [customerSlice.ts](../SubsTrack/src/state/slices/customers/customerSlice.ts) / [customerPlanSlice.ts](../SubsTrack/src/state/slices/customer-plans/customerPlanSlice.ts)
+- Line count: [CustomerPlanRepository.countActive](../SubsTrack/src/modules/customer/customer-plans/repository/CustomerPlanRepository.ts) + [.offline](../SubsTrack/src/modules/customer/customer-plans/repository/CustomerPlanRepository.offline.ts) · per-customer helper: [activeLines.ts](../SubsTrack/src/modules/customer/customer-plans/utils/activeLines.ts)
 - Host screen: [TenantSettingsScreen.tsx](../SubsTrack/src/modules/admin/tenant-settings/screens/TenantSettingsScreen.tsx)
 - SuperAdmin: [TenantCard.tsx](../SuperAdmin/src/modules/tenants/components/TenantCard.tsx), [TenantFormSheet.tsx](../SuperAdmin/src/modules/tenants/components/TenantFormSheet.tsx), [TenantService.ts](../SuperAdmin/src/modules/tenants/services/TenantService.ts), [TenantRepository.ts](../SuperAdmin/src/modules/tenants/repository/TenantRepository.ts)
-- SQL: `tenants.customer_allowance` / `tenants.price_per_customer_usd`, table `customer_requests`, index `uq_customer_requests_one_pending`, trigger `trg_tenants_guard_billing`, functions `accept_customer_request()` / `lower_customer_allowance()` in [sql scripts/script.sql](../sql%20scripts/script.sql)
-- Local mirror columns: [tables.ts](../SubsTrack/src/core/offline/db/tables.ts) (`tenants.customer_allowance`, `tenants.price_per_customer_usd`)
-- Unit tests: `tests/suites/customerAllowance.test.ts` (TC-CA-01…11) — see [money-unit-tests.md](money-unit-tests.md)
+- SQL: `tenants.customer_allowance` / `tenants.plan_allowance` / `tenants.price_per_plan_usd`, table `customer_requests`, index `uq_customer_requests_one_pending`, trigger `trg_tenants_guard_billing`, functions `accept_customer_request()` / `lower_allowances()` in [sql scripts/script.sql](../sql%20scripts/script.sql)
+- Local mirror columns: [tables.ts](../SubsTrack/src/core/offline/db/tables.ts) (`tenants.customer_allowance`, `tenants.plan_allowance`, `tenants.price_per_plan_usd`)
+- Unit tests: `tests/suites/customerAllowance.test.ts` (TC-CA-01…11, TC-CQ-01…06, TC-CD-01…08) — see [money-unit-tests.md](money-unit-tests.md)
 
-**Schema defaults:** `customer_allowance = 30`, `price_per_customer_usd = 0.15`. Every new tenant starts there, by both creation paths.
+**Schema defaults:** `customer_allowance = 30`, `plan_allowance = 30`, `price_per_plan_usd = 0.15`. Every new tenant starts there, by both creation paths.
 
 **DB constraints:**
 
-- `chk_tenants_customer_allowance_min` — `customer_allowance >= 30`. **Renamed** from `chk_tenants_customer_allowance` (`>= 0`); `script.sql` drops the old one, lifts any tenant under 30 onto 30, then adds the new one.
-- `chk_tenants_price_per_customer` — `price_per_customer_usd >= 0`, `NUMERIC(10,4)`.
-- `chk_customer_requests_min` — `requested_count >= 10`.
+- `chk_tenants_customer_allowance_min` — `customer_allowance >= 30`.
+- `chk_tenants_plan_allowance_floor` — `plan_allowance >= customer_allowance`. On a live database `migration.sql` must run **first**, lifting every tenant to `GREATEST(plan_allowance, customer_allowance, its active line count)`; without it `script.sql` is refused by any tenant whose allowance is above the default 30.
+- `chk_tenants_price_per_plan` — `price_per_plan_usd >= 0`, `NUMERIC(10,4)`. The old `price_per_plan_usd` column is copied over and dropped by a guarded block.
+- `chk_customer_requests_total_min` — `requested_count + COALESCE(requested_plans, 0) >= 10`. Replaces the single-column `chk_customer_requests_min`, which `migration.sql` drops by name. The total does **not** imply a non-negative half, so `chk_customer_requests_count` (`requested_count >= 0`) rides beside it — added there too, since the column already exists on a live database.
 - `chk_customer_requests_status` — `status IN ('pending','accepted','declined','cancelled')`.
 - `uq_customer_requests_one_pending` — partial unique index on `(tenant_id)` `WHERE status = 'pending'`.
-- `tenants` has **no UPDATE policy**; `trg_tenants_guard_billing` additionally raises for any session carrying an `auth.uid()`.
-- `accept_customer_request(UUID, INT)` is `REVOKE`d from `anon`, `authenticated` and `public`.
+- `tenants` has **no UPDATE policy**; `trg_tenants_guard_billing` additionally raises when the request’s role is `authenticated` or `anon` and either allowance or the price moves. It reads the role, never `auth.uid()` — a `SECURITY DEFINER` RPC keeps the caller’s JWT, so a uid test refuses `lower_allowances()` itself.
+- `accept_customer_request(UUID, INT, INT)` is `REVOKE`d from `anon`, `authenticated` and `public`; the old two-argument version and `lower_customer_allowance(INT)` are dropped by signature in `migration.sql`.
 
 ---
 
 ## 0. Critical invariants
 
-1. **The monthly amount is ALWAYS in USD** — `activeCustomers × price_per_customer_usd`, rounded to 2 decimals. It never uses the tenant's display currency, even when that is LBP.
-2. **The cap counts ACTIVE customers only.** Deactivating a customer frees a slot immediately; a cancelled/inactive customer never counts.
-3. **The cap blocks AT the allowance, not one past it.** With `allowance = 30` and 30 active customers, the 31st is refused.
-4. **Exactly one pending request per tenant**, enforced by a partial unique index — not by the UI.
-5. **Only the SaaS owner moves the numbers.** A tenant admin can insert, edit and cancel a *request*; they can never raise `customer_allowance`, flip a request to `accepted`, or call `accept_customer_request`.
-6. **Accept is atomic** — one `accept_customer_request()` call marks the request accepted and raises the allowance. Decline is a plain status update and touches no allowance.
-7. **The allowance rides on the synced tenant row**, so the cap still blocks with no network. `customer_requests` is **not** mirrored — every request action is online-only.
-8. **Minimum request is 10** (`MIN_CUSTOMER_REQUEST`), whole numbers only.
+1. **The monthly amount is ALWAYS in USD, and counted on SERVICE LINES** — `activeLines × price_per_plan_usd`, rounded to 2 decimals. Never `activeCustomers × price`, and never the tenant's display currency even when that is LBP.
+2. **"Active line" means the line is active AND its customer is active.** Deactivating a customer frees its customer slot **and** every line slot it held, with no line row changing.
+3. **Both caps count ACTIVE rows only**, tenant-wide, never branch-filtered.
+4. **A cap blocks AT the limit, not one past it.** With `plan_allowance = 30` and 30 active lines, the 31st is refused.
+5. **A quota only refuses a write that GROWS it.** A tenant sitting over a limit the owner cut can still remove customers and lines.
+6. **`plan_allowance >= customer_allowance` always** — at the column (`chk_tenants_plan_allowance_floor`), in `lower_allowances()`, in `accept_customer_request()`, in `TenantService.validateBilling`, and in the update sheet, which lifts the line box rather than refusing.
+7. **Exactly one pending request per tenant**, enforced by a partial unique index — not by the UI. One row carries both asks.
+8. **Only the SaaS owner moves the numbers.** A tenant admin can insert, edit and cancel a *request*; they can never raise either allowance, flip a request to `accepted`, or call `accept_customer_request`.
+9. **Accept is atomic** — one `accept_customer_request()` call marks the request accepted and raises both allowances. Decline is a plain status update and touches nothing else.
+10. **Both allowances ride on the synced tenant row**, so both caps still block with no network. `customer_requests` is **not** mirrored — every request action is online-only, and so is lowering.
+11. **Minimum request is 10 across BOTH halves** (`MIN_CUSTOMER_REQUEST`), whole numbers only. Either half may be 0.
 
 ---
 
@@ -87,7 +92,7 @@ The card sits at the top of Admin → Organization Settings, above Display curre
 | 2.9 | Field caps length | Type 8 digits | Field stops at 6 characters |
 | 2.10 | Double-tap Send | Tap Send twice fast | One row only; the button is disabled while `saving` |
 | 2.11 | Dirty-form guard | Type `90`, drag the sheet down | "Discard changes?" prompt (see [unsaved-changes.md](unsaved-changes.md)); no row written on discard |
-| 2.12 | Server rejects below 10 | Force an insert of `requested_count = 5` via the API | `chk_customer_requests_min` violation — the client-side rule is not the only guard |
+| 2.12 | Server rejects below 10 | Force an insert of `requested_count = 5` via the API | `chk_customer_requests_total_min` violation — the client-side rule is not the only guard |
 
 ## 3. Request buttons — WhatsApp variant
 
@@ -155,7 +160,7 @@ The second button uses the global option `SupportWhatsAppNumber` (see [options.m
 
 ## 7. The hard cap on creating customers
 
-Enforced in `CustomerService.createCustomer` via `billingService.assertCanCreateCustomer(allowance, activeCount)`, using the **tenant-wide** active count held in the billing slice.
+Enforced in `CustomerService.createCustomer` via `billingService.assertQuotas(limits, before, after)`, using the **tenant-wide** active count held in the billing slice.
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
@@ -169,9 +174,9 @@ Enforced in `CustomerService.createCustomer` via `billingService.assertCanCreate
 | 7.8 | That button navigates | Tap it | Modal + form close; Organization Settings opens on the Customers & billing card |
 | 7.9 | **Branch admin gets no button** | Hit the cap as an admin bound to a branch | Modal says "ask your administrator"; **no** navigate button — only Close |
 | 7.10 | Staff role | A `user` role hits the cap | Same "ask your administrator" wording, no button |
-| 7.11 | Close the modal | Tap Close | Modal dismisses, the customer form is still there with the typed values intact; `customerLimitError` is cleared |
+| 7.11 | Close the modal | Tap Close | Modal dismisses, the customer form is still there with the typed values intact; `quotaError` is cleared |
 | 7.12 | Editing is never blocked | At the cap, edit an existing customer | Saves fine — the cap gates creates only |
-| 7.13 | Not an ErrorBanner | Hit the cap | The limit surfaces as the modal, never as a red banner string; `error` stays null (the slice stores a structured `customerLimitError`) |
+| 7.13 | Not an ErrorBanner | Hit the cap | The limit surfaces as the modal, never as a red banner string; `error` stays null (the slice stores a structured `quotaError`) |
 | 7.14 | Cap after a raise | Hit the cap, get the allowance raised, retry | Create succeeds with no relaunch — the slice refreshes on focus |
 | 7.15 | Branch count does not leak | Branch admin with 5 branch customers, tenant total 30, allowance 30 | Blocked — the cap reads the tenant-wide count, never the branch-filtered one |
 | 7.16 | Signup path | Brand-new tenant, immediately add customers | Blocks at 30 — schema defaults apply from day one, with no setup step |
@@ -201,8 +206,8 @@ Enforced in `CustomerService.createCustomer` via `billingService.assertCanCreate
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
 | 9.1 | **Cannot raise their own allowance** | As a tenant admin: `UPDATE tenants SET customer_allowance = 99999 WHERE id = <own tenant>` | **Fails.** No UPDATE policy exists on `tenants`, so RLS refuses it (0 rows / permission denied). The value is unchanged |
-| 9.2 | Trigger is the second lock | Temporarily grant an UPDATE policy on `tenants`, retry 9.1 | Still fails: `trg_tenants_guard_billing` raises *"customer_allowance and price_per_customer_usd are owner-only"* because the session carries an `auth.uid()`. **Drop the test policy again afterwards** |
-| 9.3 | Price is locked too | As a tenant admin, try to set `price_per_customer_usd = 0` | Same refusal as 9.1 / 9.2 |
+| 9.2 | Trigger is the second lock | Temporarily grant an UPDATE policy on `tenants`, retry 9.1 | Still fails: `trg_tenants_guard_billing` raises *"customer_allowance, plan_allowance and price_per_plan_usd are owner-only"* because the request runs as `authenticated`. **Drop the test policy again afterwards** |
+| 9.3 | Price is locked too | As a tenant admin, try to set `price_per_plan_usd = 0` | Same refusal as 9.1 / 9.2 |
 | 9.4 | Other tenant columns unaffected | Confirm the app never needs to write `tenants` | No app screen writes the tenants table; nothing breaks from it being read-only |
 | 9.5 | **Cannot self-accept a request** | As a tenant admin: `UPDATE customer_requests SET status = 'accepted' WHERE id = <own pending>` | **Fails** — the update policy's `WITH CHECK` allows only `pending` or `cancelled` |
 | 9.6 | Cannot self-grant | Try `UPDATE customer_requests SET granted_count = 500` on their own pending row | Refused by the same `WITH CHECK` |
@@ -226,7 +231,7 @@ Enforced in `CustomerService.createCustomer` via `billingService.assertCanCreate
 | 10.3 | Lower the allowance | Set allowance below the tenant's current active count, Save | Allowed — existing customers are untouched, but the tenant can create no more (§7.3) |
 | 10.4 | Change the price | Set price `0.15` → `0.25`, Save | Saved; the tenant's monthly amount recomputes on their next read |
 | 10.5 | Allowance validation | Enter `-1`, `12.5` or `29` | Save disabled / "Customer allowance must be a whole number of 30 or more" |
-| 10.6 | Price validation | Enter a negative price | Refused by validation and by `chk_tenants_price_per_customer` |
+| 10.6 | Price validation | Enter a negative price | Refused by validation and by `chk_tenants_price_per_plan` |
 | 10.7 | Below the minimum | Set allowance `29` or `0`, Save | Refused — "Minimum 30 customers" under the field, Save disabled, and `chk_tenants_customer_allowance_min` would refuse it anyway |
 | 10.8 | New tenant defaults | SuperAdmin → + Add Tenant, leave both fields at their placeholders | Tenant created with 30 / 0.15 — the schema DEFAULT, the placeholder and `MIN_CUSTOMER_ALLOWANCE` all agree |
 | 10.8b | Self-service signup | Sign up a brand-new tenant from the SubsTrack app | Allowance is **30**: `create-tenant` omits the column on purpose, so the schema DEFAULT decides it in one place |
@@ -258,7 +263,7 @@ Enforced in `CustomerService.createCustomer` via `billingService.assertCanCreate
 |---|----------|-------|-----------------|
 | 12.1 | Idempotent schema | Run `script.sql` twice on a live DB | No error; existing allowances and prices preserved; the partial unique index and trigger exist once |
 | 12.2 | Reset then rebuild | `reset.sql` then `script.sql` | Clean rebuild; new tenants land on 30 / 0.15 |
-| 12.3 | Existing tenants on upgrade | Run the new `script.sql` on a DB whose tenants predate the columns | Every tenant gets `customer_allowance = 30`, `price_per_customer_usd = 0.15`. **A tenant already holding more than 30 customers is now over cap** — the owner must raise it (the commented one-off `GREATEST` statement at the end of the script) |
+| 12.3 | Existing tenants on upgrade | Run the new `script.sql` on a DB whose tenants predate the columns | Every tenant gets `customer_allowance = 30`, `price_per_plan_usd = 0.15`. **A tenant already holding more than 30 customers is now over cap** — the owner must raise it (the commented one-off `GREATEST` statement at the end of the script) |
 | 12.4 | Request cascade | Delete a tenant with requests | Its `customer_requests` rows go with it (`ON DELETE CASCADE`) |
 | 12.5 | Logout resets billing state | Log out | `allowance`, `price`, `activeCustomers` and `request` all reset; next login re-primes them |
 | 12.6 | Tenant switch on one device | Log out of tenant A, log in as tenant B on the same device | B's own allowance and count — never A's leftovers |
@@ -271,7 +276,7 @@ Enforced in `CustomerService.createCustomer` via `billingService.assertCanCreate
 
 **Organization Settings → Customers & billing** now carries a **single** button, **Update customer number**, which opens `<UpdateAllowanceSheet />`. The sheet holds **two fields for one number**: the **Allowed customers** total on the left, and a **signed Change** stepper (− / value / +) on the right. Typing in either rewrites the other — `total` is the only state, the change field is a view over it (`total − allowance`), so they cannot drift apart.
 
-**The sign decides which path the Save takes.** A **negative** change lowers the allowance **at once** (the `lower_customer_allowance` RPC). A **positive** change sends a **request** for the owner to accept, exactly as before.
+**The sign decides which path the Save takes.** A **negative** change lowers the allowance **at once** (the `lower_allowances` RPC). A **positive** change sends a **request** for the owner to accept, exactly as before.
 
 **A decrease has TWO floors and the HIGHER one binds:** the product minimum of **30** (`MIN_CUSTOMER_ALLOWANCE`, mirrored by `chk_tenants_customer_allowance_min` and by the RPC) and the tenant's **active customer count**, re-counted server-side. 30 is also the allowance every tenant is created with, from SuperAdmin and from self-service signup alike.
 
@@ -309,3 +314,61 @@ Enforced in `CustomerService.createCustomer` via `billingService.assertCanCreate
 | 13.27 | Cut to exactly the minimum | 0 active, allowance 100 → total `30` | Allowed and saved |
 | 13.28 | Active count outranks the minimum | 45 active → total `30` | The **floor** message wins: it asks to deactivate 15, rather than naming the 30 minimum |
 | 13.29 | Server refuses too | Call the RPC directly with `29` | RAISEs "The customer limit cannot go below 30" — the UI is not the only guard |
+| 13.33 | **The guard does not refuse its own RPC** | Against a REAL database, as a tenant admin, lower both limits from the sheet | Saves. `trg_tenants_guard_billing` tests the request’s ROLE, and `lower_allowances()` is SECURITY DEFINER so it runs as the function owner. When the guard tested `auth.uid()` instead, every save died on *"customer_allowance, plan_allowance and price_per_plan_usd are owner-only"* — the JWT survives the definer swap |
+
+---
+
+## 14. The service-line cap
+
+The second limit, and the one the bill is counted on. Enforced in `CustomerPlanService.syncLines` and — for lines drafted alongside a new customer — in `CustomerService.createCustomer`, both through `billingService.assertQuotas`.
+
+| # | Scenario | Steps | Expected result |
+|---|----------|-------|-----------------|
+| 14.1 | Under the cap | Line limit 30, 29 active lines, add one line to an existing customer | Saved normally; the line bar reads 30 / 30 |
+| 14.2 | **At the cap** | Line limit 30, 30 active lines, add a line | "Service line limit reached" modal; **no line inserted**; the form stays open behind it |
+| 14.3 | A batch that would cross | Limit 30, 28 active, add 3 lines to one customer in one save | Blocked — the whole save is refused, not two-of-three; nothing is written |
+| 14.4 | A batch that exactly fits | Limit 30, 27 active, add 3 lines in one save | All three saved |
+| 14.5 | **Removals net against additions** | Limit 30, 30 active; on one customer remove 2 lines and add 2 in the same save | Saved — the net change is 0, so the cap never bites |
+| 14.6 | Removing while over cap | Owner cuts the line limit to 20 while 30 are active; remove a line | Succeeds — a quota only refuses a write that grows it |
+| 14.7 | Adding while over cap | Same state, add a line | Blocked with 30 of 20 |
+| 14.8 | Reactivating a cancelled line counts | At the cap, reactivate a previously cancelled line | Blocked — a reactivated line is an added line |
+| 14.9 | **A new customer's drafted lines are counted first** | Limit 30, 29 active lines, 20 of 30 customers; add a NEW customer with 2 lines | Blocked, and **no customer row is created** — check the customer list and the customer bar afterwards |
+| 14.10 | Customer cap reported first | Both caps full, add a new customer with lines | The modal names the **customer** limit, not the line one |
+| 14.11 | Deactivating a customer frees its lines | Customer with 3 active lines, deactivate them | The line bar drops by 3 with no line row edited; the monthly amount drops too |
+| 14.12 | Reactivating puts them back | Reactivate that customer | The line bar climbs by 3 again |
+| 14.13 | Deleting a customer frees its lines | Hard-delete (no payments) and soft-delete (has payments) a customer with 2 lines | Both drop the line bar by 2 |
+| 14.14 | Bulk delete | Select 3 customers holding 5 lines between them, bulk delete | Customer bar −3, line bar −5 |
+| 14.15 | A line on an inactive customer is not billed | Tenant with 10 lines, 4 of them on deactivated customers | The bar and the monthly amount both count 6 |
+| 14.16 | Count is tenant-wide | Branch admin of a 3-branch tenant | The line bar shows the TENANT total, not the branch's share |
+| 14.17 | Editing a line is never blocked | At the cap, change an existing line's plan or start date | Saves fine — the cap gates growth only |
+| 14.18 | Branch admin gets no button | Hit the line cap as an admin bound to a branch | Modal says "ask your administrator"; no navigate button |
+| 14.19 | Not an ErrorBanner | Hit the line cap | The limit surfaces as the modal, never as a red banner; `customerPlans.error` stays null |
+| 14.20 | Offline (native) | Go offline, hit the line cap | Still blocked — the limit is on the synced tenant row and the count comes from the mirror |
+| 14.21 | Two offline devices race | Both offline at 29 of 30 lines, each adds one, then sync | Both land; the tenant sits at 31 of 30 — advisory, like the oversell guard. No row is lost |
+
+---
+
+## 15. The service-line limit in the settings card and sheet
+
+| # | Scenario | Steps | Expected result |
+|---|----------|-------|-----------------|
+| 15.1 | Two bars | Open Organization Settings | Customer bar first, service-line bar under it, then the monthly amount |
+| 15.2 | Line bar tones | Drive lines to 79%, 80%, 100% of the limit | Indigo, amber, red — same thresholds as the customer bar |
+| 15.3 | Monthly amount follows LINES | 100 active lines across 40 customers, price 0.15 | `$15.00` — not `$6.00` |
+| 15.4 | Amount note | Under the amount | Reads "N active × $price per service line" |
+| 15.5 | Both fields in the sheet | Open "Update your limits" | Allowed customers and Allowed service lines, each with its own Change box and steppers |
+| 15.6 | **Raising customers lifts lines** | Limits 30 / 30, type 50 in the customer box | The line box moves to 50 too, with no error shown |
+| 15.7 | Lines cannot go under customers | Limits 50 / 80, type 40 in the line box | The field floors at 50; Save is not offered below it |
+| 15.8 | Lower one limit only | Limits 50 / 80 with 40 / 60 active, cut lines to 70 and leave customers | Confirm names both new numbers; applies at once |
+| 15.9 | **Raise and cut together is refused** | Raise customers, cut lines, in one save | "Raise or lower, not both at once"; Save disabled |
+| 15.10 | Ask for lines only | Limits 30 / 30, leave customers, ask +20 lines | Request sends — the 10 minimum binds the total, not each half |
+| 15.11 | Ask for both | +5 customers and +5 lines | Request sends; the pending block reads "5 more customers and 5 more service lines" |
+| 15.12 | Ask below the total minimum | +4 customers and +5 lines | Refused — 9 is under 10 |
+| 15.13 | Line floor on a cut | 60 active lines, try to cut the line limit to 50 | Amber "Cancel 10 service lines first"; Save disabled; the server would refuse it too |
+| 15.14 | Server wins | Another device adds lines between load and Save, then cut to just under the new count | The RPC refuses with the coded message; the sheet shows the same typed floor error, not raw SQL |
+| 15.15 | Edit a pending request | Pending +5 / +5, tap Edit request | Both boxes open on limit + what was asked; each floor is that limit's current value; Save routes to editRequest |
+| 15.16 | SuperAdmin grants | Accept with 5 customers and 0 lines | Both allowances patch in the card; the line one is lifted to at least the new customer one |
+| 15.17 | SuperAdmin grant of 0 / 0 | Leave both grant fields empty or zero | Accept is disabled |
+| 15.18 | SuperAdmin line field floor | In the tenant form, set the line allowance under the customer allowance | Inline error; Save disabled |
+| 15.19 | WhatsApp wording | Send request + WhatsApp for +5 / +5 | The message names both halves in one sentence |
+| 15.20 | RTL | Switch to Arabic and reopen the sheet | Both field pairs mirror; the numbers stay left-to-right |

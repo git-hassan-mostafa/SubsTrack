@@ -12,7 +12,7 @@
 - [Multi-Currency](#multi-currency)
 - [App Options (Global Config)](#app-options-global-config)
 - [Tenant Settings (Per-Tenant Config)](#tenant-settings-per-tenant-config)
-- [Customer Allowance & Requests](#customer-allowance--requests)
+- [Allowances & Requests](#allowances--requests)
 - [Products & One-Off Sales](#products--one-off-sales)
   - [Services](#services)
 - [Reports](#reports)
@@ -97,7 +97,7 @@ LoginScreen
        get().branches.fetchBranches()
        get().options.fetchOptions()         (loads global app_options — e.g. LiraRate)
        get().billing.init(tenantId)
-         → seeds allowance + pricePerCustomerUsd from the auth-time tenant row
+         → seeds both limits + pricePerPlanUsd from the auth-time tenant row
          → customerService.countActive(null) — TENANT-WIDE active customer count
          → refreshRequest() — the one pending customer_requests row, if any
 
@@ -122,7 +122,7 @@ app/(app)/_layout.tsx
   → otherwise → render tabs
 ```
 
-**Hydration note:** `authSlice` exports an internal `primePostAuth(get, user)` helper called by `login` and `restoreSession`. It runs `get().currencies.fetchCurrencies()`, `get().branches.fetchBranches()`, `get().options.fetchOptions()`, and `get().billing.init(tenantId)` in parallel via `Promise.all`. `billing.init` seeds the allowance and per-customer price from the tenant row already in hand, then reads the tenant-wide active-customer count and any pending request (see Customer Allowance & Requests below).
+**Hydration note:** `authSlice` exports an internal `primePostAuth(get, user)` helper called by `login` and `restoreSession`. It runs `get().currencies.fetchCurrencies()`, `get().branches.fetchBranches()`, `get().options.fetchOptions()`, and `get().billing.init(tenantId)` in parallel via `Promise.all`. `billing.init` seeds both limits and the per-line price from the tenant row already in hand, then reads the tenant-wide active customer and service-line counts and any pending request (see Allowances & Requests below).
 
 See `docs/edge-functions.md` for `create-tenant` internals and gotcha #33 for the anon-path rationale.
 
@@ -229,48 +229,68 @@ See gotcha #38.
 
 ---
 
-## Customer Allowance & Requests
+## Allowances & Requests
 
-There are no tiers. A tenant is billed on **one number of customers it is allowed to hold**, at **one agreed price per customer**, and every other resource — users, branches, plans, products, currencies, sales, stock — is **unlimited**. Two columns on `tenants` carry the whole commercial relationship:
+There are no tiers. A tenant is billed on **how many active SERVICE LINES it holds**, at **one agreed price per line**, and is separately capped on **how many active customers** it may hold. Every other resource — users, branches, plans, products, currencies, sales, stock — is **unlimited**. Three columns on `tenants` carry the whole commercial relationship:
 
 - `customer_allowance INT NOT NULL DEFAULT 30` — how many **active** customers this tenant may hold. 30 is both the starting deal and a hard **floor** (`chk_tenants_customer_allowance_min`), so every tenant — SuperAdmin-created or self-service — begins there and none may go under it.
-- `price_per_customer_usd NUMERIC(10,4) NOT NULL DEFAULT 0.15` — USD charged per active customer per month. `NUMERIC(10,4)` because a per-customer price is fractions of a cent wide; rounding happens only at the total.
+- `plan_allowance INT NOT NULL DEFAULT 30` — how many **active service lines** (`customer_plans`) it may hold, and the number the bill is counted on. It can never sit **below** `customer_allowance` (`chk_tenants_plan_allowance_floor`), because every customer must be able to hold at least one line. On an existing database `sql scripts/migration.sql` must run **before** `script.sql`: filling this column has to happen between the column existing and that CHECK being added, and `script.sql` does both in one pass, so any tenant already above the default 30 would fail it.
+- `price_per_plan_usd NUMERIC(10,4) NOT NULL DEFAULT 0.15` — USD charged per active service line per month. `NUMERIC(10,4)` because a per-line price is fractions of a cent wide; rounding happens only at the total.
 
-**Both columns are OWNER-ONLY, locked twice.** They decide what the tenant pays, so the tenant must not be able to touch them:
+**Why two limits.** A customer may hold many service lines, so a customer cap alone capped nothing that costs money — 100 customers could carry 400 billable lines at the same price. The line limit is the one that decides the bill; the customer limit stays as the second cap on the size of the list.
+
+**"Active line" means the line is active AND its customer is active.** Deactivating a customer does not cancel its lines, so a plain `WHERE active` count would keep billing for someone who left. The join is written three times — `CustomerPlanRepository.countActive`, its offline twin, and `lower_allowances()` — and all three must agree.
+
+**All three columns are OWNER-ONLY, locked twice.** They decide what the tenant pays, so the tenant must not be able to touch them:
 
 1. **No UPDATE policy on `tenants` at all** — the old `tenants_update` policy was dropped. The app never writes the table, so nothing is lost.
-2. **`trg_tenants_guard_billing`** — a trigger that RAISEs when a session with `auth.uid() IS NOT NULL` changes either column. The belt to the RLS braces: it survives someone re-adding a permissive policy later, and it is what stops a tenant admin raising their own allowance through a leaked token.
+2. **`trg_tenants_guard_billing`** — a trigger that RAISEs when the request’s role is `authenticated` or `anon` and any of the three changes. It tests the ROLE, not `auth.uid()`: a `SECURITY DEFINER` RPC keeps the caller’s JWT, so a uid test would refuse `lower_allowances()` too. The belt to the RLS braces: it survives someone re-adding a permissive policy later, and it is what stops a tenant admin raising their own limits through a leaked token.
 
 Only the **service role** writes them — SuperAdmin and the edge functions, both of which bypass RLS and carry no `auth.uid()`.
 
-**One exception, and it only ever goes DOWN:** `lower_customer_allowance(p_new_allowance INT)` — `SECURITY DEFINER`, so it passes the guard, but it refuses anything that is not a cut (`p_new_allowance >= current` RAISEs), refuses a caller who is not an active `admin`/`superadmin`, and refuses to drop below the tenant's **own live active-customer count**, which it `SELECT COUNT(*)`s itself rather than trusting a number from the client. Raising still costs a request the owner accepts; lowering only ever saves the tenant money, so there is nothing to approve. See **Lowering the allowance** below.
+**One exception, and it only ever goes DOWN:** `lower_allowances(p_customer_allowance INT, p_plan_allowance INT)` — `SECURITY DEFINER`, so it passes the guard. **Both limits move in ONE call**, because `plan_allowance >= customer_allowance` leaves no safe order for two separate ones. It refuses a caller who is not an active `admin`/`superadmin`, refuses anything that is not a cut, refuses a line limit under the customer limit, and refuses to drop either below the tenant's **own live active counts**, which it `SELECT COUNT(*)`s itself rather than trusting numbers from the client. Raising still costs a request the owner accepts. See **Lowering the limits** below.
 
-**The numbers ride in on the auth-time tenant row.** `AuthRepository.getTenant` already returns the tenant, so allowance and price cost **no extra fetch**. Only the active-customer count and the pending request touch the network.
+**The numbers ride in on the auth-time tenant row.** `AuthRepository.getTenant` already returns the tenant, so both limits and the price cost **no extra fetch**. Only the two active counts and the pending request touch the network.
 
-**Module:** `src/modules/admin/billing/` — `services/BillingService.ts`, the `ICustomerRequestRepository` / `CustomerRequestRepository` / `CustomerRequestRepository.offline` trio plus the matching `IAllowanceRepository` / `AllowanceRepository` / `AllowanceRepository.offline` trio for the lowering RPC, `utils/allowanceChange.ts` (`signedText`), `utils/` (`customerLimitError.ts`, `types.ts`, `mapper.ts` — which owns `mapDbTenantToTenant`, moved here from the old subscription module, plus `mapDbCustomerRequestToCustomerRequest`), and three components. **State** is the global `billing` slice at [src/state/slices/billing/billingSlice.ts](../SubsTrack/src/state/slices/billing/billingSlice.ts) (`allowance`, `pricePerCustomerUsd`, `activeCustomers`, `request`, `loading`, `saving`, `error`, `floorError`, plus `init` / `refreshCounts` / `refreshRequest` / `setActiveCustomers` / `lowerAllowance` / `requestMore` / `editRequest` / `cancelRequest` / `clearError` / `reset`), read through `useBillingSlice`. `authSlice.primePostAuth` calls `billing.init(tenantId)`; `logout` calls `billing.reset()`.
+**Module:** `src/modules/admin/billing/` — `services/BillingService.ts`, the `ICustomerRequestRepository` / `CustomerRequestRepository` / `CustomerRequestRepository.offline` trio plus the matching `IAllowanceRepository` / `AllowanceRepository` / `AllowanceRepository.offline` trio for the lowering RPC, `utils/allowanceChange.ts` (`signedText`), `utils/requestAsk.ts` (`requestedPair`, `askText`), `utils/` (`quotaError.ts`, `allowanceFloorError.ts`, `types.ts`, `mapper.ts`), and five components. **State** is the global `billing` slice at [src/state/slices/billing/billingSlice.ts](../SubsTrack/src/state/slices/billing/billingSlice.ts) — `limits` and `active` are both a `QuotaPair` (`{ customers, plans }`), beside `pricePerPlanUsd`, `request`, `loading`, `saving`, `error`, `floorError`, `quotaError`, plus `init` / `refreshCounts` / `refreshRequest` / `bumpActive` / `lowerAllowances` / `requestMore` / `editRequest` / `cancelRequest` / `setQuotaError` / `clearQuotaError` / `clearError` / `reset` — read through `useBillingSlice`. `authSlice.primePostAuth` calls `billing.init(tenantId)`; `logout` calls `billing.reset()`.
 
 ---
 
-### The customer cap
+### The two caps
 
-**Enforcement is service-layer**, the same shape the old tier check had: `CustomerService.createCustomer()` calls `billingService.assertCanCreateCustomer(allowance, activeCount)` immediately after its existing `validate()`. It throws a typed `CustomerLimitError` (from [utils/customerLimitError.ts](../SubsTrack/src/modules/admin/billing/utils/customerLimitError.ts)) carrying `{allowance, activeCount}` when `activeCount >= allowance` — the cap blocks **at** the allowance, not one past it. `customerSlice` catches via `instanceof` and sets a structured `customerLimitError: CustomerLimitErrorPayload | null` next to the standard `error: string`, cleared by `clearCustomerLimitError()`. No error string is ever parsed.
+**`QuotaPair` is the unit everything speaks in.** A limit pair, an active-count pair and an ask pair are all `{ customers: number; plans: number }`, so no signature carries four loose integers.
+
+**Enforcement is service-layer, through ONE gate:**
+
+```ts
+billingService.assertQuotas(limits, before, after)
+```
+
+It walks `QUOTA_KINDS` (customers first) and throws a typed `QuotaExceededError` (from [utils/quotaError.ts](../SubsTrack/src/modules/admin/billing/utils/quotaError.ts)) carrying `{kind, limit, activeCount}` for the first breach. **A kind is only checked when the write GROWS it** — `after[kind] > before[kind]`. Without that test a tenant the owner cut below its own usage could never shrink: every line removal would be refused by the very limit it was moving toward.
+
+Two callers:
+
+- `CustomerService.createCustomer(data, tenantId, limits, active, addingLines)` — `after` is `{ customers: +1, plans: +addingLines }`. The drafted lines are counted **before the customer row is written**, because `CustomerFormSheet` creates the customer and then syncs its lines; a line refused on the second step would otherwise leave an empty customer holding a seat.
+- `CustomerPlanService.syncLines(…, existingLines, limits, activeCounts)` — `after.plans` is `activeCounts.plans − existingLines.length + lines.length`. The draft list is the final state, so **removals and reactivations net out** in that one subtraction.
+
+`customerSlice` and `customerPlanSlice` both catch via `instanceof` and call `get().billing.setQuotaError(e)`, so **one field and one modal answer for both limits**. No error string is ever parsed.
 
 **Only `CustomerFormSheet` renders a limit modal.** The other five form sheets (users, branches, plans, products, currencies) render none — their resources are uncapped, so there is nothing to explain.
 
-**Unlike the old tier check, the numbers are NOT parameters.** `createCustomer(data, tenantId)` reads `allowance` and `activeCustomers` from `get().billing` **inside the action** — a cross-slice read via `get()`, per the slice rules. Nothing is threaded through the component.
+**The numbers are NOT threaded through the component.** Both slices read `limits` and `active` from `get().billing` **inside the action** — a cross-slice read via `get()`, per the slice rules.
 
-**The count that matters is TENANT-WIDE.** The cap reads `customerService.countActive(null)` — a `null` branch filter that skips the branch clause on both platforms. The `customers` slice keeps its own `activeCount`, but that one is **branch-filtered** and must never drive the cap: a branch admin would otherwise be told they have room the tenant does not have.
+**Both counts are TENANT-WIDE.** `customerService.countActive(null)` and `customerPlanService.countActive()` skip the branch clause on both platforms. The `customers` slice keeps its own `activeCount`, but that one is **branch-filtered** and must never drive a cap: a branch admin would otherwise be told they have room the tenant does not have.
 
-**The count is write-patched, never re-fetched.** Create / deactivate / reactivate / delete / bulk-delete each hand `billing.setActiveCustomers` the new figure. There is no `refreshUsage()` anywhere — all 19 of the old calls are gone. `refreshActiveData.ts` calls `s.billing.refreshCounts()` on an arrival, which is the only re-read.
+**The counts are write-patched, never re-fetched.** Every write hands `billing.bumpActive` a **delta**, never an absolute — create (`+1` customer), line sync (net line change), deactivate / reactivate / delete / bulk-delete (`∓1` customer and `∓` that customer's active lines, via `activeLines(customer)`). `refreshActiveData.ts` calls `s.billing.refreshCounts()` on an arrival, which is the only re-read.
 
 ---
 
-### `CustomerLimitReachedModal`
+### `QuotaReachedModal`
 
-Replaces the old `UpgradePromptModal`. It says the allowance is full and offers the one action actually available to whoever is looking:
+Says which limit is full and offers the one action actually available to whoever is looking. Its title, body and icon come from `payload.kind`, so the customer wall and the service-line wall are one component:
 
 - **Tenant-wide admins** (`user.branchId === null`) get a button into **Organization Settings**, where the request lives.
-- **Branch admins and staff** get "ask your administrator" — they cannot raise the allowance, so offering them a button would be a dead end.
+- **Branch admins and staff** get "ask your administrator" — they cannot raise a limit, so offering them a button would be a dead end.
 
 ---
 
@@ -278,9 +298,9 @@ Replaces the old `UpgradePromptModal`. It says the allowance is full and offers 
 
 `<CustomerAllowanceSection />` ([components/CustomerAllowanceSection.tsx](../SubsTrack/src/modules/admin/billing/components/CustomerAllowanceSection.tsx)) renders **above** `<DisplayCurrencySection />` on `TenantSettingsScreen`. It shows:
 
-- A **`<UsageBar />`** at the top — `used / total` as one big figure, a filled track, and a "N more customers available" line (or "you have used your whole limit"). The fill is indigo, **amber from 80%** of the allowance and **red at or over** it, so the wall is visible before it is hit. This replaced the old plain "Allowed customers" / "Current customers" rows.
-- **Monthly amount** — `BillingService.monthlyAmountUsd(activeCustomers, pricePerCustomerUsd)`, rounded to 2dp, with the `N active × $price` note under it. 100 customers × $0.15 = **$15.00**. The rounding is deliberate and tested: `7 × 0.15` must print `1.05`, not `1.0499999…`.
-- Then either a **single "Update customer number"** button, an **amber pending block** with Edit / Cancel, or a **red "declined"** note above that button.
+- **TWO `<UsageBar />`s**, customers then service lines — `used / total` as one big figure, a filled track, and a "N more … available" line (or "you have used your whole limit"). The bar takes a `kind` and builds its own labels. The fill is indigo, **amber from 80%** of the limit and **red at or over** it, so the wall is visible before it is hit.
+- **Monthly amount** — `BillingService.monthlyAmountUsd(active.plans, pricePerPlanUsd)`, rounded to 2dp, with the `N active × $price` note under it. 100 lines × $0.15 = **$15.00**. The rounding is deliberate and tested: `7 × 0.15` must print `1.05`, not `1.0499999…`.
+- Then either a **single "Update your limits"** button, an **amber pending block** with Edit / Cancel, or a **red "declined"** note above that button.
 
 It refreshes the request **on focus**, because the owner may have accepted or declined it while the screen sat open.
 
@@ -288,42 +308,47 @@ It refreshes the request **on focus**, because the owner may have accepted or de
 
 ---
 
-### Update customer number — one sheet, both directions
+### Update your limits — one sheet, both limits, both directions
 
-`<UpdateAllowanceSheet />` ([components/UpdateAllowanceSheet.tsx](../SubsTrack/src/modules/admin/billing/components/UpdateAllowanceSheet.tsx)) is the card's **only** button. It shows **two fields for one number**, laid out like `ProductStockSheet`'s paired cost fields and carrying the same stepper as `ProductBatchRestockSheet`:
+`<UpdateAllowanceSheet />` ([components/UpdateAllowanceSheet.tsx](../SubsTrack/src/modules/admin/billing/components/UpdateAllowanceSheet.tsx)) is the card's **only** button. It renders **two `<AllowanceField />`s** — Allowed customers, then Allowed service lines — each of which is a pair of boxes for one number:
 
-- **Allowed customers** — the new total.
+- **The new total.**
 - **Change** — the signed movement, between a **−** and a **+** button. `+20` renders green, `-20` red, and no change at all renders **empty**, not `+0` (`signedText` in [utils/allowanceChange.ts](../SubsTrack/src/modules/admin/billing/utils/allowanceChange.ts)).
 
-**There is ONE piece of state, `total`.** The change field is a **view** over it (`total − allowance`), and writing to it sets `total` back — so the two can never drift apart no matter which one is typed in. Both go through `useTextField` with an `expectedEcho`, because a field that is rewritten by its twin is exactly the late-`value` case that eats letters (gotcha #134).
+**Each field holds ONE piece of state.** The change box is a **view** over the total (`total − current`), and writing to it sets the total back — so the two can never drift apart no matter which one is typed in. Both go through `useTextField` with an `expectedEcho`, because a field that is rewritten by its twin is exactly the late-`value` case that eats letters (gotcha #134).
 
-**The sign chooses the path at Save**, which is what lets one button do both jobs:
+**Raising the customer box carries the line box up with it**, rather than showing an error — service lines can never be fewer than customers, and the sheet says that by moving, not by refusing.
 
-- **Negative** → `lowerAllowance` → the `lower_customer_allowance` RPC, applied **at once** behind a confirm. No request row, no owner decision, because a smaller allowance only ever costs the tenant less.
-- **Positive** → `requestMore` → the same `customer_requests` row as before, still for the owner to accept, still floored at `MIN_CUSTOMER_REQUEST`. The "Send request + WhatsApp" door appears only on this branch.
+**The direction chooses the path at Save**, which is what lets one button do both jobs:
 
-**The floor on a cut is the ACTIVE CUSTOMER COUNT, checked twice.**
+- **Any cut, no raise** → `lowerAllowances(total)` → the `lower_allowances` RPC, applied **at once** behind a confirm. No request row, no owner decision, because smaller limits only ever cost the tenant less.
+- **Any raise** → `requestMore` → one `customer_requests` row carrying **both** asks, still for the owner to accept. The "Send request + WhatsApp" door appears only on this branch.
+- **A raise and a cut in the same save is refused** (`billing.mixed_change_error`). One needs a human's approval and the other applies instantly; mixing them would mean half a save.
 
-1. **In the sheet / service**, so the admin gets an answer with no round trip: `BillingService.validateDecrease(newAllowance, current, activeCount)` throws a typed `AllowanceFloorError` (from [utils/allowanceFloorError.ts](../SubsTrack/src/modules/admin/billing/utils/allowanceFloorError.ts)) carrying `{requested, activeCount}`. The sheet turns that into an amber **"Deactivate N customers first"** panel and disables Save.
-2. **In Postgres, which wins**: `lower_customer_allowance()` re-counts `customers WHERE active` for the JWT's tenant. The client figure is a cached number another device can have moved, and a forged one would strand the tenant over its own cap.
+**The floor on a cut is the ACTIVE COUNT — per limit — checked twice.**
 
-The server reports that refusal as a **coded** message — `active_customers_exceed_limit:<active>:<requested>`, matched against `ALLOWANCE_FLOOR_CODE` in `utils/types.ts` — so `BillingService` rebuilds the same typed error instead of anyone parsing a sentence. `billingSlice` holds the structured twin as `floorError: AllowanceFloorPayload | null` next to the usual `error: string`, the same shape `customerLimitError` already uses.
+1. **In the sheet / service**, so the admin gets an answer with no round trip: `BillingService.validateDecrease(next, current, active)` throws a typed `AllowanceFloorError` (from [utils/allowanceFloorError.ts](../SubsTrack/src/modules/admin/billing/utils/allowanceFloorError.ts)) carrying `{kind, requested, activeCount}`. The sheet turns that into an amber **"Deactivate N customers first"** / **"Cancel N service lines first"** panel and disables Save.
+2. **In Postgres, which wins**: `lower_allowances()` re-counts both for the JWT's tenant. The client figures are cached numbers another device can have moved, and forged ones would strand the tenant over its own caps.
 
-**There are TWO floors, and the higher one binds:** the product minimum `MIN_CUSTOMER_ALLOWANCE = 30` (the allowance every tenant is born with) and the active customer count. Cutting to exactly either is legal; one below is not. So a tenant with 0 active customers still stops at 30, and a tenant with 45 active stops at 45.
+The server reports each refusal as a **coded** message — `active_customers_exceed_limit:<active>:<requested>` and `active_plans_exceed_limit:<active>:<requested>`, matched against `ALLOWANCE_FLOOR_CODES` in `utils/types.ts` — so `BillingService` rebuilds the same typed error instead of anyone parsing a sentence. `billingSlice` holds the structured twin as `floorError: AllowanceFloorPayload | null` next to the usual `error: string`.
 
-**The write patches TWO places.** `billing.allowance` is what the card reads, but `billing.init` re-seeds it from `auth.user.tenant.customerAllowance` on every session restore — so `lowerAllowance` patches the auth tenant as well, or the old number comes back on the next launch.
+**Three floors, and the highest binds:** the product minimum `MIN_CUSTOMER_ALLOWANCE = 30`, the active count for that limit, and — for service lines only — the customer limit itself. Cutting to exactly any of them is legal; one below is not.
 
-**Online-only.** `AllowanceRepository.offline` throws `RequiresConnectionError`: the floor is the server's live count, which an unsynced mirror cannot answer.
+**The write patches TWO places.** `billing.limits` is what the card reads, but `billing.init` re-seeds it from `auth.user.tenant` on every session restore — so `lowerAllowances` patches the auth tenant as well, or the old numbers come back on the next launch.
 
-**The RPC still cannot raise.** `p_new_allowance >= current` RAISEs inside the function — the request flow is the only way up, whichever field the admin typed in.
+**Online-only.** `AllowanceRepository.offline` throws `RequiresConnectionError`: the floors are the server's live counts, which an unsynced mirror cannot answer.
+
+**The RPC still cannot raise.** Either argument above its current value RAISEs inside the function — the request flow is the only way up, whichever field the admin typed in.
 
 ---
 
 ### `customer_requests` — the lifecycle
 
-A tenant cannot RAISE its own allowance; it **asks**, and the owner grants (lowering is its own door — see above). One table carries the conversation:
+A tenant cannot RAISE its own limits; it **asks**, and the owner grants (lowering is its own door — see above). One table carries the conversation:
 
-`customer_requests` — `id`, `tenant_id`, `requested_count` (`CHECK >= 10`), `granted_count`, `status` (`pending` \| `accepted` \| `declined` \| `cancelled`), `requested_by`, `decided_by`, `decided_at`, `created_at`, `updated_at`.
+`customer_requests` — `id`, `tenant_id`, `requested_count`, `requested_plans`, `granted_count`, `granted_plans`, `status` (`pending` \| `accepted` \| `declined` \| `cancelled`), `requested_by`, `decided_by`, `decided_at`, `created_at`, `updated_at`.
+
+**ONE row moves both limits.** Either half may be 0 — a tenant that only needs more service lines asks for exactly that — and the ten-slot minimum binds the **total**, not each half (`chk_customer_requests_total_min`). The old single-column `chk_customer_requests_min` is **dropped by name** in `migration.sql`, because a guarded `DO` block never re-evaluates a constraint that already exists.
 
 **Exactly one pending request per tenant**, enforced by a **partial unique index** rather than app logic:
 
@@ -336,39 +361,40 @@ A partial index is the right tool: historical `accepted` / `declined` / `cancell
 
 **RLS says who may move it where:**
 
-- **Every tenant member SELECTs** — staff should be able to see that more customers are on the way.
+- **Every tenant member SELECTs** — staff should be able to see that more room is on the way.
 - **Admins INSERT**, and the row must be born **pending and undecided**.
-- **Admins UPDATE only still-pending rows**, and may set the status only to `'pending'` (an edit of the number) or `'cancelled'`. A tenant can **never** write `'accepted'` — that is the whole point.
+- **Admins UPDATE only still-pending rows**, and may set the status only to `'pending'` (an edit of the numbers) or `'cancelled'`. A tenant can **never** write `'accepted'` — that is the whole point.
 
-**Accepting is ONE Postgres call.** `accept_customer_request(p_request_id UUID, p_granted INT)` — `SECURITY DEFINER`, `REVOKE`d from `anon` / `authenticated` / `public`, so only the service role reaches it. It marks the request accepted **and** raises `tenants.customer_allowance` by the granted amount in a single call, because a torn write here mis-bills a tenant: the raise without the accept leaves the request live and re-grantable, the accept without the raise gives the tenant nothing. **Declining is a plain single update** — nothing else moves, so it needs no function.
+**Accepting is ONE Postgres call.** `accept_customer_request(p_request_id UUID, p_granted INT, p_granted_plans INT)` — `SECURITY DEFINER`, `REVOKE`d from `anon` / `authenticated` / `public`, so only the service role reaches it. It marks the request accepted **and** raises both limits in a single call, because a torn write here mis-bills a tenant. The line limit is raised with `GREATEST(plan_allowance + granted_plans, customer_allowance + granted)`, so granting customers alone can never break the invariant. The two-argument version is **dropped by signature** in `migration.sql`, or the old overload would keep answering beside the new one. **Declining is a plain single update** — nothing else moves, so it needs no function.
 
-**The minimum ask is 10.** `BillingService.validateRequest(extra)` throws below `MIN_CUSTOMER_REQUEST = 10` ([utils/types.ts](../SubsTrack/src/modules/admin/billing/utils/types.ts)), matching the DB `CHECK` — a request for one more customer is not worth a round trip to a human.
+**The minimum ask is 10 across both.** `BillingService.validateRequest(extra)` throws when `extra.customers + extra.plans < MIN_CUSTOMER_REQUEST` ([utils/types.ts](../SubsTrack/src/modules/admin/billing/utils/types.ts)), matching the DB `CHECK` — a request for one more slot is not worth a round trip to a human.
 
 ---
 
 ### Editing a pending request
 
-There is **no separate request sheet** — `CustomerRequestSheet` was deleted. **Edit request** opens the same `<UpdateAllowanceSheet editing />`, so asking for more customers looks identical whether it is the first ask or a correction of one already sent.
+There is **no separate request sheet** — **Edit request** opens the same `<UpdateAllowanceSheet editing />`, so asking for more looks identical whether it is the first ask or a correction of one already sent.
 
-In `editing` mode the sheet is a **raise-only** twin of itself: it opens on `allowance + request.requestedCount` (the number already asked for), the lowering floor becomes the current allowance rather than `MIN_CUSTOMER_ALLOWANCE`, the decrease branches (`lowering`, `belowFloor`, `belowMinimum`) are switched off, and Save routes to `editRequest(delta)` instead of `requestMore`. The title reads **Edit request** and the button **Save request**; "Send request + WhatsApp" stays, because a corrected number is still worth sending to support.
+In `editing` mode the sheet is a **raise-only** twin of itself: it opens on each limit plus what was already asked for (`requestedPair(request)`), each field's floor becomes that limit's current value rather than `MIN_CUSTOMER_ALLOWANCE`, the decrease branches are switched off, and Save routes to `editRequest(extra)` instead of `requestMore`. The title reads **Edit request** and the button **Save request**; "Send request + WhatsApp" stays, because a corrected number is still worth sending to support.
+
 ---
 
 ### SuperAdmin side
 
-- **`TenantCard`** shows `{allowance} customers · ${price} each`, and an **ORANGE `Requested +N` pill** when that tenant has a pending request — so the owner sees the queue without opening anything.
-- **`TenantFormSheet`** gained numeric **"Customer Allowance"** and **"Price Per Customer (USD)"** inputs on **both create and edit** — the owner's direct path, for onboarding an agreed deal or correcting one without a request.
-- When a request is pending, an **Accept / Decline block** sits at the top of the sheet, with an editable **"Grant"** field defaulting to the requested count (the owner may grant fewer).
-- **Trap:** after accepting, the local **allowance input is re-synced from the accepted amount**. Without it the input still holds the pre-accept number, and the next press of Save writes that number straight back over the raise the owner just granted.
+- **`TenantCard`** shows `{customers} customers · {lines} lines ·  each`, and an **ORANGE `Requested +N customers / +N lines` pill** when that tenant has a pending request — so the owner sees the queue without opening anything.
+- **`TenantFormSheet`** carries numeric **"Customer Allowance"**, **"Service Line Allowance"** and **"Price Per Service Line (USD)"** inputs on **both create and edit** — the owner's direct path, for onboarding an agreed deal or correcting one without a request. The line field shows an inline error while it sits below the customer field.
+- When a request is pending, an **Accept / Decline block** sits at the top of the sheet, with editable **"Grant customers"** and **"Grant service lines"** fields defaulting to what was asked (the owner may grant fewer). A grant of 0 on one side is fine; a grant of 0 on **both** is refused.
+- **Trap:** after accepting, **both local inputs are re-synced** from the accepted amounts, the line one through the same `GREATEST` the RPC applies. Without it the inputs still hold the pre-accept numbers, and the next press of Save writes them straight back over the raise the owner just granted.
 - **`TenantService.getTenants()`** is `Promise.all([findAll(), findPendingRequests()])`, zipping the pending request onto each tenant. `findPendingRequests` is **one flat query, not a PostgREST embed** — an embed would drag every historical request row for every tenant across the wire to surface at most one live row each.
-- SuperAdmin has **2 tabs** now: **Tenants** and **Options**. The whole `tier-plans` module and its tab are gone.
+- SuperAdmin has **2 tabs**: **Tenants** and **Options**.
 
 ---
 
 ### Offline
 
-**The allowance syncs; the requests do not.**
+**The limits sync; the requests do not.**
 
-- `customer_allowance` and `price_per_customer_usd` live on the `tenants` row, which is already part of the read-through auth cache — so **the cap still works offline**, and a device that has logged in once refuses to create the 31st customer with no network.
+- `customer_allowance`, `plan_allowance` and `price_per_plan_usd` live on the `tenants` row, which is already part of the read-through auth cache — so **both caps still work offline**, and a device that has logged in once refuses the 31st customer with no network. Both counts come from the mirror, so two offline devices can each take the last seat: advisory, the same compromise as `SaleService`'s oversell guard.
 - `customer_requests` is **deliberately not mirrored**. `CustomerRequestRepository.offline` throws `RequiresConnectionError` from **every** method. A request is a message to a human that needs an answer from a human; queueing it offline would show a tenant a pending block nobody can see, and two offline requests merging would fight the one-pending index.
 
 ---
@@ -1032,7 +1058,7 @@ the **charge's** (what he was billed).
 - [Multi-Currency](#multi-currency)
 - [App Options (Global Config)](#app-options-global-config)
 - [Tenant Settings (Per-Tenant Config)](#tenant-settings-per-tenant-config)
-- [Customer Allowance & Requests](#customer-allowance--requests)
+- [Allowances & Requests](#allowances--requests)
 - [Products & One-Off Sales](#products--one-off-sales)
   - [Services](#services)
 - [Reports](#reports)
@@ -1117,7 +1143,7 @@ LoginScreen
        get().branches.fetchBranches()
        get().options.fetchOptions()         (loads global app_options — e.g. LiraRate)
        get().billing.init(tenantId)
-         → seeds allowance + pricePerCustomerUsd from the auth-time tenant row
+         → seeds both limits + pricePerPlanUsd from the auth-time tenant row
          → customerService.countActive(null) — TENANT-WIDE active customer count
          → refreshRequest() — the one pending customer_requests row, if any
 
@@ -1142,7 +1168,7 @@ app/(app)/_layout.tsx
   → otherwise → render tabs
 ```
 
-**Hydration note:** `authSlice` exports an internal `primePostAuth(get, user)` helper called by `login` and `restoreSession`. It runs `get().currencies.fetchCurrencies()`, `get().branches.fetchBranches()`, `get().options.fetchOptions()`, and `get().billing.init(tenantId)` in parallel via `Promise.all`. `billing.init` seeds the allowance and per-customer price from the tenant row already in hand, then reads the tenant-wide active-customer count and any pending request (see Customer Allowance & Requests below).
+**Hydration note:** `authSlice` exports an internal `primePostAuth(get, user)` helper called by `login` and `restoreSession`. It runs `get().currencies.fetchCurrencies()`, `get().branches.fetchBranches()`, `get().options.fetchOptions()`, and `get().billing.init(tenantId)` in parallel via `Promise.all`. `billing.init` seeds both limits and the per-line price from the tenant row already in hand, then reads the tenant-wide active customer and service-line counts and any pending request (see Allowances & Requests below).
 
 See `docs/edge-functions.md` for `create-tenant` internals and gotcha #33 for the anon-path rationale.
 
@@ -1249,46 +1275,68 @@ See gotcha #38.
 
 ---
 
-## Customer Allowance & Requests
+## Allowances & Requests
 
-There are no tiers. A tenant is billed on **one number of customers it is allowed to hold**, at **one agreed price per customer**, and every other resource — users, branches, plans, products, currencies, sales, stock — is **unlimited**. Two columns on `tenants` carry the whole commercial relationship:
+There are no tiers. A tenant is billed on **how many active SERVICE LINES it holds**, at **one agreed price per line**, and is separately capped on **how many active customers** it may hold. Every other resource — users, branches, plans, products, currencies, sales, stock — is **unlimited**. Three columns on `tenants` carry the whole commercial relationship:
 
-- `customer_allowance INT NOT NULL DEFAULT 30` — how many **active** customers this tenant may hold.
-- `price_per_customer_usd NUMERIC(10,4) NOT NULL DEFAULT 0.15` — USD charged per active customer per month. `NUMERIC(10,4)` because a per-customer price is fractions of a cent wide; rounding happens only at the total.
+- `customer_allowance INT NOT NULL DEFAULT 30` — how many **active** customers this tenant may hold. 30 is both the starting deal and a hard **floor** (`chk_tenants_customer_allowance_min`), so every tenant — SuperAdmin-created or self-service — begins there and none may go under it.
+- `plan_allowance INT NOT NULL DEFAULT 30` — how many **active service lines** (`customer_plans`) it may hold, and the number the bill is counted on. It can never sit **below** `customer_allowance` (`chk_tenants_plan_allowance_floor`), because every customer must be able to hold at least one line. On an existing database `sql scripts/migration.sql` must run **before** `script.sql`: filling this column has to happen between the column existing and that CHECK being added, and `script.sql` does both in one pass, so any tenant already above the default 30 would fail it.
+- `price_per_plan_usd NUMERIC(10,4) NOT NULL DEFAULT 0.15` — USD charged per active service line per month. `NUMERIC(10,4)` because a per-line price is fractions of a cent wide; rounding happens only at the total.
 
-**Both columns are OWNER-ONLY, locked twice.** They decide what the tenant pays, so the tenant must not be able to touch them:
+**Why two limits.** A customer may hold many service lines, so a customer cap alone capped nothing that costs money — 100 customers could carry 400 billable lines at the same price. The line limit is the one that decides the bill; the customer limit stays as the second cap on the size of the list.
+
+**"Active line" means the line is active AND its customer is active.** Deactivating a customer does not cancel its lines, so a plain `WHERE active` count would keep billing for someone who left. The join is written three times — `CustomerPlanRepository.countActive`, its offline twin, and `lower_allowances()` — and all three must agree.
+
+**All three columns are OWNER-ONLY, locked twice.** They decide what the tenant pays, so the tenant must not be able to touch them:
 
 1. **No UPDATE policy on `tenants` at all** — the old `tenants_update` policy was dropped. The app never writes the table, so nothing is lost.
-2. **`trg_tenants_guard_billing`** — a trigger that RAISEs when a session with `auth.uid() IS NOT NULL` changes either column. The belt to the RLS braces: it survives someone re-adding a permissive policy later, and it is what stops a tenant admin raising their own allowance through a leaked token.
+2. **`trg_tenants_guard_billing`** — a trigger that RAISEs when the request’s role is `authenticated` or `anon` and any of the three changes. It tests the ROLE, not `auth.uid()`: a `SECURITY DEFINER` RPC keeps the caller’s JWT, so a uid test would refuse `lower_allowances()` too. The belt to the RLS braces: it survives someone re-adding a permissive policy later, and it is what stops a tenant admin raising their own limits through a leaked token.
 
 Only the **service role** writes them — SuperAdmin and the edge functions, both of which bypass RLS and carry no `auth.uid()`.
 
-**The numbers ride in on the auth-time tenant row.** `AuthRepository.getTenant` already returns the tenant, so allowance and price cost **no extra fetch**. Only the active-customer count and the pending request touch the network.
+**One exception, and it only ever goes DOWN:** `lower_allowances(p_customer_allowance INT, p_plan_allowance INT)` — `SECURITY DEFINER`, so it passes the guard. **Both limits move in ONE call**, because `plan_allowance >= customer_allowance` leaves no safe order for two separate ones. It refuses a caller who is not an active `admin`/`superadmin`, refuses anything that is not a cut, refuses a line limit under the customer limit, and refuses to drop either below the tenant's **own live active counts**, which it `SELECT COUNT(*)`s itself rather than trusting numbers from the client. Raising still costs a request the owner accepts. See **Lowering the limits** below.
 
-**Module:** `src/modules/admin/billing/` — `services/BillingService.ts`, the `ICustomerRequestRepository` / `CustomerRequestRepository` / `CustomerRequestRepository.offline` trio, `utils/` (`customerLimitError.ts`, `types.ts`, `mapper.ts` — which owns `mapDbTenantToTenant`, moved here from the old subscription module, plus `mapDbCustomerRequestToCustomerRequest`), and three components. **State** is the global `billing` slice at [src/state/slices/billing/billingSlice.ts](../SubsTrack/src/state/slices/billing/billingSlice.ts) (`allowance`, `pricePerCustomerUsd`, `activeCustomers`, `request`, `loading`, `saving`, `error`, plus `init` / `refreshCounts` / `refreshRequest` / `setActiveCustomers` / `requestMore` / `editRequest` / `cancelRequest` / `clearError` / `reset`), read through `useBillingSlice`. `authSlice.primePostAuth` calls `billing.init(tenantId)`; `logout` calls `billing.reset()`.
+**The numbers ride in on the auth-time tenant row.** `AuthRepository.getTenant` already returns the tenant, so both limits and the price cost **no extra fetch**. Only the two active counts and the pending request touch the network.
+
+**Module:** `src/modules/admin/billing/` — `services/BillingService.ts`, the `ICustomerRequestRepository` / `CustomerRequestRepository` / `CustomerRequestRepository.offline` trio plus the matching `IAllowanceRepository` / `AllowanceRepository` / `AllowanceRepository.offline` trio for the lowering RPC, `utils/allowanceChange.ts` (`signedText`), `utils/requestAsk.ts` (`requestedPair`, `askText`), `utils/` (`quotaError.ts`, `allowanceFloorError.ts`, `types.ts`, `mapper.ts`), and five components. **State** is the global `billing` slice at [src/state/slices/billing/billingSlice.ts](../SubsTrack/src/state/slices/billing/billingSlice.ts) — `limits` and `active` are both a `QuotaPair` (`{ customers, plans }`), beside `pricePerPlanUsd`, `request`, `loading`, `saving`, `error`, `floorError`, `quotaError`, plus `init` / `refreshCounts` / `refreshRequest` / `bumpActive` / `lowerAllowances` / `requestMore` / `editRequest` / `cancelRequest` / `setQuotaError` / `clearQuotaError` / `clearError` / `reset` — read through `useBillingSlice`. `authSlice.primePostAuth` calls `billing.init(tenantId)`; `logout` calls `billing.reset()`.
 
 ---
 
-### The customer cap
+### The two caps
 
-**Enforcement is service-layer**, the same shape the old tier check had: `CustomerService.createCustomer()` calls `billingService.assertCanCreateCustomer(allowance, activeCount)` immediately after its existing `validate()`. It throws a typed `CustomerLimitError` (from [utils/customerLimitError.ts](../SubsTrack/src/modules/admin/billing/utils/customerLimitError.ts)) carrying `{allowance, activeCount}` when `activeCount >= allowance` — the cap blocks **at** the allowance, not one past it. `customerSlice` catches via `instanceof` and sets a structured `customerLimitError: CustomerLimitErrorPayload | null` next to the standard `error: string`, cleared by `clearCustomerLimitError()`. No error string is ever parsed.
+**`QuotaPair` is the unit everything speaks in.** A limit pair, an active-count pair and an ask pair are all `{ customers: number; plans: number }`, so no signature carries four loose integers.
+
+**Enforcement is service-layer, through ONE gate:**
+
+```ts
+billingService.assertQuotas(limits, before, after)
+```
+
+It walks `QUOTA_KINDS` (customers first) and throws a typed `QuotaExceededError` (from [utils/quotaError.ts](../SubsTrack/src/modules/admin/billing/utils/quotaError.ts)) carrying `{kind, limit, activeCount}` for the first breach. **A kind is only checked when the write GROWS it** — `after[kind] > before[kind]`. Without that test a tenant the owner cut below its own usage could never shrink: every line removal would be refused by the very limit it was moving toward.
+
+Two callers:
+
+- `CustomerService.createCustomer(data, tenantId, limits, active, addingLines)` — `after` is `{ customers: +1, plans: +addingLines }`. The drafted lines are counted **before the customer row is written**, because `CustomerFormSheet` creates the customer and then syncs its lines; a line refused on the second step would otherwise leave an empty customer holding a seat.
+- `CustomerPlanService.syncLines(…, existingLines, limits, activeCounts)` — `after.plans` is `activeCounts.plans − existingLines.length + lines.length`. The draft list is the final state, so **removals and reactivations net out** in that one subtraction.
+
+`customerSlice` and `customerPlanSlice` both catch via `instanceof` and call `get().billing.setQuotaError(e)`, so **one field and one modal answer for both limits**. No error string is ever parsed.
 
 **Only `CustomerFormSheet` renders a limit modal.** The other five form sheets (users, branches, plans, products, currencies) render none — their resources are uncapped, so there is nothing to explain.
 
-**Unlike the old tier check, the numbers are NOT parameters.** `createCustomer(data, tenantId)` reads `allowance` and `activeCustomers` from `get().billing` **inside the action** — a cross-slice read via `get()`, per the slice rules. Nothing is threaded through the component.
+**The numbers are NOT threaded through the component.** Both slices read `limits` and `active` from `get().billing` **inside the action** — a cross-slice read via `get()`, per the slice rules.
 
-**The count that matters is TENANT-WIDE.** The cap reads `customerService.countActive(null)` — a `null` branch filter that skips the branch clause on both platforms. The `customers` slice keeps its own `activeCount`, but that one is **branch-filtered** and must never drive the cap: a branch admin would otherwise be told they have room the tenant does not have.
+**Both counts are TENANT-WIDE.** `customerService.countActive(null)` and `customerPlanService.countActive()` skip the branch clause on both platforms. The `customers` slice keeps its own `activeCount`, but that one is **branch-filtered** and must never drive a cap: a branch admin would otherwise be told they have room the tenant does not have.
 
-**The count is write-patched, never re-fetched.** Create / deactivate / reactivate / delete / bulk-delete each hand `billing.setActiveCustomers` the new figure. There is no `refreshUsage()` anywhere — all 19 of the old calls are gone. `refreshActiveData.ts` calls `s.billing.refreshCounts()` on an arrival, which is the only re-read.
+**The counts are write-patched, never re-fetched.** Every write hands `billing.bumpActive` a **delta**, never an absolute — create (`+1` customer), line sync (net line change), deactivate / reactivate / delete / bulk-delete (`∓1` customer and `∓` that customer's active lines, via `activeLines(customer)`). `refreshActiveData.ts` calls `s.billing.refreshCounts()` on an arrival, which is the only re-read.
 
 ---
 
-### `CustomerLimitReachedModal`
+### `QuotaReachedModal`
 
-Replaces the old `UpgradePromptModal`. It says the allowance is full and offers the one action actually available to whoever is looking:
+Says which limit is full and offers the one action actually available to whoever is looking. Its title, body and icon come from `payload.kind`, so the customer wall and the service-line wall are one component:
 
 - **Tenant-wide admins** (`user.branchId === null`) get a button into **Organization Settings**, where the request lives.
-- **Branch admins and staff** get "ask your administrator" — they cannot raise the allowance, so offering them a button would be a dead end.
+- **Branch admins and staff** get "ask your administrator" — they cannot raise a limit, so offering them a button would be a dead end.
 
 ---
 
@@ -1296,10 +1344,9 @@ Replaces the old `UpgradePromptModal`. It says the allowance is full and offers 
 
 `<CustomerAllowanceSection />` ([components/CustomerAllowanceSection.tsx](../SubsTrack/src/modules/admin/billing/components/CustomerAllowanceSection.tsx)) renders **above** `<DisplayCurrencySection />` on `TenantSettingsScreen`. It shows:
 
-- **Allowed customers** — `customer_allowance`.
-- **Current customers** — the tenant-wide active count.
-- **Monthly amount** — `BillingService.monthlyAmountUsd(activeCustomers, pricePerCustomerUsd)`, rounded to 2dp. 100 customers × $0.15 = **$15.00**. The rounding is deliberate and tested: `7 × 0.15` must print `1.05`, not `1.0499999…`.
-- Then one of three states: a **"Request more customers"** button, an **amber pending block** with Edit / Cancel, or a **red "declined"** note.
+- **TWO `<UsageBar />`s**, customers then service lines — `used / total` as one big figure, a filled track, and a "N more … available" line (or "you have used your whole limit"). The bar takes a `kind` and builds its own labels. The fill is indigo, **amber from 80%** of the limit and **red at or over** it, so the wall is visible before it is hit.
+- **Monthly amount** — `BillingService.monthlyAmountUsd(active.plans, pricePerPlanUsd)`, rounded to 2dp, with the `N active × $price` note under it. 100 lines × $0.15 = **$15.00**. The rounding is deliberate and tested: `7 × 0.15` must print `1.05`, not `1.0499999…`.
+- Then either a **single "Update your limits"** button, an **amber pending block** with Edit / Cancel, or a **red "declined"** note above that button.
 
 It refreshes the request **on focus**, because the owner may have accepted or declined it while the screen sat open.
 
@@ -1307,11 +1354,47 @@ It refreshes the request **on focus**, because the owner may have accepted or de
 
 ---
 
+### Update your limits — one sheet, both limits, both directions
+
+`<UpdateAllowanceSheet />` ([components/UpdateAllowanceSheet.tsx](../SubsTrack/src/modules/admin/billing/components/UpdateAllowanceSheet.tsx)) is the card's **only** button. It renders **two `<AllowanceField />`s** — Allowed customers, then Allowed service lines — each of which is a pair of boxes for one number:
+
+- **The new total.**
+- **Change** — the signed movement, between a **−** and a **+** button. `+20` renders green, `-20` red, and no change at all renders **empty**, not `+0` (`signedText` in [utils/allowanceChange.ts](../SubsTrack/src/modules/admin/billing/utils/allowanceChange.ts)).
+
+**Each field holds ONE piece of state.** The change box is a **view** over the total (`total − current`), and writing to it sets the total back — so the two can never drift apart no matter which one is typed in. Both go through `useTextField` with an `expectedEcho`, because a field that is rewritten by its twin is exactly the late-`value` case that eats letters (gotcha #134).
+
+**Raising the customer box carries the line box up with it**, rather than showing an error — service lines can never be fewer than customers, and the sheet says that by moving, not by refusing.
+
+**The direction chooses the path at Save**, which is what lets one button do both jobs:
+
+- **Any cut, no raise** → `lowerAllowances(total)` → the `lower_allowances` RPC, applied **at once** behind a confirm. No request row, no owner decision, because smaller limits only ever cost the tenant less.
+- **Any raise** → `requestMore` → one `customer_requests` row carrying **both** asks, still for the owner to accept. The "Send request + WhatsApp" door appears only on this branch.
+- **A raise and a cut in the same save is refused** (`billing.mixed_change_error`). One needs a human's approval and the other applies instantly; mixing them would mean half a save.
+
+**The floor on a cut is the ACTIVE COUNT — per limit — checked twice.**
+
+1. **In the sheet / service**, so the admin gets an answer with no round trip: `BillingService.validateDecrease(next, current, active)` throws a typed `AllowanceFloorError` (from [utils/allowanceFloorError.ts](../SubsTrack/src/modules/admin/billing/utils/allowanceFloorError.ts)) carrying `{kind, requested, activeCount}`. The sheet turns that into an amber **"Deactivate N customers first"** / **"Cancel N service lines first"** panel and disables Save.
+2. **In Postgres, which wins**: `lower_allowances()` re-counts both for the JWT's tenant. The client figures are cached numbers another device can have moved, and forged ones would strand the tenant over its own caps.
+
+The server reports each refusal as a **coded** message — `active_customers_exceed_limit:<active>:<requested>` and `active_plans_exceed_limit:<active>:<requested>`, matched against `ALLOWANCE_FLOOR_CODES` in `utils/types.ts` — so `BillingService` rebuilds the same typed error instead of anyone parsing a sentence. `billingSlice` holds the structured twin as `floorError: AllowanceFloorPayload | null` next to the usual `error: string`.
+
+**Three floors, and the highest binds:** the product minimum `MIN_CUSTOMER_ALLOWANCE = 30`, the active count for that limit, and — for service lines only — the customer limit itself. Cutting to exactly any of them is legal; one below is not.
+
+**The write patches TWO places.** `billing.limits` is what the card reads, but `billing.init` re-seeds it from `auth.user.tenant` on every session restore — so `lowerAllowances` patches the auth tenant as well, or the old numbers come back on the next launch.
+
+**Online-only.** `AllowanceRepository.offline` throws `RequiresConnectionError`: the floors are the server's live counts, which an unsynced mirror cannot answer.
+
+**The RPC still cannot raise.** Either argument above its current value RAISEs inside the function — the request flow is the only way up, whichever field the admin typed in.
+
+---
+
 ### `customer_requests` — the lifecycle
 
-A tenant does not change its allowance; it **asks**, and the owner grants. One table carries the conversation:
+A tenant cannot RAISE its own limits; it **asks**, and the owner grants (lowering is its own door — see above). One table carries the conversation:
 
-`customer_requests` — `id`, `tenant_id`, `requested_count` (`CHECK >= 10`), `granted_count`, `status` (`pending` \| `accepted` \| `declined` \| `cancelled`), `requested_by`, `decided_by`, `decided_at`, `created_at`, `updated_at`.
+`customer_requests` — `id`, `tenant_id`, `requested_count`, `requested_plans`, `granted_count`, `granted_plans`, `status` (`pending` \| `accepted` \| `declined` \| `cancelled`), `requested_by`, `decided_by`, `decided_at`, `created_at`, `updated_at`.
+
+**ONE row moves both limits.** Either half may be 0 — a tenant that only needs more service lines asks for exactly that — and the ten-slot minimum binds the **total**, not each half (`chk_customer_requests_total_min`). The old single-column `chk_customer_requests_min` is **dropped by name** in `migration.sql`, because a guarded `DO` block never re-evaluates a constraint that already exists.
 
 **Exactly one pending request per tenant**, enforced by a **partial unique index** rather than app logic:
 
@@ -1324,38 +1407,40 @@ A partial index is the right tool: historical `accepted` / `declined` / `cancell
 
 **RLS says who may move it where:**
 
-- **Every tenant member SELECTs** — staff should be able to see that more customers are on the way.
+- **Every tenant member SELECTs** — staff should be able to see that more room is on the way.
 - **Admins INSERT**, and the row must be born **pending and undecided**.
-- **Admins UPDATE only still-pending rows**, and may set the status only to `'pending'` (an edit of the number) or `'cancelled'`. A tenant can **never** write `'accepted'` — that is the whole point.
+- **Admins UPDATE only still-pending rows**, and may set the status only to `'pending'` (an edit of the numbers) or `'cancelled'`. A tenant can **never** write `'accepted'` — that is the whole point.
 
-**Accepting is ONE Postgres call.** `accept_customer_request(p_request_id UUID, p_granted INT)` — `SECURITY DEFINER`, `REVOKE`d from `anon` / `authenticated` / `public`, so only the service role reaches it. It marks the request accepted **and** raises `tenants.customer_allowance` by the granted amount in a single call, because a torn write here mis-bills a tenant: the raise without the accept leaves the request live and re-grantable, the accept without the raise gives the tenant nothing. **Declining is a plain single update** — nothing else moves, so it needs no function.
+**Accepting is ONE Postgres call.** `accept_customer_request(p_request_id UUID, p_granted INT, p_granted_plans INT)` — `SECURITY DEFINER`, `REVOKE`d from `anon` / `authenticated` / `public`, so only the service role reaches it. It marks the request accepted **and** raises both limits in a single call, because a torn write here mis-bills a tenant. The line limit is raised with `GREATEST(plan_allowance + granted_plans, customer_allowance + granted)`, so granting customers alone can never break the invariant. The two-argument version is **dropped by signature** in `migration.sql`, or the old overload would keep answering beside the new one. **Declining is a plain single update** — nothing else moves, so it needs no function.
 
-**The minimum ask is 10.** `BillingService.validateRequest(extra)` throws below `MIN_CUSTOMER_REQUEST = 10` ([utils/types.ts](../SubsTrack/src/modules/admin/billing/utils/types.ts)), matching the DB `CHECK` — a request for one more customer is not worth a round trip to a human.
+**The minimum ask is 10 across both.** `BillingService.validateRequest(extra)` throws when `extra.customers + extra.plans < MIN_CUSTOMER_REQUEST` ([utils/types.ts](../SubsTrack/src/modules/admin/billing/utils/types.ts)), matching the DB `CHECK` — a request for one more slot is not worth a round trip to a human.
 
 ---
 
-### `CustomerRequestSheet`
+### Editing a pending request
 
-One numeric field (minimum 10) and two buttons: **"Send request"** and **"Send request + WhatsApp"**. The second deep-links `app_options.SupportWhatsAppNumber` through `openWhatsApp` **after the write succeeds** — the request is the record, the message only nudges — and is **hidden entirely when the number is blank**. In edit mode the labels become **Save** / **Save + WhatsApp**.
+There is **no separate request sheet** — **Edit request** opens the same `<UpdateAllowanceSheet editing />`, so asking for more looks identical whether it is the first ask or a correction of one already sent.
+
+In `editing` mode the sheet is a **raise-only** twin of itself: it opens on each limit plus what was already asked for (`requestedPair(request)`), each field's floor becomes that limit's current value rather than `MIN_CUSTOMER_ALLOWANCE`, the decrease branches are switched off, and Save routes to `editRequest(extra)` instead of `requestMore`. The title reads **Edit request** and the button **Save request**; "Send request + WhatsApp" stays, because a corrected number is still worth sending to support.
 
 ---
 
 ### SuperAdmin side
 
-- **`TenantCard`** shows `{allowance} customers · ${price} each`, and an **ORANGE `Requested +N` pill** when that tenant has a pending request — so the owner sees the queue without opening anything.
-- **`TenantFormSheet`** gained numeric **"Customer Allowance"** and **"Price Per Customer (USD)"** inputs on **both create and edit** — the owner's direct path, for onboarding an agreed deal or correcting one without a request.
-- When a request is pending, an **Accept / Decline block** sits at the top of the sheet, with an editable **"Grant"** field defaulting to the requested count (the owner may grant fewer).
-- **Trap:** after accepting, the local **allowance input is re-synced from the accepted amount**. Without it the input still holds the pre-accept number, and the next press of Save writes that number straight back over the raise the owner just granted.
+- **`TenantCard`** shows `{customers} customers · {lines} lines ·  each`, and an **ORANGE `Requested +N customers / +N lines` pill** when that tenant has a pending request — so the owner sees the queue without opening anything.
+- **`TenantFormSheet`** carries numeric **"Customer Allowance"**, **"Service Line Allowance"** and **"Price Per Service Line (USD)"** inputs on **both create and edit** — the owner's direct path, for onboarding an agreed deal or correcting one without a request. The line field shows an inline error while it sits below the customer field.
+- When a request is pending, an **Accept / Decline block** sits at the top of the sheet, with editable **"Grant customers"** and **"Grant service lines"** fields defaulting to what was asked (the owner may grant fewer). A grant of 0 on one side is fine; a grant of 0 on **both** is refused.
+- **Trap:** after accepting, **both local inputs are re-synced** from the accepted amounts, the line one through the same `GREATEST` the RPC applies. Without it the inputs still hold the pre-accept numbers, and the next press of Save writes them straight back over the raise the owner just granted.
 - **`TenantService.getTenants()`** is `Promise.all([findAll(), findPendingRequests()])`, zipping the pending request onto each tenant. `findPendingRequests` is **one flat query, not a PostgREST embed** — an embed would drag every historical request row for every tenant across the wire to surface at most one live row each.
-- SuperAdmin has **2 tabs** now: **Tenants** and **Options**. The whole `tier-plans` module and its tab are gone.
+- SuperAdmin has **2 tabs**: **Tenants** and **Options**.
 
 ---
 
 ### Offline
 
-**The allowance syncs; the requests do not.**
+**The limits sync; the requests do not.**
 
-- `customer_allowance` and `price_per_customer_usd` live on the `tenants` row, which is already part of the read-through auth cache — so **the cap still works offline**, and a device that has logged in once refuses to create the 31st customer with no network.
+- `customer_allowance`, `plan_allowance` and `price_per_plan_usd` live on the `tenants` row, which is already part of the read-through auth cache — so **both caps still work offline**, and a device that has logged in once refuses the 31st customer with no network. Both counts come from the mirror, so two offline devices can each take the last seat: advisory, the same compromise as `SaleService`'s oversell guard.
 - `customer_requests` is **deliberately not mirrored**. `CustomerRequestRepository.offline` throws `RequiresConnectionError` from **every** method. A request is a message to a human that needs an answer from a human; queueing it offline would show a tenant a pending block nobody can see, and two offline requests merging would fight the one-pending index.
 
 ---
@@ -2051,7 +2136,7 @@ the **charge's** (what he was billed).
 - [Multi-Currency](#multi-currency)
 - [App Options (Global Config)](#app-options-global-config)
 - [Tenant Settings (Per-Tenant Config)](#tenant-settings-per-tenant-config)
-- [Customer Allowance & Requests](#customer-allowance--requests)
+- [Allowances & Requests](#allowances--requests)
 - [Products & One-Off Sales](#products--one-off-sales)
   - [Services](#services)
 - [Reports](#reports)
@@ -2136,7 +2221,7 @@ LoginScreen
        get().branches.fetchBranches()
        get().options.fetchOptions()         (loads global app_options — e.g. LiraRate)
        get().billing.init(tenantId)
-         → seeds allowance + pricePerCustomerUsd from the auth-time tenant row
+         → seeds both limits + pricePerPlanUsd from the auth-time tenant row
          → customerService.countActive(null) — TENANT-WIDE active customer count
          → refreshRequest() — the one pending customer_requests row, if any
 
@@ -2161,7 +2246,7 @@ app/(app)/_layout.tsx
   → otherwise → render tabs
 ```
 
-**Hydration note:** `authSlice` exports an internal `primePostAuth(get, user)` helper called by `login` and `restoreSession`. It runs `get().currencies.fetchCurrencies()`, `get().branches.fetchBranches()`, `get().options.fetchOptions()`, and `get().billing.init(tenantId)` in parallel via `Promise.all`. `billing.init` seeds the allowance and per-customer price from the tenant row already in hand, then reads the tenant-wide active-customer count and any pending request (see Customer Allowance & Requests below).
+**Hydration note:** `authSlice` exports an internal `primePostAuth(get, user)` helper called by `login` and `restoreSession`. It runs `get().currencies.fetchCurrencies()`, `get().branches.fetchBranches()`, `get().options.fetchOptions()`, and `get().billing.init(tenantId)` in parallel via `Promise.all`. `billing.init` seeds both limits and the per-line price from the tenant row already in hand, then reads the tenant-wide active customer and service-line counts and any pending request (see Allowances & Requests below).
 
 See `docs/edge-functions.md` for `create-tenant` internals and gotcha #33 for the anon-path rationale.
 
@@ -2268,46 +2353,68 @@ See gotcha #38.
 
 ---
 
-## Customer Allowance & Requests
+## Allowances & Requests
 
-There are no tiers. A tenant is billed on **one number of customers it is allowed to hold**, at **one agreed price per customer**, and every other resource — users, branches, plans, products, currencies, sales, stock — is **unlimited**. Two columns on `tenants` carry the whole commercial relationship:
+There are no tiers. A tenant is billed on **how many active SERVICE LINES it holds**, at **one agreed price per line**, and is separately capped on **how many active customers** it may hold. Every other resource — users, branches, plans, products, currencies, sales, stock — is **unlimited**. Three columns on `tenants` carry the whole commercial relationship:
 
-- `customer_allowance INT NOT NULL DEFAULT 30` — how many **active** customers this tenant may hold.
-- `price_per_customer_usd NUMERIC(10,4) NOT NULL DEFAULT 0.15` — USD charged per active customer per month. `NUMERIC(10,4)` because a per-customer price is fractions of a cent wide; rounding happens only at the total.
+- `customer_allowance INT NOT NULL DEFAULT 30` — how many **active** customers this tenant may hold. 30 is both the starting deal and a hard **floor** (`chk_tenants_customer_allowance_min`), so every tenant — SuperAdmin-created or self-service — begins there and none may go under it.
+- `plan_allowance INT NOT NULL DEFAULT 30` — how many **active service lines** (`customer_plans`) it may hold, and the number the bill is counted on. It can never sit **below** `customer_allowance` (`chk_tenants_plan_allowance_floor`), because every customer must be able to hold at least one line. On an existing database `sql scripts/migration.sql` must run **before** `script.sql`: filling this column has to happen between the column existing and that CHECK being added, and `script.sql` does both in one pass, so any tenant already above the default 30 would fail it.
+- `price_per_plan_usd NUMERIC(10,4) NOT NULL DEFAULT 0.15` — USD charged per active service line per month. `NUMERIC(10,4)` because a per-line price is fractions of a cent wide; rounding happens only at the total.
 
-**Both columns are OWNER-ONLY, locked twice.** They decide what the tenant pays, so the tenant must not be able to touch them:
+**Why two limits.** A customer may hold many service lines, so a customer cap alone capped nothing that costs money — 100 customers could carry 400 billable lines at the same price. The line limit is the one that decides the bill; the customer limit stays as the second cap on the size of the list.
+
+**"Active line" means the line is active AND its customer is active.** Deactivating a customer does not cancel its lines, so a plain `WHERE active` count would keep billing for someone who left. The join is written three times — `CustomerPlanRepository.countActive`, its offline twin, and `lower_allowances()` — and all three must agree.
+
+**All three columns are OWNER-ONLY, locked twice.** They decide what the tenant pays, so the tenant must not be able to touch them:
 
 1. **No UPDATE policy on `tenants` at all** — the old `tenants_update` policy was dropped. The app never writes the table, so nothing is lost.
-2. **`trg_tenants_guard_billing`** — a trigger that RAISEs when a session with `auth.uid() IS NOT NULL` changes either column. The belt to the RLS braces: it survives someone re-adding a permissive policy later, and it is what stops a tenant admin raising their own allowance through a leaked token.
+2. **`trg_tenants_guard_billing`** — a trigger that RAISEs when the request’s role is `authenticated` or `anon` and any of the three changes. It tests the ROLE, not `auth.uid()`: a `SECURITY DEFINER` RPC keeps the caller’s JWT, so a uid test would refuse `lower_allowances()` too. The belt to the RLS braces: it survives someone re-adding a permissive policy later, and it is what stops a tenant admin raising their own limits through a leaked token.
 
 Only the **service role** writes them — SuperAdmin and the edge functions, both of which bypass RLS and carry no `auth.uid()`.
 
-**The numbers ride in on the auth-time tenant row.** `AuthRepository.getTenant` already returns the tenant, so allowance and price cost **no extra fetch**. Only the active-customer count and the pending request touch the network.
+**One exception, and it only ever goes DOWN:** `lower_allowances(p_customer_allowance INT, p_plan_allowance INT)` — `SECURITY DEFINER`, so it passes the guard. **Both limits move in ONE call**, because `plan_allowance >= customer_allowance` leaves no safe order for two separate ones. It refuses a caller who is not an active `admin`/`superadmin`, refuses anything that is not a cut, refuses a line limit under the customer limit, and refuses to drop either below the tenant's **own live active counts**, which it `SELECT COUNT(*)`s itself rather than trusting numbers from the client. Raising still costs a request the owner accepts. See **Lowering the limits** below.
 
-**Module:** `src/modules/admin/billing/` — `services/BillingService.ts`, the `ICustomerRequestRepository` / `CustomerRequestRepository` / `CustomerRequestRepository.offline` trio, `utils/` (`customerLimitError.ts`, `types.ts`, `mapper.ts` — which owns `mapDbTenantToTenant`, moved here from the old subscription module, plus `mapDbCustomerRequestToCustomerRequest`), and three components. **State** is the global `billing` slice at [src/state/slices/billing/billingSlice.ts](../SubsTrack/src/state/slices/billing/billingSlice.ts) (`allowance`, `pricePerCustomerUsd`, `activeCustomers`, `request`, `loading`, `saving`, `error`, plus `init` / `refreshCounts` / `refreshRequest` / `setActiveCustomers` / `requestMore` / `editRequest` / `cancelRequest` / `clearError` / `reset`), read through `useBillingSlice`. `authSlice.primePostAuth` calls `billing.init(tenantId)`; `logout` calls `billing.reset()`.
+**The numbers ride in on the auth-time tenant row.** `AuthRepository.getTenant` already returns the tenant, so both limits and the price cost **no extra fetch**. Only the two active counts and the pending request touch the network.
+
+**Module:** `src/modules/admin/billing/` — `services/BillingService.ts`, the `ICustomerRequestRepository` / `CustomerRequestRepository` / `CustomerRequestRepository.offline` trio plus the matching `IAllowanceRepository` / `AllowanceRepository` / `AllowanceRepository.offline` trio for the lowering RPC, `utils/allowanceChange.ts` (`signedText`), `utils/requestAsk.ts` (`requestedPair`, `askText`), `utils/` (`quotaError.ts`, `allowanceFloorError.ts`, `types.ts`, `mapper.ts`), and five components. **State** is the global `billing` slice at [src/state/slices/billing/billingSlice.ts](../SubsTrack/src/state/slices/billing/billingSlice.ts) — `limits` and `active` are both a `QuotaPair` (`{ customers, plans }`), beside `pricePerPlanUsd`, `request`, `loading`, `saving`, `error`, `floorError`, `quotaError`, plus `init` / `refreshCounts` / `refreshRequest` / `bumpActive` / `lowerAllowances` / `requestMore` / `editRequest` / `cancelRequest` / `setQuotaError` / `clearQuotaError` / `clearError` / `reset` — read through `useBillingSlice`. `authSlice.primePostAuth` calls `billing.init(tenantId)`; `logout` calls `billing.reset()`.
 
 ---
 
-### The customer cap
+### The two caps
 
-**Enforcement is service-layer**, the same shape the old tier check had: `CustomerService.createCustomer()` calls `billingService.assertCanCreateCustomer(allowance, activeCount)` immediately after its existing `validate()`. It throws a typed `CustomerLimitError` (from [utils/customerLimitError.ts](../SubsTrack/src/modules/admin/billing/utils/customerLimitError.ts)) carrying `{allowance, activeCount}` when `activeCount >= allowance` — the cap blocks **at** the allowance, not one past it. `customerSlice` catches via `instanceof` and sets a structured `customerLimitError: CustomerLimitErrorPayload | null` next to the standard `error: string`, cleared by `clearCustomerLimitError()`. No error string is ever parsed.
+**`QuotaPair` is the unit everything speaks in.** A limit pair, an active-count pair and an ask pair are all `{ customers: number; plans: number }`, so no signature carries four loose integers.
+
+**Enforcement is service-layer, through ONE gate:**
+
+```ts
+billingService.assertQuotas(limits, before, after)
+```
+
+It walks `QUOTA_KINDS` (customers first) and throws a typed `QuotaExceededError` (from [utils/quotaError.ts](../SubsTrack/src/modules/admin/billing/utils/quotaError.ts)) carrying `{kind, limit, activeCount}` for the first breach. **A kind is only checked when the write GROWS it** — `after[kind] > before[kind]`. Without that test a tenant the owner cut below its own usage could never shrink: every line removal would be refused by the very limit it was moving toward.
+
+Two callers:
+
+- `CustomerService.createCustomer(data, tenantId, limits, active, addingLines)` — `after` is `{ customers: +1, plans: +addingLines }`. The drafted lines are counted **before the customer row is written**, because `CustomerFormSheet` creates the customer and then syncs its lines; a line refused on the second step would otherwise leave an empty customer holding a seat.
+- `CustomerPlanService.syncLines(…, existingLines, limits, activeCounts)` — `after.plans` is `activeCounts.plans − existingLines.length + lines.length`. The draft list is the final state, so **removals and reactivations net out** in that one subtraction.
+
+`customerSlice` and `customerPlanSlice` both catch via `instanceof` and call `get().billing.setQuotaError(e)`, so **one field and one modal answer for both limits**. No error string is ever parsed.
 
 **Only `CustomerFormSheet` renders a limit modal.** The other five form sheets (users, branches, plans, products, currencies) render none — their resources are uncapped, so there is nothing to explain.
 
-**Unlike the old tier check, the numbers are NOT parameters.** `createCustomer(data, tenantId)` reads `allowance` and `activeCustomers` from `get().billing` **inside the action** — a cross-slice read via `get()`, per the slice rules. Nothing is threaded through the component.
+**The numbers are NOT threaded through the component.** Both slices read `limits` and `active` from `get().billing` **inside the action** — a cross-slice read via `get()`, per the slice rules.
 
-**The count that matters is TENANT-WIDE.** The cap reads `customerService.countActive(null)` — a `null` branch filter that skips the branch clause on both platforms. The `customers` slice keeps its own `activeCount`, but that one is **branch-filtered** and must never drive the cap: a branch admin would otherwise be told they have room the tenant does not have.
+**Both counts are TENANT-WIDE.** `customerService.countActive(null)` and `customerPlanService.countActive()` skip the branch clause on both platforms. The `customers` slice keeps its own `activeCount`, but that one is **branch-filtered** and must never drive a cap: a branch admin would otherwise be told they have room the tenant does not have.
 
-**The count is write-patched, never re-fetched.** Create / deactivate / reactivate / delete / bulk-delete each hand `billing.setActiveCustomers` the new figure. There is no `refreshUsage()` anywhere — all 19 of the old calls are gone. `refreshActiveData.ts` calls `s.billing.refreshCounts()` on an arrival, which is the only re-read.
+**The counts are write-patched, never re-fetched.** Every write hands `billing.bumpActive` a **delta**, never an absolute — create (`+1` customer), line sync (net line change), deactivate / reactivate / delete / bulk-delete (`∓1` customer and `∓` that customer's active lines, via `activeLines(customer)`). `refreshActiveData.ts` calls `s.billing.refreshCounts()` on an arrival, which is the only re-read.
 
 ---
 
-### `CustomerLimitReachedModal`
+### `QuotaReachedModal`
 
-Replaces the old `UpgradePromptModal`. It says the allowance is full and offers the one action actually available to whoever is looking:
+Says which limit is full and offers the one action actually available to whoever is looking. Its title, body and icon come from `payload.kind`, so the customer wall and the service-line wall are one component:
 
 - **Tenant-wide admins** (`user.branchId === null`) get a button into **Organization Settings**, where the request lives.
-- **Branch admins and staff** get "ask your administrator" — they cannot raise the allowance, so offering them a button would be a dead end.
+- **Branch admins and staff** get "ask your administrator" — they cannot raise a limit, so offering them a button would be a dead end.
 
 ---
 
@@ -2315,10 +2422,9 @@ Replaces the old `UpgradePromptModal`. It says the allowance is full and offers 
 
 `<CustomerAllowanceSection />` ([components/CustomerAllowanceSection.tsx](../SubsTrack/src/modules/admin/billing/components/CustomerAllowanceSection.tsx)) renders **above** `<DisplayCurrencySection />` on `TenantSettingsScreen`. It shows:
 
-- **Allowed customers** — `customer_allowance`.
-- **Current customers** — the tenant-wide active count.
-- **Monthly amount** — `BillingService.monthlyAmountUsd(activeCustomers, pricePerCustomerUsd)`, rounded to 2dp. 100 customers × $0.15 = **$15.00**. The rounding is deliberate and tested: `7 × 0.15` must print `1.05`, not `1.0499999…`.
-- Then one of three states: a **"Request more customers"** button, an **amber pending block** with Edit / Cancel, or a **red "declined"** note.
+- **TWO `<UsageBar />`s**, customers then service lines — `used / total` as one big figure, a filled track, and a "N more … available" line (or "you have used your whole limit"). The bar takes a `kind` and builds its own labels. The fill is indigo, **amber from 80%** of the limit and **red at or over** it, so the wall is visible before it is hit.
+- **Monthly amount** — `BillingService.monthlyAmountUsd(active.plans, pricePerPlanUsd)`, rounded to 2dp, with the `N active × $price` note under it. 100 lines × $0.15 = **$15.00**. The rounding is deliberate and tested: `7 × 0.15` must print `1.05`, not `1.0499999…`.
+- Then either a **single "Update your limits"** button, an **amber pending block** with Edit / Cancel, or a **red "declined"** note above that button.
 
 It refreshes the request **on focus**, because the owner may have accepted or declined it while the screen sat open.
 
@@ -2326,11 +2432,47 @@ It refreshes the request **on focus**, because the owner may have accepted or de
 
 ---
 
+### Update your limits — one sheet, both limits, both directions
+
+`<UpdateAllowanceSheet />` ([components/UpdateAllowanceSheet.tsx](../SubsTrack/src/modules/admin/billing/components/UpdateAllowanceSheet.tsx)) is the card's **only** button. It renders **two `<AllowanceField />`s** — Allowed customers, then Allowed service lines — each of which is a pair of boxes for one number:
+
+- **The new total.**
+- **Change** — the signed movement, between a **−** and a **+** button. `+20` renders green, `-20` red, and no change at all renders **empty**, not `+0` (`signedText` in [utils/allowanceChange.ts](../SubsTrack/src/modules/admin/billing/utils/allowanceChange.ts)).
+
+**Each field holds ONE piece of state.** The change box is a **view** over the total (`total − current`), and writing to it sets the total back — so the two can never drift apart no matter which one is typed in. Both go through `useTextField` with an `expectedEcho`, because a field that is rewritten by its twin is exactly the late-`value` case that eats letters (gotcha #134).
+
+**Raising the customer box carries the line box up with it**, rather than showing an error — service lines can never be fewer than customers, and the sheet says that by moving, not by refusing.
+
+**The direction chooses the path at Save**, which is what lets one button do both jobs:
+
+- **Any cut, no raise** → `lowerAllowances(total)` → the `lower_allowances` RPC, applied **at once** behind a confirm. No request row, no owner decision, because smaller limits only ever cost the tenant less.
+- **Any raise** → `requestMore` → one `customer_requests` row carrying **both** asks, still for the owner to accept. The "Send request + WhatsApp" door appears only on this branch.
+- **A raise and a cut in the same save is refused** (`billing.mixed_change_error`). One needs a human's approval and the other applies instantly; mixing them would mean half a save.
+
+**The floor on a cut is the ACTIVE COUNT — per limit — checked twice.**
+
+1. **In the sheet / service**, so the admin gets an answer with no round trip: `BillingService.validateDecrease(next, current, active)` throws a typed `AllowanceFloorError` (from [utils/allowanceFloorError.ts](../SubsTrack/src/modules/admin/billing/utils/allowanceFloorError.ts)) carrying `{kind, requested, activeCount}`. The sheet turns that into an amber **"Deactivate N customers first"** / **"Cancel N service lines first"** panel and disables Save.
+2. **In Postgres, which wins**: `lower_allowances()` re-counts both for the JWT's tenant. The client figures are cached numbers another device can have moved, and forged ones would strand the tenant over its own caps.
+
+The server reports each refusal as a **coded** message — `active_customers_exceed_limit:<active>:<requested>` and `active_plans_exceed_limit:<active>:<requested>`, matched against `ALLOWANCE_FLOOR_CODES` in `utils/types.ts` — so `BillingService` rebuilds the same typed error instead of anyone parsing a sentence. `billingSlice` holds the structured twin as `floorError: AllowanceFloorPayload | null` next to the usual `error: string`.
+
+**Three floors, and the highest binds:** the product minimum `MIN_CUSTOMER_ALLOWANCE = 30`, the active count for that limit, and — for service lines only — the customer limit itself. Cutting to exactly any of them is legal; one below is not.
+
+**The write patches TWO places.** `billing.limits` is what the card reads, but `billing.init` re-seeds it from `auth.user.tenant` on every session restore — so `lowerAllowances` patches the auth tenant as well, or the old numbers come back on the next launch.
+
+**Online-only.** `AllowanceRepository.offline` throws `RequiresConnectionError`: the floors are the server's live counts, which an unsynced mirror cannot answer.
+
+**The RPC still cannot raise.** Either argument above its current value RAISEs inside the function — the request flow is the only way up, whichever field the admin typed in.
+
+---
+
 ### `customer_requests` — the lifecycle
 
-A tenant does not change its allowance; it **asks**, and the owner grants. One table carries the conversation:
+A tenant cannot RAISE its own limits; it **asks**, and the owner grants (lowering is its own door — see above). One table carries the conversation:
 
-`customer_requests` — `id`, `tenant_id`, `requested_count` (`CHECK >= 10`), `granted_count`, `status` (`pending` \| `accepted` \| `declined` \| `cancelled`), `requested_by`, `decided_by`, `decided_at`, `created_at`, `updated_at`.
+`customer_requests` — `id`, `tenant_id`, `requested_count`, `requested_plans`, `granted_count`, `granted_plans`, `status` (`pending` \| `accepted` \| `declined` \| `cancelled`), `requested_by`, `decided_by`, `decided_at`, `created_at`, `updated_at`.
+
+**ONE row moves both limits.** Either half may be 0 — a tenant that only needs more service lines asks for exactly that — and the ten-slot minimum binds the **total**, not each half (`chk_customer_requests_total_min`). The old single-column `chk_customer_requests_min` is **dropped by name** in `migration.sql`, because a guarded `DO` block never re-evaluates a constraint that already exists.
 
 **Exactly one pending request per tenant**, enforced by a **partial unique index** rather than app logic:
 
@@ -2343,38 +2485,40 @@ A partial index is the right tool: historical `accepted` / `declined` / `cancell
 
 **RLS says who may move it where:**
 
-- **Every tenant member SELECTs** — staff should be able to see that more customers are on the way.
+- **Every tenant member SELECTs** — staff should be able to see that more room is on the way.
 - **Admins INSERT**, and the row must be born **pending and undecided**.
-- **Admins UPDATE only still-pending rows**, and may set the status only to `'pending'` (an edit of the number) or `'cancelled'`. A tenant can **never** write `'accepted'` — that is the whole point.
+- **Admins UPDATE only still-pending rows**, and may set the status only to `'pending'` (an edit of the numbers) or `'cancelled'`. A tenant can **never** write `'accepted'` — that is the whole point.
 
-**Accepting is ONE Postgres call.** `accept_customer_request(p_request_id UUID, p_granted INT)` — `SECURITY DEFINER`, `REVOKE`d from `anon` / `authenticated` / `public`, so only the service role reaches it. It marks the request accepted **and** raises `tenants.customer_allowance` by the granted amount in a single call, because a torn write here mis-bills a tenant: the raise without the accept leaves the request live and re-grantable, the accept without the raise gives the tenant nothing. **Declining is a plain single update** — nothing else moves, so it needs no function.
+**Accepting is ONE Postgres call.** `accept_customer_request(p_request_id UUID, p_granted INT, p_granted_plans INT)` — `SECURITY DEFINER`, `REVOKE`d from `anon` / `authenticated` / `public`, so only the service role reaches it. It marks the request accepted **and** raises both limits in a single call, because a torn write here mis-bills a tenant. The line limit is raised with `GREATEST(plan_allowance + granted_plans, customer_allowance + granted)`, so granting customers alone can never break the invariant. The two-argument version is **dropped by signature** in `migration.sql`, or the old overload would keep answering beside the new one. **Declining is a plain single update** — nothing else moves, so it needs no function.
 
-**The minimum ask is 10.** `BillingService.validateRequest(extra)` throws below `MIN_CUSTOMER_REQUEST = 10` ([utils/types.ts](../SubsTrack/src/modules/admin/billing/utils/types.ts)), matching the DB `CHECK` — a request for one more customer is not worth a round trip to a human.
+**The minimum ask is 10 across both.** `BillingService.validateRequest(extra)` throws when `extra.customers + extra.plans < MIN_CUSTOMER_REQUEST` ([utils/types.ts](../SubsTrack/src/modules/admin/billing/utils/types.ts)), matching the DB `CHECK` — a request for one more slot is not worth a round trip to a human.
 
 ---
 
-### `CustomerRequestSheet`
+### Editing a pending request
 
-One numeric field (minimum 10) and two buttons: **"Send request"** and **"Send request + WhatsApp"**. The second deep-links `app_options.SupportWhatsAppNumber` through `openWhatsApp` **after the write succeeds** — the request is the record, the message only nudges — and is **hidden entirely when the number is blank**. In edit mode the labels become **Save** / **Save + WhatsApp**.
+There is **no separate request sheet** — **Edit request** opens the same `<UpdateAllowanceSheet editing />`, so asking for more looks identical whether it is the first ask or a correction of one already sent.
+
+In `editing` mode the sheet is a **raise-only** twin of itself: it opens on each limit plus what was already asked for (`requestedPair(request)`), each field's floor becomes that limit's current value rather than `MIN_CUSTOMER_ALLOWANCE`, the decrease branches are switched off, and Save routes to `editRequest(extra)` instead of `requestMore`. The title reads **Edit request** and the button **Save request**; "Send request + WhatsApp" stays, because a corrected number is still worth sending to support.
 
 ---
 
 ### SuperAdmin side
 
-- **`TenantCard`** shows `{allowance} customers · ${price} each`, and an **ORANGE `Requested +N` pill** when that tenant has a pending request — so the owner sees the queue without opening anything.
-- **`TenantFormSheet`** gained numeric **"Customer Allowance"** and **"Price Per Customer (USD)"** inputs on **both create and edit** — the owner's direct path, for onboarding an agreed deal or correcting one without a request.
-- When a request is pending, an **Accept / Decline block** sits at the top of the sheet, with an editable **"Grant"** field defaulting to the requested count (the owner may grant fewer).
-- **Trap:** after accepting, the local **allowance input is re-synced from the accepted amount**. Without it the input still holds the pre-accept number, and the next press of Save writes that number straight back over the raise the owner just granted.
+- **`TenantCard`** shows `{customers} customers · {lines} lines ·  each`, and an **ORANGE `Requested +N customers / +N lines` pill** when that tenant has a pending request — so the owner sees the queue without opening anything.
+- **`TenantFormSheet`** carries numeric **"Customer Allowance"**, **"Service Line Allowance"** and **"Price Per Service Line (USD)"** inputs on **both create and edit** — the owner's direct path, for onboarding an agreed deal or correcting one without a request. The line field shows an inline error while it sits below the customer field.
+- When a request is pending, an **Accept / Decline block** sits at the top of the sheet, with editable **"Grant customers"** and **"Grant service lines"** fields defaulting to what was asked (the owner may grant fewer). A grant of 0 on one side is fine; a grant of 0 on **both** is refused.
+- **Trap:** after accepting, **both local inputs are re-synced** from the accepted amounts, the line one through the same `GREATEST` the RPC applies. Without it the inputs still hold the pre-accept numbers, and the next press of Save writes them straight back over the raise the owner just granted.
 - **`TenantService.getTenants()`** is `Promise.all([findAll(), findPendingRequests()])`, zipping the pending request onto each tenant. `findPendingRequests` is **one flat query, not a PostgREST embed** — an embed would drag every historical request row for every tenant across the wire to surface at most one live row each.
-- SuperAdmin has **2 tabs** now: **Tenants** and **Options**. The whole `tier-plans` module and its tab are gone.
+- SuperAdmin has **2 tabs**: **Tenants** and **Options**.
 
 ---
 
 ### Offline
 
-**The allowance syncs; the requests do not.**
+**The limits sync; the requests do not.**
 
-- `customer_allowance` and `price_per_customer_usd` live on the `tenants` row, which is already part of the read-through auth cache — so **the cap still works offline**, and a device that has logged in once refuses to create the 31st customer with no network.
+- `customer_allowance`, `plan_allowance` and `price_per_plan_usd` live on the `tenants` row, which is already part of the read-through auth cache — so **both caps still work offline**, and a device that has logged in once refuses the 31st customer with no network. Both counts come from the mirror, so two offline devices can each take the last seat: advisory, the same compromise as `SaleService`'s oversell guard.
 - `customer_requests` is **deliberately not mirrored**. `CustomerRequestRepository.offline` throws `RequiresConnectionError` from **every** method. A request is a message to a human that needs an answer from a human; queueing it offline would show a tenant a pending block nobody can see, and two offline requests merging would fight the one-pending index.
 
 ---
@@ -3038,7 +3182,7 @@ the **charge's** (what he was billed).
 - [Multi-Currency](#multi-currency)
 - [App Options (Global Config)](#app-options-global-config)
 - [Tenant Settings (Per-Tenant Config)](#tenant-settings-per-tenant-config)
-- [Customer Allowance & Requests](#customer-allowance--requests)
+- [Allowances & Requests](#allowances--requests)
 - [Products & One-Off Sales](#products--one-off-sales)
   - [Services](#services)
 - [Reports](#reports)
@@ -3123,7 +3267,7 @@ LoginScreen
        get().branches.fetchBranches()
        get().options.fetchOptions()         (loads global app_options — e.g. LiraRate)
        get().billing.init(tenantId)
-         → seeds allowance + pricePerCustomerUsd from the auth-time tenant row
+         → seeds both limits + pricePerPlanUsd from the auth-time tenant row
          → customerService.countActive(null) — TENANT-WIDE active customer count
          → refreshRequest() — the one pending customer_requests row, if any
 
@@ -3148,7 +3292,7 @@ app/(app)/_layout.tsx
   → otherwise → render tabs
 ```
 
-**Hydration note:** `authSlice` exports an internal `primePostAuth(get, user)` helper called by `login` and `restoreSession`. It runs `get().currencies.fetchCurrencies()`, `get().branches.fetchBranches()`, `get().options.fetchOptions()`, and `get().billing.init(tenantId)` in parallel via `Promise.all`. `billing.init` seeds the allowance and per-customer price from the tenant row already in hand, then reads the tenant-wide active-customer count and any pending request (see Customer Allowance & Requests below).
+**Hydration note:** `authSlice` exports an internal `primePostAuth(get, user)` helper called by `login` and `restoreSession`. It runs `get().currencies.fetchCurrencies()`, `get().branches.fetchBranches()`, `get().options.fetchOptions()`, and `get().billing.init(tenantId)` in parallel via `Promise.all`. `billing.init` seeds both limits and the per-line price from the tenant row already in hand, then reads the tenant-wide active customer and service-line counts and any pending request (see Allowances & Requests below).
 
 See `docs/edge-functions.md` for `create-tenant` internals and gotcha #33 for the anon-path rationale.
 
@@ -3255,46 +3399,68 @@ See gotcha #38.
 
 ---
 
-## Customer Allowance & Requests
+## Allowances & Requests
 
-There are no tiers. A tenant is billed on **one number of customers it is allowed to hold**, at **one agreed price per customer**, and every other resource — users, branches, plans, products, currencies, sales, stock — is **unlimited**. Two columns on `tenants` carry the whole commercial relationship:
+There are no tiers. A tenant is billed on **how many active SERVICE LINES it holds**, at **one agreed price per line**, and is separately capped on **how many active customers** it may hold. Every other resource — users, branches, plans, products, currencies, sales, stock — is **unlimited**. Three columns on `tenants` carry the whole commercial relationship:
 
-- `customer_allowance INT NOT NULL DEFAULT 30` — how many **active** customers this tenant may hold.
-- `price_per_customer_usd NUMERIC(10,4) NOT NULL DEFAULT 0.15` — USD charged per active customer per month. `NUMERIC(10,4)` because a per-customer price is fractions of a cent wide; rounding happens only at the total.
+- `customer_allowance INT NOT NULL DEFAULT 30` — how many **active** customers this tenant may hold. 30 is both the starting deal and a hard **floor** (`chk_tenants_customer_allowance_min`), so every tenant — SuperAdmin-created or self-service — begins there and none may go under it.
+- `plan_allowance INT NOT NULL DEFAULT 30` — how many **active service lines** (`customer_plans`) it may hold, and the number the bill is counted on. It can never sit **below** `customer_allowance` (`chk_tenants_plan_allowance_floor`), because every customer must be able to hold at least one line. On an existing database `sql scripts/migration.sql` must run **before** `script.sql`: filling this column has to happen between the column existing and that CHECK being added, and `script.sql` does both in one pass, so any tenant already above the default 30 would fail it.
+- `price_per_plan_usd NUMERIC(10,4) NOT NULL DEFAULT 0.15` — USD charged per active service line per month. `NUMERIC(10,4)` because a per-line price is fractions of a cent wide; rounding happens only at the total.
 
-**Both columns are OWNER-ONLY, locked twice.** They decide what the tenant pays, so the tenant must not be able to touch them:
+**Why two limits.** A customer may hold many service lines, so a customer cap alone capped nothing that costs money — 100 customers could carry 400 billable lines at the same price. The line limit is the one that decides the bill; the customer limit stays as the second cap on the size of the list.
+
+**"Active line" means the line is active AND its customer is active.** Deactivating a customer does not cancel its lines, so a plain `WHERE active` count would keep billing for someone who left. The join is written three times — `CustomerPlanRepository.countActive`, its offline twin, and `lower_allowances()` — and all three must agree.
+
+**All three columns are OWNER-ONLY, locked twice.** They decide what the tenant pays, so the tenant must not be able to touch them:
 
 1. **No UPDATE policy on `tenants` at all** — the old `tenants_update` policy was dropped. The app never writes the table, so nothing is lost.
-2. **`trg_tenants_guard_billing`** — a trigger that RAISEs when a session with `auth.uid() IS NOT NULL` changes either column. The belt to the RLS braces: it survives someone re-adding a permissive policy later, and it is what stops a tenant admin raising their own allowance through a leaked token.
+2. **`trg_tenants_guard_billing`** — a trigger that RAISEs when the request’s role is `authenticated` or `anon` and any of the three changes. It tests the ROLE, not `auth.uid()`: a `SECURITY DEFINER` RPC keeps the caller’s JWT, so a uid test would refuse `lower_allowances()` too. The belt to the RLS braces: it survives someone re-adding a permissive policy later, and it is what stops a tenant admin raising their own limits through a leaked token.
 
 Only the **service role** writes them — SuperAdmin and the edge functions, both of which bypass RLS and carry no `auth.uid()`.
 
-**The numbers ride in on the auth-time tenant row.** `AuthRepository.getTenant` already returns the tenant, so allowance and price cost **no extra fetch**. Only the active-customer count and the pending request touch the network.
+**One exception, and it only ever goes DOWN:** `lower_allowances(p_customer_allowance INT, p_plan_allowance INT)` — `SECURITY DEFINER`, so it passes the guard. **Both limits move in ONE call**, because `plan_allowance >= customer_allowance` leaves no safe order for two separate ones. It refuses a caller who is not an active `admin`/`superadmin`, refuses anything that is not a cut, refuses a line limit under the customer limit, and refuses to drop either below the tenant's **own live active counts**, which it `SELECT COUNT(*)`s itself rather than trusting numbers from the client. Raising still costs a request the owner accepts. See **Lowering the limits** below.
 
-**Module:** `src/modules/admin/billing/` — `services/BillingService.ts`, the `ICustomerRequestRepository` / `CustomerRequestRepository` / `CustomerRequestRepository.offline` trio, `utils/` (`customerLimitError.ts`, `types.ts`, `mapper.ts` — which owns `mapDbTenantToTenant`, moved here from the old subscription module, plus `mapDbCustomerRequestToCustomerRequest`), and three components. **State** is the global `billing` slice at [src/state/slices/billing/billingSlice.ts](../SubsTrack/src/state/slices/billing/billingSlice.ts) (`allowance`, `pricePerCustomerUsd`, `activeCustomers`, `request`, `loading`, `saving`, `error`, plus `init` / `refreshCounts` / `refreshRequest` / `setActiveCustomers` / `requestMore` / `editRequest` / `cancelRequest` / `clearError` / `reset`), read through `useBillingSlice`. `authSlice.primePostAuth` calls `billing.init(tenantId)`; `logout` calls `billing.reset()`.
+**The numbers ride in on the auth-time tenant row.** `AuthRepository.getTenant` already returns the tenant, so both limits and the price cost **no extra fetch**. Only the two active counts and the pending request touch the network.
+
+**Module:** `src/modules/admin/billing/` — `services/BillingService.ts`, the `ICustomerRequestRepository` / `CustomerRequestRepository` / `CustomerRequestRepository.offline` trio plus the matching `IAllowanceRepository` / `AllowanceRepository` / `AllowanceRepository.offline` trio for the lowering RPC, `utils/allowanceChange.ts` (`signedText`), `utils/requestAsk.ts` (`requestedPair`, `askText`), `utils/` (`quotaError.ts`, `allowanceFloorError.ts`, `types.ts`, `mapper.ts`), and five components. **State** is the global `billing` slice at [src/state/slices/billing/billingSlice.ts](../SubsTrack/src/state/slices/billing/billingSlice.ts) — `limits` and `active` are both a `QuotaPair` (`{ customers, plans }`), beside `pricePerPlanUsd`, `request`, `loading`, `saving`, `error`, `floorError`, `quotaError`, plus `init` / `refreshCounts` / `refreshRequest` / `bumpActive` / `lowerAllowances` / `requestMore` / `editRequest` / `cancelRequest` / `setQuotaError` / `clearQuotaError` / `clearError` / `reset` — read through `useBillingSlice`. `authSlice.primePostAuth` calls `billing.init(tenantId)`; `logout` calls `billing.reset()`.
 
 ---
 
-### The customer cap
+### The two caps
 
-**Enforcement is service-layer**, the same shape the old tier check had: `CustomerService.createCustomer()` calls `billingService.assertCanCreateCustomer(allowance, activeCount)` immediately after its existing `validate()`. It throws a typed `CustomerLimitError` (from [utils/customerLimitError.ts](../SubsTrack/src/modules/admin/billing/utils/customerLimitError.ts)) carrying `{allowance, activeCount}` when `activeCount >= allowance` — the cap blocks **at** the allowance, not one past it. `customerSlice` catches via `instanceof` and sets a structured `customerLimitError: CustomerLimitErrorPayload | null` next to the standard `error: string`, cleared by `clearCustomerLimitError()`. No error string is ever parsed.
+**`QuotaPair` is the unit everything speaks in.** A limit pair, an active-count pair and an ask pair are all `{ customers: number; plans: number }`, so no signature carries four loose integers.
+
+**Enforcement is service-layer, through ONE gate:**
+
+```ts
+billingService.assertQuotas(limits, before, after)
+```
+
+It walks `QUOTA_KINDS` (customers first) and throws a typed `QuotaExceededError` (from [utils/quotaError.ts](../SubsTrack/src/modules/admin/billing/utils/quotaError.ts)) carrying `{kind, limit, activeCount}` for the first breach. **A kind is only checked when the write GROWS it** — `after[kind] > before[kind]`. Without that test a tenant the owner cut below its own usage could never shrink: every line removal would be refused by the very limit it was moving toward.
+
+Two callers:
+
+- `CustomerService.createCustomer(data, tenantId, limits, active, addingLines)` — `after` is `{ customers: +1, plans: +addingLines }`. The drafted lines are counted **before the customer row is written**, because `CustomerFormSheet` creates the customer and then syncs its lines; a line refused on the second step would otherwise leave an empty customer holding a seat.
+- `CustomerPlanService.syncLines(…, existingLines, limits, activeCounts)` — `after.plans` is `activeCounts.plans − existingLines.length + lines.length`. The draft list is the final state, so **removals and reactivations net out** in that one subtraction.
+
+`customerSlice` and `customerPlanSlice` both catch via `instanceof` and call `get().billing.setQuotaError(e)`, so **one field and one modal answer for both limits**. No error string is ever parsed.
 
 **Only `CustomerFormSheet` renders a limit modal.** The other five form sheets (users, branches, plans, products, currencies) render none — their resources are uncapped, so there is nothing to explain.
 
-**Unlike the old tier check, the numbers are NOT parameters.** `createCustomer(data, tenantId)` reads `allowance` and `activeCustomers` from `get().billing` **inside the action** — a cross-slice read via `get()`, per the slice rules. Nothing is threaded through the component.
+**The numbers are NOT threaded through the component.** Both slices read `limits` and `active` from `get().billing` **inside the action** — a cross-slice read via `get()`, per the slice rules.
 
-**The count that matters is TENANT-WIDE.** The cap reads `customerService.countActive(null)` — a `null` branch filter that skips the branch clause on both platforms. The `customers` slice keeps its own `activeCount`, but that one is **branch-filtered** and must never drive the cap: a branch admin would otherwise be told they have room the tenant does not have.
+**Both counts are TENANT-WIDE.** `customerService.countActive(null)` and `customerPlanService.countActive()` skip the branch clause on both platforms. The `customers` slice keeps its own `activeCount`, but that one is **branch-filtered** and must never drive a cap: a branch admin would otherwise be told they have room the tenant does not have.
 
-**The count is write-patched, never re-fetched.** Create / deactivate / reactivate / delete / bulk-delete each hand `billing.setActiveCustomers` the new figure. There is no `refreshUsage()` anywhere — all 19 of the old calls are gone. `refreshActiveData.ts` calls `s.billing.refreshCounts()` on an arrival, which is the only re-read.
+**The counts are write-patched, never re-fetched.** Every write hands `billing.bumpActive` a **delta**, never an absolute — create (`+1` customer), line sync (net line change), deactivate / reactivate / delete / bulk-delete (`∓1` customer and `∓` that customer's active lines, via `activeLines(customer)`). `refreshActiveData.ts` calls `s.billing.refreshCounts()` on an arrival, which is the only re-read.
 
 ---
 
-### `CustomerLimitReachedModal`
+### `QuotaReachedModal`
 
-Replaces the old `UpgradePromptModal`. It says the allowance is full and offers the one action actually available to whoever is looking:
+Says which limit is full and offers the one action actually available to whoever is looking. Its title, body and icon come from `payload.kind`, so the customer wall and the service-line wall are one component:
 
 - **Tenant-wide admins** (`user.branchId === null`) get a button into **Organization Settings**, where the request lives.
-- **Branch admins and staff** get "ask your administrator" — they cannot raise the allowance, so offering them a button would be a dead end.
+- **Branch admins and staff** get "ask your administrator" — they cannot raise a limit, so offering them a button would be a dead end.
 
 ---
 
@@ -3302,10 +3468,9 @@ Replaces the old `UpgradePromptModal`. It says the allowance is full and offers 
 
 `<CustomerAllowanceSection />` ([components/CustomerAllowanceSection.tsx](../SubsTrack/src/modules/admin/billing/components/CustomerAllowanceSection.tsx)) renders **above** `<DisplayCurrencySection />` on `TenantSettingsScreen`. It shows:
 
-- **Allowed customers** — `customer_allowance`.
-- **Current customers** — the tenant-wide active count.
-- **Monthly amount** — `BillingService.monthlyAmountUsd(activeCustomers, pricePerCustomerUsd)`, rounded to 2dp. 100 customers × $0.15 = **$15.00**. The rounding is deliberate and tested: `7 × 0.15` must print `1.05`, not `1.0499999…`.
-- Then one of three states: a **"Request more customers"** button, an **amber pending block** with Edit / Cancel, or a **red "declined"** note.
+- **TWO `<UsageBar />`s**, customers then service lines — `used / total` as one big figure, a filled track, and a "N more … available" line (or "you have used your whole limit"). The bar takes a `kind` and builds its own labels. The fill is indigo, **amber from 80%** of the limit and **red at or over** it, so the wall is visible before it is hit.
+- **Monthly amount** — `BillingService.monthlyAmountUsd(active.plans, pricePerPlanUsd)`, rounded to 2dp, with the `N active × $price` note under it. 100 lines × $0.15 = **$15.00**. The rounding is deliberate and tested: `7 × 0.15` must print `1.05`, not `1.0499999…`.
+- Then either a **single "Update your limits"** button, an **amber pending block** with Edit / Cancel, or a **red "declined"** note above that button.
 
 It refreshes the request **on focus**, because the owner may have accepted or declined it while the screen sat open.
 
@@ -3313,11 +3478,47 @@ It refreshes the request **on focus**, because the owner may have accepted or de
 
 ---
 
+### Update your limits — one sheet, both limits, both directions
+
+`<UpdateAllowanceSheet />` ([components/UpdateAllowanceSheet.tsx](../SubsTrack/src/modules/admin/billing/components/UpdateAllowanceSheet.tsx)) is the card's **only** button. It renders **two `<AllowanceField />`s** — Allowed customers, then Allowed service lines — each of which is a pair of boxes for one number:
+
+- **The new total.**
+- **Change** — the signed movement, between a **−** and a **+** button. `+20` renders green, `-20` red, and no change at all renders **empty**, not `+0` (`signedText` in [utils/allowanceChange.ts](../SubsTrack/src/modules/admin/billing/utils/allowanceChange.ts)).
+
+**Each field holds ONE piece of state.** The change box is a **view** over the total (`total − current`), and writing to it sets the total back — so the two can never drift apart no matter which one is typed in. Both go through `useTextField` with an `expectedEcho`, because a field that is rewritten by its twin is exactly the late-`value` case that eats letters (gotcha #134).
+
+**Raising the customer box carries the line box up with it**, rather than showing an error — service lines can never be fewer than customers, and the sheet says that by moving, not by refusing.
+
+**The direction chooses the path at Save**, which is what lets one button do both jobs:
+
+- **Any cut, no raise** → `lowerAllowances(total)` → the `lower_allowances` RPC, applied **at once** behind a confirm. No request row, no owner decision, because smaller limits only ever cost the tenant less.
+- **Any raise** → `requestMore` → one `customer_requests` row carrying **both** asks, still for the owner to accept. The "Send request + WhatsApp" door appears only on this branch.
+- **A raise and a cut in the same save is refused** (`billing.mixed_change_error`). One needs a human's approval and the other applies instantly; mixing them would mean half a save.
+
+**The floor on a cut is the ACTIVE COUNT — per limit — checked twice.**
+
+1. **In the sheet / service**, so the admin gets an answer with no round trip: `BillingService.validateDecrease(next, current, active)` throws a typed `AllowanceFloorError` (from [utils/allowanceFloorError.ts](../SubsTrack/src/modules/admin/billing/utils/allowanceFloorError.ts)) carrying `{kind, requested, activeCount}`. The sheet turns that into an amber **"Deactivate N customers first"** / **"Cancel N service lines first"** panel and disables Save.
+2. **In Postgres, which wins**: `lower_allowances()` re-counts both for the JWT's tenant. The client figures are cached numbers another device can have moved, and forged ones would strand the tenant over its own caps.
+
+The server reports each refusal as a **coded** message — `active_customers_exceed_limit:<active>:<requested>` and `active_plans_exceed_limit:<active>:<requested>`, matched against `ALLOWANCE_FLOOR_CODES` in `utils/types.ts` — so `BillingService` rebuilds the same typed error instead of anyone parsing a sentence. `billingSlice` holds the structured twin as `floorError: AllowanceFloorPayload | null` next to the usual `error: string`.
+
+**Three floors, and the highest binds:** the product minimum `MIN_CUSTOMER_ALLOWANCE = 30`, the active count for that limit, and — for service lines only — the customer limit itself. Cutting to exactly any of them is legal; one below is not.
+
+**The write patches TWO places.** `billing.limits` is what the card reads, but `billing.init` re-seeds it from `auth.user.tenant` on every session restore — so `lowerAllowances` patches the auth tenant as well, or the old numbers come back on the next launch.
+
+**Online-only.** `AllowanceRepository.offline` throws `RequiresConnectionError`: the floors are the server's live counts, which an unsynced mirror cannot answer.
+
+**The RPC still cannot raise.** Either argument above its current value RAISEs inside the function — the request flow is the only way up, whichever field the admin typed in.
+
+---
+
 ### `customer_requests` — the lifecycle
 
-A tenant does not change its allowance; it **asks**, and the owner grants. One table carries the conversation:
+A tenant cannot RAISE its own limits; it **asks**, and the owner grants (lowering is its own door — see above). One table carries the conversation:
 
-`customer_requests` — `id`, `tenant_id`, `requested_count` (`CHECK >= 10`), `granted_count`, `status` (`pending` \| `accepted` \| `declined` \| `cancelled`), `requested_by`, `decided_by`, `decided_at`, `created_at`, `updated_at`.
+`customer_requests` — `id`, `tenant_id`, `requested_count`, `requested_plans`, `granted_count`, `granted_plans`, `status` (`pending` \| `accepted` \| `declined` \| `cancelled`), `requested_by`, `decided_by`, `decided_at`, `created_at`, `updated_at`.
+
+**ONE row moves both limits.** Either half may be 0 — a tenant that only needs more service lines asks for exactly that — and the ten-slot minimum binds the **total**, not each half (`chk_customer_requests_total_min`). The old single-column `chk_customer_requests_min` is **dropped by name** in `migration.sql`, because a guarded `DO` block never re-evaluates a constraint that already exists.
 
 **Exactly one pending request per tenant**, enforced by a **partial unique index** rather than app logic:
 
@@ -3330,38 +3531,40 @@ A partial index is the right tool: historical `accepted` / `declined` / `cancell
 
 **RLS says who may move it where:**
 
-- **Every tenant member SELECTs** — staff should be able to see that more customers are on the way.
+- **Every tenant member SELECTs** — staff should be able to see that more room is on the way.
 - **Admins INSERT**, and the row must be born **pending and undecided**.
-- **Admins UPDATE only still-pending rows**, and may set the status only to `'pending'` (an edit of the number) or `'cancelled'`. A tenant can **never** write `'accepted'` — that is the whole point.
+- **Admins UPDATE only still-pending rows**, and may set the status only to `'pending'` (an edit of the numbers) or `'cancelled'`. A tenant can **never** write `'accepted'` — that is the whole point.
 
-**Accepting is ONE Postgres call.** `accept_customer_request(p_request_id UUID, p_granted INT)` — `SECURITY DEFINER`, `REVOKE`d from `anon` / `authenticated` / `public`, so only the service role reaches it. It marks the request accepted **and** raises `tenants.customer_allowance` by the granted amount in a single call, because a torn write here mis-bills a tenant: the raise without the accept leaves the request live and re-grantable, the accept without the raise gives the tenant nothing. **Declining is a plain single update** — nothing else moves, so it needs no function.
+**Accepting is ONE Postgres call.** `accept_customer_request(p_request_id UUID, p_granted INT, p_granted_plans INT)` — `SECURITY DEFINER`, `REVOKE`d from `anon` / `authenticated` / `public`, so only the service role reaches it. It marks the request accepted **and** raises both limits in a single call, because a torn write here mis-bills a tenant. The line limit is raised with `GREATEST(plan_allowance + granted_plans, customer_allowance + granted)`, so granting customers alone can never break the invariant. The two-argument version is **dropped by signature** in `migration.sql`, or the old overload would keep answering beside the new one. **Declining is a plain single update** — nothing else moves, so it needs no function.
 
-**The minimum ask is 10.** `BillingService.validateRequest(extra)` throws below `MIN_CUSTOMER_REQUEST = 10` ([utils/types.ts](../SubsTrack/src/modules/admin/billing/utils/types.ts)), matching the DB `CHECK` — a request for one more customer is not worth a round trip to a human.
+**The minimum ask is 10 across both.** `BillingService.validateRequest(extra)` throws when `extra.customers + extra.plans < MIN_CUSTOMER_REQUEST` ([utils/types.ts](../SubsTrack/src/modules/admin/billing/utils/types.ts)), matching the DB `CHECK` — a request for one more slot is not worth a round trip to a human.
 
 ---
 
-### `CustomerRequestSheet`
+### Editing a pending request
 
-One numeric field (minimum 10) and two buttons: **"Send request"** and **"Send request + WhatsApp"**. The second deep-links `app_options.SupportWhatsAppNumber` through `openWhatsApp` **after the write succeeds** — the request is the record, the message only nudges — and is **hidden entirely when the number is blank**. In edit mode the labels become **Save** / **Save + WhatsApp**.
+There is **no separate request sheet** — **Edit request** opens the same `<UpdateAllowanceSheet editing />`, so asking for more looks identical whether it is the first ask or a correction of one already sent.
+
+In `editing` mode the sheet is a **raise-only** twin of itself: it opens on each limit plus what was already asked for (`requestedPair(request)`), each field's floor becomes that limit's current value rather than `MIN_CUSTOMER_ALLOWANCE`, the decrease branches are switched off, and Save routes to `editRequest(extra)` instead of `requestMore`. The title reads **Edit request** and the button **Save request**; "Send request + WhatsApp" stays, because a corrected number is still worth sending to support.
 
 ---
 
 ### SuperAdmin side
 
-- **`TenantCard`** shows `{allowance} customers · ${price} each`, and an **ORANGE `Requested +N` pill** when that tenant has a pending request — so the owner sees the queue without opening anything.
-- **`TenantFormSheet`** gained numeric **"Customer Allowance"** and **"Price Per Customer (USD)"** inputs on **both create and edit** — the owner's direct path, for onboarding an agreed deal or correcting one without a request.
-- When a request is pending, an **Accept / Decline block** sits at the top of the sheet, with an editable **"Grant"** field defaulting to the requested count (the owner may grant fewer).
-- **Trap:** after accepting, the local **allowance input is re-synced from the accepted amount**. Without it the input still holds the pre-accept number, and the next press of Save writes that number straight back over the raise the owner just granted.
+- **`TenantCard`** shows `{customers} customers · {lines} lines ·  each`, and an **ORANGE `Requested +N customers / +N lines` pill** when that tenant has a pending request — so the owner sees the queue without opening anything.
+- **`TenantFormSheet`** carries numeric **"Customer Allowance"**, **"Service Line Allowance"** and **"Price Per Service Line (USD)"** inputs on **both create and edit** — the owner's direct path, for onboarding an agreed deal or correcting one without a request. The line field shows an inline error while it sits below the customer field.
+- When a request is pending, an **Accept / Decline block** sits at the top of the sheet, with editable **"Grant customers"** and **"Grant service lines"** fields defaulting to what was asked (the owner may grant fewer). A grant of 0 on one side is fine; a grant of 0 on **both** is refused.
+- **Trap:** after accepting, **both local inputs are re-synced** from the accepted amounts, the line one through the same `GREATEST` the RPC applies. Without it the inputs still hold the pre-accept numbers, and the next press of Save writes them straight back over the raise the owner just granted.
 - **`TenantService.getTenants()`** is `Promise.all([findAll(), findPendingRequests()])`, zipping the pending request onto each tenant. `findPendingRequests` is **one flat query, not a PostgREST embed** — an embed would drag every historical request row for every tenant across the wire to surface at most one live row each.
-- SuperAdmin has **2 tabs** now: **Tenants** and **Options**. The whole `tier-plans` module and its tab are gone.
+- SuperAdmin has **2 tabs**: **Tenants** and **Options**.
 
 ---
 
 ### Offline
 
-**The allowance syncs; the requests do not.**
+**The limits sync; the requests do not.**
 
-- `customer_allowance` and `price_per_customer_usd` live on the `tenants` row, which is already part of the read-through auth cache — so **the cap still works offline**, and a device that has logged in once refuses to create the 31st customer with no network.
+- `customer_allowance`, `plan_allowance` and `price_per_plan_usd` live on the `tenants` row, which is already part of the read-through auth cache — so **both caps still work offline**, and a device that has logged in once refuses the 31st customer with no network. Both counts come from the mirror, so two offline devices can each take the last seat: advisory, the same compromise as `SaleService`'s oversell guard.
 - `customer_requests` is **deliberately not mirrored**. `CustomerRequestRepository.offline` throws `RequiresConnectionError` from **every** method. A request is a message to a human that needs an answer from a human; queueing it offline would show a tenant a pending block nobody can see, and two offline requests merging would fight the one-pending index.
 
 ---

@@ -24,7 +24,7 @@ export const TABLES: TableSpec[] = [
     scope: 'tenant',
     columns: {
       id: 'text', name: 'text', tenant_code: 'text', active: 'bool',
-      customer_allowance: 'int', price_per_customer_usd: 'num',
+      customer_allowance: 'int', plan_allowance: 'int', price_per_plan_usd: 'num',
       created_at: 'text', updated_at: 'text',
     },
   },

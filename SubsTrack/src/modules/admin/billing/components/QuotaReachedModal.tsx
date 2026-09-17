@@ -6,22 +6,25 @@ import { Text } from "@/src/shared/components/Text";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { COLORS } from "@/src/shared/constants";
 import { useAuth } from "@/src/modules/authentication/auth";
-import type { CustomerLimitErrorPayload } from "../utils/types";
+import type { QuotaErrorPayload } from "../utils/types";
 
 interface Props {
-  payload: CustomerLimitErrorPayload | null;
+  payload: QuotaErrorPayload | null;
   onClose: () => void;
+  onNavigate?: () => void;
 }
 
-export function CustomerLimitReachedModal({ payload, onClose }: Props) {
+export function QuotaReachedModal({ payload, onClose, onNavigate }: Props) {
   const { t } = useTranslation();
   const router = useRouter();
   const { isTenantWideAdmin } = useAuth();
 
   if (!payload) return null;
 
+  // Closing the modal alone must not take the form with it — only leaving does.
   function handleGoToSettings() {
     onClose();
+    onNavigate?.();
     router.push("/(app)/(tabs)/admin/tenant-settings" as Href);
   }
 
@@ -31,19 +34,23 @@ export function CustomerLimitReachedModal({ payload, onClose }: Props) {
         <View className="bg-white rounded-3xl w-full max-w-md overflow-hidden">
           <View className="bg-amber-50 px-6 pt-6 pb-5 items-center">
             <View className="bg-white rounded-full w-14 h-14 items-center justify-center mb-3 border border-amber-200">
-              <Ionicons name="people" size={24} color={COLORS.warning} />
+              <Ionicons
+                name={payload.kind === "customers" ? "people" : "layers"}
+                size={24}
+                color={COLORS.warning}
+              />
             </View>
             <Text
               fontWeight="Bold"
               className="text-lg text-gray-900 text-center mb-1"
             >
-              {t("billing.limit_reached_title")}
+              {t(`billing.limit_reached_title_${payload.kind}`)}
             </Text>
             <Text className="text-sm text-gray-600 text-center">
               {isTenantWideAdmin
-                ? t("billing.limit_reached_body", {
+                ? t(`billing.limit_reached_body_${payload.kind}`, {
                     count: payload.activeCount,
-                    allowance: payload.allowance,
+                    allowance: payload.limit,
                   })
                 : t("billing.limit_reached_contact_admin")}
             </Text>

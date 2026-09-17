@@ -2,8 +2,8 @@ import type { StateCreator } from 'zustand';
 import type { Customer, CustomerPlan } from '@/src/core/types';
 import { customerService } from '@/src/modules/customer/customers';
 import { resolveBranchFilter, ownedRowMatchesFilter } from '@/src/shared/lib/branchFilter';
-import { CustomerLimitError } from '@/src/modules/admin/billing';
-import type { CustomerLimitErrorPayload } from '@/src/modules/admin/billing';
+import { QuotaExceededError } from '@/src/modules/admin/billing/utils/quotaError';
+import { activeLines } from '@/src/modules/customer/customer-plans/utils/activeLines';
 import type { GlobalState } from '@/src/state/globalStore';
 
 interface CustomerInput {
@@ -26,7 +26,6 @@ export interface CustomerSlice {
   loading: boolean;
   loadingMore: boolean;
   error: string | null;
-  customerLimitError: CustomerLimitErrorPayload | null;
   searchQuery: string;
   searchToken: number;
   getCustomers: () => Promise<void>;
@@ -35,7 +34,11 @@ export interface CustomerSlice {
   setSearchQuery: (q: string) => Promise<void>;
   getCustomer: (id: string) => Promise<Customer | null>;
   fetchCustomer: (id: string) => Promise<Customer | null>;
-  createCustomer: (data: CustomerInput, tenantId: string) => Promise<Customer | null>;
+  createCustomer: (
+    data: CustomerInput,
+    tenantId: string,
+    addingLines: number,
+  ) => Promise<Customer | null>;
   updateCustomer: (id: string, data: CustomerInput) => Promise<void>;
   setCustomerLines: (id: string, lines: CustomerPlan[]) => void;
   deactivateCustomer: (id: string) => Promise<void>;
@@ -43,7 +46,6 @@ export interface CustomerSlice {
   deleteCustomer: (id: string) => Promise<'hard' | 'soft' | null>;
   bulkDeleteCustomers: (ids: string[]) => Promise<boolean>;
   clearError: () => void;
-  clearCustomerLimitError: () => void;
   reset: () => void;
 }
 
@@ -61,7 +63,6 @@ export const createCustomerSlice: StateCreator<
   loading: false,
   loadingMore: false,
   error: null,
-  customerLimitError: null,
   searchQuery: '',
   searchToken: 0,
 
@@ -187,22 +188,24 @@ export const createCustomerSlice: StateCreator<
     }
   },
 
-  // The cap is tenant-wide, so it reads billing.activeCustomers — this slice's
-  // own activeCount is branch-filtered and would under-count for a branch admin.
-  createCustomer: async (data, tenantId) => {
+  // Both caps are tenant-wide, so they read billing — this slice's own
+  // activeCount is branch-filtered and would under-count for a branch admin.
+  // The drafted lines are counted here too, before the customer row is written.
+  createCustomer: async (data, tenantId, addingLines) => {
     const branchFilter = resolveBranchFilter(get().auth.user);
-    const { allowance, activeCustomers } = get().billing;
+    const { limits, active } = get().billing;
+    get().billing.clearQuotaError();
     set((state) => {
       state.customers.loading = true;
       state.customers.error = null;
-      state.customers.customerLimitError = null;
     });
     try {
       const customer = await customerService.createCustomer(
         data,
         tenantId,
-        allowance,
-        activeCustomers,
+        limits,
+        active,
+        addingLines,
       );
       set((state) => {
         state.customers.items.unshift(customer);
@@ -210,15 +213,12 @@ export const createCustomerSlice: StateCreator<
           state.customers.activeCount += 1;
         state.customers.loading = false;
       });
-      get().billing.setActiveCustomers(activeCustomers + 1);
+      get().billing.bumpActive({ customers: 1 });
       return customer;
     } catch (e) {
-      if (e instanceof CustomerLimitError) {
+      if (e instanceof QuotaExceededError) {
+        get().billing.setQuotaError(e);
         set((state) => {
-          state.customers.customerLimitError = {
-            allowance: e.allowance,
-            activeCount: e.activeCount,
-          };
           state.customers.loading = false;
         });
       } else {
@@ -257,8 +257,12 @@ export const createCustomerSlice: StateCreator<
       if (i !== -1) state.customers.items[i].customerPlans = lines;
     }),
 
+  // Deactivating a customer does not cancel its lines, but they stop counting
+  // against the plan allowance the moment their owner goes inactive.
   deactivateCustomer: async (id) => {
-    const wasActive = get().customers.items.find((c) => c.id === id)?.active ?? false;
+    const previous = get().customers.items.find((c) => c.id === id);
+    const wasActive = previous?.active ?? false;
+    const lines = previous ? activeLines(previous).length : 0;
     set((state) => {
       state.customers.loading = true;
       state.customers.error = null;
@@ -272,7 +276,7 @@ export const createCustomerSlice: StateCreator<
           state.customers.activeCount = Math.max(0, state.customers.activeCount - 1);
         state.customers.loading = false;
       });
-      if (wasActive) get().billing.setActiveCustomers(get().billing.activeCustomers - 1);
+      if (wasActive) get().billing.bumpActive({ customers: -1, plans: -lines });
     } catch (e) {
       set((state) => {
         state.customers.error = (e as Error).message;
@@ -282,7 +286,9 @@ export const createCustomerSlice: StateCreator<
   },
 
   reactivateCustomer: async (id) => {
-    const wasActive = get().customers.items.find((c) => c.id === id)?.active ?? false;
+    const previous = get().customers.items.find((c) => c.id === id);
+    const wasActive = previous?.active ?? false;
+    const lines = previous ? activeLines(previous).length : 0;
     set((state) => {
       state.customers.loading = true;
       state.customers.error = null;
@@ -295,7 +301,7 @@ export const createCustomerSlice: StateCreator<
         if (!wasActive) state.customers.activeCount += 1;
         state.customers.loading = false;
       });
-      if (!wasActive) get().billing.setActiveCustomers(get().billing.activeCustomers + 1);
+      if (!wasActive) get().billing.bumpActive({ customers: 1, plans: lines });
     } catch (e) {
       set((state) => {
         state.customers.error = (e as Error).message;
@@ -305,7 +311,9 @@ export const createCustomerSlice: StateCreator<
   },
 
   deleteCustomer: async (id) => {
-    const wasActive = get().customers.items.find((c) => c.id === id)?.active ?? false;
+    const previous = get().customers.items.find((c) => c.id === id);
+    const wasActive = previous?.active ?? false;
+    const lines = previous ? activeLines(previous).length : 0;
     set((state) => {
       state.customers.loading = true;
       state.customers.error = null;
@@ -328,7 +336,7 @@ export const createCustomerSlice: StateCreator<
           state.customers.loading = false;
         });
       }
-      if (wasActive) get().billing.setActiveCustomers(get().billing.activeCustomers - 1);
+      if (wasActive) get().billing.bumpActive({ customers: -1, plans: -lines });
       return result.mode;
     } catch (e) {
       set((state) => {
@@ -341,9 +349,14 @@ export const createCustomerSlice: StateCreator<
 
   bulkDeleteCustomers: async (ids) => {
     if (ids.length === 0) return true;
-    const activeRemoved = get().customers.items.filter(
+    const removedActive = get().customers.items.filter(
       (c) => ids.includes(c.id) && c.active,
-    ).length;
+    );
+    const activeRemoved = removedActive.length;
+    const linesRemoved = removedActive.reduce(
+      (sum, c) => sum + activeLines(c).length,
+      0,
+    );
     set((state) => {
       state.customers.loading = true;
       state.customers.error = null;
@@ -369,7 +382,10 @@ export const createCustomerSlice: StateCreator<
         state.customers.loading = false;
       });
       if (activeRemoved)
-        get().billing.setActiveCustomers(get().billing.activeCustomers - activeRemoved);
+        get().billing.bumpActive({
+          customers: -activeRemoved,
+          plans: -linesRemoved,
+        });
       return true;
     } catch (e) {
       set((state) => {
@@ -384,10 +400,6 @@ export const createCustomerSlice: StateCreator<
     set((state) => {
       state.customers.error = null;
     }),
-  clearCustomerLimitError: () =>
-    set((state) => {
-      state.customers.customerLimitError = null;
-    }),
   reset: () =>
     set((state) => {
       state.customers.items = [];
@@ -395,7 +407,6 @@ export const createCustomerSlice: StateCreator<
       state.customers.activeCount = 0;
       state.customers.page = 0;
       state.customers.hasMore = true;
-      state.customers.customerLimitError = null;
       state.customers.searchQuery = '';
       state.customers.searchToken += 1;
     }),

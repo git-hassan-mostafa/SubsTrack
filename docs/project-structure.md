@@ -137,8 +137,8 @@ SubsTrack/
 │   │   │
 │   │   ├── billing/                            # what the tenant pays the SaaS owner
 │   │   │   ├── repository/CustomerRequestRepository.ts  # findLatest/create/updateCount/cancel — online-only
-│   │   │   ├── services/BillingService.ts     # monthlyAmountUsd, assertCanCreateCustomer, validateRequest
-│   │   │   └── components/{CustomerAllowanceSection, UpdateAllowanceSheet, UsageBar, CustomerLimitReachedModal}.tsx
+│   │   │   ├── services/BillingService.ts     # monthlyAmountUsd, assertQuotas, validateRequest
+│   │   │   └── components/{CustomerAllowanceSection, UpdateAllowanceSheet, AllowanceField, UsageBar, QuotaReachedModal}.tsx
 │   │   ├── tenant-settings/
 │   │   │   └── screens/TenantSettingsScreen.tsx  # admin-only: display currency + branches CRUD + currencies CRUD
 │   │   │

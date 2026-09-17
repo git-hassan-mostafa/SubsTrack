@@ -132,6 +132,16 @@ export class OfflineCustomerPlanRepository
     });
   }
 
+  async countActive(): Promise<number> {
+    return this.count(
+      `SELECT COUNT(*) AS n
+         FROM customer_plans p
+         JOIN customers c ON c.id = p.customer_id
+        WHERE p.active = 1 AND c.active = 1`,
+      [],
+    );
+  }
+
   async countPayments(id: string): Promise<number> {
     return this.count('SELECT COUNT(*) AS n FROM charges WHERE customer_plan_id = ?', [id]);
   }

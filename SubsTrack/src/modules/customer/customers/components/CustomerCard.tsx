@@ -11,6 +11,7 @@ import type { Customer, CustomerStatus } from "@/src/core/types";
 import { COLORS } from "../../../../shared/constants";
 import { EntityCard } from "@/src/shared/components/EntityCard";
 import { Chip, type ChipTone } from "@/src/shared/components/Chip";
+import { activeLines } from "@/src/modules/customer/customer-plans";
 import { customerFlags, type CustomerFlag } from "../utils/customerFlags";
 
 interface Props {
@@ -126,13 +127,13 @@ export const CustomerCard = memo(function CustomerCard({
 }: Props) {
   const { t } = useTranslation();
 
-  const activeLines = (customer.customerPlans ?? []).filter((l) => l.active);
+  const lines = activeLines(customer);
   const planSummary =
-    activeLines.length === 0
+    lines.length === 0
       ? t("common.no_plan")
-      : activeLines.length === 1
-        ? activeLines[0].plan?.name || t("common.no_plan")
-        : t("subscriptions.count_plans", { count: activeLines.length });
+      : lines.length === 1
+        ? lines[0].plan?.name || t("common.no_plan")
+        : t("subscriptions.count_plans", { count: lines.length });
 
   const chips = buildChips(customer, status, debtLabel, t);
 

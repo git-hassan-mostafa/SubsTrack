@@ -1,8 +1,10 @@
 import { View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
+import type { QuotaKind } from "../utils/types";
 
 interface Props {
+  kind: QuotaKind;
   used: number;
   total: number;
 }
@@ -17,7 +19,7 @@ function toneFor(used: number, total: number): { fill: string; text: string } {
   return { fill: "bg-primary", text: "text-gray-900" };
 }
 
-export function UsageBar({ used, total }: Props) {
+export function UsageBar({ kind, used, total }: Props) {
   const { t } = useTranslation();
   const tone = toneFor(used, total);
   const percent = total === 0 ? 100 : Math.min(100, (used / total) * 100);
@@ -31,7 +33,7 @@ export function UsageBar({ used, total }: Props) {
           <Text className="text-base text-gray-400">{` / ${total}`}</Text>
         </Text>
         <Text className="text-xs text-gray-500 mb-1">
-          {t("billing.customers_used")}
+          {t(`billing.used_${kind}`)}
         </Text>
       </View>
 
@@ -45,7 +47,7 @@ export function UsageBar({ used, total }: Props) {
       <Text className="text-xs text-gray-500 mt-2">
         {used >= total
           ? t("billing.usage_full")
-          : t("billing.usage_remaining", { count: remaining })}
+          : t(`billing.remaining_${kind}`, { count: remaining })}
       </Text>
     </View>
   );

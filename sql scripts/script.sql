@@ -29,13 +29,16 @@
 --                       WHERE conrelid = '<table>'::regclass AND conname = '<name>')
 --        THEN ALTER TABLE <table> ADD CONSTRAINT <name> ...; END IF;
 --    Guarded means EDITING an existing constraint is NOT picked up on a live
---    database — rename it, or drop the old one by hand.
+--    database — declare the new one here under a NEW name, and drop the old one
+--    by name in migration.sql.
 --
---  * Dropping a column → delete its ADD COLUMN line AND add
---        ALTER TABLE <table> DROP COLUMN IF EXISTS <col>;
---    to a "Columns removed" block under that table, so a fresh database and a
---    live one still end up identical. The offline mirror does NOT reconcile
---    this — an old install keeps a harmless stale column.
+--  * THIS FILE ONLY ADDS. It must run clean on a FRESH database, so anything a
+--    fresh database cannot do — DROP a column/constraint/index/function, RENAME,
+--    change a TYPE, or UPDATE existing rows — belongs in migration.sql, which
+--    runs FIRST. Dropping a column → delete its ADD COLUMN line here and append
+--    the DROP to migration.sql. Renaming or retyping touches BOTH files: the new
+--    shape here, the one-off ALTER there. The offline mirror does NOT reconcile
+--    any of this — an old install keeps a harmless stale column.
 --
 --  * Mirror every column change in the offline client's table descriptor
 --    (SubsTrack/src/core/offline/db/tables.ts) or the native app won't store or
@@ -53,8 +56,9 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- ============================================================
 -- TIER PLANS — REMOVED
--- Pricing is now per-customer, per-tenant: tenants.customer_allowance and
--- tenants.price_per_customer_usd, raised by the SaaS owner or by accepting a
+-- Pricing is now per-service-line, per-tenant: tenants.plan_allowance and
+-- tenants.price_per_plan_usd, with tenants.customer_allowance a second cap on
+-- the people themselves. Raised by the SaaS owner or by accepting a
 -- customer_requests row. The teardown lives at the end of the TENANTS block,
 -- because tier_plans cannot be dropped until tenants.tier_id lets go of it.
 -- ============================================================
@@ -127,9 +131,25 @@ BEGIN
     END IF;
 END $$;
 
--- USD charged per ACTIVE customer per month. Owner-only, same guard.
-ALTER TABLE tenants ADD COLUMN IF NOT EXISTS price_per_customer_usd NUMERIC(10,4) NOT NULL DEFAULT 0.15
-    CONSTRAINT chk_tenants_price_per_customer CHECK (price_per_customer_usd >= 0);
+-- How many ACTIVE service lines (customer_plans) this tenant may hold. Owner-only,
+-- same guard, and never below customer_allowance — see the DO block under it.
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS plan_allowance INT NOT NULL DEFAULT 30;
+
+-- Multi-column, so it cannot ride on the ADD COLUMN above. A live database must
+-- lift its tenants over this floor FIRST — see migration.sql.
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'chk_tenants_plan_allowance_floor'
+    ) THEN
+        ALTER TABLE tenants ADD CONSTRAINT chk_tenants_plan_allowance_floor
+            CHECK (plan_allowance >= customer_allowance);
+    END IF;
+END $$;
+
+-- USD charged per ACTIVE SERVICE LINE per month. Owner-only, same guard.
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS price_per_plan_usd NUMERIC(10,4) NOT NULL DEFAULT 0.15
+    CONSTRAINT chk_tenants_price_per_plan CHECK (price_per_plan_usd >= 0);
 
 ALTER TABLE tenants ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 ALTER TABLE tenants ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
@@ -137,11 +157,11 @@ ALTER TABLE tenants ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEF
 
 -- ============================================================
 -- CUSTOMER REQUESTS
--- A tenant admin asks the SaaS owner for N more customers. Exactly ONE
+-- A tenant admin asks the SaaS owner for more customers, more service lines, or
+-- both — one row carries both asks, either of which may be 0. Exactly ONE
 -- pending row per tenant (partial unique index below); the admin may edit or
--- cancel it while pending. Accepting adds granted_count to
--- tenants.customer_allowance via accept_customer_request(), which is the only
--- way the two writes happen together.
+-- cancel it while pending. Accepting raises BOTH allowances via
+-- accept_customer_request(), which is the only way those writes happen together.
 -- A separate table rather than columns on tenants, because the admin must be
 -- able to write the request but must NEVER touch the allowance, and RLS is
 -- row-level, not column-level.
@@ -155,10 +175,17 @@ CREATE TABLE IF NOT EXISTS customer_requests ();
 ALTER TABLE customer_requests ADD COLUMN IF NOT EXISTS id UUID PRIMARY KEY DEFAULT uuid_generate_v4();
 ALTER TABLE customer_requests ADD COLUMN IF NOT EXISTS tenant_id UUID NOT NULL
     CONSTRAINT fk_customer_requests_tenant REFERENCES tenants(id) ON DELETE CASCADE;
-ALTER TABLE customer_requests ADD COLUMN IF NOT EXISTS requested_count INT NOT NULL
-    CONSTRAINT chk_customer_requests_min CHECK (requested_count >= 10);
+ALTER TABLE customer_requests ADD COLUMN IF NOT EXISTS requested_count INT NOT NULL DEFAULT 0
+    CONSTRAINT chk_customer_requests_count CHECK (requested_count >= 0);
 ALTER TABLE customer_requests ADD COLUMN IF NOT EXISTS granted_count INT
     CONSTRAINT chk_customer_requests_granted CHECK (granted_count IS NULL OR granted_count >= 0);
+-- Extra SERVICE LINES asked for in the same breath. Nullable rather than
+-- NOT NULL DEFAULT 0 so a row raised before the two-limit change still reads as
+-- "asked for nothing here", and one request can move either limit or both.
+ALTER TABLE customer_requests ADD COLUMN IF NOT EXISTS requested_plans INT
+    CONSTRAINT chk_customer_requests_plans_min CHECK (requested_plans IS NULL OR requested_plans >= 0);
+ALTER TABLE customer_requests ADD COLUMN IF NOT EXISTS granted_plans INT
+    CONSTRAINT chk_customer_requests_granted_plans CHECK (granted_plans IS NULL OR granted_plans >= 0);
 ALTER TABLE customer_requests ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'pending'
     CONSTRAINT chk_customer_requests_status CHECK (status IN ('pending', 'accepted', 'declined', 'cancelled'));
 -- Actor ids are unconstrained UUIDs like audit_logs.actor_user_id — users does
@@ -168,6 +195,21 @@ ALTER TABLE customer_requests ADD COLUMN IF NOT EXISTS decided_by UUID;
 ALTER TABLE customer_requests ADD COLUMN IF NOT EXISTS decided_at TIMESTAMPTZ;
 ALTER TABLE customer_requests ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 ALTER TABLE customer_requests ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+
+-- ---- Table-level constraints (multi-column — cannot ride on an ADD COLUMN) --
+
+-- The ten-row minimum binds the TOTAL, so a request asking only for more service
+-- lines is not refused. A live database drops the old single-column
+-- chk_customer_requests_min — see migration.sql.
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'chk_customer_requests_total_min'
+    ) THEN
+        ALTER TABLE customer_requests ADD CONSTRAINT chk_customer_requests_total_min
+            CHECK (requested_count + COALESCE(requested_plans, 0) >= 10);
+    END IF;
+END $$;
 
 -- Exactly one pending request per tenant. Partial, because the uniqueness only
 -- applies while the row is pending — a tenant may have many decided rows.
@@ -565,19 +607,21 @@ CREATE OR REPLACE TRIGGER trg_tenants_updated_at
     EXECUTE FUNCTION set_updated_at();
 
 -- Second lock on the billing columns. The first is the absence of any UPDATE
--- policy on tenants; this one survives an accidental CREATE POLICY. The service
--- role and the Edge Functions carry no auth.uid(), so they pass.
+-- policy on tenants; this one survives an accidental CREATE POLICY. It tests
+-- the ROLE, never auth.uid(): SECURITY DEFINER swaps the role but keeps the
+-- JWT, so a uid test refuses the two RPCs that are meant to write here.
 CREATE OR REPLACE FUNCTION guard_tenant_billing_columns()
 RETURNS TRIGGER
 LANGUAGE plpgsql
-SECURITY DEFINER
+SECURITY INVOKER
 AS $$
 BEGIN
-    IF auth.uid() IS NOT NULL
+    IF current_user IN ('authenticated', 'anon')
        AND (NEW.customer_allowance IS DISTINCT FROM OLD.customer_allowance
-            OR NEW.price_per_customer_usd IS DISTINCT FROM OLD.price_per_customer_usd)
+            OR NEW.plan_allowance IS DISTINCT FROM OLD.plan_allowance
+            OR NEW.price_per_plan_usd IS DISTINCT FROM OLD.price_per_plan_usd)
     THEN
-        RAISE EXCEPTION 'customer_allowance and price_per_customer_usd are owner-only';
+        RAISE EXCEPTION 'customer_allowance, plan_allowance and price_per_plan_usd are owner-only';
     END IF;
     RETURN NEW;
 END;
@@ -1800,7 +1844,11 @@ ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
 -- own request. Only service_role keeps EXECUTE.
 -- ============================================================
 
-CREATE OR REPLACE FUNCTION accept_customer_request(p_request_id UUID, p_granted INT)
+CREATE OR REPLACE FUNCTION accept_customer_request(
+    p_request_id UUID,
+    p_granted INT,
+    p_granted_plans INT
+)
 RETURNS customer_requests
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -1811,6 +1859,7 @@ BEGIN
     UPDATE customer_requests
     SET status = 'accepted',
         granted_count = p_granted,
+        granted_plans = p_granted_plans,
         decided_at = NOW()
     WHERE id = p_request_id
       AND status = 'pending'
@@ -1820,15 +1869,20 @@ BEGIN
         RAISE EXCEPTION 'Request is not pending';
     END IF;
 
+    -- GREATEST keeps plan_allowance >= customer_allowance without the owner
+    -- having to grant service lines every time they grant customers.
     UPDATE tenants
-    SET customer_allowance = customer_allowance + p_granted
+    SET customer_allowance = customer_allowance + p_granted,
+        plan_allowance = GREATEST(
+            plan_allowance + COALESCE(p_granted_plans, 0),
+            customer_allowance + p_granted)
     WHERE id = v_row.tenant_id;
 
     RETURN v_row;
 END;
 $$;
 
-REVOKE EXECUTE ON FUNCTION accept_customer_request(UUID, INT) FROM anon, authenticated, public;
+REVOKE EXECUTE ON FUNCTION accept_customer_request(UUID, INT, INT) FROM anon, authenticated, public;
 
 -- ============================================================
 -- HELPER FUNCTION
@@ -1856,24 +1910,31 @@ RETURNS UUID AS $$
 $$ LANGUAGE SQL STABLE SECURITY DEFINER;
 
 -- ============================================================
--- LOWER A TENANT'S OWN CUSTOMER ALLOWANCE
+-- LOWER A TENANT'S OWN ALLOWANCES
 -- Raising is owner-only (a request the owner accepts), but LOWERING only ever
 -- saves the tenant money, so an admin does it themselves and it applies at
 -- once. SECURITY DEFINER because trg_tenants_guard_billing and the missing
--- UPDATE policy both block a tenant-side write to customer_allowance.
--- The active-customer floor is counted HERE, never taken from the client — a
--- forged count would strand the tenant over their own cap.
+-- UPDATE policy both block a tenant-side write to either allowance.
+-- BOTH limits move in ONE call, because plan_allowance >= customer_allowance
+-- means two separate calls could never be ordered safely.
+-- The active floors are counted HERE, never taken from the client — a forged
+-- count would strand the tenant over their own cap.
 -- ============================================================
 
-CREATE OR REPLACE FUNCTION lower_customer_allowance(p_new_allowance INT)
+CREATE OR REPLACE FUNCTION lower_allowances(
+    p_customer_allowance INT,
+    p_plan_allowance INT
+)
 RETURNS tenants
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
 DECLARE
     v_tenant_id UUID := current_tenant_id();
-    v_current INT;
-    v_active INT;
+    v_current_customers INT;
+    v_current_plans INT;
+    v_active_customers INT;
+    v_active_plans INT;
     v_row tenants;
 BEGIN
     IF v_tenant_id IS NULL THEN
@@ -1886,29 +1947,50 @@ BEGIN
           AND u.role IN ('admin', 'superadmin')
           AND u.active = true
     ) THEN
-        RAISE EXCEPTION 'Only an admin may change the customer limit';
+        RAISE EXCEPTION 'Only an admin may change the limits';
     END IF;
 
-    IF p_new_allowance IS NULL OR p_new_allowance < 30 THEN
+    IF p_customer_allowance IS NULL OR p_customer_allowance < 30 THEN
         RAISE EXCEPTION 'The customer limit cannot go below 30';
     END IF;
 
-    SELECT customer_allowance INTO v_current FROM tenants WHERE id = v_tenant_id;
-
-    IF p_new_allowance >= v_current THEN
-        RAISE EXCEPTION 'This door only lowers the limit; request more to raise it';
+    IF p_plan_allowance IS NULL OR p_plan_allowance < p_customer_allowance THEN
+        RAISE EXCEPTION 'The service-line limit cannot go below the customer limit';
     END IF;
 
-    SELECT COUNT(*) INTO v_active
+    SELECT customer_allowance, plan_allowance
+      INTO v_current_customers, v_current_plans
+      FROM tenants WHERE id = v_tenant_id;
+
+    IF p_customer_allowance > v_current_customers OR p_plan_allowance > v_current_plans THEN
+        RAISE EXCEPTION 'This door only lowers the limits; request more to raise them';
+    END IF;
+
+    IF p_customer_allowance = v_current_customers AND p_plan_allowance = v_current_plans THEN
+        RAISE EXCEPTION 'Nothing to lower';
+    END IF;
+
+    SELECT COUNT(*) INTO v_active_customers
     FROM customers
     WHERE tenant_id = v_tenant_id AND active = true;
 
-    IF p_new_allowance < v_active THEN
-        RAISE EXCEPTION 'active_customers_exceed_limit:%:%', v_active, p_new_allowance;
+    IF p_customer_allowance < v_active_customers THEN
+        RAISE EXCEPTION 'active_customers_exceed_limit:%:%', v_active_customers, p_customer_allowance;
+    END IF;
+
+    -- A line on a deactivated customer is not billed, so it does not count.
+    SELECT COUNT(*) INTO v_active_plans
+    FROM customer_plans p
+    JOIN customers c ON c.id = p.customer_id
+    WHERE p.tenant_id = v_tenant_id AND p.active = true AND c.active = true;
+
+    IF p_plan_allowance < v_active_plans THEN
+        RAISE EXCEPTION 'active_plans_exceed_limit:%:%', v_active_plans, p_plan_allowance;
     END IF;
 
     UPDATE tenants
-    SET customer_allowance = p_new_allowance
+    SET customer_allowance = p_customer_allowance,
+        plan_allowance = p_plan_allowance
     WHERE id = v_tenant_id
     RETURNING * INTO v_row;
 
@@ -1918,8 +2000,8 @@ $$;
 
 -- Deliberately the OPPOSITE of accept_customer_request above: tenant admins are
 -- meant to call this one, and every refusal is inside the body.
-GRANT EXECUTE ON FUNCTION lower_customer_allowance(INT) TO authenticated;
-REVOKE EXECUTE ON FUNCTION lower_customer_allowance(INT) FROM anon;
+GRANT EXECUTE ON FUNCTION lower_allowances(INT, INT) TO authenticated;
+REVOKE EXECUTE ON FUNCTION lower_allowances(INT, INT) FROM anon;
 
 -- ============================================================
 -- CUSTOM ACCESS TOKEN HOOK
@@ -1980,8 +2062,8 @@ DO $$ BEGIN
             FOR SELECT USING (id = current_tenant_id());
     END IF;
 
-    -- No UPDATE policy: tenants is read-only to the app. customer_allowance
-    -- and price_per_customer_usd move only through the service role.
+    -- No UPDATE policy: tenants is read-only to the app. customer_allowance,
+    -- plan_allowance and price_per_plan_usd move only through the service role.
 
     -- ── CUSTOMER REQUESTS ────────────────────────────────────
     -- Every member reads, so the settings card can show the pending row.
@@ -2747,12 +2829,16 @@ GRANT EXECUTE ON FUNCTION public.is_tenant_code_available(TEXT) TO anon, authent
 --    that has grown past it since.
 
 -- 2. SAAS BILLING (READ)
---    The tenant pays the SaaS owner per ACTIVE customer per month:
---    tenants.customer_allowance caps how many they may hold,
---    tenants.price_per_customer_usd is the rate. Both are owner-only — no
---    UPDATE policy on tenants, plus trg_tenants_guard_billing.
---    To grow, an admin inserts a customer_requests row (min 10, one pending at
---    a time); the owner grants it with accept_customer_request().
+--    The tenant pays the SaaS owner per ACTIVE SERVICE LINE per month:
+--    tenants.price_per_plan_usd is the rate and tenants.plan_allowance caps how
+--    many lines they may hold. tenants.customer_allowance is a SECOND cap, on
+--    the people themselves, and plan_allowance can never sit below it
+--    (chk_tenants_plan_allowance_floor). All three are owner-only — no UPDATE
+--    policy on tenants, plus trg_tenants_guard_billing.
+--    To grow, an admin inserts a customer_requests row asking for more
+--    customers, more lines or both (min 10 across the two, one pending at a
+--    time); the owner grants it with accept_customer_request(). To shrink, the
+--    admin calls lower_allowances() themselves.
 --    `plans` is unrelated: those are the tenant's own customer packages.
 
 -- 3. LEDGER INTEGRITY (charges + collections + collection_items)

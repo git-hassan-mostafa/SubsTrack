@@ -20,7 +20,8 @@ import { useCustomerSlice } from "@/src/state/hooks/useCustomerSlice";
 import { useCustomerPlanSlice } from "@/src/state/hooks/useCustomerPlanSlice";
 import { getStore } from "@/src/state/globalStore";
 import { useActiveBranches } from "@/src/modules/admin/branches";
-import { CustomerLimitReachedModal } from "@/src/modules/admin/billing";
+import { QuotaReachedModal } from "@/src/modules/admin/billing";
+import { useBillingSlice } from "@/src/state/hooks/useBillingSlice";
 import { LocationField } from "@/src/shared/components/LocationField";
 import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
 
@@ -47,8 +48,8 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
   const updateCustomer = useCustomerSlice((s) => s.updateCustomer);
   const error = useCustomerSlice((s) => s.error);
   const clearError = useCustomerSlice((s) => s.clearError);
-  const customerLimitError = useCustomerSlice((s) => s.customerLimitError);
-  const clearCustomerLimitError = useCustomerSlice((s) => s.clearCustomerLimitError);
+  const quotaError = useBillingSlice((s) => s.quotaError);
+  const clearQuotaError = useBillingSlice((s) => s.clearQuotaError);
   const syncLines = useCustomerPlanSlice((s) => s.syncLines);
   const planError = useCustomerPlanSlice((s) => s.error);
   const clearPlanError = useCustomerPlanSlice((s) => s.clearError);
@@ -125,7 +126,7 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
         );
         if (ok) onDismiss();
       } else {
-        const created = await createCustomer(payload, user.tenantId);
+        const created = await createCustomer(payload, user.tenantId, finalLines.length);
         if (!created) return;
         const ok = await syncLines(
           created.id,
@@ -246,12 +247,10 @@ export function CustomerFormSheet({ customer, onDismiss }: Props) {
         />
         <View className="h-24" />
       </FormSheet>
-      <CustomerLimitReachedModal
-        payload={customerLimitError}
-        onClose={() => {
-          clearCustomerLimitError();
-          onDismiss();
-        }}
+      <QuotaReachedModal
+        payload={quotaError}
+        onClose={clearQuotaError}
+        onNavigate={onDismiss}
       />
     </>
   );

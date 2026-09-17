@@ -8,7 +8,8 @@ export function mapDbTenantToTenant(db: DbTenant): Tenant {
         tenantCode: db.tenant_code,
         active: db.active,
         customerAllowance: Number(db.customer_allowance),
-        pricePerCustomerUsd: Number(db.price_per_customer_usd),
+        planAllowance: Number(db.plan_allowance),
+        pricePerPlanUsd: Number(db.price_per_plan_usd),
         createdAt: db.created_at,
     };
 }
@@ -19,6 +20,8 @@ export function mapDbCustomerRequestToCustomerRequest(db: DbCustomerRequest): Cu
         tenantId: db.tenant_id,
         requestedCount: db.requested_count,
         grantedCount: db.granted_count,
+        requestedPlans: db.requested_plans ?? 0,
+        grantedPlans: db.granted_plans,
         status: db.status,
         requestedBy: db.requested_by,
         decidedAt: db.decided_at,

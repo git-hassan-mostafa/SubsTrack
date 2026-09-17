@@ -99,6 +99,18 @@ export class CustomerPlanRepository extends BaseRepository implements ICustomerP
     }
   }
 
+  // Tenant-wide, and a line on a DEACTIVATED customer does not count — that is
+  // what the tenant is billed for. !inner is safe here: customer_id is NOT NULL.
+  async countActive(): Promise<number> {
+    const { count, error } = await this.db
+      .from('customer_plans')
+      .select('id, customers!inner(active)', { count: 'exact', head: true })
+      .eq('active', true)
+      .eq('customers.active', true);
+    if (error) this.handleError(error);
+    return count ?? 0;
+  }
+
   async countPayments(id: string): Promise<number> {
     const { count, error } = await this.db
       .from('charges')

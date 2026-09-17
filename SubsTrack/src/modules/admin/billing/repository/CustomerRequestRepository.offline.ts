@@ -1,6 +1,7 @@
 import type { DbCustomerRequest } from '@/src/core/types/db';
 import { isOnline } from '@/src/core/offline/net/connectivity';
 import { RequiresConnectionError } from '@/src/core/offline/errors';
+import type { QuotaPair } from '../utils/types';
 import type {
   CustomerRequestInput,
   ICustomerRequestRepository,
@@ -28,9 +29,9 @@ export class OfflineCustomerRequestRepository implements ICustomerRequestReposit
     return this.online.create(payload);
   }
 
-  async updateCount(id: string, requestedCount: number): Promise<DbCustomerRequest> {
+  async updateCounts(id: string, extra: QuotaPair): Promise<DbCustomerRequest> {
     await this.requireOnline();
-    return this.online.updateCount(id, requestedCount);
+    return this.online.updateCounts(id, extra);
   }
 
   async cancel(id: string): Promise<DbCustomerRequest> {

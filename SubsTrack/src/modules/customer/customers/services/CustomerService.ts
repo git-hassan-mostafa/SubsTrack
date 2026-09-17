@@ -2,7 +2,8 @@ import type { Customer } from "@/src/core/types";
 import { PAGE_SIZE, type BranchFilter } from "@/src/core/constants";
 import i18n from "@/src/core/i18n";
 import repository from "../repository/CustomerRepository";
-import { billingService } from "@/src/modules/admin/billing";
+import billingService from "@/src/modules/admin/billing/services/BillingService";
+import type { QuotaPair } from "@/src/modules/admin/billing/utils/types";
 import { mapDbCustomerToCustomer } from "../utils/mapper";
 
 type CustomerInput = Pick<
@@ -37,14 +38,20 @@ class CustomerService {
     return repository.countActive(branchFilter);
   }
 
+  // The service lines drafted alongside the customer are counted BEFORE the
+  // first write, or a refused line would leave an empty customer holding a seat.
   async createCustomer(
     data: CustomerInput,
     tenantId: string,
-    allowance: number,
-    activeCount: number,
+    limits: QuotaPair,
+    active: QuotaPair,
+    addingLines: number,
   ): Promise<Customer> {
     this.validateInput(data);
-    billingService.assertCanCreateCustomer(allowance, activeCount);
+    billingService.assertQuotas(limits, active, {
+      customers: active.customers + 1,
+      plans: active.plans + addingLines,
+    });
     const row = await repository.create({
       name: data.name.trim(),
       phone_number: data.phoneNumber?.trim() || null,

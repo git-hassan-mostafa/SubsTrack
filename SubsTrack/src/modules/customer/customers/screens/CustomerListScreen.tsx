@@ -53,6 +53,7 @@ import { useAuth } from "../../../authentication/auth/hooks/useAuth";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
 import { getCurrentYearMonth, toBillingMonth } from "@/src/core/utils/date";
 import { isBeforeStartDate } from "@/src/modules/customer/customer-payments/utils/monthDueRules";
+import { activeLines } from "@/src/modules/customer/customer-plans/utils/activeLines";
 import { resolveLinePrice } from "@/src/modules/customer/customer-plans/utils/linePrice";
 import SearchTextBox from "@/src/shared/components/SearchTextBox";
 import {
@@ -263,8 +264,8 @@ export function CustomerListScreen() {
   // menu wording and quick-pay gating.
   function startedActiveLines(customer: Customer) {
     const { year, month } = getCurrentYearMonth();
-    return (customer.customerPlans ?? []).filter(
-      (l) => l.active && !isBeforeStartDate(year, month, l.startDate),
+    return activeLines(customer).filter(
+      (l) => !isBeforeStartDate(year, month, l.startDate),
     );
   }
 

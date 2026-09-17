@@ -1,6 +1,7 @@
 import { Platform } from "react-native";
 import { BaseRepository } from "@/src/core/utils/BaseRepository";
 import type { DbCustomerRequest } from "@/src/core/types/db";
+import type { QuotaPair } from "../utils/types";
 import type {
   CustomerRequestInput,
   ICustomerRequestRepository,
@@ -42,11 +43,11 @@ export class CustomerRequestRepository
     return created;
   }
 
-  async updateCount(id: string, requestedCount: number): Promise<DbCustomerRequest> {
+  async updateCounts(id: string, extra: QuotaPair): Promise<DbCustomerRequest> {
     return this.auditedUpdate<DbCustomerRequest>(
       "customer_requests",
       id,
-      { requested_count: requestedCount },
+      { requested_count: extra.customers, requested_plans: extra.plans },
       { branchColumn: null },
     );
   }

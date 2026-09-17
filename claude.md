@@ -57,12 +57,18 @@ matching `docs/` file. Dev phase: architecture + DB schema are open to change.
    currency) flows in as parameters from the component. Single-module state →
    **module store** under `src/modules/<module>/state/`, kept out of `GlobalState`.
 10. All errors caught and stored in state — never surface raw Supabase messages.
-11. The customer allowance is the **only quantity limit in the product**, enforced
-    at the **service** layer: `CustomerService.createCustomer()` calls
-    `billingService.assertCanCreateCustomer(allowance, activeCount)` after
-    `validate()`. `CustomerLimitError` flows through the customers slice as a
-    structured `customerLimitError` field; never parse error strings. Branches,
-    users, plans, products and currencies are uncapped.
+11. There are exactly **two quantity limits**, both on `tenants`:
+    `customer_allowance` (active customers) and `plan_allowance` (active service
+    lines — the number the **bill** is counted on, at `price_per_plan_usd`).
+    `plan_allowance >= customer_allowance` always. Both are enforced at the
+    **service** layer through ONE gate,
+    `billingService.assertQuotas(limits, before, after)`, which refuses a write
+    only on a quota that write **grows**. `CustomerService.createCustomer()`
+    counts the drafted lines too, before the first write;
+    `CustomerPlanService.syncLines()` nets removals against additions.
+    `QuotaExceededError` flows through the billing slice as a structured
+    `quotaError` field; never parse error strings. Branches, users, plans,
+    products and currencies are uncapped. See gotcha #149.
 
 ### 1.3 QA / tests
 
@@ -191,7 +197,7 @@ Presentation → State → Business Logic → Repository → Database
 - **L1 Presentation** — screens, UI components, UI-only hooks. Read store state,
   dispatch store actions. Zero business logic, zero direct Supabase calls.
 - **L2 State** — Zustand slices (`src/state/slices/`) + immer. Hold data +
-  `loading`/`error`/`customerLimitError`. Async actions call **services, never
+  `loading`/`error`/`quotaError`. Async actions call **services, never
   repositories**. Components read via per-slice hooks **always with a selector**.
 - **L3 Services** — pure TS classes. No React, no Supabase. All validation,
   transformation, decision/algorithm logic. Domain models in, domain models or
@@ -468,11 +474,32 @@ keeps `monthGridsByLine`. Full rules, the badge contract and the order helpers:
 
 ## 8. Database Changes
 
-`sql scripts/script.sql` is **both the full schema and the migration** — every
-statement is idempotent, so re-running the whole file on a live database brings it
-up to date. **There is no separate migration script**; do not write one in chat and
-do not create new `.sql` files (`sql scripts/` holds only `script.sql` +
-`reset.sql`).
+`sql scripts/script.sql` is **the full schema** — every statement is idempotent, so
+re-running the whole file builds a fresh database and brings a live one up to date.
+It only ever **ADDS**. `sql scripts/migration.sql` holds the **one-time** statements
+a fresh database must never run. Do not write SQL in chat and do not create new
+`.sql` files (`sql scripts/` holds only `script.sql`, `migration.sql` + `reset.sql`).
+
+**Which file a change goes in — decide this first:**
+
+- **Fresh-DB-safe → `script.sql` alone.** A new table, column, index, policy,
+  trigger or function. Nothing to undo, so nothing to migrate.
+- **One-time only → `migration.sql` alone.** It would be meaningless on a fresh
+  database: dropping a constraint/column/index/policy, updating existing row
+  values, a data backfill or one-off fix, dropping an old function signature.
+- **Non-additive → BOTH files.** Renaming a column, changing a type, or editing an
+  existing multi-column constraint. `script.sql` declares the NEW shape so a fresh
+  database is built right; `migration.sql` carries the one-off `ALTER … RENAME` /
+  `ALTER … TYPE` / `DROP CONSTRAINT` that moves a live database over.
+  `ADD COLUMN IF NOT EXISTS` can never rename or retype — it silently leaves the
+  old column beside the new one — and a guarded `DO $$ … pg_constraint …` block is
+  skipped once its constraint exists.
+
+`migration.sql` is a **growing log**: append each new one-off at the bottom under a
+dated `-- ----` header, keep the old ones, never rewrite what is above. Every entry
+is guarded so a re-run is a no-op, and it runs **BEFORE** `script.sql` — a
+constraint or signature that `script.sql` declares needs its old version cleared
+first, and rows must clear a floor before the CHECK that enforces it is added.
 
 0. **Every table is declared in two steps** — `CREATE TABLE IF NOT EXISTS <t> ();`
    then one `ALTER TABLE <t> ADD COLUMN IF NOT EXISTS …;` per column. There is **no
@@ -483,8 +510,9 @@ do not create new `.sql` files (`sql scripts/` holds only `script.sql` +
    (prefix `CONSTRAINT <name>` when the name matters). A **multi-column**
    constraint cannot — it goes in that table's "Table-level constraints"
    `DO $$ … pg_constraint …` block; because that block is guarded, *editing* an
-   existing constraint is **not** picked up on a live DB (rename it, or drop the
-   old one by hand).
+   existing constraint is **not** picked up on a live DB — declare the new one
+   under a NEW name in `script.sql` and drop the old one by name in
+   `migration.sql`.
 2. **New table / index / policy / trigger / function** → edit `script.sql` in
    place, keeping it re-runnable (`IF NOT EXISTS`, `CREATE OR REPLACE`,
    `DROP POLICY IF EXISTS` before `CREATE POLICY`).
@@ -492,9 +520,11 @@ do not create new `.sql` files (`sql scripts/` holds only `script.sql` +
    native app's local SQLite schema. `applySchema.ts` creates missing tables and
    `ALTER`s in missing columns on every app start, so editing the descriptor is the
    whole local change. **Non-additive changes** (drop/rename a column, change a type
-   or table constraint) are NOT reconciled on either side — say so and give the
-   one-off statement.
-4. Tell the user to run `script.sql` after the change.
+   or table constraint) are NOT reconciled locally — `applySchema.ts` never drops
+   or renames — so say so and give the one-off statement; `migration.sql` is the
+   SERVER half only and does not reach the device mirror.
+4. Tell the user to run `migration.sql` **first**, then `script.sql`. When nothing
+   was appended to `migration.sql`, `script.sql` alone.
 
 ---
 

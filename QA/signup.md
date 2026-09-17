@@ -24,7 +24,7 @@ This flow uses the `create-tenant` Edge Function (no JWT required — deployed w
 3. **Owner role = `superadmin`.** The new tenant owner gets `role = superadmin` in `public.users`. This is the same role assignment SuperAdmin uses for tenant owners — the owner does NOT appear in their own Staff list (per-app role filter).
 4. **Tenant code pre-check** uses `is_tenant_code_available` RPC — a `SECURITY DEFINER` function granted to `anon`. It returns a boolean (no row data). The mobile app never sees a list of existing tenant codes.
 5. **Default Branch auto-created.** Every new tenant gets a "Default Branch" row immediately after the tenant row.
-6. **New tenant lands on the schema billing defaults — 30 customers at $0.15.** The Edge Function deliberately omits `customer_allowance` and `price_per_customer_usd` from its `tenants` insert so the column defaults apply; the client can never send either one.
+6. **New tenant lands on the schema billing defaults — 30 customers, 30 service lines, at $0.15 per line.** The Edge Function deliberately omits `customer_allowance`, `plan_allowance` and `price_per_plan_usd` from its `tenants` insert so the column defaults apply; the client can never send any of them.
 7. **Auto-login after signup.** On Edge Function success, `signupSlice.submit()` immediately calls `authSlice.login()` with the entered credentials. User lands in the app without a manual login step.
 
 ---
@@ -86,7 +86,7 @@ This flow uses the `create-tenant` Edge Function (no JWT required — deployed w
 
 | # | Scenario | Steps | Expected result |
 |---|----------|-------|-----------------|
-| 4.1 | Tenant created | After signup | New row in `tenants` with `active = true`, `customer_allowance = 30`, `price_per_customer_usd = 0.15` |
+| 4.1 | Tenant created | After signup | New row in `tenants` with `active = true`, `customer_allowance = 30`, `plan_allowance = 30`, `price_per_plan_usd = 0.15` |
 | 4.2 | Default branch created | After signup | `branches` row with name "Default Branch" and `tenant_id` of the new tenant |
 | 4.3 | Owner account created | After signup | `auth.users` row + `public.users` row with `role = superadmin`, `branch_id = null` |
 | 4.4 | Owner in-app role | Log in as new owner | App treats them as admin (superadmin filtered from Staff list) |
@@ -104,7 +104,7 @@ This flow uses the `create-tenant` Edge Function (no JWT required — deployed w
 |---|----------|-------|-----------------|
 | 5.1 | No direct tenant INSERT | Try to POST directly to `/rest/v1/tenants` with anon key | Supabase RLS rejects (no INSERT policy for `anon`) |
 | 5.2 | tenant_id from server only | Inspect the created tenant row | `tenant_id` on all child rows set server-side in the Edge Function, never from client input |
-| 5.3 | Billing set server-side | Send a signup payload carrying `customerAllowance` / `pricePerCustomerUsd`, then inspect the tenant row | Both ignored — the row takes the schema defaults 30 / 0.15; a client can never choose its own allowance or price |
+| 5.3 | Billing set server-side | Send a signup payload carrying `customerAllowance` / `planAllowance` / `pricePerPlanUsd`, then inspect the tenant row | All ignored — the row takes the schema defaults 30 / 30 / 0.15; a client can never choose its own limits or price |
 | 5.4 | Role set server-side | Inspect `public.users` row | `role = superadmin` set in Edge Function; client cannot inject a different role |
 | 5.5 | `paymentToken` field accepted but ignored | Send payload with a `paymentToken` field | Edge Function ignores it; no billing side-effect |
 

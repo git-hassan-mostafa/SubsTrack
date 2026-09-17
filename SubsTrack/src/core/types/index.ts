@@ -9,27 +9,30 @@ export type UserRole = 'superadmin' | 'admin' | 'user';
 // payable — the month must be unskipped first.
 export type MonthStatus = 'paid' | 'unpaid' | 'future' | 'before_start' | 'skipped';
 
-// customerAllowance / pricePerCustomerUsd are what the SaaS owner charges for;
-// both are read-only to the app — see docs/features.md.
+// The bill is planAllowance's unit, not customerAllowance's — see gotcha #149.
 export interface Tenant {
   id: string;
   name: string;
   tenantCode: string;
   active: boolean;
   customerAllowance: number;
-  pricePerCustomerUsd: number;
+  planAllowance: number;
+  pricePerPlanUsd: number;
   createdAt: string;
 }
 
 export type CustomerRequestStatus = 'pending' | 'accepted' | 'declined' | 'cancelled';
 
-// An admin asking the owner for more customer slots. One pending row per
-// tenant; accepting it raises the tenant's allowance by grantedCount.
+// An admin asking the owner for more customer and/or service-line slots. One
+// pending row per tenant; accepting it raises both allowances by what was
+// granted. Either half may be 0 — only the TOTAL has a minimum.
 export interface CustomerRequest {
   id: string;
   tenantId: string;
   requestedCount: number;
   grantedCount: number | null;
+  requestedPlans: number;
+  grantedPlans: number | null;
   status: CustomerRequestStatus;
   requestedBy: string | null;
   decidedAt: string | null;
