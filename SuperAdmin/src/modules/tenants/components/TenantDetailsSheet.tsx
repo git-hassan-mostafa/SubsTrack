@@ -90,19 +90,25 @@ export function TenantDetailsSheet({ visible, tenant, onDismiss }: Props) {
         : String(tenant.customerAllowance),
     },
     {
-      label: "Price per customer",
-      value: `$${tenant.pricePerCustomerUsd}`,
+      label: "Service line allowance",
+      value: counts
+        ? `${tenant.planAllowance} · ${counts.serviceLines.active ?? 0} used`
+        : String(tenant.planAllowance),
+    },
+    {
+      label: "Price per service line",
+      value: `$${tenant.pricePerPlanUsd}`,
     },
     {
       label: "Total Price",
-      value: `$${tenant.customerAllowance * tenant.pricePerCustomerUsd}`,
+      value: `$${tenant.planAllowance * tenant.pricePerPlanUsd}`,
     },
   ];
 
   if (pending)
     subscriptionRows.push({
       label: "Pending request",
-      value: `+${pending.requestedCount} · ${formatShortDate(pending.createdAt)}`,
+      value: `+${pending.requestedCount} customers / +${pending.requestedPlans} lines · ${formatShortDate(pending.createdAt)}`,
     });
 
   return (

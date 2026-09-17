@@ -1,10 +1,18 @@
 import { BaseRepository } from "@/src/core/utils/BaseRepository";
 import type { DbCustomerRequest, DbTenant } from "@/src/core/types/db";
 
+// What the owner actually grants, per limit — either half may be 0.
+export interface GrantedCounts {
+  customers: number;
+  plans: number;
+}
+
 // Billing columns are optional on insert so a new tenant can take the schema
 // defaults rather than the app restating them.
 export type CreateTenantPayload = Pick<DbTenant, "name" | "tenant_code"> &
-  Partial<Pick<DbTenant, "customer_allowance" | "price_per_customer_usd">>;
+  Partial<
+    Pick<DbTenant, "customer_allowance" | "plan_allowance" | "price_per_plan_usd">
+  >;
 
 // true = the table carries an active flag; plans is the only one without.
 export const COUNTED_TABLES = {
@@ -83,11 +91,12 @@ export class TenantRepository extends BaseRepository {
   // live in the accept_customer_request function.
   async acceptRequest(
     requestId: string,
-    grantedCount: number,
+    granted: GrantedCounts,
   ): Promise<DbCustomerRequest> {
     const { data, error } = await this.db.rpc("accept_customer_request", {
       p_request_id: requestId,
-      p_granted: grantedCount,
+      p_granted: granted.customers,
+      p_granted_plans: granted.plans,
     });
     if (error) this.handleError(error);
     return data as DbCustomerRequest;
@@ -120,7 +129,11 @@ export class TenantRepository extends BaseRepository {
     payload: Partial<
       Pick<
         DbTenant,
-        "name" | "active" | "customer_allowance" | "price_per_customer_usd"
+        | "name"
+        | "active"
+        | "customer_allowance"
+        | "plan_allowance"
+        | "price_per_plan_usd"
       >
     >,
   ): Promise<DbTenant> {

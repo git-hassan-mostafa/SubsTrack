@@ -5,7 +5,8 @@ export interface Tenant {
   tenantCode: string;
   active: boolean;
   customerAllowance: number;
-  pricePerCustomerUsd: number;
+  planAllowance: number;
+  pricePerPlanUsd: number;
   pendingRequest: CustomerRequest | null;
   createdAt: string;
 }
@@ -17,6 +18,8 @@ export interface CustomerRequest {
   tenantId: string;
   requestedCount: number;
   grantedCount: number | null;
+  requestedPlans: number;
+  grantedPlans: number | null;
   status: CustomerRequestStatus;
   decidedAt: string | null;
   createdAt: string;

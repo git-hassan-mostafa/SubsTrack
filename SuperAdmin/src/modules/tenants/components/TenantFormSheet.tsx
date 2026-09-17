@@ -42,8 +42,10 @@ export function TenantFormSheet({ visible, tenant, onDismiss }: Props) {
   const [tenantCode, setTenantCode] = useState("");
   const [active, setActive] = useState(true);
   const [allowance, setAllowance] = useState(DEFAULT_ALLOWANCE);
+  const [planAllowance, setPlanAllowance] = useState(DEFAULT_ALLOWANCE);
   const [price, setPrice] = useState(DEFAULT_PRICE);
   const [granted, setGranted] = useState("");
+  const [grantedPlans, setGrantedPlans] = useState("");
   const [adminUserName, setAdminUserName] = useState("");
   const [adminFullName, setAdminFullName] = useState("");
   const [adminPassword, setAdminPassword] = useState("");
@@ -58,10 +60,18 @@ export function TenantFormSheet({ visible, tenant, onDismiss }: Props) {
       setAllowance(
         tenant ? String(tenant.customerAllowance) : DEFAULT_ALLOWANCE,
       );
-      setPrice(tenant ? String(tenant.pricePerCustomerUsd) : DEFAULT_PRICE);
+      setPlanAllowance(
+        tenant ? String(tenant.planAllowance) : DEFAULT_ALLOWANCE,
+      );
+      setPrice(tenant ? String(tenant.pricePerPlanUsd) : DEFAULT_PRICE);
       setGranted(
         tenant?.pendingRequest
           ? String(tenant.pendingRequest.requestedCount)
+          : "",
+      );
+      setGrantedPlans(
+        tenant?.pendingRequest
+          ? String(tenant.pendingRequest.requestedPlans)
           : "",
       );
       setAdminUserName("");
@@ -79,7 +89,8 @@ export function TenantFormSheet({ visible, tenant, onDismiss }: Props) {
         name,
         active,
         customerAllowance: Number(allowance),
-        pricePerCustomerUsd: Number(price),
+        planAllowance: Number(planAllowance),
+        pricePerPlanUsd: Number(price),
       });
     } else {
       success = await createTenant({
@@ -89,19 +100,25 @@ export function TenantFormSheet({ visible, tenant, onDismiss }: Props) {
         adminFullName,
         adminPassword,
         customerAllowance: Number(allowance),
-        pricePerCustomerUsd: Number(price),
+        planAllowance: Number(planAllowance),
+        pricePerPlanUsd: Number(price),
       });
     }
     if (success) onDismiss();
   }
 
-  // The allowance field must follow the accepted raise, or pressing Save next
-  // would write the pre-accept number straight back over it.
+  // Both fields must follow the accepted raise, or pressing Save next would
+  // write the pre-accept numbers straight back over them.
   async function handleAccept() {
     if (!tenant || !pending) return;
-    const grantedCount = Number(granted);
-    const ok = await acceptRequest(tenant.id, pending.id, grantedCount);
-    if (ok) setAllowance(String(Number(allowance) + grantedCount));
+    const grant = { customers: Number(granted), plans: Number(grantedPlans) };
+    const ok = await acceptRequest(tenant.id, pending.id, grant);
+    if (!ok) return;
+    const customers = Number(allowance) + grant.customers;
+    setAllowance(String(customers));
+    setPlanAllowance(
+      String(Math.max(Number(planAllowance) + grant.plans, customers)),
+    );
   }
 
   async function handleDecline() {
@@ -109,10 +126,17 @@ export function TenantFormSheet({ visible, tenant, onDismiss }: Props) {
     await declineRequest(tenant.id, pending.id);
   }
 
-  const grantedValid = Number.isInteger(Number(granted)) && Number(granted) >= 1;
+  const grantedValid =
+    Number.isInteger(Number(granted)) &&
+    Number.isInteger(Number(grantedPlans)) &&
+    Number(granted) >= 0 &&
+    Number(grantedPlans) >= 0 &&
+    Number(granted) + Number(grantedPlans) >= 1;
   const billingValid =
     Number.isInteger(Number(allowance)) &&
     Number(allowance) >= MIN_CUSTOMER_ALLOWANCE &&
+    Number.isInteger(Number(planAllowance)) &&
+    Number(planAllowance) >= Number(allowance) &&
     Number.isFinite(Number(price)) &&
     Number(price) >= 0;
 
@@ -146,15 +170,22 @@ export function TenantFormSheet({ visible, tenant, onDismiss }: Props) {
           {pending ? (
             <View style={styles.requestBox}>
               <Text style={styles.requestTitle}>
-                {`Requested +${pending.requestedCount} customers`}
+                {`Requested +${pending.requestedCount} customers, +${pending.requestedPlans} service lines`}
               </Text>
               <Text style={styles.requestDate}>
                 {formatShortDate(pending.createdAt)}
               </Text>
               <Input
-                label="Grant"
+                label="Grant customers"
                 value={granted}
                 onChangeText={setGranted}
+                keyboardType="number-pad"
+                onFocus={clearError}
+              />
+              <Input
+                label="Grant service lines"
+                value={grantedPlans}
+                onChangeText={setGrantedPlans}
                 keyboardType="number-pad"
                 onFocus={clearError}
               />
@@ -216,7 +247,21 @@ export function TenantFormSheet({ visible, tenant, onDismiss }: Props) {
           />
 
           <Input
-            label="Price Per Customer (USD)"
+            label="Service Line Allowance"
+            value={planAllowance}
+            onChangeText={setPlanAllowance}
+            keyboardType="number-pad"
+            placeholder={DEFAULT_ALLOWANCE}
+            onFocus={clearError}
+            error={
+              planAllowance && Number(planAllowance) < Number(allowance)
+                ? "Cannot be below the customer allowance"
+                : null
+            }
+          />
+
+          <Input
+            label="Price Per Service Line (USD)"
             value={price}
             onChangeText={setPrice}
             keyboardType="decimal-pad"

@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import type { Tenant, TenantCounts } from '@/src/core/types';
 import { TenantService, type CreateTenantInput, type UpdateTenantInput } from '../services/TenantService';
+import type { GrantedCounts } from '../repository/TenantRepository';
 
 interface TenantState {
   tenants: Tenant[];
@@ -12,7 +13,11 @@ interface TenantState {
   fetchCounts: (tenantId: string) => Promise<void>;
   createTenant: (data: CreateTenantInput) => Promise<boolean>;
   updateTenant: (id: string, data: UpdateTenantInput) => Promise<boolean>;
-  acceptRequest: (tenantId: string, requestId: string, granted: number) => Promise<boolean>;
+  acceptRequest: (
+    tenantId: string,
+    requestId: string,
+    granted: GrantedCounts,
+  ) => Promise<boolean>;
   declineRequest: (tenantId: string, requestId: string) => Promise<boolean>;
   deleteTenant: (id: string) => Promise<void>;
   clearError: () => void;
@@ -75,20 +80,28 @@ export const useTenantStore = create<TenantState>((set, get) => ({
     }
   },
 
-  // Patches the raised allowance in from what the write returned.
+  // Patches the raised limits in from what the write returned.
   acceptRequest: async (tenantId, requestId, granted) => {
     set({ loading: true, error: null });
     try {
       const current = get().tenants.find((t) => t.id === tenantId);
-      const { allowance } = await tenantService.acceptRequest(
+      const { customers, plans } = await tenantService.acceptRequest(
         requestId,
         granted,
-        current?.customerAllowance ?? 0,
+        {
+          customers: current?.customerAllowance ?? 0,
+          plans: current?.planAllowance ?? 0,
+        },
       );
       set((state) => ({
         tenants: state.tenants.map((t) =>
           t.id === tenantId
-            ? { ...t, customerAllowance: allowance, pendingRequest: null }
+            ? {
+                ...t,
+                customerAllowance: customers,
+                planAllowance: plans,
+                pendingRequest: null,
+              }
             : t,
         ),
         loading: false,

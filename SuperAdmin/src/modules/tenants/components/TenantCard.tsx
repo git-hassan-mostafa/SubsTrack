@@ -39,7 +39,7 @@ export function TenantCard({ tenant, onPress, onEdit }: TenantCardProps) {
         <View style={styles.meta}>
           <View style={styles.allowanceBadge}>
             <Text style={styles.allowanceText}>
-              {`${tenant.customerAllowance} customers · $${tenant.pricePerCustomerUsd} each`}
+              {`${tenant.customerAllowance} customers · ${tenant.planAllowance} lines · $${tenant.pricePerPlanUsd} each`}
             </Text>
           </View>
           <Text style={styles.date}>
@@ -50,7 +50,7 @@ export function TenantCard({ tenant, onPress, onEdit }: TenantCardProps) {
         {pending ? (
           <View style={styles.requestPill}>
             <Text style={styles.requestPillText}>
-              {`Requested +${pending.requestedCount}`}
+              {`Requested +${pending.requestedCount} customers / +${pending.requestedPlans} lines`}
             </Text>
           </View>
         ) : null}
