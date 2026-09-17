@@ -41,6 +41,7 @@ import {
   expandSelectionUnit,
   groupPayableBlocks,
 } from "../utils/monthSelection";
+import { isAfterMonth, lastBillableMonth } from "../utils/payWindow";
 import {
   billingMonthLabel,
   blockingPaidMonths,
@@ -235,18 +236,14 @@ export function CustomerPaymentPanel({
 
   const lineActive = selectedLine?.active ?? false;
 
-  // Calendar-future month (strictly after the current month) — the same thing
-  // the "future" grid STATUS means for an unpaid month.
-  function isCalendarFuture(entry: MonthEntry): boolean {
-    const { year: cy, month: cm } = getCurrentYearMonth();
-    return entry.year > cy || (entry.year === cy && entry.month > cm);
-  }
+  const payLimit = lastBillableMonth(customer, selectedLine ?? null);
+  const payLimitLabel = billingMonthLabel(
+    toBillingMonth(payLimit.year, payLimit.month),
+  );
 
-  // On an inactive customer OR a cancelled plan, only FUTURE months are blocked;
-  // past + current months stay fully payable. This is the single gate all the
-  // collect paths share.
+  // The single gate every collect path shares — cell tap, quick pay and bulk.
   function isPayBlocked(entry: MonthEntry): boolean {
-    return (!customer.active || !lineActive) && isCalendarFuture(entry);
+    return isAfterMonth(entry, payLimit);
   }
 
   // Months are settled OLDEST FIRST: returns the oldest month that must be
@@ -420,9 +417,12 @@ export function CustomerPaymentPanel({
     if (isPayBlocked(entry)) {
       void confirm({
         title: t("common.not_available"),
-        message: !customer.active
-          ? t("payments.inactive_future_blocked")
-          : t("payments.cancelled_plan_future_blocked"),
+        message: t(
+          !customer.active
+            ? "payments.inactive_month_blocked"
+            : "payments.cancelled_plan_month_blocked",
+          { month: payLimitLabel },
+        ),
         confirmLabel: t("common.close"),
         hideCancel: true,
       });

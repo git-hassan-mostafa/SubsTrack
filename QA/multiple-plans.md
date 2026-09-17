@@ -47,11 +47,12 @@ A customer can subscribe to several plans at once, each a **service line** (`cus
 
 ### 3a. Payments on a cancelled plan
 
-1. Select a cancelled (dimmed) line in the panel. A **past** or **current** month tap opens the payment form and records normally; a **future** month tap shows a "Not available" dialog (`cancelled_plan_future_blocked`).
-2. **Quick pay** (cell 3-dot) is offered for a cancelled line's past/current unpaid fixed-price month, and records; it is **not** offered on a future month.
-3. **Bulk-select + Pay** on a cancelled line only pays the selected past/current months; future months are dropped from the payable set.
-4. The **current month** is still payable on a cancelled line — the gate keys off the calendar month, not the grid status.
-5. When the whole customer is inactive, the same past/current-allowed, future-blocked rule applies, but the dialog reads `inactive_future_blocked` (customer-inactive message wins over the cancelled-plan one).
+1. Cancel a line on 17 Sep 2026, then select it (dimmed) in the panel. A month up to and including **September** opens the payment form and records normally; **October** onwards shows a "Not available" dialog (`cancelled_plan_month_blocked`) naming September as the last billable month.
+2. **Quick pay** (cell 3-dot) is offered for that line’s unpaid fixed-price months up to the cancel month, and records; it is **not** offered after it.
+3. **Bulk-select + Pay** on a cancelled line only pays the selected months up to the cancel month; later months are dropped from the payable set.
+4. The **cancel month itself** is payable — the line served part of it. A line cancelled a year ago stops at that month even though the grid still paints every month since then unpaid.
+5. When the whole customer is inactive the same rule runs off the customer’s own cancel date, and the dialog reads `inactive_month_blocked` (customer-inactive message wins over the cancelled-plan one). With both stopped, the **earlier** of the two dates decides.
+6. A line that is still running is unchanged — past + current months pay, calendar-future months are blocked — and so is an inactive row whose `cancelled_at` is missing.
 
 ## 4. Aggregated customer-list status
 
