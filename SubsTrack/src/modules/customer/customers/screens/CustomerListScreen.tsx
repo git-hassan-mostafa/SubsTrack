@@ -635,8 +635,7 @@ export function CustomerListScreen() {
     if (deleted) clearSelection();
   }
 
-  // Toolbar actions for the selection header. 1 selected → edit / toggle / delete
-  // / quick-pay (toggle + delete admin-only); >1 → delete / quick-pay only.
+  // Edit and the active toggle only appear on a single selection.
   function buildSelectionActions(selected: Customer[]): SelectionAction[] {
     if (selected.length === 0) return [];
     const actions: SelectionAction[] = [];
@@ -644,6 +643,7 @@ export function CustomerListScreen() {
       const one = selected[0];
       actions.push({
         key: "edit",
+        group: "manage",
         icon: "create-outline",
         label: t("common.edit"),
         onPress: () => {
@@ -654,6 +654,7 @@ export function CustomerListScreen() {
       if (isAdmin) {
         actions.push({
           key: "toggle-active",
+          group: "status",
           icon: one.active ? "pause-circle-outline" : "play-circle-outline",
           label: one.active
             ? t("customers.deactivate")
@@ -667,6 +668,7 @@ export function CustomerListScreen() {
     if (isAdmin) {
       actions.push({
         key: "delete",
+        group: "danger",
         icon: "trash-outline",
         label: t("common.delete"),
         destructive: true,
@@ -676,6 +678,7 @@ export function CustomerListScreen() {
     }
     actions.push({
       key: "quick-pay",
+      group: "money",
       icon: "flash-outline",
       label: t("payments.quick_pay.pay_now"),
       disabled: bulkBusy,
@@ -734,6 +737,7 @@ export function CustomerListScreen() {
     if (shouldShowQuickPay(customer)) {
       items.push({
         key: "quick-pay",
+        group: "money",
         label: isMulti
           ? t("payments.quick_pay.pay_unpaid_plans")
           : t("payments.quick_pay.menu_label"),
@@ -744,6 +748,7 @@ export function CustomerListScreen() {
         const sendable = canSend(customer.phoneNumber);
         items.push({
           key: "quick-pay-whatsapp",
+          group: "money",
           label: t("invoice.pay_and_send_whatsapp"),
           icon: "logo-whatsapp",
           renderIcon: (size: number) => (
@@ -757,6 +762,7 @@ export function CustomerListScreen() {
     }
     items.push({
       key: "record-sale",
+      group: "create",
       label: t("sales.record_button"),
       icon: "receipt-outline",
       iconBadge: "add",
@@ -764,6 +770,7 @@ export function CustomerListScreen() {
     });
     items.push({
       key: "add-custom-debt",
+      group: "create",
       label: t("debts.add_custom_debt"),
       icon: "document-text-outline",
       iconBadge: "add",
@@ -777,6 +784,7 @@ export function CustomerListScreen() {
     ) {
       items.push({
         key: "collect",
+        group: "money",
         label: t("ledger.collect_money"),
         icon: "cash-outline",
         iconBadge: "add",
@@ -784,6 +792,7 @@ export function CustomerListScreen() {
       });
       items.push({
         key: "write-off-all",
+        group: "danger",
         label: t("ledger.write_off_all"),
         caption: t("ledger.write_off_all_caption"),
         icon: "remove-circle-outline",
@@ -793,12 +802,14 @@ export function CustomerListScreen() {
     }
     items.push({
       key: "edit",
+      group: "manage",
       label: t("common.edit"),
       icon: "create-outline",
       onPress: () => setEditingCustomer(customer),
     });
     items.push({
       key: "history",
+      group: "history",
       label: t("audit.customer_history_action"),
       icon: "time-outline",
       onPress: () => setHistoryCustomer(customer),
@@ -806,6 +817,7 @@ export function CustomerListScreen() {
     if (isAdmin) {
       items.push({
         key: "toggle-active",
+        group: "status",
         label: customer.active
           ? t("customers.deactivate")
           : t("customers.activate"),
@@ -815,6 +827,7 @@ export function CustomerListScreen() {
       });
       items.push({
         key: "delete",
+        group: "danger",
         label: t("common.delete"),
         icon: "trash-outline",
         destructive: true,

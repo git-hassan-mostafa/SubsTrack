@@ -102,6 +102,7 @@ export function PlanListScreen() {
     return [
       {
         key: "edit",
+        group: "manage",
         label: t("common.edit"),
         icon: "create-outline",
         onPress: () => openEdit(plan),
@@ -109,6 +110,7 @@ export function PlanListScreen() {
       history.action(plan.id, plan.name),
       {
         key: "delete",
+        group: "danger",
         label: t("common.delete"),
         icon: "trash-outline",
         destructive: true,
@@ -156,8 +158,7 @@ export function PlanListScreen() {
     if (deleted) clearSelection();
   }
 
-  // Toolbar actions for the selection header. 1 selected → edit + delete;
-  // >1 → delete only.
+  // Edit only appears on a single selection.
   function buildSelectionActions(selected: Plan[]): SelectionAction[] {
     if (selected.length === 0) return [];
     const actions: SelectionAction[] = [];
@@ -165,6 +166,7 @@ export function PlanListScreen() {
       const one = selected[0];
       actions.push({
         key: "edit",
+        group: "manage",
         icon: "create-outline",
         label: t("common.edit"),
         onPress: () => {
@@ -175,6 +177,7 @@ export function PlanListScreen() {
     }
     actions.push({
       key: "delete",
+      group: "danger",
       icon: "trash-outline",
       label: t("common.delete"),
       destructive: true,

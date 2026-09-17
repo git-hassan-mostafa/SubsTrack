@@ -175,6 +175,7 @@ export function DebtsPanel({ onOpenSale }: Props = {}) {
         actions={[
           {
             key: "collect",
+            group: "money",
             label: t("payments.collect"),
             icon: "cash-outline",
             onPress: () => {
@@ -189,6 +190,7 @@ export function DebtsPanel({ onOpenSale }: Props = {}) {
           },
           {
             key: "write-off-all",
+            group: "danger",
             label: t("ledger.write_off_all"),
             caption: t("ledger.write_off_all_caption"),
             icon: "remove-circle-outline",

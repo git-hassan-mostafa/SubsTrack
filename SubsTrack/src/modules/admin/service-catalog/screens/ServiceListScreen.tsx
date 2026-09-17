@@ -108,6 +108,7 @@ export function ServiceListScreen() {
     const actions: ActionMenuItem[] = [
       {
         key: "edit",
+        group: "manage",
         label: t("common.edit"),
         icon: "create-outline",
         onPress: () => openEdit(service),
@@ -117,6 +118,7 @@ export function ServiceListScreen() {
     if (service.active) {
       actions.push({
         key: "delete",
+        group: "danger",
         label: t("common.delete"),
         icon: "trash-outline",
         destructive: true,
@@ -125,6 +127,7 @@ export function ServiceListScreen() {
     } else {
       actions.push({
         key: "reactivate",
+        group: "status",
         label: t("common.reactivate"),
         icon: "refresh-outline",
         onPress: () => void handleReactivate(service),
@@ -174,8 +177,7 @@ export function ServiceListScreen() {
     if (deleted) clearSelection();
   }
 
-  // Toolbar actions for the selection header. 1 selected → edit + delete (active)
-  // / reactivate (inactive); >1 → delete only.
+  // Edit and reactivate only appear on a single selection.
   function buildSelectionActions(selected: Service[]): SelectionAction[] {
     if (selected.length === 0) return [];
     const actions: SelectionAction[] = [];
@@ -183,6 +185,7 @@ export function ServiceListScreen() {
       const one = selected[0];
       actions.push({
         key: "edit",
+        group: "manage",
         icon: "create-outline",
         label: t("common.edit"),
         onPress: () => {
@@ -193,6 +196,7 @@ export function ServiceListScreen() {
       if (!one.active) {
         actions.push({
           key: "reactivate",
+          group: "status",
           icon: "refresh-outline",
           label: t("common.reactivate"),
           onPress: () => void handleReactivate(one).then(clearSelection),
@@ -201,6 +205,7 @@ export function ServiceListScreen() {
     }
     actions.push({
       key: "delete",
+      group: "danger",
       icon: "trash-outline",
       label: t("common.delete"),
       destructive: true,

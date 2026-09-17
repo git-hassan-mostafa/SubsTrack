@@ -65,12 +65,14 @@ export function CustomerDetailScreen() {
         iconActions={[
           {
             key: "history",
+            group: "history",
             icon: "time-outline",
             label: t("audit.customer_history_action"),
             onPress: () => setHistoryVisible(true),
           },
           {
             key: "edit",
+            group: "manage",
             icon: "create-outline",
             label: t("common.edit"),
             onPress: () => setEditVisible(true),

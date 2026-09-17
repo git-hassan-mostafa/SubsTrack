@@ -6,10 +6,12 @@ import { Text } from "@/src/shared/components/Text";
 import { COLORS } from "@/src/shared/constants";
 import { BottomSheetScaffold } from "./BottomSheetScaffold";
 import { SheetDragArea } from "./SheetDragArea";
+import { sortActions, type ActionGroup } from "@/src/shared/lib/actionOrder";
 
 export interface ActionMenuItem {
   key: string;
   label: string;
+  group?: ActionGroup;
   icon?: keyof typeof Ionicons.glyphMap;
   iconBadge?: keyof typeof Ionicons.glyphMap;
   renderIcon?: (size: number) => React.ReactNode;
@@ -35,6 +37,7 @@ export function ActionMenu({
   emptyLabel,
 }: ActionMenuProps) {
   const { t } = useTranslation();
+  const rows = sortActions(actions);
 
   function handlePress(item: ActionMenuItem) {
     if (item.disabled) return;
@@ -66,14 +69,14 @@ export function ActionMenu({
           </PressableOpacity>
         </View>
 
-        {actions.length === 0 ? (
+        {rows.length === 0 ? (
           <View className="px-5 py-6 items-center">
             <Text className="text-sm text-gray-500">
               {emptyLabel ?? t("common.no_actions_available")}
             </Text>
           </View>
         ) : (
-          actions.map((item, index) => (
+          rows.map((item, index) => (
             <PressableOpacity
               key={item.key}
               onPress={() => handlePress(item)}

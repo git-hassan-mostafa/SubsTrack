@@ -124,6 +124,7 @@ export function BillPaymentsList({
     if (sendable) {
       actions.push({
         key: "invoice",
+        group: "send",
         label: t("invoicing.send_on_whatsapp"),
         icon: "logo-whatsapp",
         onPress: () => {
@@ -134,6 +135,7 @@ export function BillPaymentsList({
     }
     actions.push({
       key: "void",
+      group: "danger",
       label: t("ledger.void_payment"),
       icon: "trash-outline",
       destructive: true,

@@ -28,17 +28,7 @@ export interface SaleActions {
   sheets: ReactNode;
 }
 
-/**
- * Everything a single sale can do, defined once for all three sales surfaces
- * (the Transactions tab, the customer panel, the customer's full list): open the
- * receipt, correct it, collect what is still owed on it, re-send it on WhatsApp,
- * read its history, void it.
- *
- * The screens keep the receipt sheet and the sale form — they own the refresh
- * callbacks — so this only holds the menu, the void dialog and the history sheet.
- * One ActionMenu per SCREEN, not per row: these lists are virtualized and
- * paginated, so a per-card menu would mount one bottom sheet per visible row.
- */
+// One ActionMenu per SCREEN, not per row: these lists are virtualized.
 export function useSaleActions({
   onView,
   onEdit,
@@ -79,6 +69,7 @@ export function useSaleActions({
     const actions: ActionMenuItem[] = [
       {
         key: "view",
+        group: "open",
         label: t("sales.view_receipt"),
         icon: "receipt-outline",
         onPress: () => onView(sale),
@@ -88,6 +79,7 @@ export function useSaleActions({
     if (!voided) {
       actions.push({
         key: "edit",
+        group: "manage",
         label: t("sales.edit_sale"),
         icon: "create-outline",
         onPress: () => onEdit(sale),
@@ -97,6 +89,7 @@ export function useSaleActions({
       if (owed > 1e-9 && sale.customerId) {
         actions.push({
           key: "collect",
+          group: "money",
           label: t("ledger.collect_remaining", {
             amount: "",
           }),
@@ -109,6 +102,7 @@ export function useSaleActions({
       const sendable = canSend(phone);
       actions.push({
         key: "invoice",
+        group: "send",
         label: t("invoice.send_invoice_whatsapp"),
         renderIcon: (size) => (
           <WhatsAppComboIcon variant="report" size={size} />
@@ -130,6 +124,7 @@ export function useSaleActions({
 
     actions.push({
       key: "history",
+      group: "history",
       label: t("audit.history"),
       icon: "time-outline",
       onPress: () => setHistorySale(sale),
@@ -138,6 +133,7 @@ export function useSaleActions({
     if (!voided) {
       actions.push({
         key: "void",
+        group: "danger",
         label: t("sales.void_sale"),
         icon: "close-circle-outline",
         destructive: true,

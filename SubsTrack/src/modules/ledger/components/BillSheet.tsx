@@ -96,6 +96,7 @@ export function BillSheet({
   if (isAdmin) {
     menuActions.push({
       key: "history",
+      group: "history",
       label: t("audit.history"),
       icon: "time-outline",
       onPress: () => setHistoryOpen(true),
@@ -104,6 +105,7 @@ export function BillSheet({
   if (onVoidBill && !voided) {
     menuActions.push({
       key: "void",
+      group: "danger",
       label: t("ledger.void_month"),
       icon: "close-circle-outline",
       destructive: true,

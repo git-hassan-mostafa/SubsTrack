@@ -106,6 +106,7 @@ export function BranchesScreen() {
     const items: ActionMenuItem[] = [
       {
         key: "edit",
+        group: "manage",
         label: t("common.edit"),
         icon: "create-outline",
         onPress: () => openEdit(branch),
@@ -115,6 +116,7 @@ export function BranchesScreen() {
     if (branch.active) {
       items.push({
         key: "deactivate",
+        group: "status",
         label: t("branches.deactivate"),
         icon: "pause-circle-outline",
         destructive: true,
@@ -123,6 +125,7 @@ export function BranchesScreen() {
     } else {
       items.push({
         key: "reactivate",
+        group: "status",
         label: t("branches.reactivate"),
         icon: "play-circle-outline",
         onPress: () => reactivateBranch(branch.id),
@@ -130,6 +133,7 @@ export function BranchesScreen() {
     }
     items.push({
       key: "delete",
+      group: "danger",
       label: t("common.delete"),
       icon: "trash-outline",
       destructive: true,
@@ -167,8 +171,7 @@ export function BranchesScreen() {
     if (deleted) clearSelection();
   }
 
-  // Toolbar actions for the selection header. 1 selected → edit + deactivate
-  // (active) / reactivate (inactive) + delete; >1 → delete only.
+  // Edit and activate/deactivate only appear on a single selection.
   function buildSelectionActions(selected: Branch[]): SelectionAction[] {
     if (selected.length === 0) return [];
     const actions: SelectionAction[] = [];
@@ -176,6 +179,7 @@ export function BranchesScreen() {
       const one = selected[0];
       actions.push({
         key: "edit",
+        group: "manage",
         icon: "create-outline",
         label: t("common.edit"),
         onPress: () => {
@@ -186,6 +190,7 @@ export function BranchesScreen() {
       if (one.active) {
         actions.push({
           key: "deactivate",
+          group: "status",
           icon: "pause-circle-outline",
           label: t("branches.deactivate"),
           destructive: true,
@@ -195,6 +200,7 @@ export function BranchesScreen() {
       } else {
         actions.push({
           key: "reactivate",
+          group: "status",
           icon: "play-circle-outline",
           label: t("branches.reactivate"),
           onPress: () => void reactivateBranch(one.id).then(clearSelection),
@@ -203,6 +209,7 @@ export function BranchesScreen() {
     }
     actions.push({
       key: "delete",
+      group: "danger",
       icon: "trash-outline",
       label: t("common.delete"),
       destructive: true,

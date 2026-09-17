@@ -7,6 +7,7 @@ import { PressableOpacity } from "./PressableOpacity";
 import { BranchSelector } from "./BranchSelector";
 import { SelectionBar, type SelectionAction } from "./SelectionBar";
 import { QuickActionsMenuButton } from "./QuickActionsMenuButton";
+import { sortActions, type ActionGroup } from "@/src/shared/lib/actionOrder";
 
 export type { SelectionAction } from "./SelectionBar";
 
@@ -22,6 +23,7 @@ export interface PageHeaderSelection {
 /** A screen-specific icon button in the header, next to the quick-actions menu. */
 export interface PageHeaderIconAction {
   key: string;
+  group?: ActionGroup;
   icon: keyof typeof Ionicons.glyphMap;
   label: string;
   onPress: () => void;
@@ -75,7 +77,7 @@ export function PageHeader({
             <Text className="text-xs text-gray-400">{subtitle}</Text>
           ) : null}
         </View>
-        {iconActions?.map((action) => (
+        {sortActions(iconActions ?? []).map((action) => (
           <PressableOpacity
             key={action.key}
             onPress={action.onPress}
@@ -86,8 +88,6 @@ export function PageHeader({
             <Ionicons name={action.icon} size={22} color={COLORS.gray700} />
           </PressableOpacity>
         ))}
-        {/* No `self-start`: the row is `items-center`, so the chip must center
-            with the title and the 3-dot button instead of hugging the top. */}
         {!hideBranchSelector && <BranchSelector className="" />}
         {!hideQuickActions && <QuickActionsMenuButton />}
       </View>

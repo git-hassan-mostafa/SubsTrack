@@ -733,6 +733,7 @@ export function CustomerPaymentPanel({
     const items: ActionMenuItem[] = [
       {
         key: "open",
+        group: "open",
         label: t("common.open"),
         icon: "open-outline",
         onPress: () => handleCellPress(entry),
@@ -741,6 +742,7 @@ export function CustomerPaymentPanel({
     if (canQuickPay(entry)) {
       items.push({
         key: "quick-pay",
+        group: "money",
         label: t("payments.quick_pay.pay_now"),
         icon: "flash-outline",
         caption: linePrice.isFixed
@@ -751,6 +753,7 @@ export function CustomerPaymentPanel({
       const sendable = canSend(customer.phoneNumber);
       items.push({
         key: "quick-pay-whatsapp",
+        group: "money",
         label: t("invoice.pay_and_send_whatsapp"),
         icon: "logo-whatsapp",
         renderIcon: (size: number) => (
@@ -763,6 +766,7 @@ export function CustomerPaymentPanel({
       if (linePrice.isFixed) {
         items.push({
           key: "collect-part",
+          group: "money",
           label: t("ledger.collect_part"),
           icon: "cash-outline",
           onPress: () => openCollect([entry]),
@@ -772,6 +776,7 @@ export function CustomerPaymentPanel({
     if (entry.status === "unpaid" || entry.status === "future") {
       items.push({
         key: "skip",
+        group: "manage",
         label: t("payments.skip.skip_action"),
         icon: "play-skip-forward-outline",
         onPress: () => setSkipRequest({ entries: [entry], mode: "skip" }),
@@ -780,6 +785,7 @@ export function CustomerPaymentPanel({
     if (entry.status === "skipped" && !isLockedSkipped(entry)) {
       items.push({
         key: "unskip",
+        group: "manage",
         label: t("payments.skip.unskip_action"),
         icon: "refresh-outline",
         onPress: () => setSkipRequest({ entries: [entry], mode: "unskip" }),
@@ -788,6 +794,7 @@ export function CustomerPaymentPanel({
     if (entry.status === "paid" && entry.charge) {
       items.push({
         key: "bill",
+        group: "open",
         label: t("ledger.view_bill"),
         icon: "receipt-outline",
         onPress: () => setBillEntry(entry),
@@ -795,18 +802,17 @@ export function CustomerPaymentPanel({
       if (entry.balance > 0) {
         items.push({
           key: "collect-remaining",
+          group: "money",
           label: t("ledger.collect_rest"),
           icon: "cash-outline",
           onPress: () => openCollect([entry]),
         });
       }
     }
-    // Offered on every real month, not just one holding a bill: a VOIDED bill is
-    // dropped from the grid's read, and that is exactly the month whose trail
-    // someone needs. An untouched month simply reports nothing.
     if (isAdmin && entry.status !== "before_start") {
       items.push({
         key: "history",
+        group: "history",
         label: t("audit.history"),
         icon: "time-outline",
         onPress: () => void openHistory(entry),
@@ -815,6 +821,7 @@ export function CustomerPaymentPanel({
     if (entry.charge) {
       items.push({
         key: "void-month",
+        group: "danger",
         label: t("ledger.void_month"),
         icon: "close-circle-outline",
         destructive: true,
@@ -866,6 +873,7 @@ export function CustomerPaymentPanel({
   if (payableEntries.length > 0) {
     selectionActions.push({
       key: "pay",
+      group: "money",
       icon: "cash-outline",
       label: t("payments.collect"),
       disabled: bulkBusy,
@@ -874,6 +882,7 @@ export function CustomerPaymentPanel({
     if (canSend(customer.phoneNumber)) {
       selectionActions.push({
         key: "pay-whatsapp",
+        group: "money",
         icon: "logo-whatsapp",
         renderIcon: (size) => <WhatsAppComboIcon variant="pay" size={size} />,
         label: t("invoice.pay_and_send_whatsapp"),
@@ -885,6 +894,7 @@ export function CustomerPaymentPanel({
   if (skippableEntries.length > 0) {
     selectionActions.push({
       key: "skip",
+      group: "manage",
       icon: "play-skip-forward-outline",
       label: t("payments.skip.skip_action"),
       disabled: bulkBusy,
@@ -895,6 +905,7 @@ export function CustomerPaymentPanel({
   if (skippedEntries.length > 0) {
     selectionActions.push({
       key: "unskip",
+      group: "manage",
       icon: "refresh-outline",
       label: t("payments.skip.unskip_action"),
       disabled: bulkBusy,

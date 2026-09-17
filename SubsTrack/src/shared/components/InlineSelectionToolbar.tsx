@@ -5,6 +5,7 @@ import { Text } from "@/src/shared/components/Text";
 import { COLORS } from "@/src/shared/constants";
 import { PressableOpacity } from "./PressableOpacity";
 import type { SelectionAction } from "./SelectionBar";
+import { sortActions } from "@/src/shared/lib/actionOrder";
 
 interface Props {
   count: number;
@@ -12,10 +13,7 @@ interface Props {
   onClose: () => void;
 }
 
-// Compact selection toolbar for a panel EMBEDDED in a screen (the month grid's
-// year header, the customer detail sales section) — the in-flow twin of the
-// page-level `SelectionBar`. Carries no background/margins of its own, so the
-// host decides whether it overlays a row or replaces one.
+// The in-flow twin of SelectionBar: no background or margins, the host decides.
 export function InlineSelectionToolbar({ count, actions, onClose }: Props) {
   const { t } = useTranslation();
   return (
@@ -23,8 +21,6 @@ export function InlineSelectionToolbar({ count, actions, onClose }: Props) {
       <PressableOpacity onPress={onClose} className="p-1" hitSlop={8}>
         <Ionicons name="close" size={20} color={COLORS.gray700} />
       </PressableOpacity>
-      {/* `flex-1` so the count keeps its own line and the actions take the rest —
-          without it the label is squeezed to one character per line. */}
       <View className="flex-1 min-w-0">
         <Text
           fontWeight="SemiBold"
@@ -34,11 +30,8 @@ export function InlineSelectionToolbar({ count, actions, onClose }: Props) {
           {t("common.selected_count", { count })}
         </Text>
       </View>
-      {/* Icon-only: up to 5 actions (pay / pay & send / skip / send invoice /
-          void) are on this one fixed-height row, and labelled pills overflow a
-          phone width. */}
       <View className="flex-row items-center gap-1.5">
-        {actions.map((action) => (
+        {sortActions(actions).map((action) => (
           <PressableOpacity
             key={action.key}
             onPress={action.onPress}

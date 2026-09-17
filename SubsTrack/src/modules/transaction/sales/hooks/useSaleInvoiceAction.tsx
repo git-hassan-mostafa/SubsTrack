@@ -3,11 +3,7 @@ import type { Sale } from "@/src/core/types";
 import type { SelectionAction } from "@/src/shared/components/SelectionBar";
 import { useSendInvoice, WhatsAppComboIcon } from "@/src/modules/invoicing";
 
-// The "send invoice" selection action shared by the two sales lists (the
-// Transactions tab and the per-customer page): one receipt covering every
-// selected sale. A voided sale is not a receipt, so it drops out of the
-// selection; a selection that can't be sent (several customers, walk-in, no
-// phone) keeps the action and explains itself on press — see resolveRecipient.
+// One receipt covers every selected sale, not one message per sale.
 export function useSaleInvoiceAction(
   selected: Sale[],
   onSent: () => void,
@@ -33,6 +29,7 @@ export function useSaleInvoiceAction(
 
   return {
     key: "send-invoice",
+    group: "send",
     icon: "receipt-outline",
     renderIcon: (size) => <WhatsAppComboIcon variant="report" size={size} />,
     label: t("invoice.send_invoice_whatsapp"),

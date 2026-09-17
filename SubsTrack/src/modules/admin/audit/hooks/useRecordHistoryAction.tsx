@@ -9,14 +9,7 @@ interface RecordHistoryAction {
   sheet: ReactNode;
 }
 
-/**
- * "History" for any audited list: one call gives a screen the menu row AND the sheet
- * it opens, so products / plans / staff / branches / currencies all offer the same
- * trail without each screen keeping its own open-record state.
- *
- * The row is offered to every role — a non-admin's read returns no rows, and the
- * sheet says "Admins only" rather than showing an empty (and untrue) timeline.
- */
+// Offered to every role: a non-admin's read is empty and the sheet says so.
 export function useRecordHistoryAction(table: AuditTable): RecordHistoryAction {
   const { t } = useTranslation();
   const [target, setTarget] = useState<{
@@ -27,6 +20,7 @@ export function useRecordHistoryAction(table: AuditTable): RecordHistoryAction {
   return {
     action: (recordId, name) => ({
       key: "history",
+      group: "history",
       label: t("audit.history"),
       icon: "time-outline",
       onPress: () => setTarget({ id: recordId, name }),

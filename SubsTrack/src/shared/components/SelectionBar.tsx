@@ -5,9 +5,11 @@ import { Text } from "@/src/shared/components/Text";
 import { COLORS } from "@/src/shared/constants";
 import { PressableOpacity } from "./PressableOpacity";
 import { Checkbox } from "./Checkbox";
+import { sortActions, type ActionGroup } from "@/src/shared/lib/actionOrder";
 
 export interface SelectionAction {
   key: string;
+  group?: ActionGroup;
   icon: keyof typeof Ionicons.glyphMap;
   renderIcon?: (size: number) => React.ReactNode;
   label: string;
@@ -24,12 +26,7 @@ interface SelectionBarProps {
   onToggleAll?: () => void;
 }
 
-// The selection row shown on every list/panel while selecting, always on ONE
-// line: a "select all" checkbox, the close (X) button, the bare selected count,
-// then the icon actions. The count is a number only (no "selected" word) —
-// spelling it out is what used to push the actions onto a second line on a
-// phone. Shared by PageHeader (overlaid on the header) and the Transactions
-// panels (rendered inline).
+// The count is a bare number; the word "selected" pushed actions to a 2nd line.
 export function SelectionBar({
   count,
   actions,
@@ -65,11 +62,9 @@ export function SelectionBar({
     </>
   );
 
-  // `shrink-0` so a long action row never squeezes itself; the leading cluster
-  // is fixed-width anyway, so the whole bar fits.
   const actionRow = (
     <View className="flex-1 flex-row items-center justify-end gap-1 shrink-0">
-      {actions.map((action) => (
+      {sortActions(actions).map((action) => (
         <PressableOpacity
           key={action.key}
           onPress={action.onPress}

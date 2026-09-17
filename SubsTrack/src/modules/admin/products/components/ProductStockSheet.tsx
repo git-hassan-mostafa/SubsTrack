@@ -197,6 +197,7 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
     return [
       {
         key: "edit",
+        group: "manage",
         label: t("products.edit_stock_entry"),
         icon: "create-outline",
         onPress: () => startEdit(m),
@@ -204,6 +205,7 @@ export function ProductStockSheet({ product, onDismiss }: Props) {
       history,
       {
         key: "revert",
+        group: "danger",
         label: t("products.revert_stock_entry"),
         icon: "arrow-undo-outline",
         destructive: true,

@@ -85,6 +85,7 @@ export function DebtItemCard({
   if (onCollect) {
     actions.push({
       key: "collect",
+      group: "money",
       label: t("payments.collect"),
       icon: "cash-outline",
       onPress: () => {
@@ -96,6 +97,7 @@ export function DebtItemCard({
   if (onEdit && item.kind === "manual" && item.chargeId) {
     actions.push({
       key: "edit",
+      group: "manage",
       label: t("common.edit"),
       icon: "create-outline",
       onPress: () => {
@@ -107,6 +109,7 @@ export function DebtItemCard({
   if (onWriteOff && item.chargeId) {
     actions.push({
       key: "write_off",
+      group: "danger",
       label: t("ledger.write_off"),
       icon: "remove-circle-outline",
       caption: t("ledger.write_off_caption"),
@@ -119,6 +122,7 @@ export function DebtItemCard({
   if (onVoid && item.kind === "manual" && item.chargeId) {
     actions.push({
       key: "remove",
+      group: "danger",
       label: t("debts.remove"),
       icon: "trash-outline",
       destructive: true,

@@ -49,6 +49,7 @@ export function ExpenseCard({ item, onVoid, onOpenProduct }: Props) {
   if (isStock && item.productId && onOpenProduct) {
     actions.push({
       key: "product",
+      group: "open",
       label: t("expenses.open_product"),
       icon: "cube-outline",
       onPress: () => onOpenProduct(item.productId!),
@@ -57,6 +58,7 @@ export function ExpenseCard({ item, onVoid, onOpenProduct }: Props) {
   if (item.canVoid && onVoid) {
     actions.push({
       key: "remove",
+      group: "danger",
       label: t("expenses.remove"),
       icon: "trash-outline",
       destructive: true,

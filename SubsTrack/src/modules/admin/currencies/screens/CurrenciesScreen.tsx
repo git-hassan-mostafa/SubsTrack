@@ -108,6 +108,7 @@ export function CurrenciesScreen() {
     const items: ActionMenuItem[] = [
       {
         key: "edit",
+        group: "manage",
         label: t("common.edit"),
         icon: "create-outline",
         onPress: () => openEdit(currency),
@@ -117,6 +118,7 @@ export function CurrenciesScreen() {
     if (currency.active) {
       items.push({
         key: "deactivate",
+        group: "status",
         label: t("tenant_settings.deactivate"),
         icon: "pause-circle-outline",
         destructive: true,
@@ -125,6 +127,7 @@ export function CurrenciesScreen() {
     } else {
       items.push({
         key: "reactivate",
+        group: "status",
         label: t("tenant_settings.reactivate"),
         icon: "play-circle-outline",
         onPress: () => reactivateCurrency(currency.id),
@@ -132,6 +135,7 @@ export function CurrenciesScreen() {
     }
     items.push({
       key: "delete",
+      group: "danger",
       label: t("common.delete"),
       icon: "trash-outline",
       destructive: true,
@@ -171,8 +175,7 @@ export function CurrenciesScreen() {
     if (deleted) clearSelection();
   }
 
-  // Toolbar actions for the selection header. 1 selected → edit + deactivate
-  // (active) / reactivate (inactive) + delete; >1 → delete only.
+  // Edit and activate/deactivate only appear on a single selection.
   function buildSelectionActions(selected: Currency[]): SelectionAction[] {
     if (selected.length === 0) return [];
     const actions: SelectionAction[] = [];
@@ -180,6 +183,7 @@ export function CurrenciesScreen() {
       const one = selected[0];
       actions.push({
         key: "edit",
+        group: "manage",
         icon: "create-outline",
         label: t("common.edit"),
         onPress: () => {
@@ -190,6 +194,7 @@ export function CurrenciesScreen() {
       if (one.active) {
         actions.push({
           key: "deactivate",
+          group: "status",
           icon: "pause-circle-outline",
           label: t("tenant_settings.deactivate"),
           destructive: true,
@@ -199,6 +204,7 @@ export function CurrenciesScreen() {
       } else {
         actions.push({
           key: "reactivate",
+          group: "status",
           icon: "play-circle-outline",
           label: t("tenant_settings.reactivate"),
           onPress: () => void reactivateCurrency(one.id).then(clearSelection),
@@ -207,6 +213,7 @@ export function CurrenciesScreen() {
     }
     actions.push({
       key: "delete",
+      group: "danger",
       icon: "trash-outline",
       label: t("common.delete"),
       destructive: true,

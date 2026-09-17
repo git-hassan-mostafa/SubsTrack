@@ -176,8 +176,7 @@ export function SalesPanel({ filterRowRef }: Props = {}) {
   const selectedSales = sales.filter((s) => selectedIds.has(s.id));
   const invoiceAction = useSaleInvoiceAction(selectedSales, clearSelection);
 
-  // Selection toolbar: one receipt covering the selected sales, plus a "void"
-  // action that opens the shared-reason sheet for every selected sale.
+  // One receipt covers ALL the selected sales, not one each.
   function buildSelectionActions(selected: Sale[]): SelectionAction[] {
     if (selected.length === 0) return [];
     const voidable = selected.filter((s) => s.voidedAt === null);
@@ -187,6 +186,7 @@ export function SalesPanel({ filterRowRef }: Props = {}) {
         ? [
             {
               key: "void",
+              group: "danger" as const,
               icon: "close-circle-outline" as const,
               label: t("sales.void_sale"),
               destructive: true,

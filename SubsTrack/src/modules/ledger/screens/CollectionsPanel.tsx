@@ -255,6 +255,7 @@ export function CollectionsPanel({ onOpenSale }: Props = {}) {
     return [
       {
         key: "void",
+        group: "danger",
         icon: "close-circle-outline",
         label: t("ledger.void_payment"),
         destructive: true,

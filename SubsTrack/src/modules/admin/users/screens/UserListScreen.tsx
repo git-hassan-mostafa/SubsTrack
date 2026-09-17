@@ -142,6 +142,7 @@ export function UserListScreen() {
     if (canEditUser(currentUser, user)) {
       items.push({
         key: "edit",
+        group: "manage",
         label: t("common.edit"),
         icon: "create-outline",
         onPress: () => openEdit(user),
@@ -151,6 +152,7 @@ export function UserListScreen() {
     if (canManage(user)) {
       items.push({
         key: "toggle-active",
+        group: "status",
         label: user.active ? t("users.deactivate") : t("users.activate"),
         icon: user.active ? "pause-circle-outline" : "play-circle-outline",
         destructive: user.active,
@@ -158,6 +160,7 @@ export function UserListScreen() {
       });
       items.push({
         key: "delete",
+        group: "danger",
         label: t("common.delete"),
         icon: "trash-outline",
         destructive: true,
@@ -238,8 +241,7 @@ export function UserListScreen() {
     if (deleted) clearSelection();
   }
 
-  // Toolbar actions for the selection header. 1 selected → edit + (toggle +
-  // delete when manageable); >1 → delete only.
+  // Edit and the active toggle only appear on a single manageable row.
   function buildSelectionActions(selected: AppUser[]): SelectionAction[] {
     if (selected.length === 0) return [];
     const actions: SelectionAction[] = [];
@@ -247,6 +249,7 @@ export function UserListScreen() {
       const one = selected[0];
       actions.push({
         key: "edit",
+        group: "manage",
         icon: "create-outline",
         label: t("common.edit"),
         onPress: () => {
@@ -257,6 +260,7 @@ export function UserListScreen() {
       if (canManage(one)) {
         actions.push({
           key: "toggle-active",
+          group: "status",
           icon: one.active ? "pause-circle-outline" : "play-circle-outline",
           label: one.active ? t("users.deactivate") : t("users.activate"),
           destructive: one.active,
@@ -267,6 +271,7 @@ export function UserListScreen() {
     if (selected.some(canManage)) {
       actions.push({
         key: "delete",
+        group: "danger",
         icon: "trash-outline",
         label: t("common.delete"),
         destructive: true,

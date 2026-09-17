@@ -217,6 +217,7 @@ export function WalletDetailView({
   const selectionActions: SelectionAction[] = [
     {
       key: "act",
+      group: "money",
       icon: "checkmark-done-outline",
       label: actionLabel,
       disabled: busy,

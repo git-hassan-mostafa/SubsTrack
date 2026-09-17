@@ -88,6 +88,7 @@ export function SaleDetailSheet({
   if (!voided && !voidMode && onEdit) {
     menuActions.push({
       key: "edit",
+      group: "manage",
       label: t("sales.edit_sale"),
       icon: "create-outline",
       onPress: () => onEdit(sale),
@@ -96,6 +97,7 @@ export function SaleDetailSheet({
   if (isAdmin && !voidMode) {
     menuActions.push({
       key: "history",
+      group: "history",
       label: t("audit.history"),
       icon: "time-outline",
       onPress: () => setHistoryOpen(true),
@@ -104,6 +106,7 @@ export function SaleDetailSheet({
   if (!voided && !voidMode && onVoid) {
     menuActions.push({
       key: "void",
+      group: "danger",
       label: t("sales.void_sale"),
       icon: "close-circle-outline",
       destructive: true,

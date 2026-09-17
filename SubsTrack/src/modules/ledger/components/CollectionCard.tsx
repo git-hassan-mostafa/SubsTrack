@@ -76,6 +76,7 @@ export function CollectionCard({
   if (onSendInvoice && !voided) {
     actions.push({
       key: "invoice",
+      group: "send",
       label: t("invoicing.send_on_whatsapp"),
       icon: "logo-whatsapp",
       onPress: () => {
@@ -87,6 +88,7 @@ export function CollectionCard({
   if (onVoid && !voided) {
     actions.push({
       key: "void",
+      group: "danger",
       label: t("ledger.void_payment"),
       icon: "trash-outline",
       destructive: true,

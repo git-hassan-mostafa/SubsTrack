@@ -120,6 +120,7 @@ export function CustomerSalesListScreen() {
       ...(invoiceAction ? [invoiceAction] : []),
       {
         key: "void",
+        group: "danger",
         icon: "close-circle-outline",
         label: t("sales.void_sale"),
         destructive: true,

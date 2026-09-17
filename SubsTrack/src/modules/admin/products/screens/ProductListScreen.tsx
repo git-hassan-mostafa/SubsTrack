@@ -121,6 +121,7 @@ export function ProductListScreen() {
     const actions: ActionMenuItem[] = [
       {
         key: "edit",
+        group: "manage",
         label: t("common.edit"),
         icon: "create-outline",
         onPress: () => openEdit(product),
@@ -130,12 +131,14 @@ export function ProductListScreen() {
     if (product.active) {
       actions.push({
         key: "stock",
+        group: "manage",
         label: t("products.adjust_stock_title"),
         icon: "cube-outline",
         onPress: () => openStock(product),
       });
       actions.push({
         key: "delete",
+        group: "danger",
         label: t("common.delete"),
         icon: "trash-outline",
         destructive: true,
@@ -144,6 +147,7 @@ export function ProductListScreen() {
     } else {
       actions.push({
         key: "reactivate",
+        group: "status",
         label: t("common.reactivate"),
         icon: "refresh-outline",
         onPress: () => void handleReactivate(product),
@@ -193,8 +197,7 @@ export function ProductListScreen() {
     if (deleted) clearSelection();
   }
 
-  // Toolbar actions for the selection header. 1 selected → edit + delete (active)
-  // / reactivate (inactive); >1 → delete only.
+  // Edit and reactivate only appear on a single selection.
   function buildSelectionActions(selected: Product[]): SelectionAction[] {
     if (selected.length === 0) return [];
     const actions: SelectionAction[] = [];
@@ -202,6 +205,7 @@ export function ProductListScreen() {
       const one = selected[0];
       actions.push({
         key: "edit",
+        group: "manage",
         icon: "create-outline",
         label: t("common.edit"),
         onPress: () => {
@@ -212,6 +216,7 @@ export function ProductListScreen() {
       if (!one.active) {
         actions.push({
           key: "reactivate",
+          group: "status",
           icon: "refresh-outline",
           label: t("common.reactivate"),
           onPress: () => void handleReactivate(one).then(clearSelection),
@@ -220,6 +225,7 @@ export function ProductListScreen() {
     }
     actions.push({
       key: "delete",
+      group: "danger",
       icon: "trash-outline",
       label: t("common.delete"),
       destructive: true,

@@ -7,12 +7,7 @@ import { useAuthSlice } from "@/src/state/hooks/useAuthSlice";
 import { PressableOpacity } from "./PressableOpacity";
 import { ActionMenu, type ActionMenuItem } from "./ActionMenu";
 
-// The top-right 3-dot menu: a global "quick add" shortcut list available on every
-// screen. Items only flip the `ui` slice; the sheets are hosted once by
-// QuickActionSheets (mounted in the app layout).
-//
-// Lives here rather than inside PageHeader because the dashboard hand-rolls its
-// own header and needs the same menu — one implementation, two callers.
+// App-wide 3-dot menu — QuickActionSheets hosts the sheets these rows open.
 export function QuickActionsMenuButton() {
   const { t } = useTranslation();
   const openQuickAction = useUiStore((s) => s.openQuickAction);
@@ -22,19 +17,23 @@ export function QuickActionsMenuButton() {
 
   const actions: ActionMenuItem[] = [
     {
-      key: "collectionsHistory",
-      label: t("ledger.history_title"),
-      icon: "time-outline",
-      onPress: () => openQuickAction("collectionsHistory"),
+      key: "collect",
+      group: "money",
+      label: t("ledger.collect_money"),
+      icon: "cash-outline",
+      iconBadge: "add",
+      onPress: () => openQuickAction("collect"),
     },
     {
       key: "customer",
+      group: "create",
       label: t("customers.add"),
       icon: "person-add-outline",
       onPress: () => openQuickAction("customer"),
     },
     {
       key: "sale",
+      group: "create",
       label: t("sales.record_button"),
       icon: "receipt-outline",
       iconBadge: "add",
@@ -42,23 +41,18 @@ export function QuickActionsMenuButton() {
     },
     {
       key: "customDebt",
+      group: "create",
       label: t("debts.add_custom_debt"),
       icon: "document-text-outline",
       iconBadge: "add",
       onPress: () => openQuickAction("customDebt"),
-    },
-    {
-      key: "collect",
-      label: t("ledger.collect_money"),
-      icon: "cash-outline",
-      iconBadge: "add",
-      onPress: () => openQuickAction("collect"),
     },
   ];
 
   if (isAdmin) {
     actions.push({
       key: "expense",
+      group: "create",
       label: t("expenses.add_title"),
       icon: "trending-down-outline",
       iconBadge: "add",
@@ -66,12 +60,21 @@ export function QuickActionsMenuButton() {
     });
     actions.push({
       key: "batchRestock",
+      group: "create",
       label: t("products.batch_restock_title"),
       icon: "cube-outline",
       iconBadge: "add",
       onPress: () => openQuickAction("batchRestock"),
     });
   }
+
+  actions.push({
+    key: "collectionsHistory",
+    group: "history",
+    label: t("ledger.history_title"),
+    icon: "time-outline",
+    onPress: () => openQuickAction("collectionsHistory"),
+  });
 
   return (
     <>

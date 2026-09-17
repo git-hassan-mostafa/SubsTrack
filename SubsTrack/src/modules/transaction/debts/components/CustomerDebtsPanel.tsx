@@ -130,6 +130,7 @@ export function CustomerDebtsPanel({ customer, onOpenSale }: Props) {
         actions={[
           {
             key: "write-off-all",
+            group: "danger",
             label: t("ledger.write_off_all"),
             caption: t("ledger.write_off_all_caption"),
             icon: "remove-circle-outline",

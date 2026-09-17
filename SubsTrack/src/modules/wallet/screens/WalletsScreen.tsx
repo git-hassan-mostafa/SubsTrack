@@ -171,6 +171,7 @@ export function WalletsScreen() {
       return [
         {
           key: "blocked",
+          group: "manage",
           label: t(BLOCK_LABEL[wallet.receiveBlock ?? "rank"]),
           icon: "lock-closed-outline",
           disabled: true,
@@ -181,6 +182,7 @@ export function WalletsScreen() {
     return [
       {
         key: "act-all",
+        group: "money",
         label:
           mode === "close_out"
             ? t("wallet.close_out_all")
