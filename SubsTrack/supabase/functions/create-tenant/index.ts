@@ -105,8 +105,8 @@ Deno.serve(async (req) => {
     }
 
     // ---- 1. tenants ----
-    // customer_allowance and price_per_customer_usd are omitted on purpose so
-    // the schema DEFAULTs decide the starting deal in exactly one place.
+    // customer_allowance, plan_allowance and price_per_plan_usd are omitted on
+    // purpose so the schema DEFAULTs decide the starting deal in one place.
 
     // ---- read the global default LBP rate (seeded in app_options) ----
     // Done before any tenant rows exist so a missing/invalid value can fall

@@ -5,6 +5,7 @@ import {
   TenantRepository,
   type CountedTable,
   type CreateTenantPayload,
+  type GrantedCounts,
   type TableCount,
 } from "../repository/TenantRepository";
 
@@ -19,6 +20,8 @@ function mapDbCustomerRequest(db: DbCustomerRequest): CustomerRequest {
     tenantId: db.tenant_id,
     requestedCount: db.requested_count,
     grantedCount: db.granted_count,
+    requestedPlans: db.requested_plans ?? 0,
+    grantedPlans: db.granted_plans,
     status: db.status,
     decidedAt: db.decided_at,
     createdAt: db.created_at,
@@ -35,7 +38,8 @@ function mapDbTenantToTenant(
     tenantCode: db.tenant_code,
     active: db.active,
     customerAllowance: Number(db.customer_allowance),
-    pricePerCustomerUsd: Number(db.price_per_customer_usd),
+    planAllowance: Number(db.plan_allowance),
+    pricePerPlanUsd: Number(db.price_per_plan_usd),
     pendingRequest,
     createdAt: db.created_at,
   };
@@ -63,27 +67,39 @@ export interface CreateTenantInput {
   adminPassword: string;
   // Omitted values fall back to the tenants column defaults.
   customerAllowance?: number;
-  pricePerCustomerUsd?: number;
+  planAllowance?: number;
+  pricePerPlanUsd?: number;
 }
 
 export interface UpdateTenantInput {
   name: string;
   active: boolean;
   customerAllowance: number;
-  pricePerCustomerUsd: number;
+  planAllowance: number;
+  pricePerPlanUsd: number;
 }
 
 // The allowance every tenant starts on and none may go below. Mirrored by
 // chk_tenants_customer_allowance_min and by the tenant app's own constant.
 export const MIN_CUSTOMER_ALLOWANCE = 30;
 
-function validateBilling(allowance: number, price: number): void {
+// The service-line allowance is what the tenant is billed on, and it can never
+// sit below the customer one — mirrored by chk_tenants_plan_allowance_floor.
+function validateBilling(
+  allowance: number,
+  planAllowance: number,
+  price: number,
+): void {
   if (!Number.isInteger(allowance) || allowance < MIN_CUSTOMER_ALLOWANCE)
     throw new Error(
       `Customer allowance must be a whole number of ${MIN_CUSTOMER_ALLOWANCE} or more`,
     );
+  if (!Number.isInteger(planAllowance) || planAllowance < allowance)
+    throw new Error(
+      "Service line allowance must be a whole number and at least the customer allowance",
+    );
   if (!Number.isFinite(price) || price < 0)
-    throw new Error("Price per customer must be 0 or more");
+    throw new Error("Price per service line must be 0 or more");
 }
 
 export class TenantService {
@@ -113,7 +129,8 @@ export class TenantService {
     // schema default, which already sits on the floor.
     validateBilling(
       data.customerAllowance ?? MIN_CUSTOMER_ALLOWANCE,
-      data.pricePerCustomerUsd ?? 0,
+      data.planAllowance ?? MIN_CUSTOMER_ALLOWANCE,
+      data.pricePerPlanUsd ?? 0,
     );
 
     const payload: CreateTenantPayload = {
@@ -122,8 +139,10 @@ export class TenantService {
     };
     if (data.customerAllowance !== undefined)
       payload.customer_allowance = data.customerAllowance;
-    if (data.pricePerCustomerUsd !== undefined)
-      payload.price_per_customer_usd = data.pricePerCustomerUsd;
+    if (data.planAllowance !== undefined)
+      payload.plan_allowance = data.planAllowance;
+    if (data.pricePerPlanUsd !== undefined)
+      payload.price_per_plan_usd = data.pricePerPlanUsd;
 
     const row = await this.repository.create(payload);
     const tenant = mapDbTenantToTenant(row);
@@ -178,28 +197,41 @@ export class TenantService {
 
   async updateTenant(id: string, data: UpdateTenantInput): Promise<Tenant> {
     if (!data.name.trim()) throw new Error("Tenant name is required");
-    validateBilling(data.customerAllowance, data.pricePerCustomerUsd);
+    validateBilling(
+      data.customerAllowance,
+      data.planAllowance,
+      data.pricePerPlanUsd,
+    );
     const row = await this.repository.update(id, {
       name: data.name.trim(),
       active: data.active,
       customer_allowance: data.customerAllowance,
-      price_per_customer_usd: data.pricePerCustomerUsd,
+      plan_allowance: data.planAllowance,
+      price_per_plan_usd: data.pricePerPlanUsd,
     });
     return mapDbTenantToTenant(row);
   }
 
-  // Returns the new allowance so the caller can patch the row it already holds.
+  // Returns the new limits so the caller can patch the row it already holds.
+  // The line limit follows the customer one up, exactly as the RPC does.
   async acceptRequest(
     requestId: string,
-    grantedCount: number,
-    currentAllowance: number,
-  ): Promise<{ request: CustomerRequest; allowance: number }> {
-    if (!Number.isInteger(grantedCount) || grantedCount < 1)
-      throw new Error("Granted customers must be a whole number of 1 or more");
-    const row = await this.repository.acceptRequest(requestId, grantedCount);
+    granted: GrantedCounts,
+    current: { customers: number; plans: number },
+  ): Promise<{ request: CustomerRequest; customers: number; plans: number }> {
+    const whole =
+      Number.isInteger(granted.customers) &&
+      Number.isInteger(granted.plans) &&
+      granted.customers >= 0 &&
+      granted.plans >= 0;
+    if (!whole || granted.customers + granted.plans < 1)
+      throw new Error("Grant a whole number of 1 or more in total");
+    const row = await this.repository.acceptRequest(requestId, granted);
+    const customers = current.customers + granted.customers;
     return {
       request: mapDbCustomerRequest(row),
-      allowance: currentAllowance + grantedCount,
+      customers,
+      plans: Math.max(current.plans + granted.plans, customers),
     };
   }
 
