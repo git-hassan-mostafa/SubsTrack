@@ -1,9 +1,11 @@
 export {
   flushPendingWrites,
+  resumeSync,
   resyncFromScratch,
   runSync,
   runSyncIfDue,
   startSync,
+  suspendSync,
   syncNow,
 } from "./engine";
 export {

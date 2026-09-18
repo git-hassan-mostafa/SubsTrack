@@ -17,10 +17,22 @@ const SYNC_INTERVAL_MS = 24 * 60 * 60 * 1000;
 
 let running: Promise<void> | null = null;
 let started = false;
+let suspended = false;
+
+/** Hold every cycle off during a restore — the pull releases the lock per page. */
+export function suspendSync(): void {
+  suspended = true;
+}
+
+/** Undo `suspendSync()`. Always call it from a `finally`. */
+export function resumeSync(): void {
+  suspended = false;
+}
 
 /** One sync cycle: push local changes up, then pull server changes down. Serialized. */
 export async function runSync(): Promise<void> {
   if (!IS_OFFLINE_CAPABLE) return;
+  if (suspended) return;
   if (running) return running;
   running = (async () => {
     if (!(await isOnline())) return;
@@ -89,7 +101,7 @@ export async function syncNow(): Promise<{ ok: boolean; offline: boolean }> {
  * offline / signed-out → no-op; a rejected row simply stays `_dirty` for later.
  */
 export async function flushPendingWrites(): Promise<void> {
-  if (!IS_OFFLINE_CAPABLE) return;
+  if (!IS_OFFLINE_CAPABLE || suspended) return;
   if (!(await isOnline())) return;
   const { data: sess } = await supabase.auth.getSession();
   if (!sess.session) return;

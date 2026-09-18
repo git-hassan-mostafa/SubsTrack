@@ -1,6 +1,7 @@
 import * as SQLite from 'expo-sqlite';
 import { IS_OFFLINE_CAPABLE } from '../platform';
 import { applySchema } from './applySchema';
+import { withDbLock } from '../dbLock';
 
 const DB_NAME = 'substrack.db';
 
@@ -43,9 +44,13 @@ export function isOfflineDbReady(): boolean {
 export async function wipeOfflineData(): Promise<void> {
   if (!_db) return;
   const { TABLES } = await import('./tables');
-  await _db.withTransactionAsync(async () => {
-    for (const t of TABLES) await _db!.execAsync(`DELETE FROM ${t.name};`);
-    await _db!.execAsync('DELETE FROM pending_deletes;');
-    await _db!.execAsync("DELETE FROM sync_meta WHERE key IN ('last_pulled_at', 'last_sync_at');");
-  });
+  await withDbLock(() =>
+    _db!.withTransactionAsync(async () => {
+      for (const t of TABLES) await _db!.execAsync(`DELETE FROM ${t.name};`);
+      await _db!.execAsync('DELETE FROM pending_deletes;');
+      await _db!.execAsync(
+        "DELETE FROM sync_meta WHERE key IN ('last_pulled_at', 'last_sync_at');",
+      );
+    }),
+  );
 }

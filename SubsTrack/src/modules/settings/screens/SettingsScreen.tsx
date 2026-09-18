@@ -76,7 +76,7 @@ function SettingsRow({
 export function SettingsScreen() {
   const { t } = useTranslation();
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const { language, setLanguage } = useLanguageStore();
   const logout = useAuthSlice((s) => s.logout);
   const [languagePickerOpen, setLanguagePickerOpen] = useState(false);
@@ -285,14 +285,16 @@ export function SettingsScreen() {
                     />
                   )}
                 </PressableOpacity>
-                <SettingsRow
-                  icon="code-slash-outline"
-                  label={t("settings.developer")}
-                  last
-                  onPress={() =>
-                    router.push("/(app)/(tabs)/settings/developer")
-                  }
-                />
+                {isAdmin ? (
+                  <SettingsRow
+                    icon="code-slash-outline"
+                    label={t("settings.developer")}
+                    last
+                    onPress={() =>
+                      router.push("/(app)/(tabs)/settings/developer")
+                    }
+                  />
+                ) : null}
               </View>
             </View>
           ) : null}

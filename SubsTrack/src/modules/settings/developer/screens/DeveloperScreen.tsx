@@ -1,41 +1,92 @@
 import { useCallback, useEffect, useState } from "react";
 import { ScrollView, View } from "react-native";
-import { FormSheet } from "@/src/shared/components/FormSheet";
 import { useTranslation } from "react-i18next";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
-import * as Clipboard from "expo-clipboard";
+import Constants from "expo-constants";
 import { PageHeader } from "@/src/shared/components/PageHeader";
 import { ResponsiveContainer } from "@/src/shared/components/ResponsiveContainer";
 import { Text } from "@/src/shared/components/Text";
 import { Button } from "@/src/shared/components/Button";
-import { Input } from "@/src/shared/components/Input";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
 import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
 import { DbTableViewer } from "@/src/shared/components/DbTableViewer";
 import { DirectionalIcon } from "@/src/shared/components/DirectionalIcon";
 import { CARD_SURFACE, COLORS } from "@/src/shared/constants";
 import { confirm } from "@/src/shared/lib/confirm";
+import { resetAllDomainStores } from "@/src/shared/lib/storeReset";
+import { refreshActiveData } from "@/src/state/refreshActiveData";
+import { useAuth } from "@/src/modules/authentication/auth";
 import {
+  FileTooLargeError,
+  newExportFile,
+  openWriter,
+  pickTextFile,
+  shareFile,
+} from "@/src/shared/lib/shareFile";
+import {
+  countUnsyncedWrites,
+  getSyncStatus,
   IS_OFFLINE_CAPABLE,
-  TABLES,
+  isOnline,
+  RestoreBlockedError,
+  restoreBackup,
+  resumeSync,
   resyncFromScratch,
+  scopeKeyOf,
+  suspendSync,
+  syncNow,
+  TABLES,
+  validateBackup,
+  writeBackup,
+} from "@/src/core/offline";
+import type {
+  BackupProblem,
+  BackupSession,
+  BackupWarning,
 } from "@/src/core/offline";
 import { getDb } from "@/src/core/offline/db/sqlite";
 
 const BOOKKEEPING_TABLES = ["sync_meta", "pending_deletes"];
 const ALL_TABLE_NAMES = [...TABLES.map((t) => t.name), ...BOOKKEEPING_TABLES];
+const MAX_IMPORT_BYTES = 64 * 1024 * 1024;
+
+const PROBLEM_KEYS: Record<BackupProblem["code"], string> = {
+  invalid_file: "settings.developer_import_invalid_json",
+  wrong_format: "settings.developer_import_wrong_format",
+  newer_version: "settings.developer_import_newer_version",
+  missing_table: "settings.developer_import_missing_table",
+  unknown_table: "settings.developer_import_unknown_table",
+  bad_value: "settings.developer_import_bad_value",
+  carries_dirty: "settings.developer_import_carries_dirty",
+  missing_id: "settings.developer_import_missing_id",
+  duplicate_id: "settings.developer_import_duplicate_id",
+  duplicate_key: "settings.developer_import_duplicate_key",
+  wrong_tenant: "settings.developer_import_wrong_tenant",
+  wrong_tenant_rows: "settings.developer_import_wrong_tenant_rows",
+  wrong_branch: "settings.developer_import_wrong_branch",
+  missing_profile: "settings.developer_import_missing_profile",
+};
+
+function stamp(): string {
+  return new Date()
+    .toISOString()
+    .slice(0, 16)
+    .replace(/[-:]/g, "")
+    .replace("T", "-");
+}
 
 export function DeveloperScreen() {
   const { t } = useTranslation();
   const router = useRouter();
+  const { user, isAdmin } = useAuth();
   const [selectedTable, setSelectedTable] = useState<string | null>(null);
   const [counts, setCounts] = useState<Record<string, number>>({});
-  const [importOpen, setImportOpen] = useState(false);
-  const [importText, setImportText] = useState("");
-  const [importError, setImportError] = useState<string | null>(null);
-  const [importBusy, setImportBusy] = useState(false);
-  const [resyncBusy, setResyncBusy] = useState(false);
+  const [busy, setBusy] = useState<
+    "export" | "import" | "resync" | "sync" | null
+  >(null);
+  const [error, setError] = useState<string | null>(null);
+  const [needsSync, setNeedsSync] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
 
   const refreshCounts = useCallback(async () => {
@@ -51,11 +102,11 @@ export function DeveloperScreen() {
   }, []);
 
   useEffect(() => {
-    if (!IS_OFFLINE_CAPABLE) return;
+    if (!IS_OFFLINE_CAPABLE || !isAdmin) return;
     void refreshCounts();
-  }, [refreshCounts]);
+  }, [refreshCounts, isAdmin]);
 
-  if (!IS_OFFLINE_CAPABLE) {
+  if (!IS_OFFLINE_CAPABLE || !isAdmin) {
     return (
       <SafeAreaView className="flex-1 bg-gray-50">
         <PageHeader
@@ -66,7 +117,9 @@ export function DeveloperScreen() {
         />
         <View className="flex-1 items-center justify-center px-8">
           <Text className="text-sm text-gray-400 text-center">
-            {t("settings.developer_web_unavailable")}
+            {IS_OFFLINE_CAPABLE
+              ? t("settings.developer_admin_only")
+              : t("settings.developer_web_unavailable")}
           </Text>
         </View>
       </SafeAreaView>
@@ -78,23 +131,252 @@ export function DeveloperScreen() {
     setTimeout(() => setFlash(null), 3000);
   }
 
-  async function handleExport() {
-    const db = getDb();
-    const dump: Record<string, Record<string, unknown>[]> = {};
-    for (const name of ALL_TABLE_NAMES) {
-      dump[name] = await db.getAllAsync<Record<string, unknown>>(
-        `SELECT * FROM ${name}`,
-      );
-    }
-    await Clipboard.setStringAsync(JSON.stringify(dump));
-    flashMessage(t("settings.developer_export_done"));
+  function sessionOf(): BackupSession | null {
+    const current = user;
+    if (!current) return null;
+    return {
+      tenantId: current.tenantId,
+      tenantCode: current.tenant.tenantCode,
+      tenantName: current.tenant.name,
+      userId: current.id,
+      username: current.username,
+      branchId: current.branchId,
+    };
   }
 
-  // Forget the pull cursor and re-pull the whole tenant. Repairs a mirror whose
-  // incremental pull skipped rows; non-destructive (un-pushed local writes go up
-  // first and still win the merge).
+  function totalLocalRows(): number {
+    return TABLES.reduce((sum, spec) => sum + (counts[spec.name] ?? 0), 0);
+  }
+
+  async function handleExport() {
+    setError(null);
+    setNeedsSync(false);
+    const session = sessionOf();
+    if (!session) return;
+
+    setBusy("export");
+    try {
+      const pending = await countUnsyncedWrites();
+      if (pending > 0) {
+        setNeedsSync(true);
+        setError(
+          t("settings.developer_export_blocked_unsynced", { count: pending }),
+        );
+        return;
+      }
+
+      flashMessage(t("settings.developer_export_running"));
+      const file = newExportFile(
+        `substrack-${session.tenantCode}-${stamp()}`,
+        "json",
+      );
+      const writer = openWriter(file);
+      suspendSync();
+      let total = 0;
+      try {
+        const result = await writeBackup(
+          writer,
+          session,
+          {
+            version: Constants.expoConfig?.version ?? null,
+            runtimeVersion:
+              typeof Constants.expoConfig?.runtimeVersion === "string"
+                ? Constants.expoConfig.runtimeVersion
+                : null,
+          },
+          scopeKeyOf(session.branchId),
+        );
+        total = result.totalRows;
+      } finally {
+        writer.close();
+        resumeSync();
+      }
+
+      const shared = await shareFile(file, "application/json", "public.json");
+      if (!shared) {
+        setError(t("export.sharing_unavailable"));
+        return;
+      }
+      flashMessage(t("settings.developer_export_done", { rows: total }));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : t("settings.developer_export_failed"));
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function handleSyncThenRetry() {
+    setError(null);
+    setNeedsSync(false);
+    setBusy("sync");
+    try {
+      const { offline } = await syncNow();
+      flashMessage(
+        offline
+          ? t("settings.developer_resync_offline")
+          : t("settings.developer_resync_done"),
+      );
+      await refreshCounts();
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  function warningText(warnings: BackupWarning[]): string | null {
+    if (warnings.length === 0) return null;
+    return warnings
+      .map((w) =>
+        t("settings.developer_import_dropped_columns", {
+          table: w.table,
+          columns: w.columns.join(", "),
+        }),
+      )
+      .join("\n");
+  }
+
+  async function handleImport() {
+    setError(null);
+    setNeedsSync(false);
+    const session = sessionOf();
+    if (!session) return;
+
+    if (getSyncStatus().syncing) {
+      setError(t("settings.developer_import_blocked_syncing"));
+      return;
+    }
+    const pending = await countUnsyncedWrites();
+    if (pending > 0) {
+      setNeedsSync(true);
+      setError(
+        t("settings.developer_import_blocked_unsynced", { count: pending }),
+      );
+      return;
+    }
+
+    let picked: { name: string; content: string } | null;
+    try {
+      picked = await pickTextFile("application/json", MAX_IMPORT_BYTES);
+    } catch (e) {
+      setError(
+        e instanceof FileTooLargeError
+          ? t("settings.developer_import_too_large")
+          : e instanceof Error
+            ? e.message
+            : String(e),
+      );
+      return;
+    }
+    if (!picked) return;
+
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(picked.content);
+    } catch {
+      setError(t("settings.developer_import_invalid_json"));
+      return;
+    }
+
+    const check = validateBackup(parsed, session);
+    if (!check.ok) {
+      setError(
+        t(PROBLEM_KEYS[check.problem.code], {
+          table: check.problem.table,
+          column: check.problem.column,
+          value: check.problem.value,
+        }),
+      );
+      return;
+    }
+
+    const warnings = warningText(check.warnings);
+    const exportedAt = check.backup.exportedAt
+      ? new Date(check.backup.exportedAt).toLocaleString()
+      : "—";
+    const details = [
+      t("settings.developer_import_source", {
+        tenant: check.backup.tenant.name || check.backup.tenant.code,
+        date: exportedAt,
+      }),
+      t("settings.developer_import_rows", {
+        rows: check.totalRows,
+        current: totalLocalRows(),
+      }),
+      warnings,
+    ]
+      .filter(Boolean)
+      .join("\n\n");
+
+    const proceed = await confirm({
+      title: t("settings.developer_import_confirm_title"),
+      message: `${details}\n\n${t("settings.developer_import_confirm_message")}`,
+      confirmLabel: t("settings.developer_import_confirm_action"),
+      destructive: true,
+    });
+    if (!proceed) return;
+
+    const online = await isOnline();
+    const pushToServer = online
+      ? await confirm({
+          title: t("settings.developer_push_title"),
+          message: t("settings.developer_push_message"),
+          confirmLabel: t("settings.developer_push_yes"),
+          cancelLabel: t("settings.developer_push_no"),
+          destructive: true,
+        })
+      : false;
+    if (!online) flashMessage(t("settings.developer_push_offline"));
+
+    setBusy("import");
+    suspendSync();
+    try {
+      await restoreBackup(
+        check.backup,
+        session,
+        { pushToServer },
+        (done, total) =>
+          setFlash(t("settings.developer_import_running", { done, total })),
+      );
+      setSelectedTable(null);
+      resetAllDomainStores();
+      await refreshActiveData();
+      await refreshCounts();
+      flashMessage(
+        t("settings.developer_import_done", { rows: check.totalRows }),
+      );
+    } catch (e) {
+      if (e instanceof RestoreBlockedError) {
+        setNeedsSync(true);
+        setError(t("settings.developer_import_blocked_unsynced", { count: 1 }));
+      } else {
+        setError(
+          e instanceof Error ? e.message : t("settings.developer_import_failed"),
+        );
+      }
+      return;
+    } finally {
+      resumeSync();
+      setBusy(null);
+    }
+
+    if (pushToServer) {
+      setBusy("import");
+      try {
+        const { ok } = await syncNow();
+        flashMessage(
+          ok
+            ? t("settings.developer_push_done")
+            : t("settings.developer_push_failed"),
+        );
+      } finally {
+        setBusy(null);
+        await refreshCounts();
+      }
+    }
+  }
+
+  // forget the pull cursor and re-pull — repairs a mirror that skipped rows
   async function handleResync() {
-    setResyncBusy(true);
+    setBusy("resync");
     flashMessage(t("settings.developer_resync_running"));
     try {
       const { ok, offline } = await resyncFromScratch();
@@ -107,76 +389,7 @@ export function DeveloperScreen() {
             : t("settings.developer_resync_failed"),
       );
     } finally {
-      setResyncBusy(false);
-    }
-  }
-
-  async function handleImportConfirm() {
-    setImportError(null);
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(importText);
-    } catch {
-      setImportError(t("settings.developer_import_invalid_json"));
-      return;
-    }
-    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-      setImportError(t("settings.developer_import_invalid_json"));
-      return;
-    }
-    const data = parsed as Record<string, unknown>;
-    const unknownKeys = Object.keys(data).filter(
-      (k) => !ALL_TABLE_NAMES.includes(k),
-    );
-    if (unknownKeys.length > 0) {
-      setImportError(
-        t("settings.developer_import_unknown_table", { table: unknownKeys[0] }),
-      );
-      return;
-    }
-
-    await confirm({
-      title: t("settings.developer_import_confirm_title"),
-      message: t("settings.developer_import_confirm_message"),
-      confirmLabel: t("settings.developer_import_confirm_action"),
-      destructive: true,
-      onConfirm: () => runImport(data),
-    });
-  }
-
-  async function runImport(data: Record<string, unknown>) {
-    setImportBusy(true);
-    try {
-      const db = getDb();
-      await db.withTransactionAsync(async () => {
-        for (const name of ALL_TABLE_NAMES) {
-          await db.execAsync(`DELETE FROM ${name};`);
-        }
-        for (const [table, rows] of Object.entries(data)) {
-          if (!Array.isArray(rows)) continue;
-          for (const row of rows) {
-            if (!row || typeof row !== "object") continue;
-            const entries = Object.entries(row as Record<string, unknown>);
-            if (entries.length === 0) continue;
-            const columns = entries.map(([col]) => col);
-            const values = entries.map(([, v]) => v);
-            const placeholders = columns.map(() => "?").join(", ");
-            await db.runAsync(
-              `INSERT INTO ${table} (${columns.join(", ")}) VALUES (${placeholders})`,
-              values as never[],
-            );
-          }
-        }
-      });
-      setImportOpen(false);
-      setImportText("");
-      setSelectedTable(null);
-      await refreshCounts();
-      flashMessage(t("settings.developer_import_done"));
-    } catch (e) {
-      setImportError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setImportBusy(false);
+      setBusy(null);
     }
   }
 
@@ -204,22 +417,38 @@ export function DeveloperScreen() {
       />
       <ResponsiveContainer className="flex-1">
         <ScrollView>
+          {error ? (
+            <View className="mx-4 mt-4">
+              <ErrorBanner message={error} onDismiss={() => setError(null)} />
+              {needsSync ? (
+                <Button
+                  label={t("settings.developer_export_sync_action")}
+                  onPress={() => void handleSyncThenRetry()}
+                  loading={busy === "sync"}
+                  disabled={busy !== null}
+                  variant="ghost"
+                  fullWidth
+                />
+              ) : null}
+            </View>
+          ) : null}
+
           <View className="mx-4 mt-4 mb-3 flex-row gap-3">
             <View className="flex-1">
               <Button
                 label={t("settings.developer_export")}
                 onPress={() => void handleExport()}
+                loading={busy === "export"}
+                disabled={busy !== null}
                 variant="ghost"
               />
             </View>
             <View className="flex-1">
               <Button
                 label={t("settings.developer_import")}
-                onPress={() => {
-                  setImportText("");
-                  setImportError(null);
-                  setImportOpen(true);
-                }}
+                onPress={() => void handleImport()}
+                loading={busy === "import"}
+                disabled={busy !== null}
                 variant="ghost"
               />
             </View>
@@ -229,8 +458,8 @@ export function DeveloperScreen() {
             <Button
               label={t("settings.developer_resync")}
               onPress={() => void handleResync()}
-              loading={resyncBusy}
-              disabled={resyncBusy}
+              loading={busy === "resync"}
+              disabled={busy !== null}
               variant="ghost"
               fullWidth
             />
@@ -286,46 +515,6 @@ export function DeveloperScreen() {
           </View>
         ) : null}
       </ResponsiveContainer>
-
-      {/* Not `useDirtyForm`: this sheet is always mounted, so a first-render
-          baseline would be the screen's mount, not the sheet's open. `importText`
-          is empty until typed, so its own emptiness is the dirty check. */}
-      <FormSheet
-        visible={importOpen}
-        onDismiss={() => setImportOpen(false)}
-        dirty={importText.trim().length > 0}
-        title={t("settings.developer_import")}
-      >
-        {importError ? (
-          <ErrorBanner
-            message={importError}
-            onDismiss={() => setImportError(null)}
-          />
-        ) : null}
-        <Text className="text-sm text-gray-500 mb-3">
-          {t("settings.developer_import_hint")}
-        </Text>
-        <Input
-          value={importText}
-          onChangeText={setImportText}
-          placeholder={t("settings.developer_import_placeholder")}
-          multiline
-          numberOfLines={12}
-          scrollEnabled
-          style={{ minHeight: 220, maxHeight: 220 }}
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
-        <Button
-          label={t("settings.developer_import_confirm_action")}
-          onPress={() => void handleImportConfirm()}
-          loading={importBusy}
-          disabled={!importText.trim() || importBusy}
-          variant="danger"
-          fullWidth
-        />
-        <View className="h-8" />
-      </FormSheet>
     </SafeAreaView>
   );
 }
