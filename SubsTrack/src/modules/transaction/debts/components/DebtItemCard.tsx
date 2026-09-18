@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import {
   CardAmount,
+  CardChips,
   CardMeta,
   CardSubtitle,
   CardTitle,
@@ -164,7 +165,7 @@ export function DebtItemCard({
         </CardMeta>
 
         {late > 0 || paidFraction || writtenOff ? (
-          <View className="mt-1 flex-row flex-wrap items-center gap-1">
+          <CardChips>
             {late > 0 ? (
               <Chip text={t("ledger.days_late", { count: late })} tone="red" />
             ) : null}
@@ -172,7 +173,7 @@ export function DebtItemCard({
             {writtenOff ? (
               <Chip text={t("ledger.written_off")} tone="orange" />
             ) : null}
-          </View>
+          </CardChips>
         ) : null}
       </View>
 

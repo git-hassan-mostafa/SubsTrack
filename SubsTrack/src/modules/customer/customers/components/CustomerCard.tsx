@@ -3,6 +3,7 @@ import { View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTranslation } from "react-i18next";
 import {
+  CardChips,
   CardMeta,
   CardTitle,
 } from "@/src/shared/components/CardText";
@@ -165,11 +166,11 @@ export const CustomerCard = memo(function CustomerCard({
             </CardMeta>
           </View>
         )}
-        <View className="mt-1 flex-row flex-wrap items-center gap-1 min-h-[19px]">
+        <CardChips reserveSpace>
           {chips.map((chip) => (
             <Chip key={chip.key} text={chip.text} tone={chip.tone} />
           ))}
-        </View>
+        </CardChips>
       </View>
     </EntityCard>
   );

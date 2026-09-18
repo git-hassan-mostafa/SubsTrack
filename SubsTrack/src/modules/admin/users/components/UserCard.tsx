@@ -1,5 +1,9 @@
 import { View } from "react-native";
-import { CardSubtitle, CardTitle } from "@/src/shared/components/CardText";
+import {
+  CardChips,
+  CardSubtitle,
+  CardTitle,
+} from "@/src/shared/components/CardText";
 import { Chip, type ChipTone } from "@/src/shared/components/Chip";
 import type { AppUser } from "@/src/core/types";
 import { useTranslation } from "react-i18next";
@@ -18,7 +22,7 @@ interface Props {
 
 const roleBadgeStyle: Record<string, { tone: ChipTone; label: string }> = {
   admin: { tone: "indigo", label: "Admin" },
-  user: { tone: "gray", label: "Staff" },
+  user: { tone: "teal", label: "Staff" },
   superadmin: { tone: "violet", label: "Super" },
 };
 
@@ -39,6 +43,7 @@ export function UserCard({
       icon="person-outline"
       iconColor={COLORS.success}
       iconBgClassName="bg-success-light"
+      dimmed={!user.active}
       onPress={() => onEdit(user)}
       onMenu={() => onMenu(user)}
       selectionMode={selectionMode}
@@ -48,22 +53,22 @@ export function UserCard({
         onEnterSelection ? () => onEnterSelection(user) : undefined
       }
     >
-      <View className="flex-1">
-        <View className="flex-row items-center gap-2">
-          <CardTitle>{user.fullName}</CardTitle>
-          {!user.active && <Chip text={t("users.inactive")} tone="gray" />}
-        </View>
-        <CardSubtitle className="mt-0.5">
+      <View className="flex-1 me-2">
+        <CardTitle numberOfLines={1}>{user.fullName}</CardTitle>
+        <CardSubtitle className="mt-0.5" numberOfLines={1}>
           @{user.username}
           {user.phoneNumber ? ` · ${user.phoneNumber}` : ""}
         </CardSubtitle>
+        <CardChips>
+          <Chip
+            text={t(`users.${badge.label.toLowerCase()}`)}
+            tone={badge.tone}
+          />
+          {!user.active ? (
+            <Chip text={t("common.inactive")} tone="gray" />
+          ) : null}
+        </CardChips>
       </View>
-
-      <Chip
-        text={t(`users.${badge.label.toLowerCase()}`)}
-        tone={badge.tone}
-        size="md"
-      />
     </EntityCard>
   );
 }

@@ -3,6 +3,7 @@ import { View } from "react-native";
 import { useTranslation } from "react-i18next";
 import {
   CardAmount,
+  CardChips,
   CardMeta,
   CardSubtitle,
   CardTitle,
@@ -55,17 +56,17 @@ export function ServiceCard({
         onEnterSelection ? () => onEnterSelection(service) : undefined
       }
     >
-      <View className="flex-1">
-        <CardTitle>{service.name}</CardTitle>
+      <View className="flex-1 me-2">
+        <CardTitle numberOfLines={1}>{service.name}</CardTitle>
         {service.description ? (
           <CardSubtitle className="mt-0.5" numberOfLines={1}>
             {service.description}
           </CardSubtitle>
         ) : null}
         {!service.active ? (
-          <View className="mt-1.5 flex-row">
-            <Chip text={t("services.inactive_badge")} tone="gray" />
-          </View>
+          <CardChips>
+            <Chip text={t("common.inactive")} tone="gray" />
+          </CardChips>
         ) : null}
       </View>
 

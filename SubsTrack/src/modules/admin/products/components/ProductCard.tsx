@@ -3,6 +3,7 @@ import { View } from "react-native";
 import { useTranslation } from "react-i18next";
 import {
   CardAmount,
+  CardChips,
   CardMeta,
   CardSubtitle,
   CardTitle,
@@ -61,24 +62,19 @@ export function ProductCard({
         onEnterSelection ? () => onEnterSelection(product) : undefined
       }
     >
-      <View className="flex-1">
-        <CardTitle>{product.name}</CardTitle>
+      <View className="flex-1 me-2">
+        <CardTitle numberOfLines={1}>{product.name}</CardTitle>
         {product.description ? (
           <CardSubtitle className="mt-0.5" numberOfLines={1}>
             {product.description}
           </CardSubtitle>
         ) : null}
-
-        <View className="mt-1.5 flex-row flex-wrap items-center gap-1">
+        <CardChips>
+          <Chip text={stockLabel} tone={inStock ? "emerald" : "red"} />
           {!product.active ? (
-            <Chip text={t("products.inactive_badge")} tone="gray" />
+            <Chip text={t("common.inactive")} tone="gray" />
           ) : null}
-          <Chip
-            text={stockLabel}
-            tone={inStock ? "emerald" : "red"}
-            size="md"
-          />
-        </View>
+        </CardChips>
       </View>
 
       <View className="items-end me-2">

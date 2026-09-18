@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import type { Currency } from "@/src/core/types";
 import {
   CardAmount,
+  CardChips,
   CardMeta,
   CardSubtitle,
   CardTitle,
@@ -50,18 +51,16 @@ export function CurrencyCard({
         onEnterSelection ? () => onEnterSelection(currency) : undefined
       }
     >
-      <View className="flex-1">
-        <View className="flex-row items-center">
-          <CardTitle>{currency.code}</CardTitle>
-          {!currency.active ? (
-            <View className="ms-2">
-              <Chip text={t("common.inactive")} tone="gray" />
-            </View>
-          ) : null}
-        </View>
+      <View className="flex-1 me-2">
+        <CardTitle numberOfLines={1}>{currency.code}</CardTitle>
         <CardSubtitle className="mt-0.5" numberOfLines={1}>
           {currency.name}
         </CardSubtitle>
+        {!currency.active ? (
+          <CardChips>
+            <Chip text={t("common.inactive")} tone="gray" />
+          </CardChips>
+        ) : null}
       </View>
 
       <View className="items-end me-2">

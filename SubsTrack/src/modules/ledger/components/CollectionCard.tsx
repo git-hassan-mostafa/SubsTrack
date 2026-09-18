@@ -3,6 +3,7 @@ import { View } from "react-native";
 import { useTranslation } from "react-i18next";
 import {
   CardAmount,
+  CardChips,
   CardMeta,
   CardSubtitle,
   CardTitle,
@@ -140,7 +141,7 @@ export function CollectionCard({
           {formatDateTime(item.receivedAt)}
         </CardMeta>
 
-        <View className="mt-1 flex-row flex-wrap items-center gap-1">
+        <CardChips>
           <Chip text={t(`ledger.kind_${item.kind}`)} tone={style.chipTone} />
           {item.itemCount > 1 ? (
             <Chip
@@ -148,9 +149,7 @@ export function CollectionCard({
               tone="gray"
             />
           ) : null}
-          {holder && !voided ? (
-            <Chip text={holder} tone="amber" />
-          ) : null}
+          {holder && !voided ? <Chip text={holder} tone="amber" /> : null}
           {voided ? (
             <Chip
               text={
@@ -161,7 +160,7 @@ export function CollectionCard({
               tone="red"
             />
           ) : null}
-        </View>
+        </CardChips>
       </View>
 
       <ActionMenu

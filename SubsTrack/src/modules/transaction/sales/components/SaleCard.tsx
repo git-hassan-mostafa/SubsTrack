@@ -15,6 +15,7 @@ import { receiptId } from "@/src/core/utils/receiptId";
 import { EntityCard } from "@/src/shared/components/EntityCard";
 import {
   CardAmount,
+  CardChips,
   CardMeta,
   CardSubtitle,
   CardTitle,
@@ -67,7 +68,7 @@ export function SaleCard({
         onEnterSelection ? () => onEnterSelection(sale) : undefined
       }
     >
-      <View className="flex-1">
+      <View className="flex-1 me-2">
         <CardTitle numberOfLines={1}>#{receiptId(sale.id)}</CardTitle>
         <CardSubtitle className="mt-0.5" numberOfLines={1}>
           {sale.itemsSummary}
@@ -77,25 +78,25 @@ export function SaleCard({
           {" · "}
           {formatDate(sale.soldAt)}
         </CardMeta>
-        {voided ? (
-          <View className="mt-1 flex-row">
-            <Chip
-              text={
-                sale.voidReason
-                  ? `${t("sales.voided")} · ${sale.voidReason}`
-                  : t("sales.voided")
-              }
-              tone="red"
-            />
-          </View>
-        ) : sale.items.length === 0 ? (
-          <View className="mt-1 flex-row">
-            <Chip text={t("sales.no_items_chip")} tone="violet" />
-          </View>
+        {voided || sale.items.length === 0 ? (
+          <CardChips>
+            {voided ? (
+              <Chip
+                text={
+                  sale.voidReason
+                    ? `${t("sales.voided")} · ${sale.voidReason}`
+                    : t("sales.voided")
+                }
+                tone="red"
+              />
+            ) : (
+              <Chip text={t("sales.no_items_chip")} tone="violet" />
+            )}
+          </CardChips>
         ) : null}
       </View>
 
-      <View className="items-end ms-2">
+      <View className="items-end">
         <CardAmount tone={voided ? "muted" : fullyPaid ? "default" : "danger"}>
           {totalLabel}
         </CardAmount>

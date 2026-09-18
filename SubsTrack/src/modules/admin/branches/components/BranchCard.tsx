@@ -1,7 +1,7 @@
 import { View } from "react-native";
 import { useTranslation } from "react-i18next";
 import type { Branch } from "@/src/core/types";
-import { CardTitle } from "@/src/shared/components/CardText";
+import { CardChips, CardTitle } from "@/src/shared/components/CardText";
 import { Chip } from "@/src/shared/components/Chip";
 import { EntityCard } from "@/src/shared/components/EntityCard";
 
@@ -38,15 +38,13 @@ export function BranchCard({
         onEnterSelection ? () => onEnterSelection(branch) : undefined
       }
     >
-      <View className="flex-1">
-        <View className="flex-row items-center">
-          <CardTitle>{branch.name}</CardTitle>
-          {!branch.active ? (
-            <View className="ms-2">
-              <Chip text={t("common.inactive")} tone="gray" />
-            </View>
-          ) : null}
-        </View>
+      <View className="flex-1 me-2">
+        <CardTitle numberOfLines={1}>{branch.name}</CardTitle>
+        {!branch.active ? (
+          <CardChips>
+            <Chip text={t("common.inactive")} tone="gray" />
+          </CardChips>
+        ) : null}
       </View>
     </EntityCard>
   );

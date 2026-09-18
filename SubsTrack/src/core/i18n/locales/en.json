@@ -276,7 +276,6 @@
     "user": "User",
     "staff": "Staff",
     "super": "Super Admin",
-    "inactive": "Inactive",
     "activate": "Activate",
     "deactivate": "Deactivate",
     "no_staff": "No staff yet",
@@ -705,7 +704,6 @@
   "products": {
     "title": "Products",
     "active_count": "{{count}} active",
-    "inactive_badge": "Inactive",
     "per_unit": "per unit",
     "add_title": "Add Product",
     "edit_title": "Edit Product",
@@ -771,7 +769,6 @@
   "services": {
     "title": "Services",
     "active_count": "{{count}} active",
-    "inactive_badge": "Inactive",
     "per_job": "per job",
     "add_title": "Add Service",
     "edit_title": "Edit Service",

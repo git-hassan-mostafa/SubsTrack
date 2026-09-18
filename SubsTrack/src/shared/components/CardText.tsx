@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { View } from "react-native";
 import { Text } from "@/src/shared/components/Text";
 
 interface LineProps {
@@ -83,5 +84,23 @@ export function CardAmount({
     >
       {children}
     </Text>
+  );
+}
+
+interface CardChipsProps {
+  children: ReactNode;
+  reserveSpace?: boolean;
+}
+
+/** The card's flag row — always the LAST line of the body, never beside a title. */
+export function CardChips({ children, reserveSpace = false }: CardChipsProps) {
+  return (
+    <View
+      className={`mt-1 flex-row flex-wrap items-center gap-1 ${
+        reserveSpace ? "min-h-[19px]" : ""
+      }`}
+    >
+      {children}
+    </View>
   );
 }

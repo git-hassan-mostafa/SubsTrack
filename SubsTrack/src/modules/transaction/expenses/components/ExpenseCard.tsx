@@ -75,14 +75,14 @@ export function ExpenseCard({ item, onVoid, onOpenProduct }: Props) {
         onMenu={actions.length > 0 ? () => setMenuOpen(true) : undefined}
         reserveMenuSpace
       >
-        <View className="flex-1">
+        <View className="flex-1 me-2">
           <CardTitle numberOfLines={1}>{item.label}</CardTitle>
           <CardSubtitle className="mt-0.5" numberOfLines={1}>
             {formatDate(item.date)}
           </CardSubtitle>
         </View>
 
-        <View className="items-end ms-2">
+        <View className="items-end">
           <CardAmount>{amountLabel}</CardAmount>
           <View className="mt-1">
             <Chip

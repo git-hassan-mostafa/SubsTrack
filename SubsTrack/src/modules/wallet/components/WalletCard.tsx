@@ -4,6 +4,7 @@ import { COLORS } from '@/src/shared/constants';
 import { EntityCard } from '@/src/shared/components/EntityCard';
 import {
   CardAmount,
+  CardChips,
   CardMeta,
   CardSubtitle,
   CardTitle,
@@ -43,16 +44,19 @@ export function WalletCard({ wallet, onPress, onMenu, menuLoading }: Props) {
       onMenu={onMenu}
       menuLoading={menuLoading}
     >
-      <View className="flex-1">
-        <View className="flex-row items-center gap-x-2">
-          <CardTitle className="shrink" numberOfLines={1}>
-            {wallet.holderName}
-          </CardTitle>
-          {wallet.isSelf ? <Chip text={t('wallet.you')} tone="gray" /> : null}
-        </View>
+      <View className="flex-1 me-2">
+        <CardTitle numberOfLines={1}>{wallet.holderName}</CardTitle>
         <CardSubtitle className="mt-0.5" numberOfLines={1}>
           {t('wallet.transactions_count', { count: wallet.itemCount })}
         </CardSubtitle>
+        {wallet.isSelf || !wallet.active ? (
+          <CardChips>
+            {wallet.isSelf ? <Chip text={t('wallet.you')} tone="indigo" /> : null}
+            {!wallet.active ? (
+              <Chip text={t('common.inactive')} tone="gray" />
+            ) : null}
+          </CardChips>
+        ) : null}
       </View>
 
       <View className="items-end ms-2">

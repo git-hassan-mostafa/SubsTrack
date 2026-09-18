@@ -276,7 +276,6 @@
     "staff": "موظف",
     "user": "موظف",
     "super": "المسؤول الأعلى",
-    "inactive": "غير نشط",
     "activate": "تفعيل",
     "deactivate": "تعطيل",
     "no_staff": "لا يوجد موظفون بعد",
@@ -705,7 +704,6 @@
   "products": {
     "title": "المنتجات",
     "active_count": "{{count}} نشط",
-    "inactive_badge": "غير نشط",
     "per_unit": "للوحدة",
     "add_title": "إضافة منتج",
     "edit_title": "تعديل المنتج",
@@ -771,7 +769,6 @@
   "services": {
     "title": "الخدمات",
     "active_count": "{{count}} نشطة",
-    "inactive_badge": "غير نشطة",
     "per_job": "للعمل الواحد",
     "add_title": "إضافة خدمة",
     "edit_title": "تعديل الخدمة",

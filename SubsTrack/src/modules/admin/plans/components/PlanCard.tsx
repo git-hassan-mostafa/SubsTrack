@@ -50,13 +50,13 @@ export function PlanCard({
         onEnterSelection ? () => onEnterSelection(plan) : undefined
       }
     >
-      <View className="flex-1">
-        <CardTitle>{plan.name}</CardTitle>
+      <View className="flex-1 me-2">
+        <CardTitle numberOfLines={1}>{plan.name}</CardTitle>
       </View>
 
-      <View className="items-end me-2">
+      <View className="items-end">
         {plan.isCustomPrice ? (
-          <Chip text={t("common.custom")} tone="indigo" size="md" />
+          <Chip text={t("common.custom")} tone="indigo" />
         ) : (
           <>
             <CardAmount>{priceLabel}</CardAmount>
