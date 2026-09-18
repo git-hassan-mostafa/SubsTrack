@@ -10,9 +10,10 @@ import {
 } from "@/src/shared/constants";
 
 interface EntityCardProps {
-  icon: ComponentProps<typeof Ionicons>["name"];
+  icon?: ComponentProps<typeof Ionicons>["name"];
   iconColor?: string;
   iconBgClassName?: string;
+  renderIcon?: ReactNode;
 
   onPress?: () => void;
   onMenu?: () => void;
@@ -36,6 +37,7 @@ export function EntityCard({
   icon,
   iconColor = COLORS.primary,
   iconBgClassName = "bg-indigo-50",
+  renderIcon,
   onPress,
   onMenu,
   menuLoading = false,
@@ -64,9 +66,12 @@ export function EntityCard({
         </View>
       ) : (
         <View
-          className={`w-10 h-10 rounded-xl items-center justify-center me-3 ${iconBgClassName}`}
+          className={`w-10 h-10 rounded-xl items-center justify-center me-3 ${
+            renderIcon ? "" : iconBgClassName
+          }`}
         >
-          <Ionicons name={icon} size={18} color={iconColor} />
+          {renderIcon ??
+            (icon ? <Ionicons name={icon} size={18} color={iconColor} /> : null)}
         </View>
       )}
 

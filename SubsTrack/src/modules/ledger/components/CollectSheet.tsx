@@ -11,7 +11,7 @@ import { CurrencyInput } from "@/src/shared/components/CurrencyInput";
 import { DatePickerInput } from "@/src/shared/components/DatePickerInput";
 import { Input } from "@/src/shared/components/Input";
 import { ErrorBanner } from "@/src/shared/components/ErrorBanner";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
+import { CARD_SURFACE } from "@/src/shared/constants";
 import { useDirtyForm } from "@/src/shared/hooks/useDirtyForm";
 import type { AllocationLine, OpenItem } from "@/src/core/types";
 import { findCurrency, formatMoney } from "@/src/core/utils/currency";
@@ -27,6 +27,8 @@ import {
   totalCollectingUsd,
 } from "../utils/currencyGroups";
 import { keyOf } from "../utils/waterfall";
+import { CollectAllButton } from "./CollectAllButton";
+import { CollectHero } from "./CollectHero";
 import { CurrencyCollectSection } from "./CurrencyCollectSection";
 
 export interface CollectGroupSubmit {
@@ -134,6 +136,15 @@ export function CollectSheet({
   const owedUsd = groups.reduce((sum, g) => sum + g.owedUsd, 0);
   const collectingUsd = totalCollectingUsd(plans);
   const overpaying = plans.some((p) => p.leftover > 0);
+  const multiCurrency = groups.length > 1;
+  const soleCurrency = multiCurrency ? null : (groups[0]?.currency ?? null);
+  const heroAmount = multiCurrency
+    ? formatMoney(owedUsd, null, display)
+    : formatMoney(groups[0]?.owed ?? 0, soleCurrency, soleCurrency);
+  const heroApprox =
+    !multiCurrency && (soleCurrency?.id ?? null) !== (display?.id ?? null)
+      ? `≈ ${formatMoney(owedUsd, null, display)}`
+      : null;
 
   const billedOpenItem = useMemo(
     () =>
@@ -214,38 +225,22 @@ export function CollectSheet({
       onDismiss={onDismiss}
       dirty={dirty}
       scrollRef={scrollBody}
-      title={
-        singleItem
-          ? t("ledger.collect_item_title", { item: singleItem.label })
-          : t("ledger.collect_from", { name: customerName })
-      }
+      title={t("ledger.collect_money")}
+      subject={singleItem ? singleItem.label : customerName}
     >
-      <View className="gap-4 pb-8">
+      <View>
         {error ? <ErrorBanner message={error} onDismiss={clearError} /> : null}
 
         {singleItem ? (
           <>
             {openItem ? (
-              <Text className="rounded-xl bg-gray-50 px-4 py-3 text-sm text-gray-600">
+              <Text
+                className={`${CARD_SURFACE} mb-4 px-4 py-3 text-sm text-gray-600`}
+              >
                 {t("ledger.open_amount_hint")}
               </Text>
             ) : (
-              <View className="flex-row items-center justify-between rounded-xl bg-gray-50 px-4 py-3">
-                <Text className="text-gray-600">{t("ledger.owed")}</Text>
-                <View className="flex-row items-center gap-3">
-                  <Text fontWeight="SemiBold" className="text-lg text-gray-900">
-                    {money(singleMax)}
-                  </Text>
-                  <PressableOpacity
-                    onPress={() => setSingleAmount(singleMax)}
-                    className="rounded-lg bg-white px-3 py-1.5"
-                  >
-                    <Text fontWeight="Medium" className="text-xs text-primary">
-                      {t("ledger.collect_all")}
-                    </Text>
-                  </PressableOpacity>
-                </View>
-              </View>
+              <CollectHero amount={money(singleMax)} billCount={1} />
             )}
 
             {openItem && (
@@ -264,6 +259,11 @@ export function CollectSheet({
 
             <CurrencyInput
               label={t("ledger.amount")}
+              labelAction={
+                openItem ? null : (
+                  <CollectAllButton onPress={() => setSingleAmount(singleMax)} />
+                )
+              }
               amount={singleAmount}
               currencyId={singleCurrencyId}
               currencies={currencies}
@@ -272,7 +272,7 @@ export function CollectSheet({
             />
 
             {(singleAmount ?? 0) > 0 && (singleAmount ?? 0) < singleMax && (
-              <Text className="text-xs text-amber-700">
+              <Text className="-mt-2 mb-4 text-xs text-amber-700">
                 {t("ledger.partial_leaves_debt")}
               </Text>
             )}
@@ -286,34 +286,22 @@ export function CollectSheet({
           </>
         ) : (
           <>
-            <View className="gap-2 rounded-xl bg-gray-50 px-4 py-3">
-              <View className="flex-row items-center justify-between">
-                <Text className="text-gray-600">{t("ledger.owed")}</Text>
-                <View className="flex-row items-center gap-3">
-                  <Text fontWeight="SemiBold" className="text-lg text-gray-900">
-                    {formatMoney(owedUsd, null, display)}
-                  </Text>
-                  {groups.length > 1 && (
-                    <PressableOpacity
-                      onPress={collectEverything}
-                      className="rounded-lg bg-white px-3 py-1.5"
-                    >
-                      <Text
-                        fontWeight="Medium"
-                        className="text-xs text-primary"
-                      >
-                        {t("ledger.collect_all")}
-                      </Text>
-                    </PressableOpacity>
-                  )}
-                </View>
-              </View>
-              {groups.length > 1 && (
-                <Text className="text-xs text-gray-500">
+            <CollectHero
+              amount={heroAmount}
+              approx={heroApprox}
+              billCount={owed.length}
+            />
+
+            {multiCurrency && (
+              <View
+                className={`${CARD_SURFACE} mb-4 flex-row items-center gap-3 px-4 py-3`}
+              >
+                <Text className="flex-1 text-xs text-gray-500">
                   {t("ledger.multi_currency_hint")}
                 </Text>
-              )}
-            </View>
+                <CollectAllButton onPress={collectEverything} />
+              </View>
+            )}
 
             {plans.map((plan) => (
               <CurrencyCollectSection
@@ -322,19 +310,22 @@ export function CollectSheet({
                 currencies={currencies}
                 display={display}
                 excluded={excluded}
+                grouped={multiCurrency}
                 onChangeAmount={(amount) => setAmount(groupKey(plan), amount)}
                 onToggle={toggle}
               />
             ))}
 
-            <View className="flex-row items-center justify-between border-t border-gray-200 pt-3">
-              <Text fontWeight="Bold" className="text-sm text-gray-900">
-                {t("ledger.total_collecting")}
-              </Text>
-              <Text fontWeight="Bold" className="text-base text-gray-900">
-                {formatMoney(collectingUsd, null, display)}
-              </Text>
-            </View>
+            {multiCurrency && (
+              <View className="mb-4 flex-row items-center justify-between border-t border-gray-100 pt-3">
+                <Text fontWeight="Bold" className="text-sm text-gray-900">
+                  {t("ledger.total_collecting")}
+                </Text>
+                <Text fontWeight="Bold" className="text-base text-gray-900">
+                  {formatMoney(collectingUsd, null, display)}
+                </Text>
+              </View>
+            )}
           </>
         )}
 
@@ -347,6 +338,7 @@ export function CollectSheet({
 
         <Input
           label={t("ledger.notes")}
+          placeholder={t("ledger.notes_placeholder")}
           value={notes}
           onChangeText={setNotes}
           multiline

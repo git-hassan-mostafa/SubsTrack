@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { FlatList, View } from "react-native";
 import { PressableOpacity } from "./PressableOpacity";
 import { Ionicons } from "@expo/vector-icons";
@@ -25,6 +25,7 @@ function parseAmount(text: string): number | null {
 
 interface CurrencyInputProps {
   label?: string;
+  labelAction?: ReactNode;
   amount: number | null;
   currencyId: string | null;
   onChange: (next: {
@@ -47,6 +48,7 @@ interface CurrencyInputProps {
 // then writes back to the store whenever the user picks a different currency.
 export function CurrencyInput({
   label,
+  labelAction,
   amount,
   currencyId,
   onChange,
@@ -99,13 +101,20 @@ export function CurrencyInput({
 
   return (
     <View className="mb-4">
-      {label ? (
-        <Text
-          fontWeight="SemiBold"
-          className="text-xs text-gray-500 uppercase tracking-wide mb-1.5"
-        >
-          {label}
-        </Text>
+      {label || labelAction ? (
+        <View className="flex-row items-center justify-between gap-2 mb-1.5">
+          {label ? (
+            <Text
+              fontWeight="SemiBold"
+              className="text-xs text-gray-500 uppercase tracking-wide"
+            >
+              {label}
+            </Text>
+          ) : (
+            <View />
+          )}
+          {labelAction}
+        </View>
       ) : null}
 
       <View

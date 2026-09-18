@@ -2,17 +2,19 @@ import { View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Text } from "@/src/shared/components/Text";
 import { CurrencyInput } from "@/src/shared/components/CurrencyInput";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
+import { CARD_SURFACE } from "@/src/shared/constants";
 import type { Currency, OpenItem } from "@/src/core/types";
 import { formatMoney } from "@/src/core/utils/currency";
 import type { CurrencyPlan } from "../utils/currencyGroups";
 import { AllocationPreview } from "./AllocationPreview";
+import { CollectAllButton } from "./CollectAllButton";
 
 interface Props {
   plan: CurrencyPlan;
   currencies: Currency[];
   display: Currency | null;
   excluded: ReadonlySet<string>;
+  grouped: boolean;
   onChangeAmount: (amount: number | null) => void;
   onToggle: (item: OpenItem) => void;
 }
@@ -24,56 +26,56 @@ interface Props {
  * The amount is typed in the currency's OWN units — never converted — because
  * this section is what becomes one `collections` row, and that row must say
  * what the customer physically handed over.
+ *
+ * `grouped` is the ONE-currency case turned off: a lone section is the sheet
+ * itself, so it drops the card and the owed header the hero already carries.
  */
 export function CurrencyCollectSection({
   plan,
   currencies,
   display,
   excluded,
+  grouped,
   onChangeAmount,
   onToggle,
 }: Props) {
   const { t } = useTranslation();
-  const money = (value: number) => formatMoney(value, plan.currency, plan.currency);
+  const money = (value: number) =>
+    formatMoney(value, plan.currency, plan.currency);
   const collecting = plan.lines.reduce((sum, l) => sum + l.amount, 0);
   const sameAsDisplay = (plan.currencyId ?? null) === (display?.id ?? null);
   const code = plan.currency?.code ?? "USD";
+  const approx = sameAsDisplay
+    ? null
+    : `≈ ${formatMoney(plan.owed, plan.currency, display)}`;
 
   return (
-    <View className="gap-3 rounded-2xl border border-gray-200 p-3">
-      <View className="flex-row items-center justify-between">
-        <Text fontWeight="Bold" className="text-sm text-gray-900">
-          {code}
-        </Text>
-        <View className="flex-row items-center gap-3">
-          <Text className="text-xs text-gray-500">
-            {t("ledger.amount_owed", { amount: money(plan.owed) })}
+    <View className={grouped ? `${CARD_SURFACE} mb-4 px-4 pb-4 pt-4` : "mb-4"}>
+      {grouped && (
+        <View className="mb-3 flex-row items-center justify-between gap-2">
+          <Text fontWeight="SemiBold" className="text-base text-gray-900">
+            {code}
           </Text>
-          <PressableOpacity
-            onPress={() => onChangeAmount(plan.owed)}
-            className="rounded-lg bg-gray-100 px-3 py-1.5"
-          >
-            <Text fontWeight="Medium" className="text-xs text-primary">
-              {t("ledger.collect_all")}
-            </Text>
-          </PressableOpacity>
+          <Text className="text-xs text-gray-500" numberOfLines={1}>
+            {t("ledger.amount_owed", { amount: money(plan.owed) })}
+            {approx ? ` · ${approx}` : ""}
+          </Text>
         </View>
-      </View>
+      )}
 
       <CurrencyInput
-        label={t("ledger.amount_received_in", { currency: code })}
+        label={
+          grouped
+            ? t("ledger.amount_received_in", { currency: code })
+            : t("ledger.amount")
+        }
+        labelAction={<CollectAllButton onPress={() => onChangeAmount(plan.owed)} />}
         amount={plan.amount}
         currencyId={plan.currencyId}
         currencies={currencies}
         lockCurrency
         onChange={(next) => onChangeAmount(next.amount)}
       />
-
-      {collecting > 0 && !sameAsDisplay && (
-        <Text className="text-xs text-gray-500">
-          {`≈ ${formatMoney(collecting, plan.currency, display)}`}
-        </Text>
-      )}
 
       <AllocationPreview
         items={plan.items}
@@ -85,7 +87,7 @@ export function CurrencyCollectSection({
       />
 
       {plan.leftover > 0 && (
-        <Text className="text-xs text-amber-700">
+        <Text className="mt-3 text-xs text-amber-700">
           {t("ledger.cannot_exceed", { amount: money(plan.owed) })}
         </Text>
       )}

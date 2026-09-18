@@ -3,7 +3,14 @@ import { View } from "react-native";
 import { useTranslation } from "react-i18next";
 import { Ionicons } from "@expo/vector-icons";
 import { Text } from "@/src/shared/components/Text";
-import { PressableOpacity } from "@/src/shared/components/PressableOpacity";
+import { EntityCard } from "@/src/shared/components/EntityCard";
+import {
+  CardAmount,
+  CardChips,
+  CardSubtitle,
+  CardTitle,
+} from "@/src/shared/components/CardText";
+import { Chip, type ChipTone } from "@/src/shared/components/Chip";
 import { COLORS } from "@/src/shared/constants";
 import type { AllocationLine, OpenItem } from "@/src/core/types";
 import { daysLate, formatDate } from "@/src/core/utils/date";
@@ -53,98 +60,79 @@ export function AllocationPreview({
   }, [items, excluded]);
 
   return (
-    <View className="gap-2">
+    <View>
       <Text
         fontWeight="SemiBold"
-        className="text-xs uppercase tracking-wide text-gray-500"
+        className="mb-2 text-xs uppercase tracking-wide text-gray-500"
       >
         {t("ledger.this_pays")}
       </Text>
-      <Text className="text-xs leading-4 text-gray-500">
-        {t("ledger.waterfall_hint")}
-      </Text>
+      {items.length > 1 ? (
+        <Text className="-mt-1 mb-2 text-[11px] text-gray-400">
+          {t("ledger.skip_bill_hint")}
+        </Text>
+      ) : null}
 
-      {items.map((item) => {
-        const key = keyOf(item);
-        const line = byKey.get(key);
-        const skipped = excluded.has(key);
-        const position = positions.get(key);
-        const late = daysLate(item.dueDate);
-        return (
-          <PressableOpacity
-            key={key}
-            onPress={() => onToggle(item)}
-            className={`flex-row items-center gap-3 rounded-xl border px-3 py-2.5 ${
-              skipped ? "border-gray-200 bg-gray-50" : "border-gray-200"
-            }`}
-          >
-            {/* The number IS the order — filled once money reaches the bill,
-                hollow while it is still waiting behind the ones above it. */}
-            {skipped ? (
-              <View className="h-7 w-7 items-center justify-center rounded-full bg-gray-200">
-                <Ionicons name="close" size={14} color={COLORS.gray500} />
+      <View>
+        {items.map((item) => {
+          const key = keyOf(item);
+          const line = byKey.get(key);
+          const skipped = excluded.has(key);
+          const late = daysLate(item.dueDate);
+          const status = skipped
+            ? t("ledger.skipped_bill")
+            : !line
+              ? null
+              : line.settles
+                ? t("ledger.pays_in_full")
+                : t("ledger.leaves_owing", {
+                    amount: money(item.balance - line.amount),
+                  });
+          return (
+            <EntityCard
+              key={key}
+              onPress={() => onToggle(item)}
+              dimmed={skipped}
+              renderIcon={
+                <QueueBadge
+                  position={positions.get(key)}
+                  skipped={skipped}
+                  funded={!!line}
+                />
+              }
+            >
+              <View className="flex-1 gap-0.5">
+                <View className="flex-row items-start justify-between gap-2">
+                  <CardTitle className="flex-1" numberOfLines={1}>
+                    {item.label}
+                  </CardTitle>
+                  <CardAmount tone={skipped ? "muted" : "default"}>
+                    {money(line?.amount ?? 0)}
+                  </CardAmount>
+                </View>
+
+                <CardSubtitle numberOfLines={1}>
+                  {t("ledger.due_on", { date: formatDate(item.dueDate) })}
+                  {late > 0
+                    ? ` · ${t("ledger.days_late", { count: late })}`
+                    : ""}
+                  {!line && !skipped
+                    ? ` · ${t("ledger.amount_owed", { amount: money(item.balance) })}`
+                    : ""}
+                </CardSubtitle>
+
+                {status ? (
+                  <CardChips>
+                    <Chip text={status} tone={statusTone(skipped, line)} />
+                  </CardChips>
+                ) : null}
               </View>
-            ) : (
-              <View
-                className={`h-7 w-7 items-center justify-center rounded-full ${
-                  line ? "bg-primary" : "border border-gray-300"
-                }`}
-              >
-                <Text
-                  fontWeight="Bold"
-                  className={`text-xs ${line ? "text-white" : "text-gray-400"}`}
-                >
-                  {position}
-                </Text>
-              </View>
-            )}
+            </EntityCard>
+          );
+        })}
+      </View>
 
-            <View className="flex-1">
-              <Text
-                className={`text-sm ${
-                  skipped ? "text-gray-400 line-through" : "text-gray-900"
-                }`}
-                numberOfLines={1}
-              >
-                {item.label}
-              </Text>
-              <Text className="text-xs text-gray-500" numberOfLines={1}>
-                {t("ledger.due_on", {
-                  date: formatDate(item.dueDate),
-                })}
-                {late > 0 ? ` · ${t("ledger.days_late", { count: late })}` : ""}
-                {/* Only where the row is not settled by this money: then the
-                    status on the right does not already say what is left. */}
-                {!line
-                  ? ` · ${t("ledger.amount_owed", { amount: money(item.balance) })}`
-                  : ""}
-              </Text>
-            </View>
-
-            <View className="ms-2 items-end">
-              <Text
-                fontWeight={line ? "Bold" : "Regular"}
-                className={`text-sm ${line ? "text-gray-900" : "text-gray-300"}`}
-              >
-                {line ? money(line.amount) : "—"}
-              </Text>
-              <Text className={`mt-0.5 text-[11px] ${statusClass(skipped, line)}`}>
-                {skipped
-                  ? t("ledger.skipped_bill")
-                  : line?.settles
-                    ? t("ledger.pays_in_full")
-                    : line
-                      ? t("ledger.leaves_owing", {
-                          amount: money(item.balance - line.amount),
-                        })
-                      : t("ledger.not_covered")}
-              </Text>
-            </View>
-          </PressableOpacity>
-        );
-      })}
-
-      <View className="flex-row items-center justify-between border-t border-gray-200 pt-2">
+      <View className="flex-row items-center justify-between border-t border-gray-100 pt-2.5">
         <Text className="text-sm text-gray-600">
           {t("ledger.still_owed_after")}
         </Text>
@@ -156,8 +144,39 @@ export function AllocationPreview({
   );
 }
 
-/** Green = closed, amber = part paid, grey = nothing reached it. */
-function statusClass(skipped: boolean, line?: AllocationLine): string {
-  if (skipped || !line) return "text-gray-400";
-  return line.settles ? "text-green-700" : "text-amber-700";
+interface BadgeProps {
+  position?: number;
+  skipped: boolean;
+  funded: boolean;
+}
+
+/** The number IS the queue: filled once money reaches the bill, hollow before. */
+function QueueBadge({ position, skipped, funded }: BadgeProps) {
+  if (skipped) {
+    return (
+      <View className="h-8 w-8 items-center justify-center rounded-full bg-gray-200">
+        <Ionicons name="close" size={16} color={COLORS.gray500} />
+      </View>
+    );
+  }
+  return (
+    <View
+      className={`h-8 w-8 items-center justify-center rounded-full ${
+        funded ? "bg-primary" : "border border-gray-300"
+      }`}
+    >
+      <Text
+        fontWeight="Bold"
+        className={`text-xs ${funded ? "text-white" : "text-gray-400"}`}
+      >
+        {position}
+      </Text>
+    </View>
+  );
+}
+
+/** Emerald = closed, amber = part paid, gray = nothing reached it. */
+function statusTone(skipped: boolean, line?: AllocationLine): ChipTone {
+  if (skipped || !line) return "gray";
+  return line.settles ? "emerald" : "amber";
 }
