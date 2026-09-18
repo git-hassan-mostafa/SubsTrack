@@ -875,6 +875,8 @@
     "thank_you": "شكراً لك!",
     "whatsapp_failed": "تعذّر فتح واتساب",
     "whatsapp_failed_message": "لم نتمكن من فتح واتساب على هذا الجهاز. تم حفظ السجل على أي حال.",
+    "whatsapp_open_failed_message": "لم نتمكن من فتح واتساب على هذا الجهاز.",
+    "open_whatsapp_chat": "فتح محادثة واتساب",
     "bill_receipt_title": "إيصال الفاتورة",
     "send_bill_whatsapp": "إرسال الفاتورة على واتساب",
     "payments_heading": "الدفعات المستلمة"

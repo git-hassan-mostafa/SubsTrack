@@ -875,6 +875,8 @@
     "thank_you": "Thank you!",
     "whatsapp_failed": "Couldn't open WhatsApp",
     "whatsapp_failed_message": "WhatsApp could not be opened on this device. The record was still saved.",
+    "whatsapp_open_failed_message": "WhatsApp could not be opened on this device.",
+    "open_whatsapp_chat": "Open WhatsApp chat",
     "bill_receipt_title": "Bill receipt",
     "send_bill_whatsapp": "Send bill on WhatsApp",
     "payments_heading": "Payments received"

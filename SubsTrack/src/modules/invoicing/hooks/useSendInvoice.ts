@@ -3,7 +3,6 @@ import { useTranslation } from "react-i18next";
 import type { Charge, Collection, Sale } from "@/src/core/types";
 import { useLanguageStore } from "@/src/core/i18n/languageStore";
 import { confirm } from "@/src/shared/lib/confirm";
-import { openWhatsApp } from "@/src/shared/lib/whatsapp";
 import { useAuthSlice } from "@/src/state/hooks/useAuthSlice";
 import { useCurrencySlice } from "@/src/state/hooks/useCurrencySlice";
 import { useDisplayCurrencyId } from "@/src/state/hooks/useTenantSettingSlice";
@@ -17,6 +16,7 @@ import {
   resolveInvoiceRecipient,
   type InvoiceRecipientRow,
 } from "../utils/invoiceRecipient";
+import { useWhatsApp } from "./useWhatsApp";
 
 const UNREACHABLE_MESSAGE = {
   mixed: "invoice.mixed_customers",
@@ -24,16 +24,11 @@ const UNREACHABLE_MESSAGE = {
   no_phone: "invoice.no_phone",
 } as const;
 
-// Same reduction openWhatsApp does, so a field holding "-" or "n/a" reads as
-// "cannot send" instead of producing a broken wa.me link.
-function hasDialableDigits(phone: string | null | undefined): boolean {
-  return (phone ?? "").replace(/\D/g, "").length > 0;
-}
-
 // The one place that turns a saved record into a WhatsApp message. Gathers the
 // invoice context from the stores so the four entry points don't each re-wire it.
 export function useSendInvoice() {
   const { t } = useTranslation();
+  const { canSend, openChat } = useWhatsApp();
   const orgName = useAuthSlice((s) => s.user?.tenant.name ?? "");
   const currencies = useCurrencySlice((s) => s.items);
   const displayCurrencyId = useDisplayCurrencyId();
@@ -48,24 +43,6 @@ export function useSendInvoice() {
     }),
     [t, orgName, language, currencies, displayCurrencyId],
   );
-
-  const send = useCallback(
-    async (phone: string | null | undefined, text: string) => {
-      const ok = await openWhatsApp(phone, text);
-      if (!ok) {
-        await confirm({
-          title: t("invoice.whatsapp_failed"),
-          message: t("invoice.whatsapp_failed_message"),
-          confirmLabel: t("common.ok"),
-          hideCancel: true,
-        });
-      }
-      return ok;
-    },
-    [t],
-  );
-
-  const canSend = useCallback(hasDialableDigits, []);
 
   const resolveRecipient = useCallback(
     async (rows: InvoiceRecipientRow[]) => {
@@ -89,8 +66,8 @@ export function useSendInvoice() {
       phone: string | null | undefined;
       customerName: string;
       collection: Collection;
-    }) => send(a.phone, buildCollectionInvoiceText(ctx, a.customerName, a.collection)),
-    [ctx, send],
+    }) => openChat(a.phone, buildCollectionInvoiceText(ctx, a.customerName, a.collection)),
+    [ctx, openChat],
   );
 
   const sendBillInvoice = useCallback(
@@ -100,11 +77,11 @@ export function useSendInvoice() {
       charge: Charge;
       payments: Collection[];
     }) =>
-      send(
+      openChat(
         a.phone,
         buildBillInvoiceText(ctx, a.customerName, a.charge, a.payments),
       ),
-    [ctx, send],
+    [ctx, openChat],
   );
 
   const sendSalesInvoice = useCallback(
@@ -112,8 +89,8 @@ export function useSendInvoice() {
       phone: string | null | undefined;
       customerName: string | null;
       sales: Sale[];
-    }) => send(a.phone, buildSalesInvoiceText(ctx, a.sales, a.customerName)),
-    [ctx, send],
+    }) => openChat(a.phone, buildSalesInvoiceText(ctx, a.sales, a.customerName)),
+    [ctx, openChat],
   );
 
   const sendSaleInvoice = useCallback(

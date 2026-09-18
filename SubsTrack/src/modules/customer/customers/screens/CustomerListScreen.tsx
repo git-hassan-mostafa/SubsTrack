@@ -27,7 +27,11 @@ import type {
   CustomerStatus,
   OpenItem,
 } from "@/src/core/types";
-import { useSendInvoice, WhatsAppComboIcon } from "@/src/modules/invoicing";
+import {
+  useSendInvoice,
+  useWhatsApp,
+  WhatsAppComboIcon,
+} from "@/src/modules/invoicing";
 import { CustomerCard } from "../components/CustomerCard";
 import {
   customerFlags,
@@ -124,7 +128,8 @@ export function CustomerListScreen() {
   const fetchNetDebtByCustomer = useLedgerSlice((s) => s.fetchNetByCustomer);
   const collect = useLedgerSlice((s) => s.collect);
   const fetchOwed = useLedgerSlice((s) => s.fetchOwed);
-  const { canSend, sendCollectionInvoice } = useSendInvoice();
+  const { sendCollectionInvoice } = useSendInvoice();
+  const { canSend, openChat } = useWhatsApp();
   const { writeOffAll } = useDebtRowActions();
   const displayCurrencyId = useDisplayCurrencyId();
   const displayCurrency = findCurrency(currencies, displayCurrencyId);
@@ -798,6 +803,15 @@ export function CustomerListScreen() {
         icon: "remove-circle-outline",
         destructive: true,
         onPress: () => void handleWriteOffAll(customer),
+      });
+    }
+    if (canSend(customer.phoneNumber)) {
+      items.push({
+        key: "whatsapp-chat",
+        group: "send",
+        label: t("invoice.open_whatsapp_chat"),
+        icon: "logo-whatsapp",
+        onPress: () => void openChat(customer.phoneNumber),
       });
     }
     items.push({
