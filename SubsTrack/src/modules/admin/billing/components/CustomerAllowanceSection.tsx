@@ -37,7 +37,7 @@ export function CustomerAllowanceSection() {
     }, [tenantId, refreshRequest, refreshCounts]),
   );
 
-  const amount = billingService.monthlyAmountUsd(active.plans, price);
+  const amount = billingService.monthlyAmountUsd(limits.plans, price);
   const remaining = Math.max(0, limits.plans - active.plans);
   const pending = request?.status === "pending" ? request : null;
   const declined = request?.status === "declined" ? request : null;
@@ -79,7 +79,7 @@ export function CustomerAllowanceSection() {
           </Text>
           <Text className="text-[11px] text-gray-400 mt-0.5">
             {t("billing.amount_note", {
-              count: active.plans,
+              count: limits.plans,
               price: price.toString(),
             })}
           </Text>

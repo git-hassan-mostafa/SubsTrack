@@ -17,9 +17,10 @@ import {
 } from '../utils/types';
 
 class BillingService {
-  // Counted on SERVICE LINES, not customers, and always USD — gotchas #145, #149.
-  monthlyAmountUsd(activePlans: number, pricePerPlanUsd: number): number {
-    return Math.round(activePlans * pricePerPlanUsd * 100) / 100;
+  // Counted on the ALLOWED service lines, never the active ones, so this reads
+  // the same figure SuperAdmin bills — gotchas #145, #149.
+  monthlyAmountUsd(planAllowance: number, pricePerPlanUsd: number): number {
+    return Math.round(planAllowance * pricePerPlanUsd * 100) / 100;
   }
 
   // The one quota gate in the product. Only a quota the write GROWS can refuse

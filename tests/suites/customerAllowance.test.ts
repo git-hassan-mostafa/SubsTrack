@@ -14,7 +14,7 @@ import {
 const pair = (customers: number, plans: number): QuotaPair => ({ customers, plans });
 
 describe('billing: monthly amount', () => {
-  it('TC-CA-01 charges price per active SERVICE LINE, not per customer', () => {
+  it('TC-CA-01 charges price per ALLOWED service line, not per customer', () => {
     expect(billingService.monthlyAmountUsd(100, 0.15)).toBe(15);
   });
 
@@ -24,12 +24,21 @@ describe('billing: monthly amount', () => {
     expect(billingService.monthlyAmountUsd(3, 0.3333)).toBe(1);
   });
 
-  it('TC-CA-03 a tenant with no service lines owes nothing', () => {
+  it('TC-CA-03 a tenant allowed no service lines owes nothing', () => {
     expect(billingService.monthlyAmountUsd(0, 0.15)).toBe(0);
   });
 
   it('TC-CA-04 a free tenant owes nothing however many lines', () => {
     expect(billingService.monthlyAmountUsd(500, 0)).toBe(0);
+  });
+
+  it('TC-CA-04b bills the ALLOWANCE, so using fewer lines costs the same', () => {
+    const allowance = 80;
+    const active = 50;
+    expect(billingService.monthlyAmountUsd(allowance, 0.15)).toBe(12);
+    expect(billingService.monthlyAmountUsd(allowance, 0.15)).not.toBe(
+      billingService.monthlyAmountUsd(active, 0.15),
+    );
   });
 });
 

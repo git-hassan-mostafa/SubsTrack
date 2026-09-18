@@ -210,7 +210,7 @@ export function UpdateAllowanceSheet({ editing = false, onDismiss }: Props) {
       {lowering && overCap.length === 0 ? (
         <Text className="text-xs text-gray-500 mb-4">
           {t("billing.decrease_billing_note", {
-            amount: billingService.monthlyAmountUsd(active.plans, price).toFixed(2),
+            amount: billingService.monthlyAmountUsd(total.plans, price).toFixed(2),
           })}
         </Text>
       ) : null}
