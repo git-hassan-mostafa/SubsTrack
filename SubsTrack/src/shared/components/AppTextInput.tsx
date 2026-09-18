@@ -61,10 +61,7 @@ export function AppTextInput({
     () =>
       Gesture.Tap()
         .maxDistance(TAP_SLOP)
-        .onBegin(() => ref.current?.focus())
-        .onFinalize((_event, success) => {
-          if (!success) ref.current?.blur();
-        })
+        .onEnd(() => ref.current?.focus())
         .runOnJS(true),
     [],
   );
