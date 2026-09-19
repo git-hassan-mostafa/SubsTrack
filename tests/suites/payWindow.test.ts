@@ -18,18 +18,16 @@ function blocked(
   c = customer(),
   l = line(),
 ): boolean {
-  return isAfterMonth({ year, month }, lastBillableMonth(c, l));
+  const limit = lastBillableMonth(c, l);
+  return limit !== null && isAfterMonth({ year, month }, limit);
 }
 
 describe("lastBillableMonth", () => {
   beforeEach(() => freezeToday(2026, 11, 20));
   afterEach(unfreeze);
 
-  it("TC-PW-01 a running line stops at the current month", () => {
-    expect(lastBillableMonth(customer(), line())).toEqual({
-      year: 2026,
-      month: 11,
-    });
+  it("TC-PW-01 a running line has no billing cutoff", () => {
+    expect(lastBillableMonth(customer(), line())).toBeNull();
   });
 
   it("TC-PW-02 a cancelled line stops at its own cancel month", () => {
@@ -77,10 +75,10 @@ describe("the collect gate", () => {
   beforeEach(() => freezeToday(2026, 11, 20));
   afterEach(unfreeze);
 
-  it("TC-PW-07 a running line pays past + current, never calendar-future", () => {
+  it("TC-PW-07 a running line pays past, current, and future months", () => {
     expect(blocked(2026, 10)).toBe(false);
     expect(blocked(2026, 11)).toBe(false);
-    expect(blocked(2026, 12)).toBe(true);
+    expect(blocked(2026, 12)).toBe(false);
   });
 
   it("TC-PW-08 the cancel month itself is still payable", () => {

@@ -237,13 +237,13 @@ export function CustomerPaymentPanel({
   const lineActive = selectedLine?.active ?? false;
 
   const payLimit = lastBillableMonth(customer, selectedLine ?? null);
-  const payLimitLabel = billingMonthLabel(
-    toBillingMonth(payLimit.year, payLimit.month),
-  );
+  const payLimitLabel = payLimit
+    ? billingMonthLabel(toBillingMonth(payLimit.year, payLimit.month))
+    : null;
 
   // The single gate every collect path shares — cell tap, quick pay and bulk.
   function isPayBlocked(entry: MonthEntry): boolean {
-    return isAfterMonth(entry, payLimit);
+    return payLimit !== null && isAfterMonth(entry, payLimit);
   }
 
   // Months are settled OLDEST FIRST: returns the oldest month that must be

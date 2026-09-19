@@ -21,7 +21,9 @@ export function isAfterMonth(entry: YearMonth, limit: YearMonth): boolean {
 export function lastBillableMonth(
   customer: Customer,
   line: CustomerPlan | null,
-): YearMonth {
+): YearMonth | null {
+  if (customer.active && line?.active) return null;
+
   const stops = [
     customer.active ? null : monthOf(customer.cancelledAt),
     !line || line.active ? null : monthOf(line.cancelledAt),
